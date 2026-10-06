@@ -1,4 +1,4 @@
-import { ConfirmDialog, EmptyState, ErrorState, FilterSelect, LoadingState, SearchField, Toast, usePhone, useScreenState, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, EmptyState, ErrorState, ExportJobStatus, FilterSelect, LoadingState, SearchField, startExport, Toast, useExportJob, usePhone, useScreenState, type ConfirmDialogProps, type ExportJobWords } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
@@ -25,8 +25,9 @@ import {
   type ProductRow,
   type ProductSort,
 } from '../../api/products'
+import { requestProductExport } from '../../api/imports'
 import { harnessEnabled } from '../../harness'
-import { fill, formatCount, messages, plural } from '../../messages'
+import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { productListSample, productListStates, type ProductListState } from './productListStates'
 import { ProductCards, ProductTable } from './ProductRows'
 import { ProductsEmpty } from './ProductsEmpty'
@@ -61,11 +62,23 @@ type Dialog =
 
 // The harness's seats for this screen alone; the shell's ?as= still sets the menu.
 const forcedAccess = (state: ProductListState | null, live: ProductAccess): ProductAccess => {
-  if (state === 'readOnly') return accessOf({ permissions: ['catalog.read', 'catalog.write', 'approve', 'manage-vendors'], seller: null }, true)
+  if (state === 'readOnly') return accessOf({ permissions: ['catalog.read', 'catalog.write', 'catalog.import', 'approve', 'manage-vendors'], seller: null }, true)
   if (state === 'staff') return accessOf({ permissions: ['catalog.read'], seller: null }, false)
   if (state === 'supplier' || state === 'supplierEmpty') return accessOf({ permissions: ['catalog.read', 'catalog.propose'], seller: {} }, false)
-  if (state) return accessOf({ permissions: ['catalog.read', 'catalog.write', 'approve', 'manage-vendors'], seller: null }, false)
+  if (state) return accessOf({ permissions: ['catalog.read', 'catalog.write', 'catalog.import', 'approve', 'manage-vendors'], seller: null }, false)
   return live
+}
+
+const exported = messages.imports.listExport
+const exportWords: ExportJobWords = {
+  preparing: exported.preparing,
+  ready: (count, truncated) => (truncated ? fill(exported.truncated, { count: formatCount(count) }) : fill(plural(exported.ready, count), { count: formatCount(count) })),
+  download: exported.download,
+  file: (date) => fill(messages.imports.export.file, { date }),
+  expires: (time) => fill(exported.expires, { time: formatTime(time) }),
+  expired: exported.expired,
+  tooLarge: exported.tooLarge,
+  failed: exported.failed,
 }
 
 /** Products (CatList, FIRST-RELEASE §11): the merchant's catalogue, or a supplier's own; ?state= per productListStates.ts. */
@@ -75,6 +88,7 @@ export const ProductList = () => {
   const sample = useMemo(() => productListSample(forced), [forced])
   const access = useMemo(() => forcedAccess(forced, accessOf(acting, state?.readOnly ?? false)), [forced, acting, state])
   const phone = usePhone()
+  const exportJob = useExportJob()
 
   const [query, setQuery] = useState<ProductQuery>(firstQuery)
   const [cursor, setCursor] = useState<Cursor>({})
@@ -222,7 +236,7 @@ export const ProductList = () => {
     return (
       <div className="df-products">
         <h1 className="df-visually-hidden">{title}</h1>
-        <ProductsEmpty canAdd={access.canEdit} />
+        <ProductsEmpty canAdd={access.canEdit} canImport={access.canImport && access.canEdit} />
       </div>
     )
 
@@ -253,8 +267,27 @@ export const ProductList = () => {
           <h1 className="df-page-title">{title}</h1>
           {view.kind === 'ready' && <p className="df-page-lede">{summaryOf(view.counts, access.supplier)}</p>}
         </div>
-        {access.canEdit && !phone && <div className="df-products-head-actions">{addLink}</div>}
+        {(access.canImport || access.canExport || (access.canEdit && !phone)) && (
+          <div className="df-products-head-actions">
+            {access.canImport && (
+              <Link className="df-button" to="/products/import">
+                {words.importExport}
+              </Link>
+            )}
+            {access.canExport && (
+              <button type="button" className="df-button" disabled={exportJob?.state === 'preparing'} onClick={() => void startExport(requestProductExport(query))}>
+                {exported.button}
+              </button>
+            )}
+            {access.canEdit && !phone && addLink}
+          </div>
+        )}
       </div>
+      {exportJob && (
+        <p className="df-products-export" role="status">
+          <ExportJobStatus job={exportJob} words={exportWords} />
+        </p>
+      )}
 
       {access.supplier && <SupplierTabs current="products" />}
 

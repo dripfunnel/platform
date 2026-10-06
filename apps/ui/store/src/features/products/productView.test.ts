@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProductRow } from '../../api/products'
-import { priceText, readyOf, reviewChecks, statusOf, stockOf, subOf, summaryOf } from './productView'
+import { accessOf, priceText, readyOf, reviewChecks, statusOf, stockOf, subOf, summaryOf } from './productView'
 
 const row = (r: Partial<ProductRow> = {}): ProductRow => ({
   id: 'p1',
@@ -72,5 +72,19 @@ describe('a Products list row in words (CatList)', () => {
       { ok: true, label: 'Price filled in' },
       { ok: false, label: 'Not ready in India — country of origin missing' },
     ])
+  })
+})
+
+describe('who imports and exports from the list (CatList)', () => {
+  const access = (permissions: string[], seller: object | null = null, readOnly = false) => accessOf({ permissions, seller }, readOnly)
+
+  it('opens Import & export to an importer, even read-only, where exports still work', () => {
+    expect(access(['catalog.read', 'catalog.write', 'catalog.import'], null, true)).toMatchObject({ canImport: true, canExport: true })
+  })
+
+  it('lets Staff export without importing, and keeps a Stock-only supplier to neither', () => {
+    expect(access(['catalog.read'])).toMatchObject({ canImport: false, canExport: true })
+    expect(access(['catalog.read', 'catalog.propose'], {})).toMatchObject({ canImport: false, canExport: false })
+    expect(access(['catalog.read', 'catalog.write', 'catalog.import'], {})).toMatchObject({ canImport: true, canExport: true })
   })
 })

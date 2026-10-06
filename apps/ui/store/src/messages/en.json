@@ -1746,6 +1746,224 @@
     "theirsSub": "Suppliers add and count these themselves. They aren’t offered as your default.",
     "supplierMark": "SU"
   },
+  "imports": {
+    "title": "Import & export",
+    "lede": "Bring products in from a spreadsheet or Shopify. Nothing changes in your catalogue until you confirm.",
+    "back": "← Products",
+    "steps": {
+      "label": "Import steps",
+      "choose": "Choose",
+      "check": "Check",
+      "import": "Import",
+      "done": "Done",
+      "finished": "{step}, done",
+      "current": "{step}, current step"
+    },
+    "sources": {
+      "file": {
+        "title": "Import from a spreadsheet",
+        "body": "A CSV file, or Shopify’s product export. Our template has one example row.",
+        "cta": "Choose a file"
+      },
+      "shopify": {
+        "title": "Bring products from Shopify",
+        "body": "Connect your Shopify store and pick what to bring over — photos, choices and all.",
+        "cta": "Connect Shopify"
+      },
+      "template": {
+        "title": "Download the template",
+        "body": "Every column we read, with one example row: name, price, stock, product code, photos and the rest.",
+        "cta": "Download template.csv",
+        "file": "template.csv"
+      }
+    },
+    "fileErrors": {
+      "type": {
+        "title": "That file type can’t be imported",
+        "body": "{name} isn’t a CSV file. Save it as CSV (in Excel: File › Save a copy › CSV) and choose it again."
+      },
+      "big": {
+        "title": "That file is too big",
+        "body": "{name} is {size}; the limit is 5 MB. Split it into two files, or import from Shopify instead."
+      },
+      "empty": {
+        "title": "That file has no products in it",
+        "body": "{name} has a header row but nothing under it. Add at least one product, one per row."
+      },
+      "cols": {
+        "title": "Some columns we need are missing",
+        "body": "{name} has no “name” or “handle” column. Download the current template, or rename your columns to match it."
+      },
+      "other": {
+        "title": "That file can’t be imported"
+      },
+      "chooseAnother": "Choose another file",
+      "template": "Download the template",
+      "megabytes": "{size} MB"
+    },
+    "shopify": {
+      "title": "Connect your Shopify store",
+      "address": "Your Shopify store address",
+      "placeholder": "your-store",
+      "suffix": ".myshopify.com",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "again": "Connect again",
+      "note": "We’ll open Shopify so you can approve read-only access, then bring you back here to choose products. Have a Shopify export file instead? Use “Import from a spreadsheet”.",
+      "expired": "Shopify stopped letting us in — the connection expired. Connect again to carry on.",
+      "failed": "Shopify didn’t finish connecting. Try again.",
+      "required": "Type your Shopify store address",
+      "connected": "Connected — Shopify approved read-only access",
+      "notFound": "We couldn’t find {shop}.myshopify.com. Check the address in your Shopify admin — it’s under Settings › Domains.",
+      "unavailable": "Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead, with “Import from a spreadsheet”.",
+      "away": "Shopify isn’t answering right now. Try again in a minute."
+    },
+    "pick": {
+      "title": "Connected to {shop} · pick products",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "allChosen": "Every product in your shop is chosen.",
+      "more": "Show more",
+      "loading": "Reading your shop…",
+      "back": "Back",
+      "check": {
+        "one": "Check {count} product",
+        "other": "Check {count} products"
+      },
+      "checkAll": "Check all products",
+      "none": "Pick at least one product",
+      "max": "You can pick up to 250. To bring more, choose “Select all”.",
+      "versions": {
+        "one": "{count} version",
+        "other": "{count} versions"
+      },
+      "draft": "Draft",
+      "archived": "Archived",
+      "loadAll": "Every product in your shop is chosen. To leave some out, show every page first, or clear all and tick the ones you want.",
+      "moreFailed": "Those products didn’t load. What you’ve ticked is kept; try again."
+    },
+    "checking": {
+      "file": "Checking your file…",
+      "shopify": "Reading your shop’s products…"
+    },
+    "check": {
+      "fileName": "{name} · {count}",
+      "rows": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "ready": "{count} ready",
+      "readyNote": "{new} new · {matched} you already have (matched by product code)",
+      "problemsLabel": "need fixing",
+      "problems": "{count} with problems",
+      "problemsBody": "Fix them in your file and upload again, or import the ready ones now.",
+      "existing": "Products you already have ({count})",
+      "update": "Update them with the file",
+      "skip": "Skip them, only add new ones",
+      "stockIn": "Put imported stock in",
+      "isDefault": "{name} (default)",
+      "fix": "What to fix",
+      "download": "Download file with a “Problems” column",
+      "row": "Row {line}",
+      "file": "file",
+      "moreProblems": {
+        "one": "{count} more is in the file.",
+        "other": "{count} more are in the file."
+      },
+      "restart": "Upload a fixed file",
+      "run": {
+        "one": "Import {count} product",
+        "other": "Import {count} products"
+      },
+      "problemsFile": "import-problems.csv"
+    },
+    "running": {
+      "title": {
+        "one": "Importing {count} product",
+        "other": "Importing {count} products"
+      },
+      "progress": "{done} of {total} done. You can leave this page — we’ll tell you when it’s finished.",
+      "progressLabel": "Import progress",
+      "pausedTitle": "Paused — you’re offline.",
+      "pausedBody": "Nothing is half-saved: the products done so far are in, and the rest carry on when you reconnect.",
+      "leave": "Go to Products while it runs"
+    },
+    "done": {
+      "title": "{added} added · {updated} updated",
+      "skipped": {
+        "one": "{count} product with problems was skipped.",
+        "other": "{count} products with problems were skipped."
+      },
+      "failed": {
+        "one": "{count} product couldn’t be saved.",
+        "other": "{count} products couldn’t be saved."
+      },
+      "photos": {
+        "one": "{count} photo is still coming in.",
+        "other": "{count} photos are still coming in."
+      },
+      "download": "Download what didn’t go in",
+      "view": "See your products",
+      "another": "Import another file"
+    },
+    "stopped": {
+      "title": "The import stopped",
+      "body": "Nothing more was changed. Try again, or import a file instead."
+    },
+    "export": {
+      "title": "Export",
+      "hidden": "Export hidden only",
+      "all": "Export all {count}",
+      "preparing": "Preparing your file… big exports run in the background.",
+      "row": "{label} · {count}",
+      "label": {
+        "products": "Products",
+        "stock": "Stock"
+      },
+      "count": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "download": "Download",
+      "expired": "Expired",
+      "failed": "Couldn’t be made",
+      "ready": "Your export is ready",
+      "file": "products-{date}.csv",
+      "counting": "…"
+    },
+    "banner": {
+      "title": "Importing products —",
+      "body": "{done} of {total} done. Keep working — we’ll tell you when it’s finished.",
+      "pausedTitle": "Import paused —",
+      "pausedBody": "you’re offline. It carries on by itself when you’re back.",
+      "view": "View",
+      "finished": "Import finished — {added} added, {updated} updated"
+    },
+    "readOnly": "Your store is view-only until billing is sorted, so nothing can be imported. Exports still work.",
+    "denied": {
+      "title": "You don’t have access to Import & export",
+      "body": "Ask the store owner if you need products brought in."
+    },
+    "error": {
+      "title": "This page didn’t load",
+      "body": "Your products are safe. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "listExport": {
+      "button": "Export",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "{count} product is ready.",
+        "other": "{count} products are ready."
+      },
+      "truncated": "Only the first {count} products are in it; narrow the filter to see the rest.",
+      "download": "Download",
+      "expires": "The link works until {time}.",
+      "expired": "That export’s link has expired. Export again.",
+      "tooLarge": "That export is too large. Narrow the filter and try again.",
+      "failed": "The export couldn’t be made. Try again."
+    }
+  },
   "collections": {
     "tabs": {
       "label": "Collections area",

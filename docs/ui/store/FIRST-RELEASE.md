@@ -175,7 +175,7 @@ every store on this device"). On a phone the menu is a drawer behind a button.
 
 **Built on #291**: the header (§3.2) and the banners for trial and its last day, past due,
 suspended, cancelled, provisioning, partner support and offline, in the prototype's words. The
-import banner waits for `storeState`'s import job (SAPI 16); support's Allow / Deny for SAPI 21.
+import banner is built on #302 from the caller's own `catalogImports`, not `storeState` (a run is its importer's); support's Allow / Deny waits for SAPI 21.
 
 ---
 
@@ -358,6 +358,19 @@ session's `SellerScope`, never from a column in the file or Shopify's data; a ro
 supplier's or the store's product (by id or SKU) is rejected into the error file; and while
 approval is on, its new and changed products wait for approval exactly as if edited by hand
 (ACCESS §7.2).
+
+Built on #302: `/products/import`, reached from the list's **Import & export** (`catalog.import`) and from a
+new store's empty list. The list's **Export** (anyone who reads the catalogue but a Stock-only supplier, as CatList
+draws it) exports what the list shows as a job, its link under the header. A run is followed outside the screen,
+with the shell's banner on every other screen (a supplier's too: the run is theirs to follow) and a toast when it
+ends; it is found again after a reload. Decided on #302:
+- **CSV only.** An Excel file is refused with how to save it as CSV; reading `.xlsx` would add a parser to the bundle.
+- **Shopify's picker** opens with its first page ticked, as CatImport does; up to 250 by hand, or **Select all**.
+- **The "Problems" file** is offered once a run ends: the check lists the first problems and how many more there
+  are, because the API writes the file at the end of the run (#301). Building it at the check is open on #302.
+- **The plan's room** isn't said before the run (the check doesn't count it); products past the limit are listed
+  in Done as `PLAN_LIMIT` problems.
+- **Exports** list the caller's recent files by kind and size; the API keeps no label for "all" or "hidden only".
 
 ## 14. Storefront (`PortalStorefront`, DESIGN-BRIEF H, SAAS §9)
 

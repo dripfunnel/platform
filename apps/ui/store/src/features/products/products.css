@@ -615,3 +615,9 @@
   justify-content: flex-end;
   gap: var(--df-space-2);
 }
+
+.df-products-export {
+  margin: -8px 0 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}

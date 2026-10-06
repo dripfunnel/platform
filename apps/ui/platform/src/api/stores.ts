@@ -1,8 +1,7 @@
 import type { Money } from '@dripfunnel/shared/format'
-import { ApiError, isApiError, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
+import { ApiError, exportJobFields, exportJobSchema, isApiError, readExportJob, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
-import { exportJobFields, exportJobSchema, readExportJob } from './exportJob'
 
 // The Stores operations on the Platform API (FIRST-RELEASE.md §6, §16): `stores(filter, after, before)`,
 // `search(query)`, `createStore` and the signup job's progress. What a caller may do is the API's answer (§1).

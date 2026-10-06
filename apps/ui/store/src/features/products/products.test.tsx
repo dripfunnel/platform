@@ -87,13 +87,13 @@ afterEach(() => {
 
 describe('who may do what on Products', () => {
   it('lets the owner edit, select, approve and filter by supplier; staff only look; a past-due store only looks', () => {
-    expect(accessOf(owner, false)).toEqual({ supplier: false, canEdit: true, canSelect: true, canApprove: true, seeSuppliers: true, viewOnly: false, quickPrice: true, quickStock: false })
+    expect(accessOf(owner, false)).toEqual({ supplier: false, canEdit: true, canSelect: true, canApprove: true, seeSuppliers: true, viewOnly: false, quickPrice: true, quickStock: false, canImport: false, canExport: true })
     expect(accessOf(staff, false)).toMatchObject({ canEdit: false, canSelect: false, canApprove: false, viewOnly: true })
     expect(accessOf(owner, true)).toMatchObject({ canEdit: false, canSelect: false, canApprove: false, viewOnly: false })
   })
 
   it('lets a supplier propose its own products but never select, approve or see other suppliers', () => {
-    expect(accessOf(supplier, false)).toEqual({ supplier: true, canEdit: true, canSelect: false, canApprove: false, seeSuppliers: false, viewOnly: false, quickPrice: false, quickStock: false })
+    expect(accessOf(supplier, false)).toEqual({ supplier: true, canEdit: true, canSelect: false, canApprove: false, seeSuppliers: false, viewOnly: false, quickPrice: false, quickStock: false, canImport: false, canExport: false })
     expect(accessOf({ ...supplier, permissions: ['catalog.read', 'stock.write'] }, false).canEdit).toBe(false)
     // A catalogue tier writes its products outright; a Stock-only one proposes them.
     expect(accessOf({ ...supplier, permissions: ['catalog.read', 'catalog.write'] }, false)).toMatchObject({ canEdit: true, canSelect: false })

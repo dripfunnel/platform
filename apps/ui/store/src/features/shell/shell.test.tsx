@@ -5,6 +5,7 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Acting, StoreState } from '../../api/shell'
 import type { Seat } from '../../nav'
+import { importRun } from '../imports/importRun'
 import { navRowsFor } from './navWords'
 import { StoreBanners } from './StoreBanners'
 import { trialDaysLeft } from './trial'
@@ -48,7 +49,22 @@ describe('the store menu', () => {
 })
 
 describe('the shell’s banners', () => {
-  const banners = (seat: Seat, s: StoreState) => render(<StoreBanners seat={seat} acting={acting} state={s} brand={null} />)
+  const banners = (seat: Seat, s: StoreState, path?: string) => render(<StoreBanners seat={seat} acting={acting} state={s} brand={null} />, path)
+
+  it('follows a running import on every screen but Import & export itself, with the way back to it', async () => {
+    const running = { id: 'i1', state: 'running', source: 'csv', products: 10, ready: 8, matched: 0, done: 3, created: 0, updated: 0, skipped: 0, failed: 0, photosPending: 0, problemCount: 0, problems: [], problemsCsv: null } as const
+    importRun.set({ ...running, problems: [] })
+    try {
+      const home = await banners(owner, state({}))
+      expect(text(home)).toContain('Importing products — 3 of 8 done. Keep working — we’ll tell you when it’s finished.')
+      expect(home).toContain('href="/products/import"')
+      expect(text(await banners(owner, state({}), '/products/import'))).not.toContain('Importing products')
+      importRun.set({ ...running, problems: [], state: 'done' })
+      expect(text(await banners(owner, state({})))).not.toContain('Importing products')
+    } finally {
+      importRun.set(null)
+    }
+  })
 
   it('shows the Owner the trial and its plan, with Choose a plan, and nobody else', async () => {
     const trial = state({ status: 'trial', trialEndsAt: new Date(Date.now() + 7 * day - 60_000).toISOString() })
