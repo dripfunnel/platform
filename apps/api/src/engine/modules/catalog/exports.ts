@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { csvLine } from '#core/csv'
-import { toMajor } from '#core/money'
+import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
 import { selectProducts, selectPricingCurrency, type ProductFilter } from '#db/scoped/catalog'
 import {
@@ -45,7 +45,7 @@ export type CatalogExportFilter = z.infer<typeof catalogExportFilter>
 const optionColumns = [1, 2, 3].flatMap((n) => [`option${n} name`, `option${n} value`])
 const productHeader = ['handle', 'name', 'description', 'type', 'visible', ...optionColumns, 'sku', 'barcode', 'price', 'compare at price', 'cost', 'weight grams', 'stock']
 
-const money = (amount: string | null, currency: string | null): string | null => (amount === null || currency === null ? null : toMajor({ amount: BigInt(amount), currency }))
+const money = (amount: string | null, currency: string | null): Money | null => (amount === null || currency === null ? null : { amount: BigInt(amount), currency })
 
 /**
  * One row a version, the product's own columns on its first row only (as Shopify's file does), then a

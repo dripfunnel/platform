@@ -254,6 +254,15 @@ describe('a spreadsheet import', () => {
     const supplierPlace = (await db.sql<{ id: string }[]>`insert into warehouse (store_id, seller_id, name, is_default) values (${t.storeA1}, ${t.sellerA1First}, 'Anand’s', true) returning id`)[0]?.id ?? ''
     const ready = await upload('owner', 'handle,name,price\nnew-pot,New pot,20\n')
     expect((await confirm('owner', ready.id, 'update', supplierPlace)).code).toBe('WAREHOUSE_NOT_FOUND')
+    // Counts with nowhere to put them are refused at confirm, never dropped product by product after the run.
+    await db.sql`update warehouse set is_default = false where store_id = ${t.storeA1} and seller_id is null and is_default`
+    try {
+      const stocked = await upload('owner', 'handle,name,price,stock\nstocked-pot,Stocked pot,20,5\n')
+      expect((await confirm('owner', stocked.id)).code).toBe('WAREHOUSE_NOT_FOUND')
+      expect((await db.sql`select state from catalog_import where id = ${stocked.id ?? ''}`)[0]).toEqual({ state: 'ready' })
+    } finally {
+      await db.sql`update warehouse set is_default = true where store_id = ${t.storeA1} and seller_id is null and name = 'Main location'`
+    }
     expect((await gql('mutation S($f: String!) { startCatalogImport(file: $f) }', 'owner', { f: 'x'.repeat(5 * 1024 * 1024 + 1) })).code).toBe('FILE_TOO_LARGE')
     // A store that hasn't chosen its currency can't have prices read: refused, never priced in one we picked.
     await db.sql`update store set pricing_currency = null where id = ${t.storeA1}`
