@@ -158,7 +158,7 @@ describe('tax setup', () => {
     expect(tax.loadTax.mock.calls.length).toBeGreaterThan(3)
   })
 
-  it('says why adding a category was refused, and reads the setup again', async () => {
+  it('says why adding a category was refused, as an error on its card', async () => {
     tax.addTaxCategory.mockRejectedValueOnce(new ApiError('ZONE_OVERLAP', 'overlap'))
     await show('tax')
     const reads = tax.loadTax.mock.calls.length
@@ -167,10 +167,11 @@ describe('tax setup', () => {
     confirm(t.add)
     await settle()
     await settle()
-    expect(screen.getByText(t.refused.ZONE_OVERLAP)).toBeTruthy()
+    // Said as an error on the categories card, never as a toast; the server changed nothing, so nothing is read again.
+    expect(region('Your tax rates').getByRole('alert').textContent).toBe(t.refused.ZONE_OVERLAP)
     expect(tax.saveTaxClass).not.toHaveBeenCalled()
     expect(tax.deleteTaxClass).not.toHaveBeenCalled()
-    expect(tax.loadTax.mock.calls.length).toBe(reads + 1)
+    expect(tax.loadTax.mock.calls.length).toBe(reads)
   })
 
   it('changes a category’s rate at home in one call, the server finding or making the home zone', async () => {
