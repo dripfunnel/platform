@@ -27,7 +27,7 @@ export const merchantDomainPageSize = 25
 
 // Never a partner's own address (FIRST-RELEASE §9.2 "Use a domain your company owns").
 const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.com']
-const isOurs = (host: string): boolean => dripfunnelDomains.some((d) => host === d || host.endsWith(`.${d}`))
+const isOurs = (host: string, edgeZone: string): boolean => [...dripfunnelDomains, edgeZone].some((d) => host === d || host.endsWith(`.${d}`))
 const wildcardKinds: readonly DomainKind[] = ['preview', 'shops']
 
 export type AddRefusal =
@@ -96,7 +96,7 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, edge
     const typed = parseHostname(parsed.data.host.trim().replace(/^\*\./, ''), { localhost: localHosts })
     if (!typed.ok || typed.wildcard) return Promise.resolve({ ok: false, reason: 'NOT_A_HOSTNAME' })
     const base = typed.host
-    if (isOurs(base)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
+    if (isOurs(base, edgeZone)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
     // A wildcard or the email sender on a bare domain would clash with the partner's website.
     if ((wildcard || kind === 'email') && isBareDomain(base)) return Promise.resolve({ ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' })
     const host = wildcard ? `*.${base}` : base

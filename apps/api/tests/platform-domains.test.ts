@@ -31,7 +31,7 @@ const callerOf = (partnerId: string, role: PartnerRole): PartnerCaller => ({
 })
 
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}, localHosts = false) => {
-  const domains = createPartnerDomainsService({ sql: db.sql, caller, facts, activity: activityLog, edgeZone: 'dripfunnel.net', localHosts, now: () => now })
+  const domains = createPartnerDomainsService({ sql: db.sql, caller, facts, activity: activityLog, edgeZone: 'edge.example', localHosts, now: () => now })
   const contextValue = { caller, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains }
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   const error = result.errors?.[0]
@@ -104,6 +104,8 @@ describe('adding an address', () => {
     expect(await refused('portal', 'not a host!')).toBe('NOT_A_HOSTNAME')
     expect(await refused('portal', '10.0.0.1')).toBe('NOT_A_HOSTNAME')
     expect(await refused('portal', 'shop.dripfunnel.com')).toBe('DRIPFUNNEL_DOMAIN')
+    expect(await refused('portal', 'x.edge.example')).toBe('DRIPFUNNEL_DOMAIN')
+    expect(await refused('portal', 'edge.example')).toBe('DRIPFUNNEL_DOMAIN')
     expect(await refused('preview', 'freshpartner.example')).toBe('BARE_DOMAIN_FOR_WILDCARD')
     expect(await refused('email', 'freshpartner.co.uk')).toBe('BARE_DOMAIN_FOR_WILDCARD')
     expect(await refused('portal', 'freshpartner.example')).toBe('APEX_NOT_AVAILABLE')
