@@ -109,13 +109,15 @@ const sesFor = (config: Config): { api: SesApi; senderDomain: string; suppressio
 let shopifyBuilt: { key: string; api: ShopifyApi } | undefined
 const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | null => {
   const redirectUri = `https://${config.HOOKS_HOST}${shopifyCallbackPath}`
+  // Asked for, the stand-in wins (config refuses it anywhere but localhost), so a copied example never reaches Shopify.
+  if (config.SHOPIFY_LOCAL === '1') return { api: localShopify(), redirectUri }
   const { SHOPIFY_CLIENT_ID: clientId, SHOPIFY_CLIENT_SECRET: clientSecret } = config
   if (clientId && clientSecret) {
     const key = `${clientId}:${clientSecret}`
     if (shopifyBuilt?.key !== key) shopifyBuilt = { key, api: shopifyApi({ clientId, clientSecret }) }
     return { api: shopifyBuilt.api, redirectUri }
   }
-  return config.SHOPIFY_LOCAL === '1' ? { api: localShopify(), redirectUri } : null
+  return null
 }
 
 const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
