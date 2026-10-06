@@ -220,10 +220,17 @@ describe('onboarding and submitForApproval', () => {
   })
 
   it('reads the plan item from the plans, whatever its stored row says: done once a Live plan has a price', async () => {
+    const [row] = await db.sql`select status, done_at, done_by_kind, done_by_label from partner_setup_item where partner_id = ${ids.kl} and item = 'plan'`
+    const prices = await db.sql<{ plan_id: string; version: number; currency: string; monthly_amount: number | null }[]>`select plan_id, version, currency, monthly_amount from plan_price where partner_id = ${ids.kl}`
     await db.sql`update partner_setup_item set status = 'missing', done_at = null, done_by_kind = null, done_by_label = null where partner_id = ${ids.kl} and item = 'plan'`
-    const plan = async () => (await run<Ob>(onboardingQuery, callerOf(ids.kl, 'partner-owner'))).data?.onboarding.items.find((i) => i.key === 'plan')
-    expect(await plan()).toMatchObject({ status: 'done', doneBy: null })
-    await db.sql`update plan_price set monthly_amount = null where partner_id = ${ids.kl}`
-    expect(await plan()).toMatchObject({ status: 'progress' })
+    try {
+      const plan = async () => (await run<Ob>(onboardingQuery, callerOf(ids.kl, 'partner-owner'))).data?.onboarding.items.find((i) => i.key === 'plan')
+      expect(await plan()).toMatchObject({ status: 'done', doneBy: null })
+      await db.sql`update plan_price set monthly_amount = null where partner_id = ${ids.kl}`
+      expect(await plan()).toMatchObject({ status: 'progress' })
+    } finally {
+      for (const p of prices) await db.sql`update plan_price set monthly_amount = ${p.monthly_amount} where plan_id = ${p.plan_id} and version = ${p.version} and currency = ${p.currency}`
+      if (row) await db.sql`update partner_setup_item set ${db.sql(row, 'status', 'done_at', 'done_by_kind', 'done_by_label')} where partner_id = ${ids.kl} and item = 'plan'`
+    }
   })
 })

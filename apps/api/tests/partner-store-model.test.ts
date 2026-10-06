@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import type { PartnerRow, StoreRow } from '#db/schema/saas'
 import { pgArray, withScope } from '#db/scoped/index'
-import { insertPartner, insertPartnerUser, insertPlan, selectPartner, selectPartners, selectPlans, selectPlansFor, upsertPartnerDomain, upsertSetupItem } from '#db/scoped/partners'
+import { insertPartner, insertPartnerUser, insertPlan, selectPartner, selectPartners, selectPlans, selectPlansFor, selectSetupItemsFor, upsertPartnerDomain, upsertSetupItem } from '#db/scoped/partners'
 import { insertJob, insertMembership, insertStore, insertUser, selectJobDetail, selectStore, selectStorePeople, selectStores } from '#db/scoped/stores'
 import { canTransitionPartner, transitionPartner } from '#saas/partners/states'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/stuck'
@@ -184,7 +184,8 @@ describe('filters, sort and paging (§4.1, §5.1)', () => {
     const awaiting = await as(staff, (tx) => selectPartners(tx, { state: 'awaiting' }, {}, 25))
     expect(awaiting.map((r) => r.name)).toEqual(['Kaufladen Digital'])
     const incomplete = await as(staff, (tx) => selectPartners(tx, { setup: 'incomplete' }, {}, 25))
-    expect(incomplete.map((r) => r.name).sort()).toEqual(['Kaufladen Digital', 'Nordlicht Media', 'Tallis Studio'])
+    // Blue Fern (no plans) and Old Harbour Co (its plan retired) have no Live priced plan, so their plan item is open (#435).
+    expect(incomplete.map((r) => r.name).sort()).toEqual(['Blue Fern', 'Kaufladen Digital', 'Nordlicht Media', 'Old Harbour Co', 'Tallis Studio'])
     const complete = await as(staff, (tx) => selectPartners(tx, { setup: 'complete' }, {}, 25))
     expect(complete.map((r) => r.name)).not.toContain('Tallis Studio')
     expect((await as(staff, (tx) => selectPartners(tx, { q: 'kaufladen.example' }, {}, 25))).map((r) => r.name)).toEqual(['Kaufladen Digital'])
@@ -332,6 +333,22 @@ describe('isolation (ACCESS.md §11.1)', () => {
     }
     const plansA = await as(partner(a), (tx) => selectPlans(tx, b))
     expect(plansA).toEqual([])
+    // The checklist's derived plan item too (#435): asked for both, a partner gets its own items only.
+    const items = await as(partner(a), (tx) => selectSetupItemsFor(tx, [a, b]))
+    expect(items.some((i) => i.item === 'plan')).toBe(true)
+    expect(items.every((i) => i.partner_id === a)).toBe(true)
+  })
+
+  it('derives one partner’s plan item from its own plans only', async () => {
+    const planOf = async (id: string) => (await as(staff, (tx) => selectSetupItemsFor(tx, [a, b]))).find((i) => i.partner_id === id && i.item === 'plan')?.status
+    const before = await planOf(b)
+    const extra = await as(staff, (tx) => insertPlan(tx, { partnerId: a, name: 'Isolation Plan', status: 'live', prices: [{ currency: 'USD', monthly: 1000, yearly: null }] }))
+    try {
+      expect(await planOf(a)).toBe('done')
+      expect(await planOf(b)).toBe(before)
+    } finally {
+      await db.sql`update plan set status = 'retired' where id = ${extra}`
+    }
   })
 
   it('a partner reads its stores people at account level, never another partner stores', async () => {
