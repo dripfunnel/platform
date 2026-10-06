@@ -204,6 +204,21 @@ describe('checking and importing a file', () => {
   })
 })
 
+describe('a supplier’s import', () => {
+  it('puts stock only in the supplier’s own locations, the ones the API answers its seat', async () => {
+    const supplier: Acting = { ...owner, role: 'supplier-admin', tier: 'vendor-catalogue', seller: { id: 'v1', name: 'Northwind' }, permissions: ['catalog.read', 'catalog.write', 'catalog.import'] }
+    // The API answers a supplier seat its own locations only; the screen never adds the store's.
+    stock.loadPlaces.mockResolvedValue([{ id: 'w9', name: 'Anand’s depot', isDefault: true, units: 0, revision: 1, address: null, supplierId: 'v1', supplierName: 'Northwind' }])
+    await show(supplier)
+    await upload(csv())
+    const place = screen.getByLabelText(words.check.stockIn) as HTMLSelectElement
+    expect([...place.options].map((o) => o.value)).toEqual(['w9'])
+    fireEvent.click(screen.getByRole('button', { name: fill(words.check.run.other, { count: '8' }) }))
+    await settle()
+    expect(api.confirmImport).toHaveBeenCalledWith('i1', 'update', 'w9')
+  })
+})
+
 describe('a store that can’t import', () => {
   it('keeps a read-only store to exports: the sources and Import are off, and it says why', async () => {
     await show(owner, { readOnly: true })

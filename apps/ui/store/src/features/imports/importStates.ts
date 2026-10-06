@@ -1,4 +1,5 @@
 import type { CatalogExport, CatalogImport, ShopifyProduct } from '../../api/imports'
+import { harnessEnabled as harness } from '../../harness'
 import { liveImportApi, type ImportApi } from './importApi'
 import type { FileError } from './ImportStart'
 
@@ -19,7 +20,6 @@ export interface ImportSample {
   checking: boolean
 }
 
-const harness = import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
 
 const job = (patch: Partial<CatalogImport>): CatalogImport => ({
   id: 'sample',
