@@ -12,3 +12,6 @@ apps/api/wrangler.feature.json
 
 # ci.yml's review job writes its verdict here; it never belongs in a commit.
 .claude-review-verdict
+
+# What the local email and SMS stand-ins sent (docs/setup/local.md §6.1)
+apps/api/.local-mail/

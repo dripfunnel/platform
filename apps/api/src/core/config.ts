@@ -40,12 +40,23 @@ const configSchema = z.object({
   SHOPIFY_CLIENT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'SHOPIFY_CLIENT_ID must be the app’s 32-character client id').optional(),
   SHOPIFY_CLIENT_SECRET: z.string().min(1).optional(),
   SHOPIFY_LOCAL: z.literal('1').optional(),
+  // Local stand-ins for the last step of email, SMS and DNS (docs/setup/local.md §6.1): the outbox, templates and checks
+  // run as on dev, and the message is printed, or the record answered, on this machine instead.
+  EMAIL_LOCAL: z.literal('1').optional(),
+  SMS_LOCAL: z.literal('1').optional(),
+  DNS_LOCAL: z.literal('1').optional(),
 })
 
-// The local Shopify stand-in skips Shopify's signature, so a Worker anywhere but on *.localhost refuses to start with it.
-const checkedConfig = configSchema.refine((c) => c.SHOPIFY_LOCAL === undefined || /(^|\.)localhost$/.test(c.HOOKS_HOST), {
-  message: 'SHOPIFY_LOCAL is for local development only (HOOKS_HOST on localhost)',
-  path: ['SHOPIFY_LOCAL'],
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL'] as const
+
+// The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
+const checkedConfig = configSchema.superRefine((c, ctx) => {
+  // The suppression list keys its hashes with it, stand-in or SES (db/scoped/emailSuppression.ts).
+  if (c.EMAIL_LOCAL !== undefined && c.EMAIL_SUPPRESSION_KEY === undefined) ctx.addIssue({ code: 'custom', message: 'EMAIL_LOCAL needs EMAIL_SUPPRESSION_KEY', path: ['EMAIL_SUPPRESSION_KEY'] })
+  if (/(^|\.)localhost$/.test(c.HOOKS_HOST)) return
+  for (const key of localOnly) {
+    if (c[key] !== undefined) ctx.addIssue({ code: 'custom', message: `${key} is for local development only (HOOKS_HOST on localhost)`, path: [key] })
+  }
 })
 
 export type Config = z.infer<typeof configSchema>

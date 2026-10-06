@@ -23,13 +23,15 @@ export interface PlatformContextDeps {
   secrets: SecretBox | null
   // DripFunnel's Stripe account; null until its keys are Worker secrets (THIRD-PARTY-ACCESS §2.7).
   stripe: StripeApi | null
+  /** `*.localhost` partner domains, where the local DNS stand-in answers them (DNS_LOCAL). */
+  localHosts?: boolean
   now: () => Date
 }
 
 export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, localHosts = false, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -40,7 +42,7 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     stores: createPartnerStoresService(deps),
     storeActions: createPartnerStoreActions(deps),
     dashboard: createPartnerDashboardService(deps),
-    domains: createPartnerDomainsService(deps),
+    domains: createPartnerDomainsService({ ...deps, localHosts }),
     activity: createPartnerActivityService(deps),
     team: createPartnerTeamService(deps),
     reports: createPartnerReportsService(deps),

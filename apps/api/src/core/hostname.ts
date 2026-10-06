@@ -13,7 +13,8 @@ export type ParsedHostname = { ok: true; host: string; wildcard: boolean } | { o
 const isIpv4 = (host: string): boolean => /^\d{1,3}(\.\d{1,3}){3}$/.test(host)
 const isIpv6 = (host: string): boolean => host.includes(':') || /^\[.*\]$/.test(host)
 
-export const parseHostname = (input: string): ParsedHostname => {
+/** `localhost`: accept `*.localhost` names, only where the local DNS stand-in answers them (DNS_LOCAL, config.ts). */
+export const parseHostname = (input: string, options: { localhost?: boolean } = {}): ParsedHostname => {
   const trimmed = input.trim().toLowerCase().replace(/\.$/, '')
   if (trimmed === '') return { ok: false, code: 'EMPTY' }
   if (trimmed.length > 253) return { ok: false, code: 'TOO_LONG' }
@@ -24,6 +25,6 @@ export const parseHostname = (input: string): ParsedHostname => {
   if (labels.length < 2) return { ok: false, code: 'NO_DOT' }
   if (!labels.every((part) => label.test(part))) return { ok: false, code: 'BAD_LABEL' }
   const last = labels.at(-1) ?? ''
-  if (localSuffixes.includes(last) || /^\d+$/.test(last)) return { ok: false, code: 'LOCAL_NAME' }
+  if ((localSuffixes.includes(last) && !(options.localhost === true && last === 'localhost')) || /^\d+$/.test(last)) return { ok: false, code: 'LOCAL_NAME' }
   return { ok: true, host: trimmed, wildcard }
 }

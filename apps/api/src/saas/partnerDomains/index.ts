@@ -46,6 +46,8 @@ export interface PartnerDomainsDeps {
   caller: PartnerCaller
   facts: RequestFacts
   activity: ActivityLog
+  /** `*.localhost` hosts are accepted: the local DNS stand-in answers them (DNS_LOCAL). */
+  localHosts?: boolean
   now: () => Date
 }
 
@@ -58,7 +60,7 @@ const recordDto = (r: PartnerDomainRecordRow) => ({
   matches: r.found !== null && recordMatches(r.purpose, r.expected, r.found),
 })
 
-export const createPartnerDomainsService = ({ sql, caller, facts, activity, now }: PartnerDomainsDeps) => {
+export const createPartnerDomainsService = ({ sql, caller, facts, activity, localHosts = false, now }: PartnerDomainsDeps) => {
   const partnerId = caller.partner.id
   const context = partnerContextOf(caller)
   const entry = partnerEntry(caller, facts)
@@ -89,7 +91,7 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, now 
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const { kind } = parsed.data
     const wildcard = wildcardKinds.includes(kind)
-    const typed = parseHostname(parsed.data.host.trim().replace(/^\*\./, ''))
+    const typed = parseHostname(parsed.data.host.trim().replace(/^\*\./, ''), { localhost: localHosts })
     if (!typed.ok || typed.wildcard) return Promise.resolve({ ok: false, reason: 'NOT_A_HOSTNAME' })
     const base = typed.host
     if (isOurs(base)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })

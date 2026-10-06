@@ -68,6 +68,8 @@ export const checkEnv = (env: Env, envFileExists: boolean): Finding[] => {
 
   for (const { feature, keys } of GROUPS) {
     const set = keys.filter((key) => env[key])
+    // The email stand-in uses the suppression key alone (EMAIL_LOCAL, config.ts): not a half-set SES.
+    if (feature === 'email' && env['EMAIL_LOCAL'] && set.length === 1 && set[0] === 'EMAIL_SUPPRESSION_KEY') continue
     if (set.length > 0 && set.length < keys.length) {
       const unset = keys.filter((key) => !env[key])
       findings.push(warning(`${feature} stays off: ${unset.join(', ')} not set.`, `Set all of ${keys.join(', ')}, or none.`))
