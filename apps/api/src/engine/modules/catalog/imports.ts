@@ -283,7 +283,8 @@ export interface ImportJobDeps {
     update: (id: string, revision: number, input: ProductInput, alongside?: Alongside) => Promise<SaveResult>
     get: (id: string) => Promise<{ product: ProductRow | null }>
   }
-  saveTranslation: (productId: string, language: string, input: ProductTranslationInput) => Promise<TranslationResult<unknown>>
+  /** A translation inside the product's own transaction, under a savepoint (translations.ts saveProductTranslationIn). */
+  saveTranslationIn: (tx: ScopedSql, productId: string, language: string, input: ProductTranslationInput) => Promise<TranslationResult<unknown>>
   queue: CatalogImportDeps['queue']
 }
 
@@ -518,6 +519,10 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
     const line = p.lines[0] ?? 0
     const alongside = (kind: 'created' | 'updated'): Alongside => async (tx, productId) => {
       const problems: ImportProblem[] = (await importStock(tx, d, job, p, productId)) ? [] : [{ line, column: null, code: 'STOCK_REFUSED' }]
+      // Translations commit with the product, so a retry that resumes after it never finds them missing unseen.
+      for (const [language, text] of Object.entries(p.translations)) {
+        if (!(await d.saveTranslationIn(tx, productId, language, text)).ok) problems.push({ line, column: `name:${language}`, code: 'TRANSLATION_REFUSED' })
+      }
       // Photos for a product the import made; one that was there keeps its own (and its approval, ACCESS §7.2).
       const photos = kind === 'created' ? p.photos : []
       if (payload) for (const [position, photo] of photos.entries()) await d.queue(tx, importPhotosKind, `${jobId}:photo:${productId}:${position}`, { ...payload, productId, position, ...photo })
@@ -529,12 +534,6 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
       await withScope(d.sql, d.context, (tx) => saveImportProgress(tx, jobId, { ...none, [outcome.kind]: 1, done, problems }))
       continue
     }
-    const problems: ImportProblem[] = []
-    for (const [language, text] of Object.entries(p.translations)) {
-      const saved = await d.saveTranslation(outcome.id, language, text)
-      if (!saved.ok) problems.push({ line, column: `name:${language}`, code: 'TRANSLATION_REFUSED' })
-    }
-    await withScope(d.sql, d.context, (tx) => addImportProblems(tx, jobId, problems))
   }
   await withScope(d.sql, d.context, async (tx) => {
     if (payload && at < plan.products.length) await d.queue(tx, catalogImportKind, `${jobId}:run:${at}`, { ...payload, phase: 'run' })

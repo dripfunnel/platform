@@ -224,7 +224,7 @@ describe('a spreadsheet import', () => {
   })
 
   it('resumes after a failure part-way through a chunk without making any product twice', async () => {
-    const { id } = await upload('owner', 'handle,name,price,stock\nretry-a,Retry A,10,1\nretry-b,Retry B,10,2\nretry-c,Retry C,10,3\n')
+    const { id } = await upload('owner', 'handle,name,price,stock,name:hi-IN\nretry-a,Retry A,10,1,ए\nretry-b,Retry B,10,2,बी\nretry-c,Retry C,10,3,सी\n')
     await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id })
     // The run's job, taken off the outbox so this test can deliver it with a failure on the second product.
     const [row] = await db.sql<{ id: string; payload: { jobId: string; partnerId: string; storeId: string; caller: { kind: 'person'; userId: string }; sellerId: null; subscription: 'active'; phase: 'run' } }[]>`
@@ -244,6 +244,8 @@ describe('a spreadsheet import', () => {
       { name: 'Retry C', n: 1 },
     ])
     expect(await db.sql`select v.sku, s.on_hand from stock_level s join product_version v on v.id = s.version_id join product p on p.id = v.product_id where p.name like 'Retry %' order by p.name`).toHaveLength(3)
+    // Each product's translation committed with it, so none is missing after the resume.
+    expect(await db.sql`select t.text from translation t join product p on p.id::text = t.entity_id where p.name like 'Retry %' and t.language = 'hi-IN' and t.field = 'name' order by p.name`).toEqual([{ text: 'ए' }, { text: 'बी' }, { text: 'सी' }])
   })
 
   it('says why a file can’t be read, and refuses a location that isn’t the importer’s', async () => {
