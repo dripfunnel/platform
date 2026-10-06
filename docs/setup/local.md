@@ -313,6 +313,11 @@ it with the query.
    ```sql
    select item, status from partner_setup_item i join partner p on p.id = i.partner_id where p.name = 'Acme Commerce' order by item;
    ```
+   The `plan` row there is not the checklist's plan item: the checklist reads that item from the
+   plans themselves (done while a Live plan has a monthly price), so check it in the console, or with
+   ```sql
+   select pl.name, pl.status from plan pl join partner p on p.id = pl.partner_id where p.name = 'Acme Commerce';
+   ```
 4. **Submit for approval**, in the partner console. The go-live checks run first: portal host
    live, email domain live, a priced plan, legal pages.
 5. **Staff approve**, at `https://admin.localhost` › Partners › Acme Commerce › **Approve**, with a
