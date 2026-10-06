@@ -21,10 +21,9 @@ const refused = (reason: CatalogImportRefusal) => new GraphQLError(words[reason]
 
 const access = { api: 'store', scope: 'store-seller', permission: 'catalog.import', target: 'none' } as const
 
-/** A read-only support session looks at the store; it never brings products in (ACCESS §8). */
+/** An import runs as a person in the store, whose seat each chunk checks again; a support session never starts one (ACCESS §8). */
 const writer = (ctx: StoreContext) => {
-  const { caller } = actingCaller(ctx).context
-  if (caller.kind === 'support' && caller.access === 'read') throw forbidden()
+  if (actingCaller(ctx).context.caller.kind === 'support') throw new GraphQLError('A support session can’t import. Someone in the store imports from their own account.', { extensions: { code: 'FORBIDDEN' } })
   return service(ctx)
 }
 
