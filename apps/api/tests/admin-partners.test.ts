@@ -547,9 +547,37 @@ describe('the contract (§4.2, §4.3)', () => {
     expect(await rates(northstar)).toEqual([{ currency: 'CAD', per_fee_unit: '1.351351' }, { currency: 'EUR', per_fee_unit: null }])
 
     const entries = (await entriesFor(northstar, partnerAudit.setPartnerContract)).length
-    expect((await run<Out>(set, as('staff-super-admin'), { id: northstar, input: { feeCurrency: 'EUR', currencies: [], poweredBy: 'removable' }, reason: 'Moving to EUR' })).data?.['setPartnerContract']).toMatchObject({ ok: false, code: 'FEE_CURRENCY_IN_USE' })
+    expect((await run<Out>(set, as('staff-super-admin'), { id: northstar, input: { feeCurrency: 'EUR', currencies: ['CAD', 'USD'], poweredBy: 'removable' }, reason: 'Moving to EUR' })).data?.['setPartnerContract']).toMatchObject({ ok: false, code: 'FEE_CURRENCY_IN_USE' })
     expect(await contractOf(northstar)).toEqual({ feeCurrency: 'USD', currencies: ['CAD', 'EUR'], poweredBy: 'removable' })
     expect(await entriesFor(northstar, partnerAudit.setPartnerContract)).toHaveLength(entries)
+  })
+
+  it('refuses taking off a currency a draft or Live plan still prices in, and changes nothing', async () => {
+    const northstar = await partnerIdOf('Northstar Commerce')
+    const before = await contractOf(northstar)
+    const priced = await db.sql<{ currency: string }[]>`select distinct pp.currency from plan p join plan_price pp on pp.plan_id = p.id and pp.version = p.version where p.partner_id = ${northstar} and p.status <> 'retired'`
+    expect(priced.map((r) => r.currency)).toContain('CAD')
+    expect((await run<Out>(set, as('staff-super-admin'), { id: northstar, input: { feeCurrency: 'USD', currencies: [], poweredBy: 'removable' }, reason: 'CAD dropped' })).data?.['setPartnerContract']).toMatchObject({ ok: false, code: 'CURRENCY_IN_USE' })
+    expect(await contractOf(northstar)).toEqual(before)
+  })
+
+  it('refuses a closed partner and staff not assigned to the partner', async () => {
+    const terms = { feeCurrency: 'EUR', currencies: [], poweredBy: 'required' }
+    const closed = await partnerIdOf('Blue Fern')
+    expect((await run<Out>(set, as('staff-super-admin'), { id: closed, input: terms, reason: 'Late' })).data?.['setPartnerContract']).toMatchObject({ ok: false, code: 'PARTNER_CLOSED' })
+    expect((await run<Read>(read, as('staff-super-admin'), { id: closed })).data?.partner.actions.setContract).toBeNull()
+
+    const northstar = await partnerIdOf('Northstar Commerce')
+    const before = await contractOf(northstar)
+    expect((await run(set, as('staff-partner-manager'), { id: northstar, input: terms, reason: 'Not mine' })).code).toBe('FORBIDDEN')
+    expect(await contractOf(northstar)).toEqual(before)
+    expect(await entriesFor(closed, partnerAudit.setPartnerContract)).toHaveLength(0)
+  })
+
+  it('creates nothing when Create partner’s contract is invalid', async () => {
+    const bad = { feeCurrency: 'INR', currencies: ['INR'], poweredBy: 'required' }
+    expect((await run<Out>(create, as('staff-super-admin'), { input: { name: 'Invalid Contract Partner', ownerEmail: 'o@invalid.example', country: 'IN', sendInvitation: false, contract: bad } })).data?.['createPartner']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
+    expect(await db.sql`select id from partner where name = 'Invalid Contract Partner'`).toHaveLength(0)
   })
 })
 

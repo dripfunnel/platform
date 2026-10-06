@@ -221,7 +221,8 @@
       "NOT_ON_TRIAL": "This store isn’t on a trial, so it has nothing to extend.",
       "NO_PENDING_INVITATION": "There’s no open owner invitation to resend.",
       "BAD_RESPONSE": "The admin service answered in a shape this console doesn’t understand. Nothing was changed.",
-      "FEE_CURRENCY_IN_USE": "Fees or charges are already stated in the current fee currency, so it can’t change. Nothing was changed."
+      "FEE_CURRENCY_IN_USE": "Fees or charges are already stated in the current fee currency, so it can’t change. Nothing was changed.",
+      "CURRENCY_IN_USE": "A draft or live plan still has prices in a currency you took off. Remove those prices or retire the plan first. Nothing was changed."
     }
   },
   "partners": {

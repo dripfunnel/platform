@@ -99,6 +99,15 @@ export const setPartnerContract = async (tx: ScopedSql, c: PartnerContract): Pro
   }
 }
 
+/** Currencies a draft or Live plan's current version has a price row in. */
+export const selectPricedCurrencies = async (tx: ScopedSql, partnerId: string): Promise<string[]> =>
+  (
+    await tx<{ currency: string }[]>`
+      select distinct pp.currency from plan p join plan_price pp on pp.plan_id = p.id and pp.version = p.version
+      where p.partner_id = ${partnerId} and p.status <> 'retired' order by pp.currency
+    `
+  ).map((r) => r.currency)
+
 export interface PlanVersionRead {
   version: number
   trialDays: number

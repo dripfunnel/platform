@@ -50,7 +50,7 @@ import { assignManager, unassignManager } from './assignments'
 import { failingChecks, goLiveChecksFor, type GoLiveCheck, type GoLiveChecks } from './goLive'
 import { countryOf, sellingCurrencies } from '#core/countries'
 import { selectContractTerms, type ContractTerms } from '#db/scoped/partnerPlans'
-import { setPartnerContract as writePartnerContract } from '#db/scoped/plans'
+import { selectPricedCurrencies, setPartnerContract as writePartnerContract } from '#db/scoped/plans'
 import { handoffLink } from '#saas/staffSessions/index'
 
 // Partners on the Admin API (card #33; ui/admin/FIRST-RELEASE.md §4, §12). The resolvers in
@@ -112,6 +112,7 @@ export type RefusalCode =
   | 'NOT_SESSION_OWNER'
   | 'SESSION_ENDED'
   | 'FEE_CURRENCY_IN_USE'
+  | 'CURRENCY_IN_USE'
 
 export type ActionPermission = { allowed: true } | { allowed: false; reason: RefusalCode; failingChecks?: GoLiveCheck[] }
 
@@ -567,6 +568,9 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       if (!partner) return { ok: false, code: 'NOT_FOUND' }
       if (partner.state === 'closed') return { ok: false, code: 'PARTNER_CLOSED' }
       const before = contractOf(await selectContractTerms(tx, id))
+      // A plan's price in a currency taken off would fail its next save (badCurrency in partnerPlans).
+      const named = new Set([parsed.data.feeCurrency, ...parsed.data.currencies])
+      if ((await selectPricedCurrencies(tx, id)).some((c) => !named.has(c))) return { ok: false, code: 'CURRENCY_IN_USE' }
       if (!(await writeContract(tx, id, parsed.data))) return { ok: false, code: 'FEE_CURRENCY_IN_USE' }
       await activity.record(tx, entry(partner, partnerAudit.setPartnerContract, parsedReason.data, { changes: contractChanges(before, parsed.data) }))
       return { ok: true }

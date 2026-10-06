@@ -331,8 +331,8 @@ export const loadPartner = async (id: string): Promise<Partner | null> => {
   return { ...partner, impersonate: {}, actions: compactActions(actions), contractAction: setContract }
 }
 
-// Any time, with a reason (FIRST-RELEASE.md §4.3). FEE_CURRENCY_IN_USE arrives as an ApiError when
-// fees or charges are already stated in the old fee currency.
+// Any time, with a reason (FIRST-RELEASE.md §4.3). FEE_CURRENCY_IN_USE and CURRENCY_IN_USE arrive
+// as ApiErrors when the old fee currency, or a currency taken off, is still in use.
 export const setPartnerContract = async (id: string, contract: PartnerContract, reason: string): Promise<void> => {
   await mutate('setPartnerContract', 'setPartnerContract(id: $id, input: $input, reason: $reason)', '($id: ID!, $input: PartnerContractInput!, $reason: String!)', {
     id,
