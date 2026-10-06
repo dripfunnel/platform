@@ -1839,7 +1839,8 @@
       },
       "draft": "Draft",
       "archived": "Archived",
-      "loadAll": "Every product in your shop is chosen. To leave some out, show every page first, or clear all and tick the ones you want."
+      "loadAll": "Every product in your shop is chosen. To leave some out, show every page first, or clear all and tick the ones you want.",
+      "moreFailed": "Those products didn’t load. What you’ve ticked is kept; try again."
     },
     "checking": {
       "file": "Checking your file…",

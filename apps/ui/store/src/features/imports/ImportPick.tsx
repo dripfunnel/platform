@@ -18,8 +18,10 @@ export const ImportPick = ({ shop, checking, onBack, onCheck }: { shop: string; 
   const [view, setView] = useState<'loading' | 'ready' | 'error'>('loading')
   const [pick, setPick] = useState<Pick>({ kind: 'some', ids: new Set() })
   const [note, setNote] = useState<string | null>(null)
+  const [more, setMore] = useState<'idle' | 'loading' | 'failed'>('idle')
 
   const page = useCallback((after: string | null) => {
+    if (after !== null) setMore('loading')
     loadShopifyProducts(after).then(
       (found) => {
         // The first page comes ticked, as CatImport opens the picker; the person unticks what stays behind.
@@ -27,8 +29,10 @@ export const ImportPick = ({ shop, checking, onBack, onCheck }: { shop: string; 
         setRows((current) => (after === null ? found.nodes : [...current, ...found.nodes]))
         setNext(found.next)
         setView('ready')
+        setMore('idle')
       },
-      () => setView('error'),
+      // A later page failing keeps the rows and the ticks; only the first page's failure is the picker's.
+      () => (after === null ? setView('error') : setMore('failed')),
     )
   }, [loadShopifyProducts])
   useEffect(() => page(null), [page])
@@ -78,9 +82,14 @@ export const ImportPick = ({ shop, checking, onBack, onCheck }: { shop: string; 
         })}
       </ul>
       {next && (
-        <button type="button" className="df-import-text-button df-import-pick-more" onClick={() => page(next)}>
+        <button type="button" className="df-import-text-button df-import-pick-more" disabled={more === 'loading'} onClick={() => page(next)}>
           {words.more}
         </button>
+      )}
+      {more === 'failed' && (
+        <p className="df-import-problem" role="alert">
+          {words.moreFailed}
+        </p>
       )}
       {note && (
         <p className="df-import-problem" role="alert">

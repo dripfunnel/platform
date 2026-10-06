@@ -307,6 +307,34 @@ describe('bringing products from Shopify', () => {
   })
 })
 
+describe('picking from a big shop', () => {
+  it('loads the next page once however often Show more is pressed, and keeps the ticks when it fails', async () => {
+    const rows = (from: number) => [0, 1].map((i) => ({ id: `gid://shopify/Product/${from + i}`, title: `Item ${from + i}`, status: 'ACTIVE', versions: 1, imageUrl: null }))
+    api.finishShopifyConnect.mockResolvedValue('kesari.myshopify.com')
+    let release: (v: unknown) => void = () => undefined
+    api.loadShopifyProducts.mockResolvedValueOnce({ nodes: rows(1), next: 'c1' }).mockReturnValueOnce(new Promise((resolve) => (release = resolve)))
+    await show(owner, { at: '/products/import?shopify=finish&key=k1' })
+    await settle()
+    fireEvent.click(screen.getByLabelText(/Item 2/))
+    const moreButton = screen.getByRole('button', { name: words.pick.more }) as HTMLButtonElement
+    fireEvent.click(moreButton)
+    expect(moreButton.disabled).toBe(true)
+    fireEvent.click(moreButton)
+    expect(api.loadShopifyProducts).toHaveBeenCalledTimes(2)
+    await act(async () => release(Promise.reject(new Error('offline'))))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(words.pick.moreFailed)
+    // The rows and what was unticked stay; trying again asks for the same page.
+    expect((screen.getByLabelText(/Item 1/) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText(/Item 2/) as HTMLInputElement).checked).toBe(false)
+    api.loadShopifyProducts.mockResolvedValueOnce({ nodes: rows(3), next: null })
+    fireEvent.click(screen.getByRole('button', { name: words.pick.more }))
+    await settle()
+    expect(api.loadShopifyProducts).toHaveBeenLastCalledWith('c1')
+    expect(screen.getAllByRole('checkbox')).toHaveLength(4)
+  })
+})
+
 describe('exports', () => {
   it('lists the caller’s recent files and starts one for the hidden products', async () => {
     api.loadCatalogExports.mockResolvedValue([
