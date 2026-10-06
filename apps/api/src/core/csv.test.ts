@@ -9,4 +9,8 @@ describe('csv', () => {
     expect(csvCell(-1200)).toBe('-1200')
     expect(csvLine(['a,b', null, 3])).toBe('"a,b",,3')
   })
+
+  it('writes money as a major-unit number, a negative one unquoted', () => {
+    expect(csvLine([{ amount: -1250n, currency: 'USD' }, { amount: 129950n, currency: 'INR' }])).toBe('-12.50,1299.50')
+  })
 })

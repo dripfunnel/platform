@@ -222,8 +222,17 @@ describe('who reads an export', () => {
     expect(recent.map((r) => r.id)).toContain(id)
     const mine = (await gql('{ catalogExports { id } }', 'otherSupplier')).data?.['catalogExports'] as { id: string }[]
     expect(mine.map((r) => r.id)).not.toContain(id)
-    // Row security agrees: in the other supplier's scope the row isn't there at all.
-    expect(await db.sql`select seller_id from catalog_export where id = ${id ?? ''}`).toEqual([{ seller_id: t.sellerA1First }])
+    // Row security agrees, below the service's requester check: another supplier's or store's scope doesn't see the row.
+    const scope = (storeId: string, partnerId: string, sellerScope: TenantContext['sellerScope']): TenantContext => ({ caller: { kind: 'person', userId: people.owner, sessionId: '' }, partnerId, storeId, sellerScope, subscription: 'active' })
+    const seen = (context: TenantContext) => withScope(db.sql, context, (tx) => tx<{ id: string }[]>`select id from catalog_export where id = ${id ?? ''}`)
+    expect(await seen(scope(t.storeA1, t.partnerA, { kind: 'seller', sellerId: t.sellerA1First }))).toHaveLength(1)
+    expect(await seen(scope(t.storeA1, t.partnerA, { kind: 'seller', sellerId: t.sellerA1Second }))).toEqual([])
+    expect(await seen(scope(t.storeB1, t.partnerB, { kind: 'all' }))).toEqual([])
+    const insert = (context: TenantContext, storeId: string, sellerId: string | null) =>
+      withScope(db.sql, context, (tx) => tx`insert into catalog_export (store_id, seller_id, kind, filter, requested_by_id, requested_by_label) values (${storeId}, ${sellerId}, 'products', '{}', ${people.supplier}, 'x')`)
+    await expect(insert(scope(t.storeA1, t.partnerA, { kind: 'seller', sellerId: t.sellerA1First }), t.storeA1, t.sellerA1Second)).rejects.toThrow(/row-level security/)
+    await expect(insert(scope(t.storeA1, t.partnerA, { kind: 'seller', sellerId: t.sellerA1First }), t.storeA1, null)).rejects.toThrow(/row-level security/)
+    await expect(insert(scope(t.storeB1, t.partnerB, { kind: 'all' }), t.storeA1, null)).rejects.toThrow(/row-level security/)
   })
 
   it('is a read: allowed while the store is read-only, never for a read-only support session', async () => {
