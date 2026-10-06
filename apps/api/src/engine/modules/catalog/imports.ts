@@ -240,7 +240,8 @@ export const createCatalogImportService = (d: CatalogImportDeps) => {
       if (job.state !== 'ready') return { ok: false, reason: 'NOT_READY' }
       if (job.ready === 0) return { ok: false, reason: 'NOTHING_TO_IMPORT' }
       const location = warehouseId === null ? await selectOwnDefaultWarehouse(tx, storeId, sellerId) : await selectOwnWarehouse(tx, storeId, sellerId, warehouseId)
-      if (warehouseId !== null && !location) return { ok: false, reason: 'WAREHOUSE_NOT_FOUND' }
+      const counts = (job.plan as ImportPlan | null)?.products.some((p) => p.stock.some((n) => n !== null)) ?? false
+      if (!location && (warehouseId !== null || counts)) return { ok: false, reason: 'WAREHOUSE_NOT_FOUND' }
       if (!(await startImportRun(tx, id, { matchMode, warehouseId: location, at: now() }))) return { ok: false, reason: 'NOT_READY' }
       const payload = jobPayloadOf(context, id)
       if (payload) await queue(tx, catalogImportKind, `${id}:run:0`, { ...payload, phase: 'run' })
