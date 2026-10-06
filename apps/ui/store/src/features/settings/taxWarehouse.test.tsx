@@ -172,6 +172,14 @@ describe('tax setup', () => {
     expect(tax.saveTaxClass).not.toHaveBeenCalled()
     expect(tax.deleteTaxClass).not.toHaveBeenCalled()
     expect(tax.loadTax.mock.calls.length).toBe(reads)
+    // A store with no country is sent to Store info, not told its input is wrong.
+    tax.addTaxCategory.mockRejectedValueOnce(new ApiError('NO_COUNTRY', 'no country'))
+    fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
+    fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Books 7' } })
+    confirm(t.add)
+    await settle()
+    await settle()
+    expect(region('Your tax rates').getByRole('alert').textContent).toBe(t.refused.NO_COUNTRY)
   })
 
   it('changes a category’s rate at home in one call, the server finding or making the home zone', async () => {
