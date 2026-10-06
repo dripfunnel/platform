@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dripfunnel-store-proxy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "env": {
+    // Partner portal hosts arrive here through Cloudflare for SaaS (SAAS.md §8); `*/*` catches
+    // them, and the Worker passes every host of our own zone straight through.
+    "dev": {
+      "name": "dripfunnel-store-proxy-dev",
+      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev" },
+      "services": [{ "binding": "API", "service": "dripfunnel-api-dev" }],
+      "routes": [{ "pattern": "*/*", "zone_name": "dripfunnel.ai" }]
+    }
+  }
+}

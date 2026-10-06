@@ -461,8 +461,29 @@ failed; a live hostname can become expiring or broken if its records change.
    for the record after commit, so a user's hostname never becomes a host the Worker connects
    to; it moves waiting → live, or failed, or broken once a live record changes. **Merchant
    domains the same way on #34** (`custom_domain.recheck`): the CNAME decides the status and
-   the ownership TXT is recorded for the certificate step. The certificate states (verifying,
-   issuing) arrive with the Cloudflare for SaaS integration (THIRD-PARTY-ACCESS §2.1).
+   the ownership TXT is recorded for the certificate step. For the portal host, once
+   DNS passes, the status is Cloudflare's own: verifying, issuing, live (`hostStatusOf`).
+   **Edge routing (checked 2026-10-05, dev):** each environment's zone holds a proxied
+   fallback-origin record, `portal.edge.<zone>` → the store Pages project, set as the zone's
+   Cloudflare for SaaS fallback origin; `EDGE_ZONE` names the zone and so the CNAME targets
+   partners are shown (`dripfunnel.ai` dev, `dripfunnel.com` prod). Custom hostnames need a
+   token with *SSL and Certificates: Edit* on that zone. Adding one returns `pending` and an
+   ownership record of Cloudflare's own (`_cf-custom-hostname.<host>`).
+   **Origin routing (checked 2026-10-05, dev, free plan):** a SaaS hostname reaches the fallback
+   origin with the partner's own `Host`, and Pages answers only hostnames added to its project,
+   so it returns 522. Rewriting `Host` to the Pages name is an Origin Rule, **Enterprise only**;
+   adding every partner host to the Pages project hits its per-project domain cap and cannot
+   take wildcards. What works is a **Worker on a catch-all route** (`*/*` on the zone): it
+   receives the partner host first, sends `/api/*` to the API Worker and the rest to Pages
+   (whose own URL gives it the right `Host`), and keeps the partner's own `Host` on `/api/*`.
+   Hosts on our own zone pass through untouched, and `dev-admin`, `dev-platform`, `dev-store`
+   and `dev-hooks` answered as before.
+   **Not built (#426):** the API Worker routes any other host's `/api/*` to the Store API
+   without checking the host is registered (`resolveArea`). The decided design is a
+   `PortalProxy` entrypoint reached only through the proxy's service binding, with the partner
+   found in `partner_domain` by host.
+   Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the
+   SaaS hostname after commit; the console has no Remove button yet.
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
    **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check

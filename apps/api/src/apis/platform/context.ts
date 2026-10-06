@@ -23,6 +23,7 @@ export interface PlatformContextDeps {
   secrets: SecretBox | null
   // DripFunnel's Stripe account; null until its keys are Worker secrets (THIRD-PARTY-ACCESS §2.7).
   stripe: StripeApi | null
+  edgeZone: string
   /** `*.localhost` partner domains, where the local DNS stand-in answers them (DNS_LOCAL). */
   localHosts?: boolean
   now: () => Date

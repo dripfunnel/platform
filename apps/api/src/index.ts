@@ -54,6 +54,8 @@ import { catalogImportDeliverer, importPhotosDeliverer } from '#jobs/queues/deli
 import { deleteExpiredImports, failDeadImports } from '#db/scoped/catalogImports'
 import { deleteExpiredCatalogExports, failDeadCatalogExports } from '#db/scoped/catalogExports'
 import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
+import { cloudflareClient } from '#integrations/cloudflare/api'
+import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
@@ -144,11 +146,13 @@ const emailFor = (config: Config) => {
 const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null): Deliverers => {
   const lookup = config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup()
   const ses = emailFor(config)
+  const cloudflare = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
-    'domain.recheck': domainRecheckDeliverer(sql, lookup),
+    'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
+    ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
@@ -328,7 +332,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), localHosts: config.DNS_LOCAL === '1', now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', now: () => new Date() }))
   })
 }
 

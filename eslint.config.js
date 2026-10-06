@@ -41,7 +41,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.config.{js,ts,mjs}', 'apps/api/src/index.ts'],
+    files: ['**/*.config.{js,ts,mjs}', 'apps/api/src/index.ts', 'store-proxy/src/index.ts'],
     rules: { 'no-restricted-syntax': 'off' },
   },
   {

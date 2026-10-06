@@ -178,7 +178,7 @@ checks it, and reports progress (the archived domain flow, DESIGN-BRIEF flow 58)
 | Hostnames | How many | Risk for "Pages + `/api` Worker route on the same host" |
 |---|---|---|
 | `admin.dripfunnel.com`, `platform.dripfunnel.com` | Two, on our own zone | Low: standard Pages custom domain plus a Worker route |
-| Partner portal hosts | One per partner, on partners' domains | **Test this**: Pages custom domains on Cloudflare for SaaS custom hostnames, and per-project domain limits. Fallback: serve the portal through Workers static assets |
+| Partner portal hosts | One per partner, on partners' domains | **Tested 2026-10-05 (dev):** a SaaS hostname cannot reach Pages directly (522; the `Host` rewrite is Enterprise only). A catch-all Worker in front of Pages and the API works; serving the portal from Workers static assets remains the fallback. SAAS.md §8 |
 | Previews and live storefronts | One or more per merchant | Already planned on Workers and Cloudflare for SaaS |
 
 ---

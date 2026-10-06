@@ -175,6 +175,9 @@ Never reuse a value from local or production.
 | Name | Type | Dev value | How to get it |
 |---|---|---|---|
 | `ADMIN_HOST` | Text | `dev-admin.dripfunnel.ai` | fixed |
+| `EDGE_ZONE` | Text | `dripfunnel.ai` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>`, SAAS.md §8); the CNAME targets partners are shown |
+| `CF_SAAS_ZONE_ID` | Text | the id of the `dripfunnel.ai` zone | Cloudflare for SaaS custom hostnames (SAAS.md §8). Without it and the token no hostname is registered, and a portal address goes live on DNS alone |
+| `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
 | `PLATFORM_HOST` | Text | `dev-platform.dripfunnel.ai` | fixed |
 | `HOOKS_HOST` | Text | `dev-hooks.dripfunnel.ai` | fixed |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | fixed: the dev Worker has its binding |

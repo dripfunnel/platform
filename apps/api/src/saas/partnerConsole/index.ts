@@ -1,7 +1,7 @@
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { agentOf, type PartnerCaller, type PartnerConsoleState, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
-import type { PartnerSetupItemRow } from '#db/schema/saas'
+import type { DomainKind, PartnerSetupItemRow } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { countRetrying } from '#db/scoped/partnerBilling'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
@@ -63,6 +63,9 @@ export interface NavBadges {
   /** Support sessions open now, the caller's and its colleagues' (FIRST-RELEASE.md §16). */
   supportOpenSessions: number
 }
+
+/** FIRST-RELEASE §6: these items are done when their addresses are live, so they follow the domain rows. */
+const domainItemKinds: Partial<Record<ChecklistItem, readonly DomainKind[]>> = { portalHost: ['portal'], wildcards: ['preview', 'shops'], emailSender: ['email'] }
 
 export interface OnboardingItem {
   key: ChecklistItem
@@ -141,6 +144,12 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
     if (!partner) return null
     const [rows, domains, plans] = await Promise.all([selectSetupItemsFor(tx, [partnerId]), selectPartnerDomainsFor(tx, [partnerId]), selectPlansFor(tx, [partnerId])])
     const items = checklistItems.map((key): OnboardingItem => {
+      const kinds = domainItemKinds[key]
+      if (kinds) {
+        const mine = domains.filter((d) => kinds.includes(d.kind))
+        const live = mine.length === kinds.length && mine.every((d) => d.status === 'live')
+        return { key, status: live ? 'done' : mine.length > 0 ? 'progress' : 'missing', detail: null, doneBy: null, to: linkFor[key] }
+      }
       const row = rows.find((r) => r.item === key)
       // A payment item a staff session marked done reads as not done: only the partner enters them.
       const staffDidPartnerItem = row?.done_by_kind === 'staff' && partnerOnlyItems.includes(key)

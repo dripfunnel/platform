@@ -243,6 +243,15 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0
 
+  store-proxy:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^5.20260926.1
+        version: 5.20260926.1
+      wrangler:
+        specifier: ^4.141.0
+        version: 4.141.0(@cloudflare/workers-types@5.20260926.1)(@types/node@26.6.3)
+
   templates/storefront:
     dependencies:
       '@dripfunnel/storefront-core':

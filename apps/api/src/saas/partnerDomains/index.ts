@@ -6,7 +6,7 @@ import { partnerRoleHas } from '#auth/partnerPermissions'
 import { parseHostname } from '#core/hostname'
 import { domainKinds, type DomainKind, type HostStatus } from '#db/schema/saas'
 import { withScope } from '#db/scoped/index'
-import { hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
+import { deletePartnerAddress, hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
 import { selectCustomDomains } from '#db/scoped/stores'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
 import { isBareDomain, ownershipRecord, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
@@ -18,6 +18,7 @@ import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
 export const domainAudit = {
   addPartnerDomain: 'partner.domain_added',
+  removePartnerDomain: 'partner.domain_removed',
   recheckPartnerDomain: 'partner.domain_recheck_requested',
   recheckMerchantDomain: 'store.domain_recheck_requested',
 } as const
@@ -26,7 +27,7 @@ export const merchantDomainPageSize = 25
 
 // Never a partner's own address (FIRST-RELEASE §9.2 "Use a domain your company owns").
 const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.com']
-const isOurs = (host: string): boolean => dripfunnelDomains.some((d) => host === d || host.endsWith(`.${d}`))
+const isOurs = (host: string, edgeZone: string): boolean => [...dripfunnelDomains, edgeZone].some((d) => host === d || host.endsWith(`.${d}`))
 const wildcardKinds: readonly DomainKind[] = ['preview', 'shops']
 
 export type AddRefusal =
@@ -46,6 +47,7 @@ export interface PartnerDomainsDeps {
   caller: PartnerCaller
   facts: RequestFacts
   activity: ActivityLog
+  edgeZone: string
   /** `*.localhost` hosts are accepted: the local DNS stand-in answers them (DNS_LOCAL). */
   localHosts?: boolean
   now: () => Date
@@ -60,7 +62,7 @@ const recordDto = (r: PartnerDomainRecordRow) => ({
   matches: r.found !== null && recordMatches(r.purpose, r.expected, r.found),
 })
 
-export const createPartnerDomainsService = ({ sql, caller, facts, activity, localHosts = false, now }: PartnerDomainsDeps) => {
+export const createPartnerDomainsService = ({ sql, caller, facts, activity, edgeZone, localHosts = false, now }: PartnerDomainsDeps) => {
   const partnerId = caller.partner.id
   const context = partnerContextOf(caller)
   const entry = partnerEntry(caller, facts)
@@ -94,12 +96,12 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, loca
     const typed = parseHostname(parsed.data.host.trim().replace(/^\*\./, ''), { localhost: localHosts })
     if (!typed.ok || typed.wildcard) return Promise.resolve({ ok: false, reason: 'NOT_A_HOSTNAME' })
     const base = typed.host
-    if (isOurs(base)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
+    if (isOurs(base, edgeZone)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
     // A wildcard or the email sender on a bare domain would clash with the partner's website.
     if ((wildcard || kind === 'email') && isBareDomain(base)) return Promise.resolve({ ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' })
     const host = wildcard ? `*.${base}` : base
     const apex = kind === 'portal' && isBareDomain(base)
-    const pointing = recordsFor(kind, host, apex)
+    const pointing = recordsFor(kind, host, apex, edgeZone)
     if (!pointing) return Promise.resolve({ ok: false, reason: 'APEX_NOT_AVAILABLE' })
     // The token is the partner's proof of control: another partner's claim on the host never verifies.
     const records = [...pointing, ownershipRecord(host, crypto.randomUUID().replaceAll('-', ''))]
@@ -152,6 +154,22 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, loca
     })
   }
 
+  type RemoveResult = { ok: true } | { ok: false; reason: 'NOT_FOUND' | 'INVALID_INPUT' }
+
+  const removePartnerDomain = (rawKind: unknown): Promise<RemoveResult> => {
+    const kind = z.enum(domainKinds).safeParse(rawKind)
+    if (!kind.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
+    return withScope(sql, context, async (tx): Promise<RemoveResult> => {
+      const domain = (await selectPartnerDomainsWithRecords(tx, partnerId)).find((r) => r.domain.kind === kind.data)?.domain
+      if (!domain) return { ok: false, reason: 'NOT_FOUND' }
+      await deletePartnerAddress(tx, domain.id)
+      // After commit, so a Cloudflare outage never blocks the removal; the relay retries it.
+      if (domain.kind === 'portal') await queueSideEffect(tx, { kind: 'domain.remove', idempotencyKey: `${domain.id}:removed`, payload: { host: domain.host }, partnerId, storeId: null })
+      await activity.record(tx, entry({ action: domainAudit.removePartnerDomain, target: { type: 'domain', id: domain.id, label: domain.host }, reason: null, changes: [{ field: domain.kind, before: domain.host, after: null }] }))
+      return { ok: true }
+    })
+  }
+
   /** Null for a cursor it cannot read. */
   const merchantDomains = (page: PageRequest): Promise<{ items: { storeId: string; storeName: string; host: string; status: HostStatus; since: Date }[]; pageInfo: PageInfo } | null> => {
     const decoded = decodePage(page, merchantDomainPageSize)
@@ -163,7 +181,7 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, loca
     })
   }
 
-  return { partnerDomains, addPartnerDomain, recheckPartnerDomain, recheckMerchantDomain, merchantDomains }
+  return { partnerDomains, addPartnerDomain, removePartnerDomain, recheckPartnerDomain, recheckMerchantDomain, merchantDomains }
 }
 
 export type PartnerDomainsService = ReturnType<typeof createPartnerDomainsService>

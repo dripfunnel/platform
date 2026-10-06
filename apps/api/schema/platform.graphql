@@ -367,6 +367,7 @@ type Mutation {
   recheckMerchantDomain(storeId: ID!): PartnerDomainResult
   recheckPartnerDomain(kind: String!): PartnerDomainResult
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
+  removePartnerDomain(kind: String!): PartnerDomainResult
   removeTeamMember(id: ID!): TeamResult
   resendStoreOwnerInvite(id: ID!): StoreActionResult
   resendTeamInvite(id: ID!): TeamResult

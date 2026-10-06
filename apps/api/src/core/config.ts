@@ -4,6 +4,9 @@ const configSchema = z.object({
   ADMIN_HOST: z.string().min(1),
   PLATFORM_HOST: z.string().min(1),
   HOOKS_HOST: z.string().min(1),
+  CF_CUSTOM_HOSTNAMES_TOKEN: z.string().min(1).optional(),
+  CF_SAAS_ZONE_ID: z.string().min(1).optional(),
+  EDGE_ZONE: z.string().min(1).default('dripfunnel.com'),
   HYPERDRIVE: z.object({ connectionString: z.string().min(1) }).optional(),
   // Set where the binding exists (#30): a missing binding is then `missing` (503), not `unconfigured`.
   HYPERDRIVE_REQUIRED: z.literal('1').optional(),
