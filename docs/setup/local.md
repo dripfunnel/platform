@@ -319,7 +319,8 @@ it with the query.
 4. **Submit for approval**, in the partner console. The go-live checks run first: portal host
    live, email domain live, a priced plan, legal pages, the test sign-up.
 5. **Staff approve**, at `https://admin.localhost` › Partners › Acme Commerce › **Approve**, with a
-   reason. *Writes* `partner.state = 'live'` and the activity entries; merchant sign-up opens on
+   reason: a Super admin (`arjun@softobotics.example`), or the Partner manager assigned to the
+   partner (assign one on the same page first). *Writes* `partner.state = 'live'` and the activity entries; merchant sign-up opens on
    `https://store.acme.localhost`.
 
 ### 7.5 Add a store to a partner
@@ -348,7 +349,7 @@ For any Live partner: a seeded one (Northstar's owner `maya@northstar.example`, 
    ```
 
 Once the partner is Live, a merchant can also sign up on their own at
-`https://store.<partner>.localhost/signup`, with the codes from the terminal.
+`https://store.<partner>.localhost/sign-up`, with the codes from the terminal.
 
 ---
 
