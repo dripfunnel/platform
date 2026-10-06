@@ -86,7 +86,7 @@ const relay = async () => {
 const importWithPhotoQueued = async (who: Who, handle: string, url: string) => {
   const { id } = await upload(who, `handle,name,price,image\n${handle},${handle},10,${url}\n`)
   await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', who, { id })
-  for (let round = 0; round < 6; round++) await relayDue(db.sql, { 'import.catalog': catalogImportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+  for (let round = 0; round < 6; round++) await relayDue(db.sql, { 'import.catalog': catalogImportDeliverer(db.sql, null, null, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
   const [row] = await db.sql<{ id: string; payload: unknown }[]>`
     update outbox set delivered_at = now() where kind = 'import.photos' and payload->>'jobId' = ${id} and delivered_at is null returning id, payload`
   const photo = { id: row?.id ?? '', kind: 'import.photos', idempotencyKey: 'k', payload: row?.payload, partnerId: t.partnerA, storeId: t.storeA1 }

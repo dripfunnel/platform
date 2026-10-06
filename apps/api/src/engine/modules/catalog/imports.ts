@@ -87,7 +87,7 @@ export const problemWords: Record<ProblemCode, string> = {
   INVALID_PRICE: 'The price or compare-at price isn’t valid.',
   INVALID_BARCODE: 'This barcode isn’t a valid EAN, UPC or GTIN.',
   DUPLICATE_SKU: 'This SKU is already used by another of your products.',
-  TOO_MANY_PHOTOS: 'A product can have up to 20 photos.',
+  TOO_MANY_PHOTOS: 'A product can have up to 20 photos; the first 20 are imported and the rest left out.',
   INVALID_PHOTO: 'A photo isn’t usable.',
   INVALID_VIDEO: 'The video isn’t usable.',
   INVALID_FILTER: 'A filter value isn’t one of your store’s.',

@@ -83,3 +83,12 @@ describe('planImport, Shopify’s product CSV', () => {
     expect(textOfHtml('<h2>Care</h2><ul><li>Hand wash</li><li>Dry flat</li></ul>&lt;3')).toBe('Care\nHand wash\nDry flat\n<3')
   })
 })
+
+describe('planImport, a product past the photo limit', () => {
+  it('takes its first 20 photos and says the rest were left out', () => {
+    const rows = Array.from({ length: 21 }, (_, i) => `many,${i === 0 ? 'Many photos' : ''},${i === 0 ? '10' : ''},https://cdn.example/${i}.jpg`)
+    const result = planImport(['handle,name,price,image', ...rows].join('\n'), { currency: 'INR', languages: [], manualCurrencies: [], supplier: false }) as ImportPlan
+    expect(result.products[0]?.photos).toHaveLength(20)
+    expect(result.problems).toEqual([{ line: 22, column: 'image', code: 'TOO_MANY_PHOTOS' }])
+  })
+})

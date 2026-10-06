@@ -32,11 +32,12 @@ const gramsOf = (weight: { unit: string; value: number } | null | undefined): nu
   return factor === undefined ? null : Math.round(weight.value * factor)
 }
 
+// One more than an import takes (100 versions, 20 photos), so a product over either is reported, never cut short unseen.
 const productFields = `
   id handle title descriptionHtml status
   options { name position }
-  media(first: 20) { nodes { ... on MediaImage { image { url altText } } } }
-  variants(first: 100) { nodes { sku barcode price compareAtPrice inventoryQuantity selectedOptions { name value }
+  media(first: 21) { nodes { ... on MediaImage { image { url altText } } } }
+  variants(first: 101) { nodes { sku barcode price compareAtPrice inventoryQuantity selectedOptions { name value }
     inventoryItem { unitCost { amount } measurement { weight { unit value } } } } }`
 
 const productSchema = z

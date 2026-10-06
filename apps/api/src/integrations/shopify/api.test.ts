@@ -70,6 +70,9 @@ describe('shopifyApi', () => {
     })
     expect(asked[1]?.url).toBe('https://kesari.myshopify.com/admin/api/2025-07/graphql.json')
     expect(asked[1]?.token).toBe('shpat_1')
+    // One past what an import takes, so a product over 100 variants or 20 photos is reported by the check rather than cut short.
+    expect(asked[1]?.body).toContain('variants(first: 101)')
+    expect(asked[1]?.body).toContain('media(first: 21)')
   })
 
   it('says a refused token has expired', async () => {

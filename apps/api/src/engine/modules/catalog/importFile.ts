@@ -323,10 +323,10 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
       if (typeof checked === 'string') flag(first.line, refusalColumn[checked] ?? null, checked)
     }
     const seenPhotos = new Set<string>()
-    const photos = lines
+    const allPhotos = lines
       .filter((r) => /^https?:\/\//i.test(at(r, 'image')) && !seenPhotos.has(at(r, 'image')) && Boolean(seenPhotos.add(at(r, 'image'))))
       .map((r) => ({ url: at(r, 'image'), alt: at(r, 'imageAlt') || null, line: r.line }))
-      .slice(0, maxPhotos)
+    const photos = allPhotos.slice(0, maxPhotos)
     const translations = Object.fromEntries(
       [...languages].map(([language, columns]) => {
         const name = columns.name === undefined ? '' : (first.cells[columns.name]?.trim() ?? '')
@@ -339,6 +339,9 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
       refusedLines.push(...lines.map((l) => l.line))
       continue
     }
+    // The product comes in with its first photos; the ones past the limit are said, not dropped unseen.
+    const extra = allPhotos[maxPhotos]
+    if (extra) problems.push({ line: extra.line, column: labelOf('image'), code: 'TOO_MANY_PHOTOS' })
     products.push({ handle, lines: lines.map((l) => l.line), input, stock, photos, translations })
   }
   return { source, products, problems, refused, refusedLines }

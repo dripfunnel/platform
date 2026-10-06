@@ -37,6 +37,8 @@ const product = (n: number): ShopProduct => ({
   variants: [{ sku: `SHOP-${n}`, barcode: null, price: '100.00', compareAtPrice: null, cost: null, grams: 100, quantity: n, values: [] }],
 })
 const shopProducts = Array.from({ length: 30 }, (_, i) => product(30 - i))
+// One more variant than a product may have: the adapter reads 101 so the check can say so.
+const wide: ShopProduct = { ...product(999), options: ['Size', 'Colour'], variants: Array.from({ length: 101 }, (_, i) => ({ sku: `WIDE-${i}`, barcode: null, price: '10.00', compareAtPrice: null, cost: null, grams: null, quantity: null, values: [`S${i % 11}`, `C${Math.floor(i / 11)}`] })) }
 
 // What Shopify would do, per token: `shpat_good` reads the shop, `shpat_revoked` is refused, `down` doesn't answer.
 let tokenToIssue = 'shpat_good'
@@ -49,7 +51,7 @@ const shopify: ShopifyApi = {
     tokensSeen.push(token)
     if (token === 'shpat_revoked') throw new ShopUnauthorized('revoked')
     if (token === 'down') throw new ShopUnavailable('down')
-    if (page.ids) return { products: shopProducts.filter((p) => page.ids?.includes(p.id)), next: null }
+    if (page.ids) return { products: [...shopProducts, wide].filter((p) => page.ids?.includes(p.id)), next: null }
     const start = page.after ? Number(page.after) : 0
     const end = start + page.first
     return { products: shopProducts.slice(start, end), next: end < shopProducts.length ? String(end) : null }
@@ -174,6 +176,15 @@ describe('Connect Shopify', () => {
     await relay()
     const id = started.data?.['startShopifyImport'] as string
     expect((await gql('query J($id: ID!) { catalogImport(id: $id) { ready matched } }', 'owner', { id })).data?.['catalogImport']).toEqual({ ready: 30, matched: 2 })
+  })
+
+  it('refuses a product with more variants than an import takes, naming it, rather than bringing part of it', async () => {
+    await connect('owner', 'kesari')
+    const started = await gql('mutation S($ids: [ID!]) { startShopifyImport(productIds: $ids) }', 'owner', { ids: ['gid://shopify/Product/999', 'gid://shopify/Product/1'] })
+    await relay()
+    const job = (await gql('query J($id: ID!) { catalogImport(id: $id) { ready problems { code } } }', 'owner', { id: started.data?.['startShopifyImport'] })).data?.['catalogImport'] as { ready: number; problems: { code: string }[] }
+    expect(job.ready).toBe(1)
+    expect(job.problems.map((p) => p.code)).toEqual(['TOO_MANY_VERSIONS'])
   })
 
   it('adds a page delivered twice to the import once', async () => {
