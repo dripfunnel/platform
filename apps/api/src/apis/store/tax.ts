@@ -16,6 +16,7 @@ const words: Record<Exclude<TaxResult<unknown>, { ok: true }>['reason'], string>
   PRICE_REQUIRED: 'A product here has no price yet.',
   TOO_MANY: 'That’s as many as a store can have.',
   ZONE_OVERLAP: 'Another zone already sets a rate for this category in the same place. Change that zone, or choose other regions.',
+  NO_COUNTRY: 'Your store has no country yet, so there’s no home to set a rate for. Add your store’s address in Store info first.',
   TAX_UNAVAILABLE: 'We can’t work out the tax right now. Try again in a moment.',
 }
 
