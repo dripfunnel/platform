@@ -109,6 +109,31 @@ describe('markets', () => {
     expect(screen.queryByRole('button', { name: w.delete })).toBeNull()
     expect((screen.getByLabelText(w.elseTitle) as HTMLSelectElement).disabled).toBe(true)
     expect(within(screen.getByRole('group', { name: w.countries })).getAllByRole('button').every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
+    expect((screen.getByLabelText(w.name) as HTMLInputElement).readOnly).toBe(true)
+    expect(screen.queryByRole('combobox', { name: w.anotherCountry })).toBeNull()
+    expect(screen.queryByRole('searchbox', { name: w.findProduct })).toBeNull()
+  })
+
+  it('keep a new market’s draft when its save is refused because something it named went meanwhile', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: w.add }))
+    fireEvent.change(dialog().getByLabelText(w.name), { target: { value: 'Europe' } })
+    fireEvent.click(dialog().getByRole('button', { name: w.create }))
+    fireEvent.click(within(screen.getByRole('group', { name: w.countries })).getByRole('button', { name: /Germany/ }))
+    api.saveMarket.mockRejectedValueOnce(new ApiError('NOT_FOUND', 'gone'))
+    save()
+    await settle()
+    expect((screen.getByLabelText(w.name) as HTMLInputElement).value).toBe('Europe')
+    expect(within(screen.getByRole('group', { name: w.countries })).getByRole('button', { name: /Germany/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('alert').textContent).toBe(fill(w.reread, { refusal: w.refused.NOT_FOUND }))
+  })
+
+  it('offer the primary market no delete, and never switch it off', async () => {
+    await show()
+    open('India')
+    expect(screen.queryByRole('button', { name: w.delete })).toBeNull()
+    const selling = screen.getByRole('switch', { name: new RegExp(w.selling) }) as HTMLButtonElement
+    expect([selling.getAttribute('aria-checked'), selling.disabled]).toEqual(['true', true])
   })
 
   it('read the markets again after a save from an old read, so the next save is at what’s stored', async () => {

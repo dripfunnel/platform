@@ -14,7 +14,7 @@ import { messages } from '../../messages'
 const t = messages.settings.tax
 const wh = messages.warehouses
 
-const tax = vi.hoisted(() => ({ loadTax: vi.fn(), setPricesIncludeTax: vi.fn(), saveTaxClass: vi.fn(), deleteTaxClass: vi.fn(), saveTaxZone: vi.fn(), setTaxRate: vi.fn(), loadInvoiceSettings: vi.fn(), saveInvoiceSettings: vi.fn() }))
+const tax = vi.hoisted(() => ({ loadTax: vi.fn(), setPricesIncludeTax: vi.fn(), saveTaxClass: vi.fn(), deleteTaxClass: vi.fn(), saveTaxZone: vi.fn(), setTaxRate: vi.fn(), addTaxCategory: vi.fn(), loadInvoiceSettings: vi.fn(), saveInvoiceSettings: vi.fn() }))
 vi.mock('../../api/tax', () => tax)
 const settings = vi.hoisted(() => ({ loadStoreInfo: vi.fn(), loadLocale: vi.fn() }))
 vi.mock('../../api/settings', () => settings)
@@ -65,6 +65,7 @@ beforeEach(() => {
   settings.loadLocale.mockResolvedValue({ pricingCurrency: 'INR' })
   for (const fn of [tax.setPricesIncludeTax, tax.deleteTaxClass, tax.saveInvoiceSettings, tax.setTaxRate]) fn.mockResolvedValue(undefined)
   tax.saveTaxClass.mockResolvedValue('c-new')
+  tax.addTaxCategory.mockResolvedValue('c-new')
   tax.saveTaxZone.mockResolvedValue('z-in')
   team.loadSuppliers.mockResolvedValue([{ id: 'v1', name: 'Northwind Textiles' }])
   stock.loadPlaces.mockResolvedValue([
@@ -147,8 +148,8 @@ describe('tax setup', () => {
     fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Books 7.5%' } })
     confirm(t.add)
     await settle()
-    expect(tax.saveTaxClass).toHaveBeenLastCalledWith(null, { name: 'Books', taxCode: null, isDefault: false })
-    expect(tax.setTaxRate).toHaveBeenLastCalledWith('z-in', 'c-new', 750)
+    // The category and its home rate go as one call, the server making both or neither.
+    expect(tax.addTaxCategory).toHaveBeenCalledWith('Books', 750, 'India')
     expect(tax.saveTaxZone).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Manage Exempt' }))
     fireEvent.change(dialog().getByRole('combobox'), { target: { value: 'delete' } })
@@ -159,8 +160,8 @@ describe('tax setup', () => {
     expect(tax.loadTax.mock.calls.length).toBeGreaterThan(3)
   })
 
-  it('takes the new category away again when its rate can’t be saved, and reads the setup again', async () => {
-    tax.setTaxRate.mockRejectedValueOnce(new ApiError('ZONE_OVERLAP', 'overlap'))
+  it('says why adding a category was refused, and reads the setup again', async () => {
+    tax.addTaxCategory.mockRejectedValueOnce(new ApiError('ZONE_OVERLAP', 'overlap'))
     await show('tax')
     const reads = tax.loadTax.mock.calls.length
     fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
@@ -168,11 +169,10 @@ describe('tax setup', () => {
     confirm(t.add)
     await settle()
     await settle()
-    expect(tax.saveTaxClass).toHaveBeenCalledWith(null, { name: 'Books', taxCode: null, isDefault: false })
-    expect(tax.deleteTaxClass).toHaveBeenCalledWith('c-new')
     expect(screen.getByText(t.refused.ZONE_OVERLAP)).toBeTruthy()
-    // One read for the zone before writing it, one for the tab after.
-    expect(tax.loadTax.mock.calls.length).toBe(reads + 2)
+    expect(tax.saveTaxClass).not.toHaveBeenCalled()
+    expect(tax.deleteTaxClass).not.toHaveBeenCalled()
+    expect(tax.loadTax.mock.calls.length).toBe(reads + 1)
   })
 
   it('sets just that category’s rate, so someone else’s change to another rate stays', async () => {
@@ -208,18 +208,6 @@ describe('tax setup', () => {
     expect(screen.getByText(t.refused.other)).toBeTruthy()
   })
 
-  it('says the category is there without its rate when taking it away fails too', async () => {
-    tax.setTaxRate.mockRejectedValueOnce(new ApiError('ZONE_OVERLAP', 'overlap'))
-    tax.deleteTaxClass.mockRejectedValueOnce(new Error('offline'))
-    await show('tax')
-    fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
-    fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Books 7' } })
-    confirm(t.add)
-    await settle()
-    await settle()
-    expect(screen.getByText('“Books” was added without its rate. Set it with Manage.')).toBeTruthy()
-  })
-
   it('refuses a category and rate it can’t read before sending anything', async () => {
     await show('tax')
     for (const typed of ['Books 101', 'Books 7.555', '7']) {
@@ -229,7 +217,7 @@ describe('tax setup', () => {
       expect(dialog().getByText(t.addInvalid), typed).toBeTruthy()
       fireEvent.click(dialog().getByRole('button', { name: t.cancel }))
     }
-    expect(tax.saveTaxClass).not.toHaveBeenCalled()
+    expect(tax.addTaxCategory).not.toHaveBeenCalled()
   })
 
   it('lets a read-only store look without changing anything', async () => {
@@ -241,7 +229,7 @@ describe('tax setup', () => {
   })
 
   it('says why a category change was refused', async () => {
-    tax.saveTaxClass.mockRejectedValue(new ApiError('DUPLICATE_NAME', 'dup'))
+    tax.addTaxCategory.mockRejectedValue(new ApiError('DUPLICATE_NAME', 'dup'))
     await show('tax')
     fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
     fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Clothing 12' } })
