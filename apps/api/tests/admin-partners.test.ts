@@ -155,6 +155,27 @@ describe('partner(id) (§4.2, §4.3)', () => {
     expect((p?.['team'] as unknown[]).length).toBe(2)
   })
 
+  it('leaves out a testSignup row kept from before #421 dropped that item: counts, the setup filter and the checklist', async () => {
+    const list = `query($filter: PartnerFilter, $first: Int) { partners(filter: $filter, first: $first) { items { name setup { done total } } } }`
+    type Page = { partners: { items: { name: string; setup: { done: number; total: number } }[] } }
+    const id = await partnerIdOf('Kaufladen Digital')
+    await db.sql`insert into partner_setup_item (partner_id, item, status, detail) values (${id}, 'testSignup', 'missing', 'Sign up as a merchant') on conflict (partner_id, item) do update set status = 'missing', done_at = null`
+    try {
+      const page = await run<Page>(list, as('staff-super-admin'), { first: 25 })
+      expect(page.data?.partners.items.find((i) => i['name'] === 'Kaufladen Digital')).toMatchObject({ setup: { done: 7, total: 9 } })
+      const complete = await run<Page>(list, as('staff-super-admin'), { first: 25, filter: { setup: 'complete' } })
+      const before = (complete.data?.partners.items ?? []).map((i) => i['name'])
+      await db.sql`update partner_setup_item set status = 'missing', done_at = null where partner_id = ${(await partnerIdOf('Northstar Commerce'))} and item = 'testSignup'`
+      await db.sql`insert into partner_setup_item (partner_id, item, status) values (${await partnerIdOf('Northstar Commerce')}, 'testSignup', 'missing') on conflict (partner_id, item) do nothing`
+      const after = (await run<Page>(list, as('staff-super-admin'), { first: 25, filter: { setup: 'complete' } })).data?.partners.items.map((i) => i['name'])
+      expect(after).toEqual(before)
+      const { data } = await run<Detail>(detail, as('staff-super-admin'), { id })
+      expect((data?.partner?.['checklist'] as { item: string }[]).map((c) => c.item)).not.toContain('testSignup')
+    } finally {
+      await db.sql`delete from partner_setup_item where item = 'testSignup'`
+    }
+  })
+
   it('the permission block depends on the role and the record', async () => {
     const kaufladen = await partnerIdOf('Kaufladen Digital')
     const house = await partnerIdOf('DripFunnel')
