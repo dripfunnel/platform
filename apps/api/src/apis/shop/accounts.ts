@@ -47,7 +47,7 @@ const signedIn = async (ctx: ShopContext, result: SignedIn) => {
   const { sql, shopper } = shopOf(ctx)
   if (shopper.context.caller.kind === 'shopper' && shopper.context.caller.orderTokenHash) {
     const context: TenantContext = { ...shopper.context, caller: { ...shopper.context.caller, customerId: result.customerId } }
-    await createCartService({ sql, context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers: null, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+    await createCartService({ sql, context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers: null, activity: ctx.activity, facts: ctx.facts, allowNewCart: async () => false, now: ctx.now })
       .claim()
       .catch(() => false)
   }

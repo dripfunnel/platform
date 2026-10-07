@@ -57,7 +57,7 @@ const gql = async (source: string, who: { host?: string; token?: string | null }
   const headers: Record<string, string> = who.token ? { 'x-shop-cart': who.token } : {}
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, ...(allow === null ? {} : { allowNewCart: async () => allow === true }), now: () => new Date() }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, allowNewCart: async () => allow, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, problems: result.errors?.[0]?.extensions['problems'] as string[] | undefined }
 }
@@ -67,7 +67,7 @@ const mutate = (token: string | null, field: string, args = '') => gql(`mutation
 
 let token = ''
 // What the new-cart limiter answers, or null for no limiter bound; a test turns it off.
-let allow: boolean | null = true
+let allow = true
 
 describe('a guest’s cart', () => {
   it('starts on the first add, handing out a token once; without it there is no cart', async () => {
@@ -216,9 +216,6 @@ describe('limits and expiry', () => {
     allow = false
     expect((await gql(`mutation { addToCart(versionId: "${ids.kurta}", quantity: 1) { cartToken } }`)).code).toBe('RATE_LIMITED')
     expect((await gql(`mutation { setCartQuantity(versionId: "${ids.kurta}", quantity: 1) { cart { id } } }`, { token })).code).toBeUndefined()
-    // Where no limiter is bound (a local Worker), nothing stops a new cart.
-    allow = null
-    expect((await gql(`mutation { addToCart(versionId: "${ids.kurta}", quantity: 1) { cartToken } }`)).code).toBeUndefined()
     allow = true
   })
 
