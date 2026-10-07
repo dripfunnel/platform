@@ -111,7 +111,10 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
         // A supplier hears of an order only through its own part (ACCESS §7.3): another's is "not found", never "not yours".
         if (!order || (sellerId && !all.some((l) => l.seller_id === sellerId))) return { ok: false, reason: 'NOT_FOUND' }
         const goneThrough = order.payment_state !== 'pending' || order.payment_method === 'cod' || order.payment_method === 'bank_transfer'
-        if (order.state !== 'placed' || order.test || !goneThrough) return { ok: false, reason: 'NOT_SHIPPABLE' }
+        // Refunded in full, there's nothing left to send for.
+        if (order.state !== 'placed' || order.test || !goneThrough || order.payment_state === 'refunded') return { ok: false, reason: 'NOT_SHIPPABLE' }
+        // A pickup is handed over at the store: it has no courier or tracking to give the shopper.
+        if (order.shipping_option === 'pickup' && !sellerId && (courierName || trackingNumber)) return { ok: false, reason: 'INVALID_INPUT' }
         if (!(await ownsWarehouse(tx, storeId, sellerId, input.warehouseId))) return { ok: false, reason: 'NOT_YOURS' }
 
         // A supplier looks lines up among its own only, so another owner's line is as unknown as one that doesn't exist.
