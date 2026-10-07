@@ -150,6 +150,13 @@ grant select (id, store_id, label, tone, rule, position) on badge to app_shop;
 grant select (store_id, entity, entity_id, field, language, text) on translation to app_shop;
 grant select (id, store_id, kind, mime, bytes, width, height, r2_key) on asset to app_shop;
 grant select (id, store_id, email, email_verified_at, phone, phone_verified_at, name, status, created_at) on customer to app_shop;
+-- The cart's delivery quote (SAPI 23, #305): what the shopper pays, the couriers that price it and a market's own charge;
+-- whether the store delivers to a postcode only through store_delivers_to(), never the list (§7.11).
+grant select (store_id, courier_enabled, flat_enabled, flat_amount, pickup_enabled, pickup_hours, free_mode, free_threshold_amount, currency,
+  area_mode, saved_at) on store_shipping to app_shop;
+grant select (store_id, provider, role, position) on store_courier to app_shop;
+grant select (delivery_amount) on market to app_shop;
+grant execute on function store_delivers_to(text) to app_shop;
 -- A shopper's own entries (LOGGING §6: visibility self), as 0006's shop branch reads them.
 grant select on activity_log to app_shop;
 
@@ -193,6 +200,8 @@ begin
     ('filter', 'shopper_visible'),
     ('filter_value', 'exists (select 1 from filter f where f.id = filter_id)'),
     ('menu', 'true'),
+    ('store_shipping', 'true'),
+    ('store_courier', 'true'),
     ('menu_item', 'true'),
     ('badge', 'true'),
     ('translation', 'case entity
@@ -220,7 +229,7 @@ begin
       'product_option_value', 'product_version', 'product_version_option_value', 'version_price', 'product_photo', 'product_video',
       'product_market_rule', 'product_flag', 'product_compliance', 'product_spec', 'product_highlight', 'product_faq', 'product_related',
       'product_badge', 'product_filter_value', 'product_story', 'story_block', 'size_chart', 'collection', 'collection_product', 'filter',
-      'filter_value', 'menu', 'menu_item', 'badge', 'translation', 'asset', 'customer', 'activity_log')
+      'filter_value', 'menu', 'menu_item', 'badge', 'translation', 'asset', 'customer', 'activity_log', 'store_shipping', 'store_courier')
   loop
     execute format('alter policy request_scope on %I to %s using ((%s) and (current_user <> ''app_shop'' or app_setting_text(''app.scope'') = ''shop'')) with check ((%s) and (current_user <> ''app_shop'' or app_setting_text(''app.scope'') = ''shop''))',
       pin.tablename, (select string_agg(format('%I', r), ', ') from unnest(array_append(pin.roles::text[], 'app_shop')) r), pin.qual, coalesce(pin.with_check, pin.qual));
