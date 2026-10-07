@@ -247,3 +247,32 @@ describe('#444’s review', () => {
     expect(Number((await db.sql<{ n: string }[]>`select count(*)::text as n from customer_code`)[0]?.n)).toBe(0)
   })
 })
+
+describe('codes, further (#444’s review)', () => {
+  it('refuses an expired code, a deleted account and another store’s code alike, and logs the failure without the address', async () => {
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919822222222") }')
+    const code = await textedCode('+919822222222')
+    await db.sql`insert into store_customer_auth (store_id, email_enabled, phone_enabled) values (${stores.other}, true, true) on conflict (store_id) do update set phone_enabled = true`
+    expect((await verify('PHONE', '+919822222222', code, '', { host: hostOf.other })).code).toBe('CODE_REFUSED')
+    await db.sql`update customer_code set expires_at = now() - interval '1 minute' where target = '+919822222222'`
+    expect((await verify('PHONE', '+919822222222', code)).code).toBe('CODE_REFUSED')
+    await db.sql`insert into customer (store_id, phone, status) values (${stores.india}, '+919833333333', 'deleted')`
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919833333333") }')
+    expect((await verify('PHONE', '+919833333333', await textedCode('+919833333333'))).code).toBe('CODE_REFUSED')
+    const failed = await db.sql<{ reason: string | null; target_label: string | null }[]>`select reason, target_label from activity_log where action = 'customer.sign_in_failed' and store_id = ${stores.india}`
+    expect(failed.length).toBeGreaterThan(0)
+    expect(JSON.stringify(failed)).not.toMatch(/98222|98333/)
+  })
+
+  it('emails a code minted as it is sent: never in the outbox, never for a used code or another partner', async () => {
+    await gql('mutation { requestSignInCode(channel: EMAIL, to: "neha@example.com") }')
+    const [row] = await db.sql<{ payload: Record<string, unknown>; partner_id: string }[]>`select payload, partner_id from outbox where kind = 'email' and payload->>'template' = 'shopper-code' order by created_at desc limit 1`
+    expect(Object.keys(row?.payload ?? {}).sort()).toEqual(['customerCodeId', 'template'])
+    const prepare = (partnerId: string | null) => withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: row?.payload, partnerId }, { adminHost: 'a', platformHost: 'p' }, new Date()))
+    expect(await prepare(t.partnerB)).toEqual({ send: false, reason: 'tenant_mismatch' })
+    const sent = await prepare(row?.partner_id ?? null)
+    expect(sent.send && sent.to).toEqual(['neha@example.com'])
+    await db.sql`update customer_code set used_at = now() where id = ${String(row?.payload['customerCodeId'])}`
+    expect(await prepare(row?.partner_id ?? null)).toEqual({ send: false, reason: 'link_closed' })
+  })
+})
