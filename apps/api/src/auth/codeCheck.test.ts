@@ -1,14 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { codeMatches, setCodeCheck } from './codeCheck'
+import { describe, expect, it } from 'vitest'
+import { codeMatches } from './codeCheck'
 
 describe('codeMatches', () => {
-  afterEach(() => setCodeCheck(undefined))
-
   it('follows the comparison unless CODE_CHECK is 0', () => {
-    expect([codeMatches(true), codeMatches(false)]).toEqual([true, false])
-    setCodeCheck('1')
-    expect(codeMatches(false)).toBe(false)
-    setCodeCheck('0')
-    expect([codeMatches(true), codeMatches(false)]).toEqual([true, true])
+    for (const mode of [undefined, '1'] as const) expect([codeMatches(true, mode), codeMatches(false, mode)]).toEqual([true, false])
+    expect([codeMatches(true, '0'), codeMatches(false, '0')]).toEqual([true, true])
   })
 })

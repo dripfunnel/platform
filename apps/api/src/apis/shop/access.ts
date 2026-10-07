@@ -7,6 +7,7 @@ import type { PaymentWiring } from '#engine/modules/checkout/index'
 import type { StripeTaxDeps } from '#engine/modules/tax/index'
 import { GraphQLError } from 'graphql'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
+import type { CodeCheck } from '#auth/codeCheck'
 import type { Shopper } from '#auth/shopCaller'
 import type { CourierDirectory } from '#core/couriers'
 import type { AccessPolicy } from '../graphql/scope'
@@ -28,6 +29,7 @@ export interface ShopContext extends Record<string, unknown> {
   secrets?: SecretBox | null
   /** The sign-in limiter (SIGN_IN_RATE_LIMITER) by key; refuses everything where it isn't bound. */
   allowAttempt?: (key: string) => Promise<boolean>
+  codeCheck?: CodeCheck
   /** The session token this request presents (X-Shop-Session), for signing out. */
   sessionToken?: string | null
   /** The new-cart limiter (CART_RATE_LIMITER) by key; the Worker refuses to serve without it. */

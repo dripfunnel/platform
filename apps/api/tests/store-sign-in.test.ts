@@ -4,7 +4,6 @@ import type { StoreContext } from '#apis/store/access'
 import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema } from '#apis/store/schema'
-import { setCodeCheck } from '#auth/codeCheck'
 import { hashPassword } from '#auth/password'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
@@ -243,13 +242,11 @@ describe('the second factor', () => {
 
   it('accepts any texted code when CODE_CHECK is 0', async () => {
     await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+919845022113', two_factor_secret_enc = null where id = ${people.staff}`
-    setCodeCheck('0')
     try {
       const res = await post('/api/auth/sign-in', { email: 'staff@a.example', password })
       await post('/api/auth/send-code', {}, res.cookie)
-      expect((await post('/api/auth/second-factor', { code: '000000' }, res.cookie)).body).toEqual({ ok: true })
+      expect((await post('/api/auth/second-factor', { code: '000000' }, res.cookie, deps({ codeCheck: '0' }))).body).toEqual({ ok: true })
     } finally {
-      setCodeCheck(undefined)
       await db.sql`update "user" set two_factor_method = null, two_factor_enrolled_at = null, phone = null where id = ${people.staff}`
     }
   })
@@ -269,17 +266,15 @@ describe('an Owner enrolling by SMS', () => {
   })
   it('still refuses an expired code and one out of tries when CODE_CHECK is 0', async () => {
     await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+919845022113', two_factor_secret_enc = null where id = ${people.staff}`
-    setCodeCheck('0')
     try {
       for (const spoil of [`expires_at = '2000-01-01'`, 'attempts = 5']) {
         await db.sql`delete from verification_code where subject_id = ${people.staff}`
         const res = await post('/api/auth/sign-in', { email: 'staff@a.example', password })
         await post('/api/auth/send-code', {}, res.cookie)
         await db.sql.unsafe(`update verification_code set ${spoil} where subject_id = '${people.staff}'`)
-        expect((await post('/api/auth/second-factor', { code: '000000' }, res.cookie)).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
+        expect((await post('/api/auth/second-factor', { code: '000000' }, res.cookie, deps({ codeCheck: '0' }))).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
       }
     } finally {
-      setCodeCheck(undefined)
       await db.sql`update "user" set two_factor_method = null, two_factor_enrolled_at = null, phone = null where id = ${people.staff}`
     }
   })
@@ -288,12 +283,7 @@ describe('an Owner enrolling by SMS', () => {
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
     const res = await post('/api/auth/sign-in', { email: 'third.owner@a.example', password })
     await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550198' }, res.cookie)
-    setCodeCheck('0')
-    try {
-      expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code: '000000' }, res.cookie)).body['backupCodes']).toHaveLength(10)
-    } finally {
-      setCodeCheck(undefined)
-    }
+    expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code: '000000' }, res.cookie, deps({ codeCheck: '0' }))).body['backupCodes']).toHaveLength(10)
   })
 })
 

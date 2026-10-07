@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
 import { verifySignupPhone } from '#apis/store/signup'
-import { setCodeCheck } from '#auth/codeCheck'
 import { hashPassword } from '#auth/password'
 import { mintSignupEmailCode } from '#auth/signupCodes'
 import { withSystemScope } from '#db/scoped/index'
@@ -45,6 +44,7 @@ const deps = (overrides: Partial<StoreAuthDeps> = {}): StoreAuthDeps => ({ sql: 
 
 const cookies = (response: Response) => Object.fromEntries(response.headers.getSetCookie().map((c) => c.split(';')[0]?.split('=') ?? []).filter((kv) => kv.length === 2))
 
+const off = () => deps({ codeCheck: '0' })
 const post = async (path: string, body: unknown, signup = '', d = deps()) => {
   const response = await handleStoreAuth(
     new Request(`https://${d.host}${path}`, { method: 'POST', headers: { origin: `https://${d.host}`, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7', ...(signup ? { cookie: `__Host-portal_signup=${signup}` } : {}) }, body: JSON.stringify(body) }),
@@ -124,14 +124,11 @@ describe('signing up', () => {
   })
 
   it('accepts any sign-up email code when CODE_CHECK is 0', async () => {
-    setCodeCheck('0')
-    try {
+    {
       const start = await post('/api/auth/sign-up', { name: 'Zed', email: 'zed@a.example', password })
       await emailCode('zed@a.example')
-      const verified = await post('/api/auth/sign-up/verify-email', { code: '000000' }, start.cookies['__Host-portal_signup'] ?? '')
+      const verified = await post('/api/auth/sign-up/verify-email', { code: '000000' }, start.cookies['__Host-portal_signup'] ?? '', off())
       expect(verified.body['step']).toBe('store')
-    } finally {
-      setCodeCheck(undefined)
     }
   })
   it('makes the account, the store, its Trial and the Owner, then holds the Owner at 2-factor set-up', async () => {
@@ -159,35 +156,29 @@ describe('signing up', () => {
   })
 
   it('still refuses an expired sign-up code and one out of tries when CODE_CHECK is 0', async () => {
-    setCodeCheck('0')
-    try {
+    {
       for (const spoil of [`email_code_expires_at = '2000-01-01'`, 'email_code_attempts = 5']) {
         const email = `spoil${spoil.length}@a.example`
         const start = await post('/api/auth/sign-up', { name: 'Zed', email, password })
         await emailCode(email)
         await db.sql.unsafe(`update signup set ${spoil} where email = '${email}'`)
-        expect((await post('/api/auth/sign-up/verify-email', { code: '000000' }, start.cookies['__Host-portal_signup'] ?? '')).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
+        expect((await post('/api/auth/sign-up/verify-email', { code: '000000' }, start.cookies['__Host-portal_signup'] ?? '', off())).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
       }
       for (const spoil of [`phone_code_expires_at = '2000-01-01'`, 'phone_code_attempts = 5']) {
         const email = `spoilphone${spoil.length}@a.example`
         const signup = await throughStore(email, `spoil-phone-${spoil.length}`)
         await post('/api/auth/sign-up/send-phone', { phone: '+16145550102' }, signup)
         await db.sql.unsafe(`update signup set ${spoil} where email = '${email}'`)
-        expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup)).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
+        expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup, off())).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
       }
-    } finally {
-      setCodeCheck(undefined)
     }
   })
 
   it('accepts any sign-up phone code when CODE_CHECK is 0', async () => {
     const signup = await throughStore('zed.phone@a.example', 'zed-phone')
     await post('/api/auth/sign-up/send-phone', { phone: '+16145550101' }, signup)
-    setCodeCheck('0')
-    try {
-      expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup)).body['step']).toBe('enrol')
-    } finally {
-      setCodeCheck(undefined)
+    {
+      expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup, off())).body['step']).toBe('enrol')
     }
   })
 

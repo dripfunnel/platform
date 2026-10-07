@@ -382,7 +382,7 @@ export const registerProfile = (builder: StoreBuilder) => {
             const pending = await selectPendingSecondFactor(tx, person.sessionHash, person.id)
             // The code proves the number it was sent to; a number changed since needs a new code.
             if (pending?.pending_phone !== phone) throw refused('CODE_EXPIRED', 'Ask for a new code.')
-            const checked = await checkTextedCode(tx, person.id, 'enrol_phone', code, now)
+            const checked = await checkTextedCode(tx, person.id, 'enrol_phone', code, now, ctx.codeCheck)
             if (checked !== 'ok') return refused(checked === 'wrong' ? 'WRONG_CODE' : 'CODE_EXPIRED', checked === 'wrong' ? 'That code doesn’t match.' : 'That code has expired.')
             return finish('sms', null, phone, null)
           }

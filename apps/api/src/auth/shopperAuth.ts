@@ -22,7 +22,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from './activity'
 import { hashPassword, minPasswordLength, verifyPassword } from './password'
 import { hashSessionId, newSessionId } from './session'
 import { hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, smsCodeMs } from './storeCodes'
-import { codeMatches } from './codeCheck'
+import { codeMatches, type CodeCheck } from './codeCheck'
 
 // A store's shoppers signing in (ACCESS §2.1): email and password, a code by email or text, or both, as Settings ›
 // Customer accounts says. In system scope, as no shopper exists yet; every query names the store. Answers never say
@@ -48,6 +48,7 @@ export interface ShopperAuthDeps {
   facts: RequestFacts
   /** The sign-in limiter (SIGN_IN_RATE_LIMITER), per store and IP and per store and email. */
   allowAttempt: (key: string) => Promise<boolean>
+  codeCheck?: CodeCheck
   now: () => Date
 }
 
@@ -69,7 +70,7 @@ const limiterKeyOf = (target: string) => hashSessionId(`shopper-limit:${target}`
 // Salted by the code's own row, as a merchant's are (storeCodes.ts).
 export const hashShopperCode = (codeId: string, code: string) => hashSmsCode(`shopper:${codeId}`, code)
 
-export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, allowAttempt, now }: ShopperAuthDeps) => {
+export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, allowAttempt, now, codeCheck }: ShopperAuthDeps) => {
   const entry = (action: string, customerId: string | null, result: 'success' | 'failed' = 'success'): ActivityEntry => ({
     category: action.startsWith('customer.sign') ? 'auth' : 'write',
     action,
@@ -141,7 +142,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
         return { ok: false, reason: 'CODE_REFUSED' }
       }
       if (!live || live.attempts >= maxSmsCodeAttempts || !live.code_hash) return refused()
-      if (!codeMatches(live.code_hash === (await hashShopperCode(live.id, code.trim())))) {
+      if (!codeMatches(live.code_hash === (await hashShopperCode(live.id, code.trim())), codeCheck)) {
         await countCodeAttempt(tx, live.id)
         return refused()
       }

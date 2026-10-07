@@ -1,9 +1,4 @@
-let checking = true
+export type CodeCheck = '1' | '0' | undefined
 
-/** Set from CODE_CHECK on each request; `0` exists for dev only (config.ts refuses it elsewhere). */
-export const setCodeCheck = (mode: '1' | '0' | undefined): void => {
-  checking = mode !== '0'
-}
-
-/** Whether a typed code counts as matching: any code does while CODE_CHECK is 0. */
-export const codeMatches = (matches: boolean): boolean => !checking || matches
+/** Whether a typed code counts as matching: any code does when CODE_CHECK is 0 (config.ts allows that on dev and localhost only). */
+export const codeMatches = (matches: boolean, mode: CodeCheck): boolean => mode === '0' || matches

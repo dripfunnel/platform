@@ -200,7 +200,7 @@ const secondFactor = async (request: Request, deps: StoreAuthDeps, facts: Reques
       }
       step = checked.step
     } else {
-      const checked = await checkTextedCode(tx, state.id, 'sign_in', input.code, now)
+      const checked = await checkTextedCode(tx, state.id, 'sign_in', input.code, now, deps.codeCheck)
       if (checked !== 'ok') {
         await deps.activity.record(tx, personCodeRefused(user, facts, checked === 'wrong' ? 'WRONG_CODE' : 'CODE_EXPIRED'))
         return checked === 'wrong' ? wrongCode(tx, deps, facts, state, now) : { code: 'CODE_EXPIRED' }
@@ -287,7 +287,7 @@ const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts,
       return { hint: phoneHint(phone) }
     }
     if (!pending.pendingPhone) return { code: 'INVALID_CREDENTIALS' }
-    const checked = await checkTextedCode(tx, state.id, 'enrol_phone', input.code, now)
+    const checked = await checkTextedCode(tx, state.id, 'enrol_phone', input.code, now, deps.codeCheck)
     if (checked !== 'ok') return { code: checked === 'wrong' ? 'WRONG_CODE' : 'CODE_EXPIRED' }
     return finish('sms', null, pending.pendingPhone, null)
   })

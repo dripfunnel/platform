@@ -3,6 +3,7 @@ import { GraphQLError } from 'graphql'
 import type { SecretBox } from '#auth/secretBox'
 import type { ShopConnect } from '#engine/modules/catalog/index'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
+import type { CodeCheck } from '#auth/codeCheck'
 import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
 import { isStorePermission, storePermissions, storeRoleHas, type StorePermission, type StoreRole } from '#auth/storePermissions'
 import { accessErrorCode, forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
@@ -28,6 +29,7 @@ export interface StoreContext extends Record<string, unknown> {
   couriers?: CourierDirectory | null
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null
+  codeCheck?: CodeCheck
   now: () => Date
 }
 

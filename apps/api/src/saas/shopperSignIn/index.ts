@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
+import type { CodeCheck } from '#auth/codeCheck'
 import { createShopperAuth, type ShopperChannel } from '#auth/shopperAuth'
 import { smsCodeMs } from '#auth/storeCodes'
 import { withSystemScope } from '#db/scoped/index'
@@ -17,6 +18,7 @@ export interface ShopperSignInDeps {
   activity: ActivityLog
   facts: RequestFacts
   allowAttempt: (key: string) => Promise<boolean>
+  codeCheck?: CodeCheck
   now: () => Date
 }
 

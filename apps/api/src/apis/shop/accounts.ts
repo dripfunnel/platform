@@ -33,7 +33,7 @@ const answered = <T>(result: AccountResult<T> | { ok: true; value: T } | { ok: f
 
 const signInOf = (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
-  return createShopperSignIn({ sql, storeId: shopper.context.storeId, partnerId: shopper.context.partnerId, activity: ctx.activity, facts: ctx.facts, allowAttempt: ctx.allowAttempt ?? (async () => false), now: ctx.now })
+  return createShopperSignIn({ sql, storeId: shopper.context.storeId, partnerId: shopper.context.partnerId, activity: ctx.activity, facts: ctx.facts, allowAttempt: ctx.allowAttempt ?? (async () => false), codeCheck: ctx.codeCheck, now: ctx.now })
 }
 
 const accountOf = (ctx: ShopContext) => {
