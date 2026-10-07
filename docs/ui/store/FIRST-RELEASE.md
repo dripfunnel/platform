@@ -603,7 +603,7 @@ live way to pay, `LAST_METHOD`) are the Owner's (`payments.configure`); `markOrd
 Owner's; a support session can't. On the Shop API a card provider's `placeOrder` starts the payment first and answers
 `payment` (`providerRef`, `publicKey`, `accountId`, `clientSecret`, `sessionId`, `redirectUrl`, as the provider needs), the
 order placed unpaid with no stock held; `confirmPayment(orderId)` reads it back on the shopper's return and answers the order;
-`payOrder(orderId)` starts a new attempt after a decline, cancelling the one it replaces at the provider (`ALREADY_PAID` once paid, `PAYMENT_MISMATCH` while a wrong amount waits for the merchant). Paid, from the webhook, the return or
+`payOrder(orderId)` starts a new attempt after a decline, cancelling the one it replaces at the provider (`ALREADY_PAID` once paid, `PAYMENT_MISMATCH` while a wrong amount waits for the merchant, `PAYMENT_PENDING` while the earlier one is still going through, `MODE_MISMATCH` from the other storefront's mode). The sweep cancels a card order only once its provider has closed the attempt. Paid, from the webhook, the return or
 the sweep, the order holds its stock; a card order unpaid for a day is cancelled (`unpaid`). Preview storefronts pay in
 test mode and never hold stock. A US address on a store with Stripe connected is taxed by Stripe Tax, delivery included;
 the store's own rates leave delivery untaxed (decided on #309). A Stripe account takes payment for one store only

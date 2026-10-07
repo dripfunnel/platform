@@ -113,7 +113,9 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
   /** A card provider's keys for a mode, checked, tried once with the provider and sealed (THIRD-PARTY-ACCESS §3.1). */
   const connectKeys = async (provider: string, input: ConnectInput): Promise<SetupResult<true>> => {
     if (!isPaymentProvider(provider) || !isCardProvider(provider) || !isKeyedProvider(provider)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
-    const mode = input.mode ?? 'live'
+    // Keys belong to one mode; a mode left out is never assumed to be live.
+    if (!input.mode) return { ok: false, reason: 'INVALID_KEYS' }
+    const mode = input.mode
     const clean = input.credentials ? cleanCredentials(provider, mode, input.credentials) : null
     if (!clean) return { ok: false, reason: 'INVALID_KEYS' }
     const gateway = gateways[provider]

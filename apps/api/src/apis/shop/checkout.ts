@@ -15,6 +15,8 @@ const words: Record<string, string> = {
   NOT_FOUND: 'Your cart has expired. Add something to start again.',
   PAYMENT_UNAVAILABLE: 'We couldn’t reach the payment provider. Try again in a minute.',
   ALREADY_PAID: 'This order is already paid.',
+  PAYMENT_PENDING: 'Your earlier payment is still going through. Check back in a few minutes.',
+  MODE_MISMATCH: 'This order is paid for on the shop it was placed on.',
   PAYMENT_MISMATCH: 'The shop needs to check this payment before you pay again. Contact the shop.',
   NOT_PENDING: 'This order isn’t waiting for a card payment.',
   PHONE_REQUIRED: 'Add your mobile number to pay this way.',

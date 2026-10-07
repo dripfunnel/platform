@@ -149,6 +149,8 @@ describe('Connecting by keys', () => {
     expect((await connectRazorpay('LIVE', 'keyId: "rzp_test_abcdef", keySecret: "s", webhookSecret: "w"')).code).toBe('INVALID_KEYS')
     expect((await connectRazorpay('LIVE', 'keyId: "rzp_live_abcdef", keySecret: "s", webhookSecret: "w", appId: "x"')).code).toBe('INVALID_KEYS')
     expect((await connectRazorpay('LIVE', 'keyId: "rzp_live_abcdef", keySecret: "s"')).code).toBe('INVALID_KEYS')
+    // Keys belong to a mode: one left out is refused, never taken as live.
+    expect((await merchant('mutation { connectGateway(provider: "cashfree", keys: { appId: "app1", secretKey: "cfs" }) }', 'owner')).code).toBe('INVALID_KEYS')
     expect((await connectRazorpay('LIVE', 'keyId: "rzp_live_abcdef", keySecret: "wrong", webhookSecret: "w"')).code).toBe('KEYS_REFUSED')
     expect((await connectRazorpay('LIVE', 'keyId: "rzp_live_abcdef", keySecret: "s", webhookSecret: "w"', 'staff')).code).toBe('FORBIDDEN')
     expect(await db.sql`select 1 from payment_provider_account where provider = 'razorpay'`).toHaveLength(0)

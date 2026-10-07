@@ -140,6 +140,29 @@ export const settlePayment = async (deps: SettleDeps, payment: Pick<PaymentToSet
   return applyOutcome(deps, provider, payment.provider_ref, outcome)
 }
 
+/**
+ * Closes the order's latest attempt at its provider before anything replaces or cancels it: `open` when the provider
+ * won't (a payment still processing), `paid` when it was paid meanwhile, `closed` otherwise or where it can't close one.
+ */
+export const closeLatestAttempt = async (deps: SettleDeps, storeId: string, orderId: string): Promise<'closed' | 'paid' | 'open'> => {
+  const latest = await withSystemScope(deps.sql, (tx) => selectLatestPayment(tx, storeId, orderId))
+  const provider = latest?.provider
+  if (!latest?.provider_ref || !latest.provider_account_id || !provider || !isCardProvider(provider)) return 'closed'
+  const gateway = deps.gateways[provider]
+  const accountId = latest.provider_account_id
+  const row = await withSystemScope(deps.sql, (tx) => selectAccountById(tx, accountId))
+  const account = row ? await openAccount(row, latest.mode, deps.secrets) : null
+  if (!gateway?.cancel || !account) return 'closed'
+  try {
+    await gateway.cancel(account, latest.provider_ref)
+    return 'closed'
+  } catch (error) {
+    if (!(error instanceof PaymentRefused)) throw error
+    const settled = await settlePayment(deps, latest)
+    return settled === 'paid' || settled === 'already' ? 'paid' : 'open'
+  }
+}
+
 /** The order's latest card payment, settled: what the shopper's return and the sweep both do. */
 export const settleOrder = async (deps: SettleDeps, storeId: string, orderId: string): Promise<Settled> => {
   const latest = await withSystemScope(deps.sql, (tx) => selectLatestPayment(tx, storeId, orderId))
@@ -155,6 +178,13 @@ export const releaseUnpaidOrders = async (deps: SettleDeps, now: Date): Promise<
       try {
         const settled = await settleOrder(deps, candidate.store_id, candidate.id)
         if (settled === 'paid' || settled === 'already' || settled === 'mismatch') continue
+        // Closed at the provider first, so a payment still processing is never left open on a cancelled order.
+        const closed = await closeLatestAttempt(deps, candidate.store_id, candidate.id)
+        if (closed === 'paid') continue
+        if (closed === 'open') {
+          await withSystemScope(deps.sql, (tx) => deferUnpaid(tx, candidate.store_id, candidate.id, new Date(now.getTime() + 3_600_000)))
+          continue
+        }
       } catch (error) {
         if (!(error instanceof PaymentUnavailable)) throw error
         // The provider is down: asked again in an hour, behind newer due orders, never cancelled on a guess.
@@ -197,7 +227,8 @@ export type MerchantEventOutcome = 'handled' | 'ignored' | 'unplaced'
 /** A merchant account's event on the one Stripe endpoint (THIRD-PARTY-ACCESS §3.1); null when no store holds the account. */
 export const handleMerchantStripeEvent = async (deps: SettleDeps, event: { type: string; account: string; objectId: string }): Promise<MerchantEventOutcome | null> => {
   const store = await withSystemScope(deps.sql, (tx) => selectStoreByStripeAccount(tx, event.account))
-  if (!store) return null
+  // A merchant's kind of event from an account no store holds (disconnected since): answered, never billing's.
+  if (!store) return event.type.startsWith('payment_intent.') || event.type === 'account.application.deauthorized' ? 'unplaced' : null
   if (event.type === 'account.application.deauthorized') {
     await withSystemScope(deps.sql, async (tx) => {
       if ((await forgetStripeAccount(tx, event.account, deps.now())) > 0) {

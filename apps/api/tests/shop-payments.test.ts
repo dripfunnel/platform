@@ -38,6 +38,7 @@ let refused = false
 // Set to the outcome Stripe has when it refuses a cancel because the intent was paid meanwhile.
 let paidBeforeCancel: PaymentOutcome | null = null
 const cancelled: string[] = []
+let stillProcessing = false
 const stripe: PaymentGateway = {
   available: () => true,
   start: async (account, request) => {
@@ -52,6 +53,8 @@ const stripe: PaymentGateway = {
     return outcomes.get(ref) ?? { state: 'failed' }
   },
   cancel: async (_, ref) => {
+    // Stripe won't cancel an intent still processing (a bank debit): refused, and it stays pending.
+    if (stillProcessing) throw new PaymentRefused('payment_intent_unexpected_state')
     if (paidBeforeCancel) {
       outcomes.set(ref, paidBeforeCancel)
       throw new PaymentRefused('payment_intent_unexpected_state')
@@ -408,6 +411,28 @@ describe('when payments go wrong', () => {
   })
 })
 
+describe('a payment still going through', () => {
+  it('is never cancelled by the sweep nor replaced by a retry while its provider can’t close it', async () => {
+    const token = await readyCart(1)
+    const id = (await placeStripe(token)).placed?.orderId ?? ''
+    const later = new Date(Date.now() + 2 * 86_400_000)
+    stillProcessing = true
+    try {
+      expect((await shop(`mutation { payOrder(orderId: "${id}") { providerRef } }`, token)).code).toBe('PAYMENT_PENDING')
+      await releaseUnpaidOrders(settleDeps(later), later)
+      expect((await db.sql<{ state: string; payment_due_by: Date }[]>`select state, payment_due_by from "order" where id = ${id}`)[0]).toMatchObject({ state: 'placed' })
+    } finally {
+      stillProcessing = false
+    }
+  })
+
+  it('pays an order only in the mode it was placed in: a live order’s retry from the preview is refused', async () => {
+    const token = await readyCart(1)
+    const id = (await placeStripe(token)).placed?.orderId ?? ''
+    expect((await shop(`mutation { payOrder(orderId: "${id}") { providerRef } }`, token, preview)).code).toBe('MODE_MISMATCH')
+  })
+})
+
 describe('Stripe’s events for a connected account', () => {
   const signingSecret = 'whsec_test'
   const billing = {} as StripeApi
@@ -446,6 +471,12 @@ describe('Stripe’s events for a connected account', () => {
     expect((await deliver({ id: 'evt_x', type: 'payment_intent.succeeded', account: 'acct_dayton', object: { id: placed?.payment?.providerRef ?? '', object: 'payment_intent' } })).status).toBe(200)
     expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${id}`)[0]?.payment_state).toBe('pending')
     await db.sql`delete from payment_provider_account where external_account_id = 'acct_dayton'`
+  })
+
+  it('answers a merchant’s kind of event from an account no store holds, never handing it to billing', async () => {
+    // The billing client here is empty: reaching it would throw and answer 500.
+    expect((await deliver({ id: 'evt_gone1', type: 'payment_intent.succeeded', account: 'acct_gone', object: { id: 'pi_gone', object: 'payment_intent' } })).status).toBe(200)
+    expect((await deliver({ id: 'evt_gone2', type: 'account.application.deauthorized', account: 'acct_gone', object: { id: 'ca_x', object: 'application' } })).status).toBe(200)
   })
 
   it('turns Stripe off when the merchant removes the app on Stripe’s side', async () => {
