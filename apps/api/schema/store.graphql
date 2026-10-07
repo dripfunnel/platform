@@ -436,7 +436,9 @@ type Mutation {
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
   connectCourier(provider: String!): String
+  connectGateway(bankDetails: String, provider: String!): Boolean
   connectShopify(shop: String!): String
+  connectStripe: String
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
@@ -449,9 +451,11 @@ type Mutation {
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
   disconnectCourier(provider: String!): String
+  disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
   duplicateProduct(id: ID!): SavedProduct
   finishShopifyConnect(key: String!): String
+  finishStripeConnect(key: String!): Boolean
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
@@ -513,8 +517,6 @@ type Mutation {
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
-  turnOffPaymentMethod(provider: String!): Boolean
-  turnOnPaymentMethod(bankDetails: String, provider: String!): Boolean
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
   updateProfile(name: String!, phone: String): Profile
   useCourierForPricing(provider: String!): Boolean
@@ -551,9 +553,11 @@ type PageInfo {
   startCursor: String
 }
 
-type PaymentMethodSetup {
+type PaymentGateway {
   bankDetails: String
   connectable: Boolean
+  kind: String
+  label: String
   live: Boolean
   provider: String
 }
@@ -885,6 +889,7 @@ type Query {
   collections(after: String, before: String, first: Int): CollectionPage
   customerAccounts: CustomerAccounts
   facets(after: String, before: String, first: Int): FacetPage
+  gateways: [PaymentGateway!]
   health: String
   invoiceSettings: InvoiceSettings
   market(id: ID!): Market
@@ -896,7 +901,6 @@ type Query {
   myStores(after: String, before: String, first: Int): StoreChoices
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   navBadges: StoreNavBadges
-  paymentSetup: [PaymentMethodSetup!]
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product

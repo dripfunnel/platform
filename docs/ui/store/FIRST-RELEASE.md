@@ -575,8 +575,8 @@ version move or the headers the key reads.
 `setShippingOption` (one of the cart's `shippingOptions`: courier, flat or pickup, SAPI 23's quote) and `checkout`, which
 moves the cart to payment or refuses `NOT_READY` with its `problems`. The cart holds what the shopper chose and nothing
 priced; each read prices it now: lines at today's price with what stops one being bought (gone, not sold here, unpriced,
-more than is left), delivery, tax from the store's rates (GST across or within states; Stripe Tax once SAPI 10 connects
-it), and the total. A change after reaching payment goes back to delivery. Up to 100 lines of up to 999; a cart lives 30
+more than is left), delivery, tax from the store's rates (GST across or within states; Stripe Tax on a US address once
+Stripe is connected, #309), and the total. A change after reaching payment goes back to delivery. Up to 100 lines of up to 999; a cart lives 30
 days from its last change. The names above replace §19's `updateLine` and `setShipping`.
 **Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, India starting with
 both), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
@@ -591,11 +591,21 @@ account's. The Store API's `customerAccounts` (the mode and how many accounts ha
 transfer's bank details with it), `placeOrder(provider)` (a ready cart becomes an order numbered `order_prefix` + the
 next number, its lines, parts per owner, delivery and tax snapshotted at today's price; cash on delivery and bank transfer
 hold the stock at once, checked again under lock, `OUT_OF_STOCK` when it's gone; a transfer is due in 3 days), and
-`order(id)` (the shopper's own, a guest's by its cart token). The Store API's `paymentSetup` (the region's providers),
-`turnOnPaymentMethod` (cash on delivery in India, bank transfer with its details) and `turnOffPaymentMethod` are the
-Owner's (`payments.configure`); `markOrderPaid` is the Owner's and Manager's (`orders.mark_paid`). The cron cancels a
-transfer unpaid after 3 days and gives its stock back. The card providers (Stripe, PayPal, Razorpay, Cashfree, PhonePe)
-come in parts 2 and 3.
+`order(id)` (the shopper's own, a guest's by its cart token). The Store API's `gateways` (the region's providers),
+`connectGateway` (cash on delivery in India, bank transfer with its details) and `disconnectGateway` (never the store's only
+live way to pay, `LAST_METHOD`) are the Owner's (`payments.configure`); `markOrderPaid` is the Owner's and Manager's
+(`orders.mark_paid`). The cron cancels a transfer unpaid after 3 days and gives its stock back.
+**Part 2, Stripe:** `connectStripe` (the address on Stripe to approve DripFunnel's app at; Stripe returns to
+`hooks.<host>/stripe/connect/callback`, which sends the merchant to `/settings/payments?stripe=finish&key=…`, or
+`stripe=cancelled` / `stripe=failed`) and `finishStripeConnect(key)` (the person who started, within 10 minutes) are the
+Owner's; a support session can't. On the Shop API a card provider's `placeOrder` starts the payment first and answers
+`payment` (`providerRef`, `publicKey`, `accountId`, `clientSecret`, `sessionId`, `redirectUrl`, as the provider needs), the
+order placed unpaid with no stock held; `confirmPayment(orderId)` reads it back on the shopper's return and answers the order;
+`payOrder(orderId)` starts a new attempt after a decline (`ALREADY_PAID` once paid). Paid, from the webhook, the return or
+the sweep, the order holds its stock; a card order unpaid for a day is cancelled (`unpaid`). Preview storefronts pay in
+test mode and never hold stock. A US address on a store with Stripe connected is taxed by Stripe Tax, delivery included;
+the store's own rates leave delivery untaxed (decided on #309). A number proved by a code claims the store's guest orders
+placed with it (#337). PayPal, Razorpay, Cashfree and PhonePe come in part 3.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

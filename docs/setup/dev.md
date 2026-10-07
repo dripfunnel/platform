@@ -184,13 +184,14 @@ Never reuse a value from local or production.
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Keep a copy in the team's password manager: losing it makes every stored 2-factor secret and credential on dev unreadable |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://dev-admin.dripfunnel.ai/api/auth/callback` |
 | `STRIPE_SECRET_KEY` | Secret | **test-mode** restricted key `rk_test_…` | Stripe › Developers › API keys › *Create restricted key*, with the permissions in §8 |
-| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (test mode) › Developers › Webhooks › *Add endpoint* `https://dev-hooks.dripfunnel.ai/stripe`, with the events in §8 and *Listen to events on Connected accounts* › *Reveal signing secret* From SAPI 10, the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1, proposed) |
+| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (test mode) › Developers › Webhooks › *Add endpoint* `https://dev-hooks.dripfunnel.ai/stripe`, with the events in §8 and *Listen to events on Connected accounts* › *Reveal signing secret* Since #309 the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1) |
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Secret | the sending IAM user, SES sandbox | THIRD-PARTY-ACCESS.md §2.4. In the sandbox only verified recipients receive mail: verify the team's addresses |
 | `SES_SENDER_DOMAIN` | Text | a domain verified in that SES account | SES › Identities › *Create identity* › Domain, then its DKIM records in DNS |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
 | `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
 | `CF_PAGES_POOL` | Secret | the dev pool, JSON `[{ "accountId", "token" }]` | §2.8 item 1; each token scoped to *Pages: Edit* on its own account (THIRD-PARTY-ACCESS §8.2). Needed from INF 1 |
-| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 3. Needed from SAPI 10 |
+| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 3. Read since #309 |
+| `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 6). Needed from ST 1a |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers

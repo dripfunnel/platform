@@ -277,3 +277,27 @@ describe('codes, further (#444’s review)', () => {
     expect(await prepare(row?.partner_id ?? null)).toEqual({ send: false, reason: 'link_closed' })
   })
 })
+
+describe('a guest’s orders, once the number is proved (#337)', () => {
+  it('links the store’s guest orders placed with that number, never a cart, another number’s or another store’s', async () => {
+    const order = async (storeId: string, phone: string, state: string) =>
+      (
+        await db.sql<{ id: string }[]>`
+          insert into "order" (store_id, currency, phone, state, access_token_hash, number, placed_at, total_amount)
+          values (${storeId}, 'INR', ${phone}, ${state}, ${'c'.repeat(63) + Math.floor(Math.random() * 10)}, ${state === 'cart' ? null : `G-${phone.slice(-4)}-${Math.random().toString(36).slice(2, 8)}`}, ${state === 'cart' ? null : new Date()}, ${state === 'cart' ? null : 1000})
+          returning id
+        `
+      )[0]?.id ?? ''
+    const mine = await order(stores.india, '+919844444444', 'placed')
+    const cart = await order(stores.india, '+919844444444', 'cart')
+    const theirs = await order(stores.india, '+919855555555', 'placed')
+    const elsewhere = await order(stores.other, '+919844444444', 'placed')
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919844444444") }')
+    expect((await verify('PHONE', '+919844444444', await textedCode('+919844444444'))).data?.['verifySignInCode']).toBeTruthy()
+    const [me] = await db.sql<{ id: string }[]>`select id from customer where store_id = ${stores.india} and phone = '+919844444444'`
+    const owners = await db.sql<{ id: string; customer_id: string | null }[]>`select id, customer_id from "order" where id in ${db.sql([mine, cart, theirs, elsewhere])}`
+    const ownerOf = (id: string) => owners.find((o) => o.id === id)?.customer_id ?? null
+    expect(ownerOf(mine)).toBe(me?.id)
+    expect([ownerOf(cart), ownerOf(theirs), ownerOf(elsewhere)]).toEqual([null, null, null])
+  })
+})

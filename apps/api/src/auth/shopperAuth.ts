@@ -9,6 +9,7 @@ import {
   insertCode,
   insertShopper,
   insertShopperSession,
+  linkGuestOrders,
   proveShopper,
   selectCustomerAuth,
   selectLiveCode,
@@ -152,6 +153,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
         customerId = await insertShopper(tx, { storeId, channel, target, name, passwordHash, now: now() })
         await activity.record(tx, entry('customer.signed_up', customerId))
       }
+      if (channel === 'phone') await linkGuestOrders(tx, storeId, customerId, target, now())
       await activity.record(tx, entry('customer.signed_in', customerId))
       return { ok: true, token: await startSession(tx, customerId), customerId, created: !found }
     })

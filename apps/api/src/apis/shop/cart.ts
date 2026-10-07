@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { createCartService, type CartAddress, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView } from '#engine/modules/cart/index'
 import type { DeliveryOption } from '#engine/modules/shipping/index'
-import { shopOf, type ShopContext } from './access'
+import { shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 import { assetUrl } from './catalog'
 
@@ -27,7 +27,7 @@ export const cartOf = async (ctx: ShopContext) => {
   const couriers = ctx.couriers ? await ctx.couriers.forPartner(shopper.context.partnerId) : null
   // A guest's new cart is counted per store and address, so a script can't fill the table (#443's review).
   const allowNewCart = async () => Boolean(ctx.facts.ip && ctx.allowAttempt && (await ctx.allowAttempt(`shop:${shopper.context.storeId}:cart:${ctx.facts.ip}`)))
-  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, activity: ctx.activity, facts: ctx.facts, allowNewCart, now: ctx.now })
+  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, stripeTax: stripeTaxOf(ctx), activity: ctx.activity, facts: ctx.facts, allowNewCart, now: ctx.now })
 }
 
 export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {

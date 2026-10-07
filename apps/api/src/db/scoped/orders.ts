@@ -119,10 +119,11 @@ export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnap
   `
 }
 
-export const insertPayment = async (tx: ScopedSql, p: { orderId: string; storeId: string; provider: string; accountId: string | null; kind: string; amount: bigint; currency: string; mode: 'test' | 'live'; providerRef: string | null }): Promise<string> => {
+/** `id` is the attempt's, when the provider was given it before the row could be written. */
+export const insertPayment = async (tx: ScopedSql, p: { id?: string; orderId: string; storeId: string; provider: string; accountId: string | null; kind: string; amount: bigint; currency: string; mode: 'test' | 'live'; providerRef: string | null }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
-    insert into payment (order_id, store_id, provider, provider_account_id, kind, amount, currency, mode, provider_ref)
-    values (${p.orderId}, ${p.storeId}, ${p.provider}, ${p.accountId}, ${p.kind}, ${p.amount.toString()}, ${p.currency}, ${p.mode}, ${p.providerRef})
+    insert into payment (id, order_id, store_id, provider, provider_account_id, kind, amount, currency, mode, provider_ref)
+    values (${p.id ?? crypto.randomUUID()}, ${p.orderId}, ${p.storeId}, ${p.provider}, ${p.accountId}, ${p.kind}, ${p.amount.toString()}, ${p.currency}, ${p.mode}, ${p.providerRef})
     returning id
   `
   if (!row) throw new Error('payment: insert returned no row')
@@ -164,7 +165,7 @@ export const releaseStock = async (tx: ScopedSql, storeId: string, orderId: stri
   `
 }
 
-export const cancelOrder = async (tx: ScopedSql, storeId: string, orderId: string, reason: 'unpaid_transfer' | 'shopper' | 'store' | 'out_of_stock', now: Date): Promise<void> => {
+export const cancelOrder = async (tx: ScopedSql, storeId: string, orderId: string, reason: 'unpaid_transfer' | 'unpaid' | 'shopper' | 'store' | 'out_of_stock', now: Date): Promise<void> => {
   await tx`
     update "order" set state = 'cancelled', cancelled_at = ${now}, cancel_reason = ${reason}, stock_reserved = false, payment_due_by = null, updated_at = ${now}, revision = revision + 1
     where id = ${orderId} and store_id = ${storeId}
@@ -172,12 +173,12 @@ export const cancelOrder = async (tx: ScopedSql, storeId: string, orderId: strin
   await tx`update payment set state = 'failed', updated_at = ${now} where order_id = ${orderId} and store_id = ${storeId} and state = 'pending'`
 }
 
-/** Bank transfers unpaid past their day, oldest first, a batch at a time, locked so two sweeps never cancel one twice. */
-export const selectUnpaidTransfers = (tx: ScopedSql, now: Date, limit: number): Promise<{ id: string; store_id: string; partner_id: string; number: string }[]> =>
-  tx<{ id: string; store_id: string; partner_id: string; number: string }[]>`
-    select o.id, o.store_id, s.partner_id, o.number from "order" o join store s on s.id = o.store_id
+/** Orders unpaid past their time (a transfer's 3 days, a card's day), oldest first, a batch at a time; each is locked when let go. */
+export const selectUnpaidOrders = (tx: ScopedSql, now: Date, limit: number): Promise<{ id: string; store_id: string; partner_id: string; number: string; payment_method: string | null }[]> =>
+  tx<{ id: string; store_id: string; partner_id: string; number: string; payment_method: string | null }[]>`
+    select o.id, o.store_id, s.partner_id, o.number, o.payment_method from "order" o join store s on s.id = o.store_id
     where o.state = 'placed' and o.payment_state = 'pending' and o.payment_due_by is not null and o.payment_due_by <= ${now}
-    order by o.payment_due_by limit ${limit} for update of o skip locked
+    order by o.payment_due_by limit ${limit}
   `
 
 export interface PaymentAccountRow {

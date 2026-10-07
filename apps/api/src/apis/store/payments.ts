@@ -1,20 +1,24 @@
 import { GraphQLError } from 'graphql'
-import { checkoutAudit, createPaymentSetup, markPaid, paymentSetupAudit, type CheckoutResult, type PaymentSetupView } from '#engine/modules/checkout/index'
 import { isUuid } from '#core/ids'
+import { checkoutAudit, createPaymentSetup, markPaid, paymentSetupAudit, type CheckoutResult, type PaymentSetupView } from '#engine/modules/checkout/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
 
-// Settings › Payment setup (SetOps; `payments.configure`, the Owner) and "Mark as paid" (`orders.mark_paid`, Owner and
-// Manager, decided 2026-10-05 on #284).
+// Settings › Payment setup (SetOps; FIRST-RELEASE §19 `gateways`, `connectGateway`, `disconnectGateway`; `payments.configure`,
+// the Owner) and "Mark as paid" (`orders.mark_paid`, Owner and Manager, decided 2026-10-05 on #284).
 
 const words: Record<string, string> = {
   METHOD_UNAVAILABLE: 'That way to pay isn’t available here. A bank transfer needs your bank details.',
   NOT_FOUND: 'That is no longer here.',
   NOT_PENDING: 'Only an unpaid cash-on-delivery or bank-transfer order can be marked paid.',
+  LAST_METHOD: 'You can’t turn off your only way to get paid — shoppers couldn’t buy anything.',
+  NOT_AVAILABLE: 'Connecting Stripe isn’t set up here yet.',
+  EXPIRED: 'That link has expired. Connect Stripe again.',
+  SUPPORT_SESSION: 'A support session can’t connect or disconnect payments. Someone in the store does it from their own account.',
 }
 
-const answered = <T>(result: CheckoutResult<T>): T => {
+const answered = <T>(result: CheckoutResult<T> | { ok: true; value: T } | { ok: false; reason: string }): T => {
   if (result.ok) return result.value
   throw new GraphQLError(words[result.reason] ?? 'Something here isn’t valid.', { extensions: { code: result.reason } })
 }
@@ -25,10 +29,14 @@ export const registerPayments = (builder: StoreBuilder) => {
     const caller = actingCaller(ctx)
     return { sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now }
   }
+  const setup = (ctx: StoreContext) => createPaymentSetup({ ...deps(ctx), gateways: ctx.payments?.gateways ?? {}, stripeConnect: ctx.payments?.stripeConnect ?? null, host: ctx.host ?? '' })
 
-  const Method = builder.objectRef<PaymentSetupView>('PaymentMethodSetup').implement({
+  const Gateway = builder.objectRef<PaymentSetupView>('PaymentGateway').implement({
     fields: (t) => ({
       provider: t.exposeString('provider'),
+      label: t.exposeString('label'),
+      // gateway, or other (cash on delivery, a bank transfer), as Payment setup groups them.
+      kind: t.exposeString('kind'),
       live: t.exposeBoolean('live'),
       bankDetails: t.exposeString('bankDetails', { nullable: true }),
       connectable: t.exposeBoolean('connectable'),
@@ -38,19 +46,30 @@ export const registerPayments = (builder: StoreBuilder) => {
   const configure = { api: 'store', scope: 'store', permission: 'payments.configure', target: 'none' } as const
 
   builder.queryFields((t) => ({
-    paymentSetup: t.field({ type: [Method], extensions: { access: configure }, resolve: (_, __, ctx) => createPaymentSetup(deps(ctx)).setup() }),
+    gateways: t.field({ type: [Gateway], extensions: { access: configure }, resolve: (_, __, ctx) => setup(ctx).setup() }),
   }))
   builder.mutationFields((t) => ({
     // Cash on delivery (India) or a bank transfer with the details shoppers pay to.
-    turnOnPaymentMethod: t.boolean({
+    connectGateway: t.boolean({
       args: { provider: t.arg.string({ required: true }), bankDetails: t.arg.string() },
       extensions: { access: { ...configure, audit: paymentSetupAudit.turnedOn } },
-      resolve: async (_, args, ctx) => answered(await createPaymentSetup(deps(ctx)).turnOn(args.provider, args.bankDetails)),
+      resolve: async (_, args, ctx) => answered(await setup(ctx).connect(args.provider, args.bankDetails)),
     }),
-    turnOffPaymentMethod: t.boolean({
+    // The address on Stripe to approve DripFunnel's app at; Stripe brings the merchant back with a one-time key.
+    connectStripe: t.string({
+      extensions: { access: { ...configure, audit: paymentSetupAudit.connectStarted } },
+      resolve: async (_, __, ctx) => answered(await setup(ctx).startStripe()),
+    }),
+    finishStripeConnect: t.boolean({
+      args: { key: t.arg.string({ required: true }) },
+      extensions: { access: { ...configure, audit: paymentSetupAudit.connected } },
+      resolve: async (_, args, ctx) => answered(await setup(ctx).finishStripe(args.key)),
+    }),
+    // Shoppers stop seeing it at checkout; orders already paid aren't affected.
+    disconnectGateway: t.boolean({
       args: { provider: t.arg.string({ required: true }) },
       extensions: { access: { ...configure, audit: paymentSetupAudit.turnedOff } },
-      resolve: async (_, args, ctx) => answered(await createPaymentSetup(deps(ctx)).turnOff(args.provider)),
+      resolve: async (_, args, ctx) => answered(await setup(ctx).disconnect(args.provider)),
     }),
     markOrderPaid: t.boolean({
       args: { orderId: t.arg.id({ required: true }) },

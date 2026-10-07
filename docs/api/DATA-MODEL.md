@@ -951,7 +951,16 @@ payment_provider_account
                     -- the subscription's payment method (§7.9)
                     -- Built on #309 (0068): one row per store and provider, external_account_id for a
                     -- Stripe Connect account, bank_details as the text shoppers are shown, status live | off;
-                    -- the merchant writes only cash on delivery and bank transfer, others connect in system scope
+                    -- the merchant writes only cash on delivery and bank transfer, others connect in system scope.
+                    -- #309 part 2 (0069): one row per store, provider and mode (a store's test keys for its
+                    -- preview storefront beside its live ones); Stripe's one live row serves both modes.
+                    -- Disconnect sets status off and clears the keys and the connected account, keeping the row
+                    -- for the payments that name it
+payment_connect     (id, store_id, provider ('stripe'), status ('pending'|'approved'), state_hash,
+                     finish_hash, return_host, started_by, external_account_id, expires_at)
+                    -- Built on #309 (0069): Connect Stripe between leaving for Stripe and finishing in the
+                    -- starter's own session, as external_connection for Shopify; hashes only, system scope
+                    -- only, deleted when finished or expired
 invoice_settings    (store_id PK, legal_name, address jsonb, tax_id NULL, tax_per_line boolean,
                      email_with_dispatch boolean, footer text)
                     -- SetOps "Save invoice settings" and the "from" block of a shopper's
@@ -1383,6 +1392,11 @@ payment             (id, order_id, store_id, provider, provider_account_id, prov
                     -- also holding reserved_warehouse_id (the one location its held stock sits at, so a
                     -- cancellation gives back exactly that). Placement and payment write in system scope
                     -- after the cart is read as its shopper; suppliers reach orders with SAPI 11
+                    -- #309 part 2 (0069): a card payment's row is written at placement with the id its
+                    -- provider was given and its provider_ref; it is settled by reading the provider back
+                    -- (webhook, the shopper's return, the sweep), idempotent by its state; payment_due_by is a
+                    -- day for a card order, and cancel_reason gains 'unpaid'. A live card order holds its stock
+                    -- when paid, even past what is free (logged as order.oversold); test-mode orders never hold
 payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state ('pending'|'done'|'failed'),
                      amount, currency)
 

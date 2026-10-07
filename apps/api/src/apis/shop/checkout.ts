@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
-import { checkoutAudit, createCheckout, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow } from '#engine/modules/checkout/index'
-import { shopOf, type ShopContext } from './access'
+import type { PaymentStart } from '#core/payments'
+import { checkoutAudit, createCheckout, paymentAudit, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow } from '#engine/modules/checkout/index'
+import { paymentModeOf, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 
 // Paying for a cart (FIRST-RELEASE §19 Shop API `paymentOptions`, `checkout`, `order`): the ways the store takes payment,
@@ -12,7 +13,13 @@ const words: Record<string, string> = {
   ALREADY_PLACED: 'This order has already been placed.',
   OUT_OF_STOCK: 'Something in your cart has just sold out. Check your cart and try again.',
   NOT_FOUND: 'Your cart has expired. Add something to start again.',
+  PAYMENT_UNAVAILABLE: 'We couldn’t reach the payment provider. Try again in a minute.',
+  ALREADY_PAID: 'This order is already paid.',
+  NOT_PENDING: 'This order isn’t waiting for a card payment.',
 }
+
+// Where a provider that takes the shopper away (Cashfree, PhonePe) sends them back: the storefront's own order page.
+export const returnPath = '/checkout/complete'
 
 const answered = <T>(result: CheckoutResult<T>): T => {
   if (result.ok) return result.value
@@ -22,7 +29,24 @@ const answered = <T>(result: CheckoutResult<T>): T => {
 const checkoutOf = async (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
   const couriers = ctx.couriers ? await ctx.couriers.forPartner(shopper.context.partnerId) : null
-  return createCheckout({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, activity: ctx.activity, facts: ctx.facts, now: ctx.now, country: shopper.country })
+  return createCheckout({
+    sql,
+    context: shopper.context,
+    language: shopper.language,
+    currency: shopper.currency,
+    marketId: shopper.marketId,
+    features: shopper.features,
+    couriers,
+    stripeTax: stripeTaxOf(ctx),
+    activity: ctx.activity,
+    facts: ctx.facts,
+    now: ctx.now,
+    country: shopper.country,
+    mode: paymentModeOf(shopper),
+    gateways: ctx.payments?.gateways ?? {},
+    secrets: ctx.secrets ?? null,
+    returnUrl: (orderId) => `${ctx.origin}${returnPath}?order=${orderId}`,
+  })
 }
 
 export const registerCheckout = ({ builder, money }: ShopBuilder) => {
@@ -34,6 +58,19 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       instructions: t.exposeString('instructions', { nullable: true }),
       // test on a preview storefront, live otherwise (decided 2026-10-05 on #284).
       mode: t.exposeString('mode'),
+      // The provider's publishable key or client id, where its own button or field needs one.
+      publicKey: t.exposeString('publicKey', { nullable: true }),
+    }),
+  })
+  // Only what the storefront needs to take this payment: a client secret is the PaymentIntent's own, never a key.
+  const Start = builder.objectRef<PaymentStart>('ShopPaymentStart').implement({
+    fields: (t) => ({
+      providerRef: t.exposeString('providerRef'),
+      publicKey: t.exposeString('publicKey', { nullable: true }),
+      accountId: t.exposeString('accountId', { nullable: true }),
+      clientSecret: t.exposeString('clientSecret', { nullable: true }),
+      sessionId: t.exposeString('sessionId', { nullable: true }),
+      redirectUrl: t.exposeString('redirectUrl', { nullable: true }),
     }),
   })
   const Placed = builder.objectRef<PlacedOrder>('ShopPlacedOrder').implement({
@@ -44,6 +81,8 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       provider: t.exposeString('provider'),
       // A transfer's bank details, to show with the order number.
       instructions: t.exposeString('instructions', { nullable: true }),
+      // A card provider's payment to take now; null for the ways paid later.
+      payment: t.field({ type: Start, nullable: true, resolve: (p) => p.payment }),
     }),
   })
   const Line = builder.objectRef<ShopOrderRow['lines'][number] & { currency: string }>('ShopOrderLine').implement({
@@ -92,6 +131,21 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
         if (args.provider.length > 40) throw new GraphQLError(words['METHOD_UNAVAILABLE'] ?? '', { extensions: { code: 'METHOD_UNAVAILABLE' } })
         return answered(await (await checkoutOf(ctx)).place(args.provider))
       },
+    }),
+    // Back from paying: the card payment read back from its provider, and the order as it is now.
+    confirmPayment: t.field({
+      type: Order,
+      nullable: true,
+      args: { orderId: t.arg.id({ required: true }) },
+      extensions: { access: { ...access, audit: paymentAudit.paid } },
+      resolve: async (_, args, ctx) => (await checkoutOf(ctx)).confirm(String(args.orderId)),
+    }),
+    // "Try again" after a declined card: a new attempt for the same order.
+    payOrder: t.field({
+      type: Start,
+      args: { orderId: t.arg.id({ required: true }) },
+      extensions: { access: { ...access, audit: checkoutAudit.retried } },
+      resolve: async (_, args, ctx) => answered(await (await checkoutOf(ctx)).pay(String(args.orderId))),
     }),
   }))
 }

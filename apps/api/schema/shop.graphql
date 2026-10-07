@@ -6,7 +6,9 @@ type Image {
 type Mutation {
   addToCart(quantity: Int!, versionId: ID!): ShopCartChange
   checkout: ShopCart
+  confirmPayment(orderId: ID!): ShopOrder
   deleteAddress(id: ID!): Boolean
+  payOrder(orderId: ID!): ShopPaymentStart
   placeOrder(provider: String!): ShopPlacedOrder
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
   saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
@@ -266,6 +268,16 @@ type ShopPaymentOption {
   kind: String
   mode: String
   provider: String
+  publicKey: String
+}
+
+type ShopPaymentStart {
+  accountId: String
+  clientSecret: String
+  providerRef: String
+  publicKey: String
+  redirectUrl: String
+  sessionId: String
 }
 
 type ShopPhoto {
@@ -278,6 +290,7 @@ type ShopPlacedOrder {
   instructions: String
   number: String
   orderId: ID
+  payment: ShopPaymentStart
   provider: String
   total: ShopMoney
 }

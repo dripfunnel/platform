@@ -26,6 +26,8 @@ export interface Shopper {
   mainLanguage: string
   /** The store's country: which payment providers and couriers it may use. */
   country: string | null
+  /** A preview storefront: checkout takes payment in each provider's test mode. */
+  preview: boolean
   pricingCurrency: string
   language: string
   currency: string
@@ -52,6 +54,7 @@ const shopperOf = (row: StorefrontRow, request: Request, orderTokenHash: string 
     catalogVersion: row.catalog_version,
     mainLanguage: row.main_language,
     country: row.country,
+    preview: row.preview,
     pricingCurrency: row.pricing_currency,
     language,
     currency,
