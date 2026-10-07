@@ -409,21 +409,21 @@ const shopRefusal = (status: number, code: string, message: string) =>
 
 // A storefront host (docs/ARCHITECTURE.md §2): the store comes from the host or the public store key, and a host no store
 // holds answers 404, as a portal host no partner holds does.
-const cartLimiter = (limiter: RateLimit | undefined) => (limiter ? async (key: string) => (await limiter.limit({ key })).success : undefined)
-
 const handleShop = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   const facts = factsOf(request)
   const hyperdrive = config.HYPERDRIVE
-  if (!hyperdrive) return servers.shop.fetch(request, { sql: null, shopper: null, origin: url.origin, activity: activityLog, facts, now: () => new Date() })
+  if (!hyperdrive) return servers.shop.fetch(request, { sql: null, shopper: null, origin: url.origin, activity: activityLog, facts, allowNewCart: async () => false, now: () => new Date() })
   const limiter = env.SHOP_RATE_LIMITER
   if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+  const carts = env.CART_RATE_LIMITER
+  if (!carts) return misconfigured('CART_RATE_LIMITER')
   // Keyed per address, never pooled, as sign-in is; Cloudflare sets the header on all real traffic.
   if (!facts.ip || !(await limiter.limit({ key: `shop:${url.hostname}:${facts.ip}` })).success) return shopRefusal(429, 'RATE_LIMITED', 'Too many requests. Try again in a minute.')
   return withConnection(hyperdrive, ctx, async (sql) => {
     const found = await resolveShopper(sql, request, url.hostname)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, allowNewCart: cartLimiter(env.CART_RATE_LIMITER), now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, allowNewCart: async (key) => (await carts.limit({ key })).success, now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))

@@ -82,13 +82,16 @@ describe('worker', () => {
     expect(await ask('{ store { name } }')).toMatchObject({ data: { store: null }, errors: [{ extensions: { code: 'STORE_UNAVAILABLE' } }] })
   })
 
-  it('rate-limits the Shop API per host and address, and refuses a call with no address', async () => {
-    const limited = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: false }) } }
+  it('rate-limits the Shop API per host and address, refuses a call with no address, and serves nothing without either limiter', async () => {
+    const carts = { limit: async () => ({ success: true }) }
+    const limited = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: false }) }, CART_RATE_LIMITER: carts }
     const asked = (headers: Record<string, string>) => new Request('https://acme.shops.partner.com/shop-api', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ query: '{ health }' }) })
     expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], limited, ctx)).status).toBe(429)
-    const open = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: true }) } }
+    const open = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: true }) }, CART_RATE_LIMITER: carts }
     expect((await worker.fetch(asked({}) as Parameters<typeof worker.fetch>[0], open, ctx)).status).toBe(429)
     expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], env, ctx)).status).toBe(500)
+    // Without the new-cart limiter, nothing is served rather than unlimited carts.
+    expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], { ...open, CART_RATE_LIMITER: undefined }, ctx)).status).toBe(500)
   })
 
   it('answers GraphQL on /api/ with the trailing slash the SPA client sends (client.ts)', async () => {

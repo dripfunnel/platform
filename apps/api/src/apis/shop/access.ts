@@ -16,8 +16,8 @@ export interface ShopContext extends Record<string, unknown> {
   facts: RequestFacts
   /** The partners' couriers, for a cart's delivery options (SAPI 23); null where none can be reached. */
   couriers?: CourierDirectory | null
-  /** The new-cart limiter (CART_RATE_LIMITER) by key; absent where it isn't bound, and nothing limits new carts. */
-  allowNewCart?: ((key: string) => Promise<boolean>) | undefined
+  /** The new-cart limiter (CART_RATE_LIMITER) by key; the Worker refuses to serve without it. */
+  allowNewCart: (key: string) => Promise<boolean>
   now: () => Date
 }
 
