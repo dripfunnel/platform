@@ -99,8 +99,16 @@ export const updateCart = async (tx: ScopedSql, id: string, patch: CartPatch, c:
   ).count > 0
 }
 
-/** Each version's product and tax class, for the versions the cart names that shoppers can see. */
+/** Each version's product and tax class, by id; what shoppers may see is decided after, by the catalogue's rules (cartItems). */
 export const selectCartVersions = (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<{ id: string; product_id: string; tax_class_id: string | null }[]> =>
   ids.length === 0
     ? Promise.resolve([])
     : tx<{ id: string; product_id: string; tax_class_id: string | null }[]>`select id, product_id, tax_class_id from product_version where store_id = ${storeId} and id = any (${pgArray(ids)}::uuid[])`
+
+/** Carts past their expiry, a batch at a time, lines with them: nobody can open one again (the cron's sweep). */
+export const deleteExpiredCarts = async (tx: ScopedSql, now: Date, limit: number): Promise<number> =>
+  (
+    await tx`
+      delete from "order" where id in (select id from "order" where state = 'cart' and cart_expires_at < ${now} order by cart_expires_at limit ${limit})
+    `
+  ).count

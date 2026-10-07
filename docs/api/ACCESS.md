@@ -1235,8 +1235,8 @@ builds the table must ship:
   `app_definer` cart functions succeeds and writes the engine's figures; a shopper updating
   another shopper's `customer_address` is refused; a shopper updating a placed order's
   address, email or pickup flag is refused (`state = 'cart'` in `USING` and `WITH CHECK`); a
-  shopper writing `currency`, `market_id` or `shipping_method_id` directly after a line was
-  added is refused, and `cart_set_currency` reprices every line; a shopper inserting a cart
+  shopper writing a price or a total anywhere is refused, since a cart holds none and the engine
+  prices it on every read (#308 replaced the `cart_set_*` functions with that); a shopper inserting a cart
   with another customer's id, or with `state <> 'cart'`, is refused (DATA-MODEL §5.3, §7.11);
 - the AI metering view returns partner A's stores to partner A and none of partner B's, every
   store to platform scope, and nothing in shop scope (DATA-MODEL §5.3).

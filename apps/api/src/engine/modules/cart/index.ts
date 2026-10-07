@@ -20,7 +20,7 @@ export type { CartAddress } from '#db/scoped/cart'
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
 // engine prices it on every read, so nothing a storefront sends is ever a price (§5.5). Payment and placement are SAPI 10's.
 
-export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY'
+export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED'
 export type CartResult<T> = { ok: true; value: T } | { ok: false; reason: CartRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
@@ -40,6 +40,8 @@ export interface CartDeps {
   couriers: PartnerCouriers | null
   activity: ActivityLog
   facts: RequestFacts
+  /** Whether this requester may start another guest cart now (a limiter per store and IP); absent, nothing limits it. */
+  allowNewCart?: () => Promise<boolean>
   now: () => Date
 }
 
@@ -183,6 +185,7 @@ export const createCartService = (deps: CartDeps) => {
     let token: string | null = null
     const existing = await withScope(sql, context, (tx) => selectCart(tx, storeId, now()))
     if (!existing && customerId === null) {
+      if (deps.allowNewCart && !(await deps.allowNewCart())) return { ok: false, reason: 'RATE_LIMITED' }
       token = newSessionId()
       context = { ...context, caller: { kind: 'shopper', customerId: null, orderTokenHash: await hashSessionId(token) } }
     }
