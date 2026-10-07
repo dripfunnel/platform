@@ -20,7 +20,7 @@ export const registerCustomerAccounts = (builder: StoreBuilder) => {
       customers: t.exposeInt('customers'),
       withEmail: t.exposeInt('with_email'),
       withPhone: t.exposeInt('with_phone'),
-      // Those asked for an email at their next sign-in if mobile sign-in goes (SetAccess's warning).
+      // Those who can't sign in if mobile sign-in goes (SetAccess's warning), until the add-an-email step exists.
       phoneOnly: t.exposeInt('phone_only'),
     }),
   })

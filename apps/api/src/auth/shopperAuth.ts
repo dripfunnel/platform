@@ -59,6 +59,9 @@ export const shopperTarget = (channel: ShopperChannel, raw: string): string | nu
   return isE164(phone) ? phone : null
 }
 
+/** An email or number as a limiter key: its digest, so no address leaves for the limiter. */
+const limiterKeyOf = (target: string) => hashSessionId(`shopper-limit:${target}`)
+
 // Salted by the code's own row, as a merchant's are (storeCodes.ts).
 export const hashShopperCode = (codeId: string, code: string) => hashSmsCode(`shopper:${codeId}`, code)
 
@@ -122,7 +125,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       const name = extra.name?.trim() || null
       if (!target || (name?.length ?? 0) > 200 || !/^\d{6}$/.test(code.trim())) return { ok: false, reason: 'INVALID_INPUT' }
       // Guessing is bounded per code (5 tries) and per requester and address here, as signIn is.
-      if (!facts.ip || !(await allowAttempt(`shop:${storeId}:verify-ip:${facts.ip}`)) || !(await allowAttempt(`shop:${storeId}:verify:${channel}:${target}`))) return { ok: false, reason: 'RATE_LIMITED' }
+      if (!facts.ip || !(await allowAttempt(`shop:${storeId}:verify-ip:${facts.ip}`)) || !(await allowAttempt(`shop:${storeId}:verify:${channel}:${await limiterKeyOf(target)}`))) return { ok: false, reason: 'RATE_LIMITED' }
       if (extra.password && (extra.password.length < minPasswordLength || extra.password.length > 200)) return { ok: false, reason: 'WEAK_PASSWORD' }
       if (!(await allowed(tx, channel))) return { ok: false, reason: 'METHOD_OFF' }
       const live = await selectLiveCode(tx, storeId, channel, target, now())
@@ -160,7 +163,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
   const signIn = async (rawEmail: string, password: string): Promise<SignedIn> => {
     const email = shopperTarget('email', rawEmail)
     if (!email || password.length === 0 || password.length > 200) return { ok: false, reason: 'INVALID_INPUT' }
-    if (!facts.ip || !(await allowAttempt(`shop:${storeId}:ip:${facts.ip}`)) || !(await allowAttempt(`shop:${storeId}:email:${email}`))) return { ok: false, reason: 'RATE_LIMITED' }
+    if (!facts.ip || !(await allowAttempt(`shop:${storeId}:ip:${facts.ip}`)) || !(await allowAttempt(`shop:${storeId}:email:${await limiterKeyOf(email)}`))) return { ok: false, reason: 'RATE_LIMITED' }
     return withSystemScope(sql, async (tx): Promise<SignedIn> => {
       if (!(await allowed(tx, 'email'))) return { ok: false, reason: 'METHOD_OFF' }
       const found = await selectShopperBy(tx, storeId, 'email', email)

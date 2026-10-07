@@ -183,7 +183,7 @@ describe('Connect Stripe', () => {
     expect((await db.sql<{ status: string }[]>`select status from payment_provider_account where store_id = ${stores.us} and provider = 'stripe'`)[0]?.status).toBe('live')
   })
 
-  it('connects one Stripe account to one store only (#446’s review)', async () => {
+  it('connects one Stripe account to one store only', async () => {
     const url = new URL((await merchant('mutation { connectStripe }', 'other')).data?.['connectStripe'] as string)
     const key = new URL((await callback(`state=${url.searchParams.get('state') ?? ''}&code=ac_same`)).headers.get('location') ?? '').searchParams.get('key') ?? ''
     expect((await merchant(`mutation { finishStripeConnect(key: "${key}") }`, 'other')).code).toBe('ACCOUNT_IN_USE')

@@ -584,7 +584,7 @@ export default {
         return 0
       })
       if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
-      // Old sign-in codes and sessions go, with the addresses they named (#444's review).
+      // Old sign-in codes and sessions go, with the addresses they named.
       await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
         logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
       })

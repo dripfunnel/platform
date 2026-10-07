@@ -159,7 +159,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     const versions = new Map((await selectSnapshotVersions(tx, storeId, cart.lines.map((l) => l.versionId))).map((v) => [v.id, v]))
     const heldAt = new Map<string, string | null>()
     // Checked again here, holding the rows, so two shoppers can't both buy the last one (PLATFORM-PROMPT §5.4); in
-    // version order, so two orders holding the same versions never wait on each other (#445's review).
+    // version order, so two orders holding the same versions never wait on each other.
     for (const l of reserve ? [...cart.lines].sort((a, b) => a.versionId.localeCompare(b.versionId)) : []) {
       const v = versions.get(l.versionId)
       if (!v?.track_stock) continue
