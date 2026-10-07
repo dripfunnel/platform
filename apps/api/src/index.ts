@@ -8,6 +8,7 @@ import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
+import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache'
 import { resolveShopper } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
@@ -397,6 +398,9 @@ const handleHooks = async (request: Request, url: URL, config: Config, ctx: Exec
   return withConnection(hyperdrive, ctx, (sql) => handleStripeHook(request, { sql, stripe, signingSecret, now: () => new Date() }))
 }
 
+// The data centre's own cache; absent off Cloudflare (tests), where every request runs.
+const shopCache = (): ShopCache | null => (typeof caches !== 'undefined' && 'default' in caches ? (caches as CacheStorage & { default: ShopCache }).default : null)
+
 const shopRefusal = (status: number, code: string, message: string) =>
   new Response(JSON.stringify({ errors: [{ message, extensions: { code } }] }), { status, headers: { 'content-type': 'application/json' } })
 
@@ -416,7 +420,8 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     if (found.kind === 'unknown') return notFound()
     const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
-    return servers.shop.fetch(request, context)
+    const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
+    return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
   })
 }
 

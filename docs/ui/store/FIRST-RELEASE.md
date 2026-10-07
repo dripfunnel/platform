@@ -561,6 +561,15 @@ bought, the badges whose rule holds (none for best sellers until reports count s
 Catalogue switches on (specs, highlights, FAQs, related, video, size chart, A+ with its brand stories and compared
 products), legal details, filters, and `soldHere` (the market sells it, a price here, the legal details its countries need,
 CATALOG T2).
+**Part 3:** a query of catalogue fields only (`store`, `menu`, `collections`, `collection`, `products`, `search`, `product`) is
+answered from the data centre's cache for 5 minutes, keyed by store, `storefront.catalog_version`, host, language,
+currency and market; every write a storefront shows moves the version, which is the purge (a section switched on or off
+included). Three things change with no write, and each follows within the cache's 5 minutes: the euro reference rate
+(platform data refreshed every six hours) for a converted price, a product whose `publish_at` comes, and the "new" badge
+as a product ages. An answer with errors is never
+kept, and the store is still found and rate-limited first. Anything else (carts, accounts, from SAPI 9) is never cached.
+Every answer goes out `private, no-store`: only the data centre's copy is kept, since nothing in front of it sees the
+version move or the headers the key reads.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:
@@ -574,7 +583,7 @@ checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by e
 code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption**; digital
 downloads after payment; services sold with no booking (§1); marketing consent at
 checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
-queries are edge-cached per store, language and currency and purged by events (§5.5 there).
+queries are edge-cached per store, catalogue version, language, currency and market, the version's move being the purge (§5.5 there).
 
 ---
 
