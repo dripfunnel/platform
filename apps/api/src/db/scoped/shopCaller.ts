@@ -51,4 +51,9 @@ export const selectStorefrontByHost = async (tx: ScopedSql, host: string): Promi
 }
 
 export const selectStorefrontByKey = async (tx: ScopedSql, key: string): Promise<StorefrontRow | null> =>
-  (await tx<StorefrontRow[]>`select ${storefrontColumns(tx)} from store s join storefront f on f.store_id = s.id where f.public_store_key = ${key}`)[0] ?? null
+  (
+    await tx<StorefrontRow[]>`
+      select ${storefrontColumns(tx)} from store s join storefront f on f.store_id = s.id join partner p on p.id = s.partner_id
+      where f.public_store_key = ${key} and p.state <> 'closed'
+    `
+  )[0] ?? null
