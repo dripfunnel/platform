@@ -31,10 +31,16 @@ export const AppHeader = ({ me, seat, current, stores, brand, menuOpen, onOpenMe
       <Link to="/home" className="df-logo" aria-label={words.homeLink}>
         {brand?.primaryColor ? (
           <>
-            <span className="df-brand-mark" aria-hidden="true">
-              {initials(brand.productName).slice(0, 1)}
-            </span>
-            <span className="df-brand-name">{brand.productName}</span>
+            {brand.files.logoDark ? (
+              <img className="df-brand-logo" src={brand.files.logoDark} alt={brand.productName} />
+            ) : (
+              <>
+                <span className="df-brand-mark" aria-hidden="true">
+                  {brand.files.mark ? <img src={brand.files.mark} alt="" /> : initials(brand.productName).slice(0, 1)}
+                </span>
+                <span className="df-brand-name">{brand.productName}</span>
+              </>
+            )}
           </>
         ) : (
           <>

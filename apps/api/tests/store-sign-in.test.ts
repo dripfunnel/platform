@@ -332,16 +332,64 @@ describe('what never crosses a partner, a store or a supplier', () => {
     const assets = { get: async (key: string) => (objects.has(key) ? { body: key, httpMetadata: { contentType: 'image/svg+xml' } } : null) } as unknown as R2Bucket
     const serve = async (partnerId: string, path: string) => {
       const file = brandFileOf(path)
-      return file ? serveBrandFile(db.sql, assets, partnerId, file, clock) : new Response(null, { status: 404 })
+      return file ? serveBrandFile(db.sql, assets, null, partnerId, file, clock) : new Response(null, { status: 404 })
     }
     const live = await serve(t.partnerA, '/api/brand/logo-light')
     expect(live.status).toBe(200)
     expect(await live.text()).toBe('partners/a/brand/logo.svg')
+    expect(live.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox")
     expect((await serve(t.partnerA, '/api/brand/logo-dark')).status).toBe(404)
     expect((await serve(t.partnerB, '/api/brand/logo-light')).status).toBe(404)
     expect((await serve(t.partnerA, '/api/brand/../secrets')).status).toBe(404)
   })
 
+  it('serves raster brand files as 512 px WebP through Images, and SVG untouched', async () => {
+    await db.sql`update partner_branding set logo_light_key = 'partners/a/brand/logo.png', logo_dark_key = 'partners/a/brand/logo.svg' where partner_id = ${t.partnerA}`
+    const types: Record<string, string> = { 'partners/a/brand/logo.png': 'image/png', 'partners/a/brand/logo.svg': 'image/svg+xml' }
+    const assets = { get: async (key: string) => ({ body: key, httpMetadata: { contentType: types[key] } }) } as unknown as R2Bucket
+    const calls: unknown[] = []
+    const images = {
+      input: () => ({
+        transform: (t: unknown) => ({
+          output: async (o: unknown) => {
+            calls.push(t, o)
+            return { contentType: () => 'image/webp', image: () => 'webp-bytes' }
+          },
+        }),
+      }),
+    } as unknown as ImagesBinding
+    const png = await serveBrandFile(db.sql, assets, images, t.partnerA, 'logo-light', clock)
+    expect(png.headers.get('content-type')).toBe('image/webp')
+    expect(png.headers.get('cache-control')).toBe('public, max-age=300')
+    expect(await png.text()).toBe('webp-bytes')
+    expect(calls).toEqual([{ width: 512 }, { format: 'image/webp' }])
+    const svg = await serveBrandFile(db.sql, assets, images, t.partnerA, 'logo-dark', clock)
+    expect(svg.headers.get('content-type')).toBe('image/svg+xml')
+    expect(calls).toHaveLength(2)
+  })
+
+  it('serves the original when the transform fails, and never resizes a favicon', async () => {
+    await db.sql`update partner_branding set logo_light_key = 'partners/a/brand/logo.png', favicon_key = 'partners/a/brand/fav.png' where partner_id = ${t.partnerA}`
+    const assets = { get: async (key: string) => ({ body: key, httpMetadata: { contentType: 'image/png' } }) } as unknown as R2Bucket
+    let transforms = 0
+    const images = {
+      input: () => ({
+        transform: () => ({
+          output: async () => {
+            transforms++
+            throw new Error('quota')
+          },
+        }),
+      }),
+    } as unknown as ImagesBinding
+    const logo = await serveBrandFile(db.sql, assets, images, t.partnerA, 'logo-light', clock)
+    expect(logo.status).toBe(200)
+    expect(logo.headers.get('content-type')).toBe('image/png')
+    expect(await logo.text()).toBe('partners/a/brand/logo.png')
+    const icon = await serveBrandFile(db.sql, assets, images, t.partnerA, 'favicon', clock)
+    expect(await icon.text()).toBe('partners/a/brand/fav.png')
+    expect(transforms).toBe(1)
+  })
   it('reads no other partner’s session: a full session from this host is nobody on partner B’s', async () => {
     const res = await post('/api/auth/sign-in', { email: 'nadia@northwind.example', password })
     expect((await gql('{ me { name } }', res.cookie, {}, t.partnerB)).data?.['me']).toBeNull()

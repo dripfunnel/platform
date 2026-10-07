@@ -94,7 +94,9 @@ checked off.
    Then put the new id in `env.dev`, in a pull request.
 2. **R2**: `wrangler r2 bucket create dripfunnel-assets-dev`, then add
    `"r2_buckets": [{ "binding": "ASSETS", "bucket_name": "dripfunnel-assets-dev" }]` to
-   `env.dev`. **Not done yet** (#277): until then, uploads such as partner logos fail on dev.
+   `env.dev`. **Done** (2026-10-07): bucket created and bound. Raster brand files are served as
+   WebP at most 512 px wide through the `IMAGES` binding (Cloudflare Images, top level of
+   `wrangler.jsonc`; its free tier is 5,000 unique transformations a month).
    Create the bucket before adding the binding, or the deploy fails.
 
 ### 2.5 GitHub environment `dev`
@@ -239,7 +241,8 @@ links point at production's admin console.
 - [ ] Cloudflare dev account, `dripfunnel.ai`, SSL Full (strict), Access applications (§2.1)
 - [ ] Deploy token (§2.2)
 - [ ] Neon `dev` and test branches, migration and app roles, three connection strings (§2.3)
-- [ ] Hyperdrive id in `env.dev`; R2 bucket and binding (§2.4)
+- [ ] Hyperdrive id in `env.dev` (§2.4)
+- [x] R2 bucket `dripfunnel-assets-dev` and binding (§2.4)
 - [ ] GitHub environment `dev`: three secrets, three variables (§2.5)
 - [ ] First deploy (§2.6)
 - [ ] `dev-env:attach` (§2.7)

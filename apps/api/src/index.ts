@@ -112,6 +112,7 @@ interface Env extends Record<string, unknown> {
   CART_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
+  IMAGES?: ImagesBinding | undefined
 }
 
 // Built once per isolate from configuration, like Stripe's client below.
@@ -393,7 +394,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const partnerId = await resolvePortalPartner(sql, url.hostname)
     if (!partnerId) return notFound()
     const brandFile = brandFileOf(url.pathname)
-    if (brandFile) return request.method === 'GET' ? serveBrandFile(sql, env.ASSETS ?? null, partnerId, brandFile, new Date()) : notFound()
+    if (brandFile) return request.method === 'GET' ? serveBrandFile(sql, env.ASSETS ?? null, env.IMAGES ?? null, partnerId, brandFile, new Date()) : notFound()
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')

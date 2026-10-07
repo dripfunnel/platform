@@ -6,6 +6,7 @@ import { initials } from '@dripfunnel/shared/ui'
 import type { CSSProperties } from 'react'
 import type { Money } from '@dripfunnel/shared/format'
 import { formatAmount, formatCount, messages } from '../../messages'
+import { BrandFileImage } from './BrandFileImage'
 import type { BrandDraft } from './brandDraft'
 
 const words = messages.branding.preview
@@ -59,12 +60,27 @@ const Toggle = <Value extends string>({ label, options, value, onPick }: { label
   </div>
 )
 
-const SignInCard = ({ draft }: { draft: BrandDraft }) => (
+const fileUrl = (key: string): string => `/api/uploads/brand-file?key=${encodeURIComponent(key)}`
+
+// The portal's rule (ui/store/README.md §4): the logo for the background it sits on, else the mark, else a plain tile.
+const Brand = ({ draft, logo }: { draft: BrandDraft; logo: 'logoLight' | 'logoDark' }) => {
+  const { files, productName } = draft.look
+  const named = (
+    <>
+      <span className="pv-mark" aria-hidden="true">
+        {files.mark && <BrandFileImage src={fileUrl(files.mark)} alt="" fallback={null} />}
+      </span>
+      <strong>{productName}</strong>
+    </>
+  )
+  return files[logo] ? <BrandFileImage className="pv-logo" src={fileUrl(files[logo])} alt={productName} fallback={named} /> : named
+}
+
+const SignInCard = ({ draft, mode }: { draft: BrandDraft; mode: PreviewMode }) => (
   <div className="pv-page">
     <div className="pv-card">
       <div className="pv-brand">
-        <span className="pv-mark" aria-hidden="true" />
-        <strong>{draft.look.productName}</strong>
+        <Brand draft={draft} logo={mode === 'dark' ? 'logoDark' : 'logoLight'} />
       </div>
       <strong className="pv-title">{words.signInTitle}</strong>
       <span className="pv-field">{words.email}</span>
@@ -79,8 +95,7 @@ const SignInCard = ({ draft }: { draft: BrandDraft }) => (
 const Header = ({ draft, device }: { draft: BrandDraft; device: PreviewDevice }) => (
   <div className="pv-app">
     <div className="pv-header">
-      <span className="pv-mark" aria-hidden="true" />
-      <strong>{draft.look.productName}</strong>
+      <Brand draft={draft} logo="logoDark" />
       {device === 'desktop' && <span className="pv-search">{words.search}</span>}
       <span className="pv-help">{words.help}</span>
       <span className="pv-avatar" aria-hidden="true">
@@ -128,7 +143,7 @@ export const BrandPreview = ({ draft, screen, device, mode, onScreen, onDevice, 
     </div>
     <div className="df-pv-frame">
       <div className={device === 'phone' ? 'pv-root pv-root--phone' : 'pv-root'} style={variablesOf(draft, mode)}>
-        {screen === 'signin' ? <SignInCard draft={draft} /> : <Header draft={draft} device={device} />}
+        {screen === 'signin' ? <SignInCard draft={draft} mode={mode} /> : <Header draft={draft} device={device} />}
       </div>
     </div>
     <p className="df-muted df-pv-note">{words.frame}</p>

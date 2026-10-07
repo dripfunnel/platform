@@ -33,6 +33,19 @@
   font-weight: 800;
 }
 
+.df-brand-logo {
+  display: block;
+  height: 26px;
+  width: auto;
+}
+
+.df-brand-mark img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .df-brand-name {
   margin-left: 10px;
   color: var(--df-color-side-strong);
