@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { CourierRejected, courierTimeoutMs, CourierUnavailable, type CourierRate, type Parcel } from '#core/couriers'
-import { fromMajor, toMajor } from '#core/money'
+import { fromDecimalRounded, toMajor } from '#core/money'
 
 // A partner's Shiprocket account (THIRD-PARTY-ACCESS §3.2, §4): a dedicated API user's email and password, exchanged
 // for a token on each quote, since the Worker keeps nothing between requests. Domestic India only.
@@ -58,7 +58,8 @@ export const shiprocketQuote = async ({ email, password, fetchImpl = fetch }: Sh
   const body = serviceabilitySchema.safeParse(await response.json().catch(() => null))
   if (!body.success) throw new CourierUnavailable('shiprocket: unreadable answer')
   const rates = body.data.data.available_courier_companies.flatMap((c) => {
-    const amount = fromMajor(Number(c.rate).toFixed(2), 'INR')
+    // The JSON number's own shortest decimal ("10.075"), rounded in decimal: never toFixed on a float.
+    const amount = fromDecimalRounded(String(c.rate), 'INR')
     const d = days(c.estimated_delivery_days)
     return amount ? [{ amount, service: c.courier_name, minDays: d, maxDays: d }] : []
   })

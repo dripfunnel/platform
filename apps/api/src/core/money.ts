@@ -43,6 +43,21 @@ export const fromMajor = (value: string, currency: string): Money | null => {
   return amount <= maxAmount ? { amount, currency } : null
 }
 
+/**
+ * A provider's decimal ("10.075") in minor units, rounded half up in decimal, never through a float: a courier's rate can
+ * carry more places than the currency has. Null for anything that isn't a plain non-negative decimal.
+ */
+export const fromDecimalRounded = (value: string, currency: string): Money | null => {
+  if (!isCurrency(currency)) return null
+  const match = /^(0|[1-9][0-9]{0,12})(?:\.([0-9]{1,12}))?$/.exec(value.trim())
+  if (!match) return null
+  const digits = minorDigits(currency)
+  const fraction = (match[2] ?? '').padEnd(digits + 1, '0')
+  const kept = BigInt(match[1] ?? '0') * 10n ** BigInt(digits) + BigInt(fraction.slice(0, digits) || '0')
+  const amount = Number(fraction[digits] ?? '0') >= 5 ? kept + 1n : kept
+  return amount <= maxAmount ? { amount, currency } : null
+}
+
 export const toMinorString = (money: Money): string => money.amount.toString()
 
 /** Minor units as a major-unit decimal ("1299.50"), as a spreadsheet takes it (#301's exports); fromMajor reads it back. */
