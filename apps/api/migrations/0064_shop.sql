@@ -90,7 +90,7 @@ begin
   end loop;
 end
 $$;
-create trigger store_touch after update of name, description, logo_asset_id, address, contact_email, contact_phone, time_zone, unit_system,
+create trigger store_touch after update of name, country, description, logo_asset_id, address, contact_email, contact_phone, time_zone, unit_system,
   pricing_currency, main_language, tax_inclusive, status on store for each row execute function storefront_store_touched();
 
 -- The merchant side reads its key (Settings › Developers, SAPI 20); the Shop API finds a store by it in system scope.
@@ -157,8 +157,9 @@ grant select (store_id, courier_enabled, flat_enabled, flat_amount, pickup_enabl
 grant select (store_id, provider, role, position) on store_courier to app_shop;
 grant select (delivery_amount) on market to app_shop;
 grant execute on function store_delivers_to(text) to app_shop;
--- A shopper's own entries (LOGGING §6: visibility self), as 0006's shop branch reads them.
-grant select on activity_log to app_shop;
+-- A shopper's own entries (LOGGING §6: visibility self), as 0006's shop branch reads them: what happened and when, never
+-- who else acted, from where (ip, user agent) or the recorded changes.
+grant select (id, occurred_at, category, action, result, customer_id, target_type, target_id, target_label, visibility) on activity_log to app_shop;
 
 do $$
 declare
@@ -174,7 +175,7 @@ begin
     ('store_language', 'status = ''active'''),
     ('store_currency', 'status = ''active'''),
     ('market', 'deleted_at is null and status = ''active'''),
-    ('market_excluded_product', 'true'),
+    ('market_excluded_product', product_seen),
     ('product', visible),
     ('product_option', product_seen),
     ('product_option_value', 'exists (select 1 from product_option o where o.id = option_id)'),
