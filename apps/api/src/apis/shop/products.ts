@@ -206,7 +206,11 @@ export const registerProducts = ({ builder, pageInfo, image }: ShopBuilder) => {
       type: ProductPage,
       args: { query: t.arg.string({ required: true }), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
       extensions: { access },
-      resolve: (_, args, ctx) => listed(ctx, { first: args.first, after: args.after, before: args.before, search: args.query }),
+      resolve: (_, args, ctx) => {
+        // A blank search is no search: never the whole catalogue as its result.
+        if (args.query.trim() === '') throw refused('INVALID_INPUT')
+        return listed(ctx, { first: args.first, after: args.after, before: args.before, search: args.query })
+      },
     }),
     product: t.field({ type: Product, nullable: true, args: { slug: t.arg.string({ required: true }) }, extensions: { access }, resolve: (_, args, ctx) => catalogOf(ctx).product(args.slug) }),
   }))

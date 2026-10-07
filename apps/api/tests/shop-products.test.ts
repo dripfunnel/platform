@@ -141,6 +141,8 @@ describe('products', () => {
     const found = await gql('{ search(query: "kurta") { nodes { slug } } }')
     expect(found.data?.['search']).toEqual({ nodes: [{ slug: 'kurta' }] })
     expect((await gql('{ search(query: "कुर्ता") { nodes { name: slug } } }', { 'x-shop-language': 'hi-IN' })).data?.['search']).toEqual({ nodes: [{ name: 'kurta-hi' }] })
+    // A blank search is refused, never the whole catalogue (#441's review).
+    for (const query of ['', '   ']) expect((await gql(`{ search(query: "${query}") { nodes { slug } } }`)).errors?.[0]?.extensions['code']).toBe('INVALID_INPUT')
   })
 })
 
