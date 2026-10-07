@@ -79,3 +79,32 @@ describe('the Shop API through the Worker', () => {
     await db.sql`update store set status = 'active', suspended_at = null, suspended_reason = null, suspended_previous_status = null where id = ${t.storeA1}`
   })
 })
+
+describe('the edge cache through the Worker (#442’s review)', () => {
+  const kept = new Map<string, Response>()
+  const memory = { match: async (key: Request) => kept.get(key.url)?.clone(), put: async (key: Request, response: Response) => void kept.set(key.url, response) }
+
+  it('serves a store its own answer from the cache, never another store’s, by POST and by GET', async () => {
+    const globals = globalThis as { caches?: unknown }
+    globals.caches = { default: memory }
+    try {
+      const ask = async (host: string, method: 'POST' | 'GET' = 'POST') => {
+        const response = method === 'GET' ? await call(`https://${host}/shop-api?query=${encodeURIComponent('{ menu { label } }')}`) : await query(host)
+        return { cache: response.headers.get('x-shop-cache'), control: response.headers.get('cache-control'), body: (await response.json()) as unknown }
+      }
+      expect(await ask('store-a1.shops.acme.example')).toEqual({ cache: 'miss', control: 'private, no-store', body: { data: { store: { name: 'Store A1' } } } })
+      expect(await ask('store-a1.shops.acme.example')).toEqual({ cache: 'hit', control: 'private, no-store', body: { data: { store: { name: 'Store A1' } } } })
+      expect(await ask('store-a2.shops.acme.example')).toMatchObject({ cache: 'miss', body: { data: { store: { name: 'Store A2' } } } })
+      expect((await ask('store-a2.shops.acme.example', 'GET')).cache).toBe('miss')
+      expect((await ask('store-a2.shops.acme.example', 'GET')).cache).toBe('hit')
+      // Suspending moves the catalogue version and makes the store unavailable: nothing is served from the cache or kept.
+      await db.sql`update store set status = 'suspended', suspended_at = now(), suspended_reason = 'unpaid', suspended_previous_status = 'active' where id = ${t.storeA1}`
+      const suspended = await ask('store-a1.shops.acme.example')
+      expect([suspended.cache, (suspended.body as { errors: { extensions: { code: string } }[] }).errors[0]?.extensions.code]).toEqual([null, 'STORE_UNAVAILABLE'])
+      await db.sql`update store set status = 'active', suspended_at = null, suspended_reason = null, suspended_previous_status = null where id = ${t.storeA1}`
+      expect((await ask('store-a1.shops.acme.example')).cache).toBe('miss')
+    } finally {
+      delete globals.caches
+    }
+  })
+})
