@@ -3,7 +3,7 @@ import worker from '../src/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
-// The Shop API through the Worker itself (#306, #440's review): a host no store holds, a key for another store, and the
+// The Shop API through the Worker itself (#306): a host no store holds, a key for another store, and the
 // files a storefront shows, each answered by the route, against a real database.
 
 let db: TestDatabase
