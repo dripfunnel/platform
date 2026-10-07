@@ -382,7 +382,8 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
         const extra = left - onLines > 0n ? left - onLines : null
         if (extra) owners.set(null, owners.get(null) ?? [])
         const given = await giveBack(tx, order, owners, extra, left, { reason: 'cancelled', note: null, restock: false, inReturn: null })
-        if (!given.ok) return given
+        // Thrown, not returned, so the stock released above rolls back with it.
+        if (!given.ok) throw new Refused(given.reason)
       }
       await cancelPlaced(tx, storeId, order.id, reason as CancelReason, now())
       await record(tx, refundAudit.cancelled, order, reason, lines.map((l) => l.seller_id))

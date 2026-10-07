@@ -155,7 +155,7 @@ describe('cancelling an order', () => {
     expect(await db.sql`select 1 from supplier_ledger_entry`).toHaveLength(0)
   })
 
-  it('keeps the order as it was when the provider is down, and refuses one whose card payment is still going through', async () => {
+  it('keeps the order and its held stock as they were when the provider is down or the payment can’t be refunded, and refuses one whose card payment is still going through', async () => {
     const paid = await order('A-4003', { method: 'stripe', paid: true })
     const before = await held(versions.house, places.main)
     refundAnswer = 'unavailable'
@@ -163,6 +163,12 @@ describe('cancelling an order', () => {
     refundAnswer = 'done'
     expect(await stateOf(paid)).toMatchObject({ state: 'placed', payment_state: 'paid' })
     expect(await held(versions.house, places.main)).toBe(before)
+    const unlinked = await order('A-4099', { method: 'stripe', paid: true })
+    await db.sql`update payment set provider_ref = null where order_id = ${unlinked}`
+    const held2 = { house: await held(versions.house, places.main), scarf: await held(versions.scarf, places.drop) }
+    expect((await cancel('owner', unlinked)).code).toBe('PROVIDER_UNAVAILABLE')
+    expect(await stateOf(unlinked)).toMatchObject({ state: 'placed', payment_state: 'paid' })
+    expect({ house: await held(versions.house, places.main), scarf: await held(versions.scarf, places.drop) }).toEqual(held2)
     const paying = await order('A-4004', { method: 'stripe', paid: false })
     cancelAnswer = 'processing'
     expect((await cancel('owner', paying)).code).toBe('PAYMENT_PENDING')
