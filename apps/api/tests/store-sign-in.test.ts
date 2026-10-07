@@ -4,6 +4,7 @@ import type { StoreContext } from '#apis/store/access'
 import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema } from '#apis/store/schema'
+import { setCodeCheck } from '#auth/codeCheck'
 import { hashPassword } from '#auth/password'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
@@ -239,6 +240,19 @@ describe('the second factor', () => {
       await db.sql`update "user" set two_factor_method = null, two_factor_enrolled_at = null, phone = null where id = ${people.staff}`
     }
   })
+
+  it('accepts any texted code when CODE_CHECK is 0', async () => {
+    await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+919845022113', two_factor_secret_enc = null where id = ${people.staff}`
+    setCodeCheck('0')
+    try {
+      const res = await post('/api/auth/sign-in', { email: 'staff@a.example', password })
+      await post('/api/auth/send-code', {}, res.cookie)
+      expect((await post('/api/auth/second-factor', { code: '000000' }, res.cookie)).body).toEqual({ ok: true })
+    } finally {
+      setCodeCheck(undefined)
+      await db.sql`update "user" set two_factor_method = null, two_factor_enrolled_at = null, phone = null where id = ${people.staff}`
+    }
+  })
 })
 
 describe('an Owner enrolling by SMS', () => {
@@ -252,6 +266,18 @@ describe('an Owner enrolling by SMS', () => {
     expect(done.body['backupCodes']).toHaveLength(10)
     const [row] = await db.sql<{ two_factor_method: string; phone: string }[]>`select two_factor_method, phone from "user" where id = ${owner}`
     expect(row).toEqual({ two_factor_method: 'sms', phone: '+16145550199' })
+  })
+  it('takes any code when CODE_CHECK is 0', async () => {
+    const owner = await user(t.partnerA, 'third.owner@a.example', 'Third Owner')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
+    const res = await post('/api/auth/sign-in', { email: 'third.owner@a.example', password })
+    await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550198' }, res.cookie)
+    setCodeCheck('0')
+    try {
+      expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code: '000000' }, res.cookie)).body['backupCodes']).toHaveLength(10)
+    } finally {
+      setCodeCheck(undefined)
+    }
   })
 })
 

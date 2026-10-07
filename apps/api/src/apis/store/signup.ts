@@ -3,6 +3,7 @@ import type { RequestFacts } from '#auth/activity'
 import { hashPassword, minPasswordLength } from '#auth/password'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, phoneHint, smsCodeMs } from '#auth/storeCodes'
+import { codeMatches } from '#auth/codeCheck'
 import { setStoreCookie } from '#auth/storeSession'
 import { countriesIn, countryOf } from '#core/countries'
 import { isE164 } from '#core/sms'
@@ -102,7 +103,7 @@ const checkCode = async (tx: ScopedSql, s: SignupRow, which: 'email' | 'phone', 
   const expiresAt = which === 'email' ? s.email_code_expires_at : s.phone_code_expires_at
   const attempts = which === 'email' ? s.email_code_attempts : s.phone_code_attempts
   if (!hash || !expiresAt || expiresAt <= now || attempts >= maxSmsCodeAttempts) return { code: 'CODE_EXPIRED' }
-  if ((await hashSmsCode(`signup-${which}:${s.id}`, typed.trim())) === hash) return null
+  if (codeMatches((await hashSmsCode(`signup-${which}:${s.id}`, typed.trim())) === hash)) return null
   await bumpSignupAttempt(tx, s.id, which)
   return { code: 'WRONG_CODE', triesLeft: Math.max(0, maxSmsCodeAttempts - attempts - 1) }
 }

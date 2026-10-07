@@ -182,6 +182,7 @@ Never reuse a value from local or production.
 | `CF_CUSTOM_HOSTNAMES_TOKEN` | Secret | an API token | THIRD-PARTY-ACCESS.md §2.1: *SSL and Certificates: Edit* on that zone only |
 | `PLATFORM_HOST` | Text | `dev-platform.dripfunnel.ai` | fixed |
 | `HOOKS_HOST` | Text | `dev-hooks.dripfunnel.ai` | fixed |
+| `CODE_CHECK` | Text | `0` | Any email or text code is accepted (expiry, tries and lockout still apply), so sign-in 2-factor, phone enrolment and sign-ups work before an SMS provider exists (#275). Prod leaves it unset; the Worker refuses `0` anywhere but dev and localhost |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | fixed: the dev Worker has its binding |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Keep a copy in the team's password manager: losing it makes every stored 2-factor secret and credential on dev unreadable |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center › App registrations (THIRD-PARTY-ACCESS.md §2.5). Its redirect URIs must include `https://dev-admin.dripfunnel.ai/api/auth/callback` |

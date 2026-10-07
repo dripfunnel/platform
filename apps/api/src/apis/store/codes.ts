@@ -1,4 +1,5 @@
 import { hashSmsCode, maxSmsCodeAttempts, newSmsCode, smsCodeMs } from '#auth/storeCodes'
+import { codeMatches } from '#auth/codeCheck'
 import { personLocked, type ActivityLog, type RequestFacts } from '#auth/activity'
 import { lockMs, maxCodeTries } from '#auth/partnerCode'
 import type { ScopedSql } from '#db/scoped/index'
@@ -33,7 +34,7 @@ export const textCode = async (tx: ScopedSql, partnerId: string, userId: string,
 export const checkTextedCode = async (tx: ScopedSql, userId: string, purpose: 'sign_in' | 'enrol_phone', typed: string, now: Date): Promise<'ok' | 'wrong' | 'expired'> => {
   const live = await selectLiveCode(tx, userId, purpose, now)
   if (!live || live.attempts >= maxSmsCodeAttempts) return 'expired'
-  if ((await hashSmsCode(live.id, typed)) !== live.code_hash) {
+  if (!codeMatches((await hashSmsCode(live.id, typed)) === live.code_hash)) {
     await bumpCodeAttempt(tx, live.id)
     return 'wrong'
   }

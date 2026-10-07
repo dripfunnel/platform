@@ -22,6 +22,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from './activity'
 import { hashPassword, minPasswordLength, verifyPassword } from './password'
 import { hashSessionId, newSessionId } from './session'
 import { hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, smsCodeMs } from './storeCodes'
+import { codeMatches } from './codeCheck'
 
 // A store's shoppers signing in (ACCESS §2.1): email and password, a code by email or text, or both, as Settings ›
 // Customer accounts says. In system scope, as no shopper exists yet; every query names the store. Answers never say
@@ -140,7 +141,7 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
         return { ok: false, reason: 'CODE_REFUSED' }
       }
       if (!live || live.attempts >= maxSmsCodeAttempts || !live.code_hash) return refused()
-      if (live.code_hash !== (await hashShopperCode(live.id, code.trim()))) {
+      if (!codeMatches(live.code_hash === (await hashShopperCode(live.id, code.trim())))) {
         await countCodeAttempt(tx, live.id)
         return refused()
       }

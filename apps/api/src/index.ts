@@ -30,6 +30,7 @@ import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
 import { parseConfig, type Config } from '#core/config'
+import { setCodeCheck } from '#auth/codeCheck'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
@@ -499,6 +500,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
     console.error(JSON.stringify({ code: 'config_invalid' }))
     return { response: new Response(null, { status: 500 }), area: null }
   }
+  setCodeCheck(config.CODE_CHECK)
   const area = resolveArea(url, config)
   if (!area) return { response: notFound(), area: null }
   if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }

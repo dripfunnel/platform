@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
 import { verifySignupPhone } from '#apis/store/signup'
+import { setCodeCheck } from '#auth/codeCheck'
 import { hashPassword } from '#auth/password'
 import { mintSignupEmailCode } from '#auth/signupCodes'
 import { withSystemScope } from '#db/scoped/index'
@@ -122,6 +123,17 @@ describe('signing up', () => {
     expect((await post('/api/auth/sign-up/store', { storeName: 'Juniper', subdomain: 'juniper-co', country: 'IN' }, signup)).body).toEqual({ ok: true, step: 'phone' })
   })
 
+  it('accepts any sign-up email code when CODE_CHECK is 0', async () => {
+    setCodeCheck('0')
+    try {
+      const start = await post('/api/auth/sign-up', { name: 'Zed', email: 'zed@a.example', password })
+      await emailCode('zed@a.example')
+      const verified = await post('/api/auth/sign-up/verify-email', { code: '000000' }, start.cookies['__Host-portal_signup'] ?? '')
+      expect(verified.body['step']).toBe('store')
+    } finally {
+      setCodeCheck(undefined)
+    }
+  })
   it('makes the account, the store, its Trial and the Owner, then holds the Owner at 2-factor set-up', async () => {
     const signup = await throughStore('owner.new@a.example', 'kesari')
     expect((await post('/api/auth/sign-up/send-phone', { phone: '98450 22113' }, signup)).body).toEqual({ ok: false, code: 'INVALID_PHONE' })
@@ -144,6 +156,17 @@ describe('signing up', () => {
     expect(await db.sql`select 1 from signup where email = 'owner.new@a.example'`).toHaveLength(0)
     const [entry] = await db.sql<{ visibility: string }[]>`select visibility from activity_log where action = 'store.created' and store_id = ${store?.id ?? ''}`
     expect(entry?.visibility).toBe('store')
+  })
+
+  it('accepts any sign-up phone code when CODE_CHECK is 0', async () => {
+    const signup = await throughStore('zed.phone@a.example', 'zed-phone')
+    await post('/api/auth/sign-up/send-phone', { phone: '+16145550101' }, signup)
+    setCodeCheck('0')
+    try {
+      expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup)).body['step']).toBe('enrol')
+    } finally {
+      setCodeCheck(undefined)
+    }
   })
 
   it('leaves nothing behind when any step fails, and the same code then works', async () => {

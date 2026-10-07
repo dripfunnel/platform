@@ -2,6 +2,7 @@ import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import type { StoreContext } from '#apis/store/access'
+import { setCodeCheck } from '#auth/codeCheck'
 import { storeSchema } from '#apis/store/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
@@ -107,6 +108,17 @@ describe('signing in by a texted code', () => {
     expect(((await verify('PHONE', '+919845022113', await textedCode('+919845022113'))).data?.['verifySignInCode'] as { created: boolean }).created).toBe(false)
   })
 
+  it('accepts any code for a live request when CODE_CHECK is 0', async () => {
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919855555555") }')
+    setCodeCheck('0')
+    try {
+      expect((await verify('PHONE', '+919855555555', '000000')).data?.['verifySignInCode']).toMatchObject({ created: true })
+    } finally {
+      setCodeCheck(undefined)
+      await db.sql`delete from customer_session where customer_id in (select id from customer where phone = '+919855555555')`
+      await db.sql`delete from customer where phone = '+919855555555'`
+    }
+  })
   it('spends a code after five wrong tries, and limits a number to three codes in ten minutes', async () => {
     await gql('mutation { requestSignInCode(channel: PHONE, to: "+919800000001") }')
     const code = await textedCode('+919800000001')
