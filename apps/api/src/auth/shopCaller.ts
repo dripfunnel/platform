@@ -1,6 +1,8 @@
 import type postgres from 'postgres'
 import type { TenantContext } from '#core/tenancy'
 import { withSystemScope } from '#db/scoped/index'
+import { hashSessionId } from './session'
+import { resolveShopperSession } from './shopperAuth'
 import { defaultFeatures, featureKeys, type FeatureKey } from '#db/scoped/catalogListing'
 import { selectStorefrontByHost, selectStorefrontByKey, type StorefrontRow } from '#db/scoped/shopCaller'
 
@@ -11,6 +13,10 @@ export const shopKeyHeader = 'x-shop-key'
 export const shopLanguageHeader = 'x-shop-language'
 export const shopCurrencyHeader = 'x-shop-currency'
 export const shopMarketHeader = 'x-shop-market'
+/** A guest's cart token (SAPI 9), handed out by `addToCart` and sent back with every cart call. */
+export const shopCartHeader = 'x-shop-cart'
+/** A signed-in shopper's session token (SAPI 9), handed out by sign-in. */
+export const shopSessionHeader = 'x-shop-session'
 
 export interface Shopper {
   context: TenantContext
@@ -18,6 +24,8 @@ export interface Shopper {
   available: boolean
   catalogVersion: string
   mainLanguage: string
+  /** The store's country: which payment providers and couriers it may use. */
+  country: string | null
   pricingCurrency: string
   language: string
   currency: string
@@ -28,7 +36,7 @@ export interface Shopper {
 
 export type ShopResolution = { kind: 'found'; shopper: Shopper } | { kind: 'unknown' } | { kind: 'key-mismatch' }
 
-const shopperOf = (row: StorefrontRow, request: Request): Shopper | null => {
+const shopperOf = (row: StorefrontRow, request: Request, orderTokenHash: string | null, customerId: string | null): Shopper | null => {
   if (!row.pricing_currency) return null
   const market = row.markets.find((m) => m.id === request.headers.get(shopMarketHeader)?.trim().toLowerCase()) ?? null
   const asked = (header: string) => request.headers.get(header)?.trim() ?? ''
@@ -39,10 +47,11 @@ const shopperOf = (row: StorefrontRow, request: Request): Shopper | null => {
   const currencyAsked = asked(shopCurrencyHeader).toUpperCase()
   const currency = [currencyAsked, market?.currency ?? ''].find((c) => currencies.includes(c)) ?? row.pricing_currency
   return {
-    context: { caller: { kind: 'shopper', customerId: null }, partnerId: row.partner_id, storeId: row.store_id, sellerScope: { kind: 'all' }, subscription: row.status === 'closed' ? 'cancelled' : row.status },
+    context: { caller: { kind: 'shopper', customerId, orderTokenHash }, partnerId: row.partner_id, storeId: row.store_id, sellerScope: { kind: 'all' }, subscription: row.status === 'closed' ? 'cancelled' : row.status },
     available: row.status === 'trial' || row.status === 'active' || row.status === 'past_due',
     catalogVersion: row.catalog_version,
     mainLanguage: row.main_language,
+    country: row.country,
     pricingCurrency: row.pricing_currency,
     language,
     currency,
@@ -64,6 +73,12 @@ export const resolveShopper = async (sql: postgres.Sql, request: Request, host: 
   }))
   if (byHost && key !== '' && byKey?.store_id !== byHost.store_id) return { kind: 'key-mismatch' }
   const row = byHost ?? byKey
-  const shopper = row ? shopperOf(row, request) : null
+  const cartToken = request.headers.get(shopCartHeader)?.trim() ?? ''
+  // Only the shape a token is handed out in is hashed; anything else holds no cart.
+  const orderTokenHash = /^[0-9a-f]{64}$/.test(cartToken) ? await hashSessionId(cartToken) : null
+  // A session names a shopper of this store only; any other is ignored, as if signed out.
+  const session = request.headers.get(shopSessionHeader)?.trim() ?? ''
+  const customerId = row && session !== '' ? await resolveShopperSession(sql, row.store_id, session, new Date()) : null
+  const shopper = row ? shopperOf(row, request, orderTokenHash, customerId) : null
   return shopper ? { kind: 'found', shopper } : { kind: 'unknown' }
 }

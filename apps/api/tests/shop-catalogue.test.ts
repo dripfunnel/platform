@@ -183,7 +183,7 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     for (const [table, column] of [['product', 'seller_id'], ['product_version', 'cost_amount'], ['product_story', 'draft'], ['store', 'next_order_number'], ['customer', 'password_hash'], ['product', 'sent_back_reason'], ['activity_log', 'ip'], ['activity_log', 'actor_id'], ['activity_log', 'changes']] as const) {
       await expect(withScope(db.sql, asShopper(t.storeA1), (tx) => tx.unsafe(`select ${column} from ${table}`))).rejects.toThrow(/permission denied/)
     }
-    for (const table of ['seller', 'stock_level', 'tax_class', 'delivery_postal_code', 'storefront', 'membership']) {
+    for (const table of ['seller', 'stock_level', 'invoice_settings', 'delivery_postal_code', 'storefront', 'membership']) {
       await expect(withScope(db.sql, asShopper(t.storeA1), (tx) => tx.unsafe(`select 1 from ${table}`))).rejects.toThrow(/permission denied/)
     }
   })

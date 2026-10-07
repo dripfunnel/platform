@@ -3,6 +3,9 @@ import { mintInvitationToken, mintResetToken } from '#auth/partnerTokens'
 import { mintStaffInvitationToken } from '#auth/staffTokens'
 import { mintEmailChangeToken } from '#auth/emailChangeTokens'
 import { mintSignupEmailCode } from '#auth/signupCodes'
+import { hashShopperCode } from '#auth/shopperAuth'
+import { newSmsCode, smsCodeMs } from '#auth/storeCodes'
+import { selectCodeForEmail, setCodeHash } from '#db/scoped/shopper'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
 import { selectBranding } from '#db/scoped/branding'
 import type { ScopedSql } from '#db/scoped/index'
@@ -57,6 +60,7 @@ const payloads = {
   'user-locked': z.object({ userId: id, to: email, minutes: z.number().int().positive() }),
   'user-email-change': z.object({ emailChangeId: id }),
   'signup-code': z.object({ signupId: id }),
+  'shopper-code': z.object({ customerCodeId: id }),
   'user-email-changing': z.object({ emailChangeId: id }),
   'partner-domain-live': z.object({ partnerId: id, domainId: id, kind: z.enum(['portal', 'preview', 'shops', 'email']) }),
   'partner-card-declined': z.object({ invoiceId: z.string().max(255) }),
@@ -244,6 +248,19 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       }
       const w = en.signupCode
       return { send: true, accountSecurity: true, to: [signup.email], voice: look.voice, brand: look.brand, content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(code)], note: w.note } }
+    }
+    case 'shopper-code': {
+      const p = parse(t)
+      const found = await selectCodeForEmail(tx, p.customerCodeId, now)
+      if (!found) return { send: false, reason: 'link_closed' }
+      if (found.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, found.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      // Made as it is sent, so the code never rests in the outbox (ACCESS.md §6.1); the same email whether or not there's an account.
+      const code = newSmsCode()
+      if (!(await setCodeHash(tx, found.id, await hashShopperCode(found.id, code), new Date(now.getTime() + smsCodeMs), now))) return { send: false, reason: 'link_closed' }
+      const w = en.shopperCode
+      return { send: true, accountSecurity: true, to: [found.target], voice: look.voice, brand: look.brand, content: { subject: w.subject(found.store_name), heading: w.heading, paragraphs: [w.body(code)], note: w.note } }
     }
     case 'user-email-change':
     case 'user-email-changing': {

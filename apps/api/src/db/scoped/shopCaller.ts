@@ -9,6 +9,7 @@ export interface StorefrontRow {
   status: 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled' | 'closed'
   catalog_version: string
   main_language: string
+  country: string | null
   pricing_currency: string | null
   languages: string[]
   currencies: string[]
@@ -21,7 +22,7 @@ const storefrontColumns = (tx: ScopedSql) => tx`
   s.id as store_id, s.partner_id, s.status,
   -- A store converting prices shows a new rate's prices: the rate's date moves its version too, as it has no store to touch.
   f.catalog_version::text || case when exists (select 1 from store_currency c where c.store_id = s.id and c.mode = 'convert' and c.status = 'active')
-    then '.' || coalesce((select max(r.published_on)::text from exchange_rate r), '') else '' end as catalog_version, s.main_language, s.pricing_currency::text as pricing_currency,
+    then '.' || coalesce((select max(r.published_on)::text from exchange_rate r), '') else '' end as catalog_version, s.main_language, s.country, s.pricing_currency::text as pricing_currency,
   coalesce((select json_agg(l.language order by l.position, l.language) from store_language l where l.store_id = s.id and l.status = 'active'), '[]'::json) as languages,
   coalesce((select json_agg(c.currency order by c.position, c.currency) from store_currency c where c.store_id = s.id and c.status = 'active'), '[]'::json) as currencies,
   coalesce((select json_agg(json_build_object('id', m.id, 'currency', m.currency, 'language', m.language)) from market m
