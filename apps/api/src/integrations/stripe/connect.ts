@@ -2,9 +2,8 @@ import { z } from 'zod'
 import type { OAuthConnect } from '#core/payments'
 import { stripeTimeoutMs, StripeRefused, StripeUnavailable } from './api'
 
-// Stripe Connect Standard by OAuth (THIRD-PARTY-ACCESS §3.1, decided 2026-10-05 on #284): the merchant approves on
-// Stripe, which returns to the hooks host; the code becomes the connected account's id. No token is kept: the platform's
-// own key acts on the account by its id.
+// Stripe Connect Standard by OAuth (THIRD-PARTY-ACCESS §3.1): the code becomes the connected account's id; no token is
+// kept, as the platform's key acts on the account by its id.
 
 const connectBase = 'https://connect.stripe.com'
 

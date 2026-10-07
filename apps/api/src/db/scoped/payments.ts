@@ -42,6 +42,10 @@ export const selectStoreByStripeAccount = async (tx: ScopedSql, accountId: strin
     `
   )[0] ?? null
 
+/** Whether another store holds this Stripe account (a merchant approving one account for two stores). */
+export const stripeAccountTaken = async (tx: ScopedSql, storeId: string, accountId: string): Promise<boolean> =>
+  (await tx`select 1 from payment_provider_account where provider = 'stripe' and external_account_id = ${accountId} and store_id <> ${storeId}`).length > 0
+
 /** Connected: a live row holding the account's id, whatever was there before. */
 export const saveStripeAccount = async (tx: ScopedSql, storeId: string, accountId: string, now: Date): Promise<void> => {
   await tx`
@@ -51,10 +55,7 @@ export const saveStripeAccount = async (tx: ScopedSql, storeId: string, accountI
   `
 }
 
-/**
- * Disconnected: off, and nothing kept to take payment with (the keys, the connected account); the row stays for the
- * payments that name it. Answers the Stripe account that was connected, for the caller to end its access.
- */
+/** Off, its keys and connected account cleared, the row kept for its payments; answers the Stripe account it held. */
 export const disconnectProvider = async (tx: ScopedSql, storeId: string, provider: string, now: Date): Promise<{ count: number; stripeAccount: string | null }> => {
   const rows = await tx<{ was: string | null }[]>`
     update payment_provider_account a set status = 'off', credentials_enc = null, webhook_secret_enc = null, external_account_id = null, public_key = null, updated_at = ${now}

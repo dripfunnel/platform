@@ -605,8 +605,8 @@ order placed unpaid with no stock held; `confirmPayment(orderId)` reads it back 
 `payOrder(orderId)` starts a new attempt after a decline (`ALREADY_PAID` once paid). Paid, from the webhook, the return or
 the sweep, the order holds its stock; a card order unpaid for a day is cancelled (`unpaid`). Preview storefronts pay in
 test mode and never hold stock. A US address on a store with Stripe connected is taxed by Stripe Tax, delivery included;
-the store's own rates leave delivery untaxed (decided on #309). A number proved by a code claims the store's guest orders
-placed with it (#337).
+the store's own rates leave delivery untaxed (decided on #309). A Stripe account takes payment for one store only
+(`ACCOUNT_IN_USE`).
 **Part 3, pasted keys:** `connectGateway(provider, mode, keys)` connects Razorpay, Cashfree, PhonePe or PayPal for `LIVE` or
 `TEST` (the preview storefront). The keys are checked, tried once with the provider, sealed and never shown again (`INVALID_KEYS`,
 `KEYS_REFUSED`, `PROVIDER_UNAVAILABLE`). `gateways` lists each mode's `connections` with the webhook address to paste

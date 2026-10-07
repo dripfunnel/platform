@@ -15,6 +15,7 @@ const words: Record<string, string> = {
   LAST_METHOD: 'You can’t turn off your only way to get paid — shoppers couldn’t buy anything.',
   NOT_AVAILABLE: 'Connecting Stripe isn’t set up here yet.',
   EXPIRED: 'That link has expired. Connect Stripe again.',
+  ACCOUNT_IN_USE: 'That Stripe account already takes payments for another store. Connect a different Stripe account.',
   SUPPORT_SESSION: 'A support session can’t connect or disconnect payments. Someone in the store does it from their own account.',
   INVALID_KEYS: 'Those keys aren’t in the shape this provider gives them. Copy them again from its dashboard, for the mode you chose.',
   KEYS_REFUSED: 'The provider didn’t accept those keys. Check them in its dashboard and try again.',

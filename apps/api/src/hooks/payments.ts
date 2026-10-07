@@ -2,9 +2,8 @@ import { logEvent } from '#core/log'
 import { isCardProvider, PaymentUnavailable } from '#core/payments'
 import { settleFromWebhook, type SettleDeps } from '#engine/modules/checkout/index'
 
-// hooks.<host>/payments/<provider>/<account> (THIRD-PARTY-ACCESS §3.1): the address Payment setup gives a merchant for
-// Razorpay's, Cashfree's, PhonePe's or PayPal's webhooks, one per connected account, as each signs with the merchant's own
-// secret. Answered 200 once handled or not ours, 400 for a bad signature, 503 so the provider sends it again.
+// hooks.<host>/payments/<provider>/<account> (THIRD-PARTY-ACCESS §3.1): one address per connected account, as each signs
+// with the merchant's own secret; 400 for a bad signature, 503 so the provider sends it again.
 
 const pathPattern = /^\/payments\/(razorpay|cashfree|phonepe|paypal)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/
 const maxBodyBytes = 256 * 1024

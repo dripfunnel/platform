@@ -2,9 +2,8 @@ import { z } from 'zod'
 import { PaymentRefused, type GatewayAccount, type PaymentGateway, type PaymentMode, type PaymentOutcome } from '#core/payments'
 import { callProvider, referenceOf, sameText, sha256Hex } from './http'
 
-// PhonePe's payment gateway, its current API (client id, secret and version; decided on #309, the salt-key API being
-// PhonePe's legacy one): an access token, a payment whose page the shopper is sent to, and its status read back. PhonePe
-// signs a webhook with the SHA-256 of the username and password the merchant set for it.
+// PhonePe on its current PG API only (THIRD-PARTY-ACCESS §3.1, decided on #309): a token, a payment page the shopper is
+// sent to, its status read back; webhooks carry the SHA-256 of the merchant's username and password.
 
 const hosts = {
   live: { auth: 'https://api.phonepe.com/apis/identity-manager', pg: 'https://api.phonepe.com/apis/pg' },

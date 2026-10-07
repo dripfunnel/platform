@@ -3,9 +3,8 @@ import { fromDecimalRounded, toMajor } from '#core/money'
 import { PaymentRefused, type GatewayAccount, type PaymentGateway, type PaymentMode, type PaymentOutcome } from '#core/payments'
 import { callProvider } from './http'
 
-// PayPal on the merchant's own REST app (THIRD-PARTY-ACCESS §3.1): an order the shopper approves with PayPal's button
-// (the client id), captured here when it is read back. Webhooks are checked by PayPal itself against the merchant's
-// webhook id, as PayPal asks.
+// PayPal on the merchant's own REST app (THIRD-PARTY-ACCESS §3.1): an order approved with PayPal's button, captured when
+// read back; webhooks are checked by PayPal itself against the merchant's webhook id.
 
 const baseFor = (mode: PaymentMode) => (mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com')
 
