@@ -54,6 +54,9 @@ export interface ShopMenuItemRow {
  * The main menu in order, one level of nesting; an item linking a collection shoppers can't see is left out, with its
  * children.
  */
+/** Served on every storefront page from a public API: a menu longer than this shows its first items (WORKFLOW §7). */
+export const maxMenuItems = 300
+
 export const selectShopMenu = (tx: ScopedSql, storeId: string, language: string): Promise<ShopMenuItemRow[]> =>
   tx<ShopMenuItemRow[]>`
     with items as (
@@ -66,6 +69,7 @@ export const selectShopMenu = (tx: ScopedSql, storeId: string, language: string)
     select i.id, i.parent_id, i.label, i.kind, i.collection_slug, i.url from items i
     where i.parent_id is null or exists (select 1 from items p where p.id = i.parent_id)
     order by i.parent_id nulls first, i.position
+    limit ${maxMenuItems}
   `
 
 export interface ShopCollectionRow {

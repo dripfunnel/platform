@@ -97,6 +97,10 @@ describe('finding the store', () => {
     expect((await shopperOn('api.example', { 'x-shop-key': keys.b1 })).context.storeId).toBe(t.storeB1)
     expect(await resolve('api.example')).toEqual({ kind: 'unknown' })
     expect(await resolve('api.example', { 'x-shop-key': 'pk_nope' })).toEqual({ kind: 'unknown' })
+    // A closed partner's stores are served by neither host nor key (#440's review).
+    await db.sql`update partner set state = 'closed' where id = ${t.partnerB}`
+    expect(await resolve('api.example', { 'x-shop-key': keys.b1 })).toEqual({ kind: 'unknown' })
+    await db.sql`update partner set state = 'live' where id = ${t.partnerB}`
   })
 
   it('knows no store on another partner’s wildcard, a wildcard not yet checked, or a code no store has', async () => {
@@ -140,6 +144,18 @@ describe('the catalogue a shopper reads', () => {
     const { data } = await gql('store-a1.shops.acme.example', '{ menu { label kind collectionSlug children { label kind url } } }', { 'x-shop-language': 'hi-IN' })
     expect(data?.['menu']).toEqual([{ label: 'Shirts', kind: 'collection', collectionSlug: 'kameez', children: [{ label: 'About', kind: 'page', url: '/about' }] }])
   })
+
+  it('serves at most 300 menu items, however many the store has (#440’s review)', async () => {
+    const [menu] = await db.sql<{ id: string }[]>`select id from menu where store_id = ${t.storeA1} and key = 'main'`
+    await db.sql`insert into menu_item (menu_id, store_id, label, kind, url, position) select ${menu?.id ?? ''}, ${t.storeA1}, 'Page ' || n, 'page', '/p' || n, 10 + n from generate_series(1, 305) n`
+    try {
+      const { data } = await gql('store-a1.shops.acme.example', '{ menu { label children { label } } }')
+      const served = (data?.['menu'] as { children: unknown[] }[]).reduce((sum, item) => sum + 1 + item.children.length, 0)
+      expect(served).toBeLessThanOrEqual(300)
+    } finally {
+      await db.sql`delete from menu_item where store_id = ${t.storeA1} and url like '/p%'`
+    }
+  })
 })
 
 describe('isolation (DATA-MODEL §7.11)', () => {
@@ -161,12 +177,19 @@ describe('isolation (DATA-MODEL §7.11)', () => {
   })
 
   it('never selects a supplier id, a cost, a draft story, a credential or the order counter', async () => {
-    for (const [table, column] of [['product', 'seller_id'], ['product_version', 'cost_amount'], ['product_story', 'draft'], ['store', 'next_order_number'], ['customer', 'password_hash'], ['product', 'sent_back_reason']] as const) {
+    for (const [table, column] of [['product', 'seller_id'], ['product_version', 'cost_amount'], ['product_story', 'draft'], ['store', 'next_order_number'], ['customer', 'password_hash'], ['product', 'sent_back_reason'], ['activity_log', 'ip'], ['activity_log', 'actor_id'], ['activity_log', 'changes']] as const) {
       await expect(withScope(db.sql, asShopper(t.storeA1), (tx) => tx.unsafe(`select ${column} from ${table}`))).rejects.toThrow(/permission denied/)
     }
     for (const table of ['seller', 'stock_level', 'invoice_settings', 'delivery_postal_code', 'storefront', 'membership']) {
       await expect(withScope(db.sql, asShopper(t.storeA1), (tx) => tx.unsafe(`select 1 from ${table}`))).rejects.toThrow(/permission denied/)
     }
+  })
+
+  it('never learns of a hidden product through a market’s exclusions (#440’s review)', async () => {
+    const [market] = await db.sql<{ id: string }[]>`insert into market (store_id, name, currency, language, status, countries) values (${t.storeA1}, 'Gulf', 'INR', 'en-IN', 'active', '["AE"]') returning id`
+    await db.sql`insert into market_excluded_product (market_id, product_id, store_id) values (${market?.id ?? ''}, ${ids.visible}, ${t.storeA1}), (${market?.id ?? ''}, ${ids.hidden}, ${t.storeA1})`
+    const seen = await withScope(db.sql, asShopper(t.storeA1), async (tx) => (await tx<{ product_id: string }[]>`select product_id from market_excluded_product`).map((r) => r.product_id))
+    expect(seen).toEqual([ids.visible])
   })
 
   it('writes nothing in the catalogue', async () => {
@@ -194,5 +217,8 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     // A section switched off is a change a storefront shows (#442's review).
     await db.sql`insert into store_feature (store_id, key, enabled) values (${t.storeA1}, 'faqs', true)`
     expect(Number(await version(t.storeA1))).toBe(Number(a1) + 3)
+    // The country the store's address shows (#440's review).
+    await db.sql`update store set country = 'AE' where id = ${t.storeA1}`
+    expect(Number(await version(t.storeA1))).toBe(Number(a1) + 4)
   })
 })
