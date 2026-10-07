@@ -196,13 +196,16 @@ describe('the store ships its own lines', () => {
 })
 
 describe('what never ships', () => {
-  it('refuses a cancelled order, a test order and a card order still being paid; a pickup is handed over, not posted', async () => {
+  it('refuses a cancelled, test, still-unpaid card or fully refunded order; a pickup is handed over, never with tracking', async () => {
     const line = { version: versions.loose, seller: null, quantity: 1, heldAt: null }
     for (const o of [{ state: 'cancelled' }, { mode: 'test', method: 'stripe', paymentState: 'paid' }, { method: 'stripe' }]) {
       const id = await order(`A-${crypto.randomUUID().slice(0, 6)}`, { ...o, lines: [line] })
       expect((await ship('owner', id, places.main, [{ id: await lineOf(id, versions.loose), quantity: 1 }])).code, JSON.stringify(o)).toBe('NOT_SHIPPABLE')
     }
+    const refunded = await order('A-2102', { paymentState: 'refunded', lines: [line] })
+    expect((await ship('owner', refunded, places.main, [{ id: await lineOf(refunded, versions.loose), quantity: 1 }])).code).toBe('NOT_SHIPPABLE')
     const pickup = await order('A-2101', { option: 'pickup', lines: [line] })
+    expect((await ship('owner', pickup, places.main, [{ id: await lineOf(pickup, versions.loose), quantity: 1 }], ', trackingNumber: "X"')).code).toBe('INVALID_INPUT')
     expect((await ship('owner', pickup, places.main, [{ id: await lineOf(pickup, versions.loose), quantity: 1 }])).code).toBeUndefined()
     const [made] = await db.sql<{ id: string; kind: string }[]>`select id, kind from fulfilment where order_id = ${pickup}`
     expect(made?.kind).toBe('pickup')
