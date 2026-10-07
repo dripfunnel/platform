@@ -110,7 +110,8 @@ export const createCartService = (deps: CartDeps) => {
       }
     }
     const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? null
-    // Tax follows where the goods go: the address, or the store itself for collection (CATALOG fact 37).
+    // Tax follows where the goods go: the address, or the store itself for collection (CATALOG fact 37). The store's own
+    // rates for now: Stripe Tax on a US cart needs the store's Stripe account, which payments (SAPI 10) connects.
     const taxTo = pickup ? (setup?.country ? { country: setup.country, region: setup.region } : null) : address ? { country: address.country, region: address.region } : null
     const computed = setup && taxTo ? computeTax(priced.map((l) => ({ id: l.versionId, amount: l.lineTotal.amount, taxClassId: l.item?.taxClassId ?? null })), taxTo, taxSettingOf(setup)) : null
     const tax = computed && setup ? { amount: { amount: computed.total, currency }, inclusive: setup.tax_inclusive, lines: computed.lines } : null
@@ -222,7 +223,7 @@ export const createCartService = (deps: CartDeps) => {
       const contact = cleanContact(input)
       const note = input.note?.trim() || null
       if (!contact || (note?.length ?? 0) > 1000) throw new Refused('INVALID_INPUT')
-      await write(tx, row, { ...contact, shopperNote: note, checkoutStep: row.checkout_step === 'ship' ? 'ship' : 'contact' })
+      await write(tx, row, { ...contact, shopperNote: note, checkoutStep: row.checkout_step === 'ship' || row.checkout_step === 'pay' ? 'ship' : 'contact' })
     })
 
   const setShippingAddress = (input: AddressInput) =>

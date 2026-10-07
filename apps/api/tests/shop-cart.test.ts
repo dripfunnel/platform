@@ -106,6 +106,22 @@ describe('a guest’s cart', () => {
     expect(paid.data?.['checkout']).toMatchObject({ subtotal: { amount: '210000' }, shipping: { amount: '4900' }, total: { amount: '214900' }, problems: [], checkoutStep: 'pay', readyToPay: true })
   })
 
+  it('goes back to delivery when the contact changes after reaching payment', async () => {
+    expect(await cart(token)).toMatchObject({ checkoutStep: 'pay' })
+    await mutate(token, 'setCartContact', '(email: "asha.rao@example.com", phone: "+919845022113")')
+    expect(await cart(token)).toMatchObject({ checkoutStep: 'ship', readyToPay: false })
+    expect((await gql(`mutation { checkout { readyToPay } }`, { token })).data?.['checkout']).toEqual({ readyToPay: true })
+  })
+
+  it('charges no tax where the store has no rate (a US address on an Indian store), never refusing the cart for it', async () => {
+    await gql(`mutation { setShippingAddress(address: { name: "Sam Lee", line1: "1 High St", city: "Columbus", region: "OH", postalCode: "43215", country: "US" }) { cart { id } } }`, { token })
+    expect(await cart(token)).toMatchObject({ tax: { amount: { amount: '0' } } })
+    expect(((await cart(token))?.['problems'] as string[]).includes('TAX_UNAVAILABLE')).toBe(false)
+    await gql(`mutation { setShippingAddress(address: { name: "Asha Rao", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }`, { token })
+    await mutate(token, 'setShippingOption', '(option: "flat")')
+    await gql('mutation { checkout { id } }', { token })
+  })
+
   it('goes back a step when it changes after reaching payment, and collection in person needs no address', async () => {
     await mutate(token, 'setCartQuantity', `(versionId: "${ids.kurta}", quantity: 1)`)
     expect(await cart(token)).toMatchObject({ checkoutStep: 'ship', readyToPay: false })
@@ -140,6 +156,32 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     await expect(withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set payment_state = 'paid'`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, await guest(stores.india, null), (tx) => tx`insert into "order" (store_id, currency) values (${stores.india}, 'INR')`)).rejects.toThrow(/row-level security/)
     await expect(withScope(db.sql, await guest(stores.india, null), (tx) => tx`select access_token_hash from "order"`)).rejects.toThrow(/permission denied/)
+  })
+
+  it('shows a shopper its own store’s tax facts only, in shop scope only (migration 0066)', async () => {
+    const rows = (context: TenantContext) =>
+      withScope(db.sql, context, async (tx) => (await tx<{ n: number }[]>`select (select count(*) from tax_class)::int + (select count(*) from tax_zone)::int + (select count(*) from tax_rate)::int as n`)[0]?.n)
+    const india = await rows(await guest(stores.india, null))
+    expect(india).toBeGreaterThan(0)
+    const own = (await db.sql<{ n: number }[]>`select (select count(*) from tax_class where store_id = ${stores.india} and deleted_at is null)::int + (select count(*) from tax_zone where store_id = ${stores.india})::int + (select count(*) from tax_rate where store_id = ${stores.india})::int as n`)[0]?.n
+    expect(india).toBe(own)
+    const versions = await withScope(db.sql, await guest(stores.other, null), (tx) => tx<{ tax_class_id: string | null }[]>`select tax_class_id from product_version where id = ${ids.kurta}`)
+    expect(versions).toEqual([])
+    const outOfScope = await db.sql.begin(async (tx) => {
+      await tx.unsafe('set local role app_shop')
+      await tx`select set_config('app.scope', 'store', true), set_config('app.store_id', ${stores.india}, true), set_config('app.seller_id', '', true)`
+      return tx`select id from tax_class`
+    })
+    expect(outOfScope).toHaveLength(0)
+    await expect(withScope(db.sql, await guest(stores.india, null), (tx) => tx`update tax_rate set rate_bps = 0`)).rejects.toThrow(/permission denied/)
+  })
+
+  it('never lets another guest add, change or take out the lines of a cart it doesn’t hold', async () => {
+    const other = await guest(stores.india, 'f'.repeat(64))
+    const order = (await db.sql<{ id: string }[]>`select id from "order" where store_id = ${stores.india} limit 1`)[0]?.id ?? ''
+    await expect(withScope(db.sql, other, (tx) => tx`insert into cart_line (order_id, store_id, version_id, quantity) values (${order}, ${stores.india}, ${ids.kurta}, 5)`)).rejects.toThrow(/row-level security/)
+    expect((await withScope(db.sql, other, (tx) => tx`update cart_line set quantity = 9`)).count).toBe(0)
+    expect((await withScope(db.sql, other, (tx) => tx`delete from cart_line`)).count).toBe(0)
   })
 
   it('lets the merchant read its own store’s carts and never another’s, and a supplier none', async () => {

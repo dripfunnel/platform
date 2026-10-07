@@ -158,7 +158,9 @@ They are literals, never interpolated, so an entry cannot carry a subject or an 
   holds the entry shape and the sign-in entries; the writer is passed in from the
   composition root, since `auth/` sits below `saas/` (api/README.md §4).
 - **Built on #15, decided on #33.** A mutation's declaration carries `audit: '<action>'` and
-  the schema refuses to build without it. The entry is written **by the service, inside the
+  the schema refuses to build without it, or `unlogged: '<rule>'` naming one of the writes §3 leaves out (today only
+  `cart`: a shopper's cart, built on #308); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
+  to this section. The entry is written **by the service, inside the
   transaction that makes the change**, because only the service holds that transaction; the
   declaration names the action the mutation records when it does what it is named for, and a
   structural test checks every declared action is one the service writes

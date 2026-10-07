@@ -25,8 +25,8 @@ export interface Access<Args = Record<string, unknown>> {
   target?: 'none' | ((args: Args) => AccessTarget)
   /** The activity-log action the mutation writes (LOGGING.md §5). Required on every mutation not `unlogged`. */
   audit?: string
-  /** Why a mutation writes no entry, citing the rule that leaves it out: a shopper's cart (LOGGING §3, "not carts"). */
-  unlogged?: string
+  /** Why a mutation writes no entry: only a rule LOGGING itself states (§5). */
+  unlogged?: UnloggedRule
   /** The staff sessions refused this field whatever their role (ACCESS.md §8.1, §8.2, §8.3). */
   blockedFor?: readonly StaffSessionKind[]
   /** A mutation that still works while the store is read-only: paying, signing out (FIRST-RELEASE §19). */
@@ -34,6 +34,9 @@ export interface Access<Args = Record<string, unknown>> {
 }
 
 export type StaffSessionKind = 'impersonation' | 'setup'
+
+/** The writes LOGGING.md §3 leaves out of the activity log, each by the rule that says so. */
+export type UnloggedRule = 'cart'
 
 declare module 'graphql' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- a merge must repeat graphql's own parameter list
