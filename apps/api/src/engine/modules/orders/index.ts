@@ -27,6 +27,9 @@ import {
 
 export { orderFilters, type OrderCounts, type OrderDetailRow, type OrderFilter, type OrderHistoryRow, type OrderLineRow, type OrderListRow, type OrderPartRow } from '#db/scoped/storeOrders'
 
+export { createRefundService, refundAudit, refundReasons, returnReasons, type LedgerRow, type RefundInput, type RefundRefusal, type RefundResult, type RefundRow, type ReturnRow } from './refunds'
+export { createFulfilmentService, fulfilmentAudit, type FulfilmentRefusal, type FulfilmentResult, type FulfilmentRow, type ShipInput } from './fulfilment'
+
 export const ordersAudit = { noteAdded: 'order.note_added' } as const
 
 export type OrderDetail = OrderDetailRow & { history: OrderHistoryRow[]; fulfilments: FulfilmentRow[]; returns: ReturnRow[]; refunds: RefundRow[] }
