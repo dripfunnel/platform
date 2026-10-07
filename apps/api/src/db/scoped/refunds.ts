@@ -89,7 +89,17 @@ export const insertRefund = async (
     select ${r.id}, x.line_id, ${r.storeId}, ${r.sellerId}, x.quantity, x.amount, ${r.currency}
     from unnest(${pgArray(lines.map((l) => l.lineId))}::uuid[], ${pgArray(lines.map((l) => String(l.quantity)))}::int[], ${pgArray(lines.map((l) => l.amount.toString()))}::bigint[]) as x(line_id, quantity, amount)
   `
-  for (const l of lines) await tx`update order_line set refunded_quantity = refunded_quantity + ${l.quantity} where id = ${l.lineId}`
+  await addToLines(tx, 'refunded_quantity', lines.map((l) => ({ lineId: l.lineId, quantity: l.quantity })))
+}
+
+/** Moves each line's returned or refunded count by its quantity, in one statement; a negative one takes back, never below 0. */
+const addToLines = async (tx: ScopedSql, column: 'returned_quantity' | 'refunded_quantity', lines: readonly { lineId: string; quantity: number }[]): Promise<void> => {
+  if (lines.length === 0) return
+  await tx`
+    update order_line o set ${tx(column)} = greatest(o.${tx(column)} + x.q, 0)
+    from unnest(${pgArray(lines.map((l) => l.lineId))}::uuid[], ${pgArray(lines.map((l) => String(l.quantity)))}::int[]) as x(id, q)
+    where o.id = x.id
+  `
 }
 
 /** The order's refunded total moves on, and its payment state with it: refunded once everything has gone back. */
@@ -120,26 +130,50 @@ export const insertLedgerEntry = async (tx: ScopedSql, e: { storeId: string; sel
   `
 }
 
-/** Puts returned units back on hand where they came back to, as "Returned by a shopper" (DATA-MODEL §7.4). */
-export const restockReturned = async (
-  tx: ScopedSql,
-  s: { storeId: string; sellerId: string | null; productId: string; versionId: string; warehouseId: string; quantity: number; returnId: string | null; orderId: string; actorId: string },
-): Promise<void> => {
-  const [level] = await tx<{ on_hand: number }[]>`
-    insert into stock_level (version_id, warehouse_id, store_id, seller_id, on_hand) values (${s.versionId}, ${s.warehouseId}, ${s.storeId}, ${s.sellerId}, ${s.quantity})
-    on conflict (version_id, warehouse_id) do update set on_hand = stock_level.on_hand + ${s.quantity}, updated_at = now()
-    returning on_hand
+export interface Restocked {
+  sellerId: string | null
+  productId: string
+  versionId: string
+  warehouseId: string
+  quantity: number
+}
+
+/** Puts returned units back on hand where they came back to, as "Returned by a shopper" (DATA-MODEL §7.4), in two statements. */
+export const restockReturned = async (tx: ScopedSql, s: { storeId: string; returnId: string | null; orderId: string; actorId: string }, items: readonly Restocked[]): Promise<void> => {
+  const totals = new Map<string, Restocked>()
+  for (const i of items) {
+    const key = `${i.versionId}:${i.warehouseId}`
+    totals.set(key, { ...i, quantity: (totals.get(key)?.quantity ?? 0) + i.quantity })
+  }
+  const rows = [...totals.values()]
+  if (rows.length === 0) return
+  const versions = pgArray(rows.map((r) => r.versionId))
+  const warehouses = pgArray(rows.map((r) => r.warehouseId))
+  const quantities = pgArray(rows.map((r) => String(r.quantity)))
+  const sellers = pgArray(rows.map((r) => r.sellerId ?? ''))
+  await tx`
+    insert into stock_level (version_id, warehouse_id, store_id, seller_id, on_hand)
+    select x.v, x.w, ${s.storeId}, nullif(x.seller, '')::uuid, x.q from unnest(${versions}::uuid[], ${warehouses}::uuid[], ${sellers}::text[], ${quantities}::int[]) as x(v, w, seller, q)
+    on conflict (version_id, warehouse_id) do update set on_hand = stock_level.on_hand + excluded.on_hand, updated_at = now()
   `
   await tx`
     insert into stock_movement (store_id, seller_id, product_id, version_id, warehouse_id, delta, resulting_quantity, reason, source_kind, source_id, actor_kind, actor_id)
-    values (${s.storeId}, ${s.sellerId}, ${s.productId}, ${s.versionId}, ${s.warehouseId}, ${s.quantity}, ${level?.on_hand ?? s.quantity}, 'returned',
-      ${s.returnId ? 'return' : 'order'}, ${s.returnId ?? s.orderId}, 'person', ${s.actorId})
+    select ${s.storeId}, nullif(x.seller, '')::uuid, x.product, x.v, x.w, x.q, l.on_hand, 'returned', ${s.returnId ? 'return' : 'order'}, ${s.returnId ?? s.orderId}, 'person', ${s.actorId}
+    from unnest(${versions}::uuid[], ${warehouses}::uuid[], ${pgArray(rows.map((r) => r.productId))}::uuid[], ${sellers}::text[], ${quantities}::int[]) as x(v, w, product, seller, q)
+    join stock_level l on l.version_id = x.v and l.warehouse_id = x.w
   `
 }
 
-/** The owner's default location (null, the merchant's), where its returned items come back to. */
-export const defaultWarehouseOf = async (tx: ScopedSql, storeId: string, sellerId: string | null): Promise<string | null> =>
-  (await tx<{ id: string }[]>`select id from warehouse where store_id = ${storeId} and seller_id is not distinct from ${sellerId} and is_default and deleted_at is null`)[0]?.id ?? null
+/** Each owner's default location (null, the merchant's), where its returned items come back to; an owner without one is left out. */
+export const defaultWarehousesOf = async (tx: ScopedSql, storeId: string, sellerIds: readonly (string | null)[]): Promise<Map<string | null, string>> => {
+  const owners = [...new Set(sellerIds)]
+  const rows = await tx<{ id: string; seller_id: string | null }[]>`
+    select id, seller_id from warehouse
+    where store_id = ${storeId} and is_default and deleted_at is null
+      and (seller_id = any(${pgArray(owners.filter((o): o is string => o !== null))}::uuid[]) or (${owners.includes(null)} and seller_id is null))
+  `
+  return new Map(rows.map((r) => [r.seller_id, r.id]))
+}
 
 export const insertReturn = async (
   tx: ScopedSql,
@@ -152,10 +186,13 @@ export const insertReturn = async (
     insert into "return" (store_id, order_id, number, reason, note, created_by) values (${r.storeId}, ${r.orderId}, ${number}, ${r.reason}, ${r.note}, ${r.createdBy}) returning id
   `
   const id = row?.id ?? ''
-  for (const l of lines) {
-    await tx`insert into return_line (return_id, order_line_id, store_id, seller_id, quantity, destination_warehouse_id) values (${id}, ${l.lineId}, ${r.storeId}, ${l.sellerId}, ${l.quantity}, ${l.destination})`
-    await tx`update order_line set returned_quantity = returned_quantity + ${l.quantity} where id = ${l.lineId}`
-  }
+  await tx`
+    insert into return_line (return_id, order_line_id, store_id, seller_id, quantity, destination_warehouse_id)
+    select ${id}, x.line_id, ${r.storeId}, nullif(x.seller, '')::uuid, x.q, x.w
+    from unnest(${pgArray(lines.map((l) => l.lineId))}::uuid[], ${pgArray(lines.map((l) => l.sellerId ?? ''))}::text[], ${pgArray(lines.map((l) => String(l.quantity)))}::int[],
+      ${pgArray(lines.map((l) => l.destination))}::uuid[]) as x(line_id, seller, q, w)
+  `
+  await addToLines(tx, 'returned_quantity', lines)
   return { id, number }
 }
 
@@ -193,7 +230,7 @@ export const setReturnState = async (tx: ScopedSql, returnId: string, state: 're
 
 /** A cancelled return's units are no longer on their way back. */
 export const unreturn = async (tx: ScopedSql, lines: readonly { order_line_id: string; quantity: number }[]): Promise<void> => {
-  for (const l of lines) await tx`update order_line set returned_quantity = greatest(returned_quantity - ${l.quantity}, 0) where id = ${l.order_line_id}`
+  await addToLines(tx, 'returned_quantity', lines.map((l) => ({ lineId: l.order_line_id, quantity: -l.quantity })))
 }
 
 /** Whether every unit a return holds has been refunded, so the return is done. */
