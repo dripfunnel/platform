@@ -4,6 +4,7 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   countCodeAttempt,
   countRecentCodes,
+  countStoreTexts,
   endShopperSession,
   endShopperSessions,
   insertCode,
@@ -27,6 +28,8 @@ import { hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, smsCo
 // whether an account exists, and a wrong, missing or expired code is one refusal.
 
 export const shopperSessionMs = 30 * 86_400_000
+/** Codes one store may text in ten minutes, whoever asks. */
+export const maxStoreTextsPer10Min = 50
 const tenMinutes = 10 * 60 * 1000
 
 export type ShopperChannel = 'email' | 'phone'
@@ -101,6 +104,8 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       // Per requester through the limiter, which keeps no address; a request with none (off Cloudflare) is refused.
       if (!requester || !(await allowAttempt(`shop:${storeId}:code-ip:${requester}`))) return { ok: false, reason: 'RATE_LIMITED' }
       if ((await countRecentCodes(tx, storeId, { channel, target }, since)) >= maxSmsCodesPer10Min) return { ok: false, reason: 'RATE_LIMITED' }
+      // Texts cost the partner: varying the number past the per-address cap still stops at the store's (ACCESS §2.1).
+      if (channel === 'phone' && (await countStoreTexts(tx, storeId, since)) >= maxStoreTextsPer10Min) return { ok: false, reason: 'RATE_LIMITED' }
       const expiresAt = new Date(now().getTime() + smsCodeMs)
       const codeId = await insertCode(tx, { storeId, channel, target, codeHash: null, expiresAt })
       if (channel === 'email') return { ok: true, codeId, channel, target, code: null }

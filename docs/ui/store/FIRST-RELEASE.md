@@ -581,7 +581,7 @@ Stripe is connected, #309), and the total. A change after reaching payment goes 
 days from its last change. A guest's new carts are limited per store and address (`CART_RATE_LIMITER`, 20 a minute). The names above replace §19's `updateLine` and `setShipping`.
 **Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, India starting with
 both), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
-the address has an account; 3 per address and 10 per requester in 10 minutes), `verifySignInCode(channel, to, code, name,
+the address has an account; 3 per address in 10 minutes, 10 a minute per requester, 50 texts a store in 10 minutes), `verifySignInCode(channel, to, code, name,
 password)` (proves the email or number: signs in, making the account when there's none; with an email, a password sets or
 resets it; one refusal for a wrong, used or expired code, 5 tries), `signIn(email, password)` (one refusal for any mismatch,
 rate-limited per store and IP and per email), `signOut`, `account`, `updateAccount(name)`, `saveAddress`, `deleteAddress`. The

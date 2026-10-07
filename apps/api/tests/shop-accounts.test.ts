@@ -208,6 +208,17 @@ describe('limits, safeguards and the code email', () => {
     allow = true
   })
 
+  it('stops texting codes once the store has sent 50 in 10 minutes, whatever numbers are asked for', async () => {
+    await db.sql`insert into customer_code (store_id, channel, target, expires_at) select ${stores.india}, 'phone', '+9198000' || lpad(n::text, 5, '0'), now() + interval '10 minutes' from generate_series(1, 50) n`
+    try {
+      expect((await gql('mutation { requestSignInCode(channel: PHONE, to: "+919877777777") }')).code).toBe('RATE_LIMITED')
+      // An email code is unaffected: texts are what cost.
+      expect((await gql('mutation { requestSignInCode(channel: EMAIL, to: "cap@example.com") }')).code).toBeUndefined()
+    } finally {
+      await db.sql`delete from customer_code where store_id = ${stores.india} and target like '+9198000%'`
+    }
+  })
+
   it('ends every other session when a code sets a new password', async () => {
     const before = ((await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')).data?.['signIn'] as { sessionToken: string }).sessionToken
     expect((await gql('{ account { email } }', { session: before })).data?.['account']).toEqual({ email: 'ravi@example.com' })
