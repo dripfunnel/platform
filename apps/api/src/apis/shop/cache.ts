@@ -2,8 +2,8 @@ import { Kind, OperationTypeNode, parse, type OperationDefinitionNode } from 'gr
 import type { Shopper } from '#auth/shopCaller'
 import { readCapped } from '#core/http'
 
-// The Shop API's edge cache (PLATFORM-PROMPT §5.5), keyed by store, catalogue version, host, language, currency and market:
-// a change a storefront shows moves the version (migration 0064), so an older answer is never served again.
+// The Shop API's edge cache (PLATFORM-PROMPT §5.5), keyed by store, catalogue version, host, language, currency and market.
+// A catalogue edit moves the version; stock and the few changes with no write follow within 5 minutes (FIRST-RELEASE §19).
 
 export interface ShopCache {
   match: (key: Request) => Promise<Response | undefined>
