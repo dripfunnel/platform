@@ -7,6 +7,7 @@ import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
 import { CreatePartner, refusalOf, type CreatePartnerState } from './CreatePartnerScreen'
 import { draftErrors, emptyDraft } from './partnerDraft'
+import { partnerCurrencies } from './partnerCurrencies'
 
 const words = messages.partners.createForm
 const allowed: ActionPermission = { allowed: true }
@@ -21,10 +22,12 @@ const render = async (forced: CreatePartnerState | null = null, permission: Acti
 const labels = (html: string) => [...html.matchAll(/<label for="[^"]+"[^>]*>([^<]*)<\/label>/g)].map((match) => textOf(match[1] ?? ''))
 
 describe('Create partner', () => {
-  it('asks for exactly what §4.3 names, with two invitation choices, as a page form and not a dialog', async () => {
+  it('asks for exactly what §4.3 names, the contract among it, with two invitation choices, as a page form and not a dialog', async () => {
     const html = await render()
-    expect(labels(html)).toEqual([words.name, words.ownerEmail, words.country])
-    expect([...html.matchAll(/type="radio"/g)]).toHaveLength(2)
+    expect(labels(html)).toEqual([words.name, words.ownerEmail, words.country, messages.partner.contract.feeCurrency])
+    // Three "Powered by" terms and the two invitation choices; every currency but the fee currency to tick.
+    expect([...html.matchAll(/type="radio"/g)]).toHaveLength(5)
+    expect([...html.matchAll(/type="checkbox"/g)]).toHaveLength(partnerCurrencies.length - 1)
     expect(textOf(html)).toContain(words.invitations.send.label)
     expect(textOf(html)).toContain(words.invitations.hold.label)
     expect(html).not.toContain('role="dialog"')
@@ -74,6 +77,6 @@ describe('draftErrors', () => {
   it('asks for every field, a full email and a name of at most 120 characters', () => {
     expect(draftErrors(emptyDraft)).toEqual({ name: 'nameRequired', ownerEmail: 'emailInvalid', country: 'countryRequired' })
     expect(draftErrors({ ...emptyDraft, name: 'x'.repeat(121), ownerEmail: 'owner@company', country: 'DE' })).toEqual({ name: 'nameTooLong', ownerEmail: 'emailInvalid' })
-    expect(draftErrors({ name: ' Kaufladen ', ownerEmail: ' owner@kaufladen.example ', country: 'DE', invitation: 'hold' })).toEqual({})
+    expect(draftErrors({ ...emptyDraft, name: ' Kaufladen ', ownerEmail: ' owner@kaufladen.example ', country: 'DE', invitation: 'hold' })).toEqual({})
   })
 })

@@ -155,7 +155,8 @@ plan_fee             (plan_id PK, partner_id, amount, currency)   -- DripFunnel'
 plan_ceiling         (key PK, amount)                   -- DripFunnel's maximum per limit
 partner_contract     (partner_id PK, fee_currency, powered_by_removable, powered_by_note
                       ('contract'|'firstYear'))
-partner_contract_rate (partner_id, currency, per_fee_unit numeric)   -- a rate, not money
+partner_contract_rate (partner_id, currency, per_fee_unit numeric NULL)   -- a rate, not money;
+                      -- null: the partner prices in it, with no fee converted (0062)
 ```
 
 - **Keys**: switches `custom_domain`, `offers`, `suppliers_enabled`, `powered_by_removal`,

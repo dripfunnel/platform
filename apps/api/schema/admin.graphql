@@ -148,6 +148,7 @@ type AttentionStore {
 }
 
 input CreatePartnerInput {
+  contract: PartnerContractInput
   country: String!
   kind: String
   name: String!
@@ -387,6 +388,7 @@ type Mutation {
   revokeStaffInvite(id: ID!): StaffResult
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
+  setPartnerContract(id: ID!, input: PartnerContractInput!, reason: String!): PartnerMutationOutcome
   startImpersonation(membershipId: ID!, reason: String!, targetId: ID!, ticket: String): StaffSessionStart
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
@@ -414,6 +416,7 @@ type Partner {
   checklist: [PartnerChecklistItem!]
   checks: GoLiveChecks
   contacts: [PartnerContact!]
+  contract: PartnerContract
   country: String
   createdAt: String
   domains: [PartnerDomain!]
@@ -442,6 +445,7 @@ type PartnerActions {
   resume: ActionPermission
   sendBack: ActionPermission
   sendInvite: ActionPermission
+  setContract: ActionPermission
   setupSession: ActionPermission
 }
 
@@ -469,6 +473,18 @@ type PartnerContact {
   email: String
   name: String
   role: String
+}
+
+type PartnerContract {
+  currencies: [String!]
+  feeCurrency: String
+  poweredBy: String
+}
+
+input PartnerContractInput {
+  currencies: [String!]!
+  feeCurrency: String!
+  poweredBy: String!
 }
 
 type PartnerDomain {

@@ -80,14 +80,14 @@ export interface ContractTerms {
   fee_currency: string | null
   powered_by_removable: boolean
   powered_by_note: 'contract' | 'firstYear' | null
-  rates: Record<string, string>
+  rates: Record<string, string | null>
 }
 
 export const selectContractTerms = async (tx: ScopedSql, partnerId: string): Promise<ContractTerms> => {
   const [c] = await tx<{ fee_currency: string; powered_by_removable: boolean; powered_by_note: 'contract' | 'firstYear' | null }[]>`
     select fee_currency, powered_by_removable, powered_by_note from partner_contract where partner_id = ${partnerId}
   `
-  const rates = await tx<{ currency: string; per_fee_unit: string }[]>`select currency, per_fee_unit::text from partner_contract_rate where partner_id = ${partnerId}`
+  const rates = await tx<{ currency: string; per_fee_unit: string | null }[]>`select currency, per_fee_unit::text from partner_contract_rate where partner_id = ${partnerId}`
   return {
     fee_currency: c?.fee_currency ?? null,
     powered_by_removable: c?.powered_by_removable ?? false,

@@ -238,14 +238,37 @@ export interface PartnerListRow extends PartnerRow {
   owner_invitation_sent_at: Date | null
 }
 
+// Priced: plan `pl`'s current version has a monthly price in some currency (DATA-MODEL §2.3). The go-live
+// check (via selectPlansFor) and the checklist's plan item read this one predicate.
+const priced = (tx: ScopedSql) => tx`exists (select 1 from plan_price pp where pp.plan_id = pl.id and pp.version = pl.version and pp.monthly_amount is not null)`
+
+// Every reader's checklist rows for the partners `partner` matches (`= p.id`, `= any(...)`). Like the domain
+// items, the plan item is the pricedPlan check itself (SAAS §3.2), never its stored row, and names nobody (#435).
+const setupItems = (tx: ScopedSql, partner: ReturnType<ScopedSql>) => tx`
+  select si.partner_id, si.item, si.status, si.detail, si.done_by_kind, si.done_by_label, si.done_at
+  from partner_setup_item si where si.partner_id ${partner} and si.item not in ('testSignup', 'plan')
+  union all
+  select sp.id, 'plan', d.status, null, null, null, null
+  from partner sp
+  cross join lateral (
+    select case
+      when exists (
+        select 1 from plan pl where pl.partner_id = sp.id and pl.status = 'live'
+          and ${priced(tx)}
+      ) then 'done'
+      when exists (select 1 from plan pl where pl.partner_id = sp.id) then 'progress'
+      else 'missing'
+    end as status
+  ) d
+  where sp.id ${partner} and exists (select 1 from partner_setup_item sc where sc.partner_id = sp.id and sc.item <> 'testSignup')
+`
+
 // The list's projection, shared with the single-row read so the two can never disagree.
 const listProjection = (tx: ScopedSql) => tx`
   select p.*,
     (select count(*)::int from store s where s.partner_id = p.id) as store_count,
     pd.host as portal_host, pd.status as portal_status,
-    -- testSignup rows from before #421 dropped that item are kept and never counted.
-    (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status = 'done') as setup_done,
-    (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup') as setup_total,
+    su.done as setup_done, su.total as setup_total,
     o.name as owner_name, o.email as owner_email,
     case
       when o.id is null then null
@@ -256,6 +279,9 @@ const listProjection = (tx: ScopedSql) => tx`
     oi.sent_at as owner_invitation_sent_at
   from partner p
   left join partner_domain pd on pd.partner_id = p.id and pd.kind = 'portal'
+  cross join lateral (
+    select count(*) filter (where i.status = 'done')::int as done, count(*)::int as total from (${setupItems(tx, tx`= p.id`)}) i
+  ) su
   left join lateral (
     select u.id, u.name, u.email, u.status from partner_user u
     where u.partner_id = p.id and u.role_key = 'partner-owner' order by u.created_at limit 1
@@ -280,8 +306,8 @@ export const selectPartners = async (tx: ScopedSql, filter: PartnerFilter, page:
     where true
       ${filter.state !== undefined ? tx`and p.state = ${filter.state}` : tx``}
       ${filter.assignedTo !== undefined ? tx`and exists (select 1 from staff_partner_assignment a where a.partner_id = p.id and a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}
-      ${filter.setup === 'complete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup') and not exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status <> 'done')` : tx``}
-      ${filter.setup === 'incomplete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status <> 'done')` : tx``}
+      ${filter.setup === 'complete' ? tx`and su.total > 0 and su.done = su.total` : tx``}
+      ${filter.setup === 'incomplete' ? tx`and su.done < su.total` : tx``}
       ${q !== null ? tx`and (p.name ilike ${q} or pd.host ilike ${q} or o.email ilike ${q})` : tx``}
       ${sort === 'oldestSubmitted' ? tx`and p.submitted_at is not null` : tx``}
       ${page.after !== undefined ? (sort === 'newest' ? tx`and (${key}, p.id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx`and (${key}, p.id) > (${page.after.occurredAt}, ${page.after.id}::uuid)`) : tx``}
@@ -453,7 +479,7 @@ export const selectPartnerDomainsFor = (tx: ScopedSql, ids: readonly string[]): 
   tx<PartnerDomainRow[]>`select * from partner_domain where partner_id = any(${pgArray(ids)}::uuid[]) order by kind`
 
 export const selectSetupItemsFor = (tx: ScopedSql, ids: readonly string[]): Promise<PartnerSetupItemRow[]> =>
-  tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = any(${pgArray(ids)}::uuid[]) and item <> 'testSignup'`
+  tx<PartnerSetupItemRow[]>`${setupItems(tx, tx`= any(${pgArray(ids)}::uuid[])`)}`
 
 // Capped per partner, not per batch: a page of partners must never lose one partner's rows
 // to another's.
@@ -461,8 +487,7 @@ export const selectPlansFor = (tx: ScopedSql, ids: readonly string[]): Promise<(
   tx<(PlanRow & { store_count: number; priced: boolean })[]>`
     select * from (
       select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count,
-        -- Priced: its current version has a monthly price in some currency (DATA-MODEL §2.3).
-        exists (select 1 from plan_price pp where pp.plan_id = pl.id and pp.version = pl.version and pp.monthly_amount is not null) as priced,
+        ${priced(tx)} as priced,
         row_number() over (partition by pl.partner_id order by pl.created_at) as rn
       from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[])
     ) ranked where rn <= ${maxPageSize} order by created_at
@@ -490,6 +515,11 @@ export const endSetupSession = async (tx: ScopedSql, id: string, endedBy: string
     where id = ${id} and ended_at is null returning id
   `
   return rows.length > 0
+}
+
+/** Held by a plan save while it checks prices against the contract, so a contract change (selectPartnerForUpdate) waits or is waited for. */
+export const lockPartnerForPlanSave = async (tx: ScopedSql, id: string): Promise<void> => {
+  await tx`select 1 from partner where id = ${id} for key share`
 }
 
 /** Locks the row for the rest of the transaction, so two staff cannot both approve as "the second". */

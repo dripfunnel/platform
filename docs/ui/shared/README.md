@@ -93,7 +93,9 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   in for its logo), `InfoNote` (a read-only fact in the info palette) and `Toast` (bottom centre,
   one line, 4.2 s). `detail.css` holds the detail header, meta, tabs, panels and their styles.
   `ConfirmDialog` takes `choices`, a list of picks, since the store actions need two in one
-  dialog (plan and when; limit and duration).
+  dialog (plan and when; limit and duration). It also takes `children`, fields the caller keeps (the admin
+  Set contract dialog, #436), and `error`, which keeps the dialog open with what was entered
+  after a refused confirm and says why.
 - **Export jobs** (#134, the partner console's store export being the admin activity export's
   second user): `exportJob` holds the one running export outside any screen, `useExportJob`
   reads it, `startExport` puts the API's answer in it, `exportCheck` decides what one status

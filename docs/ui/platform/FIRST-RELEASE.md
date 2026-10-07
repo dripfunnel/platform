@@ -180,7 +180,9 @@ this itself" with a lock (ACCESS §8.2); to the Owner they read "Your turn"; to 
 "Owner adds this". They are **not go-live checks** (SAAS §3.2 step 5): Submit says "Payment
 method and payout details can come later." Payouts wait for item 9.
 
-**Who completed it.** Items done in a staff setup session say "Done by DripFunnel"; the
+**Who completed it.** Items 3–6 name nobody: they are read from the domains and plans as they
+stand (the go-live checks), not from anyone's action, so they go back to In progress if a host
+breaks or the last priced plan is retired (#435). Items done in a staff setup session say "Done by DripFunnel"; the
 Owner's first sign-in after staff set things up shows a welcome card: "DripFunnel has set up
 most of {product} for you. Check what's done and finish the rest." — or, when staff already
 submitted, "…and submitted it for approval. While they review it, add the two things only you
@@ -794,7 +796,7 @@ api/README.md §2.1); a partner id in a request is not authority.
 - **`plans(after, first)`**, cursor-paged, oldest first, at most 50 a page, no total; and
   **`planEditor(id)`** (not `plan(id)`; `id` null for a new plan). The editor's
   `plan` is `{ row, entitlements }`. It carries the ceilings per row, the contract's
-  "Powered by" rule (`powered { allowed, note }`), the currencies the partner sells in, the
+  "Powered by" rule (`powered { allowed, note }`), the currencies the partner sells in (the contract's fee currency and each other currency it names, set by Admin), the
   trials, `chargedBy`, the `edit` and `price` permissions, the retire targets and the three
   first-of-month dates.
 - **`quotePlanPrices(id, prices)` carries the fee and the margin**, as `Money`: a second
@@ -807,7 +809,7 @@ api/README.md §2.1); a partner id in a request is not authority.
   moveTo, on })`. They refuse with the fixture's codes, plus `NOT_FOUND`, `INVALID_STATE` (not
   Draft or not Live, or editing a retired plan), `INVALID_TARGET` (not another Live plan, or not
   an offered date), `INVALID_CURRENCY` (an amount in another currency than its row, or a
-  currency the contract states no fee in) and `INVALID_INPUT` (input that fails validation). Make live requires the contract's currencies. With
+  currency the contract doesn't name) and `INVALID_INPUT` (input that fails validation). Make live requires the contract's currencies. With
   no contract yet, it requires the plan's own. Retiring locks the Live plans, so two retirements
   at once never leave none.
 - A role without `plans.write` gets `FORBIDDEN` from the policy. The permission blocks carry
@@ -1025,7 +1027,7 @@ api/README.md §2.1); a partner id in a request is not authority.
   composed by the API from its own figures; `fresh` and "Reports fill in as your first
   merchants sign up." for a partner with nothing yet. Money is integer minor units with its
   currency (revenue and MRR in the contract's payout currency, other currencies converted at the
-  contract rate, minding each currency's minor digits, and marked approximate); percentages are basis points.
+  contract rate, minding each currency's minor digits, and marked approximate; MRR in a contract currency with no rate is left out and the currency note says so); percentages are basis points.
 - The figures: Growth counts stores created, setups finished, trials ended and converted,
   cancellations and stores at month end; Revenue sums `merchant_charge` per month (refunds
   subtract) with failed and recovered payments and MRR by plan from active subscriptions; Plans

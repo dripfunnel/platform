@@ -10,6 +10,7 @@ import {
   type Partner,
   type PartnerAction,
   type PartnerApproval,
+  type PartnerContract,
   type PartnerDomain,
   type PartnerFilter,
   type PartnerPage,
@@ -21,7 +22,13 @@ import {
 import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import { impersonatePermission, setupStarters } from './sessionRules'
 
-export type SamplePartner = Omit<Partner, 'actions' | 'impersonate' | 'setup' | 'portalHost' | 'submittedAt' | 'approval'>
+export type SamplePartner = Omit<Partner, 'actions' | 'impersonate' | 'setup' | 'portalHost' | 'submittedAt' | 'approval' | 'contract' | 'contractAction'>
+
+// The seed's two contracts (apps/api/scripts/seed/catalogue.ts); every other partner has none yet.
+const contracts: Readonly<Record<string, PartnerContract>> = {
+  ns: { feeCurrency: 'USD', currencies: ['CAD'], poweredBy: 'removable' },
+  kl: { feeCurrency: 'EUR', currencies: [], poweredBy: 'firstYear' },
+}
 
 const edge = 'edge.dripfunnel.net'
 
@@ -413,7 +420,7 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
     if (!partner) return null
     const closed = partner.state === 'closed'
     const impersonate = Object.fromEntries(partner.team.map((user) => [user.id, impersonatePermission(caller, user.status, closed)]))
-    return { ...partner, ...rowOf(partner), impersonate, actions: permissionsFor(partner, caller) }
+    return { ...partner, ...rowOf(partner), impersonate, actions: permissionsFor(partner, caller), contract: contracts[partner.id] ?? null, contractAction: closed ? null : onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY') }
   }
 
   const run = (id: string, action: PartnerAction, reason: string | null) => {

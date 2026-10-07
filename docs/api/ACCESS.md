@@ -539,7 +539,7 @@ SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call,
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | `partners.read`, `stores.read`, `customers.read` (masked), `activity.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `customers.contact.read` (full email and phone on a customer's page) | ✓ | | ✓ | | | |
-| `partners.create`, `partners.approve` (and send back), `partners.setup` (setup session), `partners.invite` | ✓ | ✓ | | | | |
+| `partners.create`, `partners.approve` (and send back, set contract), `partners.setup` (setup session), `partners.invite` | ✓ | ✓ | | | | |
 | `partners.invite.resend` | ✓ | ✓ | ✓ | | | |
 | `partners.pause` (and resume) | ✓ | | | | | |
 | `stores.suspend` | ✓ | | | | ✓ | |
