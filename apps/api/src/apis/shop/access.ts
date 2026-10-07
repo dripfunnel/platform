@@ -30,6 +30,8 @@ export interface ShopContext extends Record<string, unknown> {
   allowAttempt?: (key: string) => Promise<boolean>
   /** The session token this request presents (X-Shop-Session), for signing out. */
   sessionToken?: string | null
+  /** The new-cart limiter (CART_RATE_LIMITER) by key; absent where it isn't bound, and nothing limits new carts. */
+  allowNewCart?: ((key: string) => Promise<boolean>) | undefined
   now: () => Date
 }
 
