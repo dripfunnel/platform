@@ -5,11 +5,11 @@ import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import { hashSessionId } from '#auth/session'
-import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
+import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { releaseUnpaidTransfers } from '#engine/modules/checkout/index'
+import { createCheckout, releaseUnpaidTransfers } from '#engine/modules/checkout/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -63,10 +63,14 @@ const shop = async (source: string, cart: string | null = null) => {
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
-const merchant = async (source: string, who: keyof typeof cookies) => {
+const merchant = async (source: string, who: keyof typeof cookies, as: { support?: 'read' } = {}) => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'other' ? stores.other : stores.india }
-  const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  // Acting through a read-only support session (ACCESS §8), as store-catalog-import.test.ts does.
+  const standing = as.support && resolved.kind === 'acting'
+    ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
+    : resolved
   const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -173,5 +177,100 @@ describe('isolation', () => {
     expect(await withScope(db.sql, merchantOf(stores.other), (tx) => tx`select id from order_line`)).toHaveLength(0)
     await expect(withScope(db.sql, merchantOf(stores.india, t.sellerA1First), (tx) => tx`select id from order_line`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, merchantOf(stores.india), (tx) => tx`insert into payment_provider_account (store_id, provider) values (${stores.india}, 'stripe')`)).rejects.toThrow(/row-level security/)
+  })
+})
+
+describe('holding stock and placing safely (#445’s review)', () => {
+  const versions = { scarf: '', shawl: '' }
+  const product = async (slug: string, stock: Record<string, number>) => {
+    const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${stores.india}, ${slug}, ${slug}, 'visible') returning id`
+    const [v] = await db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position, track_stock) values (${stores.india}, ${p?.id ?? ''}, ${slug}, 0, true) returning id`
+    await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${v?.id ?? ''}, ${stores.india}, 'INR', 10000)`
+    for (const [warehouse, onHand] of Object.entries(stock)) await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) values (${v?.id ?? ''}, ${warehouse}, ${stores.india}, ${onHand})`
+    return v?.id ?? ''
+  }
+  const cartOf = async (lines: [string, number][]) => {
+    let token: string | null = null
+    for (const [version, quantity] of lines) {
+      const added = await shop(`mutation { addToCart(versionId: "${version}", quantity: ${quantity}) { cartToken } }`, token)
+      token ??= (added.data?.['addToCart'] as { cartToken: string }).cartToken
+    }
+    const ready = token ?? ''
+    await shop('mutation { setCartContact(email: "ravi@example.com") { cart { id } } }', ready)
+    await shop('mutation { setShippingAddress(address: { name: "Ravi", line1: "1 Park St", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', ready)
+    await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', ready)
+    await shop('mutation { checkout { id } }', ready)
+    return ready
+  }
+  const heldAt = async (version: string) => (await db.sql<{ warehouse_id: string; reserved: number }[]>`select warehouse_id, reserved from stock_level where version_id = ${version} order by warehouse_id`)
+
+  beforeAll(async () => {
+    const [main] = await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${stores.india} and is_default`
+    const [second] = await db.sql<{ id: string }[]>`insert into warehouse (store_id, name) values (${stores.india}, 'Second') returning id`
+    versions.scarf = await product('scarf', { [main?.id ?? '']: 3, [second?.id ?? '']: 2 })
+    versions.shawl = await product('shawl', { [main?.id ?? '']: 50 })
+  })
+
+  it('holds a line at one location that has enough, never more than a location holds', async () => {
+    // 5 left across two locations, but no one location has 4.
+    expect((await place(await cartOf([[versions.scarf, 4]]), 'cod')).code).toBe('OUT_OF_STOCK')
+    expect((await place(await cartOf([[versions.scarf, 3]]), 'cod')).code).toBeUndefined()
+    const levels = await heldAt(versions.scarf)
+    expect(levels.map((l) => l.reserved).sort()).toEqual([0, 3])
+  })
+
+  it('places orders holding the same versions in opposite order side by side, without a deadlock', async () => {
+    const carts = await Promise.all([cartOf([[versions.shawl, 1], [versions.scarf, 1]]), cartOf([[versions.scarf, 1], [versions.shawl, 1]]), cartOf([[versions.shawl, 1], [versions.scarf, 1]])])
+    const results = await Promise.all(carts.map((c) => place(c, 'cod')))
+    // Each is placed or told the last one has gone; none fails.
+    expect(results.every((r) => r.code === undefined || r.code === 'OUT_OF_STOCK')).toBe(true)
+    expect(results.filter((r) => r.code === undefined).length).toBeGreaterThan(0)
+  })
+
+  it('refuses a cart changed after it was priced, in another tab', async () => {
+    const token = await cartOf([[versions.shawl, 1]])
+    const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: { 'x-shop-cart': token } }), host)
+    if (found.kind !== 'found') throw new Error('no store')
+    // Every transaction after the first (the cart priced) sees the cart change, as another tab's would.
+    let begins = 0
+    const racing = new Proxy(db.sql, {
+      get: (target, key, receiver) => {
+        if (key !== 'begin') return Reflect.get(target, key, receiver) as unknown
+        return async (...args: Parameters<typeof target.begin>) => {
+          begins += 1
+          if (begins > 1) await db.sql`update "order" set revision = revision + 1 where access_token_hash is not null and state = 'cart' and id in (select order_id from cart_line where version_id = ${versions.shawl})`
+          return target.begin(...args)
+        }
+      },
+    })
+    const { shopper } = found
+    const checkout = createCheckout({ sql: racing, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers: null, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date(), country: shopper.country })
+    expect(await checkout.place('cod')).toMatchObject({ ok: false, reason: 'CART_CHANGED' })
+    expect((await shop('{ cart { id } }', token)).data?.['cart']).not.toBeNull()
+  })
+
+  it('refuses Mark as paid to a read-only support session and to a supplier', async () => {
+    const placed = (await place(await cartOf([[versions.shawl, 1]]), 'cod')).data?.['placeOrder'] as { orderId: string }
+    const asSupport = await merchant(`mutation { markOrderPaid(orderId: "${placed.orderId}") }`, 'owner', { support: 'read' })
+    expect(asSupport.code).toBe('READ_ONLY')
+    const [seller] = await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${stores.india}, 'Anand', 'vendor-orders-fulfil', 'active') returning id`
+    const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'anand@jaipur.example', 'Anand', 'active') returning id`
+    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${u?.id ?? ''}, ${stores.india}, ${seller?.id ?? ''}, 'supplier-admin', 'active')`
+    const cookie = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: u?.id ?? '', partnerId: t.partnerA }, new Date()))
+    const facts = { requestId: 'r', ip: null, userAgent: null }
+    const headers = { cookie: `${storeCookieName}=${cookie}`, [storeHeader]: stores.india, [supplierHeader]: seller?.id ?? '' }
+    const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+    const supplier = await graphql({ schema: storeSchema as GraphQLSchema, source: `mutation { markOrderPaid(orderId: "${placed.orderId}") }`, contextValue: { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => new Date() } satisfies StoreContext })
+    expect(supplier.errors?.[0]?.extensions['code']).toBe('FORBIDDEN')
+    expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${placed.orderId}`)[0]?.payment_state).toBe('pending')
+  })
+
+  it('never lets the merchant side delete a card provider’s account, nor read-only support any', async () => {
+    const [row] = await db.sql<{ id: string }[]>`insert into payment_provider_account (store_id, provider, mode, status) values (${stores.india}, 'razorpay', 'live', 'live') returning id`
+    const owner: TenantContext = { caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: t.partnerA, storeId: stores.india, sellerScope: { kind: 'all' }, subscription: 'active' }
+    expect((await withScope(db.sql, owner, (tx) => tx`delete from payment_provider_account where id = ${row?.id ?? ''}`)).count).toBe(0)
+    const support: TenantContext = { ...owner, caller: { kind: 'support', supportSessionId: 'ss', partnerUserId: 'pu', access: 'read' } }
+    expect((await withScope(db.sql, support, (tx) => tx`delete from payment_provider_account where store_id = ${stores.india}`)).count).toBe(0)
+    expect(await db.sql`select 1 from payment_provider_account where id = ${row?.id ?? ''}`).toHaveLength(1)
   })
 })

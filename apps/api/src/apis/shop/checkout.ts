@@ -12,6 +12,7 @@ const words: Record<string, string> = {
   ALREADY_PLACED: 'This order has already been placed.',
   OUT_OF_STOCK: 'Something in your cart has just sold out. Check your cart and try again.',
   NOT_FOUND: 'Your cart has expired. Add something to start again.',
+  CART_CHANGED: 'Your cart changed while you were paying. Check it and pay again.',
 }
 
 const answered = <T>(result: CheckoutResult<T>): T => {

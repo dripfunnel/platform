@@ -12,8 +12,8 @@ export interface CartToPlaceRow {
 }
 
 /** The cart, locked; null once it has been placed (a second press of "Pay" finds nothing). */
-export const lockCart = async (tx: ScopedSql, storeId: string, orderId: string): Promise<CartToPlaceRow | null> =>
-  (await tx<CartToPlaceRow[]>`select id, customer_id, email, phone, currency from "order" where id = ${orderId} and store_id = ${storeId} and state = 'cart' for update`)[0] ?? null
+export const lockCart = async (tx: ScopedSql, storeId: string, orderId: string): Promise<(CartToPlaceRow & { revision: number }) | null> =>
+  (await tx<(CartToPlaceRow & { revision: number })[]>`select id, customer_id, email, phone, currency, revision from "order" where id = ${orderId} and store_id = ${storeId} and state = 'cart' for update`)[0] ?? null
 
 export interface SnapshotVersionRow {
   id: string
@@ -35,7 +35,8 @@ export const selectSnapshotVersions = (tx: ScopedSql, storeId: string, ids: read
 
 /**
  * Holds a line's stock at the live location with the most left, locked first so two orders can't both take the last
- * one. Null when there is too little and the version doesn't sell on; the location's id otherwise.
+ * one. A line is held at one location (order_line.reserved_warehouse_id), so that one must have enough: null when it
+ * hasn't and the version doesn't sell on; the location's id otherwise.
  */
 export const reserveLine = async (tx: ScopedSql, storeId: string, versionId: string, quantity: number, sellsOn: boolean): Promise<{ warehouseId: string | null } | null> => {
   const levels = await tx<{ warehouse_id: string; free: number }[]>`
@@ -44,9 +45,8 @@ export const reserveLine = async (tx: ScopedSql, storeId: string, versionId: str
     order by l.on_hand - l.reserved desc, l.warehouse_id
     for update of l
   `
-  const free = levels.reduce((sum, l) => sum + Math.max(l.free, 0), 0)
-  if (free < quantity && !sellsOn) return null
   const at = levels[0]
+  if ((at?.free ?? 0) < quantity && !sellsOn) return null
   if (!at) return { warehouseId: null }
   await tx`update stock_level set reserved = reserved + ${quantity}, updated_at = now() where version_id = ${versionId} and warehouse_id = ${at.warehouse_id}`
   return { warehouseId: at.warehouse_id }

@@ -12,6 +12,7 @@ const words: Record<string, string> = {
   METHOD_UNAVAILABLE: 'That way to pay isn’t available here. A bank transfer needs your bank details.',
   NOT_FOUND: 'That is no longer here.',
   NOT_PENDING: 'Only an unpaid cash-on-delivery or bank-transfer order can be marked paid.',
+  READ_ONLY: 'This store is read-only.',
 }
 
 const answered = <T>(result: CheckoutResult<T>): T => {
