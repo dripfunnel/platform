@@ -398,14 +398,25 @@ describe('a product’s listing sections', () => {
     }
   })
 
-  it('needs the plan for FAQs and related products on a product, but never for saving without them', async () => {
-    const made = await product('owner', 'Plan sections')
-    const withListing = (listing: Record<string, unknown>) => gql(save, 'owner', { id: made.id, revision: 1, input: { name: 'Plan sections', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing } })
+  it('needs the plan to add FAQs, related products, a badge or a video, but never to keep what a product has', async () => {
+    const badge = (await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'Plan sections', tone: 'ok', rule: 'manual' } })).data?.['saveBadge'] as string
+    const faq = [{ question: 'Q', answer: 'A' }]
+    const made = await product('owner', 'Plan sections', { listing: { faqs: faq, badgeIds: [badge] } })
+    const other = await product('owner', 'Plan sections other')
+    expect(made.code).toBeUndefined()
+    const edit = (revision: number, name: string, listing: Record<string, unknown>) =>
+      gql(save, 'owner', { id: made.id, revision, input: { name, options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing } })
     await subscribe(t.storeA1, t.partnerA, plans.bare)
     try {
-      expect((await withListing({ faqs: [{ question: 'Q', answer: 'A' }] })).code).toBe('PLAN_LIMIT')
-      expect((await withListing({ relatedIds: [made.id] })).code).toBe('PLAN_LIMIT')
-      expect((await withListing({ highlights: ['Soft'] })).code).toBeUndefined()
+      // The product keeps its FAQs and badge through an unrelated edit after the plan lost them.
+      expect((await edit(1, 'Plan sections renamed', { faqs: faq, badgeIds: [badge] })).code).toBeUndefined()
+      // Adding is what needs the plan (the failed saves leave the revision where it was).
+      expect((await edit(2, 'Plan sections renamed', { faqs: [...faq, { question: 'Q2', answer: 'A2' }], badgeIds: [badge] })).code).toBe('PLAN_LIMIT')
+      expect((await edit(2, 'Plan sections renamed', { faqs: faq, relatedIds: [other.id], badgeIds: [badge] })).code).toBe('PLAN_LIMIT')
+      expect((await product('owner', 'New with a badge', { listing: { badgeIds: [badge] } })).code).toBe('PLAN_LIMIT')
+      expect((await product('owner', 'New with a video', { video: { url: 'https://www.youtube.com/watch?v=abc' } })).code).toBe('PLAN_LIMIT')
+      // Taking them away is never refused.
+      expect((await edit(2, 'Plan sections renamed', { faqs: [], badgeIds: [] })).code).toBeUndefined()
     } finally {
       await subscribe(t.storeA1, t.partnerA, plans.full)
     }

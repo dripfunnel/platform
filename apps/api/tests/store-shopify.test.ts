@@ -382,4 +382,8 @@ describe('Connect Shopify', () => {
     expect((await connection('supplier')).status).toBe('none')
     expect((await connection('owner')).status).toBe('connected')
   })
+  it('needs the plan for a Shopify import', async () => {
+    await db.sql`delete from plan_entitlement where key = 'import_shopify' and plan_id = (select plan_id from store where id = ${t.storeA1})`
+    expect((await gql('mutation { startShopifyImport(all: true) }', 'owner')).code).toBe('PLAN_LIMIT')
+  })
 })

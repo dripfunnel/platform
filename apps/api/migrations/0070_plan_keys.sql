@@ -85,7 +85,7 @@ begin
   return new;
 end
 $$;
-create trigger plan_entitlement_kind before insert on plan_entitlement
+create trigger plan_entitlement_kind before insert or update on plan_entitlement
 for each row execute function plan_entitlement_kind_guard();
 
 -- Plan versions written before these keys existed get one row per new key, off or zero: a Planned

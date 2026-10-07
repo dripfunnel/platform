@@ -197,6 +197,11 @@ describe('plan keys', () => {
       where not exists (select 1 from plan_entitlement e where e.plan_id = v.plan_id and e.version = v.version and e.key = k.key)`
     expect(row?.missing).toBe(0)
   })
+  it('refuses a row of the wrong shape for its key, on insert and on update', async () => {
+    const [v] = await db.sql<{ plan_id: string; version: number }[]>`select plan_id, version from plan_entitlement where key = 'badges' limit 1`
+    await expect(db.sql`update plan_entitlement set enabled = null, amount = 3 where plan_id = ${v?.plan_id ?? ''} and version = ${v?.version ?? 1} and key = 'badges'`).rejects.toThrow(/plan_entitlement_kind/)
+    await expect(db.sql`update plan_entitlement set enabled = true, amount = null where plan_id = ${v?.plan_id ?? ''} and version = ${v?.version ?? 1} and key = 'support_level'`).rejects.toThrow(/plan_entitlement_kind/)
+  })
   it('keeps Unlimited and a choice index across a new version', async () => {
     const before = (await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 1)))?.entitlements as Entitlements
     const entitlements = { ...before, collections: UNLIMITED, support_level: 3, blog: true }
