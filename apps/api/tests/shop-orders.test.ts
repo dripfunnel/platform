@@ -105,6 +105,18 @@ describe('Settings › Payment setup', () => {
 let order = ''
 let orderToken = ''
 
+describe('a store outside India and the US', () => {
+  it('takes no payment at launch: no providers listed, a transfer refused (FIRST-RELEASE §1)', async () => {
+    await db.sql`update store set country = 'DE' where id = ${stores.other}`
+    try {
+      expect((await merchant('{ gateways { provider } }', 'other')).data?.['gateways']).toEqual([])
+      expect((await merchant('mutation { connectGateway(provider: "bank_transfer", bankDetails: "IBAN DE00") }', 'other')).code).toBe('METHOD_UNAVAILABLE')
+    } finally {
+      await db.sql`update store set country = 'IN' where id = ${stores.other}`
+    }
+  })
+})
+
 describe('placing an order', () => {
   it('refuses a cart that isn’t ready, and a way the store doesn’t take', async () => {
     const token = ((await shop(`mutation { addToCart(versionId: "${kurta}", quantity: 1) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
@@ -272,9 +284,11 @@ describe('holding stock and placing safely', () => {
   it('never lets the merchant side delete a card provider’s account, nor read-only support any', async () => {
     const [row] = await db.sql<{ id: string }[]>`insert into payment_provider_account (store_id, provider, mode, status) values (${stores.india}, 'razorpay', 'live', 'live') returning id`
     const owner: TenantContext = { caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: t.partnerA, storeId: stores.india, sellerScope: { kind: 'all' }, subscription: 'active' }
-    expect((await withScope(db.sql, owner, (tx) => tx`delete from payment_provider_account where id = ${row?.id ?? ''}`)).count).toBe(0)
+    // Never deleted from the merchant side at all: methods are turned off, and payments keep naming their row.
+    await expect(withScope(db.sql, owner, (tx) => tx`delete from payment_provider_account where id = ${row?.id ?? ''}`)).rejects.toThrow(/permission denied/)
     const support: TenantContext = { ...owner, caller: { kind: 'support', supportSessionId: 'ss', partnerUserId: 'pu', access: 'read' } }
-    expect((await withScope(db.sql, support, (tx) => tx`delete from payment_provider_account where store_id = ${stores.india}`)).count).toBe(0)
+    await expect(withScope(db.sql, support, (tx) => tx`delete from payment_provider_account where store_id = ${stores.india}`)).rejects.toThrow(/permission denied/)
+    expect((await withScope(db.sql, support, (tx) => tx`update payment_provider_account set status = 'off' where store_id = ${stores.india}`)).count).toBe(0)
     expect(await db.sql`select 1 from payment_provider_account where id = ${row?.id ?? ''}`).toHaveLength(1)
   })
 })

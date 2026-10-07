@@ -13,9 +13,9 @@ const manualProviders = ['cod', 'bank_transfer'] as const
 export type ManualProvider = (typeof manualProviders)[number]
 export const isManual = (p: string): p is ManualProvider => manualProviders.some((m) => m === p)
 
-/** Who may take payment where (FIRST-RELEASE §1): India's and the US's providers, a bank transfer anywhere. */
+/** Who may take payment where (FIRST-RELEASE §1): India's and the US's providers; no other region at launch. */
 export const providersFor = (country: string | null): readonly PaymentProvider[] =>
-  country === 'IN' ? ['razorpay', 'cashfree', 'phonepe', 'cod', 'bank_transfer'] : country === 'US' ? ['stripe', 'paypal', 'bank_transfer'] : ['bank_transfer']
+  country === 'IN' ? ['razorpay', 'cashfree', 'phonepe', 'cod', 'bank_transfer'] : country === 'US' ? ['stripe', 'paypal', 'bank_transfer'] : []
 
 export type PaymentKind = 'card' | 'cod' | 'bank_transfer'
 export const kindOf = (p: PaymentProvider): PaymentKind => (p === 'cod' ? 'cod' : p === 'bank_transfer' ? 'bank_transfer' : 'card')

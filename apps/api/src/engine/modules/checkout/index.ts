@@ -114,7 +114,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
   const customerId = context.caller.kind === 'shopper' ? context.caller.customerId : null
   const settleDeps: SettleDeps = { sql, activity, gateways: deps.gateways, secrets: deps.secrets, now }
 
-  const options = (): Promise<PaymentOption[]> => withScope(sql, context, async (tx) => optionsOf(await selectLivePaymentAccounts(tx, storeId), deps.country, mode, deps.gateways))
+  const liveAccounts = () => withScope(sql, context, (tx) => selectLivePaymentAccounts(tx, storeId))
+  const options = async (): Promise<PaymentOption[]> => optionsOf(await liveAccounts(), deps.country, mode, deps.gateways)
 
   const placedEntry = (orderId: string, number: string): ActivityEntry => ({
     category: 'write',
@@ -197,7 +198,9 @@ export const createCheckout = (deps: CheckoutDeps) => {
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
     if (cart.lines.some((l) => l.problem === 'short' || l.problem === 'unavailable')) return { ok: false, reason: 'OUT_OF_STOCK' }
     if (cart.problems.length > 0 || cart.checkoutStep !== 'pay') return { ok: false, reason: 'NOT_READY', problems: cart.problems }
-    const option = (await options()).find((o) => o.provider === provider)
+    // One read: the option and the account the payment names can't drift apart.
+    const accounts = await liveAccounts()
+    const option = optionsOf(accounts, deps.country, mode, deps.gateways).find((o) => o.provider === provider)
     if (!option) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     let card: { attemptId: string; accountId: string; started: PaymentStart } | null = null
     if (isCardProvider(option.provider)) {
@@ -205,7 +208,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
       if (!begun.ok) return begun
       card = begun.value
     }
-    const manualAccountId = card ? null : ((await withScope(sql, context, (tx) => selectLivePaymentAccounts(tx, storeId))).find((a) => a.provider === option.provider)?.id ?? null)
+    const manualAccountId = card ? null : (accounts.find((a) => a.provider === option.provider)?.id ?? null)
     try {
       return await withSystemScope(sql, async (tx) => {
         const locked = await lockCart(tx, storeId, cart.id)

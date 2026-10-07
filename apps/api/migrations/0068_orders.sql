@@ -136,8 +136,8 @@ grant select on order_line, order_adjustment, order_part, payment to app_request
 grant select (id, store_id, provider, mode, public_key, external_account_id, bank_details, status, paused_by_plan, position, connected_at, updated_at)
   on payment_provider_account to app_request;
 grant insert (store_id, provider, mode, bank_details, status, position) on payment_provider_account to app_request;
-grant update (bank_details, status, position, updated_at) on payment_provider_account to app_request;
-grant delete on payment_provider_account to app_request;
+-- Turned on and off, never deleted: the payments that name a row keep it.
+grant update (bank_details, status, updated_at) on payment_provider_account to app_request;
 grant select (id, order_id, store_id, version_id, product_id, name, version_name, sku, quantity, unit_amount, discount_amount, tax_amount,
   line_total_amount, position) on order_line to app_shop;
 grant select (id, order_id, store_id, kind, label, amount) on order_adjustment to app_shop;
