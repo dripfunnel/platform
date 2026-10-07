@@ -5,6 +5,7 @@ import {
   createOrdersService,
   orderFilters,
   ordersAudit,
+  type OrderDetail,
   type OrderDetailRow,
   type OrderHistoryRow,
   type OrderLineRow,
@@ -13,6 +14,8 @@ import {
   type OrdersRefusal,
   type OrdersResult,
 } from '#engine/modules/orders/index'
+import { createRefundService, refundAudit, refundReasons, returnReasons, type RefundRefusal, type RefundResult } from '#engine/modules/orders/refunds'
+import type { LedgerRow, RefundRow, ReturnRow } from '#db/scoped/refunds'
 import { createFulfilmentService, fulfilmentAudit, type FulfilmentRefusal, type FulfilmentResult, type FulfilmentRow } from '#engine/modules/orders/fulfilment'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -44,12 +47,30 @@ const shipped = <T>(result: FulfilmentResult<T>): T => {
   throw new GraphQLError(shipWords[result.reason], { extensions: { code: result.reason } })
 }
 
+const refundWords: Record<RefundRefusal, string> = {
+  INVALID_INPUT: 'Something here isn’t valid.',
+  NOT_FOUND: 'That isn’t here.',
+  NOT_YOURS: 'A supplier refunds its own items. To refund them yourself, override.',
+  TOO_MANY: 'That’s more than can go back.',
+  NOT_PAID: 'Nothing has been paid on this order to give back.',
+  NOT_RECEIVED: 'Mark the return as received first.',
+  NOT_REQUESTED: 'This return isn’t on its way back any more.',
+  NO_LOCATION: 'There’s no location for these to come back to yet.',
+  PROVIDER_UNAVAILABLE: 'The payment provider didn’t answer. Nothing was refunded; try again.',
+  PROVIDER_REFUSED: 'The payment provider refused the refund. Nothing was refunded.',
+  READ_ONLY: 'A read-only support session can’t change this store.',
+}
+
+const refunded = <T>(result: RefundResult<T>): T => {
+  if (result.ok) return result.value
+  throw new GraphQLError(refundWords[result.reason], { extensions: { code: result.reason } })
+}
+
 const answered = <T>(result: OrdersResult<T>): T => {
   if (result.ok) return result.value
   throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
 }
 
-type OrderDetail = OrderDetailRow & { history: OrderHistoryRow[]; fulfilments: FulfilmentRow[] }
 type Merchant = NonNullable<OrderDetailRow['merchant']>
 
 export const registerOrders = (builder: StoreBuilder) => {
@@ -59,6 +80,11 @@ export const registerOrders = (builder: StoreBuilder) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
     return createOrdersService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+  }
+  const refunds = (ctx: StoreContext) => {
+    if (!ctx.sql) throw forbidden()
+    const caller = actingCaller(ctx)
+    return createRefundService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, gateways: ctx.payments?.gateways ?? {}, secrets: ctx.secrets ?? null, now: ctx.now })
   }
   const shipping = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
@@ -70,6 +96,7 @@ export const registerOrders = (builder: StoreBuilder) => {
   const Filter = builder.enumType('OrderFilter', { values: orderFilters.map((f) => f.toUpperCase()) as Uppercase<(typeof orderFilters)[number]>[] })
   const filterOf = (value: string | null | undefined) => (value ? (value.toLowerCase() as (typeof orderFilters)[number]) : 'all')
 
+  const at = (value: Date | string | null) => (value ? new Date(value).toISOString() : null)
   const Address = builder.objectRef<CartAddress>('OrderAddress').implement({
     fields: (t) => ({
       name: t.exposeString('name'),
@@ -167,6 +194,44 @@ export const registerOrders = (builder: StoreBuilder) => {
   const ShipmentLine = builder.objectRef<FulfilmentRow['lines'][number]>('OrderShipmentLine').implement({
     fields: (t) => ({ lineId: t.exposeID('line_id'), quantity: t.exposeInt('quantity') }),
   })
+  const ReturnLine = builder.objectRef<ReturnRow['lines'][number]>('OrderReturnLine').implement({
+    fields: (t) => ({ lineId: t.exposeID('line_id'), quantity: t.exposeInt('quantity'), warehouseId: t.exposeID('warehouse_id') }),
+  })
+  const Return = builder.objectRef<ReturnRow>('OrderReturn').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      number: t.exposeString('number'),
+      // requested (on its way back), received, refunded, cancelled.
+      state: t.exposeString('state'),
+      reason: t.exposeString('reason'),
+      // The store's own words; never a supplier's to read.
+      note: t.exposeString('note', { nullable: true }),
+      receivedAt: t.string({ nullable: true, resolve: (r) => at(r.received_at) }),
+      cancelledAt: t.string({ nullable: true, resolve: (r) => at(r.cancelled_at) }),
+      startedAt: t.string({ resolve: (r) => new Date(r.created_at).toISOString() }),
+      lines: t.field({ type: [ReturnLine], resolve: (r) => r.lines }),
+    }),
+  })
+  const RefundLine = builder.objectRef<RefundRow['lines'][number] & { currency: string }>('OrderRefundLine').implement({
+    fields: (t) => ({ lineId: t.exposeID('line_id'), quantity: t.exposeInt('quantity'), amount: t.field({ type: Money, resolve: (l) => ({ amount: l.amount, currency: l.currency }) }) }),
+  })
+  const Refund = builder.objectRef<RefundRow>('OrderRefund').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // Whose lines: null the store's own; with `override`, a supplier's the store refunded itself.
+      supplierId: t.exposeID('seller_id', { nullable: true }),
+      override: t.exposeBoolean('override'),
+      returnId: t.exposeID('return_id', { nullable: true }),
+      amount: t.field({ type: Money, resolve: (r) => ({ amount: r.amount, currency: r.currency }) }),
+      reason: t.exposeString('reason'),
+      note: t.exposeString('note', { nullable: true }),
+      restock: t.exposeBoolean('restock'),
+      // pending, done or failed at the provider; null to a supplier.
+      paymentState: t.exposeString('payment_state', { nullable: true }),
+      at: t.string({ resolve: (r) => new Date(r.created_at).toISOString() }),
+      lines: t.field({ type: [RefundLine], resolve: (r) => r.lines.map((l) => ({ ...l, currency: r.currency })) }),
+    }),
+  })
   const Event = builder.objectRef<OrderHistoryRow>('OrderEvent').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -196,7 +261,6 @@ export const registerOrders = (builder: StoreBuilder) => {
       capturedAt: t.string({ nullable: true, resolve: (p) => (p.captured_at ? new Date(p.captured_at).toISOString() : null) }),
     }),
   })
-  const at = (value: Date | string | null) => (value ? new Date(value).toISOString() : null)
   const Order = builder.objectRef<OrderDetail>('Order').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -208,6 +272,8 @@ export const registerOrders = (builder: StoreBuilder) => {
       parts: t.field({ type: [Part], resolve: (o) => o.parts.map((p) => ({ ...p, currency: o.currency })) }),
       history: t.field({ type: [Event], resolve: (o) => o.history }),
       shipments: t.field({ type: [Shipment], resolve: (o) => o.fulfilments }),
+      returns: t.field({ type: [Return], resolve: (o) => o.returns }),
+      refunds: t.field({ type: [Refund], resolve: (o) => o.refunds }),
       paymentState: t.string({ nullable: true, resolve: (o) => o.merchant?.payment_state ?? null }),
       fulfilmentState: t.string({ nullable: true, resolve: (o) => o.merchant?.fulfilment_state ?? null }),
       paymentMethod: t.string({ nullable: true, resolve: (o) => o.merchant?.payment_method ?? null }),
@@ -240,6 +306,28 @@ export const registerOrders = (builder: StoreBuilder) => {
 
   const read = { api: 'store', scope: 'store-seller', permission: 'orders.read', target: 'none' } as const
 
+  const LedgerEntry = builder.objectRef<LedgerRow>('SupplierLedgerEntry').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      supplierId: t.exposeID('seller_id'),
+      supplierName: t.exposeString('seller_name', { nullable: true }),
+      // Positive: the supplier owes the store, for lines the store refunded for it (refund_override).
+      amount: t.field({ type: Money, resolve: (e) => ({ amount: e.amount, currency: e.currency }) }),
+      kind: t.exposeString('kind'),
+      refundId: t.exposeID('refund_id', { nullable: true }),
+      orderNumber: t.exposeString('order_number', { nullable: true }),
+      at: t.string({ resolve: (e) => new Date(e.created_at).toISOString() }),
+    }),
+  })
+  const Ledger = builder.objectRef<{ page: { nodes: LedgerRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }; balance: { amount: string; currency: string }[] }>('SupplierLedger').implement({
+    fields: (t) => ({
+      entries: t.field({ type: [LedgerEntry], resolve: (l) => l.page.nodes }),
+      pageInfo: t.field({ type: PageInfo, resolve: (l) => l.page.pageInfo }),
+      // Settled outside DripFunnel (PLATFORM-PROMPT §5.4): one figure a currency.
+      balance: t.field({ type: [Money], resolve: (l) => l.balance }),
+    }),
+  })
+
   builder.queryFields((t) => ({
     orders: t.field({
       type: SummaryPage,
@@ -249,6 +337,14 @@ export const registerOrders = (builder: StoreBuilder) => {
         const window = storePage(args)
         return pageOf(await service(ctx).list(filterOf(args.filter), args.search ?? null, window), window, (o) => ({ occurredAt: o.placed_at, id: o.id }))
       },
+    }),
+    // A supplier's own ledger whatever it names; the merchant side names the supplier (ACCESS §7.3).
+    supplierLedger: t.field({
+      type: Ledger,
+      nullable: true,
+      args: { supplierId: t.arg.id(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
+      extensions: { access: { api: 'store', scope: 'store-seller', permission: 'orders.refund', target: 'none' } },
+      resolve: (_, args, ctx) => refunds(ctx).ledger(args.supplierId ? String(args.supplierId).toLowerCase() : null, storePage(args)),
     }),
     // The chips' counts (FIRST-RELEASE §19: counts come from their own query); a supplier's are its own parts'.
     orderCounts: t.field({ type: Counts, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).counts() }),
@@ -265,6 +361,13 @@ export const registerOrders = (builder: StoreBuilder) => {
   // The merchant side's `orders.write` includes fulfilment and its seats hold `orders.fulfil` with it (ACCESS §5.1); a supplier's tier
   // grants it for its own part, which a past-due store's suppliers keep doing (#337).
   const fulfil = { api: 'store', scope: 'store-seller', permission: 'orders.fulfil', target: 'none' } as const
+  // Owner and Manager, and the vendor-orders-fulfil tier on its own lines (ACCESS §5.1, §5.2).
+  const refundsAccess = { api: 'store', scope: 'store-seller', permission: 'orders.refund', target: 'none' } as const
+  const ReturnReason = builder.enumType('ReturnReason', { values: returnReasons })
+  const RefundReason = builder.enumType('RefundReason', { values: refundReasons })
+  const RefundLineInput = builder.inputType('RefundLineInput', {
+    fields: (t) => ({ lineId: t.id({ required: true }), quantity: t.int({ required: true }), amount: t.string() }),
+  })
 
   builder.mutationFields((t) => ({
     // Per line and quantity, from one of the caller's locations; partial is normal. Answers the shipments made, one a part.
@@ -295,6 +398,50 @@ export const registerOrders = (builder: StoreBuilder) => {
       extensions: { access: { ...fulfil, audit: fulfilmentAudit.trackingAdded } },
       resolve: async (_, args, ctx) =>
         shipped(await shipping(ctx).addTracking(String(args.shipmentId).toLowerCase(), { courierName: args.courierName ?? null, trackingNumber: args.trackingNumber, trackingUrl: args.trackingUrl ?? null })),
+    }),
+    // The store's (orders.refund): shipped lines on their way back, to each owner's location by its part's mode.
+    startReturn: t.id({
+      args: { orderId: t.arg.id({ required: true }), lines: t.arg({ type: [ShipLine], required: true }), reason: t.arg({ type: ReturnReason, required: true }), note: t.arg.string() },
+      extensions: { access: { ...refundsAccess, scope: 'store', audit: refundAudit.returnStarted } },
+      resolve: async (_, args, ctx) =>
+        refunded(await refunds(ctx).startReturn({ orderId: String(args.orderId).toLowerCase(), lines: args.lines.map((l) => ({ lineId: String(l.lineId), quantity: l.quantity })), reason: args.reason, note: args.note ?? null })),
+    }),
+    receiveReturn: t.boolean({
+      args: { returnId: t.arg.id({ required: true }) },
+      extensions: { access: { ...refundsAccess, scope: 'store', audit: refundAudit.returnReceived } },
+      resolve: async (_, args, ctx) => refunded(await refunds(ctx).receiveReturn(String(args.returnId).toLowerCase())),
+    }),
+    cancelReturn: t.boolean({
+      args: { returnId: t.arg.id({ required: true }) },
+      extensions: { access: { ...refundsAccess, scope: 'store', audit: refundAudit.returnCancelled } },
+      resolve: async (_, args, ctx) => refunded(await refunds(ctx).cancelReturn(String(args.returnId).toLowerCase())),
+    }),
+    // Per line, one refund an owner; the money goes back on the payment it came in on. Answers the refunds made.
+    refund: t.idList({
+      args: {
+        orderId: t.arg.id({ required: true }),
+        returnId: t.arg.id(),
+        lines: t.arg({ type: [RefundLineInput], required: true }),
+        extra: t.arg.string(),
+        reason: t.arg({ type: RefundReason, required: true }),
+        note: t.arg.string(),
+        restock: t.arg.boolean(),
+        override: t.arg.boolean(),
+      },
+      extensions: { access: { ...refundsAccess, audit: refundAudit.issued } },
+      resolve: async (_, args, ctx) =>
+        refunded(
+          await refunds(ctx).refund({
+            orderId: String(args.orderId).toLowerCase(),
+            returnId: args.returnId ? String(args.returnId).toLowerCase() : null,
+            lines: args.lines.map((l) => ({ lineId: String(l.lineId), quantity: l.quantity, amount: l.amount ?? null })),
+            extra: args.extra ?? null,
+            reason: args.reason,
+            note: args.note ?? null,
+            restock: args.restock ?? false,
+            override: args.override ?? false,
+          }),
+        ),
     }),
     addOrderNote: t.boolean({
       args: { orderId: t.arg.id({ required: true }), note: t.arg.string({ required: true }) },

@@ -52,6 +52,7 @@ const stripe: PaymentGateway = {
     if (refused) throw new PaymentRefused('no connected account')
     return outcomes.get(ref) ?? { state: 'failed' }
   },
+  refund: async (_, ref, request) => ({ providerRef: `re_${request.refundId.replaceAll('-', '')}`, state: ref ? 'done' : 'failed' }),
   cancel: async (_, ref) => {
     // Stripe won't cancel an intent still processing (a bank debit): refused, and it stays pending.
     if (stillProcessing) throw new PaymentRefused('payment_intent_unexpected_state')

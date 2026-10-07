@@ -5,6 +5,7 @@ import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
 import { selectFulfilments, type FulfilmentRow } from '#db/scoped/fulfilment'
+import { selectRefunds, selectReturns, type RefundRow, type ReturnRow } from '#db/scoped/refunds'
 import {
   countMerchantOrders,
   countSupplierOrders,
@@ -27,6 +28,8 @@ import {
 export { orderFilters, type OrderCounts, type OrderDetailRow, type OrderFilter, type OrderHistoryRow, type OrderLineRow, type OrderListRow, type OrderPartRow } from '#db/scoped/storeOrders'
 
 export const ordersAudit = { noteAdded: 'order.note_added' } as const
+
+export type OrderDetail = OrderDetailRow & { history: OrderHistoryRow[]; fulfilments: FulfilmentRow[]; returns: ReturnRow[]; refunds: RefundRow[] }
 
 export type OrdersRefusal = 'INVALID_INPUT' | 'NOT_FOUND' | 'READ_ONLY'
 export type OrdersResult<T> = { ok: true; value: T } | { ok: false; reason: OrdersRefusal }
@@ -56,12 +59,19 @@ export const createOrdersService = ({ sql, context, actor, activity, facts }: Or
 
   const counts = (): Promise<OrderCounts> => withScope(sql, context, (tx) => (sellerId ? countSupplierOrders(tx) : countMerchantOrders(tx, storeId)))
 
-  const detail = async (orderId: string): Promise<(OrderDetailRow & { history: OrderHistoryRow[]; fulfilments: FulfilmentRow[] }) | null> => {
+  const detail = async (orderId: string): Promise<OrderDetail | null> => {
     if (!isUuid(orderId)) return null
     return withScope(sql, context, async (tx) => {
       const order = sellerId ? await selectSupplierOrder(tx, orderId) : await selectMerchantOrder(tx, storeId, orderId)
       // A supplier's shipments are its own: the store's onward one carries no seller, so its tracking stays the store's.
-      return order ? { ...order, history: await selectOrderHistory(tx, storeId, orderId, sellerId, historyLimit), fulfilments: await selectFulfilments(tx, orderId) } : null
+      if (!order) return null
+      return {
+        ...order,
+        history: await selectOrderHistory(tx, storeId, orderId, sellerId, historyLimit),
+        fulfilments: await selectFulfilments(tx, orderId),
+        returns: await selectReturns(tx, orderId, sellerId !== null),
+        refunds: await selectRefunds(tx, orderId, sellerId !== null),
+      }
     })
   }
 

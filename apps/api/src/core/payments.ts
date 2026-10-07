@@ -47,6 +47,18 @@ export interface PaymentStart {
 
 export type PaymentOutcome = { state: 'captured'; amount: Money } | { state: 'pending' } | { state: 'failed' }
 
+/** Money going back to the shopper on a payment: our refund's id is the provider's idempotency key and reference. */
+export interface RefundRequest {
+  refundId: string
+  amount: Money
+}
+
+/** The provider's refund and where it stands: most finish later, which reading it again tells (`refundOutcome`). */
+export interface RefundOutcome {
+  providerRef: string
+  state: 'done' | 'pending' | 'failed'
+}
+
 /** A webhook as it arrived on the store's own address (hooks/payments.ts), before anything trusts it. */
 export interface WebhookDelivery {
   body: string
@@ -69,6 +81,8 @@ export interface PaymentGateway {
   outcome: (account: GatewayAccount, providerRef: string) => Promise<PaymentOutcome>
   /** Closes an attempt a retry replaces, so it can't be paid too; throws PaymentRefused once it is paid. */
   cancel?: (account: GatewayAccount, providerRef: string) => Promise<void>
+  /** Gives part or all of a captured payment back; the same refund id twice is one refund. */
+  refund: (account: GatewayAccount, providerRef: string, request: RefundRequest) => Promise<RefundOutcome>
 }
 
 export type PaymentGateways = Partial<Record<CardProvider, PaymentGateway>>

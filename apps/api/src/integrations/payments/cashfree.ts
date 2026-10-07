@@ -64,6 +64,23 @@ export const cashfree = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {
     }
     return order.order_status === 'EXPIRED' || order.order_status === 'TERMINATED' ? { state: 'failed' } : { state: 'pending' }
   },
+  // Our refund id is Cashfree's, so a second call with it is the same refund; the amount as its exact decimal.
+  refund: async (account, providerRef, request) => {
+    if (!/^df_[0-9a-f]{32}$/.test(providerRef)) throw new PaymentRefused('not our order')
+    const reference = referenceOf(request.refundId)
+    const amountToken = `df-amount-${request.refundId}`
+    const refund = await callProvider(
+      fetchImpl,
+      `${baseFor(account.mode)}/orders/${providerRef}/refunds`,
+      {
+        method: 'POST',
+        headers: { ...headersOf(account), 'content-type': 'application/json', 'x-idempotency-key': request.refundId },
+        body: JSON.stringify({ refund_id: reference, refund_amount: amountToken }).replace(`"${amountToken}"`, toMajor(request.amount)),
+      },
+      z.object({ refund_status: z.string() }).loose(),
+    )
+    return { providerRef: reference, state: refund.refund_status === 'SUCCESS' ? 'done' : refund.refund_status === 'CANCELLED' ? 'failed' : 'pending' }
+  },
   webhook: async (account, delivery) => {
     const secret = account.credentials['secretKey']
     const timestamp = delivery.headers.get('x-webhook-timestamp') ?? ''

@@ -635,6 +635,19 @@ with an `order` movement, and what the order held is given back; a tracked versi
 handed over with no tracking. Shipping a transfer before it's paid lets its due date go, so the 3-day sweep leaves it. `order`
 answers its `shipments` (a supplier's own only, so the store's onward tracking stays the store's) and each line's
 `sentToStoreQuantity`. A tracking address is https only. Booking a label through a courier is #311's.
+**Part 3, returns and refunds:** `startReturn(orderId, lines, reason, note)`, `receiveReturn(returnId)` and
+`cancelReturn(returnId)` (the store's, `orders.refund`: shipped units only, each back to its owner's location by its part's
+mode; cancelled only while on its way back), and `refund(orderId, returnId, lines: [{ lineId, quantity, amount }], extra,
+reason, note, restock, override)` (`orders.refund`: Owner, Manager and the `vendor-orders-fulfil` tier on its own lines). A
+line's refund covers units that have shipped (unshipped ones go back by cancelling), its share of what the shopper paid for
+the line unless an amount is named, or money only with 0 units; `extra` is the store's alone (delivery, goodwill). One
+refund an owner: the store refunds its own lines, a supplier its own, and the store a supplier's only with `override`, which
+`supplierLedger(supplierId)` records against the supplier (the supplier's own ledger and balance for a supplier, settled
+outside DripFunnel). A return is refunded only once received, and is done once all of it is. The money goes back on the
+order's payment: the card provider's refund (`PROVIDER_UNAVAILABLE` or `PROVIDER_REFUSED` keep nothing), or the store's own
+hand for cash and transfers; `restock` puts shipped units back as "Returned", the store's own and a to-shopper supplier's (a
+to-store supplier counts its own once the store sends them back). `order` answers its `returns` and `refunds`, a supplier
+only those with its lines, without the store's note or the money's state at the provider.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

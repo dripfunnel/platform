@@ -59,6 +59,22 @@ export const phonepe = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {}
       if (status.state === 'COMPLETED') return { state: 'captured', amount: { amount: BigInt(status.amount), currency: 'INR' } }
       return status.state === 'FAILED' ? { state: 'failed' } : { state: 'pending' }
     },
+    refund: async (account, providerRef, request) => {
+      if (!/^df_[0-9a-f]{32}$/.test(providerRef)) throw new PaymentRefused('not our order')
+      if (request.amount.currency !== 'INR') throw new PaymentRefused('INR only')
+      const reference = referenceOf(request.refundId)
+      const refund = await callProvider(
+        fetchImpl,
+        `${hosts[account.mode].pg}/payments/v2/refund`,
+        {
+          method: 'POST',
+          headers: { authorization: await token(account), 'content-type': 'application/json' },
+          body: JSON.stringify({ merchantRefundId: reference, originalMerchantOrderId: providerRef, amount: Number(request.amount.amount) }),
+        },
+        z.object({ state: z.string() }).loose(),
+      )
+      return { providerRef: reference, state: refund.state === 'COMPLETED' ? 'done' : refund.state === 'FAILED' ? 'failed' : 'pending' }
+    },
     webhook: async (account, delivery) => {
       const { webhookUsername, webhookPassword } = account.credentials
       if (!webhookUsername || !webhookPassword) return { valid: false }

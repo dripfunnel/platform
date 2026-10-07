@@ -23,8 +23,10 @@ const intentSchema = z
   })
   .loose()
 
+const refundSchema = z.object({ id: z.string().regex(/^re_[A-Za-z0-9]+$/), status: z.string() }).loose()
+
 export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Record<PaymentMode, StripeKeys>>; fetchImpl?: typeof fetch }): PaymentGateway => {
-  const call = async (mode: PaymentMode, accountId: string, method: 'GET' | 'POST', path: string, opts: { body?: URLSearchParams; idempotencyKey?: string } = {}) => {
+  const call = async <S extends z.ZodType = typeof intentSchema>(mode: PaymentMode, accountId: string, method: 'GET' | 'POST', path: string, opts: { body?: URLSearchParams; idempotencyKey?: string } = {}, schema?: S) => {
     const key = keys[mode]
     if (!key) throw new PaymentUnavailable(`no ${mode} key`)
     let response: Response
@@ -48,9 +50,9 @@ export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Reco
     if (response.status === 401 || response.status === 403) throw new PaymentRefused(`answered ${response.status}`)
     const json: unknown = await response.json().catch(() => null)
     if (!response.ok) throw new PaymentRefused(`answered ${response.status}`)
-    const parsed = intentSchema.safeParse(json)
+    const parsed = (schema ?? intentSchema).safeParse(json)
     if (!parsed.success) throw new PaymentUnavailable('answered in a shape we do not read')
-    return { intent: parsed.data, key }
+    return { intent: parsed.data as z.infer<S>, key }
   }
 
   const accountOf = (externalAccountId: string | null) => {
@@ -70,7 +72,7 @@ export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Reco
         'metadata[df_payment_id]': request.attemptId,
       })
       if (request.customer.email) body.set('receipt_email', request.customer.email)
-      const { intent, key } = await call(account.mode, accountId, 'POST', '/payment_intents', { body, idempotencyKey: `df-payment:${request.attemptId}` })
+      const { intent, key } = await call(account.mode, accountId, 'POST', '/payment_intents', { body, idempotencyKey: `df-payment:${request.attemptId}` }, intentSchema)
       if (!intent.client_secret) throw new PaymentUnavailable('no client secret')
       return { providerRef: intent.id, publicKey: key.publishableKey, accountId, clientSecret: intent.client_secret, sessionId: null, redirectUrl: null }
     },
@@ -81,10 +83,17 @@ export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Reco
     },
     outcome: async (account, providerRef): Promise<PaymentOutcome> => {
       if (!/^pi_[A-Za-z0-9]+$/.test(providerRef)) return { state: 'failed' }
-      const { intent } = await call(account.mode, accountOf(account.externalAccountId), 'GET', `/payment_intents/${providerRef}`)
+      const { intent } = await call(account.mode, accountOf(account.externalAccountId), 'GET', `/payment_intents/${providerRef}`, {}, intentSchema)
       if (intent.status === 'succeeded') return { state: 'captured', amount: { amount: BigInt(intent.amount_received ?? intent.amount), currency: intent.currency.toUpperCase() } }
       // A declined card leaves the intent waiting for another, which the shopper may still give.
       return intent.status === 'canceled' ? { state: 'failed' } : { state: 'pending' }
+    },
+    refund: async (account, providerRef, request) => {
+      if (!/^pi_[A-Za-z0-9]+$/.test(providerRef)) throw new PaymentRefused('not a payment intent')
+      const body = new URLSearchParams({ payment_intent: providerRef, amount: request.amount.amount.toString(), 'metadata[df_refund_id]': request.refundId })
+      const { intent: refund } = await call(account.mode, accountOf(account.externalAccountId), 'POST', '/refunds', { body, idempotencyKey: `df-refund:${request.refundId}` }, refundSchema)
+      // succeeded, or pending / requires_action until the bank answers; failed and canceled never reach the shopper.
+      return { providerRef: refund.id, state: refund.status === 'succeeded' ? 'done' : refund.status === 'failed' || refund.status === 'canceled' ? 'failed' : 'pending' }
     },
   }
 }

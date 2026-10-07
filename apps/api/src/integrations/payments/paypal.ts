@@ -14,7 +14,7 @@ const orderSchema = z
   .object({
     id: z.string().regex(/^[A-Z0-9]+$/),
     status: z.string(),
-    purchase_units: z.array(z.object({ payments: z.object({ captures: z.array(z.object({ status: z.string(), amount: money }).loose()).optional() }).loose().optional() }).loose()).optional(),
+    purchase_units: z.array(z.object({ payments: z.object({ captures: z.array(z.object({ id: z.string().optional(), status: z.string(), amount: money }).loose()).optional() }).loose().optional() }).loose()).optional(),
   })
   .loose()
 const eventSchema = z
@@ -83,6 +83,25 @@ export const paypal = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {})
       if ('status' in done && typeof done.status === 'string') return done.status === 'COMPLETED' ? captured(orderSchema.parse(done)) : { state: 'pending' }
       const again = await callProvider(fetchImpl, `${baseFor(account.mode)}/v2/checkout/orders/${providerRef}`, { headers: { authorization } }, orderSchema)
       return again.status === 'COMPLETED' ? captured(again) : { state: 'pending' }
+    },
+    // The order's capture gives the money back; PayPal-Request-Id makes the same refund id one refund.
+    refund: async (account, providerRef, request) => {
+      if (!/^[A-Z0-9]{1,40}$/.test(providerRef)) throw new PaymentRefused('not an order')
+      const authorization = await token(account)
+      const order = await callProvider(fetchImpl, `${baseFor(account.mode)}/v2/checkout/orders/${providerRef}`, { headers: { authorization } }, orderSchema)
+      const capture = order.purchase_units?.[0]?.payments?.captures?.find((c) => c.id && (c.status === 'COMPLETED' || c.status === 'PARTIALLY_REFUNDED'))
+      if (!capture?.id) throw new PaymentRefused('nothing captured')
+      const refund = await callProvider(
+        fetchImpl,
+        `${baseFor(account.mode)}/v2/payments/captures/${encodeURIComponent(capture.id)}/refund`,
+        {
+          method: 'POST',
+          headers: { authorization, 'content-type': 'application/json', 'paypal-request-id': `refund-${request.refundId}` },
+          body: JSON.stringify({ amount: { currency_code: request.amount.currency, value: toMajor(request.amount) }, invoice_id: request.refundId }),
+        },
+        z.object({ id: z.string(), status: z.string() }).loose(),
+      )
+      return { providerRef: refund.id, state: refund.status === 'COMPLETED' ? 'done' : refund.status === 'FAILED' || refund.status === 'CANCELLED' ? 'failed' : 'pending' }
     },
     webhook: async (account, delivery) => {
       const webhookId = account.credentials['webhookId']

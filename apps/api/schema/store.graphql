@@ -432,6 +432,7 @@ type Mutation {
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   approveProduct(id: ID!): Boolean
+  cancelReturn(returnId: ID!): Boolean
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
@@ -465,6 +466,8 @@ type Mutation {
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   proposeProduct(input: ProductInput!): SavedProduct
   publishProductStory(productId: ID!, revision: Int!): ProductStory
+  receiveReturn(returnId: ID!): Boolean
+  refund(extra: String, lines: [RefundLineInput!]!, note: String, orderId: ID!, override: Boolean, reason: RefundReason!, restock: Boolean, returnId: ID): [ID!]
   regenerateBackupCodes: [String!]
   removeMember(membershipId: ID!): Boolean
   removeSupplier(id: ID!): Int
@@ -516,6 +519,7 @@ type Mutation {
   shipItems(courierName: String, lines: [ShipLineInput!]!, orderId: ID!, trackingNumber: String, trackingUrl: String, warehouseId: ID!): [ID!]
   signOutOtherSessions: Int
   startCatalogImport(file: String!): ID
+  startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
@@ -574,6 +578,8 @@ type Order {
   phone: String
   placedAt: String
   refunded: Money
+  refunds: [OrderRefund!]
+  returns: [OrderReturn!]
   shipments: [OrderShipment!]
   shipping: Money
   shippingAddress: OrderAddress
@@ -673,6 +679,44 @@ type OrderPayment {
   mode: String
   provider: String
   state: String
+}
+
+type OrderRefund {
+  amount: Money
+  at: String
+  id: ID
+  lines: [OrderRefundLine!]
+  note: String
+  override: Boolean
+  paymentState: String
+  reason: String
+  restock: Boolean
+  returnId: ID
+  supplierId: ID
+}
+
+type OrderRefundLine {
+  amount: Money
+  lineId: ID
+  quantity: Int
+}
+
+type OrderReturn {
+  cancelledAt: String
+  id: ID
+  lines: [OrderReturnLine!]
+  note: String
+  number: String
+  reason: String
+  receivedAt: String
+  startedAt: String
+  state: String
+}
+
+type OrderReturnLine {
+  lineId: ID
+  quantity: Int
+  warehouseId: ID
 }
 
 type OrderShipment {
@@ -1119,6 +1163,7 @@ type Query {
   supplier(id: ID!): Supplier
   supplierApprovalRequired: Boolean
   supplierCounts: SupplierCounts
+  supplierLedger(after: String, before: String, first: Int, supplierId: ID): SupplierLedger
   suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
   taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
   taxSetup: TaxSetup
@@ -1133,9 +1178,29 @@ type ReferenceRate {
   publishedOn: String
 }
 
+input RefundLineInput {
+  amount: String
+  lineId: ID!
+  quantity: Int!
+}
+
+enum RefundReason {
+  goodwill
+  other
+  returned
+}
+
 type RelatedProduct {
   id: ID
   name: String
+}
+
+enum ReturnReason {
+  changed_mind
+  damaged
+  doesnt_fit
+  not_as_described
+  wrong_item
 }
 
 type SavedCollection {
@@ -1608,6 +1673,23 @@ type SupplierCounts {
   active: Int
   all: Int
   suspended: Int
+}
+
+type SupplierLedger {
+  balance: [Money!]
+  entries: [SupplierLedgerEntry!]
+  pageInfo: PageInfo
+}
+
+type SupplierLedgerEntry {
+  amount: Money
+  at: String
+  id: ID
+  kind: String
+  orderNumber: String
+  refundId: ID
+  supplierId: ID
+  supplierName: String
 }
 
 type SupplierPage {

@@ -68,6 +68,21 @@ export const razorpay = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {
     // A failed attempt leaves the order open for another in Razorpay's checkout.
     return { state: 'pending' }
   },
+  // The order's captured payment gives the money back; Razorpay answers processed, pending (most) or failed.
+  refund: async (account, providerRef, request) => {
+    if (!/^order_[A-Za-z0-9]+$/.test(providerRef)) throw new PaymentRefused('not an order')
+    const { authorization } = keysOf(account)
+    const { items } = await callProvider(fetchImpl, `${apiBase}/orders/${providerRef}/payments`, { headers: { authorization } }, paymentsSchema)
+    const paid = items.find((p) => p.status === 'captured' || p.status === 'refunded')
+    if (!paid) throw new PaymentRefused('nothing captured')
+    const refund = await callProvider(
+      fetchImpl,
+      `${apiBase}/payments/${encodeURIComponent(paid.id)}/refund`,
+      { method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: JSON.stringify({ amount: Number(request.amount.amount), receipt: referenceOf(request.refundId), notes: { df_refund_id: request.refundId } }) },
+      z.object({ id: z.string(), status: z.string() }).loose(),
+    )
+    return { providerRef: refund.id, state: refund.status === 'processed' ? 'done' : refund.status === 'failed' ? 'failed' : 'pending' }
+  },
   webhook: async (account, delivery) => {
     const secret = account.credentials['webhookSecret']
     const signature = delivery.headers.get('x-razorpay-signature') ?? ''
