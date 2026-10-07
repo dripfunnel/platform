@@ -53,11 +53,11 @@ interface Result {
   code: string | undefined
 }
 
-const gql = async (source: string, cookie: string, partnerId = t.partnerA): Promise<Result> => {
+const gql = async (source: string, cookie: string, partnerId = t.partnerA, codeCheck?: '0'): Promise<Result> => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const request = new Request(`https://${partnerId === t.partnerA ? host : hostB}/api/`, { headers: { cookie: `${storeCookieName}=${cookie}` } })
   const standing = await resolveStoreStanding(db.sql, request, partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, secrets, now: () => now }
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, secrets, codeCheck, now: () => now }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -280,6 +280,19 @@ describe('two-step sign-in', () => {
     expect(done.data?.['setSecondFactor']).toEqual({ done: true, backupCodes: null })
     expect(((await gql('{ profile { twoFactor { method backupCodesLeft } } }', cookie)).data?.['profile'])).toEqual({ twoFactor: { method: 'sms', backupCodesLeft: 10 } })
     expect(await actions(id)).toContain('two_factor.method_changed')
+  })
+
+  it('takes any text code for the switch when CODE_CHECK is 0, but not an expired one', async () => {
+    const id = await person(t.partnerA, 'switcher0@a.example')
+    const cookie = await sessionFor(id)
+    await gql('mutation { updateProfile(name: "S", phone: "+16145550131") { name } }', cookie)
+    const start = `mutation { setSecondFactor(method: "sms", password: "${password}") { hint } }`
+    const typed = 'mutation { setSecondFactor(method: "sms", code: "000000") { done } }'
+    await gql(start, cookie)
+    await db.sql`update verification_code set expires_at = '2000-01-01' where subject_id = ${id}`
+    expect((await gql(typed, cookie, t.partnerA, '0')).code).toBe('CODE_EXPIRED')
+    await gql(start, cookie)
+    expect((await gql(typed, cookie, t.partnerA, '0')).data?.['setSecondFactor']).toEqual({ done: true })
   })
 
   it('lets anyone but an Owner turn it off, taking the backup codes with it', async () => {
