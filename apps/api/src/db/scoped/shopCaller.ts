@@ -43,7 +43,10 @@ export const selectStorefrontByHost = async (tx: ScopedSql, host: string): Promi
         where d.partner_id = s.partner_id and d.kind in ('preview', 'shops') and lower(d.host) = ${wildcard}
           and d.status not in ('waiting', 'failed') and p.state <> 'closed'
       )
-    ) or exists (select 1 from custom_domain c where c.store_id = s.id and lower(c.host) = ${name} and c.status in ('live', 'expiring'))
+    ) or exists (
+      select 1 from custom_domain c join partner p on p.id = s.partner_id
+      where c.store_id = s.id and lower(c.host) = ${name} and c.status in ('live', 'expiring') and p.state <> 'closed'
+    )
     limit 2
   `
   // Two stores claiming one host is a data fault: neither is served.
