@@ -31,3 +31,25 @@ export const pageInfoType = (builder: StoreBuilder) => {
   pageInfos.set(builder, made)
   return made
 }
+
+export interface Money {
+  amount: string
+  currency: string
+}
+
+const moneys = new WeakMap<StoreBuilder, ReturnType<typeof defineMoney>>()
+
+const defineMoney = (builder: StoreBuilder) =>
+  builder.objectRef<Money>('Money').implement({
+    // Minor units as a string: GraphQL's Int is 32-bit and a price may pass it (DATA-MODEL §7.1).
+    fields: (t) => ({ amount: t.exposeString('amount'), currency: t.exposeString('currency') }),
+  })
+
+/** Money as every area answers it, one type per builder. */
+export const moneyType = (builder: StoreBuilder) => {
+  const known = moneys.get(builder)
+  if (known) return known
+  const made = defineMoney(builder)
+  moneys.set(builder, made)
+  return made
+}

@@ -425,6 +425,7 @@ input MoneyInput {
 }
 
 type Mutation {
+  addOrderNote(note: String!, orderId: ID!): Boolean
   addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
   addSupplierPerson(email: String!, id: ID!, role: String): ID
   addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
@@ -544,6 +545,147 @@ type MyActivityTarget {
 type Named {
   id: ID
   name: String
+}
+
+type Order {
+  adjustments: [OrderAdjustment!]
+  billingAddress: OrderAddress
+  cancelReason: String
+  cancelledAt: String
+  customerId: ID
+  customerName: String
+  discount: Money
+  duties: Money
+  email: String
+  fulfilmentState: String
+  history: [OrderEvent!]
+  id: ID
+  marketId: ID
+  marketName: String
+  number: String
+  paidAt: String
+  parts: [OrderPart!]
+  paymentDueBy: String
+  paymentMethod: String
+  paymentState: String
+  payments: [OrderPayment!]
+  phone: String
+  placedAt: String
+  refunded: Money
+  shipping: Money
+  shippingAddress: OrderAddress
+  shippingMethodLabel: String
+  shippingOption: String
+  shopperNote: String
+  state: String
+  subtotal: Money
+  tax: Money
+  taxInclusive: Boolean
+  test: Boolean
+  total: Money
+}
+
+type OrderAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  name: String
+  phone: String
+  postalCode: String
+  region: String
+}
+
+type OrderAdjustment {
+  amount: Money
+  kind: String
+  label: String
+}
+
+type OrderCounts {
+  all: Int
+  cancelledRefunded: Int
+  partlyShipped: Int
+  paymentPending: Int
+  shipped: Int
+  toShip: Int
+}
+
+type OrderEvent {
+  action: String
+  actorKind: String
+  actorName: String
+  at: String
+  id: ID
+  note: String
+}
+
+enum OrderFilter {
+  ALL
+  CANCELLED_REFUNDED
+  PARTLY_SHIPPED
+  PAYMENT_PENDING
+  SHIPPED
+  TO_SHIP
+}
+
+type OrderLine {
+  amount: Money
+  discount: Money
+  fulfilledQuantity: Int
+  id: ID
+  name: String
+  productId: ID
+  quantity: Int
+  refundedQuantity: Int
+  returnedQuantity: Int
+  sku: String
+  tax: Money
+  total: Money
+  unitPrice: Money
+  versionId: ID
+  versionName: String
+}
+
+type OrderPage {
+  nodes: [OrderSummary!]
+  pageInfo: PageInfo
+}
+
+type OrderPart {
+  id: ID
+  lines: [OrderLine!]
+  shippingMode: String
+  state: String
+  supplierId: ID
+  supplierName: String
+}
+
+type OrderPayment {
+  amount: Money
+  capturedAt: String
+  id: ID
+  kind: String
+  mode: String
+  provider: String
+  state: String
+}
+
+type OrderSummary {
+  city: String
+  customerName: String
+  fulfilmentState: String
+  id: ID
+  items: Int
+  number: String
+  partState: String
+  paymentMethod: String
+  paymentState: String
+  placedAt: String
+  shippingMode: String
+  state: String
+  test: Boolean
+  total: Money
 }
 
 type PageInfo {
@@ -927,6 +1069,9 @@ type Query {
   myStores(after: String, before: String, first: Int): StoreChoices
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   navBadges: StoreNavBadges
+  order(id: ID!): Order
+  orderCounts: OrderCounts
+  orders(after: String, before: String, filter: OrderFilter, first: Int, search: String): OrderPage
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product
@@ -1289,6 +1434,7 @@ type StoreLocale {
 
 type StoreNavBadges {
   products: Int
+  toShip: Int
 }
 
 type StorePeople {

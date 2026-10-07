@@ -187,11 +187,13 @@ describe('isolation', () => {
     await expect(withScope(db.sql, await guest(orderToken), (tx) => tx`select credentials_enc from payment_provider_account`)).rejects.toThrow(/permission denied/)
   })
 
-  it('lets a merchant read only its own store’s orders, and a supplier none', async () => {
+  it('lets a merchant read only its own store’s orders, and a supplier only its own lines, without money (#310)', async () => {
     const merchantOf = (storeId: string, seller?: string): TenantContext => ({ caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: t.partnerA, storeId, sellerScope: seller ? { kind: 'seller', sellerId: seller } : { kind: 'all' }, subscription: 'active' })
     expect(await withScope(db.sql, merchantOf(stores.india), (tx) => tx`select id from order_line`)).not.toHaveLength(0)
     expect(await withScope(db.sql, merchantOf(stores.other), (tx) => tx`select id from order_line`)).toHaveLength(0)
-    await expect(withScope(db.sql, merchantOf(stores.india, t.sellerA1First), (tx) => tx`select id from order_line`)).rejects.toThrow(/permission denied/)
+    expect(await withScope(db.sql, merchantOf(stores.india, t.sellerA1First), (tx) => tx`select id from order_line`)).toHaveLength(0)
+    await expect(withScope(db.sql, merchantOf(stores.india, t.sellerA1First), (tx) => tx`select unit_amount from order_line`)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, merchantOf(stores.india, t.sellerA1First), (tx) => tx`select id from "order"`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, merchantOf(stores.india), (tx) => tx`insert into payment_provider_account (store_id, provider) values (${stores.india}, 'stripe')`)).rejects.toThrow(/row-level security/)
   })
 })

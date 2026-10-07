@@ -615,6 +615,15 @@ the store's own rates leave delivery untaxed (decided on #309). A Stripe account
 into the provider. At checkout `placeOrder` answers Razorpay's order and key id, Cashfree's `sessionId`, PhonePe's
 `redirectUrl` (the shopper returns to `/checkout/complete?order=…` and the storefront calls `confirmPayment`) or PayPal's order
 and client id. Cashfree refuses with `PHONE_REQUIRED` until the cart has a mobile number.
+**Built on #310 (SAPI 11), part 1, reading orders:** `orders(filter, search)` (newest first, at most 50; the chips `ALL`,
+`TO_SHIP` (unshipped or partly shipped, and gone through: paid, or cash on delivery or transfer), `PARTLY_SHIPPED`, `SHIPPED`,
+`CANCELLED_REFUNDED`, `PAYMENT_PENDING`; search by number, or the shopper's name on the merchant side), `orderCounts`,
+`order(id)` (the parts by who packs them, each line's price, discount, tax and total, the payments, adjustments, the
+shopper and the history newest first) and `navBadges { toShip }`, for `orders.read`; `addOrderNote(orderId, note)` for
+`orders.write` (up to 1,000 characters, a line in the history, `order.note_added`). A preview storefront's test order is
+listed and flagged `test`, never to ship. A supplier with `orders.read` sees only orders holding its lines that went through
+on the live storefront, its own part and lines at the price sold, no total, payment or contact, and the shopper's name and
+delivery address only where its part was placed `to-shopper`; its chips are its part's, and its history only its own entries.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:
