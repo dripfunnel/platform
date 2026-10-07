@@ -1391,7 +1391,10 @@ payment             (id, order_id, store_id, provider, provider_account_id, prov
                     -- stock_reserved); order_line, order_adjustment and order_part as above, order_line
                     -- also holding reserved_warehouse_id (the one location its held stock sits at, so a
                     -- cancellation gives back exactly that). Placement and payment write in system scope
-                    -- after the cart is read as its shopper; suppliers reach orders with SAPI 11
+                    -- after the cart is read as its shopper; suppliers reach orders with SAPI 11. No English is
+                    -- snapshotted: order_adjustment.label is null where its kind says it all (shipping, tax) and
+                    -- shipping_method_label holds only a courier's own service name; clients word the rest by
+                    -- shipping_option and kind in the shopper's language (AGENTS "Product")
                     -- #309 part 2 (0069): a card payment's row is written at placement with the id its
                     -- provider was given and its provider_ref; it is settled by reading the provider back
                     -- (webhook, the shopper's return, the sweep), idempotent by its state; payment_due_by is a

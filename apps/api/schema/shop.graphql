@@ -249,6 +249,7 @@ type ShopOrder {
   pricesIncludeTax: Boolean
   shipping: ShopMoney
   shippingMethod: String
+  shippingOption: String
   state: String
   subtotal: ShopMoney
   tax: ShopMoney

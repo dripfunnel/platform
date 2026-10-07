@@ -63,7 +63,8 @@ create table order_adjustment (
   order_line_id uuid references order_line (id),
   store_id uuid not null,
   kind text not null check (kind in ('discount', 'shipping', 'tax', 'duties', 'rounding')),
-  label text not null check (char_length(label) between 1 and 120),
+  -- Null where the kind says it all (shipping, tax), rendered from messages in the shopper's language; a name otherwise.
+  label text check (label is null or char_length(label) between 1 and 120),
   amount bigint not null,
   tax_rate_bps integer,
   foreign key (order_id, store_id) references "order" (id, store_id)
