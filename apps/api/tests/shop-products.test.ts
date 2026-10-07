@@ -81,7 +81,7 @@ afterAll(async () => {
 const gql = async (source: string, headers: Record<string, string> = {}, variables: Record<string, unknown> = {}, on = host) => {
   const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers }), on)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date('2026-10-07T09:00:00Z') }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, allowNewCart: async () => true, now: () => new Date('2026-10-07T09:00:00Z') }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }

@@ -18,6 +18,7 @@ const env = () => ({
   HYPERDRIVE: { connectionString: db.url },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   SHOP_RATE_LIMITER: { limit: async () => ({ success: true }) },
+  CART_RATE_LIMITER: { limit: async () => ({ success: true }) },
   CF_VERSION_METADATA: { id: 'test', tag: '' },
   ASSETS: { get: async (key: string) => (objects.has(key) ? { body: new Response(objects.get(key)).body } : null), put: async () => undefined },
 })
@@ -60,6 +61,12 @@ describe('the Shop API through the Worker', () => {
     const key = (await db.sql<{ k: string }[]>`select public_store_key as k from storefront where store_id = ${t.storeA1}`)[0]?.k ?? ''
     const wrong = await query('store-a2.shops.acme.example', { 'x-shop-key': key })
     expect([wrong.status, ((await wrong.json()) as { errors: { extensions: { code: string } }[] }).errors[0]?.extensions.code]).toEqual([403, 'WRONG_STORE_KEY'])
+  })
+
+  it('serves nothing without the new-cart limiter, rather than unlimited carts', async () => {
+    const bare = { ...env(), CART_RATE_LIMITER: undefined }
+    const request = new Request('https://store-a1.shops.acme.example/shop-api', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.9' }, body: JSON.stringify({ query: '{ store { name } }' }) })
+    expect((await worker.fetch(request as Parameters<typeof worker.fetch>[0], bare as never, ctx)).status).toBe(500)
   })
 
   it('serves a visible product’s file with its type and safe headers, and nothing else as anything but 404', async () => {

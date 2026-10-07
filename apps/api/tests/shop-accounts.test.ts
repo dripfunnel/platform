@@ -57,7 +57,7 @@ const gql = async (source: string, who: { host?: string; session?: string; cart?
   const headers: Record<string, string> = { ...(who.session ? { 'x-shop-session': who.session } : {}), ...(who.cart ? { 'x-shop-cart': who.cart } : {}) }
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async (key) => (limiterKeys.push(key), allow), sessionToken: who.session ?? null, now }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async (key) => (limiterKeys.push(key), allow), sessionToken: who.session ?? null, allowNewCart: async () => true, now }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -157,6 +157,26 @@ describe('a signed-in shopper', () => {
     expect((await gql('{ account { addresses { id isDefault } } }', who)).data?.['account']).toEqual({ addresses: [{ id, isDefault: true }] })
     expect((await gql(`mutation { deleteAddress(id: "${id}") }`, who)).data?.['deleteAddress']).toBe(true)
     expect((await gql('{ account { addresses { id } } }', who)).data?.['account']).toEqual({ addresses: [] })
+  })
+
+  it('never changes or deletes another shopper’s address in the same store', async () => {
+    const who = { session: phoneSession }
+    const theirs = (await gql('mutation { saveAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", country: "IN" }, isDefault: true) }', who)).data?.['saveAddress'] as string
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919845033224") }')
+    const other = { session: ((await verify('PHONE', '+919845033224', await textedCode('+919845033224'))).data?.['verifySignInCode'] as { sessionToken: string }).sessionToken }
+    expect((await gql(`mutation { saveAddress(id: "${theirs}", address: { name: "x", line1: "y", city: "z", country: "IN" }, isDefault: false) }`, other)).code).toBe('NOT_FOUND')
+    expect((await gql(`mutation { deleteAddress(id: "${theirs}") }`, other)).code).toBe('NOT_FOUND')
+    expect((await gql('{ account { addresses { id city isDefault } } }', who)).data?.['account']).toEqual({ addresses: [{ id: theirs, city: 'Pune', isDefault: true }] })
+    await gql(`mutation { deleteAddress(id: "${theirs}") }`, who)
+  })
+
+  it('keeps at most 20 addresses, and still edits one at the cap', async () => {
+    const who = { session: phoneSession }
+    const ids: string[] = []
+    for (let i = 0; i < 20; i++) ids.push((await gql(`mutation { saveAddress(address: { name: "A", line1: "${i} MG Road", city: "Pune", country: "IN" }) }`, who)).data?.['saveAddress'] as string)
+    expect((await gql('mutation { saveAddress(address: { name: "A", line1: "21 MG Road", city: "Pune", country: "IN" }) }', who)).code).toBe('TOO_MANY')
+    expect((await gql(`mutation { saveAddress(id: "${ids[0] ?? ''}", address: { name: "A", line1: "0 FC Road", city: "Pune", country: "IN" }) }`, who)).data?.['saveAddress']).toBe(ids[0])
+    for (const id of ids) await gql(`mutation { deleteAddress(id: "${id}") }`, who)
   })
 
   it('takes over the guest cart it held when it signs in', async () => {
