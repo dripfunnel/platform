@@ -30,6 +30,13 @@ describe('a Shiprocket quote', () => {
     expect(seen[1]?.headers.get('authorization')).toBe('Bearer tok-1')
   })
 
+  it('rounds a rate in decimal, where a float would round 10.075 down', async () => {
+    const rate = await shiprocketQuote({ ...creds, fetchImpl: answering([login, { status: 200, body: { data: { available_courier_companies: [{ courier_name: 'Ekart', rate: 10.075 }, { courier_name: 'Xpress', rate: '1.005' }] } } }]) }, parcel)
+    expect(rate?.amount).toEqual({ amount: 101n, currency: 'INR' })
+    const other = await shiprocketQuote({ ...creds, fetchImpl: answering([login, { status: 200, body: { data: { available_courier_companies: [{ courier_name: 'Ekart', rate: 10.075 }] } } }]) }, parcel)
+    expect(other?.amount).toEqual({ amount: 1008n, currency: 'INR' })
+  })
+
   it('serves India only, asking nothing for another country', async () => {
     const seen: Request[] = []
     expect(await shiprocketQuote({ ...creds, fetchImpl: answering([], seen) }, { ...parcel, to: { ...parcel.to, country: 'US' } })).toBeNull()

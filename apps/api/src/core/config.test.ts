@@ -12,7 +12,7 @@ describe('parseConfig', () => {
   })
 
   it('refuses the email, SMS and DNS stand-ins anywhere but on localhost', () => {
-    for (const key of ['EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL'] as const) {
+    for (const key of ['EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL'] as const) {
       expect(() => parseConfig({ ...hosts, [key]: '1' }), key).toThrow(new RegExp(`${key} is for local development only`))
       expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', EMAIL_SUPPRESSION_KEY: key43, [key]: '1' })[key], key).toBe('1')
       expect(() => parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', [key]: 'yes' }), key).toThrow()
