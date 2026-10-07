@@ -544,6 +544,14 @@ public store key, never a secret; a store id in an argument is never authority. 
 shopper's `order(id)`, `orderHistory`, `account` and `addresses` read only that shopper's own
 `customer_id`; a guest reads one order only through its order token (DATA-MODEL §5.1
 `app.order_token_hash`). Each is held by SAPI 9's isolation tests.
+**Built on #306 (SAPI 8), part 1:** the store comes from the host (`{code}.` under the partner's shops or preview wildcard,
+or the live custom domain) or the `X-Shop-Key` header (the public store key, `storefront.public_store_key`); a key naming
+another store on a store's own host is refused (`WRONG_STORE_KEY`), an unknown host answers 404. The language, currency
+and market come from `X-Shop-Language`, `X-Shop-Currency` and `X-Shop-Market`, falling back to the store's own when it
+doesn't offer them. Every call is rate-limited per host and address (600 a minute); a suspended or closed store answers
+`STORE_UNAVAILABLE`, a past-due one keeps selling. Shoppers run as `app_shop` (DATA-MODEL §5.3, §7.11). Queries: `store`,
+`menu`, `collections` (paged, at most 50), `collection(slug)` (in the shopper's language or the main one), and the files
+they show at `GET /shop-api/assets/{id}`.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

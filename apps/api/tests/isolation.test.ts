@@ -124,8 +124,8 @@ describe('a shopper', () => {
     expect(await idsOf(shopper(t.partnerA, t.storeA1, null), 'customer')).toEqual([])
   })
 
-  it('cannot read the store suppliers', async () => {
-    expect(await idsOf(shopper(t.partnerA, t.storeA1, t.customerA1), 'seller')).toEqual([])
+  it('cannot read the store suppliers: app_shop holds no grant on them (#306)', async () => {
+    await expect(idsOf(shopper(t.partnerA, t.storeA1, t.customerA1), 'seller')).rejects.toThrow(/permission denied/)
   })
 })
 
@@ -295,7 +295,7 @@ describe('the write path', () => {
       attempt(shopper(t.partnerA, t.storeA1, null), async (tx) => {
         await tx`insert into customer (store_id, email, status) values (${t.storeA1}, 'spam@example.com', 'active')`
       }),
-    ).rejects.toThrow(/row-level security/i)
+    ).rejects.toThrow(/permission denied/i)
     // Counted as the owner: RLS hides the row from the caller that made it, so a count taken
     // inside the session would say zero whether or not the insert landed.
     const after = await db.sql<{ n: string }[]>`select count(*)::text as n from customer`
@@ -307,7 +307,7 @@ describe('the write path', () => {
       attempt(shopper(t.partnerA, t.storeA1, t.customerA1), async (tx) => {
         await tx`insert into customer (store_id, email, status) values (${t.storeA1}, 'also-spam@example.com', 'active')`
       }),
-    ).rejects.toThrow(/row-level security/i)
+    ).rejects.toThrow(/permission denied/i)
   })
 
   it('the merchant side can still manage its own suppliers and customers', async () => {
@@ -565,13 +565,13 @@ describe('the backstop itself', () => {
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)
   })
 
-  it('runs staff as app_platform, partner callers as app_partner, suppliers as app_supplier and other store callers as app_request (#205, #155, #295)', async () => {
+  it('runs staff as app_platform, partner callers as app_partner, suppliers as app_supplier, shoppers as app_shop and other store callers as app_request (#205, #155, #295, #306)', async () => {
     const roleOf = async (context: CallerContext) =>
       withScope(db.sql, context, async (tx) => (await tx<{ role: string }[]>`select current_user as role`)[0]?.role)
     expect(await roleOf(staff)).toBe('app_platform')
     expect(await roleOf(storeCaller(t.partnerA, t.storeA1))).toBe('app_request')
     expect(await roleOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }))).toBe('app_supplier')
-    expect(await roleOf(shopper(t.partnerA, t.storeA1, null))).toBe('app_request')
+    expect(await roleOf(shopper(t.partnerA, t.storeA1, null))).toBe('app_shop')
     expect(await roleOf(supportSession(t.partnerA, t.storeA1, 'read'))).toBe('app_request')
     expect(await roleOf(partnerCaller(t.partnerA))).toBe('app_partner')
   })
@@ -702,6 +702,9 @@ describe('the backstop itself', () => {
       'store_product_count',
       'store_unit_system',
       'store_vendor_approval',
+      'storefront_catalog_touched',
+      'storefront_for_store',
+      'storefront_store_touched',
       'version_price_history',
     ])
     expect(owned.filter((f) => f.prosecdef && !f.pinned).map((f) => f.proname)).toEqual([])

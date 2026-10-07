@@ -166,7 +166,7 @@ describe('who reads what', () => {
 
   it('shows a storefront none of the plan', async () => {
     const shopper: CallerContext = { caller: { kind: 'shopper', customerId: null }, partnerId: ids.ns, storeId: ids.store, sellerScope: { kind: 'all' }, subscription: 'active' }
-    expect(await as(shopper, (tx) => tx`select plan_id from plan_version`)).toEqual([])
+    await expect(as(shopper, (tx) => tx`select plan_id from plan_version`)).rejects.toThrow(/permission denied/)
   })
 
   it('lets a merchant read its own plan’s versions, prices and values, and never the fee or another plan', async () => {

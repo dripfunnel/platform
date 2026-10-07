@@ -1,14 +1,16 @@
 import type { CallerContext, Scope } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
 
-/** The database role each caller kind runs as (DATA-MODEL.md §5.3). The shopper role arrives
- *  with its first card; until then shoppers run as `app_request`. */
-export type RequestRole = 'app_request' | 'app_supplier' | 'app_partner' | 'app_platform'
+/** The database role each caller kind runs as (DATA-MODEL.md §5.3); shoppers as `app_shop` since #306. */
+export type RequestRole = 'app_request' | 'app_supplier' | 'app_shop' | 'app_partner' | 'app_platform'
 
 // Exhaustive and failing closed: a context kind added later throws until it is named here, so it
 // can never run as staff by default.
 export const roleFor = (context: CallerContext): RequestRole => {
-  if (isTenantContext(context)) return context.sellerScope.kind === 'seller' ? 'app_supplier' : 'app_request'
+  if (isTenantContext(context)) {
+    if (context.caller.kind === 'shopper') return 'app_shop'
+    return context.sellerScope.kind === 'seller' ? 'app_supplier' : 'app_request'
+  }
   if (isPartnerContext(context)) return 'app_partner'
   if (context.caller.kind === 'staff') return 'app_platform'
   throw new Error('roleFor: unknown caller kind')

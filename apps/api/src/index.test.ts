@@ -65,10 +65,30 @@ describe('worker', () => {
   })
 
   it('answers GraphQL on each API', async () => {
-    for (const href of ['https://admin.dripfunnel.com/api', 'https://platform.dripfunnel.com/api', 'https://acme.shops.partner.com/shop-api']) {
+    for (const href of ['https://admin.dripfunnel.com/api', 'https://platform.dripfunnel.com/api']) {
       const response = await query(href)
       expect(await response.json()).toEqual({ data: { health: 'ok' } })
     }
+  })
+
+  // The Shop API knows a storefront host only from the database (docs/ARCHITECTURE.md §2; #306).
+  it('answers the Shop API’s health on a storefront host without a database, and its catalogue as unavailable', async () => {
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    const ask = async (source: string) => {
+      const request = new Request('https://acme.shops.partner.com/shop-api', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: source }) })
+      return (await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)).json()
+    }
+    expect(await ask('{ health }')).toEqual({ data: { health: 'ok' } })
+    expect(await ask('{ store { name } }')).toMatchObject({ data: { store: null }, errors: [{ extensions: { code: 'STORE_UNAVAILABLE' } }] })
+  })
+
+  it('rate-limits the Shop API per host and address, and refuses a call with no address', async () => {
+    const limited = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: false }) } }
+    const asked = (headers: Record<string, string>) => new Request('https://acme.shops.partner.com/shop-api', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ query: '{ health }' }) })
+    expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], limited, ctx)).status).toBe(429)
+    const open = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: true }) } }
+    expect((await worker.fetch(asked({}) as Parameters<typeof worker.fetch>[0], open, ctx)).status).toBe(429)
+    expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], env, ctx)).status).toBe(500)
   })
 
   it('answers GraphQL on /api/ with the trailing slash the SPA client sends (client.ts)', async () => {

@@ -1,3 +1,90 @@
+type Image {
+  id: ID
+  url: String
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
 type Query {
+  collection(slug: String!): ShopCollection
+  collections(after: String, before: String, first: Int): ShopCollectionPage
   health: String
+  menu: [ShopMenuItem!]
+  store: ShopStore
+}
+
+type ShopAddress {
+  city: String
+  country: String
+  postal: String
+  region: String
+  street: String
+}
+
+type ShopCollection {
+  description: String
+  id: ID
+  image: Image
+  name: String
+  parentId: ID
+  seoDescription: String
+  seoTitle: String
+  slug: String
+}
+
+type ShopCollectionPage {
+  nodes: [ShopCollection!]
+  pageInfo: PageInfo
+}
+
+type ShopCurrency {
+  code: String
+  mode: String
+}
+
+type ShopMarket {
+  countries: [String!]
+  currency: String
+  everywhereElse: Boolean
+  id: ID
+  language: String
+  name: String
+  parentId: ID
+  pathPrefix: String
+  primary: Boolean
+  webMode: String
+}
+
+type ShopMenuItem {
+  children: [ShopMenuItem!]
+  collectionSlug: String
+  id: ID
+  kind: String
+  label: String
+  url: String
+}
+
+type ShopStore {
+  address: ShopAddress
+  contactEmail: String
+  contactPhone: String
+  currencies: [ShopCurrency!]
+  currency: String
+  description: String
+  language: String
+  languages: [String!]
+  logo: Image
+  mainLanguage: String
+  marketId: ID
+  markets: [ShopMarket!]
+  name: String
+  pricesIncludeTax: Boolean
+  pricingCurrency: String
+  timeZone: String
+  unitSystem: String
 }

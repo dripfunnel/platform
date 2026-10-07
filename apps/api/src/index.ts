@@ -6,7 +6,9 @@ import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
 import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
-import { shopSchema } from '#apis/shop/schema'
+import { shopSchema, type ShopContext } from '#apis/shop/schema'
+import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
+import { resolveShopper } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
@@ -82,7 +84,7 @@ const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
   platform: createServer<PlatformContext>(platformSchema, '/api'),
   store: createServer<StoreContext>(storeSchema, '/api'),
-  shop: createServer(shopSchema, '/shop-api'),
+  shop: createServer<ShopContext>(shopSchema, '/shop-api'),
 }
 
 interface Env extends Record<string, unknown> {
@@ -93,6 +95,8 @@ interface Env extends Record<string, unknown> {
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
   // The partner console's staff-session routes, polled by every tab (ACCESS.md §8.3).
   STAFF_SESSION_RATE_LIMITER?: RateLimit | undefined
+  // Every Shop API call, per storefront host and IP (FIRST-RELEASE §19).
+  SHOP_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
 }
@@ -393,6 +397,29 @@ const handleHooks = async (request: Request, url: URL, config: Config, ctx: Exec
   return withConnection(hyperdrive, ctx, (sql) => handleStripeHook(request, { sql, stripe, signingSecret, now: () => new Date() }))
 }
 
+const shopRefusal = (status: number, code: string, message: string) =>
+  new Response(JSON.stringify({ errors: [{ message, extensions: { code } }] }), { status, headers: { 'content-type': 'application/json' } })
+
+// A storefront host (docs/ARCHITECTURE.md §2): the store comes from the host or the public store key, and a host no store
+// holds answers 404, as a portal host no partner holds does.
+const handleShop = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+  const facts = factsOf(request)
+  const hyperdrive = config.HYPERDRIVE
+  if (!hyperdrive) return servers.shop.fetch(request, { sql: null, shopper: null, origin: url.origin, activity: activityLog, facts, now: () => new Date() })
+  const limiter = env.SHOP_RATE_LIMITER
+  if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+  // Keyed per address, never pooled, as sign-in is; Cloudflare sets the header on all real traffic.
+  if (!facts.ip || !(await limiter.limit({ key: `shop:${url.hostname}:${facts.ip}` })).success) return shopRefusal(429, 'RATE_LIMITED', 'Too many requests. Try again in a minute.')
+  return withConnection(hyperdrive, ctx, async (sql) => {
+    const found = await resolveShopper(sql, request, url.hostname)
+    if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
+    if (found.kind === 'unknown') return notFound()
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, now: () => new Date() }
+    if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
+    return servers.shop.fetch(request, context)
+  })
+}
+
 const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise<{ response: Response; area: Area | null }> => {
   const url = new URL(request.url)
   let config
@@ -411,7 +438,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
   if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
   if (area === 'store') return { response: await handleStore(request, url, config, env, ctx), area }
-  return { response: await servers[area].fetch(request), area }
+  return { response: await handleShop(request, url, config, env, ctx), area }
 }
 
 // The relay needs a database and a configuration; without either there is nothing to deliver.
