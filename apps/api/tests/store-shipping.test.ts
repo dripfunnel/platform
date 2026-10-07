@@ -28,12 +28,18 @@ let seller = ''
 type Answer = { rupees?: bigint; cents?: bigint } | 'unserved' | 'rejected' | 'down'
 const answers: Partial<Record<CourierProvider, Answer>> = {}
 const asked: { provider: CourierProvider; parcel: Parcel }[] = []
+// The most couriers waiting on an answer at once, to show they're asked together, not one after another.
+const inFlight = { now: 0, most: 0 }
 const fakeCouriers = (accounts: ('shiprocket' | 'easypost')[]): CourierDirectory => ({
   forPartner: async () => ({
     accounts: new Set(accounts),
     gateway: {
       quote: async (provider, parcel) => {
         asked.push({ provider, parcel })
+        inFlight.now += 1
+        inFlight.most = Math.max(inFlight.most, inFlight.now)
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        inFlight.now -= 1
         const answer = answers[provider] ?? 'unserved'
         if (answer === 'unserved') return null
         if (answer === 'rejected') throw new CourierRejected('login refused')
@@ -256,7 +262,9 @@ describe('a US store', () => {
     answers.fedex = { cents: 1205n }
     asked.length = 0
     expect(await options(stores.us, { lines: [{ versionId: v, quantity: 1 }], ...us })).toEqual({ deliverable: true, options: [['courier', 685n, 'USD', null]] })
-    expect(asked.map((a) => [a.provider, a.parcel.to.postal])).toEqual([['usps', '94103']])
+    // Every connected courier is asked at once; the pricing one's rate wins when it has one.
+    expect(asked.map((a) => [a.provider, a.parcel.to.postal])).toEqual([['usps', '94103'], ['fedex', '94103']])
+    expect(inFlight.most).toBe(2)
     answers.usps = 'rejected'
     expect(await options(stores.us, { lines: [{ versionId: v, quantity: 1 }], ...us })).toEqual({ deliverable: true, options: [['courier', 1205n, 'USD', null]] })
     // No courier and no flat amount: nothing to offer, which checkout tells the shopper.
@@ -267,7 +275,9 @@ describe('a US store', () => {
   it('tests every connected courier with a parcel to its own postcode, showing a refused login as failed', async () => {
     answers.usps = 'rejected'
     answers.fedex = { cents: 900n }
+    inFlight.most = 0
     const tested = (await gql('mutation { testCouriers { provider result } }', 'us')).data?.['testCouriers']
+    expect(inFlight.most).toBe(2)
     expect(tested).toEqual([{ provider: 'usps', result: 'rejected' }, { provider: 'fedex', result: 'ok' }])
     expect((await settings('us')).couriers.map((c) => [c.provider, c.status, c.lastTestResult])).toEqual([['usps', 'failed', 'rejected'], ['ups', 'off', null], ['fedex', 'standby', 'ok']])
   })

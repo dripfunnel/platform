@@ -326,12 +326,14 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       throw error
     }
     const parcel: Parcel = { from: { country: before.country, postal: before.postal }, to: { country: before.country, region: null, postal: before.postal }, weightGrams: testParcelGrams, value: { amount: 0n, currency: before.currency } }
-    const results: { provider: CourierProvider; result: Outcome; ms: number }[] = []
-    for (const row of before.connected) {
-      const started = Date.now()
-      const { outcome } = await ask(row.provider, parcel)
-      results.push({ provider: row.provider, result: outcome, ms: Date.now() - started })
-    }
+    // At once: each courier is independent, so a slow one adds its own wait and no other's.
+    const results = await Promise.all(
+      before.connected.map(async (row) => {
+        const started = Date.now()
+        const { outcome } = await ask(row.provider, parcel)
+        return { provider: row.provider, result: outcome, ms: Date.now() - started }
+      }),
+    )
     return run(async (tx) => {
       const still = (await selectCouriers(tx, storeId)).filter((r) => r.role !== 'off').map((r) => r.provider)
       for (const r of results) if (still.includes(r.provider)) await recordCourierTest(tx, storeId, r.provider, r.result, now())
@@ -374,8 +376,10 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     if (deliverable && settings.courier_enabled && loaded.store.country && loaded.store.postal && postal) {
       const parcel: Parcel = { from: { country: loaded.store.country, postal: loaded.store.postal }, to: { country, region: request.shipTo.region?.trim() || null, postal }, weightGrams, value: request.subtotal }
       const order = [...loaded.rows.filter((r) => r.role === 'pricing'), ...loaded.rows.filter((r) => r.role === 'standby')]
-      for (const row of order) {
-        const { rate } = await ask(row.provider, parcel)
+      // Asked at once and taken in the fallback order, so a courier that times out never delays the next one's rate.
+      const answers = await Promise.all(order.map((row) => ask(row.provider, parcel)))
+      for (const [i, row] of order.entries()) {
+        const rate = answers[i]?.rate ?? null
         const amount = rate ? inCurrency(rate.amount, currency, loaded.rates) : null
         if (rate && amount) {
           courier = { provider: row.provider, amount, service: rate.service, minDays: rate.minDays, maxDays: rate.maxDays }
