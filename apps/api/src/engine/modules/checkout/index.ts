@@ -104,11 +104,10 @@ const optionsOf = (accounts: readonly PaymentAccountRow[], country: string | nul
     })
 }
 
+/** A courier's own service name; flat delivery and collection have none, as the storefront words them (no literal text here). */
 const shippingLabel = (cart: CartView): string | null => {
   const chosen = cart.shippingOptions.find((o) => o.id === cart.shippingOption)
-  if (!chosen) return null
-  if (chosen.id === 'pickup') return 'Collect in person'
-  return chosen.id === 'courier' && chosen.service ? chosen.service : 'Delivery'
+  return chosen?.id === 'courier' && chosen.service ? chosen.service : null
 }
 
 export const createCheckout = (deps: CheckoutDeps) => {
@@ -228,7 +227,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
           number,
           lines,
           parts: parts.map((sellerId) => ({ sellerId, shippingMode: sellerId ? (modes.get(sellerId) ?? 'to-store') : 'store' })),
-          shipping: cart.shipping ? { amount: cart.shipping.amount, label: shippingLabel(cart) ?? 'Delivery' } : null,
+          shipping: cart.shipping ? { amount: cart.shipping.amount, label: shippingLabel(cart) } : null,
           tax: { amount: cart.tax?.amount.amount ?? 0n, inclusive: cart.tax?.inclusive ?? false },
           subtotal: cart.subtotal.amount,
           total: cart.total.amount,

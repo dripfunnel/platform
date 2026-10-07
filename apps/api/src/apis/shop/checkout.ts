@@ -106,6 +106,9 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       paymentMethod: t.exposeString('payment_method', { nullable: true }),
       placedAt: t.string({ resolve: (o) => new Date(o.placed_at).toISOString() }),
       paymentDueBy: t.string({ nullable: true, resolve: (o) => (o.payment_due_by ? new Date(o.payment_due_by).toISOString() : null) }),
+      // courier, flat or pickup: the storefront words flat delivery and collection in the shopper's language.
+      shippingOption: t.exposeString('shipping_option', { nullable: true }),
+      // A courier's own service name, e.g. "Delhivery Surface"; null otherwise.
       shippingMethod: t.exposeString('shipping_method_label', { nullable: true }),
       lines: t.field({ type: [Line], resolve: (o) => o.lines.map((l) => ({ ...l, currency: o.currency })) }),
       subtotal: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.subtotal_amount), currency: o.currency }) }),
