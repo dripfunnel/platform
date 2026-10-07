@@ -40,6 +40,7 @@ describe('SiteLayout and SiteHome', () => {
   it('shows only the catalogue’s products, never samples, and drops an empty product grid', () => {
     const html = page('minimal')
     expect(html).toContain('href="/products/p0"')
+    expect(html).toContain('>Cart<')
     expect(html).toContain('$10.00')
     expect(page('minimal', [])).not.toContain('New arrivals')
   })

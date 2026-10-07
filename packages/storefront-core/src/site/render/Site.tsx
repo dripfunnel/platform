@@ -1,4 +1,5 @@
 import type { CSSProperties, FormEvent, ReactNode } from 'react'
+import { createI18n, type Translate } from '../../platform/i18n/i18n'
 import type { Site, SiteSection } from '../schema'
 import { hrefForLabel, type SiteLinks } from './links'
 import { siteCss, themeVars } from './styles'
@@ -121,7 +122,7 @@ const Footer = ({ site, store, links, poweredBy, year }: Common & { poweredBy: s
   )
 }
 
-/** The words the site renders that aren't the merchant's: from core's messages, per locale. */
+/** The words the site renders that aren't the merchant's. */
 export type SiteLabels = {
   cart: (count: number) => string
   menu: string
@@ -135,18 +136,21 @@ export type SiteLabels = {
   contactVisit: string
 }
 
-export const englishLabels: SiteLabels = {
-  cart: (n) => `Cart (${n})`,
-  menu: 'Menu',
-  mainMenu: 'Main menu',
-  search: 'Search',
-  viewAll: 'View all',
-  emailAddress: 'Email address',
-  emailLabel: 'Your email address',
-  contactEmail: 'Email',
-  contactPhone: 'Phone',
-  contactVisit: 'Visit',
-}
+/** The site's words from core's messages in the shopper's locale. */
+export const siteLabels = (t: Translate): SiteLabels => ({
+  cart: (count) => t('cart.label', { count }),
+  menu: t('nav.menu'),
+  mainMenu: t('nav.main'),
+  search: t('nav.search'),
+  viewAll: t('products.viewAll'),
+  emailAddress: t('newsletter.email'),
+  emailLabel: t('newsletter.emailLabel'),
+  contactEmail: t('contact.email'),
+  contactPhone: t('contact.phone'),
+  contactVisit: t('contact.visit'),
+})
+
+export const englishLabels: SiteLabels = siteLabels(createI18n('en').t)
 
 type SectionProps = Common & { products: readonly SiteProduct[]; labels: SiteLabels; index: number; first: boolean; onSubscribe?: ((email: string) => void) | undefined }
 

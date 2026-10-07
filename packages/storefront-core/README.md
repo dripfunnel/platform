@@ -7,6 +7,7 @@ Design: [docs/storefront/ARCHITECTURE.md](../../docs/storefront/ARCHITECTURE.md)
 
 | Entry | What |
 |---|---|
-| `@dripfunnel/storefront-core` | Shop API client, theme contract, the site-data schema, template presets and renderer (`site/`) |
+| `@dripfunnel/storefront-core` | Shop API client (headers, zod-decoded operations), store settings and context, i18n, money, the required components (price, consent, preview, legal, "Powered by"), SEO, analytics, the route contract, and the site-data schema, presets and renderer (`site/`) |
+| `@dripfunnel/storefront-core/testing` | The contract checks a store repo's CI runs: unmapped routes, missing required components |
 | `@dripfunnel/storefront-core/tsconfig` | TypeScript preset for store repos |
 | `@dripfunnel/storefront-core/eslint` | Lint preset for store repos (theme rules) |

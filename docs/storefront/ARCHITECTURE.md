@@ -67,7 +67,7 @@ is (`account`, `authentication`, `cart`, `checkout`, `collections`, `currency`, 
 
 | Module | Provides |
 |---|---|
-| `platform/api` | The Shop API client (PLATFORM-PROMPT §5.5): typed operations (gql.tada against our schema), the store key header, the shopper session token, locale and currency headers, retries, error mapping. No other module performs network calls. |
+| `platform/api` | The Shop API client (PLATFORM-PROMPT §5.5): operations whose answers are decoded with zod schemas written from `apps/api/schema/shop.graphql`, as the SPAs do (decided on #304, in place of gql.tada), the store key header, the shopper session and cart tokens, language, currency and market headers, error mapping. No other module performs network calls. |
 | `platform/store` | Store resolution from `store.config.ts`, store settings from the Shop API (name, locales, currencies, policies, legal and compliance info, brand "Powered by" rule), and the store's state (live, past due, suspended) for degraded mode. |
 | `platform/render` | The render-mode adapter (§4): one interface for data loading that resolves at build time in live mode and at run time in preview mode. |
 | `platform/i18n` | Locale routing, message catalogues for core strings, `Intl` formatting, RTL direction. Themes add their own messages; core messages can be restyled, never removed. |
