@@ -457,8 +457,8 @@ customer_session  (id_hash, customer_id, created_at, last_seen_at, expires_at)
 store_customer_auth (store_id PK, email_enabled, phone_enabled)   -- Settings › Customer accounts
                     -- Built on #308 (migration 0067), every store with a row (India starts with both), with
                     -- customer_session (the token hashed, 30 days from last use) and customer_code (a 6-digit
-                    -- code for an email or a number, hashed, 5 tries, 10 minutes; 3 per address and 10 per
-                    -- requester in 10 minutes), both system scope only
+                    -- code for an email or a number, hashed, 5 tries, 10 minutes; 3 per address in 10 minutes,
+                    -- 10 a minute per requester by the limiter, 50 texts a store in 10 minutes), both system scope only
 ```
 
 The same email or phone may exist in any number of stores, as unrelated rows (ACCESS.md
