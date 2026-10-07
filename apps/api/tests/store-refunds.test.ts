@@ -196,6 +196,10 @@ describe('refunds on a card order', () => {
     expect((await db.sql`select state from payment where order_id = ${id}`)[0]?.['state']).toBe('refunded')
     expect((await refund('owner', id, [], ', extra: "1", reason: goodwill')).code).toBe('NOT_PAID')
   })
+
+  it('never starts a return of units already refunded outside one', async () => {
+    expect((await gql(`mutation { startReturn(orderId: "${id}", lines: [{ lineId: "${lines.house}", quantity: 1 }], reason: damaged) }`, 'owner')).code).toBe('TOO_MANY')
+  })
 })
 
 describe('returns, then refunds on a cash order', () => {
@@ -247,6 +251,18 @@ describe('returns, then refunds on a cash order', () => {
     expect((await gql(`mutation { startReturn(orderId: "${id}", lines: [{ lineId: "${lines.house}", quantity: 1 }], reason: doesnt_fit) }`, 'owner')).code).toBe('TOO_MANY')
     expect((await gql(`mutation { cancelReturn(returnId: "${other}") }`, 'owner')).data?.['cancelReturn']).toBe(true)
     expect((await gql(`mutation { startReturn(orderId: "${id}", lines: [{ lineId: "${lines.house}", quantity: 1 }], reason: doesnt_fit) }`, 'owner')).code).toBeUndefined()
+  })
+
+  it('refunds no more within a return than it holds, across all its refunds, nor its units again outside it', async () => {
+    const other = await paidOrder('A-3150', 'cod')
+    const house = await lineOf(other, versions.house)
+    const made = (await gql(`mutation { startReturn(orderId: "${other}", lines: [{ lineId: "${house}", quantity: 2 }], reason: damaged) }`, 'owner')).data?.['startReturn'] as string
+    await gql(`mutation { receiveReturn(returnId: "${made}") }`, 'owner')
+    expect((await refund('owner', other, [{ id: house, quantity: 1 }], `, returnId: "${made}"`)).code).toBeUndefined()
+    expect((await refund('owner', other, [{ id: house, quantity: 2 }], `, returnId: "${made}"`)).code).toBe('TOO_MANY')
+    expect((await refund('owner', other, [{ id: house, quantity: 1 }])).code).toBe('TOO_MANY')
+    expect((await refund('owner', other, [{ id: house, quantity: 1 }], `, returnId: "${made}"`)).code).toBeUndefined()
+    expect((await db.sql`select state from "return" where id = ${made}`)[0]?.['state']).toBe('refunded')
   })
 
   it('tells a supplier nothing of a return holding none of its lines, whatever its state', async () => {

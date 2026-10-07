@@ -35,6 +35,8 @@ export interface LineToRefundRow {
   line_total_amount: string
   /** What has been given back on this line so far, across every refund. */
   refunded_amount: string
+  /** Units refunded outside any return: like units in a return, no longer free to go back another way. */
+  refunded_outside: number
   track_stock: boolean
   shipping_mode: 'store' | 'to-store' | 'to-shopper'
 }
@@ -43,7 +45,8 @@ export const lockLinesToRefund = (tx: ScopedSql, orderId: string): Promise<LineT
   tx<LineToRefundRow[]>`
     select l.id, l.seller_id, l.version_id, l.product_id, l.quantity, l.fulfilled_quantity, l.returned_quantity, l.refunded_quantity,
       l.line_total_amount::text as line_total_amount, coalesce(v.track_stock, false) as track_stock, p.shipping_mode,
-      (select coalesce(sum(r.amount), 0) from refund_line r where r.order_line_id = l.id)::text as refunded_amount
+      (select coalesce(sum(r.amount), 0) from refund_line r where r.order_line_id = l.id)::text as refunded_amount,
+      (select coalesce(sum(r.quantity), 0) from refund_line r join refund f on f.id = r.refund_id where r.order_line_id = l.id and f.return_id is null)::int as refunded_outside
     from order_line l join order_part p on p.order_id = l.order_id and p.seller_id is not distinct from l.seller_id
       join product_version v on v.id = l.version_id
     where l.order_id = ${orderId}
@@ -162,14 +165,16 @@ export interface ReturnToChangeRow {
   number: string
   order_number: string
   state: string
-  lines: { order_line_id: string; seller_id: string | null; quantity: number; destination_warehouse_id: string }[]
+  /** Each line's units in the return, and how many of them this return's refunds have taken. */
+  lines: { order_line_id: string; seller_id: string | null; quantity: number; refunded: number; destination_warehouse_id: string }[]
 }
 
 export const lockReturn = async (tx: ScopedSql, storeId: string, returnId: string): Promise<ReturnToChangeRow | null> =>
   (
     await tx<ReturnToChangeRow[]>`
       select r.id, r.order_id, r.number, o.number as order_number, r.state,
-        coalesce((select json_agg(json_build_object('order_line_id', l.order_line_id, 'seller_id', l.seller_id, 'quantity', l.quantity, 'destination_warehouse_id', l.destination_warehouse_id))
+        coalesce((select json_agg(json_build_object('order_line_id', l.order_line_id, 'seller_id', l.seller_id, 'quantity', l.quantity, 'destination_warehouse_id', l.destination_warehouse_id,
+          'refunded', (select coalesce(sum(rl.quantity), 0) from refund_line rl join refund f on f.id = rl.refund_id where f.return_id = r.id and rl.order_line_id = l.order_line_id)))
           from return_line l where l.return_id = r.id), '[]'::json) as lines
       from "return" r join "order" o on o.id = r.order_id
       where r.id = ${returnId} and r.store_id = ${storeId}

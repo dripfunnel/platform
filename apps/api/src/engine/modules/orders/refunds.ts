@@ -34,6 +34,8 @@ import {
 import { cancelOrder as cancelPlaced, releaseStock } from '#db/scoped/orders'
 import { closeLatestAttempt, isManual, openAccount } from '#engine/modules/checkout/index'
 
+export type { LedgerRow, RefundRow, ReturnRow } from '#db/scoped/refunds'
+
 // Returns and refunds (PLATFORM-PROMPT §5.4; ACCESS §7.3; PortalOrders): the store starts and receives returns; each owner
 // refunds its own lines and the store may refund a supplier's itself, an override the supplier ledger records. Money goes
 // back through the payment it came in on: the card provider's, or the store's own hand for cash and transfers.
@@ -183,7 +185,8 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
         const line = byId.get(id)
         const quantity = input.lines[i]?.quantity ?? 0
         if (!line) return { ok: false, reason: 'NOT_FOUND' }
-        if (quantity > line.fulfilled_quantity - line.returned_quantity) return { ok: false, reason: 'TOO_MANY' }
+        // Shipped units not in a return yet nor refunded outside one: a unit goes back one way only.
+        if (quantity > line.fulfilled_quantity - line.returned_quantity - line.refunded_outside) return { ok: false, reason: 'TOO_MANY' }
         const destination = await defaultWarehouseOf(tx, storeId, line.shipping_mode === 'to-shopper' ? line.seller_id : null)
         if (!destination) return { ok: false, reason: 'NO_LOCATION' }
         lines.push({ lineId: line.id, sellerId: line.seller_id, quantity, destination })
@@ -305,10 +308,11 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
         if (!line) return { ok: false, reason: 'NOT_FOUND' }
         // Each owner refunds its own; the store a supplier's only as an override.
         if (!sellerId && line.seller_id !== null && !input.override) return { ok: false, reason: 'NOT_YOURS' }
-        // Units that have shipped and aren't refunded yet; unshipped ones go back by cancelling.
-        if (quantity > line.fulfilled_quantity - line.refunded_quantity) return { ok: false, reason: 'TOO_MANY' }
+        // Shipped units only (unshipped ones go back by cancelling): in a return, what it holds that its refunds haven't taken;
+        // outside one, what no return holds and no refund has taken.
         const inThis = inReturn?.lines.find((l) => l.order_line_id === line.id)
-        if (inReturn && (!inThis || quantity > inThis.quantity)) return { ok: false, reason: 'TOO_MANY' }
+        const free = inReturn ? (inThis ? inThis.quantity - inThis.refunded : 0) : line.fulfilled_quantity - line.returned_quantity - line.refunded_outside
+        if (quantity > free) return { ok: false, reason: 'TOO_MANY' }
         const share = quantity > 0 ? shareOf(line, quantity) : BigInt(line.line_total_amount) - BigInt(line.refunded_amount)
         const amount = amounts[i] ?? (quantity > 0 ? share : null)
         if (amount === null || amount === undefined || amount > share || (amount === 0n && quantity === 0)) return { ok: false, reason: amount !== null && amount !== undefined && amount > share ? 'TOO_MANY' : 'INVALID_INPUT' }

@@ -66,7 +66,7 @@ export {
   type CatalogExportDto,
   type CatalogExportService,
 } from './exports'
-export { catalogJobPayload, jobContextOf, type CatalogJobPayload } from './jobScope'
+export { catalogJobPayload, jobContextOf, jobPayloadOf, type CatalogJobPayload } from './jobScope'
 export {
   createShopifyService,
   fetchShopPage,

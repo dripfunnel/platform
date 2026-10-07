@@ -6,7 +6,7 @@ import type { TenantContext } from '#core/tenancy'
 import { insertCatalogExport, selectCatalogExport, selectCatalogExports, type CatalogExportRow } from '#db/scoped/catalogExports'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { orderFilters, selectMerchantExportLines, selectSupplierExportLines, type ExportLineRow } from '#db/scoped/storeOrders'
-import { jobPayloadOf, type CatalogJobPayload } from '../catalog/jobScope'
+import { jobPayloadOf, type CatalogJobPayload } from '#engine/modules/catalog/index'
 
 // Orders as a spreadsheet (FIRST-RELEASE §6 "Export (a job)"): one row a line, built after commit in the asker's own scope
 // through the store's export jobs, so a supplier's file is its own lines, masked as its screens are (ACCESS §5.2, §7.3).

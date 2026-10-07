@@ -1219,9 +1219,10 @@ builds the table must ship:
 - **supplier writes are refused where they must be**: `app_supplier` updating
   `order_line.unit_amount` or `quantity` on its own line, inserting or updating a
   `return_line` or a `"return"`, updating an `order_part`, or inserting a `refund` or
-  `refund_line` directly, is refused by the grant; `supplier_refund()` refuses a line that is
-  not its own, a quantity above the refundable one and an amount above its lines' value, and
-  succeeds within them; inserting a `fulfilment` for its own part succeeds (DATA-MODEL §5.3);
+  `refund_line` directly, is refused by the grant; the engine's refund (#310, in system scope) answers a line that is
+  not its own as not found, and refuses a quantity above the shipped units still free and an amount above the line's share,
+  and `refund_line_ceiling()` refuses any row past a line's quantity or value whoever writes it; a supplier reads its own shipments and can't insert or update a `fulfilment` or `fulfilment_line`
+  (the engine writes them in system scope, #310), and the engine refuses a line or location that isn't the caller's;
 - a guest inserting a cart whose `access_token_hash` is not the hash of the token it
   presented is refused, and so is an insert with no token presented at all
   (`current_order_token_hash()` returns null) (DATA-MODEL §7.11);

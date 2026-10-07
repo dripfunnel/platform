@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { completeCatalogExport, failCatalogExport, selectCatalogExport } from '#db/scoped/catalogExports'
 import { withScope } from '#db/scoped/index'
 import { buildCatalogExport, catalogExportLifetimeMs, catalogJobPayload, jobContextOf } from '#engine/modules/catalog/index'
-import { buildOrderExport } from '#engine/modules/orders/exports'
+import { buildOrderExport } from '#engine/modules/orders/index'
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
 
 /** `export.catalog`: a store's products, stock or orders as CSV, read in the asker's own scope, so a supplier's holds only its rows. */
