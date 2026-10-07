@@ -15,6 +15,9 @@ type Query {
   collections(after: String, before: String, first: Int): ShopCollectionPage
   health: String
   menu: [ShopMenuItem!]
+  product(slug: String!): ShopProduct
+  products(after: String, before: String, collection: String, filters: [ID!], first: Int, search: String, sort: ShopProductSort): ShopProductPage
+  search(after: String, before: String, first: Int, query: String!): ShopProductPage
   store: ShopStore
 }
 
@@ -24,6 +27,11 @@ type ShopAddress {
   postal: String
   region: String
   street: String
+}
+
+type ShopBadge {
+  label: String
+  tone: String
 }
 
 type ShopCollection {
@@ -42,9 +50,42 @@ type ShopCollectionPage {
   pageInfo: PageInfo
 }
 
+type ShopCompliance {
+  field: String
+  region: String
+  value: String
+}
+
 type ShopCurrency {
   code: String
   mode: String
+}
+
+type ShopFacet {
+  id: ID
+  name: String
+  values: [ShopFacetValue!]
+}
+
+type ShopFacetValue {
+  count: Int
+  id: ID
+  name: String
+}
+
+type ShopFaq {
+  answer: String
+  question: String
+}
+
+type ShopFilterTag {
+  filter: String
+  value: String
+}
+
+type ShopFlags {
+  ageRestricted: Boolean
+  hazardous: Boolean
 }
 
 type ShopMarket {
@@ -69,6 +110,114 @@ type ShopMenuItem {
   url: String
 }
 
+type ShopMoney {
+  amount: String
+  currency: String
+}
+
+type ShopOption {
+  id: ID
+  name: String
+  values: [ShopOptionValue!]
+}
+
+type ShopOptionValue {
+  id: ID
+  name: String
+}
+
+type ShopPhoto {
+  alt: String
+  image: Image
+  versionId: ID
+}
+
+type ShopProduct {
+  badges: [ShopBadge!]
+  compareAt: ShopMoney
+  compliance: [ShopCompliance!]
+  description: String
+  faqs: [ShopFaq!]
+  filters: [ShopFilterTag!]
+  flags: ShopFlags
+  highlights: [String!]
+  id: String
+  inStock: Boolean
+  maxPrice: ShopMoney
+  name: String
+  options: [ShopOption!]
+  photos: [ShopPhoto!]
+  price: ShopMoney
+  productType: String
+  related: [ShopProductSummary!]
+  returns: String
+  seoDescription: String
+  seoTitle: String
+  sizeChart: ShopSizeChart
+  slug: String
+  soldHere: Boolean
+  specs: [ShopSpec!]
+  story: [ShopStoryModule!]
+  storyTemplate: String
+  versions: [ShopVersion!]
+  video: ShopVideo
+  warranty: String
+}
+
+type ShopProductPage {
+  facets: [ShopFacet!]
+  nodes: [ShopProductSummary!]
+  pageInfo: PageInfo
+}
+
+enum ShopProductSort {
+  COLLECTION
+  NAME
+  NEWEST
+  PRICE_HIGH
+  PRICE_LOW
+}
+
+type ShopProductSummary {
+  badges: [ShopBadge!]
+  compareAt: ShopMoney
+  id: ID
+  inStock: Boolean
+  maxPrice: ShopMoney
+  name: String
+  photo: ShopPhoto
+  price: ShopMoney
+  productType: String
+  slug: String
+}
+
+type ShopSizeChart {
+  fitNotes: String
+  howToMeasure: [ShopSizeChartNote!]
+  measurements: [String!]
+  modelInfo: String
+  name: String
+  rows: [ShopSizeChartRow!]
+  systems: [String!]
+  unit: String
+}
+
+type ShopSizeChartNote {
+  measurement: String
+  text: String
+}
+
+type ShopSizeChartRow {
+  size: String
+  values: [String!]
+}
+
+type ShopSpec {
+  name: String
+  value: String
+  versionId: ID
+}
+
 type ShopStore {
   address: ShopAddress
   contactEmail: String
@@ -87,4 +236,57 @@ type ShopStore {
   pricingCurrency: String
   timeZone: String
   unitSystem: String
+}
+
+type ShopStoryBlock {
+  body: String
+  photo: ShopStoryPhoto
+  title: String
+}
+
+type ShopStoryItem {
+  photo: ShopStoryPhoto
+  text: String
+  title: String
+}
+
+type ShopStoryModule {
+  block: ShopStoryBlock
+  body: String
+  id: String
+  items: [ShopStoryItem!]
+  kind: String
+  photo: ShopStoryPhoto
+  photos: [ShopStoryPhoto!]
+  products: [ShopProductSummary!]
+  side: String
+  title: String
+  video: ShopVideo
+}
+
+type ShopStoryPhoto {
+  alt: String
+  image: Image
+}
+
+type ShopVersion {
+  available: Int
+  choices: [ShopVersionChoice!]
+  compareAt: ShopMoney
+  id: ID
+  inStock: Boolean
+  name: String
+  price: ShopMoney
+  sku: String
+  weightGrams: Int
+}
+
+type ShopVersionChoice {
+  optionId: ID
+  valueId: ID
+}
+
+type ShopVideo {
+  file: Image
+  url: String
 }

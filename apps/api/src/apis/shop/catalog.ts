@@ -8,11 +8,13 @@ import type { ShopBuilder } from './builder'
 
 export const shopAssetPath = '/shop-api/assets'
 
-export const imageOf = (ctx: ShopContext, id: string | null) => (id ? { id, url: `${ctx.origin}${shopAssetPath}/${id}` } : null)
+export const assetUrl = (ctx: ShopContext, id: string) => `${ctx.origin}${shopAssetPath}/${id}`
+
+export const imageOf = (ctx: ShopContext, id: string | null) => (id ? { id, url: assetUrl(ctx, id) } : null)
 
 export const catalogOf = (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
-  return createStorefrontCatalog({ sql, context: shopper.context, language: shopper.language })
+  return createStorefrontCatalog({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, now: ctx.now })
 }
 
 export const registerCatalog = ({ builder, pageInfo, image }: ShopBuilder) => {

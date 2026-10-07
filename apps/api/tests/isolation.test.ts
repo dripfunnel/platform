@@ -690,6 +690,7 @@ describe('the backstop itself', () => {
       'set_store_main_language',
       'set_store_tax_inclusive',
       'set_store_vendor_approval',
+      'shop_stock',
       'spend_partner_reauth',
       'stock_change',
       'store_billing_status_own_billing',

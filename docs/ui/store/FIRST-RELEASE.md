@@ -552,6 +552,25 @@ doesn't offer them. Every call is rate-limited per host and address (600 a minut
 `STORE_UNAVAILABLE`, a past-due one keeps selling. Shoppers run as `app_shop` (DATA-MODEL §5.3, §7.11). Queries: `store`,
 `menu`, `collections` (paged, at most 50), `collection(slug)` (in the shopper's language or the main one), and the files
 they show at `GET /shop-api/assets/{id}`.
+**Part 2:** `products(collection, filters, search, sort, first, after, before)` (at most 50; newest first, by price either
+way or by name, or a collection's own order; a filter's values are alternatives and filters all apply; only what the
+shopper's market sells and can price in the cart's currency; `facets` counts each value before the choice), `search(query)`,
+and `product(slug)`: each version's price in the cart's currency and market (typed, or converted at the reference rate and
+rounded, moved by the market's adjustment), compare-at, stock left (`shop_stock()`, migration 0065) and whether it can be
+bought, the badges whose rule holds (none for best sellers until reports count sales), options, the sections Settings ›
+Catalogue switches on (specs, highlights, FAQs, related, video, size chart, A+ with its brand stories and compared
+products), legal details, filters, and `soldHere` (the market sells it, a price here, the legal details its countries need,
+CATALOG T2).
+**Part 3:** a query of catalogue fields only (`store`, `menu`, `collections`, `collection`, `products`, `search`, `product`) is
+answered from the data centre's cache for 5 minutes, keyed by store, `storefront.catalog_version`, host, language,
+currency and market; every write a storefront shows moves the version, which is the purge (a section switched on or off
+included), and a republished reference rate moves a converting store's. Stock is left out on purpose, since every sale
+would otherwise empty the store's cache: a page may show it up to 5 minutes old, while the cart and placement check it
+again under lock, so nothing is oversold. Two more things change with no write and follow within those 5 minutes: a
+product whose `publish_at` comes, and the "new" badge as a product ages. An answer with errors is never
+kept, and the store is still found and rate-limited first. Anything else (carts, accounts, from SAPI 9) is never cached.
+Every answer goes out `private, no-store`: only the data centre's copy is kept, since nothing in front of it sees the
+version move or the headers the key reads.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:
@@ -565,7 +584,7 @@ checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by e
 code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption**; digital
 downloads after payment; services sold with no booking (§1); marketing consent at
 checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
-queries are edge-cached per store, language and currency and purged by events (§5.5 there).
+queries are edge-cached per store, catalogue version, language, currency and market, the version's move being the purge (§5.5 there).
 
 ---
 
