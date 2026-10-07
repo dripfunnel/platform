@@ -841,7 +841,7 @@ api/README.md §2.1); a partner id in a request is not authority.
 - **Files are R2 keys under the partner's prefix**; a key under another prefix, or a URL, is
   `INVALID_INPUT`. **Reading a file back (#448)**: `GET /api/uploads/brand-file?key=…` answers the
   caller's own file for the console's pictures, 404 for any key outside `partners/<id>/brand/`.
-  `INVALID_INPUT`. **The upload, built on #219**: `POST /api/uploads/brand-file?kind=logoLight|
+  **The upload, built on #219**: `POST /api/uploads/brand-file?kind=logoLight|
   logoDark|mark|favicon` with the file as the body. The session (`UNAUTHENTICATED`) and
   `branding.write` (`FORBIDDEN`) are checked before the kind, the bucket or the body; then
   SVG, PNG or WebP by its bytes, at most 512 KB, an SVG that could run script or load anything
