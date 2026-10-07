@@ -155,7 +155,8 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
   const startStripe = async (): Promise<SetupResult<string>> => {
     // A support session never connects an account for the merchant (ACCESS §8), as with Connect Shopify.
     if (context.caller.kind === 'support') return { ok: false, reason: 'SUPPORT_SESSION' }
-    if (!stripeConnect || !connectable('stripe')) return { ok: false, reason: 'NOT_AVAILABLE' }
+    // Stripe returns to this host with the one-time key: never to one that isn't the portal's.
+    if (!stripeConnect || !connectable('stripe') || deps.host === '') return { ok: false, reason: 'NOT_AVAILABLE' }
     const country = await withScope(sql, context, (tx) => selectStoreCountry(tx, storeId))
     if (!providersFor(country).includes('stripe')) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     const state = newSessionId()

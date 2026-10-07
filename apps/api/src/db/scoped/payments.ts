@@ -95,7 +95,7 @@ export interface PaymentToSettleRow {
   provider: string
   provider_account_id: string | null
   provider_ref: string | null
-  state: 'pending' | 'authorised' | 'captured' | 'failed' | 'refunded'
+  state: 'pending' | 'authorised' | 'captured' | 'failed' | 'refunded' | 'mismatch'
   amount: string
   currency: string
   mode: 'test' | 'live'
@@ -168,8 +168,9 @@ export const setLineWarehouse = async (tx: ScopedSql, lineId: string, warehouseI
   await tx`update order_line set reserved_warehouse_id = ${warehouseId} where id = ${lineId}`
 }
 
-/** Out of the sweep's queue: a wrong amount is the merchant's to sort out, never a cancellation. */
-export const holdForMerchant = async (tx: ScopedSql, storeId: string, orderId: string): Promise<void> => {
+/** A wrong amount: the payment marked so it is never read again, and its order out of the sweep's queue for the merchant. */
+export const holdForMerchant = async (tx: ScopedSql, storeId: string, orderId: string, paymentId: string, now: Date): Promise<void> => {
+  await tx`update payment set state = 'mismatch', updated_at = ${now} where id = ${paymentId}`
   await tx`update "order" set payment_due_by = null where id = ${orderId} and store_id = ${storeId}`
 }
 

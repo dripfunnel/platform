@@ -39,3 +39,7 @@ create policy system_scope on payment_connect as restrictive for all to app_syst
 create policy request_scope on payment_connect as restrictive for all to app_request, app_shop using (false) with check (false);
 create policy partner_scope on payment_connect as restrictive for all to app_partner using (false) with check (false);
 create policy platform_scope on payment_connect as restrictive for all to app_platform using (false) with check (false);
+
+-- `mismatch`: the provider took a different amount; it waits for the merchant and is logged once (LOGGING §3).
+alter table payment drop constraint payment_state_check;
+alter table payment add constraint payment_state_check check (state in ('pending', 'authorised', 'captured', 'failed', 'refunded', 'mismatch'));

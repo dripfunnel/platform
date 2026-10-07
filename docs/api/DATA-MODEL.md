@@ -1402,6 +1402,8 @@ payment             (id, order_id, store_id, provider, provider_account_id, prov
                     -- (webhook, the shopper's return, the sweep), idempotent by its state; payment_due_by is a
                     -- day for a card order, and cancel_reason gains 'unpaid'. A live card order holds its stock
                     -- when paid, even past what is free (logged as order.oversold); test-mode orders never hold
+                    -- stock. A payment of a different amount becomes state `mismatch` (0069), logged once and out of
+                    -- the sweep for the merchant
 payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state ('pending'|'done'|'failed'),
                      amount, currency)
 
