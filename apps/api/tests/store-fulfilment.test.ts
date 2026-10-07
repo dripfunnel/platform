@@ -17,7 +17,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-type Who = 'owner' | 'staff' | 'drop' | 'hub' | 'reader'
+type Who = 'owner' | 'staff' | 'drop' | 'hub' | 'reader' | 'other'
 const cookies = {} as Record<Who, string>
 const places = { main: '', annexe: '', drop: '', hub: '' }
 const versions = { house: '', loose: '', scarf: '', stole: '' }
@@ -71,9 +71,9 @@ beforeAll(async () => {
     (${versions.house}, ${places.main}, ${t.storeA1}, null, 10), (${versions.house}, ${places.annexe}, ${t.storeA1}, null, 0),
     (${versions.scarf}, ${places.drop}, ${t.storeA1}, ${t.sellerA1First}, 5), (${versions.stole}, ${places.hub}, ${t.storeA1}, ${t.sellerA1Second}, 4)`
 
-  const person = async (email: string, role: string, seller: string | null = null) => {
+  const person = async (email: string, role: string, seller: string | null = null, storeId = t.storeA1) => {
     const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, ${email}, ${email.split('@')[0] ?? ''}, 'active') returning id`
-    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${u?.id ?? ''}, ${t.storeA1}, ${seller}, ${role}, 'active')`
+    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${u?.id ?? ''}, ${storeId}, ${seller}, ${role}, 'active')`
     return withSystemScope(db.sql, (tx) => createUserSession(tx, { id: u?.id ?? '', partnerId: t.partnerA }, new Date()))
   }
   cookies.owner = await person('owner@a1.example', 'owner')
@@ -81,6 +81,7 @@ beforeAll(async () => {
   cookies.drop = await person('anand@a1.example', 'supplier-admin', t.sellerA1First)
   cookies.hub = await person('bhatia@a1.example', 'supplier-member', t.sellerA1Second)
   cookies.reader = await person('chawla@a1.example', 'supplier-admin', reader)
+  cookies.other = await person('owner@a2.example', 'owner', null, t.storeA2)
 }, 60_000)
 
 afterAll(async () => {
@@ -91,7 +92,7 @@ const sellerOf: Partial<Record<Who, () => string>> = { drop: () => t.sellerA1Fir
 const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const seller = sellerOf[who]?.()
-  const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: t.storeA1, ...(seller ? { [supplierHeader]: seller } : {}) }
+  const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'other' ? t.storeA2 : t.storeA1, ...(seller ? { [supplierHeader]: seller } : {}) }
   const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
   const standing = as.support && resolved.kind === 'acting'
     ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
@@ -244,6 +245,38 @@ describe('stock an order still holds', () => {
     await withSystemScope(db.sql, (tx) => releaseStock(tx, t.storeA1, id))
     expect(await level(versions.house, places.main)).toEqual({ on_hand: before.house?.on_hand, reserved: (before.house?.reserved ?? 0) - 2 })
     expect(await level(versions.stole, places.hub)).toEqual({ on_hand: before.stole?.on_hand, reserved: (before.stole?.reserved ?? 0) - 1 })
+  })
+})
+
+describe('across stores (ACCESS §11)', () => {
+  it('never ships, takes a location or line from, or tracks another store’s order', async () => {
+    const id = await order('A-2501', { lines: [{ version: versions.house, seller: null, quantity: 1, heldAt: places.main }] })
+    const house = await lineOf(id, versions.house)
+    const [theirPlace] = await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${t.storeA2} and seller_id is null and is_default`
+    const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${t.storeA2}, 'Theirs', 'theirs', 'visible') returning id`
+    const [v] = await db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position) values (${t.storeA2}, ${p?.id ?? ''}, 'T1', 0) returning id`
+    const [theirs] = await db.sql<{ id: string }[]>`insert into "order" (store_id, state, payment_state, currency, number, placed_at, total_amount, payment_method) values (${t.storeA2}, 'placed', 'paid', 'INR', 'B-1', now(), 100, 'cod') returning id`
+    const [theirLine] = await db.sql<{ id: string }[]>`insert into order_line (order_id, store_id, version_id, product_id, name, quantity, unit_amount, line_total_amount) values (${theirs?.id ?? ''}, ${t.storeA2}, ${v?.id ?? ''}, ${p?.id ?? ''}, 'Theirs', 1, 100, 100) returning id`
+    await db.sql`insert into order_part (order_id, store_id, shipping_mode) values (${theirs?.id ?? ''}, ${t.storeA2}, 'store')`
+    const before = await level(versions.house, places.main)
+    expect((await ship('other', id, theirPlace?.id ?? '', [{ id: house, quantity: 1 }])).code).toBe('NOT_FOUND')
+    expect((await ship('other', theirs?.id ?? '', places.main, [{ id: theirLine?.id ?? '', quantity: 1 }])).code).toBe('NOT_YOURS')
+    expect((await ship('other', theirs?.id ?? '', theirPlace?.id ?? '', [{ id: house, quantity: 1 }])).code).toBe('NOT_FOUND')
+    expect((await ship('owner', id, places.main, [{ id: house, quantity: 1 }])).code).toBeUndefined()
+    const [mine] = await db.sql<{ id: string }[]>`select id from fulfilment where order_id = ${id}`
+    expect((await gql(`mutation { addTracking(shipmentId: "${mine?.id ?? ''}", trackingNumber: "X") }`, 'other')).code).toBe('NOT_FOUND')
+    expect(await level(versions.house, places.main)).toEqual({ on_hand: (before?.on_hand ?? 0) - 1, reserved: (before?.reserved ?? 0) - 1 })
+    expect(await db.sql`select 1 from fulfilment where order_id = ${theirs?.id ?? ''}`).toHaveLength(0)
+  })
+
+  it('refuses a hand-off while the store has no location to receive it', async () => {
+    const id = await order('A-2502', { lines: [{ version: versions.stole, seller: t.sellerA1Second, quantity: 1, heldAt: places.hub }] })
+    await db.sql`update warehouse set is_default = false where id = ${places.main}`
+    try {
+      expect((await ship('hub', id, places.hub, [{ id: await lineOf(id, versions.stole), quantity: 1 }])).code).toBe('NO_STORE_LOCATION')
+    } finally {
+      await db.sql`update warehouse set is_default = true where id = ${places.main}`
+    }
   })
 })
 

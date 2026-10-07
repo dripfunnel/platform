@@ -1385,9 +1385,12 @@ fulfilment          (id, order_part_id, order_id, store_id, seller_id NULL, kind
                     -- stock_movement 'order'
 fulfilment_line     (fulfilment_id, order_line_id, store_id, seller_id NULL, quantity)
                     -- seller_id as the fulfilment's
-                    -- Built on #310 (migration 0071) without booked_at and courier_account_id, which come
-                    -- with booking a label (#311); 'booked' is allowed for it. The engine writes both
-                    -- tables in system scope; the merchant side reads every row, a supplier its own.
+                    -- Built on #310 (migration 0071) without 'booked', booked_at and courier_account_id,
+                    -- which come with booking a label (#311). The engine writes both tables in system
+                    -- scope; the merchant side reads every row, a supplier its own. A part is shipped once
+                    -- every line has gone, partly_shipped once some has, sent_to_store once a to-store part
+                    -- has handed all of it over and none has gone on; the order's fulfilment_state follows
+                    -- the lines the same way. Only the store shipping clears a transfer's payment_due_by.
                     -- What a to-store supplier handed over is the sum of its 'sent_to_store' lines, so
                     -- the store ships on at most that, and a cancellation releases only what hasn't left
 
