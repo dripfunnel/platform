@@ -332,7 +332,7 @@ describe('what never crosses a partner, a store or a supplier', () => {
     const assets = { get: async (key: string) => (objects.has(key) ? { body: key, httpMetadata: { contentType: 'image/svg+xml' } } : null) } as unknown as R2Bucket
     const serve = async (partnerId: string, path: string) => {
       const file = brandFileOf(path)
-      return file ? serveBrandFile(db.sql, assets, partnerId, file, clock) : new Response(null, { status: 404 })
+      return file ? serveBrandFile(db.sql, assets, null, partnerId, file, clock) : new Response(null, { status: 404 })
     }
     const live = await serve(t.partnerA, '/api/brand/logo-light')
     expect(live.status).toBe(200)
@@ -340,6 +340,31 @@ describe('what never crosses a partner, a store or a supplier', () => {
     expect((await serve(t.partnerA, '/api/brand/logo-dark')).status).toBe(404)
     expect((await serve(t.partnerB, '/api/brand/logo-light')).status).toBe(404)
     expect((await serve(t.partnerA, '/api/brand/../secrets')).status).toBe(404)
+  })
+
+  it('serves raster brand files as 512 px WebP through Images, and SVG untouched', async () => {
+    await db.sql`update partner_branding set logo_light_key = 'partners/a/brand/logo.png', logo_dark_key = 'partners/a/brand/logo.svg' where partner_id = ${t.partnerA}`
+    const types: Record<string, string> = { 'partners/a/brand/logo.png': 'image/png', 'partners/a/brand/logo.svg': 'image/svg+xml' }
+    const assets = { get: async (key: string) => ({ body: key, httpMetadata: { contentType: types[key] } }) } as unknown as R2Bucket
+    const calls: unknown[] = []
+    const images = {
+      input: () => ({
+        transform: (t: unknown) => ({
+          output: async (o: unknown) => {
+            calls.push(t, o)
+            return { contentType: () => 'image/webp', image: () => 'webp-bytes' }
+          },
+        }),
+      }),
+    } as unknown as ImagesBinding
+    const png = await serveBrandFile(db.sql, assets, images, t.partnerA, 'logo-light', clock)
+    expect(png.headers.get('content-type')).toBe('image/webp')
+    expect(png.headers.get('cache-control')).toBe('public, max-age=300')
+    expect(await png.text()).toBe('webp-bytes')
+    expect(calls).toEqual([{ width: 512 }, { format: 'image/webp' }])
+    const svg = await serveBrandFile(db.sql, assets, images, t.partnerA, 'logo-dark', clock)
+    expect(svg.headers.get('content-type')).toBe('image/svg+xml')
+    expect(calls).toHaveLength(2)
   })
 
   it('reads no other partner’s session: a full session from this host is nobody on partner B’s', async () => {

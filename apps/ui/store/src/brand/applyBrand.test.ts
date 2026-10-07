@@ -6,6 +6,9 @@ const brand = (over: Partial<Brand> = {}): Brand => ({
   productName: 'Northstar Shops',
   primaryColor: '#1B3A5B',
   accentColor: '#2BB673',
+  font: null,
+  corner: null,
+  background: null,
   files: { logoLight: null, logoDark: null, mark: null, favicon: null },
   supportEmail: null,
   supportUrl: null,
@@ -21,5 +24,12 @@ describe('brandTokens', () => {
 
   it('keeps DripFunnel’s own colours for what the partner hasn’t set', () => {
     expect(brandTokens(brand({ primaryColor: null, accentColor: null }))).toEqual({})
+  })
+
+  it('sets the font and the corner radii', () => {
+    expect(brandTokens(brand({ font: 'Lora', corner: 'square', background: 'sand' }))).toMatchObject({ '--df-font': '"Lora", system-ui, sans-serif', '--df-radius': '0', '--df-radius-card': '0' })
+    expect(brandTokens(brand({ background: 'sand' }))['--df-auth-panel']).toContain('repeating-linear-gradient')
+    expect(brandTokens(brand({ background: 'plain' }))).not.toHaveProperty('--df-auth-panel')
+    expect(brandTokens(brand({ corner: 'rounded' }))).not.toHaveProperty('--df-radius')
   })
 })

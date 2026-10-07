@@ -1,4 +1,8 @@
 import '@dripfunnel/shared/ui/fonts.css'
+import '@fontsource-variable/dm-sans'
+import '@fontsource-variable/lora'
+import '@fontsource-variable/nunito'
+import '@fontsource-variable/source-sans-3'
 import '@dripfunnel/shared/ui/tokens.css'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'

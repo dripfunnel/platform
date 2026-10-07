@@ -3,7 +3,10 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Invitation } from '../../api/auth'
+import type { Brand } from '../../api/brand'
+import { setBrand } from '../../brand/current'
 import { messages } from '../../messages'
+import { AuthFrame } from './AuthFrame'
 import { BackupCodes } from './BackupCodes'
 import { strength } from './fields'
 import { storeStates } from '../staff-session/StaffSessionRoot'
@@ -112,5 +115,44 @@ describe('the screens', () => {
     expect(html).toContain('ABCD-EFGH')
     expect(html).toContain('IJKL-MNOP')
     expect(html).toContain(words.codes.download)
+  })
+})
+
+describe('the partner’s logos', () => {
+  const brand = (files: Partial<Brand['files']>): Brand => ({
+    productName: 'Northstar Shops',
+    primaryColor: '#1B3A5B',
+    accentColor: '#2BB673',
+    font: null,
+    corner: null,
+    background: null,
+    files: { logoLight: null, logoDark: null, mark: null, favicon: null, ...files },
+    supportEmail: null,
+    supportUrl: null,
+    helpUrl: null,
+    poweredBy: true,
+  })
+  const frame = async (b: Brand) => {
+    setBrand(b)
+    vi.stubGlobal('window', { location: { hostname: 'store.example.com' } })
+    try {
+      return await render(<AuthFrame panel="in" title="t" sub="s" />)
+    } finally {
+      vi.unstubAllGlobals()
+      setBrand(null)
+    }
+  }
+
+  it('draws the dark-background logo on the panel and the light one on the phone', async () => {
+    const html = await frame(brand({ logoLight: '/api/brand/logo-light', logoDark: '/api/brand/logo-dark' }))
+    expect(html).toContain('src="/api/brand/logo-dark"')
+    expect(html).toContain('src="/api/brand/logo-light"')
+  })
+
+  it('falls back to the mark, then to the initial', async () => {
+    expect(await frame(brand({ mark: '/api/brand/mark' }))).toContain('src="/api/brand/mark"')
+    const plain = await frame(brand({}))
+    expect(plain).not.toContain('<img')
+    expect(plain).toContain('>N</span>')
   })
 })
