@@ -103,8 +103,9 @@ export const createCartService = (deps: CartDeps) => {
     const shipping = createShippingService({ sql, context, actor: { id: customerId ?? 'guest', partnerId: context.partnerId }, activity: deps.activity, facts: deps.facts, now, couriers: deps.couriers })
     let shippingOptions: DeliveryOption[] = []
     let deliverable: boolean | null = null
-    if (priced.length > 0) {
-      const shipTo = address ? { country: address.country, region: address.region, postal: address.postalCode } : { country: setup?.country ?? 'IN', region: null, postal: null }
+    // Without an address, only collection from the store's own country can be quoted; a store with none offers nothing yet.
+    const shipTo = address ? { country: address.country, region: address.region, postal: address.postalCode } : setup?.country ? { country: setup.country, region: null, postal: null } : null
+    if (priced.length > 0 && shipTo) {
       const quoted = await shipping.quote({ lines: priced.map((l) => ({ versionId: l.versionId, quantity: l.quantity })), shipTo, subtotal, marketId })
       if (quoted.ok) {
         // Without an address only collection in person can be priced honestly.
