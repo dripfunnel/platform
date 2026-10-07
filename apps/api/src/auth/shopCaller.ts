@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import type { TenantContext } from '#core/tenancy'
 import { withSystemScope } from '#db/scoped/index'
+import { defaultFeatures, featureKeys, type FeatureKey } from '#db/scoped/catalogListing'
 import { selectStorefrontByHost, selectStorefrontByKey, type StorefrontRow } from '#db/scoped/shopCaller'
 
 // A Shop API request's store (ACCESS §3, PLATFORM-PROMPT §5.5): from the storefront's host or its public store key,
@@ -21,6 +22,8 @@ export interface Shopper {
   language: string
   currency: string
   marketId: string | null
+  /** Which product page sections the store shows (CATALOG P1). */
+  features: Readonly<Record<FeatureKey, boolean>>
 }
 
 export type ShopResolution = { kind: 'found'; shopper: Shopper } | { kind: 'unknown' } | { kind: 'key-mismatch' }
@@ -44,6 +47,7 @@ const shopperOf = (row: StorefrontRow, request: Request): Shopper | null => {
     language,
     currency,
     marketId: market?.id ?? null,
+    features: Object.fromEntries(featureKeys.map((k) => [k, row.features[k] ?? defaultFeatures[k]])) as Record<FeatureKey, boolean>,
   }
 }
 

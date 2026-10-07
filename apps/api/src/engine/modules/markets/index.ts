@@ -30,8 +30,10 @@ import { missingFor, type ReadinessNeed } from './readiness'
 import { cleanCurrencies, cleanLanguages, cleanMarket, type CurrencyInput, type MarketInput, type MarketsRefusal } from './rules'
 
 export { offeredLanguages, type CurrencyInput, type MarketInput } from './rules'
-export type { ConversionExample, CurrencyPrice } from './pricing'
+export type { ConversionExample, CurrencyPrice, StorePricing, TypedPrice } from './pricing'
+export { priceInCurrency, priceInMarket } from './pricing'
 export type { ReadinessNeed } from './readiness'
+export { missingFor } from './readiness'
 
 export interface MarketReadiness {
   marketId: string

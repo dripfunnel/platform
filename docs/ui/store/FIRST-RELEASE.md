@@ -552,6 +552,15 @@ doesn't offer them. Every call is rate-limited per host and address (600 a minut
 `STORE_UNAVAILABLE`, a past-due one keeps selling. Shoppers run as `app_shop` (DATA-MODEL §5.3, §7.11). Queries: `store`,
 `menu`, `collections` (paged, at most 50), `collection(slug)` (in the shopper's language or the main one), and the files
 they show at `GET /shop-api/assets/{id}`.
+**Part 2:** `products(collection, filters, search, sort, first, after, before)` (at most 50; newest first, by price either
+way or by name, or a collection's own order; a filter's values are alternatives and filters all apply; only what the
+shopper's market sells and can price in the cart's currency; `facets` counts each value before the choice), `search(query)`,
+and `product(slug)`: each version's price in the cart's currency and market (typed, or converted at the reference rate and
+rounded, moved by the market's adjustment), compare-at, stock left (`shop_stock()`, migration 0065) and whether it can be
+bought, the badges whose rule holds (none for best sellers until reports count sales), options, the sections Settings ›
+Catalogue switches on (specs, highlights, FAQs, related, video, size chart, A+ with its brand stories and compared
+products), legal details, filters, and `soldHere` (the market sells it, a price here, the legal details its countries need,
+CATALOG T2).
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:
