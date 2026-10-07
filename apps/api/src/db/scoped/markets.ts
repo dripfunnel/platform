@@ -67,6 +67,7 @@ export const moveMarketsOffRemoved = async (tx: ScopedSql, storeId: string, main
         language = case when m.language = ${main.language} or exists (select 1 from store_language l where l.store_id = m.store_id and l.language = m.language and l.status = 'active') then m.language else ${main.language} end,
         -- The duty-free threshold is money in the market's currency (CATALOG T): a new currency needs its own.
         duties_threshold_amount = case when m.currency = ${main.currency} or exists (select 1 from store_currency c where c.store_id = m.store_id and c.currency = m.currency and c.status = 'active') then m.duties_threshold_amount else null end,
+        delivery_amount = case when m.currency = ${main.currency} or exists (select 1 from store_currency c where c.store_id = m.store_id and c.currency = m.currency and c.status = 'active') then m.delivery_amount else null end,
         updated_at = ${now}, revision = m.revision + 1
       where m.store_id = ${storeId} and m.deleted_at is null
         and (
@@ -95,6 +96,7 @@ export interface MarketRow {
   duties_mode: 'none' | 'by_code' | 'flat'
   duties_rate_bps: number | null
   duties_threshold_amount: string | null
+  delivery_amount: string | null
   status: 'active' | 'inactive'
   revision: number
   created_at: Date
@@ -105,7 +107,7 @@ const marketColumns = (tx: ScopedSql) => tx`
   m.web_mode, m.path_prefix, m.products,
   coalesce((select json_agg(e.product_id order by e.product_id) from market_excluded_product e where e.market_id = m.id), '[]'::json) as excluded_product_ids,
   coalesce((select json_agg(json_build_object('id', p.id, 'name', p.name) order by p.name, p.id) from market_excluded_product e join product p on p.id = e.product_id and p.deleted_at is null where e.market_id = m.id), '[]'::json) as excluded_products,
-  m.duties_mode, m.duties_rate_bps, m.duties_threshold_amount::text as duties_threshold_amount, m.status, m.revision, m.created_at
+  m.duties_mode, m.duties_rate_bps, m.duties_threshold_amount::text as duties_threshold_amount, m.delivery_amount::text as delivery_amount, m.status, m.revision, m.created_at
 `
 
 /** By creation, oldest first: the primary market, made with the store, leads; sub-markets in the same list, each naming its parent. */
@@ -137,15 +139,16 @@ export interface MarketWrite {
   dutiesMode: 'none' | 'by_code' | 'flat'
   dutiesRateBps: number | null
   dutiesThresholdAmount: string | null
+  deliveryAmount: string | null
   active: boolean
 }
 
 export const insertMarket = async (tx: ScopedSql, storeId: string, m: MarketWrite, now: Date): Promise<{ id: string }> => {
   const [row] = await tx<{ id: string }[]>`
     insert into market (store_id, parent_id, name, countries, currency, language, price_adjustment_bps, web_mode, path_prefix, products,
-      duties_mode, duties_rate_bps, duties_threshold_amount, status, created_at, updated_at)
+      duties_mode, duties_rate_bps, duties_threshold_amount, delivery_amount, status, created_at, updated_at)
     values (${storeId}, ${m.parentId}, ${m.name}, ${tx.json(m.countries)}, ${m.currency}, ${m.language}, ${m.priceAdjustmentBps}, ${m.webMode}, ${m.pathPrefix}, ${m.products},
-      ${m.dutiesMode}, ${m.dutiesRateBps}, ${m.dutiesThresholdAmount}, ${m.active ? 'active' : 'inactive'}, ${now}, ${now})
+      ${m.dutiesMode}, ${m.dutiesRateBps}, ${m.dutiesThresholdAmount}, ${m.deliveryAmount}, ${m.active ? 'active' : 'inactive'}, ${now}, ${now})
     returning id
   `
   if (!row) throw new Error('market: insert returned no row')
@@ -158,7 +161,7 @@ export const updateMarket = async (tx: ScopedSql, storeId: string, id: string, r
     await tx`
       update market set parent_id = ${m.parentId}, name = ${m.name}, countries = ${tx.json(m.countries)}, currency = ${m.currency}, language = ${m.language},
         price_adjustment_bps = ${m.priceAdjustmentBps}, web_mode = ${m.webMode}, path_prefix = ${m.pathPrefix}, products = ${m.products},
-        duties_mode = ${m.dutiesMode}, duties_rate_bps = ${m.dutiesRateBps}, duties_threshold_amount = ${m.dutiesThresholdAmount},
+        duties_mode = ${m.dutiesMode}, duties_rate_bps = ${m.dutiesRateBps}, duties_threshold_amount = ${m.dutiesThresholdAmount}, delivery_amount = ${m.deliveryAmount},
         status = ${m.active ? 'active' : 'inactive'}, updated_at = ${now}, revision = revision + 1
       where id = ${id} and store_id = ${storeId} and revision = ${revision} and deleted_at is null
     `

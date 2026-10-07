@@ -43,14 +43,15 @@ const configSchema = z.object({
   SHOPIFY_CLIENT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'SHOPIFY_CLIENT_ID must be the app’s 32-character client id').optional(),
   SHOPIFY_CLIENT_SECRET: z.string().min(1).optional(),
   SHOPIFY_LOCAL: z.literal('1').optional(),
-  // Local stand-ins for the last step of email, SMS and DNS (docs/setup/local.md §6.1): the outbox, templates and checks
-  // run as on dev, and the message is printed, or the record answered, on this machine instead.
+  // Local stand-ins for the last step of email, SMS, couriers and DNS (docs/setup/local.md §6.1): the outbox, templates,
+  // quotes and checks run as on dev, and the message is printed, the rate made up, or the record answered, on this machine.
   EMAIL_LOCAL: z.literal('1').optional(),
   SMS_LOCAL: z.literal('1').optional(),
   DNS_LOCAL: z.literal('1').optional(),
+  COURIERS_LOCAL: z.literal('1').optional(),
 })
 
-const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL'] as const
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
 const checkedConfig = configSchema.superRefine((c, ctx) => {

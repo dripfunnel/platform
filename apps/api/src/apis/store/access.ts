@@ -6,6 +6,7 @@ import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
 import { isStorePermission, storePermissions, storeRoleHas, type StorePermission, type StoreRole } from '#auth/storePermissions'
 import { accessErrorCode, forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
+import type { CourierDirectory } from '#core/couriers'
 
 export interface StoreContext extends Record<string, unknown> {
   /** Where the request stands on this portal host (auth/storeCaller.ts). */
@@ -22,6 +23,8 @@ export interface StoreContext extends Record<string, unknown> {
   host?: string
   /** Connect Shopify's app, or null where none is set up (CATALOG K7). */
   shopify?: ShopConnect | null
+  /** The partners' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached yet (#275). */
+  couriers?: CourierDirectory | null
   now: () => Date
 }
 

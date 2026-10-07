@@ -53,6 +53,8 @@ export interface MarketInput {
   dutiesMode?: string | null | undefined
   dutiesRateBps?: number | null | undefined
   dutiesThresholdAmount?: string | null | undefined
+  /** SetMarkets' "Delivery charge" in the market's currency; empty is the store's flat rate (SAPI 23). */
+  deliveryAmount?: string | null | undefined
   active?: boolean | null | undefined
 }
 
@@ -82,6 +84,8 @@ export const cleanMarket = (input: MarketInput): (MarketWrite & { excludedProduc
   // The duty-free threshold is money in the market's own currency (CATALOG T).
   const threshold = dutiesMode === 'none' || !input.dutiesThresholdAmount ? null : parseMinor(input.dutiesThresholdAmount, currency)
   if (dutiesMode !== 'none' && input.dutiesThresholdAmount && !threshold) return 'INVALID_INPUT'
+  const delivery = input.deliveryAmount?.trim() ? parseMinor(input.deliveryAmount.trim(), currency) : null
+  if (input.deliveryAmount?.trim() && !delivery) return 'INVALID_INPUT'
   return {
     parentId,
     name,
@@ -96,6 +100,7 @@ export const cleanMarket = (input: MarketInput): (MarketWrite & { excludedProduc
     dutiesMode,
     dutiesRateBps: rate,
     dutiesThresholdAmount: threshold ? String(threshold.amount) : null,
+    deliveryAmount: delivery ? String(delivery.amount) : null,
     active: input.active ?? true,
   }
 }

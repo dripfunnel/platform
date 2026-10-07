@@ -325,6 +325,12 @@ on #184; **EasyPost** (decided 2026-10-05 on #337)), and India uses **Shiprocket
 carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
 region.
 
+**Built on #305**: the adapters (`integrations/couriers/`: Shiprocket's serviceability rates after a login per quote,
+since the Worker keeps nothing between requests; EasyPost's shipment rates, one carrier's at a time) and a store's choice
+of couriers, which it connects only where its partner has the account. Until #275 reads partners' accounts none has one,
+so a store can't connect a courier and checkout charges its flat rate; locally `COURIERS_LOCAL=1` gives every partner
+both, quoting a fixed tariff ([setup/local.md](../setup/local.md) §6.1).
+
 ### 3.3 The merchant's own AI key
 
 On Starter (Free) and Growth, "the AI runs on your own OpenAI or Anthropic account" (Store

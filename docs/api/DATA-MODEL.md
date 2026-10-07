@@ -917,6 +917,13 @@ shipping_method     (id, store_id, zone_id, name, kind ('free'|'fixed'|'free_ove
                     -- DESIGN-BRIEF flows 54–55; several methods may be active at once (§6)
 delivery_area       (store_id PK, mode ('everywhere'|'list'), postal_codes text[],
                      source_file_asset_id NULL)                 -- SetOps "Where you deliver"
+                    -- Built on #305 (migration 0063) as SetOps draws it, with no zones: store_shipping
+                    -- (store_id PK) holds which of courier_enabled, flat_enabled (flat_amount) and
+                    -- pickup_enabled (pickup_hours) are on, any of them at once (#337), free_mode
+                    -- never | always | over (free_threshold_amount), area_mode everywhere | list,
+                    -- the amounts' currency, saved_at (the Home checklist's item) and revision;
+                    -- delivery_postal_code (store_id, code) is the list; a market's own flat charge
+                    -- is market.delivery_amount in its currency, dropped when its currency moves
 courier_account     (id, store_id, provider ('shiprocket'|'usps'|'ups'|'fedex'|'dhl'|'dpd'|'hermes'|…),
                      credentials_enc, role ('pricing'|'standby'|'off'), paused_by_plan boolean,
                      pickup_mode ('scheduled'|'on_request'), pickup_window text,
@@ -925,6 +932,10 @@ courier_account     (id, store_id, provider ('shiprocket'|'usps'|'ups'|'fedex'|'
                      last_tested_at, last_test_result jsonb)
                     -- SetOps Delivery partners; one 'pricing' row per store (partial unique);
                     -- paused_by_plan per §7.1 (PortalKeep)
+                    -- Built on #305 as store_courier (store_id, provider), credentials_enc gone: the
+                    -- accounts are the partner's (THIRD-PARTY-ACCESS §4, #275), so a store's row is
+                    -- only its role, pickups, label size, tracking emails and last test result
+                    -- (ok | rejected | unavailable | unserved); providers shiprocket, usps, ups, fedex
 payment_provider_account
                     (id, store_id, provider ('stripe'|'razorpay'|'cashfree'|'paypal'|'klarna'|'phonepe'
                      |'adyen'|'cod'|'bank_transfer'), mode ('test'|'live'), credentials_enc,

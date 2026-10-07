@@ -233,6 +233,18 @@ type ConvertedAmount {
   currency: String
 }
 
+input CourierOptionsInput {
+  labelSize: String!
+  pickupMode: String!
+  trackingEmails: Boolean!
+}
+
+type CourierTestResult {
+  ms: Int
+  provider: String
+  result: String
+}
+
 type CurrencyPrice {
   amount: String
   compareAtAmount: String
@@ -299,6 +311,7 @@ type Market {
   active: Boolean
   countries: [String!]
   currency: String
+  deliveryAmount: String
   duties: MarketDuties
   everywhereElse: Boolean
   excludedProductIds: [ID!]
@@ -330,6 +343,7 @@ input MarketInput {
   active: Boolean
   countries: [String!]!
   currency: String!
+  deliveryAmount: String
   dutiesMode: String
   dutiesRateBps: Int
   dutiesThresholdAmount: String
@@ -413,6 +427,7 @@ type Mutation {
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
+  connectCourier(provider: String!): String
   connectShopify(shop: String!): String
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   deleteBadge(id: ID!): Boolean
@@ -425,6 +440,7 @@ type Mutation {
   deleteTaxClass(id: ID!): Boolean
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
+  disconnectCourier(provider: String!): String
   disconnectShopify: Boolean
   duplicateProduct(id: ID!): SavedProduct
   finishShopifyConnect(key: String!): String
@@ -438,6 +454,7 @@ type Mutation {
   removeMember(membershipId: ID!): Boolean
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
+  replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
@@ -448,6 +465,7 @@ type Mutation {
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
+  saveCourierOptions(input: CourierOptionsInput!, provider: String!): Boolean
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveFacet(input: FacetInput!): ID
   saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
@@ -458,6 +476,7 @@ type Mutation {
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
   saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
   saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
+  saveShipping(input: ShippingInput!, revision: Int!): Int
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
   saveStoreInfo(input: StoreInfoInput!): Boolean
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
@@ -483,8 +502,10 @@ type Mutation {
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
+  testCouriers: [CourierTestResult!]
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
   updateProfile(name: String!, phone: String): Profile
+  useCourierForPricing(provider: String!): Boolean
 }
 
 type MyActivity {
@@ -866,6 +887,7 @@ type Query {
   products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
+  shippingSettings: ShippingSettings
   shopifyConnection: ShopifyConnection
   shopifyProducts(after: String, search: String): ShopifyProductPage
   sizeChart(id: ID!): SizeChart
@@ -947,6 +969,48 @@ input SharedNameTranslationInput {
   kind: String!
   source: String!
   text: String
+}
+
+type ShippingCourier {
+  labelSize: String
+  lastTestResult: String
+  lastTestedAt: String
+  offered: Boolean
+  pickupMode: String
+  provider: String
+  status: String
+  trackingEmails: Boolean
+}
+
+input ShippingInput {
+  areaMode: String!
+  courierRate: Boolean!
+  flatAmount: String
+  flatRate: Boolean!
+  freeMode: String!
+  freeThresholdAmount: String
+  pickup: Boolean!
+  pickupHours: String
+}
+
+type ShippingSettings {
+  areaCount: Int
+  areaFileName: String
+  areaMode: String
+  areaSample: [String!]
+  courierRate: Boolean
+  couriers: [ShippingCourier!]
+  currency: String
+  flatAmount: String
+  flatRate: Boolean
+  freeMode: String
+  freeThresholdAmount: String
+  labelSizes: [String!]
+  pickup: Boolean
+  pickupAddress: String
+  pickupHours: String
+  revision: Int
+  savedAt: String
 }
 
 type ShopifyConnection {

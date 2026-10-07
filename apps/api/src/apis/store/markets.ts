@@ -135,6 +135,8 @@ export const registerMarkets = (builder: StoreBuilder) => {
       excludedProductIds: t.exposeIDList('excluded_product_ids'),
       excludedProducts: t.field({ type: [ExcludedProduct], resolve: (m) => m.excluded_products }),
       duties: t.field({ type: Duties, resolve: (m) => m }),
+      // Its own flat delivery charge in its currency; null charges the store's (Settings › Shipping).
+      deliveryAmount: t.exposeString('delivery_amount', { nullable: true }),
       active: t.boolean({ resolve: (m) => m.status === 'active' }),
       revision: t.exposeInt('revision'),
     }),
@@ -160,6 +162,7 @@ export const registerMarkets = (builder: StoreBuilder) => {
       dutiesMode: t.string(),
       dutiesRateBps: t.int(),
       dutiesThresholdAmount: t.string(),
+      deliveryAmount: t.string(),
       active: t.boolean(),
     }),
   })

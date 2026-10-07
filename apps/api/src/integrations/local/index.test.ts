@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { localCloudflare, localDns, localEmail, localMessageMarker, localSms } from './index'
+import { localCloudflare, localCouriers, localDns, localEmail, localMessageMarker, localSms } from './index'
 
 const printed = () => vi.mocked(console.log).mock.calls.map(([line]) => String(line))
 
@@ -19,6 +19,15 @@ describe('the local stand-ins', () => {
       { kind: 'email', to: ['owner@kesari.example'], from: 'Kesari <no-reply@mail.localhost>', subject: 'Your code', text: 'Code 123456' },
       { kind: 'sms', to: '+919800000000', text: 'Your code is 654321' },
     ])
+  })
+
+  it('quote couriers at a fixed tariff within their own country, a step per started 500 g', async () => {
+    const couriers = await localCouriers().forPartner('p')
+    expect([...couriers.accounts]).toEqual(['shiprocket', 'easypost'])
+    const india = { from: { country: 'IN', postal: '302001' }, to: { country: 'IN', region: null, postal: '400001' }, weightGrams: 1200, value: { amount: 100n, currency: 'INR' } }
+    expect(await couriers.gateway.quote('shiprocket', india)).toEqual({ amount: { amount: 8000n, currency: 'INR' }, service: 'Local surface', minDays: 3, maxDays: 5 })
+    expect(await couriers.gateway.quote('usps', india)).toBeNull()
+    expect(await couriers.gateway.quote('shiprocket', { ...india, to: { ...india.to, country: 'US' } })).toBeNull()
   })
 
   it('sends every name but a .localhost one to the real resolver', async () => {
