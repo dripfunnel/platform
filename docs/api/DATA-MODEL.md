@@ -824,6 +824,8 @@ store (+ columns)   description, logo_asset_id NULL, address jsonb, contact_emai
                     -- storefront columns built on #32 are read-only mirrors of
                     -- store_subscription and storefront (§7.8, §7.9), written by the same
                     -- transaction that writes the owner row.
+                    -- Not built here (#305): pickup_enabled, pickup_hours and shipping_saved_at live on
+                    -- store_shipping as pickup_enabled, pickup_hours and saved_at (the Home checklist reads it).
                     -- Built on #296 (migration 0054): description, logo_asset_id, address,
                     -- contact_email, contact_phone, time_zone, unit_system, order_prefix,
                     -- next_order_number and tax_inclusive (country is home_country), written by

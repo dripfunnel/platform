@@ -28,13 +28,18 @@ export interface CurrencyPrice {
   source: PriceSource | null
 }
 
-const rateOf = (pricing: StorePricing, currency: string) => (currency === 'EUR' ? '1' : (pricing.perEuro.get(currency) ?? null))
+const rateIn = (perEuro: ReadonlyMap<string, string>, currency: string) => (currency === 'EUR' ? '1' : (perEuro.get(currency) ?? null))
+
+/** Money in another currency at the euro reference rates, unrounded; null without a rate for either (CATALOG fact 26). */
+export const moneyIn = (money: Money, to: string, perEuro: ReadonlyMap<string, string>): Money | null => {
+  if (money.currency === to) return money
+  const from = rateIn(perEuro, money.currency)
+  const target = rateIn(perEuro, to)
+  return from && target ? convert(money, to, from, target) : null
+}
 
 const converted = (amount: bigint, pricing: StorePricing, to: string, rounding: PriceRounding): bigint | null => {
-  const from = rateOf(pricing, pricing.pricingCurrency)
-  const target = rateOf(pricing, to)
-  if (!from || !target) return null
-  const money = convert({ amount, currency: pricing.pricingCurrency }, to, from, target)
+  const money = moneyIn({ amount, currency: pricing.pricingCurrency }, to, pricing.perEuro)
   return money ? roundPrice(money, rounding).amount : null
 }
 
