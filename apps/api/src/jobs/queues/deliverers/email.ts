@@ -25,7 +25,7 @@ export const emailDeliverer = (sql: postgres.Sql, ses: SesApi, { hosts, senderDo
   deliver: async (effect, signal) => {
     await withSystemScope(sql, async (tx) => {
       const log = (event: string, code: string) => logEvent({ event, api: 'system', partnerId: effect.partnerId, storeId: effect.storeId, code })
-      const prepared = await prepareEmail(tx, { payload: effect.payload, partnerId: effect.partnerId }, hosts, now())
+      const prepared = await prepareEmail(tx, { payload: effect.payload, partnerId: effect.partnerId, storeId: effect.storeId }, hosts, now())
       if (!prepared.send) return log('email_skipped', prepared.reason)
       // Account security goes out regardless: an invitation or reset that never arrives locks someone out.
       const suppressed = prepared.accountSecurity ? new Set<string>() : await suppressedAmong(tx, suppressionKey, prepared.to)

@@ -126,6 +126,31 @@ describe('the order confirmation', () => {
   })
 })
 
+describe('forged rows', () => {
+  const forge = (kind: string, payload: Record<string, unknown>, storeId = t.storeA1) =>
+    withSystemScope(db.sql, (tx) => tx`insert into outbox (id, kind, idempotency_key, payload, partner_id, store_id)
+      values (${crypto.randomUUID()}, ${kind}, ${`forged:${crypto.randomUUID()}`}, ${JSON.stringify(payload)}::text::jsonb, ${t.partnerA}, ${storeId})`)
+
+  it('sends nothing for a shipment of another store’s order, nor an email row naming another store of the same partner', async () => {
+    const mine = await order('JL-20')
+    // Store A2 is the same partner's: only the store check tells them apart.
+    const [theirs] = await db.sql<{ id: string }[]>`
+      insert into "order" (store_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, email)
+      values (${t.storeA2}, 'placed', 'paid', 'INR', 'A2-1', now(), 100, 0, 100, 'other@example.com') returning id`
+    const [part] = await db.sql<{ id: string }[]>`insert into order_part (order_id, store_id, shipping_mode) values (${theirs?.id ?? ''}, ${t.storeA2}, 'store') returning id`
+    const [shipment] = await db.sql<{ id: string }[]>`
+      insert into fulfilment (order_part_id, order_id, store_id, kind, warehouse_id, courier_name, tracking_number, tracking_url, shipped_at, created_by)
+      select ${part?.id ?? ''}, ${theirs?.id ?? ''}, ${t.storeA2}, 'manual', w.id, 'Delhivery', 'X1', 'https://track.example/X1', now(), ${ownerId}
+      from warehouse w where w.store_id = ${t.storeA2} and w.is_default returning id`
+    await forge(orderUpdateKind, { event: 'shipped', orderId: mine, fulfilmentId: shipment?.id })
+    await forge('email', { template: 'order-shipped', orderId: mine, fulfilmentId: shipment?.id })
+    await forge('email', { template: 'order-confirmed', orderId: mine }, t.storeA2)
+    await relay()
+    expect(sent.filter((m) => m.subject.includes('JL-20'))).toEqual([])
+    expect(await texts('JL-20')).toEqual([])
+  })
+})
+
 describe('the shipping news', () => {
   it('emails what left with a link to track it and texts the courier and link, once', async () => {
     const id = await order('JL-10')

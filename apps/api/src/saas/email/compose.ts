@@ -141,7 +141,7 @@ const billingEmail = async (tx: ScopedSql, template: 'partner-card-declined' | '
  * The email an outbox row describes, with its one-time link minted now (ACCESS §6.1): run it in
  * the transaction that sends, so a failed send leaves no link behind.
  */
-export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partnerId: string | null }, hosts: EmailHosts, now: Date): Promise<Prepared> => {
+export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partnerId: string | null; storeId?: string | null }, hosts: EmailHosts, now: Date): Promise<Prepared> => {
   const { payload } = row
   const template = templateOf.parse(payload).template
   if (!(template in payloads)) throw new Error(`email: unknown template ${template}`)
@@ -353,7 +353,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const fulfilmentId = 'fulfilmentId' in p ? p.fulfilmentId : null
       const o = await selectOrderEmail(tx, p.orderId, fulfilmentId)
       if (!o || o.state === 'cancelled' || o.lines.length === 0) return { send: false, reason: 'link_closed' }
-      if (o.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      // The row's own store too: a forged row for another store of the same partner sends nothing.
+      if (o.partner_id !== row.partnerId || o.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
       if (!o.email) return { send: false, reason: 'no_recipient' }
       const look = await partnerBrand(tx, o.partner_id)
       if (!look) return { send: false, reason: 'no_recipient' }
@@ -373,7 +374,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
         return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content: { subject: w.subject(o.store_name, o.number), heading: w.heading, paragraphs } }
       }
       const shipment = fulfilmentId ? await selectShipmentToTell(tx, fulfilmentId) : null
-      if (!shipment || shipment.order_id !== p.orderId) return { send: false, reason: 'link_closed' }
+      if (!shipment || shipment.order_id !== p.orderId) return { send: false, reason: 'tenant_mismatch' }
       const w = en.orderShipped
       const tracking = shipment.tracking_number ? [shipment.courier_name ? w.courier(shipment.courier_name, shipment.tracking_number) : w.tracking(shipment.tracking_number)] : []
       const content: EmailContent = {

@@ -48,6 +48,7 @@ export const selectShipmentToTell = async (tx: ScopedSql, fulfilmentId: string):
   (await tx<ShipmentToTellRow[]>`select order_id, courier_name, tracking_number, tracking_url from fulfilment where id = ${fulfilmentId} and kind = 'manual'`)[0] ?? null
 
 export interface OrderEmailRow {
+  store_id: string
   partner_id: string
   store_name: string
   contact_email: string | null
@@ -66,7 +67,7 @@ export interface OrderEmailRow {
 export const selectOrderEmail = async (tx: ScopedSql, orderId: string, fulfilmentId: string | null): Promise<OrderEmailRow | null> =>
   (
     await tx<OrderEmailRow[]>`
-      select s.partner_id, s.name as store_name, s.contact_email, s.main_language as locale, o.number, o.email, o.state, o.payment_method, o.currency,
+      select o.store_id, s.partner_id, s.name as store_name, s.contact_email, s.main_language as locale, o.number, o.email, o.state, o.payment_method, o.currency,
         o.total_amount::text as total_amount,
         case when o.shipping_address is null then null else json_build_object('name', o.shipping_address ->> 'name', 'city', o.shipping_address ->> 'city') end as ship_to,
         coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', coalesce(fl.quantity, l.quantity), 'amount', l.line_total_amount::text) order by l.position)
