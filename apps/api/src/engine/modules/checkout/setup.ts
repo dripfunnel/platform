@@ -100,11 +100,12 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
         provider,
         label: providerLabels[provider],
         kind: isManual(provider) ? 'other' : 'gateway',
-        live: rows.some((r) => r.provider === provider && r.status === 'live'),
+        // Taking payment on the live storefront; test keys show in `connections` only.
+        live: rows.some((r) => r.provider === provider && r.status === 'live' && r.mode === 'live'),
         bankDetails: rows.find((r) => r.provider === provider)?.bank_details ?? null,
         connectable: connectable(provider),
         connections: rows
-          .filter((r) => r.provider === provider && (r.status === 'live' || r.mode === 'test'))
+          .filter((r) => r.provider === provider && r.status === 'live')
           .map((r) => ({ mode: r.mode, live: r.status === 'live', webhookUrl: isCardProvider(provider) && isKeyedProvider(provider) && r.status === 'live' ? deps.webhookUrl(provider, r.id) : null })),
       }))
     })

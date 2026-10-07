@@ -34,20 +34,22 @@ export const cashfree = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {
   start: async (account, request) => {
     if (!request.customer.phone) throw new PaymentNeedsPhone('cashfree needs a phone')
     const reference = referenceOf(request.attemptId)
+    const amountToken = `df-amount-${request.attemptId}`
     const order = await callProvider(
       fetchImpl,
       `${baseFor(account.mode)}/orders`,
       {
         method: 'POST',
         headers: { ...headersOf(account), 'content-type': 'application/json', 'x-idempotency-key': request.attemptId },
+        // The amount goes as its exact decimal, never through a float (AGENTS "Data").
         body: JSON.stringify({
           order_id: reference,
-          order_amount: Number(toMajor(request.amount)),
+          order_amount: amountToken,
           order_currency: request.amount.currency,
           customer_details: { customer_id: reference, customer_phone: phoneFor(request.customer.phone), ...(request.customer.email ? { customer_email: request.customer.email } : {}) },
           order_meta: { return_url: request.returnUrl },
           order_tags: { df_order_id: request.orderId },
-        }),
+        }).replace(`"${amountToken}"`, toMajor(request.amount)),
       },
       orderSchema,
     )

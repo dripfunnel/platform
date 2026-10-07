@@ -302,7 +302,8 @@ id against the mode, and refuses unknown fields. It tries them once with the pro
 then seals them as one JSON value in `credentials_enc`. The webhook's secret sits inside it; `webhook_secret_enc` stays unused.
 Each connected account gets its own webhook address, `https://hooks.<host>/payments/<provider>/<account id>`, which Payment
 setup shows for the merchant to paste. A webhook is checked with that account's secret, then the payment it names is read back
-from the provider and settled. A webhook is never taken as the truth.
+from the provider and settled. A webhook is never taken as the truth. The address is rate-limited per account, and an unknown
+account answers 400 as a bad signature does, so addresses can't be probed.
 
 | Provider | Keys | Payment | Webhook check |
 |---|---|---|---|

@@ -10,6 +10,7 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
 import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
+import { PaymentRefused, PaymentUnavailable } from '#core/payments'
 import { hmacHex } from '#integrations/payments/http'
 import { keyedGateways } from '#integrations/payments/index'
 import { activityLog } from '#saas/activity/index'
@@ -112,11 +113,13 @@ const readyCart = async (contact: string, host = live) => {
   await shop('mutation { checkout { id } }', token, host)
   return token
 }
-const hook = async (path: string, body: string, signature: string) => {
+// What the hook's limiter answers; a test turns it off.
+let hookAllowed = true
+const hook = async (path: string, body: string, signature: string, gateways = wiring().gateways) => {
   const found = paymentHookOf(path)
   if (!found) return 404
   const request = new Request(`https://hooks.acme.example${path}`, { method: 'POST', body, headers: { 'x-razorpay-signature': signature } })
-  return (await handlePaymentHook(request, found, { sql: db.sql, activity: activityLog, gateways: wiring().gateways, secrets, now: () => new Date() })).status
+  return (await handlePaymentHook(request, found, { sql: db.sql, activity: activityLog, gateways, secrets, now: () => new Date() }, async () => hookAllowed)).status
 }
 let liveAccount = ''
 
@@ -170,11 +173,25 @@ describe('Paying through Razorpay', () => {
     expect(made).toEqual({ amount: total, currency: 'INR', paid: false, key: 'rzp_live_abcdef' })
     const body = JSON.stringify({ event: 'order.paid', payload: { order: { entity: { id: placed.payment.providerRef } } } })
     const path = `/payments/razorpay/${liveAccount}`
-    // Signed with another secret, or sent to another store's address: refused or not ours.
+    // Signed with another secret: refused. An unknown account answers the same, so addresses can't be probed.
     expect(await hook(path, body, await hmacHex('testhook', body))).toBe(400)
-    const otherAccount = (await db.sql<{ id: string }[]>`insert into payment_provider_account (store_id, provider, mode, status) values (${stores.other}, 'razorpay', 'live', 'off') returning id`)[0]?.id ?? ''
-    expect(await hook(`/payments/razorpay/${otherAccount}`, body, await hmacHex('livehook', body))).toBe(400)
+    expect(await hook(`/payments/razorpay/${crypto.randomUUID()}`, body, await hmacHex('livehook', body))).toBe(400)
     expect(await hook('/payments/razorpay/not-an-id', body, '')).toBe(404)
+    // Another store's own account, correctly signed with its own secret, can't settle this store's payment.
+    expect((await merchant('mutation { connectGateway(provider: "razorpay", mode: LIVE, keys: { keyId: "rzp_live_surat01", keySecret: "s2", webhookSecret: "surathook" }) }', 'other')).data?.['connectGateway']).toBe(true)
+    const otherAccount = (await db.sql<{ id: string }[]>`select id from payment_provider_account where store_id = ${stores.other} and provider = 'razorpay'`)[0]?.id ?? ''
+    orders.set(placed.payment.providerRef, { ...(made ?? { amount: 0, currency: 'INR', key: '' }), paid: true })
+    expect(await hook(`/payments/razorpay/${otherAccount}`, body, await hmacHex('surathook', body))).toBe(200)
+    expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${placed.orderId}`)[0]?.payment_state).toBe('pending')
+    orders.set(placed.payment.providerRef, { ...(made ?? { amount: 0, currency: 'INR', key: '' }), paid: false })
+    // Limited per account before anything is opened.
+    hookAllowed = false
+    expect(await hook(path, body, await hmacHex('livehook', body))).toBe(429)
+    hookAllowed = true
+    // A provider refusing its own check answers 400; a provider that can't be reached, 503 so it sends again.
+    const failing = (error: Error) => ({ razorpay: { ...wiring().gateways.razorpay, available: () => true, start: async () => Promise.reject(error), outcome: async () => Promise.reject(error), webhook: async () => Promise.reject(error) } })
+    expect(await hook(path, body, '', failing(new PaymentRefused('400')))).toBe(400)
+    expect(await hook(path, body, '', failing(new PaymentUnavailable('down')))).toBe(503)
     // Not paid yet: answered, nothing changes.
     expect(await hook(path, body, await hmacHex('livehook', body))).toBe(200)
     expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${placed.orderId}`)[0]?.payment_state).toBe('pending')
@@ -200,5 +217,12 @@ describe('Paying through Razorpay', () => {
     ])
     const body = JSON.stringify({ event: 'order.paid', payload: { order: { entity: { id: 'order_T1' } } } })
     expect(await hook(`/payments/razorpay/${liveAccount}`, body, await hmacHex('livehook', body))).toBe(400)
+  })
+
+  it('shows a provider with test keys only as not live, and a disconnected one with no connections', async () => {
+    const razor = async () => ((await merchant('{ gateways { provider live connections { mode live } } }', 'owner')).data?.['gateways'] as { provider: string; live: boolean; connections: unknown[] }[]).find((g) => g.provider === 'razorpay')
+    expect(await razor()).toEqual({ provider: 'razorpay', live: false, connections: [] })
+    expect((await merchant('mutation { connectGateway(provider: "razorpay", mode: TEST, keys: { keyId: "rzp_test_abcdef", keySecret: "testsecret", webhookSecret: "testhook" }) }', 'owner')).data?.['connectGateway']).toBe(true)
+    expect(await razor()).toEqual({ provider: 'razorpay', live: false, connections: [{ mode: 'test', live: true }] })
   })
 })

@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
 import { logEvent } from '#core/log'
-import { isCardProvider, PaymentRefused, PaymentUnavailable, type CardProvider, type PaymentGateways, type PaymentOutcome, type WebhookDelivery } from '#core/payments'
+import { isCardProvider, PaymentRefused, PaymentUnavailable, type CardProvider, type PaymentGateways, type PaymentOutcome, type WebhookDelivery, type WebhookReading } from '#core/payments'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { cancelOrder, lockPlacedOrder, releaseStock, reserveLine, selectUnpaidOrders } from '#db/scoped/orders'
 import {
@@ -226,7 +226,14 @@ export const settleFromWebhook = async (deps: SettleDeps, provider: CardProvider
   if (!row || row.provider !== provider || !gateway?.webhook) return 'unknown'
   const account = await openAccount(row, row.mode, deps.secrets)
   if (!account) return 'unknown'
-  const reading = await gateway.webhook(account, delivery)
+  let reading: WebhookReading
+  try {
+    reading = await gateway.webhook(account, delivery)
+  } catch (error) {
+    // The provider refused its check (PayPal's, on forged headers) or the keys are gone: not a webhook we take.
+    if (error instanceof PaymentRefused) return 'invalid'
+    throw error
+  }
   if (!reading.valid) return 'invalid'
   if (!reading.providerRef) return 'ignored'
   const providerRef = reading.providerRef

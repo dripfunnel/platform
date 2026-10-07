@@ -412,7 +412,7 @@ let snsBuilt: SnsVerifier | undefined
 
 // hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
 // (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
-const handleHooks = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+const handleHooks = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   if (url.pathname === shopifyCallbackPath) {
     const shopify = shopifyFor(config)
     const secrets = await secretsFor(config)
@@ -434,7 +434,10 @@ const handleHooks = async (request: Request, url: URL, config: Config, ctx: Exec
   if (paymentHook) {
     if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
     const secrets = await (secretsFor(config) ?? null)
-    return withConnection(config.HYPERDRIVE, ctx, (sql) => handlePaymentHook(request, paymentHook, { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }))
+    const limiter = env.SHOP_RATE_LIMITER
+    if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+    const allow = async (key: string) => (await limiter.limit({ key })).success
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handlePaymentHook(request, paymentHook, { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, allow))
   }
   if (url.pathname === stripeConnectCallbackPath) {
     const connect = payments.stripeConnect
@@ -494,7 +497,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   const area = resolveArea(url, config)
   if (!area) return { response: notFound(), area: null }
-  if (area === 'hooks') return { response: await handleHooks(request, url, config, ctx), area }
+  if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
   if (isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id), area }
   }

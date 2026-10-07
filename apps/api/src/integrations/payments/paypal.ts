@@ -91,6 +91,10 @@ export const paypal = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {})
         return { valid: false }
       }
       const header = (name: string) => delivery.headers.get(name) ?? ''
+      // A delivery without PayPal's headers, or a certificate from anywhere but PayPal, is refused before PayPal is asked.
+      const cert = URL.canParse(header('paypal-cert-url')) ? new URL(header('paypal-cert-url')) : null
+      const signed = ['paypal-auth-algo', 'paypal-transmission-id', 'paypal-transmission-sig', 'paypal-transmission-time'].every((h) => header(h) !== '')
+      if (!signed || cert?.protocol !== 'https:' || !/(^|\.)paypal\.com$/.test(cert.hostname)) return { valid: false }
       const verdict = await callProvider(
         fetchImpl,
         `${baseFor(account.mode)}/v1/notifications/verify-webhook-signature`,

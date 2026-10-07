@@ -71,11 +71,19 @@ describe('Cashfree', () => {
   it('makes an order in rupees on the sandbox in test mode, with the shopper’s ten-digit number, and hands back its session', async () => {
     const { asked, fetchImpl } = stub(() => Response.json({ order_id: reference, payment_session_id: 'session_xyz', order_status: 'ACTIVE' }))
     expect(await cashfree({ fetchImpl }).start(keys, request)).toMatchObject({ providerRef: reference, sessionId: 'session_xyz' })
+    // The exact decimal, never through a float.
+    expect(asked[0]?.body).toContain('"order_amount":1299.50')
     expect(asked[0]?.url).toBe('https://sandbox.cashfree.com/pg/orders')
     expect(asked[0]?.headers.get('x-api-version')).toBe('2023-08-01')
     expect(JSON.parse(asked[0]?.body ?? '')).toMatchObject({ order_id: reference, order_amount: 1299.5, order_currency: 'INR', customer_details: { customer_phone: '9845022113', customer_email: 'asha@example.com' }, order_meta: { return_url: request.returnUrl } })
     await cashfree({ fetchImpl }).start({ ...keys, mode: 'live' }, request)
     expect(asked[1]?.url).toBe('https://api.cashfree.com/pg/orders')
+  })
+
+  it('sends a large amount exactly', async () => {
+    const { asked, fetchImpl } = stub(() => Response.json({ order_id: reference, payment_session_id: 's', order_status: 'ACTIVE' }))
+    await cashfree({ fetchImpl }).start(keys, { ...request, amount: { amount: 999999999999999n, currency: 'INR' } })
+    expect(asked[0]?.body).toContain('"order_amount":9999999999999.99')
   })
 
   it('asks for the shopper’s number, which Cashfree requires, before calling it', async () => {
@@ -165,10 +173,18 @@ describe('PayPal', () => {
 
   it('has PayPal check a webhook against the merchant’s webhook id, and names the order', async () => {
     const body = JSON.stringify({ event_type: 'PAYMENT.CAPTURE.COMPLETED', resource: { id: 'CAP1', supplementary_data: { related_ids: { order_id: 'ORD1' } } } })
+    const signed = new Headers({ 'paypal-auth-algo': 'SHA256withRSA', 'paypal-transmission-id': 't1', 'paypal-transmission-sig': 'sig', 'paypal-transmission-time': '2026-10-07T10:00:00Z', 'paypal-cert-url': 'https://api-m.sandbox.paypal.com/v1/notifications/certs/CERT-1' })
     const yes = routes({ '/v1/notifications/verify-webhook-signature': { verification_status: 'SUCCESS' } })
-    expect(await paypal({ fetchImpl: yes.fetchImpl }).webhook?.(keys, { body, headers: new Headers({ 'paypal-transmission-id': 't1' }), now: new Date() })).toEqual({ valid: true, providerRef: 'ORD1' })
+    expect(await paypal({ fetchImpl: yes.fetchImpl }).webhook?.(keys, { body, headers: signed, now: new Date() })).toEqual({ valid: true, providerRef: 'ORD1' })
     expect(JSON.parse(yes.asked[1]?.body ?? '')).toMatchObject({ webhook_id: 'WH123', transmission_id: 't1' })
     const no = routes({ '/v1/notifications/verify-webhook-signature': { verification_status: 'FAILURE' } })
-    expect(await paypal({ fetchImpl: no.fetchImpl }).webhook?.(keys, { body, headers: new Headers(), now: new Date() })).toEqual({ valid: false })
+    expect(await paypal({ fetchImpl: no.fetchImpl }).webhook?.(keys, { body, headers: signed, now: new Date() })).toEqual({ valid: false })
+    // Without PayPal's headers, or with a certificate from elsewhere, PayPal is never asked.
+    const never = routes({})
+    expect(await paypal({ fetchImpl: never.fetchImpl }).webhook?.(keys, { body, headers: new Headers({ 'paypal-transmission-id': 't1' }), now: new Date() })).toEqual({ valid: false })
+    const elsewhere = new Headers(signed)
+    elsewhere.set('paypal-cert-url', 'https://evil.example/cert')
+    expect(await paypal({ fetchImpl: never.fetchImpl }).webhook?.(keys, { body, headers: elsewhere, now: new Date() })).toEqual({ valid: false })
+    expect(never.asked).toHaveLength(0)
   })
 })
