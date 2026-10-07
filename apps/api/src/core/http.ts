@@ -34,7 +34,8 @@ export const readCapped = async (request: { headers: Headers; body: ReadableStre
     const { done, value } = await reader.read()
     if (done) break
     if (size + value.byteLength > cap) {
-      await reader.cancel()
+      // Not awaited: a cloned request's stream finishes cancelling only when its twin is read or cancelled too.
+      void reader.cancel()
       return { ok: false }
     }
     if (size + value.byteLength > bytes.byteLength) {
