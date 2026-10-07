@@ -339,3 +339,28 @@ describe('isolation', () => {
     expect(await options(stores.india, { lines: [{ versionId: mine, quantity: 1 }], marketId: usMarket })).toBe('NOT_FOUND')
   })
 })
+
+describe('a market’s delivery charge when its currency changes (#439’s review)', () => {
+  const homeOf = async () =>
+    (await db.sql<{ id: string; currency: string; delivery_amount: string | null }[]>`select id, currency::text as currency, delivery_amount::text as delivery_amount from market where store_id = ${stores.india} and is_primary`)[0]
+
+  it('drops the charge of a market whose currency the store stops selling in', async () => {
+    const [plan] = await db.sql<{ plan_id: string }[]>`select plan_id from store where id = ${stores.india}`
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.plan_id ?? ''}, ${t.partnerA}, 1, 'currencies', 3) on conflict do nothing`
+    expect((await gql('mutation { saveCurrencies(currencies: [{ code: "USD", mode: "convert", rounding: "none" }]) }', 'india')).code).toBeUndefined()
+    const language = (await db.sql<{ l: string }[]>`select main_language as l from store where id = ${stores.india}`)[0]?.l
+    const saved = await gql('mutation M($i: MarketInput!) { saveMarket(input: $i) { id deliveryAmount currency } }', 'india', { i: { name: 'USA', countries: ['US'], currency: 'USD', language, deliveryAmount: '500' } })
+    const usa = saved.data?.['saveMarket'] as { id: string; deliveryAmount: string; currency: string }
+    expect(usa).toMatchObject({ deliveryAmount: '500', currency: 'USD' })
+    expect((await gql('mutation { saveCurrencies(currencies: []) }', 'india')).code).toBeUndefined()
+    const moved = (await db.sql<{ currency: string; delivery_amount: string | null }[]>`select currency::text as currency, delivery_amount::text as delivery_amount from market where id = ${usa.id}`)[0]
+    expect(moved).toEqual({ currency: 'INR', delivery_amount: null })
+  })
+
+  it('drops the charge of a market that follows the pricing currency to another', async () => {
+    expect((await homeOf())?.delivery_amount).toBe('2900')
+    await db.sql`update store set pricing_currency = 'USD' where id = ${stores.india}`
+    expect(await homeOf()).toMatchObject({ currency: 'USD', delivery_amount: null })
+    await db.sql`update store set pricing_currency = 'INR' where id = ${stores.india}`
+  })
+})
