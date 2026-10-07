@@ -16,6 +16,7 @@ const words: Record<string, string> = {
   PAYMENT_UNAVAILABLE: 'We couldn’t reach the payment provider. Try again in a minute.',
   ALREADY_PAID: 'This order is already paid.',
   NOT_PENDING: 'This order isn’t waiting for a card payment.',
+  PHONE_REQUIRED: 'Add your mobile number to pay this way.',
 }
 
 // Where a provider that takes the shopper away (Cashfree, PhonePe) sends them back: the storefront's own order page.

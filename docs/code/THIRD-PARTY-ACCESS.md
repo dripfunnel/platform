@@ -296,6 +296,22 @@ The Platform prototype's provider list also has Adyen.
 | **Adyen** | Platform prototype list | API key, merchant account, client key (public), HMAC key | HMAC | Usually for larger merchants |
 | **Cash on delivery, bank transfer** | Cash on delivery IN; bank transfer IN and US (DE: prototype only) | No credential; bank details as text for the shopper | — | Orders stay "Payment pending" until marked paid (`orders.mark_paid`, ACCESS §5.1) |
 
+**Built on #309 (part 3), the providers paid with pasted keys.** Payment setup's `connectGateway(provider, mode, keys)` takes
+each provider's keys for a mode (`live` for the store, `test` for its preview storefront). It checks their shape, Razorpay's key
+id against the mode, and refuses unknown fields. It tries them once with the provider (`KEYS_REFUSED`, `PROVIDER_UNAVAILABLE`),
+then seals them as one JSON value in `credentials_enc`. The webhook's secret sits inside it; `webhook_secret_enc` stays unused.
+Each connected account gets its own webhook address, `https://hooks.<host>/payments/<provider>/<account id>`, which Payment
+setup shows for the merchant to paste. A webhook is checked with that account's secret, then the payment it names is read back
+from the provider and settled. A webhook is never taken as the truth.
+
+| Provider | Keys | Payment | Webhook check |
+|---|---|---|---|
+| Razorpay | `keyId` (`rzp_test_…`/`rzp_live_…`, shown to checkout), `keySecret`, `webhookSecret` | an Order in paise; its payments read back, an authorised one captured | `X-Razorpay-Signature`, HMAC-SHA-256 of the body |
+| Cashfree | `appId`, `secretKey` (sandbox in test mode) | an order (API 2023-08-01) whose `payment_session_id` checkout opens; **needs the shopper's mobile number** (`PHONE_REQUIRED`) | `x-webhook-signature`, base64 HMAC-SHA-256 of timestamp + body with the secret key, within 5 minutes |
+| PhonePe | `clientId`, `clientSecret`, `clientVersion`, `webhookUsername`, `webhookPassword`. **The current PG API only** (decided on #309; the salt-key API is PhonePe's legacy one) | a token, then a payment page the shopper is sent to (`redirectUrl`), rupees only | `Authorization`, SHA-256 of `username:password` |
+| PayPal | `clientId` (shown to PayPal's button), `clientSecret`, `webhookId` | a CAPTURE order the shopper approves; captured when read back | PayPal's own `verify-webhook-signature` against the webhook id |
+
+
 **Vendor payouts** (Stripe Connect or Razorpay Route) would add connected accounts per
 vendor. **Decided 2026-10-02: not in the platform for now.** A per-store supplier ledger
 records refund overrides and the merchant settles outside (PLATFORM-PROMPT §5.4 Payments);

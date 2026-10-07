@@ -605,7 +605,13 @@ order placed unpaid with no stock held; `confirmPayment(orderId)` reads it back 
 the sweep, the order holds its stock; a card order unpaid for a day is cancelled (`unpaid`). Preview storefronts pay in
 test mode and never hold stock. A US address on a store with Stripe connected is taxed by Stripe Tax, delivery included;
 the store's own rates leave delivery untaxed (decided on #309). A number proved by a code claims the store's guest orders
-placed with it (#337). PayPal, Razorpay, Cashfree and PhonePe come in part 3.
+placed with it (#337).
+**Part 3, pasted keys:** `connectGateway(provider, mode, keys)` connects Razorpay, Cashfree, PhonePe or PayPal for `LIVE` or
+`TEST` (the preview storefront). The keys are checked, tried once with the provider, sealed and never shown again (`INVALID_KEYS`,
+`KEYS_REFUSED`, `PROVIDER_UNAVAILABLE`). `gateways` lists each mode's `connections` with the webhook address to paste
+into the provider. At checkout `placeOrder` answers Razorpay's order and key id, Cashfree's `sessionId`, PhonePe's
+`redirectUrl` (the shopper returns to `/checkout/complete?order=…` and the storefront calls `confirmPayment`) or PayPal's order
+and client id. Cashfree refuses with `PHONE_REQUIRED` until the cart has a mobile number.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

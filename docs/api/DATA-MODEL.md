@@ -955,7 +955,9 @@ payment_provider_account
                     -- #309 part 2 (0069): one row per store, provider and mode (a store's test keys for its
                     -- preview storefront beside its live ones); Stripe's one live row serves both modes.
                     -- Disconnect sets status off and clears the keys and the connected account, keeping the row
-                    -- for the payments that name it
+                    -- for the payments that name it. #309 part 3: pasted keys are one sealed JSON value in
+                    -- credentials_enc, the webhook's secret inside it (webhook_secret_enc stays null);
+                    -- public_key holds Razorpay's key id or PayPal's client id
 payment_connect     (id, store_id, provider ('stripe'), status ('pending'|'approved'), state_hash,
                      finish_hash, return_host, started_by, external_account_id, expires_at)
                     -- Built on #309 (0069): Connect Stripe between leaving for Stripe and finishing in the
