@@ -436,7 +436,7 @@ type Mutation {
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
   connectCourier(provider: String!): String
-  connectGateway(bankDetails: String, provider: String!): Boolean
+  connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
   connectShopify(shop: String!): String
   connectStripe: String
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
@@ -556,10 +556,36 @@ type PageInfo {
 type PaymentGateway {
   bankDetails: String
   connectable: Boolean
+  connections: [PaymentGatewayConnection!]
   kind: String
   label: String
   live: Boolean
   provider: String
+}
+
+type PaymentGatewayConnection {
+  live: Boolean
+  mode: String
+  webhookUrl: String
+}
+
+input PaymentGatewayKeysInput {
+  appId: String
+  clientId: String
+  clientSecret: String
+  clientVersion: String
+  keyId: String
+  keySecret: String
+  secretKey: String
+  webhookId: String
+  webhookPassword: String
+  webhookSecret: String
+  webhookUsername: String
+}
+
+enum PaymentMode {
+  LIVE
+  TEST
 }
 
 type Product {

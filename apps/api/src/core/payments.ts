@@ -10,7 +10,10 @@ export const isCardProvider = (p: string): p is CardProvider => cardProviders.so
 /** Test on a preview storefront, live everywhere else (storefront ARCHITECTURE §4.1). */
 export type PaymentMode = 'test' | 'live'
 
-/** The merchant's account as an adapter acts with it: Stripe's connected id, or the store's pasted keys, opened for the call. */
+/**
+ * The merchant's account as an adapter acts with it: Stripe's connected id, or the store's pasted keys opened for the call
+ * (the webhook's secret among them as `webhookSecret`).
+ */
 export interface GatewayAccount {
   mode: PaymentMode
   externalAccountId: string | null
@@ -44,9 +47,23 @@ export interface PaymentStart {
 
 export type PaymentOutcome = { state: 'captured'; amount: Money } | { state: 'pending' } | { state: 'failed' }
 
+/** A webhook as it arrived on the store's own address (hooks/payments.ts), before anything trusts it. */
+export interface WebhookDelivery {
+  body: string
+  headers: Headers
+  now: Date
+}
+
+/** Not the provider's (refused 400), or the payment it is about (null for an event about none). */
+export type WebhookReading = { valid: false } | { valid: true; providerRef: string | null }
+
 export interface PaymentGateway {
   /** Whether payments can be taken in this mode here: Stripe needs the platform's keys for it. */
   available: (mode: PaymentMode) => boolean
+  /** Pasted keys tried once before they are saved; throws PaymentRefused for keys the provider refuses. */
+  verify?: (account: GatewayAccount) => Promise<void>
+  /** Checks a webhook's signature with the store's own secret; a webhook only says which payment to read back. */
+  webhook?: (account: GatewayAccount, delivery: WebhookDelivery) => Promise<WebhookReading>
   start: (account: GatewayAccount, request: PaymentRequest) => Promise<PaymentStart>
   /** The payment as the provider has it now; a webhook only says when to look (saas/billing/webhook.ts does the same). */
   outcome: (account: GatewayAccount, providerRef: string) => Promise<PaymentOutcome>
@@ -59,6 +76,11 @@ export type PaymentGateways = Partial<Record<CardProvider, PaymentGateway>>
 /** No answer in time, throttled, or the provider failed itself: the shopper tries again. */
 export class PaymentUnavailable extends Error {
   override name = 'PaymentUnavailable'
+}
+
+/** The provider takes no payment without the shopper's mobile number (Cashfree): checkout asks for one. */
+export class PaymentNeedsPhone extends Error {
+  override name = 'PaymentNeedsPhone'
 }
 
 /** The provider refused the merchant's account or keys: Payment setup needs fixing, not the cart. */

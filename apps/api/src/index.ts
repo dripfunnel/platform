@@ -73,6 +73,8 @@ import { stripeConnect } from '#integrations/stripe/connect'
 import { stripePayments, type StripeKeys } from '#integrations/stripe/payments'
 import { stripeTax } from '#integrations/stripe/tax'
 import { handleStripeConnectCallback, stripeConnectCallbackPath } from '#hooks/stripeConnect'
+import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
+import { keyedGateways } from '#integrations/payments/index'
 import { deleteExpiredCarts } from '#db/scoped/cart'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
@@ -320,9 +322,10 @@ const paymentsFor = (config: Config): PaymentWiring => {
   if (paymentsBuilt?.key === key) return paymentsBuilt.wiring
   const taxes = { live: secretKeys.live ? stripeTax({ secretKey: secretKeys.live }) : null, test: secretKeys.test ? stripeTax({ secretKey: secretKeys.test }) : null }
   const wiring: PaymentWiring = {
-    gateways: keys.live || keys.test ? { stripe: stripePayments({ keys }) } : {},
+    gateways: { ...keyedGateways(), ...(keys.live || keys.test ? { stripe: stripePayments({ keys }) } : {}) },
     stripeConnect: config.STRIPE_CONNECT_CLIENT_ID && main ? stripeConnect({ clientId: config.STRIPE_CONNECT_CLIENT_ID, secretKey: main, redirectUri: `https://${config.HOOKS_HOST}${stripeConnectCallbackPath}` }) : null,
     stripeTax: (mode) => taxes[mode]?.calculate ?? null,
+    webhookUrl: (provider, accountId) => `https://${config.HOOKS_HOST}/payments/${provider}/${accountId}`,
   }
   paymentsBuilt = { key, wiring }
   return wiring
@@ -409,7 +412,7 @@ let snsBuilt: SnsVerifier | undefined
 
 // hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
 // (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
-const handleHooks = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+const handleHooks = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   if (url.pathname === shopifyCallbackPath) {
     const shopify = shopifyFor(config)
     const secrets = await secretsFor(config)
@@ -427,6 +430,15 @@ const handleHooks = async (request: Request, url: URL, config: Config, ctx: Exec
     return withConnection(config.HYPERDRIVE, ctx, (sql) => handleSesHook(request, { sql, verifier, topicArn, suppressionKey, now: () => new Date() }))
   }
   const payments = paymentsFor(config)
+  const paymentHook = paymentHookOf(url.pathname)
+  if (paymentHook) {
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    const secrets = await (secretsFor(config) ?? null)
+    const limiter = env.SHOP_RATE_LIMITER
+    if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+    const allow = async (key: string) => (await limiter.limit({ key })).success
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handlePaymentHook(request, paymentHook, { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, allow))
+  }
   if (url.pathname === stripeConnectCallbackPath) {
     const connect = payments.stripeConnect
     if (!connect) return notFound()
@@ -485,7 +497,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   const area = resolveArea(url, config)
   if (!area) return { response: notFound(), area: null }
-  if (area === 'hooks') return { response: await handleHooks(request, url, config, ctx), area }
+  if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
   if (isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id), area }
   }

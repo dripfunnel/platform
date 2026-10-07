@@ -13,10 +13,13 @@ const words: Record<string, string> = {
   NOT_FOUND: 'That is no longer here.',
   NOT_PENDING: 'Only an unpaid cash-on-delivery or bank-transfer order can be marked paid.',
   LAST_METHOD: 'You can’t turn off your only way to get paid — shoppers couldn’t buy anything.',
-  NOT_AVAILABLE: 'Connecting Stripe isn’t set up here yet.',
+  NOT_AVAILABLE: 'Connecting this provider isn’t set up here yet.',
   EXPIRED: 'That link has expired. Connect Stripe again.',
   ACCOUNT_IN_USE: 'That Stripe account already takes payments for another store. Connect a different Stripe account.',
   SUPPORT_SESSION: 'A support session can’t connect or disconnect payments. Someone in the store does it from their own account.',
+  INVALID_KEYS: 'Those keys aren’t in the shape this provider gives them. Copy them again from its dashboard, for the mode you chose.',
+  KEYS_REFUSED: 'The provider didn’t accept those keys. Check them in its dashboard and try again.',
+  PROVIDER_UNAVAILABLE: 'We couldn’t reach the provider to check those keys. Try again in a minute.',
   READ_ONLY: 'This store is read-only.',
 }
 
@@ -31,7 +34,42 @@ export const registerPayments = (builder: StoreBuilder) => {
     const caller = actingCaller(ctx)
     return { sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now }
   }
-  const setup = (ctx: StoreContext) => createPaymentSetup({ ...deps(ctx), gateways: ctx.payments?.gateways ?? {}, stripeConnect: ctx.payments?.stripeConnect ?? null, host: ctx.host ?? '' })
+  const setup = (ctx: StoreContext) =>
+    createPaymentSetup({
+      ...deps(ctx),
+      gateways: ctx.payments?.gateways ?? {},
+      stripeConnect: ctx.payments?.stripeConnect ?? null,
+      host: ctx.host ?? '',
+      secrets: ctx.secrets ?? null,
+      webhookUrl: ctx.payments?.webhookUrl ?? (() => ''),
+    })
+
+  const Connection = builder.objectRef<PaymentSetupView['connections'][number]>('PaymentGatewayConnection').implement({
+    fields: (t) => ({
+      // test (the preview storefront) or live.
+      mode: t.exposeString('mode'),
+      live: t.exposeBoolean('live'),
+      // Paste into the provider's webhook settings; null for Stripe, which needs none.
+      webhookUrl: t.exposeString('webhookUrl', { nullable: true }),
+    }),
+  })
+  const Mode = builder.enumType('PaymentMode', { values: ['TEST', 'LIVE'] as const })
+  // Each provider's own names (THIRD-PARTY-ACCESS §3.1); a field another provider uses is refused. Never read back.
+  const Keys = builder.inputType('PaymentGatewayKeysInput', {
+    fields: (t) => ({
+      keyId: t.string(),
+      keySecret: t.string(),
+      webhookSecret: t.string(),
+      appId: t.string(),
+      secretKey: t.string(),
+      clientId: t.string(),
+      clientSecret: t.string(),
+      clientVersion: t.string(),
+      webhookUsername: t.string(),
+      webhookPassword: t.string(),
+      webhookId: t.string(),
+    }),
+  })
 
   const Gateway = builder.objectRef<PaymentSetupView>('PaymentGateway').implement({
     fields: (t) => ({
@@ -42,6 +80,7 @@ export const registerPayments = (builder: StoreBuilder) => {
       live: t.exposeBoolean('live'),
       bankDetails: t.exposeString('bankDetails', { nullable: true }),
       connectable: t.exposeBoolean('connectable'),
+      connections: t.field({ type: [Connection], resolve: (g) => g.connections }),
     }),
   })
 
@@ -51,11 +90,12 @@ export const registerPayments = (builder: StoreBuilder) => {
     gateways: t.field({ type: [Gateway], extensions: { access: configure }, resolve: (_, __, ctx) => setup(ctx).setup() }),
   }))
   builder.mutationFields((t) => ({
-    // Cash on delivery (India) or a bank transfer with the details shoppers pay to.
+    // Cash on delivery (India) or a bank transfer with the details shoppers pay to; a card provider's keys for a mode.
     connectGateway: t.boolean({
-      args: { provider: t.arg.string({ required: true }), bankDetails: t.arg.string() },
+      args: { provider: t.arg.string({ required: true }), bankDetails: t.arg.string(), mode: t.arg({ type: Mode }), keys: t.arg({ type: Keys }) },
       extensions: { access: { ...configure, audit: paymentSetupAudit.turnedOn } },
-      resolve: async (_, args, ctx) => answered(await setup(ctx).connect(args.provider, args.bankDetails)),
+      resolve: async (_, args, ctx) =>
+        answered(await setup(ctx).connect(args.provider, { bankDetails: args.bankDetails, mode: args.mode === 'TEST' ? 'test' : args.mode === 'LIVE' ? 'live' : null, credentials: args.keys ?? null })),
     }),
     // The address on Stripe to approve DripFunnel's app at; Stripe brings the merchant back with a one-time key.
     connectStripe: t.string({

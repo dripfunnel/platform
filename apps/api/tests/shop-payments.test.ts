@@ -80,6 +80,7 @@ const wiring: PaymentWiring = {
     if (taxDown) throw new Error('Stripe answered 503')
     return { total: 260n + (request.shipping ? 60n : 0n), lines: request.lines.map((l) => ({ reference: l.reference, amount: 260n })), shipping: request.shipping ? 60n : 0n }
   },
+  webhookUrl: (provider, id) => `https://hooks.acme.example/payments/${provider}/${id}`,
 }
 const settleDeps = (at = new Date()): SettleDeps => ({ sql: db.sql, activity: activityLog, gateways: wiring.gateways, secrets: null, now: () => at })
 

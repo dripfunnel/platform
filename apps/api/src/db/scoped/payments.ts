@@ -58,7 +58,7 @@ export const saveStripeAccount = async (tx: ScopedSql, storeId: string, accountI
 /** Off, its keys and connected account cleared, the row kept for its payments; answers the Stripe account it held. */
 export const disconnectProvider = async (tx: ScopedSql, storeId: string, provider: string, now: Date): Promise<{ count: number; stripeAccount: string | null }> => {
   const rows = await tx<{ was: string | null }[]>`
-    update payment_provider_account a set status = 'off', credentials_enc = null, webhook_secret_enc = null, external_account_id = null, updated_at = ${now}
+    update payment_provider_account a set status = 'off', credentials_enc = null, webhook_secret_enc = null, external_account_id = null, public_key = null, updated_at = ${now}
     from (select id, external_account_id as was from payment_provider_account where store_id = ${storeId} and provider = ${provider} for update) old
     where a.id = old.id and a.status = 'live'
     returning old.was
@@ -70,9 +70,22 @@ export const disconnectProvider = async (tx: ScopedSql, storeId: string, provide
 export const forgetStripeAccount = async (tx: ScopedSql, accountId: string, now: Date): Promise<number> =>
   (await tx`update payment_provider_account set status = 'off', external_account_id = null, updated_at = ${now} where provider = 'stripe' and external_account_id = ${accountId}`).count
 
-/** How many ways to pay the store has live: its only one can't be turned off (SetOps). */
+/** How many ways to pay the store's live storefront has: its only one can't be turned off (SetOps); test keys don't count. */
 export const countLiveMethods = async (tx: ScopedSql, storeId: string): Promise<number> =>
-  Number((await tx<{ n: string }[]>`select count(distinct provider)::text as n from payment_provider_account where store_id = ${storeId} and status = 'live'`)[0]?.n ?? 0)
+  Number((await tx<{ n: string }[]>`select count(distinct provider)::text as n from payment_provider_account where store_id = ${storeId} and status = 'live' and mode = 'live'`)[0]?.n ?? 0)
+
+/** Pasted keys, sealed, for one mode: replacing what that mode had, live at once. */
+export const saveKeyedAccount = async (tx: ScopedSql, a: { storeId: string; provider: string; mode: 'test' | 'live'; credentialsEnc: string; publicKey: string | null; now: Date }): Promise<string> => {
+  const [row] = await tx<{ id: string }[]>`
+    insert into payment_provider_account (store_id, provider, mode, credentials_enc, public_key, status, connected_at, updated_at)
+    values (${a.storeId}, ${a.provider}, ${a.mode}, ${a.credentialsEnc}, ${a.publicKey}, 'live', ${a.now}, ${a.now})
+    on conflict (store_id, provider, mode) do update set credentials_enc = excluded.credentials_enc, public_key = excluded.public_key, status = 'live',
+      connected_at = excluded.connected_at, updated_at = excluded.updated_at
+    returning id
+  `
+  if (!row) throw new Error('payment_provider_account: upsert returned no row')
+  return row.id
+}
 
 export interface PaymentToSettleRow {
   id: string
