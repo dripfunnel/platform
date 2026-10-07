@@ -340,7 +340,7 @@ describe('isolation', () => {
   })
 })
 
-describe('a market’s delivery charge when its currency changes (#439’s review)', () => {
+describe('a market’s delivery charge when its currency changes', () => {
   const homeOf = async () =>
     (await db.sql<{ id: string; currency: string; delivery_amount: string | null }[]>`select id, currency::text as currency, delivery_amount::text as delivery_amount from market where store_id = ${stores.india} and is_primary`)[0]
 
