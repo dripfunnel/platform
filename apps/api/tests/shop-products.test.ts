@@ -4,6 +4,7 @@ import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import type { TenantContext } from '#core/tenancy'
 import { pgArray, withScope } from '#db/scoped/index'
+import { encodeValueCursor } from '#core/cursor'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -108,6 +109,16 @@ describe('products', () => {
     expect((await list('(sort: COLLECTION)')).code).toBe('INVALID_INPUT')
   })
 
+  it('pages newest first through its own cursor, and refuses a tampered cursor value as INVALID_CURSOR, never a database error', async () => {
+    const first = (await list('(first: 1)')).listing
+    expect(slugs((await list(`(first: 1, after: "${first?.pageInfo.endCursor ?? ''}")`)).listing)).toEqual(['dress'])
+    const forged = (sort: string, value: string) => encodeValueCursor({ sort, value, id: ids.kurta })
+    for (const [sort, arg, value] of [['price_low', 'PRICE_LOW', 'abc'], ['price_high', 'PRICE_HIGH', '99999999999999999999'], ['newest', 'NEWEST', '2026-02-30 00:00:00+00'], ['newest', 'NEWEST', 'yesterday'], ['name', 'NAME', 'x\u0000']] as const) {
+      expect((await list(`(sort: ${arg}, after: ${JSON.stringify(forged(sort, value))})`)).code).toBe('INVALID_CURSOR')
+    }
+    expect((await list(`(collection: "summer", sort: COLLECTION, after: ${JSON.stringify(forged('collection', '1.5'))})`)).code).toBe('INVALID_CURSOR')
+  })
+
   it('lists a collection in its own order, and another market’s products at its prices in its currency', async () => {
     expect(slugs((await list('(collection: "summer")')).listing)).toEqual(['dress', 'kurta'])
     const usa = (await list('(collection: "summer")', { 'x-shop-market': ids.usa })).listing
@@ -158,6 +169,17 @@ describe('a product page', () => {
     })
     await db.sql`insert into store_feature (store_id, key, enabled) values (${t.storeA1}, 'faqs', true), (${t.storeA1}, 'specs', false)`
     expect((await gql(page, {}, { slug: 'kurta' })).data?.['product']).toMatchObject({ faqs: [{ question: 'Washable?' }], specs: [] })
+  })
+
+  it('shows related and compared products only where the market sells them, at most ten', async () => {
+    await db.sql`insert into store_feature (store_id, key, enabled) values (${t.storeA1}, 'related', true) on conflict (store_id, key) do update set enabled = true`
+    await db.sql`insert into product_related (product_id, related_product_id, store_id, position) values (${ids.kurta}, ${ids.shirt}, ${t.storeA1}, 0), (${ids.kurta}, ${ids.dress}, ${t.storeA1}, 1)`
+    await db.sql`insert into product_story (product_id, store_id, draft, live, published_at) values
+      (${ids.kurta}, ${t.storeA1}, '[]', ${db.sql.json([{ id: 'm1', kind: 'compare', title: null, productIds: [ids.shirt, ids.dress] }])}, now())`
+    const result = await gql('{ product(slug: "kurta") { related { slug } story { kind products { slug } } } }')
+    expect(result.data?.['product']).toEqual({ related: [{ slug: 'dress' }], story: [{ kind: 'compare', products: [{ slug: 'dress' }] }] })
+    const usa = await gql('{ product(slug: "kurta") { related { slug } } }', { 'x-shop-market': ids.usa })
+    expect(usa.data?.['product']).toEqual({ related: [{ slug: 'shirt' }, { slug: 'dress' }] })
   })
 
   it('finds it by its web address in the shopper’s language, and says when the market can’t sell it', async () => {

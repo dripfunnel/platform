@@ -223,6 +223,10 @@ const matching = (tx: ScopedSql, storeId: string, q: ShopProductQuery) => tx`
 export const selectShopSellable = async (tx: ScopedSql, storeId: string, q: ShopProductQuery, productId: string): Promise<boolean> =>
   (await tx`select 1 from product p where p.id = ${productId} and ${matching(tx, storeId, q)}`).length > 0
 
+/** Which of these products the listing would include, so related and compared products keep its rules. */
+export const selectShopListed = async (tx: ScopedSql, storeId: string, q: ShopProductQuery, ids: readonly string[]): Promise<Set<string>> =>
+  ids.length === 0 ? new Set() : new Set((await tx<{ id: string }[]>`select p.id from product p where p.id = any (${pgArray(ids)}::uuid[]) and ${matching(tx, storeId, q)}`).map((r) => r.id))
+
 export interface ShopProductListRow {
   id: string
   sort_key: string
@@ -273,7 +277,7 @@ export const selectShopFacets = (tx: ScopedSql, storeId: string, q: ShopProductQ
       coalesce((
         select json_agg(json_build_object('id', v.id, 'name', ${translated(tx, 'filter_value', tx`v.id`, 'name', tx`v.name`, q.language)},
           'count', (select count(distinct pf.product_id) from product_filter_value pf join listed l on l.id = pf.product_id where pf.filter_value_id = v.id)) order by v.position)
-        from filter_value v where v.filter_id = f.id
+        from (select v.id, v.name, v.position from filter_value v where v.filter_id = f.id order by v.position limit 100) v
       ), '[]'::json) as values
     from filter f where f.store_id = ${storeId}
     order by f.position
