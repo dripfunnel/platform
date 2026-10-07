@@ -117,12 +117,14 @@ describe('signing in by a texted code', () => {
     }
   })
   it('still refuses an expired code and one out of tries when CODE_CHECK is 0', async () => {
-    {
-      for (const spoil of [`expires_at = '2000-01-01'`, 'attempts = 5']) {
-        await gql('mutation { requestSignInCode(channel: PHONE, to: "+919866666666") }')
-        await db.sql.unsafe(`update customer_code set ${spoil} where target = '+919866666666' and used_at is null`)
-        expect((await verify('PHONE', '+919866666666', '000000', '', { codeCheck: '0' })).code).toBe('CODE_REFUSED')
-      }
+    const spoiled = [
+      (target: string) => db.sql`update customer_code set expires_at = '2000-01-01' where target = ${target} and used_at is null`,
+      (target: string) => db.sql`update customer_code set attempts = 5 where target = ${target} and used_at is null`,
+    ]
+    for (const spoil of spoiled) {
+      await gql('mutation { requestSignInCode(channel: PHONE, to: "+919866666666") }')
+      await spoil('+919866666666')
+      expect((await verify('PHONE', '+919866666666', '000000', '', { codeCheck: '0' })).code).toBe('CODE_REFUSED')
     }
   })
   it('spends a code after five wrong tries, and limits a number to three codes in ten minutes', async () => {
