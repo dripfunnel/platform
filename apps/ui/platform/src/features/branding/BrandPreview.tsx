@@ -6,6 +6,7 @@ import { initials } from '@dripfunnel/shared/ui'
 import type { CSSProperties } from 'react'
 import type { Money } from '@dripfunnel/shared/format'
 import { formatAmount, formatCount, messages } from '../../messages'
+import { BrandFileImage } from './BrandFileImage'
 import type { BrandDraft } from './brandDraft'
 
 const words = messages.branding.preview
@@ -64,15 +65,15 @@ const fileUrl = (key: string): string => `/api/uploads/brand-file?key=${encodeUR
 // The portal's rule (ui/store/README.md §4): the logo for the background it sits on, else the mark, else a plain tile.
 const Brand = ({ draft, logo }: { draft: BrandDraft; logo: 'logoLight' | 'logoDark' }) => {
   const { files, productName } = draft.look
-  if (files[logo]) return <img className="pv-logo" src={fileUrl(files[logo])} alt={productName} />
-  return (
+  const named = (
     <>
       <span className="pv-mark" aria-hidden="true">
-        {files.mark && <img src={fileUrl(files.mark)} alt="" />}
+        {files.mark && <BrandFileImage src={fileUrl(files.mark)} alt="" fallback={null} />}
       </span>
       <strong>{productName}</strong>
     </>
   )
+  return files[logo] ? <BrandFileImage className="pv-logo" src={fileUrl(files[logo])} alt={productName} fallback={named} /> : named
 }
 
 const SignInCard = ({ draft, mode }: { draft: BrandDraft; mode: PreviewMode }) => (

@@ -1,4 +1,5 @@
 import { StatusPill } from '@dripfunnel/shared/ui'
+import { BrandFileImage } from './BrandFileImage'
 import { brandBackgrounds, brandCorners, brandFiles, brandFonts, hexColour, type BrandFile, type Branding, type ContrastReport } from '../../api/branding'
 import { fill, messages } from '../../messages'
 import type { BrandDraft, DraftField } from './brandDraft'
@@ -95,7 +96,7 @@ export const LookTab = ({ draft, contrast, invalid, disabled, onChange, onUpload
           <li key={file}>
             <strong>{words.files[file]}</strong>
             {draft.look.files[file] ? (
-              <img className="df-brand-thumb" src={`/api/uploads/brand-file?key=${encodeURIComponent(draft.look.files[file])}`} alt={words.files[file]} />
+              <BrandFileImage className="df-brand-thumb" src={`/api/uploads/brand-file?key=${encodeURIComponent(draft.look.files[file])}`} alt={words.files[file]} fallback={<code className="df-muted">{words.fileFailed}</code>} />
             ) : (
               <code className="df-muted">{words.noFile}</code>
             )}
