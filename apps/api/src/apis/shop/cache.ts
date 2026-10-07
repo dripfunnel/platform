@@ -10,8 +10,10 @@ export interface ShopCache {
 }
 
 /** The catalogue's root fields; anything else (a cart, an account, later) is never cached. */
-const cacheable = new Set(['health', 'store', 'menu', 'collections', 'collection', 'products', 'search', 'product', '__typename'])
+const cacheable = new Set(['store', 'menu', 'collections', 'collection', 'products', 'search', 'product'])
 export const shopCacheSeconds = 300
+// Only the data centre's copy is kept: a browser or a cache in front can't see the version move, nor the headers the key reads.
+const servedControl = 'private, no-store'
 const maxBody = 64 * 1024
 
 interface GraphqlRequest {
@@ -78,6 +80,7 @@ export const throughShopCache = async (cache: ShopCache | null, key: Request | n
   if (hit) {
     const served = new Response(hit.body, hit)
     served.headers.set('x-shop-cache', 'hit')
+    served.headers.set('cache-control', servedControl)
     return served
   }
   const response = await run()
@@ -92,6 +95,7 @@ export const throughShopCache = async (cache: ShopCache | null, key: Request | n
   })()
   const headers = new Headers(response.headers)
   headers.set('x-shop-cache', 'miss')
+  headers.set('cache-control', servedControl)
   if (clean) {
     const stored = new Headers(headers)
     stored.set('cache-control', `public, max-age=${shopCacheSeconds}`)

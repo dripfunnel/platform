@@ -565,6 +565,8 @@ CATALOG T2).
 answered from the data centre's cache for 5 minutes, keyed by store, `storefront.catalog_version`, host, language,
 currency and market; every change a storefront shows moves the version, which is the purge. An answer with errors is never
 kept, and the store is still found and rate-limited first. Anything else (carts, accounts, from SAPI 9) is never cached.
+Every answer goes out `private, no-store`: only the data centre's copy is kept, since nothing in front of it sees the
+version move or the headers the key reads.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

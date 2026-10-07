@@ -25,6 +25,8 @@ const memory = () => {
 describe('the Shop API’s edge cache', () => {
   it('caches only a query of catalogue fields', () => {
     expect(readsCatalogueOnly('{ products { nodes { id } } menu { label } }', null)).toBe(true)
+    expect(readsCatalogueOnly('{ health }', null)).toBe(false)
+    expect(readsCatalogueOnly('{ store { name } __typename }', null)).toBe(false)
     expect(readsCatalogueOnly('mutation { addToCart }', null)).toBe(false)
     expect(readsCatalogueOnly('{ cart { id } }', null)).toBe(false)
     expect(readsCatalogueOnly('{ ...F } fragment F on Query { store { name } }', null)).toBe(false)
@@ -63,6 +65,7 @@ describe('the Shop API’s edge cache', () => {
     await Promise.all(waits)
     const second = await throughShopCache(cache, key, ok, (w) => waits.push(w))
     expect([first.headers.get('x-shop-cache'), second.headers.get('x-shop-cache'), runs]).toEqual(['miss', 'hit', 1])
+    expect([first.headers.get('cache-control'), second.headers.get('cache-control')]).toEqual(['private, no-store', 'private, no-store'])
     expect(await second.json()).toEqual({ data: { store: { name: 'Kesari' } } })
     expect(kept.get(key.url)?.headers.get('cache-control')).toBe('public, max-age=300')
     const refused = () => Promise.resolve(new Response(JSON.stringify({ errors: [{ message: 'x' }], data: null }), { status: 200 }))
