@@ -4,7 +4,7 @@ import { readsCatalogueOnly, shopCacheKey, throughShopCache, type ShopCache } fr
 
 const shopper = (over: Partial<Shopper> = {}): Shopper => ({
   context: { caller: { kind: 'shopper', customerId: null }, partnerId: 'p', storeId: 's1', sellerScope: { kind: 'all' }, subscription: 'active' },
-  available: true, catalogVersion: '7', mainLanguage: 'en-IN', pricingCurrency: 'INR', language: 'en-IN', currency: 'INR', marketId: null,
+  available: true, catalogVersion: '7', mainLanguage: 'en-IN', country: 'IN', pricingCurrency: 'INR', language: 'en-IN', currency: 'INR', marketId: null,
   features: { sizeCharts: true, specs: true, highlights: true, faqs: false, badges: true, related: false, aplus: true, video: false },
   ...over,
 })

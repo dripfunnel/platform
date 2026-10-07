@@ -24,6 +24,8 @@ export interface Shopper {
   available: boolean
   catalogVersion: string
   mainLanguage: string
+  /** The store's country: which payment providers and couriers it may use. */
+  country: string | null
   pricingCurrency: string
   language: string
   currency: string
@@ -49,6 +51,7 @@ const shopperOf = (row: StorefrontRow, request: Request, orderTokenHash: string 
     available: row.status === 'trial' || row.status === 'active' || row.status === 'past_due',
     catalogVersion: row.catalog_version,
     mainLanguage: row.main_language,
+    country: row.country,
     pricingCurrency: row.pricing_currency,
     language,
     currency,
