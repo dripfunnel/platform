@@ -195,6 +195,19 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     expect(seen).toEqual([ids.visible])
   })
 
+  it('reads option and choice name translations only of options a visible product carries', async () => {
+    await db.sql`insert into product_option (product_id, store_id, name, position) values (${ids.visible}, ${t.storeA1}, 'Size', 0), (${ids.hidden}, ${t.storeA1}, 'Limited Edition Gold', 0)`
+    await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values
+      (${t.storeA1}, 'option_name', 'size', 'name', 'hi-IN', 'साइज़', ${'0'.repeat(32)}), (${t.storeA1}, 'option_name', 'limited edition gold', 'name', 'hi-IN', 'सोना', ${'0'.repeat(32)})`
+    try {
+      const seen = await withScope(db.sql, asShopper(t.storeA1), async (tx) => (await tx<{ entity_id: string }[]>`select entity_id from translation where entity = 'option_name'`).map((r) => r.entity_id))
+      expect(seen).toEqual(['size'])
+    } finally {
+      await db.sql`delete from translation where entity = 'option_name' and store_id = ${t.storeA1}`
+      await db.sql`delete from product_option where product_id in (${ids.visible}, ${ids.hidden})`
+    }
+  })
+
   it('writes nothing in the catalogue', async () => {
     await expect(withScope(db.sql, asShopper(t.storeA1), (tx) => tx`update product set name = 'x' where id = ${ids.visible}`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, asShopper(t.storeA1), (tx) => tx`insert into collection (store_id, name, slug, kind) values (${t.storeA1}, 'x', 'x', 'manual')`)).rejects.toThrow(/permission denied/)
