@@ -97,10 +97,13 @@ describe('finding the store', () => {
     expect((await shopperOn('api.example', { 'x-shop-key': keys.b1 })).context.storeId).toBe(t.storeB1)
     expect(await resolve('api.example')).toEqual({ kind: 'unknown' })
     expect(await resolve('api.example', { 'x-shop-key': 'pk_nope' })).toEqual({ kind: 'unknown' })
-    // A closed partner's stores are served by neither host nor key (#440's review).
-    await db.sql`update partner set state = 'closed' where id = ${t.partnerB}`
+    // A closed partner's stores are served by neither host nor key.
+    await db.sql`update partner set state = 'closed' where id in (${t.partnerA}, ${t.partnerB})`
     expect(await resolve('api.example', { 'x-shop-key': keys.b1 })).toEqual({ kind: 'unknown' })
-    await db.sql`update partner set state = 'live' where id = ${t.partnerB}`
+    expect(await resolve('www.a2-shop.example')).toEqual({ kind: 'unknown' })
+    expect(await resolve('store-a1.shops.acme.example')).toEqual({ kind: 'unknown' })
+    await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
+    expect((await shopperOn('www.a2-shop.example')).context.storeId).toBe(t.storeA2)
   })
 
   it('knows no store on another partner’s wildcard, a wildcard not yet checked, or a code no store has', async () => {
@@ -145,7 +148,7 @@ describe('the catalogue a shopper reads', () => {
     expect(data?.['menu']).toEqual([{ label: 'Shirts', kind: 'collection', collectionSlug: 'kameez', children: [{ label: 'About', kind: 'page', url: '/about' }] }])
   })
 
-  it('serves at most 300 menu items, however many the store has (#440’s review)', async () => {
+  it('serves at most 300 menu items, however many the store has', async () => {
     const [menu] = await db.sql<{ id: string }[]>`select id from menu where store_id = ${t.storeA1} and key = 'main'`
     await db.sql`insert into menu_item (menu_id, store_id, label, kind, url, position) select ${menu?.id ?? ''}, ${t.storeA1}, 'Page ' || n, 'page', '/p' || n, 10 + n from generate_series(1, 305) n`
     try {
@@ -185,7 +188,7 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     }
   })
 
-  it('never learns of a hidden product through a market’s exclusions (#440’s review)', async () => {
+  it('never learns of a hidden product through a market’s exclusions', async () => {
     const [market] = await db.sql<{ id: string }[]>`insert into market (store_id, name, currency, language, status, countries) values (${t.storeA1}, 'Gulf', 'INR', 'en-IN', 'active', '["AE"]') returning id`
     await db.sql`insert into market_excluded_product (market_id, product_id, store_id) values (${market?.id ?? ''}, ${ids.visible}, ${t.storeA1}), (${market?.id ?? ''}, ${ids.hidden}, ${t.storeA1})`
     const seen = await withScope(db.sql, asShopper(t.storeA1), async (tx) => (await tx<{ product_id: string }[]>`select product_id from market_excluded_product`).map((r) => r.product_id))
@@ -214,10 +217,10 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     expect(await version(t.storeB1)).toBe(b1)
     await db.sql`update store set name = 'Store A1' where id = ${t.storeA1}`
     expect(Number(await version(t.storeA1))).toBe(Number(a1) + 2)
-    // A section switched off is a change a storefront shows (#442's review).
+    // A section switched off is a change a storefront shows.
     await db.sql`insert into store_feature (store_id, key, enabled) values (${t.storeA1}, 'faqs', true)`
     expect(Number(await version(t.storeA1))).toBe(Number(a1) + 3)
-    // The country the store's address shows (#440's review).
+    // The country the store's address shows.
     await db.sql`update store set country = 'AE' where id = ${t.storeA1}`
     expect(Number(await version(t.storeA1))).toBe(Number(a1) + 4)
   })
