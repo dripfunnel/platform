@@ -170,6 +170,16 @@ describe('cancelling an order', () => {
     expect((await cancel('owner', paying)).data?.['cancelOrder']).toBe(true)
   })
 
+  it('never cancels another store’s order: not found, and its state, stock and payment untouched', async () => {
+    const id = await order('A-4006', { method: 'stripe', paid: true })
+    const before = { state: await stateOf(id), house: await held(versions.house, places.main), refunds: refunds.length }
+    expect((await cancel('other', id)).code).toBe('NOT_FOUND')
+    expect(await stateOf(id)).toEqual(before.state)
+    expect(await held(versions.house, places.main)).toBe(before.house)
+    expect(refunds.length).toBe(before.refunds)
+    expect((await db.sql`select state from payment where order_id = ${id}`)[0]?.['state']).toBe('captured')
+  })
+
   it('refuses once anything has left, a supplier, and a read-only support session', async () => {
     const id = await order('A-4005', { method: 'cod', paid: false })
     expect((await cancel('drop', id)).code).toBe('FORBIDDEN')
@@ -221,6 +231,12 @@ describe('the orders export', () => {
     for (const who of ['staff', 'drop', 'reader', 'other'] as const) expect((await read(who)).data?.['orderExport'], who).toBeNull()
     expect((await gql(`{ catalogExport(id: "${asked}") { id } }`, 'owner')).data?.['catalogExport']).toBeNull()
     expect(((await gql('{ orderExports { id } }', 'staff')).data?.['orderExports'] as { id: string }[]).map((e) => e.id)).not.toContain(asked)
+  })
+
+  it('gives another store’s export none of this store’s rows', async () => {
+    const theirs = await exported('other')
+    expect(theirs.state).toBe('done')
+    expect(theirs.lines).toHaveLength(1)
   })
 
   it('cuts the file at its cap and says so', async () => {
