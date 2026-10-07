@@ -14,10 +14,24 @@ describe('Stripe Tax on a connected account', () => {
       },
     })
     const result = await tax.calculate({ accountId: 'acct_123', currency: 'USD', inclusive: false, shipTo: { country: 'US', region: 'OH', postal: '43215' }, lines: [{ reference: 'v1', amount: 2000n, taxCode: 'txcd_99999999' }] })
-    expect(result).toEqual({ total: 115n, lines: [{ reference: 'v1', amount: 115n }] })
+    expect(result).toEqual({ total: 115n, lines: [{ reference: 'v1', amount: 115n }], shipping: 0n })
     expect(asked).toMatchObject({ url: 'https://api.stripe.com/v1/tax/calculations', account: 'acct_123' })
     const body = (asked as unknown as { body: URLSearchParams }).body
     expect(Object.fromEntries(body)).toMatchObject({ currency: 'usd', 'customer_details[address][state]': 'OH', 'line_items[0][amount]': '2000', 'line_items[0][tax_code]': 'txcd_99999999', 'line_items[0][tax_behavior]': 'exclusive' })
+  })
+
+  it('taxes the delivery charge as the address taxes shipping, and reads its tax apart', async () => {
+    let body = new URLSearchParams()
+    const tax = stripeTax({
+      secretKey: 'sk_test_x',
+      fetchImpl: async (_, init) => {
+        body = new URLSearchParams(String(init?.body))
+        return Response.json({ tax_amount_exclusive: 160, tax_amount_inclusive: 0, line_items: { data: [{ reference: 'v1', amount_tax: 115 }] }, shipping_cost: { amount_tax: 45 } })
+      },
+    })
+    const result = await tax.calculate({ accountId: 'acct_1', currency: 'USD', inclusive: false, shipTo: { country: 'US', region: 'OH', postal: '43215' }, lines: [{ reference: 'v1', amount: 2000n, taxCode: null }], shipping: 799n })
+    expect(result).toEqual({ total: 160n, lines: [{ reference: 'v1', amount: 115n }], shipping: 45n })
+    expect(Object.fromEntries(body)).toMatchObject({ 'shipping_cost[amount]': '799', 'shipping_cost[tax_behavior]': 'exclusive' })
   })
 
   it('says Stripe is down when it is, and refused when it refuses', async () => {

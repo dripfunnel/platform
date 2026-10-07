@@ -35,9 +35,10 @@ export const selectSnapshotVersions = (tx: ScopedSql, storeId: string, ids: read
 
 /**
  * Holds a line's stock at the live location with the most left, locked first so two orders can't both take the last
- * one. Null when there is too little and the version doesn't sell on; the location's id otherwise.
+ * one. Null when there is too little and the version doesn't sell on; the location's id, and whether it held more than
+ * was free, otherwise.
  */
-export const reserveLine = async (tx: ScopedSql, storeId: string, versionId: string, quantity: number, sellsOn: boolean): Promise<{ warehouseId: string | null } | null> => {
+export const reserveLine = async (tx: ScopedSql, storeId: string, versionId: string, quantity: number, sellsOn: boolean): Promise<{ warehouseId: string | null; short: boolean } | null> => {
   const levels = await tx<{ warehouse_id: string; free: number }[]>`
     select l.warehouse_id, l.on_hand - l.reserved as free from stock_level l join warehouse w on w.id = l.warehouse_id and w.deleted_at is null
     where l.store_id = ${storeId} and l.version_id = ${versionId}
@@ -47,9 +48,9 @@ export const reserveLine = async (tx: ScopedSql, storeId: string, versionId: str
   const free = levels.reduce((sum, l) => sum + Math.max(l.free, 0), 0)
   if (free < quantity && !sellsOn) return null
   const at = levels[0]
-  if (!at) return { warehouseId: null }
+  if (!at) return { warehouseId: null, short: true }
   await tx`update stock_level set reserved = reserved + ${quantity}, updated_at = now() where version_id = ${versionId} and warehouse_id = ${at.warehouse_id}`
-  return { warehouseId: at.warehouse_id }
+  return { warehouseId: at.warehouse_id, short: free < quantity }
 }
 
 /** Moves the store's order counter on and answers the number it gives this order. */
@@ -242,7 +243,7 @@ export const selectPaymentSetup = (tx: ScopedSql, storeId: string): Promise<Paym
 export const saveManualMethod = async (tx: ScopedSql, storeId: string, provider: 'cod' | 'bank_transfer', bankDetails: string | null, now: Date): Promise<void> => {
   await tx`
     insert into payment_provider_account (store_id, provider, bank_details, status) values (${storeId}, ${provider}, ${bankDetails}, 'live')
-    on conflict (store_id, provider) do update set bank_details = excluded.bank_details, status = 'live', updated_at = ${now}
+    on conflict (store_id, provider, mode) do update set bank_details = excluded.bank_details, status = 'live', updated_at = ${now}
   `
 }
 

@@ -8,10 +8,10 @@ import type { TenantContext } from '#core/tenancy'
 import { insertCart, selectCart, selectGuestCartId, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
 import type { FeatureKey } from '#db/scoped/catalogListing'
 import { withScope, type ScopedSql } from '#db/scoped/index'
-import { selectTaxSetup } from '#db/scoped/tax'
+import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
-import { computeTax, taxSettingOf, type LineTax } from '#engine/modules/tax/index'
+import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
 import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type PricedLine } from './rules'
 
 export type { AddressInput, CheckoutProblem, LineProblem } from './rules'
@@ -41,6 +41,8 @@ export interface CartDeps {
   couriers: PartnerCouriers | null
   activity: ActivityLog
   facts: RequestFacts
+  /** Stripe Tax on the store's connected account, for a US address (decided on #284, #337); null where none is connected. */
+  stripeTax?: StripeTaxDeps | null
   /** Whether this requester may start another guest cart now (a limiter per store and IP); absent, nothing limits it. */
   allowNewCart?: () => Promise<boolean>
   now: () => Date
@@ -88,6 +90,39 @@ export const createCartService = (deps: CartDeps) => {
   const customerId = shopper?.customerId ?? null
   const catalog = (context: TenantContext) => createStorefrontCatalog({ sql, context, language, currency, marketId, features: deps.features, now })
 
+  /**
+   * Stripe Tax for a US address on a store with Stripe connected, shipping included; the store's own rates otherwise, which
+   * leave shipping untaxed (decided on #309). Stripe not answering is a tax not known (TAX_UNAVAILABLE), never a guess.
+   */
+  const taxOf = async (setup: TaxSetupRow, taxTo: { country: string; region: string | null }, postal: string | null, priced: readonly (CartLineView & { lineTotal: Money })[], shipping: bigint | null): Promise<CartView['tax']> => {
+    const stripe = taxTo.country === 'US' ? (deps.stripeTax ?? null) : null
+    const accountId = stripe ? await stripe.accountId() : null
+    if (!stripe || !accountId) {
+      const computed = computeTax(priced.map((l) => ({ id: l.versionId, amount: l.lineTotal.amount, taxClassId: l.item?.taxClassId ?? null })), taxTo, taxSettingOf(setup))
+      return { amount: { amount: computed.total, currency }, inclusive: setup.tax_inclusive, lines: computed.lines }
+    }
+    const codeOf = (classId: string | null) => (setup.classes.find((c) => c.id === classId) ?? setup.classes.find((c) => c.is_default))?.tax_code ?? null
+    try {
+      const result = await stripe.calculate({
+        accountId,
+        currency,
+        inclusive: setup.tax_inclusive,
+        shipTo: { country: taxTo.country, region: taxTo.region, postal },
+        lines: priced.map((l) => ({ reference: l.versionId, amount: l.lineTotal.amount, taxCode: codeOf(l.item?.taxClassId ?? null) })),
+        shipping,
+      })
+      const lines = priced.map((l) => ({ line: l, amount: result.lines.find((r) => r.reference === l.versionId)?.amount }))
+      if (lines.some((l) => l.amount === undefined)) return null
+      return {
+        amount: { amount: result.total, currency },
+        inclusive: setup.tax_inclusive,
+        lines: lines.map(({ line, amount = 0n }) => ({ id: line.versionId, rateBps: null, amount, components: amount === 0n ? [] : [{ name: 'Tax' as const, rateBps: null, amount }] })),
+      }
+    } catch {
+      return null
+    }
+  }
+
   const view = async (context: TenantContext, row: CartRow): Promise<CartView> => {
     const items = await catalog(context).cartItems(row.lines.map((l) => l.version_id))
     const lines: CartLineView[] = row.lines.map((l) => {
@@ -113,11 +148,9 @@ export const createCartService = (deps: CartDeps) => {
       }
     }
     const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? null
-    // Tax follows where the goods go: the address, or the store itself for collection (CATALOG fact 37). The store's own
-    // rates for now: Stripe Tax on a US cart needs the store's Stripe account, which payments (SAPI 10) connects.
+    // Tax follows where the goods go: the address, or the store itself for collection (CATALOG fact 37).
     const taxTo = pickup ? (setup?.country ? { country: setup.country, region: setup.region } : null) : address ? { country: address.country, region: address.region } : null
-    const computed = setup && taxTo ? computeTax(priced.map((l) => ({ id: l.versionId, amount: l.lineTotal.amount, taxClassId: l.item?.taxClassId ?? null })), taxTo, taxSettingOf(setup)) : null
-    const tax = computed && setup ? { amount: { amount: computed.total, currency }, inclusive: setup.tax_inclusive, lines: computed.lines } : null
+    const tax = setup && taxTo ? await taxOf(setup, taxTo, pickup ? null : (address?.postalCode ?? null), priced, chosen?.amount.amount ?? null) : null
     const total = subtotal.amount + (chosen?.amount.amount ?? 0n) + (tax && !tax.inclusive ? tax.amount.amount : 0n)
     const problems = checkoutProblems({
       lines,

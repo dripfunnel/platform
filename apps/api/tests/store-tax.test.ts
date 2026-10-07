@@ -158,7 +158,7 @@ describe('a US store', () => {
         accountId: async () => 'acct_columbus',
         calculate: async (request) => {
           asked = request
-          return { total: 160n, lines: [{ reference: mug.versionId, amount: 160n }] }
+          return { total: 160n, lines: [{ reference: mug.versionId, amount: 160n }], shipping: 0n }
         },
       },
     })
@@ -189,7 +189,7 @@ describe('a US store', () => {
       activity: activityLog,
       facts: { requestId: 'r', ip: null, userAgent: null },
       now: () => now,
-      stripe: { accountId: async () => 'acct_columbus', calculate: async () => ({ total: 400n, lines: [{ reference: mug.versionId, amount: 160n }] }) },
+      stripe: { accountId: async () => 'acct_columbus', calculate: async () => ({ total: 400n, lines: [{ reference: mug.versionId, amount: 160n }], shipping: 0n }) },
     })
     expect(await partial.quote([{ versionId: mug.versionId, quantity: 1 }, { versionId: bowl.versionId, quantity: 1 }], { country: 'US', region: 'NY', postal: null })).toEqual({ ok: false, reason: 'TAX_UNAVAILABLE' })
   })
