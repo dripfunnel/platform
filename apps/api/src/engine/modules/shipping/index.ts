@@ -8,6 +8,7 @@ import type { TenantContext } from '#core/tenancy'
 import { selectRates } from '#db/scoped/rates'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import {
+  courierRateOff,
   postalCodeListed,
   recordCourierTest,
   replacePostalCodes,
@@ -16,6 +17,8 @@ import {
   selectCouriers,
   selectMarketDelivery,
   selectParcelVersions,
+  selectQuoteCouriers,
+  selectQuoteSettings,
   selectShipping,
   type CourierRow,
   type ShippingStoreRow,
@@ -273,7 +276,10 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       return true as const
     })
 
-  /** "Disconnect": the next connected courier takes over pricing (SetOps), the settings kept for a reconnect. */
+  /**
+   * "Disconnect": the next connected courier takes over pricing (SetOps), the settings kept for a reconnect. The last one
+   * going switches the courier's rate off too, so checkout never offers a rate nothing can quote.
+   */
   const disconnect = (provider: string) =>
     run(async (tx) => {
       const c = await courierOf(tx, provider)
@@ -281,7 +287,10 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       await saveCourier(tx, storeId, c.provider, { ...defaultsOf(c.provider, c.country, c.row), role: 'off' }, now())
       const next = c.row.role === 'pricing' ? c.rows.find((r) => r.provider !== c.provider && r.role === 'standby') : undefined
       if (next) await saveCourier(tx, storeId, next.provider, { ...defaultsOf(next.provider, c.country, next), role: 'pricing' }, now())
-      await activity.record(tx, entry(shippingAudit.courierDisconnected, { type: 'courier', id: c.provider, label: c.provider }, next ? `${next.provider} prices orders` : null))
+      const last = !c.rows.some((r) => r.provider !== c.provider && r.role !== 'off')
+      const switchedOff = last && (await courierRateOff(tx, storeId, now()))
+      const reason = next ? `${next.provider} prices orders` : switchedOff ? 'courier rate off' : null
+      await activity.record(tx, entry(shippingAudit.courierDisconnected, { type: 'courier', id: c.provider, label: c.provider }, reason))
       return next?.provider ?? null
     })
 
@@ -357,12 +366,12 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
     if (!valid) return { ok: false, reason: 'INVALID_INPUT' }
     const postal = request.shipTo.postal ? normalisePostal(country, request.shipTo.postal) : null
     const loaded = await inScope(async (tx) => {
-      const store = await selectShipping(tx, storeId)
+      const store = await selectQuoteSettings(tx, storeId)
       const versions = await selectParcelVersions(tx, storeId, request.lines.map((l) => l.versionId.toLowerCase()))
       const market = request.marketId ? await selectMarketDelivery(tx, storeId, request.marketId.toLowerCase()) : null
-      const listed = store?.shipping?.area_mode === 'list' && postal !== null && country === store.country ? await postalCodeListed(tx, storeId, postal) : false
+      const listed = store?.shipping?.area_mode === 'list' && postal !== null && country === store.country ? await postalCodeListed(tx, postal) : false
       const rates = await selectRates(tx, [...new Set([currency, store?.shipping?.currency ?? currency, 'INR', 'USD'])])
-      const rows = await selectCouriers(tx, storeId)
+      const rows = await selectQuoteCouriers(tx, storeId)
       return { store, versions, market, listed, rates, rows }
     })
     const settings = loaded.store?.shipping

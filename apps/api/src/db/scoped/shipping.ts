@@ -83,8 +83,31 @@ export const replacePostalCodes = async (tx: ScopedSql, storeId: string, codes: 
   `
 }
 
-export const postalCodeListed = async (tx: ScopedSql, storeId: string, code: string): Promise<boolean> =>
-  (await tx`select 1 from delivery_postal_code where store_id = ${storeId} and code = ${code}`).length > 0
+/** Through store_delivers_to (migration 0063), so a shopper's quote never reads the list. */
+export const postalCodeListed = async (tx: ScopedSql, code: string): Promise<boolean> =>
+  (await tx<{ listed: boolean }[]>`select store_delivers_to(${code}) as listed`)[0]?.listed === true
+
+export interface QuoteSettingsRow {
+  country: string | null
+  postal: string | null
+  shipping: Pick<ShippingRow, 'courier_enabled' | 'flat_enabled' | 'flat_amount' | 'pickup_enabled' | 'pickup_hours' | 'free_mode' | 'free_threshold_amount' | 'currency' | 'area_mode' | 'saved_at'> | null
+}
+
+/** What a quote reads, and nothing more: a shopper's cart prices delivery with it (SAPI 9). */
+export const selectQuoteSettings = async (tx: ScopedSql, storeId: string): Promise<QuoteSettingsRow | null> =>
+  (
+    await tx<QuoteSettingsRow[]>`
+      select s.country, nullif(s.address->>'postal', '') as postal,
+        (select row_to_json(x) from (
+          select h.courier_enabled, h.flat_enabled, h.flat_amount::text as flat_amount, h.pickup_enabled, h.pickup_hours, h.free_mode,
+            h.free_threshold_amount::text as free_threshold_amount, h.currency, h.area_mode, h.saved_at
+          from store_shipping h where h.store_id = s.id) x) as shipping
+      from store s where s.id = ${storeId}
+    `
+  )[0] ?? null
+
+export const selectQuoteCouriers = (tx: ScopedSql, storeId: string): Promise<Pick<CourierRow, 'provider' | 'role'>[]> =>
+  tx<Pick<CourierRow, 'provider' | 'role'>[]>`select provider, role from store_courier where store_id = ${storeId} and role <> 'off' order by position, provider`
 
 export interface CourierRow {
   provider: CourierProvider
@@ -120,6 +143,10 @@ export const saveCourier = async (tx: ScopedSql, storeId: string, provider: Cour
       tracking_emails = excluded.tracking_emails, position = excluded.position, updated_at = excluded.updated_at
   `
 }
+
+/** The courier's rate off, at a new revision; false when it already was. */
+export const courierRateOff = async (tx: ScopedSql, storeId: string, now: Date): Promise<boolean> =>
+  (await tx`update store_shipping set courier_enabled = false, revision = revision + 1, updated_at = ${now} where store_id = ${storeId} and courier_enabled`).count > 0
 
 export const recordCourierTest = async (tx: ScopedSql, storeId: string, provider: CourierProvider, result: NonNullable<CourierRow['last_test_result']>, now: Date): Promise<void> => {
   await tx`update store_courier set last_tested_at = ${now}, last_test_result = ${result} where store_id = ${storeId} and provider = ${provider}`
