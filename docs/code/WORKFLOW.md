@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-07 (#466: how a card is written).
 
 ---
 
@@ -106,15 +106,19 @@ on all branches. The `naming` check already covers it.
 ## 3. The work item card
 
 Every item starts as a card with these fields. A card that can't fill them in isn't ready
-to start.
+to start. How a card is written (the questions asked first, the templates, the draft approved
+before it is created) is [HOW-TO-WRITE-A-CARD.md](HOW-TO-WRITE-A-CARD.md).
 
 | Field | Says |
 |---|---|
 | **Kind and branch** | Feature, task or bug, and the branch name `#<issue>/<kind>/<short-name>` |
 | **Folders** | The only folders the change may touch. Two cards in progress at once never share a folder |
 | **Read first** | The doc sections that decide the design, e.g. "DATA-MODEL §5" |
+| *(bug)* **Environment, Steps to reproduce, Expected, Actual** | Where it happens, numbered steps from a known state, and what should and does happen |
+| **Decided** | The answers to the questions asked before the card was written, dated and attributed |
 | **Do** | The steps, numbered |
-| **Done when** | Checks anyone can verify: tests that pass, behaviour on the environment, docs updated |
+| **Prompt for Claude** | The whole brief in one pasteable block: what to read, where to work, what to build and test, the gates to run |
+| **Done when** | The acceptance criteria, as checkboxes anyone can verify: tests that pass, behaviour on the environment, docs updated. Required on every card |
 | **Not in this item** | What looks related but belongs to a later card |
 | **Needs** | Cards that must be merged first. Don't start on top of an unmerged branch |
 

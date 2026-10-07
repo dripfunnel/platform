@@ -34,5 +34,8 @@
   anyone looking for it will go.
 - **Done means verified**: run the commands in AGENTS.md "Commands" before saying a change
   works, and report each one's result. If you couldn't run something, say that.
+- **Creating a card**: use the `create-card` skill (`.claude/skills/create-card`), which follows
+  docs/code/HOW-TO-WRITE-A-CARD.md. Questions go through AskUserQuestion before any draft, and
+  nothing is created on GitHub until the draft is approved.
 - **Stop at the diff**: no commits, branches or pushes unless the user asks in that
   message.
