@@ -11,7 +11,7 @@ export interface ShopCache {
 
 /** The catalogue's root fields; anything else (a cart, an account, later) is never cached. */
 const cacheable = new Set(['store', 'menu', 'collections', 'collection', 'products', 'search', 'product'])
-export const shopCacheSeconds = 300
+const shopCacheSeconds = 300
 // Only the data centre's copy is kept: a browser or a cache in front can't see the version move, nor the headers the key reads.
 const servedControl = 'private, no-store'
 const maxBody = 64 * 1024
