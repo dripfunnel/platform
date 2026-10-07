@@ -77,7 +77,7 @@ create unique index customer_address_default_key on customer_address (customer_i
 grant select, insert, update on store_customer_auth, customer_session, customer_code to app_system;
 grant select, insert, update, delete on customer_address to app_system;
 -- The merchant reads and sets its store's choice (settings); never a session or a code.
-grant select, update on store_customer_auth to app_request;
+grant select, insert, update on store_customer_auth to app_request;
 grant select (id, customer_id, store_id, name, line1, line2, city, region, postal_code, country, phone, is_default_shipping, created_at, deleted_at) on customer_address to app_request;
 -- A shopper reads its store's choice, and keeps its own name and addresses.
 grant select (store_id, email_enabled, phone_enabled) on store_customer_auth to app_shop;
@@ -119,6 +119,8 @@ using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('
 create policy customer_address_shop on customer_address for all to app_shop
 using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and customer_id = app_setting_uuid('app.customer_id'))
 with check (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and customer_id = app_setting_uuid('app.customer_id'));
+-- Sign-in makes and proves accounts in system scope, which had no branch on customer before.
+create policy customer_system on customer for all to app_system using (true) with check (true);
 -- A shopper changes its own name, nothing else of its row (the grant is by column).
 create policy customer_shop_update on customer for update to app_shop
 using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and id = app_setting_uuid('app.customer_id'))

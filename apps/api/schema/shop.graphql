@@ -6,11 +6,18 @@ type Image {
 type Mutation {
   addToCart(quantity: Int!, versionId: ID!): ShopCartChange
   checkout: ShopCart
+  deleteAddress(id: ID!): Boolean
+  requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
+  saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
   setBillingAddress(address: ShopAddressInput): ShopCartChange
   setCartContact(email: String, note: String, phone: String): ShopCartChange
   setCartQuantity(quantity: Int!, versionId: ID!): ShopCartChange
   setShippingAddress(address: ShopAddressInput!): ShopCartChange
   setShippingOption(option: String!): ShopCartChange
+  signIn(email: String!, password: String!): ShopSession
+  signOut: Boolean
+  updateAccount(name: String): Boolean
+  verifySignInCode(channel: ShopSignInChannel!, code: String!, name: String, password: String, to: String!): ShopSession
 }
 
 type PageInfo {
@@ -21,6 +28,7 @@ type PageInfo {
 }
 
 type Query {
+  account: ShopAccount
   cart: ShopCart
   collection(slug: String!): ShopCollection
   collections(after: String, before: String, first: Int): ShopCollectionPage
@@ -29,7 +37,18 @@ type Query {
   product(slug: String!): ShopProduct
   products(after: String, before: String, collection: String, filters: [ID!], first: Int, search: String, sort: ShopProductSort): ShopProductPage
   search(after: String, before: String, first: Int, query: String!): ShopProductPage
+  signInOptions: ShopSignInOptions
   store: ShopStore
+}
+
+type ShopAccount {
+  addresses: [ShopSavedAddress!]
+  email: String
+  emailVerified: Boolean
+  id: ID
+  name: String
+  phone: String
+  phoneVerified: Boolean
 }
 
 type ShopAddress {
@@ -277,6 +296,45 @@ type ShopProductSummary {
   price: ShopMoney
   productType: String
   slug: String
+}
+
+type ShopSavedAddress {
+  city: String
+  country: String
+  id: ID
+  isDefault: Boolean
+  line1: String
+  line2: String
+  name: String
+  phone: String
+  postalCode: String
+  region: String
+}
+
+input ShopSavedAddressInput {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  name: String!
+  phone: String
+  postalCode: String
+  region: String
+}
+
+type ShopSession {
+  created: Boolean
+  sessionToken: String
+}
+
+enum ShopSignInChannel {
+  EMAIL
+  PHONE
+}
+
+type ShopSignInOptions {
+  email: Boolean
+  phone: Boolean
 }
 
 type ShopSizeChart {

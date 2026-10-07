@@ -16,6 +16,10 @@ export interface ShopContext extends Record<string, unknown> {
   facts: RequestFacts
   /** The partners' couriers, for a cart's delivery options (SAPI 23); null where none can be reached. */
   couriers?: CourierDirectory | null
+  /** The sign-in limiter (SIGN_IN_RATE_LIMITER) by key; refuses everything where it isn't bound. */
+  allowAttempt?: (key: string) => Promise<boolean>
+  /** The session token this request presents (X-Shop-Session), for signing out. */
+  sessionToken?: string | null
   now: () => Date
 }
 

@@ -17,6 +17,7 @@ import { registerTranslations } from './translations'
 import { registerStoreInfo } from './storeInfo'
 import { registerTax } from './tax'
 import { registerShipping } from './shipping'
+import { registerCustomerAccounts } from './customerAccounts'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
@@ -47,6 +48,7 @@ registerCatalogImports(builder)
 registerShopify(builder)
 registerTax(builder)
 registerShipping(builder)
+registerCustomerAccounts(builder)
 registerListing(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

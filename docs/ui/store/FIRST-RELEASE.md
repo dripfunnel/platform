@@ -578,6 +578,15 @@ priced; each read prices it now: lines at today's price with what stops one bein
 more than is left), delivery, tax from the store's rates (GST across or within states; Stripe Tax once SAPI 10 connects
 it), and the total. A change after reaching payment goes back to delivery. Up to 100 lines of up to 999; a cart lives 30
 days from its last change. The names above replace §19's `updateLine` and `setShipping`.
+**Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, India starting with
+both), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
+the address has an account; 3 per address and 10 per requester in 10 minutes), `verifySignInCode(channel, to, code, name,
+password)` (proves the email or number: signs in, making the account when there's none; with an email, a password sets or
+resets it; one refusal for a wrong, used or expired code, 5 tries), `signIn(email, password)` (one refusal for any mismatch,
+rate-limited per store and IP and per email), `signOut`, `account`, `updateAccount(name)`, `saveAddress`, `deleteAddress`. The
+session token is handed out once and sent back as `X-Shop-Session`; signing in with a guest cart's token makes that cart the
+account's. The Store API's `customerAccounts` (the mode and how many accounts have an email, a number, only a number) and
+`saveCustomerAccounts(mode)` are the Owner's (`settings`).
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

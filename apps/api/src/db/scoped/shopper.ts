@@ -219,3 +219,6 @@ export const selectAccount = async (tx: ScopedSql, customerId: string): Promise<
 
 export const renameShopper = async (tx: ScopedSql, customerId: string, name: string | null): Promise<boolean> =>
   (await tx`update customer set name = ${name} where id = ${customerId}`).count > 0
+
+export const selectStoreName = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ name: string }[]>`select name from store where id = ${storeId}`)[0]?.name ?? null
