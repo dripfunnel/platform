@@ -116,6 +116,18 @@ describe('a guest’s cart', () => {
     expect((await gql(`mutation { checkout { readyToPay } }`, { token })).data?.['checkout']).toEqual({ readyToPay: true })
   })
 
+  it('quotes no delivery before an address when the store has no country, never inventing one', async () => {
+    await db.sql`update store set country = null where id = ${stores.other}`
+    try {
+      const added = await gql(`mutation { addToCart(versionId: "${ids.theirs}", quantity: 1) { cartToken cart { shippingOptions { id } } } }`, { host: hostOf.other })
+      expect((added.data?.['addToCart'] as { cart: { shippingOptions: unknown[] } }).cart.shippingOptions).toEqual([])
+    } finally {
+      await db.sql`update store set country = 'IN' where id = ${stores.other}`
+      await db.sql`delete from cart_line where store_id = ${stores.other}`
+      await db.sql`delete from "order" where store_id = ${stores.other} and state = 'cart'`
+    }
+  })
+
   it('charges no tax where the store has no rate (a US address on an Indian store), never refusing the cart for it', async () => {
     await gql(`mutation { setShippingAddress(address: { name: "Sam Lee", line1: "1 High St", city: "Columbus", region: "OH", postalCode: "43215", country: "US" }) { cart { id } } }`, { token })
     expect(await cart(token)).toMatchObject({ tax: { amount: { amount: '0' } } })
