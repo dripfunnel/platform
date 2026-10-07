@@ -93,6 +93,7 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
 
   /** Cash on delivery (India) or a bank transfer, with the details shoppers transfer to; a card gateway connects with its keys (part 3) or by Connect Stripe. */
   const connect = (provider: string, bankDetails: string | null | undefined): Promise<SetupResult<true>> => {
+    if (context.caller.kind === 'support') return Promise.resolve({ ok: false, reason: 'SUPPORT_SESSION' })
     const details = bankDetails?.trim() || null
     const method = isManual(provider) ? provider : null
     if (!method || (method === 'bank_transfer' && (!details || details.length > 1000))) return Promise.resolve({ ok: false, reason: 'METHOD_UNAVAILABLE' })
@@ -134,6 +135,8 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
   }
 
   const lastLive = async (tx: ScopedSql, provider: string) => {
+    // The store's ways to pay, locked, so two disconnects at once can't both pass the count.
+    await tx`select 1 from payment_provider_account where store_id = ${storeId} for update`
     const rows = await selectPaymentSetup(tx, storeId)
     return rows.some((r) => r.provider === provider && r.status === 'live') && (await countLiveMethods(tx, storeId)) <= 1
   }
@@ -141,6 +144,7 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
   /** "Disconnect": keys and connected account go, Stripe's access ends; never the store's only live way to pay (SetOps). */
   const disconnect = async (provider: string): Promise<SetupResult<true>> => {
     if (!isPaymentProvider(provider)) return { ok: false, reason: 'NOT_FOUND' }
+    if (context.caller.kind === 'support') return { ok: false, reason: 'SUPPORT_SESSION' }
     if (isManual(provider)) {
       return withScope(sql, context, async (tx): Promise<SetupResult<true>> => {
         if (await lastLive(tx, provider)) return { ok: false, reason: 'LAST_METHOD' }
@@ -150,7 +154,6 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
       })
     }
     if (!isCardProvider(provider)) return { ok: false, reason: 'NOT_FOUND' }
-    if (context.caller.kind === 'support' && context.caller.access === 'read') return { ok: false, reason: 'SUPPORT_SESSION' }
     const result = await withSystemScope(sql, async (tx): Promise<SetupResult<string | null>> => {
       if (await lastLive(tx, provider)) return { ok: false, reason: 'LAST_METHOD' }
       const gone = await disconnectProvider(tx, storeId, provider, now())

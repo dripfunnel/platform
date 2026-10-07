@@ -74,6 +74,11 @@ export const stripePayments = ({ keys, fetchImpl = fetch }: { keys: Partial<Reco
       if (!intent.client_secret) throw new PaymentUnavailable('no client secret')
       return { providerRef: intent.id, publicKey: key.publishableKey, accountId, clientSecret: intent.client_secret, sessionId: null, redirectUrl: null }
     },
+    cancel: async (account, providerRef) => {
+      if (!/^pi_[A-Za-z0-9]+$/.test(providerRef)) return
+      // Stripe refuses to cancel a succeeded intent (400), which the caller reads as paid.
+      await call(account.mode, accountOf(account.externalAccountId), 'POST', `/payment_intents/${providerRef}/cancel`, { body: new URLSearchParams(), idempotencyKey: `df-cancel:${providerRef}` })
+    },
     outcome: async (account, providerRef): Promise<PaymentOutcome> => {
       if (!/^pi_[A-Za-z0-9]+$/.test(providerRef)) return { state: 'failed' }
       const { intent } = await call(account.mode, accountOf(account.externalAccountId), 'GET', `/payment_intents/${providerRef}`)

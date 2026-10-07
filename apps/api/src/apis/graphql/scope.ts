@@ -36,7 +36,7 @@ export interface Access<Args = Record<string, unknown>> {
 export type StaffSessionKind = 'impersonation' | 'setup'
 
 /** The writes LOGGING.md §3 leaves out of the activity log, each by the rule that says so. */
-export type UnloggedRule = 'cart'
+export type UnloggedRule = 'cart' | 'payment_return'
 
 declare module 'graphql' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- a merge must repeat graphql's own parameter list

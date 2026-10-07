@@ -21,10 +21,10 @@ import {
   type PaymentAccountRow,
   type SnapshotLine,
 } from '#db/scoped/orders'
-import { failPendingPayments, selectGatewayAccount } from '#db/scoped/payments'
+import { failPendingPayments, selectAccountById, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
 import type { StripeTaxDeps } from '#engine/modules/tax/index'
-import { settleOrder, type SettleDeps } from './payments'
+import { settleOrder, settlePayment, type SettleDeps } from './payments'
 import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, providersFor, transferDaysMs, type PaymentKind, type PaymentProvider } from './providers'
 
 // Placing an order and paying for it (SAPI 10; PLATFORM-PROMPT §5.4 Payments). The cart is priced as its shopper, then the
@@ -32,7 +32,7 @@ import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, provide
 
 export { applyOutcome, handleMerchantStripeEvent, paymentAudit, releaseUnpaidOrders, settleOrder, settlePayment, type MerchantEventOutcome, type SettleDeps, type Settled } from './payments'
 export { cardPaymentMs, isPaymentProvider, paymentProviders, providersFor, transferDaysMs, type PaymentProvider } from './providers'
-export { createPaymentSetup, paymentSetupAudit, type PaymentSetupDeps, type PaymentSetupView } from './setup'
+export { createPaymentSetup, finishConnectMs, paymentSetupAudit, type PaymentSetupDeps, type PaymentSetupView } from './setup'
 export type { ShopOrderRow } from '#db/scoped/orders'
 
 /** What the Worker wires in for payments: the card adapters, Connect Stripe, and Stripe Tax in each mode (null where unset). */
@@ -44,7 +44,7 @@ export interface PaymentWiring {
 
 export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
 
-export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
+export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'PAYMENT_MISMATCH' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
 export type CheckoutResult<T> = { ok: true; value: T } | { ok: false; reason: CheckoutRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
@@ -273,6 +273,26 @@ export const createCheckout = (deps: CheckoutDeps) => {
     return mine
   }
 
+  /** Cancels the order's latest attempt where its provider can; a refusal means it was paid meanwhile, settled here. */
+  const closeLatest = async (orderId: string): Promise<'closed' | 'paid'> => {
+    const latest = await withSystemScope(sql, (tx) => selectLatestPayment(tx, storeId, orderId))
+    const provider = latest?.provider
+    if (!latest?.provider_ref || !latest.provider_account_id || !provider || !isCardProvider(provider)) return 'closed'
+    const gateway = deps.gateways[provider]
+    const accountId = latest.provider_account_id
+    const row = await withSystemScope(sql, (tx) => selectAccountById(tx, accountId))
+    const account = row ? await openAccount(row, latest.mode, deps.secrets) : null
+    if (!gateway?.cancel || !account) return 'closed'
+    try {
+      await gateway.cancel(account, latest.provider_ref)
+      return 'closed'
+    } catch (error) {
+      if (!(error instanceof PaymentRefused)) throw error
+      const settled = await settlePayment(settleDeps, latest)
+      return settled === 'paid' || settled === 'already' ? 'paid' : 'closed'
+    }
+  }
+
   /** "Try again" after a card was declined or the shopper left: a new attempt for the same order, unless it got paid meanwhile. */
   const pay = async (orderId: string): Promise<CheckoutResult<PaymentStart>> => {
     const mine = await order(orderId)
@@ -282,7 +302,10 @@ export const createCheckout = (deps: CheckoutDeps) => {
     if (!method || !isCardProvider(method)) return { ok: false, reason: 'NOT_PENDING' }
     try {
       const settled = await settleOrder(settleDeps, storeId, mine.id)
-      if (settled === 'paid' || settled === 'already' || settled === 'mismatch') return { ok: false, reason: 'ALREADY_PAID' }
+      if (settled === 'paid' || settled === 'already') return { ok: false, reason: 'ALREADY_PAID' }
+      if (settled === 'mismatch') return { ok: false, reason: 'PAYMENT_MISMATCH' }
+      // The attempt this replaces is closed at the provider first, so the shopper can't pay both.
+      if ((await closeLatest(mine.id)) === 'paid') return { ok: false, reason: 'ALREADY_PAID' }
     } catch (error) {
       if (error instanceof PaymentUnavailable) return { ok: false, reason: 'PAYMENT_UNAVAILABLE' }
       throw error

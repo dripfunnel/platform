@@ -6,10 +6,10 @@ import { storeSchema } from '#apis/store/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
-import { PaymentUnavailable, type OAuthConnect, type PaymentGateway, type PaymentOutcome, type PaymentRequest } from '#core/payments'
+import { PaymentRefused, PaymentUnavailable, type OAuthConnect, type PaymentGateway, type PaymentOutcome, type PaymentRequest } from '#core/payments'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { releaseUnpaidOrders, settleOrder, type PaymentWiring, type SettleDeps } from '#engine/modules/checkout/index'
+import { applyOutcome, releaseUnpaidOrders, settleOrder, type PaymentWiring, type SettleDeps } from '#engine/modules/checkout/index'
 import { handleStripeHook } from '#hooks/stripe'
 import { handleStripeConnectCallback } from '#hooks/stripeConnect'
 import { signPayload, type StripeApi } from '#integrations/stripe/index'
@@ -34,6 +34,10 @@ const people = { owner: '', staff: '' }
 const outcomes = new Map<string, PaymentOutcome>()
 const started: PaymentRequest[] = []
 let unavailable = false
+let refused = false
+// Set to the outcome Stripe has when it refuses a cancel because the intent was paid meanwhile.
+let paidBeforeCancel: PaymentOutcome | null = null
+const cancelled: string[] = []
 const stripe: PaymentGateway = {
   available: () => true,
   start: async (account, request) => {
@@ -44,7 +48,15 @@ const stripe: PaymentGateway = {
   },
   outcome: async (_, ref) => {
     if (unavailable) throw new PaymentUnavailable('down')
+    if (refused) throw new PaymentRefused('no connected account')
     return outcomes.get(ref) ?? { state: 'failed' }
+  },
+  cancel: async (_, ref) => {
+    if (paidBeforeCancel) {
+      outcomes.set(ref, paidBeforeCancel)
+      throw new PaymentRefused('payment_intent_unexpected_state')
+    }
+    cancelled.push(ref)
   },
 }
 const deauthorized: string[] = []
@@ -114,10 +126,13 @@ const shop = async (source: string, cart: string | null = null, host = live) => 
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
-const merchant = async (source: string, who: keyof typeof cookies) => {
+const merchant = async (source: string, who: keyof typeof cookies, support?: 'read' | 'write') => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'other' ? stores.other : stores.us }
-  const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const standing = support && resolved.kind === 'acting'
+    ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: support } } } }
+    : resolved
   const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, payments: wiring, host: 'store.acme.example', now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -260,10 +275,16 @@ describe('Paying by card', () => {
     const first = placed?.payment?.providerRef ?? ''
     outcomes.set(first, { state: 'captured', amount: { amount: 1n, currency: 'USD' } })
     expect((await shop(`mutation { confirmPayment(orderId: "${id}") { paymentState } }`, token)).data?.['confirmPayment']).toEqual({ paymentState: 'pending' })
-    expect(await actions(id)).toContain('payment.amount_mismatch:provider')
+    await shop(`mutation { confirmPayment(orderId: "${id}") { paymentState } }`, token)
+    // Logged once, out of the sweep's queue for the merchant; a retry is refused while it stands.
+    expect((await actions(id)).filter((a) => a === 'payment.amount_mismatch:provider')).toHaveLength(1)
+    expect((await db.sql<{ payment_due_by: Date | null }[]>`select payment_due_by from "order" where id = ${id}`)[0]?.payment_due_by).toBeNull()
+    expect((await shop(`mutation { payOrder(orderId: "${id}") { providerRef } }`, token)).code).toBe('PAYMENT_MISMATCH')
     outcomes.set(first, { state: 'pending' })
     const again = (await shop(`mutation { payOrder(orderId: "${id}") { providerRef clientSecret } }`, token)).data?.['payOrder'] as { providerRef: string }
     expect(again.providerRef).not.toBe(first)
+    // The attempt it replaces is cancelled at Stripe, so the shopper can't pay both.
+    expect(cancelled).toContain(first)
     expect(await db.sql`select provider_ref, state from payment where order_id = ${id} order by created_at`).toEqual([
       { provider_ref: first, state: 'failed' },
       { provider_ref: again.providerRef, state: 'pending' },
@@ -308,9 +329,9 @@ describe('Paying by card', () => {
     unavailable = true
     expect(await releaseUnpaidOrders(settleDeps(tomorrow), tomorrow)).toBe(0)
     unavailable = false
-    // The mismatched order from earlier waits for a person; the rest are let go.
-    const cancelled = await releaseUnpaidOrders(settleDeps(tomorrow), tomorrow)
-    expect(cancelled).toBeGreaterThanOrEqual(1)
+    // Deferred an hour while Stripe was down; the mismatched order from earlier is out of the queue for a person.
+    const later = new Date(tomorrow.getTime() + 2 * 3_600_000)
+    expect(await releaseUnpaidOrders(settleDeps(later), later)).toBeGreaterThanOrEqual(1)
     expect((await db.sql`select state, cancel_reason from "order" where id = ${unpaid}`)[0]).toEqual({ state: 'cancelled', cancel_reason: 'unpaid' })
     expect((await db.sql`select state, payment_state from "order" where id = ${lateId}`)[0]).toEqual({ state: 'placed', payment_state: 'paid' })
     expect((await db.sql<{ actor_kind: string; reason: string }[]>`select actor_kind, reason from activity_log where action = 'order.cancelled' and target_id = ${unpaid}`)[0]).toEqual({ actor_kind: 'job', reason: 'unpaid' })
@@ -320,6 +341,48 @@ describe('Paying by card', () => {
     expect(await settleOrder(settleDeps(), stores.us, unpaid)).toBe('paid')
     expect((await db.sql`select state, payment_state from "order" where id = ${unpaid}`)[0]).toEqual({ state: 'cancelled', payment_state: 'paid' })
     expect(await actions(unpaid)).toContain('order.paid_after_cancel:provider')
+  })
+})
+
+describe('when payments go wrong', () => {
+  const paidOutcome = async (id: string): Promise<{ state: 'captured'; amount: { amount: bigint; currency: string } }> => ({ state: 'captured', amount: { amount: await totalOf(id), currency: 'USD' } })
+
+  it('records a second payment of a paid order for a refund, and calls it already paid', async () => {
+    const token = await readyCart(1)
+    const placed = (await placeStripe(token)).placed
+    const id = placed?.orderId ?? ''
+    const first = placed?.payment?.providerRef ?? ''
+    const second = ((await shop(`mutation { payOrder(orderId: "${id}") { providerRef } }`, token)).data?.['payOrder'] as { providerRef: string }).providerRef
+    outcomes.set(second, await paidOutcome(id))
+    expect(await settleOrder(settleDeps(), stores.us, id)).toBe('paid')
+    // The first attempt, cancelled locally, is paid too after all.
+    expect(await applyOutcome(settleDeps(), 'stripe', first, await paidOutcome(id))).toBe('already')
+    expect(await actions(id)).toContain('order.paid_twice:provider')
+  })
+
+  it('answers a retry as already paid when the attempt it would replace was paid meanwhile', async () => {
+    const token = await readyCart(1)
+    const placed = (await placeStripe(token)).placed
+    const id = placed?.orderId ?? ''
+    paidBeforeCancel = await paidOutcome(id)
+    try {
+      expect((await shop(`mutation { payOrder(orderId: "${id}") { providerRef } }`, token)).code).toBe('ALREADY_PAID')
+      expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${id}`)[0]?.payment_state).toBe('paid')
+    } finally {
+      paidBeforeCancel = null
+    }
+  })
+
+  it('lets a card order go when its payment can no longer be read (Stripe disconnected), without stopping the sweep', async () => {
+    const id = (await placeStripe(await readyCart(1))).placed?.orderId ?? ''
+    const due = new Date(Date.now() + 3 * 86_400_000)
+    refused = true
+    try {
+      expect(await releaseUnpaidOrders(settleDeps(due), due)).toBeGreaterThanOrEqual(1)
+    } finally {
+      refused = false
+    }
+    expect((await db.sql`select state, cancel_reason from "order" where id = ${id}`)[0]).toEqual({ state: 'cancelled', cancel_reason: 'unpaid' })
   })
 })
 
@@ -353,6 +416,16 @@ describe('Stripe’s events for a connected account', () => {
     unavailable = false
   })
 
+  it('never settles one store’s payment from another store’s connected account', async () => {
+    const placed = (await placeStripe(await readyCart(1))).placed
+    const id = placed?.orderId ?? ''
+    await db.sql`insert into payment_provider_account (store_id, provider, mode, external_account_id, status) values (${stores.other}, 'stripe', 'live', 'acct_dayton', 'live')`
+    outcomes.set(placed?.payment?.providerRef ?? '', { state: 'captured', amount: { amount: await totalOf(id), currency: 'USD' } })
+    expect((await deliver({ id: 'evt_x', type: 'payment_intent.succeeded', account: 'acct_dayton', object: { id: placed?.payment?.providerRef ?? '', object: 'payment_intent' } })).status).toBe(200)
+    expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${id}`)[0]?.payment_state).toBe('pending')
+    await db.sql`delete from payment_provider_account where external_account_id = 'acct_dayton'`
+  })
+
   it('turns Stripe off when the merchant removes the app on Stripe’s side', async () => {
     await merchant('mutation { connectGateway(provider: "bank_transfer", bankDetails: "Chase 0001") }', 'owner')
     expect((await deliver({ id: 'evt_5', type: 'account.application.deauthorized', account: 'acct_columbus', object: { id: 'ca_platform', object: 'application' } })).status).toBe(200)
@@ -368,6 +441,8 @@ describe('Disconnecting', () => {
     expect((await merchant('mutation { disconnectGateway(provider: "bank_transfer") }', 'owner')).data?.['disconnectGateway']).toBe(true)
     expect((await merchant('mutation { disconnectGateway(provider: "stripe") }', 'owner')).code).toBe('LAST_METHOD')
     expect((await merchant('mutation { disconnectGateway(provider: "stripe") }', 'staff')).code).toBe('FORBIDDEN')
+    // A support session never changes how the store is paid, even with write access.
+    expect((await merchant('mutation { disconnectGateway(provider: "stripe") }', 'owner', 'write')).code).toBe('SUPPORT_SESSION')
     expect((await merchant('mutation { disconnectGateway(provider: "stripe") }', 'other')).code).toBe('NOT_FOUND')
     await merchant('mutation { connectGateway(provider: "bank_transfer", bankDetails: "Chase 0001") }', 'owner')
     expect((await merchant('mutation { disconnectGateway(provider: "stripe") }', 'owner')).data?.['disconnectGateway']).toBe(true)
