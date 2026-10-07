@@ -9,7 +9,7 @@ import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectAccountById } from '#db/scoped/payments'
 import {
   addRefunded,
-  defaultWarehouseOf,
+  defaultWarehousesOf,
   insertLedgerEntry,
   insertPaymentRefund,
   insertRefund,
@@ -177,16 +177,21 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
       const order = await lockOrderToRefund(tx, storeId, input.orderId)
       if (!order) return { ok: false, reason: 'NOT_FOUND' }
       const byId = new Map((await lockLinesToRefund(tx, order.id)).map((l) => [l.id, l]))
-      const lines: { lineId: string; sellerId: string | null; quantity: number; destination: string }[] = []
+      const picked: { line: LineToRefundRow; quantity: number; backTo: string | null }[] = []
       for (const [i, id] of ids.entries()) {
         const line = byId.get(id)
         const quantity = input.lines[i]?.quantity ?? 0
         if (!line) return { ok: false, reason: 'NOT_FOUND' }
         // Shipped units not in a return yet nor refunded outside one: a unit goes back one way only.
         if (quantity > line.fulfilled_quantity - line.returned_quantity - line.refunded_outside) return { ok: false, reason: 'TOO_MANY' }
-        const destination = await defaultWarehouseOf(tx, storeId, line.shipping_mode === 'to-shopper' ? line.seller_id : null)
+        picked.push({ line, quantity, backTo: line.shipping_mode === 'to-shopper' ? line.seller_id : null })
+      }
+      const homes = await defaultWarehousesOf(tx, storeId, picked.map((p) => p.backTo))
+      const lines: { lineId: string; sellerId: string | null; quantity: number; destination: string }[] = []
+      for (const p of picked) {
+        const destination = homes.get(p.backTo)
         if (!destination) return { ok: false, reason: 'NO_LOCATION' }
-        lines.push({ lineId: line.id, sellerId: line.seller_id, quantity, destination })
+        lines.push({ lineId: p.line.id, sellerId: p.line.seller_id, quantity: p.quantity, destination })
       }
       const made = await insertReturn(tx, { storeId, orderId: order.id, orderNumber: order.number, reason: input.reason, note, createdBy: actor.id }, lines)
       await record(tx, refundAudit.returnStarted, order, input.reason, lines.map((l) => l.sellerId))
@@ -278,16 +283,19 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
           lines.map((l) => ({ lineId: l.lineId, quantity: l.quantity, amount: l.amount })),
         )
         if (override && owner) await insertLedgerEntry(tx, { storeId, sellerId: owner, amount, currency: order.currency, refundId: id, createdBy: actor.id })
-        // Back on hand at the owner's own location; a to-store supplier's units go back to it from the store, its to count.
-        if (input.restock) {
-          for (const l of lines.filter((x) => x.quantity > 0 && x.line.track_stock && x.line.shipping_mode !== 'to-store')) {
-            const back = inReturn?.lines.find((r) => r.order_line_id === l.lineId)?.destination_warehouse_id ?? (await defaultWarehouseOf(tx, storeId, l.line.seller_id))
-            if (!back) throw new Refused('NO_LOCATION')
-            await restockReturned(tx, { storeId, sellerId: l.line.seller_id, productId: l.line.product_id, versionId: l.line.version_id, warehouseId: back, quantity: l.quantity, returnId: inReturn?.id ?? null, orderId: order.id, actorId: actor.id })
-          }
-        }
         await record(tx, override ? refundAudit.overridden : refundAudit.issued, order, input.reason, [owner])
         made.push({ id, amount })
+      }
+      // Back on hand at the owner's own location; a to-store supplier's units go back to it from the store, its to count.
+      if (input.restock) {
+        const back = [...owners.values()].flat().filter((x) => x.quantity > 0 && x.line.track_stock && x.line.shipping_mode !== 'to-store')
+        const homes = await defaultWarehousesOf(tx, storeId, back.map((l) => l.line.seller_id))
+        const items = back.map((l) => {
+          const warehouseId = inReturn?.lines.find((r) => r.order_line_id === l.lineId)?.destination_warehouse_id ?? homes.get(l.line.seller_id)
+          if (!warehouseId) throw new Refused('NO_LOCATION')
+          return { sellerId: l.line.seller_id, productId: l.line.product_id, versionId: l.line.version_id, warehouseId, quantity: l.quantity }
+        })
+        await restockReturned(tx, { storeId, returnId: inReturn?.id ?? null, orderId: order.id, actorId: actor.id }, items)
       }
       // One provider refund for the whole request, asked last inside the transaction: all of it goes back or none of it,
       // and the same request from the same order state is the same refund there.
