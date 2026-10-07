@@ -52,6 +52,15 @@ describe('the Shop API’s edge cache', () => {
     expect(await shopCacheKey(post('mutation { x }'), shopper(), 'h')).toBeNull()
   })
 
+  it('never buffers a body past 64 KB to key it, whatever length it claims', async () => {
+    const body = JSON.stringify({ query: `{ store { name } }${' '.repeat(70 * 1024)}` })
+    const said = new Request('https://kesari.shops.acme.example/shop-api', { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': String(body.length) }, body })
+    expect(await shopCacheKey(said, shopper(), 'kesari.shops.acme.example')).toBeNull()
+    const unsaid = new Request('https://kesari.shops.acme.example/shop-api', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+    expect(await shopCacheKey(unsaid, shopper(), 'kesari.shops.acme.example')).toBeNull()
+    expect(await shopCacheKey(post('{ store { name } }'), shopper(), 'kesari.shops.acme.example')).not.toBeNull()
+  })
+
   it('serves a clean answer from the cache the second time, and never keeps an error', async () => {
     const { cache, kept } = memory()
     const key = new Request('https://shop-cache.invalid/k')
