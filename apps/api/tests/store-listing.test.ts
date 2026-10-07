@@ -401,22 +401,24 @@ describe('a product’s listing sections', () => {
   it('needs the plan to add FAQs, related products, a badge or a video, but never to keep what a product has', async () => {
     const badge = (await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'Plan sections', tone: 'ok', rule: 'manual' } })).data?.['saveBadge'] as string
     const faq = [{ question: 'Q', answer: 'A' }]
-    const made = await product('owner', 'Plan sections', { listing: { faqs: faq, badgeIds: [badge] } })
+    const video = { url: 'https://www.youtube.com/watch?v=keep' }
+    const made = await product('owner', 'Plan sections', { listing: { faqs: faq, badgeIds: [badge] }, video })
     const other = await product('owner', 'Plan sections other')
     expect(made.code).toBeUndefined()
-    const edit = (revision: number, name: string, listing: Record<string, unknown>) =>
-      gql(save, 'owner', { id: made.id, revision, input: { name, options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing } })
+    const edit = (revision: number, name: string, listing: Record<string, unknown>, withVideo: Record<string, unknown> | null = video) =>
+      gql(save, 'owner', { id: made.id, revision, input: { name, options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing, ...(withVideo ? { video: withVideo } : {}) } })
     await subscribe(t.storeA1, t.partnerA, plans.bare)
     try {
-      // The product keeps its FAQs and badge through an unrelated edit after the plan lost them.
+      // The product keeps its FAQs, badge and video through an unrelated edit after the plan lost them.
       expect((await edit(1, 'Plan sections renamed', { faqs: faq, badgeIds: [badge] })).code).toBeUndefined()
       // Adding is what needs the plan (the failed saves leave the revision where it was).
       expect((await edit(2, 'Plan sections renamed', { faqs: [...faq, { question: 'Q2', answer: 'A2' }], badgeIds: [badge] })).code).toBe('PLAN_LIMIT')
       expect((await edit(2, 'Plan sections renamed', { faqs: faq, relatedIds: [other.id], badgeIds: [badge] })).code).toBe('PLAN_LIMIT')
       expect((await product('owner', 'New with a badge', { listing: { badgeIds: [badge] } })).code).toBe('PLAN_LIMIT')
       expect((await product('owner', 'New with a video', { video: { url: 'https://www.youtube.com/watch?v=abc' } })).code).toBe('PLAN_LIMIT')
-      // Taking them away is never refused.
-      expect((await edit(2, 'Plan sections renamed', { faqs: [], badgeIds: [] })).code).toBeUndefined()
+      // Putting a different video on it needs the plan; taking things away never does.
+      expect((await edit(2, 'Plan sections renamed', { faqs: faq, badgeIds: [badge] }, { url: 'https://www.youtube.com/watch?v=other' })).code).toBe('PLAN_LIMIT')
+      expect((await edit(2, 'Plan sections renamed', { faqs: [], badgeIds: [] }, null)).code).toBeUndefined()
     } finally {
       await subscribe(t.storeA1, t.partnerA, plans.full)
     }

@@ -497,7 +497,10 @@ export const registerProducts = (builder: StoreBuilder) => {
     const badges = listing?.badgeIds ?? []
     if ((faqs.length > 0 && !same(faqs, stored?.faqs ?? [])) || (related.length > 0 && !same([...related].sort(), [...(stored?.related ?? [])].sort()))) await requireFeature(ctx, caller, 'faqs_related')
     if (badges.length > 0 && !same([...badges].sort(), [...(stored?.badge_ids ?? [])].sort())) await requireFeature(ctx, caller, 'badges')
-    if (input.video && (input.video.assetId || input.video.url) && !same(input.video, stored?.video ?? null)) await requireFeature(ctx, caller, 'product_video')
+    // The stored video is snake_case, the input camelCase; a missing id or address is null on both.
+    const video = input.video && (input.video.assetId || input.video.url) ? { assetId: input.video.assetId ?? null, url: input.video.url ?? null } : null
+    const keptVideo = stored?.video ? { assetId: (stored.video as { asset_id: string | null }).asset_id ?? null, url: (stored.video as { url: string | null }).url ?? null } : null
+    if (video && !same(video, keptVideo)) await requireFeature(ctx, caller, 'product_video')
   }
   builder.mutationFields((t) => ({
     // A Stock-only supplier's new product, waiting for the merchant's approval (decided on #337).
