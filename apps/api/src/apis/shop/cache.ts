@@ -97,8 +97,8 @@ export const throughShopCache = async (cache: ShopCache | null, key: Request | n
   headers.set('x-shop-cache', 'miss')
   headers.set('cache-control', servedControl)
   if (clean) {
-    const stored = new Headers(headers)
-    stored.set('cache-control', `public, max-age=${shopCacheSeconds}`)
+    // Only what describes the answer is kept: nothing request-specific is replayed to the next shopper.
+    const stored = new Headers({ 'content-type': headers.get('content-type') ?? 'application/json', 'cache-control': `public, max-age=${shopCacheSeconds}` })
     keep(cache.put(key, new Response(text, { status: 200, headers: stored })))
   }
   return new Response(text, { status: 200, headers })

@@ -58,7 +58,7 @@ describe('the Shop API’s edge cache', () => {
     let runs = 0
     const ok = () => {
       runs += 1
-      return Promise.resolve(new Response(JSON.stringify({ data: { store: { name: 'Kesari' } } }), { status: 200, headers: { 'content-type': 'application/json' } }))
+      return Promise.resolve(new Response(JSON.stringify({ data: { store: { name: 'Kesari' } } }), { status: 200, headers: { 'content-type': 'application/json', 'set-cookie': 'x=1', 'x-request': 'r1' } }))
     }
     const waits: Promise<void>[] = []
     const first = await throughShopCache(cache, key, ok, (w) => waits.push(w))
@@ -68,6 +68,7 @@ describe('the Shop API’s edge cache', () => {
     expect([first.headers.get('cache-control'), second.headers.get('cache-control')]).toEqual(['private, no-store', 'private, no-store'])
     expect(await second.json()).toEqual({ data: { store: { name: 'Kesari' } } })
     expect(kept.get(key.url)?.headers.get('cache-control')).toBe('public, max-age=300')
+    expect([...(kept.get(key.url)?.headers.keys() ?? [])].sort()).toEqual(['cache-control', 'content-type'])
     const refused = () => Promise.resolve(new Response(JSON.stringify({ errors: [{ message: 'x' }], data: null }), { status: 200 }))
     const errorKey = new Request('https://shop-cache.invalid/e')
     await throughShopCache(cache, errorKey, refused, (w) => waits.push(w))
