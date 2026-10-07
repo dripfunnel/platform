@@ -235,6 +235,7 @@ describe('#444’s review', () => {
     expect(await count(merchant(stores.india), 'store_customer_auth')).toBe(1)
     await expect(count(merchant(stores.india), 'customer_code')).rejects.toThrow(/permission denied/)
     await expect(count(merchant(stores.india, { sellerScope: { kind: 'seller', sellerId: t.sellerA1First } }), 'store_customer_auth')).rejects.toThrow(/permission denied/)
+    await expect(count(merchant(stores.india, { sellerScope: { kind: 'seller', sellerId: t.sellerA1First } }), 'customer_address')).rejects.toThrow(/permission denied/)
     const support: TenantContext = { caller: { kind: 'support', supportSessionId: 'ss', partnerUserId: 'pu', access: 'read' }, partnerId: t.partnerA, storeId: stores.india, sellerScope: { kind: 'all' }, subscription: 'active' }
     await expect(withScope(db.sql, support, (tx) => tx`update store_customer_auth set phone_enabled = false`)).rejects.toThrow(/row-level security/)
   })
