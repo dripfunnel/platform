@@ -636,8 +636,8 @@ describe('the backstop itself', () => {
     // A new one is a decision: add it to 0047's list and here, with what the supplier does with it.
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier'
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and table_name not in ('store', 'story_block') order by 1`)).toEqual([
-      'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'external_connection', 'filter', 'filter_value', 'invitation', 'membership',
-      // Its own parts and lines without money, and the two views of the order and its lines' money (#310, 0070).
+      'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'external_connection', 'filter', 'filter_value', 'fulfilment', 'fulfilment_line', 'invitation', 'membership',
+      // Its own parts and lines without money, the two views of the order and its lines' money (#310, 0070), and its own shipments (0071).
       'order_for_supplier', 'order_line', 'order_line_for_supplier', 'order_part', 'outbox', 'price_history',
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
       'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',

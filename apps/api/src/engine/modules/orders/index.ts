@@ -4,6 +4,7 @@ import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
+import { selectFulfilments, type FulfilmentRow } from '#db/scoped/fulfilment'
 import {
   countMerchantOrders,
   countSupplierOrders,
@@ -55,11 +56,12 @@ export const createOrdersService = ({ sql, context, actor, activity, facts }: Or
 
   const counts = (): Promise<OrderCounts> => withScope(sql, context, (tx) => (sellerId ? countSupplierOrders(tx) : countMerchantOrders(tx, storeId)))
 
-  const detail = async (orderId: string): Promise<(OrderDetailRow & { history: OrderHistoryRow[] }) | null> => {
+  const detail = async (orderId: string): Promise<(OrderDetailRow & { history: OrderHistoryRow[]; fulfilments: FulfilmentRow[] }) | null> => {
     if (!isUuid(orderId)) return null
     return withScope(sql, context, async (tx) => {
       const order = sellerId ? await selectSupplierOrder(tx, orderId) : await selectMerchantOrder(tx, storeId, orderId)
-      return order ? { ...order, history: await selectOrderHistory(tx, storeId, orderId, sellerId, historyLimit) } : null
+      // A supplier's shipments are its own: the store's onward one carries no seller, so its tracking stays the store's.
+      return order ? { ...order, history: await selectOrderHistory(tx, storeId, orderId, sellerId, historyLimit), fulfilments: await selectFulfilments(tx, orderId) } : null
     })
   }
 

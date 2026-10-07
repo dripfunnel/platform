@@ -56,7 +56,8 @@ export type StorePermission = (typeof storePermissions)[number]
 
 export const isStorePermission = (value: string): value is StorePermission => (storePermissions as readonly string[]).includes(value)
 
-const staffSet: readonly StorePermission[] = ['catalog.read', 'stock.read', 'orders.read', 'orders.write', 'customers.read', 'customers.write', 'customers.export', 'exports', 'offers.read', 'carts.read']
+// orders.write includes fulfilment (ACCESS §5.1), so merchant seats hold the key a supplier's shipping is declared with too.
+const staffSet: readonly StorePermission[] = ['catalog.read', 'stock.read', 'orders.read', 'orders.write', 'orders.fulfil', 'customers.read', 'customers.write', 'customers.export', 'exports', 'offers.read', 'carts.read']
 
 const managerSet: readonly StorePermission[] = [
   ...staffSet,
@@ -73,7 +74,7 @@ const managerSet: readonly StorePermission[] = [
   'support.allow_write',
 ]
 
-const supplierOnly: readonly StorePermission[] = ['orders.fulfil', 'exports.products', 'exports.orders', 'sales.read', 'supplier.team', 'catalog.propose']
+const supplierOnly: readonly StorePermission[] = ['exports.products', 'exports.orders', 'sales.read', 'supplier.team', 'catalog.propose']
 
 export const merchantRolePermissions: Record<MerchantRole, readonly StorePermission[]> = {
   owner: storePermissions.filter((p) => !supplierOnly.includes(p)),

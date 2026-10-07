@@ -624,6 +624,17 @@ shopper and the history newest first) and `navBadges { toShip }`, for `orders.re
 listed and flagged `test`, never to ship. A supplier with `orders.read` sees only orders holding its lines that went through
 on the live storefront, its own part and lines at the price sold, no total, payment or contact, and the shopper's name and
 delivery address only where its part was placed `to-shopper`; its chips are its part's, and its history only its own entries.
+**Part 2, shipping:** `shipItems(orderId, warehouseId, lines: [{ lineId, quantity }], courierName, trackingNumber, trackingUrl)`
+and `addTracking(shipmentId, courierName, trackingNumber, trackingUrl)` (`orders.fulfil`: every merchant seat, since
+`orders.write` includes fulfilment, and the `vendor-orders-fulfil` tier for its own part, which keeps shipping while the store is
+past due). Per line and quantity from one of the caller's own locations; partial is normal. The store ships its own lines and a
+to-store supplier's once handed over; a supplier ships its own lines to the shopper (`to-shopper`) or hands them to the store
+(`to-store`, a `sent_to_store` shipment), by the mode its part was placed under. Stock leaves the location it was shipped from,
+with an `order` movement, and what the order held is given back; a tracked version the location hasn't enough of is refused
+(`NOT_ENOUGH_STOCK`). A cancelled, test or still-unpaid card order never ships (`NOT_SHIPPABLE`); a pickup order's is a `pickup`
+handed over with no tracking. Shipping a transfer before it's paid lets its due date go, so the 3-day sweep leaves it. `order`
+answers its `shipments` (a supplier's own only, so the store's onward tracking stays the store's) and each line's
+`sentToStoreQuantity`. A tracking address is https only. Booking a label through a courier is #311's.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

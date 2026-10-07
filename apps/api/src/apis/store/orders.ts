@@ -13,6 +13,7 @@ import {
   type OrdersRefusal,
   type OrdersResult,
 } from '#engine/modules/orders/index'
+import { createFulfilmentService, fulfilmentAudit, type FulfilmentRefusal, type FulfilmentResult, type FulfilmentRow } from '#engine/modules/orders/fulfilment'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
@@ -27,12 +28,28 @@ const words: Record<OrdersRefusal, string> = {
   READ_ONLY: 'A read-only support session can’t change this store.',
 }
 
+const shipWords: Record<FulfilmentRefusal, string> = {
+  INVALID_INPUT: 'Something here isn’t valid.',
+  NOT_FOUND: 'That isn’t here.',
+  NOT_SHIPPABLE: 'This order can’t ship: it’s cancelled, a test, or still waiting for its card payment.',
+  NOT_YOURS: 'Some of these items or that location aren’t yours to ship from.',
+  TOO_MANY: 'That’s more than is left to ship.',
+  NOT_ENOUGH_STOCK: 'That location hasn’t that many. Change the stock or pick another location.',
+  NO_STORE_LOCATION: 'The store has no location to send these to yet.',
+  READ_ONLY: 'A read-only support session can’t change this store.',
+}
+
+const shipped = <T>(result: FulfilmentResult<T>): T => {
+  if (result.ok) return result.value
+  throw new GraphQLError(shipWords[result.reason], { extensions: { code: result.reason } })
+}
+
 const answered = <T>(result: OrdersResult<T>): T => {
   if (result.ok) return result.value
   throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
 }
 
-type OrderDetail = OrderDetailRow & { history: OrderHistoryRow[] }
+type OrderDetail = OrderDetailRow & { history: OrderHistoryRow[]; fulfilments: FulfilmentRow[] }
 type Merchant = NonNullable<OrderDetailRow['merchant']>
 
 export const registerOrders = (builder: StoreBuilder) => {
@@ -42,6 +59,11 @@ export const registerOrders = (builder: StoreBuilder) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
     return createOrdersService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+  }
+  const shipping = (ctx: StoreContext) => {
+    if (!ctx.sql) throw forbidden()
+    const caller = actingCaller(ctx)
+    return createFulfilmentService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
   }
   const money = (amount: string | null, currency: string) => (amount === null ? null : { amount, currency })
 
@@ -113,6 +135,22 @@ export const registerOrders = (builder: StoreBuilder) => {
       fulfilledQuantity: t.exposeInt('fulfilled_quantity'),
       returnedQuantity: t.exposeInt('returned_quantity'),
       refundedQuantity: t.exposeInt('refunded_quantity'),
+      sentToStoreQuantity: t.exposeInt('sent_quantity'),
+    }),
+  })
+  const Shipment = builder.objectRef<FulfilmentRow>('OrderShipment').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // manual, pickup, sent_to_store (a supplier's hand-off), or booked through a courier (#311).
+      kind: t.exposeString('kind'),
+      supplierId: t.exposeID('seller_id', { nullable: true }),
+      warehouseId: t.exposeID('warehouse_id'),
+      warehouseName: t.exposeString('warehouse_name'),
+      courierName: t.exposeString('courier_name', { nullable: true }),
+      trackingNumber: t.exposeString('tracking_number', { nullable: true }),
+      trackingUrl: t.exposeString('tracking_url', { nullable: true }),
+      shippedAt: t.string({ resolve: (f) => new Date(f.shipped_at).toISOString() }),
+      lines: t.field({ type: [ShipmentLine], resolve: (f) => f.lines }),
     }),
   })
   // "You pack these" or "{Supplier} packs these": one part an owner, with the mode it was placed under.
@@ -125,6 +163,9 @@ export const registerOrders = (builder: StoreBuilder) => {
       state: t.exposeString('state'),
       lines: t.field({ type: [Line], resolve: (p) => p.lines.map((l) => ({ ...l, currency: p.currency })) }),
     }),
+  })
+  const ShipmentLine = builder.objectRef<FulfilmentRow['lines'][number]>('OrderShipmentLine').implement({
+    fields: (t) => ({ lineId: t.exposeID('line_id'), quantity: t.exposeInt('quantity') }),
   })
   const Event = builder.objectRef<OrderHistoryRow>('OrderEvent').implement({
     fields: (t) => ({
@@ -166,6 +207,7 @@ export const registerOrders = (builder: StoreBuilder) => {
       shippingAddress: t.field({ type: Address, nullable: true, resolve: (o) => o.shipping_address }),
       parts: t.field({ type: [Part], resolve: (o) => o.parts.map((p) => ({ ...p, currency: o.currency })) }),
       history: t.field({ type: [Event], resolve: (o) => o.history }),
+      shipments: t.field({ type: [Shipment], resolve: (o) => o.fulfilments }),
       paymentState: t.string({ nullable: true, resolve: (o) => o.merchant?.payment_state ?? null }),
       fulfilmentState: t.string({ nullable: true, resolve: (o) => o.merchant?.fulfilment_state ?? null }),
       paymentMethod: t.string({ nullable: true, resolve: (o) => o.merchant?.payment_method ?? null }),
@@ -219,7 +261,41 @@ export const registerOrders = (builder: StoreBuilder) => {
     }),
   }))
 
+  const ShipLine = builder.inputType('ShipLineInput', { fields: (t) => ({ lineId: t.id({ required: true }), quantity: t.int({ required: true }) }) })
+  // The merchant side's `orders.write` includes fulfilment and its seats hold `orders.fulfil` with it (ACCESS §5.1); a supplier's tier
+  // grants it for its own part, which a past-due store's suppliers keep doing (#337).
+  const fulfil = { api: 'store', scope: 'store-seller', permission: 'orders.fulfil', target: 'none' } as const
+
   builder.mutationFields((t) => ({
+    // Per line and quantity, from one of the caller's locations; partial is normal. Answers the shipments made, one a part.
+    shipItems: t.idList({
+      args: {
+        orderId: t.arg.id({ required: true }),
+        warehouseId: t.arg.id({ required: true }),
+        lines: t.arg({ type: [ShipLine], required: true }),
+        courierName: t.arg.string(),
+        trackingNumber: t.arg.string(),
+        trackingUrl: t.arg.string(),
+      },
+      extensions: { access: { ...fulfil, audit: fulfilmentAudit.shipped } },
+      resolve: async (_, args, ctx) =>
+        shipped(
+          await shipping(ctx).ship({
+            orderId: String(args.orderId).toLowerCase(),
+            warehouseId: String(args.warehouseId).toLowerCase(),
+            lines: args.lines.map((l) => ({ lineId: String(l.lineId), quantity: l.quantity })),
+            courierName: args.courierName ?? null,
+            trackingNumber: args.trackingNumber ?? null,
+            trackingUrl: args.trackingUrl ?? null,
+          }),
+        ),
+    }),
+    addTracking: t.boolean({
+      args: { shipmentId: t.arg.id({ required: true }), courierName: t.arg.string(), trackingNumber: t.arg.string({ required: true }), trackingUrl: t.arg.string() },
+      extensions: { access: { ...fulfil, audit: fulfilmentAudit.trackingAdded } },
+      resolve: async (_, args, ctx) =>
+        shipped(await shipping(ctx).addTracking(String(args.shipmentId).toLowerCase(), { courierName: args.courierName ?? null, trackingNumber: args.trackingNumber, trackingUrl: args.trackingUrl ?? null })),
+    }),
     addOrderNote: t.boolean({
       args: { orderId: t.arg.id({ required: true }), note: t.arg.string({ required: true }) },
       extensions: { access: { api: 'store', scope: 'store', permission: 'orders.write', target: 'none', audit: ordersAudit.noteAdded } },

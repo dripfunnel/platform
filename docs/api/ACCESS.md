@@ -387,7 +387,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `stock.write`: quantities in the merchant's own warehouses | ✓ | ✓ | |
 | `warehouses.write`: the merchant's own warehouses (Settings › Warehouse) | ✓ | | |
 | `orders.read`, `customers.read` | ✓ | ✓ | ✓ |
-| `orders.write` (including fulfilment and cancellation), `customers.write` (add, edit, groups, tags, notes, recording that a customer asked to stop marketing) | ✓ | ✓ | ✓ |
+| `orders.write` (including fulfilment and cancellation; the seat holds `orders.fulfil` with it, the key a supplier's shipping shares, #310), `customers.write` (add, edit, groups, tags, notes, recording that a customer asked to stop marketing) | ✓ | ✓ | ✓ |
 | `orders.refund`: refunds, returns (start, mark received), and **overriding a supplier's refund** (§7.3) | ✓ | ✓ | |
 | `orders.mark_paid`: marking a cash-on-delivery or bank-transfer order paid, audited with the actor (decided 2026-10-05) | ✓ | ✓ | |
 | `customers.export`, `exports`: product and order exports. Staff's include orders with the customer's name and address, deliberately: Staff already reads and fulfils them (`orders.read`, `orders.write`) | ✓ | ✓ | ✓ |

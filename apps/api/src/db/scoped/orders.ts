@@ -151,12 +151,14 @@ export const recordPaid = async (tx: ScopedSql, storeId: string, orderId: string
   await tx`update payment set state = 'captured', captured_at = ${now}, updated_at = ${now} where order_id = ${orderId} and store_id = ${storeId} and state in ('pending', 'authorised')`
 }
 
-/** Gives back each line's held stock where it was held. */
+/** Gives back each line's held stock where it was held: what hasn't left yet, shipped or handed to the store (#310). */
 export const releaseStock = async (tx: ScopedSql, storeId: string, orderId: string): Promise<void> => {
   await tx`
     update stock_level l set reserved = greatest(l.reserved - x.quantity, 0), updated_at = now()
-    from (select version_id, reserved_warehouse_id, sum(quantity)::int as quantity from order_line
-          where order_id = ${orderId} and store_id = ${storeId} and reserved_warehouse_id is not null group by version_id, reserved_warehouse_id) x
+    from (select o.version_id, o.reserved_warehouse_id, sum(o.quantity - greatest(o.fulfilled_quantity,
+            coalesce((select sum(fl.quantity) from fulfilment_line fl join fulfilment f on f.id = fl.fulfilment_id where fl.order_line_id = o.id and f.kind = 'sent_to_store'), 0)))::int as quantity
+          from order_line o
+          where o.order_id = ${orderId} and o.store_id = ${storeId} and o.reserved_warehouse_id is not null group by o.version_id, o.reserved_warehouse_id) x
     where l.version_id = x.version_id and l.warehouse_id = x.reserved_warehouse_id
   `
 }

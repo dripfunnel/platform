@@ -147,6 +147,8 @@ export interface OrderLineRow {
   fulfilled_quantity: number
   returned_quantity: number
   refunded_quantity: number
+  /** Handed to the store by a to-store supplier, for the store to ship on. */
+  sent_quantity: number
 }
 
 export interface OrderPartRow {
@@ -213,7 +215,7 @@ const merchantLines = (tx: ScopedSql) => tx`
     'name', l.name, 'version_name', l.version_name, 'sku', l.sku, 'quantity', l.quantity, 'unit_amount', l.unit_amount::text,
     'line_amount', (l.unit_amount * l.quantity)::text, 'discount_amount', l.discount_amount::text, 'tax_amount', l.tax_amount::text,
     'line_total_amount', l.line_total_amount::text, 'fulfilled_quantity', l.fulfilled_quantity, 'returned_quantity', l.returned_quantity,
-    'refunded_quantity', l.refunded_quantity) order by l.position)
+    'refunded_quantity', l.refunded_quantity, 'sent_quantity', (select coalesce(sum(fl.quantity), 0)::int from fulfilment_line fl join fulfilment f on f.id = fl.fulfilment_id where fl.order_line_id = l.id and f.kind = 'sent_to_store')) order by l.position)
   from order_line l where l.order_id = p.order_id and l.seller_id is not distinct from p.seller_id), '[]'::json)`
 
 export const selectMerchantOrder = async (tx: ScopedSql, storeId: string, orderId: string): Promise<OrderDetailRow | null> =>
@@ -249,7 +251,8 @@ export const selectSupplierOrder = async (tx: ScopedSql, orderId: string): Promi
           'state', v.part_state, 'lines', coalesce((select json_agg(json_build_object('id', l.id, 'seller_id', l.seller_id, 'version_id', l.version_id,
             'product_id', l.product_id, 'name', l.name, 'version_name', l.version_name, 'sku', l.sku, 'quantity', l.quantity,
             'unit_amount', m.unit_amount::text, 'line_amount', m.line_amount::text, 'discount_amount', null, 'tax_amount', null, 'line_total_amount', null,
-            'fulfilled_quantity', l.fulfilled_quantity, 'returned_quantity', l.returned_quantity, 'refunded_quantity', l.refunded_quantity) order by l.position)
+            'fulfilled_quantity', l.fulfilled_quantity, 'returned_quantity', l.returned_quantity, 'refunded_quantity', l.refunded_quantity,
+            'sent_quantity', (select coalesce(sum(fl.quantity), 0)::int from fulfilment_line fl join fulfilment f on f.id = fl.fulfilment_id where fl.order_line_id = l.id and f.kind = 'sent_to_store')) order by l.position)
             from order_line l join order_line_for_supplier m on m.id = l.id where l.order_id = v.id), '[]'::json))) as parts,
         null as merchant
       from order_for_supplier v where v.id = ${orderId}

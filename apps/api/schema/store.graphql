@@ -429,6 +429,7 @@ type Mutation {
   addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
   addSupplierPerson(email: String!, id: ID!, role: String): ID
   addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
+  addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   approveProduct(id: ID!): Boolean
   changeEmail(email: String!, password: String!): Boolean
@@ -512,6 +513,7 @@ type Mutation {
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
   setTheme(theme: String!): Profile
+  shipItems(courierName: String, lines: [ShipLineInput!]!, orderId: ID!, trackingNumber: String, trackingUrl: String, warehouseId: ID!): [ID!]
   signOutOtherSessions: Int
   startCatalogImport(file: String!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
@@ -572,6 +574,7 @@ type Order {
   phone: String
   placedAt: String
   refunded: Money
+  shipments: [OrderShipment!]
   shipping: Money
   shippingAddress: OrderAddress
   shippingMethodLabel: String
@@ -639,6 +642,7 @@ type OrderLine {
   quantity: Int
   refundedQuantity: Int
   returnedQuantity: Int
+  sentToStoreQuantity: Int
   sku: String
   tax: Money
   total: Money
@@ -669,6 +673,24 @@ type OrderPayment {
   mode: String
   provider: String
   state: String
+}
+
+type OrderShipment {
+  courierName: String
+  id: ID
+  kind: String
+  lines: [OrderShipmentLine!]
+  shippedAt: String
+  supplierId: ID
+  trackingNumber: String
+  trackingUrl: String
+  warehouseId: ID
+  warehouseName: String
+}
+
+type OrderShipmentLine {
+  lineId: ID
+  quantity: Int
 }
 
 type OrderSummary {
@@ -1165,6 +1187,11 @@ input SharedNameTranslationInput {
   kind: String!
   source: String!
   text: String
+}
+
+input ShipLineInput {
+  lineId: ID!
+  quantity: Int!
 }
 
 type ShippingCourier {
