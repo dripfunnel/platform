@@ -57,7 +57,7 @@ const gql = async (source: string, who: { host?: string; session?: string; cart?
   const headers: Record<string, string> = { ...(who.session ? { 'x-shop-session': who.session } : {}), ...(who.cart ? { 'x-shop-cart': who.cart } : {}) }
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async () => allow, sessionToken: who.session ?? null, now }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async (key) => (limiterKeys.push(key), allow), sessionToken: who.session ?? null, now }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -85,6 +85,8 @@ const verify = (channel: 'EMAIL' | 'PHONE', to: string, code: string, extra = ''
   gql(`mutation { verifySignInCode(channel: ${channel}, to: "${to}", code: "${code}"${extra}) { sessionToken created } }`, who)
 
 let phoneSession = ''
+// Every key the sign-in limiter was asked about: none may hold an address.
+const limiterKeys: string[] = []
 // What the sign-in limiter answers; a test turns it off.
 let allow = true
 
@@ -147,8 +149,11 @@ describe('a signed-in shopper', () => {
     const id = saved.data?.['saveAddress'] as string
     expect((await gql('{ account { name addresses { id city isDefault } } }', who)).data?.['account']).toEqual({ name: 'Asha Rao', addresses: [{ id, city: 'Pune', isDefault: true }] })
     expect((await gql('mutation { saveAddress(address: { name: "x", line1: "y", city: "z", country: "XX" }) }', who)).code).toBe('INVALID_INPUT')
-    // Saving an address that isn't there is refused and leaves the default as it was (#444's review).
+    // Saving an address that isn't there is refused and leaves the default as it was.
     expect((await gql(`mutation { saveAddress(id: "${crypto.randomUUID()}", address: { name: "x", line1: "y", city: "z", country: "IN" }, isDefault: true) }`, who)).code).toBe('NOT_FOUND')
+    expect((await gql('{ account { addresses { id isDefault } } }', who)).data?.['account']).toEqual({ addresses: [{ id, isDefault: true }] })
+    // Editing the default without saying isDefault keeps it the default.
+    expect((await gql(`mutation { saveAddress(id: "${id}", address: { name: "Asha Rao", line1: "14 MG Road", city: "Pune", country: "IN" }) }`, who)).data?.['saveAddress']).toBe(id)
     expect((await gql('{ account { addresses { id isDefault } } }', who)).data?.['account']).toEqual({ addresses: [{ id, isDefault: true }] })
     expect((await gql(`mutation { deleteAddress(id: "${id}") }`, who)).data?.['deleteAddress']).toBe(true)
     expect((await gql('{ account { addresses { id } } }', who)).data?.['account']).toEqual({ addresses: [] })
@@ -195,7 +200,7 @@ describe('isolation', () => {
   })
 })
 
-describe('#444’s review', () => {
+describe('limits, safeguards and the code email', () => {
   it('refuses a code request or a code once the limiter says no', async () => {
     allow = false
     expect((await gql('mutation { requestSignInCode(channel: PHONE, to: "+919811111111") }')).code).toBe('RATE_LIMITED')
@@ -252,7 +257,7 @@ describe('#444’s review', () => {
   })
 })
 
-describe('codes, further (#444’s review)', () => {
+describe('refused codes and the code email', () => {
   it('refuses an expired code, a deleted account and another store’s code alike, and logs the failure without the address', async () => {
     await gql('mutation { requestSignInCode(channel: PHONE, to: "+919822222222") }')
     const code = await textedCode('+919822222222')
@@ -278,5 +283,34 @@ describe('codes, further (#444’s review)', () => {
     expect(sent.send && sent.to).toEqual(['neha@example.com'])
     await db.sql`update customer_code set used_at = now() where id = ${String(row?.payload['customerCodeId'])}`
     expect(await prepare(row?.partner_id ?? null)).toEqual({ send: false, reason: 'link_closed' })
+  })
+})
+
+describe('what sign-in leaves behind', () => {
+  it('never puts an email or number in a limiter key', () => {
+    expect(limiterKeys.length).toBeGreaterThan(0)
+    expect(limiterKeys.filter((k) => /@|\+91|98450/.test(k))).toEqual([])
+  })
+
+  it('moves a session on at most hourly, however many requests carry it', async () => {
+    const seen = async () => (await db.sql<{ last_seen_at: Date }[]>`select last_seen_at from customer_session where ended_at is null order by created_at desc limit 1`)[0]?.last_seen_at.getTime()
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919811111111") }')
+    const session = ((await verify('PHONE', '+919811111111', await textedCode('+919811111111'))).data?.['verifySignInCode'] as { sessionToken: string }).sessionToken
+    await db.sql`update customer_session set last_seen_at = now() - interval '10 minutes'`
+    const fresh = await seen()
+    await gql('{ account { phone } }', { session })
+    expect(await seen()).toBe(fresh)
+    await db.sql`update customer_session set last_seen_at = now() - interval '2 hours'`
+    await gql('{ account { phone } }', { session })
+    expect((await seen()) ?? 0).toBeGreaterThan(Date.now() - 60_000)
+  })
+
+  it('leaves a phone-only shopper unable to sign in once the store takes email only (the add-an-email step is open, ACCESS §2.1)', async () => {
+    await db.sql`update store_customer_auth set phone_enabled = false, email_enabled = true where store_id = ${stores.india}`
+    try {
+      expect((await gql('mutation { requestSignInCode(channel: PHONE, to: "+919845022113") }')).code).toBe('METHOD_OFF')
+    } finally {
+      await db.sql`update store_customer_auth set phone_enabled = true where store_id = ${stores.india}`
+    }
   })
 })

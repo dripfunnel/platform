@@ -4,8 +4,8 @@ import type { TenantContext } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
 import { countAccounts, saveCustomerAuth, selectCustomerAuth, type AccountCountsRow } from '#db/scoped/shopper'
 
-// Settings › Customer accounts (SetAccess; ACCESS §2.1): how a store's shoppers sign in. Dropping mobile sign-in never
-// locks anyone out: phone-only shoppers are asked for an email at their next sign-in (ACCESS §2.1, confirm).
+// Settings › Customer accounts (SetAccess; ACCESS §2.1): how a store's shoppers sign in. Dropping mobile sign-in leaves
+// phone-only shoppers unable to sign in until the add-an-email step ACCESS §2.1 marks (confirm) is built.
 
 export const customerAccountsAudit = { saved: 'store.customer_accounts_saved' } as const
 

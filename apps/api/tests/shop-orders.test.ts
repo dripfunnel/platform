@@ -180,7 +180,7 @@ describe('isolation', () => {
   })
 })
 
-describe('holding stock and placing safely (#445’s review)', () => {
+describe('holding stock and placing safely', () => {
   const versions = { scarf: '', shawl: '' }
   const product = async (slug: string, stock: Record<string, number>) => {
     const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${stores.india}, ${slug}, ${slug}, 'visible') returning id`
