@@ -199,6 +199,8 @@ export interface ShopOrderRow {
   state: 'placed' | 'cancelled'
   payment_state: string
   payment_method: string | null
+  email: string | null
+  phone: string | null
   currency: string
   subtotal_amount: string
   shipping_amount: string
@@ -216,7 +218,7 @@ export interface ShopOrderRow {
 export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: string): Promise<ShopOrderRow | null> =>
   (
     await tx<ShopOrderRow[]>`
-      select o.id, o.number, o.state, o.payment_state, o.payment_method, o.currency, o.subtotal_amount::text as subtotal_amount,
+      select o.id, o.number, o.state, o.payment_state, o.payment_method, o.email, o.phone, o.currency, o.subtotal_amount::text as subtotal_amount,
         o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.tax_inclusive,
         o.shipping_method_label, o.shipping_option, o.placed_at, o.payment_due_by,
         coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', l.quantity,

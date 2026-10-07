@@ -265,6 +265,14 @@ describe('Paying through Razorpay', () => {
     expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${placed.orderId}`)[0]?.payment_state).toBe('paid')
   })
 
+  it('lets a Cashfree order try again with the number it was placed with', async () => {
+    const token = await readyCart('phone: "+919845022113"')
+    const placed = (await shop('mutation { placeOrder(provider: "cashfree") { orderId payment { providerRef } } }', token)).data?.['placeOrder'] as { orderId: string; payment: { providerRef: string } }
+    const again = await shop(`mutation { payOrder(orderId: "${placed.orderId}") { providerRef sessionId } }`, token)
+    expect(again.code).toBeUndefined()
+    expect((again.data?.['payOrder'] as { providerRef: string }).providerRef).not.toBe(placed.payment.providerRef)
+  })
+
   it('asks for a mobile number before Cashfree, which needs one', async () => {
     expect((await merchant('mutation { connectGateway(provider: "cashfree", mode: LIVE, keys: { appId: "app1", secretKey: "cfs" }) }', 'owner')).data?.['connectGateway']).toBe(true)
     const token = await readyCart('email: "asha@example.com"')

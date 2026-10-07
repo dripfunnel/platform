@@ -302,7 +302,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
       throw error
     }
     const amount = { amount: BigInt(mine.total_amount), currency: mine.currency }
-    const begun = await begin(method, mine.id, amount, { email: null, phone: null })
+    // The contact the order was placed with: Cashfree takes no payment without the number.
+    const begun = await begin(method, mine.id, amount, { email: mine.email, phone: mine.phone })
     if (!begun.ok) return begun
     const { attemptId, accountId, started } = begun.value
     return withSystemScope(sql, async (tx): Promise<CheckoutResult<PaymentStart>> => {
