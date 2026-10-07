@@ -147,6 +147,9 @@ describe('a signed-in shopper', () => {
     const id = saved.data?.['saveAddress'] as string
     expect((await gql('{ account { name addresses { id city isDefault } } }', who)).data?.['account']).toEqual({ name: 'Asha Rao', addresses: [{ id, city: 'Pune', isDefault: true }] })
     expect((await gql('mutation { saveAddress(address: { name: "x", line1: "y", city: "z", country: "XX" }) }', who)).code).toBe('INVALID_INPUT')
+    // Saving an address that isn't there is refused and leaves the default as it was (#444's review).
+    expect((await gql(`mutation { saveAddress(id: "${crypto.randomUUID()}", address: { name: "x", line1: "y", city: "z", country: "IN" }, isDefault: true) }`, who)).code).toBe('NOT_FOUND')
+    expect((await gql('{ account { addresses { id isDefault } } }', who)).data?.['account']).toEqual({ addresses: [{ id, isDefault: true }] })
     expect((await gql(`mutation { deleteAddress(id: "${id}") }`, who)).data?.['deleteAddress']).toBe(true)
     expect((await gql('{ account { addresses { id } } }', who)).data?.['account']).toEqual({ addresses: [] })
   })

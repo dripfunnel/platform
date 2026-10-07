@@ -203,6 +203,8 @@ export interface AddressWrite {
 }
 
 export const saveAddress = async (tx: ScopedSql, storeId: string, customerId: string, id: string | null, a: AddressWrite): Promise<string | null> => {
+  // An address that isn't the shopper's changes nothing, its default included (#444's review).
+  if (id !== null && (await tx`select id from customer_address where id = ${id} and customer_id = ${customerId} and deleted_at is null for update`).length === 0) return null
   if (a.isDefault) await tx`update customer_address set is_default_shipping = false where customer_id = ${customerId} and is_default_shipping and deleted_at is null`
   if (id === null) {
     const [row] = await tx<{ id: string }[]>`
