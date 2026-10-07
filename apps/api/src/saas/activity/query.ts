@@ -4,7 +4,7 @@ import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { CallerContext } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
 import { activityResults, actorKinds, type ActivityRow } from '#db/schema/activity'
-import { activityLevels, activityWhos, selectActivity } from '#db/scoped/activity'
+import { activityLevels, activityWhos, selectActivity, selectOwnActivity } from '#db/scoped/activity'
 import { withScope } from '#db/scoped/index'
 
 // The admin console reads 50 at a time (ui/admin/FIRST-RELEASE.md §9); nothing asks for more.
@@ -86,8 +86,10 @@ export const listActivity = async (
   const limit = Math.min(Math.max(page.first ?? activityPageSize, 1), activityPageSize)
 
   const f = parsed.data
+  const own = isTenantContext(context) && context.caller.kind === 'shopper'
+  const ownFilter = { action: f.action, from: f.from ? dayStart(f.from) : undefined, to: f.to ? nextDay(f.to) : undefined, result: f.result }
   const rows = await withScope(sql, context, (tx) =>
-    selectActivity(
+    own ? selectOwnActivity(tx, ownFilter, { after, before }, limit) : selectActivity(
       tx,
       {
         actorKind: f.actorKind,
