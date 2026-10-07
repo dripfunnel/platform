@@ -632,7 +632,7 @@ to-store supplier's once handed over; a supplier ships its own lines to the shop
 (`to-store`, a `sent_to_store` shipment), by the mode its part was placed under. Stock leaves the location it was shipped from,
 with an `order` movement, and what the order held is given back; a tracked version the location hasn't enough of is refused
 (`NOT_ENOUGH_STOCK`). A cancelled, test or still-unpaid card order never ships (`NOT_SHIPPABLE`); a pickup order's is a `pickup`
-handed over with no tracking. Shipping a transfer before it's paid lets its due date go, so the 3-day sweep leaves it. `order`
+handed over with no tracking. The store shipping a transfer before it's paid lets its due date go, so the 3-day sweep leaves it; a supplier's shipment doesn't. `order`
 answers its `shipments` (a supplier's own only, so the store's onward tracking stays the store's) and each line's
 `sentToStoreQuantity`. A tracking address is https only. Booking a label through a courier is #311's.
 **Part 3, returns and refunds:** `startReturn(orderId, lines, reason, note)`, `receiveReturn(returnId)` and

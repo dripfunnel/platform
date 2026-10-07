@@ -109,10 +109,10 @@ export const addFulfilled = async (tx: ScopedSql, lineId: string, quantity: numb
 
 /**
  * Each part's state and the order's from its lines: shipped when every line has gone, partly when some has, sent to the
- * store when a to-store part has handed everything over and nothing has left for the shopper yet. Shipping also lets a
- * transfer's due date go: the store chose to send it unpaid, so the sweep never cancels it (#310).
+ * store when a to-store part has handed everything over and nothing has left for the shopper yet. The store shipping
+ * lets a transfer's due date go: it chose to send it unpaid, so the sweep never cancels it; a supplier's shipment can't.
  */
-export const settleShippingStates = async (tx: ScopedSql, orderId: string, now: Date): Promise<void> => {
+export const settleShippingStates = async (tx: ScopedSql, orderId: string, now: Date, byStore: boolean): Promise<void> => {
   await tx`
     update order_part p set state = case
         when x.left = 0 then 'shipped'
@@ -129,7 +129,7 @@ export const settleShippingStates = async (tx: ScopedSql, orderId: string, now: 
   await tx`
     update "order" o set fulfilment_state = case
         when x.left = 0 then 'fulfilled' when x.fulfilled > 0 then 'partly_fulfilled' else 'unfulfilled' end,
-      payment_due_by = null, updated_at = ${now}, revision = revision + 1
+      payment_due_by = ${byStore ? null : tx`payment_due_by`}, updated_at = ${now}, revision = revision + 1
     from (select sum(quantity - fulfilled_quantity) as left, sum(fulfilled_quantity) as fulfilled from order_line where order_id = ${orderId}) x
     where o.id = ${orderId}
   `

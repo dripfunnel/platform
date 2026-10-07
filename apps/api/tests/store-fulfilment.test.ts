@@ -214,6 +214,15 @@ describe('what never ships', () => {
     expect((await ship('drop', id, places.drop, [{ id: await lineOf(id, versions.loose), quantity: 1 }])).code).toBe('NOT_FOUND')
   })
 
+  it('leaves a transfer’s due date when a supplier ships: only the store chooses to send it unpaid', async () => {
+    const id = await order('A-2251', { method: 'bank_transfer', dueBy: '2026-10-10T00:00:00Z', lines: [{ version: versions.scarf, seller: t.sellerA1First, quantity: 1, heldAt: places.drop }, { version: versions.stole, seller: t.sellerA1Second, quantity: 1, heldAt: places.hub }] })
+    expect((await ship('drop', id, places.drop, [{ id: await lineOf(id, versions.scarf), quantity: 1 }])).code).toBeUndefined()
+    expect((await ship('hub', id, places.hub, [{ id: await lineOf(id, versions.stole), quantity: 1 }])).code).toBeUndefined()
+    expect((await states(id)).due).toEqual(new Date('2026-10-10T00:00:00Z'))
+    expect((await ship('owner', id, places.main, [{ id: await lineOf(id, versions.stole), quantity: 1 }])).code).toBeUndefined()
+    expect((await states(id)).due).toBeNull()
+  })
+
   it('lets a past-due store’s supplier keep shipping while the merchant side is read-only (#337)', async () => {
     const id = await order('A-2301', { lines: [{ version: versions.scarf, seller: t.sellerA1First, quantity: 1, heldAt: places.drop }] })
     await db.sql`update store set status = 'past_due' where id = ${t.storeA1}`
