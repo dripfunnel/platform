@@ -8,7 +8,7 @@ import type { PlanStatus } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutboxMany } from '#db/scoped/outbox'
-import { insertPlan } from '#db/scoped/partners'
+import { insertPlan, lockPartnerForPlanSave } from '#db/scoped/partners'
 import {
   lockLivePlans,
   scheduleSubscriptionMoves,
@@ -279,7 +279,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
   // Each amount is in its row's currency, and every row in a currency the contract states a fee in.
   const badCurrency = (input: PlanInput, terms: ContractTerms): string | null =>
     input.prices.find((p) => (p.monthly && p.monthly.currency !== p.currency) || (p.yearly && p.yearly.currency !== p.currency))?.currency ??
-    (terms.fee_currency ? (input.prices.find((p) => p.currency !== terms.fee_currency && !terms.rates[p.currency])?.currency ?? null) : null)
+    (terms.fee_currency ? (input.prices.find((p) => p.currency !== terms.fee_currency && !Object.hasOwn(terms.rates, p.currency))?.currency ?? null) : null)
 
   const pricesOf = (input: PlanInput): PlanVersionPrice[] => input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly?.amount ?? null, yearly: p.yearly?.amount ?? null }))
 
@@ -292,6 +292,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
     return withScope(sql, context, async (tx): Promise<Result> => {
       const row = await aboveCeiling(tx, input.entitlements)
       if (row) return { ok: false, reason: 'ABOVE_CEILING', row }
+      await lockPartnerForPlanSave(tx, partnerId)
       const bad = badCurrency(input, await selectContractTerms(tx, partnerId))
       if (bad) return { ok: false, reason: 'INVALID_CURRENCY', currency: bad }
       const id = await insertPlan(tx, { partnerId, name: input.name, description: input.description, status: 'draft', trialDays: input.trialDays, prices: pricesOf(input), entitlements: fromRows(input.entitlements) })
@@ -307,6 +308,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
     return withScope(sql, context, async (tx): Promise<Result> => {
       const row = await selectCataloguePlan(tx, partnerId, id)
       if (!row) return { ok: false, reason: 'NOT_FOUND' }
+      await lockPartnerForPlanSave(tx, partnerId)
       const terms = await selectContractTerms(tx, partnerId)
       // A retired plan is kept as its stores bought it; its move is retirePlan's.
       if (row.status === 'retired') return { ok: false, reason: 'INVALID_STATE' }

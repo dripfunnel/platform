@@ -9,6 +9,7 @@ export {
   partnerFilter,
   partnerPageSize,
   type ActionPermission,
+  type ContractDto,
   type PageRequest,
   type PartnerDto,
   type PartnerPage,

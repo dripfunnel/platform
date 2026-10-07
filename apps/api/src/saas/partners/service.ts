@@ -48,7 +48,9 @@ import { approvalRuleFor, approvalVerdict, type ApprovalRule } from './approval'
 import { selectManagersFor, type PartnerManager } from '#db/scoped/assignments'
 import { assignManager, unassignManager } from './assignments'
 import { failingChecks, goLiveChecksFor, type GoLiveCheck, type GoLiveChecks } from './goLive'
-import { countryOf } from '#core/countries'
+import { countryOf, sellingCurrencies } from '#core/countries'
+import { selectContractTerms, type ContractTerms } from '#db/scoped/partnerPlans'
+import { selectPricedCurrencies, setPartnerContract as writePartnerContract } from '#db/scoped/plans'
 import { handoffLink } from '#saas/staffSessions/index'
 
 // Partners on the Admin API (card #33; ui/admin/FIRST-RELEASE.md §4, §12). The resolvers in
@@ -75,11 +77,12 @@ export const partnerAudit = {
   recheckDomain: 'partner.domain_recheck_requested',
   assignPartnerManager: 'partner.manager_assigned',
   unassignPartnerManager: 'partner.manager_unassigned',
+  setPartnerContract: 'partner.contract_set',
 } as const
 
 export type PartnerAuditAction = (typeof partnerAudit)[keyof typeof partnerAudit]
 
-export type PartnerActionName = 'approve' | 'sendBack' | 'pause' | 'resume' | 'setupSession' | 'sendInvite' | 'resendInvite'
+export type PartnerActionName = 'approve' | 'sendBack' | 'pause' | 'resume' | 'setupSession' | 'sendInvite' | 'resendInvite' | 'setContract'
 
 export type RefusalCode =
   | 'SUPER_ADMIN_ONLY'
@@ -108,6 +111,8 @@ export type RefusalCode =
   | 'REAUTH_REQUIRED'
   | 'NOT_SESSION_OWNER'
   | 'SESSION_ENDED'
+  | 'FEE_CURRENCY_IN_USE'
+  | 'CURRENCY_IN_USE'
 
 export type ActionPermission = { allowed: true } | { allowed: false; reason: RefusalCode; failingChecks?: GoLiveCheck[] }
 
@@ -153,6 +158,7 @@ export interface PartnerDto extends PartnerRowDto {
   plans: { id: string; name: string; status: PlanRow['status']; maxProducts: number | null; maxStaff: number | null; stores: number }[]
   team: { id: string; name: string; email: string; role: string; status: string; lastSignInAt: Date | null }[]
   setupSessions: SetupSessionDto[]
+  contract: ContractDto | null
   /** The Partner managers assigned to it (ACCESS.md §5.4, #60). */
   managers: PartnerManager[]
   actions: PartnerPermissions
@@ -177,6 +183,61 @@ export type PartnerFilter = z.infer<typeof partnerFilter>
 
 export type { PageRequest } from '#saas/staff/index'
 
+// The partner's contract (admin FIRST-RELEASE §4.3): the currency DripFunnel's fee is in, the others
+// its plans may be priced in, and whether a plan may remove "Powered by".
+export const poweredByTerms = ['required', 'firstYear', 'removable'] as const
+export type PoweredByTerm = (typeof poweredByTerms)[number]
+
+const currencyCode = z.string().refine((code) => sellingCurrencies.includes(code))
+
+export const contractInput = z
+  .object({ feeCurrency: currencyCode, currencies: z.array(currencyCode).max(sellingCurrencies.length), poweredBy: z.enum(poweredByTerms) })
+  .strict()
+  .refine((c) => new Set(c.currencies).size === c.currencies.length && !c.currencies.includes(c.feeCurrency))
+
+export type ContractInput = z.infer<typeof contractInput>
+
+export interface ContractDto {
+  feeCurrency: string
+  currencies: string[]
+  poweredBy: PoweredByTerm
+}
+
+const poweredByColumns: Record<PoweredByTerm, { poweredByRemovable: boolean; poweredByNote: 'contract' | 'firstYear' | null }> = {
+  required: { poweredByRemovable: false, poweredByNote: null },
+  firstYear: { poweredByRemovable: false, poweredByNote: 'firstYear' },
+  removable: { poweredByRemovable: true, poweredByNote: 'contract' },
+}
+
+const contractRows = (partnerId: string, c: ContractInput) => ({
+  partnerId,
+  feeCurrency: c.feeCurrency,
+  ...poweredByColumns[c.poweredBy],
+  rates: Object.fromEntries(c.currencies.map((currency) => [currency, null])),
+})
+
+const contractOf = (terms: ContractTerms): ContractDto | null =>
+  terms.fee_currency === null
+    ? null
+    : {
+        feeCurrency: terms.fee_currency,
+        currencies: Object.keys(terms.rates).sort(),
+        poweredBy: terms.powered_by_removable ? 'removable' : terms.powered_by_note === 'firstYear' ? 'firstYear' : 'required',
+      }
+
+// A currency taken off, or every currency when the fee currency changes, loses its stored rate, so the entry keeps it.
+const contractChanges = (before: ContractDto | null, after: ContractInput, rates: ContractTerms['rates'] = {}) => {
+  const text = (c: { currencies: string[] } | null) => (c ? [...c.currencies].sort().join(', ') : null)
+  const feeChanged = before !== null && before.feeCurrency !== after.feeCurrency
+  const dropped = Object.entries(rates).filter(([currency, rate]) => rate !== null && (feeChanged || !after.currencies.includes(currency)))
+  return [
+    { field: 'feeCurrency', before: before?.feeCurrency ?? null, after: after.feeCurrency },
+    { field: 'currencies', before: text(before), after: text(after) },
+    { field: 'poweredBy', before: before?.poweredBy ?? null, after: after.poweredBy },
+    ...dropped.map(([currency, rate]) => ({ field: `rate.${currency}`, before: rate, after: null })),
+  ].filter((c) => c.before !== c.after)
+}
+
 export const createPartnerInput = z
   .object({
     name: z.string().trim().min(1).max(120),
@@ -187,6 +248,7 @@ export const createPartnerInput = z
     kind: z.string().trim().min(1).max(60).optional(),
     region: z.string().trim().min(1).max(120).optional(),
     sendInvitation: z.boolean(),
+    contract: contractInput.optional(),
   })
   .strict()
 
@@ -268,6 +330,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     if (partner.state === 'paused') actions.resume = may('partners.pause')
     if (ownerInvitation === 'held') actions.sendInvite = notAssigned ?? may('partners.invite')
     if (ownerInvitation === 'sent') actions.resendInvite = notAssigned ?? may('partners.invite.resend')
+    actions.setContract = notAssigned ?? may('partners.approve')
     return actions
   }
 
@@ -406,6 +469,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
         plans: f.plans.map((p) => ({ id: p.id, name: p.name, status: p.status, maxProducts: p.max_products, maxStaff: p.max_staff, stores: p.store_count })),
         team: team.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role_key, status: u.status, lastSignInAt: u.last_sign_in_at })),
         setupSessions: f.sessions.map((s) => sessionDto(s, at)),
+        contract: contractOf(await selectContractTerms(tx, id)),
         managers: f.managers,
         actions: await permissionsFor(partner, f, base.owner.invitation),
       }
@@ -484,6 +548,40 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     })
   }
 
+  // The fee currency can't change while a fee or a charge is stated in it (DATA-MODEL §2.3): refused, not an error.
+  const writeContract = async (tx: ScopedSql, partnerId: string, c: ContractInput): Promise<boolean> => {
+    try {
+      await tx.savepoint((sp) => writePartnerContract(sp, contractRows(partnerId, c)))
+      return true
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23503') return false
+      throw error
+    }
+  }
+
+  const setPartnerContract = async (id: string, input: unknown, reason: string | null): Promise<Result> => {
+    if (!(await visible(id))) return notFound
+    const refused = refusedBy('partners.approve')
+    if (refused) return refused
+    const parsedReason = reasonText.safeParse(reason ?? '')
+    if (!parsedReason.success) return { ok: false, code: 'REASON_REQUIRED' }
+    const parsed = contractInput.safeParse(input)
+    if (!parsed.success) return { ok: false, code: 'INVALID_INPUT' }
+    return withScope(sql, context, async (tx): Promise<Result> => {
+      const partner = await selectPartnerForUpdate(tx, id)
+      if (!partner) return { ok: false, code: 'NOT_FOUND' }
+      if (partner.state === 'closed') return { ok: false, code: 'PARTNER_CLOSED' }
+      const terms = await selectContractTerms(tx, id)
+      const before = contractOf(terms)
+      // A plan's price in a currency taken off would fail its next save (badCurrency in partnerPlans).
+      const named = new Set([parsed.data.feeCurrency, ...parsed.data.currencies])
+      if ((await selectPricedCurrencies(tx, id)).some((c) => !named.has(c))) return { ok: false, code: 'CURRENCY_IN_USE' }
+      if (!(await writeContract(tx, id, parsed.data))) return { ok: false, code: 'FEE_CURRENCY_IN_USE' }
+      await activity.record(tx, entry(partner, partnerAudit.setPartnerContract, parsedReason.data, { changes: contractChanges(before, parsed.data, terms.rates) }))
+      return { ok: true }
+    })
+  }
+
   const createPartner = async (input: unknown): Promise<Result<{ id: string }>> => {
     const refused = refusedBy('partners.create')
     if (refused) return refused
@@ -503,9 +601,10 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
         invitedByKind: 'staff',
         invitedByLabel: staff.name,
       })
+      if (data.contract) await writePartnerContract(tx, contractRows(id, data.contract))
       await upsertSetupItem(tx, { partnerId: id, item: 'company', status: 'done', detail: `${data.name}, ${data.country}`, doneByKind: 'staff', doneByLabel: 'DripFunnel', doneAt: at })
       const partner = { id, name: data.name }
-      await activity.record(tx, entry(partner, partnerAudit.createPartner, null, { changes: [{ field: 'country', before: null, after: data.country }] }))
+      await activity.record(tx, entry(partner, partnerAudit.createPartner, null, { changes: [{ field: 'country', before: null, after: data.country }, ...(data.contract ? contractChanges(null, data.contract) : [])] }))
       if (data.sendInvitation) {
         await queueInvitationEmail(tx, partner, invitationId, data.ownerEmail)
         await activity.record(tx, entry(partner, partnerAudit.sendPartnerOwnerInvite, null, { target: { type: 'partner_user', id: ownerId, label: data.ownerEmail } }))
@@ -658,6 +757,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     startSetupSession,
     endStaffSession,
     recheckDomain,
+    setPartnerContract,
     assignPartnerManager: (partnerId: string, staffId: string, reason: string | null) => assignment(partnerId, staffId, reason, true),
     unassignPartnerManager: (partnerId: string, staffId: string, reason: string | null) => assignment(partnerId, staffId, reason, false),
   }

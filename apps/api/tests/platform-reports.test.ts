@@ -72,6 +72,26 @@ describe('the figures', () => {
     expect(r?.mrr.length).toBeGreaterThan(0)
   })
 
+  it('names a contract currency with no rate only to say its MRR is left out, never as converted', async () => {
+    const mrrTotal = (r: Rev['reportRevenue'] | undefined) => (r?.mrr ?? []).reduce((sum, m) => sum + m.amount.amount, 0)
+    const before = (await run<Rev>(q.revenue, callerOf(ids.ns))).data?.reportRevenue
+    const [sub] = await db.sql<{ id: string; currency: string }[]>`
+      select x.store_id as id, x.currency from store_subscription x join store s on s.id = x.store_id
+      where s.partner_id = ${ids.ns} and x.status in ('active', 'past_due') and x.amount > 0 limit 1`
+    await db.sql`insert into partner_contract_rate (partner_id, currency, per_fee_unit) values (${ids.ns}, 'EUR', null)`
+    try {
+      const noted = (await run<Rev>(q.revenue, callerOf(ids.ns))).data?.reportRevenue
+      expect(noted?.currencyNote).toBe('All amounts in USD; CAD payments are converted at the payout rate.')
+      await db.sql`update store_subscription set currency = 'EUR' where store_id = ${sub?.id ?? ''}`
+      const after = (await run<Rev>(q.revenue, callerOf(ids.ns))).data?.reportRevenue
+      expect(after?.currencyNote).toBe('All amounts in USD; CAD payments are converted at the payout rate. MRR in EUR is left out: no conversion rate is set.')
+      expect(mrrTotal(after)).toBeLessThan(mrrTotal(before))
+    } finally {
+      await db.sql`update store_subscription set currency = ${sub?.currency ?? 'USD'} where store_id = ${sub?.id ?? ''}`
+      await db.sql`delete from partner_contract_rate where partner_id = ${ids.ns} and currency = 'EUR'`
+    }
+  })
+
   it('counts growth, plans, store performance, usage and setup health from the partner’s stores', async () => {
     const reader = callerOf(ids.ns)
     const growth = (await run<Growth>(q.growth, reader)).data?.reportGrowth

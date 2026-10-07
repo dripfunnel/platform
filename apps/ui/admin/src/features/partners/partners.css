@@ -51,6 +51,11 @@
   max-width: 560px;
 }
 
+.df-form-section {
+  margin: var(--df-space-6) 0 var(--df-space-3);
+  font-size: 1rem;
+}
+
 .df-field-error,
 .df-form-failure {
   margin: 0;
@@ -129,4 +134,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--df-space-3);
+}
+
+.df-currency-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--df-space-2);
+}
+
+.df-currency-grid .df-choice {
+  padding: var(--df-space-2) var(--df-space-3);
 }

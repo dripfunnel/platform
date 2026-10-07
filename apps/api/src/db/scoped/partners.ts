@@ -517,6 +517,11 @@ export const endSetupSession = async (tx: ScopedSql, id: string, endedBy: string
   return rows.length > 0
 }
 
+/** Held by a plan save while it checks prices against the contract, so a contract change (selectPartnerForUpdate) waits or is waited for. */
+export const lockPartnerForPlanSave = async (tx: ScopedSql, id: string): Promise<void> => {
+  await tx`select 1 from partner where id = ${id} for key share`
+}
+
 /** Locks the row for the rest of the transaction, so two staff cannot both approve as "the second". */
 export const selectPartnerForUpdate = async (tx: ScopedSql, id: string): Promise<PartnerRow | null> =>
   (await tx<PartnerRow[]>`select * from partner where id = ${id} for update`)[0] ?? null

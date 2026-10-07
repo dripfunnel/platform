@@ -82,9 +82,14 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
       const months = (await selectRevenue(tx, scope, from, to)).map((m) => ({ month: m.month, collected: exact(m.collected), fee: exact(m.fee), payout: exact(m.payout) }))
       const outcomes = await selectPaymentOutcomes(tx, scope, from, to)
       const mrr = new Map<string, { plan: string; amount: number; converted: boolean }>()
+      // A contract currency may have no rate (0062): its MRR can't be stated in the payout currency, so it is left out and said.
+      const unrated = new Set<string>()
       for (const r of await selectMrr(tx, scope)) {
         const rate = r.currency === currency ? null : terms.rates[r.currency]
-        if (r.currency !== currency && !rate) continue
+        if (r.currency !== currency && !rate) {
+          unrated.add(r.currency)
+          continue
+        }
         const entry = mrr.get(r.plan_id) ?? { plan: r.plan, amount: 0, converted: false }
         entry.amount += rate ? toPayoutCurrency(exact(r.amount), rate, r.currency, currency) : exact(r.amount)
         entry.converted ||= rate !== null
@@ -98,13 +103,17 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
       const summary = fresh
         ? emptyWords
         : `You've collected ${money(cur?.collected ?? 0, currency)} so far in ${monthName(thisMonth)}, ${prev && projected >= prev.collected ? 'on track to beat' : 'behind'} ${monthName(lastMonth)}'s ${money(prev?.collected ?? 0, currency)}.`
-      const others = Object.keys(terms.rates).filter((c) => c !== currency)
+      const rated = Object.keys(terms.rates).filter((c) => c !== currency && terms.rates[c])
+      const notes = [
+        rated.length > 0 ? `All amounts in ${currency}; ${rated.join(', ')} payments are converted at the payout rate.` : null,
+        unrated.size > 0 ? `MRR in ${[...unrated].sort().join(', ')} is left out: no conversion rate is set.` : null,
+      ].filter((n) => n !== null)
       return {
         tab,
         fresh,
         summary,
         currency,
-        currencyNote: others.length > 0 ? `All amounts in ${currency}; ${others.join(', ')} payments are converted at the payout rate.` : null,
+        currencyNote: notes.length > 0 ? notes.join(' ') : null,
         rows: months.map((m) => ({ month: m.month, collected: { amount: m.collected, currency }, fee: { amount: m.fee, currency }, payout: { amount: m.payout, currency } })),
         bars: months.map((m) => ({ label: monthName(m.month), amount: { amount: m.collected, currency } as Money })),
         mrr: [...mrr.values()].map((m) => ({ plan: m.plan, amount: { amount: m.amount, currency } as Money, approximate: m.converted })),

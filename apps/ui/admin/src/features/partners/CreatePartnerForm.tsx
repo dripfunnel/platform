@@ -1,7 +1,10 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { messages } from '../../messages'
+import type { PartnerContract } from '../../api/partners'
+import { ContractFields } from './ContractFields'
 import { partnerCountries } from './partnerCountries'
+import { currencyOfCountry } from './partnerCurrencies'
 import { draftErrors, draftFields, invitationChoices, type DraftErrors, type DraftField, type PartnerDraft } from './partnerDraft'
 import '@dripfunnel/shared/ui/states.css'
 import './partners.css'
@@ -34,10 +37,19 @@ export const CreatePartnerForm = ({ initial, errors: given, failure, submitting,
     focusFirst(given)
   }, [given])
 
-  const set = (field: keyof PartnerDraft, value: string) => {
+  const set = (field: Exclude<keyof PartnerDraft, 'contract'>, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }))
     if (field !== 'invitation') setErrors((current) => ({ ...current, [field]: undefined }))
   }
+
+  // A new country brings its own currency as the fee currency; staff can still pick another.
+  const setCountry = (country: string) => {
+    set('country', country)
+    const fee = currencyOfCountry(country)
+    if (fee) setDraft((current) => ({ ...current, contract: { ...current.contract, feeCurrency: fee, currencies: current.contract.currencies.filter((c) => c !== fee) } }))
+  }
+
+  const setContract = (contract: PartnerContract) => setDraft((current) => ({ ...current, contract }))
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -107,7 +119,7 @@ export const CreatePartnerForm = ({ initial, errors: given, failure, submitting,
           aria-invalid={errors.country ? true : undefined}
           aria-describedby={describedBy('country')}
           value={draft.country}
-          onChange={(event) => set('country', event.target.value)}
+          onChange={(event) => setCountry(event.target.value)}
         >
           <option value="">{words.countryPlaceholder}</option>
           {partnerCountries.map((country) => (
@@ -118,6 +130,8 @@ export const CreatePartnerForm = ({ initial, errors: given, failure, submitting,
         </select>
         {fieldError('country')}
       </div>
+      <h2 className="df-form-section">{messages.partner.contract.title}</h2>
+      <ContractFields value={draft.contract} onChange={setContract} />
       <fieldset className="df-choices">
         <legend>{words.invitation}</legend>
         {invitationChoices.map((choice) => (

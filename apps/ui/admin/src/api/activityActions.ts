@@ -63,6 +63,7 @@ export const activityActions = {
   'staff.invitation_accepted': { level: 'admin', category: 'auth' },
   'partner.manager_assigned': { level: 'admin', category: 'write' },
   'partner.manager_unassigned': { level: 'admin', category: 'write' },
+  'partner.contract_set': { level: 'admin', category: 'write' },
   'partner.invitation_sent': { level: 'admin', category: 'write' },
   'partner.invitation_resent': { level: 'admin', category: 'write' },
   'partner.approval_recorded': { level: 'admin', category: 'write' },

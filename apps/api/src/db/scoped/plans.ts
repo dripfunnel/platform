@@ -1,4 +1,4 @@
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
 
 // The catalogue of migrations/0013 (SAAS.md §6.1, §6.3).
 export const switchKeys = ['custom_domain', 'offers', 'suppliers_enabled', 'powered_by_removal', 'aplus', 'size_charts'] as const
@@ -77,24 +77,41 @@ export interface PartnerContract {
   feeCurrency: string
   poweredByRemovable: boolean
   poweredByNote: 'contract' | 'firstYear' | null
-  /** Units of each other currency per unit of the fee currency, as a decimal string. */
-  rates: Record<string, string>
+  /** Each other currency the partner prices in: units per unit of the fee currency as a decimal string, or null for none. */
+  rates: Record<string, string | null>
 }
 
 export const setPartnerContract = async (tx: ScopedSql, c: PartnerContract): Promise<void> => {
+  // A rate is per unit of the fee currency, so a new fee currency leaves none standing.
+  await tx`
+    delete from partner_contract_rate r using partner_contract k
+    where r.partner_id = ${c.partnerId} and k.partner_id = r.partner_id and k.fee_currency <> ${c.feeCurrency}
+  `
   await tx`
     insert into partner_contract (partner_id, fee_currency, powered_by_removable, powered_by_note)
     values (${c.partnerId}, ${c.feeCurrency}, ${c.poweredByRemovable}, ${c.poweredByNote})
     on conflict (partner_id) do update set fee_currency = excluded.fee_currency,
       powered_by_removable = excluded.powered_by_removable, powered_by_note = excluded.powered_by_note
   `
-  for (const [currency, rate] of Object.entries(c.rates)) {
+  const others = Object.keys(c.rates).filter((currency) => currency !== c.feeCurrency)
+  await tx`delete from partner_contract_rate where partner_id = ${c.partnerId} and not (currency = any(${pgArray(others)}::text[]))`
+  for (const currency of others) {
+    // A currency named without a rate keeps the one it has (0062).
     await tx`
-      insert into partner_contract_rate (partner_id, currency, per_fee_unit) values (${c.partnerId}, ${currency}, ${rate}::numeric)
-      on conflict (partner_id, currency) do update set per_fee_unit = excluded.per_fee_unit
+      insert into partner_contract_rate (partner_id, currency, per_fee_unit) values (${c.partnerId}, ${currency}, ${c.rates[currency] ?? null}::numeric)
+      on conflict (partner_id, currency) do update set per_fee_unit = coalesce(excluded.per_fee_unit, partner_contract_rate.per_fee_unit)
     `
   }
 }
+
+/** Currencies a draft or Live plan's current version has a price row in. */
+export const selectPricedCurrencies = async (tx: ScopedSql, partnerId: string): Promise<string[]> =>
+  (
+    await tx<{ currency: string }[]>`
+      select distinct pp.currency from plan p join plan_price pp on pp.plan_id = p.id and pp.version = p.version
+      where p.partner_id = ${partnerId} and p.status <> 'retired' order by pp.currency
+    `
+  ).map((r) => r.currency)
 
 export interface PlanVersionRead {
   version: number

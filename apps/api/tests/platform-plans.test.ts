@@ -212,6 +212,44 @@ describe('saving', () => {
     expect((await run<Outcome>(update, callerOf(ids.ns, 'partner-owner'), { id: ids.starter, input: euro, applyTo: 'new' })).data?.updatePlan).toMatchObject({ ok: false, reason: 'INVALID_CURRENCY', currency: 'EUR' })
   })
 
+  it('offers and accepts a currency the contract names without a rate, with no fee or margin in it', async () => {
+    await db.sql`insert into partner_contract_rate (partner_id, currency, per_fee_unit) values (${ids.ns}, 'EUR', null)`
+    try {
+      const editor = await run<{ planEditor: { currencies: string[] } }>(editorQuery, callerOf(ids.ns, 'partner-owner'), { id: ids.starter })
+      expect(editor.data?.planEditor.currencies.sort()).toEqual(['CAD', 'EUR', 'USD'])
+      const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
+      const euro = { ...input, name: 'Starter in euros', prices: [...input.prices, { currency: 'EUR', monthly: { amount: 2700, currency: 'EUR' }, yearly: null }] }
+      expect((await run<Outcome>(create, callerOf(ids.ns, 'partner-owner'), { input: euro })).data?.createPlan).toMatchObject({ ok: true })
+    } finally {
+      await db.sql`delete from partner_contract_rate where partner_id = ${ids.ns} and currency = 'EUR'`
+    }
+  })
+
+  it('waits for a contract change in progress, then checks its prices against the new contract', async () => {
+    const owner = callerOf(ids.ns, 'partner-owner')
+    const input = await inputFrom(ids.starter, owner)
+    const cad = { ...input, name: 'Starter in dollars', prices: input.prices.filter((p) => p.currency === 'USD' || p.currency === 'CAD') }
+    const [rate] = await db.sql<{ per_fee_unit: string | null }[]>`select per_fee_unit::text from partner_contract_rate where partner_id = ${ids.ns} and currency = 'CAD'`
+    let saved: Promise<Outcome['createPlan'] | undefined> | null = null
+    let settled = false
+    // As setPartnerContract does: the partner row held for update while CAD comes off the contract.
+    await db.sql.begin(async (t) => {
+      await t`select 1 from partner where id = ${ids.ns} for update`
+      await t`delete from partner_contract_rate where partner_id = ${ids.ns} and currency = 'CAD'`
+      saved = run<Outcome>(create, owner, { input: cad }).then((r) => {
+        settled = true
+        return r.data?.createPlan
+      })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      expect(settled).toBe(false)
+    })
+    try {
+      expect(await saved).toMatchObject({ ok: false, reason: 'INVALID_CURRENCY', currency: 'CAD' })
+    } finally {
+      await db.sql`insert into partner_contract_rate (partner_id, currency, per_fee_unit) values (${ids.ns}, 'CAD', ${rate?.per_fee_unit ?? null}::numeric)`
+    }
+  })
+
   it('lets Finance change a price and nothing else; Support and Read-only nothing', async () => {
     const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
     const finance = callerOf(ids.ns, 'partner-finance', 'Alex Rivera')

@@ -56,3 +56,43 @@ describe('a password asked in the confirm dialog', () => {
     expect(onConfirm).not.toHaveBeenCalled()
   })
 })
+
+describe('the confirm dialog with fields of the caller’s own and a failed confirm', () => {
+  const Failing = ({ onConfirm }: { onConfirm: () => void }) => {
+    const [error, setError] = useState<string | null>(null)
+    return (
+      <ConfirmDialog
+        open
+        title="Change the plan?"
+        target="Northstar"
+        consequence="Stores move at renewal."
+        confirmLabel="Change"
+        cancelLabel="Cancel"
+        reason={{ label: 'Reason', hint: 'Kept in the log.' }}
+        error={error}
+        onConfirm={() => {
+          onConfirm()
+          setError('The plan was retired meanwhile. Nothing was changed.')
+        }}
+        onCancel={() => undefined}
+      >
+        <label>
+          Note <input defaultValue="kept" />
+        </label>
+      </ConfirmDialog>
+    )
+  }
+
+  it('shows the fields, stays open on failure with the reason kept, says why, and can confirm again', async () => {
+    const onConfirm = vi.fn()
+    render(<Failing onConfirm={onConfirm} />)
+    expect((screen.getByLabelText('Note') as HTMLInputElement).value).toBe('kept')
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Asked by the owner' } })
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Change', hidden: true })))
+    expect(screen.getByRole('alert', { hidden: true }).textContent).toBe('The plan was retired meanwhile. Nothing was changed.')
+    expect((screen.getByLabelText('Reason') as HTMLTextAreaElement).value).toBe('Asked by the owner')
+    expect((screen.getByRole('button', { name: 'Change', hidden: true }) as HTMLButtonElement).disabled).toBe(false)
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Change', hidden: true })))
+    expect(onConfirm).toHaveBeenCalledTimes(2)
+  })
+})

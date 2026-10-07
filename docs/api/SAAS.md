@@ -312,8 +312,9 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   build minutes, AI cost).
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
   can't configure a plan above it (G2, R3). **Built on #157** with the versioned catalogue,
-  DripFunnel's wholesale fee per plan and the partner's contract (fee currency, conversion
-  rates, whether a plan may remove "Powered by"): DATA-MODEL.md §2.3.
+  DripFunnel's wholesale fee per plan and the partner's contract (fee currency, the other
+  currencies its plans may be priced in with an optional conversion rate, whether a plan may
+  remove "Powered by"): DATA-MODEL.md §2.3. Admin sets the contract (admin FIRST-RELEASE §4.3).
 - **Who sets what**: the partner sets its plans and their entitlement values, including the
   monthly "Publish now" allowance, in the Platform API (USERS-AND-DOMAINS §4); Admin can set
   them on the partner's behalf, and sets the ceilings. The automatic publish interval is an
