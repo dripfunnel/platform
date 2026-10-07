@@ -31,6 +31,7 @@ document disagrees. Then open only the part your task touches:
 | Admin console (`apps/ui/admin`) | [docs/ui/admin/](docs/ui/admin/README.md), its FIRST-RELEASE (what to build now) and CONSOLE-DESIGN |
 | `apps/ui/shared` | [docs/ui/shared/](docs/ui/shared/README.md) |
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
+| Creating a card (task, bug or feature) on the DF Platform board | [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md) |
 | Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 
@@ -178,6 +179,10 @@ Run the gates before reporting a change as done.
      a question for the user before it is code.
    - **When the user narrows the scope,** take out everything beyond it, including work already
      pushed, and say what was removed.
+7. **Creating a card follows [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md).**
+   Ask every open question first, then show the whole draft and create it only after a yes. Every
+   card has a complete "Prompt for Claude" and checkbox acceptance criteria. A bug card also has
+   numbered steps to reproduce, with the expected and actual results.
 
 ### Code
 
