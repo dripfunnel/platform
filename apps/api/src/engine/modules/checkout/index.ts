@@ -4,7 +4,7 @@ import type { SecretBox } from '#auth/secretBox'
 import { isUuid } from '#core/ids'
 import { logEvent } from '#core/log'
 import type { Money } from '#core/money'
-import { isCardProvider, PaymentRefused, PaymentUnavailable, type CardProvider, type OAuthConnect, type PaymentGateways, type PaymentMode, type PaymentStart } from '#core/payments'
+import { isCardProvider, PaymentNeedsPhone, PaymentRefused, PaymentUnavailable, type CardProvider, type OAuthConnect, type PaymentGateways, type PaymentMode, type PaymentStart } from '#core/payments'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
@@ -30,9 +30,9 @@ import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, provide
 // Placing an order and paying for it (SAPI 10; PLATFORM-PROMPT §5.4 Payments). The cart is priced as its shopper, then the
 // snapshot, number, held stock and payment are written in system scope, as nothing a shopper writes may be a price or state.
 
-export { applyOutcome, handleMerchantStripeEvent, paymentAudit, releaseUnpaidOrders, settleOrder, settlePayment, type MerchantEventOutcome, type SettleDeps, type Settled } from './payments'
+export { applyOutcome, handleMerchantStripeEvent, paymentAudit, releaseUnpaidOrders, settleFromWebhook, settleOrder, settlePayment, type KeyedWebhookOutcome, type MerchantEventOutcome, type SettleDeps, type Settled } from './payments'
 export { cardPaymentMs, isPaymentProvider, paymentProviders, providersFor, transferDaysMs, type PaymentProvider } from './providers'
-export { createPaymentSetup, finishConnectMs, paymentSetupAudit, type PaymentSetupDeps, type PaymentSetupView } from './setup'
+export { createPaymentSetup, finishConnectMs, paymentSetupAudit, type ConnectInput, type PaymentSetupDeps, type PaymentSetupView } from './setup'
 export type { ShopOrderRow } from '#db/scoped/orders'
 
 /** What the Worker wires in for payments: the card adapters, Connect Stripe, and Stripe Tax in each mode (null where unset). */
@@ -40,11 +40,13 @@ export interface PaymentWiring {
   gateways: PaymentGateways
   stripeConnect: OAuthConnect | null
   stripeTax: (mode: PaymentMode) => StripeTaxDeps['calculate'] | null
+  /** A store's own webhook address for a provider account on the hooks host. */
+  webhookUrl: (provider: string, accountId: string) => string
 }
 
 export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
 
-export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'PAYMENT_MISMATCH' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
+export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PHONE_REQUIRED' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'PAYMENT_MISMATCH' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
 export type CheckoutResult<T> = { ok: true; value: T } | { ok: false; reason: CheckoutRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
@@ -144,6 +146,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
       return { ok: true, value: { attemptId, accountId: row.id, started: await gateway.start(account, { attemptId, orderId, amount, customer, returnUrl: deps.returnUrl(orderId) }) } }
     } catch (error) {
       if (error instanceof PaymentUnavailable) return { ok: false, reason: 'PAYMENT_UNAVAILABLE' }
+      if (error instanceof PaymentNeedsPhone) return { ok: false, reason: 'PHONE_REQUIRED' }
       if (!(error instanceof PaymentRefused)) throw error
       // The store's account needs fixing, which the shopper can't do: said to them as unavailable, logged for the merchant's partner.
       logEvent({ event: 'payment_refused', api: 'shop', storeId, code: provider })

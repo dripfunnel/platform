@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
 import { logEvent } from '#core/log'
-import { isCardProvider, PaymentRefused, PaymentUnavailable, type CardProvider, type PaymentGateways, type PaymentOutcome } from '#core/payments'
+import { isCardProvider, PaymentRefused, PaymentUnavailable, type CardProvider, type PaymentGateways, type PaymentOutcome, type WebhookDelivery, type WebhookReading } from '#core/payments'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { cancelOrder, lockPlacedOrder, releaseStock, reserveLine, selectUnpaidOrders } from '#db/scoped/orders'
 import {
@@ -210,6 +210,36 @@ export const handleMerchantStripeEvent = async (deps: SettleDeps, event: { type:
   const payment = await withSystemScope(deps.sql, async (tx) => (await lockPaymentByRef(tx, 'stripe', event.objectId)) ?? null)
   // Not one of ours, or another store's: a payment the merchant took outside DripFunnel.
   if (!payment || payment.store_id !== store.store_id) return 'unplaced'
+  await settlePayment(deps, payment)
+  return 'handled'
+}
+
+export type KeyedWebhookOutcome = 'handled' | 'ignored' | 'invalid' | 'unknown'
+
+/**
+ * A webhook on a store's own address (hooks/payments.ts): checked with that account's own secret, then the payment it
+ * names is read back and settled, if it is one this account started. Throws PaymentUnavailable for the hook to answer 503.
+ */
+export const settleFromWebhook = async (deps: SettleDeps, provider: CardProvider, accountRowId: string, delivery: WebhookDelivery): Promise<KeyedWebhookOutcome> => {
+  const row = await withSystemScope(deps.sql, (tx) => selectAccountById(tx, accountRowId))
+  const gateway = deps.gateways[provider]
+  if (!row || row.provider !== provider || !gateway?.webhook) return 'unknown'
+  const account = await openAccount(row, row.mode, deps.secrets)
+  if (!account) return 'unknown'
+  let reading: WebhookReading
+  try {
+    reading = await gateway.webhook(account, delivery)
+  } catch (error) {
+    // The provider refused its check (PayPal's, on forged headers) or the keys are gone: not a webhook we take.
+    if (error instanceof PaymentRefused) return 'invalid'
+    throw error
+  }
+  if (!reading.valid) return 'invalid'
+  if (!reading.providerRef) return 'ignored'
+  const providerRef = reading.providerRef
+  const payment = await withSystemScope(deps.sql, (tx) => lockPaymentByRef(tx, provider, providerRef))
+  // Started outside DripFunnel, or through another of the store's accounts: not this address's to settle.
+  if (!payment || payment.provider_account_id !== row.id) return 'ignored'
   await settlePayment(deps, payment)
   return 'handled'
 }

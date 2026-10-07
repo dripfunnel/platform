@@ -230,6 +230,7 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
   )[0] ?? null
 
 export interface PaymentSetupRow {
+  id: string
   provider: string
   mode: 'test' | 'live'
   status: 'live' | 'off'
@@ -239,7 +240,7 @@ export interface PaymentSetupRow {
 }
 
 export const selectPaymentSetup = (tx: ScopedSql, storeId: string): Promise<PaymentSetupRow[]> =>
-  tx<PaymentSetupRow[]>`select provider, mode, status, bank_details, external_account_id, connected_at from payment_provider_account where store_id = ${storeId} order by position, provider`
+  tx<PaymentSetupRow[]>`select id, provider, mode, status, bank_details, external_account_id, connected_at from payment_provider_account where store_id = ${storeId} order by position, provider, mode`
 
 /** A way paid later turned on, with a transfer's bank details; its row made the first time. */
 export const saveManualMethod = async (tx: ScopedSql, storeId: string, provider: 'cod' | 'bank_transfer', bankDetails: string | null, now: Date): Promise<void> => {
