@@ -13,8 +13,8 @@ import type { StorePermission } from '#auth/storePermissions'
 
 export type Api = 'admin' | 'platform' | 'store' | 'shop'
 
-/** ACCESS.md §3.1. `public` and `session` need no permission; every other scope needs one. */
-export type FieldScope = 'public' | 'session' | 'store' | 'store-seller' | 'partner' | 'platform'
+/** ACCESS.md §3.1. `public`, `session` and `shop` (a storefront's own store) need no permission; every other scope needs one. */
+export type FieldScope = 'public' | 'session' | 'shop' | 'store' | 'store-seller' | 'partner' | 'platform'
 
 export interface Access<Args = Record<string, unknown>> {
   api: Api
@@ -23,8 +23,10 @@ export interface Access<Args = Record<string, unknown>> {
   /** What a targeted field acts on, so a partner-scoped role is held to its partners.
    *  `'none'` is a deliberate answer: a list, which filters its own rows. */
   target?: 'none' | ((args: Args) => AccessTarget)
-  /** The activity-log action the mutation writes (LOGGING.md §5). Required on every mutation. */
+  /** The activity-log action the mutation writes (LOGGING.md §5). Required on every mutation not `unlogged`. */
   audit?: string
+  /** Why a mutation writes no entry: only a rule LOGGING itself states (§5). */
+  unlogged?: UnloggedRule
   /** The staff sessions refused this field whatever their role (ACCESS.md §8.1, §8.2, §8.3). */
   blockedFor?: readonly StaffSessionKind[]
   /** A mutation that still works while the store is read-only: paying, signing out (FIRST-RELEASE §19). */
@@ -32,6 +34,9 @@ export interface Access<Args = Record<string, unknown>> {
 }
 
 export type StaffSessionKind = 'impersonation' | 'setup'
+
+/** The writes LOGGING.md §3 leaves out of the activity log, each by the rule that says so. */
+export type UnloggedRule = 'cart' | 'payment_return'
 
 declare module 'graphql' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- a merge must repeat graphql's own parameter list
@@ -86,14 +91,14 @@ const checkDeclaration = <Context>(
   kind: 'query' | 'mutation' | 'field',
 ): Access => {
   if (!access) throw new AccessDeclarationError(`${where} declares no access (ACCESS.md §3.1)`)
-  if (kind === 'mutation' && !access.audit) throw new AccessDeclarationError(`${where} declares no audit action (LOGGING.md §5)`)
+  if (kind === 'mutation' && !access.audit && !access.unlogged) throw new AccessDeclarationError(`${where} declares no audit action (LOGGING.md §5)`)
   if (access.api !== policy.api) throw new AccessDeclarationError(`${where} is declared for the ${access.api} API`)
   if (!policy.scopes.includes(access.scope)) {
     throw new AccessDeclarationError(`${where} declares scope ${access.scope}, which this API does not serve`)
   }
-  const open = access.scope === 'public' || access.scope === 'session'
+  const open = access.scope === 'public' || access.scope === 'session' || access.scope === 'shop'
   if (open !== (access.permission === null)) {
-    throw new AccessDeclarationError(`${where}: only public and session fields go without a permission`)
+    throw new AccessDeclarationError(`${where}: only public, session and shop fields go without a permission`)
   }
   if (access.permission !== null && !policy.permissions.includes(access.permission)) {
     throw new AccessDeclarationError(`${where} declares ${access.permission}, which is not a ${policy.api} API permission`)

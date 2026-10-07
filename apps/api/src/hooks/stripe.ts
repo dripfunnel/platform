@@ -1,10 +1,12 @@
 import type postgres from 'postgres'
 import { logEvent } from '#core/log'
+import { PaymentUnavailable } from '#core/payments'
+import { handleMerchantStripeEvent, type SettleDeps } from '#engine/modules/checkout/index'
 import { eventSchema, StripeUnavailable, verifySignature, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeEvent, retriedOutcomes } from '#saas/billing/index'
 
-// hooks.dripfunnel.com/stripe (SAAS §7.2; #201): signature first, then one event, answered 200
-// once it is recorded (or was already), 503 when it couldn't be read back or applied yet so it comes again.
+// hooks.dripfunnel.com/stripe (SAAS §7.2; THIRD-PARTY-ACCESS §3.1): signature first, then one event; 503 so it comes
+// again. A store's connected account's event is a shopper's payment and never reaches billing.
 export const stripeHookPath = '/stripe'
 
 // Stripe's events are a few kilobytes; anything far larger isn't one.
@@ -14,10 +16,12 @@ export interface StripeHookDeps {
   sql: postgres.Sql
   stripe: StripeApi
   signingSecret: string
+  /** Settles merchants' payments; null where no card adapter is set up, and every event goes to billing. */
+  payments: SettleDeps | null
   now: () => Date
 }
 
-export const handleStripeHook = async (request: Request, { sql, stripe, signingSecret, now }: StripeHookDeps): Promise<Response> => {
+export const handleStripeHook = async (request: Request, { sql, stripe, signingSecret, payments, now }: StripeHookDeps): Promise<Response> => {
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
   if (Number(request.headers.get('content-length') ?? 0) > maxBodyBytes) return new Response(null, { status: 413 })
   const body = await request.text()
@@ -31,6 +35,20 @@ export const handleStripeHook = async (request: Request, { sql, stripe, signingS
   }
   const event = eventSchema.safeParse(json)
   if (!event.success) return new Response(null, { status: 400 })
+  const account = event.data.account
+  if (payments && account) {
+    try {
+      const merchant = await handleMerchantStripeEvent(payments, { type: event.data.type, account, objectId: event.data.data.object.id })
+      if (merchant) {
+        logEvent({ event: 'stripe_merchant_event', api: 'hooks', code: merchant })
+        return Response.json({ received: true })
+      }
+    } catch (error) {
+      if (!(error instanceof PaymentUnavailable)) throw error
+      logEvent({ event: 'stripe_merchant_event', api: 'hooks', code: 'provider_unavailable' })
+      return new Response(null, { status: 503 })
+    }
+  }
   try {
     const outcome = await handleStripeEvent({ sql, stripe, event: event.data, now })
     logEvent({ event: 'stripe_event', api: 'hooks', code: outcome })

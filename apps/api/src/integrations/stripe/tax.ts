@@ -20,10 +20,12 @@ export interface StripeTaxRequest {
   inclusive: boolean
   shipTo: { country: string; region: string | null; postal: string | null }
   lines: readonly StripeTaxLine[]
+  /** The delivery charge, taxed as the address's jurisdiction taxes shipping; null for none. */
+  shipping?: bigint | null
 }
 
 export interface StripeTaxCalculator {
-  calculate: (request: StripeTaxRequest) => Promise<{ total: bigint; lines: { reference: string; amount: bigint }[] }>
+  calculate: (request: StripeTaxRequest) => Promise<{ total: bigint; lines: { reference: string; amount: bigint }[]; shipping: bigint }>
 }
 
 const calculation = z
@@ -31,6 +33,7 @@ const calculation = z
     tax_amount_exclusive: z.number().int(),
     tax_amount_inclusive: z.number().int(),
     line_items: z.object({ data: z.array(z.object({ reference: z.string(), amount_tax: z.number().int() }).loose()) }).loose(),
+    shipping_cost: z.object({ amount_tax: z.number().int() }).loose().nullish(),
   })
   .loose()
 
@@ -48,6 +51,10 @@ export const stripeTax = ({ secretKey, fetchImpl = fetch }: { secretKey: string;
       body.set(`line_items[${i}][tax_behavior]`, request.inclusive ? 'inclusive' : 'exclusive')
       if (line.taxCode) body.set(`line_items[${i}][tax_code]`, line.taxCode)
     })
+    if (request.shipping) {
+      body.set('shipping_cost[amount]', request.shipping.toString())
+      body.set('shipping_cost[tax_behavior]', request.inclusive ? 'inclusive' : 'exclusive')
+    }
     body.append('expand[]', 'line_items')
     let response: Response
     try {
@@ -66,6 +73,6 @@ export const stripeTax = ({ secretKey, fetchImpl = fetch }: { secretKey: string;
     const parsed = calculation.safeParse(json)
     if (!parsed.success) throw new StripeUnavailable('answered in a shape we do not read')
     const total = BigInt(request.inclusive ? parsed.data.tax_amount_inclusive : parsed.data.tax_amount_exclusive)
-    return { total, lines: parsed.data.line_items.data.map((l) => ({ reference: l.reference, amount: BigInt(l.amount_tax) })) }
+    return { total, lines: parsed.data.line_items.data.map((l) => ({ reference: l.reference, amount: BigInt(l.amount_tax) })), shipping: BigInt(parsed.data.shipping_cost?.amount_tax ?? 0) }
   },
 })

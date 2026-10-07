@@ -6,7 +6,10 @@ import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
 import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
-import { shopSchema } from '#apis/shop/schema'
+import { shopSchema, type ShopContext } from '#apis/shop/schema'
+import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
+import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache'
+import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
@@ -64,6 +67,16 @@ import { withSystemScope } from '#db/scoped/index'
 import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
+import { releaseUnpaidOrders, type PaymentWiring } from '#engine/modules/checkout/index'
+import type { PaymentMode } from '#core/payments'
+import { stripeConnect } from '#integrations/stripe/connect'
+import { stripePayments, type StripeKeys } from '#integrations/stripe/payments'
+import { stripeTax } from '#integrations/stripe/tax'
+import { handleStripeConnectCallback, stripeConnectCallbackPath } from '#hooks/stripeConnect'
+import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
+import { keyedGateways } from '#integrations/payments/index'
+import { deleteExpiredCarts } from '#db/scoped/cart'
+import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
@@ -82,7 +95,7 @@ const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
   platform: createServer<PlatformContext>(platformSchema, '/api'),
   store: createServer<StoreContext>(storeSchema, '/api'),
-  shop: createServer(shopSchema, '/shop-api'),
+  shop: createServer<ShopContext>(shopSchema, '/shop-api'),
 }
 
 interface Env extends Record<string, unknown> {
@@ -93,6 +106,10 @@ interface Env extends Record<string, unknown> {
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
   // The partner console's staff-session routes, polled by every tab (ACCESS.md §8.3).
   STAFF_SESSION_RATE_LIMITER?: RateLimit | undefined
+  // Every Shop API call, per storefront host and IP (FIRST-RELEASE §19).
+  SHOP_RATE_LIMITER?: RateLimit | undefined
+  // A guest's new carts, per store and IP (FIRST-RELEASE §19); unbound, nothing limits them.
+  CART_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
   IMAGES?: ImagesBinding | undefined
@@ -287,6 +304,34 @@ const stripeFor = (config: Config): StripeApi | null => {
   return stripeBuilt.api
 }
 
+// Merchants' card payments (SAPI 10): Stripe on the merchant's connected account in each mode whose platform keys are set,
+// Connect Stripe where the app's id is, and Stripe Tax with the same keys. Built once per isolate.
+let paymentsBuilt: { key: string; wiring: PaymentWiring } | undefined
+
+const paymentsFor = (config: Config): PaymentWiring => {
+  const main = config.STRIPE_SECRET_KEY
+  const mainMode: PaymentMode = main?.includes('_live_') ? 'live' : 'test'
+  const secretKeys: Partial<Record<PaymentMode, string>> = {}
+  const keys: Partial<Record<PaymentMode, StripeKeys>> = {}
+  if (main) secretKeys[mainMode] = main
+  if (main && config.STRIPE_PUBLISHABLE_KEY) keys[mainMode] = { secretKey: main, publishableKey: config.STRIPE_PUBLISHABLE_KEY }
+  if (config.STRIPE_TEST_SECRET_KEY && config.STRIPE_TEST_PUBLISHABLE_KEY && !keys.test) {
+    secretKeys.test = config.STRIPE_TEST_SECRET_KEY
+    keys.test = { secretKey: config.STRIPE_TEST_SECRET_KEY, publishableKey: config.STRIPE_TEST_PUBLISHABLE_KEY }
+  }
+  const key = [main, config.STRIPE_PUBLISHABLE_KEY, config.STRIPE_TEST_SECRET_KEY, config.STRIPE_CONNECT_CLIENT_ID, config.HOOKS_HOST].join('|')
+  if (paymentsBuilt?.key === key) return paymentsBuilt.wiring
+  const taxes = { live: secretKeys.live ? stripeTax({ secretKey: secretKeys.live }) : null, test: secretKeys.test ? stripeTax({ secretKey: secretKeys.test }) : null }
+  const wiring: PaymentWiring = {
+    gateways: { ...keyedGateways(), ...(keys.live || keys.test ? { stripe: stripePayments({ keys }) } : {}) },
+    stripeConnect: config.STRIPE_CONNECT_CLIENT_ID && main ? stripeConnect({ clientId: config.STRIPE_CONNECT_CLIENT_ID, secretKey: main, redirectUri: `https://${config.HOOKS_HOST}${stripeConnectCallbackPath}` }) : null,
+    stripeTax: (mode) => taxes[mode]?.calculate ?? null,
+    webhookUrl: (provider, accountId) => `https://${config.HOOKS_HOST}/payments/${provider}/${accountId}`,
+  }
+  paymentsBuilt = { key, wiring }
+  return wiring
+}
+
 // Imported once per isolate, like the identity provider, and only from configuration.
 let box: { key: string; secrets: Promise<SecretBox> } | undefined
 
@@ -357,7 +402,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, now: () => new Date() }
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
   })
@@ -368,7 +413,7 @@ let snsBuilt: SnsVerifier | undefined
 
 // hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
 // (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
-const handleHooks = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+const handleHooks = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   if (url.pathname === shopifyCallbackPath) {
     const shopify = shopifyFor(config)
     const secrets = await secretsFor(config)
@@ -385,13 +430,61 @@ const handleHooks = async (request: Request, url: URL, config: Config, ctx: Exec
     const verifier = snsBuilt
     return withConnection(config.HYPERDRIVE, ctx, (sql) => handleSesHook(request, { sql, verifier, topicArn, suppressionKey, now: () => new Date() }))
   }
+  const payments = paymentsFor(config)
+  const paymentHook = paymentHookOf(url.pathname)
+  if (paymentHook) {
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    const secrets = await (secretsFor(config) ?? null)
+    const limiter = env.SHOP_RATE_LIMITER
+    if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+    const allow = async (key: string) => (await limiter.limit({ key })).success
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handlePaymentHook(request, paymentHook, { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, allow))
+  }
+  if (url.pathname === stripeConnectCallbackPath) {
+    const connect = payments.stripeConnect
+    if (!connect) return notFound()
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleStripeConnectCallback(request, { sql, connect, activity: activityLog, now: () => new Date() }))
+  }
   const stripe = stripeFor(config)
   const signingSecret = config.STRIPE_WEBHOOK_SECRET
   if (url.pathname !== stripeHookPath || !stripe || !signingSecret) return notFound()
   const hyperdrive = config.HYPERDRIVE
   // Stripe delivers again after a 503, so nothing is lost while the database is away.
   if (!hyperdrive) return new Response(null, { status: 503 })
-  return withConnection(hyperdrive, ctx, (sql) => handleStripeHook(request, { sql, stripe, signingSecret, now: () => new Date() }))
+  const secrets = await (secretsFor(config) ?? null)
+  return withConnection(hyperdrive, ctx, (sql) =>
+    handleStripeHook(request, { sql, stripe, signingSecret, payments: { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, now: () => new Date() }),
+  )
+}
+
+// The data centre's own cache; absent off Cloudflare (tests), where every request runs.
+const shopCache = (): ShopCache | null => (typeof caches !== 'undefined' && 'default' in caches ? (caches as CacheStorage & { default: ShopCache }).default : null)
+
+const shopRefusal = (status: number, code: string, message: string) =>
+  new Response(JSON.stringify({ errors: [{ message, extensions: { code } }] }), { status, headers: { 'content-type': 'application/json' } })
+
+// A storefront host (docs/ARCHITECTURE.md §2): the store comes from the host or the public store key, and a host no store
+// holds answers 404, as a portal host no partner holds does.
+const handleShop = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+  const facts = factsOf(request)
+  const hyperdrive = config.HYPERDRIVE
+  if (!hyperdrive) return servers.shop.fetch(request, { sql: null, shopper: null, origin: url.origin, activity: activityLog, facts, allowNewCart: async () => false, now: () => new Date() })
+  const limiter = env.SHOP_RATE_LIMITER
+  if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+  const carts = env.CART_RATE_LIMITER
+  if (!carts) return misconfigured('CART_RATE_LIMITER')
+  // Keyed per address, never pooled, as sign-in is; Cloudflare sets the header on all real traffic.
+  if (!facts.ip || !(await limiter.limit({ key: `shop:${url.hostname}:${facts.ip}` })).success) return shopRefusal(429, 'RATE_LIMITED', 'Too many requests. Try again in a minute.')
+  return withConnection(hyperdrive, ctx, async (sql) => {
+    const found = await resolveShopper(sql, request, url.hostname)
+    if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
+    if (found.kind === 'unknown') return notFound()
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, sessionToken: request.headers.get(shopSessionHeader), now: () => new Date() }
+    if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
+    const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
+    return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
+  })
 }
 
 const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise<{ response: Response; area: Area | null }> => {
@@ -405,14 +498,14 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   const area = resolveArea(url, config)
   if (!area) return { response: notFound(), area: null }
-  if (area === 'hooks') return { response: await handleHooks(request, url, config, ctx), area }
+  if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
   if (isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id), area }
   }
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
   if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
   if (area === 'store') return { response: await handleStore(request, url, config, env, ctx), area }
-  return { response: await servers[area].fetch(request), area }
+  return { response: await handleShop(request, url, config, env, ctx), area }
 }
 
 // The relay needs a database and a configuration; without either there is nothing to deliver.
@@ -488,6 +581,21 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
+      // Bank transfers unpaid after 3 days and card payments not completed in a day are cancelled, their stock released (FIRST-RELEASE §1).
+      const settle = { sql, activity: activityLog, gateways: paymentsFor(config).gateways, secrets: await (secretsFor(config) ?? null), now: () => new Date() }
+      const released = await releaseUnpaidOrders(settle, new Date()).catch((error: unknown) => {
+        logEvent({ event: 'unpaid_orders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+        return 0
+      })
+      if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
+      // Old sign-in codes and sessions go, with the addresses they named.
+      await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
+        logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
+      // Carts past their 30 days go, with whatever address or email a guest left in them.
+      await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
+        logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
       // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
       await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
         logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

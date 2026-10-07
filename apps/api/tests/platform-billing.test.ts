@@ -68,7 +68,7 @@ const deliver = async (event: { id: string; type: string; account?: string; obje
   const body = JSON.stringify({ id: event.id, type: event.type, account: event.account ?? null, data: { object: event.object } })
   const t = unix(clock)
   const request = new Request('https://hooks.test/stripe', { method: 'POST', body, headers: { 'stripe-signature': `t=${t},v1=${await signPayload(secret, t, body)}` } })
-  return (await handleStripeHook(request, { sql: db.sql, stripe, signingSecret, now: () => clock })).status
+  return (await handleStripeHook(request, { sql: db.sql, stripe, signingSecret, payments: null, now: () => clock })).status
 }
 
 const q = {

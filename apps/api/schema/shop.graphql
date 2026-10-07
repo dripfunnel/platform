@@ -1,3 +1,495 @@
+type Image {
+  id: ID
+  url: String
+}
+
+type Mutation {
+  addToCart(quantity: Int!, versionId: ID!): ShopCartChange
+  checkout: ShopCart
+  confirmPayment(orderId: ID!): ShopOrder
+  deleteAddress(id: ID!): Boolean
+  payOrder(orderId: ID!): ShopPaymentStart
+  placeOrder(provider: String!): ShopPlacedOrder
+  requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
+  saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
+  setBillingAddress(address: ShopAddressInput): ShopCartChange
+  setCartContact(email: String, note: String, phone: String): ShopCartChange
+  setCartQuantity(quantity: Int!, versionId: ID!): ShopCartChange
+  setShippingAddress(address: ShopAddressInput!): ShopCartChange
+  setShippingOption(option: String!): ShopCartChange
+  signIn(email: String!, password: String!): ShopSession
+  signOut: Boolean
+  updateAccount(name: String): Boolean
+  verifySignInCode(channel: ShopSignInChannel!, code: String!, name: String, password: String, to: String!): ShopSession
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
 type Query {
+  account: ShopAccount
+  cart: ShopCart
+  collection(slug: String!): ShopCollection
+  collections(after: String, before: String, first: Int): ShopCollectionPage
   health: String
+  menu: [ShopMenuItem!]
+  order(id: ID!): ShopOrder
+  paymentOptions: [ShopPaymentOption!]
+  product(slug: String!): ShopProduct
+  products(after: String, before: String, collection: String, filters: [ID!], first: Int, search: String, sort: ShopProductSort): ShopProductPage
+  search(after: String, before: String, first: Int, query: String!): ShopProductPage
+  signInOptions: ShopSignInOptions
+  store: ShopStore
+}
+
+type ShopAccount {
+  addresses: [ShopSavedAddress!]
+  email: String
+  emailVerified: Boolean
+  id: ID
+  name: String
+  phone: String
+  phoneVerified: Boolean
+}
+
+type ShopAddress {
+  city: String
+  country: String
+  postal: String
+  region: String
+  street: String
+}
+
+input ShopAddressInput {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  name: String!
+  phone: String
+  postalCode: String
+  region: String
+}
+
+type ShopAddressLines {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  name: String
+  phone: String
+  postalCode: String
+  region: String
+}
+
+type ShopBadge {
+  label: String
+  tone: String
+}
+
+type ShopCart {
+  billingAddress: ShopAddressLines
+  checkoutStep: String
+  currency: String
+  deliverable: Boolean
+  email: String
+  id: ID
+  lines: [ShopCartLine!]
+  note: String
+  phone: String
+  problems: [String!]
+  readyToPay: Boolean
+  shipping: ShopMoney
+  shippingAddress: ShopAddressLines
+  shippingOption: String
+  shippingOptions: [ShopDeliveryOption!]
+  subtotal: ShopMoney
+  tax: ShopCartTax
+  total: ShopMoney
+}
+
+type ShopCartChange {
+  cart: ShopCart
+  cartToken: String
+}
+
+type ShopCartLine {
+  available: Int
+  lineTotal: ShopMoney
+  photoUrl: String
+  problem: String
+  productName: String
+  productSlug: String
+  quantity: Int
+  unitPrice: ShopMoney
+  versionId: ID
+  versionName: String
+}
+
+type ShopCartTax {
+  amount: ShopMoney
+  pricesIncludeTax: Boolean
+}
+
+type ShopCollection {
+  description: String
+  id: ID
+  image: Image
+  name: String
+  parentId: ID
+  seoDescription: String
+  seoTitle: String
+  slug: String
+}
+
+type ShopCollectionPage {
+  nodes: [ShopCollection!]
+  pageInfo: PageInfo
+}
+
+type ShopCompliance {
+  field: String
+  region: String
+  value: String
+}
+
+type ShopCurrency {
+  code: String
+  mode: String
+}
+
+type ShopDeliveryOption {
+  amount: ShopMoney
+  before: ShopMoney
+  hours: String
+  id: String
+  maxDays: Int
+  minDays: Int
+  provider: String
+  service: String
+}
+
+type ShopFacet {
+  id: ID
+  name: String
+  values: [ShopFacetValue!]
+}
+
+type ShopFacetValue {
+  count: Int
+  id: ID
+  name: String
+}
+
+type ShopFaq {
+  answer: String
+  question: String
+}
+
+type ShopFilterTag {
+  filter: String
+  value: String
+}
+
+type ShopFlags {
+  ageRestricted: Boolean
+  hazardous: Boolean
+}
+
+type ShopMarket {
+  countries: [String!]
+  currency: String
+  everywhereElse: Boolean
+  id: ID
+  language: String
+  name: String
+  parentId: ID
+  pathPrefix: String
+  primary: Boolean
+  webMode: String
+}
+
+type ShopMenuItem {
+  children: [ShopMenuItem!]
+  collectionSlug: String
+  id: ID
+  kind: String
+  label: String
+  url: String
+}
+
+type ShopMoney {
+  amount: String
+  currency: String
+}
+
+type ShopOption {
+  id: ID
+  name: String
+  values: [ShopOptionValue!]
+}
+
+type ShopOptionValue {
+  id: ID
+  name: String
+}
+
+type ShopOrder {
+  id: ID
+  lines: [ShopOrderLine!]
+  number: String
+  paymentDueBy: String
+  paymentMethod: String
+  paymentState: String
+  placedAt: String
+  pricesIncludeTax: Boolean
+  shipping: ShopMoney
+  shippingMethod: String
+  shippingOption: String
+  state: String
+  subtotal: ShopMoney
+  tax: ShopMoney
+  total: ShopMoney
+}
+
+type ShopOrderLine {
+  lineTotal: ShopMoney
+  name: String
+  quantity: Int
+  unitPrice: ShopMoney
+  versionName: String
+}
+
+type ShopPaymentOption {
+  instructions: String
+  kind: String
+  mode: String
+  provider: String
+  publicKey: String
+}
+
+type ShopPaymentStart {
+  accountId: String
+  clientSecret: String
+  providerRef: String
+  publicKey: String
+  redirectUrl: String
+  sessionId: String
+}
+
+type ShopPhoto {
+  alt: String
+  image: Image
+  versionId: ID
+}
+
+type ShopPlacedOrder {
+  instructions: String
+  number: String
+  orderId: ID
+  payment: ShopPaymentStart
+  provider: String
+  total: ShopMoney
+}
+
+type ShopProduct {
+  badges: [ShopBadge!]
+  compareAt: ShopMoney
+  compliance: [ShopCompliance!]
+  description: String
+  faqs: [ShopFaq!]
+  filters: [ShopFilterTag!]
+  flags: ShopFlags
+  highlights: [String!]
+  id: String
+  inStock: Boolean
+  maxPrice: ShopMoney
+  name: String
+  options: [ShopOption!]
+  photos: [ShopPhoto!]
+  price: ShopMoney
+  productType: String
+  related: [ShopProductSummary!]
+  returns: String
+  seoDescription: String
+  seoTitle: String
+  sizeChart: ShopSizeChart
+  slug: String
+  soldHere: Boolean
+  specs: [ShopSpec!]
+  story: [ShopStoryModule!]
+  storyTemplate: String
+  versions: [ShopVersion!]
+  video: ShopVideo
+  warranty: String
+}
+
+type ShopProductPage {
+  facets: [ShopFacet!]
+  nodes: [ShopProductSummary!]
+  pageInfo: PageInfo
+}
+
+enum ShopProductSort {
+  COLLECTION
+  NAME
+  NEWEST
+  PRICE_HIGH
+  PRICE_LOW
+}
+
+type ShopProductSummary {
+  badges: [ShopBadge!]
+  compareAt: ShopMoney
+  id: ID
+  inStock: Boolean
+  maxPrice: ShopMoney
+  name: String
+  photo: ShopPhoto
+  price: ShopMoney
+  productType: String
+  slug: String
+}
+
+type ShopSavedAddress {
+  city: String
+  country: String
+  id: ID
+  isDefault: Boolean
+  line1: String
+  line2: String
+  name: String
+  phone: String
+  postalCode: String
+  region: String
+}
+
+input ShopSavedAddressInput {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  name: String!
+  phone: String
+  postalCode: String
+  region: String
+}
+
+type ShopSession {
+  created: Boolean
+  sessionToken: String
+}
+
+enum ShopSignInChannel {
+  EMAIL
+  PHONE
+}
+
+type ShopSignInOptions {
+  email: Boolean
+  phone: Boolean
+}
+
+type ShopSizeChart {
+  fitNotes: String
+  howToMeasure: [ShopSizeChartNote!]
+  measurements: [String!]
+  modelInfo: String
+  name: String
+  rows: [ShopSizeChartRow!]
+  systems: [String!]
+  unit: String
+}
+
+type ShopSizeChartNote {
+  measurement: String
+  text: String
+}
+
+type ShopSizeChartRow {
+  size: String
+  values: [String!]
+}
+
+type ShopSpec {
+  name: String
+  value: String
+  versionId: ID
+}
+
+type ShopStore {
+  address: ShopAddress
+  contactEmail: String
+  contactPhone: String
+  currencies: [ShopCurrency!]
+  currency: String
+  description: String
+  language: String
+  languages: [String!]
+  logo: Image
+  mainLanguage: String
+  marketId: ID
+  markets: [ShopMarket!]
+  name: String
+  pricesIncludeTax: Boolean
+  pricingCurrency: String
+  timeZone: String
+  unitSystem: String
+}
+
+type ShopStoryBlock {
+  body: String
+  photo: ShopStoryPhoto
+  title: String
+}
+
+type ShopStoryItem {
+  photo: ShopStoryPhoto
+  text: String
+  title: String
+}
+
+type ShopStoryModule {
+  block: ShopStoryBlock
+  body: String
+  id: String
+  items: [ShopStoryItem!]
+  kind: String
+  photo: ShopStoryPhoto
+  photos: [ShopStoryPhoto!]
+  products: [ShopProductSummary!]
+  side: String
+  title: String
+  video: ShopVideo
+}
+
+type ShopStoryPhoto {
+  alt: String
+  image: Image
+}
+
+type ShopVersion {
+  available: Int
+  choices: [ShopVersionChoice!]
+  compareAt: ShopMoney
+  id: ID
+  inStock: Boolean
+  name: String
+  price: ShopMoney
+  sku: String
+  weightGrams: Int
+}
+
+type ShopVersionChoice {
+  optionId: ID
+  valueId: ID
+}
+
+type ShopVideo {
+  file: Image
+  url: String
 }

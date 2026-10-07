@@ -544,6 +544,77 @@ public store key, never a secret; a store id in an argument is never authority. 
 shopper's `order(id)`, `orderHistory`, `account` and `addresses` read only that shopper's own
 `customer_id`; a guest reads one order only through its order token (DATA-MODEL §5.1
 `app.order_token_hash`). Each is held by SAPI 9's isolation tests.
+**Built on #306 (SAPI 8), part 1:** the store comes from the host (`{code}.` under the partner's shops or preview wildcard,
+or the live custom domain) or the `X-Shop-Key` header (the public store key, `storefront.public_store_key`); a key naming
+another store on a store's own host is refused (`WRONG_STORE_KEY`), an unknown host answers 404. The language, currency
+and market come from `X-Shop-Language`, `X-Shop-Currency` and `X-Shop-Market`, falling back to the store's own when it
+doesn't offer them. Every call is rate-limited per host and address (600 a minute); a suspended or closed store answers
+`STORE_UNAVAILABLE`, a past-due one keeps selling. Shoppers run as `app_shop` (DATA-MODEL §5.3, §7.11). Queries: `store`,
+`menu`, `collections` (paged, at most 50), `collection(slug)` (in the shopper's language or the main one), and the files
+they show at `GET /shop-api/assets/{id}`.
+**Part 2:** `products(collection, filters, search, sort, first, after, before)` (at most 50; newest first, by price either
+way or by name, or a collection's own order; a filter's values are alternatives and filters all apply; only what the
+shopper's market sells and can price in the cart's currency; `facets` counts each value before the choice), `search(query)`,
+and `product(slug)`: each version's price in the cart's currency and market (typed, or converted at the reference rate and
+rounded, moved by the market's adjustment), compare-at, stock left (`shop_stock()`, migration 0065) and whether it can be
+bought, the badges whose rule holds (none for best sellers until reports count sales), options, the sections Settings ›
+Catalogue switches on (specs, highlights, FAQs, related, video, size chart, A+ with its brand stories and compared
+products), legal details, filters, and `soldHere` (the market sells it, a price here, the legal details its countries need,
+CATALOG T2).
+**Part 3:** a query of catalogue fields only (`store`, `menu`, `collections`, `collection`, `products`, `search`, `product`) is
+answered from the data centre's cache for 5 minutes, keyed by store, `storefront.catalog_version`, host, language,
+currency and market; every write a storefront shows moves the version, which is the purge (a section switched on or off
+included), and a republished reference rate moves a converting store's. Stock is left out on purpose, since every sale
+would otherwise empty the store's cache: a page may show it up to 5 minutes old, while the cart and placement check it
+again under lock, so nothing is oversold. Two more things change with no write and follow within those 5 minutes: a
+product whose `publish_at` comes, and the "new" badge as a product ages. An answer with errors is never
+kept, and the store is still found and rate-limited first. Anything else (carts, accounts, from SAPI 9) is never cached.
+Every answer goes out `private, no-store`: only the data centre's copy is kept, since nothing in front of it sees the
+version move or the headers the key reads.
+**Built on #308 (SAPI 9), part 1, the guest's cart:** `cart`, `addToCart(versionId, quantity)` (a guest's first add hands out
+`cartToken` once, sent back as `X-Shop-Cart`; a signed-in shopper's cart is its account's), `setCartQuantity` (0 removes),
+`setCartContact(email, phone, note)`, `setShippingAddress`, `setBillingAddress` (null bills the delivery address),
+`setShippingOption` (one of the cart's `shippingOptions`: courier, flat or pickup, SAPI 23's quote) and `checkout`, which
+moves the cart to payment or refuses `NOT_READY` with its `problems`. The cart holds what the shopper chose and nothing
+priced; each read prices it now: lines at today's price with what stops one being bought (gone, not sold here, unpriced,
+more than is left), delivery, tax from the store's rates (GST across or within states; Stripe Tax on a US address once
+Stripe is connected, #309), and the total. A change after reaching payment goes back to delivery. Up to 100 lines of up to 999; a cart lives 30
+days from its last change. A guest's new carts are limited per store and address (`CART_RATE_LIMITER`, 20 a minute). The names above replace §19's `updateLine` and `setShipping`.
+**Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, India starting with
+both), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
+the address has an account; 3 per address in 10 minutes, 10 a minute per requester, 50 texts a store in 10 minutes), `verifySignInCode(channel, to, code, name,
+password)` (proves the email or number: signs in, making the account when there's none; with an email, a password sets or
+resets it; one refusal for a wrong, used or expired code, 5 tries), `signIn(email, password)` (one refusal for any mismatch,
+rate-limited per store and IP and per email), `signOut`, `account`, `updateAccount(name)`, `saveAddress`, `deleteAddress`. The
+session token is handed out once and sent back as `X-Shop-Session`; signing in with a guest cart's token makes that cart the
+account's. The Store API's `customerAccounts` (the mode and how many accounts have an email, a number, only a number) and
+`saveCustomerAccounts(mode)` are the Owner's (`settings`).
+**Built on #309 (SAPI 10), part 1:** `paymentOptions` (the ways the store takes payment, in its region's order, a
+transfer's bank details with it), `placeOrder(provider)` (a ready cart becomes an order numbered `order_prefix` + the
+next number, its lines, parts per owner, delivery and tax snapshotted at today's price; cash on delivery and bank transfer
+hold the stock at once, checked again under lock, `OUT_OF_STOCK` when it's gone; a transfer is due in 3 days), and
+`order(id)` (the shopper's own, a guest's by its cart token; `shippingOption` and a courier's `shippingMethod`, worded by the
+storefront in the shopper's language). The Store API's `gateways` (the region's providers),
+`connectGateway` (cash on delivery in India, bank transfer with its details) and `disconnectGateway` (never the store's only
+live way to pay, `LAST_METHOD`) are the Owner's (`payments.configure`); `markOrderPaid` is the Owner's and Manager's
+(`orders.mark_paid`). The cron cancels a transfer unpaid after 3 days and gives its stock back.
+**Part 2, Stripe:** `connectStripe` (the address on Stripe to approve DripFunnel's app at; Stripe returns to
+`hooks.<host>/stripe/connect/callback`, which sends the merchant to `/settings/payments?stripe=finish&key=…`, or
+`stripe=cancelled` / `stripe=failed`) and `finishStripeConnect(key)` (the person who started, within 10 minutes) are the
+Owner's; a support session can't. On the Shop API a card provider's `placeOrder` starts the payment first and answers
+`payment` (`providerRef`, `publicKey`, `accountId`, `clientSecret`, `sessionId`, `redirectUrl`, as the provider needs), the
+order placed unpaid with no stock held; `confirmPayment(orderId)` reads it back on the shopper's return and answers the order;
+`payOrder(orderId)` starts a new attempt after a decline, cancelling the one it replaces at the provider (`ALREADY_PAID` once paid, `PAYMENT_MISMATCH` while a wrong amount waits for the merchant, `PAYMENT_PENDING` while the earlier one is still going through, `MODE_MISMATCH` from the other storefront's mode). The sweep cancels a card order only once its provider has closed the attempt. Paid, from the webhook, the return or
+the sweep, the order holds its stock; a card order unpaid for a day is cancelled (`unpaid`). Preview storefronts pay in
+test mode and never hold stock. A US address on a store with Stripe connected is taxed by Stripe Tax, delivery included;
+the store's own rates leave delivery untaxed (decided on #309). A Stripe account takes payment for one store only
+(`ACCOUNT_IN_USE`).
+**Part 3, pasted keys:** `connectGateway(provider, mode, keys)` connects Razorpay, Cashfree, PhonePe or PayPal for `LIVE` or
+`TEST` (the preview storefront). The keys are checked, tried once with the provider, sealed and never shown again (`INVALID_KEYS`,
+`KEYS_REFUSED`, `PROVIDER_UNAVAILABLE`). `gateways` lists each mode's `connections` with the webhook address to paste
+into the provider. At checkout `placeOrder` answers Razorpay's order and key id, Cashfree's `sessionId`, PhonePe's
+`redirectUrl` (the shopper returns to `/checkout/complete?order=…` and the storefront calls `confirmPayment`) or PayPal's order
+and client id. Cashfree refuses with `PHONE_REQUIRED` until the cart has a mobile number.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:
@@ -557,7 +628,7 @@ checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by e
 code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption**; digital
 downloads after payment; services sold with no booking (§1); marketing consent at
 checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
-queries are edge-cached per store, language and currency and purged by events (§5.5 there).
+queries are edge-cached per store, catalogue version, language, currency and market, the version's move being the purge (§5.5 there).
 
 ---
 

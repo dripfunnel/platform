@@ -455,6 +455,10 @@ customer          (id, store_id, email NULL, email_verified_at, phone NULL, phon
                   CHECK (email IS NOT NULL OR phone IS NOT NULL)
 customer_session  (id_hash, customer_id, created_at, last_seen_at, expires_at)
 store_customer_auth (store_id PK, email_enabled, phone_enabled)   -- Settings › Customer accounts
+                    -- Built on #308 (migration 0067), every store with a row (India starts with both), with
+                    -- customer_session (the token hashed, 30 days from last use) and customer_code (a 6-digit
+                    -- code for an email or a number, hashed, 5 tries, 10 minutes; 3 per address in 10 minutes,
+                    -- 10 a minute per requester by the limiter, 50 texts a store in 10 minutes), both system scope only
 ```
 
 The same email or phone may exist in any number of stores, as unrelated rows (ACCESS.md
@@ -598,7 +602,7 @@ request input, with one exception: the guest cart or order token, hashed before 
 | `app.impersonation_id` | The impersonation id while staff act as a user, else empty (for the activity log; grants nothing) |
 | `app.user_id` | The signed-in person's `user.id` (store scope) or `partner_user.id` (partner scope), else empty; the own-row functions and policies of §2.1 and §3.3 read it and nothing else does |
 | `app.staff_id` | The signed-in staff member (platform scope), else empty; read by the policy that lets a staff member start an impersonation only as themselves (#40) |
-| `app.order_token_hash` | The hash of the guest cart or order token presented on this request (shop scope), else empty; read only by `order_token_matches()` and `current_order_token_hash()` (§7.11). `StoreCaller.shopper` (`core/tenancy.ts`) and `RlsSettings` gain it with the first Shop API card |
+| `app.order_token_hash` | The hash of the guest cart or order token presented on this request (shop scope), else empty; read only by `current_order_token_hash()`, which the order's shop policies compare with the row's `access_token_hash` (§7.11; built on #308). `StoreCaller.shopper` (`core/tenancy.ts`) and `RlsSettings` gain it with the first Shop API card |
 | `app.request_token_hash` | The hash of the token on a guest's data-request link, or of the token just minted for a new request (shop scope), else empty; read only by `request_token_matches()` and `current_request_token_hash()` (§7.11) |
 
 `SET LOCAL` lives only for the transaction, so it is safe with Hyperdrive's pooled
@@ -678,10 +682,10 @@ contract).
 |---|---|---|
 | `app_request` | Merchant-side people (Owner, Manager, Staff) in store scope, and partner support sessions into a store (ACCESS §8) | DML under RLS; no `BYPASSRLS`; `select` and `insert` on `activity_log` (as 0006 grants; never update or delete) and `insert` on `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; `"order".access_token_hash`; §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc`, `token_enc` and `key_enc` on courier, payment, webhook, connection and AI-account rows) nor on `user.phone`, reached only through `own_phone()` and `set_own_phone()` (§2.1) |
 | `app_supplier` | Supplier users (store scope with `app.seller_id` set) | **Writes only what a supplier does** (ACCESS §5.2, §7.3), under the store-and-seller policies: DML on its own catalogue rows and their children (§7.3), `asset`, `warehouse`, `stock_level`, `stock_movement`, `size_chart`, `product_story`, `translation`, `catalog_import`, `catalog_export`; `insert` on `fulfilment` and `fulfilment_line` for its own parts and on `order_document` for its own labels; **its refunds only through `supplier_refund()`**, an `app_definer` function that checks, inside the database, that every line is the caller's, that the quantity does not exceed the line's refundable quantity and that the amount does not exceed the lines' value (`order_line_for_supplier`), then inserts the `refund` and `refund_line` rows: `app_supplier` has no direct `insert` on either, so the ceiling is a mechanism, not a promise; **`select` only, no write**, on `order_part`, `return_line`, `supplier_ledger_entry`, the refunds and documents the store wrote (its own refunds and labels it inserts, as above, and never updates), and on `order_line` **by column without any `*_amount`, tax rate or zone** (id, order and part ids, owner, version, product, name, version name, SKU, classification code, quantity, weight, the three fulfilled/returned/refunded quantities: what fulfilling needs); the money of its own lines it reads through `order_line_for_supplier` (§7.11), which carries the currency. The order's snapshot and a return's state are never a supplier's to change. **No `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
-| `app_shop` | Shoppers and guests (shop scope) | `select` on the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; `select` on the shop-readable settings §7.11 lists, by column (`store` and `market` public columns, languages, currencies, `store_policy`, `badge`, `shipping_zone`, `shipping_method`, and of `payment_provider_account` only `provider`, `mode` and `public_key`); its own `customer` row and children; its own `"order"` rows and children under the guest rule (§7.11), **by column** on the children (§7.11: no supplier ids, tax rates, zones or codes on lines; part state and mode only; the shopper-facing fulfilment columns of shopper-facing fulfilments only), and on `"order"` never `notes`, `cancel_reason`, `reminders_stopped_note`, `reminders_stopped_by_user_id`, `recovered_by_*`, `device`, `search` or `access_token_hash`. **Writes**: `insert` and `update` on its own `customer` and `customer_address` rows (never `status` or the credential columns); `insert` on `customer_data_request`; on `"order"` only the contact and checkout columns of its own **carts** (`email`, `phone`, `language`, the two addresses, `pickup`, `shopper_note`, `checkout_step`; on insert also `store_id`, `customer_id` and `access_token_hash`), under the write policy §7.11 states: `state = 'cart'` in both `USING` and `WITH CHECK`, `customer_id` equal to `app.customer_id` or null, the guest token rule for a guest. **Everything that prices the cart goes through engine functions owned by `app_definer`** (`cart_set_currency` and `cart_set_market`, which validate against `store_currency` and `market` and reprice every line; `cart_set_shipping_method`; `cart_add_line`, `cart_set_line_quantity`, `cart_apply_code`, `cart_place` and the like), which compute prices, discounts, tax, shipping and totals, write `order_line`, `order_adjustment`, `order_part`, `currency`, `market_id`, `shipping_method_id` and the `*_amount` and state columns, and run under the shopper's `app.*` settings; `app_shop` has no direct write on those tables or columns, so a shopper can never set a price, a total, a state or the currency the stored line amounts are in (PLATFORM-PROMPT §5.5 "the engine computes everything that matters") |
+| `app_shop` | Shoppers and guests (shop scope) | **Built on #306 (migration 0064) and #308 (0066).** **Reads**: the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; the shop-readable settings §7.11 lists, by column (`store` and `market` public columns, languages, currencies, `store_policy`, `badge`, the shipping settings, the tax classes, zones and rates, and of `payment_provider_account` only `provider`, `mode` and `public_key`), each under its shop policy; its own `customer` row; its own `"order"` rows and their `cart_line`s under the guest rule (§7.11: by its account, or a guest's by the hash of the cart token it presented), and on `"order"` never `notes`, `cancel_reason` or `access_token_hash`; of `activity_log` only its own entries' what-and-when columns. **A cart holds no price**: the engine prices it on every read, so there are no cart functions. **Writes**: on `"order"` only its own **carts'** choice columns (`email`, `phone`, `language`, `currency`, `market_id`, the two addresses, `shipping_option`, `shopper_note`, `checkout_step`, `cart_expires_at`, and `customer_id` only to its own; on insert also `store_id` and `access_token_hash`), with `state = 'cart'` in both `USING` and `WITH CHECK` and the currency and market only of the store's offer; `cart_line` (a version and a quantity) through the cart's policy; since #308 part 2 (0067) its own `customer` name and its own `customer_address` rows, and `activity_log` entries only about itself (`customer_id`, `actor_kind = 'customer'`, `actor_id` its own). Never a state, an amount, an order line or another shopper's row: placement, payment and every priced figure are written by the engine in system scope (#309), so a shopper can never set a price, a total or a state (PLATFORM-PROMPT §5.5 "the engine computes everything that matters") |
 | `app_partner` | Every partner-user request (partner scope): its own partner's tables and the account-level store tables | DML under RLS on the partner tables (§2); `select` on the account-level store tables (§2, §7.11) with the column rule of §7.11: never `design_version.prompt`, `summary`, `preview_asset_ids`, `ai_run.prompt` or `gate_results`; writes only what ACCESS §5.3 allows a partner (creating a store, built on #221: an invited `user`, an invited Owner `membership`, the store's first `job`, and a `store_subscription` at its plan's own price, each granted by column and held by a policy); the same credential exclusions as `app_request` |
 | `app_platform` | Every staff request (platform scope; the Admin API) | DML under RLS on the platform and partner tables and the account-level store tables; the read-only `platform` branch on `customer` (§2); **the same column rule as `app_partner` on the AI prompt columns** (staff see a merchant's content only by impersonating, ACCESS §8.1, which runs as the target's role); the same credential exclusions |
-| `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `order_line_for_supplier`, `return_for_supplier`, the AI metering view), the token functions `order_token_matches()`, `request_token_matches()`, `current_order_token_hash()`, `current_request_token_hash()`, the cart functions above and `supplier_refund()` | `BYPASSRLS`, no login. Every view and function filters on the settings of the scope it serves and is `security barrier`, so none is wider than the policy it replaces: the two supplier views on `app.store_id` and `app.seller_id`; **the AI metering view by scope**: `store` → `store_id = app.store_id`, `partner` → `store.partner_id = app.partner_id` (joined through `store`), `platform` → every store, anything else → nothing; the token functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting; the cart functions are executable by `app_shop` alone and write only the shopper's own cart (§7.11); `supplier_refund()` by `app_supplier` alone, enforcing the refund ceiling (§7.6); `current_order_token_hash()` returns the hash a guest's own insert must carry, and **null when the setting is empty**, so a tokenless insert fails the `WITH CHECK` comparison, which is never true against null (§7.11). **The catalogue and stock** (#293, #294): `store_product_count()` and `store_pricing_currency()` answer a number or a code for `app.store_id` in `store` scope only; `version_price_history()` (a trigger) writes the history of the price row being changed; `stock_change()` refuses anything but `store` scope outside read-only support, reaches only the caller's own locations (the merchant side's, or `app.seller_id`'s with its own versions) and writes the movement with the session's actor (§7.4); `store_default_warehouse()` (a trigger on `store`) inserts that new store's own default location and nothing else. **Approval** (#295, 0050): `store_vendor_approval()` answers the acting store's `vendor_products_require_approval` in `store` scope only, for a supplier too; `set_store_vendor_approval()` writes that one column for the acting store, merchant side only and never in a read-only support session. **Markets** (#296, 0051): `set_store_main_language()` writes `store.main_language` the same way, to one of the store's active languages; `store_default_market()` (a trigger on `store`) inserts that new store's main language and its primary Home market; `store_markets_follow_currency()` (a trigger on `store`) moves that store's markets selling in the old pricing currency to the new one; `acting_store_main_language()` answers the acting store's main language in `store` scope only, for a supplier too (0053); `save_store_info()` writes Store info's store columns for the acting store, merchant side only, its logo one of the store's own images, and `set_store_tax_inclusive()` the same for prices including tax (0054); `store_default_tax()` (a trigger on `store`) inserts that new store's tax classes, zone and rates (0055). **The product editor** (#298, 0056): `store_unit_system()` answers the acting store's metric or imperial in `store` scope only, for a supplier too, so a product's weight and box are typed in the store's units. **Shipping** (#305, 0063): `store_delivers_to(code)` answers whether the acting store's postcode list holds a code, in `store` or `shop` scope on the merchant side only, so a shopper's quote never reads the list. The identity, partner, billing and provisioning helpers of migrations 0007–0040 keep the filters their migrations state. The structural test (§5.4, `tests/isolation.test.ts`) names every function the role owns and checks each `security definer` one pins its `search_path` |
+| `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `order_line_for_supplier`, `return_for_supplier`, the AI metering view), the token functions `request_token_matches()`, `current_order_token_hash()` (built on #308; a cart needs no other function, as it holds no price), `current_request_token_hash()`, and `supplier_refund()` | `BYPASSRLS`, no login. Every view and function filters on the settings of the scope it serves and is `security barrier`, so none is wider than the policy it replaces: the two supplier views on `app.store_id` and `app.seller_id`; **the AI metering view by scope**: `store` → `store_id = app.store_id`, `partner` → `store.partner_id = app.partner_id` (joined through `store`), `platform` → every store, anything else → nothing; the token functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting; the cart functions are executable by `app_shop` alone and write only the shopper's own cart (§7.11); `supplier_refund()` by `app_supplier` alone, enforcing the refund ceiling (§7.6); `current_order_token_hash()` returns the hash a guest's own insert must carry, and **null when the setting is empty**, so a tokenless insert fails the `WITH CHECK` comparison, which is never true against null (§7.11). **The catalogue and stock** (#293, #294): `store_product_count()` and `store_pricing_currency()` answer a number or a code for `app.store_id` in `store` scope only; `version_price_history()` (a trigger) writes the history of the price row being changed; `stock_change()` refuses anything but `store` scope outside read-only support, reaches only the caller's own locations (the merchant side's, or `app.seller_id`'s with its own versions) and writes the movement with the session's actor (§7.4); `store_default_warehouse()` (a trigger on `store`) inserts that new store's own default location and nothing else. **Approval** (#295, 0050): `store_vendor_approval()` answers the acting store's `vendor_products_require_approval` in `store` scope only, for a supplier too; `set_store_vendor_approval()` writes that one column for the acting store, merchant side only and never in a read-only support session. **Markets** (#296, 0051): `set_store_main_language()` writes `store.main_language` the same way, to one of the store's active languages; `store_default_market()` (a trigger on `store`) inserts that new store's main language and its primary Home market; `store_markets_follow_currency()` (a trigger on `store`) moves that store's markets selling in the old pricing currency to the new one; `acting_store_main_language()` answers the acting store's main language in `store` scope only, for a supplier too (0053); `save_store_info()` writes Store info's store columns for the acting store, merchant side only, its logo one of the store's own images, and `set_store_tax_inclusive()` the same for prices including tax (0054); `store_default_tax()` (a trigger on `store`) inserts that new store's tax classes, zone and rates (0055). **The product editor** (#298, 0056): `store_unit_system()` answers the acting store's metric or imperial in `store` scope only, for a supplier too, so a product's weight and box are typed in the store's units. **Shipping** (#305, 0063): `store_delivers_to(code)` answers whether the acting store's postcode list holds a code, in `store` or `shop` scope on the merchant side only, so a shopper's quote never reads the list. The identity, partner, billing and provisioning helpers of migrations 0007–0040 keep the filters their migrations state. The structural test (§5.4, `tests/isolation.test.ts`) names every function the role owns and checks each `security definer` one pins its `search_path` | **The Shop API** (#306, 0064): `storefront_for_store()` (a trigger on `store`) inserts that new store's storefront row and public key; `storefront_catalog_touched()` and `storefront_store_touched()` (statement and row triggers on the catalogue tables and `store`) move only `storefront.catalog_version` of the stores the statement touched; `current_order_token_hash()` (#308, 0066) answers the hash of the cart token this request presented, null when none; `shop_stock()` (0065) answers, in `shop` scope only and to `app_shop` alone, each visible version of the acting store's available count and whether it is low, never a location or an owner. The identity, partner, billing and provisioning helpers of migrations 0007–0040 keep the filters their migrations state. The structural test (§5.4, `tests/isolation.test.ts`) names every function the role owns and checks each `security definer` one pins its `search_path` |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; owns the tables and the functions of §2.1; never used by the Worker at run time |
 
@@ -945,6 +949,20 @@ payment_provider_account
                      position)
                     -- the merchant's own providers (flow 56; THIRD-PARTY-ACCESS §3.1); never
                     -- the subscription's payment method (§7.9)
+                    -- Built on #309 (0068): one row per store and provider, external_account_id for a
+                    -- Stripe Connect account, bank_details as the text shoppers are shown, status live | off;
+                    -- the merchant writes only cash on delivery and bank transfer, others connect in system scope.
+                    -- #309 part 2 (0069): one row per store, provider and mode (a store's test keys for its
+                    -- preview storefront beside its live ones); Stripe's one live row serves both modes.
+                    -- Disconnect sets status off and clears the keys and the connected account, keeping the row
+                    -- for the payments that name it. #309 part 3: pasted keys are one sealed JSON value in
+                    -- credentials_enc, the webhook's secret inside it (webhook_secret_enc stays null);
+                    -- public_key holds Razorpay's key id or PayPal's client id
+payment_connect     (id, store_id, provider ('stripe'), status ('pending'|'approved'), state_hash,
+                     finish_hash, return_host, started_by, external_account_id, expires_at)
+                    -- Built on #309 (0069): Connect Stripe between leaving for Stripe and finishing in the
+                    -- starter's own session, as external_connection for Shopify; hashes only, system scope
+                    -- only, deleted when finished or expired
 invoice_settings    (store_id PK, legal_name, address jsonb, tax_id NULL, tax_per_line boolean,
                      email_with_dispatch boolean, footer text)
                     -- SetOps "Save invoice settings" and the "from" block of a shopper's
@@ -1221,7 +1239,8 @@ customer (+ columns) tags text[], note text, consent_state ('opted_in'|'stopped'
                     -- built in 0002), which is the deletion marker; "Record that they asked
                     -- to stop" writes consent_state = 'stopped' with the recording user
                     -- (LOGGING §3); consent_channels feeds the cart reminders (§7.2)
-customer_address    (id, customer_id, store_id, name, line1, line2, city, region, postal_code,
+customer_address    -- built on #308 (0067) as below, the shopper's own through app_shop, up to 20; one default
+                    (id, customer_id, store_id, name, line1, line2, city, region, postal_code,
                      country, phone, is_default_shipping, is_default_billing, deleted_at)
 customer_group      (id, store_id, name, description, deleted_at)   UNIQUE (store_id, name)
 customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY (group_id, customer_id)
@@ -1313,6 +1332,17 @@ view of the two.
                     -- placement and recomputed only by refunds (immutable snapshot,
                     -- PLATFORM-PROMPT §5.4); which promotions applied is order_adjustment
                     -- and promotion_usage, nothing here
+                    -- Built on #308 (migration 0066) with the cart's columns (id, store, the three
+                    -- states, customer, email, phone, language, currency, market, both addresses,
+                    -- shipping_option (courier | flat | pickup, SAPI 23's quote), shopper_note,
+                    -- checkout_step, cart_expires_at, access_token_hash, revision); the money,
+                    -- number and placement columns come with placement (SAPI 10, SAPI 11).
+                    -- Decided on #308: a cart stores no price at all. Its lines are cart_line
+                    -- (order_id, version_id, quantity) and the engine prices them on every read,
+                    -- so a shopper's write can never be a price; order_line is written at
+                    -- placement only. The guest policies compare access_token_hash with
+                    -- current_order_token_hash() directly (a lookup function couldn't see a row
+                    -- the same statement inserts), so order_token_matches() isn't built
 order_line          (id, order_id, store_id, seller_id NULL, version_id, product_id,
                      name, version_name, sku, hs_code, tax_class_key, tax_rate_bps, tax_zone_id NULL,
                      quantity, unit_amount, discount_amount, tax_amount, line_total_amount,
@@ -1357,6 +1387,23 @@ payment             (id, order_id, store_id, provider, provider_account_id, prov
                      ('card'|'wallet'|'upi'|'cod'|'bank_transfer'|…), state ('pending'|'authorised'
                      |'captured'|'failed'|'refunded'), amount, currency, captured_at)
                     -- webhooks idempotent through provider_ref (PLATFORM-PROMPT §5.4 Payments)
+                    -- Built on #309 (migration 0068) with mode (test | live) and the order's placement
+                    -- columns on "order" (number, placed_at, paid_at, cancelled_at, cancel_reason, the
+                    -- amounts, shipping_method_label, payment_method, payment_due_by for a transfer,
+                    -- stock_reserved); order_line, order_adjustment and order_part as above, order_line
+                    -- also holding reserved_warehouse_id (the one location its held stock sits at, so a
+                    -- cancellation gives back exactly that). Placement and payment write in system scope
+                    -- after the cart is read as its shopper; suppliers reach orders with SAPI 11. No English is
+                    -- snapshotted: order_adjustment.label is null where its kind says it all (shipping, tax) and
+                    -- shipping_method_label holds only a courier's own service name; clients word the rest by
+                    -- shipping_option and kind in the shopper's language (AGENTS "Product")
+                    -- #309 part 2 (0069): a card payment's row is written at placement with the id its
+                    -- provider was given and its provider_ref; it is settled by reading the provider back
+                    -- (webhook, the shopper's return, the sweep), idempotent by its state; payment_due_by is a
+                    -- day for a card order, and cancel_reason gains 'unpaid'. A live card order holds its stock
+                    -- when paid, even past what is free (logged as order.oversold); test-mode orders never hold
+                    -- stock. A payment of a different amount becomes state `mismatch` (0069), logged once and out of
+                    -- the sweep for the merchant
 payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state ('pending'|'done'|'failed'),
                      amount, currency)
 
@@ -1487,6 +1534,9 @@ storefront          (store_id PK, repo, hosting_target, preview_url, live_url, p
                     -- checkout_url and account_url are a store with its own frontend
                     -- (PLATFORM-PROMPT §5.6); setup_service_state records the one-time
                     -- "storefront setup by our team" (Pricing, PortalBilling)
+                    -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
+                    -- and catalog_version (moved by triggers on every change a storefront shows; the
+                    -- Shop API's edge cache keys on it); the rest comes with publishing (SAPI 17)
 publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'), state ('queued'
                      |'building'|'deploying'|'live'|'failed'), uses_allowance boolean,
                      started_by_kind, started_by_id, started_at, finished_at, deploy_ref, error,
@@ -1709,7 +1759,8 @@ decide which columns and which tables each caller kind may select at all**. `app
   internal step and has no shop branch). **`translation`** and **`product_search`** have no
   visibility columns of their own: their `shop` branch is `EXISTS` on the translated or
   indexed row passing its own shop rule (a visible, unhidden, undeleted product or
-  collection; a shopper-visible filter; a live story; a policy), so a hidden product's slug
+  collection; a shopper-visible filter; an option or choice name a visible product's option
+  carries; a live story; a policy; any other entity, nothing), so a hidden product's slug
   or translated name never reaches a shopper, and the matrix has that row. Every other table
   in this class has **no `shop` branch**, and `app_shop` has no `select` on it either.
 - **Catalogue structure: inside the store, merchant-written, shop-readable**: `collection`,
@@ -1747,24 +1798,16 @@ decide which columns and which tables each caller kind may select at all**. `app
   `external_connection`, `api_key`, `app_grant`, `invitation` (§3.3), `cart_reminder`,
   `cart_reminder_flow`, `cart_reminder_step`, `store_ai_account`, `store_billing_details`,
   and every settings table in §7.2 not named in the next class. `"order"` alone also has
-  the **shop branch** `customer_id = app.customer_id OR (customer_id IS NULL AND
-  order_token_matches(id))`, where `order_token_matches(uuid)` is a `security definer`
-  function owned by `app_definer` that compares the row's `access_token_hash` with
-  `app.order_token_hash` and is false when the setting is empty; so no request role selects
-  the hash column (§5.3) and a guest still holds exactly the carts and orders whose token it
-  presents, never another guest's. **Its shop write policy** (`INSERT` and `UPDATE` for
-  `app_shop`, on the columns §5.3 grants): `state = 'cart'` in both `USING` and `WITH CHECK`,
-  so a placed order is never writable by a shopper and a cart cannot be placed by a direct
-  write; `store_id = app.store_id`; `customer_id = app.customer_id`, or null for a guest. The
-  guest test differs by command, because `WITH CHECK` on an `INSERT` cannot look the new row
-  up: the `UPDATE` `USING` clause uses `order_token_matches(id)` on the stored row, and the
-  `INSERT` `WITH CHECK` clause requires `access_token_hash = current_order_token_hash()`,
-  an `app_definer` function returning the hash of the token this request presented, or null
-  when none was, so a tokenless guest insert is refused (null compares as unknown) (the
-  Shop API mints the token, sets `app.order_token_hash` to its hash for the transaction, and
-  inserts the cart with that hash), so a guest can create only a cart it holds the token for.
-  Currency, market and shipping method change only through the engine functions, which
-  reprice the lines, so the inheritance of §7.1 holds.
+  the **shop branch** (built on #308, migration 0066) `customer_id = app.customer_id OR (customer_id IS NULL AND
+  access_token_hash = current_order_token_hash())`, where `current_order_token_hash()` is an `app_definer` function
+  returning the hash of the token this request presented (`app.order_token_hash`), or null when none was; the policy
+  compares the stored hash itself, so no request role selects the hash column (§5.3), a guest holds exactly the carts
+  and orders whose token it presents, and a row this statement inserts is checked the same way. **Its shop write
+  policy** (`INSERT` and `UPDATE` for `app_shop`, on the columns §5.3 grants): `state = 'cart'` in both `USING` and
+  `WITH CHECK`, so a placed order is never writable by a shopper and a cart cannot be placed by a direct write;
+  `store_id = app.store_id`; the same owner test; and the currency and market only of the store's offer. A cart holds
+  no price, so nothing a shopper writes is priced: the engine prices the cart on every read, and placement writes in
+  system scope (#309), so the inheritance of §7.1 holds.
   `customer_data_request` gets the same shape for a guest's own request: its `access_token_hash` and `request_token_matches(uuid)` against
   `app.request_token_hash` (§5.1), with the matrix row guest A vs guest B.
   **Read-only supplier branches, listed in the matrix**: a supplier editing its own products
@@ -1782,8 +1825,10 @@ decide which columns and which tables each caller kind may select at all**. `app
   links), `store_policy`, `badge` (label and tone), `shipping_zone`, `shipping_method`,
   `payment_provider_account` (`provider`, `mode`, `public_key` only: the storefront mounts
   the provider's element with them). Duties, tax and delivery-area checks are the engine's
-  (PLATFORM-PROMPT §5.5): the shop reads none of `tax_*`, `delivery_area`, `compliance_default`
-  or `store_feature`. The matrix row: a shopper selecting `payment_provider_account` gets the
+  (PLATFORM-PROMPT §5.5): the shop reads none of `delivery_area`, `compliance_default`
+  or `store_feature`. **Amended on #308**: `tax_class`, `tax_zone`, `tax_rate` and `product_version.tax_class_id` are
+  shop-readable (rates are printed on every invoice), so the engine prices a cart's tax as the shopper; it still
+  computes it, and a storefront is never told a rate it could assert. The matrix row: a shopper selecting `payment_provider_account` gets the
   three columns and nothing else, and no row of any other settings table.
 - **Customer accounts**: `customer`, `customer_address`, `customer_data_request`: inside the
   store, plus the read-only `platform` branch of §2 on `customer`, plus a **shop branch** on

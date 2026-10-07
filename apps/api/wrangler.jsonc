@@ -11,7 +11,9 @@
   "ratelimits": [
     { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
     { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
-    { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } }
+    { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+    { "name": "SHOP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 600, "period": 60 } },
+    { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } }
   ],
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "images": { "binding": "IMAGES" },
@@ -30,7 +32,9 @@
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
         { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
-        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } }
+        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+        { "name": "SHOP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 600, "period": 60 } },
+        { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "images": { "binding": "IMAGES" },
@@ -54,7 +58,9 @@
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
         { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
-        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } }
+        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+        { "name": "SHOP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 600, "period": 60 } },
+        { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "images": { "binding": "IMAGES" },
@@ -72,7 +78,9 @@
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
         { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
-        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } }
+        { "name": "STAFF_SESSION_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 120, "period": 60 } },
+        { "name": "SHOP_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 600, "period": 60 } },
+        { "name": "CART_RATE_LIMITER", "namespace_id": "1005", "simple": { "limit": 20, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "images": { "binding": "IMAGES" }

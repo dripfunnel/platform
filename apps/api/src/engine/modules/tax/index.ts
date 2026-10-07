@@ -27,7 +27,8 @@ import {
 import { computeTax, zonesClash, type LineTax, type ShipTo, type TaxSetting } from './compute'
 
 export type { InvoiceSettingsRow, TaxSetupRow } from '#db/scoped/tax'
-export type { LineTax } from './compute'
+export type { LineTax, ShipTo, TaxSetting } from './compute'
+export { computeTax } from './compute'
 
 // Settings › Tax setup (SetOps; CATALOG facts 37–38, T3–T4) and tax on a cart: the store's own rates, or Stripe
 // Tax on the merchant's connected Stripe account for a US address (decided on #284, #337).
@@ -54,7 +55,14 @@ class Refused extends Error {
 /** Stripe Tax for a US address, when the store has connected its Stripe account (SAPI 10 connects it). */
 export interface StripeTaxDeps {
   accountId: () => Promise<string | null>
-  calculate: (request: { accountId: string; currency: string; inclusive: boolean; shipTo: { country: string; region: string | null; postal: string | null }; lines: { reference: string; amount: bigint; taxCode: string | null }[] }) => Promise<{ total: bigint; lines: { reference: string; amount: bigint }[] }>
+  calculate: (request: {
+    accountId: string
+    currency: string
+    inclusive: boolean
+    shipTo: { country: string; region: string | null; postal: string | null }
+    lines: { reference: string; amount: bigint; taxCode: string | null }[]
+    shipping?: bigint | null
+  }) => Promise<{ total: bigint; lines: { reference: string; amount: bigint }[]; shipping: bigint }>
 }
 
 export interface TaxDeps {
@@ -310,7 +318,7 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
         },
       }
     }
-    const computed = computeTax(priced.map((p) => ({ id: p.id, amount: p.lineAmount, taxClassId: p.taxClassId })), shipTo, settingOf(setting))
+    const computed = computeTax(priced.map((p) => ({ id: p.id, amount: p.lineAmount, taxClassId: p.taxClassId })), shipTo, taxSettingOf(setting))
     return {
       ok: true,
       value: { currency: loaded.currency, inclusive: setting.tax_inclusive, source: 'rates', lines: computed.lines.map((l, i) => ({ ...l, quantity: priced[i]?.quantity ?? 0, lineAmount: priced[i]?.lineAmount ?? 0n })), total: computed.total },
@@ -320,7 +328,8 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
   return { setup, setInclusive, saveClass, addCategory, deleteClass, saveZone, setHomeRate, deleteZone, invoiceSettings, saveInvoice, quote }
 }
 
-const settingOf = (row: TaxSetupRow): TaxSetting => ({
+/** The store's tax facts as the pure computation takes them; a cart (SAPI 9) prices its own lines with it. */
+export const taxSettingOf = (row: TaxSetupRow): TaxSetting => ({
   inclusive: row.tax_inclusive,
   defaultClassId: row.classes.find((c) => c.is_default)?.id ?? null,
   storeCountry: row.country,

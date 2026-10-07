@@ -424,9 +424,9 @@ describe('isolation (ACCESS.md §11.1)', () => {
     await expect(count(supplier(a, storeA, sellerA), 'custom_domain')).rejects.toThrow(/permission denied/i)
   })
 
-  it('a shopper sees none of it', async () => {
+  it('a shopper sees none of it: app_shop holds no grant on any of them (#306)', async () => {
     for (const table of ['membership', 'user', 'plan', 'custom_domain', 'job', 'partner_user']) {
-      expect(await count(shopper(a, storeA), table)).toBe(0)
+      await expect(count(shopper(a, storeA), table)).rejects.toThrow(/permission denied/)
     }
   })
 

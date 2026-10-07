@@ -252,6 +252,14 @@ type CurrencyPrice {
   source: String
 }
 
+type CustomerAccounts {
+  customers: Int
+  mode: String
+  phoneOnly: Int
+  withEmail: Int
+  withPhone: Int
+}
+
 type Facet {
   id: ID
   name: String
@@ -428,7 +436,9 @@ type Mutation {
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
   connectCourier(provider: String!): String
+  connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
   connectShopify(shop: String!): String
+  connectStripe: String
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
@@ -441,12 +451,15 @@ type Mutation {
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
   disconnectCourier(provider: String!): String
+  disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
   duplicateProduct(id: ID!): SavedProduct
   finishShopifyConnect(key: String!): String
+  finishStripeConnect(key: String!): Boolean
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
+  markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   proposeProduct(input: ProductInput!): SavedProduct
   publishProductStory(productId: ID!, revision: Int!): ProductStory
@@ -467,6 +480,7 @@ type Mutation {
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
   saveCourierOptions(input: CourierOptionsInput!, provider: String!): Boolean
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
+  saveCustomerAccounts(mode: String!): CustomerAccounts
   saveFacet(input: FacetInput!): ID
   saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
   saveLanguages(languages: [String!]!, main: String!): Boolean
@@ -537,6 +551,41 @@ type PageInfo {
   hasNextPage: Boolean
   hasPreviousPage: Boolean
   startCursor: String
+}
+
+type PaymentGateway {
+  bankDetails: String
+  connectable: Boolean
+  connections: [PaymentGatewayConnection!]
+  kind: String
+  label: String
+  live: Boolean
+  provider: String
+}
+
+type PaymentGatewayConnection {
+  live: Boolean
+  mode: String
+  webhookUrl: String
+}
+
+input PaymentGatewayKeysInput {
+  appId: String
+  clientId: String
+  clientSecret: String
+  clientVersion: String
+  keyId: String
+  keySecret: String
+  secretKey: String
+  webhookId: String
+  webhookPassword: String
+  webhookSecret: String
+  webhookUsername: String
+}
+
+enum PaymentMode {
+  LIVE
+  TEST
 }
 
 type Product {
@@ -864,7 +913,9 @@ type Query {
   collectionPreview(inheritParent: Boolean, match: String, parentId: ID, rules: [CollectionRuleInput!]!): CollectionPreview
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
+  customerAccounts: CustomerAccounts
   facets(after: String, before: String, first: Int): FacetPage
+  gateways: [PaymentGateway!]
   health: String
   invoiceSettings: InvoiceSettings
   market(id: ID!): Market

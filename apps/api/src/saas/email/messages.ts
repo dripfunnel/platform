@@ -74,6 +74,12 @@ export const en = {
     body: (code: string) => `Your code is ${code}. Type it on the sign-up page to carry on. It works for 10 minutes.`,
     note: 'If you didn’t start a sign-up, ignore this email; nothing is made without the code.',
   },
+  shopperCode: {
+    subject: (store: string) => `Your ${store} code`,
+    heading: 'Your code',
+    body: (code: string) => `Your code is ${code}. Type it where you asked for it to carry on. It works for 10 minutes.`,
+    note: 'If you didn’t ask for a code, ignore this email; nothing happens without it.',
+  },
   signupHasAccount: {
     subject: (brand: string) => `You already have a ${brand} account`,
     heading: 'You already have an account',

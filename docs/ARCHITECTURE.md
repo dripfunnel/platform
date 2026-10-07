@@ -253,7 +253,9 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 
 ## 8. Open questions
 
-- The Shop API hostname pattern for storefronts.
+- ~~The Shop API hostname pattern for storefronts.~~ `/shop-api` on the store's own storefront hosts: `{code}.` under its
+  partner's `*.shops.` or `*.preview.` wildcard, or its live custom domain; on any other host the public store key alone
+  names the store, and a key sent on a store's own host must be that store's (decided on #306).
 - Password hashing choice under Workers CPU limits.
 - Logpush destination, and whether to keep a copy of logs outside Cloudflare.
 - ~~Where the AI designer's sandbox runs (GitHub Actions, Cloudflare Containers, or elsewhere).~~

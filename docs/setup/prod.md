@@ -156,13 +156,16 @@ moment you save.
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Store it in the password manager **before** saving it. Losing it makes every encrypted 2-factor secret and partner or merchant credential unreadable for good; it carries a version for rotation (THIRD-PARTY-ACCESS.md §5) |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center (THIRD-PARTY-ACCESS.md §2.5). Redirect URI `https://admin.dripfunnel.com/api/auth/callback`. The client secret expires (24 months at most): note the date |
 | `STRIPE_SECRET_KEY` | Secret | **live** restricted key `rk_live_…` | Stripe (live mode) › Developers › API keys › *Create restricted key*, with only the permissions in THIRD-PARTY-ACCESS.md §8 |
-| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (live mode) › Webhooks › *Add endpoint* `https://hooks.dripfunnel.com/stripe`, events as in §8, *Listen to events on Connected accounts* From SAPI 10, the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1, proposed) |
+| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (live mode) › Webhooks › *Add endpoint* `https://hooks.dripfunnel.com/stripe`, events as in §8, *Listen to events on Connected accounts* Since #309 the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1) |
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Secret | the sending IAM user | THIRD-PARTY-ACCESS.md §2.4. Ask for SES **production access** early; approval takes days |
 | `SES_SENDER_DOMAIN` | Text | `dripfunnel-mail.com` | verified in SES with DKIM, SPF and DMARC; partners' fallbacks are its subdomains |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
 | `SES_EVENTS_TOPIC_ARN` | Secret | the production bounce topic's ARN | SNS topic with `SignatureVersion` 2, subscribed to `https://hooks.dripfunnel.com/ses` |
 | `CF_PAGES_POOL` | Secret | the production pool, JSON `[{ "accountId", "token" }]` | A Pages-scoped token per production pool account (THIRD-PARTY-ACCESS §2.1, §8.2). Needed from INF 1 |
-| `STRIPE_CONNECT_CLIENT_ID` | Text | the **live** `ca_…` | Stripe (live mode) › Connect › Settings, with the redirect `https://hooks.dripfunnel.com/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1). Needed from SAPI 10 |
+| `STRIPE_CONNECT_CLIENT_ID` | Text | the **live** `ca_…` | Stripe (live mode) › Connect › Settings, with the redirect `https://hooks.dripfunnel.com/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1). Read since #309 |
+| `STRIPE_PUBLISHABLE_KEY` | Text | the **live** `pk_live_…` | Stripe (live mode) › Developers › API keys |
+| `STRIPE_TEST_SECRET_KEY` | Secret | a **test-mode** restricted key `rk_test_…`, permissions as `STRIPE_SECRET_KEY`'s | For checkout on preview storefronts in test mode (THIRD-PARTY-ACCESS §8.1); with the next row or neither |
+| `STRIPE_TEST_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Needed from ST 1a |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`

@@ -8,7 +8,7 @@ export type SellerScope = { kind: 'all' } | { kind: 'seller'; sellerId: string }
 
 export type StoreCaller =
   | { kind: 'person'; userId: string; sessionId: string }
-  | { kind: 'shopper'; customerId: string | null }
+  | { kind: 'shopper'; customerId: string | null; orderTokenHash?: string | null }
   | { kind: 'api-key'; keyId: string; createdByUserId: string }
   | { kind: 'app'; grantId: string; appId: string }
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }

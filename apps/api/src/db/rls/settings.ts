@@ -1,14 +1,16 @@
 import type { CallerContext, Scope } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
 
-/** The database role each caller kind runs as (DATA-MODEL.md §5.3). The shopper role arrives
- *  with its first card; until then shoppers run as `app_request`. */
-export type RequestRole = 'app_request' | 'app_supplier' | 'app_partner' | 'app_platform'
+/** The database role each caller kind runs as (DATA-MODEL.md §5.3); shoppers as `app_shop` since #306. */
+export type RequestRole = 'app_request' | 'app_supplier' | 'app_shop' | 'app_partner' | 'app_platform'
 
 // Exhaustive and failing closed: a context kind added later throws until it is named here, so it
 // can never run as staff by default.
 export const roleFor = (context: CallerContext): RequestRole => {
-  if (isTenantContext(context)) return context.sellerScope.kind === 'seller' ? 'app_supplier' : 'app_request'
+  if (isTenantContext(context)) {
+    if (context.caller.kind === 'shopper') return 'app_shop'
+    return context.sellerScope.kind === 'seller' ? 'app_supplier' : 'app_request'
+  }
   if (isPartnerContext(context)) return 'app_partner'
   if (context.caller.kind === 'staff') return 'app_platform'
   throw new Error('roleFor: unknown caller kind')
@@ -27,6 +29,8 @@ export interface RlsSettings {
   'app.user_id': string
   /** The signed-in staff member (platform scope): who may start an impersonation as themselves (0030). */
   'app.staff_id': string
+  /** The hash of the cart token a guest shopper presented (migration 0066): its own carts, compared in the database. */
+  'app.order_token_hash': string
 }
 
 const empty = {
@@ -38,6 +42,7 @@ const empty = {
   'app.impersonation_id': '',
   'app.user_id': '',
   'app.staff_id': '',
+  'app.order_token_hash': '',
 }
 
 export const settingsFor = (context: CallerContext): RlsSettings => {
@@ -56,6 +61,7 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
       // Grants nothing; it attributes the write (LOGGING.md §4).
       'app.impersonation_id': caller.kind === 'impersonation' ? caller.impersonationId : '',
       'app.user_id': caller.kind === 'person' ? caller.userId : '',
+      'app.order_token_hash': caller.kind === 'shopper' ? (caller.orderTokenHash ?? '') : '',
     }
   }
   if (isPartnerContext(context)) {

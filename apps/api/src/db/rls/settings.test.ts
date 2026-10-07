@@ -21,3 +21,13 @@ describe('a Platform API caller’s database settings (DATA-MODEL.md §5.1, §5.
     expect(settingsFor(context)).toMatchObject({ 'app.user_id': 'pu', 'app.impersonation_id': '' })
   })
 })
+
+describe('a Shop API caller’s database settings (DATA-MODEL.md §5.3, #306)', () => {
+  it('runs a shopper as app_shop in shop scope, signed in or not, and a store’s people as before', () => {
+    const shopper = { caller: { kind: 'shopper' as const, customerId: null }, partnerId, storeId: 's', sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    expect(roleFor(shopper)).toBe('app_shop')
+    expect(settingsFor(shopper)).toMatchObject({ 'app.scope': 'shop', 'app.store_id': 's', 'app.customer_id': '' })
+    expect(roleFor({ ...shopper, caller: { kind: 'shopper' as const, customerId: 'c' } })).toBe('app_shop')
+    expect(roleFor({ ...shopper, caller: { kind: 'person' as const, userId: 'u', sessionId: 'x' } })).toBe('app_request')
+  })
+})

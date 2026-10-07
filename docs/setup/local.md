@@ -369,6 +369,10 @@ Once the partner is Live, a merchant can also sign up on their own at
    stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"
    ```
 4. Copy the `whsec_…` it prints into `STRIPE_WEBHOOK_SECRET` and restart `pnpm dev`.
+5. For card checkout (#309), also the test-mode `pk_test_…` in `STRIPE_PUBLISHABLE_KEY`, and for
+   Connect Stripe the test-mode `ca_…` in `STRIPE_CONNECT_CLIENT_ID`, with
+   `https://hooks.localhost/stripe/connect/callback` added to the Connect redirects (the Worker
+   names the hooks host over https, so run `pnpm dev:https`).
 
 ---
 
