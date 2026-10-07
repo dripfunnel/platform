@@ -9,6 +9,7 @@ import { selectCodeForEmail, setCodeHash } from '#db/scoped/shopper'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
 import { selectBranding } from '#db/scoped/branding'
 import type { ScopedSql } from '#db/scoped/index'
+import { selectOrderEmail, selectShipmentToTell, type OrderEmailRow } from '#db/scoped/orderUpdates'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
 import { selectCataloguePlan } from '#db/scoped/partnerPlans'
 import { selectActivePartnerEmails, selectInvitedPartnerRole, selectLivePortalHost, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectRecordPartner } from '#db/scoped/partners'
@@ -70,6 +71,8 @@ const payloads = {
   'store-plan-changed': z.object({ storeId: id, planId: id, when: z.enum(['next', 'now']) }),
   'store-suspended': z.object({ storeId: id, reason: z.string().max(500) }),
   'store-restored': z.object({ storeId: id }),
+  'order-confirmed': z.object({ orderId: id }),
+  'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
 } as const
 export type Template = keyof typeof payloads
 
@@ -343,6 +346,43 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const contact = m.brand.supportEmail ?? m.brand.supportUrl
       const paragraphs = [w.body(m.store.name), w.reason(p.reason), ...(contact ? [w.contact(contact)] : [])]
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
+    }
+    case 'order-confirmed':
+    case 'order-shipped': {
+      const p = parse(t)
+      const fulfilmentId = 'fulfilmentId' in p ? p.fulfilmentId : null
+      const o = await selectOrderEmail(tx, p.orderId, fulfilmentId)
+      if (!o || o.state === 'cancelled' || o.lines.length === 0) return { send: false, reason: 'link_closed' }
+      if (o.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      if (!o.email) return { send: false, reason: 'no_recipient' }
+      const look = await partnerBrand(tx, o.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      // A shopper hears from the store, in its partner's look: the store's name and its own contact (SAAS §3.6).
+      const brand: Brand = { ...look.brand, name: o.store_name, supportEmail: o.contact_email, supportUrl: null }
+      const item = (l: OrderEmailRow['lines'][number]) => (l.version_name ? `${l.name}, ${l.version_name}` : l.name)
+      if (t === 'order-confirmed') {
+        const w = en.orderConfirmed
+        const money = (amount: string) => en.money(o.locale, amount, o.currency)
+        const paragraphs = [
+          w.intro(o.number),
+          ...o.lines.map((l) => w.line(l.quantity, item(l), money(l.amount))),
+          w.total(money(o.total_amount)),
+          ...(o.payment_method === 'cod' ? [w.cod(money(o.total_amount))] : o.payment_method === 'bank_transfer' ? [w.transfer] : []),
+          ...(o.ship_to ? [w.shipTo(o.ship_to.name, o.ship_to.city)] : []),
+        ]
+        return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content: { subject: w.subject(o.store_name, o.number), heading: w.heading, paragraphs } }
+      }
+      const shipment = fulfilmentId ? await selectShipmentToTell(tx, fulfilmentId) : null
+      if (!shipment || shipment.order_id !== p.orderId) return { send: false, reason: 'link_closed' }
+      const w = en.orderShipped
+      const tracking = shipment.tracking_number ? [shipment.courier_name ? w.courier(shipment.courier_name, shipment.tracking_number) : w.tracking(shipment.tracking_number)] : []
+      const content: EmailContent = {
+        subject: w.subject(o.store_name, o.number),
+        heading: w.heading,
+        paragraphs: [w.intro(o.number), ...o.lines.map((l) => w.line(l.quantity, item(l))), ...tracking],
+        ...(shipment.tracking_url ? { action: { label: w.action, url: shipment.tracking_url } } : {}),
+      }
+      return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
     }
     case 'store-restored': {
       const p = parse(t)

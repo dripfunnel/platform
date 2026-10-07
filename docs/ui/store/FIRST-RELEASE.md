@@ -670,6 +670,14 @@ currency for one who has paid in more than one, up to 10,000. Owner, Manager and
 refused. Everyone who has bought is a customer: a live guest order makes an unverified row from its email (or, with none, its
 number), never linked to the order, so an account takes it over only by proving that email or number (ACCESS §2.1). Only the
 shopper opts in to marketing; the checkout box that records it comes with the storefront's checkout.
+**Part 2, the shopper's order emails and texts:** the order confirmation once an order goes through (placed for cash on
+delivery or a transfer, paid for a card), and the shipping news once a shipment leaves for the shopper (the store's, or a
+to-shopper supplier's; never a hand-off to the store or a pickup) and once more when its tracking first comes. Each is an
+email, from the store's name in its partner's look with the store's contact, and a text where the order has a number
+(`order.confirmed`, `order.shipped` with the courier and the tracking link, which waits until both exist). A test order, a
+cancelled one and a correction of tracking tell nobody. The engine queues an `order.notify` row of ids only; its deliverer
+reads the order when it runs and queues the email and the text, each once. The password email is #308's shopper code (a
+forgotten password signs in by code and sets a new one). `order.delivered` waits for tracking sync (#311).
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

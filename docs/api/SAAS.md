@@ -186,6 +186,8 @@ receives uses the partner of the store (or portal host) it concerns, never anoth
   still sent: it is asked for, and one that never arrives locks someone out; SES's own
   account-level suppression still stops dead addresses. The list holds an HMAC of the address
   under `EMAIL_SUPPRESSION_KEY` (migrations/0034): pseudonymous, and unreadable without the key.
+- **Shoppers** (#312) hear from the store: its name as the sender's, its partner's colours and "Powered by", and the
+  store's contact email as the support line; the order confirmation and the shipping news (FIRST-RELEASE §19, SAPI 13).
 - **Language:** English only until partners or stores have one.
 
 ---

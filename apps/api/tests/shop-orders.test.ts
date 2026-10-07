@@ -142,6 +142,8 @@ describe('placing an order', () => {
     // The guest is now one of the store's customers (#312), unverified and never linked to the order (ACCESS §2.1).
     expect(await db.sql`select name, email, status from customer where email = 'asha@example.com'`).toEqual([{ name: 'Asha', email: 'asha@example.com', status: 'unverified' }])
     expect(await db.sql`select customer_id from "order" where id = ${order}`).toEqual([{ customer_id: null }])
+    // Cash on delivery goes through as placed: the shopper's confirmation is queued once (#312).
+    expect(await db.sql`select payload ->> 'event' as event from outbox where kind = 'order.notify' and payload ->> 'orderId' = ${order}`).toEqual([{ event: 'confirmed' }])
   })
 
   it('checks stock again under lock: the last one goes to one order only', async () => {
