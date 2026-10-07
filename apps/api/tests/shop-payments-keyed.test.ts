@@ -11,7 +11,7 @@ import { withSystemScope } from '#db/scoped/index'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
 import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
 import { PaymentRefused, PaymentUnavailable } from '#core/payments'
-import { hmacHex } from '#integrations/payments/http'
+import { hmacBase64, hmacHex } from '#integrations/payments/http'
 import { keyedGateways } from '#integrations/payments/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -32,6 +32,7 @@ const cookies: Record<'owner' | 'staff' | 'other', string> = { owner: '', staff:
 
 // A stand-in for Razorpay's API: orders it was asked to make, and what the test says was paid on them.
 const orders = new Map<string, { amount: number; currency: string; paid: boolean; key: string }>()
+const cashfreeOrders = new Map<string, { amount: string; currency: string; paid: boolean }>()
 const razorpayApi = async (url: string, init?: RequestInit): Promise<Response> => {
   const auth = new Headers(init?.headers).get('authorization') ?? ''
   const [keyId, keySecret] = atob(auth.replace('Basic ', '')).split(':')
@@ -47,7 +48,17 @@ const razorpayApi = async (url: string, init?: RequestInit): Promise<Response> =
   const payments = /^\/v1\/orders\/(order_\w+)\/payments$/.exec(path)
   const order = orders.get(payments?.[1] ?? '')
   if (order) return Response.json({ items: order.paid ? [{ id: 'pay_1', status: 'captured', amount: order.amount, currency: order.currency }] : [] })
-  if (url.includes('cashfree.com')) return Response.json({ message: 'order not found' }, { status: 404 })
+  if (url.includes('cashfree.com')) {
+    // A stand-in for Cashfree's orders: made with the shopper's number, read back by their own id.
+    if (init?.method === 'POST') {
+      const body = JSON.parse(String(init.body)) as { order_id: string; order_amount: number; order_currency: string }
+      cashfreeOrders.set(body.order_id, { amount: String(init.body).match(/"order_amount":([0-9.]+)/)?.[1] ?? '0', currency: body.order_currency, paid: false })
+      return Response.json({ order_id: body.order_id, payment_session_id: `session_${body.order_id}` })
+    }
+    const order = cashfreeOrders.get(new URL(url).pathname.split('/').pop() ?? '')
+    if (!order) return Response.json({ message: 'order not found' }, { status: 404 })
+    return Response.json({ order_status: order.paid ? 'PAID' : 'ACTIVE', order_amount: order.amount, order_currency: order.currency })
+  }
   return Response.json({}, { status: 404 })
 }
 const wiring = (): PaymentWiring => ({
@@ -96,10 +107,13 @@ const shop = async (source: string, cart: string | null = null, host = live) => 
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
-const merchant = async (source: string, who: keyof typeof cookies) => {
+const merchant = async (source: string, who: keyof typeof cookies, support?: 'read' | 'write') => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'other' ? stores.other : stores.india }
-  const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const standing = support && resolved.kind === 'acting'
+    ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: support } } } }
+    : resolved
   const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, payments: wiring(), secrets, host: 'store.acme.example', now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -153,7 +167,14 @@ describe('Connecting by keys', () => {
       { mode: 'test', live: true, webhookUrl: `https://hooks.acme.example/payments/razorpay/${rows.find((r) => r.mode === 'test')?.id ?? ''}` },
     ])
     // Another store's merchant sees none of it.
-    expect(((await merchant('{ gateways { provider live } }', 'other')).data?.['gateways'] as { live: boolean }[]).every((g) => !g.live)).toBe(true)
+    // Another store's merchant sees none of it: no live flag, no connection, no webhook address.
+    expect(((await merchant('{ gateways { provider live connections { mode webhookUrl } } }', 'other')).data?.['gateways'] as { live: boolean; connections: unknown[] }[]).every((g) => !g.live && g.connections.length === 0)).toBe(true)
+    // A support session never pastes keys or disconnects, read or write; nothing changes.
+    for (const access of ['read', 'write'] as const) {
+      expect((await merchant('mutation { connectGateway(provider: "razorpay", mode: LIVE, keys: { keyId: "rzp_live_zzzzzz", keySecret: "x", webhookSecret: "y" }) }', 'owner', access)).code).toBe('SUPPORT_SESSION')
+      expect((await merchant('mutation { disconnectGateway(provider: "razorpay") }', 'owner', access)).code).toBe('SUPPORT_SESSION')
+    }
+    expect((await db.sql<{ public_key: string; status: string }[]>`select public_key, status from payment_provider_account where store_id = ${stores.india} and provider = 'razorpay' and mode = 'live'`)[0]).toEqual({ public_key: 'rzp_live_abcdef', status: 'live' })
     expect((await db.sql<{ action: string; reason: string }[]>`select action, reason from activity_log where store_id = ${stores.india} and action = 'payment_method.turned_on' order by occurred_at`).map((r) => r.reason)).toEqual(['live', 'test'])
   })
 
@@ -199,6 +220,47 @@ describe('Paying through Razorpay', () => {
     expect(await hook(path, body, await hmacHex('livehook', body))).toBe(200)
     expect((await db.sql`select payment_state, stock_reserved from "order" where id = ${placed.orderId}`)[0]).toEqual({ payment_state: 'paid', stock_reserved: true })
     expect((await db.sql<{ actor_id: string }[]>`select actor_id from activity_log where action = 'order.paid' and target_id = ${placed.orderId}`)[0]?.actor_id).toBe('razorpay')
+  })
+
+  it('answers 405 to anything but a POST and 413 to a body past 256 KB, unread', async () => {
+    const path = `/payments/razorpay/${liveAccount}`
+    const found = paymentHookOf(path)
+    if (!found) throw new Error('no hook')
+    const deps = { sql: db.sql, activity: activityLog, gateways: wiring().gateways, secrets, now: () => new Date() }
+    expect((await handlePaymentHook(new Request(`https://hooks.acme.example${path}`), found, deps, async () => true)).status).toBe(405)
+    expect((await handlePaymentHook(new Request(`https://hooks.acme.example${path}`, { method: 'POST', body: 'x'.repeat(300 * 1024) }), found, deps, async () => true)).status).toBe(413)
+  })
+
+  it('holds a Razorpay payment of a different amount for the merchant, from its webhook', async () => {
+    const token = await readyCart('phone: "+919845022113"')
+    const placed = (await shop('mutation { placeOrder(provider: "razorpay") { orderId payment { providerRef } } }', token)).data?.['placeOrder'] as { orderId: string; payment: { providerRef: string } }
+    const made = orders.get(placed.payment.providerRef)
+    orders.set(placed.payment.providerRef, { ...(made ?? { amount: 0, currency: 'INR', key: '' }), amount: 1, paid: true })
+    const body = JSON.stringify({ event: 'order.paid', payload: { order: { entity: { id: placed.payment.providerRef } } } })
+    expect(await hook(`/payments/razorpay/${liveAccount}`, body, await hmacHex('livehook', body))).toBe(200)
+    expect((await db.sql`select o.payment_state, p.state from "order" o join payment p on p.order_id = o.id where o.id = ${placed.orderId}`)[0]).toEqual({ payment_state: 'pending', state: 'mismatch' })
+  })
+
+  it('takes a Cashfree payment end to end: the order made with the shopper’s number, settled from its signed webhook', async () => {
+    await merchant('mutation { connectGateway(provider: "cashfree", mode: LIVE, keys: { appId: "app1", secretKey: "cfs" }) }', 'owner')
+    const token = await readyCart('phone: "+919845022113"')
+    const placed = (await shop('mutation { placeOrder(provider: "cashfree") { orderId payment { providerRef sessionId } } }', token)).data?.['placeOrder'] as { orderId: string; payment: { providerRef: string; sessionId: string } }
+    expect(placed.payment.sessionId).toBe(`session_${placed.payment.providerRef}`)
+    const [account] = await db.sql<{ id: string }[]>`select id from payment_provider_account where store_id = ${stores.india} and provider = 'cashfree' and mode = 'live'`
+    const order = cashfreeOrders.get(placed.payment.providerRef)
+    if (order) order.paid = true
+    const body = JSON.stringify({ type: 'PAYMENT_SUCCESS_WEBHOOK', data: { order: { order_id: placed.payment.providerRef } } })
+    const timestamp = String(Date.now())
+    const path = `/payments/cashfree/${account?.id ?? ''}`
+    const found = paymentHookOf(path)
+    if (!found) throw new Error('no hook')
+    const signed = (secret: string) => hmacBase64(secret, timestamp + body)
+    const post = async (signature: string) =>
+      (await handlePaymentHook(new Request(`https://hooks.acme.example${path}`, { method: 'POST', body, headers: { 'x-webhook-timestamp': timestamp, 'x-webhook-signature': signature } }), found, { sql: db.sql, activity: activityLog, gateways: wiring().gateways, secrets, now: () => new Date() }, async () => true)).status
+    expect(await post(await signed('not-the-secret'))).toBe(400)
+    expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${placed.orderId}`)[0]?.payment_state).toBe('pending')
+    expect(await post(await signed('cfs'))).toBe(200)
+    expect((await db.sql<{ payment_state: string }[]>`select payment_state from "order" where id = ${placed.orderId}`)[0]?.payment_state).toBe('paid')
   })
 
   it('asks for a mobile number before Cashfree, which needs one', async () => {

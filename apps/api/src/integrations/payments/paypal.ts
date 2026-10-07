@@ -71,15 +71,18 @@ export const paypal = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {})
       if (order.status === 'COMPLETED') return captured(order)
       if (order.status === 'VOIDED') return { state: 'failed' }
       if (order.status !== 'APPROVED') return { state: 'pending' }
-      // Approved by the shopper: captured now, once, whichever of the return and the webhook asks first.
+      // Approved by the shopper: captured now, once. The loser of a race with the webhook is told 422 (already
+      // captured), and reads the order again.
       const done = await callProvider(
         fetchImpl,
         `${baseFor(account.mode)}/v2/checkout/orders/${providerRef}/capture`,
         { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'paypal-request-id': `capture-${providerRef}` }, body: '{}' },
-        orderSchema,
+        orderSchema.or(z.object({ name: z.string() }).loose()),
         [422],
       )
-      return done.status === 'COMPLETED' ? captured(done) : { state: 'pending' }
+      if ('status' in done && typeof done.status === 'string') return done.status === 'COMPLETED' ? captured(orderSchema.parse(done)) : { state: 'pending' }
+      const again = await callProvider(fetchImpl, `${baseFor(account.mode)}/v2/checkout/orders/${providerRef}`, { headers: { authorization } }, orderSchema)
+      return again.status === 'COMPLETED' ? captured(again) : { state: 'pending' }
     },
     webhook: async (account, delivery) => {
       const webhookId = account.credentials['webhookId']

@@ -171,6 +171,18 @@ describe('PayPal', () => {
     expect(await paypal({ fetchImpl: routes({ '/v2/checkout/orders/ORD1': { id: 'ORD1', status: 'VOIDED' } }).fetchImpl }).outcome(keys, 'ORD1')).toEqual({ state: 'failed' })
   })
 
+  it('reads the order again when it loses a capture race (PayPal answers 422)', async () => {
+    const done = { id: 'ORD1', status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ status: 'COMPLETED', amount: { value: '25.99', currency_code: 'USD' } }] } }] }
+    let reads = 0
+    const race = stub((a) => {
+      if (a.url.endsWith('/v1/oauth2/token')) return Response.json({ access_token: 'tok' })
+      if (a.url.endsWith('/capture')) return Response.json({ name: 'UNPROCESSABLE_ENTITY', details: [{ issue: 'ORDER_ALREADY_CAPTURED' }] }, { status: 422 })
+      reads += 1
+      return Response.json(reads === 1 ? { id: 'ORD1', status: 'APPROVED' } : done)
+    })
+    expect(await paypal({ fetchImpl: race.fetchImpl }).outcome(keys, 'ORD1')).toEqual({ state: 'captured', amount: { amount: 2599n, currency: 'USD' } })
+  })
+
   it('has PayPal check a webhook against the merchant’s webhook id, and names the order', async () => {
     const body = JSON.stringify({ event_type: 'PAYMENT.CAPTURE.COMPLETED', resource: { id: 'CAP1', supplementary_data: { related_ids: { order_id: 'ORD1' } } } })
     const signed = new Headers({ 'paypal-auth-algo': 'SHA256withRSA', 'paypal-transmission-id': 't1', 'paypal-transmission-sig': 'sig', 'paypal-transmission-time': '2026-10-07T10:00:00Z', 'paypal-cert-url': 'https://api-m.sandbox.paypal.com/v1/notifications/certs/CERT-1' })

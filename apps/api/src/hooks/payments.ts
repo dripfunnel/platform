@@ -1,3 +1,4 @@
+import { readCapped } from '#core/http'
 import { logEvent } from '#core/log'
 import { isCardProvider, PaymentUnavailable } from '#core/payments'
 import { settleFromWebhook, type SettleDeps } from '#engine/modules/checkout/index'
@@ -19,9 +20,10 @@ export const handlePaymentHook = async (request: Request, hook: NonNullable<Retu
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
   // Per account, before anything is opened or any provider asked (a public address).
   if (!(await allow(`payments-hook:${hook.accountId}`))) return new Response(null, { status: 429 })
-  if (Number(request.headers.get('content-length') ?? 0) > maxBodyBytes) return new Response(null, { status: 413 })
-  const body = await request.text()
-  if (new TextEncoder().encode(body).byteLength > maxBodyBytes) return new Response(null, { status: 413 })
+  // Read no further than the cap, whatever length it claims or none.
+  const read = await readCapped(request, maxBodyBytes)
+  if (!read.ok) return new Response(null, { status: 413 })
+  const body = new TextDecoder().decode(read.bytes)
   try {
     const outcome = await settleFromWebhook(deps, hook.provider, hook.accountId, { body, headers: request.headers, now: deps.now() })
     logEvent({ event: 'payment_webhook', api: 'hooks', code: `${hook.provider}:${outcome}` })
