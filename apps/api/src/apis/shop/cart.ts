@@ -14,6 +14,7 @@ const words: Record<CartRefusal, string> = {
   TOO_MANY_LINES: 'Your cart is full. Remove something to add this.',
   NO_CART: 'Your cart has expired. Add something to start again.',
   NOT_READY: 'There’s something to finish before you pay.',
+  RATE_LIMITED: 'Too many new carts from here. Wait a minute and try again.',
 }
 
 const answered = <T>(result: CartResult<T>): T => {
@@ -24,7 +25,9 @@ const answered = <T>(result: CartResult<T>): T => {
 export const cartOf = async (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
   const couriers = ctx.couriers ? await ctx.couriers.forPartner(shopper.context.partnerId) : null
-  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+  // A guest's new cart is counted per store and address, so a script can't fill the table (#443's review).
+  const allowNewCart = async () => Boolean(ctx.facts.ip && ctx.allowAttempt && (await ctx.allowAttempt(`shop:${shopper.context.storeId}:cart:${ctx.facts.ip}`)))
+  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, activity: ctx.activity, facts: ctx.facts, allowNewCart, now: ctx.now })
 }
 
 export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {

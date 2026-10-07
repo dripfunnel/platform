@@ -8,23 +8,17 @@ export interface CustomerAuthRow {
   phone_enabled: boolean
 }
 
+/** Every store has its row (migration 0067); one missing signs nobody in rather than guess a way. */
 export const selectCustomerAuth = async (tx: ScopedSql, storeId: string): Promise<CustomerAuthRow> =>
-  (await tx<CustomerAuthRow[]>`select email_enabled, phone_enabled from store_customer_auth where store_id = ${storeId}`)[0] ?? { email_enabled: true, phone_enabled: false }
+  (await tx<CustomerAuthRow[]>`select email_enabled, phone_enabled from store_customer_auth where store_id = ${storeId}`)[0] ?? { email_enabled: false, phone_enabled: false }
 
-/** Codes asked for this email or number, and from this requester, since a moment: what the limits count. */
-export const countRecentCodes = async (tx: ScopedSql, storeId: string, by: { channel: string; target: string } | { requesterHash: string }, since: Date): Promise<number> =>
-  (
-    await tx<{ n: number }[]>`
-      select count(*)::int as n from customer_code
-      where store_id = ${storeId} and created_at > ${since}
-        and ${'requesterHash' in by ? tx`requester_hash = ${by.requesterHash}` : tx`channel = ${by.channel} and target = ${by.target}`}
-    `
-  )[0]?.n ?? 0
+/** Codes asked for this email or number since a moment: what the per-address limit counts. */
+export const countRecentCodes = async (tx: ScopedSql, storeId: string, by: { channel: string; target: string }, since: Date): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from customer_code where store_id = ${storeId} and created_at > ${since} and channel = ${by.channel} and target = ${by.target}`)[0]?.n ?? 0
 
-export const insertCode = async (tx: ScopedSql, c: { storeId: string; channel: 'email' | 'phone'; target: string; codeHash: string | null; requesterHash: string | null; expiresAt: Date }): Promise<string> => {
+export const insertCode = async (tx: ScopedSql, c: { storeId: string; channel: 'email' | 'phone'; target: string; codeHash: string | null; expiresAt: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
-    insert into customer_code (store_id, channel, target, code_hash, requester_hash, expires_at)
-    values (${c.storeId}, ${c.channel}, ${c.target}, ${c.codeHash}, ${c.requesterHash}, ${c.expiresAt}) returning id
+    insert into customer_code (store_id, channel, target, code_hash, expires_at) values (${c.storeId}, ${c.channel}, ${c.target}, ${c.codeHash}, ${c.expiresAt}) returning id
   `
   if (!row) throw new Error('customer_code: insert returned no row')
   return row.id
@@ -129,6 +123,23 @@ export const touchShopperSession = async (tx: ScopedSql, idHash: string, storeId
       returning s.customer_id
     `
   )[0]?.customer_id ?? null
+
+export const endShopperSessions = async (tx: ScopedSql, customerId: string, storeId: string, now: Date): Promise<void> => {
+  await tx`update customer_session set ended_at = ${now} where customer_id = ${customerId} and store_id = ${storeId} and ended_at is null`
+}
+
+/**
+ * The cron's sweep: codes a day past their expiry, which hold an email or number that may be no customer's, and
+ * sessions ended or expired 30 days ago (#444's review).
+ */
+export const purgeShopperIdentity = async (tx: ScopedSql, now: Date, limit: number): Promise<number> => {
+  const codes = await tx`delete from customer_code where id in (select id from customer_code where expires_at < ${new Date(now.getTime() - 86_400_000)} limit ${limit})`
+  const sessions = await tx`
+    delete from customer_session where id_hash in (select id_hash from customer_session
+      where coalesce(ended_at, expires_at) < ${new Date(now.getTime() - 30 * 86_400_000)} limit ${limit})
+  `
+  return codes.count + sessions.count
+}
 
 export const endShopperSession = async (tx: ScopedSql, idHash: string, storeId: string, now: Date): Promise<string | null> =>
   (await tx<{ customer_id: string }[]>`update customer_session set ended_at = ${now} where id_hash = ${idHash} and store_id = ${storeId} and ended_at is null returning customer_id`)[0]?.customer_id ?? null

@@ -4,7 +4,8 @@ import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import { hashSessionId } from '#auth/session'
 import type { TenantContext } from '#core/tenancy'
-import { withScope } from '#db/scoped/index'
+import { deleteExpiredCarts } from '#db/scoped/cart'
+import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -56,7 +57,7 @@ const gql = async (source: string, who: { host?: string; token?: string | null }
   const headers: Record<string, string> = who.token ? { 'x-shop-cart': who.token } : {}
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, couriers: null, now: () => new Date() }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, allowAttempt: async () => allow, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, problems: result.errors?.[0]?.extensions['problems'] as string[] | undefined }
 }
@@ -65,6 +66,8 @@ const cart = async (token: string | null, host?: string) => (await gql(`{ cart {
 const mutate = (token: string | null, field: string, args = '') => gql(`mutation { ${field}${args} { cart { ${cartFields} } } }`, { token })
 
 let token = ''
+// What the sign-in limiter answers for a new guest cart; a test turns it off.
+let allow = true
 
 describe('a guest’s cart', () => {
   it('starts on the first add, handing out a token once; without it there is no cart', async () => {
@@ -189,5 +192,23 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     expect((await withScope(db.sql, merchant(stores.india), (tx) => tx`select id from "order"`)).length).toBe(1)
     expect((await withScope(db.sql, merchant(stores.other), (tx) => tx`select id from "order"`)).length).toBe(0)
     await expect(withScope(db.sql, merchant(stores.india, t.sellerA1First), (tx) => tx`select id from "order"`)).rejects.toThrow(/permission denied/)
+  })
+})
+
+describe('limits and expiry (#443’s review)', () => {
+  it('refuses a new guest cart once the limiter says no, but never an existing cart’s change', async () => {
+    allow = false
+    expect((await gql(`mutation { addToCart(versionId: "${ids.kurta}", quantity: 1) { cartToken } }`)).code).toBe('RATE_LIMITED')
+    expect((await gql(`mutation { setCartQuantity(versionId: "${ids.kurta}", quantity: 1) { cart { id } } }`, { token })).code).toBeUndefined()
+    allow = true
+  })
+
+  it('deletes carts past their expiry, lines with them, and never a placed order', async () => {
+    const before = Number((await db.sql<{ n: string }[]>`select count(*)::text as n from "order" where store_id = ${stores.india}`)[0]?.n)
+    const added = await gql(`mutation { addToCart(versionId: "${ids.kurta}", quantity: 1) { cartToken } }`)
+    expect(added.code).toBeUndefined()
+    const removed = await withSystemScope(db.sql, (tx) => deleteExpiredCarts(tx, new Date(Date.now() + 31 * 86_400_000), 500))
+    expect(removed).toBe(before + 1)
+    expect(Number((await db.sql<{ n: string }[]>`select count(*)::text as n from cart_line`)[0]?.n)).toBe(0)
   })
 })

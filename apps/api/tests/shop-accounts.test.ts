@@ -8,6 +8,7 @@ import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { activityLog } from '#saas/activity/index'
 import { prepareEmail } from '#saas/email/compose'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -56,7 +57,7 @@ const gql = async (source: string, who: { host?: string; session?: string; cart?
   const headers: Record<string, string> = { ...(who.session ? { 'x-shop-session': who.session } : {}), ...(who.cart ? { 'x-shop-cart': who.cart } : {}) }
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async () => true, sessionToken: who.session ?? null, now }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async () => allow, sessionToken: who.session ?? null, now }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -84,6 +85,8 @@ const verify = (channel: 'EMAIL' | 'PHONE', to: string, code: string, extra = ''
   gql(`mutation { verifySignInCode(channel: ${channel}, to: "${to}", code: "${code}"${extra}) { sessionToken created } }`, who)
 
 let phoneSession = ''
+// What the sign-in limiter answers; a test turns it off.
+let allow = true
 
 describe('signing in by a texted code', () => {
   it('offers both ways in an Indian store, and answers a code request the same for a new number', async () => {
@@ -186,5 +189,61 @@ describe('isolation', () => {
     const rows = await db.sql<{ action: string; reason: string | null; target_label: string | null }[]>`select action, reason, target_label from activity_log where store_id = ${stores.india} and action like 'customer.%'`
     expect(new Set(rows.map((r) => r.action))).toEqual(new Set(['customer.code_requested', 'customer.signed_up', 'customer.signed_in', 'customer.sign_in_failed', 'customer.updated', 'customer.address_saved', 'customer.address_removed', 'customer.signed_out']))
     expect(JSON.stringify(rows)).not.toMatch(/9845022113|ravi@example\.com/)
+  })
+})
+
+describe('#444’s review', () => {
+  it('refuses a code request or a code once the limiter says no', async () => {
+    allow = false
+    expect((await gql('mutation { requestSignInCode(channel: PHONE, to: "+919811111111") }')).code).toBe('RATE_LIMITED')
+    expect((await verify('PHONE', '+919811111111', '123456')).code).toBe('RATE_LIMITED')
+    allow = true
+  })
+
+  it('ends every other session when a code sets a new password', async () => {
+    const before = ((await gql('mutation { signIn(email: "ravi@example.com", password: "a-long-passphrase") { sessionToken } }')).data?.['signIn'] as { sessionToken: string }).sessionToken
+    expect((await gql('{ account { email } }', { session: before })).data?.['account']).toEqual({ email: 'ravi@example.com' })
+    await gql('mutation { requestSignInCode(channel: EMAIL, to: "ravi@example.com") }')
+    const after = ((await verify('EMAIL', 'ravi@example.com', await emailedCode(), ', password: "another-long-one"')).data?.['verifySignInCode'] as { sessionToken: string }).sessionToken
+    expect((await gql('{ account { email } }', { session: before })).data?.['account']).toBeNull()
+    expect((await gql('{ account { email } }', { session: after })).data?.['account']).toEqual({ email: 'ravi@example.com' })
+  })
+
+  it('signs nobody in where the store has no sign-in setting at all', async () => {
+    await db.sql`delete from store_customer_auth where store_id = ${stores.other}`
+    expect((await gql('{ signInOptions { email phone } }', { host: hostOf.other })).data?.['signInOptions']).toEqual({ email: false, phone: false })
+    expect((await gql('mutation { requestSignInCode(channel: EMAIL, to: "x@example.com") }', { host: hostOf.other })).code).toBe('METHOD_OFF')
+  })
+
+  it('lets a shopper log only entries about itself, as itself', async () => {
+    const [me] = await db.sql<{ id: string }[]>`select id from customer where store_id = ${stores.india} and phone = '+919845022113'`
+    const [other] = await db.sql<{ id: string }[]>`select id from customer where store_id = ${stores.india} and email = 'ravi@example.com'`
+    const context: TenantContext = { caller: { kind: 'shopper', customerId: me?.id ?? null }, partnerId: t.partnerA, storeId: stores.india, sellerScope: { kind: 'all' }, subscription: 'active' }
+    const forge = (customerId: string, actorId: string) =>
+      withScope(db.sql, context, (tx) => tx`insert into activity_log (category, action, result, actor_kind, actor_id, visibility, store_id, partner_id, customer_id)
+        values ('write', 'customer.updated', 'success', 'customer', ${actorId}, 'store', ${stores.india}, ${t.partnerA}, ${customerId})`)
+    await expect(forge(other?.id ?? '', other?.id ?? '')).rejects.toThrow(/row-level security/)
+    await expect(forge(other?.id ?? '', me?.id ?? '')).rejects.toThrow(/row-level security/)
+    await expect(forge(me?.id ?? '', me?.id ?? '')).resolves.toBeDefined()
+  })
+
+  it('keeps the setting and addresses to their store, the support session read-only and a supplier out', async () => {
+    const merchant = (storeId: string, extra: Partial<TenantContext> = {}): TenantContext => ({ caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: t.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active', ...extra })
+    const count = (context: TenantContext, table: string) => withScope(db.sql, context, async (tx) => Number((await tx.unsafe<{ n: string }[]>(`select count(*)::text as n from ${table}`))[0]?.n))
+    expect(await count(merchant(stores.india), 'customer_address')).toBeGreaterThan(0)
+    expect(await count(merchant(stores.other), 'customer_address')).toBe(0)
+    expect(await count(merchant(stores.india), 'store_customer_auth')).toBe(1)
+    await expect(count(merchant(stores.india), 'customer_code')).rejects.toThrow(/permission denied/)
+    await expect(count(merchant(stores.india, { sellerScope: { kind: 'seller', sellerId: t.sellerA1First } }), 'store_customer_auth')).rejects.toThrow(/permission denied/)
+    const support: TenantContext = { caller: { kind: 'support', supportSessionId: 'ss', partnerUserId: 'pu', access: 'read' }, partnerId: t.partnerA, storeId: stores.india, sellerScope: { kind: 'all' }, subscription: 'active' }
+    await expect(withScope(db.sql, support, (tx) => tx`update store_customer_auth set phone_enabled = false`)).rejects.toThrow(/row-level security/)
+  })
+
+  it('purges codes a day past their expiry and sessions ended a month ago', async () => {
+    const codes = Number((await db.sql<{ n: string }[]>`select count(*)::text as n from customer_code`)[0]?.n)
+    expect(codes).toBeGreaterThan(0)
+    const removed = await withSystemScope(db.sql, (tx) => purgeShopperIdentity(tx, new Date(Date.now() + 60 * 86_400_000), 500))
+    expect(removed).toBeGreaterThanOrEqual(codes)
+    expect(Number((await db.sql<{ n: string }[]>`select count(*)::text as n from customer_code`)[0]?.n)).toBe(0)
   })
 })
