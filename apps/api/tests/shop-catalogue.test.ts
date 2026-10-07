@@ -224,4 +224,17 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     await db.sql`update store set country = 'AE' where id = ${t.storeA1}`
     expect(Number(await version(t.storeA1))).toBe(Number(a1) + 4)
   })
+
+  it('gives a store converting prices a new version when the reference rate is republished, and only such a store', async () => {
+    const seen = async () => (await shopperOn('store-a1.shops.acme.example')).catalogVersion
+    const plain = await seen()
+    await db.sql`insert into exchange_rate (currency, per_euro, source, published_on, fetched_at) values ('USD', '1.08', 'ecb', '2026-10-06', now()) on conflict (currency) do update set published_on = '2026-10-06'`
+    expect(await seen()).toBe(plain)
+    await db.sql`insert into store_currency (store_id, currency, mode, rounding, status, position) values (${t.storeA1}, 'USD', 'convert', 'none', 'active', 9) on conflict (store_id, currency) do update set mode = 'convert', status = 'active'`
+    const converting = await seen()
+    expect(converting).not.toBe(plain)
+    await db.sql`update exchange_rate set published_on = '2026-10-07', per_euro = '1.09' where currency = 'USD'`
+    expect(await seen()).not.toBe(converting)
+    expect((await shopperOn('api.example', { 'x-shop-key': keys.b1 })).catalogVersion).not.toContain('.')
+  })
 })
