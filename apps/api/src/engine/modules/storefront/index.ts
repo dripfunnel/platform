@@ -11,6 +11,7 @@ import {
   selectShopCollection,
   selectShopCollections,
   selectShopFacets,
+  selectShopListed,
   selectShopMarket,
   selectShopMenu,
   selectShopPricing,
@@ -63,6 +64,25 @@ export interface ShopProductPage {
   soldHere: boolean
   extras: ShopProductExtrasRow
   related: ShopProductView[]
+  /** The A+ comparisons' products by id, loaded once for the whole story. */
+  compared: ReadonlyMap<string, ShopProductView>
+}
+
+const maxRelated = 10
+
+/** A sort cursor's value as its SQL cast takes it, so a tampered one is INVALID_CURSOR, never a database error. */
+const valueFits = (sort: ShopSort, value: string): boolean => {
+  if (sort === 'newest') {
+    // As Postgres prints a timestamptz: a real calendar date and time, and an offset.
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(\.\d{1,6})?[+-]\d{2}(:\d{2})?$/.exec(value)
+    if (!m) return false
+    const [y, mo, d, h, mi, se] = m.slice(1, 7).map(Number) as [number, number, number, number, number, number]
+    const date = new Date(Date.UTC(y, mo - 1, d))
+    return date.getUTCMonth() === mo - 1 && date.getUTCDate() === d && h < 24 && mi < 60 && se < 60
+  }
+  if (sort === 'name') return value.length <= 255 && !value.includes('\u0000')
+  if (sort === 'collection') return /^-?\d{1,9}$/.test(value)
+  return /^-?\d{1,19}$/.test(value) && BigInt(value) <= 9223372036854775807n && BigInt(value) >= -1n
 }
 
 const maxSearch = 100
@@ -157,7 +177,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       if (!window.ok) return { ok: false, reason: window.code }
       const after = request.after ? decodeValueCursor(request.after, sort) : null
       const before = request.before ? decodeValueCursor(request.before, sort) : null
-      if ((request.after && !after) || (request.before && !before)) return { ok: false, reason: 'INVALID_CURSOR' }
+      if ((request.after && !after) || (request.before && !before) || (after && !valueFits(sort, after.value)) || (before && !valueFits(sort, before.value))) return { ok: false, reason: 'INVALID_CURSOR' }
       const sortWindow = { limit: window.window.limit, after, before }
       const query: ShopProductQuery = { ...facts.query, collectionId: clean.collection?.id ?? null, filterValueIds: clean.filters, search: clean.search }
       const rows = await selectShopProducts(tx, storeId, query, sort, sortWindow)
@@ -199,16 +219,15 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
         story: features.aplus ? extras.story : null,
         blocks: features.aplus ? extras.blocks : [],
       }
-      return { product: view, soldHere: sellable && ready, extras: shown, related: await viewsOf(tx, shown.related, facts) }
+      // Related and compared products keep the listing's rules: one the market doesn't sell or can't price here is left out.
+      const listing = { ...facts.query, collectionId: null, filterValueIds: [], search: null }
+      const comparedIds = ((shown.story?.modules ?? []) as { productIds?: unknown }[]).flatMap((m) => (Array.isArray(m.productIds) ? m.productIds.filter((x): x is string => typeof x === 'string').slice(0, 5) : []))
+      const wanted = [...new Set([...shown.related.slice(0, maxRelated), ...comparedIds])].filter(isUuid)
+      const listed = await selectShopListed(tx, storeId, listing, wanted)
+      const views = new Map((await viewsOf(tx, wanted.filter((x) => listed.has(x)), facts)).map((v) => [v.id, v]))
+      const related = shown.related.slice(0, maxRelated).flatMap((x) => views.get(x) ?? [])
+      return { product: view, soldHere: sellable && ready, extras: shown, related, compared: views }
     })
 
-  /** Products named by id (a story's comparison), those shoppers can see, in the order named. */
-  const summaries = (ids: readonly string[]): Promise<ShopProductView[]> =>
-    inScope(async (tx) => {
-      const facts = await pricingIn(tx)
-      const clean = [...new Set(ids.map((id) => id.toLowerCase()))].filter(isUuid).slice(0, 10)
-      return facts ? viewsOf(tx, clean, facts) : []
-    })
-
-  return { store, menu, collections, collection, asset, products, facets, product, summaries }
+  return { store, menu, collections, collection, asset, products, facets, product }
 }

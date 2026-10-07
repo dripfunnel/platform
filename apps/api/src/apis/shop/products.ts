@@ -137,13 +137,13 @@ export const registerProducts = ({ builder, pageInfo, image }: ShopBuilder) => {
       photo: t.field({ type: StoryPhotoType, nullable: true, resolve: (s) => field(s.module, 'photo') as StoryPhoto | null }),
       items: t.field({ type: [StoryItemType], nullable: true, resolve: (s) => field(s.module, 'items') as StoryItem[] | null }),
       photos: t.field({ type: [StoryPhotoType], nullable: true, resolve: (s) => field(s.module, 'photos') as StoryPhoto[] | null }),
-      // A compared product shoppers can't see is left out.
+      // A compared product shoppers can't see, or this market doesn't sell, is left out; all loaded with the page.
       products: t.field({
         type: [Summary],
         nullable: true,
-        resolve: async (s, _, ctx) => {
+        resolve: (s) => {
           const ids = field(s.module, 'productIds') as string[] | null
-          return ids ? catalogOf(ctx).summaries(ids) : null
+          return ids ? ids.slice(0, 5).flatMap((id) => s.page.compared.get(id) ?? []) : null
         },
       }),
       block: t.field({ type: BlockType, nullable: true, resolve: (s) => s.page.extras.blocks.find((b) => b.id === field(s.module, 'blockId')) ?? null }),
