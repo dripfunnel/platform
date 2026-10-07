@@ -409,5 +409,5 @@ for providers the store doesn't use.
 - ~~Which content pages and sections may the theme add without new core support (blog, lookbook,
   store locator)?~~ FAQ, lookbook, the merchant's own pages **and a blog** (SAPI 24); About and Contact are site data (decided 2026-10-08 on #470); no store locator (decided 2026-10-05 on #337).
 - ~~How store repos authenticate to GitHub Packages in CI (decided registry; see
-  `../code/ARCHITECTURE.md` §5 for the options).~~ The GitHub App's per-repo grant, a read-only token secret only if that's impossible (decided 2026-10-05 on #337).
+  `../code/ARCHITECTURE.md` §5 for the options).~~ The GitHub App's per-repo grant, a read-only token secret only if that's impossible (decided 2026-10-05 on #337). It is impossible (no API), so one read-only token in the org secret `DF_PACKAGES_TOKEN`, shared with each store repo by the App (decided on #303).
 - Shopper cancelling and returns (§2.1, proposed on #285): cancel until the order ships; a return until the store's window closes, counted from delivery; a product's rule over the store's, never below a market's legal floor. The prototype draws this; it stands until approved or changed on #285.

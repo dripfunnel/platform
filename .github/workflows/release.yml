@@ -1,0 +1,55 @@
+name: release
+
+# storefront-core's releases, and only from here (AGENTS.md, docs/code/ARCHITECTURE.md §5).
+# A push to main with pending changesets opens or updates the "Version packages" pull request;
+# merging that one publishes to GitHub Packages, tags the version and attests the tarball.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      # Writes an .npmrc for the runner only, reading the token from NODE_AUTH_TOKEN.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: '@dripfunnel'
+      - run: pnpm --filter @dripfunnel/storefront-core build
+      - id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm changeset version
+          publish: pnpm changeset publish
+          title: Version packages
+          commit: Version packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pack what was published
+        if: steps.changesets.outputs.published == 'true'
+        run: mkdir -p .release && pnpm --filter @dripfunnel/storefront-core pack --pack-destination "$PWD/.release"
+      - if: steps.changesets.outputs.published == 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: .release/*.tgz

@@ -79,18 +79,31 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 - **Semver means the public API**: removing or changing an export, a hook's behaviour, a
   contract, a preset rule or a supported Shop API version is a major.
 - Merging to `main` updates a "Version packages" pull request; merging that publishes to
-  GitHub Packages from the release workflow and tags the version.
+  GitHub Packages from the release workflow (`.github/workflows/release.yml`), tags the
+  version and attests the tarball (built on #303). That pull request is the workflow's own:
+  it changes only versions and the changelog, isn't named for an issue, and CI doesn't run on
+  it (a pull request opened with the workflow token starts no workflows), so a person reads
+  and merges it.
+- CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
+  `packages/storefront-core` (its changelog aside) without adding a changeset naming the
+  package.
 - **Majors ship upgrade notes** for the fleet (`../storefront/ARCHITECTURE.md` §7) and
   declare the Shop API versions they support.
 - **Deprecation**: `@deprecated` with the replacement, kept for at least one minor, removed in
   the next major.
 
 **Access**
-- Store repos (in the `dripfunnel` org, created by provisioning) get read access to this
-  package only. Provisioning grants that through the **GitHub App, per repository**; only if
-  INF 0 finds that impossible does it push a read-only token as a repo secret (decided 2026-10-05 on #337).
-- Store repos' `.npmrc`: `@dripfunnel:registry=https://npm.pkg.github.com`, token from the
-  environment, never committed.
+- Store repos (in the `dripfunnel` org, created when a merchant first picks a template) get
+  read access to this package only. GitHub has no API to grant a repository read access to a
+  package, so the per-repository grant decided on #337 can't be automated; the fallback it
+  allowed applies (decided on #303, 2026-10-08): **one read-only token** (`read:packages`
+  only) is kept as the **org Actions secret `DF_PACKAGES_TOKEN`**, visible to *selected
+  repositories*, and the GitHub App adds each new store repo to that list
+  (`PUT /orgs/dripfunnel/actions/secrets/DF_PACKAGES_TOKEN/repositories/{repo_id}`, INF 1) and
+  removes it when the repo goes. No token is copied into a repo.
+- Store repos' `.npmrc` (written with the repo, INF 1): `@dripfunnel:registry=https://npm.pkg.github.com`
+  and `//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}`; the build sets `NODE_AUTH_TOKEN`
+  from `DF_PACKAGES_TOKEN` (INF 2). The value is never committed.
 - Publishing only from the release workflow (`packages: write`), with artifact attestations.
 
 **In this repo**, `templates/storefront` depends on it as `workspace:*`, so the template is
