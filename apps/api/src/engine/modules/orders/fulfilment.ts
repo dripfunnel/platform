@@ -4,23 +4,20 @@ import { isUuid } from '#core/ids'
 import type { TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
-  addFulfilled,
   insertFulfilment,
   lockFulfilmentForTracking,
   lockLinesToShip,
   lockOrderToShip,
   ownsWarehouse,
-  releaseHeld,
   setTracking,
   settleShippingStates,
+  shipOut,
   storeDefaultWarehouse,
-  takeShippedStock,
   type LineToShipRow,
 } from '#db/scoped/fulfilment'
 
-// Shipping (PLATFORM-PROMPT §5.4; ACCESS §7.3; PortalOrders "Ship items"): the store ships its own lines and, once a to-store
-// supplier has handed them over, that supplier's; a supplier ships its own lines to the shopper or hands them to the store,
-// by the mode its part was placed under. Every line and location must be the caller's (ACCESS §7.3, the highest-risk write).
+// Shipping (PLATFORM-PROMPT §5.4; ACCESS §7.3; PortalOrders "Ship items"): each side ships what its part's mode gives it,
+// every line and location the caller's own (ACCESS §7.3, the highest-risk write).
 
 export type { FulfilmentRow } from '#db/scoped/fulfilment'
 
@@ -136,23 +133,21 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
         if (handOff && !(await storeDefaultWarehouse(tx, storeId))) return { ok: false, reason: 'NO_STORE_LOCATION' }
 
         const shippedAt = now()
+        // A to-store line the store ships on left its supplier's stock at the hand-off.
+        const shipped = await shipOut(tx, {
+          storeId,
+          warehouseId: input.warehouseId,
+          orderId: order.id,
+          actorId: actor.id,
+          lines: picked.map(({ line, quantity }) => {
+            const onward = !sellerId && line.shipping_mode === 'to-store'
+            return { lineId: line.id, versionId: line.version_id, productId: line.product_id, sellerId: line.seller_id, quantity, heldAt: onward ? null : line.reserved_warehouse_id, takeStock: !onward && line.track_stock, fulfils: !handOff }
+          }),
+        })
+        if (!shipped) throw new Refused('NOT_ENOUGH_STOCK')
         const made: string[] = []
         for (const partId of new Set(picked.map((p) => p.line.part_id))) {
           const lines = picked.filter((p) => p.line.part_id === partId)
-          const owner = lines[0]?.line.seller_id ?? null
-          for (const { line, quantity } of lines) {
-            // A to-store line the store ships on left its supplier's stock at the hand-off.
-            const onward = !sellerId && line.shipping_mode === 'to-store'
-            if (!onward) {
-              if (line.track_stock) {
-                const taken = await takeShippedStock(tx, { storeId, sellerId: line.seller_id, productId: line.product_id, versionId: line.version_id, warehouseId: input.warehouseId, quantity, heldAt: line.reserved_warehouse_id, orderId: order.id, actorId: actor.id })
-                if (!taken) throw new Refused('NOT_ENOUGH_STOCK')
-              } else {
-                await releaseHeld(tx, line.version_id, line.reserved_warehouse_id, quantity)
-              }
-            }
-            if (!handOff) await addFulfilled(tx, line.id, quantity)
-          }
           const kind = handOff ? 'sent_to_store' : order.shipping_option === 'pickup' && !sellerId ? 'pickup' : 'manual'
           made.push(
             await insertFulfilment(
@@ -161,7 +156,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
               lines.map((p) => ({ lineId: p.line.id, quantity: p.quantity })),
             ),
           )
-          await record(tx, handOff ? fulfilmentAudit.sentToStore : fulfilmentAudit.shipped, order, owner, kind)
+          await record(tx, handOff ? fulfilmentAudit.sentToStore : fulfilmentAudit.shipped, order, lines[0]?.line.seller_id ?? null, kind)
         }
         await settleShippingStates(tx, order.id, shippedAt, sellerId === null)
         return { ok: true, value: made }

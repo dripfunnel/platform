@@ -145,7 +145,7 @@ export const registerOrders = (builder: StoreBuilder) => {
   const Shipment = builder.objectRef<FulfilmentRow>('OrderShipment').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
-      // manual, pickup, sent_to_store (a supplier's hand-off), or booked through a courier (#311).
+      // manual, pickup, or sent_to_store (a supplier's hand-off to the store).
       kind: t.exposeString('kind'),
       supplierId: t.exposeID('seller_id', { nullable: true }),
       warehouseId: t.exposeID('warehouse_id'),

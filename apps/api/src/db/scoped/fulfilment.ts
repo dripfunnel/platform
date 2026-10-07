@@ -59,29 +59,65 @@ export const ownsWarehouse = async (tx: ScopedSql, storeId: string, sellerId: st
 export const storeDefaultWarehouse = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
   (await tx<{ id: string }[]>`select id from warehouse where store_id = ${storeId} and seller_id is null and is_default and deleted_at is null`)[0]?.id ?? null
 
-/** Takes shipped units off hand where they left and out of what the order held; false when the location hasn't that many. */
-export const takeShippedStock = async (
-  tx: ScopedSql,
-  s: { storeId: string; sellerId: string | null; productId: string; versionId: string; warehouseId: string; quantity: number; heldAt: string | null; orderId: string; actorId: string },
-): Promise<boolean> => {
-  const [level] = await tx<{ on_hand: number }[]>`
-    update stock_level set on_hand = on_hand - ${s.quantity}, updated_at = now()
-    where version_id = ${s.versionId} and warehouse_id = ${s.warehouseId} and on_hand >= ${s.quantity}
-    returning on_hand
-  `
-  if (!level) return false
-  await releaseHeld(tx, s.versionId, s.heldAt, s.quantity)
-  await tx`
-    insert into stock_movement (store_id, seller_id, product_id, version_id, warehouse_id, delta, resulting_quantity, reason, source_kind, source_id, actor_kind, actor_id)
-    values (${s.storeId}, ${s.sellerId}, ${s.productId}, ${s.versionId}, ${s.warehouseId}, ${-s.quantity}, ${level.on_hand}, 'order', 'order', ${s.orderId}, 'person', ${s.actorId})
-  `
-  return true
+export interface ShippedLine {
+  lineId: string
+  versionId: string
+  productId: string
+  sellerId: string | null
+  quantity: number
+  /** Where the order held it, given back as it leaves; null when nothing was held. */
+  heldAt: string | null
+  /** Taken off hand at the location shipped from: false for an untracked version, or a to-store line shipped on. */
+  takeStock: boolean
+  /** Counted as gone to the shopper: false for a supplier's hand-off to the store. */
+  fulfils: boolean
 }
 
-/** What an order held for a line, given back as it leaves (shipped, or never tracked). */
-export const releaseHeld = async (tx: ScopedSql, versionId: string, heldAt: string | null, quantity: number): Promise<void> => {
-  if (!heldAt) return
-  await tx`update stock_level set reserved = greatest(reserved - ${quantity}, 0), updated_at = now() where version_id = ${versionId} and warehouse_id = ${heldAt}`
+/**
+ * One shipment's stock and lines in a fixed few statements, whatever its size: units off hand where they left with an
+ * `order` movement, the order's holds given back, the lines' fulfilled counts; false when the location hasn't enough.
+ */
+export const shipOut = async (tx: ScopedSql, s: { storeId: string; warehouseId: string; orderId: string; actorId: string; lines: readonly ShippedLine[] }): Promise<boolean> => {
+  const sum = <K extends string>(items: readonly ShippedLine[], key: (l: ShippedLine) => K) => {
+    const totals = new Map<K, { line: ShippedLine; quantity: number }>()
+    for (const l of items) totals.set(key(l), { line: l, quantity: (totals.get(key(l))?.quantity ?? 0) + l.quantity })
+    return [...totals.values()]
+  }
+  const taken = sum(s.lines.filter((l) => l.takeStock), (l) => l.versionId)
+  if (taken.length > 0) {
+    const versions = pgArray(taken.map((t) => t.line.versionId))
+    const quantities = pgArray(taken.map((t) => String(t.quantity)))
+    const left = await tx<{ version_id: string }[]>`
+      update stock_level l set on_hand = l.on_hand - x.q, updated_at = now()
+      from unnest(${versions}::uuid[], ${quantities}::int[]) as x(v, q)
+      where l.version_id = x.v and l.warehouse_id = ${s.warehouseId} and l.on_hand >= x.q
+      returning l.version_id
+    `
+    if (left.length < taken.length) return false
+    await tx`
+      insert into stock_movement (store_id, seller_id, product_id, version_id, warehouse_id, delta, resulting_quantity, reason, source_kind, source_id, actor_kind, actor_id)
+      select ${s.storeId}, nullif(x.seller, '')::uuid, x.product, x.v, ${s.warehouseId}, -x.q, l.on_hand, 'order', 'order', ${s.orderId}, 'person', ${s.actorId}
+      from unnest(${versions}::uuid[], ${pgArray(taken.map((t) => t.line.productId))}::uuid[], ${pgArray(taken.map((t) => t.line.sellerId ?? ''))}::text[], ${quantities}::int[]) as x(v, product, seller, q)
+      join stock_level l on l.version_id = x.v and l.warehouse_id = ${s.warehouseId}
+    `
+  }
+  const held = sum(s.lines.filter((l) => l.heldAt !== null), (l) => `${l.versionId}:${l.heldAt ?? ''}`)
+  if (held.length > 0) {
+    await tx`
+      update stock_level l set reserved = greatest(l.reserved - x.q, 0), updated_at = now()
+      from unnest(${pgArray(held.map((h) => h.line.versionId))}::uuid[], ${pgArray(held.map((h) => h.line.heldAt ?? ''))}::uuid[], ${pgArray(held.map((h) => String(h.quantity)))}::int[]) as x(v, w, q)
+      where l.version_id = x.v and l.warehouse_id = x.w
+    `
+  }
+  const fulfilled = s.lines.filter((l) => l.fulfils)
+  if (fulfilled.length > 0) {
+    await tx`
+      update order_line o set fulfilled_quantity = o.fulfilled_quantity + x.q
+      from unnest(${pgArray(fulfilled.map((l) => l.lineId))}::uuid[], ${pgArray(fulfilled.map((l) => String(l.quantity)))}::int[]) as x(id, q)
+      where o.id = x.id
+    `
+  }
+  return true
 }
 
 export const insertFulfilment = async (
@@ -103,15 +139,7 @@ export const insertFulfilment = async (
   return id
 }
 
-export const addFulfilled = async (tx: ScopedSql, lineId: string, quantity: number): Promise<void> => {
-  await tx`update order_line set fulfilled_quantity = fulfilled_quantity + ${quantity} where id = ${lineId}`
-}
-
-/**
- * Each part's state and the order's from its lines: shipped when every line has gone, partly when some has, sent to the
- * store when a to-store part has handed everything over and nothing has left for the shopper yet. The store shipping
- * lets a transfer's due date go: it chose to send it unpaid, so the sweep never cancels it; a supplier's shipment can't.
- */
+/** Each part's and the order's state from its lines (DATA-MODEL §7.6); the store shipping lets a transfer's due date go. */
 export const settleShippingStates = async (tx: ScopedSql, orderId: string, now: Date, byStore: boolean): Promise<void> => {
   await tx`
     update order_part p set state = case
@@ -158,7 +186,7 @@ export const selectFulfilments = (tx: ScopedSql, orderId: string): Promise<Fulfi
     order by f.shipped_at, f.id
   `
 
-/** A shipment without tracking yet, of this owner, locked, with its order's number. */
+/** A shipment of this owner, locked, with its order's number. */
 export const lockFulfilmentForTracking = async (tx: ScopedSql, storeId: string, sellerId: string | null, fulfilmentId: string): Promise<{ id: string; order_id: string; number: string; tracking_number: string | null; kind: string } | null> =>
   (
     await tx<{ id: string; order_id: string; number: string; tracking_number: string | null; kind: string }[]>`
