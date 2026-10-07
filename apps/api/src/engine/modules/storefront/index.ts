@@ -77,6 +77,8 @@ export interface ShopProductPage {
 }
 
 const maxRelated = 10
+// Products a page's comparison tables load in all, whatever the story holds (WORKFLOW §7).
+const maxCompared = 20
 
 /** A sort cursor's value as its SQL cast takes it, so a tampered one is INVALID_CURSOR, never a database error. */
 const valueFits = (sort: ShopSort, value: string): boolean => {
@@ -229,7 +231,7 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       }
       // Related and compared products keep the listing's rules: one the market doesn't sell or can't price here is left out.
       const listing = { ...facts.query, collectionId: null, filterValueIds: [], search: null }
-      const comparedIds = ((shown.story?.modules ?? []) as { productIds?: unknown }[]).flatMap((m) => (Array.isArray(m.productIds) ? m.productIds.filter((x): x is string => typeof x === 'string').slice(0, 5) : []))
+      const comparedIds = ((shown.story?.modules ?? []) as { productIds?: unknown }[]).flatMap((m) => (Array.isArray(m.productIds) ? m.productIds.filter((x): x is string => typeof x === 'string').slice(0, 5) : [])).slice(0, maxCompared)
       const wanted = [...new Set([...shown.related.slice(0, maxRelated), ...comparedIds])].filter(isUuid)
       const listed = await selectShopListed(tx, storeId, listing, wanted)
       const views = new Map((await viewsOf(tx, wanted.filter((x) => listed.has(x)), facts)).map((v) => [v.id, v]))
