@@ -16,6 +16,10 @@ export const selectCustomerAuth = async (tx: ScopedSql, storeId: string): Promis
 export const countRecentCodes = async (tx: ScopedSql, storeId: string, by: { channel: string; target: string }, since: Date): Promise<number> =>
   (await tx<{ n: number }[]>`select count(*)::int as n from customer_code where store_id = ${storeId} and created_at > ${since} and channel = ${by.channel} and target = ${by.target}`)[0]?.n ?? 0
 
+/** Codes a store has texted since a moment: what the per-store cap on paid messages counts. */
+export const countStoreTexts = async (tx: ScopedSql, storeId: string, since: Date): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from customer_code where store_id = ${storeId} and channel = 'phone' and created_at > ${since}`)[0]?.n ?? 0
+
 export const insertCode = async (tx: ScopedSql, c: { storeId: string; channel: 'email' | 'phone'; target: string; codeHash: string | null; expiresAt: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into customer_code (store_id, channel, target, code_hash, expires_at) values (${c.storeId}, ${c.channel}, ${c.target}, ${c.codeHash}, ${c.expiresAt}) returning id
