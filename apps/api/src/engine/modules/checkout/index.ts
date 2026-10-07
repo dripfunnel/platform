@@ -44,7 +44,7 @@ export interface PaymentWiring {
 
 export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
 
-export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
+export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
 export type CheckoutResult<T> = { ok: true; value: T } | { ok: false; reason: CheckoutRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
@@ -154,17 +154,21 @@ export const createCheckout = (deps: CheckoutDeps) => {
 
   const snapshotLines = async (tx: ScopedSql, cart: CartView, reserve: boolean): Promise<SnapshotLine[]> => {
     const versions = new Map((await selectSnapshotVersions(tx, storeId, cart.lines.map((l) => l.versionId))).map((v) => [v.id, v]))
+    const heldAt = new Map<string, string | null>()
+    // Checked again here, holding the rows, so two shoppers can't both buy the last one (PLATFORM-PROMPT §5.4); in
+    // version order, so two orders holding the same versions never wait on each other (#445's review).
+    for (const l of reserve ? [...cart.lines].sort((a, b) => a.versionId.localeCompare(b.versionId)) : []) {
+      const v = versions.get(l.versionId)
+      if (!v?.track_stock) continue
+      const held = await reserveLine(tx, storeId, v.id, l.quantity, v.continue_selling)
+      if (!held) throw new Refused('OUT_OF_STOCK')
+      heldAt.set(v.id, held.warehouseId)
+    }
     const lines: SnapshotLine[] = []
     for (const l of cart.lines) {
       const v = versions.get(l.versionId)
       if (!v || !l.item || !l.unitPrice || !l.lineTotal) throw new Refused('NOT_READY')
-      let reservedWarehouseId: string | null = null
-      if (reserve && v.track_stock) {
-        // Checked again here, holding the rows, so two shoppers can't both buy the last one (PLATFORM-PROMPT §5.4).
-        const held = await reserveLine(tx, storeId, v.id, l.quantity, v.continue_selling)
-        if (!held) throw new Refused('OUT_OF_STOCK')
-        reservedWarehouseId = held.warehouseId
-      }
+      const reservedWarehouseId = heldAt.get(v.id) ?? null
       const tax = cart.tax?.lines.find((t) => t.id === l.versionId)
       lines.push({
         versionId: v.id,
@@ -209,7 +213,10 @@ export const createCheckout = (deps: CheckoutDeps) => {
     const manualAccountId = card ? null : ((await withScope(sql, context, (tx) => selectLivePaymentAccounts(tx, storeId))).find((a) => a.provider === option.provider)?.id ?? null)
     try {
       return await withSystemScope(sql, async (tx) => {
-        if (!(await lockCart(tx, storeId, cart.id))) throw new Refused('ALREADY_PLACED')
+        const locked = await lockCart(tx, storeId, cart.id)
+        if (!locked) throw new Refused('ALREADY_PLACED')
+        // Changed in another tab since it was priced: the shopper sees the new cart before paying for it.
+        if (locked.revision !== cart.revision) throw new Refused('CART_CHANGED')
         const holds = isManual(option.provider) && mode === 'live'
         const lines = await snapshotLines(tx, cart, holds)
         const parts = [...new Map(lines.map((l) => [l.sellerId ?? 'store', l.sellerId])).values()]
@@ -306,6 +313,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
 /** "Mark as paid" (Owner and Manager, `orders.mark_paid`): a cash-on-delivery or transfer order whose money has arrived. */
 export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; actor: { id: string; partnerId: string }; activity: ActivityLog; facts: RequestFacts; now: () => Date }, orderId: string): Promise<CheckoutResult<true>> =>
   withSystemScope(deps.sql, async (tx): Promise<CheckoutResult<true>> => {
+    // System scope passes no row policy, so read-only support is refused here (ACCESS §8).
+    if (deps.context.caller.kind === 'support' && deps.context.caller.access === 'read') return { ok: false, reason: 'READ_ONLY' }
     const order = await lockPlacedOrder(tx, deps.context.storeId, orderId)
     if (!order) return { ok: false, reason: 'NOT_FOUND' }
     if (order.state !== 'placed' || order.payment_state !== 'pending' || !(order.payment_method && isManual(order.payment_method))) return { ok: false, reason: 'NOT_PENDING' }

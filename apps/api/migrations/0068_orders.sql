@@ -180,6 +180,7 @@ create policy payment_provider_account_shop on payment_provider_account for sele
 using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and status = 'live' and not paused_by_plan);
 -- Settings › Payment setup writes the store's own manual methods; providers with credentials connect in system scope.
 create policy payment_provider_account_merchant_write on payment_provider_account for all to app_request
-using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '')
+using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = ''
+  and app_setting_text('app.support') <> 'read' and provider in ('cod', 'bank_transfer'))
 with check (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = ''
   and app_setting_text('app.support') <> 'read' and provider in ('cod', 'bank_transfer'));

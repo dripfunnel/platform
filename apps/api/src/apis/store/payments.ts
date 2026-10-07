@@ -16,6 +16,7 @@ const words: Record<string, string> = {
   NOT_AVAILABLE: 'Connecting Stripe isn’t set up here yet.',
   EXPIRED: 'That link has expired. Connect Stripe again.',
   SUPPORT_SESSION: 'A support session can’t connect or disconnect payments. Someone in the store does it from their own account.',
+  READ_ONLY: 'This store is read-only.',
 }
 
 const answered = <T>(result: CheckoutResult<T> | { ok: true; value: T } | { ok: false; reason: string }): T => {
