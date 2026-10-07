@@ -393,7 +393,9 @@ Product name merchants see; primary and accent colours (picker and hex); **Contr
 ("…needs 4.5:1 to be readable; try a darker primary"); font (Nunito, Source Sans 3, Manrope,
 Lora, DM Sans); corners (Rounded · Soft · Square); sign-in background (Sand texture · Plain
 colour · Photo); the four files — logo for light backgrounds, logo for dark, mark, favicon —
-with Replace. Publish is disabled with "Fix the contrast first." while a pair fails; **the API
+each with its picture, Replace and Remove (Remove clears the draft; Publish saves it, and the
+old file stays in the bucket). The preview draws the same files the portal will: the logo for
+the background, else the mark, else a plain tile. Publish is disabled with "Fix the contrast first." while a pair fails; **the API
 refuses a failing pair too** (`CONTRAST_FAILS`, SAAS §3.3), the hint on screen is a courtesy.
 
 **Preview · merchant portal**: Sign in · Sign up · Home · Products · Settings, at Desktop or
@@ -837,6 +839,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   equal to it (`0017`), marks Branding (and Legal pages, once terms, privacy, the DPA and any
   required Impressum are there) and queues the portal cache purge.
 - **Files are R2 keys under the partner's prefix**; a key under another prefix, or a URL, is
+  `INVALID_INPUT`. **Reading a file back (#448)**: `GET /api/uploads/brand-file?key=…` answers the
+  caller's own file for the console's pictures, 404 for any key outside `partners/<id>/brand/`.
   `INVALID_INPUT`. **The upload, built on #219**: `POST /api/uploads/brand-file?kind=logoLight|
   logoDark|mark|favicon` with the file as the body. The session (`UNAUTHENTICATED`) and
   `branding.write` (`FORBIDDEN`) are checked before the kind, the bucket or the body; then

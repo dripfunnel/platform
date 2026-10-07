@@ -94,7 +94,11 @@ export const LookTab = ({ draft, contrast, invalid, disabled, onChange, onUpload
         {brandFiles.map((file) => (
           <li key={file}>
             <strong>{words.files[file]}</strong>
-            <code className="df-muted">{draft.look.files[file].split('/').pop() || words.noFile}</code>
+            {draft.look.files[file] ? (
+              <img className="df-brand-thumb" src={`/api/uploads/brand-file?key=${encodeURIComponent(draft.look.files[file])}`} alt={words.files[file]} />
+            ) : (
+              <code className="df-muted">{words.noFile}</code>
+            )}
             <label className={disabled ? 'df-brand-replace df-brand-replace--off' : 'df-brand-replace'}>
               {words.replace}
               <input
@@ -110,6 +114,11 @@ export const LookTab = ({ draft, contrast, invalid, disabled, onChange, onUpload
                 }}
               />
             </label>
+            {draft.look.files[file] && (
+              <button type="button" className="df-brand-remove" disabled={disabled} aria-label={fill(words.removeLabel, { file: words.files[file] })} onClick={() => set({ files: { ...draft.look.files, [file]: '' } })}>
+                {words.remove}
+              </button>
+            )}
           </li>
         ))}
       </ul>

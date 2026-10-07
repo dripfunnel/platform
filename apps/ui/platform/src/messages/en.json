@@ -1579,6 +1579,8 @@
       },
       "replace": "Replace",
       "replaceLabel": "Replace {file}",
+      "remove": "Remove",
+      "removeLabel": "Remove {file}",
       "noFile": "None yet"
     },
     "words": {
