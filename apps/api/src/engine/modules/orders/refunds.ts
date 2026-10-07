@@ -32,8 +32,7 @@ import {
   type ReturnToChangeRow,
 } from '#db/scoped/refunds'
 import { cancelOrder as cancelPlaced, releaseStock } from '#db/scoped/orders'
-import { closeLatestAttempt } from '../checkout/payments'
-import { isManual, openAccount } from '../checkout/providers'
+import { closeLatestAttempt, isManual, openAccount } from '#engine/modules/checkout/index'
 
 // Returns and refunds (PLATFORM-PROMPT §5.4; ACCESS §7.3; PortalOrders): the store starts and receives returns; each owner
 // refunds its own lines and the store may refund a supplier's itself, an override the supplier ledger records. Money goes
@@ -115,8 +114,8 @@ const noteOf = (note: string | null): string | null | undefined => {
 }
 
 /** The same refund asked for twice from the same order state is one refund at the provider: its id comes from that state. */
-const refundIdOf = async (orderId: string, refundedBefore: string, owner: string | null, amount: bigint): Promise<string> => {
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${orderId}:${refundedBefore}:${owner ?? 'store'}:${amount}`)))
+const refundIdOf = async (orderId: string, refundedBefore: string, part: string | null, amount: bigint): Promise<string> => {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${orderId}:${refundedBefore}:${part ?? 'store'}:${amount}`)))
   const hex = [...digest.slice(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${((parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80).toString(16)}${hex.slice(18, 20)}-${hex.slice(20, 32)}`
 }
@@ -226,7 +225,7 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
     const account = accountRow ? await openAccount(accountRow, payment.mode, secrets) : null
     if (isCardProvider(payment.provider) && (!gateway || !account || !payment.provider_ref)) return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
 
-    const made: string[] = []
+    const made: { id: string; amount: bigint }[] = []
     let refundedBefore = order.refunded_amount
     for (const [owner, lines] of owners) {
       const amount = lines.reduce((s, l) => s + l.amount, 0n) + (owner === null ? (extra ?? 0n) : 0n)
@@ -249,28 +248,28 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
           await restockReturned(tx, { storeId, sellerId: l.line.seller_id, productId: l.line.product_id, versionId: l.line.version_id, warehouseId: back, quantity: l.quantity, returnId: o.inReturn?.id ?? null, orderId: order.id, actorId: actor.id })
         }
       }
-      // The provider is asked last, inside the transaction: refused or unreachable, nothing here is kept.
-      if (gateway && account && payment.provider_ref) {
-        try {
-          const back = await gateway.refund(account, payment.provider_ref, { refundId: id, amount: { amount, currency: order.currency } })
-          if (back.state === 'failed') throw new Refused('PROVIDER_REFUSED')
-          await insertPaymentRefund(tx, { refundId: id, paymentId: payment.id, storeId, providerRef: back.providerRef, state: back.state, amount, currency: order.currency })
-        } catch (error) {
-          if (error instanceof PaymentUnavailable) throw new Refused('PROVIDER_UNAVAILABLE')
-          if (error instanceof PaymentRefused) throw new Refused('PROVIDER_REFUSED')
-          throw error
-        }
-      } else {
-        // Cash on delivery or a transfer: the store gives the money back itself; this records that it did.
-        await insertPaymentRefund(tx, { refundId: id, paymentId: payment.id, storeId, providerRef: null, state: 'done', amount, currency: order.currency })
-      }
-      const action = override ? refundAudit.overridden : refundAudit.issued
-      await record(tx, action, order, o.reason, [owner])
-      made.push(id)
+      await record(tx, override ? refundAudit.overridden : refundAudit.issued, order, o.reason, [owner])
+      made.push({ id, amount })
     }
+    // One provider refund for the whole request, asked last inside the transaction: all of it goes back or none of it,
+    // and the same request from the same order state is the same refund there.
+    let atProvider: { providerRef: string | null; state: 'pending' | 'done' } = { providerRef: null, state: 'done' }
+    if (gateway && account && payment.provider_ref) {
+      try {
+        const back = await gateway.refund(account, payment.provider_ref, { refundId: await refundIdOf(order.id, order.refunded_amount, 'request', total), amount: { amount: total, currency: order.currency } })
+        if (back.state === 'failed') throw new Refused('PROVIDER_REFUSED')
+        atProvider = { providerRef: back.providerRef, state: back.state }
+      } catch (error) {
+        if (error instanceof PaymentUnavailable) throw new Refused('PROVIDER_UNAVAILABLE')
+        if (error instanceof PaymentRefused) throw new Refused('PROVIDER_REFUSED')
+        throw error
+      }
+    }
+    // Cash on delivery or a transfer: the store gives the money back itself, and this records that it did.
+    for (const r of made) await insertPaymentRefund(tx, { refundId: r.id, paymentId: payment.id, storeId, providerRef: atProvider.providerRef, state: atProvider.state, amount: r.amount, currency: order.currency })
     await addRefunded(tx, order.id, total, now())
     if (BigInt(order.refunded_amount) + total >= BigInt(order.total_amount)) await markPaymentRefunded(tx, payment.id, now())
-    return { ok: true, value: made }
+    return { ok: true, value: made.map((r) => r.id) }
   }
 
   const refund = async (input: RefundInput): Promise<RefundResult<string[]>> => {
@@ -293,7 +292,8 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
       if (!order || (sellerId && !all.some((l) => l.seller_id === sellerId))) return { ok: false, reason: 'NOT_FOUND' }
       if (order.state !== 'placed' || (order.payment_state !== 'paid' && order.payment_state !== 'partly_refunded')) return { ok: false, reason: 'NOT_PAID' }
       const inReturn = input.returnId ? await lockReturn(tx, storeId, input.returnId) : null
-      if (input.returnId && (!inReturn || inReturn.order_id !== order.id)) return { ok: false, reason: 'NOT_FOUND' }
+      // A supplier hears of a return only when it holds its own lines, as it hears of an order (ACCESS §7.3).
+      if (input.returnId && (!inReturn || inReturn.order_id !== order.id || (sellerId && !inReturn.lines.some((l) => l.seller_id === sellerId)))) return { ok: false, reason: 'NOT_FOUND' }
       if (inReturn && inReturn.state !== 'received') return { ok: false, reason: 'NOT_RECEIVED' }
 
       // A supplier looks lines up among its own only, so another owner's line is as unknown as one that doesn't exist.

@@ -163,7 +163,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
           )
           await record(tx, handOff ? fulfilmentAudit.sentToStore : fulfilmentAudit.shipped, order, owner, kind)
         }
-        await settleShippingStates(tx, order.id, shippedAt)
+        await settleShippingStates(tx, order.id, shippedAt, sellerId === null)
         return { ok: true, value: made }
       })
     } catch (error) {
