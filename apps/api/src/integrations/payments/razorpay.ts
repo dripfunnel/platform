@@ -15,6 +15,8 @@ const keysOf = (account: GatewayAccount) => {
 }
 
 const orderSchema = z.object({ id: z.string().regex(/^order_[A-Za-z0-9]+$/) }).loose()
+const refundSchema = z.object({ id: z.string(), status: z.string(), notes: z.record(z.string(), z.unknown()).or(z.array(z.unknown())).nullish() }).loose()
+const refundsSchema = z.object({ items: z.array(refundSchema) }).loose()
 const paymentsSchema = z.object({ items: z.array(z.object({ id: z.string(), status: z.string(), amount: z.number().int().nonnegative(), currency: z.string() }).loose()) }).loose()
 const eventSchema = z
   .object({
@@ -68,18 +70,20 @@ export const razorpay = ({ fetchImpl = fetch }: { fetchImpl?: typeof fetch } = {
     // A failed attempt leaves the order open for another in Razorpay's checkout.
     return { state: 'pending' }
   },
-  // The order's captured payment gives the money back; Razorpay answers processed, pending (most) or failed.
+  // The order's captured payment gives the money back; Razorpay answers processed, pending (most) or failed. Its receipt
+  // isn't an idempotency key, so a refund already made with our id (a retry after a timeout) is read back, not made again.
   refund: async (account, providerRef, request) => {
     if (!/^order_[A-Za-z0-9]+$/.test(providerRef)) throw new PaymentRefused('not an order')
     const { authorization } = keysOf(account)
     const { items } = await callProvider(fetchImpl, `${apiBase}/orders/${providerRef}/payments`, { headers: { authorization } }, paymentsSchema)
     const paid = items.find((p) => p.status === 'captured' || p.status === 'refunded')
     if (!paid) throw new PaymentRefused('nothing captured')
-    const refund = await callProvider(
+    const made = await callProvider(fetchImpl, `${apiBase}/payments/${encodeURIComponent(paid.id)}/refunds?count=100`, { headers: { authorization } }, refundsSchema)
+    const refund = made.items.find((r) => !Array.isArray(r.notes) && r.notes?.['df_refund_id'] === request.refundId) ?? await callProvider(
       fetchImpl,
       `${apiBase}/payments/${encodeURIComponent(paid.id)}/refund`,
       { method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: JSON.stringify({ amount: Number(request.amount.amount), receipt: referenceOf(request.refundId), notes: { df_refund_id: request.refundId } }) },
-      z.object({ id: z.string(), status: z.string() }).loose(),
+      refundSchema,
     )
     return { providerRef: refund.id, state: refund.status === 'processed' ? 'done' : refund.status === 'failed' ? 'failed' : 'pending' }
   },

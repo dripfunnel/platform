@@ -313,9 +313,10 @@ account answers 400 as a bad signature does, so addresses can't be probed.
 | PhonePe | `clientId`, `clientSecret`, `clientVersion`, `webhookUsername`, `webhookPassword`. **The current PG API only** (decided on #309; the salt-key API is PhonePe's legacy one) | a token, then a payment page the shopper is sent to (`redirectUrl`), rupees only | `Authorization`, SHA-256 of `username:password` |
 | PayPal | `clientId` (shown to PayPal's button), `clientSecret`, `webhookId` | a CAPTURE order the shopper approves; captured when read back | PayPal's own `verify-webhook-signature` against the webhook id |
 
-**Refunds** (#310) go back on the payment the money came in on, asked once per refund with our refund's id as the
-provider's idempotency key or reference: Stripe `POST /v1/refunds` on the PaymentIntent (the connected account's), Razorpay
-`POST /payments/{id}/refund` on the order's captured payment, Cashfree `POST /orders/{order}/refunds` with our `refund_id`,
+**Refunds** (#310) go back on the payment the money came in on, one provider refund a request whatever owners it covers,
+asked with an id derived from the order's state as the provider's idempotency key or reference: Stripe `POST /v1/refunds` on
+the PaymentIntent (the connected account's), Razorpay `POST /payments/{id}/refund` on the order's captured payment (its
+`receipt` isn't an idempotency key, so the payment's refunds are read first and one carrying our id is returned), Cashfree `POST /orders/{order}/refunds` with our `refund_id`,
 PhonePe `POST /payments/v2/refund` with our `merchantRefundId`, and PayPal `POST /v2/payments/captures/{id}/refund` with
 `PayPal-Request-Id`. Each answers done, pending (most, until the bank does) or failed; the provider refusing or not
 answering keeps nothing on our side. Cash on delivery and transfers are given back by the store itself and recorded as done.

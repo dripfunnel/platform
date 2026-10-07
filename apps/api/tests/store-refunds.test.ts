@@ -186,7 +186,12 @@ describe('refunds on a card order', () => {
 
   it('gives the delivery back as the store’s own, and the order is refunded once everything has gone back', async () => {
     expect((await refund('owner', id, [], ', extra: "901", reason: goodwill')).code).toBe('TOO_MANY')
+    const calls = asked.length
     expect((await refund('owner', id, [{ id: lines.stole, quantity: 0, amount: '400' }], ', extra: "500", reason: goodwill, override: true')).code).toBeUndefined()
+    // Two owners' refunds, one provider refund: all of the money goes back or none of it.
+    expect(asked.slice(calls).map((r) => r.amount.amount)).toEqual([900n])
+    const atProvider = await db.sql<{ provider_ref: string; amount: string }[]>`select p.provider_ref, p.amount::text from payment_refund p join refund f on f.id = p.refund_id where f.order_id = ${id} and f.reason = 'goodwill' order by p.amount`
+    expect(atProvider).toEqual([{ provider_ref: `re_${asked.length}`, amount: '400' }, { provider_ref: `re_${asked.length}`, amount: '500' }])
     expect(await orderState(id)).toEqual({ payment_state: 'refunded', refunded_amount: '5000' })
     expect((await db.sql`select state from payment where order_id = ${id}`)[0]?.['state']).toBe('refunded')
     expect((await refund('owner', id, [], ', extra: "1", reason: goodwill')).code).toBe('NOT_PAID')
@@ -242,6 +247,15 @@ describe('returns, then refunds on a cash order', () => {
     expect((await gql(`mutation { startReturn(orderId: "${id}", lines: [{ lineId: "${lines.house}", quantity: 1 }], reason: doesnt_fit) }`, 'owner')).code).toBe('TOO_MANY')
     expect((await gql(`mutation { cancelReturn(returnId: "${other}") }`, 'owner')).data?.['cancelReturn']).toBe(true)
     expect((await gql(`mutation { startReturn(orderId: "${id}", lines: [{ lineId: "${lines.house}", quantity: 1 }], reason: doesnt_fit) }`, 'owner')).code).toBeUndefined()
+  })
+
+  it('tells a supplier nothing of a return holding none of its lines, whatever its state', async () => {
+    const [storeOnly] = await db.sql<{ id: string }[]>`select id from "return" where order_id = ${id} and state = 'requested'`
+    const probe = () => refund('drop', id, [{ id: lines.scarf, quantity: 0, amount: '1' }], `, returnId: "${storeOnly?.id ?? ''}"`)
+    expect((await probe()).code).toBe('NOT_FOUND')
+    expect((await gql(`mutation { receiveReturn(returnId: "${storeOnly?.id ?? ''}") }`, 'owner')).data?.['receiveReturn']).toBe(true)
+    expect((await probe()).code).toBe('NOT_FOUND')
+    expect((await refund('drop', id, [{ id: lines.scarf, quantity: 0, amount: '1' }], `, returnId: "${crypto.randomUUID()}"`)).code).toBe('NOT_FOUND')
   })
 })
 

@@ -207,11 +207,16 @@ describe('refunds', () => {
 
   it('Razorpay refunds the order’s captured payment in paise, and reads processed, pending or failed', async () => {
     const keys = account({ keyId: 'rzp_test_abcdef', keySecret: 'secret' })
-    const at = (status: string) => stub((a) => (a.url.endsWith('/refund') ? Response.json({ id: 'rfnd_1', status }) : Response.json({ items: [{ id: 'pay_2', status: 'captured', amount: 129950, currency: 'INR' }] })))
-    const done = at('processed')
+    const at = (status: string, earlier: unknown[] = []) =>
+      stub((a) => (a.url.endsWith('/refund') ? Response.json({ id: 'rfnd_1', status }) : a.url.includes('/refunds') ? Response.json({ items: earlier }) : Response.json({ items: [{ id: 'pay_2', status: 'captured', amount: 129950, currency: 'INR' }] })))
+    const done = at('processed', [{ id: 'rfnd_0', status: 'processed', notes: [] }])
     expect(await razorpay({ fetchImpl: done.fetchImpl }).refund(keys, 'order_ABC123', refund)).toEqual({ providerRef: 'rfnd_1', state: 'done' })
-    expect(done.asked[1]?.url).toBe('https://api.razorpay.com/v1/payments/pay_2/refund')
-    expect(JSON.parse(done.asked[1]?.body ?? '')).toEqual({ amount: 50000, receipt: refundRef, notes: { df_refund_id: refund.refundId } })
+    expect(done.asked[2]?.url).toBe('https://api.razorpay.com/v1/payments/pay_2/refund')
+    expect(JSON.parse(done.asked[2]?.body ?? '')).toEqual({ amount: 50000, receipt: refundRef, notes: { df_refund_id: refund.refundId } })
+    // A refund our id already made (the call timed out, then was asked again) is read back, never made twice.
+    const again = at('processed', [{ id: 'rfnd_9', status: 'pending', notes: { df_refund_id: refund.refundId } }])
+    expect(await razorpay({ fetchImpl: again.fetchImpl }).refund(keys, 'order_ABC123', refund)).toEqual({ providerRef: 'rfnd_9', state: 'pending' })
+    expect(again.asked.some((a) => a.method === 'POST')).toBe(false)
     expect((await razorpay({ fetchImpl: at('pending').fetchImpl }).refund(keys, 'order_ABC123', refund)).state).toBe('pending')
     const nothing = stub(() => Response.json({ items: [{ id: 'pay_1', status: 'failed', amount: 1, currency: 'INR' }] }))
     await expect(razorpay({ fetchImpl: nothing.fetchImpl }).refund(keys, 'order_ABC123', refund)).rejects.toBeInstanceOf(PaymentRefused)

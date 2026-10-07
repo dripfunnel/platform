@@ -31,7 +31,7 @@ import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, provide
 // snapshot, number, held stock and payment are written in system scope, as nothing a shopper writes may be a price or state.
 
 export { applyOutcome, handleMerchantStripeEvent, paymentAudit, releaseUnpaidOrders, settleFromWebhook, settleOrder, settlePayment, type KeyedWebhookOutcome, type MerchantEventOutcome, type SettleDeps, type Settled } from './payments'
-export { cardPaymentMs, isPaymentProvider, paymentProviders, providersFor, transferDaysMs, type PaymentProvider } from './providers'
+export { cardPaymentMs, isPaymentProvider, openAccount, paymentProviders, providersFor, transferDaysMs, type PaymentProvider } from './providers'
 export { createPaymentSetup, finishConnectMs, paymentSetupAudit, type ConnectInput, type PaymentSetupDeps, type PaymentSetupView } from './setup'
 export type { ShopOrderRow } from '#db/scoped/orders'
 
