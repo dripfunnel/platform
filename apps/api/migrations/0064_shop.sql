@@ -82,7 +82,7 @@ begin
     'product_photo', 'product_video', 'product_market_rule', 'product_flag', 'product_compliance', 'product_spec',
     'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_filter_value', 'product_story',
     'story_block', 'size_chart', 'collection', 'collection_product', 'filter', 'filter_value', 'menu', 'menu_item', 'badge',
-    'translation', 'store_language', 'store_currency', 'market', 'market_excluded_product'
+    'translation', 'store_language', 'store_currency', 'market', 'market_excluded_product', 'store_feature'
   ] loop
     execute format('create trigger %I after insert on %I referencing new table as touched_rows for each statement execute function storefront_catalog_touched()', t || '_touch_insert', t);
     execute format('create trigger %I after update on %I referencing new table as touched_rows for each statement execute function storefront_catalog_touched()', t || '_touch_update', t);
