@@ -282,6 +282,18 @@ describe('a US store', () => {
     expect((await settings('us')).couriers.map((c) => [c.provider, c.status, c.lastTestResult])).toEqual([['usps', 'failed', 'rejected'], ['ups', 'off', null], ['fedex', 'standby', 'ok']])
   })
 
+  it('switches the courier’s rate off when its last courier goes, so checkout never offers a rate nothing quotes', async () => {
+    const before = (await settings('us')).revision
+    expect((await courier('us', 'disconnectCourier', 'fedex')).data?.['disconnectCourier']).toBeNull()
+    expect((await settings('us')).courierRate).toBe(true)
+    expect((await courier('us', 'disconnectCourier', 'usps')).data?.['disconnectCourier']).toBeNull()
+    expect(await settings('us')).toMatchObject({ courierRate: false, revision: before + 1 })
+    const reasons = await db.sql<{ reason: string | null }[]>`select reason from activity_log where store_id = ${stores.us} and action = 'courier.disconnected' order by occurred_at desc limit 1`
+    expect(reasons[0]?.reason).toBe('courier rate off')
+    await courier('us', 'connectCourier', 'usps')
+    await courier('us', 'connectCourier', 'fedex')
+  })
+
   it('can’t connect a courier its partner has no account for (#275 stores them)', async () => {
     couriers = fakeCouriers(['shiprocket'])
     expect((await settings('us')).couriers.every((c) => !c.offered)).toBe(true)
@@ -311,6 +323,12 @@ describe('isolation', () => {
     await expect(withScope(db.sql, support, (tx) => tx`update store_shipping set flat_amount = 1 where store_id = ${stores.india}`)).rejects.toThrow(/row-level security/)
     await expect(withScope(db.sql, support, (tx) => tx`delete from delivery_postal_code where store_id = ${stores.india}`)).resolves.toHaveLength(0)
     expect(Number((await db.sql<{ n: string }[]>`select count(*)::text as n from delivery_postal_code where store_id = ${stores.india}`)[0]?.n)).toBe(2)
+  })
+
+  it('checks a postcode against the list without reading it, and only for the acting store', async () => {
+    const listed = (storeId: string, code: string) => withScope(db.sql, callerOf(storeId), async (tx) => (await tx<{ l: boolean }[]>`select store_delivers_to(${code}) as l`)[0]?.l)
+    expect([await listed(stores.india, '400001'), await listed(stores.india, '110001'), await listed(stores.us, '400001')]).toEqual([true, false, false])
+    await expect(withScope(db.sql, callerOf(stores.india, t.partnerA, { kind: 'seller', sellerId: seller }), (tx) => tx`select store_delivers_to('400001')`)).rejects.toThrow(/permission denied/)
   })
 
   it('prices only the store’s own versions and markets: another store’s are not found', async () => {
