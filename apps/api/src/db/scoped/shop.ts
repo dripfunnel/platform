@@ -239,6 +239,7 @@ export const selectShopProducts = (tx: ScopedSql, storeId: string, q: ShopProduc
   const beyond = (key: { value: string; id: string }, forward: boolean) =>
     order.descending === forward ? tx`(sort_value, id) < (${key.value}::${tx.unsafe(order.type)}, ${key.id}::uuid)` : tx`(sort_value, id) > (${key.value}::${tx.unsafe(order.type)}, ${key.id}::uuid)`
   const direction = order.descending !== backwards ? tx`desc` : tx`asc`
+  // A choice the shopper can't see (another store's) matches nothing, never everything.
   const values = q.filterValueIds
   return tx<ShopProductListRow[]>`
     with listed as (
@@ -247,7 +248,7 @@ export const selectShopProducts = (tx: ScopedSql, storeId: string, q: ShopProduc
         and ${
           values.length === 0
             ? tx`true`
-            : tx`not exists (
+            : tx`(select count(*) from filter_value v where v.id = any (${pgArray(values)}::uuid[])) = ${values.length} and not exists (
                 select 1 from filter_value chosen where chosen.id = any (${pgArray(values)}::uuid[])
                   and not exists (
                     select 1 from product_filter_value pf join filter_value x on x.id = pf.filter_value_id

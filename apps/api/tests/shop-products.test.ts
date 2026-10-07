@@ -32,7 +32,8 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update store set pricing_currency = 'INR', country = 'IN', status = 'active' where id in (${t.storeA1}, ${t.storeB1})`
-  await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
+  await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
+  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerB}, 'shops', '*.shops.bolt.example', 'live', 'CNAME', 'x')`
   await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`update market set countries = '["IN"]' where store_id = ${t.storeA1}`
   await db.sql`insert into store_currency (store_id, currency, mode, rounding, status, position) values (${t.storeA1}, 'USD', 'convert', 'ends-99', 'active', 0)`
@@ -77,10 +78,10 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const gql = async (source: string, headers: Record<string, string> = {}, variables: Record<string, unknown> = {}) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
+const gql = async (source: string, headers: Record<string, string> = {}, variables: Record<string, unknown> = {}, on = host) => {
+  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers }), on)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date('2026-10-07T09:00:00Z') }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date('2026-10-07T09:00:00Z') }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -202,5 +203,37 @@ describe('stock a storefront may read (migration 0065)', () => {
   it('answers nothing outside shop scope, and only app_shop may call it', async () => {
     const merchant: TenantContext = { caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
     await expect(withScope(db.sql, merchant, (tx) => tx`select * from shop_stock(${pgArray([ids.red])}::uuid[])`)).rejects.toThrow(/permission denied/)
+  })
+})
+
+describe('limits and isolation (#441’s review)', () => {
+  const theirs = 'store-b1.shops.bolt.example'
+
+  it('caps a page at 50, a search at 100 characters and filter choices at 50, and reads % and _ as themselves', async () => {
+    const many = await Promise.all(Array.from({ length: 51 }, (_, i) => product(t.storeB1, `bulk-${i}`, '2026-10-01T00:00:00Z')))
+    await Promise.all(many.map((id, i) => version(t.storeB1, id, String(1000 + i), null, 0, null)))
+    const page = (await gql('{ products(first: 500) { nodes { slug } pageInfo { hasNextPage } } }', {}, {}, theirs)).data?.['products'] as { nodes: unknown[]; pageInfo: { hasNextPage: boolean } }
+    expect([page.nodes.length, page.pageInfo.hasNextPage]).toEqual([50, true])
+    expect((await list(`(search: "${'x'.repeat(101)}")`)).code).toBe('INVALID_INPUT')
+    expect((await list(`(filters: [${Array.from({ length: 51 }, () => `"${crypto.randomUUID()}"`).join(', ')}])`)).code).toBe('INVALID_INPUT')
+    expect(slugs((await list('(search: "%")')).listing)).toEqual([])
+    expect(slugs((await list('(search: "_")')).listing)).toEqual([])
+  })
+
+  it('refuses a tampered cursor on every sort, after or before', async () => {
+    const forged = (sort: string, value: string) => JSON.stringify(encodeValueCursor({ sort, value, id: ids.kurta }))
+    for (const [sort, arg] of [['newest', 'NEWEST'], ['price_low', 'PRICE_LOW'], ['price_high', 'PRICE_HIGH'], ['name', 'NAME']] as const) {
+      const bad = sort === 'name' ? 'x\u0000' : 'nope'
+      expect((await list(`(sort: ${arg}, after: ${forged(sort, bad)})`)).code).toBe('INVALID_CURSOR')
+      expect((await list(`(sort: ${arg}, before: ${forged(sort, bad)})`)).code).toBe('INVALID_CURSOR')
+    }
+  })
+
+  it('shows another store’s shopper only that store’s product of the same address, and none of this store’s filters, collections or markets', async () => {
+    const page = await gql(`{ product(slug: "kurta") { id } products(filters: ["${ids.cotton}"]) { nodes { slug } facets { name } } }`, {}, {}, theirs)
+    expect(page.data?.['product']).toEqual({ id: ids.other })
+    expect(page.data?.['products']).toEqual({ nodes: [], facets: [] })
+    expect(((await gql('{ products(collection: "summer") { nodes { slug } } }', {}, {}, theirs)).data?.['products'] as { nodes: unknown[] }).nodes).toEqual([])
+    expect((await gql('{ store { marketId currency } }', { 'x-shop-market': ids.usa }, {}, theirs)).data?.['store']).toEqual({ marketId: null, currency: 'INR' })
   })
 })
