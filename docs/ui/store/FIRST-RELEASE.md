@@ -640,7 +640,7 @@ answers its `shipments` (a supplier's own only, so the store's onward tracking s
 mode; cancelled only while on its way back), and `refund(orderId, returnId, lines: [{ lineId, quantity, amount }], extra,
 reason, note, restock, override)` (`orders.refund`: Owner, Manager and the `vendor-orders-fulfil` tier on its own lines). A
 line's refund covers units that have shipped (unshipped ones go back by cancelling), its share of what the shopper paid for
-the line unless an amount is named, or money only with 0 units; `extra` is the store's alone (delivery, goodwill). One
+the line unless an amount is named, or money only with 0 units, up to what the line's shipped units are worth; `extra` is the store's alone (delivery, goodwill). One
 refund an owner: the store refunds its own lines, a supplier its own, and the store a supplier's only with `override`, which
 `supplierLedger(supplierId)` records against the supplier (the supplier's own ledger and balance for a supplier, settled
 outside DripFunnel). A return is refunded only once received, and is done once all of it is. The money goes back on the

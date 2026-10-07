@@ -120,6 +120,14 @@ const shareOf = (line: LineToRefundRow, quantity: number): bigint => {
   return share < left ? share : left
 }
 
+/** Money only, on a line: up to what its shipped units are worth less what has gone back; unshipped ones go back by cancelling. */
+const shippedWorthLeft = (line: LineToRefundRow): bigint => {
+  const total = BigInt(line.line_total_amount)
+  const shipped = line.fulfilled_quantity >= line.quantity ? total : (total * BigInt(line.fulfilled_quantity)) / BigInt(line.quantity)
+  const left = shipped - BigInt(line.refunded_amount)
+  return left > 0n ? left : 0n
+}
+
 export const createRefundService = ({ sql, context, actor, activity, facts, gateways, secrets, now }: RefundDeps) => {
   const { storeId } = context
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
@@ -238,7 +246,7 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
         const inThis = inReturn?.lines.find((l) => l.order_line_id === line.id)
         const free = inReturn ? (inThis ? inThis.quantity - inThis.refunded : 0) : line.fulfilled_quantity - line.returned_quantity - line.refunded_outside
         if (quantity > free) return { ok: false, reason: 'TOO_MANY' }
-        const share = quantity > 0 ? shareOf(line, quantity) : BigInt(line.line_total_amount) - BigInt(line.refunded_amount)
+        const share = quantity > 0 ? shareOf(line, quantity) : shippedWorthLeft(line)
         const amount = amounts[i] ?? (quantity > 0 ? share : null)
         if (amount === null || amount === undefined || amount > share || (amount === 0n && quantity === 0)) return { ok: false, reason: amount !== null && amount !== undefined && amount > share ? 'TOO_MANY' : 'INVALID_INPUT' }
         const group = owners.get(line.seller_id) ?? []
