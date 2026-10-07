@@ -3,6 +3,7 @@ import { catalogImportAudit, createCatalogImportService, type CatalogImportDto, 
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
+import { requireFeature } from './listing'
 import type { StoreBuilder } from './builder'
 
 // Products › Import (CatImport; CATALOG K; FIRST-RELEASE §13): Owner and Manager, and a supplier at a catalogue
@@ -86,6 +87,7 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
       args: { file: t.arg.string({ required: true }) },
       extensions: { access: { ...access, audit: catalogImportAudit.started } },
       resolve: async (_, { file }, ctx) => {
+        await requireFeature(ctx, actingCaller(ctx), 'import_spreadsheet')
         const result = await writer(ctx).start(file)
         if (!result.ok) throw refused(result.reason)
         return result.value

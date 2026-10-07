@@ -1,5 +1,6 @@
 import { minorOf, moneyText, type Money } from '@dripfunnel/shared/format'
-import { allowanceKeys, limitKeys, toggleKeys, type EntitlementKey, type NumberKey, type Plan, type PlanCeilings, type PlanInput, type ToggleKey } from '../../api/plans'
+import { type EntitlementKey, type Plan, type PlanCeilings, type PlanInput } from '../../api/plans'
+import { planKeyDefs, UNLIMITED } from '../../api/planKeys'
 import { sameJson } from '../common/sameJson'
 
 // The editor's draft: text as typed, so a half-typed price or limit is kept until it is saved.
@@ -8,9 +9,15 @@ export interface PlanDraft {
   description: string
   trialDays: string
   prices: Record<string, { monthly: string; yearly: string }>
-  toggles: Record<ToggleKey, boolean>
-  numbers: Record<NumberKey, string>
+  toggles: Record<string, boolean>
+  numbers: Record<string, string>
 }
+
+export const switchKeys = planKeyDefs.filter((d) => d.kind === 'switch').map((d) => d.key)
+export const numberKeys = planKeyDefs.filter((d) => d.kind !== 'switch').map((d) => d.key)
+// A new plan starts blank on the limits the API checks, and at the first choice or zero on the rest.
+const defaultText = (key: string) => (planKeyDefs.find((d) => d.key === key)?.enforced ? '' : '0')
+export const isUnlimited = (text: string) => numberOf(text) === UNLIMITED
 
 const textOfMoney = (money: Money | null) => (money ? moneyText(money) : '')
 
@@ -24,8 +31,8 @@ export const draftOf = (plan: Plan | null, currencies: readonly string[], defaul
       return [currency, { monthly: textOfMoney(price?.monthly ?? null), yearly: textOfMoney(price?.yearly ?? null) }]
     }),
   ),
-  toggles: Object.fromEntries(toggleKeys.map((key) => [key, plan?.entitlements[key] ?? false])) as Record<ToggleKey, boolean>,
-  numbers: Object.fromEntries([...limitKeys, ...allowanceKeys].map((key) => [key, plan ? String(plan.entitlements[key]) : ''])) as Record<NumberKey, string>,
+  toggles: Object.fromEntries(switchKeys.map((key) => [key, plan?.entitlements[key] === true])),
+  numbers: Object.fromEntries(numberKeys.map((key) => [key, plan ? String(plan.entitlements[key] ?? 0) : defaultText(key)])),
 })
 
 export const isDirty = (draft: PlanDraft, original: PlanDraft) => !sameJson(draft, original)
@@ -34,15 +41,15 @@ export const numberOf = (text: string) => Number(text.replace(/\D/g, '') || '0')
 
 // Rows the API would refuse: above a ceiling, or "Powered by" removed when the contract forbids it.
 export const rowsAboveCeiling = (draft: PlanDraft, ceilings: PlanCeilings): EntitlementKey[] => [
-  ...[...limitKeys, ...allowanceKeys].filter((key) => {
-    const max = ceilings[key]
-    return max !== null && numberOf(draft.numbers[key]) > max
+  ...numberKeys.filter((key) => {
+    const max = ceilings.amounts[key]
+    return max !== null && max !== undefined && numberOf(draft.numbers[key] ?? '') > max
   }),
-  ...(draft.toggles.powered && !ceilings.powered.allowed ? (['powered'] as const) : []),
+  ...(draft.toggles['powered_by_removal'] && !ceilings.powered.allowed ? ['powered_by_removal'] : []),
 ]
 
 // Limits and allowances left blank: a new plan starts with none, and the API needs every one.
-export const rowsMissing = (draft: PlanDraft): NumberKey[] => [...limitKeys, ...allowanceKeys].filter((key) => draft.numbers[key].trim() === '')
+export const rowsMissing = (draft: PlanDraft): string[] => numberKeys.filter((key) => (draft.numbers[key] ?? '').trim() === '')
 
 export const hasInvalidPrice = (draft: PlanDraft) => Object.entries(draft.prices).some(([currency, price]) => minorOf(price.monthly, currency) === 'invalid' || minorOf(price.yearly, currency) === 'invalid')
 
@@ -65,7 +72,7 @@ export const inputOf = (draft: PlanDraft): PlanInput | null => {
     prices,
     entitlements: {
       ...draft.toggles,
-      ...(Object.fromEntries([...limitKeys, ...allowanceKeys].map((key) => [key, numberOf(draft.numbers[key])])) as Record<NumberKey, number>),
+      ...Object.fromEntries(numberKeys.map((key) => [key, numberOf(draft.numbers[key] ?? '')])),
     },
   }
 }

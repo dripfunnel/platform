@@ -26,23 +26,31 @@ const callerOf = (partnerId: string, role: PartnerRole, name = 'Maya Chen'): Par
   partner: { id: partnerId, name: 'Northstar Commerce', product: 'Northstar Shops', host: null, state: 'live' },
 })
 
+// The API's list of entries, as the record the tests and the service speak.
+const recordOf = (list: { key: string; enabled: boolean | null; amount: number | null }[]): Record<string, boolean | number> => Object.fromEntries(list.map((e) => [e.key, e.enabled ?? e.amount ?? 0]))
+const listOf = (record: Record<string, boolean | number>) => Object.entries(record).map(([key, v]) => (typeof v === 'boolean' ? { key, enabled: v } : { key, amount: v }))
+// A mutation's input holds the entitlements as the record; the schema takes a list.
+const wire = (variables: Record<string, unknown>): Record<string, unknown> => {
+  const input = variables['input'] as { entitlements?: Record<string, boolean | number> } | undefined
+  return input?.entitlements && !Array.isArray(input.entitlements) ? { ...variables, input: { ...input, entitlements: listOf(input.entitlements) } } : variables
+}
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
   const deps = { sql: db.sql, caller, facts, activity: activityLog, now: () => now }
-  const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue: { caller, console: createPartnerConsoleService(deps), plans: createPartnerPlansService(deps), branding: null } })
+  const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: wire(variables), contextValue: { caller, console: createPartnerConsoleService(deps), plans: createPartnerPlansService(deps), branding: null } })
   const error = result.errors?.[0]
   if (error && error.extensions['code'] === undefined) throw error
   return { data: (result.data ?? null) as T | null, code: error?.extensions['code'] as string | undefined }
 }
 
 const priceFields = 'currency monthly { amount currency } yearly { amount } fee { amount currency } converted margin { kind amount { amount currency } of { amount } }'
-const entitlementFields = 'domain offers suppliersOn powered aplus size products staff suppliers languages currencies publish ai'
+const entitlementFields = 'key enabled amount'
 const editorQuery = `query($id: ID) { planEditor(id: $id) { plan { row { id name description trialDays status stores prices { ${priceFields} } } entitlements { ${entitlementFields} } }
-  ceilings { products publish } powered { allowed note } currencies trials edit { allowed reason } price { allowed reason } retireTargets { id name } retireDates } }`
+  ceilings { key amount } powered { allowed note } currencies trials edit { allowed reason } price { allowed reason } retireTargets { id name } retireDates } }`
 const update = `mutation($id: ID!, $input: PlanInput!, $applyTo: String) { updatePlan(id: $id, input: $input, applyTo: $applyTo) { ok id reason row currency } }`
 const create = `mutation($input: PlanInput!) { createPlan(input: $input) { ok id reason row currency } }`
 
 interface Editor {
-  plan: { row: { id: string; name: string; description: string; trialDays: number; prices: { currency: string; monthly: { amount: number } | null; yearly: { amount: number } | null }[] }; entitlements: Record<string, boolean | number> } | null
+  plan: { row: { id: string; name: string; description: string; trialDays: number; prices: { currency: string; monthly: { amount: number } | null; yearly: { amount: number } | null }[] }; entitlements: { key: string; enabled: boolean | null; amount: number | null }[] } | null
 }
 type Outcome = Record<string, { ok: boolean; id: string | null; reason: string | null; row: string | null; currency: string | null }>
 
@@ -54,7 +62,7 @@ const inputFrom = async (planId: string, caller: PartnerCaller) => {
     description: plan.row.description,
     trialDays: plan.row.trialDays,
     prices: plan.row.prices.map((p) => ({ currency: p.currency, monthly: p.monthly ? { amount: p.monthly.amount, currency: p.currency } : null, yearly: p.yearly ? { amount: p.yearly.amount, currency: p.currency } : null })),
-    entitlements: plan.entitlements,
+    entitlements: recordOf(plan.entitlements),
   }
 }
 
@@ -103,8 +111,8 @@ describe('the catalogue and the editor', () => {
   })
 
   it('opens the editor with the ceilings, the contract’s rule, the currencies and who may do what', async () => {
-    const { data } = await run<{ planEditor: { ceilings: { products: number }; powered: { allowed: boolean }; currencies: string[]; trials: number[]; edit: { allowed: boolean; reason: string | null }; price: { allowed: boolean }; retireTargets: { id: string }[]; retireDates: string[] } }>(editorQuery, callerOf(ids.ns, 'partner-finance'), { id: ids.growth })
-    expect(data?.planEditor).toMatchObject({ ceilings: { products: 20000 }, powered: { allowed: true }, trials: [0, 7, 14, 30], edit: { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' }, price: { allowed: true } })
+    const { data } = await run<{ planEditor: { ceilings: { key: string; amount: number | null }[]; powered: { allowed: boolean }; currencies: string[]; trials: number[]; edit: { allowed: boolean; reason: string | null }; price: { allowed: boolean }; retireTargets: { id: string }[]; retireDates: string[] } }>(editorQuery, callerOf(ids.ns, 'partner-finance'), { id: ids.growth })
+    expect(data?.planEditor).toMatchObject({ ceilings: expect.arrayContaining([{ key: 'products', amount: 20000 }]), powered: { allowed: true }, trials: [0, 7, 14, 30], edit: { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' }, price: { allowed: true } })
     expect(data?.planEditor.currencies.sort()).toEqual(['CAD', 'USD'])
     expect(data?.planEditor.retireTargets.map((r) => r.id)).not.toContain(ids.growth)
     expect(data?.planEditor.retireDates).toEqual(['2026-11-01T00:00:00.000Z', '2026-12-01T00:00:00.000Z', '2027-01-01T00:00:00.000Z'])
@@ -194,13 +202,13 @@ describe('the catalogue and the editor', () => {
 describe('saving', () => {
   it('refuses a value above a ceiling by row, for a limit, an allowance and the contract’s switch, and clamps nothing', async () => {
     const input = await inputFrom(ids.growth, callerOf(ids.ns, 'partner-owner'))
-    for (const [row, value] of [['products', 20001], ['publish', 301]] as const) {
+    for (const [row, value] of [['products', 20001], ['publish_now', 301]] as const) {
       const out = await run<Outcome>(update, callerOf(ids.ns, 'partner-owner'), { id: ids.growth, input: { ...input, entitlements: { ...input.entitlements, [row]: value } }, applyTo: 'new' })
       expect(out.data?.updatePlan).toMatchObject({ ok: false, reason: 'ABOVE_CEILING', row })
     }
     const kl = callerOf(ids.kl, 'partner-owner')
-    const draft = { name: 'Mehr', description: '', trialDays: 14, prices: [{ currency: 'EUR', monthly: null, yearly: null }], entitlements: { ...input.entitlements, products: 10, powered: true } }
-    expect((await run<Outcome>(create, kl, { input: draft })).data?.createPlan).toMatchObject({ ok: false, reason: 'ABOVE_CEILING', row: 'powered' })
+    const draft = { name: 'Mehr', description: '', trialDays: 14, prices: [{ currency: 'EUR', monthly: null, yearly: null }], entitlements: { ...input.entitlements, products: 10, powered_by_removal: true } }
+    expect((await run<Outcome>(create, kl, { input: draft })).data?.createPlan).toMatchObject({ ok: false, reason: 'ABOVE_CEILING', row: 'powered_by_removal' })
     expect(await db.sql`select version from plan where id = ${ids.growth}`).toEqual([{ version: 1 }])
   })
 
@@ -304,7 +312,7 @@ describe('making live and retiring', () => {
     const [p] = await db.sql<{ id: string }[]>`insert into partner (name) values ('No Contract') returning id`
     const owner = callerOf(p?.id ?? '', 'partner-owner')
     const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
-    const made = (await run<Outcome>(create, owner, { input: { ...input, entitlements: { ...input.entitlements, powered: false }, prices: [] } })).data?.createPlan
+    const made = (await run<Outcome>(create, owner, { input: { ...input, entitlements: { ...input.entitlements, powered_by_removal: false }, prices: [] } })).data?.createPlan
     expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: false, reason: 'UNPRICED_CURRENCY' })
   })
 
@@ -317,7 +325,7 @@ describe('making live and retiring', () => {
     const item = async () => (await withScope(db.sql, { caller: { kind: 'staff', staffId: 'st' } }, (tx) => selectSetupItemsFor(tx, [partnerId]))).find((i) => i.item === 'plan')
     expect(await item()).toMatchObject({ status: 'missing', done_by_label: null })
     const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
-    const draft = { ...input, name: 'First', entitlements: { ...input.entitlements, powered: false }, prices: [{ currency: 'USD', monthly: { amount: 2900, currency: 'USD' }, yearly: null }] }
+    const draft = { ...input, name: 'First', entitlements: { ...input.entitlements, powered_by_removal: false }, prices: [{ currency: 'USD', monthly: { amount: 2900, currency: 'USD' }, yearly: null }] }
     const made = (await run<Outcome>(create, owner, { input: draft })).data?.createPlan
     const planId = made?.id ?? ''
     expect(await item()).toMatchObject({ status: 'progress', done_by_label: null })
@@ -339,7 +347,7 @@ describe('making live and retiring', () => {
     const partnerId = p?.id ?? ''
     const owner = callerOf(partnerId, 'partner-owner')
     const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
-    const draft = { ...input, name: 'Only', entitlements: { ...input.entitlements, powered: false }, prices: [{ currency: 'USD', monthly: { amount: 2900, currency: 'USD' }, yearly: null }] }
+    const draft = { ...input, name: 'Only', entitlements: { ...input.entitlements, powered_by_removal: false }, prices: [{ currency: 'USD', monthly: { amount: 2900, currency: 'USD' }, yearly: null }] }
     const made = (await run<Outcome>(create, owner, { input: draft })).data?.createPlan
     expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: true })
     expect(await withScope(db.sql, { caller: { kind: 'staff', staffId: 'st' } }, (tx) => selectSetupItemsFor(tx, [partnerId]))).toEqual([])

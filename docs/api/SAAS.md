@@ -306,10 +306,18 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   invoiced **in the store's currency when it is USD, EUR or INR, and in USD for any other
   currency**. Rejected: a nearest-regional-currency mapping (one more table to explain) and
   restricting sign-up to the three currencies.
-- **Three entitlement kinds**: **on/off** (custom domain, offers, vendors, "Powered by"
-  removal, A+ content, size charts); **limit** (products, staff seats, vendors, languages,
-  currencies); **meter**, counted per billing period (**"Publish now" presses**, AI prompts,
-  build minutes, AI cost).
+- **Four kinds of plan setting** (card #458; the keys are `apps/api/src/db/scoped/planKeys.ts`,
+  50 rows in the order and groups of `designs/DF Store Pricing.dc.html`): **on/off** (custom
+  domain, offers, suppliers, "Powered by" removal, A+ content, size charts, badges, product
+  video, imports, reports, white-label and more); **limit** (products, staff seats, suppliers,
+  languages, currencies, photos, markets, couriers and more); **meter**, counted per billing
+  period (**"Publish now" presses**, AI prompts); **choice** (support level, abandoned-cart
+  reminders, AI mode), stored as an index. A limit of **Unlimited** is the int4 maximum
+  (2147483647). A row is **enforced** when the server checks it where the write happens, or
+  **Planned** when its feature isn't built: the value is stored and the console tags the row,
+  and nothing checks it until the feature ships. Enforced today: the original 13 and badges,
+  FAQs and related products, product video, spreadsheet import and Shopify import; a version
+  written before those five existed starts with them on, so no store loses a section.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
   can't configure a plan above it (G2, R3). **Built on #157** with the versioned catalogue,
   DripFunnel's wholesale fee per plan and the partner's contract (fee currency, the other
@@ -331,7 +339,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 
 - **Server-enforced, always.** One service, `saas/entitlements`, answers `can(store, key)` and
   `remaining(store, meter)`; the engine and the Store API call it at the write (creating the
-  51st product, inviting a vendor on a plan without vendors, pressing "Publish now"). The UI
+  51st product, inviting a supplier on a plan without suppliers, pressing "Publish now"). The UI
   shows the same answer but never decides it.
 - **Meters count atomically** and reset per the store's billing period. A **failed build never
   counts** against the "Publish now" allowance (decided).
@@ -343,6 +351,10 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   the new limits; the rest is paused, invisible to shoppers and kept intact, and comes back
   on an upgrade. Adding more is blocked with a clear explanation. Rejected: everything
   existing keeps selling (over-limit catalogues would make the limit meaningless).
+- **What it covers.** A row tagged **Planned** (§6.1) is never checked, so no store can be over
+  it and nothing pauses; the card that enforces a row adds its keep-or-pause rule. An
+  **Unlimited** limit is never near and never over: usage reads it as no cap, whatever an
+  override adds.
 
 ### 6.3 Changing and retiring plans
 

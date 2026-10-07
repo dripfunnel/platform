@@ -3,6 +3,7 @@ import { createShopifyService, shopifyAudit, catalogImportAudit, type ShopProduc
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
+import { requireFeature } from './listing'
 import type { StoreBuilder } from './builder'
 
 // Products › Import › Connect Shopify (CatImport, CATALOG K7): whoever imports (`catalog.import`) connects their
@@ -99,6 +100,7 @@ export const registerShopify = (builder: StoreBuilder) => {
       args: { productIds: t.arg.idList(), all: t.arg.boolean() },
       extensions: { access: { ...access, audit: catalogImportAudit.started } },
       resolve: async (_, { productIds, all }, ctx) => {
+        await requireFeature(ctx, actingCaller(ctx), 'import_shopify')
         if ((all === true) === (productIds !== null && productIds !== undefined)) throw refused('INVALID_INPUT')
         return answered(await service(ctx).startImport(all === true ? null : (productIds ?? []).map(String)))
       },

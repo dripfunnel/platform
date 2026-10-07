@@ -439,8 +439,9 @@ They aren't drawn until then.
 
 The partner's plans with monthly or yearly prices and what each includes (from the Platform
 API's plan catalogue, never hard-coded), switch now with **proration** or at period end, the
-dates from the billing period; this month's usage (bandwidth, products, staff, AI tokens); buy
-extra bandwidth; storefront setup by the partner's team where the plan offers it; the **card
+dates from the billing period; this month's usage (bandwidth, products, staff, AI tokens), where a
+plan row that is **Unlimited** (SAAS §6.1) reads "Unlimited" with no bar and is never counted near a
+limit; buy extra bandwidth; storefront setup by the partner's team where the plan offers it; the **card
 that pays for the plan in a hosted field**, never the shoppers' payments; details on invoices;
 invoices with PDF and export; **Close my store** with "Download my data first" (products, orders,
 customers) and "Move to Free instead". Who charges is the partner or DripFunnel on its behalf

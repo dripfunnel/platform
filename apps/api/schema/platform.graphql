@@ -651,18 +651,13 @@ type PayoutAdjustment {
 }
 
 type Plan {
-  entitlements: PlanEntitlements
+  entitlements: [PlanEntitlement!]
   row: PlanRow
 }
 
-type PlanCeilings {
-  ai: Int
-  currencies: Int
-  languages: Int
-  products: Int
-  publish: Int
-  staff: Int
-  suppliers: Int
+type PlanCeiling {
+  amount: Int
+  key: String
 }
 
 type PlanChangeRow {
@@ -672,7 +667,7 @@ type PlanChangeRow {
 }
 
 type PlanEditor {
-  ceilings: PlanCeilings
+  ceilings: [PlanCeiling!]
   chargedBy: String
   currencies: [String!]
   edit: PlanPermission
@@ -684,41 +679,21 @@ type PlanEditor {
   trials: [Int!]
 }
 
-type PlanEntitlements {
-  ai: Int
-  aplus: Boolean
-  currencies: Int
-  domain: Boolean
-  languages: Int
-  offers: Boolean
-  powered: Boolean
-  products: Int
-  publish: Int
-  size: Boolean
-  staff: Int
-  suppliers: Int
-  suppliersOn: Boolean
+type PlanEntitlement {
+  amount: Int
+  enabled: Boolean
+  key: String
 }
 
-input PlanEntitlementsInput {
-  ai: Int!
-  aplus: Boolean!
-  currencies: Int!
-  domain: Boolean!
-  languages: Int!
-  offers: Boolean!
-  powered: Boolean!
-  products: Int!
-  publish: Int!
-  size: Boolean!
-  staff: Int!
-  suppliers: Int!
-  suppliersOn: Boolean!
+input PlanEntitlementInput {
+  amount: Int
+  enabled: Boolean
+  key: String!
 }
 
 input PlanInput {
   description: String!
-  entitlements: PlanEntitlementsInput!
+  entitlements: [PlanEntitlementInput!]!
   name: String!
   prices: [PlanPriceInput!]!
   trialDays: Int!

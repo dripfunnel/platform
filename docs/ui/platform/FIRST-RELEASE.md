@@ -222,7 +222,7 @@ words ("94% of August so far, with 2 days to go", "+4% vs July") **computed by t
 | **Revenue** | Merchant subscriptions collected, DripFunnel's fee, your payout so far, comparison, next payout date; "Collected by DripFunnel for {partner}. CAD is converted at the payout rate." | Billing › payments, Billing › payouts |
 | **Needs attention** | Past due (days) → **Open billing**; Setup stuck ("Storefront building for 43 min") → **Retry setup**; Domain stuck ("waiting for DNS for 2 days") → **Re-check**; Trial ending ("ends tomorrow") → **Extend trial**. "Nothing needs you right now." when empty | The store's tab |
 | **Signups** | Started and completed in the range; "34% of trials became paid stores · up from 29% last month" | Stores filtered `created` |
-| **Usage** | "N near a limit"; the four closest with a bar ("4,210 of 5,000 products"); "No store is at 80% of a limit." when none | The store's Plan and limits tab; Stores filtered `near` |
+| **Usage** | "N near a limit"; the four closest with a bar ("4,210 of 5,000 products"); an Unlimited limit is never near and is worded "no limit", with no bar; "No store is at 80% of a limit." when none | The store's Plan and limits tab; Stores filtered `near` |
 | **Top stores by sales** | Top five, last month, totals only, in each store's currency, with plan; "No sales yet." | The store's page; **Report** → Reports › Store performance |
 
 Each action button carries its own permission (Retry setup: Owner, Admin; Extend trial: Owner,
@@ -334,10 +334,13 @@ every currency has a price), **Retire plan** (Live only), **Save changes**.
   "DripFunnel's fee $18.00 / month" ("converted at the contract rate" for a second currency)
   and the margin — "You keep $31.00 of $49.00", or in red "Below DripFunnel's fee: you'd lose
   $3.00 per store". Fee and margin come from the API as `Money`.
-- **What's included**: the entitlement matrix (SAAS §6.1) — **On/off** rows (custom domain,
-  offers, suppliers, remove "Powered by", A+ content, size charts), **Limit** rows (products,
-  staff seats, suppliers, languages, currencies), **Monthly allowance** rows ("Publish now"
-  presses, AI design prompts). Every row shows "DripFunnel max 20,000" (or "Allowed by your
+- **What's included**: the entitlement matrix (SAAS §6.1), **grouped as the pricing page
+  compares plans** (Catalogue, Getting paid, Team and suppliers, Selling abroad, Shipping and
+  stock, Storefront, Reports, Support): **On/off**, **Limit**, **Monthly allowance** and
+  **Choice** rows (50 in all; #458). A row whose feature isn't built is tagged **Planned**: it
+  is saved with the plan and checked by nothing yet. A number row has an **Unlimited**
+  checkbox (shown instead of 2147483647, and unavailable where DripFunnel sets a maximum).
+  Every number row shows "DripFunnel max 20,000" (or "Allowed by your
   contract" / "Not allowed in your first contract year" for "Powered by"). A value above the
   maximum is marked "Can't be more than 20,000." and Save is disabled with "Fix the
   highlighted rows first." — **the API refuses it too** (`ABOVE_CEILING`, naming the row); the

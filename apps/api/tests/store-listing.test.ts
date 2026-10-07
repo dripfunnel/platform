@@ -38,7 +38,8 @@ beforeAll(async () => {
   const plan = async (partnerId: string, name: string, charts: boolean) => {
     const [row] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${partnerId}, ${name}, 'live') returning id`
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${row?.id ?? ''}, ${partnerId}, 1, 'products', 100)`
-    if (charts) await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${row?.id ?? ''}, ${partnerId}, 1, 'size_charts', true)`
+    for (const key of charts ? ['size_charts', 'badges', 'faqs_related', 'product_video'] : [])
+      await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${row?.id ?? ''}, ${partnerId}, 1, ${key}, true)`
     return row?.id ?? ''
   }
   plans.full = await plan(t.partnerA, 'Full', true)
@@ -392,6 +393,19 @@ describe('a product’s listing sections', () => {
       const copy = (await gql('mutation C($id: ID!) { duplicateProduct(id: $id) { id } }', 'owner', { id: made.id })).data?.['duplicateProduct'] as { id: string }
       expect((await listingOf('owner', copy.id))?.sizeChartId).toBeNull()
       expect((await gql(save, 'owner', { id: made.id, revision: 2, input: { name: 'Plan shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], sizeChartId: null } })).code).toBeUndefined()
+    } finally {
+      await subscribe(t.storeA1, t.partnerA, plans.full)
+    }
+  })
+
+  it('needs the plan for FAQs and related products on a product, but never for saving without them', async () => {
+    const made = await product('owner', 'Plan sections')
+    const withListing = (listing: Record<string, unknown>) => gql(save, 'owner', { id: made.id, revision: 1, input: { name: 'Plan sections', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing } })
+    await subscribe(t.storeA1, t.partnerA, plans.bare)
+    try {
+      expect((await withListing({ faqs: [{ question: 'Q', answer: 'A' }] })).code).toBe('PLAN_LIMIT')
+      expect((await withListing({ relatedIds: [made.id] })).code).toBe('PLAN_LIMIT')
+      expect((await withListing({ highlights: ['Soft'] })).code).toBeUndefined()
     } finally {
       await subscribe(t.storeA1, t.partnerA, plans.full)
     }

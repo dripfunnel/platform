@@ -29,6 +29,7 @@ const user = async (partnerId: string, email: string, name: string) => {
 const subscribe = async (storeId: string, partnerId: string, products: number) => {
   const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${partnerId}, ${`Plan ${products}`}, 'live') returning id`
   await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${partnerId}, 1, 'products', ${products})`
+  await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${plan?.id ?? ''}, ${partnerId}, 1, 'product_video', true)`
   await db.sql`update store set plan_id = ${plan?.id ?? ''}, pricing_currency = 'INR' where id = ${storeId}`
   await db.sql`delete from store_subscription where store_id = ${storeId}`
   await db.sql`

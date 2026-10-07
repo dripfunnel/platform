@@ -1,11 +1,8 @@
 import { pgArray, type ScopedSql } from './index'
 
 // The catalogue of migrations/0013 (SAAS.md §6.1, §6.3).
-export const switchKeys = ['custom_domain', 'offers', 'suppliers_enabled', 'powered_by_removal', 'aplus', 'size_charts'] as const
-export const amountKeys = ['products', 'staff', 'suppliers', 'languages', 'currencies', 'publish_now', 'ai_prompts'] as const
-export type SwitchKey = (typeof switchKeys)[number]
-export type AmountKey = (typeof amountKeys)[number]
-export type Entitlements = Record<SwitchKey, boolean> & Record<AmountKey, number>
+import { amountKeys, choiceKeys, switchKeys, type AmountKey, type Entitlements, type SwitchKey } from './planKeys'
+export { amountKeys, switchKeys, type AmountKey, type SwitchKey, type Entitlements } from './planKeys'
 
 /** Minor units per currency; null is "Not priced". */
 export interface PlanVersionPrice {
@@ -40,7 +37,7 @@ export const writeVersionRows = async (tx: ScopedSql, v: Omit<NewPlanVersion, 'e
   if (!values) return
   const rows = [
     ...switchKeys.map((key) => ({ ...base, key, enabled: values[key], amount: null })),
-    ...amountKeys.map((key) => ({ ...base, key, enabled: null, amount: values[key] })),
+    ...[...amountKeys, ...choiceKeys].map((key) => ({ ...base, key, enabled: null, amount: values[key] })),
   ]
   await tx`insert into plan_entitlement ${tx(rows, 'plan_id', 'partner_id', 'version', 'key', 'enabled', 'amount')}`
 }

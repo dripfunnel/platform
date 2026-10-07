@@ -2,12 +2,9 @@ import type { ScopedSql } from './index'
 
 // SAAS.md §6.1. The unlocking plan is read in `system` scope: plan_store_read hides the partner's other plans (DATA-MODEL §5.2).
 
-export const switchKeys = ['custom_domain', 'offers', 'suppliers_enabled', 'powered_by_removal', 'aplus', 'size_charts'] as const
-export const amountKeys = ['products', 'staff', 'suppliers', 'languages', 'currencies', 'publish_now', 'ai_prompts'] as const
-export type SwitchKey = (typeof switchKeys)[number]
-export type AmountKey = (typeof amountKeys)[number]
-export type EntitlementKey = SwitchKey | AmountKey
-
+export { amountKeys, switchKeys, type AmountKey, type SwitchKey } from './planKeys'
+import type { PlanKey } from './planKeys'
+export type EntitlementKey = PlanKey
 export interface StoreEntitlement {
   /** A switch's state, or null for a limit. */
   enabled: boolean | null

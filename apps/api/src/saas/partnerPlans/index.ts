@@ -25,18 +25,15 @@ import {
   type CatalogueRow,
   type ContractTerms,
 } from '#db/scoped/partnerPlans'
-import { insertPlanVersion, type AmountKey, type Entitlements, type PlanVersionPrice, type SwitchKey } from '#db/scoped/plans'
+import { amountKeys, defaultEntitlements, planKeyDefs, type AmountKey, type Entitlements, type PlanKey } from '#db/scoped/planKeys'
+import { insertPlanVersion, type PlanVersionPrice } from '#db/scoped/plans'
 
 // Plans on the Platform API (ui/platform/FIRST-RELEASE.md §7; card #161). The API computes the
 // fee, the margin and every refusal; the console only displays them.
 
-// The console's row keys (apps/ui/platform/src/api/plans.ts) and the catalogue's (DATA-MODEL §2.3).
-const switchRows = { domain: 'custom_domain', offers: 'offers', suppliersOn: 'suppliers_enabled', powered: 'powered_by_removal', aplus: 'aplus', size: 'size_charts' } as const satisfies Record<string, SwitchKey>
-const amountRows = { products: 'products', staff: 'staff', suppliers: 'suppliers', languages: 'languages', currencies: 'currencies', publish: 'publish_now', ai: 'ai_prompts' } as const satisfies Record<string, AmountKey>
-type SwitchRow = keyof typeof switchRows
-type AmountRow = keyof typeof amountRows
-export type EntitlementRow = SwitchRow | AmountRow
-export type RowEntitlements = Record<SwitchRow, boolean> & Record<AmountRow, number>
+// A plan's rows are the catalogue's keys (db/scoped/planKeys.ts); the console names them the same.
+export type EntitlementRow = PlanKey
+export type RowEntitlements = Entitlements
 
 // The columns are int4, so an amount or a value past it is unreadable input, not a database error.
 const int4 = z.number().int().min(0).max(2_147_483_647)
@@ -50,21 +47,9 @@ export const planInput = z.strictObject({
     .array(z.strictObject({ currency, monthly: money.nullable(), yearly: money.nullable() }))
     .max(10)
     .refine((prices) => new Set(prices.map((p) => p.currency)).size === prices.length, 'one row per currency'),
-  entitlements: z.strictObject({
-    domain: z.boolean(),
-    offers: z.boolean(),
-    suppliersOn: z.boolean(),
-    powered: z.boolean(),
-    aplus: z.boolean(),
-    size: z.boolean(),
-    products: int4,
-    staff: int4,
-    suppliers: int4,
-    languages: int4,
-    currencies: int4,
-    publish: int4,
-    ai: int4,
-  }),
+  entitlements: z.strictObject(
+    Object.fromEntries(planKeyDefs.map((d) => [d.key, d.kind === 'switch' ? z.boolean() : d.kind === 'choice' ? int4.max(d.choices.length - 1) : int4])),
+  ) as unknown as z.ZodType<Entitlements>,
 })
 export type PlanInput = z.infer<typeof planInput>
 
@@ -112,7 +97,7 @@ export const maxPlansPage = 50
 
 export interface PlanEditorDto {
   plan: (PlanRowDto & { entitlements: RowEntitlements }) | null
-  ceilings: Record<AmountRow, number | null>
+  ceilings: Partial<Record<AmountKey, number | null>>
   powered: { allowed: boolean; note: 'contract' | 'firstYear' | null }
   currencies: string[]
   trials: number[]
@@ -129,16 +114,9 @@ const trials = [0, 7, 14, 30]
 // FIRST-RELEASE §7.3: "Everyone, at their next renewal (they get an email 30 days ahead)".
 const noticeMs = 30 * 24 * 60 * 60 * 1000
 
-const toRows = (e: Partial<Entitlements>): RowEntitlements => ({
-  ...(Object.fromEntries(Object.entries(switchRows).map(([row, key]) => [row, e[key] === true])) as Record<SwitchRow, boolean>),
-  ...(Object.fromEntries(Object.entries(amountRows).map(([row, key]) => [row, Number(e[key] ?? 0)])) as Record<AmountRow, number>),
-})
-
-const fromRows = (r: PlanInput['entitlements']): Entitlements => ({
-  ...(Object.fromEntries(Object.entries(switchRows).map(([row, key]) => [key, r[row as SwitchRow] === true])) as Record<SwitchKey, boolean>),
-  ...(Object.fromEntries(Object.entries(amountRows).map(([row, key]) => [key, Number(r[row as AmountRow])])) as Record<AmountKey, number>),
-})
-
+// A version written before a key existed reads as that key's default.
+const toRows = (e: Partial<Entitlements>): RowEntitlements => ({ ...defaultEntitlements(), ...e })
+const fromRows = (r: PlanInput['entitlements']): Entitlements => ({ ...defaultEntitlements(), ...r })
 const firstOfMonths = (now: Date, count: number): Date[] =>
   Array.from({ length: count }, (_, i) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1 + i, 1)))
 
@@ -240,7 +218,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       const ceilings = await selectCeilings(tx)
       return {
         plan: row ? { ...dtoOf(terms, await selectLowestFee(tx, partnerId), row, version?.prices ?? []), entitlements: toRows(version?.entitlements ?? {}) } : null,
-        ceilings: Object.fromEntries(Object.entries(amountRows).map(([r, key]) => [r, ceilings[key] ?? null])) as Record<AmountRow, number | null>,
+        ceilings: Object.fromEntries(amountKeys.map((key) => [key, ceilings[key] ?? null])) as Partial<Record<AmountKey, number | null>>,
         powered: { allowed: terms.powered_by_removable, note: terms.powered_by_note },
         currencies: await currenciesOf(tx, terms),
         trials,
@@ -267,9 +245,9 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
   // The ceilings and the contract's "Powered by" rule, named by row; the database refuses the same (0013).
   const aboveCeiling = async (tx: ScopedSql, e: PlanInput['entitlements']): Promise<EntitlementRow | null> => {
     const ceilings = await selectCeilings(tx)
-    const over = (Object.entries(amountRows) as [AmountRow, AmountKey][]).find(([row, key]) => ceilings[key] !== undefined && e[row] > (ceilings[key] ?? 0))
-    if (over) return over[0]
-    return e.powered && !(await selectContractTerms(tx, partnerId)).powered_by_removable ? 'powered' : null
+    const over = amountKeys.find((key) => ceilings[key] !== undefined && e[key] > (ceilings[key] ?? 0))
+    if (over) return over
+    return e.powered_by_removal && !(await selectContractTerms(tx, partnerId)).powered_by_removable ? 'powered_by_removal' : null
   }
 
   const entry = (action: string, plan: { id: string; name: string }, reason: string | null): ActivityEntry =>

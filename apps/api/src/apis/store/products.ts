@@ -485,6 +485,14 @@ export const registerProducts = (builder: StoreBuilder) => {
     }),
   }))
 
+  // Putting FAQs, related products, badges or a video on a product is a plan feature; saving it empty never is.
+  const requireSections = async (ctx: StoreContext, input: ProductInput): Promise<void> => {
+    const caller = actingCaller(ctx)
+    const listing = input.listing
+    if ((listing?.faqs?.length ?? 0) > 0 || (listing?.relatedIds?.length ?? 0) > 0) await requireFeature(ctx, caller, 'faqs_related')
+    if ((listing?.badgeIds?.length ?? 0) > 0) await requireFeature(ctx, caller, 'badges')
+    if (input.video && (input.video.assetId || input.video.url)) await requireFeature(ctx, caller, 'product_video')
+  }
   builder.mutationFields((t) => ({
     // A Stock-only supplier's new product, waiting for the merchant's approval (decided on #337).
     proposeProduct: t.field({
@@ -493,6 +501,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       extensions: { access: { api: 'store', scope: 'store-seller', permission: 'catalog.propose', target: 'none', audit: approvalAudit.proposed } },
       resolve: async (_, args, ctx) => {
         if (args.input.sizeChartId) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
+        await requireSections(ctx, args.input)
         return answered(ctx, await service(ctx).propose(args.input))
       },
     }),
@@ -503,6 +512,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx) => {
         const input: ProductInput = args.input
         const chart = input.sizeChartId?.toLowerCase() ?? null
+        await requireSections(ctx, input)
         // Assigning a size chart is a plan feature (SAAS §6.1); keeping the one it has or removing it never is.
         if (args.id === null || args.id === undefined) {
           if (chart) await requireFeature(ctx, actingCaller(ctx), 'size_charts')

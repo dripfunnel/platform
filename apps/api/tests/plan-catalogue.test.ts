@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import { withScope, type ScopedSql } from '#db/scoped/index'
+import { planKeyDefs, UNLIMITED } from '#db/scoped/planKeys'
 import { insertPlanVersion, selectPlanVersion, type Entitlements } from '#db/scoped/plans'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -181,5 +182,26 @@ describe('who reads what', () => {
   it('lets staff read every partner’s catalogue', async () => {
     const partners = await as(staff, (tx) => tx<{ n: string }[]>`select count(distinct partner_id)::text as n from plan_version`)
     expect(Number(partners[0]?.n)).toBeGreaterThan(2)
+  })
+})
+
+describe('plan keys', () => {
+  it('keeps plan_key equal to the registry, and refuses a key the table does not name', async () => {
+    const rows = await db.sql<{ key: string; kind: string }[]>`select key, kind from plan_key order by key`
+    expect(rows).toEqual(planKeyDefs.map((d) => ({ key: d.key, kind: d.kind })).sort((a, b) => a.key.localeCompare(b.key)))
+    await expect(as(staff, (tx) => tx`insert into plan_ceiling (key, amount) values ('nonsense', 1)`)).rejects.toThrow(/plan_ceiling_key_fkey/)
+  })
+  it('gives every version that has entitlements a row for every key, so a new key never reads as missing', async () => {
+    const [row] = await db.sql<{ missing: number }[]>`
+      select count(*)::int as missing from (select distinct plan_id, version from plan_entitlement) v cross join plan_key k
+      where not exists (select 1 from plan_entitlement e where e.plan_id = v.plan_id and e.version = v.version and e.key = k.key)`
+    expect(row?.missing).toBe(0)
+  })
+  it('keeps Unlimited and a choice index across a new version', async () => {
+    const before = (await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 1)))?.entitlements as Entitlements
+    const entitlements = { ...before, collections: UNLIMITED, support_level: 3, blog: true }
+    const version = await as(partner(ids.ns), (tx) => insertPlanVersion(tx, { planId: ids.growth, partnerId: ids.ns, trialDays: 14, prices: [], entitlements, by: { kind: 'partner_user', label: 'x' } }))
+    const read = (await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, version)))?.entitlements
+    expect(read).toMatchObject({ collections: UNLIMITED, support_level: 3, blog: true })
   })
 })

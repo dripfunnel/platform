@@ -86,7 +86,7 @@ describe('the plan editor', () => {
   })
 
   it('lets a row with no DripFunnel maximum take any number, and saves it', async () => {
-    const open = { ...editor, ceilings: { ...editor.ceilings, suppliers: null } }
+    const open = { ...editor, ceilings: { ...editor.ceilings, amounts: { ...editor.ceilings.amounts, suppliers: null } } }
     const draft = { ...original, numbers: { ...original.numbers, suppliers: '999999' } }
     expect(rowsAboveCeiling(draft, open.ceilings)).toEqual([])
     const html = await view({ editor: open, draft })
@@ -130,7 +130,7 @@ describe('the plan editor', () => {
       <PlanEditor me={owner} editor={fresh} draft={{ ...blank, name: 'Scale' }} original={blank} quoted={[]} forced={null} busy={false} onDraft={noop} onSave={noop} onDiscard={noop} onMakeLive={noop} onRetire={noop} onReload={noop} />,
       '/plans/new',
     )
-    expect(textOf(html)).toContain('Enter a value for Products, Staff seats, Suppliers, Languages, Currencies, “Publish now” presses, AI design prompts.')
+    expect(textOf(html)).toContain('Enter a value for Products, AI design prompts, Staff seats, Suppliers allowed, Currencies, Languages, “Publish now” presses.')
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save changes<\/button>/)
     expect(inputOf({ ...blank, name: 'Scale' })).toBeNull()
   })

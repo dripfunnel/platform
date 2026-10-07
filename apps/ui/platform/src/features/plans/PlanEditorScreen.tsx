@@ -73,7 +73,7 @@ export const PlanEditorScreen = () => {
       .then(async (result) => {
         setBusy(false)
         if (!result.ok) {
-          const reason = result.reason === 'ABOVE_CEILING' ? fill(messages.plans.refused.ABOVE_CEILING, { row: messages.plans.editor.rows[result.row] }) : messages.plans.refused[result.reason]
+          const reason = result.reason === 'ABOVE_CEILING' ? fill(messages.plans.refused.ABOVE_CEILING, { row: (messages.plans.editor.rows as Record<string, string>)[result.row] ?? result.row }) : messages.plans.refused[result.reason]
           return refused(reason)
         }
         setToast(fill(applyTo === 'renewal' ? messages.plans.toasts.savedRenewal : applyTo === 'new' ? messages.plans.toasts.savedNew : messages.plans.toasts.saved, { plan: input.name }))

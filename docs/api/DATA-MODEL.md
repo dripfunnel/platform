@@ -147,7 +147,10 @@ plan_version         (plan_id, partner_id, version, trial_days, created_at, crea
 plan_price           (plan_id, partner_id, version, currency, monthly_amount NULL,
                       yearly_amount NULL)        -- minor units; null is "Not priced"
 plan_entitlement     (plan_id, partner_id, version, key, enabled NULL, amount NULL)
-                     -- a switch key holds enabled, a limit or monthly allowance holds amount
+                     -- a switch key holds enabled; a limit, allowance or choice holds amount
+plan_key             (key PK, kind 'switch'|'amount'|'choice')   -- every plan setting (0070);
+                     -- plan_entitlement, plan_ceiling, store_limit_override and store_usage
+                     -- reference it, so a new setting is one insert
 plan_fee             (plan_id PK, partner_id, amount, currency)   -- DripFunnel's wholesale fee
                      -- per store per month; (partner_id, currency) references the contract's
                      -- fee currency, which cannot change while fees are stated in it; no
@@ -159,10 +162,12 @@ partner_contract_rate (partner_id, currency, per_fee_unit numeric NULL)   -- a r
                       -- null: the partner prices in it, with no fee converted (0062)
 ```
 
-- **Keys**: switches `custom_domain`, `offers`, `suppliers_enabled`, `powered_by_removal`,
-  `aplus`, `size_charts`; limits `products`, `staff`, `suppliers`, `languages`, `currencies`;
-  monthly allowances `publish_now`, `ai_prompts` (the prototype's thirteen rows). Build
-  minutes and AI cost are meters with no plan value yet.
+- **Keys**: 50 rows of `plan_key`, mirrored by `src/db/scoped/planKeys.ts` (a test compares
+  them). The original 13 are the switches `custom_domain`, `offers`, `suppliers_enabled`,
+  `powered_by_removal`, `aplus`, `size_charts`, the limits `products`, `staff`, `suppliers`,
+  `languages`, `currencies` and the monthly allowances `publish_now`, `ai_prompts`; 37 more
+  follow the pricing page's comparison (SAAS §6.1). Build minutes and AI cost are meters
+  with no plan value yet. `0070` gave every existing plan version a row for each new key.
 - **An edit is a version** (`db/scoped/plans.ts` `insertPlanVersion`): prices, trial and
   entitlements are written under `plan.version + 1`, taken under the plan's row lock, and
   `plan.version` moves to it. Versions are **insert-only**: no role holds `update` on the three

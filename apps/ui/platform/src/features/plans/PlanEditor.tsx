@@ -5,7 +5,7 @@ import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/detail.css'
 import { Link } from '@tanstack/react-router'
 import type { Me } from '../../api/me'
-import type { NumberKey, PlanEditor as PlanEditorData, PlanPrice, ToggleKey } from '../../api/plans'
+import type { PlanEditor as PlanEditorData, PlanPrice } from '../../api/plans'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { EntitlementMatrix } from './EntitlementMatrix'
 import { hasInvalidPrice, isDirty, rowsAboveCeiling, rowsMissing, type PlanDraft } from './planDraft'
@@ -78,9 +78,9 @@ export const PlanEditor = ({ me, editor, draft, original, quoted, forced, busy, 
   const missing = rowsMissing(draft)
   const problem =
     over.length > 0
-      ? fill(plural(words.errors.above, over.length), { rows: over.map((key) => words.rows[key]).join(', ') })
+      ? fill(plural(words.errors.above, over.length), { rows: over.map((key) => (words.rows as Record<string, string>)[key]).join(', ') })
       : missing.length > 0
-        ? fill(words.errors.missing, { rows: missing.map((key) => words.rows[key]).join(', ') })
+        ? fill(words.errors.missing, { rows: missing.map((key) => (words.rows as Record<string, string>)[key]).join(', ') })
         : hasInvalidPrice(draft)
           ? words.errors.invalid
           : loss
@@ -131,8 +131,8 @@ export const PlanEditor = ({ me, editor, draft, original, quoted, forced, busy, 
             draft={draft}
             ceilings={editor.ceilings}
             disabled={!canEdit}
-            onToggle={(key: ToggleKey, on) => set({ toggles: { ...draft.toggles, [key]: on } })}
-            onNumber={(key: NumberKey, text) => set({ numbers: { ...draft.numbers, [key]: text } })}
+            onToggle={(key, on) => set({ toggles: { ...draft.toggles, [key]: on } })}
+            onNumber={(key, text) => set({ numbers: { ...draft.numbers, [key]: text } })}
           />
         </div>
         <aside className="df-editor-side">
