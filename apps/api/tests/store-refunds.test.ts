@@ -16,7 +16,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-type Who = 'owner' | 'staff' | 'drop' | 'hub'
+type Who = 'owner' | 'staff' | 'drop' | 'hub' | 'other'
 const cookies = {} as Record<Who, string>
 const places = { main: '', drop: '' }
 const versions = { house: '', scarf: '', stole: '' }
@@ -84,15 +84,16 @@ beforeAll(async () => {
   await db.sql`insert into stock_level (version_id, warehouse_id, store_id, seller_id, on_hand) values (${versions.house}, ${places.main}, ${t.storeA1}, null, 5)`
   stripeAccount = (await db.sql<{ id: string }[]>`insert into payment_provider_account (store_id, provider, mode, external_account_id) values (${t.storeA1}, 'stripe', 'live', 'acct_jaipur') returning id`)[0]?.id ?? ''
 
-  const person = async (email: string, role: string, seller: string | null = null) => {
+  const person = async (email: string, role: string, seller: string | null = null, storeId = t.storeA1) => {
     const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, ${email}, ${email.split('@')[0] ?? ''}, 'active') returning id`
-    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${u?.id ?? ''}, ${t.storeA1}, ${seller}, ${role}, 'active')`
+    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${u?.id ?? ''}, ${storeId}, ${seller}, ${role}, 'active')`
     return withSystemScope(db.sql, (tx) => createUserSession(tx, { id: u?.id ?? '', partnerId: t.partnerA }, new Date()))
   }
   cookies.owner = await person('owner@a1.example', 'owner')
   cookies.staff = await person('staff@a1.example', 'staff')
   cookies.drop = await person('anand@a1.example', 'supplier-admin', t.sellerA1First)
   cookies.hub = await person('bhatia@a1.example', 'supplier-member', t.sellerA1Second)
+  cookies.other = await person('owner@a2.example', 'owner', null, t.storeA2)
 }, 60_000)
 
 afterAll(async () => {
@@ -103,7 +104,7 @@ const sellerOf: Partial<Record<Who, () => string>> = { drop: () => t.sellerA1Fir
 const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const seller = sellerOf[who]?.()
-  const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: t.storeA1, ...(seller ? { [supplierHeader]: seller } : {}) }
+  const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'other' ? t.storeA2 : t.storeA1, ...(seller ? { [supplierHeader]: seller } : {}) }
   const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
   const standing = as.support && resolved.kind === 'acting'
     ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
@@ -282,6 +283,23 @@ describe('returns, then refunds on a cash order', () => {
     expect((await gql(`mutation { receiveReturn(returnId: "${storeOnly?.id ?? ''}") }`, 'owner')).data?.['receiveReturn']).toBe(true)
     expect((await probe()).code).toBe('NOT_FOUND')
     expect((await refund('drop', id, [{ id: lines.scarf, quantity: 0, amount: '1' }], `, returnId: "${crypto.randomUUID()}"`)).code).toBe('NOT_FOUND')
+  })
+})
+
+describe('across stores (ACCESS §11)', () => {
+  it('finds none of another store’s orders, returns or supplier ledgers, and changes nothing', async () => {
+    const id = await paidOrder('A-3401', 'cod')
+    const house = await lineOf(id, versions.house)
+    const made = (await gql(`mutation { startReturn(orderId: "${id}", lines: [{ lineId: "${house}", quantity: 1 }], reason: damaged) }`, 'owner')).data?.['startReturn'] as string
+    expect((await refund('other', id, [{ id: house, quantity: 1 }])).code).toBe('NOT_FOUND')
+    expect((await gql(`mutation { startReturn(orderId: "${id}", lines: [{ lineId: "${house}", quantity: 1 }], reason: damaged) }`, 'other')).code).toBe('NOT_FOUND')
+    expect((await gql(`mutation { receiveReturn(returnId: "${made}") }`, 'other')).code).toBe('NOT_FOUND')
+    expect((await gql(`mutation { cancelReturn(returnId: "${made}") }`, 'other')).code).toBe('NOT_FOUND')
+    expect((await gql(`{ supplierLedger(supplierId: "${t.sellerA1First}") { entries { amount { amount } } balance { amount } } }`, 'other')).data?.['supplierLedger']).toEqual({ entries: [], balance: [] })
+    expect(await orderState(id)).toEqual({ payment_state: 'paid', refunded_amount: '0' })
+    expect(await db.sql`select 1 from refund where order_id = ${id}`).toHaveLength(0)
+    expect((await db.sql`select state from "return" where id = ${made}`)[0]?.['state']).toBe('requested')
+    expect(await db.sql`select 1 from "return" where order_id = ${id}`).toHaveLength(1)
   })
 })
 
