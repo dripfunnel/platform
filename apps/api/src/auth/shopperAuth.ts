@@ -126,15 +126,20 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       if (extra.password && (extra.password.length < minPasswordLength || extra.password.length > 200)) return { ok: false, reason: 'WEAK_PASSWORD' }
       if (!(await allowed(tx, channel))) return { ok: false, reason: 'METHOD_OFF' }
       const live = await selectLiveCode(tx, storeId, channel, target, now())
-      if (!live || live.attempts >= maxSmsCodeAttempts || !live.code_hash) return { ok: false, reason: 'CODE_REFUSED' }
+      const refused = async (): Promise<SignedIn> => {
+        // Recorded as a failed sign-in with no address, as signIn's are (LOGGING §3).
+        await activity.record(tx, entry('customer.sign_in_failed', null, 'failed'))
+        return { ok: false, reason: 'CODE_REFUSED' }
+      }
+      if (!live || live.attempts >= maxSmsCodeAttempts || !live.code_hash) return refused()
       if (live.code_hash !== (await hashShopperCode(live.id, code.trim()))) {
         await countCodeAttempt(tx, live.id)
-        return { ok: false, reason: 'CODE_REFUSED' }
+        return refused()
       }
       await spendCode(tx, live.id, now())
       const passwordHash = channel === 'email' && extra.password ? await hashPassword(extra.password) : null
       const found = await selectShopperBy(tx, storeId, channel, target)
-      if (found?.status === 'deleted') return { ok: false, reason: 'CODE_REFUSED' }
+      if (found?.status === 'deleted') return refused()
       let customerId = found?.id ?? null
       if (customerId) {
         await proveShopper(tx, customerId, channel, passwordHash, now())
