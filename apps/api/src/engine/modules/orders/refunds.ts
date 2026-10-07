@@ -220,14 +220,15 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
       if (input.returnId && (!inReturn || inReturn.order_id !== order.id)) return { ok: false, reason: 'NOT_FOUND' }
       if (inReturn && inReturn.state !== 'received') return { ok: false, reason: 'NOT_RECEIVED' }
 
-      const byId = new Map(all.map((l) => [l.id, l]))
+      // A supplier looks lines up among its own only, so another owner's line is as unknown as one that doesn't exist.
+      const byId = new Map(all.filter((l) => !sellerId || l.seller_id === sellerId).map((l) => [l.id, l]))
       const owners = new Map<string | null, { lineId: string; quantity: number; amount: bigint; line: LineToRefundRow }[]>()
       for (const [i, id] of ids.entries()) {
         const line = byId.get(id)
         const quantity = input.lines[i]?.quantity ?? 0
         if (!line) return { ok: false, reason: 'NOT_FOUND' }
-        // Each owner refunds its own; the store a supplier's only as an override, a supplier never another's.
-        if (sellerId ? line.seller_id !== sellerId : line.seller_id !== null && !input.override) return { ok: false, reason: 'NOT_YOURS' }
+        // Each owner refunds its own; the store a supplier's only as an override.
+        if (!sellerId && line.seller_id !== null && !input.override) return { ok: false, reason: 'NOT_YOURS' }
         // Units that have shipped and aren't refunded yet; unshipped ones go back by cancelling.
         if (quantity > line.fulfilled_quantity - line.refunded_quantity) return { ok: false, reason: 'TOO_MANY' }
         const inThis = inReturn?.lines.find((l) => l.order_line_id === line.id)

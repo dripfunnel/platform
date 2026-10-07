@@ -154,7 +154,9 @@ describe('refunds on a card order', () => {
   })
 
   it('lets a supplier refund its own lines, up to their value, never another’s or anything beyond them', async () => {
-    expect((await refund('hub', id, [{ id: lines.house, quantity: 1 }])).code).toBe('NOT_YOURS')
+    // Another owner's line answers as one that doesn't exist (ACCESS §7.3).
+    expect((await refund('hub', id, [{ id: lines.house, quantity: 1 }])).code).toBe('NOT_FOUND')
+    expect((await refund('hub', id, [{ id: crypto.randomUUID(), quantity: 1 }])).code).toBe('NOT_FOUND')
     expect((await refund('hub', id, [{ id: lines.stole, quantity: 1, amount: '1001' }])).code).toBe('TOO_MANY')
     expect((await refund('hub', id, [{ id: lines.stole, quantity: 1 }], ', extra: "100"')).code).toBe('INVALID_INPUT')
     expect((await refund('hub', id, [{ id: lines.stole, quantity: 1 }], ', override: true')).code).toBe('INVALID_INPUT')
