@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { Shopper } from '#auth/shopCaller'
+import type { CourierDirectory } from '#core/couriers'
 import type { AccessPolicy } from '../graphql/scope'
 
 export interface ShopContext extends Record<string, unknown> {
@@ -13,6 +14,8 @@ export interface ShopContext extends Record<string, unknown> {
   origin: string
   activity: ActivityLog
   facts: RequestFacts
+  /** The partners' couriers, for a cart's delivery options (SAPI 23); null where none can be reached. */
+  couriers?: CourierDirectory | null
   now: () => Date
 }
 

@@ -31,7 +31,8 @@ import {
   type ShopStoreRow,
 } from '#db/scoped/shop'
 import { missingFor, type StorePricing } from '#engine/modules/markets/index'
-import { productView, type ShopProductView } from './view'
+import { selectCartVersions } from '#db/scoped/cart'
+import { productView, type ShopProductView, type ShopVersionView } from './view'
 
 export type { ShopCollectionRow, ShopFacetRow, ShopProductExtrasRow, ShopSort, ShopStoreRow } from '#db/scoped/shop'
 export type { ShopProductView, ShopVersionView } from './view'
@@ -40,6 +41,13 @@ export type { ShopProductView, ShopVersionView } from './view'
 // merchant has made visible, in the shopper's language, never a supplier's id, a cost or a draft.
 
 export const maxShopPage = 50
+
+export interface CartItem {
+  product: ShopProductView
+  version: ShopVersionView
+  taxClassId: string | null
+  soldHere: boolean
+}
 
 export interface StorefrontDeps {
   sql: postgres.Sql
@@ -229,5 +237,26 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
       return { product: view, soldHere: sellable && ready, extras: shown, related, compared: views }
     })
 
-  return { store, menu, collections, collection, asset, products, facets, product }
+  /**
+   * A cart's versions as the shopper would buy them now: each with its product, its price here and stock, and whether the
+   * market sells it. A version shoppers can't see is missing from the answer.
+   */
+  const cartItems = (versionIds: readonly string[]): Promise<Map<string, CartItem>> =>
+    inScope(async (tx) => {
+      const facts = await pricingIn(tx)
+      const versions = await selectCartVersions(tx, storeId, versionIds)
+      if (!facts || versions.length === 0) return new Map()
+      const productIds = [...new Set(versions.map((v) => v.product_id))]
+      const listed = await selectShopListed(tx, storeId, { ...facts.query, collectionId: null, filterValueIds: [], search: null }, productIds)
+      const views = new Map((await viewsOf(tx, productIds, facts)).map((p) => [p.id, p]))
+      return new Map(
+        versions.flatMap((v) => {
+          const product = views.get(v.product_id)
+          const version = product?.versions.find((x) => x.id === v.id)
+          return product && version ? [[v.id, { product, version, taxClassId: v.tax_class_id, soldHere: listed.has(product.id) }] as const] : []
+        }),
+      )
+    })
+
+  return { store, menu, collections, collection, asset, products, facets, product, cartItems }
 }

@@ -3,6 +3,16 @@ type Image {
   url: String
 }
 
+type Mutation {
+  addToCart(quantity: Int!, versionId: ID!): ShopCartChange
+  checkout: ShopCart
+  setBillingAddress(address: ShopAddressInput): ShopCartChange
+  setCartContact(email: String, note: String, phone: String): ShopCartChange
+  setCartQuantity(quantity: Int!, versionId: ID!): ShopCartChange
+  setShippingAddress(address: ShopAddressInput!): ShopCartChange
+  setShippingOption(option: String!): ShopCartChange
+}
+
 type PageInfo {
   endCursor: String
   hasNextPage: Boolean
@@ -11,6 +21,7 @@ type PageInfo {
 }
 
 type Query {
+  cart: ShopCart
   collection(slug: String!): ShopCollection
   collections(after: String, before: String, first: Int): ShopCollectionPage
   health: String
@@ -29,9 +40,75 @@ type ShopAddress {
   street: String
 }
 
+input ShopAddressInput {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  name: String!
+  phone: String
+  postalCode: String
+  region: String
+}
+
+type ShopAddressLines {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  name: String
+  phone: String
+  postalCode: String
+  region: String
+}
+
 type ShopBadge {
   label: String
   tone: String
+}
+
+type ShopCart {
+  billingAddress: ShopAddressLines
+  checkoutStep: String
+  currency: String
+  deliverable: Boolean
+  email: String
+  id: ID
+  lines: [ShopCartLine!]
+  note: String
+  phone: String
+  problems: [String!]
+  readyToPay: Boolean
+  shipping: ShopMoney
+  shippingAddress: ShopAddressLines
+  shippingOption: String
+  shippingOptions: [ShopDeliveryOption!]
+  subtotal: ShopMoney
+  tax: ShopCartTax
+  total: ShopMoney
+}
+
+type ShopCartChange {
+  cart: ShopCart
+  cartToken: String
+}
+
+type ShopCartLine {
+  available: Int
+  lineTotal: ShopMoney
+  photoUrl: String
+  problem: String
+  productName: String
+  productSlug: String
+  quantity: Int
+  unitPrice: ShopMoney
+  versionId: ID
+  versionName: String
+}
+
+type ShopCartTax {
+  amount: ShopMoney
+  pricesIncludeTax: Boolean
 }
 
 type ShopCollection {
@@ -59,6 +136,17 @@ type ShopCompliance {
 type ShopCurrency {
   code: String
   mode: String
+}
+
+type ShopDeliveryOption {
+  amount: ShopMoney
+  before: ShopMoney
+  hours: String
+  id: String
+  maxDays: Int
+  minDays: Int
+  provider: String
+  service: String
 }
 
 type ShopFacet {

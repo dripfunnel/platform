@@ -3,6 +3,7 @@ import { shopPolicy } from './access'
 import { createShopBuilder } from './builder'
 import { registerCatalog } from './catalog'
 import { registerProducts } from './products'
+import { registerCart } from './cart'
 
 export type { ShopContext } from './access'
 
@@ -12,5 +13,7 @@ shop.builder.queryFields((t) => ({
 }))
 registerCatalog(shop)
 registerProducts(shop)
+shop.builder.mutationType({})
+registerCart(shop)
 
 export const shopSchema = secureSchema(shop.builder.toSchema(), shopPolicy)

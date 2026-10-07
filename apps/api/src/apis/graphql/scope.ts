@@ -23,8 +23,10 @@ export interface Access<Args = Record<string, unknown>> {
   /** What a targeted field acts on, so a partner-scoped role is held to its partners.
    *  `'none'` is a deliberate answer: a list, which filters its own rows. */
   target?: 'none' | ((args: Args) => AccessTarget)
-  /** The activity-log action the mutation writes (LOGGING.md §5). Required on every mutation. */
+  /** The activity-log action the mutation writes (LOGGING.md §5). Required on every mutation not `unlogged`. */
   audit?: string
+  /** Why a mutation writes no entry, citing the rule that leaves it out: a shopper's cart (LOGGING §3, "not carts"). */
+  unlogged?: string
   /** The staff sessions refused this field whatever their role (ACCESS.md §8.1, §8.2, §8.3). */
   blockedFor?: readonly StaffSessionKind[]
   /** A mutation that still works while the store is read-only: paying, signing out (FIRST-RELEASE §19). */
@@ -86,7 +88,7 @@ const checkDeclaration = <Context>(
   kind: 'query' | 'mutation' | 'field',
 ): Access => {
   if (!access) throw new AccessDeclarationError(`${where} declares no access (ACCESS.md §3.1)`)
-  if (kind === 'mutation' && !access.audit) throw new AccessDeclarationError(`${where} declares no audit action (LOGGING.md §5)`)
+  if (kind === 'mutation' && !access.audit && !access.unlogged) throw new AccessDeclarationError(`${where} declares no audit action (LOGGING.md §5)`)
   if (access.api !== policy.api) throw new AccessDeclarationError(`${where} is declared for the ${access.api} API`)
   if (!policy.scopes.includes(access.scope)) {
     throw new AccessDeclarationError(`${where} declares scope ${access.scope}, which this API does not serve`)

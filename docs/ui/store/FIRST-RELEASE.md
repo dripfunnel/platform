@@ -565,6 +565,15 @@ CATALOG T2).
 answered from the data centre's cache for 5 minutes, keyed by store, `storefront.catalog_version`, host, language,
 currency and market; every change a storefront shows moves the version, which is the purge. An answer with errors is never
 kept, and the store is still found and rate-limited first. Anything else (carts, accounts, from SAPI 9) is never cached.
+**Built on #308 (SAPI 9), part 1, the guest's cart:** `cart`, `addToCart(versionId, quantity)` (a guest's first add hands out
+`cartToken` once, sent back as `X-Shop-Cart`; a signed-in shopper's cart is its account's), `setCartQuantity` (0 removes),
+`setCartContact(email, phone, note)`, `setShippingAddress`, `setBillingAddress` (null bills the delivery address),
+`setShippingOption` (one of the cart's `shippingOptions`: courier, flat or pickup, SAPI 23's quote) and `checkout`, which
+moves the cart to payment or refuses `NOT_READY` with its `problems`. The cart holds what the shopper chose and nothing
+priced; each read prices it now: lines at today's price with what stops one being bought (gone, not sold here, unpriced,
+more than is left), delivery, tax from the store's rates (GST across or within states; Stripe Tax once SAPI 10 connects
+it), and the total. A change after reaching payment goes back to delivery. Up to 100 lines of up to 999; a cart lives 30
+days from its last change. The names above replace §19's `updateLine` and `setShipping`.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

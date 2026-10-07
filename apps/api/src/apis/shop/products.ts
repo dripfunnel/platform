@@ -1,5 +1,4 @@
 import { GraphQLError } from 'graphql'
-import type { Money } from '#core/money'
 import type { Page } from '#core/paging'
 import type { ProductRequest, ShopFacetRow, ShopProductExtrasRow, ShopProductPage, ShopProductView, ShopSort, ShopVersionView } from '#engine/modules/storefront/index'
 import type { ShopContext } from './access'
@@ -23,11 +22,7 @@ const refused = (reason: string) => {
   return new GraphQLError(words[reason] ?? 'Something here isn’t valid.', { extensions: { code: reason } })
 }
 
-export const registerProducts = ({ builder, pageInfo, image }: ShopBuilder) => {
-  const MoneyType = builder.objectRef<Money>('ShopMoney').implement({
-    // Minor units as a string (GraphQL's Int is 32-bit), in `currency` (AGENTS.md "Money").
-    fields: (t) => ({ amount: t.string({ resolve: (m) => m.amount.toString() }), currency: t.exposeString('currency') }),
-  })
+export const registerProducts = ({ builder, pageInfo, image, money: MoneyType }: ShopBuilder) => {
   const Photo = builder.objectRef<{ assetId: string; alt: string | null; versionId: string | null }>('ShopPhoto').implement({
     fields: (t) => ({
       image: t.field({ type: image, resolve: (p, _, ctx) => ({ id: p.assetId, url: assetUrl(ctx, p.assetId) }) }),
