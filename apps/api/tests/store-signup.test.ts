@@ -158,6 +158,28 @@ describe('signing up', () => {
     expect(entry?.visibility).toBe('store')
   })
 
+  it('still refuses an expired sign-up code and one out of tries when CODE_CHECK is 0', async () => {
+    setCodeCheck('0')
+    try {
+      for (const spoil of [`email_code_expires_at = '2000-01-01'`, 'email_code_attempts = 5']) {
+        const email = `spoil${spoil.length}@a.example`
+        const start = await post('/api/auth/sign-up', { name: 'Zed', email, password })
+        await emailCode(email)
+        await db.sql.unsafe(`update signup set ${spoil} where email = '${email}'`)
+        expect((await post('/api/auth/sign-up/verify-email', { code: '000000' }, start.cookies['__Host-portal_signup'] ?? '')).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
+      }
+      for (const spoil of [`phone_code_expires_at = '2000-01-01'`, 'phone_code_attempts = 5']) {
+        const email = `spoilphone${spoil.length}@a.example`
+        const signup = await throughStore(email, `spoil-phone-${spoil.length}`)
+        await post('/api/auth/sign-up/send-phone', { phone: '+16145550102' }, signup)
+        await db.sql.unsafe(`update signup set ${spoil} where email = '${email}'`)
+        expect((await post('/api/auth/sign-up/verify-phone', { code: '000000' }, signup)).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
+      }
+    } finally {
+      setCodeCheck(undefined)
+    }
+  })
+
   it('accepts any sign-up phone code when CODE_CHECK is 0', async () => {
     const signup = await throughStore('zed.phone@a.example', 'zed-phone')
     await post('/api/auth/sign-up/send-phone', { phone: '+16145550101' }, signup)

@@ -267,6 +267,22 @@ describe('an Owner enrolling by SMS', () => {
     const [row] = await db.sql<{ two_factor_method: string; phone: string }[]>`select two_factor_method, phone from "user" where id = ${owner}`
     expect(row).toEqual({ two_factor_method: 'sms', phone: '+16145550199' })
   })
+  it('still refuses an expired code and one out of tries when CODE_CHECK is 0', async () => {
+    await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+919845022113', two_factor_secret_enc = null where id = ${people.staff}`
+    setCodeCheck('0')
+    try {
+      for (const spoil of [`expires_at = '2000-01-01'`, 'attempts = 5']) {
+        await db.sql`delete from verification_code where subject_id = ${people.staff}`
+        const res = await post('/api/auth/sign-in', { email: 'staff@a.example', password })
+        await post('/api/auth/send-code', {}, res.cookie)
+        await db.sql.unsafe(`update verification_code set ${spoil} where subject_id = '${people.staff}'`)
+        expect((await post('/api/auth/second-factor', { code: '000000' }, res.cookie)).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
+      }
+    } finally {
+      setCodeCheck(undefined)
+      await db.sql`update "user" set two_factor_method = null, two_factor_enrolled_at = null, phone = null where id = ${people.staff}`
+    }
+  })
   it('takes any code when CODE_CHECK is 0', async () => {
     const owner = await user(t.partnerA, 'third.owner@a.example', 'Third Owner')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
