@@ -22,7 +22,7 @@ export type CappedBody = { ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: fa
  * The body, or `{ ok: false }` once it passes `limit` or the length it declared. The buffer grows only as
  * bytes arrive, so a declared length the client never sends holds nothing (a stalled upload pins no memory).
  */
-export const readCapped = async (request: Request, limit: number): Promise<CappedBody> => {
+export const readCapped = async (request: { headers: Headers; body: ReadableStream<Uint8Array> | null }, limit: number): Promise<CappedBody> => {
   const declared = Number(request.headers.get('content-length') ?? NaN)
   const cap = Number.isInteger(declared) && declared >= 0 ? Math.min(declared, limit) : limit
   if (Number.isInteger(declared) && declared > limit) return { ok: false }
