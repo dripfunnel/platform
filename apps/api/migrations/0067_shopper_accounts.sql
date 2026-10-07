@@ -50,6 +50,8 @@ create table customer_code (
   created_at timestamptz not null default now()
 );
 create index customer_code_target_idx on customer_code (store_id, channel, target, created_at desc);
+-- A store's texts in the last minutes: the cap on paid messages per store (ACCESS §2.1).
+create index customer_code_texts_idx on customer_code (store_id, created_at desc) where channel = 'phone';
 
 create table customer_address (
   id uuid primary key default gen_random_uuid(),
