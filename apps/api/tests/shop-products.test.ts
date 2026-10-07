@@ -200,7 +200,7 @@ describe('a product page', () => {
   })
 
   it('shows at most 10 related products, 5 a comparison and 20 compared in all', async () => {
-    const many = []
+    const many: string[] = []
     for (let i = 0; i < 30; i += 1) {
       const id = await product(t.storeA1, `extra-${i}`, '2026-07-01T00:00:00Z')
       await version(t.storeA1, id, '1000', null, 0, null)
