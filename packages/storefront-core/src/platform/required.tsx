@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useState } from 'react'
 import type { Translate } from './i18n/i18n'
 import { formatMoney, type ShopMoney } from './pricing/money'

@@ -1,3 +1,5 @@
+'use client'
+
 import { createContext, useContext, type ReactNode } from 'react'
 import type { ShopClient } from '../api/client'
 import { createI18n, type Translate } from '../i18n/i18n'
