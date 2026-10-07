@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { add, applyBps, compare, convert, fromMajor, isCurrency, minorDigits, parseMinor, roundPrice, toMajor, toMinorString } from './money'
+import { add, applyBps, compare, convert, fromDecimalRounded, fromMajor, isCurrency, minorDigits, parseMinor, roundPrice, toMajor, toMinorString } from './money'
 
 describe('money', () => {
   it('knows each currency’s minor unit, zero- and three-decimal ones included', () => {
@@ -22,6 +22,16 @@ describe('money', () => {
   it('turns major units into minor ones, refusing more decimals than the currency has', () => {
     expect(fromMajor('1299.5', 'USD')).toEqual({ amount: 129950n, currency: 'USD' })
     expect(fromMajor('1299', 'JPY')).toEqual({ amount: 1299n, currency: 'JPY' })
+  })
+
+  it('reads a provider’s decimal into minor units rounded half up in decimal, where a float would go wrong', () => {
+    // 1.005 and 10.075 are 1.00499… and 10.07499… as binary floats: toFixed(2) would round them down.
+    expect(fromDecimalRounded('1.005', 'INR')).toEqual({ amount: 101n, currency: 'INR' })
+    expect(fromDecimalRounded('10.075', 'INR')).toEqual({ amount: 1008n, currency: 'INR' })
+    expect(fromDecimalRounded('85', 'INR')).toEqual({ amount: 8500n, currency: 'INR' })
+    expect(fromDecimalRounded('120.5', 'JPY')).toEqual({ amount: 121n, currency: 'JPY' })
+    expect(fromDecimalRounded('-1', 'INR')).toBeNull()
+    expect(fromDecimalRounded('1e3', 'INR')).toBeNull()
     expect(fromMajor('1.234', 'KWD')).toEqual({ amount: 1234n, currency: 'KWD' })
     expect(fromMajor('12.5', 'JPY')).toBeNull()
     expect(fromMajor('1.999', 'USD')).toBeNull()
