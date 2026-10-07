@@ -139,6 +139,9 @@ describe('placing an order', () => {
     expect((await shop(`{ order(id: "${order}") { shippingOption shippingMethod } }`, orderToken)).data?.['order']).toEqual({ shippingOption: 'flat', shippingMethod: null })
     expect(await db.sql`select kind, label from order_adjustment where order_id = ${order} order by kind`).toEqual([{ kind: 'shipping', label: null }, { kind: 'tax', label: null }])
     expect((await place(orderToken, 'cod')).code).toBe('NOT_FOUND')
+    // The guest is now one of the store's customers (#312), unverified and never linked to the order (ACCESS §2.1).
+    expect(await db.sql`select name, email, status from customer where email = 'asha@example.com'`).toEqual([{ name: 'Asha', email: 'asha@example.com', status: 'unverified' }])
+    expect(await db.sql`select customer_id from "order" where id = ${order}`).toEqual([{ customer_id: null }])
   })
 
   it('checks stock again under lock: the last one goes to one order only', async () => {
