@@ -110,6 +110,20 @@ describe('products', () => {
     expect((await list('(sort: COLLECTION)')).code).toBe('INVALID_INPUT')
   })
 
+  it('sorts by the price shown in the shopper’s currency: a typed price in it, or the converted one', async () => {
+    const usd = { 'x-shop-market': ids.usa, 'x-shop-currency': 'USD' }
+    // Converted at 1.08 / 90: shirt 9.59, kurta 11.99, dress 35.99; a dress typed at 5.00 in dollars is the cheapest.
+    expect(slugs((await list('(sort: PRICE_LOW)', usd)).listing)).toEqual(['shirt', 'kurta', 'dress'])
+    const [dressVersion] = await db.sql<{ id: string }[]>`select id from product_version where product_id = ${ids.dress}`
+    await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${dressVersion?.id ?? ''}, ${t.storeA1}, 'USD', 500)`
+    try {
+      expect(slugs((await list('(sort: PRICE_LOW)', usd)).listing)).toEqual(['dress', 'shirt', 'kurta'])
+      expect(slugs((await list('(sort: PRICE_HIGH)', usd)).listing)).toEqual(['kurta', 'shirt', 'dress'])
+    } finally {
+      await db.sql`delete from version_price where version_id = ${dressVersion?.id ?? ''} and currency = 'USD'`
+    }
+  })
+
   it('pages newest first through its own cursor, and refuses a tampered cursor value as INVALID_CURSOR, never a database error', async () => {
     const first = (await list('(first: 1)')).listing
     expect(slugs((await list(`(first: 1, after: "${first?.pageInfo.endCursor ?? ''}")`)).listing)).toEqual(['dress'])
@@ -141,7 +155,7 @@ describe('products', () => {
     const found = await gql('{ search(query: "kurta") { nodes { slug } } }')
     expect(found.data?.['search']).toEqual({ nodes: [{ slug: 'kurta' }] })
     expect((await gql('{ search(query: "कुर्ता") { nodes { name: slug } } }', { 'x-shop-language': 'hi-IN' })).data?.['search']).toEqual({ nodes: [{ name: 'kurta-hi' }] })
-    // A blank search is refused, never the whole catalogue (#441's review).
+    // A blank search is refused, never the whole catalogue.
     for (const query of ['', '   ']) expect((await gql(`{ search(query: "${query}") { nodes { slug } } }`)).errors?.[0]?.extensions['code']).toBe('INVALID_INPUT')
   })
 })
@@ -185,6 +199,23 @@ describe('a product page', () => {
     expect(usa.data?.['product']).toEqual({ related: [{ slug: 'shirt' }, { slug: 'dress' }] })
   })
 
+  it('shows at most 10 related products, 5 a comparison and 20 compared in all', async () => {
+    const many = []
+    for (let i = 0; i < 30; i += 1) {
+      const id = await product(t.storeA1, `extra-${i}`, '2026-07-01T00:00:00Z')
+      await version(t.storeA1, id, '1000', null, 0, null)
+      many.push(id)
+    }
+    await db.sql`delete from product_related where product_id = ${ids.kurta}`
+    for (const [i, id] of many.slice(0, 12).entries()) await db.sql`insert into product_related (product_id, related_product_id, store_id, position) values (${ids.kurta}, ${id}, ${t.storeA1}, ${i})`
+    const modules = [0, 1, 2, 3, 4].map((m) => ({ id: `m${m}`, kind: 'compare', title: null, productIds: many.slice(m * 6, m * 6 + 6) }))
+    await db.sql`update product_story set live = ${db.sql.json(modules)} where product_id = ${ids.kurta}`
+    const page = (await gql('{ product(slug: "kurta") { related { slug } story { kind products { slug } } } }')).data?.['product'] as { related: unknown[]; story: { products: unknown[] }[] }
+    expect(page.related).toHaveLength(10)
+    expect(page.story.every((m) => m.products.length <= 5)).toBe(true)
+    expect(page.story.reduce((sum, m) => sum + m.products.length, 0)).toBe(20)
+  })
+
   it('finds it by its web address in the shopper’s language, and says when the market can’t sell it', async () => {
     expect((await gql('{ product(slug: "kurta-hi") { name } }', { 'x-shop-language': 'hi-IN' })).data?.['product']).toEqual({ name: 'कुर्ता' })
     expect((await gql('{ product(slug: "shirt") { soldHere } }')).data?.['product']).toEqual({ soldHere: false })
@@ -208,7 +239,7 @@ describe('stock a storefront may read (migration 0065)', () => {
   })
 })
 
-describe('limits and isolation (#441’s review)', () => {
+describe('limits and isolation', () => {
   const theirs = 'store-b1.shops.bolt.example'
 
   it('caps a page at 50, a search at 100 characters and filter choices at 50, and reads % and _ as themselves', async () => {
