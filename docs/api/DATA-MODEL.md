@@ -1271,8 +1271,10 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- GDPR / DPDP (AGENTS.md "Data"). Filed by the store, or by the shopper
                     -- from the storefront (app_shop may insert, and reads its own request by
                     -- customer_id or by the request's own token, §7.11). A guest has no
-                    -- customer row: the request names the email or phone the orders were
-                    -- placed with, proved by a code sent to it (subject_verified_at).
+                    -- account, though a live guest order makes an unverified customer row
+                    -- for the store's list (#312), never linked to the order: the request
+                    -- names the email or phone the orders were placed with, proved by a code
+                    -- sent to it (subject_verified_at), and covers that row too.
                     -- Export gathers the customer row (if any), customer_address, every
                     -- order placed under the customer id or, for a guest, under the
                     -- verified email or phone, with their email, phone and address

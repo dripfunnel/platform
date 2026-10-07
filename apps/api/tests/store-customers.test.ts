@@ -1,4 +1,5 @@
 import { graphql, type GraphQLSchema } from 'graphql'
+import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
@@ -84,6 +85,8 @@ beforeAll(async () => {
     await ensureGuestCustomer(tx, { storeId: t.storeA1, email: 'ravi@example.com', phone: null, name: 'Ravi K', now: new Date() })
     await ensureGuestCustomer(tx, { storeId: t.storeA1, email: null, phone: '+919800000002', name: 'Sunil Rao', now: new Date() })
     await ensureGuestCustomer(tx, { storeId: t.storeA1, email: 'priya@example.com', phone: null, name: 'Someone else', now: new Date() })
+    // The same guest in another store is that store's own customer.
+    await ensureGuestCustomer(tx, { storeId: t.storeA2, email: 'ravi@example.com', phone: null, name: 'Ravi in A2', now: new Date() })
   })
 }, 60_000)
 
@@ -124,6 +127,32 @@ describe('the customers list', () => {
       name: 'Priya Shah', emailVerified: false, phoneVerified: true, hasAccount: true, note: null, consent: { state: 'not_asked', source: null, channels: [] }, groupIds: [], addresses: [], ordersCount: 2,
       orders: [{ number: 'A-2', total: { amount: '2000', currency: 'USD' } }, { number: 'A-1', total: { amount: '5000', currency: 'INR' } }],
     })
+  })
+})
+
+describe('guest buyers', () => {
+  it('makes one row a guest a store: never a second for the same email, never another store’s, never over an account', async () => {
+    const rows = await db.sql<{ store_id: string; name: string | null; status: string }[]>`select store_id, name, status from customer where email in ('ravi@example.com', 'priya@example.com') order by store_id, name`
+    expect(rows.filter((r) => r.store_id === t.storeA1).map((r) => [r.name, r.status]).sort()).toEqual([['Priya Shah', 'active'], ['Ravi Kumar', 'unverified']])
+    expect(rows.filter((r) => r.store_id === t.storeA2).map((r) => r.name ?? '').sort()).toEqual(['', 'Ravi in A2'])
+  })
+
+  it('backfills guests who bought before 0074, once each, leaving test orders and existing customers alone', async () => {
+    const sql = readFileSync(new URL('../migrations/0074_customers.sql', import.meta.url), 'utf8')
+    const backfill = /insert into customer \(store_id, email, phone, name, status, created_at\)[\s\S]*?on conflict do nothing;/.exec(sql)?.[0]
+    if (!backfill) throw new Error('0074 has no backfill')
+    await order('B1-1', { storeId: t.storeB1, email: 'kiran@example.com', city: 'Kochi', total: 100 })
+    await order('B1-2', { storeId: t.storeB1, email: 'kiran@example.com', city: 'Kochi', total: 100 })
+    await order('B1-3', { storeId: t.storeB1, email: null, phone: '+919800000077', city: 'Kochi', total: 100 })
+    await order('B1-4', { storeId: t.storeB1, email: 'tester@example.com', city: 'Kochi', total: 100, test: true })
+    await order('B1-5', { storeId: t.storeB1, email: 'priya@example.com', city: 'Kochi', total: 100 })
+    await db.sql.unsafe(backfill)
+    await db.sql.unsafe(backfill)
+    expect(await db.sql`select coalesce(email, phone) as who, status from customer where store_id = ${t.storeB1} order by 1`).toEqual([
+      { who: '+919800000077', status: 'unverified' },
+      { who: 'kiran@example.com', status: 'unverified' },
+      { who: 'priya@example.com', status: 'active' },
+    ])
   })
 })
 
@@ -189,8 +218,8 @@ describe('customer groups', () => {
 describe('across stores and callers (ACCESS §11)', () => {
   it('shows another store none of this store’s customers, groups or counts, and lets it change none of them', async () => {
     const theirs = await list('other')
-    expect(theirs?.nodes.map((n) => [n.name, n.city, n.orders])).toEqual([[null, 'Chennai', 1]])
-    expect((await gql('{ customerCount customerGroups { id } }', 'other')).data).toEqual({ customerCount: 1, customerGroups: [] })
+    expect(theirs?.nodes.map((n) => [n.name, n.city, n.orders])).toEqual([['Ravi in A2', null, 0], [null, 'Chennai', 1]])
+    expect((await gql('{ customerCount customerGroups { id } }', 'other')).data).toEqual({ customerCount: 2, customerGroups: [] })
     expect((await gql(`{ customer(id: "${t.customerA1}") { id } }`, 'other')).data?.['customer']).toBeNull()
     const group = (await gql('{ customerGroups { id } }', 'owner')).data?.['customerGroups'] as { id: string }[]
     for (const m of [
@@ -254,7 +283,7 @@ describe('the customers export', () => {
     const id = (await gql('mutation { exportCustomers }', 'other')).data?.['exportCustomers'] as string
     await relay()
     const file = (await gql(`{ customerExport(id: "${id}") { csv } }`, 'other')).data?.['customerExport'] as { csv: string }
-    expect(file.csv.split('\n')).toHaveLength(2)
+    expect(file.csv.split('\n')).toHaveLength(3)
     expect(file.csv).toContain('Chennai')
     const mine = (await gql('mutation { exportCustomers }', 'owner')).data?.['exportCustomers'] as string
     const merchant = { caller: { kind: 'person' as const, userId: crypto.randomUUID(), sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }

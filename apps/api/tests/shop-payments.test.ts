@@ -265,6 +265,8 @@ describe('Paying by card', () => {
     expect(await reserved()).toBe(0)
     // A card order goes through on payment, so the shopper hears nothing yet (#312).
     expect(await updates(paid)).toEqual([])
+    // A live guest is a customer from placement, whatever pays (#312).
+    expect(await db.sql`select status from customer where email = 'sam@example.com'`).toEqual([{ status: 'unverified' }])
   })
 
   it('settles on the shopper’s return once Stripe says paid: stock held, logged as Stripe’s, never twice', async () => {
@@ -327,6 +329,8 @@ describe('Paying by card', () => {
   it('takes a test payment on the preview without holding real stock', async () => {
     const before = await reserved()
     const token = await readyCart(1, preview)
+    await shop('mutation { setCartContact(email: "preview@example.com") { cart { id } } }', token, preview)
+    await shop('mutation { checkout { id } }', token, preview)
     const { placed } = await placeStripe(token, preview)
     expect(placed?.payment?.publicKey).toBe('pk_test_platform')
     const id = placed?.orderId ?? ''
@@ -335,6 +339,8 @@ describe('Paying by card', () => {
     expect(await reserved()).toBe(before)
     expect((await db.sql<{ mode: string }[]>`select mode from payment where order_id = ${id}`)[0]?.mode).toBe('test')
     expect(await updates(id)).toEqual([])
+    // A test order on the preview makes no customer (#312).
+    expect(await db.sql`select 1 from customer where email = 'preview@example.com'`).toHaveLength(0)
   })
 
   it('holds stock that sold out meanwhile, since the money is taken, and says so for the merchant', async () => {

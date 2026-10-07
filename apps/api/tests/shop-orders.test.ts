@@ -248,6 +248,8 @@ describe('holding stock and placing safely', () => {
     // Each is placed or told the last one has gone; none fails.
     expect(results.every((r) => r.code === undefined || r.code === 'OUT_OF_STOCK')).toBe(true)
     expect(results.filter((r) => r.code === undefined).length).toBeGreaterThan(0)
+    // One guest, however many orders and however they raced: one customer (#312).
+    expect(await db.sql`select 1 from customer where store_id = ${stores.india} and email = 'ravi@example.com'`).toHaveLength(1)
   })
 
   it('refuses a cart changed after it was priced, in another tab', async () => {

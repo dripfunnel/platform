@@ -390,7 +390,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `orders.write` (including fulfilment and cancellation; the seat holds `orders.fulfil` with it, the key a supplier's shipping shares, #310), `customers.write` (add, edit, groups, tags, notes, recording that a customer asked to stop marketing) | ✓ | ✓ | ✓ |
 | `orders.refund`: refunds, returns (start, mark received), and **overriding a supplier's refund** (§7.3) | ✓ | ✓ | |
 | `orders.mark_paid`: marking a cash-on-delivery or bank-transfer order paid, audited with the actor (decided 2026-10-05) | ✓ | ✓ | |
-| `customers.export`, `exports`: product and order exports. Staff's include orders with the customer's name and address, deliberately: Staff already reads and fulfils them (`orders.read`, `orders.write`) | ✓ | ✓ | ✓ |
+| `customers.export`, `exports`: product and order exports (`exports`) and the customers export (`customers.export`, #312: every customer's name, email, number, city, orders, spend, tags, groups and consent). Staff's include both deliberately: Staff already reads and fulfils orders (`orders.read`, `orders.write`) and reads and edits the Customers list (`customers.read`, `customers.write`), and FIRST-RELEASE §1 decided Staff exports customers | ✓ | ✓ | ✓ |
 | `catalog.import` | ✓ | ✓ | |
 | `offers.read`, `carts.read`: the offers list and abandoned carts, view only | ✓ | ✓ | ✓ |
 | `offers.write`, `carts.write`: offers, reminder settings, remind now | ✓ | ✓ | |
