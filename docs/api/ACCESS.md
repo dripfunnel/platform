@@ -1221,7 +1221,8 @@ builds the table must ship:
   `return_line` or a `"return"`, updating an `order_part`, or inserting a `refund` or
   `refund_line` directly, is refused by the grant; `supplier_refund()` refuses a line that is
   not its own, a quantity above the refundable one and an amount above its lines' value, and
-  succeeds within them; inserting a `fulfilment` for its own part succeeds (DATA-MODEL §5.3);
+  succeeds within them; a supplier reads its own shipments and can't insert or update a `fulfilment` or `fulfilment_line`
+  (the engine writes them in system scope, #310), and the engine refuses a line or location that isn't the caller's;
 - a guest inserting a cart whose `access_token_hash` is not the hash of the token it
   presented is refused, and so is an insert with no token presented at all
   (`current_order_token_hash()` returns null) (DATA-MODEL §7.11);

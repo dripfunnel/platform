@@ -26,6 +26,8 @@ import {
 
 export { orderFilters, type OrderCounts, type OrderDetailRow, type OrderFilter, type OrderHistoryRow, type OrderLineRow, type OrderListRow, type OrderPartRow } from '#db/scoped/storeOrders'
 
+export { createFulfilmentService, fulfilmentAudit, type FulfilmentRefusal, type FulfilmentResult, type FulfilmentRow, type ShipInput } from './fulfilment'
+
 export const ordersAudit = { noteAdded: 'order.note_added' } as const
 
 export type OrdersRefusal = 'INVALID_INPUT' | 'NOT_FOUND' | 'READ_ONLY'
