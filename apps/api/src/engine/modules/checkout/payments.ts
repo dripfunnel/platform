@@ -84,6 +84,7 @@ export const applyOutcome = (deps: Pick<SettleDeps, 'sql' | 'activity' | 'now'>,
     const p = await lockPaymentByRef(tx, provider, providerRef)
     if (!p) return 'unknown'
     if (p.state === 'captured' || p.state === 'refunded') return 'already'
+    if (p.state === 'mismatch') return 'mismatch'
     if (outcome.state === 'pending') return 'pending'
     const at = deps.now()
     const order = { type: 'order', id: p.order_id, label: p.order_number }
@@ -92,11 +93,9 @@ export const applyOutcome = (deps: Pick<SettleDeps, 'sql' | 'activity' | 'now'>,
       return 'failed'
     }
     if (outcome.amount.amount !== BigInt(p.amount) || outcome.amount.currency !== p.currency) {
-      // Logged once, as it leaves the sweep's queue for the merchant (a replay finds it already out).
-      if (p.payment_due_by !== null || p.order_state !== 'placed') {
-        await deps.activity.record(tx, providerEntry(p, provider, paymentAudit.amountMismatch, order, `${outcome.amount.currency} ${outcome.amount.amount}`, 'failed'))
-        await holdForMerchant(tx, p.store_id, p.order_id)
-      }
+      // Logged once: the payment is marked, and a replay stops at the check above.
+      await deps.activity.record(tx, providerEntry(p, provider, paymentAudit.amountMismatch, order, `${outcome.amount.currency} ${outcome.amount.amount}`, 'failed'))
+      await holdForMerchant(tx, p.store_id, p.order_id, p.id, at)
       return 'mismatch'
     }
     await markPaymentCaptured(tx, p.id, at)
@@ -122,6 +121,7 @@ export const settlePayment = async (deps: SettleDeps, payment: Pick<PaymentToSet
   const provider = payment.provider
   if (!isCardProvider(provider) || !payment.provider_ref || !payment.provider_account_id) return 'unknown'
   if (payment.state === 'captured' || payment.state === 'refunded') return 'already'
+  if (payment.state === 'mismatch') return 'mismatch'
   const gateway = deps.gateways[provider]
   const accountId = payment.provider_account_id
   const row = await withSystemScope(deps.sql, (tx) => selectAccountById(tx, accountId))

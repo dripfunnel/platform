@@ -187,6 +187,21 @@ describe('Connect Stripe', () => {
     ])
   })
 
+  it('refuses Connect Stripe to a support session and to Staff, and a key past its 10 minutes', async () => {
+    expect((await merchant('mutation { connectStripe }', 'owner', 'write')).code).toBe('SUPPORT_SESSION')
+    const state = new URL((await merchant('mutation { connectStripe }', 'owner')).data?.['connectStripe'] as string).searchParams.get('state') ?? ''
+    const key = new URL((await callback(`state=${state}&code=ac_late`)).headers.get('location') ?? '').searchParams.get('key') ?? ''
+    expect((await merchant(`mutation { finishStripeConnect(key: "${key}") }`, 'owner', 'write')).code).toBe('SUPPORT_SESSION')
+    expect((await merchant(`mutation { finishStripeConnect(key: "${key}") }`, 'staff')).code).toBe('FORBIDDEN')
+    expect((await merchant('mutation { disconnectGateway(provider: "stripe") }', 'staff')).code).toBe('FORBIDDEN')
+    await db.sql`update payment_connect set expires_at = now() - interval '1 second' where store_id = ${stores.us}`
+    expect((await merchant(`mutation { finishStripeConnect(key: "${key}") }`, 'owner')).code).toBe('EXPIRED')
+    // A start not answered within its 30 minutes is refused at the callback.
+    const stale = new URL((await merchant('mutation { connectStripe }', 'owner')).data?.['connectStripe'] as string).searchParams.get('state') ?? ''
+    await db.sql`update payment_connect set expires_at = now() - interval '1 second' where store_id = ${stores.us}`
+    expect((await callback(`state=${stale}&code=ac_x`)).status).toBe(400)
+  })
+
   it('sends the merchant back when they cancel on Stripe or the code fails, and refuses an unknown state', async () => {
     const start = async () => new URL((await merchant('mutation { connectStripe }', 'owner')).data?.['connectStripe'] as string).searchParams.get('state') ?? ''
     expect(new URL((await callback(`state=${await start()}&error=access_denied`)).headers.get('location') ?? '').searchParams.get('stripe')).toBe('cancelled')
@@ -268,7 +283,7 @@ describe('Paying by card', () => {
     expect((await shop(`mutation { payOrder(orderId: "${id}") { providerRef } }`, token)).code).toBe('ALREADY_PAID')
   })
 
-  it('keeps an order waiting when Stripe reports a different amount, and lets a declined card try again', async () => {
+  it('holds an order whose payment came in at a different amount for the merchant, logged once', async () => {
     const token = await readyCart(1)
     const { placed } = await placeStripe(token)
     const id = placed?.orderId ?? ''
@@ -276,11 +291,17 @@ describe('Paying by card', () => {
     outcomes.set(first, { state: 'captured', amount: { amount: 1n, currency: 'USD' } })
     expect((await shop(`mutation { confirmPayment(orderId: "${id}") { paymentState } }`, token)).data?.['confirmPayment']).toEqual({ paymentState: 'pending' })
     await shop(`mutation { confirmPayment(orderId: "${id}") { paymentState } }`, token)
-    // Logged once, out of the sweep's queue for the merchant; a retry is refused while it stands.
+    expect(await applyOutcome(settleDeps(), 'stripe', first, { state: 'captured', amount: { amount: 1n, currency: 'USD' } })).toBe('mismatch')
     expect((await actions(id)).filter((a) => a === 'payment.amount_mismatch:provider')).toHaveLength(1)
-    expect((await db.sql<{ payment_due_by: Date | null }[]>`select payment_due_by from "order" where id = ${id}`)[0]?.payment_due_by).toBeNull()
+    expect((await db.sql`select o.payment_due_by, p.state from "order" o join payment p on p.order_id = o.id where o.id = ${id}`)[0]).toEqual({ payment_due_by: null, state: 'mismatch' })
     expect((await shop(`mutation { payOrder(orderId: "${id}") { providerRef } }`, token)).code).toBe('PAYMENT_MISMATCH')
-    outcomes.set(first, { state: 'pending' })
+  })
+
+  it('lets a declined card try again, cancelling the attempt it replaces', async () => {
+    const token = await readyCart(1)
+    const { placed } = await placeStripe(token)
+    const id = placed?.orderId ?? ''
+    const first = placed?.payment?.providerRef ?? ''
     const again = (await shop(`mutation { payOrder(orderId: "${id}") { providerRef clientSecret } }`, token)).data?.['payOrder'] as { providerRef: string }
     expect(again.providerRef).not.toBe(first)
     // The attempt it replaces is cancelled at Stripe, so the shopper can't pay both.
