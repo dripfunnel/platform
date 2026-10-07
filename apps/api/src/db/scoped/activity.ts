@@ -85,6 +85,30 @@ export interface KeysetPage {
 }
 
 /**
+ * A shopper's own entries, by the columns it may read (migration 0064) and the filters on them; the rest come back empty,
+ * as LOGGING §4 shows nobody outside DripFunnel the address. Paged as `selectActivity`.
+ */
+export const selectOwnActivity = async (tx: ScopedSql, query: Pick<ActivityQuery, 'action' | 'from' | 'to' | 'result'>, page: KeysetPage, limit: number): Promise<ActivityRow[]> => {
+  const backwards = page.before !== undefined
+  const rows = await tx<ActivityRow[]>`
+    select id, occurred_at, category, action, result, actor_kind, null as actor_id, null as actor_label, null as on_behalf_of_kind, null as on_behalf_of_id,
+      null as on_behalf_of_label, null as access_kind, null as access_ref, null as partner_id, null as store_id, null as seller_id, customer_id, target_type,
+      target_id, target_label, '[]'::jsonb as changes, null as reason, null as api, null as host, null as request_id, null as ip, null as user_agent, visibility
+    from activity_log
+    where true
+      ${query.action !== undefined ? tx`and action = ${query.action}` : tx``}
+      ${query.from !== undefined ? tx`and occurred_at >= ${query.from}` : tx``}
+      ${query.to !== undefined ? tx`and occurred_at < ${query.to}` : tx``}
+      ${query.result !== undefined ? tx`and result = ${query.result}` : tx``}
+      ${page.after !== undefined ? tx`and occurred_at <= ${page.after.occurredAt} and (occurred_at, id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx``}
+      ${page.before !== undefined ? tx`and occurred_at >= ${page.before.occurredAt} and (occurred_at, id) > (${page.before.occurredAt}, ${page.before.id}::uuid)` : tx``}
+    ${backwards ? tx`order by occurred_at asc, id asc` : tx`order by occurred_at desc, id desc`}
+    limit ${pageLimit(limit) + 1}
+  `
+  return backwards ? rows.reverse() : rows
+}
+
+/**
  * Newest first by (occurred_at, id), one more row than asked so the caller knows whether
  * there is another page. `before` reads the page the other way round and the caller flips it.
  * The plain bound beside each row comparison is what lets Postgres prune partitions.
