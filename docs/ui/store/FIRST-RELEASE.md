@@ -592,7 +592,8 @@ account's. The Store API's `customerAccounts` (the mode and how many accounts ha
 transfer's bank details with it), `placeOrder(provider)` (a ready cart becomes an order numbered `order_prefix` + the
 next number, its lines, parts per owner, delivery and tax snapshotted at today's price; cash on delivery and bank transfer
 hold the stock at once, checked again under lock, `OUT_OF_STOCK` when it's gone; a transfer is due in 3 days), and
-`order(id)` (the shopper's own, a guest's by its cart token). The Store API's `paymentSetup` (the region's providers),
+`order(id)` (the shopper's own, a guest's by its cart token; `shippingOption` and a courier's `shippingMethod`, worded by the
+storefront in the shopper's language). The Store API's `paymentSetup` (the region's providers),
 `turnOnPaymentMethod` (cash on delivery in India, bank transfer with its details) and `turnOffPaymentMethod` are the
 Owner's (`payments.configure`); `markOrderPaid` is the Owner's and Manager's (`orders.mark_paid`). The cron cancels a
 transfer unpaid after 3 days and gives its stock back. The card providers (Stripe, PayPal, Razorpay, Cashfree, PhonePe)

@@ -123,6 +123,9 @@ describe('placing an order', () => {
     const seen = (await shop(`{ order(id: "${order}") { number state paymentState lines { quantity unitPrice { amount } } shipping { amount } total { amount } } }`, orderToken)).data?.['order']
     expect(seen).toEqual({ number: 'JP-1001', state: 'placed', paymentState: 'pending', lines: [{ quantity: 2, unitPrice: { amount: '100000' } }], shipping: { amount: '5000' }, total: { amount: '205000' } })
     await db.sql`update version_price set amount = 100000 where version_id = ${kurta}`
+    // No English is written into the snapshot: the storefront words flat delivery and tax in the shopper's language.
+    expect((await shop(`{ order(id: "${order}") { shippingOption shippingMethod } }`, orderToken)).data?.['order']).toEqual({ shippingOption: 'flat', shippingMethod: null })
+    expect(await db.sql`select kind, label from order_adjustment where order_id = ${order} order by kind`).toEqual([{ kind: 'shipping', label: null }, { kind: 'tax', label: null }])
     expect((await place(orderToken, 'cod')).code).toBe('NOT_FOUND')
   })
 

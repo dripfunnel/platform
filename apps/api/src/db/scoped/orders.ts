@@ -84,7 +84,8 @@ export interface OrderSnapshot {
   number: string
   lines: readonly SnapshotLine[]
   parts: readonly { sellerId: string | null; shippingMode: 'store' | 'to-store' | 'to-shopper' }[]
-  shipping: { amount: bigint; label: string } | null
+  /** `label` is a courier's own service name; null for flat delivery and collection, which the storefront words itself. */
+  shipping: { amount: bigint; label: string | null } | null
   tax: { amount: bigint; inclusive: boolean }
   subtotal: bigint
   total: bigint
@@ -107,7 +108,7 @@ export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnap
     await tx`insert into order_part (order_id, store_id, seller_id, shipping_mode) values (${s.orderId}, ${storeId}, ${p.sellerId}, ${p.shippingMode})`
   }
   if (s.shipping) await tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'shipping', ${s.shipping.label}, ${s.shipping.amount.toString()})`
-  if (s.tax.amount > 0n) await tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'tax', ${s.tax.inclusive ? 'Tax included' : 'Tax'}, ${s.tax.amount.toString()})`
+  if (s.tax.amount > 0n) await tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'tax', null, ${s.tax.amount.toString()})`
   await tx`
     update "order" set state = 'placed', number = ${s.number}, placed_at = ${s.now}, tax_inclusive = ${s.tax.inclusive},
       subtotal_amount = ${s.subtotal.toString()}, shipping_amount = ${(s.shipping?.amount ?? 0n).toString()}, tax_amount = ${s.tax.amount.toString()},
@@ -208,6 +209,7 @@ export interface ShopOrderRow {
   total_amount: string
   tax_inclusive: boolean
   shipping_method_label: string | null
+  shipping_option: 'courier' | 'flat' | 'pickup' | null
   placed_at: Date
   payment_due_by: Date | null
   lines: { name: string; version_name: string | null; quantity: number; unit_amount: string; line_total_amount: string }[]
@@ -219,7 +221,7 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
     await tx<ShopOrderRow[]>`
       select o.id, o.number, o.state, o.payment_state, o.payment_method, o.currency, o.subtotal_amount::text as subtotal_amount,
         o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.tax_inclusive,
-        o.shipping_method_label, o.placed_at, o.payment_due_by,
+        o.shipping_method_label, o.shipping_option, o.placed_at, o.payment_due_by,
         coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', l.quantity,
           'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text) order by l.position) from order_line l where l.order_id = o.id), '[]'::json) as lines
       from "order" o where o.id = ${orderId} and o.store_id = ${storeId} and o.state <> 'cart'
