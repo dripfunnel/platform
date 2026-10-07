@@ -109,13 +109,9 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
       }))
     })
 
-  /**
-   * A card provider's keys for a mode: checked for their shape, tried once with the provider, then sealed (never shown
-   * again, SetOps). Saving a mode's keys replaces that mode's. A support session never pastes a merchant's keys (ACCESS §8).
-   */
+  /** A card provider's keys for a mode, checked, tried once with the provider and sealed (THIRD-PARTY-ACCESS §3.1). */
   const connectKeys = async (provider: string, input: ConnectInput): Promise<SetupResult<true>> => {
     if (!isPaymentProvider(provider) || !isCardProvider(provider) || !isKeyedProvider(provider)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
-    if (context.caller.kind === 'support') return { ok: false, reason: 'SUPPORT_SESSION' }
     const mode = input.mode ?? 'live'
     const clean = input.credentials ? cleanCredentials(provider, mode, input.credentials) : null
     if (!clean) return { ok: false, reason: 'INVALID_KEYS' }
@@ -140,6 +136,8 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
 
   /** Cash on delivery (India) or a bank transfer, with the details shoppers transfer to; a card provider by its keys. */
   const connect = (provider: string, input: ConnectInput): Promise<SetupResult<true>> => {
+    // A support session never changes how the store is paid (ACCESS §8).
+    if (context.caller.kind === 'support') return Promise.resolve({ ok: false, reason: 'SUPPORT_SESSION' })
     if (isCardProvider(provider)) return connectKeys(provider, input)
     const details = input.bankDetails?.trim() || null
     const method = isManual(provider) ? provider : null
@@ -182,6 +180,8 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
   }
 
   const lastLive = async (tx: ScopedSql, provider: string) => {
+    // The store's ways to pay, locked, so two disconnects at once can't both pass the count.
+    await tx`select 1 from payment_provider_account where store_id = ${storeId} for update`
     const rows = await selectPaymentSetup(tx, storeId)
     return rows.some((r) => r.provider === provider && r.status === 'live' && r.mode === 'live') && (await countLiveMethods(tx, storeId)) <= 1
   }
@@ -189,6 +189,7 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
   /** "Disconnect": keys and connected account go, Stripe's access ends; never the store's only live way to pay (SetOps). */
   const disconnect = async (provider: string): Promise<SetupResult<true>> => {
     if (!isPaymentProvider(provider)) return { ok: false, reason: 'NOT_FOUND' }
+    if (context.caller.kind === 'support') return { ok: false, reason: 'SUPPORT_SESSION' }
     if (isManual(provider)) {
       return withScope(sql, context, async (tx): Promise<SetupResult<true>> => {
         if (await lastLive(tx, provider)) return { ok: false, reason: 'LAST_METHOD' }
@@ -198,7 +199,6 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
       })
     }
     if (!isCardProvider(provider)) return { ok: false, reason: 'NOT_FOUND' }
-    if (context.caller.kind === 'support' && context.caller.access === 'read') return { ok: false, reason: 'SUPPORT_SESSION' }
     const result = await withSystemScope(sql, async (tx): Promise<SetupResult<string | null>> => {
       if (await lastLive(tx, provider)) return { ok: false, reason: 'LAST_METHOD' }
       const gone = await disconnectProvider(tx, storeId, provider, now())

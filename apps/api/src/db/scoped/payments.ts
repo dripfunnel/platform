@@ -103,11 +103,12 @@ export interface PaymentToSettleRow {
   order_state: 'cart' | 'placed' | 'cancelled'
   order_payment_state: string
   stock_reserved: boolean
+  payment_due_by: Date | null
 }
 
 const settleColumns = (tx: ScopedSql) => tx`
   p.id, p.order_id, p.store_id, s.partner_id, p.provider, p.provider_account_id, p.provider_ref, p.state, p.amount::text as amount, p.currency, p.mode,
-  o.number as order_number, o.state as order_state, o.payment_state as order_payment_state, o.stock_reserved
+  o.number as order_number, o.state as order_state, o.payment_state as order_payment_state, o.stock_reserved, o.payment_due_by
 `
 
 /** A payment and its order, locked, by the provider's own id: what a webhook or a return names. */
@@ -165,6 +166,16 @@ export const selectLinesToHold = (tx: ScopedSql, storeId: string, orderId: strin
 
 export const setLineWarehouse = async (tx: ScopedSql, lineId: string, warehouseId: string): Promise<void> => {
   await tx`update order_line set reserved_warehouse_id = ${warehouseId} where id = ${lineId}`
+}
+
+/** Out of the sweep's queue: a wrong amount is the merchant's to sort out, never a cancellation. */
+export const holdForMerchant = async (tx: ScopedSql, storeId: string, orderId: string): Promise<void> => {
+  await tx`update "order" set payment_due_by = null where id = ${orderId} and store_id = ${storeId}`
+}
+
+/** Asked again later, behind newer due orders, while its provider can't be read. */
+export const deferUnpaid = async (tx: ScopedSql, storeId: string, orderId: string, until: Date): Promise<void> => {
+  await tx`update "order" set payment_due_by = ${until} where id = ${orderId} and store_id = ${storeId} and state = 'placed' and payment_state = 'pending'`
 }
 
 export const markStockReserved = async (tx: ScopedSql, storeId: string, orderId: string): Promise<void> => {

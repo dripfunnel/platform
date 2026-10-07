@@ -5,7 +5,7 @@ import { logEvent } from '#core/log'
 import type { OAuthConnect } from '#core/payments'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { approveConnect, deleteConnect, selectPendingConnect, type ConnectRow } from '#db/scoped/payments'
-import { finishConnectMs } from '#engine/modules/checkout/setup'
+import { finishConnectMs } from '#engine/modules/checkout/index'
 
 // hooks.<host>/stripe/connect/callback (THIRD-PARTY-ACCESS §3.1): Stripe's one redirect for Connect OAuth, finished by its
 // starter with a one-time key in their own portal, as Connect Shopify is (hooks/shopify.ts).

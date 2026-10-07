@@ -38,4 +38,13 @@ describe('Stripe payments on a connected account', () => {
     await expect(answer({ error: {} }, 403).outcome(account, 'pi_1')).rejects.toBeInstanceOf(PaymentRefused)
     await expect(answer({}).outcome({ ...account, externalAccountId: null }, 'pi_1')).rejects.toBeInstanceOf(PaymentRefused)
   })
+
+  it('cancels a replaced intent once, and says so when Stripe refuses because it was paid', async () => {
+    let asked = ''
+    const ok = stripePayments({ keys: { test: { secretKey: 'sk_test_p', publishableKey: 'pk_test_p' } }, fetchImpl: async (url) => ((asked = String(url)), Response.json({ id: 'pi_1', status: 'canceled', amount: 1, currency: 'usd' })) })
+    await ok.cancel?.(account, 'pi_1')
+    expect(asked).toBe('https://api.stripe.com/v1/payment_intents/pi_1/cancel')
+    const paid = stripePayments({ keys: { test: { secretKey: 'sk_test_p', publishableKey: 'pk_test_p' } }, fetchImpl: async () => Response.json({ error: { code: 'payment_intent_unexpected_state' } }, { status: 400 }) })
+    await expect(paid.cancel?.(account, 'pi_1')).rejects.toBeInstanceOf(PaymentRefused)
+  })
 })

@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import type { PaymentStart } from '#core/payments'
-import { checkoutAudit, createCheckout, paymentAudit, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow } from '#engine/modules/checkout/index'
+import { checkoutAudit, createCheckout, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow } from '#engine/modules/checkout/index'
 import { paymentModeOf, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 
@@ -15,6 +15,7 @@ const words: Record<string, string> = {
   NOT_FOUND: 'Your cart has expired. Add something to start again.',
   PAYMENT_UNAVAILABLE: 'We couldn’t reach the payment provider. Try again in a minute.',
   ALREADY_PAID: 'This order is already paid.',
+  PAYMENT_MISMATCH: 'The shop needs to check this payment before you pay again. Contact the shop.',
   NOT_PENDING: 'This order isn’t waiting for a card payment.',
   PHONE_REQUIRED: 'Add your mobile number to pay this way.',
   CART_CHANGED: 'Your cart changed while you were paying. Check it and pay again.',
@@ -142,7 +143,7 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       type: Order,
       nullable: true,
       args: { orderId: t.arg.id({ required: true }) },
-      extensions: { access: { ...access, audit: paymentAudit.paid } },
+      extensions: { access: { ...access, unlogged: 'payment_return' } },
       resolve: async (_, args, ctx) => (await checkoutOf(ctx)).confirm(String(args.orderId)),
     }),
     // "Try again" after a declined card: a new attempt for the same order.

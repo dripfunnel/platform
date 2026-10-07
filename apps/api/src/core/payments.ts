@@ -67,6 +67,8 @@ export interface PaymentGateway {
   start: (account: GatewayAccount, request: PaymentRequest) => Promise<PaymentStart>
   /** The payment as the provider has it now; a webhook only says when to look (saas/billing/webhook.ts does the same). */
   outcome: (account: GatewayAccount, providerRef: string) => Promise<PaymentOutcome>
+  /** Closes an attempt a retry replaces, so it can't be paid too; throws PaymentRefused once it is paid. */
+  cancel?: (account: GatewayAccount, providerRef: string) => Promise<void>
 }
 
 export type PaymentGateways = Partial<Record<CardProvider, PaymentGateway>>

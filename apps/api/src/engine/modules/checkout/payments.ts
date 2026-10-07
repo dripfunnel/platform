@@ -1,11 +1,14 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
-import { isCardProvider, PaymentUnavailable, type CardProvider, type PaymentGateways, type PaymentOutcome, type WebhookDelivery } from '#core/payments'
+import { logEvent } from '#core/log'
+import { isCardProvider, PaymentRefused, PaymentUnavailable, type CardProvider, type PaymentGateways, type PaymentOutcome, type WebhookDelivery } from '#core/payments'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { cancelOrder, lockPlacedOrder, releaseStock, reserveLine, selectUnpaidOrders } from '#db/scoped/orders'
 import {
+  deferUnpaid,
   forgetStripeAccount,
+  holdForMerchant,
   lockPaymentByRef,
   markOrderPaid,
   markPaymentCaptured,
@@ -28,6 +31,7 @@ export const paymentAudit = {
   oversold: 'order.oversold',
   paidAfterCancel: 'order.paid_after_cancel',
   amountMismatch: 'payment.amount_mismatch',
+  paidTwice: 'order.paid_twice',
   cancelled: 'order.cancelled',
   stripeDisconnected: 'payment_method.disconnected',
 } as const
@@ -88,10 +92,19 @@ export const applyOutcome = (deps: Pick<SettleDeps, 'sql' | 'activity' | 'now'>,
       return 'failed'
     }
     if (outcome.amount.amount !== BigInt(p.amount) || outcome.amount.currency !== p.currency) {
-      await deps.activity.record(tx, providerEntry(p, provider, paymentAudit.amountMismatch, order, `${outcome.amount.currency} ${outcome.amount.amount}`, 'failed'))
+      // Logged once, as it leaves the sweep's queue for the merchant (a replay finds it already out).
+      if (p.payment_due_by !== null || p.order_state !== 'placed') {
+        await deps.activity.record(tx, providerEntry(p, provider, paymentAudit.amountMismatch, order, `${outcome.amount.currency} ${outcome.amount.amount}`, 'failed'))
+        await holdForMerchant(tx, p.store_id, p.order_id)
+      }
       return 'mismatch'
     }
     await markPaymentCaptured(tx, p.id, at)
+    if (p.order_payment_state === 'paid') {
+      // An earlier attempt paid too: kept as captured and logged for the merchant to refund.
+      await deps.activity.record(tx, providerEntry(p, provider, paymentAudit.paidTwice, order, null))
+      return 'already'
+    }
     await markOrderPaid(tx, p.store_id, p.order_id, at)
     if (p.order_state === 'cancelled') {
       // Paid after the order was let go: the merchant refunds it or takes it back (LOGGING §3).
@@ -115,7 +128,16 @@ export const settlePayment = async (deps: SettleDeps, payment: Pick<PaymentToSet
   const account = row ? await openAccount(row, payment.mode, deps.secrets) : null
   // Disconnected since: nothing can read it now, and the sweep lets the order go.
   if (!gateway || !account) return 'pending'
-  return applyOutcome(deps, provider, payment.provider_ref, await gateway.outcome(account, payment.provider_ref))
+  let outcome: PaymentOutcome
+  try {
+    outcome = await gateway.outcome(account, payment.provider_ref)
+  } catch (error) {
+    // The account's keys or grant are gone: unreadable, so it waits and the sweep lets it go.
+    if (!(error instanceof PaymentRefused)) throw error
+    logEvent({ event: 'payment_unreadable', api: 'system', code: provider })
+    return 'pending'
+  }
+  return applyOutcome(deps, provider, payment.provider_ref, outcome)
 }
 
 /** The order's latest card payment, settled: what the shopper's return and the sweep both do. */
@@ -134,9 +156,10 @@ export const releaseUnpaidOrders = async (deps: SettleDeps, now: Date): Promise<
         const settled = await settleOrder(deps, candidate.store_id, candidate.id)
         if (settled === 'paid' || settled === 'already' || settled === 'mismatch') continue
       } catch (error) {
-        // The provider is down: asked again on the next sweep, never cancelled on a guess.
-        if (error instanceof PaymentUnavailable) continue
-        throw error
+        if (!(error instanceof PaymentUnavailable)) throw error
+        // The provider is down: asked again in an hour, behind newer due orders, never cancelled on a guess.
+        await withSystemScope(deps.sql, (tx) => deferUnpaid(tx, candidate.store_id, candidate.id, new Date(now.getTime() + 3_600_000)))
+        continue
       }
     }
     const reason = candidate.payment_method === 'bank_transfer' ? 'unpaid_transfer' : 'unpaid'
