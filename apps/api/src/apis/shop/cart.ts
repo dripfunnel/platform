@@ -123,7 +123,7 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
 
   const read = { api: 'shop', scope: 'shop', permission: null } as const
   // LOGGING §3 records a shopper's account events and orders, never carts.
-  const write = { ...read, unlogged: 'LOGGING §3: carts are not recorded' } as const
+  const write = { ...read, unlogged: 'cart' } as const
   const bounded = (...values: (string | null | undefined)[]) => {
     if (values.some((v) => (v?.length ?? 0) > 300)) throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
   }
