@@ -410,7 +410,7 @@ store and a vendor in another:
 | `invite` | People: invite, resend, revoke, change role, remove (flows 8–12) |
 | `manage-vendors` | Create, invite, change tier, suspend, remove vendors (flows 14–17) |
 | `approve` | The approval setting and queue (flows 18–19) |
-| `publish` | Storefront: describe, preview, approve, publish, undo (flows 48–52) and catalogue **Publish now**; a Manager sees the Storefront read-only |
+| `publish` | Storefront: the brand step and Site settings (brand, search and sharing, domains), choose a template, the AI studio (describe, undo, discard, open preview), publish, go back (flows 48–52; redesigned 2026-10-08 on #470) and catalogue **Publish now**; a Manager sees the Storefront read-only |
 | `billing` | Plan, subscription, invoices, the subscription payment method (flows 59–64) |
 | `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access** (the On/Off switch; Allow/Deny is `support.allow_write`), and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
 

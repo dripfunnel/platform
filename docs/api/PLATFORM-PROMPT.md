@@ -164,10 +164,11 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
     [CONSOLE-DESIGN]
 
 **Storefront and AI**
-11. **A repo per store** from a shared template, AI-editable theme vs locked commerce.
+11. **A repo per store** from a shared template, the look as site data vs locked commerce.
     [SAAS-PLAN §1–2] **Now decided and specified in `../storefront/`**:
     commerce ships as a versioned package, `@dripfunnel/storefront-core`, which the AI
-    can't edit; the AI owns `src/theme/**`, and changes **look, not logic**; the template is
+    can't edit; the AI edits only the store's **site data** (`site.json`, core's schema;
+    decided 2026-10-08 on #470), and changes **look, not logic**; the template is
     internal and fully automated, so merchants never see code.
 12. **A sync bot** keeps the core package version current across the fleet, with canaries,
     and upgrade notes for majors. [SAAS-PLAN §5, docs/storefront/ARCHITECTURE.md §7]

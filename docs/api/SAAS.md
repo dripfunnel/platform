@@ -23,7 +23,7 @@ Recorded so they aren't relitigated.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **A repo per store**, the AI editing real theme code inside a bounded surface (`src/theme/**`) | A sections-and-blocks theme schema (Shopify-style) | A schema over-constrains design and brings its own long-term complexity. Real code keeps design open, and every AI change is a reviewable, revertable commit ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §1). |
+| **A repo per store**, created when the merchant first picks a template; **the AI edits the store's site data** (a sections-and-blocks schema in storefront-core), which the platform commits as `site.json` (decided 2026-10-08 on #470, reversing the 2026-10-05 choice of AI-written theme code) | The AI editing `src/theme/**` behind CI gates | A schema can't break a build or checkout, so no per-change gates or builds; versions and undo are rows; the prototype draws exactly this ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §1). |
 | **Commerce in a versioned package**, `@dripfunnel/storefront-core`, which store repos install | A `core/` folder in each repo guarded only by a CI path check | The AI can't edit a dependency, and a fleet upgrade is a version bump instead of a merge into 1,000 diverged folders (§10). The path check stays as a second line. |
 | **Live storefront is a static build on Cloudflare**; preview is a client-rendered SPA | One runtime multi-tenant server-rendered storefront | Static plus edge is fast and cheap; SSR would trade that away. The cost is fleet maintenance and build volume, which §9 and §10 exist to control. |
 | **A partner is a row above stores**, and DripFunnel is the **house partner**, configured on the same screens | DripFunnel special-cased; per-partner deployments | One code path for every partner; the house partner differs only in a badge and in not being deletable (CONSOLE-DESIGN §8). |
@@ -510,6 +510,17 @@ failed; a live hostname can become expiring or broken if its records change.
 A merchant's custom domain is an entitlement (§6). Until one is connected the live site is at
 `{shop}.shops.<partnerdomain>`.
 
+**The merchant's side** (decided 2026-10-08 on #470, drawn in `PortalStorefront` › Site
+settings › Domains, which replaces the Store info card planned on #300): the free address is
+listed first and always works; the merchant connects **one** domain they own (a paid plan's
+entitlement; on Free the button opens the upgrade), sees the records to add with Copy buttons,
+and presses **Check now**; the states read *Waiting for DNS* → *Securing (SSL)…* → *Connected ·
+secure*. A connected domain can be made **primary** (the other addresses redirect to it) or
+**removed** (shoppers on it stop reaching the shop; the free address keeps working). Only one
+domain waits for DNS at a time. Domain changes need no publish. The records shown are this
+partner's (`EDGE_ZONE`, above); the prototype's values are examples. Built on #471 (the Store
+API) and #468 (registration through Cloudflare for SaaS).
+
 **Verify before building** (USERS-AND-DOMAINS §5):
 - **Wildcards**: can `*.preview.<partnerdomain>` and `*.shops.<partnerdomain>` be wildcard
   custom hostnames, on which Cloudflare plan?
@@ -554,40 +565,48 @@ owns the state and the rules:
 
 ### 9.2 The AI designer loop
 
-`saas/ai-designer`, with the storefront side in [../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §6:
+`saas/ai-designer`, with the storefront side in [../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §6.
+**Redesigned 2026-10-08 on #470**: the AI edits the store's **site data**, never code, so it
+runs as one API call, not in GitHub Actions.
 
 ```
-merchant describes a change in the portal
-  → agent edits src/theme/** in a sandbox checkout of the store repo
-  → typecheck, lint, contract tests, a11y, performance budget, smoke test, visual diff
-  → preview deploy with screenshots and a diff for the merchant
-  → merchant approves (or asks again, or discards)
-  → commit to main → live build → publish → cache purge
+"Your brand" saved (shop name and logo at least)
+  → chooseTemplate: the preset becomes the draft; the first time, the store repo is created
+  → askDesign: one model call with the schema, the draft, the page and screen size, the
+    last four requests, the brand and ~12 products (names, prices)
+  → the answer is parsed with core's schema and normalized → the new draft (or refused:
+    the draft is unchanged and the reply says so)
+  → undo (latest change), discard, Open preview (signed link)
+  → publishDesign: commit site.json → live build (§9.1) → a new version in the history
 ```
 
 **Guardrails, in priority order** (PLATFORM-PROMPT §2 item 14):
 
-1. **Path allowlist**: the agent's tool may write only `src/theme/**`, and CI fails any change
-   outside it. Enforced by tooling, not by prompting.
-2. **Build and typecheck must pass**: never deploy a broken store.
-3. **Smoke test the critical path**: home → product → add to cart → checkout loads → payment
-   element renders in test mode. Core is locked, but CSS can still hide a button.
-4. **Dependency allowlist**: no arbitrary installs.
-5. **Per-plan budgets**: prompts per month and build minutes (meters, §6), or build compute
-   eats the margin. A budget reached stops new runs, never a run in progress.
-6. **Preview before publish, always**: the AI never writes straight to live.
+1. **Schema, not prompting**: the answer becomes a draft only after core's zod schema and
+   `normalize` accept it (fonts from the allowlist, AA contrast, at most 12 sections, ids
+   kept). Prices, stock, products, shipping and checkout aren't in the schema, so asking for
+   them changes nothing; the reply points to Products or Settings.
+2. **Never trusted, never executed**: the model's text is data; it never reaches a build
+   except as validated `site.json` committed by the platform.
+3. **Per-plan budgets**: AI tokens per month (or the merchant's own OpenAI or Anthropic key
+   on plans without included AI) and build minutes (meters, §6). A budget reached stops new
+   requests and publishes, never one in progress.
+4. **Draft before publish, always**: the AI never writes straight to live.
 
-**Undo last change** is `git revert` of the approved commit and a rebuild. A change that fails
-a gate is reported in plain words and the preview stays at the last good version.
+**Versions**: every publish is a numbered version holding its site data, template, core
+version and Pages deployment. **Go back to this** redeploys that version's deployment and
+uses no build minutes (a rebuild, uncharged, if the deployment is gone). The history is kept
+for the plan's number of days; the live version always stays.
 
-**Metering**: every run writes an `ai_run` row: store, requesting user, prompt, model, tokens
-in and out, cost (minor units and currency), build minutes, gate results, resulting commit,
-preview URL, outcome (approved, discarded, failed). It is the source for the AI budget meter,
-usage billing and the metrics in §12.
+**Metering**: every request writes an `ai_run` row: store, requesting user, prompt, model,
+tokens in and out, cost (minor units and currency), outcome (changed, nothing changed,
+refused, failed). It is the source for the AI meter, usage billing and §12's metrics; build
+minutes come from `publish_run`.
 
-~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284). **Open**:
-~~whether the AI reads the store's catalogue~~ **It reads a sample** (about 12 products: names,
-prices, one photo each), metered in `ai_run` (decided 2026-10-05 on #337).
+~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284);
+**replaced 2026-10-08 on #470**: one Store API call, no agent run. ~~Whether the AI reads the
+store's catalogue~~ **It reads a sample** (about 12 products: names and prices; photos dropped
+on #470), metered in `ai_run` (decided 2026-10-05 on #337).
 
 ---
 
@@ -605,9 +624,11 @@ one, not later.
   rebuild both modes.
 - **Canaries, then waves**: a canary group first, then percentages, with pause and roll back
   per rollout; per-store PR and CI status shown (L2). A rollout is a platform-level `job`.
-- **Majors** may change the theme contract and ship **upgrade notes**; an agent reconciles
-  each theme against them, runs the gates and produces a preview and visual diff. Unchanged
-  visuals auto-merge; changed ones go to **the merchant**, who approves (decided 2026-10-05 on #337).
+- **Majors** may change the look or the site-data schema and ship **upgrade notes** and a
+  schema migration. Each published version is **pinned** to the core version it was built
+  with (decided 2026-10-08 on #470): patches and minors rebuild every store from its same site
+  data; a major's new look reaches a store only at its merchant's next publish, so **the
+  merchant** still approves visual changes (decided 2026-10-05 on #337).
 - **Security fixes** can be forced to every store as a patch.
 - Without this, a checkout fix or a dependency CVE becomes 1,000 manual pull requests.
 

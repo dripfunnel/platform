@@ -1,14 +1,14 @@
 # DESIGN.md: storefront template
 
 What the AI may design in a store's storefront, how it starts, and the rules every design
-keeps. Read with [ARCHITECTURE.md](ARCHITECTURE.md): that document says *where* the AI may
-work (`src/theme/**`); this one says *what good work there looks like*.
+keeps. Read with [ARCHITECTURE.md](ARCHITECTURE.md): that document says *how* a design reaches
+shoppers (the store's site data, rendered by core); this one says *what good work looks like*.
 
 **The aim:** every store looks like itself. Two stores on DripFunnel should not look like the
 same theme with different colours. The AI has full freedom over the look; the core package
 guarantees the commerce.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: site data, templates, the brand step).
 
 ---
 
@@ -26,19 +26,24 @@ Last updated: 2026-10-05.
 
 ## 2. What the AI may change
 
-Everything visual and structural in `src/theme/**`:
+The store's **site data**, in core's schema and its limits (decided 2026-10-08 on #470;
+`designs/storefront-lib.js` `SCHEMA` is the drawn version):
 
-- **Tokens**: colour (light and dark), typography (font families from the allowlist, scale,
-  weights), spacing scale, radius, borders, elevation, motion, breakpoints if needed.
-- **Layouts**: header, navigation (mega menu, drawer, minimal bar), footer, page frames, grid
-  systems.
-- **Pages**: the composition of every route, commerce pages included: home, collection,
-  product, search, cart, checkout, order confirmation, account and sign-in pages, policies,
-  404, and added content pages.
-- **Sections and components**: heroes, editorial blocks, product cards, grids and carousels,
-  galleries, filters' presentation, the cart drawer, form styling, empty and loading states,
-  iconography, illustration and photography treatment.
-- **Copy** in the theme's own messages: headings, microcopy, calls to action, per locale.
+- **Theme**: background, surface, text, muted, accent and accent-text colours; heading and
+  body fonts from the allowlist; heading weight (300–900) and case; corner radius (0–28);
+  photo tone (soft, vivid, dark, mono).
+- **Announcement bar**: on or off, its words and colours.
+- **Header**: left or centred, up to 6 menu labels, colours.
+- **Home sections**: up to 12, in order, each one of hero (split, full or centred; headline,
+  line, button), products (title, 2–5 per row, 3–12 shown, card style, photo shape),
+  categories (up to 6), banner, features (up to 4), testimonial, newsletter and text.
+- **Footer**: its line, up to 6 links, tone.
+- **About and Contact**: headline and words; Contact's email, phone and address.
+- **Copy** in all of the above, in plain, warm words: no emoji, no fake urgency.
+
+Every other page (collection, product, search, cart, checkout, account, policies) keeps the
+baseline layout and takes the theme's colours, fonts, radius and photo tone. Product names,
+photos and prices always come from the catalogue.
 
 ## 3. What the AI may not change
 
@@ -55,6 +60,8 @@ Enforced by the core package and CI (ARCHITECTURE §3.3), not by this document a
   brand's "Powered by" line. The AI styles them; it doesn't remove or reword them.
 - **SEO and accessibility plumbing**: structured data, canonical and hreflang, landmarks,
   labels, focus handling.
+- **Anything outside the schema**: no new section types, routes, scripts or code. A request
+  the schema can't express is answered in words, and the draft stays as it was.
 - **The network**: themes don't fetch, embed third-party scripts, or add dependencies
   outside the allowlist.
 
@@ -66,19 +73,21 @@ can't, and offers what it can (for example, showing real stock when the store tr
 
 ## 4. How a design starts
 
-1. **Inputs**: the merchant's brief (words, references they like), their logo and any brand
-   colours, their catalogue (categories, number of products, photo style and quality), their
-   markets and languages, and the brand's rules.
-2. **Direction**: the AI proposes two or three distinct **design directions** as previews
-   (for example editorial, minimal, bold, boutique, catalogue-dense), each with its own
-   tokens, type pairing, header, home composition and product card. The merchant picks one,
-   or mixes.
-3. **Baseline**: every direction is built on the template's **baseline theme** (ARCHITECTURE
-   §10; drawn in `designs/DF Storefront Prototype`, #285), which already passes every contract
-   test. The AI diverges from it as far as the
-   brief asks; it never starts from an empty folder.
-4. **Iteration**: the merchant keeps describing changes. Each one is a preview (ARCHITECTURE
-   §6), and nothing reaches the live site without approval.
+Decided 2026-10-08 on #470, as `designs/PortalStorefront` draws it:
+
+1. **Your brand** (first time only, required before anything else): the shop name and logo
+   (required), favicon, primary and secondary colours, the home page's title and description,
+   a tagline and short description, social links, the public email, phone and address, and a
+   tone of voice. The same fields are later in Storefront › Site settings › Brand.
+2. **A template**: six presets (Linen, minimal fashion; Concrete, bold streetwear; Bloom,
+   beauty and wellness; Circuit, electronics; Market, food and grocery; Atelier, luxury
+   editorial) and **Start from scratch**, each previewed with the store's own products and
+   openable as a demo. A preset keeps its own colours: the brand colours are a hint the AI
+   uses when asked, never applied automatically. Changing template later asks whether to keep
+   the merchant's words (headline, menu, footer, About, Contact) or take the template's.
+3. **The studio**: the merchant describes changes; each one updates the draft and the preview
+   (desktop, tablet, phone; Home, Product, Cart, About, Contact) and can be undone. Nothing
+   reaches the live site until **Publish**.
 
 ## 5. Rules every design keeps
 
@@ -129,7 +138,13 @@ Design floors the gates check, whatever the look:
 - ~~May a white-label brand constrain store designs (fonts, colours, layouts), or only the
   "Powered by" line?~~ Only the "Powered by" line (decided 2026-10-05 on #337).
 - ~~How many design directions does the AI propose at the start, and can the merchant upload
-  reference sites or screenshots?~~ Three, and the merchant may add reference screenshots (decided 2026-10-05 on #337).
+  reference sites or screenshots?~~ Three, and the merchant may add reference screenshots (decided 2026-10-05 on #337);
+  **replaced 2026-10-08 on #470** by the template gallery after the brand step (§4).
 - ~~Can merchants upload their own fonts, or only choose from the allowlist?~~ The allowlist only (decided 2026-10-05 on #337).
-- ~~Content pages the AI may add without new core support (about, lookbook, FAQ, blog)?~~ About, FAQ, contact, lookbook and a blog (SAPI 24) (decided 2026-10-05 on #337).
+- ~~Content pages the AI may add without new core support (about, lookbook, FAQ, blog)?~~ About, FAQ, contact, lookbook and a blog (SAPI 24) (decided 2026-10-05 on #337); About and Contact are site data the AI edits, the rest SAPI 24's (decided 2026-10-08 on #470).
 - ~~Is there a merchant-facing "undo to any earlier version" beyond undoing the last change?~~ Yes: any earlier published version (decided 2026-10-05 on #337).
+- **Sample words in a template** (raised on #470): the presets carry sample copy, including a
+  testimonial quote and author (Bloom, Atelier). §3 forbids invented reviews, and placeholder
+  copy never ships to live. Should Publish be refused while a preset's sample testimonial is
+  unchanged, or the testimonial section start empty? Until decided, the AI never writes a quote
+  attributed to a person, and the studio flags sample text before the first publish.

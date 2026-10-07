@@ -115,8 +115,9 @@ Run the gates before reporting a change as done.
 - Never display a secret, full card number, password or token.
 
 **Storefronts (`templates/storefront`, `packages/storefront-core`)**
-- In generated store repos the AI designer may change **only `src/theme/**`**: look, not
-  logic. No network calls, third-party scripts or unlisted dependencies in themes.
+- The AI designer changes **only a store's site data** (`site.json`, in storefront-core's
+  schema; docs/storefront/ARCHITECTURE.md §6): look, not logic. Nothing in a store repo is
+  AI-written code. No network calls, third-party scripts or unlisted dependencies in themes.
 - No invented data: no hard-coded products, prices, stock, discounts, ratings, reviews,
   badges or scarcity claims.
 - Required components (price with tax label, payment element, legal and compliance

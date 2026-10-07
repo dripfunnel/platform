@@ -151,10 +151,16 @@ the missing backend.
 - There is no column-mapping step, no image ZIP and no customer or order import.
 
 ### Storefront (PortalStorefront)
-- The AI can edit **only the hero section** (headline, subheading, button, colours).
+- ~~The AI can edit **only the hero section** (headline, subheading, button, colours).~~ Redrawn 2026-10-08: the AI edits the whole site data (`storefront-lib.js`).
 - ~~"Go back to this" (revert) doesn't really restore that version (:131).~~
 - ~~"View live site" is toast only (:133).~~
-- There is no preview link to share, and no page, header or footer editing.
+- ~~There is no page, header or footer editing.~~ Redrawn 2026-10-08.
+- Decided 2026-10-08 on #470 and not drawn yet (FIRST-RELEASE §14 gives the wording):
+  - the **"Your brand"** step before the gallery, and Site settings › **Brand**;
+  - the **Pages** and **Journal** tabs (the new file has only Design and Site settings; `StorefrontContent` holds their drawing);
+  - the catalogue **Publish now** bar on the Design tab;
+  - **Open preview ↗** in the studio's top bar.
+- "View live site" is still toast only.
 
 ### Settings
 - **Tab host (PortalSettings):**

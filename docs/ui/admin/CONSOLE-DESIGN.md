@@ -187,8 +187,8 @@ why it shapes the interface. The engine is specified in
    the gate on the session and invalidates it when billing changes. The admin console shows
    which stores are in this state and why, and must not confuse it with **Suspended** (a
    staff or partner decision).
-9. **The storefront is a repo per store** created from the template, with an AI-editable
-   `src/theme/` and commerce logic in the published `@dripfunnel/storefront-core` package
+9. **The storefront is a repo per store** created from the template, its look as AI-edited
+   site data (`site.json`) and commerce logic in the published `@dripfunnel/storefront-core` package
    (docs/storefront/ARCHITECTURE.md). Builds run in GitHub Actions through the GitHub App and
    deploy to Cloudflare as a preview and a live site. A **sync bot** rolls
    `storefront-core` upgrades across the fleet with canaries. The admin console is where
