@@ -3,9 +3,10 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isCountry } from '#core/countries'
 import { accountKindOf, CourierRejected, couriersFor, type CourierProvider, type Parcel, type PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
-import { convert, isCurrency, type Money } from '#core/money'
+import { isCurrency, type Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
 import { selectRates } from '#db/scoped/rates'
+import { moneyIn } from '#engine/modules/markets/index'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import {
   courierRateOff,
@@ -114,16 +115,6 @@ const maxLines = 100
 const testParcelGrams = 500
 
 const statusOf = (row: CourierRow | undefined): CourierStatus => (!row || row.role === 'off' ? 'off' : row.last_test_result === 'rejected' ? 'failed' : row.role)
-
-const rateOf = (rates: ReadonlyMap<string, { per_euro: string }>, currency: string) => (currency === 'EUR' ? '1' : (rates.get(currency)?.per_euro ?? null))
-
-/** Money in another currency at the reference rate; null without a rate (CATALOG fact 26). */
-const inCurrency = (money: Money, to: string, rates: ReadonlyMap<string, { per_euro: string }>): Money | null => {
-  if (money.currency === to) return money
-  const from = rateOf(rates, money.currency)
-  const target = rateOf(rates, to)
-  return from && target ? convert(money, to, from, target) : null
-}
 
 export const createShippingService = ({ sql, context, actor, activity, facts, now, couriers }: ShippingDeps) => {
   const { storeId } = context
@@ -370,7 +361,7 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       const versions = await selectParcelVersions(tx, storeId, request.lines.map((l) => l.versionId.toLowerCase()))
       const market = request.marketId ? await selectMarketDelivery(tx, storeId, request.marketId.toLowerCase()) : null
       const listed = store?.shipping?.area_mode === 'list' && postal !== null && country === store.country ? await postalCodeListed(tx, postal) : false
-      const rates = await selectRates(tx, [...new Set([currency, store?.shipping?.currency ?? currency, 'INR', 'USD'])])
+      const rates = new Map([...(await selectRates(tx, [...new Set([currency, store?.shipping?.currency ?? currency, 'INR', 'USD'])])).values()].map((r) => [r.currency, r.per_euro]))
       const rows = await selectQuoteCouriers(tx, storeId)
       return { store, versions, market, listed, rates, rows }
     })
@@ -389,14 +380,14 @@ export const createShippingService = ({ sql, context, actor, activity, facts, no
       const answers = await Promise.all(order.map((row) => ask(row.provider, parcel)))
       for (const [i, row] of order.entries()) {
         const rate = answers[i]?.rate ?? null
-        const amount = rate ? inCurrency(rate.amount, currency, loaded.rates) : null
+        const amount = rate ? moneyIn(rate.amount, currency, loaded.rates) : null
         if (rate && amount) {
           courier = { provider: row.provider, amount, service: rate.service, minDays: rate.minDays, maxDays: rate.maxDays }
           break
         }
       }
     }
-    const own = (amount: string | null) => (amount === null ? null : inCurrency({ amount: BigInt(amount), currency: settings.currency }, currency, loaded.rates))
+    const own = (amount: string | null) => (amount === null ? null : moneyIn({ amount: BigInt(amount), currency: settings.currency }, currency, loaded.rates))
     const marketFlat = loaded.market?.delivery_amount != null && loaded.market.currency === currency ? { amount: BigInt(loaded.market.delivery_amount), currency } : null
     const options = deliveryOptions({
       currency,
