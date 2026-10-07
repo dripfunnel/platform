@@ -85,15 +85,20 @@ using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('
 create policy order_shop_read on "order" for select to app_shop
 using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id')
   and (customer_id = app_setting_uuid('app.customer_id') or (customer_id is null and access_token_hash = current_order_token_hash())));
+-- A currency and market only of the store's offer, as its shop policies show them (§7.11): never one a storefront invents.
 create policy order_shop_insert on "order" for insert to app_shop
 with check (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and state = 'cart'
-  and (customer_id = app_setting_uuid('app.customer_id') or (customer_id is null and access_token_hash = current_order_token_hash())));
+  and (customer_id = app_setting_uuid('app.customer_id') or (customer_id is null and access_token_hash = current_order_token_hash()))
+  and currency in (select s.pricing_currency::text from store s union all select c.currency::text from store_currency c)
+  and (market_id is null or market_id in (select m.id from market m)));
 -- A guest's cart may be claimed by the account it signs into (its customer_id set to its own), never by anyone else.
 create policy order_shop_update on "order" for update to app_shop
 using (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and state = 'cart'
   and (customer_id = app_setting_uuid('app.customer_id') or (customer_id is null and access_token_hash = current_order_token_hash())))
 with check (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and state = 'cart'
-  and (customer_id = app_setting_uuid('app.customer_id') or (customer_id is null and access_token_hash = current_order_token_hash())));
+  and (customer_id = app_setting_uuid('app.customer_id') or (customer_id is null and access_token_hash = current_order_token_hash()))
+  and currency in (select s.pricing_currency::text from store s union all select c.currency::text from store_currency c)
+  and (market_id is null or market_id in (select m.id from market m)));
 
 create policy cart_line_system on cart_line for all to app_system using (true) with check (true);
 create policy cart_line_merchant on cart_line for select to app_request
