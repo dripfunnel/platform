@@ -52,12 +52,12 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const gql = async (source: string, who: { host?: string; session?: string; cart?: string } = {}) => {
+const gql = async (source: string, who: { host?: string; session?: string; cart?: string; codeCheck?: '0' } = {}) => {
   const host = who.host ?? hostOf.india
   const headers: Record<string, string> = { ...(who.session ? { 'x-shop-session': who.session } : {}), ...(who.cart ? { 'x-shop-cart': who.cart } : {}) }
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async (key) => (limiterKeys.push(key), allow), sessionToken: who.session ?? null, allowNewCart: async () => true, now }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async (key) => (limiterKeys.push(key), allow), sessionToken: who.session ?? null, allowNewCart: async () => true, codeCheck: who.codeCheck, now }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -107,6 +107,26 @@ describe('signing in by a texted code', () => {
     expect(((await verify('PHONE', '+919845022113', await textedCode('+919845022113'))).data?.['verifySignInCode'] as { created: boolean }).created).toBe(false)
   })
 
+  it('accepts any code for a live request when CODE_CHECK is 0', async () => {
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919855555555") }')
+    try {
+      expect((await verify('PHONE', '+919855555555', '000000', '', { codeCheck: '0' })).data?.['verifySignInCode']).toMatchObject({ created: true })
+    } finally {
+      await db.sql`delete from customer_session where customer_id in (select id from customer where phone = '+919855555555')`
+      await db.sql`delete from customer where phone = '+919855555555'`
+    }
+  })
+  it('still refuses an expired code and one out of tries when CODE_CHECK is 0', async () => {
+    const spoiled = [
+      (target: string) => db.sql`update customer_code set expires_at = '2000-01-01' where target = ${target} and used_at is null`,
+      (target: string) => db.sql`update customer_code set attempts = 5 where target = ${target} and used_at is null`,
+    ]
+    for (const spoil of spoiled) {
+      await gql('mutation { requestSignInCode(channel: PHONE, to: "+919866666666") }')
+      await spoil('+919866666666')
+      expect((await verify('PHONE', '+919866666666', '000000', '', { codeCheck: '0' })).code).toBe('CODE_REFUSED')
+    }
+  })
   it('spends a code after five wrong tries, and limits a number to three codes in ten minutes', async () => {
     await gql('mutation { requestSignInCode(channel: PHONE, to: "+919800000001") }')
     const code = await textedCode('+919800000001')

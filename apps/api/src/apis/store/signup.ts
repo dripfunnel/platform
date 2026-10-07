@@ -3,6 +3,7 @@ import type { RequestFacts } from '#auth/activity'
 import { hashPassword, minPasswordLength } from '#auth/password'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, phoneHint, smsCodeMs } from '#auth/storeCodes'
+import { codeMatches, type CodeCheck } from '#auth/codeCheck'
 import { setStoreCookie } from '#auth/storeSession'
 import { countriesIn, countryOf } from '#core/countries'
 import { isE164 } from '#core/sms'
@@ -97,12 +98,12 @@ const answer = (outcome: unknown, ok: Record<string, unknown>, cookie?: string) 
 const refuseSignup = (r: SignupRefusal): Response => (r.code === 'SUBDOMAIN_TAKEN' ? json(400, { ok: false, ...r }) : refuse(r))
 
 /** A wrong code counts, committed with the answer; the fifth closes the code (a new one comes by asking again). */
-const checkCode = async (tx: ScopedSql, s: SignupRow, which: 'email' | 'phone', typed: string, now: Date): Promise<Refusal | null> => {
+const checkCode = async (tx: ScopedSql, s: SignupRow, which: 'email' | 'phone', typed: string, now: Date, mode: CodeCheck): Promise<Refusal | null> => {
   const hash = which === 'email' ? s.email_code_hash : s.phone_code_hash
   const expiresAt = which === 'email' ? s.email_code_expires_at : s.phone_code_expires_at
   const attempts = which === 'email' ? s.email_code_attempts : s.phone_code_attempts
   if (!hash || !expiresAt || expiresAt <= now || attempts >= maxSmsCodeAttempts) return { code: 'CODE_EXPIRED' }
-  if ((await hashSmsCode(`signup-${which}:${s.id}`, typed.trim())) === hash) return null
+  if (codeMatches((await hashSmsCode(`signup-${which}:${s.id}`, typed.trim())) === hash, mode)) return null
   await bumpSignupAttempt(tx, s.id, which)
   return { code: 'WRONG_CODE', triesLeft: Math.max(0, maxSmsCodeAttempts - attempts - 1) }
 }
@@ -112,7 +113,7 @@ export const verifySignupEmail = async (request: Request, deps: StoreAuthDeps, c
   const input = await readBody(request, codeInput)
   const now = deps.now()
   const outcome = await withSignup(deps, cookie, ['email'], async (tx, s) => {
-    const wrong = input ? await checkCode(tx, s, 'email', input.code, now) : { code: 'WRONG_CODE' as const }
+    const wrong = input ? await checkCode(tx, s, 'email', input.code, now, deps.codeCheck) : { code: 'WRONG_CODE' as const }
     if (wrong) return wrong
     await advanceSignup(tx, s.id, 'store')
     return { countries: await offeredCountries(tx, deps.partnerId) }
@@ -182,7 +183,7 @@ export const verifySignupPhone = async (request: Request, deps: StoreAuthDeps, f
   const input = await readBody(request, codeInput)
   const now = deps.now()
   const outcome = await withSignup(deps, cookie, ['phone'], async (tx, s): Promise<SignupRefusal | { admission: Admission; storeId: string }> => {
-    const wrong = input ? await checkCode(tx, s, 'phone', input.code, now) : { code: 'WRONG_CODE' as const }
+    const wrong = input ? await checkCode(tx, s, 'phone', input.code, now, deps.codeCheck) : { code: 'WRONG_CODE' as const }
     if (wrong) return wrong
     const country = s.country ? countryOf(s.country) : null
     if (!s.phone || !s.store_name || !s.subdomain || !country) return { code: 'SIGNUP_EXPIRED' }

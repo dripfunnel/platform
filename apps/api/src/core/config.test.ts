@@ -19,6 +19,13 @@ describe('parseConfig', () => {
     }
   })
 
+  it('takes CODE_CHECK=0 on dev and localhost only', () => {
+    expect(() => parseConfig({ ...hosts, CODE_CHECK: '0' })).toThrow(/CODE_CHECK=0 is for dev and local development only/)
+    expect(parseConfig({ ...hosts, HOOKS_HOST: 'dev-hooks.dripfunnel.ai', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
+    expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', CODE_CHECK: '0' }).CODE_CHECK).toBe('0')
+    expect(parseConfig({ ...hosts, CODE_CHECK: '1' }).CODE_CHECK).toBe('1')
+  })
+
   it('asks for the suppression key with the email stand-in, as SES does', () => {
     expect(() => parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', EMAIL_LOCAL: '1' })).toThrow(/EMAIL_LOCAL needs EMAIL_SUPPRESSION_KEY/)
   })

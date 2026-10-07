@@ -401,11 +401,11 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success })
+      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), now: () => new Date() }
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), codeCheck: config.CODE_CHECK, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
   })
@@ -483,7 +483,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, sessionToken: request.headers.get(shopSessionHeader), now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, codeCheck: config.CODE_CHECK, sessionToken: request.headers.get(shopSessionHeader), now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))

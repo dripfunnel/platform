@@ -56,8 +56,11 @@ const configSchema = z.object({
   SMS_LOCAL: z.literal('1').optional(),
   DNS_LOCAL: z.literal('1').optional(),
   COURIERS_LOCAL: z.literal('1').optional(),
+  // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
+  CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
+const devHooksHost = 'dev-hooks.dripfunnel.ai'
 const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
@@ -68,6 +71,7 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   const modeOf = (key: string | undefined) => key?.match(/_(test|live)_/)?.[1]
   if (c.STRIPE_PUBLISHABLE_KEY !== undefined && modeOf(c.STRIPE_PUBLISHABLE_KEY) !== modeOf(c.STRIPE_SECRET_KEY)) ctx.addIssue({ code: 'custom', message: 'STRIPE_PUBLISHABLE_KEY must be in STRIPE_SECRET_KEY’s mode', path: ['STRIPE_PUBLISHABLE_KEY'] })
   if ((c.STRIPE_TEST_SECRET_KEY === undefined) !== (c.STRIPE_TEST_PUBLISHABLE_KEY === undefined)) ctx.addIssue({ code: 'custom', message: 'STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PUBLISHABLE_KEY go together', path: ['STRIPE_TEST_SECRET_KEY'] })
+  if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !/(^|\.)localhost$/.test(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
   if (/(^|\.)localhost$/.test(c.HOOKS_HOST)) return
   for (const key of localOnly) {
     if (c[key] !== undefined) ctx.addIssue({ code: 'custom', message: `${key} is for local development only (HOOKS_HOST on localhost)`, path: [key] })

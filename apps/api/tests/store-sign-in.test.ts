@@ -239,6 +239,39 @@ describe('the second factor', () => {
       await db.sql`update "user" set two_factor_method = null, two_factor_enrolled_at = null, phone = null where id = ${people.staff}`
     }
   })
+
+  it('with CODE_CHECK unset a wrong text code is refused, and with 0 an expired or out-of-tries one still is', async () => {
+    await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+919845022113', two_factor_secret_enc = null where id = ${people.staff}`
+    try {
+      const spoiled = [
+        () => db.sql`update verification_code set expires_at = '2000-01-01' where subject_id = ${people.staff}`,
+        () => db.sql`update verification_code set attempts = 5 where subject_id = ${people.staff}`,
+      ]
+      const wrong = await post('/api/auth/sign-in', { email: 'staff@a.example', password })
+      await post('/api/auth/send-code', {}, wrong.cookie)
+      expect((await post('/api/auth/second-factor', { code: '000000' }, wrong.cookie)).body).toMatchObject({ ok: false, code: 'WRONG_CODE' })
+      for (const spoil of spoiled) {
+        await db.sql`delete from verification_code where subject_id = ${people.staff}`
+        const res = await post('/api/auth/sign-in', { email: 'staff@a.example', password })
+        await post('/api/auth/send-code', {}, res.cookie)
+        await spoil()
+        expect((await post('/api/auth/second-factor', { code: '000000' }, res.cookie, deps({ codeCheck: '0' }))).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
+      }
+    } finally {
+      await db.sql`update "user" set two_factor_method = null, two_factor_enrolled_at = null, phone = null, failed_code_count = 0, locked_until = null where id = ${people.staff}`
+    }
+  })
+  it('accepts any texted code when CODE_CHECK is 0', async () => {
+    await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+919845022113', two_factor_secret_enc = null where id = ${people.staff}`
+    try {
+      await db.sql`delete from verification_code where subject_id = ${people.staff}`
+      const res = await post('/api/auth/sign-in', { email: 'staff@a.example', password })
+      await post('/api/auth/send-code', {}, res.cookie)
+      expect((await post('/api/auth/second-factor', { code: '000000' }, res.cookie, deps({ codeCheck: '0' }))).body).toEqual({ ok: true })
+    } finally {
+      await db.sql`update "user" set two_factor_method = null, two_factor_enrolled_at = null, phone = null where id = ${people.staff}`
+    }
+  })
 })
 
 describe('an Owner enrolling by SMS', () => {
@@ -252,6 +285,13 @@ describe('an Owner enrolling by SMS', () => {
     expect(done.body['backupCodes']).toHaveLength(10)
     const [row] = await db.sql<{ two_factor_method: string; phone: string }[]>`select two_factor_method, phone from "user" where id = ${owner}`
     expect(row).toEqual({ two_factor_method: 'sms', phone: '+16145550199' })
+  })
+  it('takes any code when CODE_CHECK is 0', async () => {
+    const owner = await user(t.partnerA, 'third.owner@a.example', 'Third Owner')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
+    const res = await post('/api/auth/sign-in', { email: 'third.owner@a.example', password })
+    await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550198' }, res.cookie)
+    expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code: '000000' }, res.cookie, deps({ codeCheck: '0' }))).body['backupCodes']).toHaveLength(10)
   })
 })
 
