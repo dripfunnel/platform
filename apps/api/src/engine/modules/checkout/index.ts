@@ -71,7 +71,7 @@ export interface PlacedOrder {
   instructions: string | null
 }
 
-export interface CheckoutDeps extends CartDeps {
+export interface CheckoutDeps extends Omit<CartDeps, 'allowNewCart'> {
   /** The store's country, for which providers may take payment there. */
   country: string | null
 }
@@ -167,7 +167,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
    * and a transfer is due in 3 days; a card provider holds it when its payment arrives (parts 2–3).
    */
   const place = async (provider: string): Promise<CheckoutResult<PlacedOrder>> => {
-    const cart = await createCartService(deps).cart()
+    const cart = await createCartService({ ...deps, allowNewCart: async () => false }).cart()
     if (!cart) return { ok: false, reason: 'NOT_FOUND' }
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
     if (cart.lines.some((l) => l.problem === 'short' || l.problem === 'unavailable')) return { ok: false, reason: 'OUT_OF_STOCK' }
