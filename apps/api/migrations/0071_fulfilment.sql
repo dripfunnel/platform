@@ -9,7 +9,7 @@ create table fulfilment (
   -- The actor's owner, not the part's: a to-store supplier's hand-off carries its own, the store's onward shipment null,
   -- so a supplier never reads the shopper's tracking (ACCESS §7.3).
   seller_id uuid,
-  kind text not null check (kind in ('booked', 'manual', 'sent_to_store', 'pickup')),
+  kind text not null check (kind in ('manual', 'sent_to_store', 'pickup')),
   warehouse_id uuid not null,
   courier_name text check (char_length(courier_name) between 1 and 80),
   tracking_number text check (char_length(tracking_number) between 1 and 80),

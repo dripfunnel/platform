@@ -197,6 +197,16 @@ describe('refunds on a card order', () => {
     expect((await refund('owner', id, [], ', extra: "1", reason: goodwill')).code).toBe('NOT_PAID')
   })
 
+  it('caps money only on a line at what its shipped units are worth', async () => {
+    const half = await paidOrder('A-3060', 'cod')
+    const house = await lineOf(half, versions.house)
+    await db.sql`update order_line set fulfilled_quantity = 1 where id = ${house}`
+    expect((await refund('owner', half, [{ id: house, quantity: 0, amount: '1001' }])).code).toBe('TOO_MANY')
+    expect((await refund('owner', half, [{ id: house, quantity: 0, amount: '1000' }])).code).toBeUndefined()
+    await db.sql`update order_line set fulfilled_quantity = 0 where id = ${house}`
+    expect((await refund('owner', half, [{ id: house, quantity: 0, amount: '1' }])).code).toBe('TOO_MANY')
+  })
+
   it('never starts a return of units already refunded outside one', async () => {
     expect((await gql(`mutation { startReturn(orderId: "${id}", lines: [{ lineId: "${lines.house}", quantity: 1 }], reason: damaged) }`, 'owner')).code).toBe('TOO_MANY')
   })

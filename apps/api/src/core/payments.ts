@@ -53,7 +53,7 @@ export interface RefundRequest {
   amount: Money
 }
 
-/** The provider's refund and where it stands: most finish later, which reading it again tells (`refundOutcome`). */
+/** The provider's refund and where it stands: most stay pending until the bank answers (reading them again: open on #310). */
 export interface RefundOutcome {
   providerRef: string
   state: 'done' | 'pending' | 'failed'
