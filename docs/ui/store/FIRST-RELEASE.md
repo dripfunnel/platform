@@ -621,7 +621,7 @@ checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by e
 code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption**; digital
 downloads after payment; services sold with no booking (§1); marketing consent at
 checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
-queries are edge-cached per store, language and currency and purged by events (§5.5 there).
+queries are edge-cached per store, catalogue version, language, currency and market, the version's move being the purge (§5.5 there).
 
 ---
 
