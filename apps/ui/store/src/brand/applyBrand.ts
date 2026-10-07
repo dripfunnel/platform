@@ -19,12 +19,26 @@ const authPanel = (brand: Brand): Record<string, string> => {
   return panel ? { '--df-auth-panel': panel } : {}
 }
 
+// The families @fontsource-variable registers, which carry a " Variable" suffix (shared/ui/fonts.css).
+export const fontFamilies: Record<string, string> = {
+  Nunito: 'Nunito Variable',
+  'Source Sans 3': 'Source Sans 3 Variable',
+  Manrope: 'Manrope Variable',
+  Lora: 'Lora Variable',
+  'DM Sans': 'DM Sans Variable',
+}
+
+const fontTokens = (font: string | null): Record<string, string> => {
+  const family = font ? fontFamilies[font] : undefined
+  return family ? { '--df-font': `"${family}", system-ui, sans-serif`, '--df-font-heading': `"${family}", system-ui, sans-serif` } : {}
+}
+
 export const brandTokens = (brand: Brand): Record<string, string> => ({
   ...(brand.primaryColor ? { '--df-color-side': brand.primaryColor } : {}),
   ...(brand.accentColor
     ? { '--df-color-brand': brand.accentColor, '--df-color-brand-hover': `color-mix(in srgb, ${brand.accentColor} 88%, black)`, '--df-color-brand-contrast': 'var(--df-color-ink)' }
     : {}),
-  ...(brand.font ? { '--df-font': `"${brand.font}", system-ui, sans-serif`, '--df-font-heading': `"${brand.font}", system-ui, sans-serif` } : {}),
+  ...fontTokens(brand.font),
   ...(brand.corner ? radii[brand.corner] : {}),
   ...authPanel(brand),
 })

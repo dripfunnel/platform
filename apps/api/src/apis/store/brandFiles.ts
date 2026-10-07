@@ -18,15 +18,21 @@ export const serveBrandFile = async (sql: postgres.Sql, assets: R2Bucket | null,
   if (!assets) return new Response(null, { status: 404 })
   const brand = await withSystemScope(sql, (tx) => selectPortalBrand(tx, partnerId, now))
   const key = brand?.[brandFiles[file]]
-  const object = key ? await assets.get(key) : null
+  if (!key) return new Response(null, { status: 404 })
+  const object = await assets.get(key)
   if (!object) return new Response(null, { status: 404 })
   let contentType = object.httpMetadata?.contentType ?? 'application/octet-stream'
   let body: ReadableStream | null = object.body
-  // Raster logos go out as WebP, capped at 512 px wide; SVG is already small.
-  if (images && contentType !== 'image/svg+xml') {
-    const out = await images.input(object.body).transform({ width: 512 }).output({ format: 'image/webp' })
-    contentType = out.contentType()
-    body = out.image()
+  // Raster logos go out as WebP, capped at 512 px wide; SVG is already small and a favicon keeps its size.
+  if (images && file !== 'favicon' && contentType !== 'image/svg+xml') {
+    try {
+      const out = await images.input(object.body).transform({ width: 512 }).output({ format: 'image/webp' })
+      contentType = out.contentType()
+      body = out.image()
+    } catch {
+      // A corrupt file or a spent transformation quota still serves the original.
+      body = (await assets.get(key))?.body ?? null
+    }
   }
   return new Response(body, {
     headers: {

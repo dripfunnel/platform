@@ -367,6 +367,28 @@ describe('what never crosses a partner, a store or a supplier', () => {
     expect(calls).toHaveLength(2)
   })
 
+  it('serves the original when the transform fails, and never resizes a favicon', async () => {
+    await db.sql`update partner_branding set logo_light_key = 'partners/a/brand/logo.png', favicon_key = 'partners/a/brand/fav.png' where partner_id = ${t.partnerA}`
+    const assets = { get: async (key: string) => ({ body: key, httpMetadata: { contentType: 'image/png' } }) } as unknown as R2Bucket
+    let transforms = 0
+    const images = {
+      input: () => ({
+        transform: () => ({
+          output: async () => {
+            transforms++
+            throw new Error('quota')
+          },
+        }),
+      }),
+    } as unknown as ImagesBinding
+    const logo = await serveBrandFile(db.sql, assets, images, t.partnerA, 'logo-light', clock)
+    expect(logo.status).toBe(200)
+    expect(logo.headers.get('content-type')).toBe('image/png')
+    expect(await logo.text()).toBe('partners/a/brand/logo.png')
+    const icon = await serveBrandFile(db.sql, assets, images, t.partnerA, 'favicon', clock)
+    expect(await icon.text()).toBe('partners/a/brand/fav.png')
+    expect(transforms).toBe(1)
+  })
   it('reads no other partner’s session: a full session from this host is nobody on partner B’s', async () => {
     const res = await post('/api/auth/sign-in', { email: 'nadia@northwind.example', password })
     expect((await gql('{ me { name } }', res.cookie, {}, t.partnerB)).data?.['me']).toBeNull()
