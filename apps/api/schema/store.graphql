@@ -455,6 +455,7 @@ type Mutation {
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
+  markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   proposeProduct(input: ProductInput!): SavedProduct
   publishProductStory(productId: ID!, revision: Int!): ProductStory
@@ -512,6 +513,8 @@ type Mutation {
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
+  turnOffPaymentMethod(provider: String!): Boolean
+  turnOnPaymentMethod(bankDetails: String, provider: String!): Boolean
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
   updateProfile(name: String!, phone: String): Profile
   useCourierForPricing(provider: String!): Boolean
@@ -546,6 +549,13 @@ type PageInfo {
   hasNextPage: Boolean
   hasPreviousPage: Boolean
   startCursor: String
+}
+
+type PaymentMethodSetup {
+  bankDetails: String
+  connectable: Boolean
+  live: Boolean
+  provider: String
 }
 
 type Product {
@@ -886,6 +896,7 @@ type Query {
   myStores(after: String, before: String, first: Int): StoreChoices
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   navBadges: StoreNavBadges
+  paymentSetup: [PaymentMethodSetup!]
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product

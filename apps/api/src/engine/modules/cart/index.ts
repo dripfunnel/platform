@@ -60,6 +60,8 @@ export interface CartView {
   billingAddress: CartAddress | null
   shippingOption: CartRow['shipping_option']
   checkoutStep: CartRow['checkout_step']
+  /** Moves with every change: placement refuses a cart changed after it was priced. */
+  revision: number
   lines: CartLineView[]
   subtotal: Money
   /** Null until there is an address to deliver to; collection in person is offered without one. */
@@ -138,6 +140,7 @@ export const createCartService = (deps: CartDeps) => {
       billingAddress: row.billing_address,
       shippingOption: row.shipping_option,
       checkoutStep: row.checkout_step,
+      revision: row.revision,
       lines,
       subtotal,
       deliverable,

@@ -7,6 +7,7 @@ type Mutation {
   addToCart(quantity: Int!, versionId: ID!): ShopCartChange
   checkout: ShopCart
   deleteAddress(id: ID!): Boolean
+  placeOrder(provider: String!): ShopPlacedOrder
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
   saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
   setBillingAddress(address: ShopAddressInput): ShopCartChange
@@ -34,6 +35,8 @@ type Query {
   collections(after: String, before: String, first: Int): ShopCollectionPage
   health: String
   menu: [ShopMenuItem!]
+  order(id: ID!): ShopOrder
+  paymentOptions: [ShopPaymentOption!]
   product(slug: String!): ShopProduct
   products(after: String, before: String, collection: String, filters: [ID!], first: Int, search: String, sort: ShopProductSort): ShopProductPage
   search(after: String, before: String, first: Int, query: String!): ShopProductPage
@@ -233,10 +236,51 @@ type ShopOptionValue {
   name: String
 }
 
+type ShopOrder {
+  id: ID
+  lines: [ShopOrderLine!]
+  number: String
+  paymentDueBy: String
+  paymentMethod: String
+  paymentState: String
+  placedAt: String
+  pricesIncludeTax: Boolean
+  shipping: ShopMoney
+  shippingMethod: String
+  shippingOption: String
+  state: String
+  subtotal: ShopMoney
+  tax: ShopMoney
+  total: ShopMoney
+}
+
+type ShopOrderLine {
+  lineTotal: ShopMoney
+  name: String
+  quantity: Int
+  unitPrice: ShopMoney
+  versionName: String
+}
+
+type ShopPaymentOption {
+  instructions: String
+  kind: String
+  mode: String
+  provider: String
+}
+
 type ShopPhoto {
   alt: String
   image: Image
   versionId: ID
+}
+
+type ShopPlacedOrder {
+  instructions: String
+  number: String
+  orderId: ID
+  provider: String
+  total: ShopMoney
 }
 
 type ShopProduct {

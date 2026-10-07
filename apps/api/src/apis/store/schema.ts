@@ -18,6 +18,7 @@ import { registerStoreInfo } from './storeInfo'
 import { registerTax } from './tax'
 import { registerShipping } from './shipping'
 import { registerCustomerAccounts } from './customerAccounts'
+import { registerPayments } from './payments'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
@@ -49,6 +50,7 @@ registerShopify(builder)
 registerTax(builder)
 registerShipping(builder)
 registerCustomerAccounts(builder)
+registerPayments(builder)
 registerListing(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

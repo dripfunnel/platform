@@ -949,6 +949,9 @@ payment_provider_account
                      position)
                     -- the merchant's own providers (flow 56; THIRD-PARTY-ACCESS §3.1); never
                     -- the subscription's payment method (§7.9)
+                    -- Built on #309 (0068): one row per store and provider, external_account_id for a
+                    -- Stripe Connect account, bank_details as the text shoppers are shown, status live | off;
+                    -- the merchant writes only cash on delivery and bank transfer, others connect in system scope
 invoice_settings    (store_id PK, legal_name, address jsonb, tax_id NULL, tax_per_line boolean,
                      email_with_dispatch boolean, footer text)
                     -- SetOps "Save invoice settings" and the "from" block of a shopper's
@@ -1373,6 +1376,16 @@ payment             (id, order_id, store_id, provider, provider_account_id, prov
                      ('card'|'wallet'|'upi'|'cod'|'bank_transfer'|…), state ('pending'|'authorised'
                      |'captured'|'failed'|'refunded'), amount, currency, captured_at)
                     -- webhooks idempotent through provider_ref (PLATFORM-PROMPT §5.4 Payments)
+                    -- Built on #309 (migration 0068) with mode (test | live) and the order's placement
+                    -- columns on "order" (number, placed_at, paid_at, cancelled_at, cancel_reason, the
+                    -- amounts, shipping_method_label, payment_method, payment_due_by for a transfer,
+                    -- stock_reserved); order_line, order_adjustment and order_part as above, order_line
+                    -- also holding reserved_warehouse_id (the one location its held stock sits at, so a
+                    -- cancellation gives back exactly that). Placement and payment write in system scope
+                    -- after the cart is read as its shopper; suppliers reach orders with SAPI 11. No English is
+                    -- snapshotted: order_adjustment.label is null where its kind says it all (shipping, tax) and
+                    -- shipping_method_label holds only a courier's own service name; clients word the rest by
+                    -- shipping_option and kind in the shopper's language (AGENTS "Product")
 payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state ('pending'|'done'|'failed'),
                      amount, currency)
 

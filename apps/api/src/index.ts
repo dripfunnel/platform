@@ -67,6 +67,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
+import { releaseUnpaidTransfers } from '#engine/modules/checkout/index'
 import { deleteExpiredCarts } from '#db/scoped/cart'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
@@ -525,6 +526,12 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
+      // Bank transfers unpaid after 3 days are cancelled and their stock released (FIRST-RELEASE §1).
+      const released = await releaseUnpaidTransfers(sql, activityLog, new Date()).catch((error: unknown) => {
+        logEvent({ event: 'unpaid_transfers_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+        return 0
+      })
+      if (released > 0) logEvent({ event: 'unpaid_transfers_cancelled', api: 'system', code: 'unpaid_transfer', count: released })
       // Old sign-in codes and sessions go, with the addresses they named.
       await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
         logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
