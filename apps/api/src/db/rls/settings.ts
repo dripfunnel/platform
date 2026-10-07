@@ -29,6 +29,8 @@ export interface RlsSettings {
   'app.user_id': string
   /** The signed-in staff member (platform scope): who may start an impersonation as themselves (0030). */
   'app.staff_id': string
+  /** The hash of the cart token a guest shopper presented (migration 0066): its own carts, compared in the database. */
+  'app.order_token_hash': string
 }
 
 const empty = {
@@ -40,6 +42,7 @@ const empty = {
   'app.impersonation_id': '',
   'app.user_id': '',
   'app.staff_id': '',
+  'app.order_token_hash': '',
 }
 
 export const settingsFor = (context: CallerContext): RlsSettings => {
@@ -58,6 +61,7 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
       // Grants nothing; it attributes the write (LOGGING.md §4).
       'app.impersonation_id': caller.kind === 'impersonation' ? caller.impersonationId : '',
       'app.user_id': caller.kind === 'person' ? caller.userId : '',
+      'app.order_token_hash': caller.kind === 'shopper' ? (caller.orderTokenHash ?? '') : '',
     }
   }
   if (isPartnerContext(context)) {

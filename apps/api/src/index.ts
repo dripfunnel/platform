@@ -9,7 +9,7 @@ import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
 import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache'
-import { resolveShopper } from '#auth/shopCaller'
+import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
@@ -67,6 +67,9 @@ import { withSystemScope } from '#db/scoped/index'
 import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
+import { releaseUnpaidTransfers } from '#engine/modules/checkout/index'
+import { deleteExpiredCarts } from '#db/scoped/cart'
+import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
@@ -98,6 +101,8 @@ interface Env extends Record<string, unknown> {
   STAFF_SESSION_RATE_LIMITER?: RateLimit | undefined
   // Every Shop API call, per storefront host and IP (FIRST-RELEASE §19).
   SHOP_RATE_LIMITER?: RateLimit | undefined
+  // A guest's new carts, per store and IP (FIRST-RELEASE §19); unbound, nothing limits them.
+  CART_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
 }
@@ -406,6 +411,8 @@ const shopRefusal = (status: number, code: string, message: string) =>
 
 // A storefront host (docs/ARCHITECTURE.md §2): the store comes from the host or the public store key, and a host no store
 // holds answers 404, as a portal host no partner holds does.
+const cartLimiter = (limiter: RateLimit | undefined) => (limiter ? async (key: string) => (await limiter.limit({ key })).success : undefined)
+
 const handleShop = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   const facts = factsOf(request)
   const hyperdrive = config.HYPERDRIVE
@@ -418,7 +425,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: cartLimiter(env.CART_RATE_LIMITER), sessionToken: request.headers.get(shopSessionHeader), now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
@@ -519,6 +526,20 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
+      // Bank transfers unpaid after 3 days are cancelled and their stock released (FIRST-RELEASE §1).
+      const released = await releaseUnpaidTransfers(sql, activityLog, new Date()).catch((error: unknown) => {
+        logEvent({ event: 'unpaid_transfers_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+        return 0
+      })
+      if (released > 0) logEvent({ event: 'unpaid_transfers_cancelled', api: 'system', code: 'unpaid_transfer', count: released })
+      // Old sign-in codes and sessions go, with the addresses they named.
+      await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
+        logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
+      // Carts past their 30 days go, with whatever address or email a guest left in them.
+      await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
+        logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
       // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
       await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
         logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

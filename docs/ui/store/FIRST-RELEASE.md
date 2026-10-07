@@ -570,6 +570,34 @@ as a product ages. An answer with errors is never
 kept, and the store is still found and rate-limited first. Anything else (carts, accounts, from SAPI 9) is never cached.
 Every answer goes out `private, no-store`: only the data centre's copy is kept, since nothing in front of it sees the
 version move or the headers the key reads.
+**Built on #308 (SAPI 9), part 1, the guest's cart:** `cart`, `addToCart(versionId, quantity)` (a guest's first add hands out
+`cartToken` once, sent back as `X-Shop-Cart`; a signed-in shopper's cart is its account's), `setCartQuantity` (0 removes),
+`setCartContact(email, phone, note)`, `setShippingAddress`, `setBillingAddress` (null bills the delivery address),
+`setShippingOption` (one of the cart's `shippingOptions`: courier, flat or pickup, SAPI 23's quote) and `checkout`, which
+moves the cart to payment or refuses `NOT_READY` with its `problems`. The cart holds what the shopper chose and nothing
+priced; each read prices it now: lines at today's price with what stops one being bought (gone, not sold here, unpriced,
+more than is left), delivery, tax from the store's rates (GST across or within states; Stripe Tax once SAPI 10 connects
+it), and the total. A change after reaching payment goes back to delivery. Up to 100 lines of up to 999; a cart lives 30
+days from its last change. A guest's new carts are limited per store and address (`CART_RATE_LIMITER`, 20 a minute). The names above replace §19's `updateLine` and `setShipping`.
+**Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, India starting with
+both), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
+the address has an account; 3 per address in 10 minutes, 10 a minute per requester, 50 texts a store in 10 minutes), `verifySignInCode(channel, to, code, name,
+password)` (proves the email or number: signs in, making the account when there's none; with an email, a password sets or
+resets it; one refusal for a wrong, used or expired code, 5 tries), `signIn(email, password)` (one refusal for any mismatch,
+rate-limited per store and IP and per email), `signOut`, `account`, `updateAccount(name)`, `saveAddress`, `deleteAddress`. The
+session token is handed out once and sent back as `X-Shop-Session`; signing in with a guest cart's token makes that cart the
+account's. The Store API's `customerAccounts` (the mode and how many accounts have an email, a number, only a number) and
+`saveCustomerAccounts(mode)` are the Owner's (`settings`).
+**Built on #309 (SAPI 10), part 1:** `paymentOptions` (the ways the store takes payment, in its region's order, a
+transfer's bank details with it), `placeOrder(provider)` (a ready cart becomes an order numbered `order_prefix` + the
+next number, its lines, parts per owner, delivery and tax snapshotted at today's price; cash on delivery and bank transfer
+hold the stock at once, checked again under lock, `OUT_OF_STOCK` when it's gone; a transfer is due in 3 days), and
+`order(id)` (the shopper's own, a guest's by its cart token; `shippingOption` and a courier's `shippingMethod`, worded by the
+storefront in the shopper's language). The Store API's `paymentSetup` (the region's providers),
+`turnOnPaymentMethod` (cash on delivery in India, bank transfer with its details) and `turnOffPaymentMethod` are the
+Owner's (`payments.configure`); `markOrderPaid` is the Owner's and Manager's (`orders.mark_paid`). The cron cancels a
+transfer unpaid after 3 days and gives its stock back. The card providers (Stripe, PayPal, Razorpay, Cashfree, PhonePe)
+come in parts 2 and 3.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

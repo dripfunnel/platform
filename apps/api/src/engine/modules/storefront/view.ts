@@ -15,6 +15,8 @@ export interface ShopVersionView {
   /** What's left to sell; null when the store doesn't count this version's stock. */
   available: number | null
   inStock: boolean
+  /** Sold on when none is left (CATALOG: "keep selling when out of stock"). */
+  continueSelling: boolean
   weightGrams: number | null
 }
 
@@ -67,6 +69,7 @@ export const productView = (row: ShopProductRow, f: ViewFacts): ShopProductView 
       compareAt: price.amount !== null && price.compareAt !== null && price.compareAt > price.amount ? { amount: price.compareAt, currency: f.currency } : null,
       available,
       inStock: !v.track_stock || v.continue_selling || (available ?? 0) > 0,
+      continueSelling: v.continue_selling,
       weightGrams: v.weight_grams,
     }
   })
