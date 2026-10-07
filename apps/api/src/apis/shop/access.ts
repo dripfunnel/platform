@@ -18,6 +18,8 @@ export interface ShopContext extends Record<string, unknown> {
   couriers?: CourierDirectory | null
   /** The sign-in limiter (SIGN_IN_RATE_LIMITER) by key; refuses everything where it isn't bound. */
   allowAttempt?: (key: string) => Promise<boolean>
+  /** The new-cart limiter (CART_RATE_LIMITER) by key; absent where it isn't bound, and nothing limits new carts. */
+  allowNewCart?: ((key: string) => Promise<boolean>) | undefined
   now: () => Date
 }
 
