@@ -7,7 +7,7 @@ import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
-// SAPI 23's quote as a shopper's cart will run it (#305's review): app_shop reads what the shopper pays and the couriers
+// SAPI 23's quote as a shopper's cart will run it: app_shop reads what the shopper pays and the couriers
 // that price it, asks store_delivers_to() about a postcode, and never reads the list or a courier's settings.
 
 let db: TestDatabase
