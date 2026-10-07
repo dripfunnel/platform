@@ -33,11 +33,7 @@ export const selectSnapshotVersions = (tx: ScopedSql, storeId: string, ids: read
     where v.store_id = ${storeId} and v.id = any (${pgArray(ids)}::uuid[])
   `
 
-/**
- * Holds a line's stock at the live location with the most left, locked first so two orders can't both take the last
- * one. A line is held at one location (order_line.reserved_warehouse_id), so that one must have enough: null when it
- * hasn't and the version doesn't sell on; the location's id otherwise.
- */
+/** Holds a line at the one location with most left, locked, which must have it all unless the version sells on (DATA-MODEL §7.6). */
 export const reserveLine = async (tx: ScopedSql, storeId: string, versionId: string, quantity: number, sellsOn: boolean): Promise<{ warehouseId: string | null } | null> => {
   const levels = await tx<{ warehouse_id: string; free: number }[]>`
     select l.warehouse_id, l.on_hand - l.reserved as free from stock_level l join warehouse w on w.id = l.warehouse_id and w.deleted_at is null

@@ -36,9 +36,9 @@ export type PaymentProvider = (typeof paymentProviders)[number]
 /** Paid later, so the order is accepted and holds its stock when placed (decided 2026-10-05 on #284). */
 const manual = ['cod', 'bank_transfer'] as const
 
-/** Who may take payment where (FIRST-RELEASE §1): India's and the US's providers, a bank transfer anywhere. */
+/** Who may take payment where (FIRST-RELEASE §1): India's and the US's providers; no other region at launch. */
 export const providersFor = (country: string | null): readonly PaymentProvider[] =>
-  country === 'IN' ? ['razorpay', 'cashfree', 'phonepe', 'cod', 'bank_transfer'] : country === 'US' ? ['stripe', 'paypal', 'bank_transfer'] : ['bank_transfer']
+  country === 'IN' ? ['razorpay', 'cashfree', 'phonepe', 'cod', 'bank_transfer'] : country === 'US' ? ['stripe', 'paypal', 'bank_transfer'] : []
 
 export const transferDaysMs = 3 * 86_400_000
 
@@ -103,7 +103,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
   const { storeId } = context
   const customerId = context.caller.kind === 'shopper' ? context.caller.customerId : null
 
-  const options = (): Promise<PaymentOption[]> => withScope(sql, context, async (tx) => optionsOf(await selectLivePaymentAccounts(tx, storeId), deps.country))
+  const liveAccounts = () => withScope(sql, context, (tx) => selectLivePaymentAccounts(tx, storeId))
+  const options = async (): Promise<PaymentOption[]> => optionsOf(await liveAccounts(), deps.country)
 
   const placedEntry = (orderId: string, number: string): ActivityEntry => ({
     category: 'write',
@@ -171,9 +172,11 @@ export const createCheckout = (deps: CheckoutDeps) => {
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
     if (cart.lines.some((l) => l.problem === 'short' || l.problem === 'unavailable')) return { ok: false, reason: 'OUT_OF_STOCK' }
     if (cart.problems.length > 0 || cart.checkoutStep !== 'pay') return { ok: false, reason: 'NOT_READY', problems: cart.problems }
-    const option = (await options()).find((o) => o.provider === provider)
+    // One read: the option and the account the payment names can't drift apart.
+    const accounts = await liveAccounts()
+    const option = optionsOf(accounts, deps.country).find((o) => o.provider === provider)
     if (!option) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
-    const accountId = (await withScope(sql, context, (tx) => selectLivePaymentAccounts(tx, storeId))).find((a) => a.provider === option.provider)?.id ?? null
+    const accountId = accounts.find((a) => a.provider === option.provider)?.id ?? null
     try {
       return await withSystemScope(sql, async (tx) => {
         const locked = await lockCart(tx, storeId, cart.id)
@@ -243,10 +246,7 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
     return { ok: true, value: true }
   })
 
-/**
- * The cron's sweep: a bank transfer unpaid after 3 days is cancelled by the system and its stock released, logged with
- * the system as actor (LOGGING §3; decided 2026-10-05 on #284). Answers how many it cancelled.
- */
+/** The cron cancels a transfer unpaid after 3 days and releases its stock, as the system (LOGGING §3; #284). */
 export const releaseUnpaidTransfers = (sql: postgres.Sql, activity: ActivityLog, now: Date): Promise<number> =>
   withSystemScope(sql, async (tx) => {
     const due = await selectUnpaidTransfers(tx, now, 100)
