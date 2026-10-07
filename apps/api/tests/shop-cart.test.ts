@@ -159,6 +159,10 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     await expect(withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set payment_state = 'paid'`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, await guest(stores.india, null), (tx) => tx`insert into "order" (store_id, currency) values (${stores.india}, 'INR')`)).rejects.toThrow(/row-level security/)
     await expect(withScope(db.sql, await guest(stores.india, null), (tx) => tx`select access_token_hash from "order"`)).rejects.toThrow(/permission denied/)
+    // A currency or market the store doesn't offer is refused; its own pricing currency is taken (#443's review).
+    await expect(withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set currency = 'JPY'`)).rejects.toThrow(/row-level security/)
+    await expect(withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set market_id = ${crypto.randomUUID()}`)).rejects.toThrow(/row-level security/)
+    expect((await withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set currency = 'INR'`)).count).toBe(1)
   })
 
   it('shows a shopper its own store’s tax facts only, in shop scope only (migration 0066)', async () => {

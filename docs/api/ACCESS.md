@@ -1237,8 +1237,8 @@ builds the table must ship:
 - a shopper reads and writes `shopper_note` on its own cart and never reads `"order".notes`
   (DATA-MODEL §7.6);
 - **shopper writes are bounded**: `app_shop` inserting an `order_line` or updating any
-  `*_amount`, `state` or `payment_state` on `"order"` is refused; the same through the
-  `app_definer` cart functions succeeds and writes the engine's figures; a shopper updating
+  `*_amount`, `state` or `payment_state` on `"order"` is refused; a shopper setting its cart's
+  currency or market to one the store doesn't offer is refused; a shopper updating
   another shopper's `customer_address` is refused; a shopper updating a placed order's
   address, email or pickup flag is refused (`state = 'cart'` in `USING` and `WITH CHECK`); a
   shopper writing a price or a total anywhere is refused, since a cart holds none and the engine
