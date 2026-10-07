@@ -9,7 +9,7 @@ import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
 import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache'
-import { resolveShopper } from '#auth/shopCaller'
+import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
@@ -67,7 +67,9 @@ import { withSystemScope } from '#db/scoped/index'
 import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
+import { releaseUnpaidTransfers } from '#engine/modules/checkout/index'
 import { deleteExpiredCarts } from '#db/scoped/cart'
+import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
@@ -423,7 +425,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, allowNewCart: cartLimiter(env.CART_RATE_LIMITER), now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: cartLimiter(env.CART_RATE_LIMITER), sessionToken: request.headers.get(shopSessionHeader), now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
@@ -524,6 +526,16 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
+      // Bank transfers unpaid after 3 days are cancelled and their stock released (FIRST-RELEASE §1).
+      const released = await releaseUnpaidTransfers(sql, activityLog, new Date()).catch((error: unknown) => {
+        logEvent({ event: 'unpaid_transfers_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+        return 0
+      })
+      if (released > 0) logEvent({ event: 'unpaid_transfers_cancelled', api: 'system', code: 'unpaid_transfer', count: released })
+      // Old sign-in codes and sessions go, with the addresses they named.
+      await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
+        logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
       // Carts past their 30 days go, with whatever address or email a guest left in them.
       await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
         logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

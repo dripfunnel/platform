@@ -252,6 +252,14 @@ type CurrencyPrice {
   source: String
 }
 
+type CustomerAccounts {
+  customers: Int
+  mode: String
+  phoneOnly: Int
+  withEmail: Int
+  withPhone: Int
+}
+
 type Facet {
   id: ID
   name: String
@@ -447,6 +455,7 @@ type Mutation {
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
+  markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   proposeProduct(input: ProductInput!): SavedProduct
   publishProductStory(productId: ID!, revision: Int!): ProductStory
@@ -467,6 +476,7 @@ type Mutation {
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
   saveCourierOptions(input: CourierOptionsInput!, provider: String!): Boolean
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
+  saveCustomerAccounts(mode: String!): CustomerAccounts
   saveFacet(input: FacetInput!): ID
   saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
   saveLanguages(languages: [String!]!, main: String!): Boolean
@@ -503,6 +513,8 @@ type Mutation {
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
+  turnOffPaymentMethod(provider: String!): Boolean
+  turnOnPaymentMethod(bankDetails: String, provider: String!): Boolean
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
   updateProfile(name: String!, phone: String): Profile
   useCourierForPricing(provider: String!): Boolean
@@ -537,6 +549,13 @@ type PageInfo {
   hasNextPage: Boolean
   hasPreviousPage: Boolean
   startCursor: String
+}
+
+type PaymentMethodSetup {
+  bankDetails: String
+  connectable: Boolean
+  live: Boolean
+  provider: String
 }
 
 type Product {
@@ -864,6 +883,7 @@ type Query {
   collectionPreview(inheritParent: Boolean, match: String, parentId: ID, rules: [CollectionRuleInput!]!): CollectionPreview
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
+  customerAccounts: CustomerAccounts
   facets(after: String, before: String, first: Int): FacetPage
   health: String
   invoiceSettings: InvoiceSettings
@@ -876,6 +896,7 @@ type Query {
   myStores(after: String, before: String, first: Int): StoreChoices
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   navBadges: StoreNavBadges
+  paymentSetup: [PaymentMethodSetup!]
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product

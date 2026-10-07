@@ -4,6 +4,8 @@ import { createShopBuilder } from './builder'
 import { registerCatalog } from './catalog'
 import { registerProducts } from './products'
 import { registerCart } from './cart'
+import { registerAccounts } from './accounts'
+import { registerCheckout } from './checkout'
 
 export type { ShopContext } from './access'
 
@@ -15,5 +17,7 @@ registerCatalog(shop)
 registerProducts(shop)
 shop.builder.mutationType({})
 registerCart(shop)
+registerAccounts(shop)
+registerCheckout(shop)
 
 export const shopSchema = secureSchema(shop.builder.toSchema(), shopPolicy)

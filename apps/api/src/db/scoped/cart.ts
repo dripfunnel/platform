@@ -45,6 +45,10 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
     `
   )[0] ?? null
 
+/** The guest cart the request's token opens, which the policy alone decides (migration 0066). */
+export const selectGuestCartId = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ id: string }[]>`select id from "order" where store_id = ${storeId} and state = 'cart' and customer_id is null limit 1`)[0]?.id ?? null
+
 export const insertCart = async (tx: ScopedSql, storeId: string, c: { customerId: string | null; tokenHash: string | null; currency: string; marketId: string | null; language: string; expiresAt: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into "order" (store_id, customer_id, currency, market_id, language, cart_expires_at, access_token_hash)

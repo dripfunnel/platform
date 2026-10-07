@@ -5,7 +5,7 @@ import type { PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { insertCart, selectCart, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
+import { insertCart, selectCart, selectGuestCartId, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
 import type { FeatureKey } from '#db/scoped/catalogListing'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectTaxSetup } from '#db/scoped/tax'
@@ -15,6 +15,7 @@ import { computeTax, taxSettingOf, type LineTax } from '#engine/modules/tax/inde
 import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type PricedLine } from './rules'
 
 export type { AddressInput, CheckoutProblem, LineProblem } from './rules'
+export { cleanAddress } from './rules'
 export type { CartAddress } from '#db/scoped/cart'
 
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
@@ -59,6 +60,8 @@ export interface CartView {
   billingAddress: CartAddress | null
   shippingOption: CartRow['shipping_option']
   checkoutStep: CartRow['checkout_step']
+  /** Moves with every change: placement refuses a cart changed after it was priced. */
+  revision: number
   lines: CartLineView[]
   subtotal: Money
   /** Null until there is an address to deliver to; collection in person is offered without one. */
@@ -137,6 +140,7 @@ export const createCartService = (deps: CartDeps) => {
       billingAddress: row.billing_address,
       shippingOption: row.shipping_option,
       checkoutStep: row.checkout_step,
+      revision: row.revision,
       lines,
       subtotal,
       deliverable,
@@ -263,5 +267,18 @@ export const createCartService = (deps: CartDeps) => {
     return moved.ok ? { ok: true, value: moved.value.cart } : moved
   }
 
-  return { cart, add, setQuantity, setContact, setShippingAddress, setBillingAddress, setShippingOption, checkout }
+  /**
+   * On sign-in, the guest cart this request holds the token of becomes the account's (its customer set to the shopper's
+   * own, which the policy allows only with the token). Its token stays, so the browser's next call still finds it.
+   */
+  const claim = async (): Promise<boolean> => {
+    if (customerId === null || !shopper?.orderTokenHash) return false
+    return withScope(sql, deps.context, async (tx) => {
+      const guest = await selectGuestCartId(tx, storeId)
+      if (!guest) return false
+      return updateCart(tx, guest, { customerId }, { currency, marketId, language, expiresAt: expiry(), now: now() })
+    })
+  }
+
+  return { cart, add, setQuantity, setContact, setShippingAddress, setBillingAddress, setShippingOption, checkout, claim }
 }
