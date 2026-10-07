@@ -175,7 +175,7 @@ export const en = {
     tracking: (tracking: string) => `Tracking number ${tracking}.`,
     action: 'Track your parcel',
   },
-  money: (locale: string, amount: string, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(Number(toMajor({ amount: BigInt(amount), currency }))),
+  money: (locale: string, amount: string, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(toMajor({ amount: BigInt(amount), currency }) as `${number}`),
   date: (at: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(at)} (UTC)`,
 } as const
 
