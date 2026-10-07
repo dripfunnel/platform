@@ -191,5 +191,8 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     expect(await version(t.storeB1)).toBe(b1)
     await db.sql`update store set name = 'Store A1' where id = ${t.storeA1}`
     expect(Number(await version(t.storeA1))).toBe(Number(a1) + 2)
+    // A section switched off is a change a storefront shows (#442's review).
+    await db.sql`insert into store_feature (store_id, key, enabled) values (${t.storeA1}, 'faqs', true)`
+    expect(Number(await version(t.storeA1))).toBe(Number(a1) + 3)
   })
 })
