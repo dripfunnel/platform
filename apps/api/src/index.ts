@@ -108,6 +108,8 @@ interface Env extends Record<string, unknown> {
   STAFF_SESSION_RATE_LIMITER?: RateLimit | undefined
   // Every Shop API call, per storefront host and IP (FIRST-RELEASE §19).
   SHOP_RATE_LIMITER?: RateLimit | undefined
+  // A guest's new carts, per store and IP (FIRST-RELEASE §19); unbound, nothing limits them.
+  CART_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
 }
@@ -460,6 +462,8 @@ const shopRefusal = (status: number, code: string, message: string) =>
 
 // A storefront host (docs/ARCHITECTURE.md §2): the store comes from the host or the public store key, and a host no store
 // holds answers 404, as a portal host no partner holds does.
+const cartLimiter = (limiter: RateLimit | undefined) => (limiter ? async (key: string) => (await limiter.limit({ key })).success : undefined)
+
 const handleShop = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   const facts = factsOf(request)
   const hyperdrive = config.HYPERDRIVE
@@ -472,7 +476,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const found = await resolveShopper(sql, request, url.hostname)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
-    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), sessionToken: request.headers.get(shopSessionHeader), now: () => new Date() }
+    const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: cartLimiter(env.CART_RATE_LIMITER), sessionToken: request.headers.get(shopSessionHeader), now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))

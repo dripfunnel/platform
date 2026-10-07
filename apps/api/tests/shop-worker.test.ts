@@ -80,7 +80,7 @@ describe('the Shop API through the Worker', () => {
   })
 })
 
-describe('the edge cache through the Worker (#442’s review)', () => {
+describe('the edge cache through the Worker', () => {
   const kept = new Map<string, Response>()
   const memory = { match: async (key: Request) => kept.get(key.url)?.clone(), put: async (key: Request, response: Response) => void kept.set(key.url, response) }
 

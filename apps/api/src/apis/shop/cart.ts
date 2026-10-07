@@ -25,9 +25,11 @@ const answered = <T>(result: CartResult<T>): T => {
 export const cartOf = async (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
   const couriers = ctx.couriers ? await ctx.couriers.forPartner(shopper.context.partnerId) : null
-  // A guest's new cart is counted per store and address, so a script can't fill the table (#443's review).
-  const allowNewCart = async () => Boolean(ctx.facts.ip && ctx.allowAttempt && (await ctx.allowAttempt(`shop:${shopper.context.storeId}:cart:${ctx.facts.ip}`)))
-  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, stripeTax: stripeTaxOf(ctx), activity: ctx.activity, facts: ctx.facts, allowNewCart, now: ctx.now })
+  // A guest's new carts are counted per store and address, so a script can't fill the table; the Worker refuses a request
+  // with no address before this.
+  const limit = ctx.allowNewCart
+  const allowNewCart = limit ? () => limit(`cart:${shopper.context.storeId}:${ctx.facts.ip ?? 'none'}`) : undefined
+  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, stripeTax: stripeTaxOf(ctx), activity: ctx.activity, facts: ctx.facts, ...(allowNewCart ? { allowNewCart } : {}), now: ctx.now })
 }
 
 export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {

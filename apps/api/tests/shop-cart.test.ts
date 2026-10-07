@@ -57,7 +57,7 @@ const gql = async (source: string, who: { host?: string; token?: string | null }
   const headers: Record<string, string> = who.token ? { 'x-shop-cart': who.token } : {}
   const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, allowAttempt: async () => allow, now: () => new Date() }
+  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, ...(allow === null ? {} : { allowNewCart: async () => allow === true }), now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, problems: result.errors?.[0]?.extensions['problems'] as string[] | undefined }
 }
@@ -66,8 +66,8 @@ const cart = async (token: string | null, host?: string) => (await gql(`{ cart {
 const mutate = (token: string | null, field: string, args = '') => gql(`mutation { ${field}${args} { cart { ${cartFields} } } }`, { token })
 
 let token = ''
-// What the sign-in limiter answers for a new guest cart; a test turns it off.
-let allow = true
+// What the new-cart limiter answers, or null for no limiter bound; a test turns it off.
+let allow: boolean | null = true
 
 describe('a guest’s cart', () => {
   it('starts on the first add, handing out a token once; without it there is no cart', async () => {
@@ -159,7 +159,7 @@ describe('isolation (DATA-MODEL §7.11)', () => {
     await expect(withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set payment_state = 'paid'`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, await guest(stores.india, null), (tx) => tx`insert into "order" (store_id, currency) values (${stores.india}, 'INR')`)).rejects.toThrow(/row-level security/)
     await expect(withScope(db.sql, await guest(stores.india, null), (tx) => tx`select access_token_hash from "order"`)).rejects.toThrow(/permission denied/)
-    // A currency or market the store doesn't offer is refused; its own pricing currency is taken (#443's review).
+    // A currency or market the store doesn't offer is refused; its own pricing currency is taken.
     await expect(withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set currency = 'JPY'`)).rejects.toThrow(/row-level security/)
     await expect(withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set market_id = ${crypto.randomUUID()}`)).rejects.toThrow(/row-level security/)
     expect((await withScope(db.sql, await guest(stores.india, token), (tx) => tx`update "order" set currency = 'INR'`)).count).toBe(1)
@@ -199,11 +199,14 @@ describe('isolation (DATA-MODEL §7.11)', () => {
   })
 })
 
-describe('limits and expiry (#443’s review)', () => {
+describe('limits and expiry', () => {
   it('refuses a new guest cart once the limiter says no, but never an existing cart’s change', async () => {
     allow = false
     expect((await gql(`mutation { addToCart(versionId: "${ids.kurta}", quantity: 1) { cartToken } }`)).code).toBe('RATE_LIMITED')
     expect((await gql(`mutation { setCartQuantity(versionId: "${ids.kurta}", quantity: 1) { cart { id } } }`, { token })).code).toBeUndefined()
+    // Where no limiter is bound (a local Worker), nothing stops a new cart.
+    allow = null
+    expect((await gql(`mutation { addToCart(versionId: "${ids.kurta}", quantity: 1) { cartToken } }`)).code).toBeUndefined()
     allow = true
   })
 
