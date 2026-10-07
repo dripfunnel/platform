@@ -79,6 +79,7 @@ describe('brand file upload', () => {
     const mine = await read(key, cookies.admin)
     expect(mine.status).toBe(200)
     expect(mine.headers.get('content-type')).toBe('image/png')
+    expect(mine.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox")
     expect((await read(key, cookies.adminB)).status).toBe(404)
     expect((await read(key, null)).status).toBe(401)
     expect((await read(`partners/${t.partnerA}/brand/../secret`, cookies.admin)).status).toBe(404)

@@ -28,7 +28,7 @@ const readBrandFile = async (request: Request, store: BrandFileStore | null, par
   if (!store?.get || !new RegExp(`^partners/${partnerId}/brand/[\\w.-]+$`).test(key)) return new Response(null, { status: 404 })
   const object = await store.get(key)
   if (!object) return new Response(null, { status: 404 })
-  return new Response(object.body, { headers: { 'content-type': object.httpMetadata?.contentType ?? 'application/octet-stream', 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' } })
+  return new Response(object.body, { headers: { 'content-type': object.httpMetadata?.contentType ?? 'application/octet-stream', 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; sandbox" } })
 }
 
 export const handleBrandUpload = async (request: Request, deps: BrandUploadRouteDeps): Promise<Response> => {
