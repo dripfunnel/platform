@@ -453,9 +453,9 @@ engine. Each has its own schema, its own auth and its own rate limits.
   and totals. A storefront can display them but never assert them. This is what makes the
   AI-designed storefront safe to change freely, and a merchant's own storefront safe to
   allow at all.
-- Catalogue queries are **edge-cacheable**: persisted queries, cache keys per store,
-  language and currency, and cache tags per product and collection, purged by events
-  (§5.6). Cart, checkout and account queries are uncached and rate-limited per shopper and
+- Catalogue queries are **edge-cacheable**, keyed by store, its catalogue version, host,
+  language, currency and market, and the query itself (a POST body hashed); a change a
+  storefront shows moves the version, which is the purge (built on #306; FIRST-RELEASE §19). Cart, checkout and account queries are uncached and rate-limited per shopper and
   per store.
 - **Stable across the fleet**: a thousand AI storefronts and every merchant's own frontend
   depend on it. Additive changes only; deprecation with a published timeline; schema diffs
@@ -521,7 +521,7 @@ or admin console (ACCESS.md §8), integrations and apps:
   workflow artifact; the platform's publish Workflow fetches it through the GitHub App and
   deploys it to the store's Pages project (Pages direct upload) with its own token, so no deploy
   token ever reaches the repo.
-- **Cache purge** on catalogue change by tag or URL (check what the plan allows).
+- **Cache purge** on catalogue change: the Shop API's own answers by the catalogue version in their key (§5.5); the static storefront files by URL on publish.
 - **Assets** on R2, served through **Cloudflare image resizing** (decided 2026-10-05 on #337).
 - Degraded storefront for past-due or suspended stores, served at the edge.
 - **A store may have no AI storefront at all.** A merchant using their own frontend gets a

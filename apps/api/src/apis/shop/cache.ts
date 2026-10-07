@@ -22,6 +22,31 @@ interface GraphqlRequest {
   operationName: string | null
 }
 
+/** The body as text, or null past `max` bytes, read no further than that. */
+const boundedText = async (body: ReadableStream<Uint8Array> | null, max: number): Promise<string | null> => {
+  const reader = body?.getReader()
+  if (!reader) return null
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > max) {
+      void reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  const bytes = new Uint8Array(size)
+  let at = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, at)
+    at += chunk.byteLength
+  }
+  return new TextDecoder().decode(bytes)
+}
+
 const readRequest = async (request: Request): Promise<GraphqlRequest | null> => {
   if (request.method === 'GET') {
     const url = new URL(request.url)
@@ -35,8 +60,10 @@ const readRequest = async (request: Request): Promise<GraphqlRequest | null> => 
     }
   }
   if (request.method !== 'POST' || !(request.headers.get('content-type') ?? '').includes('application/json')) return null
-  const text = await request.clone().text()
-  if (text.length > maxBody) return null
+  // Never buffered past the cap: a body saying it's longer is refused unread, any other read only that far.
+  if (Number(request.headers.get('content-length') ?? 0) > maxBody) return null
+  const text = await boundedText(request.clone().body, maxBody)
+  if (text === null) return null
   try {
     const body = JSON.parse(text) as { query?: unknown; variables?: unknown; operationName?: unknown }
     return typeof body.query === 'string' ? { query: body.query, variables: body.variables ?? null, operationName: typeof body.operationName === 'string' ? body.operationName : null } : null
