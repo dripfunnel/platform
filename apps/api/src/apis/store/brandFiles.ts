@@ -40,6 +40,7 @@ export const serveBrandFile = async (sql: postgres.Sql, assets: R2Bucket | null,
       // A new version publishes new keys, so a short cache is enough to pick it up.
       'cache-control': 'public, max-age=300',
       'x-content-type-options': 'nosniff',
+      'content-security-policy': "default-src 'none'; sandbox",
     },
   })
 }

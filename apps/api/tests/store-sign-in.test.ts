@@ -337,6 +337,7 @@ describe('what never crosses a partner, a store or a supplier', () => {
     const live = await serve(t.partnerA, '/api/brand/logo-light')
     expect(live.status).toBe(200)
     expect(await live.text()).toBe('partners/a/brand/logo.svg')
+    expect(live.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox")
     expect((await serve(t.partnerA, '/api/brand/logo-dark')).status).toBe(404)
     expect((await serve(t.partnerB, '/api/brand/logo-light')).status).toBe(404)
     expect((await serve(t.partnerA, '/api/brand/../secrets')).status).toBe(404)

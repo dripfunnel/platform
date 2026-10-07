@@ -5,8 +5,8 @@ import type { Brand } from '../api/brand'
 // published brand passed both contrast checks (apps/api src/saas/partnerBranding/contrast.ts).
 
 const radii: Record<string, Record<string, string>> = {
-  soft: { '--df-radius-small': '3px', '--df-radius': '4px', '--df-radius-card': '6px', '--df-radius-dialog': '8px' },
-  square: { '--df-radius-small': '0', '--df-radius': '0', '--df-radius-card': '0', '--df-radius-dialog': '0' },
+  soft: { '--df-radius-small': '3px', '--df-radius': '4px', '--df-radius-card': '6px', '--df-radius-dialog': '8px', '--df-auth-radius-tile': '4px', '--df-auth-radius': '5px', '--df-auth-radius-icon': '7px' },
+  square: { '--df-radius-small': '0', '--df-radius': '0', '--df-radius-card': '0', '--df-radius-dialog': '0', '--df-auth-radius-tile': '0', '--df-auth-radius': '0', '--df-auth-radius-icon': '0' },
 }
 
 const panels = (primary: string, accent: string): Record<string, string> => ({

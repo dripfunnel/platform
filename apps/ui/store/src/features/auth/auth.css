@@ -56,7 +56,7 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: var(--df-radius-small);
+  border-radius: var(--df-auth-radius-tile, 9px);
   background: var(--df-color-brand);
   color: var(--df-color-brand-contrast);
   font-family: var(--df-font-heading);
@@ -241,7 +241,7 @@
   justify-content: center;
   width: 52px;
   height: 52px;
-  border-radius: var(--df-radius-dialog);
+  border-radius: var(--df-auth-radius-icon, 14px);
   font-size: 24px;
 }
 
@@ -280,7 +280,7 @@
   margin: 0;
   padding: 12px 14px;
   border: 1px solid;
-  border-radius: var(--df-radius);
+  border-radius: var(--df-auth-radius, 10px);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -333,7 +333,7 @@
   padding: 0 6px 0 14px;
   box-sizing: border-box;
   border: 1.5px solid var(--df-color-field-border);
-  border-radius: var(--df-radius);
+  border-radius: var(--df-auth-radius, 10px);
   background: var(--df-color-surface);
 }
 
@@ -432,7 +432,7 @@
 .df-auth-primary {
   height: 52px;
   border: 0;
-  border-radius: var(--df-radius);
+  border-radius: var(--df-auth-radius, 10px);
   background: var(--df-color-brand);
   color: var(--df-color-brand-contrast);
   font-family: var(--df-font-heading);
@@ -453,7 +453,7 @@
 .df-auth-secondary {
   height: 48px;
   border: 1px solid var(--df-color-field-border);
-  border-radius: var(--df-radius);
+  border-radius: var(--df-auth-radius, 10px);
   background: var(--df-color-surface);
   color: var(--df-color-text);
   font-family: var(--df-font-heading);

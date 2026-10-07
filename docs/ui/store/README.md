@@ -192,7 +192,7 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
 - **Partner look, built on #291**: the primary colour paints the header and side bar
   (`--df-color-side`, white text) and the accent is the brand colour (`--df-color-brand`, dark
   text), the pair the brand's publish checks (SAAS §3.3). The font and corners become
-  `--df-font*` and `--df-radius*` (Soft 3–8 px, Square 0, Rounded keeps the defaults), and the
+  `--df-font*` and `--df-radius*` (Soft 3–8 px, Square 0, Rounded keeps the defaults; the sign-in screen's own radii follow the same corner through `--df-auth-radius*`, and keep their own look when no corner is set), and the
   sign-in background paints the brand panel (Sand stripes in the accent, Photo a gradient of
   the primary, Plain the primary). The dark-background logo sits in the header and on the
   sign-in panel, the light one on the phone sign-in; with no logo the mark, then the initial
