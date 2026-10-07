@@ -67,5 +67,5 @@ export const shellSample = (search: { as?: string | undefined; store?: string | 
 /** The prototype's partner sample (Northstar Commerce), for `?brand=partner`. */
 export const brandSample = (search: URLSearchParams): Brand | null =>
   harnessEnabled && search.get('brand') === 'partner'
-    ? { productName: 'Northstar Shops', primaryColor: '#1B3A5B', accentColor: '#2BB673', files: { logoLight: null, logoDark: null, mark: null, favicon: null }, supportEmail: 'help@northstar.shop', supportUrl: null, helpUrl: null, poweredBy: true }
+    ? { productName: 'Northstar Shops', primaryColor: '#1B3A5B', accentColor: '#2BB673', font: null, corner: null, background: null, files: { logoLight: null, logoDark: null, mark: null, favicon: null }, supportEmail: 'help@northstar.shop', supportUrl: null, helpUrl: null, poweredBy: true }
     : null

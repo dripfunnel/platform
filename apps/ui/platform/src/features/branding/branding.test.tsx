@@ -111,4 +111,36 @@ describe('Branding', () => {
       expect(html).toMatch(/<input id="brand-product"[^>]*disabled=""/)
     }
   })
+
+  describe('brand files', () => {
+    const withFiles = (files: Partial<Record<'logoLight' | 'logoDark' | 'mark' | 'favicon', string>>, screen: 'signin' | 'header' = 'signin', mode: 'light' | 'dark' = 'light') => {
+      const branding = northstarBranding['partner-owner']
+      const original = draftOf(branding)
+      const draft = { ...original, look: { ...original.look, files: { logoLight: '', logoDark: '', mark: '', favicon: '', ...files } } }
+      return view({ draft, original, preview: { screen, device: 'desktop', mode, onScreen: noop, onDevice: noop, onMode: noop } })
+    }
+    const url = (key: string) => `/api/uploads/brand-file?key=${encodeURIComponent(key)}`
+
+    it('shows a thumbnail and Remove for a file that is set, and None yet without Remove for one that is not', async () => {
+      const html = await withFiles({ mark: 'partners/p/brand/m.png' })
+      expect(html).toContain(`class="df-brand-thumb" src="${url('partners/p/brand/m.png')}"`)
+      expect(html).toContain(`aria-label="${words.look.removeLabel.replace('{file}', words.look.files.mark)}"`)
+      expect(html).not.toContain(`aria-label="${words.look.removeLabel.replace('{file}', words.look.files.logoLight)}"`)
+      expect(textOf(html)).toContain(words.look.noFile)
+    })
+
+    it('draws the light logo on the sign-in card, the dark one in dark mode and in the header', async () => {
+      const files = { logoLight: 'partners/p/brand/l.png', logoDark: 'partners/p/brand/d.png' }
+      expect(await withFiles(files)).toContain(`class="pv-logo" src="${url(files.logoLight)}"`)
+      expect(await withFiles(files, 'signin', 'dark')).toContain(`class="pv-logo" src="${url(files.logoDark)}"`)
+      expect(await withFiles(files, 'header')).toContain(`class="pv-logo" src="${url(files.logoDark)}"`)
+    })
+
+    it('falls back to the mark, then to a plain tile', async () => {
+      const marked = await withFiles({ mark: 'partners/p/brand/m.png' })
+      expect(marked).toContain(`<span class="pv-mark" aria-hidden="true"><img src="${url('partners/p/brand/m.png')}"`)
+      expect(marked).not.toContain('class="pv-logo"')
+      expect(await withFiles({})).toContain('<span class="pv-mark" aria-hidden="true"></span>')
+    })
+  })
 })

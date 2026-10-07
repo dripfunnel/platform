@@ -191,8 +191,13 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
   opens the chooser at `/stores`, which refuses none, opens one and lists several.
 - **Partner look, built on #291**: the primary colour paints the header and side bar
   (`--df-color-side`, white text) and the accent is the brand colour (`--df-color-brand`, dark
-  text), the pair the brand's publish checks (SAAS §3.3); the header shows the partner's initial
-  and product name where DripFunnel's logo would be.
+  text), the pair the brand's publish checks (SAAS §3.3). The font and corners become
+  `--df-font*` and `--df-radius*` (Soft 3–8 px, Square 0, Rounded keeps the defaults; the sign-in screen's own radii follow the same corner through `--df-auth-radius*`, and keep their own look when no corner is set), and the
+  sign-in background paints the brand panel (Sand stripes in the accent, Photo a gradient of
+  the primary, Plain the primary). The dark-background logo sits in the header and on the
+  sign-in panel, the light one on the phone sign-in; with no logo the mark, then the initial
+  and product name, stand in. Files come from `/api/brand/*` on the portal host, raster ones
+  served as WebP at most 512 px wide through the Worker's `IMAGES` binding (SVG untouched).
 - **Role-shaped screens**: one screen, different views per role (a product list shows
   supplier attribution to the merchant and only own products to a vendor). The role comes
   from the session context the API returns, never from local state.

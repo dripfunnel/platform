@@ -9,6 +9,7 @@ import { checkBrandFile, type BrandFileCheck, type BrandFileKind } from './brand
 /** The one thing an upload needs of the assets bucket (the Worker's `ASSETS` R2 binding). */
 export interface BrandFileStore {
   put: (key: string, value: Uint8Array, options: { httpMetadata: { contentType: string } }) => Promise<unknown>
+  get?: (key: string) => Promise<{ body: ReadableStream; httpMetadata?: { contentType?: string } } | null>
 }
 
 export interface BrandUploadDeps {

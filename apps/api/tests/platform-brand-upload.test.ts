@@ -18,6 +18,10 @@ const store: BrandFileStore = {
   put: async (key, value, options) => {
     stored.set(key, { bytes: value, contentType: options.httpMetadata.contentType })
   },
+  get: async (key) => {
+    const file = stored.get(key)
+    return file ? { body: new Response(file.bytes as BodyInit).body as ReadableStream, httpMetadata: { contentType: file.contentType } } : null
+  },
 }
 const cookies = { admin: '', reader: '', adminB: '' }
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13])
@@ -68,6 +72,18 @@ afterAll(async () => {
 })
 
 describe('brand file upload', () => {
+  it('reads a file back by key, only from the caller’s own brand prefix', async () => {
+    const key = ((await (await upload(png, cookies.admin)).json()) as { key: string }).key
+    const read = (k: string, cookie: string | null) =>
+      send(new Request(`https://${host}/api/uploads/brand-file?key=${encodeURIComponent(k)}`, { headers: { ...(cookie ? { cookie: `${partnerCookieName}=${cookie}` } : {}) } }))
+    const mine = await read(key, cookies.admin)
+    expect(mine.status).toBe(200)
+    expect(mine.headers.get('content-type')).toBe('image/png')
+    expect(mine.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox")
+    expect((await read(key, cookies.adminB)).status).toBe(404)
+    expect((await read(key, null)).status).toBe(401)
+    expect((await read(`partners/${t.partnerA}/brand/../secret`, cookies.admin)).status).toBe(404)
+  })
   it('stores a good file under the caller’s own prefix by its sniffed type, and logs it', async () => {
     const response = await upload(png, cookies.admin)
     const body = (await response.json()) as { ok: boolean; key: string }

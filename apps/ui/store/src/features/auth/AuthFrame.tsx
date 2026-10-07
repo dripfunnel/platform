@@ -61,8 +61,14 @@ export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, childre
           <span className="df-portal-auth-ring" aria-hidden="true" />
           {brand ? (
             <span className="df-portal-auth-mark">
-              <span className="df-portal-auth-mark-tile">{initials(brand.productName).slice(0, 1)}</span>
-              <span className="df-portal-auth-mark-name">{brand.productName}</span>
+              {brand.files.logoDark ? (
+                <img src={brand.files.logoDark} alt={brand.productName} />
+              ) : (
+                <>
+                  <span className="df-portal-auth-mark-tile">{brand.files.mark ? <img src={brand.files.mark} alt="" /> : initials(brand.productName).slice(0, 1)}</span>
+                  <span className="df-portal-auth-mark-name">{brand.productName}</span>
+                </>
+              )}
             </span>
           ) : (
             <span className="df-portal-auth-mark">
@@ -94,8 +100,14 @@ export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, childre
             <span className="df-portal-auth-phone-logo">
               {brand ? (
                 <span className="df-portal-auth-mark df-portal-auth-mark--light">
-                  <span className="df-portal-auth-mark-tile">{initials(brand.productName).slice(0, 1)}</span>
-                  <span className="df-portal-auth-mark-name">{brand.productName}</span>
+                  {brand.files.logoLight ? (
+                    <img src={brand.files.logoLight} alt={brand.productName} />
+                  ) : (
+                    <>
+                      <span className="df-portal-auth-mark-tile">{brand.files.mark ? <img src={brand.files.mark} alt="" /> : initials(brand.productName).slice(0, 1)}</span>
+                      <span className="df-portal-auth-mark-name">{brand.productName}</span>
+                    </>
+                  )}
                 </span>
               ) : (
                 <>
