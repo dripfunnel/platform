@@ -184,7 +184,7 @@ export interface ShopSortWindow {
 
 const shopSortOf = (tx: ScopedSql, sort: ShopSort, q: ShopProductQuery) => {
   // The price in the cart's currency: typed in it, or converted at the reference rate. A market's adjustment moves every
-  // price by the same share, so it never changes the order.
+  // price by the same share, so it changes the order only where rounding (ends-99, nearest) brings two prices level.
   const converted = q.perEuro ? tx`round(base.amount * (${q.perEuro.currency}::numeric / ${q.perEuro.pricing}::numeric))::bigint` : tx`null::bigint`
   const minPrice = tx`(
     select min(coalesce(own.amount, ${converted})) from product_version v
