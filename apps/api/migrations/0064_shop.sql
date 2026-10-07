@@ -159,7 +159,7 @@ grant select (delivery_amount) on market to app_shop;
 grant execute on function store_delivers_to(text) to app_shop;
 -- A shopper's own entries (LOGGING §6: visibility self), as 0006's shop branch reads them: what happened and when, never
 -- who else acted, from where (ip, user agent) or the recorded changes.
-grant select (id, occurred_at, category, action, result, customer_id, target_type, target_id, target_label, visibility) on activity_log to app_shop;
+grant select (id, occurred_at, category, action, result, actor_kind, customer_id, target_type, target_id, target_label, visibility) on activity_log to app_shop;
 
 do $$
 declare
