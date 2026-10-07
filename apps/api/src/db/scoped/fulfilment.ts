@@ -169,5 +169,6 @@ export const lockFulfilmentForTracking = async (tx: ScopedSql, storeId: string, 
   )[0] ?? null
 
 export const setTracking = async (tx: ScopedSql, fulfilmentId: string, t: { courierName: string | null; trackingNumber: string; trackingUrl: string | null }): Promise<void> => {
-  await tx`update fulfilment set courier_name = coalesce(${t.courierName}, courier_name), tracking_number = ${t.trackingNumber}, tracking_url = ${t.trackingUrl} where id = ${fulfilmentId}`
+  // A correction keeps what it doesn't restate: the courier's name and the tracking address.
+  await tx`update fulfilment set courier_name = coalesce(${t.courierName}, courier_name), tracking_number = ${t.trackingNumber}, tracking_url = coalesce(${t.trackingUrl}, tracking_url) where id = ${fulfilmentId}`
 }

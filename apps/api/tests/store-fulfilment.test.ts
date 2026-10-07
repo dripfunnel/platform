@@ -158,7 +158,9 @@ describe('the store ships its own lines', () => {
   it('a to-shopper supplier ships its own lines from its own location, and sees its own shipment only', async () => {
     const scarf = await lineOf(id, versions.scarf)
     expect((await ship('drop', id, places.main, [{ id: scarf, quantity: 2 }])).code).toBe('NOT_YOURS')
-    expect((await ship('drop', id, places.drop, [{ id: house, quantity: 1 }])).code).toBe('NOT_YOURS')
+    // Another owner's line answers as one that doesn't exist: a supplier learns nothing of others' lines (ACCESS §7.3).
+    expect((await ship('drop', id, places.drop, [{ id: house, quantity: 1 }])).code).toBe('NOT_FOUND')
+    expect((await ship('drop', id, places.drop, [{ id: crypto.randomUUID(), quantity: 1 }])).code).toBe('NOT_FOUND')
     expect((await ship('drop', id, places.drop, [{ id: scarf, quantity: 2 }], ', trackingNumber: "BD9"')).code).toBeUndefined()
     expect(await level(versions.scarf, places.drop)).toEqual({ on_hand: 3, reserved: 0 })
     expect((await states(id)).parts[t.sellerA1First]).toBe('shipped')
@@ -183,10 +185,12 @@ describe('the store ships its own lines', () => {
 
   it('adds or corrects tracking on a shipment by whoever sent it', async () => {
     const [mine] = await db.sql<{ id: string }[]>`select id from fulfilment where order_id = ${id} and seller_id is null and tracking_number is null`
-    expect((await gql(`mutation { addTracking(shipmentId: "${mine?.id ?? ''}", courierName: "Blue Dart", trackingNumber: "BD1") }`, 'owner')).data?.['addTracking']).toBe(true)
+    expect((await gql(`mutation { addTracking(shipmentId: "${mine?.id ?? ''}", courierName: "Blue Dart", trackingNumber: "BD0", trackingUrl: "https://track.example/BD0") }`, 'owner')).data?.['addTracking']).toBe(true)
+    // Correcting the number keeps the courier and the address it doesn't restate.
+    expect((await gql(`mutation { addTracking(shipmentId: "${mine?.id ?? ''}", trackingNumber: "BD1") }`, 'owner')).data?.['addTracking']).toBe(true)
     expect((await gql(`mutation { addTracking(shipmentId: "${mine?.id ?? ''}", trackingNumber: "BD2") }`, 'drop')).code).toBe('NOT_FOUND')
     expect((await gql(`mutation { addTracking(shipmentId: "${mine?.id ?? ''}", trackingNumber: "BD2", trackingUrl: "ftp://x") }`, 'owner')).code).toBe('INVALID_INPUT')
-    expect((await db.sql`select courier_name, tracking_number from fulfilment where id = ${mine?.id ?? ''}`)[0]).toEqual({ courier_name: 'Blue Dart', tracking_number: 'BD1' })
+    expect((await db.sql`select courier_name, tracking_number, tracking_url from fulfilment where id = ${mine?.id ?? ''}`)[0]).toEqual({ courier_name: 'Blue Dart', tracking_number: 'BD1', tracking_url: 'https://track.example/BD0' })
   })
 })
 

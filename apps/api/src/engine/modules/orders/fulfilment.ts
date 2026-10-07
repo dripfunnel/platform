@@ -117,7 +117,8 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
         if (order.state !== 'placed' || order.test || !goneThrough) return { ok: false, reason: 'NOT_SHIPPABLE' }
         if (!(await ownsWarehouse(tx, storeId, sellerId, input.warehouseId))) return { ok: false, reason: 'NOT_YOURS' }
 
-        const byId = new Map(all.map((l) => [l.id, l]))
+        // A supplier looks lines up among its own only, so another owner's line is as unknown as one that doesn't exist.
+        const byId = new Map(all.filter((l) => !sellerId || l.seller_id === sellerId).map((l) => [l.id, l]))
         const picked: { line: LineToShipRow; quantity: number }[] = []
         for (const [i, id] of ids.entries()) {
           const line = byId.get(id)
