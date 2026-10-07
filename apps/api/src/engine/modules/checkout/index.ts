@@ -1,52 +1,52 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import type { SecretBox } from '#auth/secretBox'
 import { isUuid } from '#core/ids'
+import { logEvent } from '#core/log'
 import type { Money } from '#core/money'
+import { isCardProvider, PaymentNeedsPhone, PaymentRefused, PaymentUnavailable, type CardProvider, type OAuthConnect, type PaymentGateways, type PaymentMode, type PaymentStart } from '#core/payments'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
-  cancelOrder,
   insertPayment,
   lockCart,
   lockPlacedOrder,
   recordPaid,
-  releaseStock,
   reserveLine,
   selectLivePaymentAccounts,
-  selectSnapshotVersions,
-  selectPaymentSetup,
-  saveManualMethod,
   selectShopOrder,
-  selectStoreCountry,
-  turnOffMethod,
-  selectUnpaidTransfers,
+  selectSnapshotVersions,
   takeOrderNumber,
   writeSnapshot,
   type PaymentAccountRow,
   type SnapshotLine,
 } from '#db/scoped/orders'
+import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
+import type { StripeTaxDeps } from '#engine/modules/tax/index'
+import { closeLatestAttempt, settleOrder, type SettleDeps } from './payments'
+import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, providersFor, transferDaysMs, type PaymentKind, type PaymentProvider } from './providers'
 
 // Placing an order and paying for it (SAPI 10; PLATFORM-PROMPT §5.4 Payments). The cart is priced as its shopper, then the
 // snapshot, number, held stock and payment are written in system scope, as nothing a shopper writes may be a price or state.
 
-export const paymentProviders = ['stripe', 'paypal', 'razorpay', 'cashfree', 'phonepe', 'cod', 'bank_transfer'] as const
-export type PaymentProvider = (typeof paymentProviders)[number]
-
-/** Paid later, so the order is accepted and holds its stock when placed (decided 2026-10-05 on #284). */
-const manual = ['cod', 'bank_transfer'] as const
-
-/** Who may take payment where (FIRST-RELEASE §1): India's and the US's providers; no other region at launch. */
-export const providersFor = (country: string | null): readonly PaymentProvider[] =>
-  country === 'IN' ? ['razorpay', 'cashfree', 'phonepe', 'cod', 'bank_transfer'] : country === 'US' ? ['stripe', 'paypal', 'bank_transfer'] : []
-
-export const transferDaysMs = 3 * 86_400_000
-
+export { applyOutcome, handleMerchantStripeEvent, paymentAudit, releaseUnpaidOrders, settleFromWebhook, settleOrder, settlePayment, type KeyedWebhookOutcome, type MerchantEventOutcome, type SettleDeps, type Settled } from './payments'
+export { cardPaymentMs, isPaymentProvider, paymentProviders, providersFor, transferDaysMs, type PaymentProvider } from './providers'
+export { createPaymentSetup, finishConnectMs, paymentSetupAudit, type ConnectInput, type PaymentSetupDeps, type PaymentSetupView } from './setup'
 export type { ShopOrderRow } from '#db/scoped/orders'
 
-export const checkoutAudit = { placed: 'order.placed', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
+/** What the Worker wires in for payments: the card adapters, Connect Stripe, and Stripe Tax in each mode (null where unset). */
+export interface PaymentWiring {
+  gateways: PaymentGateways
+  stripeConnect: OAuthConnect | null
+  stripeTax: (mode: PaymentMode) => StripeTaxDeps['calculate'] | null
+  /** A store's own webhook address for a provider account on the hooks host. */
+  webhookUrl: (provider: string, accountId: string) => string
+}
 
-export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'ALREADY_PLACED' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
+export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
+
+export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PHONE_REQUIRED' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'PAYMENT_MISMATCH' | 'PAYMENT_PENDING' | 'MODE_MISMATCH' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
 export type CheckoutResult<T> = { ok: true; value: T } | { ok: false; reason: CheckoutRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
@@ -57,10 +57,13 @@ class Refused extends Error {
 
 export interface PaymentOption {
   provider: PaymentProvider
-  kind: 'card' | 'cod' | 'bank_transfer'
+  kind: PaymentKind
   /** What the shopper needs to pay: a transfer's bank details. */
   instructions: string | null
-  mode: 'test' | 'live'
+  /** Test on a preview storefront, live otherwise. */
+  mode: PaymentMode
+  /** What the provider's own field or button starts with: a publishable key or client id. */
+  publicKey: string | null
 }
 
 export interface PlacedOrder {
@@ -69,28 +72,37 @@ export interface PlacedOrder {
   total: Money
   provider: PaymentProvider
   instructions: string | null
+  /** A card provider's payment, for the storefront to take; null for the ways paid later. */
+  payment: PaymentStart | null
 }
 
 export interface CheckoutDeps extends CartDeps {
   /** The store's country, for which providers may take payment there. */
   country: string | null
+  mode: PaymentMode
+  gateways: PaymentGateways
+  /** Opens the store's pasted keys for a call (THIRD-PARTY-ACCESS §3.1); null where the credential key isn't set. */
+  secrets: SecretBox | null
+  /** The storefront page a provider that takes the shopper away sends them back to. */
+  returnUrl: (orderId: string) => string
 }
-
-const kindOf = (p: PaymentProvider): PaymentOption['kind'] => (p === 'cod' ? 'cod' : p === 'bank_transfer' ? 'bank_transfer' : 'card')
-
-/** Providers a cart can pay with today: manual ways now; the card providers come with their adapters (#309 parts 2–3). */
-const isManual = (p: string): p is (typeof manual)[number] => manual.some((m) => m === p)
-const placeable = (p: PaymentProvider) => isManual(p)
 
 // In the region's own order, as Payment setup lists them.
 const rank = (country: string | null, provider: string) => providersFor(country).findIndex((p) => p === provider)
 
-const optionsOf = (accounts: readonly PaymentAccountRow[], country: string | null): PaymentOption[] =>
-  [...accounts].sort((a, b) => rank(country, a.provider) - rank(country, b.provider)).flatMap((a) => {
-    const provider = paymentProviders.find((p) => p === a.provider)
-    if (!provider || !providersFor(country).includes(provider) || !placeable(provider)) return []
-    return [{ provider, kind: kindOf(provider), instructions: provider === 'bank_transfer' ? a.bank_details : null, mode: a.mode }]
-  })
+/** The ways to pay at checkout: the ways paid later in either mode; a card provider where its adapter takes this mode. */
+const optionsOf = (accounts: readonly PaymentAccountRow[], country: string | null, mode: PaymentMode, gateways: PaymentGateways): PaymentOption[] => {
+  const seen = new Set<string>()
+  return [...accounts]
+    .sort((a, b) => rank(country, a.provider) - rank(country, b.provider))
+    .flatMap((a) => {
+      const provider = paymentProviders.find((p) => p === a.provider)
+      if (!provider || seen.has(provider) || !providersFor(country).includes(provider)) return []
+      if (isCardProvider(provider) && !(gateways[provider]?.available(mode) && (provider === 'stripe' || a.mode === mode))) return []
+      seen.add(provider)
+      return [{ provider, kind: kindOf(provider), instructions: provider === 'bank_transfer' ? a.bank_details : null, mode, publicKey: isCardProvider(provider) ? a.public_key : null }]
+    })
+}
 
 /** A courier's own service name; flat delivery and collection have none, as the storefront words them (no literal text here). */
 const shippingLabel = (cart: CartView): string | null => {
@@ -99,12 +111,13 @@ const shippingLabel = (cart: CartView): string | null => {
 }
 
 export const createCheckout = (deps: CheckoutDeps) => {
-  const { sql, context, now, activity, facts } = deps
+  const { sql, context, now, activity, facts, mode } = deps
   const { storeId } = context
   const customerId = context.caller.kind === 'shopper' ? context.caller.customerId : null
+  const settleDeps: SettleDeps = { sql, activity, gateways: deps.gateways, secrets: deps.secrets, now }
 
   const liveAccounts = () => withScope(sql, context, (tx) => selectLivePaymentAccounts(tx, storeId))
-  const options = async (): Promise<PaymentOption[]> => optionsOf(await liveAccounts(), deps.country)
+  const options = async (): Promise<PaymentOption[]> => optionsOf(await liveAccounts(), deps.country, mode, deps.gateways)
 
   const placedEntry = (orderId: string, number: string): ActivityEntry => ({
     category: 'write',
@@ -117,11 +130,30 @@ export const createCheckout = (deps: CheckoutDeps) => {
     storeId,
     customerId,
     target: { type: 'order', id: orderId, label: number },
-    reason: null,
+    reason: mode === 'test' ? 'test' : null,
     api: 'shop',
     visibility: 'store',
     ...facts,
   })
+
+  /** A card payment started with the store's account in this mode; the attempt's id is the payment row's, written after. */
+  const begin = async (provider: CardProvider, orderId: string, amount: Money, customer: { email: string | null; phone: string | null }): Promise<CheckoutResult<{ attemptId: string; accountId: string; started: PaymentStart }>> => {
+    const gateway = deps.gateways[provider]
+    const row = await withSystemScope(sql, (tx) => selectGatewayAccount(tx, storeId, provider, mode))
+    const account = row ? await openAccount(row, mode, deps.secrets) : null
+    if (!row || !gateway || !account || !gateway.available(mode)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
+    const attemptId = crypto.randomUUID()
+    try {
+      return { ok: true, value: { attemptId, accountId: row.id, started: await gateway.start(account, { attemptId, orderId, amount, customer, returnUrl: deps.returnUrl(orderId) }) } }
+    } catch (error) {
+      if (error instanceof PaymentUnavailable) return { ok: false, reason: 'PAYMENT_UNAVAILABLE' }
+      if (error instanceof PaymentNeedsPhone) return { ok: false, reason: 'PHONE_REQUIRED' }
+      if (!(error instanceof PaymentRefused)) throw error
+      // The store's account needs fixing, which the shopper can't do: said to them as unavailable, logged for the merchant's partner.
+      logEvent({ event: 'payment_refused', api: 'shop', storeId, code: provider })
+      return { ok: false, reason: 'METHOD_UNAVAILABLE' }
+    }
+  }
 
   const snapshotLines = async (tx: ScopedSql, cart: CartView, reserve: boolean): Promise<SnapshotLine[]> => {
     const versions = new Map((await selectSnapshotVersions(tx, storeId, cart.lines.map((l) => l.versionId))).map((v) => [v.id, v]))
@@ -162,10 +194,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     return lines
   }
 
-  /**
-   * "Pay": the cart priced now and ready, then placed with the provider chosen. A way paid later holds the stock at once
-   * and a transfer is due in 3 days; a card provider holds it when its payment arrives (parts 2–3).
-   */
+  /** "Pay" (FIRST-RELEASE §19): a card payment is started before placing, so no order exists that couldn't be paid. */
   const place = async (provider: string): Promise<CheckoutResult<PlacedOrder>> => {
     const cart = await createCartService(deps).cart()
     if (!cart) return { ok: false, reason: 'NOT_FOUND' }
@@ -174,21 +203,28 @@ export const createCheckout = (deps: CheckoutDeps) => {
     if (cart.problems.length > 0 || cart.checkoutStep !== 'pay') return { ok: false, reason: 'NOT_READY', problems: cart.problems }
     // One read: the option and the account the payment names can't drift apart.
     const accounts = await liveAccounts()
-    const option = optionsOf(accounts, deps.country).find((o) => o.provider === provider)
+    const option = optionsOf(accounts, deps.country, mode, deps.gateways).find((o) => o.provider === provider)
     if (!option) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
-    const accountId = accounts.find((a) => a.provider === option.provider)?.id ?? null
+    let card: { attemptId: string; accountId: string; started: PaymentStart } | null = null
+    if (isCardProvider(option.provider)) {
+      const begun = await begin(option.provider, cart.id, cart.total, { email: cart.email, phone: cart.phone })
+      if (!begun.ok) return begun
+      card = begun.value
+    }
+    const manualAccountId = card ? null : (accounts.find((a) => a.provider === option.provider)?.id ?? null)
     try {
       return await withSystemScope(sql, async (tx) => {
         const locked = await lockCart(tx, storeId, cart.id)
         if (!locked) throw new Refused('ALREADY_PLACED')
         // Changed in another tab since it was priced: the shopper sees the new cart before paying for it.
         if (locked.revision !== cart.revision) throw new Refused('CART_CHANGED')
-        const paidLater = isManual(option.provider)
-        const lines = await snapshotLines(tx, cart, paidLater)
+        const holds = isManual(option.provider) && mode === 'live'
+        const lines = await snapshotLines(tx, cart, holds)
         const parts = [...new Map(lines.map((l) => [l.sellerId ?? 'store', l.sellerId])).values()]
         const modes = new Map((await selectSnapshotVersions(tx, storeId, lines.map((l) => l.versionId))).map((v) => [v.seller_id ?? 'store', v.shipping_mode]))
         const number = await takeOrderNumber(tx, storeId)
         const at = now()
+        const dueIn = option.provider === 'bank_transfer' ? transferDaysMs : card ? cardPaymentMs : null
         await writeSnapshot(tx, storeId, {
           orderId: cart.id,
           number,
@@ -199,13 +235,24 @@ export const createCheckout = (deps: CheckoutDeps) => {
           subtotal: cart.subtotal.amount,
           total: cart.total.amount,
           paymentMethod: option.provider,
-          paymentDueBy: option.provider === 'bank_transfer' ? new Date(at.getTime() + transferDaysMs) : null,
-          stockReserved: paidLater,
+          paymentDueBy: dueIn === null ? null : new Date(at.getTime() + dueIn),
+          stockReserved: holds,
           now: at,
         })
-        await insertPayment(tx, { orderId: cart.id, storeId, provider: option.provider, accountId, kind: option.kind, amount: cart.total.amount, currency: cart.currency, mode: option.mode, providerRef: null })
+        await insertPayment(tx, {
+          ...(card ? { id: card.attemptId } : {}),
+          orderId: cart.id,
+          storeId,
+          provider: option.provider,
+          accountId: card?.accountId ?? manualAccountId,
+          kind: option.kind,
+          amount: cart.total.amount,
+          currency: cart.currency,
+          mode,
+          providerRef: card?.started.providerRef ?? null,
+        })
         await activity.record(tx, placedEntry(cart.id, number))
-        return { ok: true as const, value: { orderId: cart.id, number, total: cart.total, provider: option.provider, instructions: option.instructions } }
+        return { ok: true as const, value: { orderId: cart.id, number, total: cart.total, provider: option.provider, instructions: option.instructions, payment: card?.started ?? null } }
       })
     } catch (error) {
       if (error instanceof Refused) return { ok: false, reason: error.reason }
@@ -216,7 +263,61 @@ export const createCheckout = (deps: CheckoutDeps) => {
   /** A shopper's own placed order, for the confirmation and order pages. */
   const order = (orderId: string) => (isUuid(orderId) ? withScope(sql, context, (tx) => selectShopOrder(tx, storeId, orderId.toLowerCase())) : Promise.resolve(null))
 
-  return { options, place, order }
+  /** Back from paying, or asked again: the order's card payment read back from its provider, and the order as it is now. */
+  const confirm = async (orderId: string) => {
+    const mine = await order(orderId)
+    if (!mine) return null
+    if (mine.state === 'placed' && mine.payment_state === 'pending' && mine.payment_method && isCardProvider(mine.payment_method)) {
+      try {
+        await settleOrder(settleDeps, storeId, mine.id)
+      } catch (error) {
+        // The provider is slow: the webhook or the next look settles it, and the shopper sees it still pending.
+        if (!(error instanceof PaymentUnavailable)) throw error
+      }
+      return order(mine.id)
+    }
+    return mine
+  }
+
+  /** "Try again" after a card was declined or the shopper left: a new attempt for the same order, unless it got paid meanwhile. */
+  const pay = async (orderId: string): Promise<CheckoutResult<PaymentStart>> => {
+    const mine = await order(orderId)
+    if (!mine || mine.state !== 'placed') return { ok: false, reason: 'NOT_FOUND' }
+    if (mine.payment_state !== 'pending') return { ok: false, reason: 'ALREADY_PAID' }
+    const method = mine.payment_method
+    if (!method || !isCardProvider(method)) return { ok: false, reason: 'NOT_PENDING' }
+    // A retry pays in the order's own mode: never a live order with test keys from the preview, nor the reverse.
+    const placedIn = await withSystemScope(sql, (tx) => selectLatestPayment(tx, storeId, mine.id))
+    if (placedIn && placedIn.mode !== mode) return { ok: false, reason: 'MODE_MISMATCH' }
+    try {
+      const settled = await settleOrder(settleDeps, storeId, mine.id)
+      if (settled === 'paid' || settled === 'already') return { ok: false, reason: 'ALREADY_PAID' }
+      if (settled === 'mismatch') return { ok: false, reason: 'PAYMENT_MISMATCH' }
+      // The attempt this replaces is closed at the provider first, so the shopper can't pay both.
+      const closed = await closeLatestAttempt(settleDeps, storeId, mine.id)
+      if (closed === 'paid') return { ok: false, reason: 'ALREADY_PAID' }
+      if (closed === 'open') return { ok: false, reason: 'PAYMENT_PENDING' }
+    } catch (error) {
+      if (error instanceof PaymentUnavailable) return { ok: false, reason: 'PAYMENT_UNAVAILABLE' }
+      throw error
+    }
+    const amount = { amount: BigInt(mine.total_amount), currency: mine.currency }
+    // The contact the order was placed with: Cashfree takes no payment without the number.
+    const begun = await begin(method, mine.id, amount, { email: mine.email, phone: mine.phone })
+    if (!begun.ok) return begun
+    const { attemptId, accountId, started } = begun.value
+    return withSystemScope(sql, async (tx): Promise<CheckoutResult<PaymentStart>> => {
+      const locked = await lockPlacedOrder(tx, storeId, mine.id)
+      if (!locked || locked.state !== 'placed') return { ok: false, reason: 'NOT_FOUND' }
+      if (locked.payment_state !== 'pending') return { ok: false, reason: 'ALREADY_PAID' }
+      await failPendingPayments(tx, storeId, mine.id, now())
+      await insertPayment(tx, { id: attemptId, orderId: mine.id, storeId, provider: method, accountId, kind: 'card', amount: amount.amount, currency: amount.currency, mode, providerRef: started.providerRef })
+      await activity.record(tx, { ...placedEntry(mine.id, mine.number), action: checkoutAudit.retried })
+      return { ok: true, value: started }
+    })
+  }
+
+  return { options, place, order, confirm, pay }
 }
 
 /** "Mark as paid" (Owner and Manager, `orders.mark_paid`): a cash-on-delivery or transfer order whose money has arrived. */
@@ -245,94 +346,3 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
     })
     return { ok: true, value: true }
   })
-
-/** The cron cancels a transfer unpaid after 3 days and releases its stock, as the system (LOGGING §3; #284). */
-export const releaseUnpaidTransfers = (sql: postgres.Sql, activity: ActivityLog, now: Date): Promise<number> =>
-  withSystemScope(sql, async (tx) => {
-    const due = await selectUnpaidTransfers(tx, now, 100)
-    for (const order of due) {
-      await releaseStock(tx, order.store_id, order.id)
-      await cancelOrder(tx, order.store_id, order.id, 'unpaid_transfer', now)
-      await activity.record(tx, {
-        category: 'system',
-        action: checkoutAudit.cancelled,
-        result: 'success',
-        actorKind: 'job',
-        actorId: null,
-        actorLabel: 'Unpaid transfer',
-        partnerId: order.partner_id,
-        storeId: order.store_id,
-        target: { type: 'order', id: order.id, label: order.number },
-        reason: 'unpaid_transfer',
-        api: null,
-        visibility: 'store',
-        requestId: null,
-        ip: null,
-        userAgent: null,
-      })
-    }
-    return due.length
-  })
-
-export const paymentSetupAudit = { turnedOn: 'payment_method.turned_on', turnedOff: 'payment_method.turned_off' } as const
-
-export interface PaymentSetupView {
-  provider: PaymentProvider
-  /** On, and taking payment at checkout. */
-  live: boolean
-  bankDetails: string | null
-  /** Whether it can be turned on here today: the ways paid later now; card providers with their adapters (parts 2–3). */
-  connectable: boolean
-}
-
-/** Settings › Payment setup (SetOps; THIRD-PARTY-ACCESS §3.1): the providers for the store's region, and the ways paid later. */
-export const createPaymentSetup = (deps: { sql: postgres.Sql; context: TenantContext; actor: { id: string; partnerId: string }; activity: ActivityLog; facts: RequestFacts; now: () => Date }) => {
-  const { sql, context, actor, activity, facts, now } = deps
-  const { storeId } = context
-  const entry = (action: string, provider: string): ActivityEntry => ({
-    category: 'write',
-    action,
-    result: 'success',
-    actorKind: 'person',
-    actorId: actor.id,
-    actorLabel: null,
-    partnerId: actor.partnerId,
-    storeId,
-    target: { type: 'payment_method', id: provider, label: provider },
-    reason: null,
-    api: 'store',
-    visibility: 'store',
-    ...facts,
-  })
-
-  const setup = (): Promise<PaymentSetupView[]> =>
-    withScope(sql, context, async (tx) => {
-      const rows = await selectPaymentSetup(tx, storeId)
-      return providersFor(await selectStoreCountry(tx, storeId)).map((provider) => {
-        const row = rows.find((r) => r.provider === provider)
-        return { provider, live: row?.status === 'live', bankDetails: row?.bank_details ?? null, connectable: placeable(provider) }
-      })
-    })
-
-  /** Cash on delivery (India) or a bank transfer, with the details shoppers transfer to. */
-  const turnOn = (provider: string, bankDetails: string | null | undefined): Promise<CheckoutResult<true>> => {
-    const details = bankDetails?.trim() || null
-    const method = isManual(provider) ? provider : null
-    if (!method || (method === 'bank_transfer' && (!details || details.length > 1000))) return Promise.resolve({ ok: false, reason: 'METHOD_UNAVAILABLE' })
-    return withScope(sql, context, async (tx): Promise<CheckoutResult<true>> => {
-      if (!providersFor(await selectStoreCountry(tx, storeId)).includes(method)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
-      await saveManualMethod(tx, storeId, method, method === 'bank_transfer' ? details : null, now())
-      await activity.record(tx, entry(paymentSetupAudit.turnedOn, method))
-      return { ok: true, value: true }
-    })
-  }
-
-  const turnOff = (provider: string): Promise<CheckoutResult<true>> =>
-    withScope(sql, context, async (tx): Promise<CheckoutResult<true>> => {
-      if (!paymentProviders.some((p) => p === provider) || !(await turnOffMethod(tx, storeId, provider, now()))) return { ok: false, reason: 'NOT_FOUND' }
-      await activity.record(tx, entry(paymentSetupAudit.turnedOff, provider))
-      return { ok: true, value: true }
-    })
-
-  return { setup, turnOn, turnOff }
-}

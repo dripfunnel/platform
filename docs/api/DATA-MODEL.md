@@ -951,7 +951,18 @@ payment_provider_account
                     -- the subscription's payment method (§7.9)
                     -- Built on #309 (0068): one row per store and provider, external_account_id for a
                     -- Stripe Connect account, bank_details as the text shoppers are shown, status live | off;
-                    -- the merchant writes only cash on delivery and bank transfer, others connect in system scope
+                    -- the merchant writes only cash on delivery and bank transfer, others connect in system scope.
+                    -- #309 part 2 (0069): one row per store, provider and mode (a store's test keys for its
+                    -- preview storefront beside its live ones); Stripe's one live row serves both modes.
+                    -- Disconnect sets status off and clears the keys and the connected account, keeping the row
+                    -- for the payments that name it. #309 part 3: pasted keys are one sealed JSON value in
+                    -- credentials_enc, the webhook's secret inside it (webhook_secret_enc stays null);
+                    -- public_key holds Razorpay's key id or PayPal's client id
+payment_connect     (id, store_id, provider ('stripe'), status ('pending'|'approved'), state_hash,
+                     finish_hash, return_host, started_by, external_account_id, expires_at)
+                    -- Built on #309 (0069): Connect Stripe between leaving for Stripe and finishing in the
+                    -- starter's own session, as external_connection for Shopify; hashes only, system scope
+                    -- only, deleted when finished or expired
 invoice_settings    (store_id PK, legal_name, address jsonb, tax_id NULL, tax_per_line boolean,
                      email_with_dispatch boolean, footer text)
                     -- SetOps "Save invoice settings" and the "from" block of a shopper's
@@ -1386,6 +1397,13 @@ payment             (id, order_id, store_id, provider, provider_account_id, prov
                     -- snapshotted: order_adjustment.label is null where its kind says it all (shipping, tax) and
                     -- shipping_method_label holds only a courier's own service name; clients word the rest by
                     -- shipping_option and kind in the shopper's language (AGENTS "Product")
+                    -- #309 part 2 (0069): a card payment's row is written at placement with the id its
+                    -- provider was given and its provider_ref; it is settled by reading the provider back
+                    -- (webhook, the shopper's return, the sweep), idempotent by its state; payment_due_by is a
+                    -- day for a card order, and cancel_reason gains 'unpaid'. A live card order holds its stock
+                    -- when paid, even past what is free (logged as order.oversold); test-mode orders never hold
+                    -- stock. A payment of a different amount becomes state `mismatch` (0069), logged once and out of
+                    -- the sweep for the merchant
 payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state ('pending'|'done'|'failed'),
                      amount, currency)
 

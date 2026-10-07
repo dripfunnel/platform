@@ -7,6 +7,7 @@ import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
 import { isStorePermission, storePermissions, storeRoleHas, type StorePermission, type StoreRole } from '#auth/storePermissions'
 import { accessErrorCode, forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 import type { CourierDirectory } from '#core/couriers'
+import type { PaymentWiring } from '#engine/modules/checkout/index'
 
 export interface StoreContext extends Record<string, unknown> {
   /** Where the request stands on this portal host (auth/storeCaller.ts). */
@@ -25,6 +26,8 @@ export interface StoreContext extends Record<string, unknown> {
   shopify?: ShopConnect | null
   /** The partners' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached yet (#275). */
   couriers?: CourierDirectory | null
+  /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
+  payments?: PaymentWiring | null
   now: () => Date
 }
 

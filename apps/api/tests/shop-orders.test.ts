@@ -9,7 +9,7 @@ import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCa
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { createCheckout, releaseUnpaidTransfers } from '#engine/modules/checkout/index'
+import { createCheckout, releaseUnpaidOrders } from '#engine/modules/checkout/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -89,12 +89,12 @@ const reserved = async () => (await db.sql<{ reserved: number }[]>`select reserv
 
 describe('Settings › Payment setup', () => {
   it('lists India’s providers, and turns on cash on delivery and a transfer with its bank details', async () => {
-    expect(((await merchant('{ paymentSetup { provider live connectable } }', 'owner')).data?.['paymentSetup'] as { provider: string }[]).map((m) => m.provider)).toEqual(['razorpay', 'cashfree', 'phonepe', 'cod', 'bank_transfer'])
-    expect((await merchant('mutation { turnOnPaymentMethod(provider: "bank_transfer") }', 'owner')).code).toBe('METHOD_UNAVAILABLE')
-    expect((await merchant('mutation { turnOnPaymentMethod(provider: "stripe") }', 'owner')).code).toBe('METHOD_UNAVAILABLE')
-    expect((await merchant('mutation { turnOnPaymentMethod(provider: "cod") }', 'manager')).code).toBe('FORBIDDEN')
-    expect((await merchant('mutation { turnOnPaymentMethod(provider: "cod") }', 'owner')).data?.['turnOnPaymentMethod']).toBe(true)
-    expect((await merchant('mutation { turnOnPaymentMethod(provider: "bank_transfer", bankDetails: "HDFC 50100 IFSC HDFC0001") }', 'owner')).data?.['turnOnPaymentMethod']).toBe(true)
+    expect(((await merchant('{ gateways { provider live connectable } }', 'owner')).data?.['gateways'] as { provider: string }[]).map((m) => m.provider)).toEqual(['razorpay', 'cashfree', 'phonepe', 'cod', 'bank_transfer'])
+    expect((await merchant('mutation { connectGateway(provider: "bank_transfer") }', 'owner')).code).toBe('METHOD_UNAVAILABLE')
+    expect((await merchant('mutation { connectGateway(provider: "stripe") }', 'owner')).code).toBe('METHOD_UNAVAILABLE')
+    expect((await merchant('mutation { connectGateway(provider: "cod") }', 'manager')).code).toBe('FORBIDDEN')
+    expect((await merchant('mutation { connectGateway(provider: "cod") }', 'owner')).data?.['connectGateway']).toBe(true)
+    expect((await merchant('mutation { connectGateway(provider: "bank_transfer", bankDetails: "HDFC 50100 IFSC HDFC0001") }', 'owner')).data?.['connectGateway']).toBe(true)
     expect((await shop('{ paymentOptions { provider kind instructions } }')).data?.['paymentOptions']).toEqual([
       { provider: 'cod', kind: 'cod', instructions: null },
       { provider: 'bank_transfer', kind: 'bank_transfer', instructions: 'HDFC 50100 IFSC HDFC0001' },
@@ -109,8 +109,8 @@ describe('a store outside India and the US', () => {
   it('takes no payment at launch: no providers listed, a transfer refused (FIRST-RELEASE §1)', async () => {
     await db.sql`update store set country = 'DE' where id = ${stores.other}`
     try {
-      expect((await merchant('{ paymentSetup { provider } }', 'other')).data?.['paymentSetup']).toEqual([])
-      expect((await merchant('mutation { turnOnPaymentMethod(provider: "bank_transfer", bankDetails: "IBAN DE00") }', 'other')).code).toBe('METHOD_UNAVAILABLE')
+      expect((await merchant('{ gateways { provider } }', 'other')).data?.['gateways']).toEqual([])
+      expect((await merchant('mutation { connectGateway(provider: "bank_transfer", bankDetails: "IBAN DE00") }', 'other')).code).toBe('METHOD_UNAVAILABLE')
     } finally {
       await db.sql`update store set country = 'IN' where id = ${stores.other}`
     }
@@ -161,8 +161,9 @@ describe('mark as paid, and the unpaid transfer', () => {
 
   it('cancels a transfer unpaid after 3 days and gives its stock back, as the system', async () => {
     const transfer = (await db.sql<{ id: string }[]>`select id from "order" where store_id = ${stores.india} and payment_method = 'bank_transfer'`)[0]?.id ?? ''
-    expect(await releaseUnpaidTransfers(db.sql, activityLog, new Date())).toBe(0)
-    expect(await releaseUnpaidTransfers(db.sql, activityLog, new Date(Date.now() + 3 * 86_400_000 + 60_000))).toBe(1)
+    const sweep = (at: Date) => releaseUnpaidOrders({ sql: db.sql, activity: activityLog, gateways: {}, secrets: null, now: () => at }, at)
+    expect(await sweep(new Date())).toBe(0)
+    expect(await sweep(new Date(Date.now() + 3 * 86_400_000 + 60_000))).toBe(1)
     expect((await db.sql<{ state: string; cancel_reason: string }[]>`select state, cancel_reason from "order" where id = ${transfer}`)[0]).toEqual({ state: 'cancelled', cancel_reason: 'unpaid_transfer' })
     expect(await reserved()).toBe(2)
     expect((await db.sql<{ actor_kind: string }[]>`select actor_kind from activity_log where action = 'order.cancelled' and target_id = ${transfer}`)[0]?.actor_kind).toBe('job')
@@ -259,7 +260,7 @@ describe('holding stock and placing safely', () => {
       },
     })
     const { shopper } = found
-    const checkout = createCheckout({ sql: racing, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers: null, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date(), country: shopper.country })
+    const checkout = createCheckout({ sql: racing, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers: null, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date(), country: shopper.country, mode: 'live', gateways: {}, secrets: null, returnUrl: () => '' })
     expect(await checkout.place('cod')).toMatchObject({ ok: false, reason: 'CART_CHANGED' })
     expect((await shop('{ cart { id } }', token)).data?.['cart']).not.toBeNull()
   })

@@ -25,6 +25,13 @@ const configSchema = z.object({
   // writes answer NOT_CONNECTED and the webhook route doesn't exist.
   STRIPE_SECRET_KEY: z.string().regex(/^(rk|sk)_(test|live)_[A-Za-z0-9]+$/, 'STRIPE_SECRET_KEY must be a Stripe secret or restricted key').optional(),
   STRIPE_WEBHOOK_SECRET: z.string().regex(/^whsec_[A-Za-z0-9]+$/, 'STRIPE_WEBHOOK_SECRET must be a webhook signing secret').optional(),
+  // Merchants' own Stripe accounts by Connect OAuth (THIRD-PARTY-ACCESS.md §3.1), Worker variables: the platform's
+  // `ca_…` id, and the publishable key checkout's card field acts with on the merchant's account.
+  STRIPE_CONNECT_CLIENT_ID: z.string().regex(/^ca_[A-Za-z0-9]+$/, 'STRIPE_CONNECT_CLIENT_ID must be a Connect client id').optional(),
+  STRIPE_PUBLISHABLE_KEY: z.string().regex(/^pk_(test|live)_[A-Za-z0-9]+$/, 'STRIPE_PUBLISHABLE_KEY must be a publishable key').optional(),
+  // Where the keys above are live (prod), test-mode ones for preview storefronts' checkout (storefront ARCHITECTURE §4.1).
+  STRIPE_TEST_SECRET_KEY: z.string().regex(/^(rk|sk)_test_[A-Za-z0-9]+$/, 'STRIPE_TEST_SECRET_KEY must be a test-mode secret or restricted key').optional(),
+  STRIPE_TEST_PUBLISHABLE_KEY: z.string().regex(/^pk_test_[A-Za-z0-9]+$/, 'STRIPE_TEST_PUBLISHABLE_KEY must be a test-mode publishable key').optional(),
   // DripFunnel's Amazon SES (THIRD-PARTY-ACCESS.md §2.4), Worker secrets. Without all four, email
   // waits in the outbox. The sender domain is verified in SES; partners' fallbacks are its subdomains.
   SES_REGION: z.string().regex(/^[a-z]{2}(-[a-z]+)+-\d$/, 'SES_REGION must be an AWS region such as eu-west-1').optional(),
@@ -57,6 +64,10 @@ const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'CO
 const checkedConfig = configSchema.superRefine((c, ctx) => {
   // The suppression list keys its hashes with it, stand-in or SES (db/scoped/emailSuppression.ts).
   if (c.EMAIL_LOCAL !== undefined && c.EMAIL_SUPPRESSION_KEY === undefined) ctx.addIssue({ code: 'custom', message: 'EMAIL_LOCAL needs EMAIL_SUPPRESSION_KEY', path: ['EMAIL_SUPPRESSION_KEY'] })
+  // A publishable key acts in its secret key's mode; one from the other mode would fail every payment.
+  const modeOf = (key: string | undefined) => key?.match(/_(test|live)_/)?.[1]
+  if (c.STRIPE_PUBLISHABLE_KEY !== undefined && modeOf(c.STRIPE_PUBLISHABLE_KEY) !== modeOf(c.STRIPE_SECRET_KEY)) ctx.addIssue({ code: 'custom', message: 'STRIPE_PUBLISHABLE_KEY must be in STRIPE_SECRET_KEY’s mode', path: ['STRIPE_PUBLISHABLE_KEY'] })
+  if ((c.STRIPE_TEST_SECRET_KEY === undefined) !== (c.STRIPE_TEST_PUBLISHABLE_KEY === undefined)) ctx.addIssue({ code: 'custom', message: 'STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PUBLISHABLE_KEY go together', path: ['STRIPE_TEST_SECRET_KEY'] })
   if (/(^|\.)localhost$/.test(c.HOOKS_HOST)) return
   for (const key of localOnly) {
     if (c[key] !== undefined) ctx.addIssue({ code: 'custom', message: `${key} is for local development only (HOOKS_HOST on localhost)`, path: [key] })

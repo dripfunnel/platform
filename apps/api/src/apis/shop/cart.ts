@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { createCartService, type CartAddress, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView } from '#engine/modules/cart/index'
 import type { DeliveryOption } from '#engine/modules/shipping/index'
-import { shopOf, type ShopContext } from './access'
+import { shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 import { assetUrl } from './catalog'
 
@@ -29,7 +29,7 @@ export const cartOf = async (ctx: ShopContext) => {
   // with no address before this.
   const limit = ctx.allowNewCart
   const allowNewCart = limit ? () => limit(`cart:${shopper.context.storeId}:${ctx.facts.ip ?? 'none'}`) : undefined
-  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, activity: ctx.activity, facts: ctx.facts, ...(allowNewCart ? { allowNewCart } : {}), now: ctx.now })
+  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, stripeTax: stripeTaxOf(ctx), activity: ctx.activity, facts: ctx.facts, ...(allowNewCart ? { allowNewCart } : {}), now: ctx.now })
 }
 
 export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {

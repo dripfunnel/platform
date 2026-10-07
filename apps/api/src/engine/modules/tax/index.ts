@@ -55,7 +55,14 @@ class Refused extends Error {
 /** Stripe Tax for a US address, when the store has connected its Stripe account (SAPI 10 connects it). */
 export interface StripeTaxDeps {
   accountId: () => Promise<string | null>
-  calculate: (request: { accountId: string; currency: string; inclusive: boolean; shipTo: { country: string; region: string | null; postal: string | null }; lines: { reference: string; amount: bigint; taxCode: string | null }[] }) => Promise<{ total: bigint; lines: { reference: string; amount: bigint }[] }>
+  calculate: (request: {
+    accountId: string
+    currency: string
+    inclusive: boolean
+    shipTo: { country: string; region: string | null; postal: string | null }
+    lines: { reference: string; amount: bigint; taxCode: string | null }[]
+    shipping?: bigint | null
+  }) => Promise<{ total: bigint; lines: { reference: string; amount: bigint }[]; shipping: bigint }>
 }
 
 export interface TaxDeps {

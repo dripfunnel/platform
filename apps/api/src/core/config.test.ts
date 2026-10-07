@@ -22,4 +22,13 @@ describe('parseConfig', () => {
   it('asks for the suppression key with the email stand-in, as SES does', () => {
     expect(() => parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', EMAIL_LOCAL: '1' })).toThrow(/EMAIL_LOCAL needs EMAIL_SUPPRESSION_KEY/)
   })
+
+  it('takes Stripe’s publishable key only in its secret key’s mode, and the test-mode pair only together', () => {
+    expect(parseConfig({ ...hosts, STRIPE_SECRET_KEY: 'rk_test_a', STRIPE_PUBLISHABLE_KEY: 'pk_test_b' }).STRIPE_PUBLISHABLE_KEY).toBe('pk_test_b')
+    expect(() => parseConfig({ ...hosts, STRIPE_SECRET_KEY: 'rk_live_a', STRIPE_PUBLISHABLE_KEY: 'pk_test_b' })).toThrow(/STRIPE_PUBLISHABLE_KEY must be in STRIPE_SECRET_KEY’s mode/)
+    expect(() => parseConfig({ ...hosts, STRIPE_PUBLISHABLE_KEY: 'pk_test_b' })).toThrow(/mode/)
+    expect(() => parseConfig({ ...hosts, STRIPE_TEST_SECRET_KEY: 'sk_test_a' })).toThrow(/go together/)
+    expect(() => parseConfig({ ...hosts, STRIPE_TEST_SECRET_KEY: 'sk_live_a', STRIPE_TEST_PUBLISHABLE_KEY: 'pk_test_b' })).toThrow()
+    expect(() => parseConfig({ ...hosts, STRIPE_CONNECT_CLIENT_ID: 'acct_1' })).toThrow(/Connect client id/)
+  })
 })
