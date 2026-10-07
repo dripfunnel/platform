@@ -561,6 +561,10 @@ bought, the badges whose rule holds (none for best sellers until reports count s
 Catalogue switches on (specs, highlights, FAQs, related, video, size chart, A+ with its brand stories and compared
 products), legal details, filters, and `soldHere` (the market sells it, a price here, the legal details its countries need,
 CATALOG T2).
+**Part 3:** a query of catalogue fields only (`store`, `menu`, `collections`, `collection`, `products`, `search`, `product`) is
+answered from the data centre's cache for 5 minutes, keyed by store, `storefront.catalog_version`, host, language,
+currency and market; every change a storefront shows moves the version, which is the purge. An answer with errors is never
+kept, and the store is still found and rate-limited first. Anything else (carts, accounts, from SAPI 9) is never cached.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:
