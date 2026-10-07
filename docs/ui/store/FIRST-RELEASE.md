@@ -648,6 +648,14 @@ order's payment: the card provider's refund (`PROVIDER_UNAVAILABLE` or `PROVIDER
 hand for cash and transfers; `restock` puts shipped units back as "Returned", the store's own and a to-shopper supplier's (a
 to-store supplier counts its own once the store sends them back). `order` answers its `returns` and `refunds`, a supplier
 only those with its lines, without the store's note or the money's state at the provider.
+**Part 4:** `cancelOrder(orderId, reason: shopper | store | out_of_stock)` (`orders.write`, so every merchant seat): only an
+order nothing has left from, shipped or handed to the store (`NOT_CANCELLABLE`); its stock released and everything paid given
+back on its payment, one refund an owner as `cancelled`, never on the supplier ledger; a card attempt still open is closed at
+the provider first, and one still going through is refused (`PAYMENT_PENDING`). `exportOrders(filter, search)` (a job, read
+back with `orderExport(id)` and `orderExports`; the merchant side's `exports`, Staff included, and a supplier's
+`exports.orders`): one row a line, the merchant side's with the shopper, payment and order total, a supplier's its own lines at
+the price sold, no totals, and the shopper only where its part ships to the shopper; up to 10,000 rows, saying where it was cut.
+`mySales` (`sales.read`, the two order tiers): a supplier's own sold lines at the price sold, newest first, paged, no totals.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

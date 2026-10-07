@@ -274,3 +274,83 @@ export const selectOrderHistory = (tx: ScopedSql, storeId: string, orderId: stri
 /** Whether the merchant side holds this order: a note is only ever added to one. */
 export const selectOrderLabel = async (tx: ScopedSql, storeId: string, orderId: string): Promise<string | null> =>
   (await tx<{ number: string }[]>`select number from "order" where id = ${orderId} and store_id = ${storeId} and state <> 'cart'`)[0]?.number ?? null
+
+export interface SaleRow {
+  id: string
+  number: string
+  placed_at: Date
+  state: string
+  name: string
+  version_name: string | null
+  sku: string | null
+  quantity: number
+  refunded_quantity: number
+  line_amount: string
+  currency: string
+}
+
+/** "Your sales" (FIRST-RELEASE §17): a supplier's own sold lines at the price sold, newest first, no totals. */
+export const selectMySales = (tx: ScopedSql, window: PageWindow): Promise<SaleRow[]> => {
+  const backwards = window.before !== null && window.after === null
+  return tx<SaleRow[]>`
+    select l.id, v.number, v.placed_at, v.state, l.name, l.version_name, l.sku, l.quantity, l.refunded_quantity, m.line_amount::text as line_amount, m.currency
+    from order_line l join order_line_for_supplier m on m.id = l.id join order_for_supplier v on v.id = l.order_id
+    where ${window.after ? tx`(v.placed_at, l.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
+      and ${window.before ? tx`(v.placed_at, l.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
+    order by v.placed_at ${backwards ? tx`asc` : tx`desc`}, l.id ${backwards ? tx`asc` : tx`desc`}
+    limit ${window.limit + 1}
+  `
+}
+
+export interface ExportLineRow {
+  number: string
+  placed_at: Date
+  state: string
+  payment_state: string | null
+  fulfilment_state: string | null
+  payment_method: string | null
+  part_state: string | null
+  shipping_mode: string | null
+  customer_name: string | null
+  email: string | null
+  phone: string | null
+  address: CartAddress | null
+  supplier_name: string | null
+  name: string
+  version_name: string | null
+  sku: string | null
+  quantity: number
+  unit_amount: string
+  line_amount: string
+  line_total_amount: string | null
+  total_amount: string | null
+  currency: string
+}
+
+/** The merchant side's file: one row a line of the orders a chip and search choose, newest first, up to `limit`. */
+export const selectMerchantExportLines = (tx: ScopedSql, storeId: string, filter: OrderFilter, search: string | null, limit: number): Promise<ExportLineRow[]> =>
+  tx<ExportLineRow[]>`
+    select o.number, o.placed_at, o.state, o.payment_state, o.fulfilment_state, o.payment_method, null as part_state, p.shipping_mode,
+      o.shipping_address ->> 'name' as customer_name, o.email, o.phone, o.shipping_address as address, s.name as supplier_name,
+      l.name, l.version_name, l.sku, l.quantity, l.unit_amount::text as unit_amount, (l.unit_amount * l.quantity)::text as line_amount,
+      l.line_total_amount::text as line_total_amount, o.total_amount::text as total_amount, o.currency
+    from "order" o join order_line l on l.order_id = o.id
+      join order_part p on p.order_id = o.id and p.seller_id is not distinct from l.seller_id left join seller s on s.id = l.seller_id
+    where o.store_id = ${storeId} and o.state <> 'cart' and ${merchantFilter(tx, filter)}
+      and ${search ? tx`(o.number ilike ${like(search)} or o.shipping_address ->> 'name' ilike ${like(search)})` : tx`true`}
+    order by o.placed_at desc, o.id, l.position
+    limit ${limit}
+  `
+
+/** A supplier's file: its own lines only, at the price sold, the shopper only where its part ships to the shopper (ACCESS §7.3). */
+export const selectSupplierExportLines = (tx: ScopedSql, filter: OrderFilter, search: string | null, limit: number): Promise<ExportLineRow[]> =>
+  tx<ExportLineRow[]>`
+    select v.number, v.placed_at, v.state, null as payment_state, null as fulfilment_state, null as payment_method, v.part_state, v.shipping_mode,
+      v.customer_name, null as email, null as phone, v.shipping_address as address, null as supplier_name,
+      l.name, l.version_name, l.sku, l.quantity, m.unit_amount::text as unit_amount, m.line_amount::text as line_amount,
+      null as line_total_amount, null as total_amount, v.currency
+    from order_for_supplier v join order_line l on l.order_id = v.id join order_line_for_supplier m on m.id = l.id
+    where ${supplierFilter(tx, filter)} and ${search ? tx`v.number ilike ${like(search)}` : tx`true`}
+    order by v.placed_at desc, v.id, l.position
+    limit ${limit}
+  `

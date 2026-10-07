@@ -12,6 +12,7 @@ import {
   selectMerchantOrder,
   selectMerchantOrders,
   selectOrderHistory,
+  selectMySales,
   selectOrderLabel,
   selectSupplierOrder,
   selectSupplierOrders,
@@ -20,12 +21,13 @@ import {
   type OrderFilter,
   type OrderHistoryRow,
   type OrderListRow,
+  type SaleRow,
 } from '#db/scoped/storeOrders'
 
 // Orders on the merchant side and a supplier's own part of them (PLATFORM-PROMPT §5.4; ACCESS §7.3; FIRST-RELEASE §6):
 // every read runs in the caller's own scope, so what a supplier sees is what its role and the two views let it.
 
-export { orderFilters, type OrderCounts, type OrderDetailRow, type OrderFilter, type OrderHistoryRow, type OrderLineRow, type OrderListRow, type OrderPartRow } from '#db/scoped/storeOrders'
+export { orderFilters, type SaleRow, type OrderCounts, type OrderDetailRow, type OrderFilter, type OrderHistoryRow, type OrderLineRow, type OrderListRow, type OrderPartRow } from '#db/scoped/storeOrders'
 
 export const ordersAudit = { noteAdded: 'order.note_added' } as const
 
@@ -103,5 +105,8 @@ export const createOrdersService = ({ sql, context, actor, activity, facts }: Or
     })
   }
 
-  return { list, counts, detail, addNote }
+  /** "Your sales": a supplier's own; the merchant side reads Reports instead (ACCESS §5.2, `sales.read` is a supplier's). */
+  const sales = (window: PageWindow): Promise<SaleRow[]> => (sellerId ? withScope(sql, context, (tx) => selectMySales(tx, window)) : Promise.resolve([]))
+
+  return { list, counts, detail, addNote, sales }
 }

@@ -169,6 +169,7 @@ export const cancelOrder = async (tx: ScopedSql, storeId: string, orderId: strin
     where id = ${orderId} and store_id = ${storeId}
   `
   await tx`update payment set state = 'failed', updated_at = ${now} where order_id = ${orderId} and store_id = ${storeId} and state = 'pending'`
+  await tx`update order_part set state = 'cancelled' where order_id = ${orderId} and store_id = ${storeId}`
 }
 
 /** Orders unpaid past their time (a transfer's 3 days, a card's day), oldest first, a batch at a time; each is locked when let go. */

@@ -9,6 +9,7 @@ import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectAccountById } from '#db/scoped/payments'
 import {
   addRefunded,
+  anythingShipped,
   defaultWarehouseOf,
   insertLedgerEntry,
   insertPaymentRefund,
@@ -27,8 +28,12 @@ import {
   unreturn,
   type LedgerRow,
   type LineToRefundRow,
+  type OrderToRefundRow,
+  type ReturnToChangeRow,
 } from '#db/scoped/refunds'
-import { openAccount } from '../checkout/providers'
+import { cancelOrder as cancelPlaced, releaseStock } from '#db/scoped/orders'
+import { closeLatestAttempt } from '../checkout/payments'
+import { isManual, openAccount } from '../checkout/providers'
 
 // Returns and refunds (PLATFORM-PROMPT §5.4; ACCESS §7.3; PortalOrders): the store starts and receives returns; each owner
 // refunds its own lines and the store may refund a supplier's itself, an override the supplier ledger records. Money goes
@@ -45,7 +50,12 @@ export const refundAudit = {
   returnCancelled: 'return.cancelled',
   issued: 'refund.issued',
   overridden: 'refund.overridden',
+  cancelled: 'order.cancelled',
 } as const
+
+/** Why the store cancels (FIRST-RELEASE §6): the shopper asked, the store's own decision, or nothing left to send. */
+export const cancelReasons = ['shopper', 'store', 'out_of_stock'] as const
+export type CancelReason = (typeof cancelReasons)[number]
 
 export type RefundRefusal =
   | 'INVALID_INPUT'
@@ -58,6 +68,8 @@ export type RefundRefusal =
   | 'NO_LOCATION'
   | 'PROVIDER_UNAVAILABLE'
   | 'PROVIDER_REFUSED'
+  | 'NOT_CANCELLABLE'
+  | 'PAYMENT_PENDING'
   | 'READ_ONLY'
 export type RefundResult<T> = { ok: true; value: T } | { ok: false; reason: RefundRefusal }
 
@@ -197,6 +209,70 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
     })
   }
 
+  type Owners = Map<string | null, { lineId: string; quantity: number; amount: bigint; line: LineToRefundRow }[]>
+  // One refund an owner, the money back on the payment it came in on, the order's totals and the stock with it.
+  const giveBack = async (
+    tx: ScopedSql,
+    order: OrderToRefundRow,
+    owners: Owners,
+    extra: bigint | null,
+    total: bigint,
+    o: { reason: RefundReason | 'cancelled'; note: string | null; restock: boolean; inReturn: ReturnToChangeRow | null },
+  ): Promise<RefundResult<string[]>> => {
+    const payment = await selectCapturedPayment(tx, order.id)
+    if (!payment) return { ok: false, reason: 'NOT_PAID' }
+    const gateway = isCardProvider(payment.provider) ? gateways[payment.provider] : null
+    const accountRow = gateway && payment.provider_account_id ? await selectAccountById(tx, payment.provider_account_id) : null
+    const account = accountRow ? await openAccount(accountRow, payment.mode, secrets) : null
+    if (isCardProvider(payment.provider) && (!gateway || !account || !payment.provider_ref)) return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
+
+    const made: string[] = []
+    let refundedBefore = order.refunded_amount
+    for (const [owner, lines] of owners) {
+      const amount = lines.reduce((s, l) => s + l.amount, 0n) + (owner === null ? (extra ?? 0n) : 0n)
+      if (amount <= 0n) continue
+      const id = await refundIdOf(order.id, refundedBefore, owner, amount)
+      refundedBefore = (BigInt(refundedBefore) + amount).toString()
+      // A cancellation refunds every owner's lines for the shopper; nothing was sold, so nothing goes on the ledger.
+      const override = owner !== null && sellerId === null && o.reason !== 'cancelled'
+      await insertRefund(
+        tx,
+        { id, storeId, sellerId: owner, orderId: order.id, returnId: o.inReturn?.id ?? null, amount, currency: order.currency, reason: o.reason, note: o.note, restock: o.restock, override, byUserId: actor.id },
+        lines.map((l) => ({ lineId: l.lineId, quantity: l.quantity, amount: l.amount })),
+      )
+      if (override && owner) await insertLedgerEntry(tx, { storeId, sellerId: owner, amount, currency: order.currency, refundId: id, createdBy: actor.id })
+      // Back on hand at the owner's own location; a to-store supplier's units go back to it from the store, its to count.
+      if (o.restock) {
+        for (const l of lines.filter((x) => x.quantity > 0 && x.line.track_stock && x.line.shipping_mode !== 'to-store')) {
+          const back = o.inReturn?.lines.find((r) => r.order_line_id === l.lineId)?.destination_warehouse_id ?? (await defaultWarehouseOf(tx, storeId, l.line.seller_id))
+          if (!back) throw new Refused('NO_LOCATION')
+          await restockReturned(tx, { storeId, sellerId: l.line.seller_id, productId: l.line.product_id, versionId: l.line.version_id, warehouseId: back, quantity: l.quantity, returnId: o.inReturn?.id ?? null, orderId: order.id, actorId: actor.id })
+        }
+      }
+      // The provider is asked last, inside the transaction: refused or unreachable, nothing here is kept.
+      if (gateway && account && payment.provider_ref) {
+        try {
+          const back = await gateway.refund(account, payment.provider_ref, { refundId: id, amount: { amount, currency: order.currency } })
+          if (back.state === 'failed') throw new Refused('PROVIDER_REFUSED')
+          await insertPaymentRefund(tx, { refundId: id, paymentId: payment.id, storeId, providerRef: back.providerRef, state: back.state, amount, currency: order.currency })
+        } catch (error) {
+          if (error instanceof PaymentUnavailable) throw new Refused('PROVIDER_UNAVAILABLE')
+          if (error instanceof PaymentRefused) throw new Refused('PROVIDER_REFUSED')
+          throw error
+        }
+      } else {
+        // Cash on delivery or a transfer: the store gives the money back itself; this records that it did.
+        await insertPaymentRefund(tx, { refundId: id, paymentId: payment.id, storeId, providerRef: null, state: 'done', amount, currency: order.currency })
+      }
+      const action = override ? refundAudit.overridden : refundAudit.issued
+      await record(tx, action, order, o.reason, [owner])
+      made.push(id)
+    }
+    await addRefunded(tx, order.id, total, now())
+    if (BigInt(order.refunded_amount) + total >= BigInt(order.total_amount)) await markPaymentRefunded(tx, payment.id, now())
+    return { ok: true, value: made }
+  }
+
   const refund = async (input: RefundInput): Promise<RefundResult<string[]>> => {
     const note = noteOf(input.note)
     const extra = minor(input.extra)
@@ -222,7 +298,7 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
 
       // A supplier looks lines up among its own only, so another owner's line is as unknown as one that doesn't exist.
       const byId = new Map(all.filter((l) => !sellerId || l.seller_id === sellerId).map((l) => [l.id, l]))
-      const owners = new Map<string | null, { lineId: string; quantity: number; amount: bigint; line: LineToRefundRow }[]>()
+      const owners: Owners = new Map()
       for (const [i, id] of ids.entries()) {
         const line = byId.get(id)
         const quantity = input.lines[i]?.quantity ?? 0
@@ -244,58 +320,53 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
       const total = [...owners.entries()].reduce((sum, [owner, lines]) => sum + lines.reduce((s, l) => s + l.amount, 0n) + (owner === null ? (extra ?? 0n) : 0n), 0n)
       if (total <= 0n || total > BigInt(order.total_amount) - BigInt(order.refunded_amount)) return { ok: false, reason: 'TOO_MANY' }
 
-      const payment = await selectCapturedPayment(tx, order.id)
-      if (!payment) return { ok: false, reason: 'NOT_PAID' }
-      const gateway = isCardProvider(payment.provider) ? gateways[payment.provider] : null
-      const accountRow = gateway && payment.provider_account_id ? await selectAccountById(tx, payment.provider_account_id) : null
-      const account = accountRow ? await openAccount(accountRow, payment.mode, secrets) : null
-      if (isCardProvider(payment.provider) && (!gateway || !account || !payment.provider_ref)) return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
-
-      const made: string[] = []
-      let refundedBefore = order.refunded_amount
-      for (const [owner, lines] of owners) {
-        const amount = lines.reduce((s, l) => s + l.amount, 0n) + (owner === null ? (extra ?? 0n) : 0n)
-        if (amount <= 0n) continue
-        const id = await refundIdOf(order.id, refundedBefore, owner, amount)
-        refundedBefore = (BigInt(refundedBefore) + amount).toString()
-        const override = owner !== null && sellerId === null
-        await insertRefund(
-          tx,
-          { id, storeId, sellerId: owner, orderId: order.id, returnId: inReturn?.id ?? null, amount, currency: order.currency, reason: input.reason, note, restock: input.restock, override, byUserId: actor.id },
-          lines.map((l) => ({ lineId: l.lineId, quantity: l.quantity, amount: l.amount })),
-        )
-        if (override && owner) await insertLedgerEntry(tx, { storeId, sellerId: owner, amount, currency: order.currency, refundId: id, createdBy: actor.id })
-        // Back on hand at the owner's own location; a to-store supplier's units go back to it from the store, its to count.
-        if (input.restock) {
-          for (const l of lines.filter((x) => x.quantity > 0 && x.line.track_stock && x.line.shipping_mode !== 'to-store')) {
-            const back = inReturn?.lines.find((r) => r.order_line_id === l.lineId)?.destination_warehouse_id ?? (await defaultWarehouseOf(tx, storeId, l.line.seller_id))
-            if (!back) throw new Refused('NO_LOCATION')
-            await restockReturned(tx, { storeId, sellerId: l.line.seller_id, productId: l.line.product_id, versionId: l.line.version_id, warehouseId: back, quantity: l.quantity, returnId: inReturn?.id ?? null, orderId: order.id, actorId: actor.id })
-          }
-        }
-        // The provider is asked last, inside the transaction: refused or unreachable, nothing here is kept.
-        if (gateway && account && payment.provider_ref) {
-          try {
-            const back = await gateway.refund(account, payment.provider_ref, { refundId: id, amount: { amount, currency: order.currency } })
-            if (back.state === 'failed') throw new Refused('PROVIDER_REFUSED')
-            await insertPaymentRefund(tx, { refundId: id, paymentId: payment.id, storeId, providerRef: back.providerRef, state: back.state, amount, currency: order.currency })
-          } catch (error) {
-            if (error instanceof PaymentUnavailable) throw new Refused('PROVIDER_UNAVAILABLE')
-            if (error instanceof PaymentRefused) throw new Refused('PROVIDER_REFUSED')
-            throw error
-          }
-        } else {
-          // Cash on delivery or a transfer: the store gives the money back itself; this records that it did.
-          await insertPaymentRefund(tx, { refundId: id, paymentId: payment.id, storeId, providerRef: null, state: 'done', amount, currency: order.currency })
-        }
-        const action = override ? refundAudit.overridden : refundAudit.issued
-        await record(tx, action, order, input.reason, [owner])
-        made.push(id)
-      }
-      await addRefunded(tx, order.id, total, now())
-      if (BigInt(order.refunded_amount) + total >= BigInt(order.total_amount)) await markPaymentRefunded(tx, payment.id, now())
+      const made = await giveBack(tx, order, owners, extra, total, { reason: input.reason, note, restock: input.restock, inReturn })
+      if (!made.ok) return made
       if (inReturn && (await returnFullyRefunded(tx, inReturn.id))) await setReturnState(tx, inReturn.id, 'refunded', now())
-      return { ok: true, value: made }
+      return made
+    })
+  }
+
+  /**
+   * "Cancel" an unshipped order (FIRST-RELEASE §6; orders.write): its stock released and everything paid given back, every
+   * owner's lines refunded for the shopper as `cancelled`, never on the ledger. A card attempt still open is closed first.
+   */
+  const cancel = async (orderId: string, reason: string): Promise<RefundResult<true>> => {
+    if (readOnly) return { ok: false, reason: 'READ_ONLY' }
+    if (sellerId || !isUuid(orderId)) return { ok: false, reason: 'NOT_FOUND' }
+    if (!(cancelReasons as readonly string[]).includes(reason)) return { ok: false, reason: 'INVALID_INPUT' }
+    const seen = await withSystemScope(sql, (tx) => lockOrderToRefund(tx, storeId, orderId))
+    if (!seen) return { ok: false, reason: 'NOT_FOUND' }
+    if (seen.state === 'placed' && seen.payment_state === 'pending' && seen.payment_method && !isManual(seen.payment_method)) {
+      // As the unpaid sweep does: an attempt the provider won't close is still going through, so the shopper may yet pay.
+      const closed = await closeLatestAttempt({ sql, activity, gateways, secrets, now }, storeId, orderId)
+      if (closed === 'open') return { ok: false, reason: 'PAYMENT_PENDING' }
+    }
+    return run(async (tx) => {
+      const order = await lockOrderToRefund(tx, storeId, orderId)
+      if (!order) return { ok: false, reason: 'NOT_FOUND' }
+      if (order.state !== 'placed' || (await anythingShipped(tx, order.id))) return { ok: false, reason: 'NOT_CANCELLABLE' }
+      const lines = await lockLinesToRefund(tx, order.id)
+      await releaseStock(tx, storeId, order.id)
+      const left = BigInt(order.total_amount) - BigInt(order.refunded_amount)
+      if ((order.payment_state === 'paid' || order.payment_state === 'partly_refunded') && left > 0n) {
+        const owners: Owners = new Map()
+        for (const line of lines) {
+          const amount = BigInt(line.line_total_amount) - BigInt(line.refunded_amount)
+          const quantity = line.quantity - line.refunded_quantity
+          if (amount <= 0n && quantity <= 0) continue
+          owners.set(line.seller_id, [...(owners.get(line.seller_id) ?? []), { lineId: line.id, quantity, amount, line }])
+        }
+        // Delivery, tax beyond the lines and anything else paid is the store's to give back.
+        const onLines = [...owners.values()].flat().reduce((s, l) => s + l.amount, 0n)
+        const extra = left - onLines > 0n ? left - onLines : null
+        if (extra) owners.set(null, owners.get(null) ?? [])
+        const given = await giveBack(tx, order, owners, extra, left, { reason: 'cancelled', note: null, restock: false, inReturn: null })
+        if (!given.ok) return given
+      }
+      await cancelPlaced(tx, storeId, order.id, reason as CancelReason, now())
+      await record(tx, refundAudit.cancelled, order, reason, lines.map((l) => l.seller_id))
+      return { ok: true, value: true }
     })
   }
 
@@ -309,5 +380,5 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
     }))
   }
 
-  return { startReturn, receiveReturn: (id: string) => moveReturn(id, 'received'), cancelReturn: (id: string) => moveReturn(id, 'cancelled'), refund, ledger }
+  return { startReturn, receiveReturn: (id: string) => moveReturn(id, 'received'), cancelReturn: (id: string) => moveReturn(id, 'cancelled'), refund, cancel, ledger }
 }

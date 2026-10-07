@@ -11,12 +11,17 @@ import {
   type OrderLineRow,
   type OrderListRow,
   type OrderPartRow,
+  type SaleRow,
   type OrdersRefusal,
   type OrdersResult,
 } from '#engine/modules/orders/index'
-import { createRefundService, refundAudit, refundReasons, returnReasons, type RefundRefusal, type RefundResult } from '#engine/modules/orders/refunds'
+import { cancelReasons, createRefundService, refundAudit, refundReasons, returnReasons, type RefundRefusal, type RefundResult } from '#engine/modules/orders/refunds'
 import type { LedgerRow, RefundRow, ReturnRow } from '#db/scoped/refunds'
 import { createFulfilmentService, fulfilmentAudit, type FulfilmentRefusal, type FulfilmentResult, type FulfilmentRow } from '#engine/modules/orders/fulfilment'
+import { storeRoleHas } from '#auth/storePermissions'
+import { createOrderExportService, orderExportAudit, type OrderExportDto } from '#engine/modules/orders/exports'
+import { catalogExportKind } from '#engine/modules/catalog/index'
+import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
@@ -58,6 +63,8 @@ const refundWords: Record<RefundRefusal, string> = {
   NO_LOCATION: 'There’s no location for these to come back to yet.',
   PROVIDER_UNAVAILABLE: 'The payment provider didn’t answer. Nothing was refunded; try again.',
   PROVIDER_REFUSED: 'The payment provider refused the refund. Nothing was refunded.',
+  NOT_CANCELLABLE: 'Only an order nothing has been sent from can be cancelled. Start a return instead.',
+  PAYMENT_PENDING: 'The shopper’s card payment is still going through. Try again in a few minutes.',
   READ_ONLY: 'A read-only support session can’t change this store.',
 }
 
@@ -85,6 +92,21 @@ export const registerOrders = (builder: StoreBuilder) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
     return createRefundService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, gateways: ctx.payments?.gateways ?? {}, secrets: ctx.secrets ?? null, now: ctx.now })
+  }
+  // The merchant side's `exports` (Staff included, ACCESS §5.1), a supplier's `exports.orders` (the two order tiers).
+  const exportsOf = (ctx: StoreContext) => {
+    if (!ctx.sql) throw forbidden()
+    const caller = actingCaller(ctx)
+    if (!storeRoleHas(caller.role, caller.seller ? 'exports.orders' : 'exports')) throw forbidden()
+    return createOrderExportService({
+      sql: ctx.sql,
+      context: caller.context,
+      actor: { id: caller.person.id, label: caller.person.name || caller.person.email, partnerId: caller.person.partnerId },
+      activity: ctx.activity,
+      facts: ctx.facts,
+      now: ctx.now,
+      queue: (tx, payload) => queueSideEffect(tx, { kind: catalogExportKind, idempotencyKey: payload.jobId, payload, partnerId: payload.partnerId, storeId: payload.storeId }),
+    })
   }
   const shipping = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
@@ -306,6 +328,37 @@ export const registerOrders = (builder: StoreBuilder) => {
 
   const read = { api: 'store', scope: 'store-seller', permission: 'orders.read', target: 'none' } as const
 
+  const Sale = builder.objectRef<SaleRow>('SupplierSale').implement({
+    fields: (t) => ({
+      lineId: t.exposeID('id'),
+      orderNumber: t.exposeString('number'),
+      placedAt: t.string({ resolve: (s) => s.placed_at.toISOString() }),
+      orderState: t.exposeString('state'),
+      name: t.exposeString('name'),
+      versionName: t.exposeString('version_name', { nullable: true }),
+      sku: t.exposeString('sku', { nullable: true }),
+      quantity: t.exposeInt('quantity'),
+      refundedQuantity: t.exposeInt('refunded_quantity'),
+      // The price sold at times the quantity, before the order's discount and tax (DATA-MODEL §7.11).
+      amount: t.field({ type: Money, resolve: (s) => ({ amount: s.line_amount, currency: s.currency }) }),
+    }),
+  })
+  const SalePage = builder.objectRef<{ nodes: SaleRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('SupplierSalePage').implement({
+    fields: (t) => ({ nodes: t.field({ type: [Sale], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
+  })
+  const OrderExport = builder.objectRef<OrderExportDto>('OrderExport').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // queued, done, failed or expired
+      state: t.exposeString('state'),
+      rows: t.exposeInt('rows', { nullable: true }),
+      truncated: t.exposeBoolean('truncated'),
+      csv: t.exposeString('csv', { nullable: true }),
+      requestedAt: t.string({ resolve: (e) => e.requestedAt.toISOString() }),
+      expiresAt: t.string({ nullable: true, resolve: (e) => e.expiresAt?.toISOString() ?? null }),
+    }),
+  })
+
   const LedgerEntry = builder.objectRef<LedgerRow>('SupplierLedgerEntry').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -346,6 +399,17 @@ export const registerOrders = (builder: StoreBuilder) => {
       extensions: { access: { api: 'store', scope: 'store-seller', permission: 'orders.refund', target: 'none' } },
       resolve: (_, args, ctx) => refunds(ctx).ledger(args.supplierId ? String(args.supplierId).toLowerCase() : null, storePage(args)),
     }),
+    mySales: t.field({
+      type: SalePage,
+      args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
+      extensions: { access: { api: 'store', scope: 'store-seller', permission: 'sales.read', target: 'none' } },
+      resolve: async (_, args, ctx) => {
+        const window = storePage(args)
+        return pageOf(await service(ctx).sales(window), window, (s) => ({ occurredAt: s.placed_at, id: s.id }))
+      },
+    }),
+    orderExport: t.field({ type: OrderExport, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, { id }, ctx) => exportsOf(ctx).read(String(id)) }),
+    orderExports: t.field({ type: [OrderExport], extensions: { access: read }, resolve: (_, __, ctx) => exportsOf(ctx).recent() }),
     // The chips' counts (FIRST-RELEASE §19: counts come from their own query); a supplier's are its own parts'.
     orderCounts: t.field({ type: Counts, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).counts() }),
     order: t.field({
@@ -365,6 +429,7 @@ export const registerOrders = (builder: StoreBuilder) => {
   const refundsAccess = { api: 'store', scope: 'store-seller', permission: 'orders.refund', target: 'none' } as const
   const ReturnReason = builder.enumType('ReturnReason', { values: returnReasons })
   const RefundReason = builder.enumType('RefundReason', { values: refundReasons })
+  const CancelReason = builder.enumType('OrderCancelReason', { values: cancelReasons })
   const RefundLineInput = builder.inputType('RefundLineInput', {
     fields: (t) => ({ lineId: t.id({ required: true }), quantity: t.int({ required: true }), amount: t.string() }),
   })
@@ -442,6 +507,25 @@ export const registerOrders = (builder: StoreBuilder) => {
             override: args.override ?? false,
           }),
         ),
+    }),
+    // An order nothing has left from (orders.write, ACCESS §5.1): its stock released and everything paid given back.
+    cancelOrder: t.boolean({
+      args: { orderId: t.arg.id({ required: true }), reason: t.arg({ type: CancelReason, required: true }) },
+      extensions: { access: { api: 'store', scope: 'store', permission: 'orders.write', target: 'none', audit: refundAudit.cancelled } },
+      resolve: async (_, args, ctx) => refunded(await refunds(ctx).cancel(String(args.orderId).toLowerCase(), args.reason)),
+    }),
+    // A job: the file is read back with orderExport(id). An export is a read, so a read-only store allows it.
+    exportOrders: t.id({
+      args: { filter: t.arg({ type: Filter }), search: t.arg.string() },
+      extensions: { access: { ...read, whileReadOnly: true, audit: orderExportAudit } },
+      resolve: async (_, args, ctx) => {
+        // A read-only support session reads the store's screens, never takes its data away (ACCESS §8).
+        const { caller } = actingCaller(ctx).context
+        if (caller.kind === 'support' && caller.access === 'read') throw forbidden()
+        const result = await exportsOf(ctx).request({ filter: filterOf(args.filter), search: args.search ?? null })
+        if (!result.ok) throw new GraphQLError('That filter doesn’t work.', { extensions: { code: result.reason } })
+        return result.jobId
+      },
     }),
     addOrderNote: t.boolean({
       args: { orderId: t.arg.id({ required: true }), note: t.arg.string({ required: true }) },

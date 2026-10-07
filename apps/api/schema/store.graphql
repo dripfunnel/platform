@@ -432,6 +432,7 @@ type Mutation {
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   approveProduct(id: ID!): Boolean
+  cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
@@ -457,6 +458,7 @@ type Mutation {
   disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
   duplicateProduct(id: ID!): SavedProduct
+  exportOrders(filter: OrderFilter, search: String): ID
   finishShopifyConnect(key: String!): String
   finishStripeConnect(key: String!): Boolean
   inviteMember(email: String!, role: String!): Boolean
@@ -611,6 +613,12 @@ type OrderAdjustment {
   label: String
 }
 
+enum OrderCancelReason {
+  out_of_stock
+  shopper
+  store
+}
+
 type OrderCounts {
   all: Int
   cancelledRefunded: Int
@@ -627,6 +635,16 @@ type OrderEvent {
   at: String
   id: ID
   note: String
+}
+
+type OrderExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
 }
 
 enum OrderFilter {
@@ -1131,12 +1149,15 @@ type Query {
   me: Me
   menu: Menu
   myActivity(after: String, before: String, first: Int): MyActivity
+  mySales(after: String, before: String, first: Int): SupplierSalePage
   mySessions: [SignedInSession!]
   myStores(after: String, before: String, first: Int): StoreChoices
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   navBadges: StoreNavBadges
   order(id: ID!): Order
   orderCounts: OrderCounts
+  orderExport(id: ID!): OrderExport
+  orderExports: [OrderExport!]
   orders(after: String, before: String, filter: OrderFilter, first: Int, search: String): OrderPage
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
@@ -1694,6 +1715,24 @@ type SupplierLedgerEntry {
 
 type SupplierPage {
   nodes: [Supplier!]
+  pageInfo: PageInfo
+}
+
+type SupplierSale {
+  amount: Money
+  lineId: ID
+  name: String
+  orderNumber: String
+  orderState: String
+  placedAt: String
+  quantity: Int
+  refundedQuantity: Int
+  sku: String
+  versionName: String
+}
+
+type SupplierSalePage {
+  nodes: [SupplierSale!]
   pageInfo: PageInfo
 }
 

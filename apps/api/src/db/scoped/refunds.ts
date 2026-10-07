@@ -51,6 +51,9 @@ export const lockLinesToRefund = (tx: ScopedSql, orderId: string): Promise<LineT
     for update of l
   `
 
+/** Whether anything has left: shipped to the shopper, or handed to the store by a supplier. */
+export const anythingShipped = async (tx: ScopedSql, orderId: string): Promise<boolean> => (await tx`select 1 from fulfilment where order_id = ${orderId} limit 1`).length > 0
+
 export interface CapturedPaymentRow {
   id: string
   provider: string
