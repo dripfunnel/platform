@@ -21,8 +21,10 @@ import {
   type PaymentAccountRow,
   type SnapshotLine,
 } from '#db/scoped/orders'
+import { queueOrderUpdate } from '#db/scoped/orderUpdates'
 import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
+import { ensureGuestCustomer } from '#engine/modules/customers/index'
 import type { StripeTaxDeps } from '#engine/modules/tax/index'
 import { closeLatestAttempt, settleOrder, type SettleDeps } from './payments'
 import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, providersFor, transferDaysMs, type PaymentKind, type PaymentProvider } from './providers'
@@ -251,7 +253,11 @@ export const createCheckout = (deps: CheckoutDeps) => {
           mode,
           providerRef: card?.started.providerRef ?? null,
         })
+        // Everyone who has bought is a customer (FIRST-RELEASE §7): a guest's row is made here, never linked to the order.
+        if (!customerId && mode === 'live') await ensureGuestCustomer(tx, { storeId, email: cart.email, phone: cart.phone, name: cart.shippingAddress?.name ?? null, now: at })
         await activity.record(tx, placedEntry(cart.id, number))
+        // Cash on delivery and a transfer go through as placed; a card's on payment (payments.ts).
+        if (holds) await queueOrderUpdate(tx, storeId, { event: 'confirmed', orderId: cart.id }, `confirmed:${cart.id}`)
         return { ok: true as const, value: { orderId: cart.id, number, total: cart.total, provider: option.provider, instructions: option.instructions, payment: card?.started ?? null } }
       })
     } catch (error) {

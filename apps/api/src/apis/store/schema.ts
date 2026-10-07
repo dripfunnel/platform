@@ -20,6 +20,7 @@ import { registerShipping } from './shipping'
 import { registerCustomerAccounts } from './customerAccounts'
 import { registerPayments } from './payments'
 import { registerOrders } from './orders'
+import { registerCustomers } from './customers'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
@@ -53,6 +54,7 @@ registerShipping(builder)
 registerCustomerAccounts(builder)
 registerPayments(builder)
 registerOrders(builder)
+registerCustomers(builder)
 registerListing(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

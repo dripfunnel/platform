@@ -3,6 +3,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isUuid } from '#core/ids'
 import type { TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
+import { queueOrderUpdate } from '#db/scoped/orderUpdates'
 import {
   insertFulfilment,
   lockFulfilmentForTracking,
@@ -160,6 +161,9 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
             ),
           )
           await record(tx, handOff ? fulfilmentAudit.sentToStore : fulfilmentAudit.shipped, order, lines[0]?.line.seller_id ?? null, kind)
+          // The shopper hears of what is on its way to them, never of a hand-off to the store or a pickup they collected.
+          const id = made.at(-1)
+          if (kind === 'manual' && id && !order.test) await queueOrderUpdate(tx, storeId, { event: 'shipped', orderId: order.id, fulfilmentId: id }, `shipped:${id}`)
         }
         await settleShippingStates(tx, order.id, shippedAt, sellerId === null)
         return { ok: true, value: made }
@@ -182,6 +186,8 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
       if (!found) return { ok: false, reason: 'NOT_FOUND' }
       if (found.kind === 'pickup') return { ok: false, reason: 'NOT_SHIPPABLE' }
       await setTracking(tx, found.id, { courierName, trackingNumber, trackingUrl: trackingUrl ?? null })
+      // Shipped without tracking, the shopper hears again once it comes; a correction says nothing more.
+      if (found.tracking_number === null && found.kind === 'manual') await queueOrderUpdate(tx, storeId, { event: 'shipped', orderId: found.order_id, fulfilmentId: found.id }, `tracked:${found.id}`)
       await record(tx, fulfilmentAudit.trackingAdded, { id: found.order_id, number: found.number }, sellerId, null)
       return { ok: true, value: true }
     })

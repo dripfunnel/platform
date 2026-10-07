@@ -5,6 +5,7 @@ import { logEvent } from '#core/log'
 import { isCardProvider, PaymentRefused, PaymentUnavailable, type CardProvider, type PaymentGateways, type PaymentOutcome, type WebhookDelivery, type WebhookReading } from '#core/payments'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { cancelOrder, lockPlacedOrder, releaseStock, reserveLine, selectUnpaidOrders } from '#db/scoped/orders'
+import { queueOrderUpdate } from '#db/scoped/orderUpdates'
 import {
   deferUnpaid,
   forgetStripeAccount,
@@ -113,6 +114,7 @@ export const applyOutcome = (deps: Pick<SettleDeps, 'sql' | 'activity' | 'now'>,
     // A test payment on a preview storefront never holds real stock (storefront ARCHITECTURE §4.1).
     if (p.mode === 'live' && !p.stock_reserved && (await holdStock(tx, p))) await deps.activity.record(tx, providerEntry(p, provider, paymentAudit.oversold, order, null))
     await deps.activity.record(tx, providerEntry(p, provider, paymentAudit.paid, order, p.mode === 'test' ? 'test' : null))
+    if (p.mode === 'live') await queueOrderUpdate(tx, p.store_id, { event: 'confirmed', orderId: p.order_id }, `confirmed:${p.order_id}`)
     return 'paid'
   })
 

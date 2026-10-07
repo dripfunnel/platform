@@ -1,3 +1,5 @@
+import { toMajor } from '#core/money'
+
 // Every word an email says, in English: no partner or store has a language yet, so `en` is the
 // only locale (AGENTS.md "Product"). A second locale adds a sibling object of the same shape.
 
@@ -154,6 +156,26 @@ export const en = {
     heading: 'Your store is restored',
     body: (store: string) => `${store} is restored. The storefront is live again and the portal works as before.`,
   },
+  orderConfirmed: {
+    subject: (store: string, order: string) => `Your ${store} order ${order}`,
+    heading: 'Thanks for your order',
+    intro: (order: string) => `We have your order ${order}:`,
+    line: (quantity: number, item: string, amount: string) => `${quantity} × ${item}: ${amount}`,
+    total: (amount: string) => `Total: ${amount}`,
+    cod: (amount: string) => `You pay ${amount} when it arrives.`,
+    transfer: 'We’ll send it once your bank transfer arrives.',
+    shipTo: (name: string, city: string) => `It goes to ${name} in ${city}. We’ll email you when it’s on its way.`,
+  },
+  orderShipped: {
+    subject: (store: string, order: string) => `Your ${store} order ${order} is on its way`,
+    heading: 'It’s on its way',
+    intro: (order: string) => `These items from order ${order} have left:`,
+    line: (quantity: number, item: string) => `${quantity} × ${item}`,
+    courier: (courier: string, tracking: string) => `With ${courier}, tracking number ${tracking}.`,
+    tracking: (tracking: string) => `Tracking number ${tracking}.`,
+    action: 'Track your parcel',
+  },
+  money: (locale: string, amount: string, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(toMajor({ amount: BigInt(amount), currency }) as `${number}`),
   date: (at: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(at)} (UTC)`,
 } as const
 

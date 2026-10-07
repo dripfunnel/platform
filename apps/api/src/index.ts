@@ -53,6 +53,8 @@ import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
 import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
+import { orderNotifyDeliverer } from '#jobs/queues/deliverers/orderNotify'
+import { orderUpdateKind } from '#db/scoped/orderUpdates'
 import { catalogImportDeliverer, importPhotosDeliverer } from '#jobs/queues/deliverers/catalogImport'
 import { deleteExpiredImports, failDeadImports } from '#db/scoped/catalogImports'
 import { deleteExpiredCatalogExports, failDeadCatalogExports } from '#db/scoped/catalogExports'
@@ -177,6 +179,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
     'export.catalog': catalogExportDeliverer(sql),
+    [orderUpdateKind]: orderNotifyDeliverer(sql),
     'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
     'import.photos': importPhotosDeliverer(sql, assets, lookup),
     'export.staff_activity': staffActivityExportDeliverer(sql),

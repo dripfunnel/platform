@@ -1231,19 +1231,28 @@ readable by a supplier; a `to-shopper` supplier sees a name and address only thr
 order parts (ACCESS §7.3). A shopper (`app_shop`) reads and writes its own row and children.
 
 ```
-customer (+ columns) tags text[], note text, consent_state ('opted_in'|'stopped'|'declined'|'not_asked'),
+customer (+ columns) tags text[] (up to 20), note text, consent_state ('opted_in'|'stopped'|'declined'|'not_asked'),
                      consent_at, consent_source ('checkout'|'email'|'added_by_hand'|'recorded_by_store'),
-                     consent_channels text[] ('email'|'sms'|'whatsapp'), added_by_user_id NULL,
-                     default_address_id NULL, search tsvector
+                     consent_channels text[] ('email'|'sms'|'whatsapp'), added_by_user_id NULL
+                    -- built on #312 (0074); the default address is customer_address.is_default_shipping,
+                    -- and the list searches name, email, number and tags directly (0027's indexes), so
+                    -- neither default_address_id nor a search tsvector was needed. A live guest order
+                    -- adds an 'unverified' row from its email (or number), never linked to the order;
+                    -- the team's 'Add a customer' does the same; proving that email or number at
+                    -- sign-in makes it the shopper's account (#308's proveShopper)
                     -- §3.4 has the identity columns and status ('active'|'unverified'|'deleted',
                     -- built in 0002), which is the deletion marker; "Record that they asked
                     -- to stop" writes consent_state = 'stopped' with the recording user
                     -- (LOGGING §3); consent_channels feeds the cart reminders (§7.2)
-customer_address    -- built on #308 (0067) as below, the shopper's own through app_shop, up to 20; one default
+customer_address    -- built on #308 (0067) as below, the shopper's own through app_shop, up to 20; one default;
+                    -- the merchant side also writes the default one ("Edit" › Address, #312, 0074)
                     (id, customer_id, store_id, name, line1, line2, city, region, postal_code,
                      country, phone, is_default_shipping, is_default_billing, deleted_at)
-customer_group      (id, store_id, name, description, deleted_at)   UNIQUE (store_id, name)
+customer_group      (id, store_id, name, description, deleted_at)   UNIQUE (store_id, lower(name)) among live groups
 customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY (group_id, customer_id)
+                    -- both built on #312 (0074): the merchant side's only (app_request, store scope,
+                    -- no seller), no grant to app_supplier or app_shop; each member's group and
+                    -- customer are in its own store (composite foreign keys)
                     -- OFFERS fact 12; a group in use by a promotion warns before deletion (flow 72)
 customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subject_phone NULL,
                      subject_verified_at, expires_at, access_token_hash NULL, kind ('export'|'delete'),
@@ -1262,8 +1271,10 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- GDPR / DPDP (AGENTS.md "Data"). Filed by the store, or by the shopper
                     -- from the storefront (app_shop may insert, and reads its own request by
                     -- customer_id or by the request's own token, §7.11). A guest has no
-                    -- customer row: the request names the email or phone the orders were
-                    -- placed with, proved by a code sent to it (subject_verified_at).
+                    -- account, though a live guest order makes an unverified customer row
+                    -- for the store's list (#312), never linked to the order: the request
+                    -- names the email or phone the orders were placed with, proved by a code
+                    -- sent to it (subject_verified_at), and covers that row too.
                     -- Export gathers the customer row (if any), customer_address, every
                     -- order placed under the customer id or, for a guest, under the
                     -- verified email or phone, with their email, phone and address

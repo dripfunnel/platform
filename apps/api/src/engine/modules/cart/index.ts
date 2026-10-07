@@ -15,7 +15,7 @@ import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#eng
 import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type PricedLine } from './rules'
 
 export type { AddressInput, CheckoutProblem, LineProblem } from './rules'
-export { cleanAddress } from './rules'
+export { cleanAddress, cleanContact } from './rules'
 export type { CartAddress } from '#db/scoped/cart'
 
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the

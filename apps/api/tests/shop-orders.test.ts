@@ -139,6 +139,11 @@ describe('placing an order', () => {
     expect((await shop(`{ order(id: "${order}") { shippingOption shippingMethod } }`, orderToken)).data?.['order']).toEqual({ shippingOption: 'flat', shippingMethod: null })
     expect(await db.sql`select kind, label from order_adjustment where order_id = ${order} order by kind`).toEqual([{ kind: 'shipping', label: null }, { kind: 'tax', label: null }])
     expect((await place(orderToken, 'cod')).code).toBe('NOT_FOUND')
+    // The guest is now one of the store's customers (#312), unverified and never linked to the order (ACCESS §2.1).
+    expect(await db.sql`select name, email, status from customer where email = 'asha@example.com'`).toEqual([{ name: 'Asha', email: 'asha@example.com', status: 'unverified' }])
+    expect(await db.sql`select customer_id from "order" where id = ${order}`).toEqual([{ customer_id: null }])
+    // Cash on delivery goes through as placed: the shopper's confirmation is queued once (#312).
+    expect(await db.sql`select payload ->> 'event' as event from outbox where kind = 'order.notify' and payload ->> 'orderId' = ${order}`).toEqual([{ event: 'confirmed' }])
   })
 
   it('checks stock again under lock: the last one goes to one order only', async () => {
@@ -243,6 +248,8 @@ describe('holding stock and placing safely', () => {
     // Each is placed or told the last one has gone; none fails.
     expect(results.every((r) => r.code === undefined || r.code === 'OUT_OF_STOCK')).toBe(true)
     expect(results.filter((r) => r.code === undefined).length).toBeGreaterThan(0)
+    // One guest, however many orders and however they raced: one customer (#312).
+    expect(await db.sql`select 1 from customer where store_id = ${stores.india} and email = 'ravi@example.com'`).toHaveLength(1)
   })
 
   it('refuses a cart changed after it was priced, in another tab', async () => {

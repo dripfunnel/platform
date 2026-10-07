@@ -656,6 +656,28 @@ back with `orderExport(id)` and `orderExports`; the merchant side's `exports`, S
 `exports.orders`): one row a line, the merchant side's with the shopper, payment and order total, a supplier's its own lines at
 the price sold, no totals, and the shopper only where its part ships to the shopper; up to 10,000 rows, saying where it was cut.
 `mySales` (`sales.read`, the two order tiers): a supplier's own sold lines at the price sold, newest first, paged, no totals.
+**Built on #312 (SAPI 13), part 1, customers:** `customers(groupId, search)` (newest first, at most 50; search by name,
+email, number or tag), `customerCount`, `customer(id)` (contact and whether each is proven, the account, tags, the team note,
+marketing consent, group ids, saved addresses, the newest 20 orders and how many there are, and what they've paid less refunds,
+a figure a currency) and `customerGroups` (by name, each with its members; up to 100 a store), for `customers.read`;
+`addCustomer(name, email, phone)` (no email goes to them; an email already a customer answers that one, `existed`),
+`updateCustomer(id, name, phone, address)` (the default delivery address; a number the shopper proved is theirs,
+`VERIFIED`), `setCustomerTags` (up to 20, 24 characters each), `setCustomerNote` (up to 2,000 characters),
+`recordMarketingStop` (consent `stopped`, recorded by the store; order and delivery emails still go), `setCustomerGroups(id,
+groupIds)`, `createGroup`, `updateGroup`, `deleteGroup` (its members leave it) for `customers.write`; `exportCustomers(groupId,
+search)` (a job, read back with `customerExport(id)` and `customerExports`, `customers.export`): one row a customer, or a row a
+currency for one who has paid in more than one, up to 10,000. Owner, Manager and Staff alike (ACCESS §5.1); every supplier is
+refused. Everyone who has bought is a customer: a live guest order makes an unverified row from its email (or, with none, its
+number), never linked to the order, so an account takes it over only by proving that email or number (ACCESS §2.1). Only the
+shopper opts in to marketing; the checkout box that records it comes with the storefront's checkout.
+**Part 2, the shopper's order emails and texts:** the order confirmation once an order goes through (placed for cash on
+delivery or a transfer, paid for a card), and the shipping news once a shipment leaves for the shopper (the store's, or a
+to-shopper supplier's; never a hand-off to the store or a pickup) and once more when its tracking first comes. Each is an
+email, from the store's name in its partner's look with the store's contact, and a text where the order has a number
+(`order.confirmed`, `order.shipped` with the courier and the tracking link, which waits until both exist). A test order, a
+cancelled one and a correction of tracking tell nobody. The engine queues an `order.notify` row of ids only; its deliverer
+reads the order when it runs and queues the email and the text, each once. The password email is #308's shopper code (a
+forgotten password signs in by code and sets a new one). `order.delivered` waits for tracking sync (#311).
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

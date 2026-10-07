@@ -438,7 +438,8 @@ for the rest; it drops a code past its expiry, a refusal, and a partner with no 
 template, logging only a code, and retries an outage or a refused credential (401, 403). Until #275
 reads the accounts, the Worker registers no `sms` deliverer and texts wait in the outbox, as email
 waits without SES. A dropped text is recorded as given up, with its reason as `last_error`, never
-as delivered. A code needs an expiry, and an order update unsent after 3 days is given up too (the
+as delivered. Order updates are queued by the `order.notify` deliverer (#312): `order.confirmed` once an order goes through,
+`order.shipped` once a shipment has a courier and a tracking link. A code needs an expiry, and an order update unsent after 3 days is given up too (the
 cron's sweep, which leaves a row the relay holds); once a text is sent or given up, its row keeps only
 the message kind, never the number or the code.
 Neither provider takes an idempotency key, so a crash between its acceptance and the row being marked
