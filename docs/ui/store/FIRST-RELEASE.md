@@ -564,9 +564,10 @@ CATALOG T2).
 **Part 3:** a query of catalogue fields only (`store`, `menu`, `collections`, `collection`, `products`, `search`, `product`) is
 answered from the data centre's cache for 5 minutes, keyed by store, `storefront.catalog_version`, host, language,
 currency and market; every write a storefront shows moves the version, which is the purge (a section switched on or off
-included). Three things change with no write, and each follows within the cache's 5 minutes: the euro reference rate
-(platform data refreshed every six hours) for a converted price, a product whose `publish_at` comes, and the "new" badge
-as a product ages. An answer with errors is never
+included), and a republished reference rate moves a converting store's. Stock is left out on purpose, since every sale
+would otherwise empty the store's cache: a page may show it up to 5 minutes old, while the cart and placement check it
+again under lock, so nothing is oversold. Two more things change with no write and follow within those 5 minutes: a
+product whose `publish_at` comes, and the "new" badge as a product ages. An answer with errors is never
 kept, and the store is still found and rate-limited first. Anything else (carts, accounts, from SAPI 9) is never cached.
 Every answer goes out `private, no-store`: only the data centre's copy is kept, since nothing in front of it sees the
 version move or the headers the key reads.

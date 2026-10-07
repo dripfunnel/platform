@@ -1723,7 +1723,8 @@ decide which columns and which tables each caller kind may select at all**. `app
   internal step and has no shop branch). **`translation`** and **`product_search`** have no
   visibility columns of their own: their `shop` branch is `EXISTS` on the translated or
   indexed row passing its own shop rule (a visible, unhidden, undeleted product or
-  collection; a shopper-visible filter; a live story; a policy), so a hidden product's slug
+  collection; a shopper-visible filter; an option or choice name a visible product's option
+  carries; a live story; a policy; any other entity, nothing), so a hidden product's slug
   or translated name never reaches a shopper, and the matrix has that row. Every other table
   in this class has **no `shop` branch**, and `app_shop` has no `select` on it either.
 - **Catalogue structure: inside the store, merchant-written, shop-readable**: `collection`,
