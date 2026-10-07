@@ -696,6 +696,7 @@ describe('the backstop itself', () => {
       'store_default_market',
       'store_default_tax',
       'store_default_warehouse',
+      'store_delivers_to',
       'store_invitee',
       'store_markets_follow_currency',
       'store_pricing_currency',

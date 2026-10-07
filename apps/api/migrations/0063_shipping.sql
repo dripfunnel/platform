@@ -64,6 +64,22 @@ end
 $$;
 grant update (delivery_amount) on market to app_definer;
 
+-- Whether the store delivers to a postcode, without reading its list: a shopper's quote asks this and never sees the
+-- list itself (DATA-MODEL §7.11: delivery-area checks are the engine's).
+create function store_delivers_to(code text) returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select app_setting_text('app.scope') in ('store', 'shop') and app_setting_text('app.seller_id') = ''
+    and exists (select 1 from delivery_postal_code d where d.store_id = app_setting_uuid('app.store_id') and d.code = store_delivers_to.code)
+$$;
+grant select on delivery_postal_code to app_definer;
+alter function store_delivers_to(text) owner to app_definer;
+revoke execute on function store_delivers_to(text) from public;
+grant execute on function store_delivers_to(text) to app_request;
+
 grant select, insert, update on store_shipping, store_courier to app_request;
 grant select, insert, delete on delivery_postal_code to app_request;
 grant select, insert, update, delete on store_shipping, delivery_postal_code, store_courier to app_system;
