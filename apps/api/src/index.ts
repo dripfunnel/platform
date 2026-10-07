@@ -68,6 +68,7 @@ import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
 import { deleteExpiredCarts } from '#db/scoped/cart'
+import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
@@ -520,6 +521,10 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
+      // Old sign-in codes and sessions go, with the addresses they named (#444's review).
+      await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
+        logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
       // Carts past their 30 days go, with whatever address or email a guest left in them.
       await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
         logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

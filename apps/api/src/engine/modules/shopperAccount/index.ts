@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isUuid } from '#core/ids'
 import type { TenantContext } from '#core/tenancy'
-import { withScope } from '#db/scoped/index'
+import { serialise, withScope } from '#db/scoped/index'
 import { maxAddresses, removeAddress, renameShopper, saveAddress, selectAccount, selectAddresses } from '#db/scoped/shopper'
 import { cleanAddress, type AddressInput } from '#engine/modules/cart/index'
 
@@ -77,6 +77,8 @@ export const createShopperAccount = ({ sql, context, activity, facts, now }: Sho
       const address = cleanAddress(input)
       if (!address || (id !== null && !isUuid(id))) return { ok: false, reason: 'INVALID_INPUT' }
       return withScope(sql, context, async (tx): Promise<AccountResult<string>> => {
+        // One save at a time per shopper, so two at once can't both pass the cap.
+        await serialise(tx, `customer_address:${me}`)
         if (id === null && (await selectAddresses(tx, me)).length >= maxAddresses) return { ok: false, reason: 'TOO_MANY' }
         const saved = await saveAddress(tx, context.storeId, me, id, { ...address, isDefault })
         if (!saved) return { ok: false, reason: 'NOT_FOUND' }

@@ -5,6 +5,7 @@ import {
   countCodeAttempt,
   countRecentCodes,
   endShopperSession,
+  endShopperSessions,
   insertCode,
   insertShopper,
   insertShopperSession,
@@ -26,8 +27,6 @@ import { hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, smsCo
 // whether an account exists, and a wrong, missing or expired code is one refusal.
 
 export const shopperSessionMs = 30 * 86_400_000
-/** Codes one requester may ask a store for in any 10 minutes, whatever the address. */
-const maxCodesPerRequester = 10
 const tenMinutes = 10 * 60 * 1000
 
 export type ShopperChannel = 'email' | 'phone'
@@ -96,11 +95,11 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       if (!target) return { ok: false, reason: 'INVALID_INPUT' }
       if (!(await allowed(tx, channel))) return { ok: false, reason: 'METHOD_OFF' }
       const since = new Date(now().getTime() - tenMinutes)
-      const requesterHash = requester ? await hashSessionId(`shopper-requester:${storeId}:${requester}`) : null
+      // Per requester through the limiter, which keeps no address; a request with none (off Cloudflare) is refused.
+      if (!requester || !(await allowAttempt(`shop:${storeId}:code-ip:${requester}`))) return { ok: false, reason: 'RATE_LIMITED' }
       if ((await countRecentCodes(tx, storeId, { channel, target }, since)) >= maxSmsCodesPer10Min) return { ok: false, reason: 'RATE_LIMITED' }
-      if (requesterHash && (await countRecentCodes(tx, storeId, { requesterHash }, since)) >= maxCodesPerRequester) return { ok: false, reason: 'RATE_LIMITED' }
       const expiresAt = new Date(now().getTime() + smsCodeMs)
-      const codeId = await insertCode(tx, { storeId, channel, target, codeHash: null, requesterHash, expiresAt })
+      const codeId = await insertCode(tx, { storeId, channel, target, codeHash: null, expiresAt })
       if (channel === 'email') return { ok: true, codeId, channel, target, code: null }
       const code = newSmsCode()
       await setCodeHash(tx, codeId, await hashShopperCode(codeId, code), expiresAt, now())
@@ -122,6 +121,8 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       const target = shopperTarget(channel, raw)
       const name = extra.name?.trim() || null
       if (!target || (name?.length ?? 0) > 200 || !/^\d{6}$/.test(code.trim())) return { ok: false, reason: 'INVALID_INPUT' }
+      // Guessing is bounded per code (5 tries) and per requester and address here, as signIn is.
+      if (!facts.ip || !(await allowAttempt(`shop:${storeId}:verify-ip:${facts.ip}`)) || !(await allowAttempt(`shop:${storeId}:verify:${channel}:${target}`))) return { ok: false, reason: 'RATE_LIMITED' }
       if (extra.password && (extra.password.length < minPasswordLength || extra.password.length > 200)) return { ok: false, reason: 'WEAK_PASSWORD' }
       if (!(await allowed(tx, channel))) return { ok: false, reason: 'METHOD_OFF' }
       const live = await selectLiveCode(tx, storeId, channel, target, now())
@@ -137,7 +138,11 @@ export const createShopperAuth = ({ sql, storeId, partnerId, activity, facts, al
       let customerId = found?.id ?? null
       if (customerId) {
         await proveShopper(tx, customerId, channel, passwordHash, now())
-        if (passwordHash) await activity.record(tx, entry('customer.password_changed', customerId))
+        if (passwordHash) {
+          // A new password ends every other session, as a reset must (ACCESS §2).
+          await endShopperSessions(tx, customerId, storeId, now())
+          await activity.record(tx, entry('customer.password_changed', customerId))
+        }
       } else {
         customerId = await insertShopper(tx, { storeId, channel, target, name, passwordHash, now: now() })
         await activity.record(tx, entry('customer.signed_up', customerId))

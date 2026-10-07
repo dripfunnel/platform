@@ -100,6 +100,12 @@ Rules for the **people** pool:
   per IP; sign-up and "send code" respond identically whether or not the account exists.
 - Changing the setting never locks existing customers out: a store that drops mobile sign-in
   asks phone-only customers to add an email at their next sign-in *(confirm)*.
+- **Built on #308** (migration 0067; FIRST-RELEASE §19 lists the fields): one 6-digit code proves an email or a number for
+  sign-up, sign-in and a forgotten password alike (a password given with an email's code sets it, and ends every other
+  session); codes are hashed, 5 tries, 10 minutes, 3 per address in 10 minutes and limited per requester by the sign-in
+  limiter, which keeps no address; `signIn` and code checks are limited per store and IP and per address; sessions are a
+  hashed token sent as `X-Shop-Session`, 30 days from last use. Codes a day past expiry and sessions a month after they end
+  are deleted. A store with no setting signs nobody in. A shopper's own account events are logged only about itself.
 
 Two more **caller kinds** reach the engine without being a pool of people (§3):
 

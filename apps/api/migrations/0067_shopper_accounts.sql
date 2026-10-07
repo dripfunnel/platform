@@ -44,15 +44,12 @@ create table customer_code (
   channel text not null check (channel in ('email', 'phone')),
   target text not null check (char_length(target) between 3 and 320),
   code_hash text check (code_hash ~ '^[0-9a-f]{64}$'),
-  -- Who asked, as a hash of their address, so a flood from one place is counted without keeping where it came from.
-  requester_hash text check (requester_hash ~ '^[0-9a-f]{64}$'),
   attempts integer not null default 0 check (attempts between 0 and 100),
   expires_at timestamptz not null,
   used_at timestamptz,
   created_at timestamptz not null default now()
 );
 create index customer_code_target_idx on customer_code (store_id, channel, target, created_at desc);
-create index customer_code_requester_idx on customer_code (store_id, requester_hash, created_at desc) where requester_hash is not null;
 
 create table customer_address (
   id uuid primary key default gen_random_uuid(),
@@ -74,7 +71,8 @@ create index customer_address_customer_idx on customer_address (customer_id) whe
 create unique index customer_address_default_key on customer_address (customer_id) where is_default_shipping and deleted_at is null;
 
 -- Sign-in, codes and sessions run in system scope before any shopper exists (auth/shopperAuth.ts), as a merchant's do.
-grant select, insert, update on store_customer_auth, customer_session, customer_code to app_system;
+grant select, insert, update on store_customer_auth to app_system;
+grant select, insert, update, delete on customer_session, customer_code to app_system;
 grant select, insert, update, delete on customer_address to app_system;
 -- The merchant reads and sets its store's choice (settings); never a session or a code.
 grant select, insert, update on store_customer_auth to app_request;
@@ -85,9 +83,13 @@ grant select (id, customer_id, store_id, name, line1, line2, city, region, posta
 grant insert (customer_id, store_id, name, line1, line2, city, region, postal_code, country, phone, is_default_shipping) on customer_address to app_shop;
 grant update (name, line1, line2, city, region, postal_code, country, phone, is_default_shipping, deleted_at) on customer_address to app_shop;
 grant update (name) on customer to app_shop;
--- The account events a shopper's own writes record (LOGGING §2: an address added, changed or removed).
+-- The account events a shopper's own writes record (LOGGING §3: an address added, changed or removed), and only those:
+-- about itself, as itself, in its own store.
 grant insert on activity_log to app_shop;
-alter policy activity_log_insert on activity_log to app_partner, app_platform, app_request, app_supplier, app_system, app_shop;
+create policy activity_log_shop_insert on activity_log for insert to app_shop
+with check (app_setting_text('app.scope') = 'shop' and store_id = app_setting_uuid('app.store_id') and partner_id = app_setting_uuid('app.partner_id')
+  and seller_id is null and app_setting_text('app.customer_id') <> '' and customer_id = app_setting_uuid('app.customer_id')
+  and actor_kind = 'customer' and actor_id = app_setting_text('app.customer_id'));
 
 do $$
 declare
