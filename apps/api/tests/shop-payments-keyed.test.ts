@@ -212,7 +212,7 @@ describe('Paying through Razorpay', () => {
     expect(await hook(path, body, await hmacHex('livehook', body))).toBe(429)
     hookAllowed = true
     // A provider refusing its own check answers 400; a provider that can't be reached, 503 so it sends again.
-    const failing = (error: Error) => ({ razorpay: { ...wiring().gateways.razorpay, available: () => true, start: async () => Promise.reject(error), outcome: async () => Promise.reject(error), webhook: async () => Promise.reject(error) } })
+    const failing = (error: Error) => ({ razorpay: { ...wiring().gateways.razorpay, available: () => true, start: async () => Promise.reject(error), outcome: async () => Promise.reject(error), webhook: async () => Promise.reject(error), refund: async () => Promise.reject(error) } })
     expect(await hook(path, body, '', failing(new PaymentRefused('400')))).toBe(400)
     expect(await hook(path, body, '', failing(new PaymentUnavailable('down')))).toBe(503)
     // Not paid yet: answered, nothing changes.

@@ -200,3 +200,56 @@ describe('PayPal', () => {
     expect(never.asked).toHaveLength(0)
   })
 })
+
+describe('refunds', () => {
+  const refund = { refundId: '7f1c1f0e-3333-4000-8000-000000000003', amount: { amount: 50000n, currency: 'INR' } }
+  const refundRef = 'df_7f1c1f0e333340008000000000000003'
+
+  it('Razorpay refunds the order’s captured payment in paise, and reads processed, pending or failed', async () => {
+    const keys = account({ keyId: 'rzp_test_abcdef', keySecret: 'secret' })
+    const at = (status: string, earlier: unknown[] = []) =>
+      stub((a) => (a.url.endsWith('/refund') ? Response.json({ id: 'rfnd_1', status }) : a.url.includes('/refunds') ? Response.json({ items: earlier }) : Response.json({ items: [{ id: 'pay_2', status: 'captured', amount: 129950, currency: 'INR' }] })))
+    const done = at('processed', [{ id: 'rfnd_0', status: 'processed', notes: [] }])
+    expect(await razorpay({ fetchImpl: done.fetchImpl }).refund(keys, 'order_ABC123', refund)).toEqual({ providerRef: 'rfnd_1', state: 'done' })
+    expect(done.asked[2]?.url).toBe('https://api.razorpay.com/v1/payments/pay_2/refund')
+    expect(JSON.parse(done.asked[2]?.body ?? '')).toEqual({ amount: 50000, receipt: refundRef, notes: { df_refund_id: refund.refundId } })
+    // A refund our id already made (the call timed out, then was asked again) is read back, never made twice.
+    const again = at('processed', [{ id: 'rfnd_9', status: 'pending', notes: { df_refund_id: refund.refundId } }])
+    expect(await razorpay({ fetchImpl: again.fetchImpl }).refund(keys, 'order_ABC123', refund)).toEqual({ providerRef: 'rfnd_9', state: 'pending' })
+    expect(again.asked.some((a) => a.method === 'POST')).toBe(false)
+    expect((await razorpay({ fetchImpl: at('pending').fetchImpl }).refund(keys, 'order_ABC123', refund)).state).toBe('pending')
+    const nothing = stub(() => Response.json({ items: [{ id: 'pay_1', status: 'failed', amount: 1, currency: 'INR' }] }))
+    await expect(razorpay({ fetchImpl: nothing.fetchImpl }).refund(keys, 'order_ABC123', refund)).rejects.toBeInstanceOf(PaymentRefused)
+  })
+
+  it('Cashfree refunds the order with our refund id, the amount as its exact decimal', async () => {
+    const keys = account({ appId: 'app', secretKey: 'sec' })
+    const { asked, fetchImpl } = stub(() => Response.json({ refund_status: 'PENDING', cf_refund_id: 9 }))
+    expect(await cashfree({ fetchImpl }).refund(keys, reference, refund)).toEqual({ providerRef: refundRef, state: 'pending' })
+    expect(asked[0]?.url).toBe(`https://sandbox.cashfree.com/pg/orders/${reference}/refunds`)
+    expect(asked[0]?.body).toBe(`{"refund_id":"${refundRef}","refund_amount":500.00}`)
+    expect(asked[0]?.headers.get('x-idempotency-key')).toBe(refund.refundId)
+  })
+
+  it('PhonePe refunds our order in paise by its v2 refund', async () => {
+    const keys = account({ clientId: 'c', clientSecret: 's', clientVersion: '1' })
+    const { asked, fetchImpl } = stub((a) => (a.url.endsWith('/oauth/token') ? Response.json({ access_token: 'tok' }) : Response.json({ refundId: 'R1', state: 'COMPLETED' })))
+    expect(await phonepe({ fetchImpl }).refund(keys, reference, refund)).toEqual({ providerRef: refundRef, state: 'done' })
+    expect(asked[1]?.url).toBe('https://api-preprod.phonepe.com/apis/pg-sandbox/payments/v2/refund')
+    expect(JSON.parse(asked[1]?.body ?? '')).toEqual({ merchantRefundId: refundRef, originalMerchantOrderId: reference, amount: 50000 })
+    await expect(phonepe({ fetchImpl }).refund(keys, reference, { ...refund, amount: { amount: 1n, currency: 'USD' } })).rejects.toBeInstanceOf(PaymentRefused)
+  })
+
+  it('PayPal refunds the order’s capture in dollars, once per refund id', async () => {
+    const keys = account({ clientId: 'cid', clientSecret: 'cs' })
+    const usd = { ...refund, amount: { amount: 1050n, currency: 'USD' } }
+    const { asked, fetchImpl } = stub((a) =>
+      a.url.endsWith('/oauth2/token') ? Response.json({ access_token: 'tok' })
+        : a.url.endsWith('/refund') ? Response.json({ id: 'RF1', status: 'COMPLETED' })
+          : Response.json({ id: 'ORD1', status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ id: 'CAP1', status: 'COMPLETED', amount: { value: '25.99', currency_code: 'USD' } }] } }] }))
+    expect(await paypal({ fetchImpl }).refund(keys, 'ORD1', usd)).toEqual({ providerRef: 'RF1', state: 'done' })
+    expect(asked[2]?.url).toBe('https://api-m.sandbox.paypal.com/v2/payments/captures/CAP1/refund')
+    expect(asked[2]?.headers.get('paypal-request-id')).toBe(`refund-${refund.refundId}`)
+    expect(JSON.parse(asked[2]?.body ?? '')).toEqual({ amount: { currency_code: 'USD', value: '10.50' }, invoice_id: refund.refundId })
+  })
+})

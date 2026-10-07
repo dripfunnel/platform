@@ -48,3 +48,28 @@ describe('Stripe payments on a connected account', () => {
     await expect(paid.cancel?.(account, 'pi_1')).rejects.toBeInstanceOf(PaymentRefused)
   })
 })
+
+describe('Stripe refunds on a connected account', () => {
+  const refund = { refundId: '7f1c1f0e-0000-4000-8000-0000000000aa', amount: { amount: 1000n, currency: 'USD' } }
+
+  it('refunds part of a PaymentIntent on the merchant’s account, once per refund id, and reads where it stands', async () => {
+    let asked: { url: string; headers: Headers; body: URLSearchParams } | null = null
+    const gateway = (status: string) =>
+      stripePayments({
+        keys: { test: { secretKey: 'sk_test_p', publishableKey: 'pk_test_p' } },
+        fetchImpl: async (url, init) => {
+          asked = { url: String(url), headers: new Headers(init?.headers), body: new URLSearchParams(String(init?.body)) }
+          return Response.json({ id: 're_9', status })
+        },
+      })
+    expect(await gateway('succeeded').refund(account, 'pi_1', refund)).toEqual({ providerRef: 're_9', state: 'done' })
+    const sent = asked as unknown as { url: string; headers: Headers; body: URLSearchParams }
+    expect(sent.url).toBe('https://api.stripe.com/v1/refunds')
+    expect(sent.headers.get('stripe-account')).toBe('acct_merchant')
+    expect(sent.headers.get('idempotency-key')).toBe(`df-refund:${refund.refundId}`)
+    expect(Object.fromEntries(sent.body)).toEqual({ payment_intent: 'pi_1', amount: '1000', 'metadata[df_refund_id]': refund.refundId })
+    expect((await gateway('pending').refund(account, 'pi_1', refund)).state).toBe('pending')
+    expect((await gateway('failed').refund(account, 'pi_1', refund)).state).toBe('failed')
+    await expect(gateway('succeeded').refund(account, 'ch_1', refund)).rejects.toBeInstanceOf(PaymentRefused)
+  })
+})

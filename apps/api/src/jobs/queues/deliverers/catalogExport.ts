@@ -2,9 +2,10 @@ import type postgres from 'postgres'
 import { completeCatalogExport, failCatalogExport, selectCatalogExport } from '#db/scoped/catalogExports'
 import { withScope } from '#db/scoped/index'
 import { buildCatalogExport, catalogExportLifetimeMs, catalogJobPayload, jobContextOf } from '#engine/modules/catalog/index'
+import { buildOrderExport } from '#engine/modules/orders/index'
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
 
-/** `export.catalog`: a store's products or stock as CSV, read in the asker's own scope, so a supplier's holds only its rows. */
+/** `export.catalog`: a store's products, stock or orders as CSV, read in the asker's own scope, so a supplier's holds only its rows. */
 export const catalogExportDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect) => {
     const parsed = catalogJobPayload.safeParse(effect.payload)
@@ -15,7 +16,7 @@ export const catalogExportDeliverer = (sql: postgres.Sql, now: () => Date = () =
       await withScope(sql, scope, async (tx) => {
         const job = await selectCatalogExport(tx, storeId, jobId)
         if (job?.state !== 'queued') return
-        const built = await buildCatalogExport(tx, job)
+        const built = job.kind === 'orders' ? await buildOrderExport(tx, job) : await buildCatalogExport(tx, job)
         const at = now()
         await completeCatalogExport(tx, jobId, { ...built, at, expiresAt: new Date(at.getTime() + catalogExportLifetimeMs) })
       })

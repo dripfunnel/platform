@@ -9,7 +9,7 @@ describe('merchant roles (ACCESS.md §5.1)', () => {
   it('gives the Owner every merchant permission and no supplier-only one', () => {
     const owner = can(merchant('owner'))
     for (const p of ['settings', 'billing', 'invite', 'publish', 'store.export', 'activity.export', 'warehouses.write'] as const) expect(owner(p)).toBe(true)
-    for (const p of ['orders.fulfil', 'sales.read', 'supplier.team'] as const) expect(owner(p)).toBe(false)
+    for (const p of ['sales.read', 'supplier.team'] as const) expect(owner(p)).toBe(false)
   })
 
   it('lets a Manager change stock but not warehouses, read the log but not export it, and allow support writes', () => {
@@ -26,7 +26,7 @@ describe('merchant roles (ACCESS.md §5.1)', () => {
 
   it('lets Staff work orders and customers and export, and read offers without changing or exporting them', () => {
     const staff = can(merchant('staff'))
-    for (const p of ['orders.write', 'customers.write', 'customers.export', 'exports', 'offers.read', 'carts.read'] as const) expect(staff(p)).toBe(true)
+    for (const p of ['orders.write', 'orders.fulfil', 'customers.write', 'customers.export', 'exports', 'offers.read', 'carts.read'] as const) expect(staff(p)).toBe(true)
     for (const p of ['catalog.write', 'offers.write', 'offers.export', 'orders.refund', 'orders.mark_paid', 'reports.read', 'activity.read'] as const) expect(staff(p)).toBe(false)
   })
 })

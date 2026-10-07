@@ -6,7 +6,7 @@ import { forbidden } from '../graphql/scope'
 import { marketsService } from './markets'
 import { translationService } from './translations'
 import { actingCaller, type StoreContext } from './access'
-import { pageInfoType, type StoreBuilder } from './builder'
+import { moneyType, pageInfoType, type Money, type StoreBuilder } from './builder'
 import { sortedPage, sortedPageOf } from './refusals'
 import { requireFeature } from './listing'
 import { recomputeFor } from './structure'
@@ -54,11 +54,6 @@ const ids = (values: readonly (string | number)[]): string[] => {
   const list = [...new Set(values.map(String))]
   if (list.length === 0 || list.length > maxBulk || !list.every((id) => isUuid(id))) throw new GraphQLError(`Choose between 1 and ${maxBulk} products.`, { extensions: { code: 'INVALID_INPUT' } })
   return list
-}
-
-interface Money {
-  amount: string
-  currency: string
 }
 
 interface SummaryView {
@@ -111,10 +106,7 @@ const summaryOf = (r: ProductListRow, currency: string | null, readiness: Market
 export const registerProducts = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
 
-  const MoneyType = builder.objectRef<Money>('Money').implement({
-    // Minor units as a string: GraphQL's Int is 32-bit and a price may pass it (DATA-MODEL §7.1).
-    fields: (t) => ({ amount: t.exposeString('amount'), currency: t.exposeString('currency') }),
-  })
+  const MoneyType = moneyType(builder)
   const SupplierRef = builder.objectRef<{ id: string; name: string }>('ProductSupplier').implement({
     fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }),
   })

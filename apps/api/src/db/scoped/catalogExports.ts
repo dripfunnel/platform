@@ -3,7 +3,8 @@ import { pgArray, type ScopedSql } from './index'
 // The store's product and stock exports as jobs (migrations/0058; FIRST-RELEASE §13): asked for, built after
 // commit in the asker's own scope, read back by id. Row security keeps a supplier to its own jobs and rows.
 
-export type CatalogExportKind = 'products' | 'stock'
+/** The store's exports: products and stock (#301), and orders (#310), each a job read back by id. */
+export type CatalogExportKind = 'products' | 'stock' | 'orders'
 
 export interface CatalogExportRow {
   id: string
@@ -38,10 +39,10 @@ export const selectCatalogExport = async (tx: ScopedSql, storeId: string, id: st
   (await tx<CatalogExportRow[]>`select * from catalog_export where id = ${id} and store_id = ${storeId}`)[0] ?? null
 
 /** "Recent exports": the asker's own, newest first, without their files. */
-export const selectCatalogExports = (tx: ScopedSql, storeId: string, requesterId: string, limit: number): Promise<Omit<CatalogExportRow, 'csv'>[]> =>
+export const selectCatalogExports = (tx: ScopedSql, storeId: string, requesterId: string, kinds: readonly CatalogExportKind[], limit: number): Promise<Omit<CatalogExportRow, 'csv'>[]> =>
   tx<Omit<CatalogExportRow, 'csv'>[]>`
     select id, store_id, seller_id, kind, filter, state, rows, truncated, requested_by_id, requested_by_label, created_at, finished_at, expires_at
-    from catalog_export where store_id = ${storeId} and requested_by_id = ${requesterId}
+    from catalog_export where store_id = ${storeId} and requested_by_id = ${requesterId} and kind = any (${pgArray([...kinds])}::text[])
     order by created_at desc, id desc limit ${limit}
   `
 

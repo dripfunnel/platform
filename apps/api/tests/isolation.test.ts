@@ -636,11 +636,15 @@ describe('the backstop itself', () => {
     // A new one is a decision: add it to 0047's list and here, with what the supplier does with it.
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier'
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and table_name not in ('store', 'story_block') order by 1`)).toEqual([
-      'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'external_connection', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
+      'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'external_connection', 'filter', 'filter_value', 'fulfilment', 'fulfilment_line', 'invitation', 'membership',
+      // Its own parts and lines without money, the two views of the order and its lines' money (#310, 0070), and its own shipments (0071).
+      'order_for_supplier', 'order_line', 'order_line_for_supplier', 'order_part', 'outbox', 'price_history',
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
       'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
-      'product_version', 'product_version_option_value', 'product_video', 'seller', 'size_chart', 'stock_level', 'stock_movement',
-      'store_feature', 'store_language', 'tax_class', 'translation', 'user', 'version_price', 'warehouse',
+      'product_version', 'product_version_option_value', 'product_video',
+      // Its own refunds and returned lines, the returns holding them without the store's note, and its ledger (0072).
+      'refund', 'refund_line', 'return_for_supplier', 'return_line', 'seller', 'size_chart', 'stock_level', 'stock_movement',
+      'store_feature', 'store_language', 'supplier_ledger_entry', 'tax_class', 'translation', 'user', 'version_price', 'warehouse',
     ])
     // Writes only on its catalogue, stock, its own exports (#301) and what every write records; price history and stock movements only through
     // their definer functions; its team's invitations and memberships by column (0049); the settings and its seller it only reads.
