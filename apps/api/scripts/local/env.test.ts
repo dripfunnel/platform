@@ -62,7 +62,7 @@ describe('checkEnv', () => {
 
   it('takes the email stand-in with the suppression key alone, and still warns of a half-set SES without it', () => {
     const key = `${'A'.repeat(43)}=`
-    expect(checkEnv({ ...ready, EMAIL_LOCAL: '1', SMS_LOCAL: '1', DNS_LOCAL: '1', EMAIL_SUPPRESSION_KEY: key }, true)).toEqual([])
+    expect(checkEnv({ ...ready, EMAIL_LOCAL: '1', SMS_LOCAL: '1', DNS_LOCAL: '1', COURIERS_LOCAL: '1', EMAIL_SUPPRESSION_KEY: key }, true)).toEqual([])
     expect(problems({ ...ready, EMAIL_SUPPRESSION_KEY: key })).toEqual([expect.stringMatching(/^warning: email stays off/)])
   })
 })
