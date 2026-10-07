@@ -169,6 +169,8 @@ export interface ShopProductQuery {
   currency: string
   convertible: boolean
   pricingCurrency: string
+  /** Units of each currency per euro, for sorting by a converted price; null where the cart's can't be converted. */
+  perEuro: { pricing: string; currency: string } | null
   collectionId: string | null
   filterValueIds: readonly string[]
   search: string | null
@@ -181,7 +183,15 @@ export interface ShopSortWindow {
 }
 
 const shopSortOf = (tx: ScopedSql, sort: ShopSort, q: ShopProductQuery) => {
-  const minPrice = tx`(select min(vp.amount) from version_price vp join product_version v on v.id = vp.version_id where v.product_id = p.id and vp.currency = ${q.pricingCurrency})`
+  // The price in the cart's currency: typed in it, or converted at the reference rate. A market's adjustment moves every
+  // price by the same share, so it never changes the order.
+  const converted = q.perEuro ? tx`round(base.amount * (${q.perEuro.currency}::numeric / ${q.perEuro.pricing}::numeric))::bigint` : tx`null::bigint`
+  const minPrice = tx`(
+    select min(coalesce(own.amount, ${converted})) from product_version v
+    left join version_price own on own.version_id = v.id and own.currency = ${q.currency}
+    left join version_price base on base.version_id = v.id and base.currency = ${q.pricingCurrency}
+    where v.product_id = p.id
+  )`
   switch (sort) {
     case 'price_low':
       return { key: tx`coalesce(${minPrice}, 9223372036854775807)`, type: 'bigint', descending: false }
