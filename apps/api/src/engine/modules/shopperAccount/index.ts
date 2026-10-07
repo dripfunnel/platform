@@ -72,7 +72,7 @@ export const createShopperAccount = ({ sql, context, activity, facts, now }: Sho
     })
 
   /** A new address, or one of the shopper's own changed; the default one is the only default. */
-  const save = (id: string | null, input: AddressInput, isDefault: boolean) =>
+  const save = (id: string | null, input: AddressInput, isDefault: boolean | null) =>
     signedIn(async (me) => {
       const address = cleanAddress(input)
       if (!address || (id !== null && !isUuid(id))) return { ok: false, reason: 'INVALID_INPUT' }

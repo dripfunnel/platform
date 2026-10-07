@@ -525,7 +525,7 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
-      // Old sign-in codes and sessions go, with the addresses they named (#444's review).
+      // Old sign-in codes and sessions go, with the addresses they named.
       await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
         logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
       })

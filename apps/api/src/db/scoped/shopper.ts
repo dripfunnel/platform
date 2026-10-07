@@ -116,11 +116,15 @@ export const insertShopperSession = async (tx: ScopedSql, s: { idHash: string; s
 export const touchShopperSession = async (tx: ScopedSql, idHash: string, storeId: string, now: Date, expiresAt: Date): Promise<string | null> =>
   (
     await tx<{ customer_id: string }[]>`
-      update customer_session s set last_seen_at = ${now}, expires_at = ${expiresAt}
-      from customer c
-      where s.id_hash = ${idHash} and s.store_id = ${storeId} and s.ended_at is null and s.expires_at > ${now}
-        and c.id = s.customer_id and c.store_id = ${storeId} and c.status = 'active'
-      returning s.customer_id
+      with live as (
+        select s.id_hash, s.customer_id, s.last_seen_at from customer_session s join customer c on c.id = s.customer_id and c.store_id = ${storeId} and c.status = 'active'
+        where s.id_hash = ${idHash} and s.store_id = ${storeId} and s.ended_at is null and s.expires_at > ${now}
+      ), moved as (
+        -- Moved on at most hourly: every storefront read carries the session, and most change nothing.
+        update customer_session set last_seen_at = ${now}, expires_at = ${expiresAt}
+        where id_hash in (select id_hash from live where last_seen_at < ${new Date(now.getTime() - 3_600_000)}) returning id_hash
+      )
+      select customer_id from live
     `
   )[0]?.customer_id ?? null
 
@@ -130,7 +134,7 @@ export const endShopperSessions = async (tx: ScopedSql, customerId: string, stor
 
 /**
  * The cron's sweep: codes a day past their expiry, which hold an email or number that may be no customer's, and
- * sessions ended or expired 30 days ago (#444's review).
+ * sessions ended or expired 30 days ago.
  */
 export const purgeShopperIdentity = async (tx: ScopedSql, now: Date, limit: number): Promise<number> => {
   const codes = await tx`delete from customer_code where id in (select id from customer_code where expires_at < ${new Date(now.getTime() - 86_400_000)} limit ${limit})`
@@ -199,24 +203,25 @@ export interface AddressWrite {
   postalCode: string | null
   country: string
   phone: string | null
-  isDefault: boolean
+  /** Null on an edit leaves the address's default as it was. */
+  isDefault: boolean | null
 }
 
 export const saveAddress = async (tx: ScopedSql, storeId: string, customerId: string, id: string | null, a: AddressWrite): Promise<string | null> => {
-  // An address that isn't the shopper's changes nothing, its default included (#444's review).
+  // An address that isn't the shopper's changes nothing, its default included.
   if (id !== null && (await tx`select id from customer_address where id = ${id} and customer_id = ${customerId} and deleted_at is null for update`).length === 0) return null
   if (a.isDefault) await tx`update customer_address set is_default_shipping = false where customer_id = ${customerId} and is_default_shipping and deleted_at is null`
   if (id === null) {
     const [row] = await tx<{ id: string }[]>`
       insert into customer_address (customer_id, store_id, name, line1, line2, city, region, postal_code, country, phone, is_default_shipping)
-      values (${customerId}, ${storeId}, ${a.name}, ${a.line1}, ${a.line2}, ${a.city}, ${a.region}, ${a.postalCode}, ${a.country}, ${a.phone}, ${a.isDefault})
+      values (${customerId}, ${storeId}, ${a.name}, ${a.line1}, ${a.line2}, ${a.city}, ${a.region}, ${a.postalCode}, ${a.country}, ${a.phone}, ${a.isDefault === true})
       returning id
     `
     return row?.id ?? null
   }
   const done = await tx`
     update customer_address set name = ${a.name}, line1 = ${a.line1}, line2 = ${a.line2}, city = ${a.city}, region = ${a.region},
-      postal_code = ${a.postalCode}, country = ${a.country}, phone = ${a.phone}, is_default_shipping = ${a.isDefault}
+      postal_code = ${a.postalCode}, country = ${a.country}, phone = ${a.phone}, is_default_shipping = ${a.isDefault === null ? tx`is_default_shipping` : a.isDefault}
     where id = ${id} and customer_id = ${customerId} and deleted_at is null
   `
   return done.count > 0 ? id : null

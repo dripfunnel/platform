@@ -175,7 +175,7 @@ export const registerAccounts = ({ builder }: ShopBuilder) => {
       extensions: { access: { ...access, audit: shopperAccountAudit.addressSaved } },
       resolve: async (_, args, ctx) => {
         long(...Object.values(args.address))
-        return answered(await accountOf(ctx).save(args.id ? String(args.id) : null, args.address, args.isDefault ?? false))
+        return answered(await accountOf(ctx).save(args.id ? String(args.id) : null, args.address, args.isDefault ?? null))
       },
     }),
     deleteAddress: t.boolean({
