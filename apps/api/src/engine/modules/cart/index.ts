@@ -43,8 +43,8 @@ export interface CartDeps {
   facts: RequestFacts
   /** Stripe Tax on the store's connected account, for a US address (decided on #284, #337); null where none is connected. */
   stripeTax?: StripeTaxDeps | null
-  /** Whether this requester may start another guest cart now (a limiter per store and IP); absent, nothing limits it. */
-  allowNewCart?: () => Promise<boolean>
+  /** Whether this requester may start another guest cart now (a limiter per store and IP). */
+  allowNewCart: () => Promise<boolean>
   now: () => Date
 }
 
@@ -223,7 +223,7 @@ export const createCartService = (deps: CartDeps) => {
     let token: string | null = null
     const existing = await withScope(sql, context, (tx) => selectCart(tx, storeId, now()))
     if (!existing && customerId === null) {
-      if (deps.allowNewCart && !(await deps.allowNewCart())) return { ok: false, reason: 'RATE_LIMITED' }
+      if (!(await deps.allowNewCart())) return { ok: false, reason: 'RATE_LIMITED' }
       token = newSessionId()
       context = { ...context, caller: { kind: 'shopper', customerId: null, orderTokenHash: await hashSessionId(token) } }
     }

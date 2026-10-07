@@ -73,7 +73,7 @@ const shopperOn = async (host: string, headers: Record<string, string> = {}): Pr
 }
 const gql = async (host: string, source: string, headers: Record<string, string> = {}, variables: Record<string, unknown> = {}) => {
   const shopper = await shopperOn(host, headers)
-  const contextValue: ShopContext = { sql: db.sql, shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date() }
+  const contextValue: ShopContext = { sql: db.sql, shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, allowNewCart: async () => true, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }

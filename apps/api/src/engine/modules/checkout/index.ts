@@ -76,7 +76,7 @@ export interface PlacedOrder {
   payment: PaymentStart | null
 }
 
-export interface CheckoutDeps extends CartDeps {
+export interface CheckoutDeps extends Omit<CartDeps, 'allowNewCart'> {
   /** The store's country, for which providers may take payment there. */
   country: string | null
   mode: PaymentMode
@@ -196,7 +196,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
 
   /** "Pay" (FIRST-RELEASE §19): a card payment is started before placing, so no order exists that couldn't be paid. */
   const place = async (provider: string): Promise<CheckoutResult<PlacedOrder>> => {
-    const cart = await createCartService(deps).cart()
+    const cart = await createCartService({ ...deps, allowNewCart: async () => false }).cart()
     if (!cart) return { ok: false, reason: 'NOT_FOUND' }
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
     if (cart.lines.some((l) => l.problem === 'short' || l.problem === 'unavailable')) return { ok: false, reason: 'OUT_OF_STOCK' }
