@@ -5,7 +5,9 @@ import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { PaymentRefused, PaymentUnavailable, type PaymentGateway } from '#core/payments'
-import { withSystemScope } from '#db/scoped/index'
+import { selectCatalogExport } from '#db/scoped/catalogExports'
+import { withScope, withSystemScope } from '#db/scoped/index'
+import { buildOrderExport } from '#engine/modules/orders/index'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -17,7 +19,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-type Who = 'owner' | 'staff' | 'drop' | 'hub' | 'reader' | 'stockOnly'
+type Who = 'owner' | 'staff' | 'drop' | 'hub' | 'reader' | 'stockOnly' | 'other'
 const cookies = {} as Record<Who, string>
 const sellers = { reader: '', stockOnly: '' }
 const places = { main: '', drop: '' }
@@ -90,9 +92,9 @@ beforeAll(async () => {
     (${versions.house}, ${places.main}, ${t.storeA1}, null, 20), (${versions.scarf}, ${places.drop}, ${t.storeA1}, ${t.sellerA1First}, 20)`
   stripeAccount = (await db.sql<{ id: string }[]>`insert into payment_provider_account (store_id, provider, mode, external_account_id) values (${t.storeA1}, 'stripe', 'live', 'acct_jaipur') returning id`)[0]?.id ?? ''
 
-  const person = async (email: string, role: string, seller: string | null = null) => {
+  const person = async (email: string, role: string, seller: string | null = null, storeId = t.storeA1) => {
     const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, ${email}, ${email.split('@')[0] ?? ''}, 'active') returning id`
-    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${u?.id ?? ''}, ${t.storeA1}, ${seller}, ${role}, 'active')`
+    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${u?.id ?? ''}, ${storeId}, ${seller}, ${role}, 'active')`
     return withSystemScope(db.sql, (tx) => createUserSession(tx, { id: u?.id ?? '', partnerId: t.partnerA }, new Date()))
   }
   cookies.owner = await person('owner@a1.example', 'owner')
@@ -101,6 +103,7 @@ beforeAll(async () => {
   cookies.hub = await person('bhatia@a1.example', 'supplier-member', t.sellerA1Second)
   cookies.reader = await person('chawla@a1.example', 'supplier-admin', sellers.reader)
   cookies.stockOnly = await person('dutta@a1.example', 'supplier-admin', sellers.stockOnly)
+  cookies.other = await person('owner@a2.example', 'owner', null, t.storeA2)
 }, 60_000)
 
 afterAll(async () => {
@@ -111,7 +114,7 @@ const sellerOf: Partial<Record<Who, () => string>> = { drop: () => t.sellerA1Fir
 const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const seller = sellerOf[who]?.()
-  const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: t.storeA1, ...(seller ? { [supplierHeader]: seller } : {}) }
+  const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'other' ? t.storeA2 : t.storeA1, ...(seller ? { [supplierHeader]: seller } : {}) }
   const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
   const standing = as.support && resolved.kind === 'acting'
     ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
@@ -208,6 +211,28 @@ describe('the orders export', () => {
     expect(drop.lines?.join('\n')).not.toMatch(/priya@example\.com|9800000001|50\.00/)
     const hub = await exported('hub', '(search: "A-4001")')
     expect(hub.lines?.[1]).toContain(',to-store,,,,,,Item 2,')
+  })
+
+  it('reads a file only for whoever asked: never another seat, a supplier, another store, nor as a products export', async () => {
+    const asked = (await gql('mutation { exportOrders }', 'owner')).data?.['exportOrders'] as string
+    await relay()
+    const read = (who: Who) => gql(`{ orderExport(id: "${asked}") { state } }`, who)
+    expect((await read('owner')).data?.['orderExport']).toEqual({ state: 'done' })
+    for (const who of ['staff', 'drop', 'reader', 'other'] as const) expect((await read(who)).data?.['orderExport'], who).toBeNull()
+    expect((await gql(`{ catalogExport(id: "${asked}") { id } }`, 'owner')).data?.['catalogExport']).toBeNull()
+    expect(((await gql('{ orderExports { id } }', 'staff')).data?.['orderExports'] as { id: string }[]).map((e) => e.id)).not.toContain(asked)
+  })
+
+  it('cuts the file at its cap and says so', async () => {
+    const asked = (await gql('mutation { exportOrders }', 'owner')).data?.['exportOrders'] as string
+    const merchant = { caller: { kind: 'person' as const, userId: crypto.randomUUID(), sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const built = await withScope(db.sql, merchant, async (tx) => {
+      const job = await selectCatalogExport(tx, t.storeA1, asked)
+      if (!job) throw new Error('no job')
+      return buildOrderExport(tx, job, 2)
+    })
+    expect([built.rows, built.truncated]).toEqual([2, true])
+    expect(built.csv.split('\n').at(-1)).toBe('Cut at 2 rows: narrow the filter for the rest.')
   })
 
   it('lets the read-only order tier export, never a stock-only supplier or a read-only support session', async () => {
