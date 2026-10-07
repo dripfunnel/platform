@@ -605,8 +605,8 @@ order placed unpaid with no stock held; `confirmPayment(orderId)` reads it back 
 `payOrder(orderId)` starts a new attempt after a decline (`ALREADY_PAID` once paid). Paid, from the webhook, the return or
 the sweep, the order holds its stock; a card order unpaid for a day is cancelled (`unpaid`). Preview storefronts pay in
 test mode and never hold stock. A US address on a store with Stripe connected is taxed by Stripe Tax, delivery included;
-the store's own rates leave delivery untaxed (decided on #309). A number proved by a code claims the store's guest orders
-placed with it (#337). PayPal, Razorpay, Cashfree and PhonePe come in part 3.
+the store's own rates leave delivery untaxed (decided on #309). A Stripe account takes payment for one store only
+(`ACCOUNT_IN_USE`). PayPal, Razorpay, Cashfree and PhonePe come in part 3.
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:

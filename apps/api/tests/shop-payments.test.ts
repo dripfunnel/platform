@@ -182,6 +182,13 @@ describe('Connect Stripe', () => {
     expect((await db.sql<{ status: string }[]>`select status from payment_provider_account where store_id = ${stores.us} and provider = 'stripe'`)[0]?.status).toBe('live')
   })
 
+  it('connects one Stripe account to one store only (#446’s review)', async () => {
+    const url = new URL((await merchant('mutation { connectStripe }', 'other')).data?.['connectStripe'] as string)
+    const key = new URL((await callback(`state=${url.searchParams.get('state') ?? ''}&code=ac_same`)).headers.get('location') ?? '').searchParams.get('key') ?? ''
+    expect((await merchant(`mutation { finishStripeConnect(key: "${key}") }`, 'other')).code).toBe('ACCOUNT_IN_USE')
+    expect(await db.sql`select 1 from payment_provider_account where store_id = ${stores.other} and provider = 'stripe'`).toHaveLength(0)
+  })
+
   it('keeps Connect Stripe away from other stores’ tables and callers', async () => {
     const caller = (storeId: string): TenantContext => ({ caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: t.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
     await expect(withScope(db.sql, caller(stores.us), (tx) => tx`select 1 from payment_connect`)).rejects.toThrow(/permission denied/)

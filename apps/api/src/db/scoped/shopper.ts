@@ -235,7 +235,3 @@ export const renameShopper = async (tx: ScopedSql, customerId: string, name: str
 
 export const selectStoreName = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
   (await tx<{ name: string }[]>`select name from store where id = ${storeId}`)[0]?.name ?? null
-
-/** A number just proved by a code claims the store's guest orders placed with it (#337), never anyone else's. */
-export const linkGuestOrders = async (tx: ScopedSql, storeId: string, customerId: string, phone: string, now: Date): Promise<number> =>
-  (await tx`update "order" set customer_id = ${customerId}, updated_at = ${now} where store_id = ${storeId} and customer_id is null and phone = ${phone} and state <> 'cart'`).count

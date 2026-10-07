@@ -7,9 +7,8 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { approveConnect, deleteConnect, selectPendingConnect, type ConnectRow } from '#db/scoped/payments'
 import { finishConnectMs } from '#engine/modules/checkout/setup'
 
-// hooks.<host>/stripe/connect/callback (THIRD-PARTY-ACCESS §3.1): Stripe's one registered redirect for Connect OAuth. The
-// state names the pending connection; the code becomes the account's id, and the merchant goes back to their own portal
-// with a one-time key that only the person who started can finish with (as Connect Shopify, hooks/shopify.ts).
+// hooks.<host>/stripe/connect/callback (THIRD-PARTY-ACCESS §3.1): Stripe's one redirect for Connect OAuth, finished by its
+// starter with a one-time key in their own portal, as Connect Shopify is (hooks/shopify.ts).
 export const stripeConnectCallbackPath = '/stripe/connect/callback'
 
 export interface StripeConnectHookDeps {

@@ -191,11 +191,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
     return lines
   }
 
-  /**
-   * "Pay": the cart priced now and ready, then placed with the provider chosen. A way paid later holds the stock at once
-   * and a transfer is due in 3 days; a card payment is started first, so no order exists that couldn't be paid, and holds
-   * the stock when the provider says it is paid. A test-mode order (a preview storefront) never holds stock.
-   */
+  /** "Pay" (FIRST-RELEASE §19): a card payment is started before placing, so no order exists that couldn't be paid. */
   const place = async (provider: string): Promise<CheckoutResult<PlacedOrder>> => {
     const cart = await createCartService(deps).cart()
     if (!cart) return { ok: false, reason: 'NOT_FOUND' }

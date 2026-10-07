@@ -6,12 +6,11 @@ import { isCardProvider, type OAuthConnect, type PaymentGateways } from '#core/p
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { saveManualMethod, selectPaymentSetup, selectStoreCountry, turnOffMethod } from '#db/scoped/orders'
-import { countLiveMethods, disconnectProvider, savePendingConnect, saveStripeAccount, takeApprovedConnect } from '#db/scoped/payments'
+import { countLiveMethods, disconnectProvider, savePendingConnect, saveStripeAccount, stripeAccountTaken, takeApprovedConnect } from '#db/scoped/payments'
 import { isManual, isPaymentProvider, providerLabels, providersFor, type PaymentProvider } from './providers'
 
-// Settings › Payment setup (SetOps; FIRST-RELEASE §19 `gateways`, `connectGateway`, `disconnectGateway`; THIRD-PARTY-ACCESS
-// §3.1): the providers for the store's region, Stripe connected by Connect OAuth, the ways paid later turned on with their
-// details, and any of them disconnected, never the store's only live one (SetOps).
+// Settings › Payment setup (SetOps; FIRST-RELEASE §19 `gateways`, `connectGateway`, `disconnectGateway`;
+// THIRD-PARTY-ACCESS §3.1).
 
 export const paymentSetupAudit = {
   turnedOn: 'payment_method.turned_on',
@@ -20,7 +19,7 @@ export const paymentSetupAudit = {
   connected: 'payment_method.connected',
 } as const
 
-export type SetupRefusal = 'METHOD_UNAVAILABLE' | 'NOT_FOUND' | 'LAST_METHOD' | 'NOT_AVAILABLE' | 'EXPIRED' | 'SUPPORT_SESSION'
+export type SetupRefusal = 'METHOD_UNAVAILABLE' | 'NOT_FOUND' | 'LAST_METHOD' | 'NOT_AVAILABLE' | 'EXPIRED' | 'SUPPORT_SESSION' | 'ACCOUNT_IN_USE'
 export type SetupResult<T> = { ok: true; value: T } | { ok: false; reason: SetupRefusal }
 
 export interface PaymentSetupView {
@@ -127,6 +126,7 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
     return withSystemScope(sql, async (tx): Promise<SetupResult<true>> => {
       const accountId = await takeApprovedConnect(tx, { storeId, finishHash: await hashSessionId(key), by: actor.id, at: now() })
       if (!accountId) return { ok: false, reason: 'EXPIRED' }
+      if (await stripeAccountTaken(tx, storeId, accountId)) return { ok: false, reason: 'ACCOUNT_IN_USE' }
       await saveStripeAccount(tx, storeId, accountId, now())
       await activity.record(tx, entry(paymentSetupAudit.connected, 'stripe'))
       return { ok: true, value: true }
@@ -138,10 +138,7 @@ export const createPaymentSetup = (deps: PaymentSetupDeps) => {
     return rows.some((r) => r.provider === provider && r.status === 'live') && (await countLiveMethods(tx, storeId)) <= 1
   }
 
-  /**
-   * "Disconnect" or "Turn off": shoppers stop seeing it; orders already paid keep theirs. A card gateway's keys or connected
-   * account go with it, and Stripe's access is ended. The store's only live way to pay can't go (SetOps).
-   */
+  /** "Disconnect": keys and connected account go, Stripe's access ends; never the store's only live way to pay (SetOps). */
   const disconnect = async (provider: string): Promise<SetupResult<true>> => {
     if (!isPaymentProvider(provider)) return { ok: false, reason: 'NOT_FOUND' }
     if (isManual(provider)) {

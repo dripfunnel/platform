@@ -20,9 +20,8 @@ import {
 } from '#db/scoped/payments'
 import { isManual, openAccount, providerLabels } from './providers'
 
-// A card payment's outcome, from whichever arrives first: the provider's webhook, the shopper coming back, or the sweep
-// (PLATFORM-PROMPT §5.4 Payments). Each reads the payment as the provider has it now and applies it under the payment's
-// lock, so a replay or a late event changes nothing twice (webhooks idempotent, THIRD-PARTY-ACCESS §3.1).
+// A card payment settled from the webhook, the shopper's return or the sweep, each reading the provider back under the
+// payment's lock, so a replay changes nothing (PLATFORM-PROMPT §5.4; DATA-MODEL §7.6).
 
 export const paymentAudit = {
   paid: 'order.paid',
@@ -62,10 +61,7 @@ const providerEntry = (p: { partner_id: string; store_id: string }, provider: st
   userAgent: null,
 })
 
-/**
- * Holds a paid order's stock where it is (PLATFORM-PROMPT §5.4: reserved when paid). The money is taken, so it holds even
- * when too little is left, and says so for the merchant to sort out (decided on #309; refunds are SAPI 11's).
- */
+/** Held when paid (PLATFORM-PROMPT §5.4), even past what is free since the money is taken; answers whether it was short. */
 const holdStock = async (tx: ScopedSql, p: PaymentToSettleRow): Promise<boolean> => {
   let short = false
   for (const line of await selectLinesToHold(tx, p.store_id, p.order_id)) {
@@ -128,11 +124,7 @@ export const settleOrder = async (deps: SettleDeps, storeId: string, orderId: st
   return latest ? settlePayment(deps, latest) : 'unknown'
 }
 
-/**
- * The cron's sweep: an order still unpaid past its time is cancelled by the system, its stock (if held) released, logged
- * with the system as actor (LOGGING §3). A bank transfer has 3 days (decided 2026-10-05 on #284); a card payment a day, and
- * is read back from its provider first so a payment whose webhook was lost is kept. Answers how many it cancelled.
- */
+/** The cron cancels orders unpaid past `payment_due_by` (FIRST-RELEASE §19), a card one only once its provider says unpaid. */
 export const releaseUnpaidOrders = async (deps: SettleDeps, now: Date): Promise<number> => {
   const due = await withSystemScope(deps.sql, (tx) => selectUnpaidOrders(tx, now, 100))
   let cancelled = 0
@@ -179,11 +171,7 @@ export const releaseUnpaidOrders = async (deps: SettleDeps, now: Date): Promise<
 
 export type MerchantEventOutcome = 'handled' | 'ignored' | 'unplaced'
 
-/**
- * An event from a merchant's connected Stripe account, on the platform's one endpoint (THIRD-PARTY-ACCESS §3.1): a payment
- * is read back and settled; the merchant ending the platform's access from Stripe turns Stripe off for the store. Null when
- * the account is no store's, so the caller hands it to billing. Throws PaymentUnavailable for the hook to answer 503.
- */
+/** A merchant account's event on the one Stripe endpoint (THIRD-PARTY-ACCESS §3.1); null when no store holds the account. */
 export const handleMerchantStripeEvent = async (deps: SettleDeps, event: { type: string; account: string; objectId: string }): Promise<MerchantEventOutcome | null> => {
   const store = await withSystemScope(deps.sql, (tx) => selectStoreByStripeAccount(tx, event.account))
   if (!store) return null

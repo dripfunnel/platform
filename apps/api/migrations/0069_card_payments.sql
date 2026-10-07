@@ -4,13 +4,14 @@
 -- A store's test keys for its preview storefront sit beside its live ones (part 3); Stripe's one connection serves both.
 drop index payment_provider_account_key;
 create unique index payment_provider_account_key on payment_provider_account (store_id, provider, mode);
+-- One store per connected Stripe account: its events and its Disconnect name one store only.
+create unique index payment_provider_account_stripe_key on payment_provider_account (external_account_id) where provider = 'stripe' and external_account_id is not null;
 
 -- `unpaid`: a card payment never completed within a day; a transfer keeps its own reason (LOGGING §3).
 alter table "order" drop constraint order_cancel_reason_check;
 alter table "order" add constraint order_cancel_reason_check check (cancel_reason in ('unpaid_transfer', 'unpaid', 'shopper', 'store', 'out_of_stock'));
 
--- Connect Stripe, between the merchant leaving for Stripe and finishing in their own session (as external_connection
--- does for Shopify): only the hashes of the state and the one-time key are kept, and the row goes once finished.
+-- Connect Stripe between leaving for Stripe and finishing (DATA-MODEL §7.2): hashes only, as external_connection keeps.
 create table payment_connect (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references store (id),
