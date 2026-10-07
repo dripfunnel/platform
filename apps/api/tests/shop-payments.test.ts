@@ -261,6 +261,8 @@ describe('Paying by card', () => {
     expect((await db.sql`select state, payment_state, stock_reserved from "order" where id = ${paid}`)[0]).toEqual({ state: 'placed', payment_state: 'pending', stock_reserved: false })
     expect(await db.sql`select provider_ref, state, mode from payment where order_id = ${paid}`).toEqual([{ provider_ref: 'pi_test1', state: 'pending', mode: 'live' }])
     expect(await reserved()).toBe(0)
+    // A live guest is a customer from placement, whatever pays (#312).
+    expect(await db.sql`select status from customer where email = 'sam@example.com'`).toEqual([{ status: 'unverified' }])
   })
 
   it('settles on the shopper’s return once Stripe says paid: stock held, logged as Stripe’s, never twice', async () => {
@@ -322,6 +324,8 @@ describe('Paying by card', () => {
   it('takes a test payment on the preview without holding real stock', async () => {
     const before = await reserved()
     const token = await readyCart(1, preview)
+    await shop('mutation { setCartContact(email: "preview@example.com") { cart { id } } }', token, preview)
+    await shop('mutation { checkout { id } }', token, preview)
     const { placed } = await placeStripe(token, preview)
     expect(placed?.payment?.publicKey).toBe('pk_test_platform')
     const id = placed?.orderId ?? ''
@@ -329,6 +333,8 @@ describe('Paying by card', () => {
     expect((await shop(`mutation { confirmPayment(orderId: "${id}") { paymentState } }`, token, preview)).data?.['confirmPayment']).toEqual({ paymentState: 'paid' })
     expect(await reserved()).toBe(before)
     expect((await db.sql<{ mode: string }[]>`select mode from payment where order_id = ${id}`)[0]?.mode).toBe('test')
+    // A test order on the preview makes no customer (#312).
+    expect(await db.sql`select 1 from customer where email = 'preview@example.com'`).toHaveLength(0)
   })
 
   it('holds stock that sold out meanwhile, since the money is taken, and says so for the merchant', async () => {
