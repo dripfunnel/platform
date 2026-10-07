@@ -159,6 +159,26 @@ describe('a signed-in shopper', () => {
     expect((await gql('{ account { addresses { id } } }', who)).data?.['account']).toEqual({ addresses: [] })
   })
 
+  it('never changes or deletes another shopper’s address in the same store', async () => {
+    const who = { session: phoneSession }
+    const theirs = (await gql('mutation { saveAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", country: "IN" }, isDefault: true) }', who)).data?.['saveAddress'] as string
+    await gql('mutation { requestSignInCode(channel: PHONE, to: "+919845033224") }')
+    const other = { session: ((await verify('PHONE', '+919845033224', await textedCode('+919845033224'))).data?.['verifySignInCode'] as { sessionToken: string }).sessionToken }
+    expect((await gql(`mutation { saveAddress(id: "${theirs}", address: { name: "x", line1: "y", city: "z", country: "IN" }, isDefault: false) }`, other)).code).toBe('NOT_FOUND')
+    expect((await gql(`mutation { deleteAddress(id: "${theirs}") }`, other)).code).toBe('NOT_FOUND')
+    expect((await gql('{ account { addresses { id city isDefault } } }', who)).data?.['account']).toEqual({ addresses: [{ id: theirs, city: 'Pune', isDefault: true }] })
+    await gql(`mutation { deleteAddress(id: "${theirs}") }`, who)
+  })
+
+  it('keeps at most 20 addresses, and still edits one at the cap', async () => {
+    const who = { session: phoneSession }
+    const ids: string[] = []
+    for (let i = 0; i < 20; i++) ids.push((await gql(`mutation { saveAddress(address: { name: "A", line1: "${i} MG Road", city: "Pune", country: "IN" }) }`, who)).data?.['saveAddress'] as string)
+    expect((await gql('mutation { saveAddress(address: { name: "A", line1: "21 MG Road", city: "Pune", country: "IN" }) }', who)).code).toBe('TOO_MANY')
+    expect((await gql(`mutation { saveAddress(id: "${ids[0] ?? ''}", address: { name: "A", line1: "0 FC Road", city: "Pune", country: "IN" }) }`, who)).data?.['saveAddress']).toBe(ids[0])
+    for (const id of ids) await gql(`mutation { deleteAddress(id: "${id}") }`, who)
+  })
+
   it('takes over the guest cart it held when it signs in', async () => {
     const added = await gql(`mutation { addToCart(versionId: "${kurta}", quantity: 1) { cartToken } }`)
     const cart = (added.data?.['addToCart'] as { cartToken: string }).cartToken
