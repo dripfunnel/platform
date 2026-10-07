@@ -578,7 +578,7 @@ moves the cart to payment or refuses `NOT_READY` with its `problems`. The cart h
 priced; each read prices it now: lines at today's price with what stops one being bought (gone, not sold here, unpriced,
 more than is left), delivery, tax from the store's rates (GST across or within states; Stripe Tax once SAPI 10 connects
 it), and the total. A change after reaching payment goes back to delivery. Up to 100 lines of up to 999; a cart lives 30
-days from its last change. The names above replace §19's `updateLine` and `setShipping`.
+days from its last change. A guest's new carts are limited per store and address (`CART_RATE_LIMITER`, 20 a minute). The names above replace §19's `updateLine` and `setShipping`.
 **Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, India starting with
 both), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
 the address has an account; 3 per address and 10 per requester in 10 minutes), `verifySignInCode(channel, to, code, name,
