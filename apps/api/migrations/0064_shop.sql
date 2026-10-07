@@ -211,7 +211,9 @@ begin
        when ''collection'' then exists (select 1 from collection c where c.id::text = entity_id)
        when ''filter'' then exists (select 1 from filter f where f.id::text = entity_id)
        when ''filter_value'' then exists (select 1 from filter_value v where v.id::text = entity_id)
-       else true end'),
+       when ''option_name'' then exists (select 1 from product_option o where lower(o.name) = entity_id)
+       when ''choice_name'' then exists (select 1 from product_option_value v where lower(v.name) = entity_id)
+       else false end'),
     ('asset', 'exists (select 1 from product_photo x where x.asset_id = asset.id)
        or exists (select 1 from product_video x where x.asset_id = asset.id)
        or exists (select 1 from collection x where x.image_asset_id = asset.id)
