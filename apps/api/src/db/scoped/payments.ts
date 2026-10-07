@@ -154,12 +154,12 @@ export interface LineToHoldRow {
   track_stock: boolean
 }
 
-/** A paid order's lines whose stock is counted, to hold now (PLATFORM-PROMPT §5.4: stock is reserved when paid). */
+/** A paid order's lines whose stock is counted, to hold now (PLATFORM-PROMPT §5.4), in version order as placement locks them. */
 export const selectLinesToHold = (tx: ScopedSql, storeId: string, orderId: string): Promise<LineToHoldRow[]> =>
   tx<LineToHoldRow[]>`
     select l.id, l.version_id, l.quantity, coalesce(v.track_stock, false) as track_stock
     from order_line l left join product_version v on v.id = l.version_id
-    where l.store_id = ${storeId} and l.order_id = ${orderId} and l.reserved_warehouse_id is null order by l.position
+    where l.store_id = ${storeId} and l.order_id = ${orderId} and l.reserved_warehouse_id is null order by l.version_id, l.id
   `
 
 export const setLineWarehouse = async (tx: ScopedSql, lineId: string, warehouseId: string): Promise<void> => {

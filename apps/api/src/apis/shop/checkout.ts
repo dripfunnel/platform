@@ -17,6 +17,7 @@ const words: Record<string, string> = {
   ALREADY_PAID: 'This order is already paid.',
   NOT_PENDING: 'This order isn’t waiting for a card payment.',
   PHONE_REQUIRED: 'Add your mobile number to pay this way.',
+  CART_CHANGED: 'Your cart changed while you were paying. Check it and pay again.',
 }
 
 // Where a provider that takes the shopper away (Cashfree, PhonePe) sends them back: the storefront's own order page.

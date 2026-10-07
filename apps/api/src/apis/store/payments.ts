@@ -19,6 +19,7 @@ const words: Record<string, string> = {
   INVALID_KEYS: 'Those keys aren’t in the shape this provider gives them. Copy them again from its dashboard, for the mode you chose.',
   KEYS_REFUSED: 'The provider didn’t accept those keys. Check them in its dashboard and try again.',
   PROVIDER_UNAVAILABLE: 'We couldn’t reach the provider to check those keys. Try again in a minute.',
+  READ_ONLY: 'This store is read-only.',
 }
 
 const answered = <T>(result: CheckoutResult<T> | { ok: true; value: T } | { ok: false; reason: string }): T => {
