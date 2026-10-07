@@ -38,7 +38,8 @@ beforeAll(async () => {
   const plan = async (partnerId: string, name: string, charts: boolean) => {
     const [row] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${partnerId}, ${name}, 'live') returning id`
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${row?.id ?? ''}, ${partnerId}, 1, 'products', 100)`
-    if (charts) await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${row?.id ?? ''}, ${partnerId}, 1, 'size_charts', true)`
+    for (const key of charts ? ['size_charts', 'badges', 'faqs_related', 'product_video'] : [])
+      await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${row?.id ?? ''}, ${partnerId}, 1, ${key}, true)`
     return row?.id ?? ''
   }
   plans.full = await plan(t.partnerA, 'Full', true)
@@ -392,6 +393,32 @@ describe('a product’s listing sections', () => {
       const copy = (await gql('mutation C($id: ID!) { duplicateProduct(id: $id) { id } }', 'owner', { id: made.id })).data?.['duplicateProduct'] as { id: string }
       expect((await listingOf('owner', copy.id))?.sizeChartId).toBeNull()
       expect((await gql(save, 'owner', { id: made.id, revision: 2, input: { name: 'Plan shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], sizeChartId: null } })).code).toBeUndefined()
+    } finally {
+      await subscribe(t.storeA1, t.partnerA, plans.full)
+    }
+  })
+
+  it('needs the plan to add FAQs, related products, a badge or a video, but never to keep what a product has', async () => {
+    const badge = (await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'Plan sections', tone: 'ok', rule: 'manual' } })).data?.['saveBadge'] as string
+    const faq = [{ question: 'Q', answer: 'A' }]
+    const video = { url: 'https://www.youtube.com/watch?v=keep' }
+    const made = await product('owner', 'Plan sections', { listing: { faqs: faq, badgeIds: [badge] }, video })
+    const other = await product('owner', 'Plan sections other')
+    expect(made.code).toBeUndefined()
+    const edit = (revision: number, name: string, listing: Record<string, unknown>, withVideo: Record<string, unknown> | null = video) =>
+      gql(save, 'owner', { id: made.id, revision, input: { name, options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing, ...(withVideo ? { video: withVideo } : {}) } })
+    await subscribe(t.storeA1, t.partnerA, plans.bare)
+    try {
+      // The product keeps its FAQs, badge and video through an unrelated edit after the plan lost them.
+      expect((await edit(1, 'Plan sections renamed', { faqs: faq, badgeIds: [badge] })).code).toBeUndefined()
+      // Adding is what needs the plan (the failed saves leave the revision where it was).
+      expect((await edit(2, 'Plan sections renamed', { faqs: [...faq, { question: 'Q2', answer: 'A2' }], badgeIds: [badge] })).code).toBe('PLAN_LIMIT')
+      expect((await edit(2, 'Plan sections renamed', { faqs: faq, relatedIds: [other.id], badgeIds: [badge] })).code).toBe('PLAN_LIMIT')
+      expect((await product('owner', 'New with a badge', { listing: { badgeIds: [badge] } })).code).toBe('PLAN_LIMIT')
+      expect((await product('owner', 'New with a video', { video: { url: 'https://www.youtube.com/watch?v=abc' } })).code).toBe('PLAN_LIMIT')
+      // Putting a different video on it needs the plan; taking things away never does.
+      expect((await edit(2, 'Plan sections renamed', { faqs: faq, badgeIds: [badge] }, { url: 'https://www.youtube.com/watch?v=other' })).code).toBe('PLAN_LIMIT')
+      expect((await edit(2, 'Plan sections renamed', { faqs: [], badgeIds: [] }, null)).code).toBeUndefined()
     } finally {
       await subscribe(t.storeA1, t.partnerA, plans.full)
     }

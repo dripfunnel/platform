@@ -1405,33 +1405,32 @@ export const growthEditors: Record<PartnerRole, PlanEditor> = {
       ],
       "stores": 44,
       "entitlements": {
-        "domain": true,
+        "custom_domain": true,
         "offers": true,
-        "suppliersOn": true,
-        "powered": false,
+        "suppliers_enabled": true,
+        "powered_by_removal": false,
         "aplus": true,
-        "size": true,
+        "size_charts": true,
         "products": 5000,
         "staff": 5,
         "suppliers": 5,
         "languages": 2,
         "currencies": 2,
-        "publish": 60,
-        "ai": 200
+        "publish_now": 60,
+        "ai_prompts": 200
       }
     },
     "ceilings": {
-      "products": 20000,
-      "staff": 25,
-      "suppliers": 50,
-      "languages": 5,
-      "currencies": 5,
-      "publish": 300,
-      "ai": 1000,
-      "powered": {
-        "allowed": true,
-        "note": "contract"
-      }
+      "amounts": {
+        "products": 20000,
+        "staff": 25,
+        "suppliers": 50,
+        "languages": 5,
+        "currencies": 5,
+        "publish_now": 300,
+        "ai_prompts": 1000
+      },
+      "powered": {"allowed": true, "note": "contract"}
     },
     "currencies": [
       "USD",
@@ -1533,33 +1532,32 @@ export const growthEditors: Record<PartnerRole, PlanEditor> = {
       ],
       "stores": 44,
       "entitlements": {
-        "domain": true,
+        "custom_domain": true,
         "offers": true,
-        "suppliersOn": true,
-        "powered": false,
+        "suppliers_enabled": true,
+        "powered_by_removal": false,
         "aplus": true,
-        "size": true,
+        "size_charts": true,
         "products": 5000,
         "staff": 5,
         "suppliers": 5,
         "languages": 2,
         "currencies": 2,
-        "publish": 60,
-        "ai": 200
+        "publish_now": 60,
+        "ai_prompts": 200
       }
     },
     "ceilings": {
-      "products": 20000,
-      "staff": 25,
-      "suppliers": 50,
-      "languages": 5,
-      "currencies": 5,
-      "publish": 300,
-      "ai": 1000,
-      "powered": {
-        "allowed": true,
-        "note": "contract"
-      }
+      "amounts": {
+        "products": 20000,
+        "staff": 25,
+        "suppliers": 50,
+        "languages": 5,
+        "currencies": 5,
+        "publish_now": 300,
+        "ai_prompts": 1000
+      },
+      "powered": {"allowed": true, "note": "contract"}
     },
     "currencies": [
       "USD",
@@ -1661,33 +1659,32 @@ export const growthEditors: Record<PartnerRole, PlanEditor> = {
       ],
       "stores": 44,
       "entitlements": {
-        "domain": true,
+        "custom_domain": true,
         "offers": true,
-        "suppliersOn": true,
-        "powered": false,
+        "suppliers_enabled": true,
+        "powered_by_removal": false,
         "aplus": true,
-        "size": true,
+        "size_charts": true,
         "products": 5000,
         "staff": 5,
         "suppliers": 5,
         "languages": 2,
         "currencies": 2,
-        "publish": 60,
-        "ai": 200
+        "publish_now": 60,
+        "ai_prompts": 200
       }
     },
     "ceilings": {
-      "products": 20000,
-      "staff": 25,
-      "suppliers": 50,
-      "languages": 5,
-      "currencies": 5,
-      "publish": 300,
-      "ai": 1000,
-      "powered": {
-        "allowed": true,
-        "note": "contract"
-      }
+      "amounts": {
+        "products": 20000,
+        "staff": 25,
+        "suppliers": 50,
+        "languages": 5,
+        "currencies": 5,
+        "publish_now": 300,
+        "ai_prompts": 1000
+      },
+      "powered": {"allowed": true, "note": "contract"}
     },
     "currencies": [
       "USD",
@@ -1790,33 +1787,32 @@ export const growthEditors: Record<PartnerRole, PlanEditor> = {
       ],
       "stores": 44,
       "entitlements": {
-        "domain": true,
+        "custom_domain": true,
         "offers": true,
-        "suppliersOn": true,
-        "powered": false,
+        "suppliers_enabled": true,
+        "powered_by_removal": false,
         "aplus": true,
-        "size": true,
+        "size_charts": true,
         "products": 5000,
         "staff": 5,
         "suppliers": 5,
         "languages": 2,
         "currencies": 2,
-        "publish": 60,
-        "ai": 200
+        "publish_now": 60,
+        "ai_prompts": 200
       }
     },
     "ceilings": {
-      "products": 20000,
-      "staff": 25,
-      "suppliers": 50,
-      "languages": 5,
-      "currencies": 5,
-      "publish": 300,
-      "ai": 1000,
-      "powered": {
-        "allowed": true,
-        "note": "contract"
-      }
+      "amounts": {
+        "products": 20000,
+        "staff": 25,
+        "suppliers": 50,
+        "languages": 5,
+        "currencies": 5,
+        "publish_now": 300,
+        "ai_prompts": 1000
+      },
+      "powered": {"allowed": true, "note": "contract"}
     },
     "currencies": [
       "USD",
@@ -1920,33 +1916,32 @@ export const growthEditors: Record<PartnerRole, PlanEditor> = {
       ],
       "stores": 44,
       "entitlements": {
-        "domain": true,
+        "custom_domain": true,
         "offers": true,
-        "suppliersOn": true,
-        "powered": false,
+        "suppliers_enabled": true,
+        "powered_by_removal": false,
         "aplus": true,
-        "size": true,
+        "size_charts": true,
         "products": 5000,
         "staff": 5,
         "suppliers": 5,
         "languages": 2,
         "currencies": 2,
-        "publish": 60,
-        "ai": 200
+        "publish_now": 60,
+        "ai_prompts": 200
       }
     },
     "ceilings": {
-      "products": 20000,
-      "staff": 25,
-      "suppliers": 50,
-      "languages": 5,
-      "currencies": 5,
-      "publish": 300,
-      "ai": 1000,
-      "powered": {
-        "allowed": true,
-        "note": "contract"
-      }
+      "amounts": {
+        "products": 20000,
+        "staff": 25,
+        "suppliers": 50,
+        "languages": 5,
+        "currencies": 5,
+        "publish_now": 300,
+        "ai_prompts": 1000
+      },
+      "powered": {"allowed": true, "note": "contract"}
     },
     "currencies": [
       "USD",
@@ -1990,18 +1985,17 @@ export const growthEditors: Record<PartnerRole, PlanEditor> = {
 export const newPlanEditor: PlanEditor = {
   "plan": null,
   "ceilings": {
-    "products": 20000,
-    "staff": 25,
-    "suppliers": 50,
-    "languages": 5,
-    "currencies": 5,
-    "publish": 300,
-    "ai": 1000,
-    "powered": {
-      "allowed": true,
-      "note": "contract"
-    }
-  },
+      "amounts": {
+        "products": 20000,
+        "staff": 25,
+        "suppliers": 50,
+        "languages": 5,
+        "currencies": 5,
+        "publish_now": 300,
+        "ai_prompts": 1000
+      },
+      "powered": {"allowed": true, "note": "contract"}
+    },
   "currencies": [
     "USD",
     "CAD"

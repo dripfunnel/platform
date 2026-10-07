@@ -1,3 +1,4 @@
+import { defaultEntitlements } from '#db/scoped/planKeys'
 import type { Entitlements, PartnerContract, PlanVersionPrice } from '#db/scoped/plans'
 
 // The prototype's plan catalogue (designs/partner-data.js DFMAX and PLANS), keyed by the seed's
@@ -21,6 +22,7 @@ const e = (
   [customDomain, offers, suppliersEnabled, poweredBy, aplus, sizeCharts]: readonly boolean[],
   [products, staff, suppliers, languages, currencies, publish, ai]: readonly number[],
 ): Entitlements => ({
+  ...defaultEntitlements(),
   custom_domain: customDomain ?? false,
   offers: offers ?? false,
   suppliers_enabled: suppliersEnabled ?? false,

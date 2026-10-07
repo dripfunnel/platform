@@ -477,6 +477,23 @@ export const registerProducts = (builder: StoreBuilder) => {
     }),
   }))
 
+  // Adding FAQs, related products, badges or a video to a product is a plan feature; keeping what it has
+  // or saving without them never is, as with the size chart (SAAS §6.1). `stored` is the product's own copy.
+  const requireSections = async (ctx: StoreContext, input: ProductInput, stored: { faqs: unknown[]; related: string[]; badge_ids: string[]; video: unknown } | null): Promise<void> => {
+    const caller = actingCaller(ctx)
+    const listing = input.listing
+    const canon = (v: unknown): string => JSON.stringify(v, (_, x: unknown) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x))
+    const same = (a: unknown, b: unknown) => canon(a) === canon(b)
+    const faqs = listing?.faqs ?? []
+    const related = listing?.relatedIds ?? []
+    const badges = listing?.badgeIds ?? []
+    if ((faqs.length > 0 && !same(faqs, stored?.faqs ?? [])) || (related.length > 0 && !same([...related].sort(), [...(stored?.related ?? [])].sort()))) await requireFeature(ctx, caller, 'faqs_related')
+    if (badges.length > 0 && !same([...badges].sort(), [...(stored?.badge_ids ?? [])].sort())) await requireFeature(ctx, caller, 'badges')
+    // The stored video is snake_case, the input camelCase; a missing id or address is null on both.
+    const video = input.video && (input.video.assetId || input.video.url) ? { assetId: input.video.assetId ?? null, url: input.video.url ?? null } : null
+    const keptVideo = stored?.video ? { assetId: (stored.video as { asset_id: string | null }).asset_id ?? null, url: (stored.video as { url: string | null }).url ?? null } : null
+    if (video && !same(video, keptVideo)) await requireFeature(ctx, caller, 'product_video')
+  }
   builder.mutationFields((t) => ({
     // A Stock-only supplier's new product, waiting for the merchant's approval (decided on #337).
     proposeProduct: t.field({
@@ -485,6 +502,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       extensions: { access: { api: 'store', scope: 'store-seller', permission: 'catalog.propose', target: 'none', audit: approvalAudit.proposed } },
       resolve: async (_, args, ctx) => {
         if (args.input.sizeChartId) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
+        await requireSections(ctx, args.input, null)
         return answered(ctx, await service(ctx).propose(args.input))
       },
     }),
@@ -498,11 +516,14 @@ export const registerProducts = (builder: StoreBuilder) => {
         // Assigning a size chart is a plan feature (SAAS §6.1); keeping the one it has or removing it never is.
         if (args.id === null || args.id === undefined) {
           if (chart) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
+          await requireSections(ctx, input, null)
           return answered(ctx, await service(ctx).create(input))
         }
         const id = String(args.id)
         if (!isUuid(id) || typeof args.revision !== 'number') throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
-        if (chart && (await service(ctx).get(id)).product?.size_chart_id !== chart) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
+        const stored = (await service(ctx).get(id)).product ?? null
+        if (chart && stored?.size_chart_id !== chart) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
+        await requireSections(ctx, input, stored)
         return answered(ctx, await service(ctx).update(id, args.revision, input))
       },
     }),

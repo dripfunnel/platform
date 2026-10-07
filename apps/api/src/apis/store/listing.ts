@@ -27,8 +27,8 @@ const answered = <T>(result: SettingsResult<T>): T => {
 }
 
 /** The plan switch behind a section, where one gates it (SAAS §6.1). */
-type GatedKey = 'size_charts' | 'aplus'
-export const featurePlanKey: Partial<Record<string, GatedKey>> = { sizeCharts: 'size_charts', aplus: 'aplus' }
+export type GatedKey = 'size_charts' | 'aplus' | 'badges' | 'faqs_related' | 'product_video' | 'import_spreadsheet' | 'import_shopify'
+export const featurePlanKey: Partial<Record<string, GatedKey>> = { sizeCharts: 'size_charts', aplus: 'aplus', badges: 'badges', faqs: 'faqs_related', related: 'faqs_related', video: 'product_video' }
 
 /**
  * Refuses when the store's plan doesn't include `key`. The merchant side hears which plan unlocks it; a

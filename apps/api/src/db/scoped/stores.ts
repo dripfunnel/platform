@@ -279,9 +279,12 @@ const storeProjection = (tx: ScopedSql, now: Date) => tx`
 const monthOf = (now: Date): string => `${now.toISOString().slice(0, 7)}-01`
 
 // Usage against the bought plan version plus active overrides, this UTC month (DATA-MODEL §2.4).
+// A limit plus its overrides is added as bigint and capped at Unlimited (2147483647, planKeys.ts): a plan near the
+// maximum never overflows, and an Unlimited one is never near.
 const usageAgainstLimits = (tx: ScopedSql, storeId: ReturnType<ScopedSql>, planId: ReturnType<ScopedSql>, now: Date) => tx`
-  select u.key, used.n as used, (e.amount + coalesce(ov.extra, 0))::int as cap,
-    (used.n * 100 / nullif(e.amount + coalesce(ov.extra, 0), 0))::int as percent
+  select u.key, used.n as used,
+    least(e.amount::bigint + coalesce(ov.extra, 0), 2147483647)::int as cap,
+    case when e.amount >= 2147483647 then 0 else (used.n * 100 / nullif(least(e.amount::bigint + coalesce(ov.extra, 0), 2147483647), 0))::int end as percent
   from store_usage u
   cross join lateral (select case when u.period_start is null or u.period_start = ${monthOf(now)}::date then u.used else 0 end as n) used
   join plan_entitlement e on e.plan_id = ${planId} and e.key = u.key and e.amount is not null

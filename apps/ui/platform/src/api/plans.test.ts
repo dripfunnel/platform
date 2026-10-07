@@ -13,7 +13,9 @@ afterEach(() => vi.unstubAllGlobals())
 
 const usd = (amount: number) => ({ amount, currency: 'USD' })
 const row = { id: 'p1', name: 'Growth', description: 'Daily sellers', status: 'live', trialDays: 14, stores: 3, prices: [{ currency: 'USD', monthly: usd(4900), yearly: null, fee: usd(1800), converted: false, margin: { kind: 'keep', amount: usd(3100), of: usd(4900) } }] }
-const entitlements = { domain: true, offers: true, suppliersOn: false, powered: true, aplus: false, size: true, products: 5000, staff: 5, suppliers: 0, languages: 2, currencies: 2, publish: 60, ai: 100 }
+const entitlements = { custom_domain: true, offers: true, suppliers_enabled: false, powered_by_removal: true, aplus: false, size_charts: true, products: 5000, staff: 5, suppliers: 0, languages: 2, currencies: 2, publish_now: 60, ai_prompts: 200 }
+// The API's list of entries.
+const entries = Object.entries(entitlements).map(([key, v]) => (typeof v === 'boolean' ? { key, enabled: v, amount: null } : { key, enabled: null, amount: v }))
 const growth = growthEditors['partner-owner'].plan
 const input: PlanInput = { name: 'Growth', description: '', trialDays: 14, prices: [{ currency: 'USD', monthly: usd(4900), yearly: null }], entitlements }
 
@@ -45,8 +47,8 @@ describe('loadPlanEditor', () => {
     answer.mockReturnValue({
       data: {
         planEditor: {
-          plan: { row, entitlements },
-          ceilings: { products: 10000, staff: 10, suppliers: null, languages: 3, currencies: 3, publish: 100, ai: 200 },
+          plan: { row, entitlements: entries },
+          ceilings: [{ key: 'products', amount: 10000 }, { key: 'staff', amount: 10 }, { key: 'suppliers', amount: null }, { key: 'languages', amount: 3 }, { key: 'currencies', amount: 3 }, { key: 'publish_now', amount: 100 }, { key: 'ai_prompts', amount: 200 }],
           powered: { allowed: false, note: 'contract' },
           currencies: ['USD'],
           trials: [0, 7, 14, 30],
@@ -60,7 +62,7 @@ describe('loadPlanEditor', () => {
     })
     const editor = await loadPlanEditor('p1')
     expect(editor?.plan).toMatchObject({ id: 'p1', name: 'Growth', entitlements })
-    expect(editor?.ceilings).toMatchObject({ products: 10000, suppliers: null, powered: { allowed: false, note: 'contract' } })
+    expect(editor?.ceilings).toMatchObject({ amounts: { products: 10000, suppliers: null }, powered: { allowed: false, note: 'contract' } })
     expect(editor?.permission).toEqual({ edit: { allowed: false, reason: 'PRICES_ONLY' }, price: { allowed: true } })
   })
 

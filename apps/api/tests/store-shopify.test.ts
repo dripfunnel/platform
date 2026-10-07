@@ -81,6 +81,7 @@ const user = async (partnerId: string, email: string, name: string) =>
 const subscribe = async (storeId: string, partnerId: string) => {
   const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${partnerId}, ${`Plan ${storeId.slice(0, 6)}`}, 'live') returning id`
   await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${partnerId}, 1, 'products', 100)`
+  await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${plan?.id ?? ''}, ${partnerId}, 1, 'import_shopify', true)`
   await db.sql`update store set plan_id = ${plan?.id ?? ''}, pricing_currency = 'INR' where id = ${storeId}`
   await db.sql`delete from store_subscription where store_id = ${storeId}`
   await db.sql`insert into store_subscription (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end)
@@ -380,5 +381,9 @@ describe('Connect Shopify', () => {
     expect((await gql('mutation { disconnectShopify }', 'supplier')).data?.['disconnectShopify']).toBe(true)
     expect((await connection('supplier')).status).toBe('none')
     expect((await connection('owner')).status).toBe('connected')
+  })
+  it('needs the plan for a Shopify import', async () => {
+    await db.sql`delete from plan_entitlement where key = 'import_shopify' and plan_id = (select plan_id from store where id = ${t.storeA1})`
+    expect((await gql('mutation { startShopifyImport(all: true) }', 'owner')).code).toBe('PLAN_LIMIT')
   })
 })

@@ -1,4 +1,5 @@
 import { GraphQLError } from 'graphql'
+import { planKeyDefs, type Entitlements } from '#db/scoped/planKeys'
 import { planAudit, type Margin, type PlanEditorDto, type PlanPrice, type PlanRowDto, type PlansPage, type Result, type RowEntitlements } from '#saas/partnerPlans/index'
 import { builder } from './builder'
 import { MoneyType } from './money'
@@ -27,24 +28,21 @@ const PriceType = builder.objectRef<PlanPrice>('PlanPrice').implement({
   }),
 })
 
-const EntitlementsType = builder.objectRef<RowEntitlements>('PlanEntitlements').implement({
+// One entry per catalogue key (db/scoped/planKeys.ts): a switch's `enabled`, otherwise its `amount`.
+interface EntitlementEntry {
+  key: string
+  enabled: boolean | null
+  amount: number | null
+}
+const entriesOf = (e: Entitlements): EntitlementEntry[] =>
+  planKeyDefs.map((d) => (d.kind === 'switch' ? { key: d.key, enabled: e[d.key], amount: null } : { key: d.key, enabled: null, amount: e[d.key] }))
+const EntitlementType = builder.objectRef<EntitlementEntry>('PlanEntitlement').implement({
   fields: (t) => ({
-    domain: t.exposeBoolean('domain'),
-    offers: t.exposeBoolean('offers'),
-    suppliersOn: t.exposeBoolean('suppliersOn'),
-    powered: t.exposeBoolean('powered'),
-    aplus: t.exposeBoolean('aplus'),
-    size: t.exposeBoolean('size'),
-    products: t.exposeInt('products'),
-    staff: t.exposeInt('staff'),
-    suppliers: t.exposeInt('suppliers'),
-    languages: t.exposeInt('languages'),
-    currencies: t.exposeInt('currencies'),
-    publish: t.exposeInt('publish'),
-    ai: t.exposeInt('ai'),
+    key: t.exposeString('key'),
+    enabled: t.exposeBoolean('enabled', { nullable: true }),
+    amount: t.exposeInt('amount', { nullable: true }),
   }),
 })
-
 const PlanRowType = builder.objectRef<PlanRowDto>('PlanRow').implement({
   fields: (t) => ({
     id: t.exposeID('id'),
@@ -61,7 +59,7 @@ const PlanRowType = builder.objectRef<PlanRowDto>('PlanRow').implement({
 const PlanType = builder.objectRef<PlanRowDto & { entitlements: RowEntitlements }>('Plan').implement({
   fields: (t) => ({
     row: t.field({ type: PlanRowType, resolve: (p) => p }),
-    entitlements: t.field({ type: EntitlementsType, resolve: (p) => p.entitlements }),
+    entitlements: t.field({ type: [EntitlementType], resolve: (p) => entriesOf(p.entitlements) }),
   }),
 })
 
@@ -82,18 +80,9 @@ const PlansPageType = builder.objectRef<PlansPage>('PlansPage').implement({
   }),
 })
 
-const Ceilings = builder.objectRef<PlanEditorDto['ceilings']>('PlanCeilings').implement({
-  fields: (t) => ({
-    products: t.exposeInt('products', { nullable: true }),
-    staff: t.exposeInt('staff', { nullable: true }),
-    suppliers: t.exposeInt('suppliers', { nullable: true }),
-    languages: t.exposeInt('languages', { nullable: true }),
-    currencies: t.exposeInt('currencies', { nullable: true }),
-    publish: t.exposeInt('publish', { nullable: true }),
-    ai: t.exposeInt('ai', { nullable: true }),
-  }),
+const CeilingType = builder.objectRef<{ key: string; amount: number | null }>('PlanCeiling').implement({
+  fields: (t) => ({ key: t.exposeString('key'), amount: t.exposeInt('amount', { nullable: true }) }),
 })
-
 const Powered = builder.objectRef<PlanEditorDto['powered']>('PoweredByRule').implement({
   fields: (t) => ({ allowed: t.exposeBoolean('allowed'), note: t.exposeString('note', { nullable: true }) }),
 })
@@ -103,7 +92,7 @@ const Target = builder.objectRef<{ id: string; name: string }>('RetireTarget').i
 const EditorType = builder.objectRef<PlanEditorDto>('PlanEditor').implement({
   fields: (t) => ({
     plan: t.field({ type: PlanType, nullable: true, resolve: (e) => e.plan }),
-    ceilings: t.field({ type: Ceilings, resolve: (e) => e.ceilings }),
+    ceilings: t.field({ type: [CeilingType], resolve: (e) => Object.entries(e.ceilings).map(([key, amount]) => ({ key, amount: amount ?? null })) }),
     powered: t.field({ type: Powered, resolve: (e) => e.powered }),
     currencies: t.exposeStringList('currencies'),
     trials: t.exposeIntList('trials'),
@@ -129,22 +118,8 @@ const MoneyInput = builder.inputType('MoneyInput', { fields: (t) => ({ amount: t
 const PriceInput = builder.inputType('PlanPriceInput', {
   fields: (t) => ({ currency: t.string({ required: true }), monthly: t.field({ type: MoneyInput }), yearly: t.field({ type: MoneyInput }) }),
 })
-const EntitlementsInput = builder.inputType('PlanEntitlementsInput', {
-  fields: (t) => ({
-    domain: t.boolean({ required: true }),
-    offers: t.boolean({ required: true }),
-    suppliersOn: t.boolean({ required: true }),
-    powered: t.boolean({ required: true }),
-    aplus: t.boolean({ required: true }),
-    size: t.boolean({ required: true }),
-    products: t.int({ required: true }),
-    staff: t.int({ required: true }),
-    suppliers: t.int({ required: true }),
-    languages: t.int({ required: true }),
-    currencies: t.int({ required: true }),
-    publish: t.int({ required: true }),
-    ai: t.int({ required: true }),
-  }),
+const EntitlementInput = builder.inputType('PlanEntitlementInput', {
+  fields: (t) => ({ key: t.string({ required: true }), enabled: t.boolean(), amount: t.int() }),
 })
 const PlanInputType = builder.inputType('PlanInput', {
   fields: (t) => ({
@@ -152,7 +127,7 @@ const PlanInputType = builder.inputType('PlanInput', {
     description: t.string({ required: true }),
     trialDays: t.int({ required: true }),
     prices: t.field({ type: [PriceInput], required: true }),
-    entitlements: t.field({ type: EntitlementsInput, required: true }),
+    entitlements: t.field({ type: [EntitlementInput], required: true }),
   }),
 })
 const RetireInputType = builder.inputType('RetirePlanInput', {
@@ -196,12 +171,19 @@ builder.queryFields((t) => ({
   }),
 }))
 
+// The input's list becomes the record the service validates (zod refuses an unknown or missing key).
+const inputOf = <I extends { prices: { currency: string; monthly?: { amount: number; currency: string } | null | undefined; yearly?: { amount: number; currency: string } | null | undefined }[]; entitlements: { key: string; enabled?: boolean | null | undefined; amount?: number | null | undefined }[] }>(input: I) => ({
+  ...input,
+  prices: input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly ?? null, yearly: p.yearly ?? null })),
+  entitlements: Object.fromEntries(input.entitlements.map((e) => [e.key, e.enabled ?? e.amount])) as unknown as Entitlements,
+})
+
 builder.mutationFields((t) => ({
   createPlan: t.field({
     type: ResultType,
     args: { input: t.arg({ type: PlanInputType, required: true }) },
     extensions: { access: write(planAudit.createPlan) },
-    resolve: (_, { input }, ctx) => signedIn(ctx.plans).createPlan({ ...input, prices: input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly ?? null, yearly: p.yearly ?? null })) }),
+    resolve: (_, { input }, ctx) => signedIn(ctx.plans).createPlan(inputOf(input)),
   }),
   // Finance holds plans.price only; the service lets it change prices and nothing else.
   updatePlan: t.field({
@@ -211,7 +193,7 @@ builder.mutationFields((t) => ({
     resolve: (_, { id, input, applyTo }, ctx) =>
       signedIn(ctx.plans).updatePlan(
         String(id),
-        { ...input, prices: input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly ?? null, yearly: p.yearly ?? null })) },
+        inputOf(input),
         applyTo === 'new' || applyTo === 'renewal' ? applyTo : null,
       ),
   }),

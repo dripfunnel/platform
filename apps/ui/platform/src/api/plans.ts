@@ -2,27 +2,16 @@ import type { Money } from '@dripfunnel/shared/format'
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
+import { planKeyDefs } from './planKeys'
 
 // The Plans operations on the Platform API (FIRST-RELEASE.md §7, §16): the catalogue, one plan with
 // DripFunnel's ceilings, prices quoted with the fee and margin, and the save, make-live and retire mutations.
 export const planStatuses = ['draft', 'live', 'retired'] as const
 export type PlanStatus = (typeof planStatuses)[number]
 
-export const toggleKeys = ['domain', 'offers', 'suppliersOn', 'powered', 'aplus', 'size'] as const
-export const limitKeys = ['products', 'staff', 'suppliers', 'languages', 'currencies'] as const
-export const allowanceKeys = ['publish', 'ai'] as const
-export type ToggleKey = (typeof toggleKeys)[number]
-export type NumberKey = (typeof limitKeys)[number] | (typeof allowanceKeys)[number]
-export type EntitlementKey = ToggleKey | NumberKey
-
-// The three kinds of SAAS.md §6.1, in the prototype's row order.
-export const entitlementRows: readonly { key: EntitlementKey; kind: 'toggle' | 'limit' | 'allowance' }[] = [
-  ...toggleKeys.map((key) => ({ key, kind: 'toggle' as const })),
-  ...limitKeys.map((key) => ({ key, kind: 'limit' as const })),
-  ...allowanceKeys.map((key) => ({ key, kind: 'allowance' as const })),
-]
-
-export type PlanEntitlements = Record<ToggleKey, boolean> & Record<NumberKey, number>
+// The plan settings of SAAS.md §6.1, keyed as the API's catalogue (planKeys.ts).
+export type EntitlementKey = string
+export type PlanEntitlements = Record<string, boolean | number>
 
 // Beside each price: DripFunnel's fee and the partner's margin, both the API's (§7.2; CONSOLE-DESIGN G3).
 export interface PlanPrice {
@@ -52,7 +41,8 @@ export interface Plan extends PlanRow {
 
 // DripFunnel's maximum per entitlement (SAAS.md §6.1), null where it sets none, and what the
 // contract says about "Powered by".
-export type PlanCeilings = Record<NumberKey, number | null> & {
+export interface PlanCeilings {
+  amounts: Record<string, number | null>
   powered: { allowed: boolean; note: 'contract' | 'firstYear' | null }
 }
 
@@ -92,21 +82,7 @@ export const planInput = z.object({
   description: z.string().trim().max(140),
   trialDays: z.number().int().min(0).max(90),
   prices: z.array(z.object({ currency: z.string().min(3).max(3), monthly: money.nullable(), yearly: money.nullable() })),
-  entitlements: z.object({
-    domain: z.boolean(),
-    offers: z.boolean(),
-    suppliersOn: z.boolean(),
-    powered: z.boolean(),
-    aplus: z.boolean(),
-    size: z.boolean(),
-    products: z.number().int().min(0),
-    staff: z.number().int().min(0),
-    suppliers: z.number().int().min(0),
-    languages: z.number().int().min(0),
-    currencies: z.number().int().min(0),
-    publish: z.number().int().min(0),
-    ai: z.number().int().min(0),
-  }),
+  entitlements: z.record(z.string(), z.union([z.boolean(), z.number().int().min(0)])),
 })
 export type PlanInput = z.infer<typeof planInput>
 
@@ -165,22 +141,11 @@ const rowSchema = z.object({
 })
 const rowFields = `id name description status trialDays prices { ${priceFields} } stores`
 
-const entitlementsSchema = z.object({
-  domain: z.boolean(),
-  offers: z.boolean(),
-  suppliersOn: z.boolean(),
-  powered: z.boolean(),
-  aplus: z.boolean(),
-  size: z.boolean(),
-  products: z.number().int(),
-  staff: z.number().int(),
-  suppliers: z.number().int(),
-  languages: z.number().int(),
-  currencies: z.number().int(),
-  publish: z.number().int(),
-  ai: z.number().int(),
-})
-const entitlementFields = 'domain offers suppliersOn powered aplus size products staff suppliers languages currencies publish ai'
+// The API sends a list of entries; the console works with the record.
+const entitlementsSchema = z
+  .array(z.object({ key: z.string(), enabled: z.boolean().nullable(), amount: z.number().int().nullable() }))
+  .transform((list): PlanEntitlements => Object.fromEntries(list.map((e) => [e.key, e.enabled ?? e.amount ?? 0])))
+const entitlementFields = 'key enabled amount'
 
 // The whole catalogue: the list shows every plan, so the API's pages are followed to the end.
 const plansPageSize = 50
@@ -208,7 +173,7 @@ const editorSchema = z.object({
   planEditor: z
     .object({
       plan: z.object({ row: rowSchema, entitlements: entitlementsSchema }).nullable(),
-      ceilings: z.object({ products: ceiling, staff: ceiling, suppliers: ceiling, languages: ceiling, currencies: ceiling, publish: ceiling, ai: ceiling }),
+      ceilings: z.array(z.object({ key: z.string(), amount: ceiling })).transform((list) => Object.fromEntries(list.map((c) => [c.key, c.amount])) as Record<string, number | null>),
       powered: z.object({ allowed: z.boolean(), note: z.enum(['contract', 'firstYear']).nullable() }),
       currencies: z.array(z.string()),
       trials: z.array(z.number().int()),
@@ -227,7 +192,7 @@ export const loadPlanEditor = async (id: string | null): Promise<PlanEditor | nu
     `query Editor($id: ID) {
       planEditor(id: $id) {
         plan { row { ${rowFields} } entitlements { ${entitlementFields} } }
-        ceilings { products staff suppliers languages currencies publish ai } powered { allowed note }
+        ceilings { key amount } powered { allowed note }
         currencies trials chargedBy edit { allowed reason } price { allowed reason } retireTargets { id name } retireDates
       }
     }`,
@@ -237,7 +202,7 @@ export const loadPlanEditor = async (id: string | null): Promise<PlanEditor | nu
   if (!e) return null
   return {
     plan: e.plan ? { ...e.plan.row, entitlements: e.plan.entitlements } : null,
-    ceilings: { ...e.ceilings, powered: e.powered },
+    ceilings: { amounts: e.ceilings, powered: e.powered },
     currencies: e.currencies,
     trials: e.trials,
     chargedBy: e.chargedBy,
@@ -264,13 +229,17 @@ const refusal = <Code extends string>(outcome: Outcome, codes: readonly Code[]):
   return code
 }
 
-export const savePlan = async (id: string | null, input: PlanInput, applyTo: ApplyTo | null): Promise<SaveResult> => {
+// The input's record goes to the API as its list of entries.
+const wireOf = (input: PlanInput) => ({ ...input, entitlements: Object.entries(input.entitlements).map(([key, v]) => (typeof v === 'boolean' ? { key, enabled: v } : { key, amount: v })) })
+
+export const savePlan = async (id: string | null, plan: PlanInput, applyTo: ApplyTo | null): Promise<SaveResult> => {
+  const input = wireOf(plan)
   const outcome = id
     ? await mutatePlan('updatePlan', `mutation Update($id: ID!, $input: PlanInput!, $applyTo: String) { updatePlan(id: $id, input: $input, applyTo: $applyTo) { ok id reason row currency } }`, { id, input, applyTo })
     : await mutatePlan('createPlan', `mutation Create($input: PlanInput!) { createPlan(input: $input) { ok id reason row currency } }`, { input })
   if (outcome.ok) return { ok: true, id: outcome.id ?? id ?? '' }
   if (outcome.reason === 'ABOVE_CEILING') {
-    const row = entitlementRows.find((candidate) => candidate.key === outcome.row)
+    const row = planKeyDefs.find((candidate) => candidate.key === outcome.row)
     if (!row) throw new ApiError('ABOVE_CEILING', 'The API named no row the console knows.')
     return { ok: false, reason: 'ABOVE_CEILING', row: row.key }
   }

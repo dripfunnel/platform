@@ -1,3 +1,4 @@
+import { UNLIMITED } from '#db/scoped/planKeys'
 import { redactSecretsInText } from '#core/secretText'
 import type postgres from 'postgres'
 import { z } from 'zod'
@@ -163,7 +164,9 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
       const measured = row.plan_id ? await selectStoreUsage(tx, id, row.plan_id, at) : []
       const usage = (['products', 'staff', 'suppliers', 'ai_prompts', 'publish_now'] as const).map((key) => {
         const m = measured.find((u) => u.key === key)
-        return { limit: key, used: m?.used ?? 0, cap: m?.cap ?? null, percent: m?.percent ?? null, monthly: key === 'ai_prompts' || key === 'publish_now' }
+        // Unlimited reads as no cap, which the console already words "no limit" and draws without a bar.
+        const unlimited = m?.cap === UNLIMITED
+        return { limit: key, used: m?.used ?? 0, cap: unlimited ? null : (m?.cap ?? null), percent: unlimited ? null : (m?.percent ?? null), monthly: key === 'ai_prompts' || key === 'publish_now' }
       })
       const merchantSide = people.filter((p) => p.seller_id === null)
       return {

@@ -29,6 +29,7 @@ const user = async (partnerId: string, email: string, name: string) =>
 const subscribe = async (storeId: string, partnerId: string) => {
   const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${partnerId}, ${`Plan ${storeId.slice(0, 6)}`}, 'live') returning id`
   await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${partnerId}, 1, 'products', 50)`
+  await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${plan?.id ?? ''}, ${partnerId}, 1, 'import_spreadsheet', true)`
   await db.sql`update store set plan_id = ${plan?.id ?? ''}, pricing_currency = 'INR' where id = ${storeId}`
   await db.sql`delete from store_subscription where store_id = ${storeId}`
   await db.sql`insert into store_subscription (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end)
@@ -364,5 +365,9 @@ describe('a supplier’s import', () => {
   it('is purged after its day', async () => {
     const before = (await db.sql<{ n: number }[]>`select count(*)::int as n from catalog_import`)[0]?.n ?? 0
     expect(await withSystemScope(db.sql, (tx) => deleteExpiredImports(tx, new Date(Date.now() + 3 * 86_400_000)))).toBe(before)
+  })
+  it('needs the plan for a spreadsheet import', async () => {
+    await db.sql`delete from plan_entitlement where key = 'import_spreadsheet' and plan_id = (select plan_id from store where id = ${t.storeA1})`
+    expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner')).code).toBe('PLAN_LIMIT')
   })
 })
