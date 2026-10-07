@@ -30,7 +30,7 @@ import { parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localDns, localEmail, localSms } from '#integrations/local/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localSms } from '#integrations/local/index'
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
@@ -356,7 +356,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), now: () => new Date() }
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
   })

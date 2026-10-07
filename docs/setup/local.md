@@ -96,7 +96,7 @@ can use your own role and database names, as long as you put them in `.env.local
    | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `SES_SENDER_DOMAIN` | Left commented out unless you have the SES values (§8.1). Locally the email stand-in sends instead (`EMAIL_LOCAL`). |
    | `EMAIL_SUPPRESSION_KEY` | Keep it, or your own `openssl rand -base64 32`: SES and the email stand-in both need it. |
    | `SES_EVENTS_TOPIC_ARN` | **Delete.** Bounces arrive through SNS, which can't reach your machine. |
-   | `EMAIL_LOCAL`, `SMS_LOCAL`, `DNS_LOCAL` | Keep `1`: the local stand-ins (§6.1). Emails and texts appear in the `pnpm dev` terminal and `apps/api/.local-mail/`, and a partner's `*.localhost` addresses verify without reaching Cloudflare, even with the `CF_*` values set. Each wins over the provider's real values, and the Worker refuses to start with them anywhere but localhost. |
+   | `EMAIL_LOCAL`, `SMS_LOCAL`, `DNS_LOCAL`, `COURIERS_LOCAL` | Keep `1`: the local stand-ins (§6.1). Emails and texts appear in the `pnpm dev` terminal and `apps/api/.local-mail/`, couriers quote a fixed tariff on every partner's behalf, and a partner's `*.localhost` addresses verify without reaching Cloudflare, even with the `CF_*` values set. Each wins over the provider's real values, and the Worker refuses to start with them anywhere but localhost. |
    | `SEED_PASSWORD` | Optional, at least 10 characters: every seeded merchant, supplier and partner user gets this password at the next seed (§5). Without it, they sign in after **Forgot password**. |
    | `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | Left commented out unless you have a Shopify app's values (and then remove `SHOPIFY_LOCAL`). Without them or `SHOPIFY_LOCAL`, Connect Shopify says it isn't set up. |
    | `SHOPIFY_LOCAL` | Keep `1` to try Connect Shopify without an app: approval comes straight back and the shop is empty, every call logged. It wins over the two values above, and the Worker refuses to start with it anywhere but localhost. |
@@ -170,9 +170,9 @@ It warns and carries on when there is no sample data, or when a feature's values
 still the example's placeholders. The consoles start with `--strictPort`, so a taken console
 port is an error too, not a silent move to the next port.
 
-### 6.1 Where emails, texts and domain checks go
+### 6.1 Where emails, texts, courier quotes and domain checks go
 
-With `EMAIL_LOCAL`, `SMS_LOCAL` and `DNS_LOCAL` (the defaults in `.env.example`), everything
+With `EMAIL_LOCAL`, `SMS_LOCAL`, `DNS_LOCAL` and `COURIERS_LOCAL` (the defaults in `.env.example`), everything
 runs as on dev up to the provider: the outbox, the every-minute relay, the templates in the
 partner's look, the per-partner SMS provider (MSG91 for +91, Twilio otherwise), the domain-check
 job. Only the last call is local (`apps/api/src/integrations/local/`):
@@ -191,6 +191,9 @@ job. Only the last call is local (`apps/api/src/integrations/local/`):
 - **DNS:** a `*.localhost` name answers with what its partner domain record expects, so a new
   partner's addresses go from waiting to live through the real check, and never reach Cloudflare
   for SaaS. Every other name goes to the real resolver and, with the `CF_*` values, to Cloudflare.
+- **Couriers** (`COURIERS_LOCAL`): every partner has a Shiprocket and an EasyPost account, which quote a fixed
+  tariff within their own country (a base and a step per started 500 g), so Settings › Shipping and checkout's live
+  rates work without either provider (#305).
 
 Check that it's up:
 
