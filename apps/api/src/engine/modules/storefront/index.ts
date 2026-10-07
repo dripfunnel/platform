@@ -153,7 +153,10 @@ export const createStorefrontCatalog = ({ sql, context, language, currency, mark
     const pricing: StorePricing = { pricingCurrency: row.pricing_currency, currencies: row.currencies.map((c) => ({ currency: c.currency, mode: c.mode, rounding: c.rounding })), perEuro: new Map(row.rates.map((r) => [r.currency, r.per_euro])) }
     const rate = (c: string) => c === 'EUR' || pricing.perEuro.has(c)
     const convertible = currency === pricing.pricingCurrency || (pricing.currencies.some((c) => c.currency === currency && c.mode === 'convert') && rate(currency) && rate(pricing.pricingCurrency))
-    const query: Omit<ShopProductQuery, 'collectionId' | 'filterValueIds' | 'search'> = { language, market, currency, convertible, pricingCurrency: pricing.pricingCurrency }
+    const perEuroOf = (c: string) => (c === 'EUR' ? '1' : (pricing.perEuro.get(c) ?? null))
+    const [pricingRate, currencyRate] = [perEuroOf(pricing.pricingCurrency), perEuroOf(currency)]
+    const perEuro = currency === pricing.pricingCurrency ? { pricing: '1', currency: '1' } : convertible && pricingRate && currencyRate ? { pricing: pricingRate, currency: currencyRate } : null
+    const query: Omit<ShopProductQuery, 'collectionId' | 'filterValueIds' | 'search'> = { language, market, currency, convertible, pricingCurrency: pricing.pricingCurrency, perEuro }
     return { pricing, market, query }
   }
 
