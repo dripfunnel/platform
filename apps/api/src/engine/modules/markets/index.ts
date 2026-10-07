@@ -31,7 +31,7 @@ import { cleanCurrencies, cleanLanguages, cleanMarket, type CurrencyInput, type 
 
 export { offeredLanguages, type CurrencyInput, type MarketInput } from './rules'
 export type { ConversionExample, CurrencyPrice, StorePricing, TypedPrice } from './pricing'
-export { priceInCurrency, priceInMarket } from './pricing'
+export { moneyIn, priceInCurrency, priceInMarket } from './pricing'
 export type { ReadinessNeed } from './readiness'
 export { missingFor } from './readiness'
 
