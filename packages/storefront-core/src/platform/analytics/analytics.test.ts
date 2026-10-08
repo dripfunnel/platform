@@ -93,13 +93,22 @@ describe('metaPixel', () => {
 })
 
 describe('analyticsScriptUrl', () => {
-  it('makes script URLs only for the analytics hosts, through the df-core Trusted Types policy', () => {
-    const createScriptURL = vi.fn((u: string) => ({ trusted: u }))
-    const createPolicy = vi.fn(() => ({ createScriptURL }))
+  it('refuses a foreign host or plain http, with or without Trusted Types', () => {
+    expect(analyticsScriptUrl('https://connect.facebook.net/en_US/fbevents.js')).toBe('https://connect.facebook.net/en_US/fbevents.js')
+    expect(() => analyticsScriptUrl('https://evil.example/x.js')).toThrow(/Not an analytics script URL/)
+    expect(() => analyticsScriptUrl('http://www.googletagmanager.com/gtag/js')).toThrow(/Not an analytics script URL/)
+  })
+
+  it('checks inside the df-core policy itself, so the policy never mints a foreign URL', () => {
+    let rules: { createScriptURL: (url: string) => string } | undefined
+    const createPolicy = vi.fn((_name: string, r: { createScriptURL: (url: string) => string }) => {
+      rules = r
+      return { createScriptURL: (u: string) => ({ trusted: r.createScriptURL(u) }) }
+    })
     vi.stubGlobal('trustedTypes', { createPolicy })
-    expect(analyticsScriptUrl('https://connect.facebook.net/en_US/fbevents.js')).toEqual({ trusted: 'https://connect.facebook.net/en_US/fbevents.js' })
+    expect(analyticsScriptUrl('https://www.googletagmanager.com/gtag/js?id=G-1')).toEqual({ trusted: 'https://www.googletagmanager.com/gtag/js?id=G-1' })
     expect(createPolicy).toHaveBeenCalledWith('df-core', expect.anything())
-    expect(() => analyticsScriptUrl('https://evil.example/x.js')).toThrow(/Not an analytics script host/)
+    expect(() => rules?.createScriptURL('https://evil.example/x.js')).toThrow(/Not an analytics script URL/)
     vi.unstubAllGlobals()
   })
 })

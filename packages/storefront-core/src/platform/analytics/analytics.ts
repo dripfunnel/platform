@@ -56,12 +56,17 @@ const analyticsHosts = ['www.googletagmanager.com', 'connect.facebook.net']
 type TrustedTypes = { createPolicy: (name: string, rules: { createScriptURL: (url: string) => string }) => { createScriptURL: (url: string) => unknown } }
 let scriptPolicy: { createScriptURL: (url: string) => unknown } | undefined
 
-/** The `df-core` Trusted Types policy (storefront ARCHITECTURE §3.5): script URLs for the analytics hosts only. */
+const checkedScriptUrl = (src: string): string => {
+  const url = new URL(src)
+  if (url.protocol !== 'https:' || !analyticsHosts.includes(url.host)) throw new Error(`Not an analytics script URL: ${src}`)
+  return url.href
+}
+
+/** The `df-core` Trusted Types policy (storefront ARCHITECTURE §3.5): https script URLs on the analytics hosts only. */
 export const analyticsScriptUrl = (src: string): unknown => {
-  if (!analyticsHosts.includes(new URL(src).host)) throw new Error(`Not an analytics script host: ${src}`)
   const tt = (globalThis as { trustedTypes?: TrustedTypes }).trustedTypes
-  if (!tt) return src
-  scriptPolicy ??= tt.createPolicy('df-core', { createScriptURL: (url) => url })
+  if (!tt) return checkedScriptUrl(src)
+  scriptPolicy ??= tt.createPolicy('df-core', { createScriptURL: checkedScriptUrl })
   return scriptPolicy.createScriptURL(src)
 }
 
