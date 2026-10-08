@@ -17,6 +17,8 @@ describe('Price', () => {
     const lower = renderToStaticMarkup(<Price money={{ amount: '2800', currency: 'INR' }} compareAt={{ amount: '2000', currency: 'INR' }} includesTax locale="en-IN" t={t} />)
     expect(lower).not.toContain('Was')
     expect(lower).toContain('incl. tax')
+    const otherCurrency = renderToStaticMarkup(<Price money={{ amount: '1000', currency: 'USD' }} compareAt={{ amount: '5000', currency: 'JPY' }} includesTax={false} locale="en-US" t={t} />)
+    expect(otherCurrency).not.toContain('Was')
   })
 })
 
@@ -37,6 +39,12 @@ describe('required components and the contract checks', () => {
       'The product page must render the required "preview" component.',
       'The product page must render the required "price" component.',
     ])
+  })
+
+  it('keeps two legal notices with the same title', () => {
+    const html = renderToStaticMarkup(<LegalNotices notices={[{ title: 'Seller', body: 'India' }, { title: 'Seller', body: 'US' }]} t={t} />)
+    expect(html).toContain('India')
+    expect(html).toContain('US')
   })
 
   it('renders nothing for "Powered by" when the brand hides it', () => {

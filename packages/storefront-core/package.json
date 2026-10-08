@@ -3,12 +3,27 @@
   "version": "0.0.0",
   "description": "The locked commerce core every DripFunnel storefront runs on.",
   "type": "module",
-  "repository": { "type": "git", "url": "https://github.com/dripfunnel/platform.git", "directory": "packages/storefront-core" },
-  "publishConfig": { "registry": "https://npm.pkg.github.com" },
-  "files": ["dist", "presets"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dripfunnel/platform.git",
+    "directory": "packages/storefront-core"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "dist",
+    "presets"
+  ],
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./testing": { "types": "./dist/testing/index.d.ts", "default": "./dist/testing/index.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
     "./tsconfig": "./presets/tsconfig.json",
     "./eslint": "./presets/eslint.js"
   },
@@ -29,8 +44,10 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "happy-dom": "^20.14.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   }

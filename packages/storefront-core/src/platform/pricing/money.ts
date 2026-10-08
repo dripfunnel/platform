@@ -12,16 +12,17 @@ const formatter = (locale: string, currency: string) => {
   return f
 }
 
-/** The amount in the shopper's locale, the currency always shown (never a silent default). */
-export const formatMoney = ({ amount, currency }: ShopMoney, locale: string): string => {
-  const f = formatter(locale, currency)
-  const digits = f.resolvedOptions().maximumFractionDigits ?? 2
+const fractionDigits = (currency: string): number => formatter('en', currency).resolvedOptions().maximumFractionDigits ?? 2
+
+/** The amount as a major-unit decimal string ("19.99", JPY "1200"), exact past 2^53 minor units. */
+export const toDecimal = ({ amount, currency }: ShopMoney): string => {
+  const digits = fractionDigits(currency)
   const minor = BigInt(amount)
-  const sign = minor < 0n ? -1n : 1n
-  const abs = minor * sign
+  const abs = minor < 0n ? -minor : minor
   const scale = 10n ** BigInt(digits)
-  // Whole and fraction kept apart so amounts beyond 2^53 minor units stay exact.
-  const whole = `${sign < 0n ? '-' : ''}${abs / scale}`
-  const major = digits === 0 ? whole : `${whole}.${(abs % scale).toString().padStart(digits, '0')}`
-  return f.format(major as `${number}`)
+  const whole = `${minor < 0n ? '-' : ''}${abs / scale}`
+  return digits === 0 ? whole : `${whole}.${(abs % scale).toString().padStart(digits, '0')}`
 }
+
+/** The amount in the shopper's locale, the currency always shown (never a silent default). */
+export const formatMoney = (money: ShopMoney, locale: string): string => formatter(locale, money.currency).format(toDecimal(money) as `${number}`)

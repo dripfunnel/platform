@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Translate } from './i18n/i18n'
 import { formatMoney, type ShopMoney } from './pricing/money'
 import { readConsent, writeConsent, type ConsentChoice } from './consent/consent'
@@ -11,11 +11,11 @@ import { readConsent, writeConsent, type ConsentChoice } from './consent/consent
 
 export type PriceProps = { money: ShopMoney; compareAt?: ShopMoney | null; includesTax: boolean; locale: string; t: Translate }
 
-/** The price with its tax label; a compare-at price only as the engine returns it. */
+/** The price with its tax label; a compare-at price only as the engine returns it, in the same currency. */
 export const Price = ({ money, compareAt, includesTax, locale, t }: PriceProps) => (
   <span className="df-price" data-df-required="price">
     <span className="df-price-amount">{formatMoney(money, locale)}</span>
-    {compareAt && BigInt(compareAt.amount) > BigInt(money.amount) ? <s className="df-price-was">{t('price.was', { price: formatMoney(compareAt, locale) })}</s> : null}{' '}
+    {compareAt && compareAt.currency === money.currency && BigInt(compareAt.amount) > BigInt(money.amount) ? <s className="df-price-was">{t('price.was', { price: formatMoney(compareAt, locale) })}</s> : null}{' '}
     <span className="df-price-tax">{t(includesTax ? 'price.inclTax' : 'price.plusTax')}</span>
   </span>
 )
@@ -39,8 +39,9 @@ export type LegalNotice = { title: string; body: string }
 export const LegalNotices = ({ notices, t }: { notices: readonly LegalNotice[]; t: Translate }) =>
   notices.length ? (
     <section className="df-legal" data-df-required="legal" aria-label={t('legal.title')}>
-      {notices.map((n) => (
-        <div key={n.title}>
+      {notices.map((n, i) => (
+        // Two markets may share a title, and a notice must never be dropped.
+        <div key={i}>
           <h2>{n.title}</h2>
           <p>{n.body}</p>
         </div>
@@ -48,36 +49,76 @@ export const LegalNotices = ({ notices, t }: { notices: readonly LegalNotice[]; 
     </section>
   ) : null
 
-/** Asks once, before any analytics or marketing cookie, and remembers the answer (storefront ARCHITECTURE §8). */
+const reopeners = new Set<() => void>()
+
+/** Opens the consent banner again with the saved choice, so a shopper can change or withdraw it. */
+export const openConsentSettings = () => reopeners.forEach((open) => open())
+
+/** The "Cookie settings" link a theme places in its footer; it reopens the banner. */
+export const ConsentSettingsButton = ({ t, className }: { t: Translate; className?: string }) => (
+  <button type="button" className={className ?? 'df-consent-settings'} data-df-required="consent-settings" onClick={openConsentSettings}>
+    {t('consent.settings')}
+  </button>
+)
+
+/**
+ * Asks before any analytics or marketing cookie and remembers the answer (storefront ARCHITECTURE
+ * §8). Not modal, so it takes no focus on its own; focus moves only when the shopper opens a step.
+ */
 export const ConsentBanner = ({ t, onChange }: { t: Translate; onChange?: (choice: ConsentChoice) => void }) => {
-  const [choice, setChoice] = useState<ConsentChoice | null | 'unread'>('unread')
+  const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState(false)
   const [draft, setDraft] = useState({ analytics: false, marketing: false })
-  useEffect(() => setChoice(readConsent()), [])
-  if (choice !== null) return null
+  const firstChoice = useRef<HTMLInputElement>(null)
+  const firstButton = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    setOpen(readConsent() === null)
+    const reopen = () => {
+      const saved = readConsent()
+      setDraft({ analytics: saved?.analytics ?? false, marketing: saved?.marketing ?? false })
+      setCustom(saved !== null)
+      setOpen(true)
+    }
+    reopeners.add(reopen)
+    return () => {
+      reopeners.delete(reopen)
+    }
+  }, [])
+  useEffect(() => {
+    if (open && custom) firstChoice.current?.focus()
+  }, [open, custom])
+  if (!open) return null
   const decide = (c: Omit<ConsentChoice, 'at'>) => {
     const saved = writeConsent(c)
-    setChoice(saved)
+    setOpen(false)
+    setCustom(false)
     onChange?.(saved)
   }
+  const back = () => {
+    setCustom(false)
+    requestAnimationFrame(() => firstButton.current?.focus())
+  }
   return (
-    <section className="df-consent" data-df-required="consent" role="dialog" aria-labelledby="df-consent-title">
+    <section className="df-consent" data-df-required="consent" role="region" aria-labelledby="df-consent-title">
       <h2 id="df-consent-title">{t('consent.title')}</h2>
       <p>{t('consent.body')}</p>
       {custom ? (
         <>
-          {(['analytics', 'marketing'] as const).map((k) => (
+          {(['analytics', 'marketing'] as const).map((k, i) => (
             <label key={k}>
-              <input type="checkbox" checked={draft[k]} onChange={(e) => setDraft({ ...draft, [k]: e.target.checked })} /> {t(k === 'analytics' ? 'consent.analytics' : 'consent.marketing')}
+              <input ref={i === 0 ? firstChoice : undefined} type="checkbox" checked={draft[k]} onChange={(e) => setDraft({ ...draft, [k]: e.target.checked })} /> {t(k === 'analytics' ? 'consent.analytics' : 'consent.marketing')}
             </label>
           ))}
           <button type="button" onClick={() => decide(draft)}>
             {t('consent.save')}
           </button>
+          <button type="button" onClick={back}>
+            {t('consent.back')}
+          </button>
         </>
       ) : (
         <>
-          <button type="button" onClick={() => decide({ analytics: false, marketing: false })}>
+          <button ref={firstButton} type="button" onClick={() => decide({ analytics: false, marketing: false })}>
             {t('consent.rejectAll')}
           </button>
           <button type="button" onClick={() => setCustom(true)}>

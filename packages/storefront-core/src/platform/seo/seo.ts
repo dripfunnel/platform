@@ -1,4 +1,4 @@
-import type { ShopMoney } from '../pricing/money'
+import { toDecimal, type ShopMoney } from '../pricing/money'
 
 // Metadata every page gets from core, which a theme can't remove (storefront ARCHITECTURE §8):
 // canonical, Open Graph, noindex in preview, and structured data.
@@ -20,14 +20,6 @@ export type Seo = {
   meta: { name?: string; property?: string; content: string }[]
   canonical: string
   jsonLd: Record<string, unknown>[]
-}
-
-const decimal = ({ amount, currency }: ShopMoney): string => {
-  const digits = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
-  const minor = BigInt(amount)
-  const scale = 10n ** BigInt(digits)
-  const whole = `${minor < 0n ? '-' : ''}${(minor < 0n ? -minor : minor) / scale}`
-  return digits ? `${whole}.${((minor < 0n ? -minor : minor) % scale).toString().padStart(digits, '0')}` : whole
 }
 
 export const seoFor = (p: SeoInput): Seo => {
@@ -52,7 +44,7 @@ export const seoFor = (p: SeoInput): Seo => {
       offers: {
         '@type': 'Offer',
         url: p.url,
-        price: decimal(p.product.price),
+        price: toDecimal(p.product.price),
         priceCurrency: p.product.price.currency,
         availability: p.product.available ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       },
