@@ -796,11 +796,11 @@ are described in their issues.
 - **0. Design and accounts:** #285 D1, #286 SUI 1, #287 INF 0, #470 (the storefront docs after the 2026-10-08 redesign)
 
 **The storefront strand's order after the redesign** (2026-10-08, #470, "Plan A"): #470 → #303 →
-#304 → SC 2 (the validator) → SC 3 (sealed components, CSP) → #287 → #316 → INF 3 (the sandbox
-service) → #468 → #317 → INF 4 (the publish gate, repair and bisect) → INF 5 (deploy checks,
-rollback, single-page render) → #471 → #318 → #319 → #307 → #313 → ST 0 (the starting themes) →
-#338 → #339 → #324 → INF 6 (the upgrade bot); the prototype card (the studio's new states) any
-time before #319. The cards named without a
+#304 → SC 2 (the validator) → SC 3 (sealed components, CSP) → #287 → #316 → #468 → #317 → INF 3 (the
+sandbox service) → INF 4 (the publish gate, repair and bisect) → INF 5 (deploy checks,
+rollback, single-page render) → #471 → #318 → #319 → #307 → #313 → #338 → #339 → #324 → ST 0
+(the starting themes, which need every required route) → INF 6 (the upgrade bot); D2 (the studio's new states in the prototype)
+any time before #319. The cards named without a
 number are drafted on #470 and get their numbers when they are created.
 
 - **1. Merchant identity:** #288 SAPI 1, #289 SMS 1, #290 SAPI 2, #291 SUI 2, #292 SUI 3
@@ -853,7 +853,7 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting; `exportOfferCodes` with its isolation test; `checkCode` rate-limited per caller and store, with one answer for a wrong and a missing code | SAPI 9 |
 | SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending and WhatsApp through MSG91 in India (#337), unsubscribe; isolation: a reminder link (`cart/r/{token}`) or unsubscribe token opens or changes one cart or one consent in one store only; link lookups rate-limited per host and IP, with one refusal for a token that is unknown, expired or used; and `abandonedCarts` is store-scoped, read-only for Staff and refused to suppliers | SAPI 13, SAPI 14 |
 | SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13); the Shopify connection and image fetches keep §19's outbound rules (SSRF-checked URLs, timeout, bounded retries), tested with a private and a metadata address; isolation: exports are store A's only, supplier A's never supplier B's, and a `to-store` supplier's export carries no customer field; a supplier's import writes only its own rows (`seller_id` from `SellerScope`, never the file), a row naming another supplier's or the store's product is rejected, and imported rows wait for approval while it's on | SAPI 5 |
-| SAPI 17 | Storefront (redesigned on #470, "Plan A"): templates, the AI studio (the model call, the store's sandbox, commits, undo, discard), publish through the gate, go back, Publish now, the signed preview link, `ai_run` metering | #470, INF 1, INF 2, INF 3, INF 4, SAPI 8, SAPI 17b |
+| SAPI 17 | Storefront (redesigned on #470, "Plan A"): templates, the AI studio (the model call, the store's sandbox, commits, undo, discard), publish through the gate, go back, Publish now, the signed preview link, `ai_run` metering | #470, INF 1, INF 2, INF 3, INF 4, INF 5, SAPI 8, SAPI 17b |
 | SAPI 17b | Storefront site settings (#471): brand, search and sharing, domains | #470, SAPI 8, #468 |
 | SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (Staff and every supplier caller refused `report` and `exportReport`: suppliers have no Reports, only Your sales, `mySales`, §17); and `home`, store-scoped and refused to suppliers; `home` by role, withheld on the server: Staff get no sales, order-value or returning-customer figures (`reports.read`), and a Manager gets no Owner-only item (team requests, approval queue) | SAPI 11 |
 | SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and `exportStoreData` (Owner) with its isolation test | SAPI 2, SAPI 3, SAPI 11, SAPI 13, #201 |
@@ -888,12 +888,13 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | # | Card | Needs |
 |---|---|---|
 | SC 2 | Core's validator (`./guard`): the file allowlist, the type-aware code rules, CSS and content rules, the routes namespace, a corpus of forbidden code with a case per rule (storefront ARCHITECTURE §3.4) | #304 |
-| SC 3 | Sealed components in a closed Shadow DOM with their visibility self-check, the top-layer banners, `Money`/`Stock`/`Rating`/`Badge` as branded types, CSP and Trusted Types, section error boundaries and the baseline checkout fallback (§3.5) | #304 |
-| INF 3 | The sandbox service: `apps/sandbox`'s image per core version, the `StudioSession` Durable Object (one change at a time, idle stop, cold start from the last commit, the queue), the fast gate and the repair loop, commits through the GitHub App, the preview build and deploy (§6) | SC 2, #287, #316 |
+| SC 3 | Sealed components in a closed Shadow DOM with their visibility self-check, the top-layer banners, `Money`/`Stock`/`Rating`/`Badge` as branded types, CSP and Trusted Types, section error boundaries and the switch to the baseline checkout, which #313 writes (§3.5) | #304 |
+| INF 3 | The sandbox service: `apps/sandbox`'s image per core version, the `StudioSession` Durable Object (one change at a time, idle stop, cold start from the last commit, the queue), the fast gate and the repair loop, commits through the GitHub App, the preview build and deploy (§6) | SC 2, #287, #316, #317 |
 | INF 4 | The publish gate: the catalogue snapshot, the deterministic offline build, the full gate (contract, visibility, checkout smoke, axe, budgets, no-JS render, crawl, content scan, visual diff, the edge-case catalogue), repair and bisect (§4.2, §9, §10) | INF 3, SC 3, #317 |
 | INF 5 | Going live safely: atomic deploy, post-deploy checks from the edge, automatic rollback, the single-page render for new and renamed products, redirects, IndexNow, real-user vitals after consent (§4.2, §8, §9) | INF 4 |
 | INF 6 | The upgrade bot: the sandbox image per release, codemods, the migration agent, canaries and waves, pinning, the baseline-theme fallback for security fixes (§7; SAAS §10) | INF 4, INF 5 |
-| ST 0 | The starting themes: "Start from scratch" from D1 and the six templates as theme code in `templates/storefront/themes/`, each passing every gate (§2.3) | SC 2, SC 3, #307, #313 |
+| D2 | Draw the studio's Plan A parts in `PortalStorefront`: §14's "Not drawn" items | #470 |
+| ST 0 | The starting themes: "Start from scratch" from D1 and the six templates as theme code in `templates/storefront/themes/`, each passing every gate (§2.3) | SC 2, SC 3, #307, #313, #324 |
 
 ---
 
