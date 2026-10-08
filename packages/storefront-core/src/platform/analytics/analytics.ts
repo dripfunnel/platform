@@ -15,6 +15,8 @@ export type AnalyticsProvider = {
   kind: 'analytics' | 'marketing'
   load: () => void
   send: (event: CommerceEvent) => void
+  /** Tells a loaded provider's own script to stop (or start again) collecting, not just core's events. */
+  setConsent: (granted: boolean) => void
 }
 
 /** Events sent before consent are dropped, not held: nothing about a visit leaves until the shopper agrees. */
@@ -34,6 +36,10 @@ export const createAnalytics = (providers: readonly AnalyticsProvider[], consent
         }
         p.send(event)
       }
+    },
+    /** Call whenever the shopper's choice changes (ConsentBanner's onChange). */
+    consentChanged() {
+      for (const p of loaded) p.setConsent(allowed(p))
     },
   }
 }
@@ -73,20 +79,32 @@ const gtag = () => {
   return w.gtag
 }
 
+// Google Consent Mode: nothing is granted until the shopper agrees, and a withdrawal reaches gtag.js.
+const googleConsent = (granted: boolean) => {
+  const state = granted ? 'granted' : 'denied'
+  return { analytics_storage: state, ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' }
+}
+
 export const ga4 = (measurementId: string): AnalyticsProvider => ({
   kind: 'analytics',
   load: () => {
     const g = gtag()
+    g('consent', 'default', googleConsent(false))
+    g('consent', 'update', googleConsent(true))
     g('js', new Date())
     g('config', measurementId)
     addScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`)
   },
   send: (e) => gtag()('event', e.name, ga4Params(e)),
+  setConsent: (granted) => gtag()('consent', 'update', googleConsent(granted)),
 })
 
 export const googleTagManager = (containerId: string): AnalyticsProvider => ({
   kind: 'analytics',
   load: () => {
+    const g = gtag()
+    g('consent', 'default', googleConsent(false))
+    g('consent', 'update', googleConsent(true))
     const w = win()
     w.dataLayer = w.dataLayer ?? []
     w.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' })
@@ -97,6 +115,7 @@ export const googleTagManager = (containerId: string): AnalyticsProvider => ({
     layer?.push({ ecommerce: null })
     layer?.push({ event: e.name, ecommerce: ga4Params(e) })
   },
+  setConsent: (granted) => gtag()('consent', 'update', googleConsent(granted)),
 })
 
 const pixelName: Record<CommerceEvent['name'], string> = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'Purchase' }
@@ -131,4 +150,5 @@ export const metaPixel = (pixelId: string): AnalyticsProvider => ({
       currency: e.value.currency,
       ...(e.name === 'view_item' || e.name === 'add_to_cart' ? { content_ids: [e.itemId], content_type: 'product' } : {}),
     }),
+  setConsent: (granted) => fbq()('consent', granted ? 'grant' : 'revoke'),
 })

@@ -18,12 +18,12 @@ export const storeSchema = z.object({
       languages: z.array(z.string()).nullable().optional(),
       currency: text,
       pricingCurrency: text,
-      currencies: z.array(z.object({ code: z.string() })).nullable().optional(),
+      currencies: z.array(z.object({ code: text })).nullable().optional(),
       pricesIncludeTax: z.boolean().nullable().optional(),
       timeZone: text,
       contactEmail: text,
       contactPhone: text,
-      logo: z.object({ url: z.string() }).nullable().optional(),
+      logo: z.object({ url: text }).nullable().optional(),
       address: z.object({ street: text, city: text, region: text, postal: text, country: text }).nullable().optional(),
     })
     .nullable(),
@@ -31,7 +31,9 @@ export const storeSchema = z.object({
 
 type DecodedStore = NonNullable<z.infer<typeof storeSchema>['store']>
 
-export type ShopStoreSettings = Omit<DecodedStore, 'name' | 'language' | 'mainLanguage' | 'currency' | 'pricingCurrency' | 'pricesIncludeTax' | 'timeZone'> & {
+export type ShopStoreSettings = Omit<DecodedStore, 'name' | 'language' | 'mainLanguage' | 'currency' | 'pricingCurrency' | 'pricesIncludeTax' | 'timeZone' | 'currencies' | 'logo'> & {
+  currencies: { code: string }[]
+  logo: { url: string } | null
   name: string
   language: string
   mainLanguage: string
@@ -48,7 +50,18 @@ export const completeStore = (s: DecodedStore): ShopStoreSettings => {
     const missing = Object.entries({ name, mainLanguage, pricingCurrency, pricesIncludeTax, timeZone }).filter(([, v]) => v == null || v === '').map(([k]) => k)
     throw new ShopApiError('STORE_INCOMPLETE', `The Shop API's store has no ${missing.join(', ')}.`)
   }
-  return { ...s, name, mainLanguage, pricingCurrency, pricesIncludeTax, timeZone, language: s.language ?? mainLanguage, currency: s.currency ?? pricingCurrency }
+  return {
+    ...s,
+    name,
+    mainLanguage,
+    pricingCurrency,
+    pricesIncludeTax,
+    timeZone,
+    language: s.language ?? mainLanguage,
+    currency: s.currency ?? pricingCurrency,
+    currencies: (s.currencies ?? []).flatMap((c) => (c.code ? [{ code: c.code }] : [])),
+    logo: s.logo?.url ? { url: s.logo.url } : null,
+  }
 }
 
 /** The store, or null when the Shop API has none for this host or key (a closed or unknown shop). */

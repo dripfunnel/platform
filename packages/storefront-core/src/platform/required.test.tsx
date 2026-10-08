@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { coreRoutes, defineTheme } from '../contracts/theme'
 import { manifestProblems, pageProblems } from '../testing/index'
 import { createI18n } from './i18n/i18n'
-import { LegalNotices, PoweredBy, PreviewBanner, Price } from './required'
+import { ConsentBanner, LegalNotices, PoweredBy, PreviewBanner, Price } from './required'
 
 const { t } = createI18n('en-US')
 
@@ -30,7 +30,7 @@ describe('required components and the contract checks', () => {
         <PoweredBy brand="Northstar" t={t} />
         <LegalNotices notices={[{ title: 'Seller', body: 'Juniper LLC' }]} t={t} />
         <Price money={{ amount: '100', currency: 'USD' }} includesTax={false} locale="en-US" t={t} />
-        <div data-df-required="consent" />
+        <ConsentBanner t={t} />
       </>,
     )
     expect(pageProblems('product', html, { preview: true, poweredBy: true, legal: true })).toEqual([])

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ConsentChoice } from '../consent/consent'
 import { createAnalytics, ga4, metaPixel, type AnalyticsProvider, type CommerceEvent } from './analytics'
 
-const provider = (kind: AnalyticsProvider['kind']) => ({ kind, load: vi.fn(), send: vi.fn() })
+const provider = (kind: AnalyticsProvider['kind']) => ({ kind, load: vi.fn(), send: vi.fn(), setConsent: vi.fn() })
 const event: CommerceEvent = { name: 'begin_checkout', value: { amount: '1200', currency: 'USD' } }
 const both: ConsentChoice = { analytics: true, marketing: true, at: '2026-10-08T00:00:00Z' }
 
@@ -43,8 +43,10 @@ describe('createAnalytics', () => {
     const analytics = createAnalytics([a], () => choice)
     analytics.track(event)
     choice = { ...both, analytics: false }
+    analytics.consentChanged()
     analytics.track(event)
     expect(a.send).toHaveBeenCalledTimes(1)
+    expect(a.setConsent).toHaveBeenCalledWith(false)
   })
 })
 
@@ -55,8 +57,11 @@ describe('ga4', () => {
     p.send({ name: 'purchase', orderId: 'o_1', value: { amount: '1999', currency: 'USD' } })
     const layer = g.dataLayer ?? []
     expect(layer.every(isArguments)).toBe(true)
-    expect(layer.map((e) => Array.from(e as ArrayLike<unknown>)[0])).toEqual(['js', 'config', 'event'])
-    expect(Array.from(layer[2] as ArrayLike<unknown>)).toEqual(['event', 'purchase', { currency: 'USD', value: 19.99, transaction_id: 'o_1' }])
+    expect(layer.map((e) => Array.from(e as ArrayLike<unknown>)[0])).toEqual(['consent', 'consent', 'js', 'config', 'event'])
+    expect(Array.from(layer[0] as ArrayLike<unknown>)).toEqual(['consent', 'default', expect.objectContaining({ analytics_storage: 'denied' })])
+    expect(Array.from(layer[4] as ArrayLike<unknown>)).toEqual(['event', 'purchase', { currency: 'USD', value: 19.99, transaction_id: 'o_1' }])
+    p.setConsent(false)
+    expect(Array.from(layer[5] as ArrayLike<unknown>)).toEqual(['consent', 'update', expect.objectContaining({ analytics_storage: 'denied' })])
   })
 
   it('sends item_id, and reads JPY without decimals', () => {
@@ -75,5 +80,7 @@ describe('metaPixel', () => {
       ['init', '123'],
       ['track', 'ViewContent', { value: 28, currency: 'INR', content_ids: ['v_1'], content_type: 'product' }],
     ])
+    p.setConsent(false)
+    expect(g.fbq?.queue.at(-1)).toEqual(['consent', 'revoke'])
   })
 })

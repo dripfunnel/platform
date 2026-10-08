@@ -5,9 +5,8 @@ import type { Translate } from './i18n/i18n'
 import { formatMoney, type ShopMoney } from './pricing/money'
 import { readConsent, writeConsent, type ConsentChoice } from './consent/consent'
 
-// The required components (storefront ARCHITECTURE §2.1, DESIGN §3): a theme styles them through
-// their class names and never removes or rewords them. Each carries data-df-required, which the
-// contract tests (./testing) look for.
+// The required components (storefront ARCHITECTURE §2.1, DESIGN §3), marked data-df-required for
+// ./testing. Themes style them by class name until #481 seals them in a closed Shadow DOM.
 
 export type PriceProps = { money: ShopMoney; compareAt?: ShopMoney | null; includesTax: boolean; locale: string; t: Translate }
 
@@ -87,7 +86,8 @@ export const ConsentBanner = ({ t, onChange }: { t: Translate; onChange?: (choic
   useEffect(() => {
     if (open && custom) firstChoice.current?.focus()
   }, [open, custom])
-  if (!open) return null
+  // Always rendered, hidden when closed, so a static page still carries the required part.
+  if (!open) return <section className="df-consent" data-df-required="consent" hidden />
   const decide = (c: Omit<ConsentChoice, 'at'>) => {
     const saved = writeConsent(c)
     setOpen(false)
