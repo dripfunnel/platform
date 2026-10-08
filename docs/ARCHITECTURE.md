@@ -46,7 +46,7 @@ Last updated: 2026-10-08 (#470: Cloudflare Containers for AI changes and storefr
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
 | `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |
-| `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every store repo installs, with the validator and gate suites | none |
+| `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every storefront runs on, with the validator and gate suites. Store repos never install it: they pin a version, and the sandbox image for that version has it preinstalled (code/ARCHITECTURE.md §5) | none |
 | `apps/sandbox` | **Container image** (Cloudflare Containers), one per core version, run by the API Worker's `StudioSession` and `StorefrontBuild` Durable Objects | A store's studio session (applying the AI's changes, the fast gate, the live preview) and every storefront build and gate; Node, not the Workers runtime; no network, no credential | none |
 | Store repos | GitHub repo per store, holding its theme; built in `apps/sandbox`, never by Actions | The store's storefront: preview and live SSG on its Cloudflare Pages project (`storefront/ARCHITECTURE.md` §4) | `{shop}.preview.<partnerdomain>`; `{shop}.shops.<partnerdomain>`; the merchant's own domain |
 | Postgres | **Neon**, via **Hyperdrive** | The system of record | none |

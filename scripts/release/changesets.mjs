@@ -20,13 +20,14 @@ export const coreBump = (text) => {
 }
 
 /**
- * docs/code/ARCHITECTURE.md §5: a change to storefront-core carries a changeset naming it. A release
- * PR consumes them instead (`changeset version` deletes them); a range holding a release moves the version and the changelog.
+ * docs/code/ARCHITECTURE.md §5: a change to storefront-core adds a changeset naming it. Exempt: a release
+ * PR (version, changelog, and the core changesets it consumed) and a promotion to main that carries one.
  */
-export const changesetProblem = (changedFiles, addedChangesets, { deletedChangesets = [], versionChanged = false } = {}) => {
+export const changesetProblem = (changedFiles, addedChangesets, { deletedChangesets = [], versionChanged = false, intoMain = false } = {}) => {
   if (!touchesCore(changedFiles)) return undefined
-  if (versionChanged && changedFiles.includes(`${coreDir}CHANGELOG.md`)) return undefined
-  if ([...addedChangesets, ...deletedChangesets].some((text) => coreBump(text))) return undefined
+  if (addedChangesets.some((text) => coreBump(text))) return undefined
+  const released = versionChanged && changedFiles.includes(`${coreDir}CHANGELOG.md`)
+  if (released && (intoMain || deletedChangesets.some((text) => coreBump(text)))) return undefined
   return `This pull request changes ${corePackage} but adds no changeset for it. Run \`pnpm changeset\`, pick the bump (docs/code/ARCHITECTURE.md §5) and commit the file.`
 }
 
@@ -43,7 +44,11 @@ const checkPullRequest = () => {
   const problem = changesetProblem(
     changed,
     changesets('A').map((f) => git('show', `${head}:${f}`)),
-    { deletedChangesets: changesets('D').map((f) => git('show', `${mergeBase}:${f}`)), versionChanged: version(mergeBase) !== version(head) },
+    {
+      deletedChangesets: changesets('D').map((f) => git('show', `${mergeBase}:${f}`)),
+      versionChanged: version(mergeBase) !== version(head),
+      intoMain: process.env.BASE_REF === 'main',
+    },
   )
   if (problem) {
     console.error(problem)

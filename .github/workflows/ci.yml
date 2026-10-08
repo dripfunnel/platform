@@ -252,6 +252,7 @@ jobs:
       - run: node scripts/release/changesets.mjs check-pr
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
   naming:

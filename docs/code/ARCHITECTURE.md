@@ -97,7 +97,9 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   card, is never published.
 - CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
   `packages/storefront-core` (its changelog aside) without adding a changeset naming the
-  package.
+  package. Two kinds pass without one: a release PR (version and changelog moved, and the core
+  changesets it consumed deleted) and a promotion into `main` whose version and changelog moved.
+  Deleting a changeset never stands in for adding one.
 - **Majors ship upgrade notes** for the fleet (`../storefront/ARCHITECTURE.md` §7) and
   declare the Shop API versions they support.
 - **Deprecation**: `@deprecated` with the replacement, kept for at least one minor, removed in
