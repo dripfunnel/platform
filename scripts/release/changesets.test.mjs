@@ -49,8 +49,12 @@ describe('changesetProblem', () => {
     assert.equal(changesetProblem([...core, 'packages/storefront-core/package.json'], [], { deletedChangesets: [changeset('minor')] }), undefined)
   })
 
-  it('passes a range that already holds a release, where the version moved', () => {
-    assert.equal(changesetProblem(core, [], { versionChanged: true }), undefined)
+  it('passes a range that already holds a release, where the version and the changelog moved', () => {
+    assert.equal(changesetProblem([...core, 'packages/storefront-core/CHANGELOG.md'], [], { versionChanged: true }), undefined)
+  })
+
+  it('refuses a hand-edited version with no changeset and no changelog', () => {
+    assert.match(changesetProblem([...core, 'packages/storefront-core/package.json'], [], { versionChanged: true }), /adds no changeset/)
   })
 
   it('still refuses when the deleted changesets name another package', () => {

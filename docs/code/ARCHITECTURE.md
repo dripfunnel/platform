@@ -90,7 +90,9 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 - **Publishing** (`.github/workflows/release.yml`, built on #303): every push to `main` runs
   core's gates; if core's version isn't on GitHub Packages yet, the workflow packs core once
   (`scripts/release/publish.mjs`), attests that tarball, then publishes **the same file** and
-  tags it `@dripfunnel/storefront-core@<version>` (a missing tag is added on the next run).
+  tags it `@dripfunnel/storefront-core@<version>` on the commit that set that version (a missing
+  tag is added on a later run; only the current version is checked, so a version bumped again
+  before its tag landed stays untagged and is tagged by hand).
   A failed attestation publishes nothing, and `0.0.0`, the version before the first release
   card, is never published.
 - CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes

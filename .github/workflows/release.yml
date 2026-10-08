@@ -25,6 +25,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup
       # Writes an .npmrc for the runner only, reading the token from NODE_AUTH_TOKEN.
       - uses: actions/setup-node@v4

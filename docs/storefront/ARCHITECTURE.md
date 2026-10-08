@@ -202,7 +202,7 @@ hooks. Contract tests assert, per route, that the rendered page:
 | **Broken checkout** | Core owns the route and the controller; the theme only skins its slots | The checkout smoke test at three widths (product → cart → checkout → test payment) | An error in the theme's checkout switches that shopper to the baseline checkout |
 | **A required part hidden** | Sealed components in a closed Shadow DOM; theme CSS can't name them or core's classes | A headless browser checks each sealed component is present, visible, uncovered, on screen and at least its minimum size, on every route at three widths | Each sealed component checks its own visibility at run time and reports a violation; the consent and preview banners sit in the browser's top layer |
 | **Invented data** ("only 2 left", stars, badges) | No text in code; stock, ratings and badges only from core | A scan of `content/**` for scarcity, urgency, rating and price patterns | n/a |
-| **Network calls, trackers, leaks** | No `fetch`, sockets, `eval`, dynamic import, storage, cookies, `<script>`, `<iframe>`; imports from the allowlist only | A bundle scan | **CSP** (`connect-src` only the Shop API and payment providers) and **Trusted Types** block what the checks missed |
+| **Network calls, trackers, leaks** | No `fetch`, sockets, `eval`, dynamic import, storage, cookies, `<script>`, `<iframe>`; imports from the allowlist only | A bundle scan | **CSP** (§3.5: the Shop API, payment providers and the store's own analytics hosts only) and **Trusted Types** block what the checks missed |
 | **A build that breaks** | Dependencies fixed and preinstalled; the theme compiles against core's public types only | Typecheck, validator and bundle before a change becomes the draft; the repair loop | The live site keeps the last version that passed; every published version is kept |
 | **A page that crashes** | n/a | Contract tests on every route, with the edge-case catalogue (§10) | Each section has core's error boundary and falls back to the baseline section |
 | **A slow or unfindable site** | Server-only components unless interactive; core owns images, fonts, scripts and `<head>` | Byte and timing budgets, the no-JS render check, the crawl (§8, §9) | Speculation rules, edge caching, reduced motion enforced by core |
@@ -267,9 +267,10 @@ through their class names, and the banners are not yet in the top layer.
 - **CSP**: scripts only from the store's own build and the hosts of the analytics providers
   **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
   consent; `connect-src` only the Shop API, the store's payment providers and those analytics
-  hosts; images from the store's media and the payment providers; fonts
-  from the store's build; `form-action` only the store and the payment providers;
-  `frame-src` only the payment providers. **Trusted Types** required.
+  hosts; images from the store's media, the payment providers and those analytics hosts (Meta
+  Pixel sends by image request); fonts from the store's build; `form-action` only the store and
+  the payment providers; `frame-src` only the payment providers. **Trusted Types** required,
+  with one core policy, `df-core`, that creates script URLs only for those analytics hosts.
 - **Error boundaries**: core wraps every section; a section that throws falls back to the
   baseline section and is reported. Checkout falls back to the baseline checkout.
 
@@ -491,7 +492,8 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
   draft to that version's commit, so the next change starts from what is live (decided
   2026-10-08 on #470). **Except across a security fix**: when a security release of core is
   newer than that version's core, the version is rebuilt on the fixed core and gated instead
-  (still free), so going back never brings a vulnerable core back.
+  (still free), so going back never brings a vulnerable core back; if that version's theme
+  fails the gate on the fixed core, the merchant is told and the live site stays as it is.
 
 ---
 
