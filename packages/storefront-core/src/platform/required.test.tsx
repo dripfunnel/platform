@@ -19,6 +19,8 @@ describe('Price', () => {
     expect(lower).toContain('incl. tax')
     const otherCurrency = renderToStaticMarkup(<Price money={{ amount: '1000', currency: 'USD' }} compareAt={{ amount: '5000', currency: 'JPY' }} includesTax={false} locale="en-US" t={t} />)
     expect(otherCurrency).not.toContain('Was')
+    const badCompareAt = renderToStaticMarkup(<Price money={{ amount: '1000', currency: 'USD' }} compareAt={{ amount: '', currency: 'USD' }} includesTax={false} locale="en-US" t={t} />)
+    expect(badCompareAt).toContain('$10.00')
   })
 })
 

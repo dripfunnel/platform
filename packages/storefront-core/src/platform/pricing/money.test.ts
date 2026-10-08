@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, toDecimal } from './money'
+import { formatMoney, shopMoneySchema, toDecimal } from './money'
 
 describe('formatMoney', () => {
   it('reads minor units by the currency’s own digits', () => {
@@ -19,5 +19,14 @@ describe('toDecimal', () => {
     expect(toDecimal({ amount: '1999', currency: 'USD' })).toBe('19.99')
     expect(toDecimal({ amount: '1200', currency: 'JPY' })).toBe('1200')
     expect(toDecimal({ amount: '-5', currency: 'INR' })).toBe('-0.05')
+  })
+})
+
+describe('malformed amounts', () => {
+  it('fail at the decoder, and with a named error if one slips through', () => {
+    expect(shopMoneySchema.safeParse({ amount: '19.99', currency: 'USD' }).success).toBe(false)
+    expect(shopMoneySchema.safeParse({ amount: '', currency: 'USD' }).success).toBe(false)
+    expect(shopMoneySchema.safeParse({ amount: '1999', currency: 'USD' }).success).toBe(true)
+    expect(() => toDecimal({ amount: '19.99', currency: 'USD' })).toThrow('Not a minor-unit amount: "19.99"')
   })
 })

@@ -6,7 +6,7 @@ export { readConsent, writeConsent, type ConsentChoice } from './platform/consen
 export { createI18n, type Translate } from './platform/i18n/i18n'
 export { catalogues, en, type Catalogue, type MessageKey } from './platform/i18n/messages'
 export { fontNames, fonts, fontStack, type Font } from './platform/media/fonts'
-export { formatMoney, toDecimal, type ShopMoney } from './platform/pricing/money'
+export { formatMoney, isShopMoney, shopMoneySchema, toDecimal, type ShopMoney } from './platform/pricing/money'
 export { ConsentBanner, ConsentSettingsButton, openConsentSettings, LegalNotices, PoweredBy, PreviewBanner, Price, type LegalNotice, type PriceProps } from './platform/required'
 export { jsonLdText, seoFor, type Seo, type SeoInput } from './platform/seo/seo'
 export { StorefrontProvider, useStorefront, type RenderMode, type Storefront } from './platform/store/context'

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Translate } from './i18n/i18n'
-import { formatMoney, type ShopMoney } from './pricing/money'
+import { formatMoney, isShopMoney, type ShopMoney } from './pricing/money'
 import { readConsent, writeConsent, type ConsentChoice } from './consent/consent'
 
 // The required components (storefront ARCHITECTURE §2.1, DESIGN §3), marked data-df-required for
@@ -14,7 +14,7 @@ export type PriceProps = { money: ShopMoney; compareAt?: ShopMoney | null; inclu
 export const Price = ({ money, compareAt, includesTax, locale, t }: PriceProps) => (
   <span className="df-price" data-df-required="price">
     <span className="df-price-amount">{formatMoney(money, locale)}</span>
-    {compareAt && compareAt.currency === money.currency && BigInt(compareAt.amount) > BigInt(money.amount) ? <s className="df-price-was">{t('price.was', { price: formatMoney(compareAt, locale) })}</s> : null}{' '}
+    {compareAt && isShopMoney(compareAt) && compareAt.currency === money.currency && BigInt(compareAt.amount) > BigInt(money.amount) ? <s className="df-price-was">{t('price.was', { price: formatMoney(compareAt, locale) })}</s> : null}{' '}
     <span className="df-price-tax">{t(includesTax ? 'price.inclTax' : 'price.plusTax')}</span>
   </span>
 )

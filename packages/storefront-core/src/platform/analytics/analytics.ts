@@ -53,21 +53,11 @@ const win = () => globalThis as unknown as Layer & { document?: Document }
 
 const analyticsHosts = ['www.googletagmanager.com', 'connect.facebook.net']
 
-type TrustedTypes = { createPolicy: (name: string, rules: { createScriptURL: (url: string) => string }) => { createScriptURL: (url: string) => unknown } }
-let scriptPolicy: { createScriptURL: (url: string) => unknown } | undefined
-
-const checkedScriptUrl = (src: string): string => {
+/** A script URL core may load: https, on an analytics host (the Trusted Types policy around it is #481's). */
+export const analyticsScriptUrl = (src: string): string => {
   const url = new URL(src)
   if (url.protocol !== 'https:' || !analyticsHosts.includes(url.host)) throw new Error(`Not an analytics script URL: ${src}`)
   return url.href
-}
-
-/** The `df-core` Trusted Types policy (storefront ARCHITECTURE §3.5): https script URLs on the analytics hosts only. */
-export const analyticsScriptUrl = (src: string): unknown => {
-  const tt = (globalThis as { trustedTypes?: TrustedTypes }).trustedTypes
-  if (!tt) return checkedScriptUrl(src)
-  scriptPolicy ??= tt.createPolicy('df-core', { createScriptURL: checkedScriptUrl })
-  return scriptPolicy.createScriptURL(src)
 }
 
 const addScript = (src: string) => {
@@ -75,7 +65,7 @@ const addScript = (src: string) => {
   if (!doc) return
   const s = doc.createElement('script')
   s.async = true
-  s.src = analyticsScriptUrl(src) as string
+  s.src = analyticsScriptUrl(src)
   doc.head.appendChild(s)
 }
 
