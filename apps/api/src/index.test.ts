@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import worker, { guarded } from './index'
+import worker, { guarded, wakeOutbox } from './index'
 
 const env = {
   ADMIN_HOST: 'admin.dripfunnel.com',
@@ -222,48 +222,91 @@ describe('guarded', () => {
 })
 
 describe('the outbox wake', () => {
-  const wakes = (send: () => Promise<void> = async () => undefined) => {
+  const asked = (method: string, status: number, send: () => Promise<void> = async () => undefined, bound = true) => {
     const sent: unknown[] = []
-    const queue = { send: async (message: unknown) => (sent.push(message), send()) }
     const waiting: Promise<unknown>[] = []
-    const tracked = { waitUntil: (promise: Promise<unknown>) => void waiting.push(promise) } as unknown as ExecutionContext
-    const run = async (method: string, bound = true) => {
-      const response = await worker.fetch(
-        new Request('https://admin.dripfunnel.com/shop-api', { method, headers: { 'cf-connecting-ip': '203.0.113.1' } }) as Parameters<typeof worker.fetch>[0],
-        (bound ? { ...env, OUTBOX_WAKE: queue } : env) as never,
-        tracked,
-      )
-      await Promise.all(waiting)
-      return response
-    }
-    return { sent, run }
+    const queue = { send: async (message: unknown) => (sent.push(message), send()) }
+    wakeOutbox(
+      new Request('https://store.example.com/api', { method }),
+      new Response(null, { status }),
+      (bound ? { ...env, OUTBOX_WAKE: queue } : env) as never,
+      { waitUntil: (promise: Promise<unknown>) => void waiting.push(promise) } as unknown as ExecutionContext,
+    )
+    return Promise.all(waiting).then(() => sent)
   }
-
-  it('sends one wake after a POST and none after GET, HEAD or OPTIONS', async () => {
-    const { sent, run } = wakes()
-    for (const method of ['GET', 'HEAD', 'OPTIONS']) await run(method)
-    expect(sent).toHaveLength(0)
-    await run('POST')
-    expect(sent).toHaveLength(1)
-  })
-
-  it('sends nothing, and breaks nothing, with no queue bound', async () => {
-    const { sent, run } = wakes()
-    expect((await run('POST', false)).status).toBe(404)
-    expect(sent).toHaveLength(0)
-  })
-
-  it('leaves the response alone, and logs by code, when the send fails', async () => {
+  const logged = async (work: () => Promise<unknown>): Promise<string[]> => {
     const lines: string[] = []
     const log = console.log
     console.log = (line: string) => void lines.push(line)
     try {
-      const { run } = wakes(() => Promise.reject(Object.assign(new Error('queue down at https://secret.example'), { name: 'QueueError' })))
-      expect((await run('POST')).status).toBe(404)
+      await work()
     } finally {
       console.log = log
     }
+    return lines
+  }
+
+  it('sends one wake after a write that succeeded', async () => {
+    for (const status of [200, 201, 204]) expect(await asked('POST', status)).toHaveLength(1)
+  })
+
+  it('sends none after GET, HEAD or OPTIONS, or after a request that was refused or failed', async () => {
+    for (const method of ['GET', 'HEAD', 'OPTIONS']) expect(await asked(method, 200)).toHaveLength(0)
+    for (const status of [302, 400, 401, 403, 404, 429, 500]) expect(await asked('POST', status)).toHaveLength(0)
+  })
+
+  it('sends nothing, and breaks nothing, with no queue bound', async () => {
+    expect(await asked('POST', 200, undefined, false)).toHaveLength(0)
+  })
+
+  it('logs a failed send by code only, and the response is not involved', async () => {
+    const lines = await logged(() => asked('POST', 200, () => Promise.reject(Object.assign(new Error('queue down at https://secret.example'), { name: 'QueueError' }))))
     expect(lines.some((l) => l.includes('"event":"outbox_wake_failed"') && l.includes('QueueError'))).toBe(true)
     expect(lines.join('\n')).not.toContain('secret.example')
+  })
+})
+
+describe('the outbox wake consumer', () => {
+  const batchOf = (n: number) => {
+    const acked: string[] = []
+    const batch = { messages: Array.from({ length: n }, (_, i) => ({ id: `m${i}`, body: { at: i } })), ackAll: () => void acked.push('all'), retryAll: () => void acked.push('retry') }
+    return { batch, acked }
+  }
+  const sweeps = (lines: string[]) => lines.filter((l) => l.includes('"event":"relay_skipped"'))
+
+  it('runs one outbox sweep for a batch of many wakes, and acks the batch', async () => {
+    const { batch, acked } = batchOf(5)
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      await worker.queue(batch as never, { ...env, HOOKS_HOST: undefined } as never)
+    } finally {
+      console.log = log
+    }
+    expect(sweeps(lines)).toHaveLength(1)
+    expect(acked).toEqual(['all'])
+  })
+
+  it('does not run the cleanups a cron run does', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      await worker.queue(batchOf(1).batch as never, { ...env, HOOKS_HOST: undefined } as never)
+      const afterQueue = sweeps(lines).length
+      await worker.scheduled({} as never, { ...env, HOOKS_HOST: undefined } as never)
+      expect(afterQueue).toBe(1)
+      expect(sweeps(lines).length - afterQueue).toBe(2)
+    } finally {
+      console.log = log
+    }
+  })
+
+  it('leaves the batch unacked when the sweep throws, so the queue redelivers it and cron is the backstop', async () => {
+    const { batch, acked } = batchOf(2)
+    const unreachable = { ...env, HYPERDRIVE: { connectionString: 'postgres://u:p@127.0.0.1:1/none?connect_timeout=1' } }
+    await expect(worker.queue(batch as never, unreachable as never)).rejects.toThrow()
+    expect(acked).toEqual([])
   })
 })

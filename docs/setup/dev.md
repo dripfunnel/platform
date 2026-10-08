@@ -60,8 +60,8 @@ checked off.
 
 1. Cloudflare › My Profile › API Tokens › *Create token* › custom token, on the **dev account
    only**.
-2. Permissions: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit (add
-   Workers R2 Storage Edit and Queues Edit when those resources arrive); *Zone
+2. Permissions: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit,
+   Workers R2 Storage Edit and Queues Edit; *Zone
    `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit.
 3. Copy it once. It goes into the GitHub `dev` environment (§2.5).
 
@@ -84,7 +84,7 @@ checked off.
 5. Note the two hostnames, from `DEV_DATABASE_URL` and `TEST_DATABASE_URL`. They become
    `ALLOWED_MIGRATION_HOST` and `ALLOWED_TEST_HOST`.
 
-### 2.4 Hyperdrive and R2
+### 2.4 Hyperdrive, R2 and the outbox queue
 
 1. **Hyperdrive** already exists: its id is in `wrangler.jsonc` › `env.dev` › `hyperdrive`. To
    make it again:
@@ -99,7 +99,7 @@ checked off.
    `wrangler.jsonc`; its free tier is 5,000 unique transformations a month).
    Create the bucket before adding the binding, or the deploy fails.
 
-3. **Outbox queue** (#479): `wrangler queues create dripfunnel-outbox-wake-dev` on the dev account (the deploy token needs *Queues: Edit*, §2.2), then deploy. `env.dev` binds it as `OUTBOX_WAKE` and consumes it. Create the queue first: a binding to a missing queue fails the deploy. Until then, or if a send fails, the every-minute cron delivers.
+3. **Outbox queue** (#479): `wrangler queues create dripfunnel-outbox-wake-dev` on the dev account (the deploy token needs *Queues: Edit*, §2.2), then deploy. `env.dev` binds it as `OUTBOX_WAKE` and consumes it. Create the queue first: a binding to a missing queue fails the deploy. Once deployed, if a send fails the every-minute cron delivers.
 
 ### 2.5 GitHub environment `dev`
 

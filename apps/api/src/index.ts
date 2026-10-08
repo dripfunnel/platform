@@ -548,9 +548,9 @@ export interface OutboxWake {
   at: number
 }
 const readMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
-/** After a request that may have queued mail or texts, asks the relay to run now instead of at the next cron. */
-export const wakeOutbox = (request: Request, env: Env, ctx: ExecutionContext): void => {
-  if (!env.OUTBOX_WAKE || readMethods.has(request.method)) return
+/** After a write that succeeded, asks the relay to run now instead of at the next cron; a refused request queued nothing. */
+export const wakeOutbox = (request: Request, response: Response, env: Env, ctx: ExecutionContext): void => {
+  if (!env.OUTBOX_WAKE || readMethods.has(request.method) || response.status < 200 || response.status >= 300) return
   ctx.waitUntil(
     env.OUTBOX_WAKE.send({ at: Date.now() }).catch((error: unknown) => {
       logEvent({ event: 'outbox_wake_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
@@ -622,7 +622,7 @@ export default {
   async fetch(request, env, ctx) {
     const started = Date.now()
     const { response, area } = await guarded(request, () => route(request, env, ctx))
-    wakeOutbox(request, env, ctx)
+    wakeOutbox(request, response, env, ctx)
     // LOGGING.md §9: ids, codes and timings only; the hostname carries no personal data.
     logEvent({
       event: 'request',

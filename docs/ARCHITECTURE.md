@@ -165,7 +165,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 ```
 
 - Every write that has side effects writes **outbox rows in the same transaction**; a relay
-  (a wake message per mutating request, Cron as the backstop) delivers them, so a rolled-back change never sends an email, webhook or
+  (a wake message per successful mutating request, Cron as the backstop) delivers them, so a rolled-back change never sends an email, webhook or
   cache purge.
 - Workflows own multi-step jobs and record each step in the `job` table, so the platform
   console sees progress, errors and compensation.
