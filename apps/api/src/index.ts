@@ -115,6 +115,8 @@ interface Env extends Record<string, unknown> {
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
   IMAGES?: ImagesBinding | undefined
+  // Wakes the outbox relay after a request (api/README.md §5); unbound, cron delivers.
+  OUTBOX_WAKE?: Queue<OutboxWake> | undefined
 }
 
 // Built once per isolate from configuration, like Stripe's client below.
@@ -542,10 +544,85 @@ export const guarded = async (request: Request, work: () => Promise<{ response: 
   }
 }
 
+export interface OutboxWake {
+  at: number
+}
+const readMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
+/** After a write that succeeded, asks the relay to run now instead of at the next cron; a refused request queued nothing. */
+export const wakeOutbox = (request: Request, response: Response, env: Env, ctx: ExecutionContext): void => {
+  if (!env.OUTBOX_WAKE || readMethods.has(request.method) || response.status < 200 || response.status >= 300) return
+  ctx.waitUntil(
+    env.OUTBOX_WAKE.send({ at: Date.now() }).catch((error: unknown) => {
+      logEvent({ event: 'outbox_wake_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    }),
+  )
+}
+
+// Delivers what is due (api/README.md §5): cron's sweep and each batch of wakes both call it.
+const sweepOutbox = (env: Env): Promise<void> =>
+  relayWith(env, async (sql, config) => {
+    const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config)))
+    for (const [outcome, count] of Object.entries(counts)) {
+      if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
+    }
+  })
+
+// Cron only: schedules and cleanups that nothing waits on, then the sweep above.
+const sweepSchedules = (env: Env): Promise<void> =>
+  relayWith(env, async (sql, config) => {
+    // A scheduling failure is logged and never holds up the outbox sweep below.
+    const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
+      logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
+    await queueRatesRefresh(sql, new Date()).catch((error: unknown) => {
+      logEvent({ event: 'rates_refresh_queue_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    })
+    const purged = await withSystemScope(sql, async (tx) => {
+      const at = new Date()
+      await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+      await failDeadCatalogExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+      await failDeadImports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+      await deleteStalePendingConnections(tx, at)
+      await deleteAbandonedConnections(tx, at)
+      return (await deleteExpiredExports(tx, at)) + (await deleteExpiredCatalogExports(tx, at)) + (await deleteExpiredImports(tx, at))
+    }).catch((error: unknown) => {
+      logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
+    // Bank transfers unpaid after 3 days and card payments not completed in a day are cancelled, their stock released (FIRST-RELEASE §1).
+    const settle = { sql, activity: activityLog, gateways: paymentsFor(config).gateways, secrets: await (secretsFor(config) ?? null), now: () => new Date() }
+    const released = await releaseUnpaidOrders(settle, new Date()).catch((error: unknown) => {
+      logEvent({ event: 'unpaid_orders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
+    // Old sign-in codes and sessions go, with the addresses they named.
+    await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
+      logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    })
+    // Carts past their 30 days go, with whatever address or email a guest left in them.
+    await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
+      logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    })
+    // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
+    await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
+      logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    })
+    const expired = await withSystemScope(sql, (tx) => expireUnsentSms(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
+      logEvent({ event: 'sms_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
+  })
+
 export default {
   async fetch(request, env, ctx) {
     const started = Date.now()
     const { response, area } = await guarded(request, () => route(request, env, ctx))
+    wakeOutbox(request, response, env, ctx)
     // LOGGING.md §9: ids, codes and timings only; the hostname carries no personal data.
     logEvent({
       event: 'request',
@@ -558,60 +635,15 @@ export default {
     return response
   },
 
-  // Every minute from wrangler.jsonc's cron trigger: due domain checks (SAAS §8), then the outbox
-  // sweep (api/README.md §5) that delivers them.
+  // Every minute from wrangler.jsonc's cron trigger, and the backstop for any wake that never arrives.
   async scheduled(_controller, env) {
-    await relayWith(env, async (sql, config) => {
-      // A scheduling failure is logged and never holds up the outbox sweep below.
-      const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
-        logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-        return 0
-      })
-      if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
-      await queueRatesRefresh(sql, new Date()).catch((error: unknown) => {
-        logEvent({ event: 'rates_refresh_queue_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      })
-      const purged = await withSystemScope(sql, async (tx) => {
-        const at = new Date()
-        await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
-        await failDeadCatalogExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
-        await failDeadImports(tx, at, new Date(at.getTime() + exportLifetimeMs))
-        await deleteStalePendingConnections(tx, at)
-        await deleteAbandonedConnections(tx, at)
-        return (await deleteExpiredExports(tx, at)) + (await deleteExpiredCatalogExports(tx, at)) + (await deleteExpiredImports(tx, at))
-      }).catch((error: unknown) => {
-        logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-        return 0
-      })
-      if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
-      // Bank transfers unpaid after 3 days and card payments not completed in a day are cancelled, their stock released (FIRST-RELEASE §1).
-      const settle = { sql, activity: activityLog, gateways: paymentsFor(config).gateways, secrets: await (secretsFor(config) ?? null), now: () => new Date() }
-      const released = await releaseUnpaidOrders(settle, new Date()).catch((error: unknown) => {
-        logEvent({ event: 'unpaid_orders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-        return 0
-      })
-      if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
-      // Old sign-in codes and sessions go, with the addresses they named.
-      await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
-        logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      })
-      // Carts past their 30 days go, with whatever address or email a guest left in them.
-      await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
-        logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      })
-      // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
-      await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
-        logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      })
-      const expired = await withSystemScope(sql, (tx) => expireUnsentSms(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
-        logEvent({ event: 'sms_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-        return 0
-      })
-      if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
-      const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config)))
-      for (const [outcome, count] of Object.entries(counts)) {
-        if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
-      }
-    })
+    await sweepSchedules(env)
+    await sweepOutbox(env)
+  },
+
+  // One wake per mutating request (wakeOutbox): a batch of them is one sweep.
+  async queue(batch, env) {
+    await sweepOutbox(env)
+    batch.ackAll()
   },
 } satisfies ExportedHandler<Env>
