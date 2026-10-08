@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&amp;family=Archivo+Black&amp;family=Work+Sans:wght@400;500;600&amp;family=Lora:wght@400;500;600&amp;family=Nunito:wght@400;600;800&amp;family=Space+Grotesk:wght@400;500;700&amp;family=Inter:wght@400;600&amp;family=Playfair+Display:wght@400;600;800&amp;family=Cormorant+Garamond:wght@400;600&amp;family=Manrope:wght@500;700;800&amp;family=Libre+Baskerville:wght@400;700&amp;family=Bebas+Neue&amp;display=swap" rel="stylesheet">
+</helmet>
+<sc-if value="{{ ok }}" hint-placeholder-val="{{ true }}">
+<div style="background:{{ T.bg }};color:{{ T.text }};font-family:{{ T.body }};font-size:{{ D.fs }};line-height:1.55;min-height:100%;pointer-events:{{ pe }};text-wrap:pretty;">
+  <sc-if value="{{ A.on }}" hint-placeholder-val="{{ false }}"><div style="padding:9px 16px;text-align:center;background:{{ A.bg }};color:{{ A.fg }};font-size:13px;outline:{{ A.ol }};outline-offset:-2px;">{{ A.text }}</div></sc-if>
+
+  <div style="background:{{ H.bg }};color:{{ H.fg }};border-bottom:1px solid {{ T.line }};outline:{{ H.ol }};outline-offset:-2px;">
+    <sc-if value="{{ H.center }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px {{ D.px }} 12px;display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <span onClick="{{ toHome }}" style="font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};font-size:24px;letter-spacing:{{ T.ls }};cursor:pointer;">{{ store }}</span>
+        <div style="display:flex;gap:28px;align-items:center;font-size:14px;">
+          <sc-for list="{{ H.menu }}" as="m" hint-placeholder-count="4"><span onClick="{{ m.onClick }}" style="cursor:pointer;font-weight:{{ m.fw }};">{{ m.label }}</span></sc-for>
+          <span onClick="{{ toCart }}" style="cursor:pointer;">Cart ({{ cartN }})</span>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ H.left }}" hint-placeholder-val="{{ true }}">
+      <div style="height:64px;padding:0 {{ D.px }};display:flex;align-items:center;gap:28px;">
+        <span onClick="{{ toHome }}" style="font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};font-size:20px;letter-spacing:{{ T.ls }};cursor:pointer;white-space:nowrap;">{{ store }}</span>
+        <sc-if value="{{ H.showMenu }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:24px;font-size:14px;"><sc-for list="{{ H.menu }}" as="m" hint-placeholder-count="4"><span onClick="{{ m.onClick }}" style="cursor:pointer;font-weight:{{ m.fw }};white-space:nowrap;">{{ m.label }}</span></sc-for></div></sc-if>
+        <span style="flex:1;"></span>
+        <sc-if value="{{ H.showMenu }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;">Search</span></sc-if>
+        <sc-if value="{{ H.phone }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;">Menu</span></sc-if>
+        <span onClick="{{ toCart }}" style="font-size:14px;cursor:pointer;white-space:nowrap;">Cart ({{ cartN }})</span>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <sc-for list="{{ secs }}" as="sec" hint-placeholder-count="3">
+      <div style="position:relative;outline:{{ sec.ol }};outline-offset:-3px;">
+        <sc-if value="{{ sec.isChanged }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:10px;right:10px;z-index:3;background:#00519F;color:#FFFFFF;font-family:Inter,sans-serif;font-weight:600;font-size:11px;padding:3px 8px;border-radius:4px;">Changed</span></sc-if>
+
+        <sc-if value="{{ sec.isSplit }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:{{ D.split }};gap:{{ D.gap }};align-items:center;padding:{{ D.py }} {{ D.px }};">
+            <div style="display:flex;flex-direction:column;gap:18px;align-items:flex-start;">
+              <h1 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h1 }};line-height:1.05;text-wrap:balance;">{{ sec.headline }}</h1>
+              <p style="margin:0;color:{{ T.muted }};font-size:{{ D.lead }};max-width:44ch;">{{ sec.sub }}</p>
+              <span onClick="{{ toShop }}" style="padding:14px 26px;border-radius:{{ T.r }};background:{{ T.accent }};color:{{ T.accentText }};font-weight:600;font-size:15px;cursor:pointer;">{{ sec.cta }}</span>
+            </div>
+            <div style="aspect-ratio:{{ D.heroRatio }};border-radius:{{ T.r }};background:{{ sec.img }};position:relative;"><span style="position:absolute;left:12px;bottom:10px;font-size:11px;color:#FFFFFF;opacity:0.9;">{{ sec.cap }}</span></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sec.isFull }}" hint-placeholder-val="{{ false }}">
+          <div style="min-height:{{ D.fullH }};background:{{ sec.fullBg }};display:flex;align-items:flex-end;padding:{{ D.py }} {{ D.px }};">
+            <div style="display:flex;flex-direction:column;gap:16px;align-items:flex-start;color:#FFFFFF;max-width:760px;">
+              <h1 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h1big }};line-height:1;text-wrap:balance;">{{ sec.headline }}</h1>
+              <p style="margin:0;font-size:{{ D.lead }};">{{ sec.sub }}</p>
+              <span onClick="{{ toShop }}" style="padding:14px 26px;border-radius:{{ T.r }};background:{{ T.accent }};color:{{ T.accentText }};font-weight:600;font-size:15px;cursor:pointer;">{{ sec.cta }}</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sec.isCentered }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;">
+            <h1 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h1 }};line-height:1.05;max-width:18ch;text-wrap:balance;">{{ sec.headline }}</h1>
+            <p style="margin:0;color:{{ T.muted }};font-size:{{ D.lead }};max-width:48ch;">{{ sec.sub }}</p>
+            <span onClick="{{ toShop }}" style="padding:14px 26px;border-radius:{{ T.r }};background:{{ T.accent }};color:{{ T.accentText }};font-weight:600;font-size:15px;cursor:pointer;">{{ sec.cta }}</span>
+            <div style="width:100%;aspect-ratio:{{ D.wide }};margin-top:16px;border-radius:{{ T.r }};background:{{ sec.img }};"></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sec.isProducts }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;gap:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;"><h2 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.1;">{{ sec.title }}</h2><span onClick="{{ toShop }}" style="font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;white-space:nowrap;">View all</span></div>
+            <div style="display:grid;grid-template-columns:{{ sec.gridCols }};gap:{{ D.gridGap }};">
+              <sc-for list="{{ sec.items }}" as="p" hint-placeholder-count="4">
+                <div onClick="{{ p.open }}" style="display:flex;flex-direction:column;gap:10px;cursor:pointer;background:{{ sec.cardBg }};padding:{{ sec.cardPad }};border-radius:{{ T.r }};min-width:0;">
+                  <div style="aspect-ratio:{{ sec.ratio }};border-radius:{{ T.rImg }};background:{{ p.img }};display:flex;align-items:center;justify-content:center;font-size:12px;color:{{ T.muted }};">{{ p.noPhoto }}</div>
+                  <div style="display:flex;flex-direction:column;gap:2px;min-width:0;"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</span><span style="font-size:14px;color:{{ T.muted }};">{{ p.price }}</span></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sec.isCategories }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;gap:24px;">
+            <h2 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.1;">{{ sec.title }}</h2>
+            <div style="display:grid;grid-template-columns:{{ sec.gridCols }};gap:{{ D.gridGap }};">
+              <sc-for list="{{ sec.tiles }}" as="c" hint-placeholder-count="4">
+                <div onClick="{{ toShop }}" style="aspect-ratio:1;border-radius:{{ T.r }};background:{{ c.img }};display:flex;align-items:flex-end;padding:14px;cursor:pointer;"><span style="background:{{ T.bg }};color:{{ T.text }};padding:6px 12px;border-radius:{{ T.r }};font-size:14px;font-weight:600;">{{ c.label }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sec.isBanner }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:{{ D.py }} {{ D.px }};background:{{ sec.bg }};color:{{ sec.fg }};display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
+            <h2 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.1;text-wrap:balance;">{{ sec.headline }}</h2>
+            <p style="margin:0;font-size:{{ D.lead }};max-width:50ch;">{{ sec.sub }}</p>
+            <sc-if value="{{ sec.cta }}" hint-placeholder-val="{{ true }}"><span style="padding:13px 24px;border-radius:{{ T.r }};background:{{ sec.btnBg }};color:{{ sec.btnFg }};font-weight:600;font-size:15px;">{{ sec.cta }}</span></sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sec.isFeatures }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:{{ D.pySm }} {{ D.px }};display:flex;flex-direction:column;gap:24px;border-top:1px solid {{ T.line }};border-bottom:1px solid {{ T.line }};">
+            <sc-if value="{{ sec.title }}" hint-placeholder-val="{{ false }}"><h2 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.1;">{{ sec.title }}</h2></sc-if>
+            <div style="display:grid;grid-template-columns:{{ sec.gridCols }};gap:{{ D.gap }};">
+              <sc-for list="{{ sec.items }}" as="f" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:{{ T.head }};font-weight:{{ T.hw }};font-size:18px;">{{ f.title }}</span><span style="color:{{ T.muted }};font-size:14px;">{{ f.body }}</span></div></sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sec.isTestimonial }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;background:{{ T.surface }};">
+            <p style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};font-size:{{ D.quote }};line-height:1.3;max-width:28ch;text-wrap:balance;">“{{ sec.quote }}”</p>
+            <span style="font-size:14px;color:{{ T.muted }};">{{ sec.author }}</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sec.isNewsletter }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
+            <h2 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.1;">{{ sec.headline }}</h2>
+            <p style="margin:0;color:{{ T.muted }};">{{ sec.sub }}</p>
+            <div style="display:flex;gap:8px;width:100%;max-width:440px;flex-wrap:wrap;"><span style="flex:1;min-width:180px;height:46px;border:1px solid {{ T.lineStrong }};border-radius:{{ T.r }};display:flex;align-items:center;padding:0 14px;color:{{ T.muted }};font-size:14px;background:{{ T.surface }};">Email address</span><span style="height:46px;padding:0 22px;border-radius:{{ T.r }};background:{{ T.accent }};color:{{ T.accentText }};display:flex;align-items:center;font-weight:600;font-size:15px;">{{ sec.cta }}</span></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sec.isText }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;align-items:{{ sec.ai }};gap:14px;text-align:{{ sec.ta }};">
+            <h2 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.15;max-width:22ch;text-wrap:balance;">{{ sec.headline }}</h2>
+            <p style="margin:0;color:{{ T.muted }};font-size:{{ D.lead }};max-width:56ch;">{{ sec.body }}</p>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </sc-if>
+
+  <sc-if value="{{ isAbout }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:{{ D.py }} {{ D.px }};display:grid;grid-template-columns:{{ D.split }};gap:{{ D.gap }};align-items:start;outline:{{ pagesOl }};outline-offset:-3px;">
+      <div style="display:flex;flex-direction:column;gap:18px;">
+        <h1 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h1 }};line-height:1.05;">{{ about.headline }}</h1>
+        <sc-for list="{{ about.paras }}" as="pp" hint-placeholder-count="2"><p style="margin:0;font-size:{{ D.lead }};color:{{ T.muted }};max-width:56ch;">{{ pp.t }}</p></sc-for>
+      </div>
+      <div style="aspect-ratio:4/5;border-radius:{{ T.r }};background:{{ about.img }};"></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isContact }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;gap:28px;outline:{{ pagesOl }};outline-offset:-3px;">
+      <div style="display:flex;flex-direction:column;gap:10px;"><h1 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h1 }};line-height:1.05;">{{ contact.headline }}</h1><p style="margin:0;color:{{ T.muted }};font-size:{{ D.lead }};max-width:52ch;">{{ contact.body }}</p></div>
+      <div style="display:grid;grid-template-columns:{{ D.split }};gap:{{ D.gap }};">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <span style="height:46px;border:1px solid {{ T.lineStrong }};border-radius:{{ T.r }};display:flex;align-items:center;padding:0 14px;color:{{ T.muted }};font-size:14px;background:{{ T.surface }};">Your name</span>
+          <span style="height:46px;border:1px solid {{ T.lineStrong }};border-radius:{{ T.r }};display:flex;align-items:center;padding:0 14px;color:{{ T.muted }};font-size:14px;background:{{ T.surface }};">Email</span>
+          <span style="height:120px;border:1px solid {{ T.lineStrong }};border-radius:{{ T.r }};display:flex;padding:12px 14px;color:{{ T.muted }};font-size:14px;background:{{ T.surface }};">Message</span>
+          <span style="align-self:flex-start;height:46px;padding:0 24px;border-radius:{{ T.r }};background:{{ T.accent }};color:{{ T.accentText }};display:flex;align-items:center;font-weight:600;font-size:15px;">Send</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;font-size:15px;">
+          <sc-for list="{{ contact.rows }}" as="cr" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;"><span style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:{{ T.muted }};">{{ cr.k }}</span><span>{{ cr.v }}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isProduct }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:{{ D.pySm }} {{ D.px }} {{ D.py }};display:flex;flex-direction:column;gap:20px;">
+      <span onClick="{{ toShop }}" style="font-size:14px;cursor:pointer;color:{{ T.muted }};">← Back to shop</span>
+      <div style="display:grid;grid-template-columns:{{ D.split }};gap:{{ D.gap }};align-items:start;">
+        <div style="aspect-ratio:4/5;border-radius:{{ T.r }};background:{{ prod.img }};display:flex;align-items:center;justify-content:center;color:{{ T.muted }};font-size:13px;">{{ prod.noPhoto }}</div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <h1 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.1;">{{ prod.name }}</h1>
+          <span style="font-size:20px;">{{ prod.price }}</span>
+          <div style="display:flex;flex-direction:column;gap:8px;"><span style="font-size:13px;color:{{ T.muted }};">Size</span><div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ sizes }}" as="z" hint-placeholder-count="4"><span onClick="{{ z.onClick }}" style="min-width:48px;height:44px;padding:0 12px;border:1px solid {{ z.bd }};background:{{ z.bg }};color:{{ z.fg }};border-radius:{{ T.r }};display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;">{{ z.label }}</span></sc-for></div></div>
+          <span onClick="{{ addToCart }}" style="height:52px;border-radius:{{ T.r }};background:{{ T.accent }};color:{{ T.accentText }};display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;cursor:pointer;">Add to cart</span>
+          <sc-if value="{{ added }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;">Added to your cart · <span onClick="{{ toCart }}" style="text-decoration:underline;cursor:pointer;">View cart</span></span></sc-if>
+          <p style="margin:0;color:{{ T.muted }};">A favourite with our regulars. Made with care, packed without plastic and sent within two working days.</p>
+          <div style="border-top:1px solid {{ T.line }};padding-top:12px;display:flex;flex-direction:column;gap:6px;font-size:14px;"><span>Free returns within 30 days</span><span>Secure checkout</span></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;gap:20px;max-width:760px;">
+      <h1 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.1;">Your cart</h1>
+      <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start;"><span style="color:{{ T.muted }};">Your cart is empty.</span><span onClick="{{ toShop }}" style="padding:12px 22px;border-radius:{{ T.r }};background:{{ T.accent }};color:{{ T.accentText }};font-weight:600;cursor:pointer;">Keep shopping</span></div></sc-if>
+      <sc-for list="{{ cart }}" as="ci" hint-placeholder-count="0">
+        <div style="display:flex;gap:14px;align-items:center;padding-bottom:14px;border-bottom:1px solid {{ T.line }};">
+          <span style="width:72px;height:72px;flex:none;border-radius:{{ T.rImg }};background:{{ ci.img }};"></span>
+          <span style="flex:1;display:flex;flex-direction:column;min-width:0;"><span style="font-weight:500;">{{ ci.name }}</span><span style="font-size:13px;color:{{ T.muted }};">Size {{ ci.size }} · Qty 1</span></span>
+          <span>{{ ci.price }}</span>
+          <span onClick="{{ ci.remove }}" style="font-size:13px;text-decoration:underline;cursor:pointer;color:{{ T.muted }};">Remove</span>
+        </div>
+      </sc-for>
+      <sc-if value="{{ cartFull }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-end;">
+          <span style="font-size:18px;">Subtotal <strong>{{ subtotal }}</strong></span>
+          <span style="font-size:13px;color:{{ T.muted }};">Shipping and tax at checkout</span>
+          <span onClick="{{ checkout }}" style="height:52px;padding:0 36px;border-radius:{{ T.r }};background:{{ T.accent }};color:{{ T.accentText }};display:flex;align-items:center;font-weight:600;font-size:16px;cursor:pointer;">Checkout</span>
+          <sc-if value="{{ note }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:{{ T.muted }};">{{ note }}</span></sc-if>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <div style="background:{{ F.bg }};color:{{ F.fg }};padding:{{ D.pySm }} {{ D.px }};display:flex;flex-direction:column;gap:18px;outline:{{ F.ol }};outline-offset:-3px;">
+    <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:320px;"><span style="font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};font-size:18px;">{{ store }}</span><sc-if value="{{ F.text }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;opacity:0.8;">{{ F.text }}</span></sc-if></div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:14px;"><sc-for list="{{ F.links }}" as="l" hint-placeholder-count="3"><span>{{ l.t }}</span></sc-for></div>
+    </div>
+    <span style="font-size:12px;opacity:0.7;">{{ F.copy }}</span>
+  </div>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200,&quot;height&quot;:900},&quot;site&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;products&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;array&quot;},&quot;store&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Juniper &amp; Co.&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;device&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;tablet&quot;,&quot;phone&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;page&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;onNav&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;function&quot;},&quot;changed&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;array&quot;},&quot;inert&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { page: 'home', idx: 0, cart: [], added: false, size: 'M', note: '' };
+  renderVals() {
+    const p = this.props; const s = p.site;
+    if (!s || !s.theme) return { ok: false };
+    const t = s.theme; const dev = p.device || 'desktop'; const ph = dev === 'phone', tb = dev === 'tablet';
+    const page = p.page || this.state.page;
+    const go = (pg, idx) => { if (p.inert) return; const up = { added: false, note: '' }; if (idx !== undefined) up.idx = idx; this.setState(up); if (p.onNav) p.onNav(pg); else this.setState({ page: pg }); };
+    const serif = { 'Lora': 1, 'Playfair Display': 1, 'Cormorant Garamond': 1, 'Libre Baskerville': 1 };
+    const fam = f => `'${f}', ${serif[f] ? 'serif' : 'sans-serif'}`;
+    const rgba = (h, a) => { let x = (h || '#000').replace('#', ''); if (x.length === 3) x = x.split('').map(c => c + c).join(''); const n = parseInt(x, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+    const rad = +t.radius || 0;
+    const T = { ...t, head: fam(t.headFont), body: fam(t.bodyFont), hw: String(t.headWeight), case: t.headCase, ls: t.headCase === 'uppercase' ? '0.01em' : '-0.02em', r: rad + 'px', rImg: Math.max(0, rad - 4) + 'px', line: rgba(t.text, 0.12), lineStrong: rgba(t.text, 0.28) };
+    const img = h => {
+      if (h == null) return T.surface;
+      const tone = { soft: `linear-gradient(135deg,hsl(${h},35%,82%),hsl(${h},30%,64%))`, vivid: `linear-gradient(135deg,hsl(${h},75%,72%),hsl(${(h + 40) % 360},70%,52%))`, dark: `linear-gradient(135deg,hsl(${h},30%,34%),hsl(${h},25%,16%))`, mono: `linear-gradient(135deg,hsl(${h},10%,80%),hsl(${h},8%,56%))` };
+      return tone[t.imgTone] || tone.soft;
+    };
+    const SAMPLE = (window.DFSite && window.DFSite.SAMPLE) || [['Everyday Tee', 28, 24], ['Weekend Shirt', 49, 200], ['Canvas Tote', 18, 40], ['Wool Beanie', 24, 330]];
+    const cur = p.currency || 'USD', loc = p.locale || 'en-US';
+    const money = n => { try { return new Intl.NumberFormat(loc, { style: 'currency', currency: cur }).format(n); } catch (e) { return String(n); } };
+    const prods = (p.products && p.products.length ? p.products : SAMPLE.map(([name, n, hue]) => ({ name, n, hue, price: money(n) })));
+    const D = ph ? { px: '18px', py: '44px', pySm: '28px', h1: '34px', h1big: '40px', h2: '24px', lead: '16px', fs: '15px', gap: '24px', split: '1fr', heroRatio: '4/3', fullH: '460px', maxCols: 2, gridGap: '12px', wide: '4/3', quote: '22px' }
+      : tb ? { px: '32px', py: '56px', pySm: '36px', h1: '44px', h1big: '56px', h2: '28px', lead: '17px', fs: '15px', gap: '32px', split: '1fr 1fr', heroRatio: '4/5', fullH: '540px', maxCols: 3, gridGap: '16px', wide: '16/9', quote: '28px' }
+        : { px: '56px', py: '80px', pySm: '44px', h1: '60px', h1big: '84px', h2: '34px', lead: '18px', fs: '16px', gap: '56px', split: '1.05fr 1fr', heroRatio: '4/5', fullH: '640px', maxCols: 5, gridGap: '20px', wide: '21/9', quote: '34px' };
+    const ch = new Set(p.changed || []); const ol = k => ch.has(k) ? '2px dashed #00519F' : 'none';
+    const pageFor = l => /about|story|atelier/i.test(l) ? 'about' : /contact|support/i.test(l) ? 'contact' : 'home';
+    const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+    const secs = (s.sections || []).map((x, i) => {
+      const o = { ...x, isChanged: ch.has(x.id), ol: ol(x.id), ['is' + cap(x.type)]: true };
+      if (x.type === 'hero') { const pr = prods[i % prods.length]; o.img = img(pr.hue); o.cap = pr.name; o.isHero = false; o.isSplit = x.layout === 'split'; o.isFull = x.layout === 'full'; o.isCentered = !o.isSplit && !o.isFull; o.fullBg = `linear-gradient(to top, rgba(0,0,0,0.62), rgba(0,0,0,0.05) 70%), ${o.img}`; }
+      if (x.type === 'products') { const c = Math.min(x.cols || 4, D.maxCols); o.gridCols = `repeat(${c},minmax(0,1fr))`; o.ratio = x.aspect === 'portrait' ? '3/4' : '1/1'; o.cardBg = x.card === 'boxed' ? T.surface : 'transparent'; o.cardPad = x.card === 'boxed' ? '10px 10px 14px' : '0'; o.items = Array.from({ length: x.count || 8 }, (_, k) => { const j = k % prods.length; const pr = prods[j]; return { name: pr.name, price: pr.price, img: img(pr.hue), noPhoto: pr.hue == null ? 'No photo' : '', open: () => go('product', j) }; }); }
+      if (x.type === 'categories') { const n = (x.items || []).length; o.gridCols = `repeat(${Math.min(n, ph ? 2 : tb ? 3 : 6)},minmax(0,1fr))`; o.tiles = (x.items || []).map((l, k) => ({ label: l, img: img(prods[(k + 2) % prods.length].hue ?? (k * 60)) })); }
+      if (x.type === 'banner') { const m = { accent: [t.accent, t.accentText, t.accentText, t.accent], dark: [t.text, t.bg, t.bg, t.text], light: [t.surface, t.text, t.accent, t.accentText] }[x.tone] || []; [o.bg, o.fg, o.btnBg, o.btnFg] = m; }
+      if (x.type === 'features') o.gridCols = `repeat(${ph ? 1 : Math.min((x.items || []).length || 1, 4)},minmax(0,1fr))`;
+      if (x.type === 'text') { o.ta = x.align === 'center' ? 'center' : 'left'; o.ai = x.align === 'center' ? 'center' : 'flex-start'; }
+      return o;
+    });
+    const h = s.header || {};
+    const H = { bg: h.bg, fg: h.fg, ol: ol('header'), center: h.style === 'center' && !ph, left: !(h.style === 'center' && !ph), showMenu: !ph, phone: ph,
+      menu: (h.menu || []).map(l => ({ label: l, onClick: () => go(pageFor(l)), fw: pageFor(l) === page && page !== 'home' ? '700' : '400' })) };
+    const f = s.footer || {};
+    const ft = { light: [t.surface, t.text], dark: [t.text, t.bg], accent: [t.accent, t.accentText] }[f.tone] || [t.surface, t.text];
+    const store = p.store || 'Your shop';
+    const pg = s.pages || {}; const ab = pg.about || {}; const ct = pg.contact || {};
+    const pr = prods[Math.min(this.state.idx, prods.length - 1)] || prods[0];
+    const cart = this.state.cart.map((c, k) => { const q = prods[c.j] || prods[0]; return { name: q.name, price: q.price, img: img(q.hue), size: c.size, remove: () => this.setState(st => ({ cart: st.cart.filter((_, z) => z !== k) })) }; });
+    const sub = this.state.cart.reduce((a, c) => a + (+((prods[c.j] || {}).n) || 0), 0);
+    return {
+      ok: true, T, D, store, pe: p.inert ? 'none' : 'auto', isHome: page === 'home', isAbout: page === 'about', isContact: page === 'contact', isProduct: page === 'product', isCart: page === 'cart',
+      A: { ...(s.announce || {}), ol: ol('announce') }, H, secs, pagesOl: ol('pages'),
+      F: { bg: ft[0], fg: ft[1], text: f.text, ol: ol('footer'), links: (f.links || []).map(x => ({ t: x })), copy: '© ' + new Date().getFullYear() + ' ' + store + (p.powered ? ' · Powered by DripFunnel' : '') },
+      about: { headline: ab.headline, paras: String(ab.body || '').split(/\n\s*\n/).filter(Boolean).map(x => ({ t: x })), img: img(prods[1 % prods.length].hue) },
+      contact: { headline: ct.headline, body: ct.body, rows: [['Email', ct.email], ['Phone', ct.phone], ['Visit', ct.address]].filter(r => r[1]).map(([k, v]) => ({ k, v })) },
+      prod: { name: pr.name, price: pr.price, img: img(pr.hue), noPhoto: pr.hue == null ? 'No photo yet' : '' },
+      sizes: ['S', 'M', 'L', 'XL'].map(z => ({ label: z, bd: this.state.size === z ? t.text : T.lineStrong, bg: this.state.size === z ? t.text : 'transparent', fg: this.state.size === z ? t.bg : t.text, onClick: () => this.setState({ size: z }) })),
+      added: this.state.added, cart, cartN: String(this.state.cart.length), cartEmpty: !cart.length, cartFull: !!cart.length, subtotal: money(sub), note: this.state.note,
+      toHome: () => go('home'), toShop: () => go('home'), toCart: () => go('cart'),
+      addToCart: () => this.setState(st => ({ cart: [...st.cart, { j: Math.min(st.idx, prods.length - 1), size: st.size }], added: true })),
+      checkout: () => this.setState({ note: p.checkoutNote || 'Checkout is turned off in previews.' })
+    };
+  }
+}
+</script>
+</body>
+</html>

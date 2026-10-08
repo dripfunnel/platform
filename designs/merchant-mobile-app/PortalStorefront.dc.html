@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./storefront-lib.js"></script>
+</helmet>
+<div data-sf-root="1" style="min-height:100%;">
+<sc-if value="{{ notReady }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 28px;display:flex;flex-direction:column;gap:12px;"><div style="height:28px;width:200px;border-radius:6px;background:#ECE9E4;"></div><div style="height:360px;border-radius:12px;background:#F2F0EC;"></div></div></sc-if>
+
+<sc-if value="{{ mode.studio }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;background:#FDFAF7;">
+  <div style="height:56px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;background:#FFFFFF;border-bottom:1px solid #E8E2DC;">
+    <button onClick="{{ a.exitStudio }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">← Storefront</button>
+    <div style="display:flex;flex-direction:column;min-width:0;line-height:1.25;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#0A2A4A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ studio.title }}</span><span style="font-size:12px;color:#5A6472;white-space:nowrap;">{{ studio.host }}</span></div>
+    <span style="flex:none;height:22px;padding:0 8px;border-radius:5px;background:{{ studio.pillBg }};color:{{ studio.pillFg }};border:1px solid {{ studio.pillBd }};font-size:12px;font-weight:600;display:{{ studio.pillDisp }};align-items:center;white-space:nowrap;">{{ studio.status }}</span>
+    <span style="flex:1;"></span>
+    <sc-if value="{{ narrowBar }}" hint-placeholder-val="{{ false }}">
+      <select aria-label="Page" value="{{ page }}" onChange="{{ on.pageSel }}" style="flex:none;height:34px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;padding:0 8px;"><sc-for list="{{ pageOpts }}" as="po" hint-placeholder-count="5"><option value="{{ po.k }}">{{ po.l }}</option></sc-for></select>
+      <select aria-label="Screen size" value="{{ device }}" onChange="{{ on.devSel }}" style="flex:none;height:34px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;padding:0 8px;"><sc-for list="{{ devOpts }}" as="do" hint-placeholder-count="3"><option value="{{ do.k }}">{{ do.l }}</option></sc-for></select>
+    </sc-if>
+    <sc-if value="{{ wideBar }}" hint-placeholder-val="{{ true }}">
+      <div role="tablist" aria-label="Page" style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ pageTabs }}" as="pt" hint-placeholder-count="5"><button onClick="{{ pt.onClick }}" style="height:32px;padding:0 10px;border:0;background:{{ pt.bg }};color:{{ pt.fg }};font-size:12px;font-weight:600;cursor:pointer;">{{ pt.label }}</button></sc-for></div>
+      <div aria-label="Screen size" style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ devTabs }}" as="dt" hint-placeholder-count="3"><button onClick="{{ dt.onClick }}" style="height:32px;padding:0 10px;border:0;background:{{ dt.bg }};color:{{ dt.fg }};font-size:12px;font-weight:600;cursor:pointer;">{{ dt.label }}</button></sc-for></div>
+    </sc-if>
+    <sc-if value="{{ publishing }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;min-width:150px;"><div style="flex:1;height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ pubPct }};height:100%;background:#1D6B47;"></div></div><span style="font-size:12px;color:#434A55;white-space:nowrap;">{{ pubText }}</span></div></sc-if>
+    <sc-if value="{{ notPublishing }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.discard }}" style="height:36px;padding:0 10px;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Discard</button></sc-if>
+      <button onClick="{{ a.publish }}" style="height:36px;padding:0 16px;border:0;border-radius:8px;background:{{ studio.pubBg }};color:{{ studio.pubFg }};font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:{{ studio.pubCur }};white-space:nowrap;">{{ studio.pubLabel }}</button>
+    </sc-if>
+  </div>
+  <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:none;display:flex;border-bottom:1px solid #E8E2DC;background:#FFFFFF;"><sc-for list="{{ paneTabs }}" as="pn" hint-placeholder-count="2"><button onClick="{{ pn.onClick }}" style="flex:1;height:44px;border:0;border-bottom:2px solid {{ pn.bd }};background:transparent;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:{{ pn.fg }};cursor:pointer;">{{ pn.label }}</button></sc-for></div>
+  </sc-if>
+  <div style="flex:1;min-height:0;display:flex;">
+    <sc-if value="{{ showChat }}" hint-placeholder-val="{{ true }}">
+      <div style="width:{{ chatW }};flex:none;display:flex;flex-direction:column;border-right:1px solid #E8E2DC;background:#FFFFFF;min-height:0;">
+        <div style="padding:12px 16px;border-bottom:1px solid #F1EEEA;display:flex;justify-content:space-between;align-items:center;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;color:#0A2A4A;">Design with AI</span><span style="font-size:12px;color:#5A6472;">{{ aiLine }}</span></div>
+        <div ref="{{ chatRef }}" style="flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">
+          <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="2">
+            <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}"><div style="align-self:flex-end;max-width:85%;background:#F1EEEA;color:#14181F;border-radius:12px 12px 4px 12px;padding:10px 12px;font-size:14px;white-space:pre-wrap;">{{ m.text }}</div></sc-if>
+            <sc-if value="{{ m.isAi }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:6px;max-width:94%;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span>
+                <span style="font-size:14px;color:#14181F;">{{ m.text }}</span>
+                <sc-if value="{{ m.hasChanged }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ m.changed }}" as="c" hint-placeholder-count="2"><span style="height:22px;padding:0 8px;border-radius:5px;background:#EEF7F2;color:#1D6B47;border:1px solid #CBE6D6;font-size:12px;display:flex;align-items:center;">{{ c.t }}</span></sc-for></div></sc-if>
+                <sc-if value="{{ m.canUndo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ m.undo }}" style="align-self:flex-start;height:28px;padding:0;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Undo this change</button></sc-if>
+                <sc-if value="{{ m.undone }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">Undone — the preview is back to how it was.</span></sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5A6472;"><span style="flex:1;height:1px;background:#E8E2DC;"></span><span>{{ m.text }}</span><span style="flex:1;height:1px;background:#E8E2DC;"></span></div></sc-if>
+            <sc-if value="{{ m.isErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:13px;color:#A1261B;background:#FDECEC;border:1px solid #F3C7C2;border-radius:8px;padding:8px 10px;">{{ m.text }}</div></sc-if>
+          </sc-for>
+          <sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span><span style="font-size:14px;color:#434A55;">Working on it — the preview updates as soon as it’s ready.</span></div></sc-if>
+        </div>
+        <div style="flex:none;border-top:1px solid #E8E2DC;padding:12px;display:flex;flex-direction:column;gap:8px;">
+          <sc-if value="{{ showSugs }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ sugs }}" as="sg" hint-placeholder-count="3"><button onClick="{{ sg.onClick }}" style="min-height:30px;padding:4px 10px;border:1px solid #D7D3CD;border-radius:15px;background:#FFFFFF;color:#434A55;font-size:12px;cursor:pointer;text-align:left;" style-hover="background:#F7F2ED;">{{ sg.t }}</button></sc-for></div></sc-if>
+          <div style="border:1px solid #D7D3CD;border-radius:10px;display:flex;flex-direction:column;background:#FFFFFF;">
+            <textarea aria-label="Describe a change" value="{{ prompt }}" onChange="{{ on.prompt }}" onKeyDown="{{ on.key }}" readOnly="{{ busy }}" rows="3" placeholder="Describe a change — e.g. “Make it feel warmer and add a reviews section”" style="border:0;outline:none;resize:none;padding:10px 12px;font-size:14px;background:transparent;color:#14181F;border-radius:10px;"></textarea>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 6px 12px;"><span style="font-size:12px;color:#5A6472;">Enter to send · Shift+Enter for a new line</span><button onClick="{{ a.send }}" style="height:34px;padding:0 16px;border:0;border-radius:8px;background:{{ sendBg }};color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ sendLabel }}</button></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showPreview }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;min-width:0;background:#EDE8E2;overflow:auto;padding:{{ prev.pad }};display:flex;flex-direction:column;align-items:center;position:relative;">
+        <div style="width:{{ prev.w }};max-width:100%;flex:none;display:flex;flex-direction:column;border:{{ prev.bd }};border-radius:{{ prev.r }};overflow:hidden;background:#FFFFFF;box-shadow:{{ prev.shadow }};">
+          <sc-if value="{{ prev.bar }}" hint-placeholder-val="{{ true }}"><div style="height:34px;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px;background:#F7F4F0;border-bottom:1px solid #E8E2DC;"><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="margin-left:10px;height:22px;padding:0 12px;border-radius:11px;background:#FFFFFF;border:1px solid #E8E2DC;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#434A55;display:flex;align-items:center;">{{ studio.url }}</span></div></sc-if>
+          <dc-import name="SitePreview" site="{{ work }}" products="{{ prods }}" store="{{ store }}" device="{{ device }}" page="{{ page }}" on-nav="{{ a.nav }}" changed="{{ changed }}" currency="{{ cur }}" locale="{{ locale }}" powered="{{ powered }}" hint-size="100%,900px"></dc-import>
+        </div>
+        <sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:14px;right:14px;height:28px;padding:0 12px;border-radius:14px;background:#0A2A4A;color:#FFFFFF;font-size:12px;font-weight:600;display:flex;align-items:center;">Updating preview…</span></sc-if>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ mode.gallery }}" hint-placeholder-val="{{ false }}">
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:18px;">
+  <sc-if value="{{ hasSite }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.closeGallery }}" style="align-self:flex-start;height:32px;padding:0;border:0;background:transparent;color:#B8541F;font-size:14px;font-weight:600;cursor:pointer;">← Back to Storefront</button></sc-if>
+  <div style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;color:#0A2A4A;">{{ gal.title }}</span><span style="font-size:14px;color:#5A6472;max-width:70ch;">Pick a look to start from. You can change everything afterwards — colours, fonts, sections, wording — just by describing it. Nothing goes live until you publish.</span></div>
+  <div style="display:grid;grid-template-columns:{{ gal.cols }};gap:16px;">
+    <sc-for list="{{ tpls }}" as="t" hint-placeholder-count="7">
+      <div style="background:#FFFFFF;border:{{ t.bd }};border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-width:0;">
+        <div onClick="{{ t.choose }}" style="height:{{ gal.thumbH }};overflow:hidden;position:relative;cursor:pointer;background:{{ t.bg }};border-bottom:1px solid #E8E2DC;">
+          <div style="width:1280px;zoom:{{ gal.zoom }};pointer-events:none;"><dc-import name="SitePreview" site="{{ t.site }}" products="{{ prods }}" store="{{ store }}" device="desktop" inert="{{ true }}" currency="{{ cur }}" locale="{{ locale }}" hint-size="1280px,900px"></dc-import></div>
+          <sc-if value="{{ t.current }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:10px;left:10px;height:24px;padding:0 9px;border-radius:5px;background:#0A2A4A;color:#FFFFFF;font-size:12px;font-weight:600;display:flex;align-items:center;">Your current look</span></sc-if>
+        </div>
+        <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;color:#0A2A4A;">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;text-align:right;">{{ t.tag }}</span></div>
+          <span style="font-size:13px;color:#5A6472;">{{ t.desc }}</span>
+          <span style="flex:1;min-height:6px;"></span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <sc-if value="{{ t.hasDemo }}" hint-placeholder-val="{{ true }}"><button onClick="{{ t.demo }}" style="height:36px;padding:0;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">View demo ↗</button></sc-if>
+            <span style="flex:1;"></span>
+            <button onClick="{{ t.choose }}" style="height:36px;padding:0 14px;border:1px solid #0A2A4A;border-radius:8px;background:#FFFFFF;color:#0A2A4A;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;" style-hover="background:#F4F8FB;">{{ t.useLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ mode.overview }}" hint-placeholder-val="{{ true }}">
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+    <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;color:#0A2A4A;">Storefront</div><div style="font-size:14px;color:#5A6472;">{{ liveLine }}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <sc-if value="{{ hasSite }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.viewLive }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">View live site ↗</button></sc-if>
+      <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.openGallery }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Change template</button><button onClick="{{ a.openStudio }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">{{ studioBtn }}</button></sc-if>
+    </div>
+  </div>
+  <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;border-radius:10px;background:#EAF1F8;border:1px solid #C6D9EC;font-size:13px;color:#00325F;">{{ roText }}</div></sc-if>
+  <div role="tablist" style="display:flex;gap:24px;border-bottom:1px solid #E8E2DC;"><sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="2"><button role="tab" aria-selected="{{ tb.on }}" onClick="{{ tb.onClick }}" style="height:40px;padding:0;border:0;border-bottom:2px solid {{ tb.bd }};margin-bottom:-1px;background:transparent;font-family:Manrope,sans-serif;font-weight:{{ tb.fw }};font-size:14px;color:{{ tb.fg }};cursor:pointer;">{{ tb.label }}</button></sc-for></div>
+
+  <sc-if value="{{ tabDesign }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <sc-if value="{{ draftNotice }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:10px;background:#FFF6E5;border:1px solid #F2D9A6;color:#7A4B00;font-size:14px;">
+          <span style="flex:1;min-width:220px;"><strong>Unpublished changes.</strong> {{ draftText }}</span>
+          <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.discard }}" style="height:34px;padding:0 12px;border:1px solid #F2D9A6;border-radius:8px;background:#FFFFFF;color:#7A4B00;font-size:13px;font-weight:600;cursor:pointer;">Discard</button><button onClick="{{ a.openStudio }}" style="height:34px;padding:0 12px;border:1px solid #7A4B00;border-radius:8px;background:#FFFFFF;color:#7A4B00;font-size:13px;font-weight:700;cursor:pointer;">Continue in studio</button></sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noSite }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:18px;">No storefront yet</span><span style="color:#5A6472;max-width:46ch;">The store owner picks a template and publishes the site. You’ll see it here once it’s live.</span></div></sc-if>
+      <sc-if value="{{ hasSite }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid #E8E2DC;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;">{{ ovLabel }}</span>
+            <div style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ ovDevs }}" as="od" hint-placeholder-count="2"><button onClick="{{ od.onClick }}" style="height:30px;padding:0 10px;border:0;background:{{ od.bg }};color:{{ od.fg }};font-size:12px;font-weight:600;cursor:pointer;">{{ od.label }}</button></sc-for></div>
+          </div>
+          <div style="height:{{ ov.h }};overflow:auto;background:{{ ov.bg }};display:flex;justify-content:center;padding:{{ ov.pad }};">
+            <div style="width:{{ ov.w }};zoom:{{ ov.zoom }};flex:none;border-radius:{{ ov.r }};overflow:hidden;align-self:flex-start;"><dc-import name="SitePreview" site="{{ live }}" products="{{ prods }}" store="{{ store }}" device="{{ ov.device }}" currency="{{ cur }}" locale="{{ locale }}" powered="{{ powered }}" hint-size="100%,900px"></dc-import></div>
+          </div>
+          <sc-if value="{{ powered }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 14px;border-top:1px solid #E8E2DC;font-size:13px;color:#5A6472;display:flex;gap:6px;flex-wrap:wrap;"><span>“Powered by DripFunnel” shows in your footer on {{ planName }}.</span><button onClick="{{ a.powered }}" style="border:0;padding:0;background:none;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Remove it</button></div></sc-if>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ tabSettings }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:{{ setCols }};gap:16px;align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0;">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;color:#0A2A4A;">Domains</span><span style="font-size:13px;color:#5A6472;">Where shoppers find your shop. Domain changes don’t need a publish.</span></div>
+          <sc-for list="{{ doms }}" as="d" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px;border:1px solid #E8E2DC;border-radius:10px;">
+              <span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-size:14px;color:#14181F;word-break:break-all;">{{ d.host }}</strong><span style="font-size:12px;color:#5A6472;">{{ d.note }}</span></span>
+              <span style="height:22px;padding:0 8px;border-radius:5px;background:{{ d.bg }};color:{{ d.fg }};border:1px solid {{ d.bd }};font-size:12px;font-weight:600;display:flex;align-items:center;">{{ d.status }}</span>
+              <sc-if value="{{ d.isPrimary }}" hint-placeholder-val="{{ false }}"><span style="height:22px;padding:0 8px;border-radius:5px;background:#F1EEEA;color:#4A5360;border:1px solid #E0DAD3;font-size:12px;font-weight:600;display:flex;align-items:center;">Primary</span></sc-if>
+              <sc-if value="{{ d.canPrimary }}" hint-placeholder-val="{{ false }}"><button onClick="{{ d.makePrimary }}" style="height:30px;padding:0 10px;border:1px solid #D7D3CD;border-radius:6px;background:#FFFFFF;font-size:12px;cursor:pointer;">Make primary</button></sc-if>
+              <sc-if value="{{ d.canRemove }}" hint-placeholder-val="{{ false }}"><button onClick="{{ d.remove }}" style="height:30px;padding:0 6px;border:0;background:transparent;color:#B8541F;font-size:12px;font-weight:600;cursor:pointer;">Remove</button></sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{ dom.showConnect }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="font-size:13px;font-weight:600;color:#434A55;">Connect a domain you own</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;"><input value="{{ domIn }}" onChange="{{ on.domIn }}" placeholder="yourshop.com" style="flex:1;min-width:180px;height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;outline:none;"><button onClick="{{ a.connect }}" style="height:40px;padding:0 14px;border:1px solid #0A2A4A;border-radius:8px;background:#FFFFFF;color:#0A2A4A;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Connect</button></div>
+              <sc-if value="{{ domErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:13px;color:#A1261B;">{{ domErr }}</span></sc-if>
+              <span style="font-size:12px;color:#5A6472;">{{ dom.planNote }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ dom.pending }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#F7F4F0;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+              <span style="font-size:14px;font-weight:600;color:#14181F;">Add these two records where you bought {{ dom.host }}</span>
+              <span style="font-size:13px;color:#5A6472;">Sign in to your domain provider (GoDaddy, Namecheap, IONOS…), open DNS settings and add:</span>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:grid;grid-template-columns:60px 60px minmax(0,1fr) auto;gap:10px;font-size:12px;color:#5A6472;"><span>Type</span><span>Name</span><span>Value</span><span></span></div>
+                <sc-for list="{{ dns }}" as="r" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:60px 60px minmax(0,1fr) auto;gap:10px;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#14181F;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:8px;padding:8px 10px;"><span>{{ r.type }}</span><span>{{ r.name }}</span><span style="word-break:break-all;">{{ r.value }}</span><button onClick="{{ r.copy }}" style="height:28px;padding:0 10px;border:1px solid #D7D3CD;border-radius:6px;background:#FFFFFF;font-family:Inter,sans-serif;font-size:12px;cursor:pointer;">Copy</button></div></sc-for>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button onClick="{{ a.check }}" style="height:36px;padding:0 14px;border:1px solid #0A2A4A;border-radius:8px;background:#FFFFFF;color:#0A2A4A;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ dom.checkLabel }}</button><span style="flex:1;min-width:160px;font-size:13px;color:{{ dom.msgFg }};">{{ dom.msg }}</span><button onClick="{{ a.cancelDomain }}" style="height:32px;padding:0;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button></div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;color:#0A2A4A;">Search and sharing</span><span style="font-size:13px;color:#5A6472;">How your shop looks in Google results and when someone shares a link.</span></div>
+          <label style="display:flex;flex-direction:column;gap:4px;"><span style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:#434A55;"><span>Page title</span><span style="font-weight:400;color:{{ seo.tFg }};">{{ seo.tCount }}</span></span><input value="{{ seo.title }}" onChange="{{ on.seoTitle }}" readOnly="{{ readOnly }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;outline:none;"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;"><span style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:#434A55;"><span>Description</span><span style="font-weight:400;color:{{ seo.dFg }};">{{ seo.dCount }}</span></span><textarea value="{{ seo.desc }}" onChange="{{ on.seoDesc }}" readOnly="{{ readOnly }}" rows="3" style="border:1px solid #D7D3CD;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;resize:vertical;"></textarea></label>
+          <div style="display:flex;flex-direction:column;gap:6px;"><span style="font-size:13px;font-weight:600;color:#434A55;">Share image</span><div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ seo.imgs }}" as="im" hint-placeholder-count="5"><button onClick="{{ im.onClick }}" aria-label="{{ im.label }}" style="width:64px;height:44px;border-radius:6px;border:2px solid {{ im.bd }};background:{{ im.bg }};cursor:pointer;padding:0;"></button></sc-for></div><span style="font-size:12px;color:#5A6472;">From your product photos. Shown at 1200 × 630.</span></div>
+          <div style="display:grid;grid-template-columns:{{ seoCols }};gap:12px;">
+            <div style="border:1px solid #E8E2DC;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;padding-bottom:6px;">In Google</span><span style="font-size:12px;color:#4D5156;">{{ seo.host }}</span><span style="font-family:Arial,sans-serif;font-size:18px;color:#1A0DAB;line-height:1.3;">{{ seo.gTitle }}</span><span style="font-family:Arial,sans-serif;font-size:13px;color:#4D5156;">{{ seo.gDesc }}</span></div>
+            <div style="border:1px solid #E8E2DC;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;min-width:0;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;padding:12px 12px 6px;">When shared</span><div style="aspect-ratio:1200/630;background:{{ seo.imgBg }};"></div><div style="padding:8px 12px 12px;background:#F7F4F0;display:flex;flex-direction:column;gap:2px;"><span style="font-size:11px;color:#5A6472;text-transform:uppercase;">{{ seo.host }}</span><span style="font-size:14px;font-weight:600;color:#14181F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ seo.gTitle }}</span></div></div>
+          </div>
+          <sc-if value="{{ seo.dirty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.seoCancel }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Cancel</button><button onClick="{{ a.seoSave }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save</button></div></sc-if>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0;">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;color:#0A2A4A;">AI and build minutes</span><span style="font-size:13px;color:#5A6472;">This month. Resets on the 1st.</span></div>
+          <sc-for list="{{ meters }}" as="mt" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;gap:4px;"><div style="display:flex;justify-content:space-between;font-size:13px;"><span>{{ mt.label }}</span><span style="color:{{ mt.fg }};font-weight:600;">{{ mt.val }}</span></div><div style="height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ mt.pct }};height:100%;background:{{ mt.bar }};"></div></div></div></sc-for>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;"><sc-for list="{{ stats }}" as="st" hint-placeholder-count="2"><div style="background:#F7F4F0;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;color:#0A2A4A;">{{ st.v }}</span><span style="font-size:12px;color:#5A6472;">{{ st.l }}</span></div></sc-for></div>
+          <sc-if value="{{ hasRecent }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:6px;"><span style="font-size:13px;font-weight:600;color:#434A55;">Recent requests</span><sc-for list="{{ recent }}" as="rc" hint-placeholder-count="3"><div style="display:flex;gap:10px;font-size:13px;"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#14181F;">{{ rc.t }}</span><span style="color:#5A6472;white-space:nowrap;">{{ rc.d }}</span></div></sc-for></div></sc-if>
+          <span style="font-size:12px;color:#5A6472;">{{ aiNote }}</span>
+        </div>
+
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+          <div style="padding:14px 16px;border-bottom:1px solid #E8E2DC;display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;color:#0A2A4A;">Version history</span><span style="font-size:13px;color:#5A6472;">{{ histNote }}</span></div>
+          <sc-if value="{{ noHistory }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;font-size:13px;color:#5A6472;">Nothing published yet. Each publish is saved here so you can go back.</div></sc-if>
+          <sc-for list="{{ history }}" as="h" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #F1EEEA;font-size:13px;">
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;"><strong style="color:#14181F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">v{{ h.v }} · {{ h.label }}</strong><span style="color:#5A6472;">{{ h.date }} · {{ h.by }}</span></span>
+              <sc-if value="{{ h.isLive }}" hint-placeholder-val="{{ false }}"><span style="height:22px;padding:0 8px;border-radius:5px;background:#EEF7F2;color:#1D6B47;border:1px solid #CBE6D6;font-size:12px;font-weight:600;display:flex;align-items:center;">Live</span></sc-if>
+              <sc-if value="{{ h.canBack }}" hint-placeholder-val="{{ false }}"><button onClick="{{ h.back }}" style="height:30px;padding:0 10px;border:1px solid #D7D3CD;border-radius:6px;background:#FFFFFF;font-size:12px;cursor:pointer;white-space:nowrap;">Go back to this</button></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;app&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}">
+class Component extends DCLogic {
+  state = { lib: !!window.DFSite, tab: 'design', device: 'desktop', page: 'home', ovDevice: 'desktop', prompt: '', busy: false, pub: 0, w: 0, pane: 'chat', domIn: '', domErr: '', checking: false, checks: 0, checkMsg: '', seo: null, changed: [] };
+  chatRef = React.createRef();
+  _ro = new ResizeObserver(es => { const w = Math.round(es[0].contentRect.width); if (w && Math.abs(w - this.state.w) > 2) this.setState({ w }); });
+  rootRef = el => { if (el && el !== this._obs) { if (this._obs) this._ro.unobserve(this._obs); this._ro.observe(el); this._obs = el; } };
+
+  measure() {
+    const el = document.querySelector('[data-sf-root]');
+    if (el && el !== this._obs) { if (this._obs) this._ro.unobserve(this._obs); this._ro.observe(el); this._obs = el; }
+    const w = el ? Math.round(el.getBoundingClientRect().width) : 0;
+    if (w && Math.abs(w - this.state.w) > 2) this.setState({ w });
+  }
+  componentDidMount() {
+    if (!window.DFSite) this._lt = setInterval(() => { if (window.DFSite) { clearInterval(this._lt); this.setState({ lib: true }); } }, 60);
+    this._onRs = () => this.measure(); window.addEventListener('resize', this._onRs);
+    this._mt = setInterval(() => this.measure(), 500);
+    this.sync(); this.measure();
+  }
+  componentDidUpdate() {
+    this.sync(); this.measure();
+    const c = this.chatRef.current; if (c && this._seen !== this._msgN) { c.scrollTop = c.scrollHeight; this._seen = this._msgN; }
+  }
+  componentWillUnmount() { clearInterval(this._mt); window.removeEventListener('resize', this._onRs); clearInterval(this._lt); clearInterval(this._t); clearTimeout(this._ct); clearTimeout(this._ct2); if (this._ro) this._ro.disconnect(); }
+
+  ctx(app) { const si = app.data('storeInfo') || {}; return { store: app.storeName, city: app.R.city || '', email: si.email || ('hello@' + app.R.domain), phone: si.phone || '' }; }
+  prods(app) { return (app.allProducts || []).filter(p => p.status !== 'hidden').slice(0, 12).map(p => ({ name: p.name, n: p.price, price: app.fmt(p.price), hue: p.photos && p.photos.length ? p.photos[0].hue : null })); }
+  slug(app) { return String(app.storeName).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+
+  sync() {
+    const app = this.props.app; const L = window.DFSite; if (!app || !L) return;
+    const sf = app.data('storefront'); if (!sf || this._syncing) return;
+    const stocked = app.st.dataset === 'stocked'; const patch = {};
+    if (sf.site === undefined) patch.site = stocked ? L.build('minimal', this.ctx(app)) : null;
+    if (!sf.domains) patch.domains = [{ host: this.slug(app) + '.dripfunnel.shop', kind: 'free', status: 'live', primary: !stocked }, ...(stocked ? [{ host: app.R.domain, kind: 'custom', status: 'live', primary: true }] : [])];
+    if (!sf.seo) { const si = app.data('storeInfo') || {}; patch.seo = { title: app.storeName + ' — ' + (si.desc || 'Shop online').replace(/\.$/, ''), desc: (si.desc || '') + ' Free returns within 30 days.', img: 0 }; }
+    if (!sf.chat) patch.chat = [];
+    if (Object.keys(patch).length) { this._syncing = true; app.set('storefront', x => ({ ...x, ...patch })); setTimeout(() => { this._syncing = false; }, 0); }
+  }
+
+  primaryHost(sf, app) { const d = (sf.domains || []).find(x => x.primary && x.status === 'live'); return d ? d.host : this.slug(app) + '.dripfunnel.shop'; }
+  setStudio(on) { const app = this.props.app; if (app.setStudio) app.setStudio(on); }
+  setGallery(on) { this.props.app.set('sfGallery', on); }
+
+  intro(site, app, fresh) {
+    const n = this.prods(app).length; const blank = site.tpl === 'blank';
+    if (blank) return `Here’s a plain starting point for ${app.storeName}. Tell me what you sell and how it should feel — for example “earthy and calm, for handmade ceramics” — and I’ll style it.`;
+    if (fresh) return `${site.name} is set up${n ? ' with your ' + n + ' products' : ' with sample products until you add your own'}. Ask for anything — colours, fonts, sections, wording, the About or Contact page. Nothing goes live until you publish.`;
+    return `This is your live site, on the ${site.name} template. Tell me what to change and I’ll update the preview. Nothing goes live until you publish.`;
+  }
+
+  choose(key) {
+    const app = this.props.app; const L = window.DFSite; const sf = app.data('storefront');
+    const T = L.TEMPLATES[key]; const tplSite = L.build(key, this.ctx(app)); const cur = sf.draft || sf.site;
+    const start = site => {
+      const id = Date.now();
+      app.set('storefront', x => ({ ...x, draft: site, chat: [...(x.chat || []), { id, role: 'note', text: key === 'blank' ? 'Started from scratch' : 'Switched to ' + T.name }, { id: id + 1, role: 'ai', text: this.intro(site, app, true) }] }));
+      this.setState({ page: 'home', changed: [], pane: 'chat' }); this.setGallery(false); this.setStudio(true);
+    };
+    if (cur) app.modal({ title: key === 'blank' ? 'Start from scratch?' : 'Use ' + T.name + '?', body: 'Keep your words — headline, menu, footer, About and Contact — or start with the template’s sample text? Your live site doesn’t change until you publish.', confirm: 'Keep my words', alt: 'Use template text', onConfirm: () => start(L.keepContent(tplSite, cur)), onAlt: () => start(tplSite) });
+    else start(tplSite);
+  }
+
+  demo(key) {
+    const app = this.props.app;
+    try { localStorage.setItem('df-sf-demo', JSON.stringify({ store: app.storeName, products: this.prods(app), currency: app.R.cur, locale: app.R.locale, ctx: this.ctx(app) })); } catch (e) {}
+    const url = encodeURI('Storefront Demo.dc.html') + '?t=' + key;
+    let w = null; try { w = window.open(url, '_blank'); } catch (e) { w = null; }
+    if (w) { try { w.opener = null; } catch (e) {} return; }
+    if (app.leaveTo) app.leaveTo(url + '&back=1'); else location.href = url + '&back=1';
+  }
+
+  openStudio() {
+    const app = this.props.app; const sf = app.data('storefront'); const site = sf.draft || sf.site;
+    if (!site) { this.setGallery(true); return; }
+    if (!(sf.chat || []).length) app.set('storefront', x => ({ ...x, chat: [{ id: Date.now(), role: 'ai', text: this.intro(site, app, false) }] }));
+    this.setState({ changed: [], pane: 'chat' }); this.setStudio(true);
+  }
+
+  async ask(text) {
+    const app = this.props.app; const L = window.DFSite; const sf = app.data('storefront');
+    const msg = String(text != null ? text : this.state.prompt).trim();
+    if (!msg || this.state.busy) return;
+    if (!app.needAI()) return;
+    const before = sf.draft || sf.site; const uid = Date.now();
+    const earlier = (sf.chat || []).filter(m => m.role === 'user').slice(-4).map(m => '- ' + m.text).join('\n');
+    app.set('storefront', x => ({ ...x, prompts: (x.prompts || 0) + 1, chat: [...(x.chat || []), { id: uid, role: 'user', text: msg, at: uid }] }));
+    this.setState({ busy: true, prompt: '' });
+    const names = this.prods(app).map(p => p.name).join(', ');
+    const sys = `You are the design assistant inside DripFunnel, an online-shop builder. You edit one storefront, described as JSON.
+Shop: ${app.storeName}, based in ${app.R.city}. It sells: ${names || 'nothing yet (sample products are shown)'}.
+The merchant is looking at the ${this.state.page} page on ${this.state.device}.
+${earlier ? 'Earlier requests in this session:\n' + earlier + '\n' : ''}Schema: ${L.SCHEMA}
+Current site JSON: ${JSON.stringify(before)}
+Rules: do what is asked and keep everything else exactly the same. Write shop copy in plain, warm language, no emoji, no fake urgency. If asked to change prices, stock, products, shipping or checkout, don't change the site and say that's done in Products or Settings.
+Reply with ONLY minified JSON and nothing else: {"site":{...the full updated site...},"reply":"one or two short first-person sentences saying what you changed","changed":["2-5 short labels, e.g. Colours, Hero headline, New reviews section"],"page":"home|about|contact|product|cart — where the change is best seen"}`;
+    try {
+      const txt = await window.claude.complete({ system: sys, messages: [{ role: 'user', content: msg }], max_tokens: 4000 });
+      const j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+      const next = L.normalize({ ...(j.site || {}), tpl: before.tpl, name: before.name }, before);
+      const keys = L.changedKeys(before, next); const themeCh = JSON.stringify(before.theme) !== JSON.stringify(next.theme);
+      const nothing = !keys.length && !themeCh;
+      app.set('storefront', x => ({ ...x, draft: nothing ? x.draft : next, chat: [...x.chat, { id: uid + 1, role: 'ai', text: j.reply || (nothing ? 'I didn’t change anything.' : 'Done.'), changed: nothing ? [] : (Array.isArray(j.changed) ? j.changed : []).slice(0, 5).map(String), before: nothing ? null : before, at: Date.now() }] }));
+      const pgs = ['home', 'about', 'contact', 'product', 'cart'];
+      this.setState({ busy: false, changed: keys, page: pgs.includes(j.page) ? j.page : this.state.page, pane: app.phone && !nothing ? 'preview' : this.state.pane });
+    } catch (e) {
+      app.set('storefront', x => ({ ...x, chat: [...x.chat, { id: uid + 1, role: 'err', text: 'I couldn’t make that change — nothing on your site changed. Try again, or say it a different way.' }] }));
+      this.setState({ busy: false });
+    }
+  }
+
+  undo(i) {
+    const app = this.props.app; const sf = app.data('storefront'); const m = sf.chat[i]; if (!m || !m.before) return;
+    const same = JSON.stringify(m.before) === JSON.stringify(sf.site);
+    app.set('storefront', x => ({ ...x, draft: same ? null : m.before, chat: x.chat.map((c, k) => k === i ? { ...c, undone: true } : c) }));
+    this.setState({ changed: [] });
+  }
+
+  publish() {
+    const app = this.props.app; const sf = app.data('storefront'); if (!sf.draft || this.state.pub) return;
+    const v = (sf.live || 0) + 1; const host = this.primaryHost(sf, app);
+    app.modal({ title: `Publish version ${v}?`, body: `Your changes go live on ${host} in about a minute and use about 2 build minutes.${sf.live ? ' You can go back to version ' + sf.live + ' any time, for free.' : ''}`, confirm: 'Publish', onConfirm: () => this.runPublish(v) });
+  }
+  runPublish(v) {
+    const app = this.props.app;
+    this.setState({ pub: 5 }); clearInterval(this._t);
+    this._t = setInterval(() => {
+      const p = Math.min(100, this.state.pub + 15); this.setState({ pub: p });
+      if (p < 100) return;
+      clearInterval(this._t);
+      app.set('storefront', x => {
+        const chat = x.chat || []; let k = chat.length - 1; const since = [];
+        while (k >= 0 && !chat[k].pubMark) { if (chat[k].role === 'user' && !chat[k].undone) since.unshift(chat[k].text); if (chat[k].role === 'note' && /^Switched|^Started/.test(chat[k].text)) since.unshift(chat[k].text); k--; }
+        const label = (since[since.length - 1] || 'Design update').slice(0, 52);
+        return { ...x, site: x.draft, draft: null, live: v, minutes: (x.minutes || 0) + 2, history: [{ v, label, date: Date.now(), by: 'Farhan', site: x.draft }, ...(x.history || [])], chat: [...chat, { id: Date.now(), role: 'note', text: 'Published as version ' + v, pubMark: true }] };
+      });
+      this.setState({ pub: 0, changed: [] });
+      app.toast(`Version ${v} is live — we checked your site and it changed`);
+    }, 350);
+  }
+
+  discard() {
+    const app = this.props.app;
+    app.modal({ title: 'Discard unpublished changes?', body: 'The preview goes back to your live site. Your live site doesn’t change.', confirm: 'Discard changes', danger: true, onConfirm: () => {
+      const sf = app.data('storefront');
+      app.set('storefront', x => ({ ...x, draft: null, chat: [...(x.chat || []), { id: Date.now(), role: 'note', text: 'Changes discarded', pubMark: true }] }));
+      this.setState({ changed: [] });
+      if (!sf.site) { this.setStudio(false); this.setGallery(true); }
+      app.toast('Changes discarded — your live site didn’t change');
+    } });
+  }
+
+  connect() {
+    const app = this.props.app; const c = app.caps;
+    if (c.P.key === 'free') { app.upgradeTo('Your own domain', 'starter'); return; }
+    const host = this.state.domIn.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host)) { this.setState({ domErr: 'Type the domain only, like yourshop.com' }); return; }
+    const sf = app.data('storefront');
+    if ((sf.domains || []).some(d => d.host === host)) { this.setState({ domErr: 'That domain is already connected.' }); return; }
+    app.set('storefront', x => ({ ...x, domains: [...x.domains.filter(d => d.kind !== 'custom' || d.status === 'live'), { host, kind: 'custom', status: 'dns', primary: false }] }));
+    this.setState({ domIn: '', domErr: '', checks: 0, checkMsg: '' });
+  }
+  check() {
+    const app = this.props.app; if (this.state.checking) return;
+    this.setState({ checking: true, checkMsg: '' }); clearTimeout(this._ct);
+    this._ct = setTimeout(() => {
+      if (this.state.checks === 0) { this.setState({ checking: false, checks: 1, checkMsg: 'We can’t see the records yet. That’s normal — it can take up to 24 hours. We keep checking and email you when it works.' }); return; }
+      app.set('storefront', x => ({ ...x, domains: x.domains.map(d => d.status === 'dns' ? { ...d, status: 'ssl' } : d) }));
+      this.setState({ checking: false, checks: 0, checkMsg: '' });
+      this._ct2 = setTimeout(() => { let host = ''; app.set('storefront', x => ({ ...x, domains: x.domains.map(d => { if (d.status === 'ssl') { host = d.host; return { ...d, status: 'live' }; } return d; }) })); app.toast((host || 'Your domain') + ' is connected and secure', 'Make primary', () => app.set('storefront', x => ({ ...x, domains: x.domains.map(d => ({ ...d, primary: d.host === host })) }))); }, 1600);
+    }, 1200);
+  }
+
+  renderVals() {
+    const app = this.props.app; const L = window.DFSite;
+    if (!app || !L || !this.state.lib) return { notReady: true, mode: {}, rootRef: this.rootRef };
+    const s = this.state; const c = app.caps; const phone = app.phone; const P = c.P;
+    const sf = app.data('storefront') || {};
+    const canEdit = c.isOwner && !c.readOnly;
+    const hasSite = !!sf.site; const work = sf.draft || sf.site;
+    const studioOn = !!app.st.sfStudio && canEdit && !!work;
+    const galleryOn = !studioOn && canEdit && (!hasSite && !sf.draft || !!app.st.sfGallery);
+    const host = this.primaryHost(sf, app);
+    const store = app.storeName; const prods = this.prods(app);
+    const powered = !!P.powered;
+    const padX = phone ? 14 : 28; const cw = Math.max(280, (s.w || 1000) - padX * 2);
+    const chat = sf.chat || [];
+    this._msgN = chat.length + (s.busy ? 1 : 0) + (studioOn ? 1000 : 0);
+
+    let undoIdx = -1;
+    for (let k = chat.length - 1; k >= 0; k--) { const m = chat[k]; if (m.pubMark || (m.role === 'note')) break; if (m.role === 'ai' && m.before && !m.undone) { undoIdx = k; break; } if (m.role === 'ai' && m.undone) break; }
+    const msgs = chat.map((m, i) => ({ text: m.text, isUser: m.role === 'user', isAi: m.role === 'ai', isNote: m.role === 'note', isErr: m.role === 'err', changed: (m.changed || []).map(t => ({ t })), hasChanged: !!(m.changed && m.changed.length) && !m.undone, canUndo: i === undoIdx && !s.busy, undone: !!m.undone, undo: () => this.undo(i) }));
+
+    const ws = work || {}; const secTypes = (ws.sections || []).map(x => x.type);
+    const sugPool = [
+      ws.tpl === 'blank' && 'We sell handmade ceramics — make it earthy and calm',
+      !secTypes.includes('testimonial') && 'Add a customer reviews section',
+      ws.announce && !ws.announce.on && 'Add an announcement bar about free delivery',
+      'Make the colours warmer',
+      'Use a more elegant font for headings',
+      (ws.sections || []).some(x => x.type === 'products' && x.cols === 4) && 'Show 3 products per row',
+      'Rewrite the About page in a friendlier tone',
+      'Move the product grid to the top'
+    ].filter(Boolean).slice(0, 4);
+
+    const dev = phone ? 'phone' : s.device;
+    const prev = phone ? { w: '100%', bd: '0', r: '0', pad: '0', shadow: 'none', bar: false }
+      : dev === 'desktop' ? { w: '100%', bd: '1px solid #D7D3CD', r: '10px', pad: '20px', shadow: '0 10px 30px rgba(20,24,31,0.10)', bar: true }
+        : dev === 'tablet' ? { w: '768px', bd: '10px solid #14181F', r: '26px', pad: '24px', shadow: '0 10px 30px rgba(20,24,31,0.16)', bar: false }
+          : { w: '390px', bd: '10px solid #14181F', r: '38px', pad: '24px', shadow: '0 10px 30px rgba(20,24,31,0.16)', bar: false };
+    const seg = (on) => ({ bg: on ? '#0A2A4A' : '#FFFFFF', fg: on ? '#FFFFFF' : '#434A55' });
+    const pubLabel = hasSite ? 'Publish' : 'Publish site';
+    const studio = {
+      title: (ws.name || 'Custom') + ' · ' + store, host, url: host + (s.page === 'home' ? '' : s.page === 'product' ? '/products/' + ((prods[0] || {}).name || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-') : '/' + s.page),
+      status: sf.draft ? 'Unpublished changes' : hasSite ? 'Same as live site' : 'Not published', pillDisp: phone || (s.w || 1000) < 1180 ? 'none' : 'flex',
+      pillBg: sf.draft ? '#FFF6E5' : '#EEF7F2', pillFg: sf.draft ? '#7A4B00' : '#1D6B47', pillBd: sf.draft ? '#F2D9A6' : '#CBE6D6',
+      pubLabel, pubBg: sf.draft ? '#EC844F' : '#E8E2DC', pubFg: sf.draft ? '#4A1B0C' : '#5A6472', pubCur: sf.draft ? 'pointer' : 'default'
+    };
+
+    // gallery
+    const gCols = phone ? 1 : cw >= 1000 ? 3 : 2; const cardW = (cw - 16 * (gCols - 1)) / gCols;
+    const curTpl = (work || {}).tpl;
+    const tpls = ['blank', ...L.ORDER].map(k => { const T = L.TEMPLATES[k]; const site = L.build(k, this.ctx(app)); return {
+      name: T.name, tag: T.tag, desc: T.desc, site, bg: site.theme.bg, hasDemo: k !== 'blank', current: !!work && curTpl === k,
+      bd: k === 'blank' ? '1px dashed #B9BEC6' : curTpl === k && work ? '2px solid #0A2A4A' : '1px solid #E8E2DC',
+      useLabel: k === 'blank' ? 'Start from scratch' : 'Use this template', choose: () => this.choose(k), demo: () => this.demo(k) }; });
+
+    // overview preview
+    const ovPhone = s.ovDevice === 'phone';
+    const ov = ovPhone ? { device: 'phone', w: '390px', zoom: Math.min(1, (cw - 24) / 390), h: '620px', bg: '#EDE8E2', pad: '16px', r: '24px' }
+      : { device: 'desktop', w: '1280px', zoom: (cw - 2) / 1280, h: Math.min(640, Math.round(cw * 0.62)) + 'px', bg: '#FFFFFF', pad: '0', r: '0' };
+
+    // domains
+    const DS = { live: ['Connected · secure', '#EEF7F2', '#1D6B47', '#CBE6D6'], dns: ['Waiting for DNS', '#FFF6E5', '#7A4B00', '#F2D9A6'], ssl: ['Securing (SSL)…', '#EAF1F8', '#00325F', '#C6D9EC'] };
+    const domains = sf.domains || [];
+    const pend = domains.find(d => d.status === 'dns');
+    const doms = domains.map(d => { const st = DS[d.status] || DS.live; return {
+      host: d.host, note: d.kind === 'free' ? 'Free address — always works' : d.status === 'live' ? 'Your own domain' : 'Your own domain · not live yet',
+      status: st[0], bg: st[1], fg: st[2], bd: st[3], isPrimary: !!d.primary && d.status === 'live', canPrimary: canEdit && !d.primary && d.status === 'live', canRemove: canEdit && d.kind === 'custom',
+      makePrimary: () => { app.set('storefront', x => ({ ...x, domains: x.domains.map(z => ({ ...z, primary: z.host === d.host })) })); app.toast(d.host + ' is now your main address — the other one redirects to it'); },
+      remove: () => app.modal({ title: 'Remove ' + d.host + '?', body: 'Shoppers using this address will stop reaching your shop. Your free address keeps working.', confirm: 'Remove domain', danger: true, onConfirm: () => { app.set('storefront', x => { const rest = x.domains.filter(z => z.host !== d.host); if (!rest.some(z => z.primary)) rest[0] = { ...rest[0], primary: true }; return { ...x, domains: rest }; }); this.setState({ checks: 0, checkMsg: '' }); app.toast(d.host + ' removed'); } }) }; });
+    const hasCustom = domains.some(d => d.kind === 'custom');
+    const dom = { showConnect: canEdit && !hasCustom, pending: !!pend, host: pend ? pend.host : '', checkLabel: s.checking ? 'Checking…' : 'Check now', msg: s.checkMsg, msgFg: '#7A4B00',
+      planNote: P.key === 'free' ? 'Your own domain is on Growth and above.' : 'We set up the secure padlock (SSL) for you, free.' };
+    const copy = v => { try { navigator.clipboard.writeText(v); } catch (e) {} app.toast('Copied'); };
+    const dns = [{ type: 'A', name: '@', value: '76.76.21.21' }, { type: 'CNAME', name: 'www', value: 'stores.dripfunnel.com' }].map(r => ({ ...r, copy: () => copy(r.value) }));
+
+    // seo
+    const seoSaved = sf.seo || { title: '', desc: '', img: 0 }; const sd = s.seo || seoSaved;
+    const imgHues = prods.filter(p => p.hue != null).slice(0, 5); const imgBg = h => `linear-gradient(135deg,hsl(${h},35%,80%),hsl(${h},30%,62%))`;
+    const seo = { title: sd.title, desc: sd.desc, host,
+      tCount: sd.title.length + ' / 60', tFg: sd.title.length > 60 ? '#A1261B' : '#5A6472', dCount: sd.desc.length + ' / 155', dFg: sd.desc.length > 155 ? '#A1261B' : '#5A6472',
+      gTitle: sd.title.length > 60 ? sd.title.slice(0, 58) + '…' : sd.title || store, gDesc: sd.desc.length > 155 ? sd.desc.slice(0, 153) + '…' : sd.desc,
+      imgs: (imgHues.length ? imgHues : [{ hue: 30 }, { hue: 200 }]).map((p, i) => ({ bg: imgBg(p.hue), bd: sd.img === i ? '#00519F' : 'transparent', label: 'Use photo ' + (i + 1), onClick: () => canEdit && this.setState({ seo: { ...sd, img: i } }) })),
+      imgBg: imgBg(((imgHues[sd.img] || imgHues[0]) || { hue: 30 }).hue), dirty: !!s.seo && JSON.stringify(s.seo) !== JSON.stringify(seoSaved) };
+
+    // usage
+    const lim = P.aiQuota; const minLim = P.rank >= 3 ? 600 : P.rank >= 2 ? 240 : 120;
+    const meters = [...(P.ai === 'included' && lim !== Infinity ? [{ label: 'AI tokens used', v: app.st.aiUsed, l: lim }] : []), { label: 'Build minutes', v: sf.minutes || 0, l: minLim }]
+      .map(m => ({ label: m.label, val: `${m.v} of ${m.l}`, pct: Math.min(100, m.v / m.l * 100) + '%', bar: m.v / m.l >= 0.8 ? '#D9A43A' : '#1D6B47', fg: m.v / m.l >= 0.8 ? '#7A4B00' : '#5A6472' }));
+    const fmtD = d => new Date(d).toLocaleDateString(app.R.locale, { day: 'numeric', month: 'short' });
+    const recent = chat.filter(m => m.role === 'user').slice(-5).reverse().map(m => ({ t: m.text, d: fmtD(m.at || Date.now()) }));
+    const hist = P.history;
+    const history = (sf.history || []).filter(h => (Date.now() - h.date) / 864e5 <= hist || h.v === sf.live).map(h => ({ v: String(h.v), label: h.label, by: h.by, date: fmtD(h.date), isLive: h.v === sf.live, canBack: canEdit && h.v !== sf.live,
+      back: () => app.modal({ title: `Go back to version ${h.v}?`, body: `“${h.label}” goes live again. Your current version stays in history, so you can come back. No build minutes used.`, confirm: 'Go back', onConfirm: () => { app.set('storefront', x => ({ ...x, live: h.v, site: h.site || L.build('minimal', this.ctx(app)) })); app.toast(`Version ${h.v} is live again`); } }) }));
+
+    return {
+      notReady: false, rootRef: this.rootRef, chatRef: this.chatRef,
+      mode: { studio: studioOn, gallery: galleryOn, overview: !studioOn && !galleryOn },
+      pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', isPhone: phone, notPhone: !phone,
+      store, prods, cur: app.R.cur, locale: app.R.locale, powered, planName: P.name,
+      work, live: sf.site, hasSite, noSite: !hasSite && !canEdit, hasDraft: !!sf.draft, canEdit, readOnly: !canEdit,
+      roText: c.readOnly ? 'Your store is view-only until the payment goes through. Your site stays live.' : 'You can look, but only the store owner can change the storefront. Ask Farhan if something needs changing.',
+      liveLine: hasSite ? `${host} · version ${sf.live} is live · ${sf.site.name} template` : 'Not published yet',
+      studioBtn: sf.draft ? 'Continue in studio' : 'Open studio',
+      tabs: [['design', 'Design'], ['settings', 'Site settings']].map(([k, l]) => ({ label: l, on: s.tab === k, fw: s.tab === k ? '700' : '600', fg: s.tab === k ? '#0A2A4A' : '#5A6472', bd: s.tab === k ? '#0A2A4A' : 'transparent', onClick: () => this.setState({ tab: k }) })),
+      tabDesign: s.tab === 'design', tabSettings: s.tab === 'settings',
+      draftNotice: !!sf.draft && hasSite, draftText: 'You’ve changed the design in the studio. Shoppers still see the version below until you publish.',
+      ovLabel: hasSite ? `Live now · version ${sf.live}` : '', ovDevs: [['desktop', 'Desktop'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, ...seg(s.ovDevice === k), onClick: () => this.setState({ ovDevice: k }) })), ov,
+      gal: { title: hasSite ? 'Change template' : 'Choose a starting point', cols: `repeat(${gCols},minmax(0,1fr))`, zoom: cardW / 1280, thumbH: Math.round(cardW * 0.62) + 'px' }, tpls,
+      studio, prev, device: dev, page: s.page, changed: s.changed,
+      wideBar: !phone && (s.w || 1000) >= 1180, narrowBar: !phone && (s.w || 1000) < 1180,
+      pageOpts: [['home', 'Home'], ['product', 'Product'], ['cart', 'Cart'], ['about', 'About'], ['contact', 'Contact']].map(([k, l]) => ({ k, l })),
+      devOpts: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ k, l })),
+      pageTabs: [['home', 'Home'], ['product', 'Product'], ['cart', 'Cart'], ['about', 'About'], ['contact', 'Contact']].map(([k, l]) => ({ label: l, ...seg(s.page === k), onClick: () => this.setState({ page: k }) })),
+      devTabs: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, ...seg(s.device === k), onClick: () => this.setState({ device: k }) })),
+      paneTabs: [['chat', 'Chat'], ['preview', 'Preview']].map(([k, l]) => ({ label: l, bd: s.pane === k ? '#0A2A4A' : 'transparent', fg: s.pane === k ? '#0A2A4A' : '#5A6472', onClick: () => this.setState({ pane: k }) })),
+      showChat: !phone || s.pane === 'chat', showPreview: !phone || s.pane === 'preview', chatW: phone ? '100%' : (s.w && s.w < 1100 ? '320px' : '380px'),
+      msgs, busy: s.busy, prompt: s.prompt, showSugs: !s.busy && sugPool.length > 0, sugs: sugPool.map(t => ({ t, onClick: () => this.ask(t) })),
+      sendLabel: s.busy ? 'Working…' : 'Send', sendBg: s.busy || !s.prompt.trim() ? '#F3D3BF' : '#EC844F',
+      aiLine: P.ai === 'key' ? (app.st.aiKey ? 'On your own AI key' : 'Needs your AI key') : 'AI tokens: ' + app.aiLeft(),
+      publishing: s.pub > 0, notPublishing: !s.pub, pubPct: s.pub + '%', pubText: s.pub < 60 ? 'Building your site…' : s.pub < 100 ? 'Checking it went live…' : 'Done',
+      setCols: phone || cw < 820 ? '1fr' : 'minmax(0,1.15fr) minmax(0,1fr)', seoCols: phone || cw < 1000 ? '1fr' : 'repeat(2,minmax(0,1fr))',
+      doms, dom, dns, domIn: s.domIn, domErr: s.domErr, seo, meters, recent, hasRecent: recent.length > 0,
+      stats: [{ v: String(sf.prompts || 0), l: 'AI requests this month' }, { v: String((sf.history || []).filter(h => (Date.now() - h.date) / 864e5 <= 31).length), l: 'Publishes in the last 30 days' }],
+      aiNote: P.ai === 'key' ? 'On ' + P.name + ' the AI runs on your own OpenAI or Anthropic key, so tokens are billed by them. From Growth Pro it’s included.' : 'Going back to an older version never uses build minutes.',
+      history, noHistory: !history.length, histNote: hist === Infinity ? 'Every published version is kept.' : `Kept for ${hist} days on ${P.name}.`,
+      on: {
+        prompt: e => this.setState({ prompt: e.target.value }),
+        pageSel: e => this.setState({ page: e.target.value }), devSel: e => this.setState({ device: e.target.value }),
+        key: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.ask(); } },
+        domIn: e => this.setState({ domIn: e.target.value, domErr: '' }),
+        seoTitle: e => this.setState({ seo: { ...sd, title: e.target.value } }), seoDesc: e => this.setState({ seo: { ...sd, desc: e.target.value } })
+      },
+      a: {
+        send: () => this.ask(), nav: pg => this.setState({ page: pg }), publish: () => this.publish(), discard: () => this.discard(),
+        exitStudio: () => { this.setStudio(false); this.setState({ tab: 'design', changed: [] }); },
+        openStudio: () => this.openStudio(), openGallery: () => this.setGallery(true), closeGallery: () => this.setGallery(false),
+        viewLive: () => app.toast('Opens ' + host + ' in a new tab'), powered: () => app.upgradeTo('Removing “Powered by DripFunnel”', 'starter'),
+        connect: () => this.connect(), check: () => this.check(),
+        cancelDomain: () => { app.set('storefront', x => ({ ...x, domains: x.domains.filter(d => d.status !== 'dns') })); this.setState({ checks: 0, checkMsg: '' }); },
+        seoCancel: () => this.setState({ seo: null }),
+        seoSave: () => { app.set('storefront', x => ({ ...x, seo: s.seo })); this.setState({ seo: null }); app.toast('Saved — search engines pick it up within a few days. No publish needed.'); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

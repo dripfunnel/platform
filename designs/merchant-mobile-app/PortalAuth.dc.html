@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="min-height:100%;display:grid;grid-template-columns:{{ cols }};background:#FFFFFF;">
+  <sc-if value="{{ showBrand }}" hint-placeholder-val="{{ true }}">
+    <div style="background:{{ bBg }};color:#FFFFFF;padding:48px 56px;display:flex;flex-direction:column;justify-content:space-between;gap:32px;position:relative;overflow:hidden;">
+      <div style="position:absolute;right:-120px;bottom:-120px;width:420px;height:420px;border-radius:50%;border:60px solid rgba(236,132,79,0.14);"></div>
+      <sc-if value="{{ wl }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;position:relative;"><span style="width:36px;height:36px;border-radius:9px;background:{{ wlAccent }};display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;">{{ wlShort }}</span><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;">{{ wlName }}</span></div></sc-if><sc-if value="{{ noWl }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:12px;position:relative;"><img src="assets/dripfunnel-logo-inverse.svg" alt="DripFunnel" height="32" style="height:32px;width:auto;display:block;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#B8C7D6;padding-left:12px;border-left:1px solid rgba(255,255,255,0.2);">Store</span></div></sc-if>
+      <div style="display:flex;flex-direction:column;gap:18px;position:relative;max-width:420px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#EC844F;">{{ brand.tag }}</span>
+        <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:38px;line-height:1.1;letter-spacing:-0.03em;text-wrap:pretty;">{{ brand.title }}</span>
+        <span style="font-size:16px;line-height:1.6;color:#B8C7D6;">{{ brand.body }}</span>
+        <div style="display:flex;flex-direction:column;gap:10px;padding-top:6px;">
+          <sc-for list="{{ brand.points }}" as="p" hint-placeholder-count="3"><span style="display:flex;gap:10px;align-items:flex-start;font-size:14px;color:#D6DEE7;"><span style="width:20px;height:20px;border-radius:50%;background:rgba(236,132,79,0.2);color:#EC844F;display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;margin-top:1px;">✓</span>{{ p }}</span></sc-for>
+        </div>
+      </div>
+      <span style="font-size:12px;color:#8FA3B8;position:relative;">{{ footBrand }} · <span style="text-decoration:underline;">Privacy</span> · <span style="text-decoration:underline;">Help</span></span>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:{{ pad }};background:#FDFAF7;">
+    <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:18px;">
+      <sc-if value="{{ phoneLogo }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;"><img src="assets/dripfunnel-logo.svg" alt="DripFunnel" height="28" style="height:28px;width:auto;display:block;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#5A6472;padding-left:10px;border-left:1px solid #E8E2DC;">Store</span></div></sc-if>
+      <sc-if value="{{ back }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.back }}" style="align-self:flex-start;border:0;background:none;padding:0;color:#5A6472;font-size:13px;cursor:pointer;">← {{ back }}</button></sc-if>
+      <sc-if value="{{ stepper }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:6px;"><sc-for list="{{ dots }}" as="d" hint-placeholder-count="4"><span style="flex:1;height:4px;border-radius:2px;background:{{ d }};"></span></sc-for></div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">{{ stepLabel }}</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ icon }}" hint-placeholder-val="{{ false }}"><span style="width:52px;height:52px;border-radius:14px;background:{{ iconBg }};color:{{ iconFg }};display:flex;align-items:center;justify-content:center;font-size:24px;">{{ icon }}</span></sc-if>
+      <div style="display:flex;flex-direction:column;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:28px;letter-spacing:-0.025em;line-height:1.15;">{{ title }}</span><span style="font-size:15px;color:#5A6472;line-height:1.55;">{{ sub }}</span></div>
+
+      <sc-if value="{{ google }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ a.google }}" style="height:48px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Manrope,sans-serif;font-weight:600;font-size:15px;cursor:pointer;color:#14181F;" style-hover="background:#FDFAF7;"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.8 6.1C12.4 13.6 17.7 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"></path><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"></path><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"></path></svg>Continue with Google</button>
+        <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#8A919B;"><span style="flex:1;height:1px;background:#E8E2DC;"></span>or with email<span style="flex:1;height:1px;background:#E8E2DC;"></span></div>
+      </sc-if>
+
+      <sc-if value="{{ notice }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;border-radius:10px;background:{{ noticeBg }};border:1px solid {{ noticeBd }};color:{{ noticeFg }};font-size:14px;line-height:1.5;">{{ notice }}</div></sc-if>
+
+      <sc-for list="{{ fields }}" as="f" hint-placeholder-count="2">
+        <label style="display:flex;flex-direction:column;gap:6px;">
+          <span style="display:flex;justify-content:space-between;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;color:#14181F;">{{ f.label }}<sc-if value="{{ f.aside }}" hint-placeholder-val="{{ false }}"><button onClick="{{ f.asideOn }}" style="border:0;background:none;padding:0;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">{{ f.aside }}</button></sc-if></span>
+          <sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ false }}"><select value="{{ f.value }}" onChange="{{ f.on }}" style="height:50px;border:1px solid #D7D3CD;border-radius:10px;padding:0 12px;font-size:15px;background:#FFFFFF;"><sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></sc-if>
+          <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ true }}">
+            <span style="display:flex;align-items:center;height:50px;border:1.5px solid {{ f.bd }};border-radius:10px;background:#FFFFFF;padding:0 6px 0 14px;gap:6px;">
+              <sc-if value="{{ f.prefix }}" hint-placeholder-val="{{ false }}"><span style="color:#5A6472;font-size:15px;">{{ f.prefix }}</span></sc-if>
+              <input value="{{ f.value }}" onChange="{{ f.on }}" type="{{ f.type }}" placeholder="{{ f.ph }}" inputMode="{{ f.mode }}" autoComplete="{{ f.ac }}" style="flex:1;min-width:0;border:0;outline:none;font-size:16px;background:transparent;letter-spacing:{{ f.ls }};font-family:{{ f.ff }};">
+              <sc-if value="{{ f.suffix }}" hint-placeholder-val="{{ false }}"><span style="color:#5A6472;font-size:14px;padding-right:8px;">{{ f.suffix }}</span></sc-if>
+              <sc-if value="{{ f.eye }}" hint-placeholder-val="{{ false }}"><button onClick="{{ f.eyeOn }}" style="height:36px;padding:0 10px;border:0;border-radius:8px;background:#F2F0EC;color:#434A55;font-size:12px;font-family:Manrope,sans-serif;font-weight:600;cursor:pointer;">{{ f.eye }}</button></sc-if>
+            </span>
+          </sc-if>
+          <sc-if value="{{ f.meter }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;"><sc-for list="{{ f.meter }}" as="m" hint-placeholder-count="4"><span style="flex:1;height:4px;border-radius:2px;background:{{ m }};"></span></sc-for></span></sc-if>
+          <sc-if value="{{ f.help }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:{{ f.helpFg }};">{{ f.help }}</span></sc-if>
+        </label>
+      </sc-for>
+
+      <sc-for list="{{ storeList }}" as="st" hint-placeholder-count="0">
+        <button onClick="{{ st.onClick }}" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:{{ st.bd }};border-radius:12px;background:#FFFFFF;text-align:left;cursor:pointer;" style-hover="border-color:#00519F;">
+          <span style="width:40px;height:40px;border-radius:{{ st.radius }};background:{{ st.markBg }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;flex:none;">{{ st.init }}</span>
+          <span style="display:flex;flex-direction:column;flex:1;min-width:0;"><strong style="font-family:Manrope,sans-serif;font-size:15px;color:#14181F;">{{ st.name }}</strong><span style="font-size:13px;color:#5A6472;">{{ st.sub }}</span></span>
+          <sc-if value="{{ st.last }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;background:#EAF1F8;color:#00325F;">Last used</span></sc-if>
+          <span style="color:#9AA1AB;font-size:18px;">›</span>
+        </button>
+      </sc-for>
+
+      <sc-if value="{{ terms }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#5A6472;line-height:1.5;">By creating a store you agree to the <span style="text-decoration:underline;">Terms</span> and <span style="text-decoration:underline;">Privacy policy</span>. Free for 14 days — no card needed.</span></sc-if>
+      <sc-if value="{{ primary }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.primary }}" style="height:52px;border:0;border-radius:10px;background:{{ primaryBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:16px;cursor:pointer;" style-hover="background:#D96C33;">{{ primary }}</button></sc-if>
+      <sc-if value="{{ secondary }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.secondary }}" style="height:48px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:600;font-size:15px;cursor:pointer;color:#14181F;">{{ secondary }}</button></sc-if>
+      <sc-if value="{{ foot }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;color:#5A6472;text-align:center;">{{ foot }} <button onClick="{{ a.footLink }}" style="border:0;background:none;padding:0;color:#B8541F;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ footLink }}</button></div></sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); const a = props.app; this.state = { view: a ? ({ signup: 'su1', invite: 'invite', inviteBad: 'inviteBad' }[a.st.auth] || 'login') : 'login', tries: 0, email: '', pw: '', pw2: '', code: '', name: '', store: '', sub: '', region: a ? a.st.region : 'US', cur: '', lang: '', phone: '', err: '', sent: false, show: false, wait: 0, build: 0 }; }
+  componentWillUnmount() { clearInterval(this._t); clearInterval(this._b); }
+  timer() { clearInterval(this._t); this.setState({ wait: 30 }); this._t = setInterval(() => { const w = this.state.wait - 1; this.setState({ wait: Math.max(0, w) }); if (w <= 0) clearInterval(this._t); }, 1000); }
+  strength(pw) { let n = 0; if (pw.length >= 8) n++; if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) n++; if (/\d/.test(pw)) n++; if (/[^A-Za-z0-9]/.test(pw) || pw.length >= 12) n++; return n; }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const s = this.state; const phone = app.phone;
+    const set = k => e => this.setState({ [k]: k === 'code' ? e.target.value.replace(/\D/g, '').slice(0, 6) : e.target.value, err: '' });
+    const go = (view, extra) => this.setState({ view, err: '', ...(extra || {}) });
+    const inp = (k, label, x) => ({ isInput: true, isSelect: false, label, value: s[k], on: set(k), type: 'text', ph: '', mode: 'text', ac: 'off', bd: '#D7D3CD', ls: 'normal', ff: 'Inter,sans-serif', help: '', helpFg: '#5A6472', options: [], aside: '', eye: '', meter: null, prefix: '', suffix: '', ...(x || {}) });
+    const pwField = (k, label, x) => inp(k, label, { type: s.show ? 'text' : 'password', eye: s.show ? 'Hide' : 'Show', eyeOn: e => { e.preventDefault(); this.setState({ show: !s.show }); }, ac: 'current-password', ...(x || {}) });
+    const codeField = () => inp('code', 'Code', { mode: 'numeric', ph: '• • • • • •', ls: '0.5em', ff: "'IBM Plex Mono',monospace", ac: 'one-time-code', help: s.wait ? `Didn’t get it? You can ask again in ${s.wait}s.` : '', aside: s.wait ? '' : 'Send again', asideOn: e => { e.preventDefault(); this.timer(); app.toast('New code sent'); } });
+    const st = this.strength(s.pw);
+    const meter = [0, 1, 2, 3].map(i => i < st ? ['#B8541F', '#D9A43A', '#1D6B47', '#1D6B47'][st - 1] : '#EDEAE5');
+    const stTxt = ['Use at least 8 characters.', 'Weak — add numbers or symbols.', 'Okay — a little longer is safer.', 'Good password.', 'Strong password.'][st];
+    const newPw = (k, label) => pwField(k, label, { ac: 'new-password', meter: s.pw ? meter : null, help: s.pw ? stTxt : 'At least 8 characters.', helpFg: s.pw && st < 2 ? '#B8541F' : '#5A6472' });
+    const R = { US: '+1', DE: '+49', IN: '+91' };
+    const DEF = { US: ['USD', 'en'], DE: ['EUR', 'de'], IN: ['INR', 'en'] };
+    const CURS = [['USD', 'US dollar ($)'], ['EUR', 'Euro (€)'], ['INR', 'Indian rupee (₹)'], ['GBP', 'British pound (£)'], ['CAD', 'Canadian dollar (CA$)'], ['AUD', 'Australian dollar (A$)'], ['AED', 'UAE dirham (AED)']];
+    const LANGS = [['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español'], ['hi', 'हिन्दी (Hindi)'], ['ar', 'العربية (Arabic)']];
+    const cur = s.cur || DEF[s.region][0], lang = s.lang || DEF[s.region][1];
+    const sel = (label, value, on, options, help) => ({ isSelect: true, isInput: false, label, value, on, options: options.map(([v, l]) => ({ v, l })), help, helpFg: '#5A6472', meter: null });
+    const B = {
+      in: { tag: 'Welcome back', title: 'Your shop, right where you left it.', body: 'Orders to pack, products to add, and your storefront — all in one place.', points: ['Owners, staff and suppliers use the same door', 'One sign-in for every store you belong to', 'Signing out ends every session on this device'] },
+      up: { tag: '14-day free trial', title: 'Start selling in minutes, not weeks.', body: 'Add a photo, a name and a price — your shop is live. Everything else can come later.', points: ['No card needed to start', 'Your own web address from day one', 'Taxes, currencies and shipping set up for your country'] },
+      reset: { tag: 'Account help', title: 'Locked out? It happens.', body: 'We’ll email you a link to choose a new password. It works for 30 minutes.', points: ['We never ask for your password by email or phone', 'Your stores and data aren’t affected', 'Need more help? Contact support'] }
+    };
+    const V = {
+      login: { brand: 'in', title: 'Sign in', sub: 'Welcome back. Sign in to manage your store.', google: true,
+        fields: [inp('email', 'Email', { type: 'email', ph: 'you@example.com', ac: 'email', bd: s.err ? '#B8541F' : '#D7D3CD' }), pwField('pw', 'Password', { aside: 'Forgot password?', asideOn: e => { e.preventDefault(); go('forgot', { sent: false }); }, bd: s.err ? '#B8541F' : '#D7D3CD' })],
+        primary: 'Sign in', foot: 'New to DF Store?', footLink: 'Create a store', footGo: () => go('su1'),
+        go: () => { if (!s.email || !s.pw) { this.setState({ err: 'Type your email and password.' }); return; } if (s.pw.length < 4) { const n = s.tries + 1; if (n >= 5) { go('locked', { tries: 0, pw: '' }); return; } this.setState({ tries: n, err: (n >= 3 ? `${5 - n} ${5 - n === 1 ? 'try' : 'tries'} left before we pause sign-in. ` : '') + 'That email and password don’t match. Check them, or reset your password.' }); return; } this.timer(); go('tfa', { code: '', tries: 0 }); } },
+      tfa: { brand: 'in', back: 'Back', backGo: () => go('login'), icon: '✆', iconBg: '#EAF1F8', iconFg: '#00519F', title: 'Two-step sign-in', sub: 'We texted a 6-digit code to the phone ending 0142. Owners always need this step. (Demo: any 6 digits.)', fields: [codeField()], primary: 'Verify and sign in', secondary: 'Use a backup code instead', secGo: () => app.toast('Backup codes are the 10 one-time codes you saved when you turned on two-step sign-in'),
+        go: () => { if (s.code.length !== 6) { this.setState({ err: 'The code has 6 digits — check the text again.' }); return; } if (s.code === '000000') { this.setState({ err: 'That code has expired. We’ve sent a new one.', code: '' }); this.timer(); return; } go('pick'); } },
+      locked: { brand: 'reset', icon: '!', iconBg: '#FDF0E8', iconFg: '#B8541F', title: 'Sign-in is paused for 15 minutes', sub: 'There were 5 wrong passwords in a row, so we paused sign-in to keep your store safe. We’ve emailed the account owner. Reset your password to get back in now.', fields: [], primary: 'Reset my password', go: () => go('forgot', { sent: false }), foot: 'Wasn’t you?', footLink: 'Contact support', footGo: () => app.toast('Support: help.dripfunnel.com/store — we reply within a working day') },
+      invite: { brand: 'in', icon: app.storeName[0], iconBg: '#FDF0E8', iconFg: '#8F4017', title: 'Join ' + app.storeName, sub: 'Priya Shah invited you as Staff. You’ll see orders, customers and products. Set a password to accept.', fields: [inp('name', 'Your name', { ph: 'e.g. Meera Iyer', ac: 'name' }), inp('email', 'Email', { type: 'email', value: s.email || 'meera@' + (app.R.domain || 'juniperandco.com'), help: 'The invite was sent here, so it can’t be changed.' }), newPw('pw', 'Password')], primary: 'Accept and open the store', terms: true, foot: 'Already use DF Store?', footLink: 'Sign in to accept', footGo: () => go('login'),
+        go: () => { if (!s.name.trim()) { this.setState({ err: 'Add your name — your team sees it on orders you pack.' }); return; } if (st < 1) { this.setState({ err: 'Use at least 8 characters for your password.' }); return; } app.signIn('staff'); app.toast('Welcome to ' + app.storeName + ' — you joined as Staff'); } },
+      inviteBad: { brand: 'in', icon: '!', iconBg: '#FDF0E8', iconFg: '#B8541F', title: 'This invitation has expired', sub: 'Invitations work for 7 days, and this one was sent 9 days ago. Ask for a new one — the link in it replaces this one.', fields: [], primary: 'Ask Priya for a new invite', go: () => { app.toast('Priya Shah will get your request'); }, foot: 'Already have an account?', footLink: 'Sign in', footGo: () => go('login') },
+      pick: { brand: 'in', title: 'Choose a store', sub: `Signed in as ${s.email || 'farhan@juniperandco.com'}. You belong to 3 stores — pick one to open.`, fields: [], primary: '', secondary: 'Create another store', secGo: () => go('su3'), foot: 'Not you?', footLink: 'Sign out', footGo: () => go('login', { pw: '' }) },
+      forgot: { brand: 'reset', back: 'Back to sign in', backGo: () => go('login'), title: s.sent ? 'Check your email' : 'Reset your password', icon: s.sent ? '✉' : '', iconBg: '#EAF1F8', iconFg: '#00519F',
+        sub: s.sent ? `If ${s.email} has an account, a link to reset the password is on its way. It works for 30 minutes.` : 'Type the email you sign in with. We’ll send you a link to choose a new password.',
+        fields: s.sent ? [] : [inp('email', 'Email', { type: 'email', ph: 'you@example.com', ac: 'email' })], primary: s.sent ? 'Open the link (demo)' : 'Send reset link', secondary: s.sent ? 'Send it again' : '', secGo: () => { this.timer(); app.toast('Sent again'); },
+        go: () => { if (s.sent) { go('reset', { pw: '', pw2: '' }); return; } if (!/.+@.+\..+/.test(s.email)) { this.setState({ err: 'Type the email address you sign in with.' }); return; } this.setState({ sent: true, err: '' }); } },
+      reset: { brand: 'reset', title: 'Choose a new password', sub: `For ${s.email || 'your account'}. You’ll be signed out everywhere else.`, fields: [newPw('pw', 'New password'), pwField('pw2', 'Type it again', { ac: 'new-password', bd: s.pw2 && s.pw2 !== s.pw ? '#B8541F' : '#D7D3CD', help: s.pw2 && s.pw2 !== s.pw ? 'These don’t match yet.' : '', helpFg: '#B8541F' })], primary: 'Save and sign in',
+        go: () => { if (st < 1) { this.setState({ err: 'Use at least 8 characters.' }); return; } if (s.pw !== s.pw2) { this.setState({ err: 'The two passwords don’t match.' }); return; } app.toast('Password changed — you’re signed in'); go('pick'); } },
+      su1: { brand: 'up', step: 0, title: 'Create your store', sub: 'It takes about two minutes.', google: true,
+        fields: [inp('name', 'Your name', { ph: 'e.g. Farhan Ali', ac: 'name' }), inp('email', 'Email', { type: 'email', ph: 'you@example.com', ac: 'email' }), newPw('pw', 'Password')],
+        primary: 'Continue', terms: true, foot: 'Already have an account?', footLink: 'Sign in', footGo: () => go('login'),
+        go: () => { if (!s.name.trim()) { this.setState({ err: 'Add your name.' }); return; } if (!/.+@.+\..+/.test(s.email)) { this.setState({ err: 'That email doesn’t look right — check for typos.' }); return; } if (/^farhan@|@juniperandco\.com$/i.test(s.email.trim())) { this.setState({ err: 'There’s already an account for this email. Sign in instead — you can add another store from there.' }); return; } if (st < 1) { this.setState({ err: 'Use at least 8 characters for your password.' }); return; } this.timer(); go('su2', { code: '' }); } },
+      su2: { brand: 'up', step: 1, back: 'Change email', backGo: () => go('su1'), icon: '✉', iconBg: '#EAF1F8', iconFg: '#00519F', title: 'Check your email', sub: `We sent a 6-digit code to ${s.email}. It works for 10 minutes. (Demo: any 6 digits.)`, fields: [codeField()], primary: 'Verify email',
+        go: () => { if (s.code.length !== 6) { this.setState({ err: 'The code has 6 digits — check the email again.' }); return; } go('su3', { code: '' }); } },
+      su3: { brand: 'up', step: 2, title: 'Tell us about your store', sub: 'Just the basics. You’ll confirm your country, currency and language next.',
+        fields: [inp('store', 'Store name', { ph: 'e.g. Juniper & Co.', help: 'Shoppers see this everywhere.' }), inp('sub', 'Web address', { ph: 'juniper', suffix: '.dfstore.shop', value: s.sub || app.slug(s.store), help: 'You can connect your own domain later.' })],
+        primary: 'Continue', go: () => { if (!s.store.trim()) { this.setState({ err: 'Give your store a name.' }); return; } { const sub = s.sub || app.slug(s.store); if (!sub) { this.setState({ err: 'Your web address needs at least one letter or number.' }); return; } if (['juniper', 'shop', 'store', 'admin', 'kesari'].includes(sub)) { this.setState({ err: sub + '.dfstore.shop is taken. Try ' + sub + '-co or ' + sub + '-shop.' }); return; } } go('su4', { sent: false, code: '' }); } },
+      su4: { brand: 'up', step: 3, title: s.sent ? 'Enter the code we texted' : 'Last step: your phone', sub: s.sent ? `Sent to ${R[s.region]} ${s.phone}. (Demo: any 6 digits.)` : 'We text you a code so nobody else can open a store in your name. We won’t call or share it.',
+        fields: s.sent ? [codeField()] : [inp('phone', 'Mobile number', { mode: 'tel', ac: 'tel', prefix: R[s.region], ph: { US: '614 555 0142', DE: '151 2345 6789', IN: '98450 11234' }[s.region] })],
+        back: s.sent ? 'Change number' : '', backGo: () => this.setState({ sent: false }), primary: s.sent ? 'Verify and build my store' : 'Text me a code',
+        go: () => { if (!s.sent) { if (s.phone.replace(/\D/g, '').length < 8) { this.setState({ err: 'That number looks too short.' }); return; } this.timer(); this.setState({ sent: true, code: '', err: '' }); return; } if (s.code.length !== 6) { this.setState({ err: 'Type the 6-digit code from the text.' }); return; } go('building', { build: 0 }); clearInterval(this._b); this._b = setInterval(() => { const b = this.state.build + 20; this.setState({ build: b }); if (b >= 100) { clearInterval(this._b); app.finishSignup({ region: s.region, store: s.store.trim() }); } }, 450); } },
+      building: { brand: 'up', icon: '✦', iconBg: '#FDF0E8', iconFg: '#EC844F', title: 'Setting up ' + (s.store || 'your store'), sub: s.build < 40 ? 'Creating your catalogue…' : s.build < 80 ? 'Setting up checkout and your web address…' : 'Opening your portal…', fields: [], primary: '' }
+    };
+    const v = V[s.view];
+    const note = { expired: 'You were signed out after 12 hours without activity. Sign in to pick up where you left off.', removed: 'You no longer have access to ' + app.storeName + ' — its owner removed you. Your other stores still work.' }[app.st.authNote] || '';
+    const stores0 = [{ name: app.storeName, sub: 'Owner', init: app.storeName[0], markBg: '#EC844F', radius: '10px', last: true, go: () => app.signIn() }, { name: 'Aurelia Home', sub: 'Manager', init: 'A', markBg: '#0A2A4A', radius: '10px', go: () => { app.signIn(); app.toast('Opened Aurelia Home (demo keeps your current data)'); } }, { name: 'Kala Weaves', sub: 'Supplier · products and stock', init: 'K', markBg: '#5A6472', radius: '3px', go: () => { app.signIn(); app.toast('Supplier stores open with a supplier menu — switch role in the controls bar to see it'); } }];
+    const stores = app.st.authNote === 'removed' ? stores0.slice(1) : stores0;
+    if (s.view === 'pick' && app.st.authNote === 'removed') v.sub = 'You belong to ' + stores.length + ' stores — pick one to open.';
+    const b = B[v.brand];
+    const signedOut = s.view === 'login' && app.st.auth === 'login' && !s.err;
+    const wl = app.brand;
+    if (wl && s.view === 'login') { b.title = wl.loginTitle; b.body = wl.loginBody; }
+    return {
+      wl: !!wl, noWl: !wl, wlName: wl ? wl.name : '', wlShort: wl ? wl.short : '', wlAccent: wl ? wl.accent : '#EC844F', bBg: wl ? wl.primary : '#0A2A4A', footBrand: wl ? wl.support : 'One sign-in for every store you belong to',
+      cols: phone ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', showBrand: !phone, phoneLogo: phone, pad: phone ? '32px 20px' : '48px 40px', brand: b,
+      title: v.title, sub: v.sub, fields: v.fields || [], google: !!v.google, primary: v.primary || '', primaryBg: '#EC844F', secondary: v.secondary || '', terms: !!v.terms,
+      back: v.back || '', icon: v.icon || '', iconBg: v.iconBg || '#EAF1F8', iconFg: v.iconFg || '#00519F',
+      foot: v.foot || '', footLink: v.footLink || '',
+      notice: s.err || (s.view === 'login' && note) || (signedOut ? 'You’re signed out of every store on this device.' : '') || (s.view === 'building' ? '' : ''),
+      noticeBg: s.err ? '#FDF0E8' : '#EAF1F8', noticeBd: s.err ? '#F0D4BF' : '#C9DAEC', noticeFg: s.err ? '#B8541F' : '#00325F',
+      stepper: v.step !== undefined || s.view === 'building', stepLabel: s.view === 'building' ? 'Almost there' : ['Step 1 of 4 · Your account', 'Step 2 of 4 · Verify email', 'Step 3 of 4 · Your store', 'Step 4 of 4 · Verify phone'][v.step],
+      dots: [0, 1, 2, 3].map(i => s.view === 'building' ? (i * 25 < s.build ? '#EC844F' : '#EDEAE5') : (i <= (v.step || 0) ? '#EC844F' : '#EDEAE5')),
+      storeList: s.view === 'pick' ? stores.map(x => ({ ...x, bd: x.last ? '2px solid #00519F' : '1px solid #E8E2DC', onClick: x.go })) : [],
+      a: { primary: () => v.go && v.go(), secondary: () => v.secGo && v.secGo(), footLink: () => v.footGo && v.footGo(), back: () => v.backGo && v.backGo(),
+        google: () => s.view === 'su1' ? go('su3', { name: 'Farhan Ali', email: 'farhan@gmail.com' }) : go('pick', { email: 'farhan@gmail.com' }) }
+    };
+  }
+}
+</script>
+</body>
+</html>

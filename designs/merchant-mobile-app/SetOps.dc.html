@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;max-width:960px;">
+  <sc-for list="{{ cards }}" as="cd" hint-placeholder-count="2">
+    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;"><span style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">{{ cd.title }}</span><span style="font-size:13px;color:#5A6472;">{{ cd.sub }}</span></span><sc-if value="{{ cd.headBtn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cd.headOn }}" style="height:36px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">{{ cd.headBtn }}</button></sc-if></div>
+      <sc-for list="{{ cd.rows }}" as="r" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:{{ r.bd }};border-radius:10px;background:{{ r.bg }};flex-wrap:wrap;">
+          <sc-if value="{{ r.radio }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.onClick }}" style="width:18px;height:18px;border-radius:50%;border:{{ r.dot }};background:#FFFFFF;cursor:pointer;padding:0;flex:none;"></button></sc-if>
+          <sc-if value="{{ r.mark }}" hint-placeholder-val="{{ false }}"><span style="width:34px;height:34px;border-radius:8px;background:#F2F0EC;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:12px;color:#434A55;flex:none;">{{ r.mark }}</span></sc-if>
+          <span style="flex:1;min-width:180px;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:#14181F;">{{ r.name }}</strong><span style="font-size:12px;color:#5A6472;">{{ r.desc }}</span></span>
+          <sc-if value="{{ r.input }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:4px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;height:36px;background:#FFFFFF;"><span style="font-size:13px;color:#5A6472;">{{ r.prefix }}</span><input value="{{ r.value }}" onChange="{{ r.onInput }}" style="width:80px;border:0;outline:none;font-size:14px;"></span></sc-if>
+          <sc-if value="{{ r.status }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;padding:2px 10px;border-radius:10px;background:{{ r.stBg }};color:{{ r.stFg }};">{{ r.status }}</span></sc-if>
+          <sc-if value="{{ r.btn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.btnOn }}" style="height:34px;padding:0 12px;border:1px solid {{ r.btnBd }};border-radius:8px;background:#FFFFFF;color:{{ r.btnFg }};font-size:13px;font-family:Manrope,sans-serif;font-weight:600;cursor:pointer;">{{ r.btn }}</button></sc-if>
+        </div>
+      </sc-for>
+      <sc-if value="{{ cd.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">{{ cd.note }}</span></sc-if>
+      <sc-if value="{{ cd.save }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:flex-end;"><button onClick="{{ cd.saveOn }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ cd.saveBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ cd.save }}</button></div></sc-if>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { ship: JSON.parse(JSON.stringify(props.app.data('shipping') || {})), inv: { perLine: true, email: true, label: props.app.R.key === 'US' ? 'Tax' : props.app.R.taxName } }; }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { R, fmt, caps: c, phone } = app; const mode = this.props.mode; const s = this.state;
+    const ro = !c.isOwner || c.readOnly;
+    const row = x => ({ radio: false, mark: '', input: false, status: '', btn: '', bd: '1px solid #EDEAE5', bg: '#FFFFFF', stBg: '#F2F0EC', stFg: '#434A55', btnBd: '#D7D3CD', btnFg: '#14181F', desc: '', ...x });
+    const pad = phone ? '14px' : '22px 28px';
+    if (mode === 'payments') {
+      const gws = app.data('gateways') || [];
+      const live = gws.filter(g => g.status === 'live');
+      const setG = (k, st) => app.set('gateways', l => l.map(g => g.key === k ? { ...g, status: st } : g));
+      const connect = g => (g.kind === 'extra' || app.within('gateways', live.filter(x => x.kind === 'gateway').length, 'Payment gateways')) && app.modal({ title: 'Connect ' + g.name, body: g.kind === 'extra' ? g.desc : `Paste the keys from your ${g.name} dashboard. The secret is saved and never shown again.`, ...(g.kind === 'extra' ? {} : { input: { label: 'API key', placeholder: g.key + '_live_…', required: true, error: 'Paste your key' } }), confirm: g.kind === 'extra' ? 'Turn on' : 'Connect', onConfirm: () => { setG(g.key, 'live'); app.toast(g.name + (g.kind === 'extra' ? ' is on at checkout' : ' connected — shoppers can pay with it now')); } });
+      const mk = g => row({ mark: g.name.slice(0, 2).toUpperCase(), name: g.name, desc: g.desc, status: g.status === 'live' ? 'Live' : 'Not connected', stBg: g.status === 'live' ? '#EEF7F2' : '#F2F0EC', stFg: g.status === 'live' ? '#1D6B47' : '#5A6472', btn: ro ? '' : g.status === 'live' ? (g.kind === 'extra' ? 'Turn off' : 'Disconnect') : (g.kind === 'extra' ? 'Set up' : 'Connect'), btnOn: () => { if (g.status !== 'live') { connect(g); return; } if (live.length <= 1) { app.toast('You can’t turn off your only way to get paid — shoppers couldn’t buy anything'); return; } app.modal({ title: 'Turn off ' + g.name + '?', body: 'Shoppers stop seeing it at checkout. Orders already paid aren’t affected.', confirm: 'Turn off', onConfirm: () => { setG(g.key, 'off'); app.toast(g.name + ' turned off'); } }); } });
+      return { pad, cards: [
+        { title: 'Gateways', sub: 'How your shoppers pay you. The card that pays for DripFunnel lives under Billing.', rows: gws.filter(g => g.kind === 'gateway').map(mk), note: `With more than one live, shoppers pick at checkout. Suggested for ${R.country}.` },
+        ...(gws.some(g => g.kind === 'extra') ? [{ title: 'Other ways to get paid', sub: 'Orders paid this way stay “Payment pending” until you mark them paid.', rows: gws.filter(g => g.kind === 'extra').map(mk) }] : [])
+      ] };
+    }
+    if (mode === 'shipping') {
+      const sh = s.ship; const dirty = JSON.stringify(sh) !== JSON.stringify(app.data('shipping'));
+      const set = patch => this.setState({ ship: { ...sh, ...patch } });
+      const radio = (on, name, desc, fn, extra) => row({ radio: true, dot: on ? '5px solid #00519F' : '1.5px solid #9AA1AB', bd: on ? '2px solid #00519F' : '1px solid #EDEAE5', bg: on ? '#F4F8FB' : '#FFFFFF', name, desc, onClick: () => !ro && fn(), ...(extra || {}) });
+      const pricing = sh.couriers.find(x => x.status === 'pricing');
+      const ST = { pricing: ['Pricing orders', '#EEF7F2', '#1D6B47'], standby: ['Standby', '#F2F0EC', '#434A55'], failed: ['Login rejected', '#FDF0E8', '#B8541F'], off: ['Not connected', '#F2F0EC', '#5A6472'] };
+      const setCour = (n, st) => set({ couriers: sh.couriers.map(x => x.name === n ? { ...x, status: st } : (st === 'pricing' && x.status === 'pricing' ? { ...x, status: 'standby' } : x)) });
+      return { pad, cards: [
+        { title: 'What the shopper pays for delivery', sub: 'Two questions: what you charge, and when it’s free.', rows: [
+          radio(sh.mode === 'live', 'The courier’s live rate', pricing ? `Quoted at checkout by ${pricing.name}, from address and weight.` : 'Connect a courier below first.', () => { if (!app.allow('liveRates', 'Live courier rates at checkout')) return; set({ mode: 'live' }); }),
+          radio(sh.mode === 'flat', 'A flat rate', 'Same charge on every order.', () => set({ mode: 'flat' }), sh.mode === 'flat' ? { input: true, prefix: R.cur, value: sh.flat, onInput: e => set({ flat: e.target.value }) } : {}),
+          radio(sh.mode === 'pickup', 'Nothing — collect in person', 'Your address and hours show at checkout instead.', () => set({ mode: 'pickup' }))
+        ] },
+        { title: 'When is delivery free?', sub: '', rows: [
+          radio(sh.free === 'never', 'Never — always charge', '', () => set({ free: 'never' })), radio(sh.free === 'always', 'Always — you pay for it', '', () => set({ free: 'always' })),
+          radio(sh.free === 'over', 'On orders over an amount', sh.free === 'over' ? `A ${fmt(Number(sh.threshold) - 1)} basket pays; ${fmt(Number(sh.threshold))} ships free.` : '', () => set({ free: 'over' }), sh.free === 'over' ? { input: true, prefix: R.cur, value: sh.threshold, onInput: e => set({ threshold: e.target.value }) } : {})
+        ] },
+        { title: 'Delivery partners', sub: 'They quote rates, book pickups and send tracking.', headBtn: ro ? '' : 'Test all', headOn: () => app.toast(sh.couriers.filter(x => x.status === 'failed').length ? sh.couriers.filter(x => x.status === 'failed').map(x => x.name).join(', ') + ' still rejects the login' : 'All connected partners answered'),
+          rows: sh.couriers.map(x => row({ mark: x.name.slice(0, 2).toUpperCase(), name: x.name, desc: x.status === 'failed' ? 'Its login was rejected since yesterday. Orders fall back to the next partner.' : x.status === 'pricing' ? 'Quotes every order at checkout.' : x.status === 'standby' ? 'Connected, not quoting.' : '', status: ST[x.status][0], stBg: ST[x.status][1], stFg: ST[x.status][2],
+            btn: ro ? '' : x.status === 'failed' ? 'Fix' : x.status === 'off' ? 'Connect' : x.status === 'standby' ? 'Use for pricing' : 'Manage', btnBd: x.status === 'failed' ? '#F0D4BF' : '#D7D3CD', btnFg: x.status === 'failed' ? '#B8541F' : '#14181F',
+            btnOn: () => { if (x.status === 'pricing') { app.toast(x.name + ': pickups, labels and tracking are handled here'); return; } if (x.status === 'standby') { setCour(x.name, 'pricing'); return; } if (x.status === 'off' && !app.within('couriers', sh.couriers.filter(y => y.status !== 'off').length, 'Couriers')) return; app.modal({ title: (x.status === 'failed' ? 'Reconnect ' : 'Connect ') + x.name, input: { label: 'Account key from ' + x.name, placeholder: 'Paste it here', required: true, error: 'Paste your key' }, confirm: 'Connect', onConfirm: () => { setCour(x.name, 'standby'); app.toast(x.name + ' connected'); } }); } })),
+          note: 'Fallback order: the pricing partner → the next connected one → your flat rate.' },
+        { title: 'Where you deliver', sub: '', rows: [radio(sh.where === 'all', 'Everywhere my couriers reach', 'In the countries set up in Markets.', () => set({ where: 'all' })), radio(sh.where === 'list', `Only ${R.postalLabel}s I upload`, 'A shopper outside your area is told at the address step, not at payment.', () => set({ where: 'list' }), sh.where === 'list' ? { btn: 'Upload list', btnOn: () => app.toast(R.postalLabel + ' list uploaded — 1,240 codes') } : {})],
+          save: ro ? '' : 'Save shipping', saveBg: dirty ? '#EC844F' : '#C9CDD3', saveOn: () => { if (!dirty) return; if (sh.mode === 'flat' && !(Number(sh.flat) >= 0)) { app.toast('Type a flat rate'); return; } app.set('shipping', sh); app.toast('Shipping saved — checkout uses it now'); } }
+      ] };
+    }
+    if (mode === 'warehouse') {
+      const ws = app.data('warehouses') || [];
+      const own = ws.filter(w => !w.supplier); const theirs = ws.filter(w => w.supplier);
+      const add = () => app.within('locations', own.length, 'Stock locations') && app.modal({ title: 'Add a location', body: 'Somewhere your own stock sits. Adding it doesn’t move stock — it starts at zero.', input: { label: 'Name and address', placeholder: 'e.g. Back room, 12 High St', required: true, error: 'Give it a name' }, confirm: 'Add location', onConfirm: v => { app.set('warehouses', l => [...l, { id: 'w' + Date.now(), name: v.split(',')[0].trim(), addr: v.split(',').slice(1).join(',').trim() || R.city, units: 0, isDefault: false }]); app.toast(v.split(',')[0].trim() + ' added'); } });
+      return { pad, cards: [
+        { title: 'Where your stock sits', sub: 'Stock is counted per location. New products start at your default one, and its address is on your labels.', headBtn: ro ? '' : 'Add a location', headOn: add,
+          rows: own.map(w => row({ mark: w.name.slice(0, 2).toUpperCase(), name: w.name, desc: `${w.addr} · ${w.units.toLocaleString(R.locale)} units`, status: w.isDefault ? 'Default for new products' : '', stBg: '#EAF1F8', stFg: '#00325F', btn: ro ? '' : w.isDefault ? '' : 'Make default',
+            btnOn: () => { app.set('warehouses', l => l.map(x => x.supplier ? x : { ...x, isDefault: x.id === w.id })); app.toast(w.name + ' is now the default — existing stock doesn’t move'); } })) },
+        ...(app.caps.suppliersOn ? [{ title: 'Supplier locations', sub: 'Suppliers add and count these themselves. They aren’t offered as your default.', rows: theirs.length ? theirs.map(w => row({ mark: 'SU', name: w.name, desc: `${w.supplier} · ${w.units} units (their count)` })) : [row({ name: 'None yet', desc: 'They appear when a supplier adds a location.' })] }] : [])
+      ] };
+    }
+    const rates = app.data('taxRates') || []; const inv = s.inv;
+    const tg = (on, name, fn) => row({ radio: true, dot: on ? '5px solid #1D6B47' : '1.5px solid #9AA1AB', name, onClick: fn });
+    return { pad: phone ? '0 14px 14px' : '0 28px 22px', cards: [
+      { title: 'Your ' + R.taxLabel.toLowerCase().replace('rate', 'rates').replace('category', 'categories'), sub: R.key === 'US' ? 'Sales tax is worked out at checkout from the shopper’s state. You choose the category per product.' : 'Name them whatever your country calls them.', headBtn: ro || R.key === 'US' ? '' : 'Add a rate',
+        headOn: () => app.modal({ title: 'Add a rate', input: { label: 'Name and percentage, e.g. “Books 7”', placeholder: 'Books 7', required: true, error: 'Type a name and a number' }, confirm: 'Add', onConfirm: v => { const m = v.match(/^(.*?)\s*([\d.]+)\s*%?$/); if (!m) { app.toast('Type a name and a percentage, e.g. “Books 7”'); return; } app.set('taxRates', l => [...l, { id: 't' + Date.now(), name: m[1].trim(), rate: m[2] + '%', isDefault: false }]); app.toast(m[1].trim() + ' added'); } }),
+        rows: rates.map(t => row({ name: t.name, desc: `${app.allProducts.filter(p => p.taxClass === t.name).length} products`, status: t.rate + (t.isDefault ? ' · default for new products' : ''), stBg: t.isDefault ? '#EAF1F8' : '#F2F0EC', stFg: t.isDefault ? '#00325F' : '#434A55', btn: ro || t.isDefault ? '' : 'Make default', btnOn: () => { app.set('taxRates', l => l.map(x => ({ ...x, isDefault: x.id === t.id }))); app.toast(t.name + ' is the default for new products — existing products keep theirs'); } })),
+        note: 'Changing the default doesn’t touch products you’ve already priced.' },
+      { title: 'On the invoice', sub: `Your ${R.taxIdLabel}: ${(app.data('storeInfo') || {}).taxId || 'not added yet — add it in Store info'}`, rows: [tg(inv.perLine, `Show ${inv.label.toLowerCase()} on each line, not just the total`, () => !ro && this.setState({ inv: { ...inv, perLine: !inv.perLine } })), tg(inv.email, 'Email the invoice with the dispatch note', () => !ro && this.setState({ inv: { ...inv, email: !inv.email } }))],
+        note: 'New invoices follow new settings; issued ones are never rewritten.', save: ro ? '' : 'Save invoice settings', saveBg: '#EC844F', saveOn: () => app.toast('Invoice settings saved') }
+    ] };
+  }
+}
+</script>
+</body>
+</html>
