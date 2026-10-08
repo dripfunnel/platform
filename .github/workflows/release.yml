@@ -1,8 +1,8 @@
 name: release
 
 # storefront-core's releases, and only from here (AGENTS.md, docs/code/ARCHITECTURE.md §5).
-# Every push to main runs core's gates; if core's version isn't published yet, it packs core
-# once, attests that tarball, then publishes the same file and tags it.
+# Every push to main runs core's gates; if core's version isn't published yet (and isn't 0.0.0),
+# it packs core once, attests that tarball, publishes the same file, then makes sure it's tagged.
 
 on:
   push:
@@ -48,3 +48,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARBALL: ${{ steps.pack.outputs.tarball }}
           VERSION: ${{ steps.pack.outputs.version }}
+      - run: node scripts/release/publish.mjs tag
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

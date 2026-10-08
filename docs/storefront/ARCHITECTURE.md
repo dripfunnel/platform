@@ -255,14 +255,19 @@ of a price, a scarcity or urgency claim, a rating or a countdown.
 
 ### 3.5 Sealed components and the runtime walls
 
+*Planned (#481)*: until it lands, the required components of #304 are plain DOM a theme styles
+through their class names, and the banners are not yet in the top layer.
+
 - **Sealed components** render in a **closed Shadow DOM**, styled only through the custom
   properties and `::part` names core documents; theme CSS can't reach inside. Each checks its
   own visibility after layout (on screen, not covered at its centre, not transparent, not
   below its minimum size) and reports a violation to the platform.
 - **The consent and preview banners** use the browser's **top layer** (`<dialog>` or
   `popover`), which no `z-index` can cover.
-- **CSP**: scripts only from the store's own build; `connect-src` only the Shop API and the
-  store's payment providers; images from the store's media and the payment providers; fonts
+- **CSP**: scripts only from the store's own build and the hosts of the analytics providers
+  **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
+  consent; `connect-src` only the Shop API, the store's payment providers and those analytics
+  hosts; images from the store's media and the payment providers; fonts
   from the store's build; `form-action` only the store and the payment providers;
   `frame-src` only the payment providers. **Trusted Types** required.
 - **Error boundaries**: core wraps every section; a section that throws falls back to the
@@ -361,7 +366,8 @@ changes don't rebuild, adapted to SSG)*:
 3. **Removed or hidden products** return a proper 404 or redirect immediately via an edge
    rule, without waiting for the rebuild.
 4. **Design changes** go live only when the merchant publishes them in the studio (SAAS
-   §9.2). Brand and search-and-sharing changes go out with the next publish of any kind.
+   §9.2). Brand changes go out with the next publish of any kind; saving the home page's search
+   and sharing re-renders the home page at once, like a new product's single-page render.
 - **Degraded store** (past due, suspended): an edge rule serves the degraded page or a
   read-only notice without a rebuild (DESIGN-BRIEF fact 9).
 
@@ -483,14 +489,16 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
 - **Undo** reverts the latest change's commit. **Go back to this** makes an earlier published
   version live again by redeploying its kept deployment (no build, free), then resets the
   draft to that version's commit, so the next change starts from what is live (decided
-  2026-10-08 on #470).
+  2026-10-08 on #470). **Except across a security fix**: when a security release of core is
+  newer than that version's core, the version is rebuilt on the fixed core and gated instead
+  (still free), so going back never brings a vulnerable core back.
 
 ---
 
 ## 7. Core upgrades across the fleet
 
-- Core follows **semver**. The release workflow publishes it and builds the **sandbox image**
-  for that version.
+- Core follows **semver**. The release workflow publishes it and *(planned, #482)* builds the
+  **sandbox image** for that version.
 - **The upgrade bot** (SAAS §10) takes a release to every store, **canary stores first**, then
   in waves: it builds each store's current published commit with the new core, applies
   core's **codemods**, and runs the full gate of §4.2 plus a visual diff against what is live.

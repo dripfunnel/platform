@@ -1619,8 +1619,8 @@ storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_
 storefront_seo      (store_id PK, title (≤60), description (≤155), share_asset_id NULL,
                      updated_at)
                     -- the home page's search and sharing; the share image is one of the
-                    -- store's product photos; read by the Shop API for core's <head>; goes out
-                    -- with the next publish
+                    -- store's product photos; read by the Shop API for core's <head>; saving
+                    -- re-renders the home page at once (SAAS §9.2), the rest at the next publish
 ai_run              (id, store_id, kind ('design'|'repair'|'migration'|'description'
                      |'translation'), requested_by, prompt, model, tokens_in, tokens_out,
                      cost_amount, cost_currency, billed_to ('plan'|'own_key'|'platform'),
