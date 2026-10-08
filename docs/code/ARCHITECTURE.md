@@ -82,12 +82,15 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   bump and the reason; CI enforces it.
 - **Semver means the public API**: removing or changing an export, a hook's behaviour, a
   contract, a preset rule or a supported Shop API version is a major.
-- Merging to `main` updates a "Version packages" pull request; merging that publishes to
-  GitHub Packages from the release workflow (`.github/workflows/release.yml`), tags the
-  version and attests the tarball (built on #303). That pull request is the workflow's own:
-  it changes only versions and the changelog, isn't named for an issue, and CI doesn't run on
-  it (a pull request opened with the workflow token starts no workflows), so a person reads
-  and merges it.
+- **A release is a card.** Its pull request runs `pnpm changeset version` on its own
+  `#<issue>/task/release-core-<version>` branch, which consumes the pending changesets, bumps
+  the version and writes the changelog, and goes through review, gates and naming like any
+  other (decided on #303's review: a bot-opened "Version packages" pull request can't be
+  created under the `branch-names` ruleset, and CI never runs on it, so it could never merge).
+- **Publishing** (`.github/workflows/release.yml`, built on #303): every push to `main` runs
+  core's gates; if core's version isn't on GitHub Packages yet, the workflow packs core once
+  (`scripts/release/publish.mjs`), attests that tarball, then publishes **the same file** and
+  tags it `@dripfunnel/storefront-core@<version>`. A failed attestation publishes nothing.
 - CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
   `packages/storefront-core` (its changelog aside) without adding a changeset naming the
   package.
@@ -101,8 +104,8 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   change runs in the **sandbox image** for the store's core version (`apps/sandbox`), which
   the release workflow builds and pushes after publishing, with core, the allowed libraries
   and the gate tools preinstalled. A store repo's `package.json` only pins the version, which
-  picks the image. No store repo holds a token or an `.npmrc` with one, and the org secret
-  `DF_PACKAGES_TOKEN` decided on #303 is not created.
+  picks the image. No store repo holds a token or an `.npmrc` with one, and no secret or
+  grant is needed for store repos (decided on #470, which replaced #303's org secret).
 - Publishing only from the release workflow (`packages: write`), with artifact attestations.
 
 **In this repo**, `templates/storefront` depends on it as `workspace:*`, so the template and
