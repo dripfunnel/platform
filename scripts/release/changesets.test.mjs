@@ -44,4 +44,16 @@ describe('changesetProblem', () => {
     assert.match(changesetProblem(core, []), /adds no changeset/)
     assert.match(changesetProblem(core, [changeset('patch', '@dripfunnel/api')]), /adds no changeset/)
   })
+
+  it('passes a release PR, which consumes the changesets instead of adding one', () => {
+    assert.equal(changesetProblem([...core, 'packages/storefront-core/package.json'], [], { deletedChangesets: [changeset('minor')] }), undefined)
+  })
+
+  it('passes a range that already holds a release, where the version moved', () => {
+    assert.equal(changesetProblem(core, [], { versionChanged: true }), undefined)
+  })
+
+  it('still refuses when the deleted changesets name another package', () => {
+    assert.match(changesetProblem(core, [], { deletedChangesets: [changeset('patch', '@dripfunnel/api')] }), /adds no changeset/)
+  })
 })

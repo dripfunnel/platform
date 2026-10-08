@@ -75,7 +75,8 @@ that also closes another issue names that one.
 (`build typecheck lint test`), then `naming` and, beside it, `changesets` (a change to
 `packages/storefront-core` must add a changeset naming it, ARCHITECTURE.md §5; added on #303).
 Each starts only if the one before passed, so a red review leaves the others *skipped* until
-the next push (decided 2026-10-04). A push to `main` runs `gates` alone.
+the next push (decided 2026-10-04). A push to `main` runs `gates`, and `release.yml`
+(storefront-core's release, ARCHITECTURE.md §5).
 
 The rules live in one place, [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs), with
 tests beside it. The hooks, the pull-request check and the feature-environment names

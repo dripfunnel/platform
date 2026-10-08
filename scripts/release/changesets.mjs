@@ -19,10 +19,14 @@ export const coreBump = (text) => {
   return undefined
 }
 
-/** docs/code/ARCHITECTURE.md §5: a change to storefront-core carries a changeset naming it. */
-export const changesetProblem = (changedFiles, addedChangesets) => {
+/**
+ * docs/code/ARCHITECTURE.md §5: a change to storefront-core carries a changeset naming it. A release
+ * PR consumes them instead (`changeset version` deletes them), and a range holding a release moves the version.
+ */
+export const changesetProblem = (changedFiles, addedChangesets, { deletedChangesets = [], versionChanged = false } = {}) => {
   if (!touchesCore(changedFiles)) return undefined
-  if (addedChangesets.some((text) => coreBump(text))) return undefined
+  if (versionChanged) return undefined
+  if ([...addedChangesets, ...deletedChangesets].some((text) => coreBump(text))) return undefined
   return `This pull request changes ${corePackage} but adds no changeset for it. Run \`pnpm changeset\`, pick the bump (docs/code/ARCHITECTURE.md §5) and commit the file.`
 }
 
@@ -33,8 +37,14 @@ const checkPullRequest = () => {
   if (!base || !head) throw new Error('BASE_SHA and HEAD_SHA are required')
   const lines = (s) => s.split('\n').filter(Boolean)
   const changed = lines(git('diff', '--name-only', `${base}...${head}`))
-  const added = lines(git('diff', '--name-only', '--diff-filter=A', `${base}...${head}`, '--', '.changeset/*.md'))
-  const problem = changesetProblem(changed, added.map((f) => git('show', `${head}:${f}`)))
+  const changesets = (filter) => lines(git('diff', '--name-only', `--diff-filter=${filter}`, `${base}...${head}`, '--', '.changeset/*.md'))
+  const mergeBase = git('merge-base', base, head)
+  const version = (rev) => JSON.parse(git('show', `${rev}:${coreDir}package.json`)).version
+  const problem = changesetProblem(
+    changed,
+    changesets('A').map((f) => git('show', `${head}:${f}`)),
+    { deletedChangesets: changesets('D').map((f) => git('show', `${mergeBase}:${f}`)), versionChanged: version(mergeBase) !== version(head) },
+  )
   if (problem) {
     console.error(problem)
     process.exit(1)
