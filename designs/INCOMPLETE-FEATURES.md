@@ -160,6 +160,12 @@ the missing backend.
   - the **Pages** and **Journal** tabs (the new file has only Design and Site settings; `StorefrontContent` holds their drawing);
   - the catalogue **Publish now** bar on the Design tab;
   - **Open preview ↗** in the studio's top bar.
+- Decided 2026-10-08 on #470 ("Plan A": the AI writes theme code) and not drawn yet (FIRST-RELEASE §14):
+  - images and a website address in the chat, and **Edit text** in every language;
+  - the page picker listing every page of the store, the AI's own pages included (the drawing has Home, Product, Cart, About, Contact);
+  - the sandbox's states: "Opening your studio…", "You're next — about N seconds", "Finishing your previous change…", "Checking your change…";
+  - the publish gate: "Checking your site…", a refused publish with **Publish everything before this change**, a publish rolled back after going live;
+  - the drawing still renders site JSON (`storefront-lib.js`); that is how it draws, not what is built.
 - "View live site" is still toast only.
 
 ### Settings

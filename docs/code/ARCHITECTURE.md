@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: the sandbox image; store repos never install core).
 
 ---
 
@@ -20,7 +20,7 @@ Last updated: 2026-10-05.
 |---|---|---|
 | **All server code lives in `apps/api`**, as folders, not packages | ~30 workspace packages in 8 layers | One Worker uses it, so nothing needs a package boundary, a version or a build. Layers stay, as folders enforced by lint (../api/README.md §4). |
 | **`apps/ui/shared/` only for code a second app needs**; today browser code the SPAs share | Shared packages in advance | No speculative sharing. Code moves into `shared/` the moment a second app needs it, and not before. |
-| **One published package, `@dripfunnel/storefront-core`**, because the AI edits store repos | Publishing SDKs, UI or tooling | It is the only code running outside this repo. It includes the Shop API client and the store repos' TypeScript and lint presets, so a store repo installs exactly one of our packages. |
+| **One published package, `@dripfunnel/storefront-core`**, because the AI writes store repos' themes | Publishing SDKs, UI or tooling | It is the only code running outside this repo. It includes the Shop API client, the sealed components, the store repos' TypeScript and lint presets, the validator and the gate suites (`./guard`), so a store's theme depends on exactly one of our packages. |
 | **`storefront-core` depends on nothing else in this repo** | Importing `shared/` | A published package can't depend on unpublished code. It carries its own small helpers; the duplication is deliberate and small. |
 | **Apps talk to the API only through its GraphQL schemas**, generated into `apps/api/schema/*.graphql` and committed | Importing server types into clients | The SPAs and `storefront-core` type their operations from the schema files, so no client can pull in server code, and CI sees every schema change as a diff. |
 | **Cross-layer imports in `apps/api` use `#layer/...` aliases** (`package.json` `imports`, e.g. `#core/config`); relative paths only inside a layer | Relative paths everywhere; TypeScript `paths` | Standard Node resolution that TypeScript, wrangler and Vitest all understand, and a lint rule can check the layer from the import alone. |
@@ -60,13 +60,17 @@ The import rules stay repo-wide: `apps/ui/shared/` never imports from an app; no
 ```
 packages/storefront-core/
   src/
-    platform/               api (the Shop API client), store, render, i18n, seo, analytics, consent
+    platform/               api (the Shop API client), store, render, i18n, seo, analytics,
+                            consent, media (Image, Video, fonts), browser (the hooks themes may use)
     cart/  checkout/  products/  collections/  search/
     account/  authentication/  orders/  pricing/
     ui/headless/            unstyled behaviour components
-    contracts/              theme contract and route manifest
-  presets/                  tsconfig.json, eslint.js: exported as ./tsconfig and ./eslint for store repos
-  testing/                  the contract test suite, exported as ./testing
+    sealed/                 the sealed components (closed Shadow DOM)
+    contracts/              theme contract, route manifest, routes.json schema
+    guard/                  the validator and the gate suites, exported as ./guard
+    testing/                the contract checks, exported as ./testing
+  presets/                  tsconfig.json, eslint.js: exported as ./tsconfig and ./eslint (the sandbox's
+                            typecheck and lint; the validator in guard/ is what decides)
   package.json  CHANGELOG.md  README.md
 ```
 
@@ -86,16 +90,16 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   the next major.
 
 **Access**
-- Store repos (in the `dripfunnel` org, created by provisioning) get read access to this
-  package only. Provisioning grants that through the **GitHub App, per repository**; only if
-  INF 0 finds that impossible does it push a read-only token as a repo secret (decided 2026-10-05 on #337).
-- Store repos' `.npmrc`: `@dripfunnel:registry=https://npm.pkg.github.com`, token from the
-  environment, never committed.
+- **Store repos never install it** (decided 2026-10-08 on #470): every build and every AI
+  change runs in the **sandbox image** for the store's core version (`apps/sandbox`), which
+  the release workflow builds and pushes after publishing, with core, the allowed libraries
+  and the gate tools preinstalled. A store repo's `package.json` only pins the version, which
+  picks the image. No store repo holds a token or an `.npmrc` with one.
 - Publishing only from the release workflow (`packages: write`), with artifact attestations.
 
-**In this repo**, `templates/storefront` depends on it as `workspace:*`, so the template is
-built and tested against the current source; provisioning writes the pinned published
-version into each new store repo.
+**In this repo**, `templates/storefront` depends on it as `workspace:*`, so the template and
+its starting themes are built and tested against the current source; the platform writes the
+pinned published version into each new store repo.
 
 ---
 
@@ -106,17 +110,20 @@ version into each new store repo.
 | `apps/api`, `apps/ui/store`, `apps/ui/platform`, `apps/ui/admin` | Each builds and deploys on its own |
 | `apps/ui/shared` | So the SPAs can depend on it and pnpm resolves its dependencies; no build |
 | `packages/storefront-core` | Published |
-| `templates/storefront` | Built and tested here like a real store repo |
+| `templates/storefront` | Built and tested here like a real store repo, with each starting theme |
+| `apps/sandbox` | The container image for studio sessions and storefront builds: Node, not the Workers runtime (../ARCHITECTURE.md §4) |
 
 Tooling is root files, not packages: `tsconfig.base.json` (each workspace extends it),
 `eslint.config.js` (the custom rules: `apps/api` layers, raw table access only in `db/`, no
 `process.env`, no default exports, nothing imports `apps/api`, `storefront-core` imports
-nothing from the repo, no network calls or hard-coded commerce data in themes), `turbo.json`.
+nothing from the repo), `turbo.json`. A theme's own rules are not lint: they are core's
+validator (`./guard`, ../storefront/ARCHITECTURE.md §3.4), which the sandbox runs on every AI
+change and every build.
 
 ---
 
 ## 7. Open questions
 
-- Package access for new store repos (§5).
+- ~~Package access for new store repos (§5).~~ None needed: builds run in the sandbox image (decided 2026-10-08 on #470).
 - Whether merchants' developers get a published Shop API client later. Until then, they use
   the Shop API's GraphQL directly; the schema is the contract.
