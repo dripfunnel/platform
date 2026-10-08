@@ -1,4 +1,4 @@
-# ui/merchant-mobile-app: React Native with Expo
+# mobile-app/merchant: React Native with Expo
 
 The technology decisions for the merchant mobile app, which is the merchant portal as a native
 iOS and Android app in each partner's look:
@@ -24,7 +24,7 @@ Last updated: 2026-10-08.
 | **The app signs in with the portal's own session, carried as a bearer token** (decided 2026-10-08, §5) | Keeping the portal's cookie in the app | The app would have to fake `Origin` on every write to pass the CSRF check, and the cookie would sit outside the phone's secure storage. A token in secure storage, on the same `user_session` row, changes nothing else about sessions. |
 | **Hermes, with FormatJS polyfills filling the gaps in its `Intl`** (decided 2026-10-08, §6) | Switching to JavaScriptCore; rewriting `shared/format` with a date or number library | Hermes is React Native's and Expo's default engine. FormatJS is pure JavaScript, works the same on Android and iOS, and replaces only what Hermes lacks, so `shared/format` runs unchanged on the web and on the phone. |
 | **Start on the current Expo SDK; take patch updates on a schedule, and a new SDK only when it improves the app** (decided 2026-10-08, §3) | Following every new SDK as it ships | Every new Expo SDK can break things; patch updates within an SDK don't. A new SDK is worth that work only for a real gain, such as performance. |
-| **The app will live in this repo**, at `apps/ui/merchant-mobile-app`, inside the pnpm workspace and the turbo gates | A separate mobile repo | One repo is the platform's rule (ARCHITECTURE.md §1): a change can go from the GraphQL schema to the mobile screen in one pull request. The pull request that scaffolds the app adds it to ARCHITECTURE.md §1–§3. The `dev` and `prod` pipelines don't deploy it; its builds and submissions are manual ([BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md) §2). |
+| **The app will live in this repo**, at `apps/ui/mobile-app/merchant`, inside the pnpm workspace and the turbo gates | A separate mobile repo | One repo is the platform's rule (ARCHITECTURE.md §1): a change can go from the GraphQL schema to the mobile screen in one pull request. The pull request that scaffolds the app adds it to ARCHITECTURE.md §1–§3. The `dev` and `prod` pipelines don't deploy it; its builds and submissions are manual ([BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md) §2). |
 
 ---
 
@@ -139,6 +139,8 @@ gets the **same session as a bearer token**:
   SecureStore) and sends it as `Authorization: Bearer <token>`. It is never logged or shown.
 - A request authenticated by a bearer token skips the `Origin` check, because a browser never
   attaches that header on its own, so there is nothing to forge. Cookie requests keep the check.
+- **A bearer token is accepted only on a request with no session cookie**; a request carrying
+  both is refused. The rule lives in ACCESS.md §4.
 - No new table, endpoint or screen: the change is in the sign-in response and in how the API
   reads a session.
 

@@ -1,4 +1,4 @@
-# ui/merchant-mobile-app: design
+# mobile-app/merchant: design
 
 What the merchant mobile app looks like and how it behaves, and which prototype decides what.
 Scope is [FIRST-RELEASE.md](FIRST-RELEASE.md); code structure is [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -13,16 +13,21 @@ Last updated: 2026-10-08.
 
 | Part | Decided by |
 |---|---|
-| **The app shell**: status bar, header, bottom tab bar, More, Home, the compact Storefront, bottom sheets, toasts, banners | `designs/merchant-mobile-app/DF Store App.dc.html` |
+| **The app shell**: status bar, header, bottom tab bar, More, Home, the compact Storefront, bottom sheets, toasts, banners | `designs/mobile-app/merchant/DF Store App.dc.html` |
 | **The content of every other screen** (Orders, Products, the product editor, Offers, Settings…) | `designs/DF Store Prototype.dc.html` at phone width (`device=phone`) |
 | **Colour, type, spacing, radius** | `designs/DripFunnel Style Guide.dc.html` and `designs/design.md` §5–§7, with the mobile sizes in §4 below |
 
-The screens in `designs/merchant-mobile-app/` other than `DF Store App` are copies of an older
+The screens in `designs/mobile-app/merchant/` other than `DF Store App` are copies of an older
 snapshot of the Store prototype (its `design.md` is dated 2026-09-29). The main Store prototype
-is newer, and it's the one [store/FIRST-RELEASE.md](../store/FIRST-RELEASE.md) was planned
+is newer, and it's the one [store/FIRST-RELEASE.md](../../ui/store/FIRST-RELEASE.md) was planned
 against. Six of its screens aren't in the mobile folder at all: `PortalProfile`, `SetAccess`,
 `SetDev`, `StoreActivity`, `StorefrontContent` and `VendorViews`. So screen content comes from
 the main prototype.
+
+The copies stay in the folder only because `DF Store App` loads its screens from there by name,
+and it won't run without them. Its own README says not to build from them (decided 2026-10-08
+on #490). Pointing the shell at the current screens would need shell functions it doesn't have
+yet.
 
 As everywhere (docs/README.md §3), `docs/` decides scope and rules and the prototype decides
 behaviour. If the two prototypes disagree about behaviour, **ask; don't pick one**.

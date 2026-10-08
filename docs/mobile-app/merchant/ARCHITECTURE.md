@@ -1,6 +1,6 @@
-# ui/merchant-mobile-app: code architecture
+# mobile-app/merchant: code architecture
 
-How the code of `apps/ui/merchant-mobile-app` is laid out and how it talks to the platform.
+How the code of `apps/ui/mobile-app/merchant` is laid out and how it talks to the platform.
 The framework decision is [REACT-NATIVE.md](REACT-NATIVE.md); the look is [DESIGN.md](DESIGN.md);
 builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
@@ -49,8 +49,11 @@ Last updated: 2026-10-08.
 
 ## 3. Folder structure
 
+`pnpm-workspace.yaml` matches `apps/ui/*`, which doesn't reach two levels down. The pull
+request that sets the app up adds `apps/ui/mobile-app/*` to it.
+
 ```
-apps/ui/merchant-mobile-app/
+apps/ui/mobile-app/merchant/
   app.config.ts             reads and validates the partner's env file (CONFIGURATION.md)
   partners/<partner>.env    one per partner: public build-time values (CONFIGURATION.md §2)
   partners/<partner>/       that partner's icon, splash and listing text

@@ -14,7 +14,7 @@ map of the specification: every portal, its users and roles, and what to read fo
 | `apps/ui/store` | Merchant and vendor portal (Pages SPA) |
 | `apps/ui/platform` | Partner console (Pages SPA), `platform.dripfunnel.com` |
 | `apps/ui/admin` | DripFunnel staff console (Pages SPA), `admin.dripfunnel.com` |
-| `apps/ui/merchant-mobile-app` | *Planned, not built yet.* The merchant portal as an iOS and Android app (React Native with Expo), one build per partner in the partner's look, built and submitted by hand: [docs/ui/merchant-mobile-app/](docs/ui/merchant-mobile-app/REACT-NATIVE.md) |
+| `apps/ui/mobile-app/merchant` | *Planned, not built yet.* The merchant portal as an iOS and Android app (React Native with Expo), one build per partner in the partner's look, built and submitted by hand: [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md) |
 | `apps/ui/shared/` | Code more than one SPA uses |
 | `packages/storefront-core` | The one published package, installed by store repos |
 | `templates/storefront/` | The template copied into each store's own repo |

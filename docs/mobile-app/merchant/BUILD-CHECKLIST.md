@@ -1,4 +1,4 @@
-# ui/merchant-mobile-app: before building a partner's app
+# mobile-app/merchant: before building a partner's app
 
 The files to change for a partner's branding, and the checks to run before every build and
 submission. Builds are manual (BUILDS-AND-STORE-ACCOUNTS.md §2), so this list is what keeps them

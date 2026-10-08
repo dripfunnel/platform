@@ -1,4 +1,4 @@
-# ui/merchant-mobile-app: one codebase, one build and one developer account per partner
+# mobile-app/merchant: one codebase, one build and one developer account per partner
 
 How the merchant mobile app reaches the App Store and Google Play under each partner's brand,
 and why every partner publishes from its own developer account. The framework decision is in

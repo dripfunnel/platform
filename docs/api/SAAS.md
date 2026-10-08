@@ -376,6 +376,11 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 
 ## 7. Billing
 
+**Coming change:** the merchant mobile app will sell plans and extra bandwidth through Apple's
+and Google's in-app purchase (decided 2026-10-08 on #490). This section changes with the card
+that builds it; the open questions are in
+[mobile-app/merchant/FIRST-RELEASE.md](../mobile-app/merchant/FIRST-RELEASE.md) §4.
+
 ### 7.1 Two relationships
 
 Never mixed on one screen without labels, and never a price without its currency and who

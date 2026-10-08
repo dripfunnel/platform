@@ -1,4 +1,4 @@
-# ui/merchant-mobile-app: per-partner configuration
+# mobile-app/merchant: per-partner configuration
 
 Every value that differs between partners' apps, where it is kept, and what reads it. Why each
 partner gets its own build is in [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md);
@@ -12,7 +12,7 @@ Last updated: 2026-10-08.
 
 ## 1. Rules
 
-- **One environment file per partner**: `apps/ui/merchant-mobile-app/partners/<partner>.env`.
+- **One environment file per partner**: `apps/ui/mobile-app/merchant/partners/<partner>.env`.
   It is committed and holds **public values only**, because everything in it can end up in the
   app bundle. The build picks a file by its EAS build profile, one profile per partner.
 - **`.env.example`** (committed, dummy values) lists every variable; **`.env.local`**
