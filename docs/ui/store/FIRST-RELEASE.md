@@ -465,7 +465,9 @@ through. Your site stays live."), as is a support session.
 - **Site settings tab**: **Brand** (not drawn; the brand step's fields); **Domains** (SAAS §8);
   **Search and sharing** (title with a /60 count, description /155, a share image from the
   product photos, Google and share previews, Save: "Saved — search engines pick it up within a
-  few days. No publish needed."; it goes out with the next publish of any kind); **AI and build
+  few days. No publish needed."; saving renders the home page again at once, like a new
+  product's single-page render, using no allowance, so the wording holds; the other pages pick
+  it up with the next publish of any kind, decided 2026-10-08 on #470's review); **AI and build
   minutes** (this month's meters, AI requests, publishes in the last 30 days, recent requests);
   **Version history** (kept for the plan's days, Live, **Go back to this**, which uses no build
   minutes and makes the draft that version).
