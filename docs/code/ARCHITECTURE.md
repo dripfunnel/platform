@@ -92,7 +92,7 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 **Access**
 - **Store repos never install it** (decided 2026-10-08 on #470): every build and every AI
   change runs in the **sandbox image** for the store's core version (`apps/sandbox`), which
-  the release workflow builds and pushes after publishing, with core, the allowed libraries
+  the release workflow will build and push after publishing *(planned, #482)*, with core, the allowed libraries
   and the gate tools preinstalled. A store repo's `package.json` only pins the version, which
   picks the image. No store repo holds a token or an `.npmrc` with one.
 - Publishing only from the release workflow (`packages: write`), with artifact attestations.

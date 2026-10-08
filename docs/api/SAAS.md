@@ -622,13 +622,15 @@ is reached, studios queue and show their place. Container time is recorded per r
 
 **Versions**: every publish is a numbered version holding its commit, template, core version,
 gate report and Pages deployment. **Go back to this** redeploys that version's deployment
-(no build, no build minutes; a rebuild, uncharged, if the deployment is gone), then resets the
-draft to that version's commit (decided 2026-10-08 on #470). The history is kept for the plan's
+(no build, no build minutes; a rebuild, uncharged, if the deployment is gone, **or if a security
+release of core is newer than the version's core**, so a forced fix is never undone), then resets
+the draft to that version's commit (decided 2026-10-08 on #470). The history is kept for the plan's
 number of days; the live version always stays.
 
 **Brand and search and sharing** (`storefront_brand`, `storefront_seo`, #471) reach the theme
 through core (`useStorefront()`), never through the AI's files; they go out with the next
-publish of any kind.
+publish of any kind, except the home page's search and sharing, which re-renders the home page
+at once (a single-page render, no allowance).
 
 **Metering**: every request writes an `ai_run` row: store, requesting user, prompt, model,
 tokens in and out, cost (minor units and currency), container time, repair attempts and their
@@ -656,8 +658,10 @@ built and gated per store, and the upgrade bot must exist from day one.
   behind").
 - **Upgrade bot** (`jobs/workflows/core-upgrade.ts`): for a release, build each store's current
   published commit with the new core in the sandbox, apply the release's codemods, run the full
-  gate and a visual diff against the live site; a store that passes goes live on the new core
-  and its repo's `package.json` is committed; a store that fails gets the **migration agent**
+  gate and a visual diff against the live site; for a **patch or minor**, a store that passes
+  goes live on the new core and its repo's `package.json` is committed; for a **major**, the
+  result is recorded and the new core reaches the store only at its merchant's next publish
+  (below); a store that fails gets the **migration agent**
   (the AI with the errors and the upgrade notes, under the same walls); a store still failing
   **stays on its old version**, pinned, with an alert (CONSOLE-DESIGN L1–L3).
 - **Canaries, then waves**: a canary group first, then percentages, with pause and roll back
