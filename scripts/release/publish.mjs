@@ -65,13 +65,15 @@ const publish = () => {
   console.log(`Published ${tagFor(version)}.`)
 }
 
-// Runs on every release run, so a tag push that failed after publishing is retried next time.
+// Runs on every release run, so a tag push that failed after publishing is retried next time. It
+// tags the commit that set the version (the release card's), not whatever main is at now.
 const tag = () => {
   const version = coreVersion()
   if (!releasable(version) || publishedVersion(npmView(`${corePackage}@${version}`)) !== version) return
   const name = tagFor(version)
   if (run('git', ['ls-remote', '--tags', 'origin', `refs/tags/${name}`]).trim()) return
-  run('git', ['tag', name])
+  const releaseCommit = run('git', ['log', '-n1', '--format=%H', '-G"version"', '--', 'packages/storefront-core/package.json']).trim()
+  run('git', ['tag', name, releaseCommit])
   run('git', ['push', 'origin', name])
   console.log(`Tagged ${name}.`)
 }

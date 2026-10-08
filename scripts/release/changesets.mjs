@@ -21,11 +21,11 @@ export const coreBump = (text) => {
 
 /**
  * docs/code/ARCHITECTURE.md §5: a change to storefront-core carries a changeset naming it. A release
- * PR consumes them instead (`changeset version` deletes them), and a range holding a release moves the version.
+ * PR consumes them instead (`changeset version` deletes them); a range holding a release moves the version and the changelog.
  */
 export const changesetProblem = (changedFiles, addedChangesets, { deletedChangesets = [], versionChanged = false } = {}) => {
   if (!touchesCore(changedFiles)) return undefined
-  if (versionChanged) return undefined
+  if (versionChanged && changedFiles.includes(`${coreDir}CHANGELOG.md`)) return undefined
   if ([...addedChangesets, ...deletedChangesets].some((text) => coreBump(text))) return undefined
   return `This pull request changes ${corePackage} but adds no changeset for it. Run \`pnpm changeset\`, pick the bump (docs/code/ARCHITECTURE.md §5) and commit the file.`
 }
