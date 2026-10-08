@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: Cloudflare Containers; no package access for store repos).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -150,9 +150,10 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    SaaS serves `*.preview.<partner domain>` and `*.shops.<partner domain>` on the plan, and the
    price per hostname. Record both, with the date, in THIRD-PARTY-ACCESS §2.1. Then a Pages-scoped
    token per pool account → `CF_PAGES_POOL`.
-2. **GitHub**: the *DripFunnel Provisioning* App with THIRD-PARTY-ACCESS §2.3's permissions, and
-   whether its per-repo grant can give store repos read access to `@dripfunnel/storefront-core`
-   → `GITHUB_APP_*`.
+2. **GitHub**: the *DripFunnel Provisioning* App with THIRD-PARTY-ACCESS §2.3's permissions
+   (repos and contents only; store repos need no package access since #470) → `GITHUB_APP_*`.
+   **Cloudflare Containers** on the dev account: the limits and price THIRD-PARTY-ACCESS §2.1
+   asks to verify, recorded there with the date.
 3. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
    redirect `https://dev-hooks.dripfunnel.ai/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
    row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
