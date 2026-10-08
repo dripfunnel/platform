@@ -623,7 +623,8 @@ is reached, studios queue and show their place. Container time is recorded per r
 **Versions**: every publish is a numbered version holding its commit, template, core version,
 gate report and Pages deployment. **Go back to this** redeploys that version's deployment
 (no build, no build minutes; a rebuild, uncharged, if the deployment is gone, **or if a security
-release of core is newer than the version's core**, so a forced fix is never undone), then resets
+release of core is newer than the version's core**, so a forced fix is never undone; a version
+whose theme fails the gate on the fixed core can't be gone back to, and the merchant is told why), then resets
 the draft to that version's commit (decided 2026-10-08 on #470). The history is kept for the plan's
 number of days; the live version always stays.
 
