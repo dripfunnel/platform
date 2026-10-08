@@ -154,6 +154,7 @@ moment you save.
 | `PLATFORM_HOST` | Text | `platform.dripfunnel.com` | fixed |
 | `HOOKS_HOST` | Text | `hooks.dripfunnel.com` | fixed |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | only once the binding exists (§3.4) |
+| `CODE_CHECK` | Text | **leave unset** | `0` accepts any email or text code and exists for dev only: the Worker refuses to start with it on this host (`core/config.ts`) |
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Store it in the password manager **before** saving it. Losing it makes every encrypted 2-factor secret and partner or merchant credential unreadable for good; it carries a version for rotation (THIRD-PARTY-ACCESS.md §5) |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center (THIRD-PARTY-ACCESS.md §2.5). Redirect URI `https://admin.dripfunnel.com/api/auth/callback`. The client secret expires (24 months at most): note the date |
 | `STRIPE_SECRET_KEY` | Secret | **live** restricted key `rk_live_…` | Stripe (live mode) › Developers › API keys › *Create restricted key*, with only the permissions in THIRD-PARTY-ACCESS.md §8 |
@@ -200,10 +201,11 @@ version still running (AGENTS.md "Data").
 - [ ] Deploy token (§3.2)
 - [ ] Neon production database, roles, disposable test branch (§3.3)
 - [ ] Hyperdrive and R2, in `env.prod` (§3.4)
+- [ ] Outbox queue `dripfunnel-outbox-wake` and its producer and consumer in `env.prod` (§3.4); until then cron delivers email and texts
 - [ ] Routes, console hostnames, Access on admin (§3.5)
 - [ ] GitHub environment `prod`, with required reviewers (§3.6)
 - [ ] `main` protected (§3.7)
-- [ ] Every Worker value in §4, with the KEK in the password manager
+- [ ] Every Worker value in §4, with the KEK in the password manager; `CODE_CHECK` unset
 - [ ] SES production access granted
 - [ ] The first super admin can sign in (§7)
 - [ ] A first release promoted, with `/api/health` reporting `db: "ok"` (§5)

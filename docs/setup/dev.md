@@ -247,6 +247,8 @@ links point at production's admin console.
 - [ ] Neon `dev` and test branches, migration and app roles, three connection strings (§2.3)
 - [ ] Hyperdrive id in `env.dev` (§2.4)
 - [x] R2 bucket `dripfunnel-assets-dev` and binding (§2.4)
+- [x] Queue `dripfunnel-outbox-wake-dev`, created 2026-10-08, and *Queues: Edit* on the deploy token (§2.4, §2.2); the first deploy shows whether the token has it
+- [ ] `CODE_CHECK` = `0` on the Worker (§3)
 - [ ] GitHub environment `dev`: three secrets, three variables (§2.5)
 - [ ] First deploy (§2.6)
 - [ ] `dev-env:attach` (§2.7)
