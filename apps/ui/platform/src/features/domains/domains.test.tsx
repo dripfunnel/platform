@@ -6,6 +6,7 @@ import type { DomainsPage } from '../../api/domains'
 import { messages } from '../../messages'
 import { AddressStep, CheckStep, RecordsStep } from './AddDomain'
 import { afterRecheck, exampleFor, firstKind, hostFrom, refusalText } from './addDomainRules'
+import type { PartnerRole } from '../shell/partnerRoles'
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { Domains } from './Domains'
 import { canRemoveAddress, removeFailure } from './domainLook'
@@ -172,8 +173,8 @@ describe('the address rules', () => {
 
 describe('Remove an address', () => {
   it('is offered to Owners and Admins only, and never in a support session', () => {
-    expect(['partner-owner', 'partner-admin'].map((r) => canRemoveAddress(r, false))).toEqual([true, true])
-    expect(['partner-support', 'partner-finance', 'partner-read-only'].map((r) => canRemoveAddress(r, false))).toEqual([false, false, false])
+    expect(['partner-owner', 'partner-admin'].map((r) => canRemoveAddress(r as PartnerRole, false))).toEqual([true, true])
+    expect(['partner-support', 'partner-finance', 'partner-read-only'].map((r) => canRemoveAddress(r as PartnerRole, false))).toEqual([false, false, false])
     expect(canRemoveAddress('partner-owner', true)).toBe(false)
   })
 

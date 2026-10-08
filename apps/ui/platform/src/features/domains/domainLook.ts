@@ -1,3 +1,5 @@
+import type { PartnerRole } from '../shell/partnerRoles'
+import { mayManage } from '../settings/teamRules'
 import { ApiError } from '@dripfunnel/shared/graphql'
 import type { StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
 import type { Address, DnsRecord, DomainKind, HostStatus, RemoveResult } from '../../api/domains'
@@ -34,8 +36,7 @@ export const purposeText = (record: DnsRecord, kind: DomainKind): string => {
   return words.purposes.pointer[kind]
 }
 
-// Owners and Admins hold domains.write (ACCESS.md §5.3); the API refuses everyone else too.
-export const canRemoveAddress = (role: string, supportSessionOpen: boolean): boolean => (role === 'partner-owner' || role === 'partner-admin') && !supportSessionOpen
+export const canRemoveAddress = (role: PartnerRole, supportSessionOpen: boolean): boolean => mayManage(role) && !supportSessionOpen
 
 // What the dialog says when a removal did not happen: a refusal the API answered, or a thrown failure.
 export const removeFailure = (outcome: RemoveResult | Error, host: string): string | null => {
