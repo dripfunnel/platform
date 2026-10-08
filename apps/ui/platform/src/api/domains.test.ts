@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { addPartnerDomain, loadDomains, loadMerchantDomains, recheckPartnerDomain } from './domains'
+import { addPartnerDomain, loadDomains, loadMerchantDomains, recheckPartnerDomain, removePartnerDomain } from './domains'
 
 // The rules are the Platform API's (apps/api tests/platform-domains); these check the client reads its answers.
 const answer = vi.fn<(body: { query: string; variables?: Record<string, unknown> }) => unknown>()
@@ -22,6 +22,7 @@ describe('loadDomains', () => {
             { kind: 'portal', added: false, host: null, zone: null, status: null, since: null, checkedAt: null, records: null },
           ],
           fallbackSender: 'no-reply@northstar.dripfunnel-mail.com',
+          fallbackAddress: 'no-reply@northstar.dripfunnel-mail.com',
           add: { allowed: true },
         },
         merchantDomains: { items: [{ storeId: 's1', storeName: 'Harbor', host: 'shop.harbor.com', status: 'live', since: '2026-09-01T00:00:00.000Z' }], pageInfo },
@@ -60,5 +61,14 @@ describe('adding and re-checking', () => {
     expect(await recheckPartnerDomain('email')).toEqual({ ok: true })
     answer.mockReturnValueOnce({ data: { recheckPartnerDomain: { ok: false, reason: 'TOO_SOON' } } })
     expect(await recheckPartnerDomain('email')).toEqual({ ok: false, reason: 'TOO_SOON' })
+  })
+})
+
+describe('removePartnerDomain', () => {
+  it('reads a removal, and one that found nothing', async () => {
+    answer.mockReturnValueOnce({ data: { removePartnerDomain: { ok: true, reason: null } } })
+    expect(await removePartnerDomain('shops')).toEqual({ ok: true })
+    answer.mockReturnValueOnce({ data: { removePartnerDomain: { ok: false, reason: 'NOT_FOUND' } } })
+    expect(await removePartnerDomain('shops')).toEqual({ ok: false, reason: 'NOT_FOUND' })
   })
 })

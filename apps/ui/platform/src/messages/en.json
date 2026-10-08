@@ -1783,6 +1783,22 @@
     "recheckAsked": "We’re checking {host} again. This page shows the answer once it’s in.",
     "tooSoon": "{host} was checked less than a minute ago. Try again in a moment.",
     "recheckFailed": "That didn’t start a check. Try again.",
+    "remove": {
+      "button": "Remove address",
+      "title": "Remove {host}?",
+      "body": {
+        "portal": "Merchants can no longer sign in at {host}. Their stores keep working.",
+        "preview": "Store previews stop working at this address.",
+        "shops": "Shops stop answering at this address until you add another.",
+        "email": "Emails go from {sender} until you add another sender."
+      },
+      "confirm": "Remove address",
+      "cancel": "Cancel",
+      "done": "{host} removed",
+      "refused": "You can’t remove addresses with your role.",
+      "gone": "{host} is already removed.",
+      "failed": "We couldn’t remove it. Try again."
+    },
     "fallback": "Until it’s live, emails come from {sender} with your product name.",
     "records": {
       "label": "DNS records for {host}",

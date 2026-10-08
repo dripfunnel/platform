@@ -60,7 +60,7 @@ const merchants: MerchantDomain[] = [
 const pageInfo = { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false }
 
 const page = (addresses: Address[], extra: Partial<DomainsPage['partner']> = {}, merchantItems = merchants): DomainsPage => ({
-  partner: { addresses, fallbackSender: 'no-reply@northstar.dripfunnel-mail.com', canAdd: addresses.some((a) => !a.added), ...extra },
+  partner: { addresses, fallbackSender: 'no-reply@northstar.dripfunnel-mail.com', fallbackAddress: 'no-reply@northstar.dripfunnel-mail.com', canAdd: addresses.some((a) => !a.added), ...extra },
   merchants: { items: merchantItems, pageInfo },
 })
 

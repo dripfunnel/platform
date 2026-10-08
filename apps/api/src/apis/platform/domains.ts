@@ -42,6 +42,7 @@ const OverviewType = builder.objectRef<Overview>('PartnerDomains').implement({
   fields: (t) => ({
     addresses: t.field({ type: [AddressType], resolve: (o) => o.addresses }),
     fallbackSender: t.exposeString('fallbackSender', { nullable: true }),
+    fallbackAddress: t.exposeString('fallbackAddress', { nullable: true }),
     add: t.field({ type: AddPermission, resolve: (o) => o.add }),
   }),
 })

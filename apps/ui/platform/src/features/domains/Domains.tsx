@@ -44,10 +44,12 @@ export interface AddressCardProps {
   now: number
   checking: boolean
   onRecheck: () => void
+  // Given only to roles that may remove it (§9.1).
+  onRemove?: (() => void) | undefined
   onCopy: (text: string) => void
 }
 
-export const AddressCard = ({ address, fallbackSender, now, checking, onRecheck, onCopy }: AddressCardProps) => {
+export const AddressCard = ({ address, fallbackSender, now, checking, onRecheck, onRemove, onCopy }: AddressCardProps) => {
   const kind = words.kinds[address.kind]
   return (
     <section className="df-panel df-address" aria-labelledby={`address-${address.kind}`}>
@@ -65,6 +67,11 @@ export const AddressCard = ({ address, fallbackSender, now, checking, onRecheck,
             {checking ? words.checking : words.recheck}
           </button>
           <span className="df-muted">{whenText(address, now)}</span>
+          {onRemove && (
+            <button type="button" className="df-button df-button--danger" onClick={onRemove}>
+              {words.remove.button}
+            </button>
+          )}
         </div>
       </div>
       {address.kind === 'email' && fallbackSender && <p className="df-address-fallback">{fill(words.fallback, { sender: fallbackSender })}</p>}
@@ -112,12 +119,14 @@ export interface DomainsProps {
   checking: DomainKind | null
   merchants: { items: readonly MerchantDomain[]; more: boolean; busy: boolean }
   onRecheck: (address: Extract<Address, { added: true }>) => void
+  canRemove: boolean
+  onRemove: (address: Extract<Address, { added: true }>) => void
   onMore: () => void
   onCopy: (text: string) => void
   onRetry: () => void
 }
 
-export const Domains = ({ page, forced, now, checking, merchants, onRecheck, onMore, onCopy, onRetry }: DomainsProps) => {
+export const Domains = ({ page, forced, now, checking, merchants, onRecheck, canRemove, onRemove, onMore, onCopy, onRetry }: DomainsProps) => {
   if (forced === 'loading') return <DomainsLoading />
   if (forced === 'error') return <DomainsError onRetry={onRetry} />
   const added = forced === 'empty' ? [] : page.partner.addresses.filter((a): a is Extract<Address, { added: true }> => a.added)
@@ -135,7 +144,7 @@ export const Domains = ({ page, forced, now, checking, merchants, onRecheck, onM
     <div className="df-page df-list df-domains">
       <Header action={<AddButton canAdd={canAdd} allAdded={allAdded} />} />
       {added.map((address) => (
-        <AddressCard key={address.kind} address={address} fallbackSender={page.partner.fallbackSender} now={now} checking={checking === address.kind} onRecheck={() => onRecheck(address)} onCopy={onCopy} />
+        <AddressCard key={address.kind} address={address} fallbackSender={page.partner.fallbackSender} now={now} checking={checking === address.kind} onRecheck={() => onRecheck(address)} onRemove={canRemove ? () => onRemove(address) : undefined} onCopy={onCopy} />
       ))}
       <MerchantList items={merchants.items} more={merchants.more} busy={merchants.busy} onMore={onMore} />
     </div>

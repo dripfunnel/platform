@@ -6,7 +6,9 @@ import type { DomainsPage } from '../../api/domains'
 import { messages } from '../../messages'
 import { AddressStep, CheckStep, RecordsStep } from './AddDomain'
 import { afterRecheck, exampleFor, firstKind, hostFrom, refusalText } from './addDomainRules'
+import { ApiError } from '@dripfunnel/shared/graphql'
 import { Domains } from './Domains'
+import { canRemoveAddress, removeFailure } from './domainLook'
 import { addresses, domainsPages, testNow } from './domainsTestData'
 
 const words = messages.domains
@@ -21,7 +23,7 @@ const render = async (element: ReactNode) => {
 }
 
 const domains = (page: DomainsPage, forced: Parameters<typeof Domains>[0]['forced'] = null) =>
-  render(<Domains page={page} forced={forced} now={testNow} checking={null} merchants={{ items: page.merchants.items, more: false, busy: false }} onRecheck={noop} onMore={noop} onCopy={noop} onRetry={noop} />)
+  render(<Domains page={page} forced={forced} now={testNow} checking={null} merchants={{ items: page.merchants.items, more: false, busy: false }} onRecheck={noop} canRemove={false} onRemove={noop} onMore={noop} onCopy={noop} onRetry={noop} />)
 
 describe('the four addresses', () => {
   it('draw a card each with its status, when it was checked, Re-check now and the record table', async () => {
@@ -165,5 +167,35 @@ describe('the address rules', () => {
     expect(firstKind(list, 'email')).toBe('email')
     expect(firstKind(list, 'portal')).toBe('shops')
     expect(firstKind(list, undefined)).toBe('shops')
+  })
+})
+
+describe('Remove an address', () => {
+  it('is offered to Owners and Admins only, and never in a support session', () => {
+    expect(['partner-owner', 'partner-admin'].map((r) => canRemoveAddress(r, false))).toEqual([true, true])
+    expect(['partner-support', 'partner-finance', 'partner-read-only'].map((r) => canRemoveAddress(r, false))).toEqual([false, false, false])
+    expect(canRemoveAddress('partner-owner', true)).toBe(false)
+  })
+
+  it('draws a Remove button on each card only when allowed', async () => {
+    const shown = async (canRemove: boolean) =>
+      textOf(
+        await render(<Domains page={domainsPages.mixed} forced={null} now={testNow} checking={null} merchants={{ items: [], more: false, busy: false }} onRecheck={noop} canRemove={canRemove} onRemove={noop} onMore={noop} onCopy={noop} onRetry={noop} />),
+      )
+    expect((await shown(true)).match(new RegExp(words.remove.button, 'g'))).toHaveLength(4)
+    expect(await shown(false)).not.toContain(words.remove.button)
+  })
+
+  it('states the consequence for each kind', () => {
+    for (const kind of ['portal', 'preview', 'shops', 'email'] as const) expect(words.remove.body[kind]).toBeTruthy()
+    expect(words.remove.title).toBe('Remove {host}?')
+  })
+
+  it('says why a removal did not happen: refused, already gone, or failed', () => {
+    expect(removeFailure({ ok: true }, 'a.com')).toBeNull()
+    expect(removeFailure(new ApiError('FORBIDDEN', 'no'), 'a.com')).toBe(words.remove.refused)
+    expect(removeFailure({ ok: false, reason: 'NOT_FOUND' }, 'a.com')).toBe('a.com is already removed.')
+    expect(removeFailure({ ok: false, reason: 'INVALID_INPUT' }, 'a.com')).toBe(words.remove.failed)
+    expect(removeFailure(new Error('network'), 'a.com')).toBe(words.remove.failed)
   })
 })

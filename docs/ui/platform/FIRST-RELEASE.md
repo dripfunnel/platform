@@ -447,7 +447,7 @@ build their shops."), **Preview address, all stores** (`*.preview.…`), **Shop 
 stores** (`*.shops.…`), **Email sender** (`mail.…`, "Emails to your merchants and their
 suppliers come from here.") — with status (Waiting for DNS · Verifying · Issuing certificate ·
 Live · Failed), "Waiting since {date}" or "Checked 12 min ago", **Re-check now** (every role),
-and a record table: Type, Name, Value to add (with Copy and a plain-words line — "DKIM: signs
+**Remove address** (Owner, Admin; never in a support session), and a record table: Type, Name, Value to add (with Copy and a plain-words line — "DKIM: signs
 every email so inboxes trust it."), What we see ("Nothing found yet", or the found value with
 "Doesn't match yet"). The email card adds "Until it's live, emails come from
 no-reply@{partner}.dripfunnel-mail.com with your product name." (SAAS §3.6).
@@ -471,6 +471,8 @@ Three steps:
    We check every 10 minutes and email you when it's live. Nothing else waits on this." →
    Check again · Go to Domains · Add the next address. When found: "We found the record and
    issued the certificate. Merchants can sign in here now."
+
+**Removing** an address opens a confirmation naming what stops for that kind (portal: merchants can no longer sign in, stores keep working; preview; shops; email: emails go from the fallback sender). On success the card returns to "Add an address" and the add flow offers that kind again. A refused role (`FORBIDDEN`), an address already gone (`NOT_FOUND`) and a failure show in the dialog.
 
 Changing a live portal host keeps the old one redirecting for a period still *(ask)* (SAAS
 §3.5).
