@@ -270,7 +270,12 @@ through their class names, and the banners are not yet in the top layer.
   hosts; images from the store's media, the payment providers and those analytics hosts (Meta
   Pixel sends by image request); fonts from the store's build; `form-action` only the store and
   the payment providers; `frame-src` only the payment providers. **Trusted Types** required,
-  with one core policy, `df-core`, that creates script URLs only for those analytics hosts.
+  with the policies `df-core` (core's own script URLs for those analytics hosts), `default`
+  (core's narrow fallback, accepting a script URL only on those hosts, for providers that set a
+  plain string such as `fbevents.js`) and `goog#html` (gtag.js and GTM's own); nothing else. A
+  GTM container's tags run only from the hosts `script-src` lists, so a merchant's extra tags
+  need their host added to the store's analytics settings. The header and the `default` policy
+  are built on #481.
 - **Error boundaries**: core wraps every section; a section that throws falls back to the
   baseline section and is reported. Checkout falls back to the baseline checkout.
 
