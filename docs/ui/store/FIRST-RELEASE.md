@@ -528,6 +528,10 @@ They aren't drawn until then.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
+*In the merchant mobile app, plans and extra bandwidth are bought through in-app purchase
+instead of the card below ([mobile-app/merchant/FIRST-RELEASE.md](../../mobile-app/merchant/FIRST-RELEASE.md)
+§2–§3, decided on #490). This section is the web portal's.*
+
 The partner's plans with monthly or yearly prices and what each includes (from the Platform
 API's plan catalogue, never hard-coded), switch now with **proration** or at period end, the
 dates from the billing period; this month's usage (bandwidth, products, staff, AI tokens), where a

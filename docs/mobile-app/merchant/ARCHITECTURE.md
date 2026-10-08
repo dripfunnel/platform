@@ -101,5 +101,14 @@ apps/ui/mobile-app/merchant/
 - **Errors by code** (`UNAUTHENTICATED`, `FORBIDDEN`, `PLAN_LIMIT_REACHED`, `NOT_CONNECTED`…),
   each mapped to a state from DESIGN.md §4.
 - **Offline**: the prototype keeps changes on the device and saves them when the phone is back
-  online (DESIGN.md §4). How that queue works, and which writes may wait in it, is decided
-  before it's built. Writes must be safe to retry (AGENTS.md "Reliability").
+  online (DESIGN.md §4). Which writes may wait in the queue is decided before it's built. These
+  rules hold for any design:
+  - **Each queued write belongs to one session, store and supplier.** It is wiped, never
+    replayed, on sign-out, on session expiry, and on a store or supplier switch. A write is
+    never sent under a different session or acting store from the one it was made in.
+  - **The server re-authorises every replayed write.** It is an ordinary API call with the
+    current session and headers, checked again, so a permission removed in the meantime
+    refuses it. The app shows the refusal; it doesn't retry it.
+  - **Writes are safe to retry**, with an idempotency key (AGENTS.md "Reliability").
+  - **The queue is covered by isolation tests when it's built**: wiped on sign-out, expiry and
+    switch; never replayed across stores or suppliers; refused after a permission is removed.

@@ -16,7 +16,7 @@ Last updated: 2026-10-08.
 |---|---|---|
 | **The same scope as the web portal's first release** ([store/FIRST-RELEASE.md](../../ui/store/FIRST-RELEASE.md) §1), with the same roles, permissions and supplier views (decided 2026-10-08) | A smaller mobile-only set (orders, stock, notifications) | One product on one Store API: a merchant can do on the phone what they do on the web, and every rule (permissions, plan limits, supplier isolation) is already enforced by the server. |
 | **Behaviour comes from the Store prototype's Phone frame** (`designs/DF Store Prototype.dc.html`, `device=phone`) and the phone rules in `designs/design.md` §4 and §7 (decided 2026-10-08) | A separate mobile design | The prototype already draws every screen at phone width, and the web portal is built phone first at 360 px (store/FIRST-RELEASE.md §2). |
-| **Plan changes and extra bandwidth are bought through in-app purchase**: the App Store on iOS, Google Play Billing on Android (decided 2026-10-08) | No purchasing in the app (Apple 3.1.3(f)); Billing left out of the app | The Owner can manage the plan on the phone as on the web, so Billing keeps its place in the release. The store rules leave only in-app purchase for that (§3). |
+| **Plan changes and extra bandwidth are bought through in-app purchase**: the App Store on iOS, Google Play Billing on Android (decided 2026-10-08). What is decided is *how* the app sells plans. The purchase flow is built only once §4's questions are answered; until then the app ships without it. | No purchasing in the app (Apple 3.1.3(f)); Billing left out of the app | The Owner can manage the plan on the phone as on the web, so Billing keeps its place in the release. The store rules leave only in-app purchase for that (§3). |
 
 ---
 

@@ -18,7 +18,7 @@ Last updated: 2026-10-08.
 | **Colour, type, spacing, radius** | `designs/DripFunnel Style Guide.dc.html` and `designs/design.md` §5–§7, with the mobile sizes in §4 below |
 
 The screens in `designs/mobile-app/merchant/` other than `DF Store App` are copies of an older
-snapshot of the Store prototype (its `design.md` is dated 2026-09-29). The main Store prototype
+snapshot of the Store prototype (from about 2026-09-29). The main Store prototype
 is newer, and it's the one [store/FIRST-RELEASE.md](../../ui/store/FIRST-RELEASE.md) was planned
 against. Six of its screens aren't in the mobile folder at all: `PortalProfile`, `SetAccess`,
 `SetDev`, `StoreActivity`, `StorefrontContent` and `VendorViews`. So screen content comes from

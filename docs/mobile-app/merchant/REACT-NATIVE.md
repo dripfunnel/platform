@@ -128,9 +128,11 @@ A native app sends no `Origin` and keeps cookies outside the phone's secure stor
 gets the **same session as a bearer token**:
 
 - Sign-in, 2-factor, invitations and reset use the existing Store API routes on
-  `https://<portal host>/api/`. For the app, the session comes back in the response body
-  instead of as a cookie. The card that builds this settles how sign-in tells the app from the
-  browser.
+  `https://<portal host>/api/`. The session comes back in the response body only to a request
+  with **no `Origin` header and no session cookie**, which is what the app sends. Browsers
+  always send `Origin` on a POST, so no web page can get a token, and no flag or header lets a
+  client ask for one. These routes keep the sign-in rate limits, and the activity log records
+  the channel (`app` or `web`). The rule lives in ACCESS.md §4.
 - It is the same `user_session` row, so everything else in ACCESS.md §4 holds unchanged: the
   idle and absolute bounds, "Remember me", 2-factor, the store chooser, `X-Store` and
   `X-Supplier`, sign-out, "where you're signed in", a password change ending other sessions,

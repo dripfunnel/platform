@@ -310,6 +310,14 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   app sends it as `Authorization: Bearer <token>`.
   - It is the same `user_session` row, with everything above unchanged: the bounds, "Remember
     me", 2-factor, `X-Store` and `X-Supplier`, sign-out, and the host's partner only.
+  - **Who receives a body token:** only a sign-in request with **no `Origin` header and no
+    session cookie**. A browser always sends `Origin` on a POST, same-site or cross-site, so
+    every web page, including script injected into the portal, gets the cookie path and never a
+    readable token (PLATFORM-PROMPT §2 item 16). The client never chooses: there is no flag or
+    header that asks for a token. The same applies to every route that opens a session
+    (2-factor, invitation, reset).
+  - Those routes keep the sign-in rate limits and lockout above. Each activity entry records
+    the channel, `app` or `web` (LOGGING.md).
   - **A bearer token is accepted only on a request with no session cookie.** A request
     carrying both is refused, so a browser can never swap its cookie path for the unchecked
     one.
