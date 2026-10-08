@@ -20,16 +20,19 @@ export const coreBump = (text) => {
 }
 
 /**
- * docs/code/ARCHITECTURE.md §5: a change to storefront-core adds a changeset naming it. Exempt: a release
- * PR (version, changelog, and the core changesets it consumed) and a promotion to main that carries one.
+ * docs/code/ARCHITECTURE.md §5: a change to storefront-core adds a changeset naming it. Exempt: a release PR
+ * (new version, its changelog heading, the core changesets it consumed) and a promotion to main carrying one.
  */
-export const changesetProblem = (changedFiles, addedChangesets, { deletedChangesets = [], versionChanged = false, intoMain = false } = {}) => {
+export const changesetProblem = (changedFiles, addedChangesets, { deletedChangesets = [], versionChanged = false, changelogHeading = false, intoMain = false } = {}) => {
   if (!touchesCore(changedFiles)) return undefined
   if (addedChangesets.some((text) => coreBump(text))) return undefined
-  const released = versionChanged && changedFiles.includes(`${coreDir}CHANGELOG.md`)
+  const released = versionChanged && changelogHeading
   if (released && (intoMain || deletedChangesets.some((text) => coreBump(text)))) return undefined
   return `This pull request changes ${corePackage} but adds no changeset for it. Run \`pnpm changeset\`, pick the bump (docs/code/ARCHITECTURE.md §5) and commit the file.`
 }
+
+/** Whether a changelog diff adds the `## <version>` heading `changeset version` writes. */
+export const addsChangelogHeading = (diff, version) => diff.split('\n').some((line) => line.trim() === `+## ${version}`)
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
 
@@ -37,8 +40,8 @@ const checkPullRequest = () => {
   const { BASE_SHA: base, HEAD_SHA: head } = process.env
   if (!base || !head) throw new Error('BASE_SHA and HEAD_SHA are required')
   const lines = (s) => s.split('\n').filter(Boolean)
-  const changed = lines(git('diff', '--name-only', `${base}...${head}`))
-  const changesets = (filter) => lines(git('diff', '--name-only', `--diff-filter=${filter}`, `${base}...${head}`, '--', '.changeset/*.md'))
+  const changed = lines(git('diff', '--name-only', '--no-renames', `${base}...${head}`))
+  const changesets = (filter) => lines(git('diff', '--name-only', '--no-renames', `--diff-filter=${filter}`, `${base}...${head}`, '--', '.changeset/*.md'))
   const mergeBase = git('merge-base', base, head)
   const version = (rev) => JSON.parse(git('show', `${rev}:${coreDir}package.json`)).version
   const problem = changesetProblem(
@@ -47,6 +50,7 @@ const checkPullRequest = () => {
     {
       deletedChangesets: changesets('D').map((f) => git('show', `${mergeBase}:${f}`)),
       versionChanged: version(mergeBase) !== version(head),
+      changelogHeading: addsChangelogHeading(git('diff', `${base}...${head}`, '--', `${coreDir}CHANGELOG.md`), version(head)),
       intoMain: process.env.BASE_REF === 'main',
     },
   )

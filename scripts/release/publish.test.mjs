@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { publishedVersion, releasable, tagFor } from './publish.mjs'
+import { publishedVersion, releasable, releaseCommit, tagFor } from './publish.mjs'
 
 describe('tagFor', () => {
   it('names the tag the way changesets does', () => {
@@ -26,5 +26,17 @@ describe('releasable', () => {
   it('never releases 0.0.0, the version before any release card', () => {
     assert.equal(releasable('0.0.0'), false)
     assert.equal(releasable('0.1.0'), true)
+  })
+})
+
+describe('releaseCommit', () => {
+  it('finds the commit that changed the version, not a later edit near the version line', () => {
+    const history = [
+      { sha: 'later', version: '1.1.0', parentVersion: '1.1.0' },
+      { sha: 'release', version: '1.1.0', parentVersion: '1.0.0' },
+      { sha: 'older', version: '1.0.0', parentVersion: '0.0.0' },
+    ]
+    assert.equal(releaseCommit(history, '1.1.0'), 'release')
+    assert.equal(releaseCommit(history, '2.0.0'), undefined)
   })
 })

@@ -9,6 +9,9 @@ import { corePackage } from './changesets.mjs'
 
 export const tagFor = (version) => `${corePackage}@${version}`
 
+/** The newest commit whose own change set core's version to `version`; `history` is newest first. */
+export const releaseCommit = (history, version) => history.find((c) => c.version === version && c.parentVersion !== version)?.sha
+
 /** 0.0.0 is the version before any release card; it is never published. */
 export const releasable = (version) => version !== '0.0.0'
 
@@ -72,8 +75,17 @@ const tag = () => {
   if (!releasable(version) || publishedVersion(npmView(`${corePackage}@${version}`)) !== version) return
   const name = tagFor(version)
   if (run('git', ['ls-remote', '--tags', 'origin', `refs/tags/${name}`]).trim()) return
-  const releaseCommit = run('git', ['log', '-n1', '--format=%H', '-G"version"', '--', 'packages/storefront-core/package.json']).trim()
-  run('git', ['tag', name, releaseCommit])
+  const versionAt = (rev) => {
+    try {
+      return JSON.parse(run('git', ['show', `${rev}:packages/storefront-core/package.json`])).version
+    } catch {
+      return null
+    }
+  }
+  const shas = run('git', ['log', '--format=%H', '--', 'packages/storefront-core/package.json']).split('\n').filter(Boolean)
+  const sha = releaseCommit(shas.map((s) => ({ sha: s, version: versionAt(s), parentVersion: versionAt(`${s}^`) })), version)
+  if (!sha) throw new Error(`No commit sets ${corePackage} to ${version}`)
+  run('git', ['tag', name, sha])
   run('git', ['push', 'origin', name])
   console.log(`Tagged ${name}.`)
 }
