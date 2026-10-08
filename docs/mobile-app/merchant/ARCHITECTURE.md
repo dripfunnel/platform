@@ -16,10 +16,8 @@ Last updated: 2026-10-08.
 1. **Don't change the API without permission.** The app works against the Store API as it is:
    `apps/api` (schema, resolvers, routes, migrations) is never changed for the app without the
    user's explicit permission. When a screen needs something the API doesn't offer, stop and
-   ask, with the smallest option first (AGENTS.md "Working with the user" rule 6). Two API
-   changes are already agreed, and each is still built on its own card:
-   - bearer-token sessions (REACT-NATIVE.md §5);
-   - in-app purchase notifications (FIRST-RELEASE.md §3).
+   ask, with the smallest option first (AGENTS.md "Working with the user" rule 6). Every API
+   change the app needs is listed in §6, and nothing else changes.
 2. **The API decides, the app displays** (ui/README.md §3). Prices, totals, tax, stock,
    permissions and plan limits come from the Store API. Hiding a control is a courtesy, never
    access control.
@@ -109,6 +107,23 @@ apps/ui/mobile-app/merchant/
   - **The server re-authorises every replayed write.** It is an ordinary API call with the
     current session and headers, checked again, so a permission removed in the meantime
     refuses it. The app shows the refusal; it doesn't retry it.
-  - **Writes are safe to retry**, with an idempotency key (AGENTS.md "Reliability").
+  - **Only writes the Store API already makes safe to retry may wait in the queue** (AGENTS.md
+    "Reliability"). Any other write needs the phone online. The queue never needs an API change.
   - **The queue is covered by isolation tests when it's built**: wiped on sign-out, expiry and
     switch; never replayed across stores or suppliers; refused after a permission is removed.
+
+---
+
+## 6. API changes the app needs
+
+The app uses the **Store API as it is** for every screen, plus the public brand query it
+already has. These are the only API changes, each built on its own card with permission
+(§1 rule 1). Nothing changes for the merchant portal, the partner console or the admin console.
+
+| Change | What it touches | New endpoints, tables or migrations | When |
+|---|---|---|---|
+| **Bearer-token session** (ACCESS.md §4) | The routes that open a session (sign-in, 2-factor, invitation, reset) return the session in the body to a request with no `Origin` and no cookie. The session reader accepts `Authorization: Bearer` when no cookie is sent. | None: the same `user_session` row | Before any screen that calls the API |
+| **App icon and splash uploads** (BUILDS-AND-STORE-ACCOUNTS.md §5) | An upload on the partner console's branding screen (Platform API), stored with `partner_branding` | A new field on `partner_branding`; likely a migration | Before a partner's first build |
+| **In-app purchase** (FIRST-RELEASE.md §3) | Apple's and Google's purchase notifications update the store's subscription | Two webhook endpoints; a billing source on the subscription (migration) | Only after FIRST-RELEASE.md §4 is answered; the app ships without purchases until then |
+
+Anything a screen needs beyond these is a question first, never code.

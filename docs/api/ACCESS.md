@@ -316,12 +316,16 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
     readable token (PLATFORM-PROMPT §2 item 16). The client never chooses: there is no flag or
     header that asks for a token. The same applies to every route that opens a session
     (2-factor, invitation, reset).
-  - Those routes keep the sign-in rate limits and lockout above. Each activity entry records
-    the channel, `app` or `web` (LOGGING.md).
+  - Those routes keep the sign-in rate limits and lockout above, and log the sign-in as they
+    do today.
   - **A bearer token is accepted only on a request with no session cookie.** A request
     carrying both is refused, so a browser can never swap its cookie path for the unchecked
     one.
-  - Not built yet; it ships on its own card.
+  - **This applies only to the merchant mobile app.** Nothing changes for the merchant portal,
+    the partner console or the admin console: every browser request keeps the cookie and the
+    `Origin` check. No new endpoint or table. The change is in the session-opening routes'
+    response and in how the API reads a session. Not built yet; it ships on its own card
+    ([mobile-app/merchant/ARCHITECTURE.md](../mobile-app/merchant/ARCHITECTURE.md) §6).
 - **Staff re-authentication** (CONSOLE-DESIGN A2): `/api/auth/reauth` sends the staff member
   back to the provider with `prompt=login`, so its own session cannot answer for them, and
   stamps `staff_session.reauth_at` on the session they already hold — a second staff member

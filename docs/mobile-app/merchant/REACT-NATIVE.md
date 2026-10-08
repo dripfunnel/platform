@@ -131,8 +131,7 @@ gets the **same session as a bearer token**:
   `https://<portal host>/api/`. The session comes back in the response body only to a request
   with **no `Origin` header and no session cookie**, which is what the app sends. Browsers
   always send `Origin` on a POST, so no web page can get a token, and no flag or header lets a
-  client ask for one. These routes keep the sign-in rate limits, and the activity log records
-  the channel (`app` or `web`). The rule lives in ACCESS.md §4.
+  client ask for one. These routes keep the sign-in rate limits. The rule lives in ACCESS.md §4.
 - It is the same `user_session` row, so everything else in ACCESS.md §4 holds unchanged: the
   idle and absolute bounds, "Remember me", 2-factor, the store chooser, `X-Store` and
   `X-Supplier`, sign-out, "where you're signed in", a password change ending other sessions,
