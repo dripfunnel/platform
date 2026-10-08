@@ -2,16 +2,6 @@
 // falling back to English for a key a catalogue lacks (storefront ARCHITECTURE §2.1, §8).
 
 export const en = {
-  'cart.label': '{count, plural, =0 {Cart} other {Cart (#)}}',
-  'nav.menu': 'Menu',
-  'nav.main': 'Main menu',
-  'nav.search': 'Search',
-  'products.viewAll': 'View all',
-  'newsletter.email': 'Email address',
-  'newsletter.emailLabel': 'Your email address',
-  'contact.email': 'Email',
-  'contact.phone': 'Phone',
-  'contact.visit': 'Visit',
   'price.inclTax': 'incl. tax',
   'price.plusTax': '+ tax',
   'price.was': 'Was {price}',

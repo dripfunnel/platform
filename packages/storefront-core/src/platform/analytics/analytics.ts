@@ -12,14 +12,16 @@ export type CommerceEvent =
   | { name: 'purchase'; orderId: string; value: ShopMoney }
 
 type ConsentKind = 'analytics' | 'marketing'
+type Consent = Record<ConsentKind, boolean>
+const nothingAllowed: Consent = { analytics: false, marketing: false }
 
 export type AnalyticsProvider = {
   /** Every kind the shopper must allow before it loads; a GTM container may hold any tag, so it needs both. */
   needs: readonly ConsentKind[]
-  load: () => void
+  load: (consent: Consent) => void
   send: (event: CommerceEvent) => void
-  /** Tells a loaded provider's own script to stop (or start again) collecting, not just core's events. */
-  setConsent: (granted: boolean) => void
+  /** Tells a loaded provider's own script what the shopper now allows, not just core's events. */
+  setConsent: (consent: Consent) => void
 }
 
 /** Events sent before consent are dropped, not held: nothing about a visit leaves until the shopper agrees. */
@@ -34,7 +36,7 @@ export const createAnalytics = (providers: readonly AnalyticsProvider[], consent
       for (const p of providers) {
         if (!allowed(p)) continue
         if (!loaded.has(p)) {
-          p.load()
+          p.load(consent() ?? nothingAllowed)
           loaded.add(p)
         }
         p.send(event)
@@ -42,13 +44,14 @@ export const createAnalytics = (providers: readonly AnalyticsProvider[], consent
     },
     /** Call whenever the shopper's choice changes (ConsentBanner's onChange). */
     consentChanged() {
-      for (const p of loaded) p.setConsent(allowed(p))
+      const c = consent() ?? nothingAllowed
+      for (const p of loaded) p.setConsent(c)
     },
   }
 }
 
 type Fbq = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue: unknown[]; push: Fbq; loaded: boolean; version: string }
-type Layer = { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void; fbq?: Fbq; _fbq?: Fbq }
+type Layer = { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void; fbq?: Fbq; _fbq?: Fbq; dfConsentDefault?: boolean }
 const win = () => globalThis as unknown as Layer & { document?: Document }
 
 const analyticsHosts = ['www.googletagmanager.com', 'connect.facebook.net']
@@ -91,32 +94,40 @@ const gtag = () => {
   return w.gtag
 }
 
-// Google Consent Mode: nothing is granted until the shopper agrees, and a withdrawal reaches gtag.js.
-const googleConsent = (granted: boolean) => {
-  const state = granted ? 'granted' : 'denied'
-  return { analytics_storage: state, ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' }
+// Google Consent Mode: analytics storage follows the analytics choice and the ad signals the
+// marketing one; the denied default is sent once, before either Google script, whichever loads first.
+const googleConsent = (c: Consent) => {
+  const ads = c.marketing ? 'granted' : 'denied'
+  return { analytics_storage: c.analytics ? 'granted' : 'denied', ad_storage: ads, ad_user_data: ads, ad_personalization: ads }
+}
+
+const startGoogleConsent = (c: Consent) => {
+  const g = gtag()
+  const w = win()
+  if (!w.dfConsentDefault) {
+    g('consent', 'default', googleConsent(nothingAllowed))
+    w.dfConsentDefault = true
+  }
+  g('consent', 'update', googleConsent(c))
+  return g
 }
 
 export const ga4 = (measurementId: string): AnalyticsProvider => ({
   needs: ['analytics'],
-  load: () => {
-    const g = gtag()
-    g('consent', 'default', googleConsent(false))
-    g('consent', 'update', googleConsent(true))
+  load: (consent) => {
+    const g = startGoogleConsent(consent)
     g('js', new Date())
     g('config', measurementId)
     addScript(`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`)
   },
   send: (e) => gtag()('event', e.name, ga4Params(e)),
-  setConsent: (granted) => gtag()('consent', 'update', googleConsent(granted)),
+  setConsent: (consent) => gtag()('consent', 'update', googleConsent(consent)),
 })
 
 export const googleTagManager = (containerId: string): AnalyticsProvider => ({
   needs: ['analytics', 'marketing'],
-  load: () => {
-    const g = gtag()
-    g('consent', 'default', googleConsent(false))
-    g('consent', 'update', googleConsent(true))
+  load: (consent) => {
+    startGoogleConsent(consent)
     const w = win()
     w.dataLayer = w.dataLayer ?? []
     w.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' })
@@ -127,7 +138,7 @@ export const googleTagManager = (containerId: string): AnalyticsProvider => ({
     layer?.push({ ecommerce: null })
     layer?.push({ event: e.name, ecommerce: ga4Params(e) })
   },
-  setConsent: (granted) => gtag()('consent', 'update', googleConsent(granted)),
+  setConsent: (consent) => gtag()('consent', 'update', googleConsent(consent)),
 })
 
 const pixelName: Record<CommerceEvent['name'], string> = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'Purchase' }
@@ -162,5 +173,5 @@ export const metaPixel = (pixelId: string): AnalyticsProvider => ({
       currency: e.value.currency,
       ...(e.name === 'view_item' || e.name === 'add_to_cart' ? { content_ids: [e.itemId], content_type: 'product' } : {}),
     }),
-  setConsent: (granted) => fbq()('consent', granted ? 'grant' : 'revoke'),
+  setConsent: (consent) => fbq()('consent', consent.marketing ? 'grant' : 'revoke'),
 })
