@@ -74,11 +74,12 @@ Run the gates before reporting a change as done.
 - **`packages/storefront-core`** is the only published package. It imports nothing from
   the rest of the repo.
 - **`templates/storefront/`** is copied into each new store repo when its merchant picks a
-  template; `themes/` holds the starting themes. Commerce logic belongs in `storefront-core`,
-  never in the template or a theme.
-- **`apps/sandbox`** is the container image that runs AI changes and storefront builds
-  (Cloudflare Containers, docs/storefront/ARCHITECTURE.md §6.1). It is Node, holds no secret and
-  reaches no network; the API Worker makes every outside call for it.
+  template. Commerce logic belongs in `storefront-core`, never in the template or a theme.
+  *Planned, not yet present*: `themes/` with the starting themes (#486).
+- *Planned, not yet present*: **`apps/sandbox`**, the container image that will run AI changes
+  and storefront builds (Cloudflare Containers, docs/storefront/ARCHITECTURE.md §6.1; #482). It
+  is Node, holds no secret and reaches no network; the API Worker makes every outside call for
+  it.
 - **`docs/`** is the specification, laid out like the code (docs/README.md §3). Update the
   relevant document in the same change as the code it describes, following docs/README.md §6.
 - **`designs/`** holds one clickable prototype per portal (`DF Store Prototype` →

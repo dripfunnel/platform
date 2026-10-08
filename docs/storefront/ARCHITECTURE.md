@@ -446,6 +446,12 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
   partner's or merchant's key never enters a container); the Durable Object loads the store's
   last commit into the container when it starts and commits accepted changes through the
   GitHub App itself.
+- **How the studio reaches its sandbox**: the studio's preview frame and every change go to
+  the Store API on the portal host, never to a container's address. The Worker builds the
+  `TenantContext` from the session (ACCESS §3), checks the `publish` capability (a Manager may
+  only view), and forwards to the Durable Object named by **the context's store**, never by a
+  store id from the client; the Durable Object forwards to its own container. So no address
+  reaches another store's draft (isolation test on #482).
 - **Idle stop and cold start**: a container stops after 10 idle minutes *(proposed)*; the next
   request starts a new one from the image and the last commit in a few seconds ("Opening your
   studio…").
