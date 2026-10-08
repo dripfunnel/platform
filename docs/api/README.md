@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -116,6 +116,9 @@ apps/api/
       payments/             stripe/, razorpay/, cashfree/
       couriers/             shiprocket/
       storage-r2/  search-postgres/  email-ses/  cloudflare/  github/
+      sandbox/              the Durable Objects that hold Cloudflare Containers (StudioSession,
+                            StorefrontBuild): the only code that talks to apps/sandbox
+                            (storefront ARCHITECTURE §6.1)
     saas/                   partners, merchants' accounts, plans and entitlements ("Publish now"
                             allowances, publish schedule), billing, provisioning, domains,
                             storefront publishing, support access, activity/ (the activity log), ai-designer/
@@ -126,10 +129,11 @@ apps/api/
       platform/             Platform API, for partners
       store/                Store API: schema and resolvers per engine module
       shop/                 Shop API: catalog, cart, checkout, account, content
-    hooks/                  one file per provider: stripe.ts, razorpay.ts, shiprocket.ts, ses.ts, github.ts
+    hooks/                  one file per provider: stripe.ts, razorpay.ts, shiprocket.ts, ses.ts
     jobs/
       queues/               outbox-relay.ts, email.ts, search-index.ts, cache-purge.ts, import.ts
-      workflows/            provision-store.ts, publish-storefront.ts, core-upgrade.ts
+      workflows/            provision-store.ts, create-storefront.ts, publish-storefront.ts,
+                            render-page.ts, core-upgrade.ts
       cron.ts               automatic publish, cleanups
   schema/                   generated and committed: admin, platform, store, shop .graphql
   migrations/               the single migration history: 0001_init.sql, ...

@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: Cloudflare Containers; the GitHub App narrowed; no package access for store repos).
 
 ---
 
@@ -57,11 +57,12 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Feature environments token** (dev account only) | The `feature-env` workflow: Workers, Pages, Hyperdrive, DNS and routes for `<slug>-*.dripfunnel.ai` | API token: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit; *Zone `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit | GitHub environment `feature` secret `CLOUDFLARE_API_TOKEN` | 1 |
 | **Cloudflare Access on the dev account** | `*.dripfunnel.ai` for `@softobotics.com`, with a Bypass on `*-hooks.dripfunnel.ai` | Zero Trust org, one-time PIN login | Cloudflare | 1 |
 | **Custom hostnames token** (runtime) | Creating, checking and deleting Cloudflare for SaaS custom hostnames for partner portal hosts and merchant domains ([../api/SAAS.md](../api/SAAS.md) §8) | API token, scoped to *SSL and Certificates: Edit* and *Custom Hostnames: Edit* on the SaaS zone only | Worker secret | 4 (partner hosts), 6 (merchant domains) |
-| **Storefront deploy tokens** (runtime), one per pool account | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; stores spread over a pool of Cloudflare accounts as one nears its project limit, staff alerted at 80% (decided 2026-10-05 on #337); [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token per account, scoped to *Pages: Edit* on that account | Worker secret `CF_PAGES_POOL`, every account's id and token in one (§8.2). **Never in a store repo**: the platform deploys the build's artifact itself (PLATFORM-PROMPT §5.6, the hand-off *(proposed, INF 2 confirms)*) | 6 |
+| **Storefront deploy tokens** (runtime), one per pool account | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; stores spread over a pool of Cloudflare accounts as one nears its project limit, staff alerted at 80% (decided 2026-10-05 on #337); [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token per account, scoped to *Pages: Edit* on that account | Worker secret `CF_PAGES_POOL`, every account's id and token in one (§8.2). **Never in a store repo or a container**: the platform's publish Workflow deploys the gated output its containers built (PLATFORM-PROMPT §5.6; decided 2026-10-08 on #470) | 6 |
 | **Cache purge token** (runtime) | Purging storefront caches after publish, the degraded-store edge rule, removing hidden products | API token, scoped to *Cache Purge* (plus *Zone Rulesets: Edit* if degraded pages are edge rules) | Worker secret | 6 |
 | **Cloudflare for SaaS** on the zone | Custom hostnames with automatic certificates for every partner and merchant host | Plan add-on | — | 4 |
 | — | Wildcard custom hostnames (`*.preview.<partnerdomain>`, `*.shops.<partnerdomain>`) may need **Enterprise**; per-hostname price at thousands of stores | **Verify** ([../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §5) | — | **Lead time**: contract |
 | ~~**Workers for Platforms**~~ | **Not used**: storefronts are a Pages project per store (decided 2026-10-05 on #284) | — | — | — |
+| **Cloudflare Containers** and **Durable Objects** on the main account | Every studio session and storefront build: `apps/sandbox`'s image, one container per store with a studio open and a pool for publish builds, each held by a Durable Object of the API Worker (decided 2026-10-08 on #470; [../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §6.1). **Verify** the account's limits on concurrent containers (memory and vCPU in total), the instance sizes, cold-start time and the price per active second, and whether the limits can be raised; record them here with the date (INF 0) | Account feature; images pushed by `wrangler` | Bindings in `apps/api/wrangler.jsonc`; the image is built and pushed by the release workflow per core version | 6, 9 |
 | **R2 buckets**, per environment | Assets, imports, exports, invoices, activity-log archive. **Assets wired on #219** as the `ASSETS` binding: `local` uses wrangler's local R2 (`dripfunnel-assets-local`); **`dripfunnel-assets-dev` is created and bound in `env.dev` (#448); create `dripfunnel-assets`, then add the binding to `env.prod`** (a binding to a missing bucket fails the deploy; until then prod brand uploads answer `NOT_CONNECTED`) | Worker binding (no key) | `wrangler.jsonc` | 5 |
 | **R2 S3 API keys** *(decide)* | Only if browsers upload directly with presigned URLs (large imports, photos); a binding can't sign URLs | Access key ID + secret, scoped to the named bucket | Worker secret | 5 |
 | **Cloudflare Images binding** (`IMAGES`, #448) | Brand logos and marks served as WebP at most 512 px wide (`apis/store/brandFiles.ts`); billed per unique transformation after 5,000 a month | Worker binding (no key) | `wrangler.jsonc` | 5 |
@@ -102,18 +103,18 @@ what makes it a control.
 
 ### 2.3 GitHub
 
-GitHub holds the code, the store repos, builds and the package.
+GitHub holds the code, the store repos (each store's theme and its history) and the package. Storefront builds don't run on GitHub (decided 2026-10-08 on #470).
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
 | **`dripfunnel` org on GitHub Team** | Branch protection on `main` before the first deploy workflow ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6) | Plan | — | 1 |
-| **GitHub App** "DripFunnel Provisioning", installed on the org | Every repo operation. Short-lived installation tokens per request, never a token per store ([../api/SAAS.md](../api/SAAS.md) §2) | App ID, **private key (PEM)**, installation ID, **webhook secret** | Worker secrets (PEM, webhook secret); IDs as variables | 6 |
-| — | Permissions to request: *Administration: write* (create and delete repos), *Contents: write*, *Workflows: write*, *Actions: read/write* (trigger builds), *Secrets: write* and *Variables: write* (repo config), *Pull requests: write* (sync bot), *Checks: read*, *Metadata: read*, and the organisation permission *Secrets: write* (adding a store repo to `DF_PACKAGES_TOKEN`'s selected repositories; decided on #303) | — | — | — |
-| — | Webhook events: `workflow_run`, `check_suite`, `pull_request`, `push`, delivered to `hooks.dripfunnel.com/github` | — | — | — |
+| **GitHub App** "DripFunnel Provisioning", installed on the org | Every repo operation. Short-lived installation tokens per request, never a token per store ([../api/SAAS.md](../api/SAAS.md) §2) | App ID, **private key (PEM)**, installation ID | Worker secret (PEM); IDs as variables | 6 |
+| — | Permissions to request, the least that works since builds left Actions (decided 2026-10-08 on #470): *Administration: write* (create and delete repos), *Contents: write* (the template, each accepted AI change, the upgrade bot's commits, reverts), *Metadata: read*. No Workflows, Actions, Secrets, Variables, Pull requests or Checks: store repos have no workflows, secrets or variables | — | — | — |
+| — | Webhook events: none needed; the platform makes every commit itself | — | — | — |
 | **Claude GitHub App** (`github.com/apps/claude`), installed on `dripfunnel/platform` | **No longer needed by the review** (the `review` job in `ci.yml`) since #167's follow-up (2026-10-02): it runs the Claude Code CLI and comments with the workflow's own token ([WORKFLOW.md](WORKFLOW.md) §7). Kept installed for `@claude` mentions, if anyone uses them | App installation, no secret to keep | Installed by a repo admin; nothing stored | 1 |
 | **Release workflow token** | Publishing `@dripfunnel/storefront-core` to GitHub Packages with attestations | Built-in `GITHUB_TOKEN` with `packages: write`, `id-token: write` | Workflow permissions | 6 |
-| **Package read access for store repos** | `pnpm install` of `@dripfunnel/storefront-core` in each store's CI. GitHub has no API for a per-repo package grant, so #337's fallback applies (decided on #303): one read-only token in the org secret `DF_PACKAGES_TOKEN`, shared with *selected repositories*, the App adding each store repo ([ARCHITECTURE.md](ARCHITECTURE.md) §5) | A classic token with `read:packages` only, from a machine user, rotated yearly | Org Actions secret `DF_PACKAGES_TOKEN`, selected repositories | 6 |
-| **Actions minutes and storage** | Storefront builds, and possibly the AI designer sandbox (§2.6). Build minutes are a platform metric and a cost | Billing | — | 6, 9 |
+| ~~**Package read access for store repos**~~ | **Not needed** (decided 2026-10-08 on #470): store repos never install the package; the sandbox image for each core version has it preinstalled, built by the release workflow with its own `GITHUB_TOKEN` ([ARCHITECTURE.md](ARCHITECTURE.md) §5) | — | — | — |
+| **Actions minutes and storage** | This repo's CI and the release workflow only; storefront builds and the AI sandbox run in Cloudflare Containers (§2.1) | Billing | — | 1 |
 | Turborepo remote cache *(optional)* | Faster CI | Vercel token or a self-hosted cache | GitHub Actions secret | 1 |
 
 ### 2.4 Amazon SES (email)
@@ -193,7 +194,7 @@ include AI, the **partner's** key pays (§4); on plans without it, the merchant 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
 | **The partner's AI provider key** (Anthropic, or another provider) | Every AI call on the partner's plans that include AI; metered per run in `ai_run` ([../api/SAAS.md](../api/SAAS.md) §9.2) | API key per partner | Partner credential in Postgres (§4, #275) | 9 (portal helpers can come earlier, in 5) |
-| — | The designer agent runs in **GitHub Actions** (decided 2026-10-05 on #284). The partner's (or merchant's) key is handed to that run only, never stored in a store repo or its workflows | — | — | 9 |
+| — | The designer's model call is made by the **Worker**; the AI's changes run in the store's container (Cloudflare Containers, decided 2026-10-08 on #470, replacing GitHub Actions). The partner's (or merchant's) key never enters a container or a store repo | — | — | 9 |
 | Cloudflare AI Gateway *(optional)* | Caching, rate limits and a cost log in front of the provider | Gateway ID; authenticated gateway token | Worker secret | 9 |
 | A second provider (e.g. OpenAI) *(optional)* | A partner may connect one too, for fallback or cheaper translation models | API key | Partner credential (§4) | later |
 | **`CLAUDE_CODE_OAUTH_TOKEN`** | Claude's review on every pull request ([WORKFLOW.md](WORKFLOW.md) §7, the `review` job in `.github/workflows/ci.yml`). **The check fails without it** (reversed 2026-09-30): the job stops in its first step with a message naming this secret, before installing or running anything. Minted from a Claude Pro or Max subscription with `claude setup-token`; it is **personal**, expires, and every review runs as whoever minted it | OAuth token | GitHub Actions secret on `dripfunnel/platform` | 1 |
@@ -477,10 +478,10 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 3. Tenancy core | Neon project, app and migration roles, Neon API key, Hyperdrive; KEK; CSRF secret |
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS adapters: MSG91 (India) and Twilio (US)** (phone code, 2FA; decided 2026-10-05 on #284); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
-| 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy tokens (`CF_PAGES_POOL`); cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
+| 6. Shop API, storefront, hosting, domains | **GitHub App**; **Cloudflare Containers (limits and price check)**; storefront deploy tokens (`CF_PAGES_POOL`); cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
 | 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** through MSG91 for cart reminders (decided 2026-10-05 on #337); **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
 | 8. Offers | None new |
-| 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); designer sandbox in GitHub Actions (decided 2026-10-05 on #284) |
+| 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); the studio sandbox in Cloudflare Containers (decided 2026-10-08 on #470) |
 | 10. Headless: API keys, webhooks, apps | Our own generated secrets only |
 | 11. Billing, DF Admin, white label | **Stripe account activation and Connect review**, Billing keys and webhooks; **staff identity provider** and Cloudflare Access; SES identity permissions for partner domains; support chat tool |
 | 12. Search, import/export, reporting | **Shopify app review**; Logpush destination; (Typesense) |
@@ -498,11 +499,12 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
    A client per partner (#272). (§2.9)
 4. ~~**Merchant Stripe**: pasted keys (decided so far) or Stripe Connect OAuth?~~ **Connect OAuth**
    (decided 2026-10-05 on #284). (§3.1)
-5. ~~**Where the AI designer runs**~~ **GitHub Actions** (decided 2026-10-05 on #284); the key is
-   the partner's or merchant's, handed to the run (§2.6)
-6. **How store repos deploy to Cloudflare** without holding a platform token: *(proposed, INF 2
-   confirms)* the build uploads an artifact and the platform deploys it (PLATFORM-PROMPT §5.6).
-   How they read the package: SC 0 decides. (§2.1, §2.3)
+5. ~~**Where the AI designer runs**~~ ~~**GitHub Actions** (decided 2026-10-05 on #284)~~
+   **Cloudflare Containers** (decided 2026-10-08 on #470); the key is the partner's or
+   merchant's and stays in the Worker (§2.6)
+6. ~~**How store repos deploy to Cloudflare** without holding a platform token~~ They don't
+   build or deploy: the platform builds in its containers and deploys the output itself, and
+   no store repo reads the package (decided 2026-10-08 on #470). (§2.1, §2.3)
 7. ~~**Couriers**: a direct integration per courier, or one aggregator?~~ An aggregator for the US and
    Shiprocket for India, both the partner's accounts (#184, #272). Which DHL API, when the EU comes? (§3.2)
 8. **Exchange rates and duties providers.** ~~US sales tax~~: Stripe Tax (#184), on the merchant's own account through Connect (#284). (§2.8)
@@ -594,7 +596,7 @@ generation are in the section it cites. *First needed* names a slice (§6) for t
 
 | Name | Role | Kept in | Section | First needed |
 |---|---|---|---|---|
-| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET` | Store repos through the provisioning App | Ids as Worker variables; key and webhook secret as Worker secrets | §2.3 | slice 6 |
+| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY` | Store repos through the provisioning App. `GITHUB_APP_WEBHOOK_SECRET` is no longer needed: the App has no webhook since builds left Actions (decided 2026-10-08 on #470) | Ids as Worker variables; the key as a Worker secret | §2.3 | slice 6 |
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
 | `CF_PAGES_POOL` | The Cloudflare accounts storefronts' Pages projects spread over (#337): a JSON list of `{ "accountId", "token" }`, each token scoped to *Pages: Edit* on its own account, the first entry the main account. Replaces a single `CF_STOREFRONT_DEPLOY_TOKEN` (named on #287) | Worker secret | §2.1 | INF 1 |
 | `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |

@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: the AI writes theme code in Cloudflare Containers, behind walls and gates).
 
 ---
 
@@ -23,7 +23,9 @@ Recorded so they aren't relitigated.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **A repo per store**, created when the merchant first picks a template; **the AI edits the store's site data** (a sections-and-blocks schema in storefront-core), which the platform commits as `site.json` (decided 2026-10-08 on #470, reversing the 2026-10-05 choice of AI-written theme code) | The AI editing `src/theme/**` behind CI gates | A schema can't break a build or checkout, so no per-change gates or builds; versions and undo are rows; the prototype draws exactly this ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §1). |
+| **A repo per store**, created when the merchant first picks a template; **the AI writes the store's theme code** (`src/theme/**`, `content/**`, `routes.json`) behind a file allowlist, a code validator, sealed components and gates; the platform commits each change that passes (decided 2026-10-08 with Gaurav on #470, "Plan A") | The AI editing a fixed site-data schema (`site.json`; decided earlier the same day, reversed); a design tree or HTML blocks | Merchants want any design they can describe or show; every schema caps that. Logic stays in core and the engine, and the walls don't depend on the AI behaving ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §1, §3). |
+| **AI changes and builds run in Cloudflare Containers**: one container per store with a studio open, held by one Durable Object per store that runs one change at a time; publish builds in their own pool (decided 2026-10-08 on #470) | GitHub Actions (decided 2026-10-05 on #284; 30–90 s per change); a third-party sandbox | Seconds per change, no new vendor, beside R2 and the Worker; stores never share a machine ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §6.1). |
+| **Nothing reaches live that hasn't passed**: a deterministic build, a full gate, an atomic deploy, post-deploy checks and automatic rollback; repairs and bisecting before refusing; repairs and gate runs at the platform's cost (decided 2026-10-08 on #470) | Build on publish and hope | A failure leaves the live site as it was and never costs the merchant ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §4.2). |
 | **Commerce in a versioned package**, `@dripfunnel/storefront-core`, which store repos install | A `core/` folder in each repo guarded only by a CI path check | The AI can't edit a dependency, and a fleet upgrade is a version bump instead of a merge into 1,000 diverged folders (§10). The path check stays as a second line. |
 | **Live storefront is a static build on Cloudflare**; preview is a client-rendered SPA | One runtime multi-tenant server-rendered storefront | Static plus edge is fast and cheap; SSR would trade that away. The cost is fleet maintenance and build volume, which §9 and §10 exist to control. |
 | **A partner is a row above stores**, and DripFunnel is the **house partner**, configured on the same screens | DripFunnel special-cased; per-partner deployments | One code path for every partner; the house partner differs only in a badge and in not being deletable (CONSOLE-DESIGN §8). |
@@ -33,7 +35,7 @@ Recorded so they aren't relitigated.
 | **Plans and entitlements are a first-class, server-enforced model** | Feature checks scattered through the UI | Hiding a button is not access control. Every limit is checked where the write happens (§6). |
 | **Platform billing is its own Stripe Billing integration**, separate from merchants' checkout payments | Reusing the checkout payment adapters | Checkout Stripe takes shoppers' money on each merchant's own keys; platform billing charges partners and merchants. Mixing them mixes two ledgers. |
 | **Custom hostnames through Cloudflare for SaaS** | AWS ACM + CloudFront (built in the first platform) | The whole platform is on Cloudflare ([../ARCHITECTURE.md](../ARCHITECTURE.md) §1). The verify, certificate, live flow and the portal's step-by-step experience carry over (§8). |
-| **A GitHub App** for every repo operation, short-lived tokens per request | A personal access token per store | A token per store means a secret per store; it breaks long before 1,000 stores. Done before onboarding in volume, because retrofitting credentials across a live fleet is much harder. |
+| **A GitHub App** for every repo operation, short-lived tokens per request, used by the platform only (never inside a sandbox) | A personal access token per store | A token per store means a secret per store; it breaks long before 1,000 stores. Done before onboarding in volume, because retrofitting credentials across a live fleet is much harder. |
 | **Catalogue changes don't rebuild on every edit**; they are published by "Publish now" (limited per plan) and an automatic schedule | Rebuild on every product change (the old deployment tracker) | Build volume would dominate cost at 1,000 stores. New pages still work at once through a client-rendered fallback (§9). |
 
 ---
@@ -273,24 +275,27 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 | 1 | **Account and store**: the user (if new), the `store` row under the partner, the Owner `membership`, `store_subscription` in Trial on the chosen plan. One database transaction | Delete the store and its rows; delete the user only if this signup created it |
 | 2 | **Defaults**: store settings from the partner's defaults for new stores (region, currency, languages, tax behaviour, units, sample product), default warehouse, shipping and payment placeholders. **Per-store rows only**, never a shared one (the first platform's `TaxRate` lesson) | Deleted with the store |
 | 3 | **Hostnames**: reserve `{shop}` and register `{shop}.preview.<partnerdomain>` and `{shop}.shops.<partnerdomain>` under the partner's wildcards | Release the reservation and routes |
-| 4 | **Repo**: the GitHub App creates an empty repo in the `dripfunnel` org and copies `templates/storefront/` into it through the GitHub API | Delete the repo |
-| 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version; set the repo's variables. **No platform secret goes into the repo**: the Cloudflare deploy token stays with the platform (PLATFORM-PROMPT §5.6) | Revert the commit (removed with the repo) |
+| 4 | **Repo** (when the merchant first picks a template): the GitHub App creates an empty repo in the `dripfunnel` org and copies `templates/storefront/` with the chosen template's theme into it through the GitHub API | Delete the repo |
+| 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version. **The repo holds no secret, variable or workflow**: builds run in the platform's sandbox image (../storefront/ARCHITECTURE.md §2) and the Cloudflare deploy tokens stay with the platform (PLATFORM-PROMPT §5.6) | Revert the commit (removed with the repo) |
 | 6 | **Hosting target**: the store's Cloudflare Pages project (one per store, decided 2026-10-05 on #284, PLATFORM-PROMPT §5.6) | Delete it |
-| 7 | **First build**: preview deploy (seconds, no catalogue), then the first live build, dispatched explicitly and **confirmed complete** from the deploy result, not assumed from a push (the first platform's gap at this step) | Nothing to undo; a failed first build leaves the store usable and shows "storefront build failed, retrying" |
-| 8 | **Done**: write `storefront.core_version` and the repo name, emit `store.provisioned`, send the welcome email through the outbox, delete the `signup` row | n/a |
+| 7 | **First preview**: the template built in preview mode in the sandbox (seconds, no catalogue) and deployed to the preview host, **confirmed complete** from the deploy result, not assumed (the first platform's gap at this step). The first live build is the merchant's first Publish (§9) | Nothing to undo; a failed first preview leaves the store usable and shows "storefront build failed, retrying" |
+| 8 | **Done**: write `storefront.core_version`, `template` and the repo name, `repo_state = 'ready'`, emit `storefront.created` | n/a |
 
 - Steps 1–3 make a usable store: the merchant can enter the portal once they finish. **Built on
   #290** (`saas/provisioning/provisionStore.ts`): all three are database writes today, so they
   run in one transaction with the texted code that starts them, and a failure anywhere leaves
   nothing (tested at each step); step 2's defaults arrive with each settings table's card, and
-  step 3's hostnames are the store's code under the partner's wildcards. INF 1 adds steps 4–8
-  as the `provision-store` Workflow, with their compensations. Steps
-  4–8 make the storefront, and **are skipped for a store that uses its own frontend** (it gets
-  a public store key and allowed origins instead; PLATFORM-PROMPT §5.6). A skipped storefront
-  can be added later by running steps 3–8.
+  step 3's hostnames are the store's code under the partner's wildcards. Signup ends there:
+  `store.provisioned`, the welcome email through the outbox, the `signup` row deleted.
+- Steps 4–8 make the storefront **when the merchant first picks a template** (decided
+  2026-10-08 on #470), as the `create-storefront` Workflow with their compensations (INF 1).
+  They **never run for a store that uses its own frontend** (it gets a public store key and
+  allowed origins instead; PLATFORM-PROMPT §5.6), and run whenever such a store first picks a
+  template.
 - **A custom domain is not part of signup**; the merchant connects it whenever they like (§8).
-- "Under two minutes" means a **usable portal and preview**; the first live build may finish
-  later, shown as 'Publishing…' (decided 2026-10-05 on #337).
+- "Under two minutes" means a **usable portal and preview** (decided 2026-10-05 on #337): the
+  portal at signup, the preview within seconds of picking a template (steps 4–8); the first
+  live build is the first Publish, shown as 'Publishing…'.
 - The test that matters: inject a failure at every step and assert nothing survives (archived
   ARCHITECTURE §12).
 
@@ -534,8 +539,9 @@ API) and #468 (registration through Cloudflare for SaaS).
 
 ### 9.1 Publishing the live site
 
-Specified in [../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §4.2; the SaaS layer
-owns the state and the rules:
+Specified in [../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §4.2 (the publish
+pipeline: freeze, build, full gate, repair or bisect, deploy, post-deploy checks, rollback); the
+SaaS layer owns the state and the rules:
 
 - **Change detection**: engine events (product, version, collection, filter, menu, content,
   storefront-visible settings) mark the store's `storefront` **"has unpublished changes"**,
@@ -547,64 +553,92 @@ owns the state and the rules:
 - **Automatic publish** (`jobs/cron.ts`): every store with unpublished changes is published on
   the **schedule set in the Admin API**: a platform default interval with per-plan overrides
   (CONSOLE-DESIGN R5, which shows the fleet build-minute cost before saving). It never uses
-  the allowance. Stores with no changes aren't rebuilt. Whether partners may set their own
-  interval is open (§14).
+  the allowance. Stores with no changes aren't rebuilt.
+- **New and renamed products** get a **single-page render** at once (the page, its sitemap
+  entry, the old address's redirect, IndexNow), using no allowance (decided 2026-10-08 on #470;
+  storefront ARCHITECTURE §4.2).
 - **Staff publishes**: Admin can run a publish without using the allowance, for example after a
   failure on our side (L5).
 - **One build at a time per store**: a press during a build queues the next; changes made
-  during a build go in the next one.
-- **Real status**: queued, building, deploying, live, failed, recorded in `publish_run` from the
-  Workflow (`jobs/workflows/publish-storefront.ts`) and the Cloudflare deploy result. A failed
-  build keeps the previous live site, says so plainly, and **never uses an allowance**.
-- **Design changes** go live only when the merchant approves them (§9.2).
+  during a build go in the next one. Publish builds run in their own container pool; "Publish
+  now" goes ahead of automatic publishes.
+- **Real status**: queued, building, checking, deploying, live, failed, rolled back, recorded in
+  `publish_run` from the Workflow (`jobs/workflows/publish-storefront.ts`) and the Cloudflare
+  deploy result, with the gate's report. A refused or rolled-back publish keeps the previous
+  live site, says so plainly, and **never uses an allowance**.
+- **Who pays for checking**: repair attempts and gate runs are the platform's cost, recorded
+  for §12 and never counted on the merchant's meters (decided 2026-10-08 on #470).
+- **Design changes** go live only when the merchant publishes them (§9.2).
 - **Degraded store** (past due, suspended): an edge rule, no rebuild.
 - Publishing is a capability, **separate from settings**: holding it grants nothing else
   (the lesson of the first platform's `UpdateChannel` trap, where one permission both published and
   could rewrite deploy credentials). Deploy credentials are never on a row a merchant can
-  write.
+  write, and never in a repo or a sandbox.
 
 ### 9.2 The AI designer loop
 
 `saas/ai-designer`, with the storefront side in [../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §6.
-**Redesigned 2026-10-08 on #470**: the AI edits the store's **site data**, never code, so it
-runs as one API call, not in GitHub Actions.
+**Decided 2026-10-08 with Gaurav on #470 ("Plan A")**: the AI writes the store's theme code in
+the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 
 ```
 "Your brand" saved (shop name and logo at least)
-  → chooseTemplate: the preset becomes the draft; the first time, the store repo is created
-  → askDesign: one model call with the schema, the draft, the page and screen size, the
-    last four requests, the brand and ~12 products (names, prices)
-  → the answer is parsed with core's schema and normalized → the new draft (or refused:
-    the draft is unchanged and the reply says so)
-  → undo (latest change), discard, Open preview (signed link)
-  → publishDesign: commit site.json → live build (§9.1) → a new version in the history
+  → chooseTemplate: the template becomes the theme; the first time, the store repo is created
+    (§5 steps 4–8); later, "keep my words" or "use template text"
+  → askDesign(text, image?, sampleSite?, page, device): the Worker asks the model with the
+    store's theme files, core's theme API and its rules, the page and screen size, the last
+    four requests, the brand and ~12 products (names, prices)
+  → the store's Durable Object runs the diff in the store's container: the fast gate
+    (allowlist, validator, typecheck, bundle, byte budgets, content checks)
+      fail → the model repairs from the exact errors (≤3) → else refused: nothing changes
+      and the reply says so
+  → pass → the platform commits it to the store repo (GitHub App), builds the preview and
+    deploys it to the preview host; the studio shows it at once
+  → undo (revert the latest change), discard (back to the live version's commit),
+    Open preview (signed link)
+  → publishDesign: the publish pipeline (§9.1) → a new version in the history
 ```
 
 **Guardrails, in priority order** (PLATFORM-PROMPT §2 item 14):
 
-1. **Schema, not prompting**: the answer becomes a draft only after core's zod schema and
-   `normalize` accept it (fonts from the allowlist, AA contrast, at most 12 sections, ids
-   kept). Prices, stock, products, shipping and checkout aren't in the schema, so asking for
-   them changes nothing; the reply points to Products or Settings.
-2. **Never trusted, never executed**: the model's text is data; it never reaches a build
-   except as validated `site.json` committed by the platform.
+1. **Walls, not prompting**: a change becomes the draft only after the file allowlist, the
+   validator and the fast gate accept it, and goes live only after the full gate
+   (storefront ARCHITECTURE §3.3, §4.2). Prices, stock, products, shipping and checkout
+   behaviour are core's and the engine's, so asking for them changes nothing; the reply
+   points to Products or Settings.
+2. **Never trusted, never given anything**: the model's output is a file diff, data until the
+   gates pass it. The sandbox has no network and no credential; the model call, the keys and
+   the commits stay in the Worker and the Durable Object.
 3. **Per-plan budgets**: AI tokens per month (or the merchant's own OpenAI or Anthropic key
    on plans without included AI) and build minutes (meters, §6). A budget reached stops new
-   requests and publishes, never one in progress.
+   requests and publishes, never one in progress. Repairs and gate runs don't count (§9.1).
 4. **Draft before publish, always**: the AI never writes straight to live.
 
-**Versions**: every publish is a numbered version holding its site data, template, core
-version and Pages deployment. **Go back to this** redeploys that version's deployment and
-uses no build minutes (a rebuild, uncharged, if the deployment is gone). The history is kept
-for the plan's number of days; the live version always stays.
+**Studio sessions** (storefront ARCHITECTURE §6.1): one Durable Object and one container per
+store with a studio open; one change at a time per store (a second tab waits); a container
+stops after idle minutes and restarts from the last commit; when the account's container limit
+is reached, studios queue and show their place. Container time is recorded per request in
+`ai_run.sandbox_ms`.
+
+**Versions**: every publish is a numbered version holding its commit, template, core version,
+gate report and Pages deployment. **Go back to this** redeploys that version's deployment
+(no build, no build minutes; a rebuild, uncharged, if the deployment is gone), then resets the
+draft to that version's commit (decided 2026-10-08 on #470). The history is kept for the plan's
+number of days; the live version always stays.
+
+**Brand and search and sharing** (`storefront_brand`, `storefront_seo`, #471) reach the theme
+through core (`useStorefront()`), never through the AI's files; they go out with the next
+publish of any kind.
 
 **Metering**: every request writes an `ai_run` row: store, requesting user, prompt, model,
-tokens in and out, cost (minor units and currency), outcome (changed, nothing changed,
-refused, failed). It is the source for the AI meter, usage billing and §12's metrics; build
-minutes come from `publish_run`.
+tokens in and out, cost (minor units and currency), container time, repair attempts and their
+cost, outcome (changed, nothing changed, refused, failed). The merchant's meter counts the
+request's own tokens; repairs are recorded as the platform's cost. It is the source for the AI
+meter, usage billing and §12's metrics; build minutes come from `publish_run`.
 
 ~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284);
-**replaced 2026-10-08 on #470**: one Store API call, no agent run. ~~Whether the AI reads the
+~~one Store API call, no agent run (2026-10-08 on #470)~~ **Cloudflare Containers**, one per
+store with a studio open (decided 2026-10-08 on #470, "Plan A"). ~~Whether the AI reads the
 store's catalogue~~ **It reads a sample** (about 12 products: names and prices; photos dropped
 on #470), metered in `ai_run` (decided 2026-10-05 on #337).
 
@@ -612,27 +646,34 @@ on #470), metered in `ai_run` (decided 2026-10-05 on #337).
 
 ## 10. Fleet
 
-This is where repo-per-store fleets normally die. Because the AI never touches core, **core
-stays upgradable across every store indefinitely**, but only if the sync bot exists from day
-one, not later.
+This is where repo-per-store fleets normally die. The AI never touches core, so **core stays
+upgradable across every store**, but every store's theme is its own code, so each upgrade is
+built and gated per store, and the upgrade bot must exist from day one.
 
 - **Core versions**: `@dripfunnel/storefront-core` follows semver on GitHub Packages
-  (`core_release` records each one). Every store's pinned version is on its `storefront` row,
-  so drift is visible (CONSOLE-DESIGN L1: "132 stores are 3+ versions behind").
-- **Sync bot** (`jobs/workflows/core-upgrade.ts`): for a release, open a version bump on each
-  store repo through the GitHub App, run the store's CI, and auto-merge when gates pass, then
-  rebuild both modes.
+  (`core_release` records each one, with its sandbox image). Every store's pinned version is
+  on its `storefront` row, so drift is visible (CONSOLE-DESIGN L1: "132 stores are 3+ versions
+  behind").
+- **Upgrade bot** (`jobs/workflows/core-upgrade.ts`): for a release, build each store's current
+  published commit with the new core in the sandbox, apply the release's codemods, run the full
+  gate and a visual diff against the live site; a store that passes goes live on the new core
+  and its repo's `package.json` is committed; a store that fails gets the **migration agent**
+  (the AI with the errors and the upgrade notes, under the same walls); a store still failing
+  **stays on its old version**, pinned, with an alert (CONSOLE-DESIGN L1–L3).
 - **Canaries, then waves**: a canary group first, then percentages, with pause and roll back
-  per rollout; per-store PR and CI status shown (L2). A rollout is a platform-level `job`.
-- **Majors** may change the look or the site-data schema and ship **upgrade notes** and a
-  schema migration. Each published version is **pinned** to the core version it was built
-  with (decided 2026-10-08 on #470): patches and minors rebuild every store from its same site
-  data; a major's new look reaches a store only at its merchant's next publish, so **the
-  merchant** still approves visual changes (decided 2026-10-05 on #337).
-- **Security fixes** can be forced to every store as a patch.
+  per rollout; per-store gate result shown (L2). A rollout is a platform-level `job`.
+- **Majors** may change the look or the theme contract and ship **upgrade notes** and
+  codemods. Each published version is **pinned** to the core version it was built with
+  (decided 2026-10-08 on #470); a major's new look reaches a store only at its merchant's next
+  publish, so **the merchant** still approves visual changes (decided 2026-10-05 on #337).
+- **Security fixes** are forced to every store as a patch. A store whose theme can't build on
+  it, even after the migration agent, is served the **baseline theme** with its own colours,
+  fonts and words until repaired or republished, and its merchant is told (decided 2026-10-08
+  on #470).
 - Without this, a checkout fix or a dependency CVE becomes 1,000 manual pull requests.
 
-**One template**, and merchants **never get direct repo access** (decided 2026-10-05 on #337).
+**Templates** are the starting themes of storefront ARCHITECTURE §2.3, and merchants **never
+get direct repo access** (decided 2026-10-05 on #337).
 
 ---
 
@@ -665,10 +706,13 @@ store** (PLATFORM-PROMPT §2 item 24). They need a home at the moment the work r
 why `ai_run`, `publish_run` and `job` are tables, not logs:
 
 - **Build minutes**: if not roughly flat per store, repo-per-store doesn't reach 1,000 stores.
-- **AI tokens and cost**: the input to plan pricing.
+- **AI tokens and cost**: the input to plan pricing, **container time and repairs included**
+  (the platform's own cost, §9.1).
 
 Also: provisioning success rate and **time to first store**, failed builds after AI edits,
-core version drift, "Publish now" presses against allowance, automatic publish volume, domain
+**changes refused after repairs, publishes refused, bisected or rolled back, and stores pinned
+or on the baseline theme** (storefront ARCHITECTURE §4.2, §7), studio queue waits, core version
+drift, "Publish now" presses against allowance, automatic publish volume, domain
 time to live. Each is available per partner and per store (CONSOLE-DESIGN B2, K3, N1–N3), with
 outlier alerts ("AI cost 6× plan allowance this month"). Every log line carries request,
 partner, store and seller ids.
@@ -698,7 +742,7 @@ store (§5.5 there).
 | Provisioning progress and retry | Own signup progress | See status | Retry, undo and clean up |
 | "Publish now", publish status | Publish capability | See status | Publish without allowance |
 | AI designer runs, undo | Own store | Usage only | Usage and runs for support |
-| Fleet: core releases, rollouts, drift | | | Engineer on call, Super admin |
+| Fleet: core releases, rollouts, drift, pinned stores and stores on the baseline theme | | | Engineer on call, Super admin |
 | Support access setting and log | Owner: setting; everyone: log | Start a session (own stores) | See the setting and every session; **staff never start one** — they impersonate (ACCESS §8.1) or open a setup session (§8.2) |
 | Activity log ([LOGGING.md](LOGGING.md) §6) | The store's entries, shoppers' included (Owner); own actions (everyone) | Own users, own partner account and merchants' accounts; never inside stores or shoppers | Everything |
 | Metrics and usage | Own usage against plan | Own partner and stores | Everything |
@@ -735,10 +779,14 @@ The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
 - ~~Cloudflare hosting model per store (Pages, Workers, Workers for Platforms).~~ A Pages project
   per store (decided 2026-10-05 on #284).
 - Wildcard custom hostnames, apex domains, and per-hostname limits and price (§8).
-- ~~Where the AI agent runs~~ (GitHub Actions, decided 2026-10-05 on #284); does the AI read the
-  catalogue, and at what cost? (SAPI 17 asks)
+- ~~Where the AI agent runs~~ (GitHub Actions, decided 2026-10-05 on #284; **Cloudflare
+  Containers**, decided 2026-10-08 on #470); ~~does the AI read the catalogue~~ a sample of about
+  12 products (decided 2026-10-05 on #337).
+- The container limits and price at the expected number of open studios, and whether a plan caps
+  simultaneous studio sessions *(decide, INF 0 #287 and the sandbox card)*.
 - ~~Staging storefronts per store, or preview builds only?~~ Preview builds only (decided 2026-10-05 on #337).
-- ~~One template, or several theme families?~~ One template (decided 2026-10-05 on #337).
+- ~~One template, or several theme families?~~ One template (decided 2026-10-05 on #337), with
+  six starting themes and "Start from scratch" in it (decided 2026-10-08 on #470).
 - ~~Do merchants ever get direct repo access?~~ Never (decided 2026-10-05 on #337).
 - ~~Who approves visual changes from a core major?~~ The merchant (decided 2026-10-05 on #337).
 

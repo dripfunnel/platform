@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: Cloudflare Containers for AI changes and storefront builds).
 
 ---
 
@@ -19,7 +19,8 @@ Last updated: 2026-10-05.
 | **One repo, `dripfunnel/platform`**, for every app, the storefront package and template, and all docs | Four repos (packages, store, admin, template) | One schema and one migration history for one database; an AI agent (or a person) can follow a change from table to API to screen and make it in one pull request; one copy of the rules. Generated **store repos** stay separate by design. |
 | **Four apps**: `api` (one Worker) and three SPAs in `apps/ui/`: `store`, `platform` and `admin` | Five API Workers; a package per concern | Fewest moving parts: one API deploy, one config, one set of bindings, no wiring copied between Workers. The modules inside `api` stay separate, so splitting a Worker out later is cheap. |
 | **One API Worker** serves the Store, Platform, Admin and Shop APIs, webhooks, queues, Cron and Workflows, choosing by hostname and path (§2) | A Worker per API | Simpler. Its costs are covered: a bad deploy is limited by manual promotion and instant rollback, and a hostname guard with a test keeps each API off hosts it doesn't belong on. |
-| **Only code the AI could reach is a published package**: `@dripfunnel/storefront-core`, installed by store repos | Publishing shared internal code | Store repos are the only code outside this repo, and the AI edits them. The core they run must be versioned and outside the files the AI may change. Our own apps ship from one commit and need no versions. |
+| **Only code the AI could reach is a published package**: `@dripfunnel/storefront-core`, installed by store repos | Publishing shared internal code | Store repos are the only code outside this repo, and the AI writes their themes (storefront/ARCHITECTURE.md §1). The core they run must be versioned and outside the files the AI may change. Our own apps ship from one commit and need no versions. |
+| **AI changes and storefront builds run in Cloudflare Containers** (`apps/sandbox`'s image), each store's held by a Durable Object in the API Worker (decided 2026-10-08 on #470) | GitHub Actions in each store repo (decided 2026-10-05 on #284); a third-party sandbox | Workers can't run a build. Containers give each store its own machine in seconds, next to R2 and the Worker, with no new vendor; the sandbox has no network and no credential (storefront/ARCHITECTURE.md §6.1). |
 | **`apps/ui/shared/` holds only code that more than one app uses**, today browser code the SPAs share | Shared packages in advance | Nothing is shared before a second app needs it. Server code lives only in `apps/api`, so it can't leak into a browser bundle. |
 | **UIs are independent static SPAs on Cloudflare Pages** | Next.js servers that also host the API | A UI deploy can't break the API and the reverse; UIs are pure static assets served from the edge; any client (the SPAs, integrations) uses the same APIs. |
 | **The SPAs are built with Vite, React and TanStack Router** | Next.js static export | A pure client-side app: fast builds, no server features to avoid, typed routes and search params. Next.js stays only in the storefront template, which needs static generation. |
@@ -45,8 +46,9 @@ Last updated: 2026-10-05.
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
 | `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |
-| `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every store repo installs | none |
-| Store repos | GitHub repo per store, built by Actions | The store's storefront: preview SPA and live SSG on Cloudflare (`storefront/ARCHITECTURE.md` §4) | `{shop}.preview.<partnerdomain>`; `{shop}.shops.<partnerdomain>`; the merchant's own domain |
+| `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every store repo installs, with the validator and gate suites | none |
+| `apps/sandbox` | **Container image** (Cloudflare Containers), one per core version, run by the API Worker's `StudioSession` and `StorefrontBuild` Durable Objects | A store's studio session (applying the AI's changes, the fast gate, the live preview) and every storefront build and gate; Node, not the Workers runtime; no network, no credential | none |
+| Store repos | GitHub repo per store, holding its theme; built in `apps/sandbox`, never by Actions | The store's storefront: preview and live SSG on its Cloudflare Pages project (`storefront/ARCHITECTURE.md` §4) | `{shop}.preview.<partnerdomain>`; `{shop}.shops.<partnerdomain>`; the merchant's own domain |
 | Postgres | **Neon**, via **Hyperdrive** | The system of record | none |
 | R2 buckets | **R2** | Assets, imports and exports, invoices | public assets through a custom domain with Cloudflare image resizing (decided 2026-10-05 on #337) |
 
@@ -88,10 +90,12 @@ platform/
       platform/             Pages SPA: Partners
       admin/                Pages SPA: DripFunnel staff (Admin)
       shared/               only code more than one SPA uses
+    sandbox/                the container image for studio sessions and storefront builds
   packages/
     storefront-core/        the ONLY published package
   templates/
-    storefront/             copied into each new store repo by provisioning
+    storefront/             copied into each new store repo when its merchant picks a template;
+                            themes/{key}/ holds the starting themes
   docs/                     laid out like the code; the map is docs/README.md
     README.md               the map, reading order, how to write docs
     ARCHITECTURE.md         this file
@@ -149,8 +153,10 @@ current documentation before relying on it.**
 - **Configuration** is validated from `env` once per isolate, failing the request loudly on a
   bad value.
 - **Long-running and external work** (storefront builds, the AI designer's sandbox) doesn't
-  run in Workers. Builds run in the store repo's GitHub Actions, and so does the AI designer
-  (decided 2026-10-05 on #284).
+  run in Workers. It runs in **Cloudflare Containers** from `apps/sandbox`'s image, each store's
+  held by a Durable Object (decided 2026-10-08 on #470, replacing GitHub Actions). Code in
+  `apps/sandbox` is Node and may use Node modules; it never holds a secret, and the Worker
+  makes every outside call (the model, GitHub, Cloudflare) on its behalf.
 
 ---
 
@@ -161,7 +167,8 @@ store SPA (Pages) ─────/api──────▶ ┐
 platform SPA (Pages) ──/api──────▶ │
 Storefronts ───────────/shop-api─▶ ├─ apps/api (one Worker) ─┬─▶ Hyperdrive ─▶ Neon Postgres
 Providers ─────────────hooks.────▶ │   store · platform ·    ├─▶ R2
-outbox rows ─▶ Queues ───────────▶ ┘   shop · hooks · jobs   └─▶ SES, Stripe, GitHub, Cloudflare APIs
+outbox rows ─▶ Queues ───────────▶ ┘   shop · hooks · jobs   ├─▶ SES, Stripe, GitHub, Cloudflare APIs, AI models
+                                                              └─▶ Durable Objects ─▶ Containers (apps/sandbox)
 ```
 
 - Every write that has side effects writes **outbox rows in the same transaction**; a relay
@@ -169,6 +176,9 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   cache purge.
 - Workflows own multi-step jobs and record each step in the `job` table, so the platform
   console sees progress, errors and compensation.
+- A store's studio session and every storefront build run in a container that only its
+  Durable Object talks to: the Worker sends it files and receives files and reports back; the
+  container reaches nothing else (storefront/ARCHITECTURE.md §6.1).
 
 ---
 
@@ -259,4 +269,5 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 - Password hashing choice under Workers CPU limits.
 - Logpush destination, and whether to keep a copy of logs outside Cloudflare.
 - ~~Where the AI designer's sandbox runs (GitHub Actions, Cloudflare Containers, or elsewhere).~~
-  GitHub Actions (decided 2026-10-05 on #284).
+  GitHub Actions (decided 2026-10-05 on #284); **Cloudflare Containers** (decided 2026-10-08 on
+  #470, with storefront builds).

@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: AI-written theme code, Cloudflare Containers).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -164,26 +164,30 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
     [CONSOLE-DESIGN]
 
 **Storefront and AI**
-11. **A repo per store** from a shared template, the look as site data vs locked commerce.
+11. **A repo per store** from a shared template, an AI-written theme vs locked commerce.
     [SAAS-PLAN §1–2] **Now decided and specified in `../storefront/`**:
     commerce ships as a versioned package, `@dripfunnel/storefront-core`, which the AI
-    can't edit; the AI edits only the store's **site data** (`site.json`, core's schema;
-    decided 2026-10-08 on #470), and changes **look, not logic**; the template is
-    internal and fully automated, so merchants never see code.
-12. **A sync bot** keeps the core package version current across the fleet, with canaries,
-    and upgrade notes for majors. [SAAS-PLAN §5, docs/storefront/ARCHITECTURE.md §7]
+    can't edit; the AI writes the store's **theme code** inside a file allowlist, a code
+    validator, sealed components and gates (decided 2026-10-08 on #470, "Plan A"), and changes
+    **look and front-end behaviour, not commerce**; the template is internal and fully
+    automated, so merchants never see code.
+12. **A sync bot** (the upgrade bot) keeps the core package version current across the
+    fleet, with canaries, codemods, a migration agent per store, and upgrade notes for majors. [SAAS-PLAN §5, docs/storefront/ARCHITECTURE.md §7]
 13. **Two links per store** (docs/storefront/ARCHITECTURE.md §4): a **preview** SPA on
     the brand's preview subdomain with live data and no SSR or SSG, and a **live** static
     (SSG) site on the customer's domain. The live site stays current through a
-    client-rendered fallback for new pages, catalogue publishing (a "Publish now" button
+    single-page render for each new or renamed product (decided 2026-10-08 on #470), a
+    client-rendered fallback until it lands, catalogue publishing (a "Publish now" button
     limited to a monthly number of builds per plan, plus automatic periodic publishing of
     every store with changes), and edge
     rules for removed products. This replaces SAAS-PLAN §6's "catalogue changes never
     rebuild" for the live site only.
-14. **AI never publishes straight to production**: describe → build and test in a sandbox →
-    preview → approve → commit → publish, with undo as `git revert`. Guardrails: path
-    allowlist, build and typecheck, smoke test, dependency allowlist, per-plan budgets.
-    [SAAS-PLAN §7]
+14. **AI never publishes straight to production**: describe → check in the store's sandbox
+    (Cloudflare Containers) → commit → preview → approve → publish through the full gate, with
+    undo as `git revert` and automatic rollback after deploy. Guardrails: file allowlist, the
+    validator, build and typecheck, budgets, the checkout smoke test, sealed components, CSP,
+    per-plan budgets ([`../storefront/ARCHITECTURE.md`](../storefront/ARCHITECTURE.md) §3,
+    §4.2, §6). [SAAS-PLAN §7]
 
 **Engineering**
 15. **Stack**: React, Drizzle, Postgres (Neon via Hyperdrive), zod, Vitest, Playwright;
@@ -496,8 +500,9 @@ or admin console (ACCESS.md §8), integrations and apps:
 - **The storefront itself is specified in `../storefront/`** (ARCHITECTURE.md and
   DESIGN.md): the core package, the theme contract, the preview and live modes, the AI loop and
   fleet upgrades. This section covers only the hosting side.
-- **Unchanged**: repo per store, AI-editable theme vs locked core, CI path guard, dependency
-  allowlist, sync bot, AI loop with preview before publish, `git revert` undo.
+- **Unchanged**: repo per store, AI-written theme vs locked core, the file allowlist (the old
+  CI path guard), dependency allowlist, upgrade bot, AI loop with preview before publish,
+  `git revert` undo.
 - **Two deployments per store**: the preview SPA and the live static site, each with its own
   hostname and cache rules.
 - **Changed**: builds deploy to **Cloudflare** instead of S3 + CloudFront. Evaluate and
@@ -510,18 +515,18 @@ or admin console (ACCESS.md §8), integrations and apps:
   Compare account limits at 1,000+ stores, deploy API, preview URLs, rollback, cost, and how
   run-time catalogue fetches and caching work. **Verify every limit against Cloudflare's
   current documentation**; don't rely on memory. **Decided 2026-10-05 on #284: a Cloudflare Pages
-  project per store**, built in the store repo's GitHub Actions; INF 0 checks and raises the
-  per-account project limit. The comparison above stays as the reasoning.
+  project per store**; INF 0 checks and raises the per-account project limit. The comparison
+  above stays as the reasoning. Builds run in Cloudflare Containers (decided 2026-10-08 on
+  #470), not the store repo's GitHub Actions.
 - **Custom domains** through **Cloudflare for SaaS** (custom hostnames with automatic
   certificates), replacing the first platform's AWS ACM + CloudFront work (`provision-domain`). Keep
   the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), and cover brand
   storefront wildcards (`*.shops.partner.com`).
-- **Builds** still run in GitHub Actions through the GitHub App, and deploy with the
-  Cloudflare API using a scoped token held by the platform, never in a tenant repo. **The
-  hand-off** *(proposed, INF 2 confirms)*: the store repo's build uploads its static output as a
-  workflow artifact; the platform's publish Workflow fetches it through the GitHub App and
-  deploys it to the store's Pages project (Pages direct upload) with its own token, so no deploy
-  token ever reaches the repo.
+- **Builds** run in the platform's sandbox containers (`apps/sandbox`, decided 2026-10-08 on
+  #470) from the store's commit and a catalogue snapshot, and the platform's publish Workflow
+  deploys the gated output to the store's Pages project (Pages direct upload) with its own
+  token, so no deploy token ever reaches a repo or a container
+  ([`../storefront/ARCHITECTURE.md`](../storefront/ARCHITECTURE.md) §4.2).
 - **Cache purge** on catalogue change: the Shop API's own answers by the catalogue version in their key (§5.5); the static storefront files by URL on publish.
 - **Assets** on R2, served through **Cloudflare image resizing** (decided 2026-10-05 on #337).
 - Degraded storefront for past-due or suspended stores, served at the edge.
@@ -542,8 +547,9 @@ or admin console (ACCESS.md §8), integrations and apps:
   record DF Admin reads (`../ARCHITECTURE.md` §5).
 - Provisioning becomes: store and membership rows, defaults, repo from template, secrets and
   variables, Cloudflare project or worker, first build, domain. Each step has a compensation.
-- AI runs: the agent executes in GitHub Actions (decided 2026-10-05 on #284), budgets per plan,
-  `ai_run` metering.
+- AI runs: the model is called by the Worker and its changes run in the store's container
+  (Cloudflare Containers, decided 2026-10-08 on #470, replacing GitHub Actions), budgets per
+  plan, `ai_run` metering with container time and repairs (the platform's cost).
 - Billing: Stripe Billing for subscriptions, webhooks with idempotency, `past_due` gating
   cached on the session with invalidation. Plus the two-level white-label money model from
   CONSOLE-DESIGN §3 fact 20 *(ask which comes first)*.
@@ -555,7 +561,8 @@ or admin console (ACCESS.md §8), integrations and apps:
   (`../ARCHITECTURE.md` §4, §6).
 - Every log line carries store, seller and brand ids. Tracing across API, worker and edge.
 - The §14 metrics from the first store: build minutes, AI cost, provisioning success, time to
-  first store, failed builds after AI edits, template drift.
+  first store, failed builds after AI edits, repairs, refused and rolled-back publishes, core
+  drift and pinned stores.
 
 ### 5.9 Testing
 
@@ -674,7 +681,7 @@ app actually running and exercised, and nothing regressed. A suggested skeleton 
    Cloudflare hosting, provisioning of the storefront, custom domains.
 7. Cart, checkout, payments, shipping, orders, vendor sub-orders, emails.
 8. Offers.
-9. AI designer loop, sync bot.
+9. AI designer loop (the sandbox, the validator, the gates), upgrade bot.
 10. Headless for merchants: public store keys and allowed origins, own-storefront stores,
     API keys, webhooks; then store custom fields; then apps.
 11. Billing and plans; DF Admin; white-label brands.
@@ -741,8 +748,8 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - ~~Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?~~
   **A Pages project per store** (decided 2026-10-05 on #284; limits checked on INF 0).
 - ~~Cloudflare Images or our own image variants?~~ **Cloudflare image resizing** (decided 2026-10-05 on #337).
-- ~~Where does the AI agent execute, and where do builds run?~~ **Both in GitHub Actions**
-  (decided 2026-10-05 on #284).
+- ~~Where does the AI agent execute, and where do builds run?~~ ~~**Both in GitHub Actions**
+  (decided 2026-10-05 on #284).~~ **Both in Cloudflare Containers** (decided 2026-10-08 on #470).
 
 **Headless**
 - ~~Which of **API keys, webhooks and apps** ship in the first release?~~ **All three**, with the

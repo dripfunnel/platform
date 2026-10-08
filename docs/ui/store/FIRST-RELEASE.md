@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: the storefront as AI-written theme code, "Plan A").
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -55,9 +55,9 @@ packs) is taken from the prototype as drawn.
 
 | Question | Answer |
 |---|---|
-| The shopper storefront's pages (the prototype draws none) | **Designed in the prototype first** (card D1), then built as the baseline theme the AI restyles |
+| The shopper storefront's pages (the prototype draws none) | **Designed in the prototype first** (card D1), then built as the baseline theme ("Start from scratch"), which the AI then rewrites freely (#470) |
 | Hosting (PLATFORM-PROMPT §5.6, §10) | **A Cloudflare Pages project per store**; the project limit per account is checked and raised (INF 0) |
-| Where the AI designer runs | ~~**GitHub Actions**, like the storefront builds~~ One Store API call that edits the store's site data (2026-10-08, #470) |
+| Where the AI designer runs | ~~**GitHub Actions**, like the storefront builds~~ ~~One Store API call that edits the store's site data~~ **Cloudflare Containers**, one per store with a studio open, with the storefront builds (2026-10-08, #470) |
 | Merchant Stripe (THIRD-PARTY-ACCESS §3.1) | **Stripe Connect OAuth**, no pasted keys; **Stripe Tax runs on the merchant's own account** |
 | SMS | **In the first release**: MSG91 (India) and Twilio (US), each the partner's own account; 2-factor by app or SMS; shoppers sign in by email or mobile code |
 | The preview storefront | **Opens by a signed link** from the portal, never indexed; checkout in each provider's **test mode** |
@@ -72,7 +72,7 @@ document it belongs to, and in the card's "Decided" section):
 
 | Question | Answer |
 |---|---|
-| Content pages and blog | **In**: about, FAQ, contact, lookbook and a blog, managed in the portal (SAPI 24, SUI 17); About and Contact moved to the site data on 2026-10-08 (#470) |
+| Content pages and blog | **In**: about, FAQ, contact, lookbook and a blog, managed in the portal (SAPI 24, SUI 17); they share one set of paths with the AI's own pages (2026-10-08, #470) |
 | WhatsApp cart reminders | **In**, in India, through MSG91 and the partner's WhatsApp Business account |
 | SMS | Also sends shoppers' order updates (confirmed, shipped, delivered) |
 | Gift cards | The merchant sets the expiry: at least 1 year in India, 5 years in the US |
@@ -91,17 +91,36 @@ document it belongs to, and in the card's "Decided" section):
 
 | Question | Answer |
 |---|---|
-| What the AI edits | The store's **site data** (theme, announcement bar, header, up to 12 home sections, footer, About, Contact), never code |
-| The store repo | Still one per store, **created when the merchant first picks a template**; it holds the template and `site.json`, which publishing commits |
-| Live hosting | A static build per store on its Pages project, as before |
+| What the AI edits | ~~The store's **site data** (theme, announcement bar, header, up to 12 home sections, footer, About, Contact), never code~~ **Reversed the same day**: the theme's code (below) |
+| The store repo | Still one per store, **created when the merchant first picks a template**; ~~it holds the template and `site.json`, which publishing commits~~ it holds the store's theme, and the platform commits each AI change that passes (below) |
+| Live hosting | A static build per store on its Pages project, as before, built in Cloudflare Containers (below) |
 | How a design starts | A required **"Your brand"** step, then a **template gallery** (six presets and "Start from scratch", each with a demo), replacing the three AI directions |
 | Brand colours | Only a hint for the AI; templates keep their own |
 | Content pages and blog | Kept, as Storefront's **Pages** and **Journal** tabs (`StorefrontContent`); content pages are FAQ, lookbook and the merchant's own |
 | Catalogue "Publish now" | Kept with its allowance, in a bar on the Design tab; the automatic publish too |
-| The preview host | Kept: **"Open preview"** in the studio opens the draft by a signed link, with test-mode checkout |
+| The preview host | Kept: **"Open preview"** in the studio opens the draft by a signed link, with test-mode checkout; every change that passes is deployed there (below) |
 | The own storefront | Not in the first release |
 | A new core release | Each published version is pinned to its core version; a new look reaches a store only at its merchant's next publish |
 | The undrawn prototype files | The cards follow only the new Storefront files; the other Store screens stay as they were |
+
+**Decided 2026-10-08 with Gaurav (#470), later the same day: "Plan A", the AI writes the theme's
+code** (storefront ARCHITECTURE §1, §3, §4.2, §6; DESIGN §2–§3; SAAS §9.2, §10):
+
+| Question | Answer |
+|---|---|
+| What the AI edits | The store's **theme code**: pages, components, CSS Modules, the words per language and its own pages (`src/theme/**`, `content/**`, `routes.json`), behind a file allowlist, a code validator, sealed components, CSP and gates. Full freedom over look and front-end behaviour (an image matched, a page featuring one product, any element anywhere, zoom, infinite scroll), none over commerce |
+| Where changes and builds run | **Cloudflare Containers**: one per store with a studio open, held by one Durable Object per store (one change at a time); publish builds in their own pool |
+| A change that fails its check | The AI repairs it from the exact errors, at most three times, else "nothing changed"; repairs and gate runs are **the platform's cost**, never the merchant's meters |
+| Publishing | A full gate before going live; repair, then "publish everything before this change", then refuse; automatic rollback if the live site breaks after deploy |
+| Preview host | Every change that passes is deployed there, so "Open preview" always shows the draft |
+| Go back to version N | Redeploy its kept deployment (instant, free), then reset the draft to that version |
+| Brand and search and sharing | Read by the theme through core; the AI never copies them |
+| Paths | One namespace: core's routes reserved; an AI page and a content page or post can't share a path |
+| Templates | Kept as a gallery; each template is complete starting theme code |
+| New and renamed products | A single-page render at once (page, sitemap, redirect, IndexNow), no allowance used |
+| Languages | The AI writes every language the store offers; the merchant can correct any |
+| Real-user speed data | Recorded only after the shopper's consent |
+| A core security fix the theme can't take | The store gets the baseline theme with its own colours and words until repaired |
 
 Decided on the way, from the prototype and the docs it follows (each recorded where it lives):
 the Store API is **GraphQL**, like the Platform and Admin APIs (§19); **stock is reserved when an
@@ -409,17 +428,28 @@ through. Your site stays live."), as is a support session.
   doesn't change until Publish.
 - **Studio** (full screen, the portal's header and menu hidden): "← Storefront", the template
   and store name, the address, a status ("Unpublished changes", "Same as live site", "Not
-  published"); pages Home · Product · Cart · About · Contact and Desktop · Tablet · Phone (as
-  selects below 1180 px; Chat and Preview tabs on a phone). The chat ("Design with AI", AI
-  tokens left or "On your own AI key") shows the merchant's requests, the AI's reply with what
-  changed, "Undo this change" on the latest one, notes ("Switched to Linen", "Published as
-  version 13", "Changes discarded"), up to four suggestions, and the error "I couldn't make that
-  change — nothing on your site changed. Try again, or say it a different way." **Open preview
-  ↗** (not drawn; left of Discard, only with a draft) opens the draft on the preview host.
-  **Discard** asks first; **Publish** asks "Publish version N? Your changes go live on {host}
-  in about a minute and use about 2 build minutes. You can go back to version N−1 any time, for
-  free.", shows "Building your site…" then "Checking it went live…", and ends with "Version N is
-  live — we checked your site and it changed".
+  published"); the page picker lists every page of the store, its own pages included, and
+  Desktop · Tablet · Phone (as selects below 1180 px; Chat and Preview tabs on a phone). The
+  chat ("Design with AI", AI tokens left or "On your own AI key") takes words, a **pasted or
+  uploaded image** and a **website address** to take inspiration from; it shows the merchant's
+  requests, the AI's reply with what changed in plain words, "Undo this change" on the latest
+  one, notes ("Switched to Linen", "Published as version 13", "Changes discarded"), up to four
+  suggestions, and the error "I couldn't make that change — nothing on your site changed. Try
+  again, or say it a different way." **Edit text** on any words in the preview opens them in
+  every language the store offers. **Open preview ↗** (left of Discard, only with a draft)
+  opens the draft on the preview host. **Discard** asks first.
+  **Not drawn** (the prototype card adds them; storefront ARCHITECTURE §6): "Opening your
+  studio…" while the sandbox starts; "You're next — about N seconds" while studios queue;
+  "Finishing your previous change…" when another tab is changing the store; "Checking your
+  change…" while the change is checked and repaired.
+- **Publish** asks "Publish version N? We check your whole site first, then it goes live on
+  {host} in a few minutes and uses about N build minutes. You can go back to version N−1 any
+  time, for free.", shows "Building your site…", "Checking your site…", then "Checking it went
+  live…", and ends with "Version N is live — we checked your site and it changed". **Not drawn**:
+  a refused publish says what failed in plain words and that the live site is unchanged, and
+  offers **Publish everything before this change** when one change is to blame; a publish rolled
+  back after going live says so ("We put version N−1 back: your new version broke the checkout
+  on phones. We're fixing it."); neither uses a "Publish now" press.
 - **Overview, Design tab**: "{host} · version N is live · {template} template", **View live site
   ↗**, **Change template**, **Open studio** or **Continue in studio**; the "Unpublished changes"
   notice with Discard and Continue in studio; the **catalogue Publish now bar** (not drawn;
@@ -429,15 +459,16 @@ through. Your site stays live."), as is a support session.
   upgrade); the live site at Desktop or Phone; "'Powered by DripFunnel' shows in your footer on
   {plan}. Remove it" (the upgrade).
 - **Pages** and **Journal** tabs (not drawn in the new file; `StorefrontContent`'s drawing):
-  content pages (FAQ, lookbook, the merchant's own; About and Contact link to the studio) and the
-  blog, SUI 17 on SAPI 24.
+  content pages (FAQ, lookbook, the merchant's own) and the blog, SUI 17 on SAPI 24. Pages the
+  AI made are listed too, opening the studio; a content page can't take a path one of them uses,
+  and the reverse (storefront ARCHITECTURE §3.1).
 - **Site settings tab**: **Brand** (not drawn; the brand step's fields); **Domains** (SAAS §8);
   **Search and sharing** (title with a /60 count, description /155, a share image from the
   product photos, Google and share previews, Save: "Saved — search engines pick it up within a
   few days. No publish needed."; it goes out with the next publish of any kind); **AI and build
   minutes** (this month's meters, AI requests, publishes in the last 30 days, recent requests);
   **Version history** (kept for the plan's days, Live, **Go back to this**, which uses no build
-  minutes).
+  minutes and makes the draft that version).
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---
@@ -573,7 +604,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | Products | `products(filter, sort)`, `productCounts`, `product(id)`, `productStock(productId)`, `stockHistory(productId, versionId)`, `readiness(productId)`, `catalogExport(id)`, `catalogExports`, `catalogImport(id)`, `catalogImports`, `catalogImportTemplate` | `saveProduct`, `updateProducts(ids, patch)`, `deleteProducts`, `adjustStock(versionId, warehouseId, delta, reason)`, `setStock(entries)`, `setLowStockThreshold`, `approveProduct`, `sendBackProduct(reason)`, `uploadAsset` (signed upload), `writeDescription` (AI, metered), `requestCatalogExport(kind)` (job: products or stock), `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)` (jobs) |
 | Collections | `collections`, `facets` (the one a supplier reaches too, counting its own products only), `menu`, `sizeCharts`, `productCollections` (merchant side) | `saveCollection`, `deleteCollection`, `saveFacet`, `mergeFacetValues`, `saveMenu`, `saveSizeChart`, `deleteSizeChart`, `setProductCollections` (merchant side) |
 | Import | `catalogImport(id)`, `catalogImports`, `catalogImportTemplate`, `shopifyConnection`, `shopifyProducts` | `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)`, `connectShopify`, `finishShopifyConnect`, `disconnectShopify`, `startShopifyImport`. No pause: a run carries on on the server, chunk by chunk |
-| Storefront (SAPI 17, #318) | `storefront` (live version, draft, history, usage, publishing status), `storefrontTemplates`, `designChat`, `previewLink` | `chooseTemplate(key, keepWords)` (refused until the brand is ready), `askDesign(text, page, device)` (AI request), `undoDesignChange`, `discardDraft`, `publishDesign`, `goBackToVersion(n)`, `publishNow` |
+| Storefront (SAPI 17, #318) | `storefront` (live version, draft, history, usage, publishing status), `storefrontTemplates`, `designChat`, `studioSession` (starting, queued with its place, ready, busy), `publishRun(id)` (steps and the gate's plain-words result), `designText(page, locale)`, `previewLink` | `chooseTemplate(key, keepWords)` (refused until the brand is ready), `askDesign(text, imageAssetId, sampleUrl, page, device)` (AI request, run in the store's sandbox), `saveDesignText(locale, key, text)`, `undoDesignChange`, `discardDraft`, `publishDesign`, `publishBefore(messageId)`, `goBackToVersion(n)`, `publishNow` |
 | Storefront site settings (SAPI 17b, #471) | `storefrontBrand` (with `brandReady`), `storefrontSeo`, `storefrontDomains` | `saveStorefrontBrand`, `saveStorefrontSeo`, `connectDomain`, `checkDomain`, `makeDomainPrimary`, `removeDomain` |
 | Settings | `storeInfo`, `people`, `suppliers`, `gateways`, `shipping`, `warehouses`, `tax`, `markets`, `catalogueSettings`, `customerAccounts`, `apiKeys`, `webhooks(…deliveries)`, `apps`, `supportAccess` (+ log) | `saveStoreInfo`, `saveCurrencies`, `saveLanguages`, `inviteMember`, `changeRole`, `removeMember`, `inviteSupplier`, `setSupplierAccess`, `setSupplierShippingMode`, `suspendSupplier(hide)`, `removeSupplier`, `setApproval`, `connectGateway`, `disconnectGateway`, `saveShipping`, `connectCourier`, `testCouriers`, `saveWarehouse`, `setDefaultWarehouse`, `saveTax`, `saveInvoiceSettings`, `saveMarket`, `saveCatalogueSettings`, `saveBadge`, `saveLegalDefaults`, `setCustomerSignIn`, `createApiKey` (secret shown once), `rotateApiKey`, `revokeApiKey`, `saveWebhook`, `replayDelivery`, `installApp`, `uninstallApp`, `setSupportAccess`, `answerSupportElevation(allow)` |
 | Activity (Owner, and Manager as Store activity) | `activityLog(filter)` (`activity.read`, Owner and Manager, shoppers included), never behind the Settings permission | `exportActivity` (job, `activity.export`, Owner only) |
@@ -764,14 +795,19 @@ are described in their issues.
 
 - **0. Design and accounts:** #285 D1, #286 SUI 1, #287 INF 0, #470 (the storefront docs after the 2026-10-08 redesign)
 
-**The storefront strand's order after the redesign** (2026-10-08, #470): #470 → #303 → #304 →
-#316 → #468 → #317 → #471 → #318 → #319 → #307 → #313 → #338 → #339 → #324.
+**The storefront strand's order after the redesign** (2026-10-08, #470, "Plan A"): #470 → #303 →
+#304 → SC 2 (the validator) → SC 3 (sealed components, CSP) → #287 → #316 → INF 3 (the sandbox
+service) → #468 → #317 → INF 4 (the publish gate, repair and bisect) → INF 5 (deploy checks,
+rollback, single-page render) → #471 → #318 → #319 → #307 → #313 → ST 0 (the starting themes) →
+#338 → #339 → #324 → INF 6 (the upgrade bot); the prototype card (the studio's new states) any
+time before #319. The cards named without a
+number are drafted on #470 and get their numbers when they are created.
 
 - **1. Merchant identity:** #288 SAPI 1, #289 SMS 1, #290 SAPI 2, #291 SUI 2, #292 SUI 3
 - **2. Catalogue:** #293 SAPI 3, #294 SAPI 4, #295 SAPI 5, #296 SAPI 6, #297 SAPI 7, #298 SUI 4, #299 SUI 5, #300 SUI 6, #301 SAPI 16, #302 SUI 10
 - **3. Storefront base:** #303 SC 0, #304 SC 1, #305 SAPI 23, #306 SAPI 8, #307 ST 1a
 - **4. Checkout and orders:** #308 SAPI 9, #309 SAPI 10, #310 SAPI 11, #311 SAPI 12, #312 SAPI 13, #313 ST 1b, #314 SUI 7, #315 SUI 8
-- **5. Publishing:** #316 INF 1, #317 INF 2, #318 SAPI 17, #319 SUI 11, #471 SAPI 17b (added on #470)
+- **5. Publishing:** #316 INF 1, #317 INF 2, #318 SAPI 17, #319 SUI 11, #471 SAPI 17b (added on #470); and, from #470's "Plan A": SC 2, SC 3, INF 3, INF 4, INF 5, INF 6, ST 0
 - **6. Growth:** #320 SAPI 14, #321 SAPI 15, #322 SAPI 18, #323 SAPI 22, #324 ST 1c, #325 SUI 9, #326 SUI 12, #327 SUI 15, #328 SUI 16, #338 SAPI 24, #339 SUI 17
 - **7. Business and admin:** #329 SAPI 19, #330 SAPI 20, #331 SAPI 21, #332 SUI 13, #333 SUI 14
 - **8. Launch:** #334 L1, #335 L2
@@ -817,7 +853,7 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting; `exportOfferCodes` with its isolation test; `checkCode` rate-limited per caller and store, with one answer for a wrong and a missing code | SAPI 9 |
 | SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending and WhatsApp through MSG91 in India (#337), unsubscribe; isolation: a reminder link (`cart/r/{token}`) or unsubscribe token opens or changes one cart or one consent in one store only; link lookups rate-limited per host and IP, with one refusal for a token that is unknown, expired or used; and `abandonedCarts` is store-scoped, read-only for Staff and refused to suppliers | SAPI 13, SAPI 14 |
 | SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13); the Shopify connection and image fetches keep §19's outbound rules (SSRF-checked URLs, timeout, bounded retries), tested with a private and a metadata address; isolation: exports are store A's only, supplier A's never supplier B's, and a `to-store` supplier's export carries no customer field; a supplier's import writes only its own rows (`seller_id` from `SellerScope`, never the file), a row naming another supplier's or the store's product is rejected, and imported rows wait for approval while it's on | SAPI 5 |
-| SAPI 17 | Storefront (redesigned on #470): templates, the AI studio on site data, publish, go back, Publish now, the signed preview link | #470, INF 1, INF 2, SAPI 8, SAPI 17b |
+| SAPI 17 | Storefront (redesigned on #470, "Plan A"): templates, the AI studio (the model call, the store's sandbox, commits, undo, discard), publish through the gate, go back, Publish now, the signed preview link, `ai_run` metering | #470, INF 1, INF 2, INF 3, INF 4, SAPI 8, SAPI 17b |
 | SAPI 17b | Storefront site settings (#471): brand, search and sharing, domains | #470, SAPI 8, #468 |
 | SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (Staff and every supplier caller refused `report` and `exportReport`: suppliers have no Reports, only Your sales, `mySales`, §17); and `home`, store-scoped and refused to suppliers; `home` by role, withheld on the server: Staff get no sales, order-value or returning-customer figures (`reports.read`), and a Manager gets no Owner-only item (team requests, approval queue) | SAPI 11 |
 | SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and `exportStoreData` (Owner) with its isolation test | SAPI 2, SAPI 3, SAPI 11, SAPI 13, #201 |
@@ -839,13 +875,25 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | SUI 8 | Settings: Payment setup, Shipping, Customer accounts | SUI 6, SAPI 10, SAPI 23 |
 | SUI 9 | Offers and Abandoned carts | SUI 7, SAPI 14, SAPI 15 |
 | SUI 10 | Import and export | SUI 4, SAPI 16 |
-| SUI 11 | Storefront: brand step, template gallery, studio, site settings (#470) | SUI 2, SAPI 17, SAPI 17b |
+| SUI 11 | Storefront: brand step, template gallery, studio (images, sample sites, edit text, the sandbox's states), publish with the gate's results, site settings (#470) | SUI 2, SAPI 17, SAPI 17b |
 | SUI 12 | Home and Reports | SUI 7, SAPI 18 |
 | SUI 13 | Billing | SUI 2, SAPI 19 |
 | SUI 14 | Developers, Apps, Support access, Activity log | SUI 6, SAPI 20, SAPI 21, SUI 1 |
 | SUI 15 | Supplier views: Your products, To ship, Your sales, Your team | SUI 4, SUI 7, SUI 1 |
 | SUI 16 | Product kinds in the editor (the storefront's side is ST 1's) | SUI 4, SAPI 22 |
 | ST 1 | Storefront template on the Shop API: catalogue, cart, checkout, accounts, offers, every payment method, and the product kinds on the storefront (gift cards, downloads) | SAPI 9, SAPI 10, SAPI 14, SAPI 22 |
+
+**Storefront walls and pipeline** (drafted on #470 for "Plan A"; numbers when created)
+
+| # | Card | Needs |
+|---|---|---|
+| SC 2 | Core's validator (`./guard`): the file allowlist, the type-aware code rules, CSS and content rules, the routes namespace, a corpus of forbidden code with a case per rule (storefront ARCHITECTURE §3.4) | #304 |
+| SC 3 | Sealed components in a closed Shadow DOM with their visibility self-check, the top-layer banners, `Money`/`Stock`/`Rating`/`Badge` as branded types, CSP and Trusted Types, section error boundaries and the baseline checkout fallback (§3.5) | #304 |
+| INF 3 | The sandbox service: `apps/sandbox`'s image per core version, the `StudioSession` Durable Object (one change at a time, idle stop, cold start from the last commit, the queue), the fast gate and the repair loop, commits through the GitHub App, the preview build and deploy (§6) | SC 2, #287, #316 |
+| INF 4 | The publish gate: the catalogue snapshot, the deterministic offline build, the full gate (contract, visibility, checkout smoke, axe, budgets, no-JS render, crawl, content scan, visual diff, the edge-case catalogue), repair and bisect (§4.2, §9, §10) | INF 3, SC 3, #317 |
+| INF 5 | Going live safely: atomic deploy, post-deploy checks from the edge, automatic rollback, the single-page render for new and renamed products, redirects, IndexNow, real-user vitals after consent (§4.2, §8, §9) | INF 4 |
+| INF 6 | The upgrade bot: the sandbox image per release, codemods, the migration agent, canaries and waves, pinning, the baseline-theme fallback for security fixes (§7; SAAS §10) | INF 4, INF 5 |
+| ST 0 | The starting themes: "Start from scratch" from D1 and the six templates as theme code in `templates/storefront/themes/`, each passing every gate (§2.3) | SC 2, SC 3, #307, #313 |
 
 ---
 

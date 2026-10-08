@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-08 (#470: the storefront docs now cover `apps/sandbox`).
 
 ---
 
@@ -36,7 +36,7 @@ All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
 ## 3. The map
 
 The folders mirror the code: `docs/api` ↔ `apps/api`, `docs/ui/<app>` ↔ `apps/ui/<app>`,
-`docs/storefront` ↔ `templates/storefront` and `packages/storefront-core`. `docs/code` holds
+`docs/storefront` ↔ `templates/storefront`, `packages/storefront-core` and `apps/sandbox`. `docs/code` holds
 what applies across the whole repo. `docs/setup` is the one folder that follows environments
 instead of code: a step-by-step runbook per environment, linking to the documents that hold the
 facts (decided 2026-10-04).
@@ -84,7 +84,8 @@ docs/
     dev.md                  runbook: the dev environment on dripfunnel.ai: one-time setup, the Worker's values, deploying, checklist
     prod.md                 runbook: production on dripfunnel.com: what is missing, one-time setup, values, releasing, checklist
   storefront/
-    ARCHITECTURE.md         the storefront template, storefront-core, render modes, AI loop, fleet upgrades
+    ARCHITECTURE.md         the storefront template, storefront-core, the walls around AI-written themes,
+                            render modes, the publish pipeline, the studio sandbox, fleet upgrades
     DESIGN.md               what the AI may design and the rules every design keeps
 ```
 
