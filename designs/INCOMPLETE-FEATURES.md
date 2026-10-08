@@ -151,10 +151,22 @@ the missing backend.
 - There is no column-mapping step, no image ZIP and no customer or order import.
 
 ### Storefront (PortalStorefront)
-- The AI can edit **only the hero section** (headline, subheading, button, colours).
+- ~~The AI can edit **only the hero section** (headline, subheading, button, colours).~~ Redrawn 2026-10-08 so every part of the page can change. The drawing still models changes as site JSON (`storefront-lib.js`); what is built is Plan A, where the AI writes theme code (storefront ARCHITECTURE §1).
 - ~~"Go back to this" (revert) doesn't really restore that version (:131).~~
 - ~~"View live site" is toast only (:133).~~
-- There is no preview link to share, and no page, header or footer editing.
+- ~~There is no page, header or footer editing.~~ Redrawn 2026-10-08.
+- Decided 2026-10-08 on #470 and not drawn yet (FIRST-RELEASE §14 gives the wording):
+  - the **"Your brand"** step before the gallery, and Site settings › **Brand**;
+  - the **Pages** and **Journal** tabs (the new file has only Design and Site settings; `StorefrontContent` holds their drawing);
+  - the catalogue **Publish now** bar on the Design tab;
+  - **Open preview ↗** in the studio's top bar.
+- Decided 2026-10-08 on #470 ("Plan A": the AI writes theme code) and not drawn yet (FIRST-RELEASE §14):
+  - images and a website address in the chat, and **Edit text** in every language;
+  - the page picker listing every page of the store, the AI's own pages included (the drawing has Home, Product, Cart, About, Contact);
+  - the sandbox's states: "Opening your studio…", "You're next — about N seconds", "Finishing your previous change…", "Checking your change…";
+  - the publish gate: "Checking your site…", a refused publish with **Publish everything before this change**, a publish rolled back after going live;
+  - the drawing still renders site JSON (`storefront-lib.js`); that is how it draws, not what is built.
+- "View live site" is still toast only.
 
 ### Settings
 - **Tab host (PortalSettings):**

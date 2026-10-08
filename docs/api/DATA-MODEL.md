@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-08 (#470: the storefront tables for AI-written theme code).
 
 ---
 
@@ -687,8 +687,8 @@ contract).
 |---|---|---|
 | `app_request` | Merchant-side people (Owner, Manager, Staff) in store scope, and partner support sessions into a store (ACCESS §8) | DML under RLS; no `BYPASSRLS`; `select` and `insert` on `activity_log` (as 0006 grants; never update or delete) and `insert` on `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; `"order".access_token_hash`; §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc`, `token_enc` and `key_enc` on courier, payment, webhook, connection and AI-account rows) nor on `user.phone`, reached only through `own_phone()` and `set_own_phone()` (§2.1) |
 | `app_supplier` | Supplier users (store scope with `app.seller_id` set) | **Writes only what a supplier does** (ACCESS §5.2, §7.3), under the store-and-seller policies: DML on its own catalogue rows and their children (§7.3), `asset`, `warehouse`, `stock_level`, `stock_movement`, `size_chart`, `product_story`, `translation`, `catalog_import`, `catalog_export`; `select` on its own `fulfilment` and `fulfilment_line` rows, which the engine writes in system scope after holding every line and location to the supplier (decided on #310: stock leaving a location is a system write, `stock_level.reserved`, so the shipment goes with it in one transaction; 0071), and `insert` on `order_document` for its own labels; **its refunds through the engine**, which holds every line to the caller and writes `refund` and `refund_line` in system scope with the provider's refund (decided on #310: the money goes back in the same transaction, which no definer function can call out for); `app_supplier` has no `insert` on either, and the ceiling stays a mechanism: `refund_line_ceiling()`, a constraint trigger, refuses any row taking a line past its quantity or what was paid for it, whoever writes it (0072); **`select` only, no write**, on `order_part`, `return_line`, `supplier_ledger_entry`, the refunds and documents the store wrote (its own refunds and labels it inserts, as above, and never updates), and on `order_line` **by column without any `*_amount`, tax rate or zone** (id, order and part ids, owner, version, product, name, version name, SKU, classification code, quantity, weight, the three fulfilled/returned/refunded quantities: what fulfilling needs); the money of its own lines it reads through `order_line_for_supplier` (§7.11), which carries the currency. The order's snapshot and a return's state are never a supplier's to change. **No `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
-| `app_shop` | Shoppers and guests (shop scope) | **Built on #306 (migration 0064) and #308 (0066).** **Reads**: the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; the shop-readable settings §7.11 lists, by column (`store` and `market` public columns, languages, currencies, `store_policy`, `badge`, the shipping settings, the tax classes, zones and rates, and of `payment_provider_account` only `provider`, `mode` and `public_key`), each under its shop policy; its own `customer` row; its own `"order"` rows and their `cart_line`s under the guest rule (§7.11: by its account, or a guest's by the hash of the cart token it presented), and on `"order"` never `notes`, `cancel_reason` or `access_token_hash`; of `activity_log` only its own entries' what-and-when columns. **A cart holds no price**: the engine prices it on every read, so there are no cart functions. **Writes**: on `"order"` only its own **carts'** choice columns (`email`, `phone`, `language`, `currency`, `market_id`, the two addresses, `shipping_option`, `shopper_note`, `checkout_step`, `cart_expires_at`, and `customer_id` only to its own; on insert also `store_id` and `access_token_hash`), with `state = 'cart'` in both `USING` and `WITH CHECK` and the currency and market only of the store's offer; `cart_line` (a version and a quantity) through the cart's policy; since #308 part 2 (0067) its own `customer` name and its own `customer_address` rows, and `activity_log` entries only about itself (`customer_id`, `actor_kind = 'customer'`, `actor_id` its own). Never a state, an amount, an order line or another shopper's row: placement, payment and every priced figure are written by the engine in system scope (#309), so a shopper can never set a price, a total or a state (PLATFORM-PROMPT §5.5 "the engine computes everything that matters") |
-| `app_partner` | Every partner-user request (partner scope): its own partner's tables and the account-level store tables | DML under RLS on the partner tables (§2); `select` on the account-level store tables (§2, §7.11) with the column rule of §7.11: never `design_version.prompt`, `summary`, `preview_asset_ids`, `ai_run.prompt` or `gate_results`; writes only what ACCESS §5.3 allows a partner (creating a store, built on #221: an invited `user`, an invited Owner `membership`, the store's first `job`, and a `store_subscription` at its plan's own price, each granted by column and held by a policy); the same credential exclusions as `app_request` |
+| `app_shop` | Shoppers and guests (shop scope) | **Built on #306 (migration 0064) and #308 (0066).** **Reads**: the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; the shop-readable settings §7.11 lists, by column (including `storefront_brand` and `storefront_seo`'s public columns, never the brand colours or voice; `store` and `market` public columns, languages, currencies, `store_policy`, `badge`, the shipping settings, the tax classes, zones and rates, and of `payment_provider_account` only `provider`, `mode` and `public_key`), each under its shop policy; its own `customer` row; its own `"order"` rows and their `cart_line`s under the guest rule (§7.11: by its account, or a guest's by the hash of the cart token it presented), and on `"order"` never `notes`, `cancel_reason` or `access_token_hash`; of `activity_log` only its own entries' what-and-when columns. **A cart holds no price**: the engine prices it on every read, so there are no cart functions. **Writes**: on `"order"` only its own **carts'** choice columns (`email`, `phone`, `language`, `currency`, `market_id`, the two addresses, `shipping_option`, `shopper_note`, `checkout_step`, `cart_expires_at`, and `customer_id` only to its own; on insert also `store_id` and `access_token_hash`), with `state = 'cart'` in both `USING` and `WITH CHECK` and the currency and market only of the store's offer; `cart_line` (a version and a quantity) through the cart's policy; since #308 part 2 (0067) its own `customer` name and its own `customer_address` rows, and `activity_log` entries only about itself (`customer_id`, `actor_kind = 'customer'`, `actor_id` its own). Never a state, an amount, an order line or another shopper's row: placement, payment and every priced figure are written by the engine in system scope (#309), so a shopper can never set a price, a total or a state (PLATFORM-PROMPT §5.5 "the engine computes everything that matters") |
+| `app_partner` | Every partner-user request (partner scope): its own partner's tables and the account-level store tables | DML under RLS on the partner tables (§2); `select` on the account-level store tables (§2, §7.11) with the column rule of §7.11: never `design_version.label`, `publish_run.gate`, `core_rollout_store.gate`, `design_draft`, `design_message`, `storefront_brand`, `storefront_seo` or `ai_run.prompt` (a partner sees a run's state, never which check failed in a merchant's theme); writes only what ACCESS §5.3 allows a partner (creating a store, built on #221: an invited `user`, an invited Owner `membership`, the store's first `job`, and a `store_subscription` at its plan's own price, each granted by column and held by a policy); the same credential exclusions as `app_request` |
 | `app_platform` | Every staff request (platform scope; the Admin API) | DML under RLS on the platform and partner tables and the account-level store tables; the read-only `platform` branch on `customer` (§2); **the same column rule as `app_partner` on the AI prompt columns** (staff see a merchant's content only by impersonating, ACCESS §8.1, which runs as the target's role); the same credential exclusions |
 | `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `order_line_for_supplier`, `return_for_supplier`, the AI metering view), the token functions `request_token_matches()`, `current_order_token_hash()` (built on #308; a cart needs no other function, as it holds no price), `current_request_token_hash()`, and `supplier_refund()` | `BYPASSRLS`, no login. Every view and function filters on the settings of the scope it serves and is `security barrier`, so none is wider than the policy it replaces: the two supplier views on `app.store_id` and `app.seller_id`; **the AI metering view by scope**: `store` → `store_id = app.store_id`, `partner` → `store.partner_id = app.partner_id` (joined through `store`), `platform` → every store, anything else → nothing; the token functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting; the cart functions are executable by `app_shop` alone and write only the shopper's own cart (§7.11); `supplier_refund()` by `app_supplier` alone, enforcing the refund ceiling (§7.6; not built: decided on #310, the engine refunds in system scope and `refund_line_ceiling()` holds the ceiling); `current_order_token_hash()` returns the hash a guest's own insert must carry, and **null when the setting is empty**, so a tokenless insert fails the `WITH CHECK` comparison, which is never true against null (§7.11). **The catalogue and stock** (#293, #294): `store_product_count()` and `store_pricing_currency()` answer a number or a code for `app.store_id` in `store` scope only; `version_price_history()` (a trigger) writes the history of the price row being changed; `stock_change()` refuses anything but `store` scope outside read-only support, reaches only the caller's own locations (the merchant side's, or `app.seller_id`'s with its own versions) and writes the movement with the session's actor (§7.4); `store_default_warehouse()` (a trigger on `store`) inserts that new store's own default location and nothing else. **Approval** (#295, 0050): `store_vendor_approval()` answers the acting store's `vendor_products_require_approval` in `store` scope only, for a supplier too; `set_store_vendor_approval()` writes that one column for the acting store, merchant side only and never in a read-only support session. **Markets** (#296, 0051): `set_store_main_language()` writes `store.main_language` the same way, to one of the store's active languages; `store_default_market()` (a trigger on `store`) inserts that new store's main language and its primary Home market; `store_markets_follow_currency()` (a trigger on `store`) moves that store's markets selling in the old pricing currency to the new one; `acting_store_main_language()` answers the acting store's main language in `store` scope only, for a supplier too (0053); `save_store_info()` writes Store info's store columns for the acting store, merchant side only, its logo one of the store's own images, and `set_store_tax_inclusive()` the same for prices including tax (0054); `store_default_tax()` (a trigger on `store`) inserts that new store's tax classes, zone and rates (0055). **The product editor** (#298, 0056): `store_unit_system()` answers the acting store's metric or imperial in `store` scope only, for a supplier too, so a product's weight and box are typed in the store's units. **Shipping** (#305, 0063): `store_delivers_to(code)` answers whether the acting store's postcode list holds a code, in `store` or `shop` scope on the merchant side only, so a shopper's quote never reads the list. **Orders** (#310, 0070, 0072): `order_for_supplier`, `order_line_for_supplier` and `return_for_supplier` are built, selectable by `app_supplier` alone, `app_definer` holding `select` on only the columns they read. The identity, partner, billing and provisioning helpers of migrations 0007–0040 keep the filters their migrations state. The structural test (§5.4, `tests/isolation.test.ts`) names every function the role owns and checks each `security definer` one pins its `search_path` | **The Shop API** (#306, 0064): `storefront_for_store()` (a trigger on `store`) inserts that new store's storefront row and public key; `storefront_catalog_touched()` and `storefront_store_touched()` (statement and row triggers on the catalogue tables and `store`) move only `storefront.catalog_version` of the stores the statement touched; `current_order_token_hash()` (#308, 0066) answers the hash of the cart token this request presented, null when none; `shop_stock()` (0065) answers, in `shop` scope only and to `app_shop` alone, each visible version of the acting store's available count and whether it is low, never a location or an owner. The identity, partner, billing and provisioning helpers of migrations 0007–0040 keep the filters their migrations state. The structural test (§5.4, `tests/isolation.test.ts`) names every function the role owns and checks each `security definer` one pins its `search_path` |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
@@ -1560,35 +1560,87 @@ table owns the rest and every write to it updates the mirror in the same transac
 storefront          (store_id PK, repo, hosting_target, preview_url, live_url, public_store_key,
                      allowed_origins text[], checkout_url NULL, account_url NULL,
                      has_unpublished_changes boolean, changes_since NULL, changed_kinds text[],
-                     changed_count integer, next_auto_publish_at,
+                     changed_count integer, next_auto_publish_at, template NULL,
+                     repo_state ('none'|'creating'|'ready'|'failed'),
+                     custom_paths text[], theme_mode ('own'|'baseline'), baseline_reason NULL,
+                     core_pinned_reason NULL,
                      setup_service_state ('booked'|'done') NULL)
                     -- change detection as a table, not memory (SAAS §9.1); public_store_key
                     -- is the one credential safe in a browser (PLATFORM-PROMPT §5.5);
                     -- checkout_url and account_url are a store with its own frontend
                     -- (PLATFORM-PROMPT §5.6); setup_service_state records the one-time
-                    -- "storefront setup by our team" (Pricing, PortalBilling)
+                    -- "storefront setup by our team" (Pricing, PortalBilling); theme_mode
+                    -- 'baseline' while a security fix serves the baseline theme, and
+                    -- core_pinned_reason while an upgrade failed (SAAS §10, decided on #470);
+                    -- custom_paths are the draft theme's own pages (routes.json), which
+                    -- SAPI 24 checks a new slug against (storefront ARCHITECTURE §3.1)
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
                     -- and catalog_version (moved by triggers on every change a storefront shows; the
                     -- Shop API's edge cache keys on it); the rest comes with publishing (SAPI 17)
-publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'), state ('queued'
-                     |'building'|'deploying'|'live'|'failed'), uses_allowance boolean,
-                     started_by_kind, started_by_id, started_at, finished_at, deploy_ref, error,
-                     build_minutes)
-                    -- one running per store (partial unique); a failed run never uses the
-                    -- allowance (decided); uses_allowance only for 'manual'
-design_version      (id, store_id, number, commit, summary, prompt, preview_asset_ids uuid[],
-                     state ('previewed'|'approved'|'live'|'discarded'|'reverted'), approved_at,
-                     live_at, reverted_to_id NULL)
-                    -- PortalStorefront history: "Go back to version N" is a revert commit
-                    -- and a new live version (SAAS §9.2 undo); prompt, summary and previews
-                    -- are the merchant's (§5.3 app_partner)
-ai_run              (id, store_id, kind ('design'|'description'|'translation'), requested_by,
-                     design_version_id NULL, prompt, model, tokens_in, tokens_out, cost_amount,
-                     cost_currency, build_minutes, gate_results jsonb,
-                     billed_to ('plan'|'own_key'), outcome ('approved'|'discarded'|'failed'))
-                    -- SAAS §9.2 metering for design runs; CATALOG C2 and N9 for text; the
-                    -- AI meters below and the cost figure both read it; prompt and
-                    -- gate_results are the merchant's (§5.3)
+publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'page'|'upgrade'
+                     |'security'|'rollback'), state ('queued'|'building'|'checking'|'deploying'
+                     |'live'|'failed'|'rolled_back'), commit, core_version, uses_allowance boolean,
+                     started_by_kind, started_by_id, started_at, finished_at, deploy_ref,
+                     previous_deploy_ref NULL, gate jsonb NULL, repair_attempts integer,
+                     bisect_commit NULL, error, build_minutes)
+                    -- one running per store (partial unique); a failed or rolled-back run never
+                    -- uses the allowance (decided); uses_allowance only for 'manual'; 'page' is
+                    -- a single-page render (#470); gate is the full gate's report: each check,
+                    -- pass or fail, and what failed (storefront ARCHITECTURE §4.2), never code
+design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
+                     changed_at, changed_by, preview_deploy_ref NULL)
+                    -- the one unpublished design per store: the repo's draft head (decided
+                    -- 2026-10-08 on #470, "Plan A"); every accepted AI change moves head_commit;
+                    -- discard resets it to the live version's commit; deleted on publish
+design_version      (id, store_id, number, commit, template, core_version, label, deploy_ref NULL,
+                     publish_run_id, published_by, published_at, state ('live'|'kept'))
+                    -- PortalStorefront history: "Go back to version N" redeploys deploy_ref,
+                    -- no build (SAAS §9.2), then resets design_draft to commit; one 'live' per
+                    -- store; rows older than the plan's history days are deleted except the live
+                    -- one; label is the merchant's last request before publishing (§5.3
+                    -- app_partner: never label)
+design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, changed text[],
+                     image_asset_id NULL, sample_url NULL, commit NULL, before_commit NULL,
+                     undone boolean, ai_run_id NULL, created_by NULL, created_at)
+                    -- the studio's chat (PortalStorefront); changed is the plain-words list
+                    -- of what changed; commit is the change's commit and before_commit what
+                    -- "Undo this change" restores; image_asset_id a pasted image (the store's
+                    -- own asset), sample_url a site the merchant gave; the merchant's, like
+                    -- ai_run.prompt (§5.3)
+storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_colour NULL,
+                     secondary_colour NULL, tagline NULL, description NULL, social jsonb,
+                     contact_email NULL, contact_phone NULL, contact_address NULL, voice NULL,
+                     updated_at)
+                    -- "Your brand" and Site settings › Brand (decided 2026-10-08 on #470);
+                    -- the assets are the store's own; colours are only a hint to the AI;
+                    -- the contact fields default from Store info; the Shop API reads logo,
+                    -- favicon, tagline, description, social and contact, never the colours or
+                    -- voice (the theme reads them through core, storefront ARCHITECTURE §2.1)
+storefront_seo      (store_id PK, title (≤60), description (≤155), share_asset_id NULL,
+                     updated_at)
+                    -- the home page's search and sharing; the share image is one of the
+                    -- store's product photos; read by the Shop API for core's <head>; saving
+                    -- re-renders the home page at once (SAAS §9.2), the rest at the next publish
+ai_run              (id, store_id, kind ('design'|'repair'|'migration'|'description'
+                     |'translation'), requested_by, prompt, model, tokens_in, tokens_out,
+                     cost_amount, cost_currency, billed_to ('plan'|'own_key'|'platform'),
+                     sandbox_ms integer NULL, repair_attempts integer, parent_run_id NULL,
+                     outcome ('changed'|'unchanged'|'refused'|'failed'))
+                    -- SAAS §9.2 metering; CATALOG C2 and N9 for text. A merchant's request is
+                    -- billed to its plan or own key; its repairs, a publish's repairs and the
+                    -- upgrade bot's migrations are 'platform' (decided 2026-10-08 on #470) and
+                    -- never count on the store's meter; build minutes are publish_run's; prompt
+                    -- is the merchant's (§5.3)
+storefront_redirect (id, store_id, from_path, to_path, language NULL, reason ('renamed'
+                     |'removed'|'merged'), created_at)
+                    -- the 301s of storefront ARCHITECTURE §8: written by the engine when a
+                    -- product, collection, content page or custom page changes address; the
+                    -- edge reads them per store; unique (store_id, from_path, language)
+storefront_vitals_day (store_id, day, page_kind, device ('phone'|'desktop'), samples,
+                     lcp_p75_ms, inp_p75_ms, cls_p75)
+                    -- real-user Core Web Vitals, recorded only after the shopper's consent
+                    -- (decided 2026-10-08 on #470), aggregated per day; no visitor id, address
+                    -- or URL beyond the page kind; PRIMARY KEY (store_id, day, page_kind, device)
 store_usage         (store_id, key, used, period_start NULL, updated_at)
                     PRIMARY KEY (store_id, key)                 -- built on #212 (§2.4)
                     -- one row per limit and per monthly allowance (the plan keys of §2.3);
@@ -1601,6 +1653,24 @@ store_limit_override (id, store_id, key, amount, duration ('month'|'always'), mo
                      reason, created_by_*, created_at, removed_at, removed_by_label)
                     -- built on #212 (§2.4); SAAS §6.1 per-store overrides; purchased extra
                     -- bandwidth will be a 'month' override
+```
+
+**Platform scope, for the fleet** (Admin API only; SAAS §10):
+
+```
+core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), security boolean,
+                     sandbox_image, shop_api_versions text[], notes_url)
+                    -- every published storefront-core version and its sandbox image digest
+storefront_template (key PK, name, description, demo_store_id NULL, core_min_version,
+                     state ('offered'|'retired'))
+                    -- the template gallery (storefront ARCHITECTURE §2.3); the code itself is
+                    -- in templates/storefront/themes/{key}; a partner offers a subset (G4)
+core_rollout        (id, version, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
+                     percent, started_by, started_at, finished_at)
+core_rollout_store  (rollout_id, store_id, state ('pending'|'passed'|'migrated'|'pinned'
+                     |'baseline'|'live'), gate jsonb NULL, publish_run_id NULL)
+                    -- per-store result of an upgrade (CONSOLE-DESIGN L2); account level
+                    -- (§7.11): a partner reads its stores' state, never gate
 ```
 
 ### 7.9 Merchant billing
@@ -1859,7 +1929,10 @@ decide which columns and which tables each caller kind may select at all**. `app
   countries, currency, language, web mode, path and status; never duties rates or payment
   links), `store_policy`, `badge` (label and tone), `shipping_zone`, `shipping_method`,
   `payment_provider_account` (`provider`, `mode`, `public_key` only: the storefront mounts
-  the provider's element with them). Duties, tax and delivery-area checks are the engine's
+  the provider's element with them), `storefront_brand` (`logo_asset_id`, `favicon_asset_id`,
+  `tagline`, `description`, `social`, `contact_email`, `contact_phone`, `contact_address`; never
+  `primary_colour`, `secondary_colour` or `voice`, which only the AI reads) and `storefront_seo`
+  (`title`, `description`, `share_asset_id`). Duties, tax and delivery-area checks are the engine's
   (PLATFORM-PROMPT §5.5): the shop reads none of `delivery_area`, `compliance_default`
   or `store_feature`. **Amended on #308**: `tax_class`, `tax_zone`, `tax_rate` and `product_version.tax_class_id` are
   shop-readable (rates are printed on every invoice), so the engine prices a cart's tax as the shopper; it still
@@ -1898,15 +1971,22 @@ decide which columns and which tables each caller kind may select at all**. `app
   engine sets `expires_at` again, to the file's retention (7 days for an export, cleared for
   a deletion once done), so the column always means "when this row stops mattering". No
   supplier branch.
+- **Storefront design, inside the store, merchant side only** (no supplier branch, and
+  `app_supplier` has no grant on any of them): `design_draft`, `design_message` (the merchant's
+  prompts and pasted images), `storefront_brand`, `storefront_seo` and `storefront_redirect`.
+  Written through `app_request` under the `publish` capability (ACCESS §5: the Owner; the
+  Manager reads; read-only in a support session); `storefront_redirect` is written by the
+  engine and read at the edge in `system` scope; `storefront_brand` and `storefront_seo` also
+  have the shop read branch, by column, above.
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
-  state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
+  state only, never content): `storefront`, `publish_run`, `design_version`, `core_rollout_store`, `storefront_vitals_day` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
-  prompt, summary, preview or gate result; a merchant's design prompts are store content,
+  prompt, label, chat or gate detail beyond pass and fail; a merchant's design prompts are store content,
   USERS-AND-DOMAINS §4), `store_usage`, `store_limit_override`, `store_subscription`, `invoice` and
   `invoice_line` (status and amounts for the partner that bills), `custom_domain`, and
   `billing_event`, which is cross-scope and append-only like `activity_log` (§2; a Stripe
   event names a store or a partner, and only the SaaS layer writes it).
-- **Partner and platform scope**: `signup` (partner); `app` (platform). Nothing else in §7:
+- **Partner and platform scope**: `signup` (partner); `app`, `core_release`, `storefront_template` and `core_rollout` (platform; `core_rollout_store` carries `store_id` and is account level, above). Nothing else in §7:
   a table in none of these classes is a gap the structural test (§5.4) reports.
 - **Column rules**, all by role (§5.3): `product_version.cost_amount` and `cost_currency`
   never to `app_shop`; `access_token_hash` and every `*_enc` and `key_enc` to no request

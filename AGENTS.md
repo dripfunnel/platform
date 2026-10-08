@@ -73,8 +73,13 @@ Run the gates before reporting a change as done.
   never in advance; something one app uses stays in that app.
 - **`packages/storefront-core`** is the only published package. It imports nothing from
   the rest of the repo.
-- **`templates/storefront/`** is copied into each new store repo by provisioning. Commerce
-  logic belongs in `storefront-core`, never in the template.
+- **`templates/storefront/`** is copied into each new store repo when its merchant picks a
+  template. Commerce logic belongs in `storefront-core`, never in the template or a theme.
+  *Planned, not yet present*: `themes/` with the starting themes (#486).
+- *Planned, not yet present*: **`apps/sandbox`**, the container image that will run AI changes
+  and storefront builds (Cloudflare Containers, docs/storefront/ARCHITECTURE.md §6.1; #482). It
+  is Node, holds no secret and reaches no network; the API Worker makes every outside call for
+  it.
 - **`docs/`** is the specification, laid out like the code (docs/README.md §3). Update the
   relevant document in the same change as the code it describes, following docs/README.md §6.
 - **`designs/`** holds one clickable prototype per portal (`DF Store Prototype` →
@@ -115,13 +120,16 @@ Run the gates before reporting a change as done.
 - Never display a secret, full card number, password or token.
 
 **Storefronts (`templates/storefront`, `packages/storefront-core`)**
-- In generated store repos the AI designer may change **only `src/theme/**`**: look, not
-  logic. No network calls, third-party scripts or unlisted dependencies in themes.
+- The AI designer writes **only a store's theme** (`src/theme/**`, `content/**`, `routes.json`),
+  behind the walls of docs/storefront/ARCHITECTURE.md §3: look and front-end behaviour, never
+  commerce. A wall is never loosened to let a change through: the validator, the gates, the
+  sealed components and CSP change only in core, in this repo, by a person. No network calls,
+  third-party scripts or unlisted dependencies in themes.
 - No invented data: no hard-coded products, prices, stock, discounts, ratings, reviews,
   badges or scarcity claims.
-- Required components (price with tax label, payment element, legal and compliance
-  notices, consent banner, preview banner, the brand's "Powered by" line) are styled, never
-  removed.
+- Sealed components (price with tax label, payment element, legal and compliance
+  notices, consent banner, preview banner, the brand's "Powered by" line, breadcrumbs, the order
+  summary at review) are placed and styled, never removed, covered or reworded.
 - `storefront-core` is the only published package. Every change has a changeset with the
   right bump; changing or removing an export is a major, and majors ship upgrade notes (docs/storefront/ARCHITECTURE.md §7).
 - Publishing happens only in the release workflow. Never publish locally; never commit a

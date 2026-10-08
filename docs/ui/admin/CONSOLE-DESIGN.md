@@ -29,7 +29,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > the partner console shows instead: nothing, or a counterpart scoped to that partner's own
 > merchants, with Admin-only controls left out.
 >
-> Last updated: 2026-10-01.
+> Last updated: 2026-10-08 (#470: fleet parts for AI-written themes).
 
 ---
 
@@ -125,7 +125,7 @@ The admin console is for insiders, so it may use platform terms, but it uses the
 | **Merchant** | the Owner membership of a store | The business that pays for the store. |
 | **Vendor** | a vendor in a store; its rows carry `seller_id` (UI word: "Supplier") | A supplier inside a store. The admin console shows counts, rarely individuals. |
 | **Portal** | `apps/ui/store` and the Store API, on the partner's portal host | What merchants and vendors sign in to, shown in the brand's look. |
-| **Storefront** | per-store repo built on `@dripfunnel/storefront-core`, deployed to Cloudflare (preview and live) | What shoppers see. A store may use its own frontend instead. |
+| **Storefront** | per-store repo holding the AI-written theme on `@dripfunnel/storefront-core`, built in the platform's containers and deployed to Cloudflare (preview and live) | What shoppers see. A store may use its own frontend instead. |
 | **Plan** | engine `plan` table, per partner | What a merchant buys. Each brand has its own plan list. |
 | **Entitlement** | engine `entitlement` rows on a plan, enforced on the server | One feature or limit inside a plan (on/off, a limit, or a meter). |
 | **Wholesale price** | partner contract terms (release: decide) | What DripFunnel charges the partner per store or per plan. |
@@ -187,17 +187,20 @@ why it shapes the interface. The engine is specified in
    the gate on the session and invalidates it when billing changes. The admin console shows
    which stores are in this state and why, and must not confuse it with **Suspended** (a
    staff or partner decision).
-9. **The storefront is a repo per store** created from the template, with an AI-editable
-   `src/theme/` and commerce logic in the published `@dripfunnel/storefront-core` package
-   (docs/storefront/ARCHITECTURE.md). Builds run in GitHub Actions through the GitHub App and
-   deploy to Cloudflare as a preview and a live site. A **sync bot** rolls
-   `storefront-core` upgrades across the fleet with canaries. The admin console is where
-   fleet drift, rollouts and build failures are watched.
+9. **The storefront is a repo per store** created from the template, its theme written by
+   the AI behind walls and gates and its commerce logic in the published
+   `@dripfunnel/storefront-core` package (docs/storefront/ARCHITECTURE.md). Every AI change and
+   every build runs in the platform's **Cloudflare Containers**, and every publish passes a full
+   gate before an atomic deploy, with automatic rollback (decided 2026-10-08 on #470). An
+   **upgrade bot** rolls `storefront-core` upgrades across the fleet with canaries, codemods and
+   a migration agent; a store that can't take one stays pinned, or gets the baseline theme for a
+   security fix. The admin console is where fleet drift, rollouts, refused publishes, rollbacks
+   and pinned stores are watched.
 10. **Two numbers decide whether the business works**: **build minutes** and **AI tokens /
     cost** per store per month, metered in the engine's `ai_run` table and emitted where the
     work happens (PLATFORM-PROMPT §5.7, §5.8). Also: template drift, provisioning success
-    rate, time to first store, failed builds after AI edits. These belong on the admin
-    console's home, per brand and per store.
+    rate, time to first store, failed builds after AI edits, repairs (the platform's own AI
+    cost), rollbacks. These belong on the admin console's home, per brand and per store.
 11. **The admin console is the only operations console.** There is no framework dashboard and
     no other back office: every operation staff need is a screen here, or it does not exist.
     Engineers who need raw data get an engineer-only raw data view inside the admin console,
@@ -546,10 +549,18 @@ its own merchants (L5, read-only), and which templates its brand offers (L4, rea
 rollouts and no build internals. First release:
 [FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §6.3 (the Storefront tab), §10 (Usage).
 
-- L1. Template versions across all stores, with drift ("132 stores are 3+ versions behind").
+- L1. Template versions across all stores, with drift ("132 stores are 3+ versions behind"),
+  **pinned stores** (an upgrade failed) and **stores on the baseline theme** (a security fix
+  their theme couldn't take), each with the reason.
 - L2. **Rollouts** of a `@dripfunnel/storefront-core` upgrade: canary group, then percentages,
-  with pause and roll back; per-store PR and CI status (§3 fact 9).
-- L3. Build failures, especially after AI edits, with a link to the store and the commit.
+  with pause and roll back; per-store gate result (passed, migrated by the agent, pinned,
+  baseline) (§3 fact 9).
+- L3. **The ops queue**: publishes refused after repair and bisect, automatic rollbacks and
+  the check that caused them, changes the AI couldn't repair, sealed-component violations
+  reported by live sites; each with the store, the commit and the gate's report, and a
+  **Rebuild** that uses no allowance.
+- L6. **Studio capacity**: open studio sessions, the queue and its waits, container time per
+  day against the account's limits (storefront ARCHITECTURE §6.1).
 - L4. Templates catalogue: which templates exist, which brands may use them (G4).
 - L5. **Catalogue publishing**: stores with unpublished changes, the next automatic run,
   builds in progress and failed, and "Publish now" presses used against each store's monthly
