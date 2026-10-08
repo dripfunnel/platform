@@ -45,19 +45,26 @@ describe('changesetProblem', () => {
     assert.match(changesetProblem(core, [changeset('patch', '@dripfunnel/api')]), /adds no changeset/)
   })
 
-  it('passes a release PR, which consumes the changesets instead of adding one', () => {
-    assert.equal(changesetProblem([...core, 'packages/storefront-core/package.json'], [], { deletedChangesets: [changeset('minor')] }), undefined)
+  const release = [...core, 'packages/storefront-core/package.json', 'packages/storefront-core/CHANGELOG.md']
+
+  it('passes a release PR: version and changelog moved, and the core changesets it consumed', () => {
+    assert.equal(changesetProblem(release, [], { deletedChangesets: [changeset('minor')], versionChanged: true }), undefined)
   })
 
-  it('passes a range that already holds a release, where the version and the changelog moved', () => {
-    assert.equal(changesetProblem([...core, 'packages/storefront-core/CHANGELOG.md'], [], { versionChanged: true }), undefined)
+  it('passes a promotion to main that already holds a release', () => {
+    assert.equal(changesetProblem(release, [], { versionChanged: true, intoMain: true }), undefined)
   })
 
-  it('refuses a hand-edited version with no changeset and no changelog', () => {
-    assert.match(changesetProblem([...core, 'packages/storefront-core/package.json'], [], { versionChanged: true }), /adds no changeset/)
+  it('refuses a core change that only deletes an old changeset', () => {
+    assert.match(changesetProblem(core, [], { deletedChangesets: [changeset('patch')] }), /adds no changeset/)
   })
 
-  it('still refuses when the deleted changesets name another package', () => {
-    assert.match(changesetProblem(core, [], { deletedChangesets: [changeset('patch', '@dripfunnel/api')] }), /adds no changeset/)
+  it('refuses a hand-bumped version, even with an edited changelog, outside a release or promotion', () => {
+    assert.match(changesetProblem(release, [], { versionChanged: true }), /adds no changeset/)
+    assert.match(changesetProblem([...core, 'packages/storefront-core/package.json'], [], { versionChanged: true, intoMain: true }), /adds no changeset/)
+  })
+
+  it('still refuses when the consumed changesets name another package', () => {
+    assert.match(changesetProblem(release, [], { deletedChangesets: [changeset('patch', '@dripfunnel/api')], versionChanged: true }), /adds no changeset/)
   })
 })
