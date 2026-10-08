@@ -72,9 +72,10 @@ that also closes another issue names that one.
 
 **A pull request's checks run one after another**, in
 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml): `review` (§7), then `gates`
-(`build typecheck lint test`), then `naming`. Each starts only if the one before passed, so a
-red review leaves the other two *skipped* until the next push (decided 2026-10-04). A push
-to `main` runs `gates` alone.
+(`build typecheck lint test`), then `naming` and, beside it, `changesets` (a change to
+`packages/storefront-core` must add a changeset naming it, ARCHITECTURE.md §5; added on #303).
+Each starts only if the one before passed, so a red review leaves the others *skipped* until
+the next push (decided 2026-10-04). A push to `main` runs `gates` alone.
 
 The rules live in one place, [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs), with
 tests beside it. The hooks, the pull-request check and the feature-environment names
@@ -89,8 +90,9 @@ owner or repo admin):
    - Block force pushes.
    - Require a pull request before merging: 1 approval; dismiss stale approvals on new
      commits; allowed merge method *Squash* (§1, *(proposed)*).
-   - Require status checks to pass: `review`, `gates` and `naming`; branches must be up to date.
-     All three, because GitHub counts a skipped check as passed, and a red review skips the other two.
+   - Require status checks to pass: `review`, `gates`, `naming` and `changesets`; branches must
+     be up to date. All four, because GitHub counts a skipped check as passed, and a red review
+     skips the others (it is itself required, so it still blocks).
 2. **`branch-names`**, target *all branches*, excluding `main`, `dev` and the patterns
    `#*/feature/*`, `#*/task/*` and `#*/bug/*`, enforcement *Active*:
    - Restrict creations.
