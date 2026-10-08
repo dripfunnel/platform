@@ -90,16 +90,17 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 - **Publishing** (`.github/workflows/release.yml`, built on #303): every push to `main` runs
   core's gates; if core's version isn't on GitHub Packages yet, the workflow packs core once
   (`scripts/release/publish.mjs`), attests that tarball, then publishes **the same file** and
-  tags it `@dripfunnel/storefront-core@<version>` on the commit that set that version (a missing
+  tags it `@dripfunnel/storefront-core@<version>` on the commit whose change set that version (a missing
   tag is added on a later run; only the current version is checked, so a version bumped again
   before its tag landed stays untagged and is tagged by hand).
   A failed attestation publishes nothing, and `0.0.0`, the version before the first release
   card, is never published.
 - CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
   `packages/storefront-core` (its changelog aside) without adding a changeset naming the
-  package. Two kinds pass without one: a release PR (version and changelog moved, and the core
-  changesets it consumed deleted) and a promotion into `main` whose version and changelog moved.
-  Deleting a changeset never stands in for adding one.
+  package. Two kinds pass without one: a release PR (a new version, the changelog heading
+  `## <version>` for it, and the core changesets it consumed deleted) and a promotion into `main`
+  carrying such a version and heading. Deleting or hand-bumping never stands in for a changeset,
+  and renames count as a delete and an add.
 - **Majors ship upgrade notes** for the fleet (`../storefront/ARCHITECTURE.md` §7) and
   declare the Shop API versions they support.
 - **Deprecation**: `@deprecated` with the replacement, kept for at least one minor, removed in
