@@ -1096,7 +1096,9 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     `startSupportSession`, `returnToSupportSession` and `endSupportSession`. Support access is a
     partner user's own, proved with their own second factor; staff impersonate the store user
     instead (decided on #243). An impersonation is also refused `setSecondFactorPolicy`, how the
-    whole team signs in, which a setup session (the Owner's powers) may set (decided on #193). In the team service, inviting an Owner, changing a role to or from
+    whole team signs in, which a setup session (the Owner's powers) may set (decided on #193), and
+    `removePartnerDomain`: it takes down a live address merchants sign in at, which no
+    impersonated Owner should do for them, while adding or re-checking one can be undone (#429). In the team service, inviting an Owner, changing a role to or from
     Owner, or removing an Owner refuses both kinds with their codes.
   - **Not yet.** The password, second factor and sign-in methods are `/api/auth/*` routes that
     read only a partner user's cookie, so no staff session reaches them. Payment method and
