@@ -11,8 +11,11 @@ export type CommerceEvent =
   | { name: 'begin_checkout'; value: ShopMoney }
   | { name: 'purchase'; orderId: string; value: ShopMoney }
 
+type ConsentKind = 'analytics' | 'marketing'
+
 export type AnalyticsProvider = {
-  kind: 'analytics' | 'marketing'
+  /** Every kind the shopper must allow before it loads; a GTM container may hold any tag, so it needs both. */
+  needs: readonly ConsentKind[]
   load: () => void
   send: (event: CommerceEvent) => void
   /** Tells a loaded provider's own script to stop (or start again) collecting, not just core's events. */
@@ -24,7 +27,7 @@ export const createAnalytics = (providers: readonly AnalyticsProvider[], consent
   const loaded = new Set<AnalyticsProvider>()
   const allowed = (p: AnalyticsProvider) => {
     const c = consent()
-    return c !== null && c[p.kind]
+    return c !== null && p.needs.every((k) => c[k])
   }
   return {
     track(event: CommerceEvent) {
@@ -48,12 +51,26 @@ type Fbq = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) 
 type Layer = { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void; fbq?: Fbq; _fbq?: Fbq }
 const win = () => globalThis as unknown as Layer & { document?: Document }
 
+const analyticsHosts = ['www.googletagmanager.com', 'connect.facebook.net']
+
+type TrustedTypes = { createPolicy: (name: string, rules: { createScriptURL: (url: string) => string }) => { createScriptURL: (url: string) => unknown } }
+let scriptPolicy: { createScriptURL: (url: string) => unknown } | undefined
+
+/** The `df-core` Trusted Types policy (storefront ARCHITECTURE §3.5): script URLs for the analytics hosts only. */
+export const analyticsScriptUrl = (src: string): unknown => {
+  if (!analyticsHosts.includes(new URL(src).host)) throw new Error(`Not an analytics script host: ${src}`)
+  const tt = (globalThis as { trustedTypes?: TrustedTypes }).trustedTypes
+  if (!tt) return src
+  scriptPolicy ??= tt.createPolicy('df-core', { createScriptURL: (url) => url })
+  return scriptPolicy.createScriptURL(src)
+}
+
 const addScript = (src: string) => {
   const doc = win().document
   if (!doc) return
   const s = doc.createElement('script')
   s.async = true
-  s.src = src
+  s.src = analyticsScriptUrl(src) as string
   doc.head.appendChild(s)
 }
 
@@ -86,7 +103,7 @@ const googleConsent = (granted: boolean) => {
 }
 
 export const ga4 = (measurementId: string): AnalyticsProvider => ({
-  kind: 'analytics',
+  needs: ['analytics'],
   load: () => {
     const g = gtag()
     g('consent', 'default', googleConsent(false))
@@ -100,7 +117,7 @@ export const ga4 = (measurementId: string): AnalyticsProvider => ({
 })
 
 export const googleTagManager = (containerId: string): AnalyticsProvider => ({
-  kind: 'analytics',
+  needs: ['analytics', 'marketing'],
   load: () => {
     const g = gtag()
     g('consent', 'default', googleConsent(false))
@@ -139,7 +156,7 @@ const fbq = (): Fbq => {
 }
 
 export const metaPixel = (pixelId: string): AnalyticsProvider => ({
-  kind: 'marketing',
+  needs: ['marketing'],
   load: () => {
     fbq()('init', pixelId)
     addScript('https://connect.facebook.net/en_US/fbevents.js')

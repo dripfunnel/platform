@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ConsentChoice } from '../consent/consent'
-import { createAnalytics, ga4, metaPixel, type AnalyticsProvider, type CommerceEvent } from './analytics'
+import { analyticsScriptUrl, createAnalytics, ga4, googleTagManager, metaPixel, type AnalyticsProvider, type CommerceEvent } from './analytics'
 
-const provider = (kind: AnalyticsProvider['kind']) => ({ kind, load: vi.fn(), send: vi.fn(), setConsent: vi.fn() })
+const provider = (...needs: AnalyticsProvider['needs']) => ({ needs, load: vi.fn(), send: vi.fn(), setConsent: vi.fn() })
 const event: CommerceEvent = { name: 'begin_checkout', value: { amount: '1200', currency: 'USD' } }
 const both: ConsentChoice = { analytics: true, marketing: true, at: '2026-10-08T00:00:00Z' }
 
@@ -35,6 +35,13 @@ describe('createAnalytics', () => {
     expect(a.load).toHaveBeenCalledTimes(1)
     expect(a.send).toHaveBeenCalledTimes(2)
     expect(m.load).not.toHaveBeenCalled()
+  })
+
+  it('loads Google Tag Manager only with both kinds, since its container may hold marketing tags', () => {
+    expect(googleTagManager('GTM-X').needs).toEqual(['analytics', 'marketing'])
+    const gtm = provider('analytics', 'marketing')
+    createAnalytics([gtm], () => ({ ...both, marketing: false })).track(event)
+    expect(gtm.load).not.toHaveBeenCalled()
   })
 
   it('stops sending as soon as the shopper withdraws', () => {
@@ -82,5 +89,17 @@ describe('metaPixel', () => {
     ])
     p.setConsent(false)
     expect(g.fbq?.queue.at(-1)).toEqual(['consent', 'revoke'])
+  })
+})
+
+describe('analyticsScriptUrl', () => {
+  it('makes script URLs only for the analytics hosts, through the df-core Trusted Types policy', () => {
+    const createScriptURL = vi.fn((u: string) => ({ trusted: u }))
+    const createPolicy = vi.fn(() => ({ createScriptURL }))
+    vi.stubGlobal('trustedTypes', { createPolicy })
+    expect(analyticsScriptUrl('https://connect.facebook.net/en_US/fbevents.js')).toEqual({ trusted: 'https://connect.facebook.net/en_US/fbevents.js' })
+    expect(createPolicy).toHaveBeenCalledWith('df-core', expect.anything())
+    expect(() => analyticsScriptUrl('https://evil.example/x.js')).toThrow(/Not an analytics script host/)
+    vi.unstubAllGlobals()
   })
 })

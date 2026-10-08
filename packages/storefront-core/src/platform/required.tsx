@@ -70,9 +70,11 @@ export const ConsentBanner = ({ t, onChange }: { t: Translate; onChange?: (choic
   const [draft, setDraft] = useState({ analytics: false, marketing: false })
   const firstChoice = useRef<HTMLInputElement>(null)
   const firstButton = useRef<HTMLButtonElement>(null)
+  const openedFrom = useRef<HTMLElement | null>(null)
   useEffect(() => {
     setOpen(readConsent() === null)
     const reopen = () => {
+      openedFrom.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       const saved = readConsent()
       setDraft({ analytics: saved?.analytics ?? false, marketing: saved?.marketing ?? false })
       setCustom(saved !== null)
@@ -93,6 +95,8 @@ export const ConsentBanner = ({ t, onChange }: { t: Translate; onChange?: (choic
     setOpen(false)
     setCustom(false)
     onChange?.(saved)
+    openedFrom.current?.focus()
+    openedFrom.current = null
   }
   const back = () => {
     setCustom(false)
