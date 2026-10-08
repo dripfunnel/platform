@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-08 (#470: AI-written theme code, Cloudflare Containers).
+Last updated: 2026-10-08 (#490: the mobile app's bearer session, §2 item 16).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -200,7 +200,8 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
 16. **The browser holds no privileged token.** Portal and DF Admin sessions are server-side,
     behind an `httpOnly` cookie; idle 2 h, absolute 12 h. [ARCHITECTURE §7] API keys belong to
     servers, never to browsers; the Shop API's public store key is the only credential a
-    browser may hold.
+    browser may hold. The merchant mobile app is not a browser: it carries the same server-side
+    session as a bearer token in the phone's secure storage (ACCESS.md §4, decided on #490).
 17. **Every endpoint declares its scope, structurally.** The first platform's design did it with tRPC
     procedure bases and a test walking the router tree [ARCHITECTURE §4.2]. In GraphQL the
     same rule applies to resolvers: each one declares its API (Shop, Store, Platform or Admin), its

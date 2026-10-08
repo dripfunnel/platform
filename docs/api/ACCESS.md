@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-08 (#470: the publish capability covers the AI studio as rebuilt).
+Last updated: 2026-10-08 (#490: the merchant mobile app's bearer-token session, §4).
 
 ---
 
@@ -35,6 +35,7 @@ Last updated: 2026-10-08 (#470: the publish capability covers the AI studio as r
 | **Permissions are checked per resolver and per row** | Per-store permissions only | A vendor's "write catalogue" means its own products. The scoped query layer applies `store_id` and `SellerScope` to every read and write (PLATFORM-PROMPT §5.1, §5.5). |
 | **The acting store is named on every request and checked against the membership set** | One "active store" stored on the session | Two browser tabs on two stores must not fight; the check is against a server-held allowlist, not trust in input. |
 | **Server-side sessions behind an `httpOnly`, host-only cookie**; idle 2 h, absolute 12 h | Tokens in the browser; long-lived sessions | Revocable at once; the browser holds no privileged token (PLATFORM-PROMPT §2 item 16). |
+| **The merchant mobile app carries the same server-side session as a bearer token** (decided 2026-10-08 on #490, §4) | The cookie in the app | A native app has no browser to hold the cookie, and sends no `Origin`. The token is the same `user_session` row with the same bounds, kept in the phone's secure storage; no browser ever holds it. |
 | **Invitations create an account with no password** and a hashed, single-use, expiring token | A generated password emailed; a throwaway password | The invitee chooses their own password; nothing usable sits in an inbox. |
 | **Vendor orders are vendor sub-orders** in the order model | A view assembled outside the order model | The engine owns orders now (PLATFORM-PROMPT §3.3); ownership of a sub-order is a row filter, not a hand-written check. |
 | **Support access is its own caller kind**, read-only, consented, time-limited, on the merchant's portal host | "Sign in as" a person | It never acts as a person, so it can't change passwords, payment methods, payouts or ownership, and every action is attributed to the real support agent (USERS-AND-DOMAINS §4.1). |
@@ -301,7 +302,30 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   **A password change or reset ends every other session of that user on every host**
   (decided 2026-10-02; the profile screen says so before the change).
 - **CSRF**: `SameSite=Lax` plus a check that `Origin` matches the host on every mutation, and
-  GraphQL accepting only `application/json` POSTs for mutations.
+  GraphQL accepting only `application/json` POSTs for mutations. The one exception is a
+  bearer-token request (below), which carries no cookie and so needs no `Origin` check.
+- **The merchant mobile app** (decided 2026-10-08 on #490;
+  [mobile-app/merchant/REACT-NATIVE.md](../mobile-app/merchant/REACT-NATIVE.md) §5): on the
+  portal host, sign-in can return the session in the response body instead of the cookie. The
+  app sends it as `Authorization: Bearer <token>`.
+  - It is the same `user_session` row, with everything above unchanged: the bounds, "Remember
+    me", 2-factor, `X-Store` and `X-Supplier`, sign-out, and the host's partner only.
+  - **Who receives a body token:** only a sign-in request with **no `Origin` header and no
+    session cookie**. A browser always sends `Origin` on a POST, same-site or cross-site, so
+    every web page, including script injected into the portal, gets the cookie path and never a
+    readable token (PLATFORM-PROMPT §2 item 16). The client never chooses: there is no flag or
+    header that asks for a token. The same applies to every route that opens a session
+    (2-factor, invitation, reset).
+  - Those routes keep the sign-in rate limits and lockout above, and log the sign-in as they
+    do today.
+  - **A bearer token is accepted only on a request with no session cookie.** A request
+    carrying both is refused, so a browser can never swap its cookie path for the unchecked
+    one.
+  - **This applies only to the merchant mobile app.** Nothing changes for the merchant portal,
+    the partner console or the admin console: every browser request keeps the cookie and the
+    `Origin` check. No new endpoint or table. The change is in the session-opening routes'
+    response and in how the API reads a session. Not built yet; it ships on its own card
+    ([mobile-app/merchant/ARCHITECTURE.md](../mobile-app/merchant/ARCHITECTURE.md) §6).
 - **Staff re-authentication** (CONSOLE-DESIGN A2): `/api/auth/reauth` sends the staff member
   back to the provider with `prompt=login`, so its own session cannot answer for them, and
   stamps `staff_session.reauth_at` on the session they already hold — a second staff member

@@ -36,6 +36,7 @@ All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
 ## 3. The map
 
 The folders mirror the code: `docs/api` ↔ `apps/api`, `docs/ui/<app>` ↔ `apps/ui/<app>`,
+`docs/mobile-app/<app>` ↔ `apps/ui/mobile-app/<app>`,
 `docs/storefront` ↔ `templates/storefront`, `packages/storefront-core` and `apps/sandbox`. `docs/code` holds
 what applies across the whole repo. `docs/setup` is the one folder that follows environments
 instead of code: a step-by-step runbook per environment, linking to the documents that hold the
@@ -69,6 +70,15 @@ docs/
     store/CATALOG-DESIGN.md design prompt: the catalogue in depth
     store/OFFERS-DESIGN.md  design prompt: offers in depth
     shared/README.md        guide: @dripfunnel/shared, what belongs in it
+  mobile-app/
+    merchant/               the merchant mobile app (apps/ui/mobile-app/merchant, planned):
+      REACT-NATIVE.md         React Native with Expo, native sign-in, Intl on Hermes, the SDK policy
+      BUILDS-AND-STORE-ACCOUNTS.md  one build and one developer account per partner, and the store rules behind it
+      FIRST-RELEASE.md        what the first release contains; plans through in-app purchase
+      DESIGN.md               which prototype decides what; the shell and mobile patterns
+      ARCHITECTURE.md         code layout, startup, talking to the API; no API change without permission
+      CONFIGURATION.md        the per-partner env file and per-partner secrets
+      BUILD-CHECKLIST.md      the files to change for a partner's branding, and the checks before every build
   code/
     ARCHITECTURE.md         repo-wide: workspace decisions, storefront-core package and releases, tooling
     DESIGN.md               repo-wide: how modules, config, errors, tenancy data and UI components are written

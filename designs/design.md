@@ -145,6 +145,17 @@ in storefront ARCHITECTURE §2.1 as a *proposal* awaiting approval on #285 (its 
 `ImpBanner.dc.html` is the one shared child: the staff-session banner that
 the Platform and Store prototypes mount at the top of their frame (see §8).
 
+### Merchant mobile app — `mobile-app/merchant/`
+
+`mobile-app/merchant/DF Store App.dc.html` is the merchant portal as an iOS and Android app
+(`apps/ui/mobile-app/merchant`, planned). It decides **only the app shell**: header, bottom
+tab bar per role, More, the app's Home and Storefront, bottom sheets, toasts and banners.
+
+The other screens in that folder are older copies of the Store screens. They are kept only so
+the prototype runs, and they are **not** a source: each screen's content comes from
+`DF Store Prototype.dc.html` at phone width. The rules are in
+`docs/mobile-app/merchant/DESIGN.md` §1.
+
 ---
 
 ## 2. Prototype controls

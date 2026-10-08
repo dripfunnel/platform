@@ -129,6 +129,11 @@ customers use; a **store repo** is one merchant's generated storefront. "Merchan
 "platform console" and "admin console" in the docs mean `apps/ui/store`, `apps/ui/platform`
 and `apps/ui/admin`.
 
+**Planned: the merchant mobile app**, at `apps/ui/mobile-app/merchant` (decided 2026-10-08 on
+#490, [mobile-app/merchant/](mobile-app/merchant/REACT-NATIVE.md)). It isn't in §1–§3 yet;
+those change in the pull request that sets the app up. Its builds and store submissions are
+manual, so the `dev` and `prod` pipelines (§6) never deploy it.
+
 ---
 
 ## 4. Workers runtime: what the code must respect

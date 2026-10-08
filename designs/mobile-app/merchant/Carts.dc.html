@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<sc-if value="{{ notFound }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:64px 32px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;color:#0A2A4A;">Page not found</span><span style="font-size:14px;color:#5A6472;">This page doesn’t exist or you don’t have access to it.</span></div>
+</sc-if>
+<sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:18px;max-width:1180px;">
+
+  <sc-if value="{{ isMain }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:4px;max-width:640px;"><h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:28px;letter-spacing:-0.02em;color:#0A2A4A;">Abandoned carts</h1><span style="font-size:14px;color:#5A6472;text-wrap:pretty;">Shoppers who started checkout but didn’t pay. Remind them, and see who came back.</span></div>
+      <div role="tablist" style="display:flex;border:1px solid #D7D3CD;border-radius:10px;overflow:hidden;background:#FFFFFF;">
+        <sc-for list="{{ panes }}" as="p" hint-placeholder-count="2"><button role="tab" onClick="{{ p.on }}" style="height:40px;padding:0 16px;border:0;background:{{ p.bg }};color:{{ p.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ p.l }}</button></sc-for>
+      </div>
+    </div>
+
+    <sc-for list="{{ notes }}" as="n" hint-placeholder-count="0">
+      <div role="status" style="padding:12px 14px;border-radius:10px;background:{{ n.bg }};border:1px solid {{ n.bd }};color:{{ n.fg }};font-size:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><span style="flex:1;min-width:220px;text-wrap:pretty;"><strong>{{ n.t }}</strong> {{ n.d }}</span><sc-if value="{{ n.hasCta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ n.on }}" style="height:36px;padding:0 12px;border:1px solid {{ n.bd }};border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ n.cta }}</button></sc-if></div>
+    </sc-for>
+
+    <sc-if value="{{ isCartsPane }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ noCarts }}" hint-placeholder-val="{{ false }}">
+        <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;flex-direction:column;gap:4px;max-width:620px;"><h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:20px;color:#0A2A4A;">No abandoned carts yet</h2><span style="font-size:14px;color:#434A55;text-wrap:pretty;">When a shopper gives their email at checkout and leaves without paying, their cart shows up here. {{ emptyLine }}</span></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px;">
+            <sc-for list="{{ how }}" as="h" hint-placeholder-count="3"><div style="padding:14px;border:1px solid #E8E2DC;border-radius:12px;background:#FDFAF7;display:flex;flex-direction:column;gap:6px;"><span style="width:28px;height:28px;border-radius:50%;background:#0A2A4A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:13px;">{{ h.n }}</span><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ h.t }}</strong><span style="font-size:13px;color:#5A6472;text-wrap:pretty;">{{ h.d }}</span></div></sc-for>
+          </div>
+          <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ toSettings }}" style="align-self:flex-start;height:44px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Set up reminders</button></sc-if>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ hasCarts }}" hint-placeholder-val="{{ true }}">
+        <section style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
+          <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="5"><div style="padding:14px;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:#5A6472;">{{ t.l }}</span><strong style="font-family:Manrope,sans-serif;font-weight:800;font-size:21px;font-variant-numeric:tabular-nums;color:{{ t.fg }};">{{ t.v }}</strong><span style="font-size:12px;color:#5A6472;">{{ t.sub }}</span></div></sc-for>
+        </section>
+        <span style="margin-top:-8px;font-size:12px;color:#5A6472;">Last 14 days · {{ cur }} · Recovered means the shopper paid within 7 days of leaving.</span>
+
+        <div role="tablist" style="display:flex;gap:4px;border-bottom:1px solid #E8E2DC;overflow-x:auto;">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button role="tab" onClick="{{ t.on }}" style="flex:none;min-height:44px;padding:0 14px;border:0;border-bottom:3px solid {{ t.bl }};background:none;color:{{ t.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;display:flex;gap:6px;align-items:center;">{{ t.l }}<span style="padding:1px 7px;border-radius:999px;background:#F4F2EF;color:#434A55;font-size:12px;">{{ t.n }}</span></button></sc-for>
+        </div>
+        <input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search by name, email or product" aria-label="Search carts" style="max-width:360px;height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;background:#FFFFFF;">
+
+        <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+          <div style="position:sticky;top:64px;z-index:4;padding:10px 14px;border-radius:10px;background:#0A2A4A;color:#FFFFFF;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><strong style="flex:1;min-width:140px;font-size:14px;">{{ selL }}</strong><sc-for list="{{ bulk }}" as="b" hint-placeholder-count="3"><button onClick="{{ b.on }}" style="height:36px;padding:0 12px;border:1px solid rgba(255,255,255,0.3);border-radius:8px;background:transparent;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ b.l }}</button></sc-for><button onClick="{{ clearSel }}" aria-label="Clear selection" style="width:36px;height:36px;border:0;background:none;color:#B8C7D6;font-size:18px;cursor:pointer;">×</button></div>
+        </sc-if>
+
+        <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;"><div style="overflow-x:auto;"><div style="min-width:960px;">
+            <div style="display:grid;grid-template-columns:36px minmax(0,1.5fr) minmax(0,1.7fr) 100px 150px minmax(0,1.4fr) 86px;gap:12px;padding:10px 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;background:#FDFAF7;border-bottom:1px solid #E8E2DC;"><span></span><span>Shopper</span><span>Cart</span><span>Value</span><span>Left at</span><span>Reminders</span><span></span></div>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:36px minmax(0,1.5fr) minmax(0,1.7fr) 100px 150px minmax(0,1.4fr) 86px;gap:12px;padding:12px 16px;border-bottom:1px solid #F1EEEA;align-items:center;background:{{ r.rowBg }};">
+                <sc-if value="{{ r.canSel }}" hint-placeholder-val="{{ true }}"><input type="checkbox" checked="{{ r.sel }}" onChange="{{ r.toggleSel }}" aria-label="Select {{ r.name }}" style="width:18px;height:18px;"></sc-if><sc-if value="{{ r.noSel }}" hint-placeholder-val="{{ false }}"><span></span></sc-if>
+                <button onClick="{{ r.open }}" style="border:0;background:none;padding:0;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:#14181F;">{{ r.name }}</strong><span style="font-size:13px;color:{{ r.contactFg }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.contact }}</span></button>
+                <span style="display:flex;gap:8px;align-items:center;min-width:0;"><span style="display:flex;flex:none;"><sc-for list="{{ r.sw }}" as="h" hint-placeholder-count="2"><span style="width:28px;height:28px;border-radius:6px;border:2px solid #FFFFFF;margin-right:-8px;background:{{ h }};"></span></sc-for></span><span style="padding-left:8px;font-size:13px;color:#434A55;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.items }}</span></span>
+                <span style="font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;">{{ r.value }}</span>
+                <span style="display:flex;flex-direction:column;gap:2px;font-size:13px;"><span>{{ r.step }}</span><span style="font-size:12px;color:#5A6472;">{{ r.ago }}</span></span>
+                <span style="display:flex;flex-direction:column;gap:3px;min-width:0;"><span style="align-self:flex-start;display:inline-flex;gap:6px;align-items:center;padding:3px 9px;border-radius:999px;border:1px solid {{ r.st.bd }};background:{{ r.st.bg }};color:{{ r.st.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:12px;white-space:nowrap;"><span aria-hidden="true">{{ r.st.icon }}</span>{{ r.st.l }}</span><span style="font-size:12px;color:#5A6472;">{{ r.st.time }}</span></span>
+                <button onClick="{{ r.more }}" aria-label="Actions for {{ r.name }}" style="height:34px;padding:0 10px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Actions</button>
+              </div>
+            </sc-for>
+          </div></div></div>
+          </sc-if>
+          <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+                <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><span style="display:inline-flex;gap:6px;align-items:center;padding:3px 9px;border-radius:999px;border:1px solid {{ r.st.bd }};background:{{ r.st.bg }};color:{{ r.st.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:12px;"><span aria-hidden="true">{{ r.st.icon }}</span>{{ r.st.l }}</span><strong style="font-size:15px;font-variant-numeric:tabular-nums;">{{ r.value }}</strong></div>
+                  <button onClick="{{ r.open }}" style="border:0;background:none;padding:0;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;"><strong style="font-family:Manrope,sans-serif;font-size:15px;color:#14181F;">{{ r.name }}</strong><span style="font-size:13px;color:#5A6472;">{{ r.items }}</span></button>
+                  <span style="font-size:12px;color:#5A6472;">{{ r.step }} · {{ r.ago }} · {{ r.st.time }}</span>
+                  <button onClick="{{ r.more }}" style="height:44px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Actions</button>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-if>
+        <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}"><div style="padding:36px 20px;border:1px dashed #D7D3CD;border-radius:12px;background:#FFFFFF;display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;"><strong style="font-family:Manrope,sans-serif;font-size:16px;">{{ empty.t }}</strong><span style="font-size:14px;color:#5A6472;max-width:420px;text-wrap:pretty;">{{ empty.d }}</span></div></sc-if>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ isSettingsPane }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:18px;align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+          <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;gap:14px;align-items:center;">
+            <div style="flex:1;display:flex;flex-direction:column;gap:2px;"><strong style="font-family:Manrope,sans-serif;font-size:16px;">Send reminders automatically</strong><span style="font-size:13px;color:#5A6472;text-wrap:pretty;">{{ autoSub }}</span></div>
+            <sc-if value="{{ autoLocked }}" hint-placeholder-val="{{ false }}"><button onClick="{{ upGrowth }}" style="height:32px;padding:0 12px;border:1px solid #D7D3CD;border-radius:999px;background:#FDFAF7;color:#8F4017;font-family:Manrope,sans-serif;font-weight:700;font-size:12px;cursor:pointer;">Growth</button></sc-if>
+            <sc-if value="{{ autoOpen }}" hint-placeholder-val="{{ true }}"><button role="switch" aria-checked="{{ d.auto }}" aria-label="Send reminders automatically" onClick="{{ toggleAuto }}" disabled="{{ ro }}" style="width:46px;height:26px;flex:none;border:0;border-radius:13px;background:{{ autoSw.bg }};padding:3px;cursor:pointer;display:flex;"><span style="width:20px;height:20px;border-radius:50%;background:#FFFFFF;transform:translateX({{ autoSw.x }});transition:transform .15s;"></span></button></sc-if>
+          </section>
+
+          <sc-for list="{{ steps }}" as="p" hint-placeholder-count="3">
+            <section style="background:#FFFFFF;border:{{ p.bd }};border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;opacity:{{ p.op }};">
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <span style="width:28px;height:28px;border-radius:50%;background:{{ p.dot }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:13px;flex:none;">{{ p.n }}</span>
+                <span style="flex:1;min-width:160px;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:15px;">Reminder {{ p.n }}</strong><span style="font-size:12px;color:#5A6472;">{{ p.sum }}</span></span>
+                <sc-if value="{{ p.locked }}" hint-placeholder-val="{{ false }}"><button onClick="{{ upGrowth }}" style="height:32px;padding:0 12px;border:1px solid #D7D3CD;border-radius:999px;background:#FDFAF7;color:#8F4017;font-family:Manrope,sans-serif;font-weight:700;font-size:12px;cursor:pointer;">Growth</button></sc-if>
+                <button onClick="{{ p.preview }}" style="height:32px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:{{ p.pvBg }};font-family:Manrope,sans-serif;font-weight:700;font-size:12px;cursor:pointer;">Preview</button>
+                <sc-if value="{{ p.canToggle }}" hint-placeholder-val="{{ true }}"><button role="switch" aria-checked="{{ p.on }}" aria-label="Reminder {{ p.n }} on" onClick="{{ p.toggle }}" disabled="{{ ro }}" style="width:46px;height:26px;flex:none;border:0;border-radius:13px;background:{{ p.sw.bg }};padding:3px;cursor:pointer;display:flex;"><span style="width:20px;height:20px;border-radius:50%;background:#FFFFFF;transform:translateX({{ p.sw.x }});transition:transform .15s;"></span></button></sc-if>
+              </div>
+              <sc-if value="{{ p.showFields }}" hint-placeholder-val="{{ true }}">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:10px;">
+                  <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">{{ p.delayLabel }}<select value="{{ p.delayV }}" onChange="{{ p.onDelay }}" disabled="{{ ro }}" style="height:40px;border:1px solid {{ p.delayBd }};border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;background:#FFFFFF;"><sc-for list="{{ delays }}" as="o" hint-placeholder-count="7"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></label>
+                  <sc-if value="{{ hasChannel }}" hint-placeholder-val="{{ false }}"><label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Send by<select value="{{ p.channel }}" onChange="{{ p.onChannel }}" disabled="{{ ro }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;background:#FFFFFF;"><option value="email">Email</option><option value="whatsapp">WhatsApp</option></select></label></sc-if>
+                  <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Discount<select value="{{ p.discV }}" onChange="{{ p.onDisc }}" disabled="{{ ro }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;background:#FFFFFF;"><option value="0">No discount</option><option value="5">5% off</option><option value="10">10% off</option><option value="15">15% off</option><option value="20">20% off</option></select></label>
+                </div>
+                <sc-if value="{{ p.hasErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#A3261B;">{{ p.err }}</span></sc-if>
+                <sc-if value="{{ p.isEmail }}" hint-placeholder-val="{{ true }}"><label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Subject line<input value="{{ p.subject }}" onChange="{{ p.onSubject }}" disabled="{{ ro }}" style="height:40px;border:1px solid {{ p.subjBd }};border-radius:8px;padding:0 12px;font-size:14px;font-weight:400;"></label></sc-if>
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Message<textarea value="{{ p.body }}" onChange="{{ p.onBody }}" disabled="{{ ro }}" rows="2" style="border:1px solid #D7D3CD;border-radius:8px;padding:10px 12px;font-size:14px;font-weight:400;resize:vertical;"></textarea><span style="font-weight:400;font-size:12px;color:#5A6472;">The shopper’s name, cart items and a button back to their cart are added for you.</span></label>
+                <sc-if value="{{ p.hasDisc }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#434A55;padding:8px 10px;border-radius:8px;background:#FDFAF7;border:1px solid #E8E2DC;text-wrap:pretty;">{{ p.discNote }}</span></sc-if>
+              </sc-if>
+            </section>
+          </sc-for>
+
+          <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Who gets reminded</h2>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;max-width:260px;">Only carts worth at least<span style="display:flex;align-items:center;gap:8px;font-weight:400;"><input value="{{ d.minValue }}" onChange="{{ onMin }}" disabled="{{ ro }}" inputmode="decimal" style="width:120px;height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;font-variant-numeric:tabular-nums;"><span style="font-size:13px;color:#5A6472;">{{ cur }}</span></span></label>
+            <sc-for list="{{ rules }}" as="u" hint-placeholder-count="4">
+              <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid #F1EEEA;cursor:pointer;"><input type="checkbox" checked="{{ u.on }}" onChange="{{ u.toggle }}" disabled="{{ u.dis }}" style="width:18px;height:18px;margin-top:2px;flex:none;"><span style="display:flex;flex-direction:column;gap:2px;"><strong style="font-size:14px;font-weight:600;">{{ u.l }}</strong><span style="font-size:13px;color:#5A6472;text-wrap:pretty;">{{ u.d }}</span></span></label>
+            </sc-for>
+            <div style="padding:10px 12px;border-radius:8px;background:#EAF1F8;border:1px solid #C6D9EC;color:#00325F;font-size:13px;text-wrap:pretty;"><strong>{{ consent.t }}</strong> {{ consent.d }}</div>
+          </section>
+        </div>
+
+        <div style="position:sticky;top:72px;display:flex;flex-direction:column;gap:10px;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;">Preview · Reminder {{ pv.n }} · {{ pv.chL }}</span><button onClick="{{ testSend }}" style="height:32px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:12px;cursor:pointer;">Send me a test</button></div>
+          <sc-if value="{{ pv.isEmail }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+              <div style="padding:12px 16px;border-bottom:1px solid #F1EEEA;display:flex;flex-direction:column;gap:2px;font-size:12px;color:#5A6472;"><span>From: {{ pv.from }}</span><span>To: {{ pv.to }}</span><strong style="font-size:14px;color:#14181F;">{{ pv.subject }}</strong></div>
+              <div style="padding:22px 22px 18px;display:flex;flex-direction:column;gap:14px;background:#FDFAF7;">
+                <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:17px;color:#0A2A4A;text-align:center;">{{ pv.store }}</span>
+                <div style="background:#FFFFFF;border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px;">
+                  <span style="font-size:15px;">{{ pv.hi }}</span>
+                  <span style="font-size:14px;color:#434A55;text-wrap:pretty;">{{ pv.body }}</span>
+                  <sc-for list="{{ pv.lines }}" as="l" hint-placeholder-count="2"><div style="display:flex;gap:10px;align-items:center;"><span style="width:44px;height:44px;border-radius:8px;flex:none;background:{{ l.bg }};"></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;font-size:13px;"><strong style="font-weight:600;">{{ l.name }}</strong><span style="color:#5A6472;">Qty {{ l.qty }}</span></span><span style="font-size:13px;font-variant-numeric:tabular-nums;">{{ l.price }}</span></div></sc-for>
+                  <sc-if value="{{ pv.hasCode }}" hint-placeholder-val="{{ false }}"><div style="padding:12px;border:1px dashed #EC844F;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;"><span style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;letter-spacing:0.06em;">{{ pv.code }}</span><span style="font-size:12px;color:#5A6472;">{{ pv.codeL }}</span></div></sc-if>
+                  <span style="align-self:center;height:44px;padding:0 22px;border-radius:8px;background:#0A2A4A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;display:flex;align-items:center;">Return to your cart</span>
+                </div>
+                <span style="font-size:11px;color:#8A919B;text-align:center;text-wrap:pretty;">{{ pv.foot }}</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ pv.isWa }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#E7DED4;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;">
+              <span style="align-self:center;font-size:11px;color:#5A6472;background:#FFFFFF;padding:3px 10px;border-radius:6px;">{{ pv.store }} · Business account</span>
+              <div style="max-width:88%;background:#FFFFFF;border-radius:0 10px 10px 10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:14px;box-shadow:0 1px 1px rgba(0,0,0,0.08);">
+                <span style="text-wrap:pretty;">{{ pv.hi }} You left {{ pv.count }} in your cart. {{ pv.body }}</span>
+                <sc-if value="{{ pv.hasCode }}" hint-placeholder-val="{{ false }}"><span>Use <strong style="font-family:'IBM Plex Mono',monospace;">{{ pv.code }}</strong> for {{ pv.codeL }}</span></sc-if>
+                <span style="color:#00519F;overflow-wrap:anywhere;">{{ pv.link }}</span>
+                <span style="align-self:flex-end;font-size:11px;color:#8A919B;">Reply STOP to opt out</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
+        <div style="position:sticky;bottom:16px;z-index:5;padding:12px 16px;border-radius:12px;background:#0A2A4A;color:#FFFFFF;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:0 16px 32px -12px rgba(0,0,0,0.45);"><span style="flex:1;min-width:180px;font-size:14px;">Unsaved changes to your reminders</span><button onClick="{{ discard }}" style="height:40px;padding:0 14px;border:1px solid rgba(255,255,255,0.3);border-radius:8px;background:transparent;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Discard</button><button onClick="{{ save }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save</button></div>
+      </sc-if>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ isView }}" hint-placeholder-val="{{ false }}">
+    <nav aria-label="Breadcrumb" style="display:flex;gap:6px;font-size:13px;color:#5A6472;"><button onClick="{{ back }}" style="border:0;background:none;padding:0;color:#B8541F;cursor:pointer;">Abandoned carts</button><span>/</span><span>{{ v.name }}</span></nav>
+    <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.02em;color:#0A2A4A;">{{ v.name }}</h1><span style="display:inline-flex;gap:6px;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid {{ v.st.bd }};background:{{ v.st.bg }};color:{{ v.st.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:13px;"><span aria-hidden="true">{{ v.st.icon }}</span>{{ v.st.l }}</span></div>
+        <span style="font-size:13px;color:#5A6472;">{{ v.st.time }} · Left at {{ v.step }}, {{ v.ago }}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ v.acts }}" as="a" hint-placeholder-count="3"><button onClick="{{ a.on }}" style="height:40px;padding:0 14px;border:{{ a.bd }};border-radius:8px;background:{{ a.bg }};color:{{ a.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ a.l }}</button></sc-for></div>
+    </div>
+    <sc-if value="{{ v.hasWarn }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:10px 14px;border-radius:10px;background:#FBF1DC;border:1px solid #E3C27E;color:#6E4300;font-size:13px;text-wrap:pretty;">{{ v.warn }}</div></sc-if>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:18px;align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+        <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+          <h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">In the cart</h2>
+          <sc-for list="{{ v.lines }}" as="l" hint-placeholder-count="2">
+            <div style="display:flex;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #F1EEEA;">
+              <span style="width:48px;height:48px;border-radius:8px;flex:none;background:{{ l.bg }};"></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;"><button onClick="{{ l.open }}" style="border:0;background:none;padding:0;text-align:left;cursor:pointer;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#14181F;">{{ l.name }}</button><span style="font-size:12px;color:{{ l.stockFg }};">Qty {{ l.qty }} · {{ l.stock }}</span></span>
+              <span style="font-size:14px;font-variant-numeric:tabular-nums;">{{ l.total }}</span>
+            </div>
+          </sc-for>
+          <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid #E8E2DC;font-family:Manrope,sans-serif;font-weight:800;font-size:15px;"><span>Cart value</span><span style="font-variant-numeric:tabular-nums;">{{ v.value }}</span></div>
+          <span style="font-size:12px;color:#5A6472;">Before {{ w.ship }} and {{ w.tax }}. Prices shown are what the shopper saw.</span>
+        </section>
+        <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:2px;">
+          <h2 style="margin:0 0 8px;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">What happened</h2>
+          <sc-for list="{{ v.tl }}" as="e" hint-placeholder-count="4">
+            <div style="display:flex;gap:12px;padding:8px 0;">
+              <span style="width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none;background:{{ e.dot }};border:2px solid {{ e.ring }};"></span>
+              <span style="display:flex;flex-direction:column;gap:1px;font-size:13px;"><span style="color:{{ e.fg }};font-weight:{{ e.fw }};">{{ e.what }}</span><span style="font-size:12px;color:#5A6472;">{{ e.when }}</span></span>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+        <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:4px;">
+          <h2 style="margin:0 0 6px;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Shopper</h2>
+          <sc-for list="{{ v.kv }}" as="r" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(110px,0.8fr) minmax(0,1.5fr);gap:12px;padding:7px 0;border-top:1px solid #F1EEEA;font-size:13px;"><span style="color:#5A6472;">{{ r.k }}</span><span style="overflow-wrap:anywhere;">{{ r.v }}</span></div></sc-for>
+        </section>
+        <sc-if value="{{ v.hasLink }}" hint-placeholder-val="{{ true }}">
+          <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;">
+            <h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Cart link</h2>
+            <span style="font-size:13px;color:#434A55;text-wrap:pretty;">Opens checkout with everything still in the cart. Handy if the shopper calls or messages you.</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:8px 10px;border-radius:6px;background:#F4F2EF;border:1px solid #E8E2DC;overflow-wrap:anywhere;">{{ v.link }}</span>
+            <button onClick="{{ v.copyLink }}" style="align-self:flex-start;height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Copy link</button>
+          </section>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showSpec }}" hint-placeholder-val="{{ false }}">
+    <section style="border:1px dashed #9FB8D1;border-radius:12px;background:#F4F8FB;padding:16px;display:flex;flex-direction:column;gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#00325F;">For engineers · Abandoned-cart recovery</span>
+      <div style="overflow-x:auto;"><div style="min-width:560px;"><sc-for list="{{ spec }}" as="m" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:10px;padding:6px 0;border-top:1px solid #D6E3EF;font-size:12px;"><strong style="font-family:Manrope,sans-serif;">{{ m.c }}</strong><span style="font-family:'IBM Plex Mono',monospace;color:#434A55;">{{ m.v }}</span></div></sc-for></div></div>
+    </section>
+  </sc-if>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;app&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}">
+class Component extends DCLogic {
+  state = { pane: 'carts', tab: 'open', q: '', sel: {}, draft: null, stepIx: 0 };
+
+  componentDidMount() { this.sync(); }
+  componentDidUpdate() { this.sync(); }
+  key() { const a = this.props.app; return a.R.key + ':' + a.st.dataset; }
+  sync() {
+    const app = this.props.app; if (!app) return; const k = this.key();
+    if (!(app.st.cartsBy || {})[k]) app.set('cartsBy', m => ({ ...(m || {}), [k]: app.st.dataset === 'stocked' ? this.seed(app) : [] }));
+    if (!(app.st.cartFlowBy || {})[k]) app.set('cartFlowBy', m => ({ ...(m || {}), [k]: this.defFlow(app.R) }));
+  }
+  upd(fn) { const app = this.props.app; const k = this.key(); app.set('cartsBy', m => ({ ...m, [k]: fn(m[k]) })); }
+
+  defFlow(R) {
+    return { auto: true, minValue: String(R.mult(20)), skipOOS: true, quiet: true, cooldown: true, steps: [
+      { on: true, delay: 60, channel: 'email', subject: 'You left something in your cart', body: 'We saved your cart. Pick up right where you left off.', discount: 0 },
+      { on: true, delay: 1440, channel: R.key === 'IN' ? 'whatsapp' : 'email', subject: 'Still thinking it over?', body: 'Here’s a little something to help you decide.', discount: 10 },
+      { on: true, delay: 4320, channel: 'email', subject: 'Your cart won’t be saved much longer', body: 'Popular items sell out. Your cart is still here if you want it.', discount: 0 }] };
+  }
+
+  seed(app) {
+    const R = app.R; const P = app.allProducts || [];
+    const ln = (id, qty) => { const p = P.find(x => x.id === id); if (!p) return null; const vs = (p.variants || []).filter(v => !v.removed); const v = vs[0]; const stock = p.track === false ? 99 : v ? vs.reduce((a, x) => a + Number(x.stock || 0), 0) : Number(p.stock || 0); return { pid: id, name: p.name + (v ? ' · ' + v.vals.join(' / ') : ''), qty, price: Number(v ? v.price : p.price) || 0, hue: ((p.photos || [])[0] || {}).hue ?? 30, stock }; };
+    const N = R.names;
+    const who = i => i === null ? { name: 'Guest shopper', city: '', email: '', phone: '' } : { name: N[i][0], city: N[i][1], email: N[i][0].toLowerCase().replace(/[^a-z]+/g, '.') + '@mail.com', phone: R.phone.replace(/\d{4}$/, String(3100 + i * 7)) };
+    const mk = (id, ci, ago, step, lines, x) => { const ls = lines.filter(Boolean); return { id, customer: who(ci), ago, step, device: ago % 2 ? 'Phone' : 'Computer', lines: ls, value: Math.round(ls.reduce((a, l) => a + l.price * l.qty, 0) * 100) / 100, sent: [], ...(x || {}) }; };
+    return [
+      mk('ab1', 3, 25, 'pay', [ln('p10', 1)]),
+      mk('ab2', 1, 180, 'ship', [ln('p1', 2), ln('p8', 1)], { sent: [{ n: 1, ago: 120, ch: 'email', opened: true }] }),
+      mk('ab3', 4, 1560, 'ship', [ln('p2', 1)], { sent: [{ n: 1, ago: 1500, ch: 'email', opened: true }, { n: 2, ago: 120, ch: R.key === 'IN' ? 'whatsapp' : 'email', opened: true, clicked: true, code: 'BACK-7KQ2' }] }),
+      mk('ab4', 0, 1800, 'pay', [ln('p1', 2), ln('p2', 1)], { sent: [{ n: 1, ago: 1740, ch: 'email', opened: true, clicked: true }], recovered: { ago: 95, order: 'DF-2848' } }),
+      mk('ab5', 2, 3000, 'ship', [ln('p1', 1), ln('p13', 2)], { sent: [{ n: 1, ago: 2940, ch: 'email', opened: true }, { n: 2, ago: 1560, ch: 'email', opened: true, clicked: true, code: 'BACK-M3PX' }], recovered: { ago: 1500, order: 'DF-2846', code: 'BACK-M3PX' } }),
+      mk('ab6', null, 300, 'contact', [ln('p11', 2)]),
+      mk('ab7', 3, 900, 'ship', [ln('p12', 1), ln('p7', 2)], { optedOut: true }),
+      mk('ab8', 1, 8700, 'pay', [ln('p13', 1)], { sent: [{ n: 1, ago: 8640, ch: 'email' }, { n: 2, ago: 7260, ch: 'email', opened: true, code: 'BACK-2RWD' }, { n: 3, ago: 4380, ch: 'email' }] }),
+      mk('ab9', 0, 2200, 'ship', [ln('p10', 1), ln('p11', 1)], { sent: [{ n: 1, ago: 2140, ch: 'email' }], stopped: { ago: 1300, by: 'Farhan Ali', note: 'She called — ordering by phone' } }),
+      mk('ab10', 4, 480, 'ship', [ln('p4', 1)])
+    ];
+  }
+
+  renderVals() {
+    const app = this.props.app;
+    if (!app) return { ready: false, notFound: false };
+    const c = app.caps;
+    if (c.isVendor) return { ready: false, notFound: true };
+    const k = this.key();
+    const all = (app.st.cartsBy || {})[k]; const flow = (app.st.cartFlowBy || {})[k];
+    if (!all || !flow) return { ready: false, notFound: false };
+    const s = this.state; const R = app.R; const fmt = app.fmt; const phone = app.phone;
+    const canManage = c.isOwner || c.isManager; const canEdit = canManage && !c.readOnly;
+    const growth = ({ free: 0, starter: 1, growth: 2, business: 3, enterprise: 4 }[c.P.key] ?? 3) >= 2;
+    const auto = flow.auto && growth && !c.readOnly;
+    const me = c.isOwner ? 'Farhan Ali' : 'Priya Shah';
+    const upGrowth = () => app.upgradeTo ? app.upgradeTo('Automatic cart reminders', 'growth') : app.upgrade('Automatic cart reminders');
+    const w = { ship: R.key === 'US' ? 'shipping' : 'delivery', tax: R.key === 'US' ? 'tax' : R.taxName };
+    const STEP = { contact: 'Contact details', ship: R.key === 'US' ? 'Shipping' : 'Delivery', pay: 'Payment' };
+    const agoL = m => m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : m < 2880 ? 'yesterday' : Math.round(m / 1440) + ' days ago';
+    const inL = m => m < 60 ? 'in ' + m + ' min' : m < 1440 ? 'in ' + Math.round(m / 60) + ' h' : m < 2880 ? 'in 1 day' : 'in ' + Math.round(m / 1440) + ' days';
+    const DEL = [[30, '30 minutes'], [60, '1 hour'], [240, '4 hours'], [600, '10 hours'], [1440, '1 day'], [2880, '2 days'], [4320, '3 days']];
+    const delL = m => (DEL.find(d => d[0] === m) || [0, m + ' min'])[1];
+    const chL = ch => ch === 'whatsapp' ? 'WhatsApp' : 'Email';
+    const TONE = { green: { bg: '#EEF7F2', bd: '#C3E0D2', fg: '#1D6B47' }, blue: { bg: '#EAF1F8', bd: '#C6D9EC', fg: '#00325F' }, amber: { bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00' }, grey: { bg: '#F4F2EF', bd: '#D7D3CD', fg: '#434A55' } };
+    const S = (k2, l, icon, time, group, tone) => ({ k: k2, l, icon, time, group, ...TONE[tone] });
+    const minV = Number(flow.minValue) || 0;
+    const enabled = flow.steps.map((x, i) => ({ ...x, n: i + 1 })).filter((x, i) => x.on && (growth || i === 0));
+    const nextOf = cart => { const last = Math.max(0, ...cart.sent.map(r => r.n)); return enabled.find(x => x.n > last) || null; };
+    const status = cart => {
+      if (cart.recovered) return S('rec', 'Recovered', '✓', 'Paid ' + agoL(cart.recovered.ago) + ' · ' + cart.recovered.order, 'rec', 'green');
+      if (cart.stopped) return S('stop', 'Stopped', '■', 'By ' + cart.stopped.by + ' · ' + cart.stopped.note, 'lost', 'grey');
+      if (!cart.customer.email) return S('nocontact', 'Can’t contact', '—', 'Left before giving an email', 'lost', 'grey');
+      if (cart.optedOut) return S('opt', 'Won’t remind', '—', R.key === 'DE' ? 'Didn’t agree to emails at checkout' : 'Unsubscribed from your emails', 'lost', 'grey');
+      if (flow.skipOOS && cart.lines.every(l => l.stock <= 0)) return S('oos', 'Skipped', '—', 'Everything in it is out of stock', 'lost', 'grey');
+      if (cart.value < minV) return S('min', 'Skipped', '—', 'Under your minimum of ' + fmt(minV), 'lost', 'grey');
+      if (cart.ago > 10080) return S('lost', 'Not recovered', '—', cart.sent.length + (cart.sent.length === 1 ? ' reminder' : ' reminders') + ' sent', 'lost', 'grey');
+      if (!auto) return cart.sent.length ? S('rem', 'Reminded', '✉', 'Last sent ' + agoL(Math.min(...cart.sent.map(r => r.ago))), 'open', 'blue') : S('new', 'Not contacted', '○', c.readOnly ? 'Reminders paused' : 'Send a reminder yourself', 'open', 'amber');
+      const nx = nextOf(cart);
+      if (!nx) return S('done', 'All reminders sent', '✉', 'Waiting to see if they come back', 'open', 'blue');
+      const due = nx.delay - cart.ago;
+      return S('sched', due <= 0 ? 'Sending now' : 'Reminder ' + nx.n + ' ' + inL(due), '◷', 'By ' + chL(nx.channel).toLowerCase() + (nx.discount && growth ? ' · with ' + nx.discount + '% off' : '') + (cart.sent.length ? ' · ' + cart.sent.length + ' sent' : ''), 'open', 'blue');
+    };
+    const itemsL = cart => cart.lines.length ? cart.lines[0].name + (cart.lines.length > 1 ? ' + ' + (cart.lines.length - 1) + ' more' : '') : '—';
+    const link = cart => 'https://' + R.domain + '/cart/r/' + cart.id + 'x7f';
+    const canRemind = cart => !cart.recovered && !cart.stopped && cart.customer.email && !cart.optedOut;
+
+    const send = cart => {
+      if (!canEdit) return;
+      if (!cart.customer.email) { app.toast('No email or phone for this shopper — nothing to send to.'); return; }
+      if (cart.optedOut) { app.modal({ title: 'Can’t remind ' + cart.customer.name, body: R.key === 'DE' ? 'They didn’t agree to emails at checkout. Under EU rules we can’t send them reminders.' : 'They unsubscribed from your emails, so they won’t get reminders.', confirm: 'OK', cancel: '' }); return; }
+      if (!growth && cart.sent.length >= 1) { app.upgradeTo ? app.upgradeTo('More than one reminder per cart', 'growth') : app.upgrade('More reminders'); return; }
+      const n = cart.sent.length + 1;
+      const choices = [{ label: 'Reminder, no discount', sub: 'Their cart and a button back to it', value: '0' }, { label: '10% off with a single-use code', sub: growth ? 'Only this shopper, one use, expires in 48 hours' : 'On Growth', value: '10' }];
+      app.modal({ title: 'Remind ' + cart.customer.name + ' now?', body: 'Sends to ' + cart.customer.email + ' right away' + (flow.quiet ? ', even in quiet hours' : '') + '.' + (auto && nextOf(cart) ? '\nThe next automatic reminder still goes as planned.' : ''), choices, confirm: 'Send reminder', onConfirm: val => {
+        if (val === '10' && !growth) { upGrowth(); return; }
+        const code = val === '10' ? 'BACK-' + Math.random().toString(36).slice(2, 6).toUpperCase() : '';
+        this.upd(l => l.map(x => x.id === cart.id ? { ...x, sent: [...x.sent, { n, ago: 0, ch: 'email', manual: me, code }] } : x));
+        app.toast('Reminder sent to ' + cart.customer.email + (code ? ' with code ' + code : ''));
+      } });
+    };
+    const stop = cart => { if (!canEdit) return; app.modal({ title: 'Stop reminders for ' + cart.customer.name + '?', body: 'No more reminders go out for this cart. The cart link still works.', input: { label: 'Note for your team (optional)', placeholder: 'e.g. Called us, ordering by phone' }, confirm: 'Stop reminders', danger: true, onConfirm: note => { this.upd(l => l.map(x => x.id === cart.id ? { ...x, stopped: { ago: 0, by: me, note: (note || '').trim() || 'No note' } } : x)); app.toast('Reminders stopped for ' + cart.customer.name + '.', 'Undo', () => this.upd(l => l.map(x => x.id === cart.id ? { ...x, stopped: null } : x))); } }); };
+    const resume = cart => { this.upd(l => l.map(x => x.id === cart.id ? { ...x, stopped: null } : x)); app.toast('Reminders back on for ' + cart.customer.name + '.'); };
+    const copyLink = cart => app.toast('Cart link copied: ' + link(cart).replace('https://', ''));
+    const openCart = cart => app.go('carts', { cartView: cart.id });
+    const more = cart => {
+      const ch = [{ label: 'View cart', sub: 'Items, shopper and what happened', value: 'view' }];
+      if (canEdit && canRemind(cart)) ch.push({ label: 'Send reminder now', sub: cart.customer.email, value: 'send' });
+      if (cart.customer.email && !cart.recovered) ch.push({ label: 'Copy cart link', sub: 'Opens checkout with the cart filled in', value: 'link' });
+      if (canEdit && canRemind(cart)) ch.push({ label: 'Stop reminders', sub: 'For this cart only', value: 'stop' });
+      if (canEdit && cart.stopped) ch.push({ label: 'Resume reminders', sub: 'Pick up the schedule again', value: 'resume' });
+      if (cart.recovered) ch.push({ label: 'View order ' + cart.recovered.order, sub: 'The order they placed', value: 'order' });
+      app.modal({ title: cart.customer.name + ' · ' + fmt(cart.value), body: itemsL(cart) + '\n' + status(cart).l + ' — ' + status(cart).time, choices: ch, confirm: 'Go', onConfirm: val => ({ view: () => openCart(cart), send: () => send(cart), link: () => copyLink(cart), stop: () => stop(cart), resume: () => resume(cart), order: () => app.go('orders') })[val]() });
+    };
+
+    const notes = [];
+    if (c.readOnly) notes.push({ t: 'Reminders are paused.', d: 'Your store is view-only until billing is sorted. Carts are still saved.', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: c.isOwner ? 'Go to billing' : '', on: () => app.go('billing') });
+    if (c.isStaff) notes.push({ t: 'View only.', d: 'You can see carts and copy a cart link for a shopper. Only the owner or a manager can send reminders.', bg: '#EAF1F8', bd: '#C6D9EC', fg: '#00325F', cta: '' });
+    if (!growth && canManage && !c.readOnly) notes.push({ t: 'You send reminders yourself on ' + c.P.name + '.', d: 'One per cart. Growth sends up to 3 automatically, with an optional single-use discount.', bg: '#FDFAF7', bd: '#E8E2DC', fg: '#434A55', cta: c.isOwner ? 'See Growth' : '', on: upGrowth });
+    if (growth && !flow.auto && canManage && !c.readOnly) notes.push({ t: 'Automatic reminders are off.', d: 'New carts wait for you to remind them.', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: 'Turn on', on: () => app.set('cartFlowBy', m => ({ ...m, [k]: { ...m[k], auto: true } })) });
+    if (app.sim.offline) notes.push({ t: 'You’re offline.', d: 'Carts shown may be out of date. Reminders keep sending from our side.', bg: '#5A6472', bd: '#5A6472', fg: '#FFFFFF', cta: '' });
+    notes.forEach(n => { n.hasCta = !!n.cta; });
+
+    const pane = s.pane;
+    const panes = [['carts', 'Carts'], ['settings', 'Reminders']].map(([id, l]) => ({ l, bg: pane === id ? '#0A2A4A' : '#FFFFFF', fg: pane === id ? '#FFFFFF' : '#434A55', on: () => this.setState({ pane: id }) }));
+
+    // stats
+    const contactable = all.filter(x => x.customer.email && !x.optedOut).length;
+    const rec = all.filter(x => x.recovered);
+    const sentN = all.reduce((a, x) => a + x.sent.length, 0);
+    const tiles = [
+      { l: 'Abandoned checkouts', v: String(all.length), sub: fmt(all.reduce((a, x) => a + x.value, 0)) + ' left behind', fg: '#14181F' },
+      { l: 'Reminders sent', v: String(sentN), sub: contactable + ' shoppers reachable', fg: '#14181F' },
+      { l: 'Recovered', v: String(rec.length), sub: contactable ? Math.round(rec.length / contactable * 100) + '% of reachable carts' : '—', fg: '#1D6B47' },
+      { l: 'Recovered sales', v: fmt(rec.reduce((a, x) => a + x.value, 0)), sub: rec.filter(x => x.recovered.code).length + ' used a reminder code', fg: '#1D6B47' }
+    ];
+
+    // list
+    const TAB = [['open', 'In progress'], ['rec', 'Recovered'], ['lost', 'Not recovered']];
+    const tabs = TAB.map(([id, l]) => ({ l, n: String(all.filter(x => status(x).group === id).length), bl: s.tab === id ? '#EC844F' : 'transparent', fg: s.tab === id ? '#0A2A4A' : '#5A6472', on: () => this.setState({ tab: id, sel: {} }) }));
+    const q = s.q.trim().toLowerCase();
+    const listed = all.filter(x => status(x).group === s.tab && (!q || x.customer.name.toLowerCase().includes(q) || x.customer.email.toLowerCase().includes(q) || x.lines.some(l => l.name.toLowerCase().includes(q)))).sort((a, b) => a.ago - b.ago);
+    const rows = listed.map(x => ({ name: x.customer.name, contact: x.customer.email || 'No email given', contactFg: x.customer.email ? '#5A6472' : '#8F4017', sw: x.lines.slice(0, 3).map(l => 'oklch(0.82 0.06 ' + l.hue + ')'), items: itemsL(x), value: fmt(x.value), step: STEP[x.step], ago: agoL(x.ago), st: status(x),
+      canSel: canEdit, noSel: !canEdit, sel: !!s.sel[x.id], toggleSel: () => this.setState(z => ({ sel: { ...z.sel, [x.id]: !z.sel[x.id] } })), rowBg: s.sel[x.id] ? '#F4F8FB' : '#FFFFFF', open: () => openCart(x), more: () => more(x) }));
+    const selIds = Object.keys(s.sel).filter(id => s.sel[id] && listed.some(x => x.id === id));
+    const selC = all.filter(x => selIds.includes(x.id)); const elig = selC.filter(x => canRemind(x) && (growth || !x.sent.length));
+    const bulk = [
+      ...(elig.length ? [['Send reminder (' + elig.length + ')', () => app.modal({ title: 'Remind ' + elig.length + (elig.length === 1 ? ' shopper' : ' shoppers') + ' now?', body: elig.map(x => x.customer.name).join(', ') + '.' + (selC.length > elig.length ? '\n' + (selC.length - elig.length) + ' others are skipped — they can’t be reminded.' : '') + '\nNo discount. To add one, remind shoppers one at a time.', confirm: 'Send', onConfirm: () => { this.upd(l => l.map(x => elig.some(e => e.id === x.id) ? { ...x, sent: [...x.sent, { n: x.sent.length + 1, ago: 0, ch: 'email', manual: me }] } : x)); this.setState({ sel: {} }); app.toast(elig.length + (elig.length === 1 ? ' reminder' : ' reminders') + ' sent.'); } })]] : []),
+      ...(selC.some(canRemind) ? [['Stop reminders', () => { const ids = selC.filter(canRemind).map(x => x.id); this.upd(l => l.map(x => ids.includes(x.id) ? { ...x, stopped: { ago: 0, by: me, note: 'Stopped in bulk' } } : x)); this.setState({ sel: {} }); app.toast('Reminders stopped for ' + ids.length + '.', 'Undo', () => this.upd(l => l.map(x => ids.includes(x.id) ? { ...x, stopped: null } : x))); }]] : []),
+      ['Export', () => app.toast('abandoned-carts.csv downloaded · ' + selIds.length + ' rows')]
+    ].map(([l, on]) => ({ l, on }));
+    const EMPTY = { open: ['Nothing in progress', 'Every cart has either come back or finished its reminders.'], rec: ['No recovered carts yet', 'When a reminded shopper pays, their cart moves here with the order number.'], lost: ['Nothing here', 'Carts that finish their reminders without buying, or that can’t be reminded, land here.'] }[s.tab];
+    const empty = q ? { t: 'No carts match', d: 'Try another name, email or product.' } : { t: EMPTY[0], d: EMPTY[1] };
+
+    // settings
+    const d = s.draft || flow; const dirty = !!s.draft; const ro = !canEdit;
+    const setD = patch => this.setState({ draft: { ...d, ...patch } });
+    const setStep = (i, patch) => setD({ steps: d.steps.map((x, j) => j === i ? { ...x, ...patch } : x) });
+    const errs = d.steps.map((x, i) => { if (!x.on) return ''; const prev = d.steps.slice(0, i).filter(y => y.on).pop(); if (prev && x.delay <= prev.delay) return 'Must go later than the reminder before it.'; if (x.channel === 'email' && !x.subject.trim()) return 'Add a subject line.'; return ''; });
+    const steps = d.steps.map((x, i) => {
+      const locked = !growth && i > 0; const disc = Number(x.discount) || 0;
+      return { n: i + 1, on: x.on, locked, canToggle: !locked && i > 0, showFields: !locked && x.on, op: locked ? 0.6 : 1,
+        bd: s.stepIx === i ? '2px solid #00519F' : '1px solid #E8E2DC', dot: x.on && !locked ? '#0A2A4A' : '#9AA1AB', pvBg: s.stepIx === i ? '#EAF1F8' : '#FFFFFF',
+        sum: locked ? 'Automatic follow-ups are on Growth' : !x.on ? 'Off' : (i === 0 && !(d.auto && growth) ? 'Used when you send a reminder yourself' : delL(x.delay) + ' after they leave') + ' · ' + chL(x.channel) + (disc ? ' · ' + disc + '% off' : ''),
+        sw: { bg: x.on ? '#1D6B47' : '#C9C3BC', x: x.on ? '20px' : '0' }, toggle: () => !ro && setStep(i, { on: !x.on }), preview: () => this.setState({ stepIx: i }),
+        delayLabel: i === 0 ? 'Send after they leave' : 'Send after they leave', delayV: String(x.delay), delayBd: errs[i] && errs[i].startsWith('Must') ? '#A3261B' : '#D7D3CD', onDelay: e => setStep(i, { delay: Number(e.target.value) }),
+        channel: x.channel, onChannel: e => { const v = e.target.value; if (v === 'whatsapp' && !growth) { upGrowth(); return; } setStep(i, { channel: v }); }, isEmail: x.channel === 'email',
+        discV: String(disc), onDisc: e => { const v = Number(e.target.value); if (v && !growth) { app.upgradeTo ? app.upgradeTo('Discounts in cart reminders', 'growth') : upGrowth(); return; } setStep(i, { discount: v }); }, hasDisc: disc > 0,
+        discNote: 'Each shopper gets their own code: ' + disc + '% off this cart, one use, expires 48 hours after sending. It doesn’t combine with other codes; automatic offers still apply.',
+        subject: x.subject, subjBd: errs[i] === 'Add a subject line.' ? '#A3261B' : '#D7D3CD', onSubject: e => setStep(i, { subject: e.target.value }), body: x.body, onBody: e => setStep(i, { body: e.target.value }),
+        hasErr: !!errs[i], err: errs[i] };
+    });
+    const rules = [
+      ['skipOOS', 'Skip carts where everything is out of stock', 'If only some items are out, the reminder leaves those out.'],
+      ['quiet', 'Quiet hours', 'Hold reminders between 9 pm and 8 am in the shopper’s time. They go out at 8 am.'],
+      ['cooldown', 'Once a week per shopper', 'Don’t remind the same shopper about more than one cart in 7 days.'],
+      ['always', 'Stop as soon as they buy', 'Reminders stop the moment the shopper places any order. Always on.']
+    ].map(([key, l, dd]) => ({ l, d: dd, on: key === 'always' ? true : !!d[key], dis: key === 'always' || ro, toggle: () => key !== 'always' && !ro && setD({ [key]: !d[key] }) }));
+    const consent = { US: { t: 'Unsubscribe link in every email.', d: 'Shoppers who unsubscribe are never reminded again.' }, DE: { t: 'EU rules:', d: 'only shoppers who tick “Email me about my cart and offers” at checkout get reminders. This can’t be turned off. Every email has an unsubscribe link and your Impressum.' }, IN: { t: 'WhatsApp needs opt-in:', d: 'only shoppers who tick “Message me on WhatsApp” at checkout get WhatsApp reminders; others get email. Every email has an unsubscribe link.' } }[R.key];
+    const pi = Math.min(s.stepIx, d.steps.length - 1); const ps = d.steps[pi];
+    const sample = all.find(x => x.customer.email && x.lines.length && !x.recovered) || { customer: { name: R.names[0][0], email: 'shopper@mail.com' }, lines: (app.allProducts || []).slice(0, 2).map(p => ({ name: p.name, qty: 1, price: Number(p.price) || 0, hue: ((p.photos || [])[0] || {}).hue ?? 30 })) };
+    const pdisc = growth ? Number(ps.discount) || 0 : 0;
+    const store = app.storeName;
+    const cnt = sample.lines.reduce((a, l) => a + l.qty, 0);
+    const pv = { n: pi + 1, chL: chL(ps.channel), isEmail: ps.channel === 'email', isWa: ps.channel === 'whatsapp', from: store + ' <hello@' + R.domain + '>', to: sample.customer.email, subject: ps.subject || '(no subject)', store,
+      hi: 'Hi ' + sample.customer.name.split(' ')[0] + ',', body: ps.body, count: cnt + (cnt === 1 ? ' item' : ' items'),
+      lines: sample.lines.slice(0, 3).map(l => ({ name: l.name, qty: String(l.qty), price: fmt(l.price * l.qty), bg: 'oklch(0.82 0.06 ' + l.hue + ')' })),
+      hasCode: pdisc > 0, code: 'BACK-4TQZ', codeL: pdisc + '% off your cart · expires in 48 hours', link: R.domain + '/cart/r/ab2x7f',
+      foot: 'You’re getting this because you started checkout at ' + R.domain + '. Unsubscribe' + (R.key === 'DE' ? ' · Impressum' : '') + ' · ' + (app.st.storeInfo || {}).street + ', ' + (app.st.storeInfo || {}).city };
+    const save = () => {
+      if (!canEdit) return;
+      const bad = errs.findIndex(Boolean); if (bad >= 0) { this.setState({ stepIx: bad }); app.toast('Reminder ' + (bad + 1) + ': ' + errs[bad]); return; }
+      app.set('cartFlowBy', m => ({ ...m, [k]: d })); this.setState({ draft: null });
+      app.toast(d.auto && growth ? 'Saved. Carts waiting for a reminder follow the new timings.' : 'Saved.');
+    };
+
+    // detail
+    let v = {}; const vc = app.st.cartView ? all.find(x => x.id === app.st.cartView) : null;
+    if (vc) {
+      const st = status(vc); const cu = vc.customer;
+      const tl = [];
+      const nx = auto && st.k === 'sched' ? nextOf(vc) : null;
+      if (nx) tl.push({ t: -1, what: 'Reminder ' + nx.n + ' planned by ' + chL(nx.channel).toLowerCase() + (nx.discount && growth ? ' with ' + nx.discount + '% off' : ''), when: inL(Math.max(1, nx.delay - vc.ago)).replace(/^in/, 'In'), future: true });
+      if (vc.recovered) tl.push({ t: vc.recovered.ago, what: 'Paid · order ' + vc.recovered.order + (vc.recovered.code ? ' with code ' + vc.recovered.code : ''), good: true });
+      if (vc.stopped) tl.push({ t: vc.stopped.ago, what: 'Reminders stopped by ' + vc.stopped.by + ' — ' + vc.stopped.note });
+      vc.sent.forEach(r => { tl.push({ t: r.ago, what: 'Reminder ' + r.n + ' sent by ' + chL(r.ch).toLowerCase() + (r.manual ? ' (by ' + r.manual + ')' : '') + (r.code ? ' · code ' + r.code : '') }); if (r.opened) tl.push({ t: Math.max(0, r.ago - 7), what: 'Opened reminder ' + r.n }); if (r.clicked) tl.push({ t: Math.max(0, r.ago - 9), what: 'Came back to the cart' }); });
+      tl.push({ t: vc.ago, what: 'Left checkout at ' + STEP[vc.step] }, { t: vc.ago + 6, what: 'Started checkout' + (cu.email ? ' and gave their email' : '') });
+      tl.sort((a, b) => a.t - b.t);
+      const acts = [];
+      if (canEdit && canRemind(vc)) acts.push({ l: 'Send reminder now', on: () => send(vc), bg: '#EC844F', fg: '#4A1B0C', bd: '0' });
+      if (vc.recovered) acts.push({ l: 'View order ' + vc.recovered.order, on: () => app.go('orders'), bg: '#EC844F', fg: '#4A1B0C', bd: '0' });
+      if (canEdit && canRemind(vc)) acts.push({ l: 'Stop reminders', on: () => stop(vc), bg: '#FFFFFF', fg: '#14181F', bd: '1px solid #D7D3CD' });
+      if (canEdit && vc.stopped) acts.push({ l: 'Resume reminders', on: () => resume(vc), bg: '#FFFFFF', fg: '#14181F', bd: '1px solid #D7D3CD' });
+      if (cu.email) acts.push({ l: 'View customer', on: () => app.go('customers'), bg: '#FFFFFF', fg: '#14181F', bd: '1px solid #D7D3CD' });
+      const oos = vc.lines.filter(l => l.stock <= 0);
+      v = { name: cu.name, st, step: STEP[vc.step], ago: agoL(vc.ago), acts, value: fmt(vc.value),
+        hasWarn: oos.length > 0 && !vc.recovered, warn: oos.length === vc.lines.length ? 'Everything in this cart is out of stock now, so no reminders go out. Restock to send one.' : oos.map(l => l.name).join(', ') + (oos.length === 1 ? ' is' : ' are') + ' out of stock now. Reminders leave ' + (oos.length === 1 ? 'it' : 'them') + ' out.',
+        lines: vc.lines.map(l => ({ name: l.name, qty: String(l.qty), total: fmt(l.price * l.qty), bg: 'oklch(0.82 0.06 ' + l.hue + ')', stock: l.stock <= 0 ? 'Out of stock now' : l.stock < 5 ? 'Only ' + l.stock + ' left' : 'In stock', stockFg: l.stock <= 0 ? '#A3261B' : l.stock < 5 ? '#7A4B00' : '#5A6472', open: () => app.openProduct(l.pid) })),
+        tl: tl.map(e => ({ what: e.what, when: e.future ? e.when : agoL(e.t).replace(/^./, ch => ch.toUpperCase()), dot: e.future ? '#FFFFFF' : e.good ? '#1D6B47' : '#0A2A4A', ring: e.future ? '#00519F' : e.good ? '#1D6B47' : '#0A2A4A', fg: e.future ? '#00325F' : '#14181F', fw: e.good || e.future ? 700 : 400 })),
+        kv: [['Email', cu.email || 'Not given'], ['Phone', cu.phone || '—'], ['Location', cu.city || '—'], ['Device', vc.device], [R.key === 'DE' ? 'Email consent' : 'Emails', vc.optedOut ? (R.key === 'DE' ? 'Not given' : 'Unsubscribed') : cu.email ? (R.key === 'DE' ? 'Given at checkout' : 'Subscribed') : '—'], ['Reminders sent', String(vc.sent.length)]].map(([kk, vv]) => ({ k: kk, v: vv })),
+        hasLink: !!cu.email && !vc.recovered, link: link(vc), copyLink: () => copyLink(vc) };
+    }
+
+    const spec = [['Abandoned checkout', 'checkout_session with email/phone, no order, idle ≥ 20 min → abandoned_cart row'], ['Recovered', 'order by same customer within 7 days of abandon; attribution = last reminder clicked or code used'], ['Status', 'derived: recovered › stopped › no contact › opted out › out of stock › under minimum › next step due'], ['Reminder flow', 'cart_flow { auto, steps[3] { on, delayMin, channel, subject, body, discountPct }, minValue, skipOOS, quietHours, weeklyCap }'], ['Discount codes', 'offer_code single-use, bound to customer + cart, expires sentAt + 48 h, combines: automatic only'], ['Consent', 'DE: marketing_opt_in required; IN WhatsApp: whatsapp_opt_in; all: List-Unsubscribe header'], ['Plan gates', 'Free/Starter: manual, 1 per cart, email only · Growth+: auto, 3 steps, discounts, WhatsApp (IN)'], ['Cart link', '/cart/r/:token restores lines at current price and stock'], ['Send now', 'POST /carts/:id/remind { discountPct } — ignores quiet hours']].map(([cc, vv]) => ({ c: cc, v: vv }));
+
+    return {
+      ready: true, notFound: false, pad: phone ? '16px' : '24px 28px', isPhone: phone, notPhone: !phone, cur: R.cur, w,
+      isMain: !vc, isView: !!vc, v, back: () => app.go('carts', { cartView: null }),
+      panes, isCartsPane: pane === 'carts', isSettingsPane: pane === 'settings', notes, canEdit,
+      noCarts: all.length === 0, hasCarts: all.length > 0, toSettings: () => this.setState({ pane: 'settings' }),
+      emptyLine: growth ? 'Turn on automatic reminders and we’ll follow up for you.' : 'You can remind each shopper once yourself.',
+      how: [{ n: '1', t: 'A shopper leaves checkout', d: 'After giving their email, before paying.' }, { n: '2', t: 'They get a reminder', d: 'With their cart, a button back to it and, if you like, a one-time discount.' }, { n: '3', t: 'You see who came back', d: 'Recovered carts show the order and how much it brought in.' }],
+      tiles, tabs, q: s.q, onQ: e => this.setState({ q: e.target.value }), rows, hasRows: rows.length > 0, noRows: rows.length === 0, empty,
+      hasSel: selIds.length > 0, selL: selIds.length + ' selected', bulk, clearSel: () => this.setState({ sel: {} }),
+      d, ro, dirty, steps, rules, consent, pv, delays: DEL.map(([vv, l]) => ({ v: String(vv), l })), hasChannel: R.key === 'IN',
+      autoLocked: !growth, autoOpen: growth, autoSw: { bg: d.auto ? '#1D6B47' : '#C9C3BC', x: d.auto ? '20px' : '0' }, toggleAuto: () => !ro && setD({ auto: !d.auto }), upGrowth,
+      autoSub: !growth ? 'On ' + c.P.name + ' you remind shoppers yourself, one reminder per cart. Growth sends up to 3 for you.' : d.auto ? 'Up to 3 reminders per cart, sent on the schedule below.' : 'Off — carts wait for you to remind them.',
+      onMin: e => setD({ minValue: e.target.value.replace(/[^\d.]/g, '') }),
+      testSend: () => app.toast('Test sent to ' + (c.isOwner ? 'farhan' : 'priya') + '@' + R.domain + (ps.channel === 'whatsapp' ? ' (as email — WhatsApp tests go to your business number)' : '')),
+      save, discard: () => this.setState({ draft: null }),
+      showSpec: !!app.st.showSpec, spec
+    };
+  }
+}
+</script>
+</body>
+</html>

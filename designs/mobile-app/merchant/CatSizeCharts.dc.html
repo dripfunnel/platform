@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:grid;grid-template-columns:{{ cols }};gap:20px;align-items:start;">
+  <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+    <div style="padding:14px 16px;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Size charts <span style="font-weight:400;color:{{ meterFg }};font-size:12px;">{{ meter }}</span></span>
+      <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.create }}" style="height:34px;padding:0 12px;border:0;border-radius:8px;background:{{ newBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ newLabel }}</button></sc-if>
+    </div>
+    <sc-if value="{{ offNote }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 16px;font-size:13px;color:#7A4B00;background:#FFF6E5;">Size charts are switched off in Settings › Catalogue, so they don’t show on products.</div></sc-if>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 16px;font-size:14px;color:#5A6472;">No size charts yet. Make one and use it on every product it fits — one “Tops” chart can cover 200 products.</div></sc-if>
+    <sc-for list="{{ list }}" as="c" hint-placeholder-count="2">
+      <button onClick="{{ c.onClick }}" style="width:100%;padding:12px 16px;border:0;border-bottom:1px solid #EDEAE5;border-left:3px solid {{ c.bl }};background:{{ c.bg }};text-align:left;cursor:pointer;display:flex;flex-direction:column;">
+        <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#14181F;">{{ c.name }}</span><span style="font-size:12px;color:#5A6472;">{{ c.sub }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input value="{{ d.name }}" onChange="{{ on.name }}" readOnly="{{ ro }}" style="flex:1;min-width:180px;height:42px;border:1px solid transparent;border-radius:8px;padding:0 10px;font-family:Manrope,sans-serif;font-weight:800;font-size:22px;outline:none;background:transparent;" style-focus="border-color:#00519F;background:#FFFFFF;">
+        <span style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ units }}" as="u" hint-placeholder-count="2"><button onClick="{{ u.onClick }}" style="height:34px;padding:0 14px;border:0;background:{{ u.bg }};color:{{ u.fg }};font-size:13px;cursor:pointer;">{{ u.label }}</button></sc-for></span>
+        <button onClick="{{ a.preview }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">{{ previewLabel }}</button>
+      </div>
+      <sc-if value="{{ usedMany }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 14px;border-radius:10px;background:#FFF6E5;border:1px solid #F2D9A6;font-size:13px;color:#7A4B00;">This chart is on <strong>{{ usedCount }} products</strong>. Changes show on all of them.</div></sc-if>
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:auto;">
+        <div style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};background:#FDFAF7;border-bottom:1px solid #E8E2DC;">
+          <sc-for list="{{ head }}" as="h" hint-placeholder-count="4"><span style="display:flex;align-items:center;border-right:1px solid #EDEAE5;"><input value="{{ h.v }}" onChange="{{ h.on }}" readOnly="{{ ro }}" style="flex:1;min-width:0;height:38px;border:0;padding:0 10px;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;background:transparent;outline:none;"><sc-if value="{{ h.canDel }}" hint-placeholder-val="{{ false }}"><button onClick="{{ h.del }}" style="border:0;background:none;color:#9AA1AB;cursor:pointer;padding:0 6px;">×</button></sc-if></span></sc-for>
+          <span></span>
+        </div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};border-bottom:1px solid #F1EEEA;">
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="4"><input value="{{ c.v }}" onChange="{{ c.on }}" readOnly="{{ ro }}" placeholder="—" style="height:38px;border:0;border-right:1px solid #F1EEEA;padding:0 10px;font-size:13px;background:{{ c.bg }};outline:none;min-width:0;font-variant-numeric:tabular-nums;" style-focus="box-shadow:inset 0 0 0 2px #00519F;"></sc-for>
+            <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ r.del }}" style="border:0;background:none;color:#9AA1AB;cursor:pointer;">×</button></sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><div style="padding:10px 12px;display:flex;gap:16px;font-size:13px;flex-wrap:wrap;"><button onClick="{{ a.addRow }}" style="border:0;background:none;color:#00519F;cursor:pointer;padding:0;">+ Size</button><button onClick="{{ a.addCol }}" style="border:0;background:none;color:#00519F;cursor:pointer;padding:0;">+ Measurement</button><button onClick="{{ a.addSystem }}" style="border:0;background:none;color:#00519F;cursor:pointer;padding:0;">+ Other size systems (US / UK / EU)</button><span style="color:#5A6472;">Ranges like 38–40 are fine.</span></div></sc-if>
+      </div>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Fit note &amp; how to measure<textarea value="{{ d.note }}" onChange="{{ on.note }}" readOnly="{{ ro }}" rows="2" placeholder="e.g. Runs small — order one size up. Chest: measure around the fullest part." style="border:1px solid #D7D3CD;border-radius:8px;padding:8px 12px;font-size:14px;font-weight:400;outline:none;resize:vertical;"></textarea></label>
+      <span style="font-size:13px;color:#5A6472;">Used on {{ usedCount }} product{{ usedPlural }}. Assign it from a product’s “Size chart” box.</span>
+      <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;">
+          <button onClick="{{ a.del }}" style="height:40px;padding:0 14px;border:1px solid #F0D4BF;border-radius:8px;background:#FFFFFF;color:#B8541F;font-size:14px;cursor:pointer;">Delete</button>
+          <button onClick="{{ a.copy }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Make a copy</button>
+          <button onClick="{{ a.save }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save chart</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showPreview }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;box-shadow:0 20px 40px -24px rgba(10,42,74,0.35);padding:18px;display:flex;flex-direction:column;gap:10px;max-width:460px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Size chart · {{ d.name }}</span><span style="font-size:12px;color:#5A6472;">Shopper can switch {{ d.unit }} ⇄ {{ otherUnit }}</span></div>
+          <div style="display:grid;grid-template-columns:{{ gridColsPlain }};font-size:12px;border:1px solid #EDEAE5;border-radius:8px;overflow:hidden;">
+            <sc-for list="{{ head }}" as="h" hint-placeholder-count="4"><span style="padding:6px 8px;background:#FDFAF7;font-weight:700;">{{ h.v }}</span></sc-for>
+            <sc-for list="{{ flat }}" as="f" hint-placeholder-count="8"><span style="padding:6px 8px;border-top:1px solid #F1EEEA;">{{ f }}</span></sc-for>
+          </div>
+          <span style="font-size:12px;color:#434A55;">{{ d.note }}</span>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+  <sc-if value="{{ noSel }}" hint-placeholder-val="{{ true }}"><div style="background:#FFFFFF;border:1px dashed #D7D3CD;border-radius:12px;padding:40px;text-align:center;color:#5A6472;font-size:14px;">Pick a chart on the left, or make a new one from a template.</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { selId: null, d: null, orig: '', preview: false };
+  componentDidMount() { const c = this.props.app && this.props.app.sizeCharts[0]; if (c) this.select(c); }
+  select(c) { const d = JSON.parse(JSON.stringify(c)); this.setState({ selId: c.id, d, orig: JSON.stringify(d), preview: false }); }
+  setD(fn) { this.setState(s => ({ d: fn(s.d) })); }
+  templates(R) {
+    const inch = R.key === 'US';
+    const sz = R.sizes;
+    return [
+      { key: 'tops', label: 'Tops & shirts', sub: sz.join(' · ') + ' · chest, waist, length', cols: ['Size', 'Chest', 'Waist', 'Length'], rows: sz.map((s, i) => [s, ...(inch ? [34 + i * 2, 28 + i * 2, 27 + i] : [86 + i * 5, 71 + i * 5, 68 + i * 2]).map(String)]) },
+      { key: 'women', label: 'Women’s clothing (US · UK · EU)', sub: 'Converts between size systems', cols: ['US', 'UK', 'EU', 'Bust', 'Waist'], rows: [['2', '6', '34'], ['4', '8', '36'], ['6', '10', '38'], ['8', '12', '40'], ['10', '14', '42']].map((r, i) => [...r, ...(inch ? [32 + i, 25 + i] : [81 + i * 3, 64 + i * 3]).map(String)]) },
+      { key: 'jeans', label: 'Jeans (W × L)', sub: 'Waist and leg length', cols: ['Size', 'Waist', 'Leg'], rows: ['28×30', '30×32', '32×32', '34×32'].map(s => [s, ...s.split('×').map(n => inch ? n : String(Math.round(n * 2.54)))]) },
+      { key: 'shoes', label: 'Footwear (US · UK · EU · JP)', sub: 'Foot length', cols: ['US', 'UK', 'EU', 'JP', 'Foot'], rows: [['7', '6', '40', '25', inch ? '9.6' : '24.4'], ['8', '7', '41', '26', inch ? '9.9' : '25.2'], ['9', '8', '42', '27', inch ? '10.2' : '26']] },
+      ...(R.key === 'IN' ? [{ key: 'kurta', label: 'Kurtas', sub: 'Chest, length, shoulder', cols: ['Size', 'Chest', 'Length', 'Shoulder'], rows: sz.map((s, i) => [s, String(96 + i * 5), String(107 + i * 2), String(38 + i)]) }] : []),
+      { key: 'blank', label: 'Start blank', sub: 'Your own sizes and measurements', cols: ['Size', 'Measurement'], rows: [['', '']] }
+    ];
+  }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { R, caps: c, phone } = app;
+    const s = this.state; const d = s.d;
+    const canEdit = c.canManage; const ro = !canEdit;
+    const charts = app.sizeCharts;
+    const limit = c.limits.sizeCharts;
+    const atLimit = charts.length >= limit;
+    const used = id => app.allProducts.filter(p => p.sizeChart === id).length;
+    const list = charts.map(ch => ({ name: ch.name, sub: `${used(ch.id)} products · ${ch.unit} · ${ch.rows.length} sizes`, bl: ch.id === s.selId ? '#00519F' : 'transparent', bg: ch.id === s.selId ? '#F4F8FB' : '#FFFFFF', onClick: () => {
+      if (d && JSON.stringify(d) !== s.orig) { app.modal({ title: 'Leave without saving?', body: 'Your changes to this chart will be lost.', confirm: 'Keep editing', alt: 'Discard', onAlt: () => this.select(ch) }); return; }
+      this.select(ch); } }));
+    const create = () => {
+      if (atLimit) { if (c.isOwner) app.modal({ title: `You’ve used ${charts.length} of ${limit} size charts`, body: 'Your charts are safe. Growth allows 25.', confirm: 'See Growth', onConfirm: () => app.upgrade('more size charts') }); else app.toast(`${limit} of ${limit} size charts used — ask your store owner for more`); return; }
+      const T = this.templates(R);
+      app.modal({ title: 'Start a size chart', body: `Suggested for ${R.home.replace('the ', '')} (${R.sizeSys} sizes). Numbers are in ${R.key === 'US' ? 'inches' : 'cm'} — you can switch.`, wide: true, choices: T.map(t => ({ label: t.label, sub: t.sub, value: t.key })), confirm: 'Create',
+        onConfirm: k => { const t = T.find(x => x.key === k) || T[0]; const ch = { id: 'sc' + Date.now(), name: t.key === 'blank' ? 'New size chart' : t.label.replace(/ \(.+\)/, ''), unit: R.key === 'US' ? 'in' : 'cm', cols: [...t.cols], rows: t.rows.map(r => [...r]), note: '' }; app.setSizeCharts(cs => [...cs, ch]); this.select(ch); app.toast('Chart created — change any number, then save'); } });
+    };
+    if (!d) return { pad: phone ? '14px' : '22px 28px', cols: phone ? '1fr' : '300px minmax(0,1fr)', list, canEdit, ro, empty: !charts.length, hasSel: false, noSel: true, meter: `${charts.length} of ${limit}`, meterFg: atLimit ? '#7A4B00' : '#5A6472', newLabel: atLimit ? 'Limit reached' : '+ New', newBg: atLimit ? '#9AA1AB' : '#EC844F', offNote: !c.on('sizeCharts'), a: { create }, on: {}, head: [], rows: [], flat: [], units: [], d: {} };
+    const n = d.cols.length;
+    const isNum = v => /^[\d.]+(–[\d.]+)?$/.test(String(v));
+    const conv = (v, f) => String(v).split('–').map(x => { const nn = Number(x); return isNaN(nn) || x === '' ? x : String(Math.round(f(nn) * 10) / 10); }).join('–');
+    const setUnit = u => { if (u === d.unit || ro) return; const f = u === 'cm' ? x => x * 2.54 : x => x / 2.54; this.setD(dd => ({ ...dd, unit: u, rows: dd.rows.map(r => r.map((v, j) => j === 0 || !isNum(v) || /^(US|UK|EU|JP|IT|FR|AU)$/.test(dd.cols[j]) ? v : conv(v, f))) })); app.toast(`Converted to ${u === 'cm' ? 'centimetres' : 'inches'}`); };
+    const usedCount = used(d.id);
+    const save = () => {
+      const commit = () => { app.setSizeCharts(cs => cs.map(x => x.id === d.id ? d : x)); this.setState({ orig: JSON.stringify(d) }); app.toast(`“${d.name}” saved${usedCount ? ' — updated on ' + usedCount + ' products' : ''}`); };
+      if (usedCount > 1) app.modal({ title: `This changes the chart on ${usedCount} products`, body: 'Every product using it will show the new numbers. Make a copy instead if only some should change.', confirm: 'Change all ' + usedCount, alt: 'Make a copy instead', onAlt: () => copy(), onConfirm: commit });
+      else commit();
+    };
+    const copy = () => { if (atLimit) { create(); return; } const ch = { ...JSON.parse(JSON.stringify(d)), id: 'sc' + Date.now(), name: d.name + ' (copy)' }; app.setSizeCharts(cs => [...cs, ch]); this.select(ch); app.toast('Copy made — it isn’t on any products yet'); };
+    const del = () => app.modal({ danger: true, title: `Delete “${d.name}”?`, body: usedCount ? `${usedCount} product${usedCount > 1 ? 's' : ''} will lose their size chart. You can pick another chart for them after.` : 'No products use it.', confirm: 'Delete chart', onConfirm: () => { app.setSizeCharts(cs => cs.filter(x => x.id !== d.id)); app.updateProducts(app.allProducts.filter(p => p.sizeChart === d.id).map(p => p.id), p => ({ ...p, sizeChart: null })); this.setState({ selId: null, d: null }); app.toast('Size chart deleted'); } });
+    return {
+      pad: phone ? '14px' : '22px 28px', cols: phone ? '1fr' : '300px minmax(0,1fr)', list, canEdit, ro, empty: !charts.length, hasSel: true, noSel: false, offNote: !c.on('sizeCharts'),
+      meter: `${charts.length} of ${limit}`, meterFg: atLimit ? '#7A4B00' : '#5A6472', newLabel: atLimit ? 'Limit reached' : '+ New', newBg: atLimit ? '#9AA1AB' : '#EC844F',
+      d, units: ['cm', 'in'].map(u => ({ label: u, bg: d.unit === u ? '#0A2A4A' : '#FFFFFF', fg: d.unit === u ? '#FFFFFF' : '#434A55', onClick: () => setUnit(u) })), otherUnit: d.unit === 'cm' ? 'in' : 'cm',
+      usedCount: String(usedCount), usedPlural: usedCount === 1 ? '' : 's', usedMany: usedCount > 1,
+      gridCols: `repeat(${n}, minmax(80px,1fr)) 32px`, gridColsPlain: `repeat(${n}, minmax(0,1fr))`, gridMin: (n * 90 + 32) + 'px',
+      head: d.cols.map((h, j) => ({ v: h, canDel: canEdit && j > 0, on: e => { const v = e.target.value; this.setD(dd => ({ ...dd, cols: dd.cols.map((x, k) => k === j ? v : x) })); }, del: () => this.setD(dd => ({ ...dd, cols: dd.cols.filter((_, k) => k !== j), rows: dd.rows.map(r => r.filter((_, k) => k !== j)) })) })),
+      rows: d.rows.map((r, i) => ({ cells: r.map((v, j) => ({ v, bg: j === 0 ? '#FDFAF7' : '#FFFFFF', on: e => { const val = e.target.value; this.setD(dd => ({ ...dd, rows: dd.rows.map((rr, a) => a === i ? rr.map((x, b) => b === j ? val : x) : rr) })); } })), del: () => this.setD(dd => ({ ...dd, rows: dd.rows.filter((_, a) => a !== i) })) })),
+      flat: d.rows.flat().map(v => v || '—'), showPreview: s.preview, previewLabel: s.preview ? 'Hide shopper view' : 'Shopper view',
+      on: { name: e => { const v = e.target.value; this.setD(dd => ({ ...dd, name: v })); }, note: e => { const v = e.target.value; this.setD(dd => ({ ...dd, note: v })); } },
+      a: { create, save, copy, del, preview: () => this.setState({ preview: !s.preview }),
+        addRow: () => this.setD(dd => ({ ...dd, rows: [...dd.rows, dd.cols.map(() => '')] })), addCol: () => this.setD(dd => ({ ...dd, cols: [...dd.cols, 'Measurement'], rows: dd.rows.map(r => [...r, '']) })),
+        addSystem: () => { if (d.cols.includes('UK')) { app.toast('Size systems already added'); return; } this.setD(dd => ({ ...dd, cols: [dd.cols[0], 'US', 'UK', 'EU', ...dd.cols.slice(1)], rows: dd.rows.map((r, i) => [r[0], String(2 + i * 2), String(6 + i * 2), String(34 + i * 2), ...r.slice(1)]) })); app.toast('Added US, UK and EU columns — shoppers see their own system highlighted'); } }
+    };
+  }
+}
+</script>
+</body>
+</html>
