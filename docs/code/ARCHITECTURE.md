@@ -82,8 +82,25 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   bump and the reason; CI enforces it.
 - **Semver means the public API**: removing or changing an export, a hook's behaviour, a
   contract, a preset rule or a supported Shop API version is a major.
-- Merging to `main` updates a "Version packages" pull request; merging that publishes to
-  GitHub Packages from the release workflow and tags the version.
+- **A release is a card.** Its pull request runs `pnpm changeset version` on its own
+  `#<issue>/task/release-core-<version>` branch, which consumes the pending changesets, bumps
+  the version and writes the changelog, and goes through review, gates and naming like any
+  other (decided on #303's review: a bot-opened "Version packages" pull request can't be
+  created under the `branch-names` ruleset, and CI never runs on it, so it could never merge).
+- **Publishing** (`.github/workflows/release.yml`, built on #303): every push to `main` runs
+  core's gates; if core's version isn't on GitHub Packages yet, the workflow packs core once
+  (`scripts/release/publish.mjs`), attests that tarball, then publishes **the same file** and
+  tags it `@dripfunnel/storefront-core@<version>` on the commit whose change set that version (a missing
+  tag is added on a later run; only the current version is checked, so a version bumped again
+  before its tag landed stays untagged and is tagged by hand).
+  A failed attestation publishes nothing, and `0.0.0`, the version before the first release
+  card, is never published.
+- CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
+  `packages/storefront-core` (its changelog aside) without adding a changeset naming the
+  package. Two kinds pass without one: a release PR (a new version, the changelog heading
+  `## <version>` for it, and the core changesets it consumed deleted) and a promotion into `main`
+  carrying such a version and heading. Deleting or hand-bumping never stands in for a changeset,
+  and renames count as a delete and an add.
 - **Majors ship upgrade notes** for the fleet (`../storefront/ARCHITECTURE.md` §7) and
   declare the Shop API versions they support.
 - **Deprecation**: `@deprecated` with the replacement, kept for at least one minor, removed in
@@ -94,7 +111,8 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   change runs in the **sandbox image** for the store's core version (`apps/sandbox`), which
   the release workflow will build and push after publishing *(planned, #482)*, with core, the allowed libraries
   and the gate tools preinstalled. A store repo's `package.json` only pins the version, which
-  picks the image. No store repo holds a token or an `.npmrc` with one.
+  picks the image. No store repo holds a token or an `.npmrc` with one, and no secret or
+  grant is needed for store repos (decided on #470, which replaced #303's org secret).
 - Publishing only from the release workflow (`packages: write`), with artifact attestations.
 
 **In this repo**, `templates/storefront` depends on it as `workspace:*`, so the template and
