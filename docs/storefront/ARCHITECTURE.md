@@ -170,7 +170,10 @@ from SAPI 24.
 featuring one product, a lookbook of its own design). **All of a store's paths are one
 namespace** (decided 2026-10-08 on #470): core's routes are reserved; a custom page's path that
 a content page or blog post already uses is refused by the validator, and SAPI 24 refuses a
-content page or post slug a custom page uses. A custom page may show catalogue data through
+content page or post slug a custom page uses. The platform holds both lists: each accepted
+change records the theme's custom paths in `storefront.custom_paths` (from `routes.json`), and
+the Worker passes the store's content and post paths into the validator's context, so the
+sandbox needs no network to check them. A custom page may show catalogue data through
 core's hooks and may hold core's commerce components (add to cart, buy now), but never
 performs commerce of its own: no cart, checkout or pricing pages.
 

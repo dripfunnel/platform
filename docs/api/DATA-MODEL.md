@@ -1562,7 +1562,7 @@ storefront          (store_id PK, repo, hosting_target, preview_url, live_url, p
                      has_unpublished_changes boolean, changes_since NULL, changed_kinds text[],
                      changed_count integer, next_auto_publish_at, template NULL,
                      repo_state ('none'|'creating'|'ready'|'failed'),
-                     theme_mode ('own'|'baseline'), baseline_reason NULL,
+                     custom_paths text[], theme_mode ('own'|'baseline'), baseline_reason NULL,
                      core_pinned_reason NULL,
                      setup_service_state ('booked'|'done') NULL)
                     -- change detection as a table, not memory (SAAS §9.1); public_store_key
@@ -1571,7 +1571,9 @@ storefront          (store_id PK, repo, hosting_target, preview_url, live_url, p
                     -- (PLATFORM-PROMPT §5.6); setup_service_state records the one-time
                     -- "storefront setup by our team" (Pricing, PortalBilling); theme_mode
                     -- 'baseline' while a security fix serves the baseline theme, and
-                    -- core_pinned_reason while an upgrade failed (SAAS §10, decided on #470)
+                    -- core_pinned_reason while an upgrade failed (SAAS §10, decided on #470);
+                    -- custom_paths are the draft theme's own pages (routes.json), which
+                    -- SAPI 24 checks a new slug against (storefront ARCHITECTURE §3.1)
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
                     -- and catalog_version (moved by triggers on every change a storefront shows; the
                     -- Shop API's edge cache keys on it); the rest comes with publishing (SAPI 17)

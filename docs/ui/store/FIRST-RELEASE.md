@@ -799,8 +799,8 @@ are described in their issues.
 #304 → SC 2 (the validator) → SC 3 (sealed components, CSP) → #287 → #316 → INF 3 (the sandbox
 service) → #468 → #317 → INF 4 (the publish gate, repair and bisect) → INF 5 (deploy checks,
 rollback, single-page render) → #471 → #318 → #319 → #307 → #313 → ST 0 (the starting themes) →
-#338 → #339 → #324 → INF 6 (the upgrade bot); the prototype card (the studio's new states) any
-time before #319. The cards named without a
+#338 → #339 → #324 → INF 6 (the upgrade bot); D2 (the studio's new states in the prototype)
+any time before #319. The cards named without a
 number are drafted on #470 and get their numbers when they are created.
 
 - **1. Merchant identity:** #288 SAPI 1, #289 SMS 1, #290 SAPI 2, #291 SUI 2, #292 SUI 3
@@ -893,6 +893,7 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | INF 4 | The publish gate: the catalogue snapshot, the deterministic offline build, the full gate (contract, visibility, checkout smoke, axe, budgets, no-JS render, crawl, content scan, visual diff, the edge-case catalogue), repair and bisect (§4.2, §9, §10) | INF 3, SC 3, #317 |
 | INF 5 | Going live safely: atomic deploy, post-deploy checks from the edge, automatic rollback, the single-page render for new and renamed products, redirects, IndexNow, real-user vitals after consent (§4.2, §8, §9) | INF 4 |
 | INF 6 | The upgrade bot: the sandbox image per release, codemods, the migration agent, canaries and waves, pinning, the baseline-theme fallback for security fixes (§7; SAAS §10) | INF 4, INF 5 |
+| D2 | Draw the studio's Plan A parts in `PortalStorefront`: §14's "Not drawn" items | #470 |
 | ST 0 | The starting themes: "Start from scratch" from D1 and the six templates as theme code in `templates/storefront/themes/`, each passing every gate (§2.3) | SC 2, SC 3, #307, #313 |
 
 ---
