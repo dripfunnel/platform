@@ -92,6 +92,7 @@ email or a file in the repo.
    `/api/health` red.
 4. `wrangler r2 bucket create dripfunnel-assets`, then add the `ASSETS` binding to `env.prod`.
    Create the bucket first: a binding to a missing bucket fails the deploy.
+5. `wrangler queues create dripfunnel-outbox-wake`, then add the `OUTBOX_WAKE` producer and consumer to `env.prod` as `env.dev` has them (#479). Create the queue first: a binding to a missing queue fails the deploy. Without it the every-minute cron delivers email and texts.
 
 ### 3.5 Routes and console hostnames — **Not done yet**
 

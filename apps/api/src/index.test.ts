@@ -220,3 +220,50 @@ describe('guarded', () => {
     expect(result.area).toBe('admin')
   })
 })
+
+describe('the outbox wake', () => {
+  const wakes = (send: () => Promise<void> = async () => undefined) => {
+    const sent: unknown[] = []
+    const queue = { send: async (message: unknown) => (sent.push(message), send()) }
+    const waiting: Promise<unknown>[] = []
+    const tracked = { waitUntil: (promise: Promise<unknown>) => void waiting.push(promise) } as unknown as ExecutionContext
+    const run = async (method: string, bound = true) => {
+      const response = await worker.fetch(
+        new Request('https://admin.dripfunnel.com/shop-api', { method, headers: { 'cf-connecting-ip': '203.0.113.1' } }) as Parameters<typeof worker.fetch>[0],
+        (bound ? { ...env, OUTBOX_WAKE: queue } : env) as never,
+        tracked,
+      )
+      await Promise.all(waiting)
+      return response
+    }
+    return { sent, run }
+  }
+
+  it('sends one wake after a POST and none after GET, HEAD or OPTIONS', async () => {
+    const { sent, run } = wakes()
+    for (const method of ['GET', 'HEAD', 'OPTIONS']) await run(method)
+    expect(sent).toHaveLength(0)
+    await run('POST')
+    expect(sent).toHaveLength(1)
+  })
+
+  it('sends nothing, and breaks nothing, with no queue bound', async () => {
+    const { sent, run } = wakes()
+    expect((await run('POST', false)).status).toBe(404)
+    expect(sent).toHaveLength(0)
+  })
+
+  it('leaves the response alone, and logs by code, when the send fails', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      const { run } = wakes(() => Promise.reject(Object.assign(new Error('queue down at https://secret.example'), { name: 'QueueError' })))
+      expect((await run('POST')).status).toBe(404)
+    } finally {
+      console.log = log
+    }
+    expect(lines.some((l) => l.includes('"event":"outbox_wake_failed"') && l.includes('QueueError'))).toBe(true)
+    expect(lines.join('\n')).not.toContain('secret.example')
+  })
+})

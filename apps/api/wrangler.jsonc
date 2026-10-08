@@ -41,7 +41,11 @@
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }],
       // Wrangler's local R2. dev has its own bucket and binding; prod gains one once its bucket exists
       // (THIRD-PARTY-ACCESS.md §2.1): a binding to a missing bucket fails the deploy.
-      "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "dripfunnel-assets-local" }]
+      "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "dripfunnel-assets-local" }],
+      "queues": {
+        "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-local" }],
+        "consumers": [{ "queue": "dripfunnel-outbox-wake-local", "max_batch_size": 100, "max_batch_timeout": 1 }]
+      }
     },
     // `wrangler deploy --env dev`, from .github/workflows/dev.yml, on every push to `dev`
     // (ARCHITECTURE.md §6). Same dev Cloudflare account as feature environments (selected
@@ -65,7 +69,12 @@
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "images": { "binding": "IMAGES" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }],
-      "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "dripfunnel-assets-dev" }]
+      "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "dripfunnel-assets-dev" }],
+      // Prod gains its queue once it exists (docs/setup/prod.md): a binding to a missing queue fails the deploy.
+      "queues": {
+        "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-dev" }],
+        "consumers": [{ "queue": "dripfunnel-outbox-wake-dev", "max_batch_size": 100, "max_batch_timeout": 1 }]
+      }
     },
     // `wrangler deploy --env prod`, uploaded by .github/workflows/prod.yml on every push to
     // `main` and promoted to 100% by .github/workflows/promote.yml (§6). Same values as the

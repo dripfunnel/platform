@@ -99,6 +99,8 @@ checked off.
    `wrangler.jsonc`; its free tier is 5,000 unique transformations a month).
    Create the bucket before adding the binding, or the deploy fails.
 
+3. **Outbox queue** (#479): `wrangler queues create dripfunnel-outbox-wake-dev` on the dev account (the deploy token needs *Queues: Edit*, §2.2), then deploy. `env.dev` binds it as `OUTBOX_WAKE` and consumes it. Create the queue first: a binding to a missing queue fails the deploy. Until then, or if a send fails, the every-minute cron delivers.
+
 ### 2.5 GitHub environment `dev`
 
 Repository › Settings › Environments › *New environment* › `dev`:
