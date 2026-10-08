@@ -796,18 +796,17 @@ are described in their issues.
 - **0. Design and accounts:** #285 D1, #286 SUI 1, #287 INF 0, #470 (the storefront docs after the 2026-10-08 redesign)
 
 **The storefront strand's order after the redesign** (2026-10-08, #470, "Plan A"): #470 → #303 →
-#304 → SC 2 (the validator) → SC 3 (sealed components, CSP) → #287 → #316 → #468 → #317 → INF 3 (the
-sandbox service) → INF 4 (the publish gate, repair and bisect) → INF 5 (deploy checks,
-rollback, single-page render) → #471 → #318 → #319 → #307 → #313 → #338 → #339 → #324 → ST 0
-(the starting themes, which need every required route) → INF 6 (the upgrade bot); D2 (the studio's new states in the prototype)
-any time before #319. The cards named without a
-number are drafted on #470 and get their numbers when they are created.
+#304 → #480 SC 2 (the validator) → #481 SC 3 (sealed components, CSP) → #287 → #316 → #468 → #317 → #482 INF 3 (the
+sandbox service) → #483 INF 4 (the publish gate, repair and bisect) → #484 INF 5 (deploy checks,
+rollback, single-page render) → #471 → #318 → #319 → #307 → #313 → #338 → #339 → #324 → #486 ST 0
+(the starting themes, which need every required route) → #485 INF 6 (the upgrade bot); #487 D2 (the studio's new states in the prototype)
+any time before #319.
 
 - **1. Merchant identity:** #288 SAPI 1, #289 SMS 1, #290 SAPI 2, #291 SUI 2, #292 SUI 3
 - **2. Catalogue:** #293 SAPI 3, #294 SAPI 4, #295 SAPI 5, #296 SAPI 6, #297 SAPI 7, #298 SUI 4, #299 SUI 5, #300 SUI 6, #301 SAPI 16, #302 SUI 10
 - **3. Storefront base:** #303 SC 0, #304 SC 1, #305 SAPI 23, #306 SAPI 8, #307 ST 1a
 - **4. Checkout and orders:** #308 SAPI 9, #309 SAPI 10, #310 SAPI 11, #311 SAPI 12, #312 SAPI 13, #313 ST 1b, #314 SUI 7, #315 SUI 8
-- **5. Publishing:** #316 INF 1, #317 INF 2, #318 SAPI 17, #319 SUI 11, #471 SAPI 17b (added on #470); and, from #470's "Plan A": SC 2, SC 3, INF 3, INF 4, INF 5, INF 6, ST 0
+- **5. Publishing:** #316 INF 1, #317 INF 2, #318 SAPI 17, #319 SUI 11, #471 SAPI 17b (added on #470); and, from #470's "Plan A": #480 SC 2, #481 SC 3, #482 INF 3, #483 INF 4, #484 INF 5, #485 INF 6, #486 ST 0, #487 D2
 - **6. Growth:** #320 SAPI 14, #321 SAPI 15, #322 SAPI 18, #323 SAPI 22, #324 ST 1c, #325 SUI 9, #326 SUI 12, #327 SUI 15, #328 SUI 16, #338 SAPI 24, #339 SUI 17
 - **7. Business and admin:** #329 SAPI 19, #330 SAPI 20, #331 SAPI 21, #332 SUI 13, #333 SUI 14
 - **8. Launch:** #334 L1, #335 L2
@@ -883,18 +882,18 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | SUI 16 | Product kinds in the editor (the storefront's side is ST 1's) | SUI 4, SAPI 22 |
 | ST 1 | Storefront template on the Shop API: catalogue, cart, checkout, accounts, offers, every payment method, and the product kinds on the storefront (gift cards, downloads) | SAPI 9, SAPI 10, SAPI 14, SAPI 22 |
 
-**Storefront walls and pipeline** (drafted on #470 for "Plan A"; numbers when created)
+**Storefront walls and pipeline** (#470's "Plan A"; created 2026-10-08 as #480–#487)
 
 | # | Card | Needs |
 |---|---|---|
-| SC 2 | Core's validator (`./guard`): the file allowlist, the type-aware code rules, CSS and content rules, the routes namespace, a corpus of forbidden code with a case per rule (storefront ARCHITECTURE §3.4) | #304 |
-| SC 3 | Sealed components in a closed Shadow DOM with their visibility self-check, the top-layer banners, `Money`/`Stock`/`Rating`/`Badge` as branded types, CSP and Trusted Types, section error boundaries and the switch to the baseline checkout, which #313 writes (§3.5) | #304 |
-| INF 3 | The sandbox service: `apps/sandbox`'s image per core version, the `StudioSession` Durable Object (one change at a time, idle stop, cold start from the last commit, the queue), the fast gate and the repair loop, commits through the GitHub App, the preview build and deploy (§6) | SC 2, #287, #316, #317 |
-| INF 4 | The publish gate: the catalogue snapshot, the deterministic offline build, the full gate (contract, visibility, checkout smoke, axe, budgets, no-JS render, crawl, content scan, visual diff, the edge-case catalogue), repair and bisect (§4.2, §9, §10) | INF 3, SC 3, #317 |
-| INF 5 | Going live safely: atomic deploy, post-deploy checks from the edge, automatic rollback, the single-page render for new and renamed products, redirects, IndexNow, real-user vitals after consent (§4.2, §8, §9) | INF 4 |
-| INF 6 | The upgrade bot: the sandbox image per release, codemods, the migration agent, canaries and waves, pinning, the baseline-theme fallback for security fixes (§7; SAAS §10) | INF 4, INF 5 |
-| D2 | Draw the studio's Plan A parts in `PortalStorefront`: §14's "Not drawn" items | #470 |
-| ST 0 | The starting themes: "Start from scratch" from D1 and the six templates as theme code in `templates/storefront/themes/`, each passing every gate (§2.3) | SC 2, SC 3, #307, #313, #324 |
+| SC 2 (#480) | Core's validator (`./guard`): the file allowlist, the type-aware code rules, CSS and content rules, the routes namespace, a corpus of forbidden code with a case per rule (storefront ARCHITECTURE §3.4) | #304 |
+| SC 3 (#481) | Sealed components in a closed Shadow DOM with their visibility self-check, the top-layer banners, `Money`/`Stock`/`Rating`/`Badge` as branded types, CSP and Trusted Types, section error boundaries and the switch to the baseline checkout, which #313 writes (§3.5) | #304 |
+| INF 3 (#482) | The sandbox service: `apps/sandbox`'s image per core version, the `StudioSession` Durable Object (one change at a time, idle stop, cold start from the last commit, the queue), the fast gate and the repair loop, commits through the GitHub App, the preview build and deploy (§6) | SC 2, #287, #316, #317 |
+| INF 4 (#483) | The publish gate: the catalogue snapshot, the deterministic offline build, the full gate (contract, visibility, checkout smoke, axe, budgets, no-JS render, crawl, content scan, visual diff, the edge-case catalogue), repair and bisect (§4.2, §9, §10) | INF 3, SC 3, #317 |
+| INF 5 (#484) | Going live safely: atomic deploy, post-deploy checks from the edge, automatic rollback, the single-page render for new and renamed products, redirects, IndexNow, real-user vitals after consent (§4.2, §8, §9) | INF 4 |
+| INF 6 (#485) | The upgrade bot: the sandbox image per release, codemods, the migration agent, canaries and waves, pinning, the baseline-theme fallback for security fixes (§7; SAAS §10) | INF 4, INF 5 |
+| D2 (#487) | Draw the studio's Plan A parts in `PortalStorefront`: §14's "Not drawn" items | #470 |
+| ST 0 (#486) | The starting themes: "Start from scratch" from D1 and the six templates as theme code in `templates/storefront/themes/`, each passing every gate (§2.3) | SC 2, SC 3, #307, #313, #324 |
 
 ---
 
