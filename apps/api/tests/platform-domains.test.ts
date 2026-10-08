@@ -39,11 +39,12 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
   return { data: (result.data ?? null) as T | null, code: error?.extensions['code'] as string | undefined }
 }
 
-const overview = `{ partnerDomains { fallbackSender add { allowed }
+const overview = `{ partnerDomains { fallbackSender fallbackAddress add { allowed }
   addresses { kind added host zone status since checkedAt records { purpose type name value found matches } } } }`
 type Overview = {
   partnerDomains: {
     fallbackSender: string | null
+    fallbackAddress: string | null
     add: { allowed: boolean }
     addresses: { kind: string; added: boolean; host: string | null; zone: string | null; status: string | null; records: { purpose: string; type: string; name: string; value: string; matches: boolean }[] }[]
   }
@@ -94,6 +95,10 @@ describe('the four addresses', () => {
     expect(kl?.addresses.find((a) => a.kind === 'email')?.status).toBe('waiting')
     expect(kl?.fallbackSender).toMatch(/^no-reply@[a-z0-9-]+\.dripfunnel-mail\.com$/)
     expect(JSON.stringify(kl)).not.toContain('northstar')
+    // The address mail would fall back to is named whether or not the sender is live (#429).
+    expect(kl?.fallbackAddress).toBe(kl?.fallbackSender)
+    expect(ns?.fallbackAddress).toMatch(/^no-reply@[a-z0-9-]+\.dripfunnel-mail\.com$/)
+    expect(ns?.fallbackAddress).not.toBe(kl?.fallbackAddress)
   })
 })
 
@@ -176,6 +181,16 @@ describe('removing an address', () => {
     expect(await db.sql`select 1 from partner_domain_record where domain_id = ${added?.id ?? ''}`).toEqual([])
     expect(await db.sql`select payload from outbox where kind = 'domain.remove' and payload->>'host' = 'store.removable.example'`).toHaveLength(1)
     expect(await db.sql`select 1 from activity_log where action = 'partner.domain_removed' and partner_id = ${ids.removal}`).toHaveLength(1)
+  })
+
+  it('refuses a staff member impersonating an Owner, and leaves the address', async () => {
+    const owner = callerOf(ids.removal, 'partner-owner')
+    await run<Added>(add, owner, { kind: 'shops', host: '*.shops.removable.example' })
+    const staff = { ...owner, staff: { id: 'st', name: 'Priya', email: 'priya@example.com', session: { kind: 'impersonation' as const, id: 's', expiresAt: new Date() } } }
+    const refused = await run<Removed>(remove, staff, { kind: 'shops' })
+    expect(refused.code).toBe('BLOCKED_WHILE_IMPERSONATING')
+    expect(await db.sql`select 1 from partner_domain where partner_id = ${ids.removal} and kind = 'shops'`).toHaveLength(1)
+    await run<Removed>(remove, owner, { kind: 'shops' })
   })
 
   it('finds nothing to remove for an address the partner never added, and takes no Cloudflare action for another kind', async () => {

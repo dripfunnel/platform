@@ -42,6 +42,7 @@ const OverviewType = builder.objectRef<Overview>('PartnerDomains').implement({
   fields: (t) => ({
     addresses: t.field({ type: [AddressType], resolve: (o) => o.addresses }),
     fallbackSender: t.exposeString('fallbackSender', { nullable: true }),
+    fallbackAddress: t.exposeString('fallbackAddress', { nullable: true }),
     add: t.field({ type: AddPermission, resolve: (o) => o.add }),
   }),
 })
@@ -107,7 +108,7 @@ builder.mutationFields((t) => ({
   removePartnerDomain: t.field({
     type: OutcomeType,
     args: { kind: t.arg.string({ required: true }) },
-    extensions: { access: { api: 'platform', scope: 'partner', permission: 'domains.write', target: 'none', audit: domainAudit.removePartnerDomain } },
+    extensions: { access: { api: 'platform', scope: 'partner', permission: 'domains.write', target: 'none', audit: domainAudit.removePartnerDomain, blockedFor: ['impersonation'] } },
     resolve: (_, { kind }, ctx) => signedIn(ctx.domains).removePartnerDomain(kind),
   }),
   recheckPartnerDomain: t.field({

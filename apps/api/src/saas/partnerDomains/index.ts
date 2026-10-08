@@ -82,6 +82,8 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, edge
         }),
         // SAAS §3.6: until the sender is live, mail goes from DripFunnel's domain in the partner's name.
         fallbackSender: email?.status === 'live' || label === null ? null : `no-reply@${label}.dripfunnel-mail.com`,
+        // Where mail goes if the email sender is removed; the Remove dialog names it.
+        fallbackAddress: label === null ? null : `no-reply@${label}.dripfunnel-mail.com`,
         add: partnerRoleHas(caller.role, 'domains.write') ? { allowed: rows.length < domainKinds.length } : { allowed: false },
       }
     })

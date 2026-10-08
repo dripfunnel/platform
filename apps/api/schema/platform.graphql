@@ -542,6 +542,7 @@ type PartnerDomainResult {
 type PartnerDomains {
   add: PartnerDomainAddPermission
   addresses: [PartnerAddress!]
+  fallbackAddress: String
   fallbackSender: String
 }
 

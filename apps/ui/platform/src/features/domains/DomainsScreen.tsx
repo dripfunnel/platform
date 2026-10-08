@@ -1,14 +1,18 @@
-import { Toast, useScreenState } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, Toast, useCurrentStaffSession, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
-import { loadMerchantDomains, recheckPartnerDomain, type Address, type DomainKind, type MerchantDomain } from '../../api/domains'
+import { loadMerchantDomains, recheckPartnerDomain, removePartnerDomain, type Address, type DomainKind, type MerchantDomain } from '../../api/domains'
+import { staffSession } from '../../api/staffSession'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { Domains, DomainsError } from './Domains'
+import { canRemoveAddress, removeFailure } from './domainLook'
 import { domainsStates } from './domainsHarness'
 
 const words = messages.domains
 const domainsRoute = getRouteApi('/_app/domains')
+const shellRoute = getRouteApi('/_app')
+type Added = Extract<Address, { added: true }>
 
 // Copying a record is the main thing done here; the toast says it worked (§9.1).
 export const useCopy = (setToast: (text: string) => void) =>
@@ -26,6 +30,11 @@ export const useCopy = (setToast: (text: string) => void) =>
 export const DomainsScreen = () => {
   const page = domainsRoute.useLoaderData()
   const forced = useScreenState(domainsStates, harnessEnabled)
+  const { me } = shellRoute.useLoaderData()
+  const session = useCurrentStaffSession(staffSession)
+  const canRemove = canRemoveAddress(me.role, session?.state === 'open') && forced !== 'denied'
+  const [removing, setRemoving] = useState<Added | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
   const router = useRouter()
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
@@ -48,6 +57,21 @@ export const DomainsScreen = () => {
       })
   }
 
+  const onRemove = () => {
+    if (!removing) return
+    const address = removing
+    setRemoveError(null)
+    removePartnerDomain(address.kind)
+      .then((result) => {
+        const failure = removeFailure(result, address.host)
+        if (failure) return setRemoveError(failure)
+        setRemoving(null)
+        setToast(fill(words.remove.done, { host: address.host }))
+        return router.invalidate()
+      })
+      .catch((error: unknown) => setRemoveError(removeFailure(error instanceof Error ? error : new Error(), address.host)))
+  }
+
   const merchants = page.merchants
   const shown = extra ?? { items: merchants.items, endCursor: merchants.pageInfo.endCursor, more: merchants.pageInfo.hasNextPage }
   const onMore = () => {
@@ -68,9 +92,26 @@ export const DomainsScreen = () => {
         checking={checking}
         merchants={{ items: shown.items, more: shown.more, busy }}
         onRecheck={onRecheck}
+        canRemove={canRemove}
+        onRemove={(address) => {
+          setRemoveError(null)
+          setRemoving(address)
+        }}
         onMore={onMore}
         onCopy={onCopy}
         onRetry={() => void router.invalidate()}
+      />
+      <ConfirmDialog
+        open={removing !== null}
+        danger
+        title={fill(words.remove.title, { host: removing?.host ?? '' })}
+        target={removing?.host ?? ''}
+        consequence={removing ? fill(words.remove.body[removing.kind], { host: removing.host, sender: page.partner.fallbackAddress ?? '' }) : ''}
+        confirmLabel={words.remove.confirm}
+        cancelLabel={words.remove.cancel}
+        error={removeError}
+        onConfirm={onRemove}
+        onCancel={() => setRemoving(null)}
       />
       <Toast message={toast} onDone={clearToast} />
     </>

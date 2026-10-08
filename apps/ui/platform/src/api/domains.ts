@@ -32,6 +32,8 @@ export interface PartnerDomains {
   addresses: readonly Address[]
   // SAAS §3.6: who emails come from until the email sender is live; null once it is.
   fallbackSender: string | null
+  // Where mail goes once the email sender is removed, live or not.
+  fallbackAddress: string | null
   // Owners and Admins, while fewer than four addresses exist.
   canAdd: boolean
 }
@@ -69,10 +71,10 @@ const addressSchema = z
   )
 
 const partnerSchema = z
-  .object({ addresses: z.array(addressSchema), fallbackSender: z.string().nullable(), add: z.object({ allowed: z.boolean() }) })
-  .transform((p): PartnerDomains => ({ addresses: p.addresses, fallbackSender: p.fallbackSender, canAdd: p.add.allowed }))
+  .object({ addresses: z.array(addressSchema), fallbackSender: z.string().nullable(), fallbackAddress: z.string().nullable(), add: z.object({ allowed: z.boolean() }) })
+  .transform((p): PartnerDomains => ({ addresses: p.addresses, fallbackSender: p.fallbackSender, fallbackAddress: p.fallbackAddress, canAdd: p.add.allowed }))
 
-const partnerFields = `partnerDomains { addresses { kind added host zone status since checkedAt records { purpose type name value found matches } } fallbackSender add { allowed } }`
+const partnerFields = `partnerDomains { addresses { kind added host zone status since checkedAt records { purpose type name value found matches } } fallbackSender fallbackAddress add { allowed } }`
 
 const pageInfoSchema = z.object({ startCursor: z.string().nullable(), endCursor: z.string().nullable(), hasPreviousPage: z.boolean(), hasNextPage: z.boolean() })
 
@@ -138,4 +140,15 @@ export const recheckPartnerDomain = async (kind: DomainKind): Promise<RecheckRes
     { kind },
   )
   return r.ok ? { ok: true } : { ok: false, reason: known(recheckRefusals, r.reason) }
+}
+
+export const removeRefusals = ['NOT_FOUND', 'INVALID_INPUT'] as const
+export type RemoveResult = { ok: true } | { ok: false; reason: (typeof removeRefusals)[number] }
+export const removePartnerDomain = async (kind: DomainKind): Promise<RemoveResult> => {
+  const { removePartnerDomain: r } = await query(
+    `mutation Remove($kind: String!) { removePartnerDomain(kind: $kind) { ok reason } }`,
+    z.object({ removePartnerDomain: z.object({ ok: z.boolean(), reason: z.string().nullable() }) }),
+    { kind },
+  )
+  return r.ok ? { ok: true } : { ok: false, reason: known(removeRefusals, r.reason) }
 }

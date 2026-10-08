@@ -1,5 +1,8 @@
+import type { PartnerRole } from '../shell/partnerRoles'
+import { mayManage } from '../settings/teamRules'
+import { ApiError } from '@dripfunnel/shared/graphql'
 import type { StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
-import type { Address, DnsRecord, DomainKind, HostStatus } from '../../api/domains'
+import type { Address, DnsRecord, DomainKind, HostStatus, RemoveResult } from '../../api/domains'
 import { fill, formatDate, formatWait, messages } from '../../messages'
 
 const words = messages.domains
@@ -31,4 +34,12 @@ export const purposeText = (record: DnsRecord, kind: DomainKind): string => {
   if (record.purpose !== 'pointer') return words.purposes[record.purpose]
   if (kind === 'portal' && record.type === 'A') return words.purposes.pointer.apex
   return words.purposes.pointer[kind]
+}
+
+export const canRemoveAddress = (role: PartnerRole, supportSessionOpen: boolean): boolean => mayManage(role) && !supportSessionOpen
+
+// What the dialog says when a removal did not happen: a refusal the API answered, or a thrown failure.
+export const removeFailure = (outcome: RemoveResult | Error, host: string): string | null => {
+  if (outcome instanceof Error) return outcome instanceof ApiError && outcome.code === 'FORBIDDEN' ? words.remove.refused : words.remove.failed
+  return outcome.ok ? null : fill(outcome.reason === 'NOT_FOUND' ? words.remove.gone : words.remove.failed, { host })
 }
