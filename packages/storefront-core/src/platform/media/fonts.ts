@@ -1,4 +1,4 @@
-/** The fonts a site may use (storefront DESIGN §2): the allowlist, with each one's fallback. */
+/** The fonts a theme may use (storefront DESIGN §2): the allowlist, with each one's fallback. */
 export const fonts = {
   'DM Sans': 'sans-serif',
   'Archivo Black': 'sans-serif',
