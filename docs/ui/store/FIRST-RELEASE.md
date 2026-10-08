@@ -796,8 +796,8 @@ are described in their issues.
 - **0. Design and accounts:** #285 D1, #286 SUI 1, #287 INF 0, #470 (the storefront docs after the 2026-10-08 redesign)
 
 **The storefront strand's order after the redesign** (2026-10-08, #470, "Plan A"): #470 → #303 →
-#304 → SC 2 (the validator) → SC 3 (sealed components, CSP) → #287 → #316 → INF 3 (the sandbox
-service) → #468 → #317 → INF 4 (the publish gate, repair and bisect) → INF 5 (deploy checks,
+#304 → SC 2 (the validator) → SC 3 (sealed components, CSP) → #287 → #316 → #468 → #317 → INF 3 (the
+sandbox service) → INF 4 (the publish gate, repair and bisect) → INF 5 (deploy checks,
 rollback, single-page render) → #471 → #318 → #319 → #307 → #313 → #338 → #339 → #324 → ST 0
 (the starting themes, which need every required route) → INF 6 (the upgrade bot); D2 (the studio's new states in the prototype)
 any time before #319. The cards named without a
@@ -889,7 +889,7 @@ and bearer tokens included); the rows name the cases easiest to miss.
 |---|---|---|
 | SC 2 | Core's validator (`./guard`): the file allowlist, the type-aware code rules, CSS and content rules, the routes namespace, a corpus of forbidden code with a case per rule (storefront ARCHITECTURE §3.4) | #304 |
 | SC 3 | Sealed components in a closed Shadow DOM with their visibility self-check, the top-layer banners, `Money`/`Stock`/`Rating`/`Badge` as branded types, CSP and Trusted Types, section error boundaries and the switch to the baseline checkout, which #313 writes (§3.5) | #304 |
-| INF 3 | The sandbox service: `apps/sandbox`'s image per core version, the `StudioSession` Durable Object (one change at a time, idle stop, cold start from the last commit, the queue), the fast gate and the repair loop, commits through the GitHub App, the preview build and deploy (§6) | SC 2, #287, #316 |
+| INF 3 | The sandbox service: `apps/sandbox`'s image per core version, the `StudioSession` Durable Object (one change at a time, idle stop, cold start from the last commit, the queue), the fast gate and the repair loop, commits through the GitHub App, the preview build and deploy (§6) | SC 2, #287, #316, #317 |
 | INF 4 | The publish gate: the catalogue snapshot, the deterministic offline build, the full gate (contract, visibility, checkout smoke, axe, budgets, no-JS render, crawl, content scan, visual diff, the edge-case catalogue), repair and bisect (§4.2, §9, §10) | INF 3, SC 3, #317 |
 | INF 5 | Going live safely: atomic deploy, post-deploy checks from the edge, automatic rollback, the single-page render for new and renamed products, redirects, IndexNow, real-user vitals after consent (§4.2, §8, §9) | INF 4 |
 | INF 6 | The upgrade bot: the sandbox image per release, codemods, the migration agent, canaries and waves, pinning, the baseline-theme fallback for security fixes (§7; SAAS §10) | INF 4, INF 5 |
