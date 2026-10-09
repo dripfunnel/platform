@@ -154,8 +154,8 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
    `R2_STOREFRONT_SECRET_ACCESS_KEY`, and a cache purge token → `CF_CACHE_PURGE_TOKEN`
    (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
-2. **Preview domain**: register `webpreview.store` (or a separate dev domain, as decided on the
-   card), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
+2. **Preview domain**: register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §9:
+   `webpreview.store` itself is prod's), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
    `*.<domain>`, and confirm Universal SSL covers it. In Logpush leave out `ClientRequestURI`,
    `ClientRequestPath` and `ClientRequestQuery` (`../api/LOGGING.md` §9, `../storefront/PREVIEW.md` §2). The Worker route is #517's.
 3. **Cloudflare Containers and Durable Objects**: enable both on the Cloudflare account you use for dev. Measure the cold
@@ -215,11 +215,12 @@ Never reuse a value from local or production.
 | ~~`CF_PAGES_POOL`~~ | — | — | Not needed since 2026-10-09: no Pages project per store; the R2 storefront upload credential replaces it (THIRD-PARTY-ACCESS §2.1, names on #317) |
 | `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 5. Read since #309 |
 | `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout |
-| `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID` | Text | the Cloudflare account id; the upload credential's access key id | §2.8 item 1 |
-| `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's secret | Shown once when the R2 token is created (§2.8 item 1) |
+| `R2_STOREFRONT_ACCOUNT_ID` | Text | the Cloudflare account id | §2.8 item 1 |
+| `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's key pair | Shown once when the R2 token is created (§2.8 item 1) |
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token | Profile › API Tokens (§2.8 item 1) |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
+| `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §9); `preview.localhost` locally |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Needed from ST 1a |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers

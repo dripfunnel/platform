@@ -603,7 +603,7 @@ generation are in the section it cites. *First needed* names a slice (§6) for t
 | Name | Role | Kept in | Section | First needed |
 |---|---|---|---|---|
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY` | Store repos through the provisioning App. `GITHUB_APP_WEBHOOK_SECRET` is not needed: the App has no webhook (the upload job reports to the API, 2026-10-09) | Ids as Worker variables; the key as a Worker secret | §2.3 | slice 6 |
-| `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | The R2 storefront upload credential: *Object Read & Write* on the three storefront buckets only; the API mints 15-minute temporary credentials from it (LIVE-SHOP §2, §9). Names proposed on #287, #317 confirms | Worker secrets (the account id may be a variable) | §2.1 | 6 |
+| `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | The R2 storefront upload credential: *Object Read & Write* on the three storefront buckets only; the API mints 15-minute temporary credentials from it (LIVE-SHOP §2, §9). Names proposed on #287, #317 confirms | Worker secrets for the key pair; the account id may be a variable | §2.1 | 6 |
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
 | ~~`CF_PAGES_POOL`~~ | **Not needed** (decided 2026-10-09): no Pages project per store. Replaced by the R2 storefront upload credential (§2.1), names decided on #317 | — | §2.1 | — |
 | `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |
