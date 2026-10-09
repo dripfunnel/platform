@@ -158,7 +158,9 @@ container.
    with:
    - `Cache-Control: no-store` on HTML;
    - `X-Robots-Tag: noindex, nofollow`, and a `robots.txt` that disallows everything;
-   - the same CSP as live sites.
+   - the same CSP as live sites, except under `/__studio/{session}/`, where the studio frame's
+     stricter CSP applies: its own origin, plus the platform's media host for images (ARCHITECTURE
+     §3.5).
 
    *Why:* a fresh change shows on the next load, a draft never reaches a search engine, and the
    browser's walls are the same as on the live site.

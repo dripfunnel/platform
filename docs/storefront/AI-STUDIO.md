@@ -219,10 +219,17 @@ built from the fast gate's bundle, the frame on the store's preview origin).
       (LOGGING §9);
     - `Referrer-Policy: no-referrer` keeps it out of Referer headers.
   - **Visible to the theme's code**, which runs on the same origin and could read the address.
-    That is accepted: the validator forbids reading or assigning `location`, and core's router
-    never hands the theme the id (ARCHITECTURE §3.4), and the CSP lets the page reach only the Shop API (§3.5). So the code can't send the
-    id anywhere, and a stolen id is worth at most the 5 minutes before the next renewal, for the
-    draft of a store whose team member was already in the studio.
+    That is accepted, because two walls stand together:
+    - the validator refuses reading or assigning `location`, `import.meta`, `document.currentScript`
+      and every browser global, and core's router and chunk loader never hand the theme the id
+      (ARCHITECTURE §3.4);
+    - the **studio frame has its own stricter CSP**: its own origin only for scripts, connections
+      and fonts, images only from it and the platform's own media host, and no analytics or
+      payment hosts at all (ARCHITECTURE §3.5).
+
+    So even code that saw the id couldn't send it off the platform. A stolen id is worth at most
+    the 5 minutes before the next renewal, for the draft of a store whose team member was already
+    in the studio.
 - **Drafts never go public before they are live.** A failed or refused publish pushes nothing
   (§6 step 4). They sit in the private drafts bucket, under
   `drafts/{store}.bundle`, which only the Durable Object reads and writes. The same bucket holds

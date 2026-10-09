@@ -233,7 +233,9 @@ trimmed one. Caps on file count, file size and total theme size.
 - **Imports** only from `react`, `@dripfunnel/storefront-core/theme` (core's public theme
   API), relative paths inside `src/theme`, and the library allowlist: `motion` (only inside
   `components/interactive/`, loaded lazily) and `clsx` (decided 2026-10-08 on #470; each
-  addition goes into the sandbox image). No dynamic `import()` or `require`.
+  addition goes into the sandbox image). No dynamic `import()` or `require`, no `import.meta`, no
+  `document.currentScript` and no other way to learn a script's own URL: core's chunk loader is
+  the only code that handles chunk URLs, which inside the studio frame carry the session id.
 - **No browser globals**: no `window`, `document`, `globalThis`, `fetch`, XHR, WebSocket,
   `EventSource`, `sendBeacon`, storage, cookies, `eval`, `Function`, string timers,
   `postMessage`, workers, and no reading or assigning `location` (the address comes from
@@ -285,6 +287,16 @@ through their class names, and the banners are not yet in the top layer.
   GTM container's tags run only from the hosts `script-src` lists, so a merchant's extra tags
   need their host added to the store's analytics settings. The header and the `default` policy
   are built on #481.
+- **The studio frame's CSP is stricter** (decided 2026-10-09, #520; AI-STUDIO §8):
+  - `script-src`, `connect-src` and `font-src` are `'self'` only: the frame's own origin, which
+    means `/__studio/{session}/`, its `/shop-api` and its WebSocket;
+  - `img-src` is `'self'` and the platform's own media host (product photos), never another
+    party's;
+  - no analytics and no payment provider: the studio loads neither, and checkout there shows a
+    placeholder (a test checkout is the preview link's, PREVIEW §5 step 6);
+  - `frame-ancestors` only the store's portal host.
+
+  So nothing in the frame can reach another host.
 - **Error boundaries**: core wraps every section; a section that throws falls back to the
   baseline section and is reported. Checkout falls back to the baseline checkout.
 
