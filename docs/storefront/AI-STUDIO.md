@@ -198,12 +198,31 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **AI-written code runs only on the store's preview origin**, never on the portal host
   (decision above). The studio and the frame talk by `postMessage`, and each checks the other's
   origin.
-- **The studio-session id** (§3 step 6) names one store and one session and is accepted only on
-  that store's host, on every frame request, chunk, `/shop-api` call and the WebSocket. It stays
-  live for **5 minutes** *(proposed)* unless the studio renews it through the Store API, which
-  re-checks the user's membership and capability each time, as PREVIEW §5 step 4 does for the
-  preview. A user removed or stripped of the capability gets no renewal, so the Durable Object
-  ends the session: the frame stops and the WebSocket closes within 5 minutes.
+- **The studio-session id** (§3 step 6) is a bearer credential in the frame's path, so it is
+  held to these rules:
+  - **Bound** to one store, one user and the portal session that opened the studio. It is
+    accepted only on that store's host.
+  - **Checked on every request** under `/__studio/{session}/` (HTML, chunks, `/shop-api`, the
+    WebSocket): the edge Worker asks the store's Durable Object whether the session is live
+    before anything is read. Studio traffic is one merchant's, so the call per request costs
+    little.
+  - **Short-lived:** live for **5 minutes** *(proposed)* unless the studio renews it through the
+    Store API, which re-checks the user's membership and capability each time (as PREVIEW §5
+    step 4 does). Signing out of the portal ends it at once. A user removed or stripped of the
+    capability gets no renewal, so the frame stops and the WebSocket closes within 5 minutes.
+  - **Never cached under its own value:** chunks may come from the Worker's cache only after
+    that check, under the store, the change folder and the path, never the id.
+  - **Kept out of logs:**
+    - the edge Worker writes the path as `/__studio/:session/…` in its own logs;
+    - Workers' automatic invocation logs are off for the edge Worker;
+    - the request logs for the `webpreview.store` zone leave out the request path
+      (LOGGING §9);
+    - `Referrer-Policy: no-referrer` keeps it out of Referer headers.
+  - **Visible to the theme's code**, which runs on the same origin and could read the address.
+    That is accepted: the validator forbids reading or assigning `location`, and core's router
+    never hands the theme the id (ARCHITECTURE §3.4), and the CSP lets the page reach only the Shop API (§3.5). So the code can't send the
+    id anywhere, and a stolen id is worth at most the 5 minutes before the next renewal, for the
+    draft of a store whose team member was already in the studio.
 - **Drafts never go public before they are live.** A failed or refused publish pushes nothing
   (§6 step 4). They sit in the private drafts bucket, under
   `drafts/{store}.bundle`, which only the Durable Object reads and writes. The same bucket holds

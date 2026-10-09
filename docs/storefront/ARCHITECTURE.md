@@ -236,8 +236,9 @@ trimmed one. Caps on file count, file size and total theme size.
   addition goes into the sandbox image). No dynamic `import()` or `require`.
 - **No browser globals**: no `window`, `document`, `globalThis`, `fetch`, XHR, WebSocket,
   `EventSource`, `sendBeacon`, storage, cookies, `eval`, `Function`, string timers,
-  `postMessage`, workers, no assignment to `location`. Browser behaviour comes from
-  `platform/browser`.
+  `postMessage`, workers, and no reading or assigning `location` (the address comes from
+  `platform/browser`'s router, which never exposes the studio-session id: AI-STUDIO §8).
+  Browser behaviour comes from `platform/browser`.
 - **No walking the DOM**: on a value typed as a DOM node, no `parentElement`, `closest`,
   `querySelector*`, `getRootNode`, `shadowRoot`, `innerHTML`, `outerHTML`, `insertAdjacent*`
   or computed `[expr]` access. A ref may style its own element and nothing else.

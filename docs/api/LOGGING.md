@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-10-08 (#470: the storefront studio and publish events).
+Last updated: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
 
 ---
 
@@ -289,6 +289,10 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
   `db_health_check_failed` are the health check's probe and its connection. Email (#274):
   `email_sent`, `email_skipped` (`link_closed`, `no_recipient`, `suppressed`, `held`, and `tenant_mismatch` when the payload's store or partner isn't the outbox row's),
   `email_refused` with SES's error type, and `ses_event` for the bounce hook. Never an address.
+- **Credentials in a URL path are never logged.** The studio frame's session id
+  (storefront AI-STUDIO §8) is written as `/__studio/:session/…`, the edge Worker's automatic
+  invocation logs are off, and the `webpreview.store` zone's request logs leave out the request
+  path.
 
 ---
 
