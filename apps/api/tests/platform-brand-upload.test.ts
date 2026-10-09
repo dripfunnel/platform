@@ -116,7 +116,7 @@ describe('brand file upload', () => {
       const response = await upload(file, cookies.admin, kind)
       const body = (await response.json()) as { key: string }
       expect(response.status, kind).toBe(200)
-      expect(body.key).toMatch(new RegExp(`^partners/${t.partnerA}/brand/[0-9a-f-]{36}\\.png$`))
+      expect(body.key).toMatch(new RegExp(`^partners/${t.partnerA}/brand/${kind}-[0-9a-f-]{36}\\.png$`))
       expect(await db.sql`select target_label from activity_log where action = 'branding.file_uploaded' and target_id = ${body.key}`).toEqual([{ target_label: kind }])
     }
   })

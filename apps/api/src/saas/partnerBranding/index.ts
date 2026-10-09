@@ -11,6 +11,7 @@ import { selectShellFacts } from '#db/scoped/partnerConsole'
 import { selectContractTerms } from '#db/scoped/partnerPlans'
 import { selectPartner, upsertSetupItem } from '#db/scoped/partners'
 import type { PartnerRow } from '#db/schema/saas'
+import { appImageKinds, uploadedAs } from './brandFile'
 import { contrastReport, type ContrastReport } from './contrast'
 
 // Branding on the Platform API (ui/platform/FIRST-RELEASE.md §8; card #162): the look and the
@@ -215,6 +216,8 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity }: P
     const input = parsed.data
     const foreign = Object.entries(input.look.files).find(([, key]) => key !== '' && !key.startsWith(`partners/${partnerId}/`))
     if (foreign) return { ok: false, reason: 'INVALID_INPUT', field: `look.files.${foreign[0]}` }
+    const misfiled = appImageKinds.find((kind) => input.look.files[kind] !== '' && !uploadedAs(input.look.files[kind], partnerId, kind))
+    if (misfiled) return { ok: false, reason: 'INVALID_INPUT', field: `look.files.${misfiled}` }
     const contrast = contrastReport(input.look.primary, input.look.accent)
     if (!contrast.passes) return { ok: false, reason: 'CONTRAST_FAILS', fix: contrast.fix ?? '' }
 

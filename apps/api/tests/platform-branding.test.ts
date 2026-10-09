@@ -114,6 +114,17 @@ describe('publishBranding refusals', () => {
     expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, logoLight: `partners/${ids.kl}/brand/logo.svg` } } })).toEqual({ ok: false, reason: 'INVALID_INPUT', field: 'look.files.logoLight' })
     expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, mark: 'https://evil.example/mark.svg' } } })).toMatchObject({ ok: false, reason: 'INVALID_INPUT', field: 'look.files.mark' })
     expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, appIcon: `partners/${ids.kl}/brand/icon.png` } } })).toEqual({ ok: false, reason: 'INVALID_INPUT', field: 'look.files.appIcon' })
+    // A mobile app slot takes only a file uploaded as that kind, so none skips its checks (#495).
+    const uuid = '0f8b6a1e-5c2d-4e7a-9b3c-2d1e0f4a5b6c'
+    for (const [kind, key] of [
+      ['appIcon', `partners/${ids.ns}/brand/${uuid}.svg`],
+      ['appIcon', `partners/${ids.ns}/brand/${uuid}.png`],
+      ['appIcon', `partners/${ids.ns}/brand/splash-${uuid}.png`],
+      ['appIconForeground', `partners/${ids.ns}/brand/appIcon-${uuid}.png`],
+      ['splash', `partners/${ids.ns}/brand/splash-${uuid}.svg`],
+    ] as const) {
+      expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, [kind]: key } } }), key).toEqual({ ok: false, reason: 'INVALID_INPUT', field: `look.files.${kind}` })
+    }
     expect(await owner.publishBranding({ ...ns, look: { ...ns.look, primary: '#9ACDD6' } })).toMatchObject({ ok: false, reason: 'CONTRAST_FAILS', fix: expect.stringContaining('try a darker primary') })
     for (const link of ['javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'http://northstar.example/terms']) {
       expect(await owner.publishBranding({ ...ns, words: { ...ns.words, termsUrl: link } })).toEqual({ ok: false, reason: 'INVALID_INPUT', field: 'words.termsUrl' })
@@ -143,7 +154,8 @@ describe('publishing', () => {
 
   it('publishes the mobile app images with the draft, keeps the version before them, and leaves them as they were when a publish is refused', async () => {
     const ns = await current(ids.ns)
-    const app = { appIcon: `partners/${ids.ns}/brand/icon.png`, appIconForeground: `partners/${ids.ns}/brand/fg.png`, splash: `partners/${ids.ns}/brand/splash.png` }
+    const keyOf = (kind: string) => `partners/${ids.ns}/brand/${kind}-${crypto.randomUUID()}.png`
+    const app = { appIcon: keyOf('appIcon'), appIconForeground: keyOf('appIconForeground'), splash: keyOf('splash') }
     const owner = serviceFor(callerOf(ids.ns, 'partner-owner'))
     expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, ...app } } })).toMatchObject({ ok: true })
     expect((await current(ids.ns)).look.files).toMatchObject(app)

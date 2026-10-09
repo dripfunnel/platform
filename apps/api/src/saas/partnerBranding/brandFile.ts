@@ -12,6 +12,15 @@ const appImages: Partial<Record<BrandFileKind, { side?: number; opaque?: boolean
   splash: {},
 }
 
+export const appImageKinds = ['appIcon', 'appIconForeground', 'splash'] as const satisfies readonly BrandFileKind[]
+
+// A mobile app image's name carries its kind, so publish can tell it passed that kind's checks.
+export const brandFileKey = (partnerId: string, kind: BrandFileKind, ext: string) =>
+  `partners/${partnerId}/brand/${appImages[kind] ? `${kind}-` : ''}${crypto.randomUUID()}.${ext}`
+
+export const uploadedAs = (key: string, partnerId: string, kind: (typeof appImageKinds)[number]) =>
+  new RegExp(`^partners/${partnerId}/brand/${kind}-[0-9a-f-]{36}\\.png$`).test(key)
+
 export type BrandFileType = { ext: 'png' | 'webp' | 'svg'; contentType: string }
 export type BrandFileRefusal = 'TOO_LARGE' | 'UNSUPPORTED_TYPE' | 'UNSAFE_SVG' | 'NOT_PNG' | 'WRONG_DIMENSIONS' | 'HAS_TRANSPARENCY'
 export type BrandFileCheck = { ok: true; type: BrandFileType } | { ok: false; code: BrandFileRefusal }

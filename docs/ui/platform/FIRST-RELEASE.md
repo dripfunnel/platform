@@ -855,7 +855,9 @@ api/README.md §2.1); a partner id in a request is not authority.
   SVG, PNG or WebP by its bytes, at most 512 KB, an SVG that could run script or load anything
   refused (`UNSAFE_SVG`). The three mobile app images (#495) are PNG only (`NOT_PNG`), both
   icons exactly 1024 × 1024 (`WRONG_DIMENSIONS`) and the app icon without an alpha channel or
-  transparent colour (`HAS_TRANSPARENCY`). It answers the key `partners/<partner>/brand/<uuid>.<ext>` and logs
+  transparent colour (`HAS_TRANSPARENCY`). Their key names the kind (`…/brand/appIcon-<uuid>.png`),
+  and publish takes a key in a mobile app slot only when it names that slot's kind, so no file
+  skips its checks. It answers the key `partners/<partner>/brand/<uuid>.<ext>` and logs
   `branding.file_uploaded`. `NOT_CONNECTED` until the environment's assets bucket is bound
   (THIRD-PARTY-ACCESS §2.1). The file is written inside the log entry's transaction, so a
   failed write logs nothing; a commit that fails after the write leaves an unlogged object
