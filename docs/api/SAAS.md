@@ -13,7 +13,9 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-09 (#493: no in-app purchase in the merchant mobile app).
+Last updated: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
+served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
+in-app purchase in the merchant mobile app).
 
 ---
 
@@ -23,10 +25,10 @@ Recorded so they aren't relitigated.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **A repo per store**, created when the merchant first picks a template; **the AI writes the store's theme code** (`src/theme/**`, `content/**`, `routes.json`) behind a file allowlist, a code validator, sealed components and gates; the platform commits each change that passes (decided 2026-10-08 with Gaurav on #470, "Plan A") | The AI editing a fixed site-data schema (`site.json`; decided earlier the same day, reversed); a design tree or HTML blocks | Merchants want any design they can describe or show; every schema caps that. Logic stays in core and the engine, and the walls don't depend on the AI behaving ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §1, §3). |
-| **AI changes and builds run in Cloudflare Containers**: one container per store with a studio open, held by one Durable Object per store that runs one change at a time; publish builds in their own pool (decided 2026-10-08 on #470) | GitHub Actions (decided 2026-10-05 on #284; 30–90 s per change); a third-party sandbox | Seconds per change, no new vendor, beside R2 and the Worker; stores never share a machine ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §6.1). |
+| **A repo per store**, created when the merchant first picks a template; **the AI writes the store's theme code** (`src/theme/**`, `content/**`, `routes.json`) behind a file allowlist, a code validator, sealed components and gates; each change that passes is a commit in the store's private draft, pushed to its **public** repo once its publish is live (decided 2026-10-08 with Gaurav on #470, "Plan A"; public repos and drafts decided 2026-10-09, [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1) | The AI editing a fixed site-data schema (`site.json`; decided earlier the same day, reversed); a design tree or HTML blocks | Merchants want any design they can describe or show; every schema caps that. Logic stays in core and the engine, and the walls don't depend on the AI behaving ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §1, §3). |
+| **AI changes run in Cloudflare Containers**: one container per store with a studio open, held by one Durable Object per store that runs one change at a time (decided 2026-10-08 on #470). **Publish builds run in the store repo's locked GitHub Actions workflow**, inside the public build image, and upload to R2 through credentials minted after a GitHub OIDC check (decided 2026-10-09 with Gaurav) | GitHub Actions for AI changes (decided 2026-10-05 on #284; 30–90 s per change); builds in a container pool (2026-10-08, replaced); a third-party sandbox | Seconds per change, beside R2 and the Worker, and stores never share a machine ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md)). Builds cost nothing on public repos, and no repo holds a secret ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1). |
 | **Nothing reaches live that hasn't passed**: a deterministic build, a full gate, an atomic deploy, post-deploy checks and automatic rollback; repairs and bisecting before refusing; repairs and gate runs at the platform's cost (decided 2026-10-08 on #470) | Build on publish and hope | A failure leaves the live site as it was and never costs the merchant ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §4.2). |
-| **Commerce in a versioned package**, `@dripfunnel/storefront-core`, which store repos install | A `core/` folder in each repo guarded only by a CI path check | The AI can't edit a dependency, and a fleet upgrade is a version bump instead of a merge into 1,000 diverged folders (§10). The path check stays as a second line. |
+| **Commerce in a versioned package**, `@dripfunnel/storefront-core`, which store repos pin (the build image has it preinstalled) | A `core/` folder in each repo guarded only by a CI path check | The AI can't edit a dependency, and a fleet upgrade is a version bump instead of a merge into 1,000 diverged folders (§10). The path check stays as a second line. |
 | **Live storefront is a static build on Cloudflare**; preview is a client-rendered SPA | One runtime multi-tenant server-rendered storefront | Static plus edge is fast and cheap; SSR would trade that away. The cost is fleet maintenance and build volume, which §9 and §10 exist to control. |
 | **A partner is a row above stores**, and DripFunnel is the **house partner**, configured on the same screens | DripFunnel special-cased; per-partner deployments | One code path for every partner; the house partner differs only in a badge and in not being deletable (CONSOLE-DESIGN §8). |
 | **One partner, one brand, one look, one portal host** | Several brands per partner | Decided in [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2. |
@@ -35,7 +37,7 @@ Recorded so they aren't relitigated.
 | **Plans and entitlements are a first-class, server-enforced model** | Feature checks scattered through the UI | Hiding a button is not access control. Every limit is checked where the write happens (§6). |
 | **Platform billing is its own Stripe Billing integration**, separate from merchants' checkout payments | Reusing the checkout payment adapters | Checkout Stripe takes shoppers' money on each merchant's own keys; platform billing charges partners and merchants. Mixing them mixes two ledgers. |
 | **Custom hostnames through Cloudflare for SaaS** | AWS ACM + CloudFront (built in the first platform) | The whole platform is on Cloudflare ([../ARCHITECTURE.md](../ARCHITECTURE.md) §1). The verify, certificate, live flow and the portal's step-by-step experience carry over (§8). |
-| **A GitHub App** for every repo operation, short-lived tokens per request, used by the platform only (never inside a sandbox) | A personal access token per store | A token per store means a secret per store; it breaks long before 1,000 stores. Done before onboarding in volume, because retrofitting credentials across a live fleet is much harder. |
+| **A GitHub App** for every repo operation, short-lived tokens per request, used by the platform only (never inside a sandbox). A store repo's build proves itself with GitHub OIDC and holds no token (decided 2026-10-09) | A personal access token per store; a Cloudflare token in each repo's secrets | A token per store means a secret per store; it breaks long before 1,000 stores. Done before onboarding in volume, because retrofitting credentials across a live fleet is much harder. |
 | **Catalogue changes don't rebuild on every edit**; they are published by "Publish now" (limited per plan) and an automatic schedule | Rebuild on every product change (the old deployment tracker) | Build volume would dominate cost at 1,000 stores. New pages still work at once through a client-rendered fallback (§9). |
 
 ---
@@ -146,12 +148,12 @@ per language *(ask which languages)*, with variables shown as chips (F6).
 
 ### 3.5 Domains
 
-A partner owns four kinds of hostname (USERS-AND-DOMAINS §2), all verified through §8:
+A partner owns three kinds of hostname (USERS-AND-DOMAINS §2), all verified through §8:
 
 | Hostname | Example | Records |
 |---|---|---|
 | Portal host | `store.<partnerdomain>` | CNAME to our Cloudflare for SaaS target, plus verification |
-| Preview wildcard | `*.preview.<partnerdomain>` | One wildcard record |
+| ~~Preview wildcard~~ | ~~`*.preview.<partnerdomain>`~~ | Retired: previews are on `{key}.webpreview.store` (decided 2026-10-09, [../storefront/PREVIEW.md](../storefront/PREVIEW.md)). Built on #197 and #306 as a domain kind; it goes with #518 |
 | Shop wildcard | `*.shops.<partnerdomain>` | One wildcard record |
 | Email sender domain | `mail.<partnerdomain>` | SES DKIM, SPF, DMARC (§3.6) |
 
@@ -274,18 +276,19 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 |---|---|---|
 | 1 | **Account and store**: the user (if new), the `store` row under the partner, the Owner `membership`, `store_subscription` in Trial on the chosen plan. One database transaction | Delete the store and its rows; delete the user only if this signup created it |
 | 2 | **Defaults**: store settings from the partner's defaults for new stores (region, currency, languages, tax behaviour, units, sample product), default warehouse, shipping and payment placeholders. **Per-store rows only**, never a shared one (the first platform's `TaxRate` lesson) | Deleted with the store |
-| 3 | **Hostnames**: reserve `{shop}` and register `{shop}.preview.<partnerdomain>` and `{shop}.shops.<partnerdomain>` under the partner's wildcards | Release the reservation and routes |
-| 4 | **Repo** (when the merchant first picks a template): the GitHub App creates an empty repo in the `dripfunnel` org and copies `templates/storefront/` with the chosen template's theme into it through the GitHub API | Delete the repo |
-| 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version. **The repo holds no secret, variable or workflow**: builds run in the platform's sandbox image (../storefront/ARCHITECTURE.md §2) and the Cloudflare deploy tokens stay with the platform (PLATFORM-PROMPT §5.6) | Revert the commit (removed with the repo) |
-| 6 | **Hosting target**: the store's Cloudflare Pages project (one per store, decided 2026-10-05 on #284, PLATFORM-PROMPT §5.6) | Delete it |
-| 7 | **First preview**: the template built in preview mode in the sandbox (seconds, no catalogue) and deployed to the preview host, **confirmed complete** from the deploy result, not assumed (the first platform's gap at this step). The first live build is the merchant's first Publish (§9) | Nothing to undo; a failed first preview leaves the store usable and shows "storefront build failed, retrying" |
+| 3 | **Hostnames**: reserve `{shop}` and register `{shop}.shops.<partnerdomain>` under the partner's wildcard as its own custom hostname (wildcard custom hostnames need Enterprise). The preview needs none: `{key}.webpreview.store` ([../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2) | Release the reservation and routes |
+| 4 | **Repo** (when the merchant first picks a template): the GitHub App creates an empty **public** repo with an opaque name in the `dripfunnel` org and copies `templates/storefront/` with the chosen template's theme and the locked build workflow into it through the GitHub API ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §3) | Delete the repo |
+| 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version. **The repo holds no secret or variable, and one locked workflow** that builds inside the public build image and uploads through GitHub OIDC ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4); every Cloudflare credential stays with the platform | Revert the commit (removed with the repo) |
+| 6 | **Hosting target**: the store's folder in R2, served by the edge Worker; nothing to create (decided 2026-10-09, replacing a Pages project per store: 100 projects per account; [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1) | Delete the store's folders in both storefront buckets, and its draft, source bundles and snapshots in the drafts bucket (storefront LIVE-SHOP §4 step 11) |
+| 7 | **First preview**: the template's ready-made preview bundle copied into the store's preview folder in R2 (seconds, no container; [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §4), **confirmed complete** from the copy's result, not assumed (the first platform's gap at this step). The first live build is the merchant's first Publish (§9) | Nothing to undo; a failed first preview leaves the store usable and shows "storefront build failed, retrying" |
 | 8 | **Done**: write `storefront.core_version`, `template` and the repo name, `repo_state = 'ready'`, emit `storefront.created` | n/a |
 
 - Steps 1–3 make a usable store: the merchant can enter the portal once they finish. **Built on
   #290** (`saas/provisioning/provisionStore.ts`): all three are database writes today, so they
   run in one transaction with the texted code that starts them, and a failure anywhere leaves
   nothing (tested at each step); step 2's defaults arrive with each settings table's card, and
-  step 3's hostnames are the store's code under the partner's wildcards. Signup ends there:
+  step 3's hostnames are the store's code under the partner's wildcards (built for both the
+  preview and shops wildcards; the preview one goes with #518). Signup ends there:
   `store.provisioned`, the welcome email through the outbox, the `signup` row deleted.
 - Steps 4–8 make the storefront **when the merchant first picks a template** (decided
   2026-10-08 on #470), as the `create-storefront` Workflow with their compensations (INF 1).
@@ -527,11 +530,13 @@ partner's (`EDGE_ZONE`, above); the prototype's values are examples. Built on #4
 API) and #468 (registration through Cloudflare for SaaS).
 
 **Verify before building** (USERS-AND-DOMAINS §5):
-- **Wildcards**: can `*.preview.<partnerdomain>` and `*.shops.<partnerdomain>` be wildcard
-  custom hostnames, on which Cloudflare plan?
+- ~~**Wildcards**: can `*.preview.<partnerdomain>` and `*.shops.<partnerdomain>` be wildcard
+  custom hostnames, on which Cloudflare plan?~~ Enterprise only (checked 2026-10-09): each
+  store's shops hostname is registered on its own, and previews moved to `webpreview.store`.
 - **Apex**: most DNS providers can't CNAME an apex (`merchantbrand.com`). Require `www` with a
   redirect from the apex, or support apex records (CNAME flattening, fixed IPs)?
-- **Limits and price** per custom hostname at thousands of merchants.
+- ~~**Limits and price** per custom hostname at thousands of merchants.~~ 100 included, then
+  $0.10 a month each, up to 50,000 below Enterprise (checked 2026-10-09).
 
 ---
 
@@ -560,11 +565,12 @@ SaaS layer owns the state and the rules:
 - **Staff publishes**: Admin can run a publish without using the allowance, for example after a
   failure on our side (L5).
 - **One build at a time per store**: a press during a build queues the next; changes made
-  during a build go in the next one. Publish builds run in their own container pool; "Publish
-  now" goes ahead of automatic publishes.
+  during a build go in the next one. Publish builds run in the store repo's workflow on GitHub
+  Actions ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4); "Publish now" goes
+  ahead of automatic publishes.
 - **Real status**: queued, building, checking, deploying, live, failed, rolled back, recorded in
-  `publish_run` from the Workflow (`jobs/workflows/publish-storefront.ts`) and the Cloudflare
-  deploy result, with the gate's report. A refused or rolled-back publish keeps the previous
+  `publish_run` from the Workflow (`jobs/workflows/publish-storefront.ts`), the build's run and
+  the switch of the live pointer, with the gate's report. A refused or rolled-back publish keeps the previous
   live site, says so plainly, and **never uses an allowance**.
 - **Who pays for checking**: repair attempts and gate runs are the platform's cost, recorded
   for §12 and never counted on the merchant's meters (decided 2026-10-08 on #470).
@@ -573,7 +579,9 @@ SaaS layer owns the state and the rules:
 - Publishing is a capability, **separate from settings**: holding it grants nothing else
   (the lesson of the first platform's `UpdateChannel` trap, where one permission both published and
   could rewrite deploy credentials). Deploy credentials are never on a row a merchant can
-  write, and never in a repo or a sandbox.
+  write, and never in a repo or a sandbox; a build gets only a 15-minute credential for a private
+  staging folder, after a passing report, and never one that names a build folder
+  ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4 step 8, §9).
 
 ### 9.2 The AI designer loop
 
@@ -592,11 +600,13 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
     (allowlist, validator, typecheck, bundle, byte budgets, content checks)
       fail → the model repairs from the exact errors (≤3) → else refused: nothing changes
       and the reply says so
-  → pass → the platform commits it to the store repo (GitHub App), builds the preview and
-    deploys it to the preview host; the studio shows it at once
+  → pass → a commit in the store's private draft; the studio frame shows it at once and the
+    preview gets the same bundle ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4)
   → undo (revert the latest change), discard (back to the live version's commit),
     Open preview (signed link)
-  → publishDesign: the publish pipeline (§9.1) → a new version in the history
+  → publishDesign: the publish pipeline (§9.1) builds the draft from private storage → a new
+    version in the history; once it is live, its tree is pushed to the store repo as one squashed
+    commit with a platform-written message (GitHub App)
 ```
 
 **Guardrails, in priority order** (PLATFORM-PROMPT §2 item 14):
@@ -607,8 +617,8 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
    behaviour are core's and the engine's, so asking for them changes nothing; the reply
    points to Products or Settings.
 2. **Never trusted, never given anything**: the model's output is a file diff, data until the
-   gates pass it. The sandbox has no network and no credential; the model call, the keys and
-   the commits stay in the Worker and the Durable Object.
+   gates pass it. The sandbox has no network and no credential; the model call, the keys, the
+   draft and the push to GitHub stay in the Worker and the Durable Object.
 3. **Per-plan budgets**: AI tokens per month (or the merchant's own OpenAI or Anthropic key
    on plans without included AI) and build minutes (meters, §6). A budget reached stops new
    requests and publishes, never one in progress. Repairs and gate runs don't count (§9.1).
@@ -616,13 +626,14 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
 
 **Studio sessions** (storefront ARCHITECTURE §6.1): one Durable Object and one container per
 store with a studio open; one change at a time per store (a second tab waits); a container
-stops after idle minutes and restarts from the last commit; when the account's container limit
+stops after idle minutes and restarts from the last saved draft (private R2,
+[../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §7); when the account's container limit
 is reached, studios queue and show their place. Container time is recorded per request in
 `ai_run.sandbox_ms`.
 
 **Versions**: every publish is a numbered version holding its commit, template, core version,
-gate report and Pages deployment. **Go back to this** redeploys that version's deployment
-(no build, no build minutes; a rebuild, uncharged, if the deployment is gone, **or if a security
+gate report and build in R2. **Go back to this** makes that version's build live again by moving
+the pointer (no build, no build minutes; a rebuild, uncharged, if the build is gone, **or if a security
 release of core is newer than the version's core**, so a forced fix is never undone; a version
 whose theme fails the gate on the fixed core can't be gone back to, and the merchant is told why), then resets
 the draft to that version's commit (decided 2026-10-08 on #470). The history is kept for the plan's
@@ -641,7 +652,8 @@ meter, usage billing and §12's metrics; build minutes come from `publish_run`.
 
 ~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284);
 ~~one Store API call, no agent run (2026-10-08 on #470)~~ **Cloudflare Containers**, one per
-store with a studio open (decided 2026-10-08 on #470, "Plan A"). ~~Whether the AI reads the
+store with a studio open (decided 2026-10-08 on #470, "Plan A"); publish builds in the store
+repo's GitHub Actions (decided 2026-10-09). ~~Whether the AI reads the
 store's catalogue~~ **It reads a sample** (about 12 products: names and prices; photos dropped
 on #470), metered in `ai_run` (decided 2026-10-05 on #337).
 
@@ -658,7 +670,8 @@ built and gated per store, and the upgrade bot must exist from day one.
   on its `storefront` row, so drift is visible (CONSOLE-DESIGN L1: "132 stores are 3+ versions
   behind").
 - **Upgrade bot** (`jobs/workflows/core-upgrade.ts`): for a release, build each store's current
-  published commit with the new core in the sandbox, apply the release's codemods, run the full
+  published commit with the new core in its repo's workflow, in the new version's build image
+  ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §8), apply the release's codemods, run the full
   gate and a visual diff against the live site; for a **patch or minor**, a store that passes
   goes live on the new core and its repo's `package.json` is committed; for a **major**, the
   result is recorded and the new core reaches the store only at its merchant's next publish
@@ -782,10 +795,13 @@ The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
 **Provisioning, storefronts and fleet**
 - ~~Does "under two minutes" include the first live build?~~ No: the portal and preview (decided 2026-10-05 on #337).
 - ~~Cloudflare hosting model per store (Pages, Workers, Workers for Platforms).~~ A Pages project
-  per store (decided 2026-10-05 on #284).
-- Wildcard custom hostnames, apex domains, and per-hostname limits and price (§8).
+  per store (decided 2026-10-05 on #284); replaced by R2 and one edge Worker for every store
+  (decided 2026-10-09, [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md)).
+- ~~Wildcard custom hostnames~~ (Enterprise only) and ~~per-hostname limits and price~~ ($0.10
+  after 100, up to 50,000) answered 2026-10-09; apex domains still open (§8).
 - ~~Where the AI agent runs~~ (GitHub Actions, decided 2026-10-05 on #284; **Cloudflare
-  Containers**, decided 2026-10-08 on #470); ~~does the AI read the catalogue~~ a sample of about
+  Containers**, decided 2026-10-08 on #470; builds moved to store repos' GitHub Actions on
+  2026-10-09); ~~does the AI read the catalogue~~ a sample of about
   12 products (decided 2026-10-05 on #337).
 - The container limits and price at the expected number of open studios, and whether a plan caps
   simultaneous studio sessions *(decide, INF 0 #287 and the sandbox card)*.

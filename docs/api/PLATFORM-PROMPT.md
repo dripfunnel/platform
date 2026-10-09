@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-08 (#490: the mobile app's bearer session, §2 item 16).
+Last updated: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -517,18 +517,21 @@ or admin console (ACCESS.md §8), integrations and apps:
   run-time catalogue fetches and caching work. **Verify every limit against Cloudflare's
   current documentation**; don't rely on memory. **Decided 2026-10-05 on #284: a Cloudflare Pages
   project per store**; INF 0 checks and raises the per-account project limit. The comparison
-  above stays as the reasoning. Builds run in Cloudflare Containers (decided 2026-10-08 on
-  #470), not the store repo's GitHub Actions.
+  above stays as the reasoning. **Replaced 2026-10-09 with Gaurav**: Pages allows 100 projects
+  per account, not routinely raised, so each build's files go to R2 and one edge Worker serves
+  every store; builds run in each store's public repo on GitHub Actions
+  ([`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §1).
 - **Custom domains** through **Cloudflare for SaaS** (custom hostnames with automatic
   certificates), replacing the first platform's AWS ACM + CloudFront work (`provision-domain`). Keep
   the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), and cover brand
   storefront wildcards (`*.shops.partner.com`).
-- **Builds** run in the platform's sandbox containers (`apps/sandbox`, decided 2026-10-08 on
-  #470) from the store's commit and a catalogue snapshot, and the platform's publish Workflow
-  deploys the gated output to the store's Pages project (Pages direct upload) with its own
-  token, so no deploy token ever reaches a repo or a container
-  ([`../storefront/ARCHITECTURE.md`](../storefront/ARCHITECTURE.md) §4.2).
-- **Cache purge** on catalogue change: the Shop API's own answers by the catalogue version in their key (§5.5); the static storefront files by URL on publish.
+- **Builds** run in the store repo's locked workflow inside the public build image
+  (`apps/sandbox`) from the store's commit and a catalogue snapshot, offline, and upload to R2
+  through a 15-minute credential limited to a private staging folder, minted after a GitHub OIDC
+  check and a passing report; the API copies the verified files into the build's write-once
+  folder, so no token ever sits in a repo (decided 2026-10-09;
+  [`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §4).
+- **Cache purge** on catalogue change: the Shop API's own answers by the catalogue version in their key (§5.5); the static storefront files by build id in the cache key, so a publish needs no purge of them ([`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §5).
 - **Assets** on R2, served through **Cloudflare image resizing** (decided 2026-10-05 on #337).
 - Degraded storefront for past-due or suspended stores, served at the edge.
 - **A store may have no AI storefront at all.** A merchant using their own frontend gets a
@@ -747,7 +750,8 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - ~~Postgres RLS as defence in depth?~~ Decided: yes, the backstop (DATA-MODEL.md §5).
 - One database for all brands and stores, or a shard or database per brand later?
 - ~~Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?~~
-  **A Pages project per store** (decided 2026-10-05 on #284; limits checked on INF 0).
+  **A Pages project per store** (decided 2026-10-05 on #284); replaced by R2 and one edge
+  Worker for every store (decided 2026-10-09, `../storefront/LIVE-SHOP.md`).
 - ~~Cloudflare Images or our own image variants?~~ **Cloudflare image resizing** (decided 2026-10-05 on #337).
 - ~~Where does the AI agent execute, and where do builds run?~~ ~~**Both in GitHub Actions**
   (decided 2026-10-05 on #284).~~ **Both in Cloudflare Containers** (decided 2026-10-08 on #470).

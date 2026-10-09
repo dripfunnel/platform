@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-09 (#493: Billing is not in the merchant mobile app).
+Last updated: 2026-10-09 (#520: storefront hosting and builds: R2, one edge Worker, GitHub Actions; previews on `webpreview.store`; #493: Billing is not in the merchant mobile app).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -56,7 +56,7 @@ packs) is taken from the prototype as drawn.
 | Question | Answer |
 |---|---|
 | The shopper storefront's pages (the prototype draws none) | **Designed in the prototype first** (card D1), then built as the baseline theme ("Start from scratch"), which the AI then rewrites freely (#470) |
-| Hosting (PLATFORM-PROMPT §5.6, §10) | **A Cloudflare Pages project per store**; the project limit per account is checked and raised (INF 0) |
+| Hosting (PLATFORM-PROMPT §5.6, §10) | ~~**A Cloudflare Pages project per store**; the project limit per account is checked and raised (INF 0)~~ **Each build's files in R2, served for every store by one edge Worker** (2026-10-09: Pages allows 100 projects per account; storefront LIVE-SHOP §1) |
 | Where the AI designer runs | ~~**GitHub Actions**, like the storefront builds~~ ~~One Store API call that edits the store's site data~~ **Cloudflare Containers**, one per store with a studio open, with the storefront builds (2026-10-08, #470) |
 | Merchant Stripe (THIRD-PARTY-ACCESS §3.1) | **Stripe Connect OAuth**, no pasted keys; **Stripe Tax runs on the merchant's own account** |
 | SMS | **In the first release**: MSG91 (India) and Twilio (US), each the partner's own account; 2-factor by app or SMS; shoppers sign in by email or mobile code |
@@ -93,7 +93,7 @@ document it belongs to, and in the card's "Decided" section):
 |---|---|
 | What the AI edits | ~~The store's **site data** (theme, announcement bar, header, up to 12 home sections, footer, About, Contact), never code~~ **Reversed the same day**: the theme's code (below) |
 | The store repo | Still one per store, **created when the merchant first picks a template**; ~~it holds the template and `site.json`, which publishing commits~~ it holds the store's theme, and the platform commits each AI change that passes (below) |
-| Live hosting | A static build per store on its Pages project, as before, built in Cloudflare Containers (below) |
+| Live hosting | A static build per store, ~~on its Pages project, built in Cloudflare Containers~~ in R2 behind the edge Worker, built by its public repo's GitHub Actions (2026-10-09, storefront LIVE-SHOP) |
 | How a design starts | A required **"Your brand"** step, then a **template gallery** (six presets and "Start from scratch", each with a demo), replacing the three AI directions |
 | Brand colours | Only a hint for the AI; templates keep their own |
 | Content pages and blog | Kept, as Storefront's **Pages** and **Journal** tabs (`StorefrontContent`); content pages are FAQ, lookbook and the merchant's own |
@@ -109,11 +109,11 @@ code** (storefront ARCHITECTURE §1, §3, §4.2, §6; DESIGN §2–§3; SAAS §9
 | Question | Answer |
 |---|---|
 | What the AI edits | The store's **theme code**: pages, components, CSS Modules, the words per language and its own pages (`src/theme/**`, `content/**`, `routes.json`), behind a file allowlist, a code validator, sealed components, CSP and gates. Full freedom over look and front-end behaviour (an image matched, a page featuring one product, any element anywhere, zoom, infinite scroll), none over commerce |
-| Where changes and builds run | **Cloudflare Containers**: one per store with a studio open, held by one Durable Object per store (one change at a time); publish builds in their own pool |
+| Where changes and builds run | **Cloudflare Containers**: one per store with a studio open, held by one Durable Object per store (one change at a time); ~~publish builds in their own pool~~ publish builds in each store's public repo on GitHub Actions, and drafts stay private until their publish is live (2026-10-09, storefront LIVE-SHOP and AI-STUDIO) |
 | A change that fails its check | The AI repairs it from the exact errors, at most three times, else "nothing changed"; repairs and gate runs are **the platform's cost**, never the merchant's meters |
 | Publishing | A full gate before going live; repair, then "publish everything before this change", then refuse; automatic rollback if the live site breaks after deploy |
 | Preview host | Every change that passes is deployed there, so "Open preview" always shows the draft |
-| Go back to version N | Redeploy its kept deployment (instant, free), then reset the draft to that version |
+| Go back to version N | ~~Redeploy its kept deployment~~ Make its kept build live again by moving the pointer (no build, free, live everywhere within a minute; 2026-10-09, storefront LIVE-SHOP), then reset the draft to that version |
 | Brand and search and sharing | Read by the theme through core; the AI never copies them |
 | Paths | One namespace: core's routes reserved; an AI page and a content page or post can't share a path |
 | Templates | Kept as a gallery; each template is complete starting theme code |
@@ -437,8 +437,14 @@ through. Your site stays live."), as is a support session.
   suggestions, and the error "I couldn't make that change — nothing on your site changed. Try
   again, or say it a different way." **Edit text** on any words in the preview opens them in
   every language the store offers. **Open preview ↗** (left of Discard, only with a draft)
-  opens the draft on the preview host. **Discard** asks first.
-  **Not drawn** (the prototype card adds them; storefront ARCHITECTURE §6): "Opening your
+  opens the draft on the preview host. **Discard** asks first. **End all preview links** (in
+  Open preview's menu; `publish` only, so a Manager doesn't see it and the API refuses them)
+  asks first: "Anyone you've shared a preview link with loses access now. Your team can open a
+  new link from here." with **End links** and **Cancel**. It moves the store's revocation
+  number, is recorded as `storefront.preview_links_ended`, and shows "Preview links ended"
+  (storefront PREVIEW §5, §8; decided 2026-10-09, #520).
+  **Not drawn** (the prototype card adds them; storefront ARCHITECTURE §6): "End all preview
+  links" and its confirmation; "Opening your
   studio…" while the sandbox starts; "You're next — about N seconds" while studios queue;
   "Finishing your previous change…" when another tab is changing the store; "Checking your
   change…" while the change is checked and repaired.

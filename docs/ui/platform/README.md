@@ -24,7 +24,7 @@ live, draft, awaiting and sent-back cases. The prototype decides **behaviour**, 
 **scope and rules** ([../../README.md](../../README.md) §3); FIRST-RELEASE.md §17 lists where
 they differ and which wins.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-09 (the preview wildcard retired).
 
 ---
 
@@ -36,9 +36,11 @@ Last updated: 2026-10-02.
   merchants can't sign up under the partner.
 - **Brand**: the portal's look (logo, colours, font, favicon, sign-in page), words (product
   name, support contacts, legal pages, "Powered by" line), and email templates.
-- **Addresses**: its one portal host (`store.<partnerdomain>`), the preview and shop
-  wildcards (`*.preview.<partnerdomain>`, `*.shops.<partnerdomain>`) and the email sender
-  domain, each with the DNS records to add and live verification.
+- **Addresses**: its one portal host (`store.<partnerdomain>`), the shop wildcard
+  (`*.shops.<partnerdomain>`) and the email sender domain, each with the DNS records to add and
+  live verification. The preview wildcard is retired: previews are on `{key}.webpreview.store`
+  (decided 2026-10-09, `../../storefront/PREVIEW.md`); the console stops showing a store's preview address, and the
+  built address card goes with #518 (decided 2026-10-09).
 - **Offer**: its plans, prices and entitlements for its merchants, within DripFunnel's
   platform ceilings; allowed templates, regions, currencies, languages and providers.
 - **Merchants, at account level**: list and search its merchants; create a merchant (the

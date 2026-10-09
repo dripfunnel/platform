@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -443,7 +443,9 @@ for every store's portal and emails, right away."). (CONSOLE-DESIGN F8; SAAS §3
 ### 9.1 The four addresses
 
 One card each — **Merchant portal** (`store.northstar.com`, "Where your merchants sign in and
-build their shops."), **Preview address, all stores** (`*.preview.…`), **Shop address, all
+build their shops."), ~~**Preview address, all stores** (`*.preview.…`)~~ (retired 2026-10-09:
+previews are on `{key}.webpreview.store`, `../../storefront/PREVIEW.md`; the built card goes with
+the card that moves previews), **Shop address, all
 stores** (`*.shops.…`), **Email sender** (`mail.…`, "Emails to your merchants and their
 suppliers come from here.") — with status (Waiting for DNS · Verifying · Issuing certificate ·
 Live · Failed), "Waiting since {date}" or "Checked 12 min ago", **Re-check now** (every role),
