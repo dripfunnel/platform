@@ -154,7 +154,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
    `R2_STOREFRONT_SECRET_ACCESS_KEY`, and a cache purge token → `CF_CACHE_PURGE_TOKEN`
    (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
-2. **Preview domain**: register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §9:
+2. **Preview domain**: register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §8:
    `webpreview.store` itself is prod's), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
    `*.<domain>`, and confirm Universal SSL covers it. In Logpush leave out `ClientRequestURI`,
    `ClientRequestPath` and `ClientRequestQuery` (`../api/LOGGING.md` §9, `../storefront/PREVIEW.md` §2). The Worker route is #517's.
@@ -220,7 +220,7 @@ Never reuse a value from local or production.
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token | Profile › API Tokens (§2.8 item 1) |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
-| `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §9); `preview.localhost` locally |
+| `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §8); `preview.localhost` locally |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Needed from ST 1a |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
