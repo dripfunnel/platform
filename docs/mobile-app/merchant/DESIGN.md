@@ -5,7 +5,7 @@ Scope is [FIRST-RELEASE.md](FIRST-RELEASE.md); code structure is [ARCHITECTURE.m
 
 **Status: decided, not built.**
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
 
 ---
 
@@ -62,7 +62,8 @@ partner's primary colour when white-labelled, otherwise navy `#0A2A4A`. The head
 
 - **Your shop:** every menu item the role has that isn't a tab, such as Customers, Abandoned
   carts, Reports and Storefront.
-- **Account:** My profile, Settings and Billing (Owner), Switch store, Sign out.
+- **Account:** My profile, Settings, Switch store, Sign out. Billing is not in the app
+  (FIRST-RELEASE.md §1).
 
 A 58 px orange help button floats at the bottom right. It opens the **partner's** help centre
 (SAAS.md §3.4), never DripFunnel's.
@@ -100,8 +101,9 @@ instead.
   body, choices, one input, `danger`).
 - **Toasts** sit above the tab bar: one line, an optional action (Undo), dark ground.
 - **Banners** sit under the header, full width, each with one action: trial, trial ending,
-  trial ended, bandwidth at 80% or more, white label on, offline ("Changes are kept on this
-  device and will save when you're back").
+  trial ended, bandwidth at 80% or more, white label on, offline ("You're offline. Changes
+  need a connection.", decided 2026-10-09: no offline write queue in the first release,
+  ARCHITECTURE.md §5). Plan banners have no buy or upgrade action (§5).
 - **Sizes:** hit targets 44 px or more; fields and buttons 44–50 px; content padding 16 px; list
   cards 16 px radius, quick tiles 14 px, buttons 12 px.
 - **Lists are stacked cards**: the name, a muted second line, and the value or status on the
@@ -120,9 +122,16 @@ instead.
 
 These follow decisions in `docs/`, so the prototype needs redrawing here:
 
-- **Billing.** The prototype mounts the web Billing (a card in a hosted field, upgrade prompts
-  to a card payment). The app buys plans and extra bandwidth through in-app purchase, with no
-  card field (FIRST-RELEASE.md §2–§3).
+- **Billing** is not in the app (decided 2026-10-09, FIRST-RELEASE.md §1). The prototype's
+  Billing screen and its upgrade prompts aren't built. **Plan gates and plan banners** show their
+  message with no buy or upgrade action. **Close my store** is at the end of Settings › Store
+  info, Owner only.
+- **The offline banner** says "You're offline. Changes need a connection." instead of the
+  prototype's "Changes are kept on this device…" (§4).
+- **Invitation and password-reset email links open the web portal** in the phone's browser, as
+  today (decided 2026-10-09). Opening them in the app (universal or app links) would need files
+  served on every partner's portal host, an API and hosting change that ARCHITECTURE.md §6
+  doesn't list, so it is not in this release.
 - **The help button.** The prototype opens `help.dripfunnel.com/store`; the app opens the
   partner's help centre (white label).
 - **"Email me a link"** (decided 2026-10-08). The prototype's Best on the web sheet offers to

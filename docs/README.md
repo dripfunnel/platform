@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-10-08 (#470: the storefront docs now cover `apps/sandbox`).
+Last updated: 2026-10-09 (#493: the mobile app's first release has no Billing or in-app purchase).
 
 ---
 
@@ -74,7 +74,7 @@ docs/
     merchant/               the merchant mobile app (apps/ui/mobile-app/merchant, planned):
       REACT-NATIVE.md         React Native with Expo, native sign-in, Intl on Hermes, the SDK policy
       BUILDS-AND-STORE-ACCOUNTS.md  one build and one developer account per partner, and the store rules behind it
-      FIRST-RELEASE.md        what the first release contains; plans through in-app purchase
+      FIRST-RELEASE.md        what the first release contains; no Billing or in-app purchase in the app
       DESIGN.md               which prototype decides what; the shell and mobile patterns
       ARCHITECTURE.md         code layout, startup, talking to the API; no API change without permission
       CONFIGURATION.md        the per-partner env file and per-partner secrets

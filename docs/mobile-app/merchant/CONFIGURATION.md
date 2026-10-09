@@ -6,7 +6,7 @@ the code that reads these values is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 **Status: proposed, not built.**
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-09 (#493: the `dev` profile).
 
 ---
 
@@ -45,6 +45,12 @@ Last updated: 2026-10-08.
 | `SPLASH_IMAGE` | `partners/northstar/splash.png` | Splash screen image | The splash upload on the branding screen |
 | `SPLASH_BACKGROUND` | `#FDFAF7` | Splash background colour | `partner_branding` |
 | `UPDATES_CHANNEL` | `northstar` | The EAS Update channel, so an over-the-air update reaches only this partner's app | Equal to `PARTNER_KEY` |
+
+**The development target is a `dev` partner profile**, `partners/dev.env` with
+`PARTNER_DOMAIN=dev-store.dripfunnel.ai`, the dev environment's portal host (docs/setup/dev.md)
+(decided 2026-10-09: an exception to AGENTS.md "Working with the user" rule 3 for the mobile app
+only). Cloudflare Access gates that host (docs/setup/dev.md §1), so the app's API calls are
+refused there until that is solved on its own card.
 
 Images are downloaded from `partner_branding` into `partners/<partner>/` before a build. The
 store listing's text and screenshots are kept in the same folder and entered by hand

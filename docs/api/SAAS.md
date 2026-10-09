@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-08 (#470: the AI writes theme code in Cloudflare Containers, behind walls and gates).
+Last updated: 2026-10-09 (#493: no in-app purchase in the merchant mobile app).
 
 ---
 
@@ -375,11 +375,6 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 ---
 
 ## 7. Billing
-
-**Coming change:** the merchant mobile app will sell plans and extra bandwidth through Apple's
-and Google's in-app purchase (decided 2026-10-08 on #490). This section changes with the card
-that builds it; the open questions are in
-[mobile-app/merchant/FIRST-RELEASE.md](../mobile-app/merchant/FIRST-RELEASE.md) §4.
 
 ### 7.1 Two relationships
 

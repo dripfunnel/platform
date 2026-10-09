@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-08 (#470: the storefront as AI-written theme code, "Plan A").
+Last updated: 2026-10-09 (#493: Billing is not in the merchant mobile app).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -528,9 +528,9 @@ They aren't drawn until then.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
-*In the merchant mobile app, plans and extra bandwidth are bought through in-app purchase
-instead of the card below ([mobile-app/merchant/FIRST-RELEASE.md](../../mobile-app/merchant/FIRST-RELEASE.md)
-§2–§3, decided on #490). This section is the web portal's.*
+*Billing is not in the merchant mobile app, and the app's Close my store is in Settings › Store
+info ([mobile-app/merchant/FIRST-RELEASE.md](../../mobile-app/merchant/FIRST-RELEASE.md) §1,
+decided on #493). This section is the web portal's.*
 
 The partner's plans with monthly or yearly prices and what each includes (from the Platform
 API's plan catalogue, never hard-coded), switch now with **proration** or at period end, the

@@ -199,6 +199,7 @@ Run the gates before reporting a change as done.
    `apps/ui/shared/`. Logic needed by more than one app belongs in `shared/`, never copied between
    apps. Extract a shared function or component once the same logic appears a second time,
    not in anticipation of it.
+   Exception: the merchant mobile app shares no code with the SPAs (mobile-app/merchant/REACT-NATIVE.md §2).
 2. **No unnecessary comments.** Names and types say what the code does. Comment only *why*,
    when it isn't obvious: a constraint, an invariant, a workaround (with a link to the issue
    or doc). No comments that restate the code, no commented-out code, no change-history
