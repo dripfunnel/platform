@@ -1,8 +1,8 @@
 # ARCHITECTURE.md: storefront template
 
 How DripFunnel's storefronts are built. The template's source lives in the `platform` repo at
-`templates/storefront/`; every store gets its own storefront repo created from it when its
-merchant first picks a template. **The AI writes the store's theme code**: React pages and
+`templates/storefront/`; every store gets its own public storefront repo created from it when
+its merchant first picks a template. **The AI writes the store's theme code**: React pages and
 components, CSS Modules, the shopper-facing words per language and the store's own pages,
 inside `src/theme/**`, `content/**` and `routes.json` of that repo, and nothing else. A locked,
 versioned **core package** supplies all commerce behaviour through the **Shop API**, and a chain
@@ -10,7 +10,9 @@ of independent walls (§3) keeps the AI's code from reaching money, data, the ne
 parts every store must show.
 
 Companion documents: [DESIGN.md](DESIGN.md) covers what the AI may design and the rules every
-design keeps. `../api/PLATFORM-PROMPT.md` covers the platform and the engine behind the
+design keeps. How it is built, stored and served is in [LIVE-SHOP.md](LIVE-SHOP.md) (the live
+site), [PREVIEW.md](PREVIEW.md) (the preview link) and [AI-STUDIO.md](AI-STUDIO.md) (the studio
+session and the draft). `../api/PLATFORM-PROMPT.md` covers the platform and the engine behind the
 Shop API; `../api/SAAS.md` §9 owns publishing state, the studio's API and metering. **"The
 reference"** below means the first platform's storefront template (a Next.js commerce starter
 as customised by us, now removed from the workspace); §11 records what was taken from it.
@@ -19,7 +21,9 @@ as customised by us, now removed from the workspace); §11 records what was take
 i18n, money, the first required components, SEO and the route contract (#304); everything
 else below is to build.
 
-Last updated: 2026-10-08 (#470: the AI writes theme code behind strict walls, "Plan A").
+Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
+served by one edge Worker, previews on `webpreview.store`, drafts private until Publish; the
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO).
 
 ---
 
@@ -31,14 +35,14 @@ Last updated: 2026-10-08 (#470: the AI writes theme code behind strict walls, "P
 | **Commerce behaviour ships as a versioned package, `@dripfunnel/storefront-core`.** | A `core/` folder inside each repo, guarded by a CI path check (SAAS-PLAN §2) | The AI physically cannot edit a dependency. A fleet upgrade is a version bump rather than a merge into 1,000 diverged folders. The file allowlist (§3.4) stays as a second line for the few locked files in the repo. |
 | **The AI writes theme code: full freedom over look and front-end behaviour, none over commerce** (decided 2026-10-08 with Gaurav on #470, "Plan A"). It may write any page, component, layout, style, animation or interaction (a pasted image matched, a page featuring one product, a card anywhere, zoom, infinite scroll, a quiz), on every page **checkout included**, using core's hooks and sealed components (§2.1). | The AI editing a fixed site-data schema (`site.json`: theme tokens and 12 sections of 8 types; decided earlier the same day, reversed); a design tree; sandboxed or inline HTML blocks (plans B, B+) | Merchants want what they see in tools like Lovable: anything they can describe or show. Every schema caps that. What breaks a store is logic, never layout, so logic stays in core and the engine, and the AI's code is fenced by walls that don't depend on the AI behaving (§3). |
 | **Safety by walls, not by trust**: a file allowlist, a type-aware code validator with allowlisted imports and APIs, sealed components in a closed Shadow DOM, CSP and Trusted Types in the browser, and the engine computing every amount (§3.3–§3.5) | Lint rules on AI code as the only guard; reviewing AI output | Each danger meets three independent walls: the code can't express it, a gate rejects it, the browser or engine contains it. A bad outcome needs all three to fail, and money is safe even then. |
-| **Every AI change runs in its store's own sandbox** (decided 2026-10-08 on #470): **Cloudflare Containers**, one container per store with a studio open, held by one Durable Object per store that runs one change at a time (§6.1) | GitHub Actions (decided 2026-10-05 on #284; 30–90 s per change); a third-party sandbox | Seconds per change, no new vendor, next to R2 and the Worker. Merchants never share a machine, and the store's Durable Object makes two tabs safe. |
-| **Every accepted change is a commit; undo is a revert** | Draft rows of site data | The repo is the history; "Undo this change" and bisecting a broken publish both work on commits. |
+| **Every AI change runs in its store's own sandbox** (decided 2026-10-08 on #470): **Cloudflare Containers**, one container per store with a studio open, held by one Durable Object per store that runs one change at a time (§6.1, [AI-STUDIO.md](AI-STUDIO.md)) | GitHub Actions (decided 2026-10-05 on #284; 30–90 s per change); a third-party sandbox | Seconds per change, no new vendor, next to R2 and the Worker. Merchants never share a machine, and the store's Durable Object makes two tabs safe. |
+| **Every accepted change is a commit; undo is a revert.** The commits stay in the store's private draft and reach its public repo only at Publish (decided 2026-10-09 with Gaurav, [AI-STUDIO.md](AI-STUDIO.md) §1) | Draft rows of site data; a commit to the repo per change (2026-10-08, replaced) | The repo is the history; "Undo this change" and bisecting a broken publish both work on commits. The repos are public, so drafts must not be pushed before the merchant publishes. |
 | **Nothing reaches live that hasn't passed** (§4.2): a deterministic build in a frozen image, a full gate, then an atomic deploy, post-deploy checks and automatic rollback; repairs and bisecting before refusing | Building on publish and hoping | The exact files tested are the files deployed. A failure leaves the live site as it was; most failures repair themselves. |
 | **A store starts from a template** (decided 2026-10-08): six (Linen, Concrete, Bloom, Circuit, Market, Atelier) and "Start from scratch", each a complete starting theme in this repo, after a required brand step | The AI proposing three directions (decided 2026-10-05, replaced) | The merchant sees finished looks with their own products before typing a word. |
-| **Two render modes from one codebase.** **Preview** is a client-rendered build on the brand's preview subdomain, with no SSR or SSG. **Live** is a static site (SSG) on the customer's domain. | One mode for both | The preview builds in seconds and shows catalogue changes at once; the live site must be fast, cheap to host, crawlable and immune to API load spikes. §4 covers both. |
+| **Two render modes from one codebase.** **Preview** is a client-rendered build on the store's preview host, `{key}.webpreview.store` ([PREVIEW.md](PREVIEW.md)), with no SSR or SSG. **Live** is a static site (SSG) on the customer's domain. | One mode for both | The preview builds in seconds and shows catalogue changes at once; the live site must be fast, cheap to host, crawlable and immune to API load spikes. §4 covers both. |
 | **The engine computes; the storefront displays.** Every price, tax, discount, shipping cost, stock level and total comes from the Shop API. | Any client-side commerce calculation | This is what lets the AI change the storefront freely: nothing a theme does can assert a price or skip a rule (PLATFORM-PROMPT §5.5). |
 | **Fast and findable by construction**: core owns the `<head>`, structured data, sitemap, redirects, images, fonts and script loading; theme components are server-only unless they are interactive islands; budgets are gates (§8, §9) | Asking the AI to be careful | Speed and SEO are the storefront's job; a slow or unindexable design is refused like a broken one. |
-| **Hosted on Cloudflare** as static assets, both modes, a Pages project per store (decided 2026-10-05 on #284) | S3 + CloudFront (the reference's deploy) | Platform decision (PLATFORM-PROMPT §5.6). Custom domains through Cloudflare for SaaS. |
+| **Hosted on Cloudflare**: each build's files in R2, served for every store by one edge Worker; built by a locked GitHub Actions workflow in each store's public repo, inside the public build image for its core version (decided 2026-10-09 with Gaurav, [LIVE-SHOP.md](LIVE-SHOP.md) §1) | A Pages project per store (decided 2026-10-05 on #284, replaced: 100 projects per account); builds in Cloudflare Containers (2026-10-08, replaced); S3 + CloudFront (the reference's deploy) | No per-store hosting limit, going back is a pointer move, and builds cost nothing on public repos. Custom domains through Cloudflare for SaaS. |
 
 ---
 
@@ -65,9 +69,10 @@ Last updated: 2026-10-08 (#470: the AI writes theme code behind strict walls, "P
                     └──────────────────────────────┘
 ```
 
-Builds and AI changes never run in the store repo: they run in the platform's sandbox image
-(`apps/sandbox`, §6.1), which has core and the allowed libraries preinstalled for each core
-version. The store repo has no workflows and needs no package access.
+AI changes run in the platform's sandbox image (`apps/sandbox`, [AI-STUDIO.md](AI-STUDIO.md)),
+which has core and the allowed libraries preinstalled for each core version. Builds run in the
+store repo's one locked workflow, inside the same image published publicly on `ghcr.io`
+([LIVE-SHOP.md](LIVE-SHOP.md) §4). The store repo holds no secret and needs no package access.
 
 ### 2.1 `@dripfunnel/storefront-core`
 
@@ -115,12 +120,14 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 ### 2.2 The store repo
 
 Created **when the merchant first picks a template** in Storefront, not at provisioning
-(decided 2026-10-08 on #470): an empty repo in the `dripfunnel` org, into which
+(decided 2026-10-08 on #470): an empty **public** repo with an opaque name in the `dripfunnel`
+org (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md) §3), into which
 `apps/api/src/integrations/github` copies `templates/storefront/` with the chosen template's
 theme (§2.3) through the GitHub App, then writes the generated files (`store.config.ts`, route
 shims) and pins the published `@dripfunnel/storefront-core` version (PLATFORM-PROMPT §5.7,
-`../ARCHITECTURE.md` §1). Nothing in the repo is edited by hand: **the platform commits each
-change the AI makes once it passes the fast gate** (§6.2), through the GitHub App; the
+`../ARCHITECTURE.md` §1). Nothing in the repo is edited by hand: each change the AI makes becomes a commit in the
+store's private draft once it passes the fast gate (§6.2), and **the platform pushes the draft
+to the repo at each Publish** through the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6); the
 sandbox itself holds no credential (§6.1).
 
 ```
@@ -137,6 +144,7 @@ routes.json             AI-WRITTEN: core route → theme page; custom page path 
 store.config.ts         LOCKED, generated: store key, Shop API URL, preview and live
                         hostnames, locales, currencies, core feature flags
 package.json            LOCKED: core pinned exactly; dependencies from the allowlist only
+.github/workflows/build.yml  LOCKED, from the template: the only workflow (LIVE-SHOP §4)
 ```
 
 Choosing another template later replaces `src/theme/**` and `routes.json` with that
@@ -288,14 +296,15 @@ the theme, so a page is written once.
 
 ### 4.1 Preview (staging)
 
-- **Where**: the brand's preview subdomain, e.g. `{store}.preview.dripfunnel.com` or
-  **`{store}.preview.{partner-domain}`** on the partner's wildcard (decided 2026-10-05 on #337).
+- **Where**: **`{key}.webpreview.store`**, one generic preview domain for every store (decided
+  2026-10-09 with Gaurav, replacing #337's `{store}.preview.{partner-domain}`), served from R2
+  by the edge Worker ([PREVIEW.md](PREVIEW.md)).
 - **How**: a client-rendered build with no SSR and no SSG. Every page loads its data from the
   Shop API at run time, so the build holds no catalogue and takes seconds.
-- **When**: **each change that passes the fast gate is built in preview mode and deployed to
-  the preview host** (decided 2026-10-08 on #470), so "Open preview" always shows the current
-  draft, on any device, after the studio closes. The studio itself shows the sandbox's own
-  dev server (§6.1).
+- **When**: **the bundle of each change that passes the fast gate becomes the preview**
+  (decided 2026-10-08 on #470; [PREVIEW.md](PREVIEW.md) §4), so "Open preview" always shows the
+  current draft, on any device, after the studio closes. The studio's frame shows the same
+  bundle, hot-reloaded (decided 2026-10-09, [AI-STUDIO.md](AI-STUDIO.md) §4).
 - Previews are `noindex`, carry a visible "Preview" banner, and open only through a **signed
   link from the portal** (decided 2026-10-05 on #284). Checkout in preview uses the payment
   providers' **test mode** (decided the same day).
@@ -317,9 +326,11 @@ core upgrade):
 
 ```
 1. freeze the input: the commit to publish, and a snapshot of the catalogue from the Shop API
-2. build it in the frozen sandbox image for its core version, offline (no network but the
-   snapshot): the same inputs give the same files
-3. full gate on the built files:
+2. build it in the store repo's locked workflow, inside the frozen build image for its core
+   version, offline (no network but the snapshot): the same inputs give the same files
+   (LIVE-SHOP §4 steps 3–6)
+3. full gate on the built files, inside the build workflow (LIVE-SHOP §4 step 7, decided
+   2026-10-09):
      the validator over the whole theme (§3.4); contract tests per route; sealed-component
      visibility at 3 widths; the checkout smoke test (test mode); axe; the budgets (§9);
      the no-JS render check and the crawl (§8); the content scan; a visual diff against the
@@ -327,11 +338,11 @@ core upgrade):
 4. fail → REPAIR (a design publish only: the AI fixes its own code from the report, ≤3 tries,
    each re-running the full gate) → still failing → BISECT the draft's commits to the first
    one that breaks, and offer "publish everything before this change" → else refuse
-5. pass → deploy the built files to the store's Pages project (atomic), purge the store's
-   cache, then POST-DEPLOY CHECKS from the edge within about two minutes (home, a product,
+5. pass → upload, and the API switches the store's live pointer on the OIDC-verified report
+   (atomic; LIVE-SHOP §4 steps 8–9), purges the store's cache, then POST-DEPLOY CHECKS from the edge within about two minutes (home, a product,
    add to cart, checkout opens, the payment element renders)
-6. post-deploy failure → AUTOMATIC ROLLBACK to the previous deployment (seconds), then the
-   repair loop on the candidate
+6. post-deploy failure → AUTOMATIC ROLLBACK to the previous build (a pointer move, seconds),
+   then the repair loop on the candidate
 ```
 
 A refused or rolled-back publish leaves the live site as it was, says so in plain words, and
@@ -344,8 +355,8 @@ changes don't rebuild, adapted to SSG)*:
 
 1. **A new or renamed product gets its page at once** (decided 2026-10-08 on #470): a
    **single-page render** builds that product's page (and its version URLs) with the store's
-   live theme, adds it to the sitemap, redirects the old address (§8), deploys it on top of the
-   live deployment and notifies IndexNow. It takes seconds and uses no allowance. Until it lands,
+   live theme, adds it to the sitemap, redirects the old address (§8), stores it as a new build
+   that reuses the live build's other files (LIVE-SHOP §7) and notifies IndexNow. It takes seconds and uses no allowance. Until it lands,
    and for any other unknown catalogue URL, the edge serves a client-rendered fallback.
 2. **Catalogue publishing**:
    - **Change detection**: engine events (product, version, collection, filter, menu,
@@ -362,8 +373,8 @@ changes don't rebuild, adapted to SSG)*:
      **schedule configured in the admin console** (CONSOLE-DESIGN R5). It never uses the
      allowance. Stores with no changes aren't rebuilt.
    - **One build at a time per store**: a press while a build runs queues the next one; changes
-     made during a build are picked up by the next. Publish builds run in their own pool of
-     containers, so a burst of publishes never slows a studio (§6.1).
+     made during a build are picked up by the next. Publish builds run on GitHub Actions, apart
+     from studio containers, so a burst of publishes never slows a studio (LIVE-SHOP §10).
    - **Status is real, not estimated**: queued, building, checking, deploying, live, failed,
      rolled back, from the job and the deploy, never from polling with a cache (the old
      tracker's gap).
@@ -432,48 +443,39 @@ the merchant fills in "Your brand" (first time only)
   → the store's sandbox applies it and runs the fast gate        (§6.2)
       fail → repair from the exact errors (≤3) → else "I couldn't make that change",
              nothing changes
-  → pass → the platform commits it; the studio shows it; the preview host gets it (§4.1)
+  → pass → a commit in the private draft; the studio frame shows it; the preview gets it
+           (AI-STUDIO §4)
   → "Undo this change" reverts the latest commit
-  → Publish → the pipeline of §4.2
+  → Publish → the draft is pushed to the repo → the pipeline of §4.2
 ```
 
 ### 6.1 Studio sessions: one sandbox per store
+
+[AI-STUDIO.md](AI-STUDIO.md) owns the studio's infrastructure; in short:
 
 ```
 Merchant A's studio ─┐                          ┌─ Durable Object "studio:A" ─► container A
 Merchant B's studio ─┼─► API Worker ────────────┼─ Durable Object "studio:B" ─► container B
 Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studio:C" ─► container C
-                                                 Publish builds: Queue ─► build containers
+                                                 Publish builds: the store repo's workflow
+                                                 (LIVE-SHOP.md)
 ```
 
-- **One Durable Object per store** owns the store's studio session: the container, the change
-  in progress and the draft's head commit. It runs **one change at a time**: a second request
-  for the same store (another tab, another device) waits, and the studio says "Finishing your
-  previous change…"; both see the same draft as each change commits.
-- **One container per store with a studio open** (Cloudflare Containers, `apps/sandbox`'s
-  image for the store's core version, with core, the allowed libraries and the gate tools
-  preinstalled). It applies diffs, runs the fast gate and serves the studio's live preview.
-  Stores never share a container, a file system or a queue for changes.
-- **No credential and no network in the container.** The Worker makes the model call (the
-  partner's or merchant's key never enters a container); the Durable Object loads the store's
-  last commit into the container when it starts and commits accepted changes through the
-  GitHub App itself.
-- **How the studio reaches its sandbox**: the studio's preview frame and every change go to
-  the Store API on the portal host, never to a container's address. The Worker builds the
-  `TenantContext` from the session (ACCESS §3), checks the `publish` capability (a Manager may
-  only view), and forwards to the Durable Object named by **the context's store**, never by a
-  store id from the client; the Durable Object forwards to its own container. So no address
-  reaches another store's draft (isolation test on #482).
-- **Idle stop and cold start**: a container stops after 10 idle minutes *(proposed)*; the next
-  request starts a new one from the image and the last commit in a few seconds ("Opening your
-  studio…").
-- **A crash** mid-change: the Durable Object starts a new container from the last commit and
-  retries the change once; the draft is only ever the last committed state.
-- **Capacity**: when the account's container limit is reached, studios wait in a queue that
-  shows the merchant's place ("You're next — about 20 seconds"). A plan may cap simultaneous
-  sessions *(decide)*. The account's limits and the price are confirmed on INF 0 (#287).
-- **Publish builds** use their own pool of containers fed by a Queue, so the nightly
-  automatic publish never slows a studio. "Publish now" presses go ahead of automatic ones.
+- **One Durable Object per store** runs **one change at a time**; a second tab waits and both
+  see the same draft (AI-STUDIO §4).
+- **One container per store with a studio open**, from `apps/sandbox`'s image for the store's
+  core version; it applies diffs and runs the fast gate. Stores never share a container, a file
+  system or a queue for changes.
+- **No credential and no network in the container.** The Worker makes the model call; the
+  Durable Object loads the draft into the container and saves each accepted change to the
+  store's private draft (AI-STUDIO §3–§4).
+- **The studio's frame runs on the store's preview origin**, never on the portal host, so
+  AI-written code never shares an origin with the merchant's session (decided 2026-10-09,
+  AI-STUDIO §1). Every change still goes through the Store API, which builds the `TenantContext`
+  from the session (ACCESS §3), checks the `publish` capability and forwards to the Durable Object
+  named by **the context's store**, never by a store id from the client (isolation test on
+  #482).
+- Idle stop, crashes, capacity and cost: AI-STUDIO §7.
 
 ### 6.2 One change
 
@@ -493,7 +495,8 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
   break a budget is answered in words with an alternative ("a 4K video would make the page
   slow on phones; I can use a short compressed loop").
 - **Undo** reverts the latest change's commit. **Go back to this** makes an earlier published
-  version live again by redeploying its kept deployment (no build, free), then resets the
+  version live again by moving the live pointer back to its kept build (no build, free;
+  LIVE-SHOP §4), then resets the
   draft to that version's commit, so the next change starts from what is live (decided
   2026-10-08 on #470). **Except across a security fix**: when a security release of core is
   newer than that version's core, the version is rebuilt on the fixed core and gated instead
@@ -505,7 +508,8 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
 ## 7. Core upgrades across the fleet
 
 - Core follows **semver**. The release workflow publishes it and *(planned, #482)* builds the
-  **sandbox image** for that version.
+  **sandbox image** for that version, published publicly on `ghcr.io` for builds and pushed to
+  Cloudflare's registry for studios (decided 2026-10-09; LIVE-SHOP §1).
 - **The upgrade bot** (SAAS §10) takes a release to every store, **canary stores first**, then
   in waves: it builds each store's current published commit with the new core, applies
   core's **codemods**, and runs the full gate of §4.2 plus a visual diff against what is live.
@@ -609,7 +613,7 @@ median counts.
 - **The edge-case catalogue**: a store of fixture data every theme is rendered against at
   publish: very long names, no photos, 100 versions, everything out of stock, no products,
   every language the store offers, a right-to-left language, the largest prices.
-- **Per store**: the full gate of §4.2 on every publish, in the sandbox, plus the
+- **Per store**: the full gate of §4.2 on every publish (inside the build workflow: LIVE-SHOP §4 step 7), plus the
   architecture tests carried from the reference (`tests/architecture/boundaries.test.mjs`: app
   files are only re-exports; feature internals aren't imported from outside).
 - **Fleet**: a core release is gated against a sample of real store themes before canary.
@@ -631,7 +635,7 @@ median counts.
 
 ## 12. Open questions
 
-- ~~The preview hostname pattern per brand.~~ `{store}.preview.{partner-domain}` (decided 2026-10-05 on #337).
+- ~~The preview hostname pattern per brand.~~ `{store}.preview.{partner-domain}` (decided 2026-10-05 on #337); replaced by `{key}.webpreview.store` (decided 2026-10-09, [PREVIEW.md](PREVIEW.md)).
 - ~~Whether previews are gated (signed link) or open but `noindex`.~~ Gated by a signed link
   (decided 2026-10-05 on #284).
 - ~~Can shoppers check out on the preview (test mode), or is checkout disabled there?~~ Test-mode
@@ -644,11 +648,11 @@ median counts.
 - ~~Does the AI edit the theme's code, and how does a design start?~~ It writes the theme's code inside the walls of §3, from a template after a brand step (decided 2026-10-08 on #470, reversing that day's site-data design; §1, §6).
 - ~~Which content pages and sections may the theme add without new core support (blog, lookbook,
   store locator)?~~ FAQ, lookbook, the merchant's own pages **and a blog** (SAPI 24); any custom page the AI writes (§3.1); no store locator (decided 2026-10-05 on #337).
-- ~~How store repos authenticate to GitHub Packages in CI.~~ They don't: builds run in the sandbox image, which has core preinstalled (decided 2026-10-08 on #470, following the choice of Cloudflare Containers; it replaces #303's org secret).
-- ~~Where AI changes and builds run.~~ Cloudflare Containers, one per store with a studio open and a pool for publish builds (decided 2026-10-08 on #470).
+- ~~How store repos authenticate to GitHub Packages in CI.~~ They don't: builds run in the sandbox image, which has core preinstalled (decided 2026-10-08 on #470, following the choice of Cloudflare Containers; it replaces #303's org secret). Since builds moved to Actions, the image is public on `ghcr.io` and pulled with no token (decided 2026-10-09).
+- ~~Where AI changes and builds run.~~ Cloudflare Containers, one per store with a studio open and a pool for publish builds (decided 2026-10-08 on #470); builds then moved to each store repo's GitHub Actions (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md)).
 - ~~What a store whose theme can't take a security fix gets.~~ The baseline theme until repaired (decided 2026-10-08 on #470).
-- How the preview build reaches `{store}.preview.{partner-domain}`: a branch deployment of the store's Pages project, or its own project *(decide, INF 2)*.
-- The containers' size, the idle timeout (10 minutes proposed) and whether a plan caps simultaneous studio sessions *(decide, INF 0 and the sandbox card)*.
-- Whether the studio's live preview is the Next.js dev server in the container, or a lighter client build of the same theme *(decide, the sandbox card)*.
+- ~~How the preview build reaches `{store}.preview.{partner-domain}`: a branch deployment of the store's Pages project, or its own project.~~ Neither: R2, served by the edge Worker on `{key}.webpreview.store` (decided 2026-10-09, [PREVIEW.md](PREVIEW.md)).
+- The containers' size, the idle timeout (10 minutes proposed) and whether a plan caps simultaneous studio sessions *(decide, INF 0 and the sandbox card; [AI-STUDIO.md](AI-STUDIO.md) §9)*.
+- ~~Whether the studio's live preview is the Next.js dev server in the container, or a lighter client build of the same theme.~~ The fast gate's client bundle, hot-reloaded (decided 2026-10-09, [AI-STUDIO.md](AI-STUDIO.md) §1).
 - Shopper cancelling and returns (§2.1, proposed on #285): cancel until the order ships; a return until the store's window closes, counted from delivery; a product's rule over the store's, never below a market's legal floor. The prototype draws this; it stands until approved or changed on #285.
 - Sample words in a template (raised on #470): a template's sample testimonial quote and author (Bloom, Atelier) is invented content. Until decided, the AI never writes a quote attributed to a person, and the studio flags sample text before the first publish (DESIGN.md §9).

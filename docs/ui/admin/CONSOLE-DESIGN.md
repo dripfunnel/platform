@@ -29,7 +29,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > the partner console shows instead: nothing, or a counterpart scoped to that partner's own
 > merchants, with Admin-only controls left out.
 >
-> Last updated: 2026-10-08 (#470: fleet parts for AI-written themes).
+> Last updated: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
 
 ---
 
@@ -72,8 +72,8 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > - **Look**: portal name, logo, colours, fonts, favicon, sign-in and sign-up pages, and
 >   whether "Powered by DripFunnel" shows.
 > - **Addresses**: the portal host (e.g. `store.northstarcommerce.com`), the email sender
->   domain, and the storefront preview and shop wildcards (`*.preview.northstar.com`,
->   `*.shops.northstar.com`).
+>   domain, and the storefront shop wildcard (`*.shops.northstar.com`). Previews are on
+>   DripFunnel's own `{key}.webpreview.store`, not the partner's domain (2026-10-09).
 > - **Messages**: emails (verification, invitations, billing receipts, alerts), legal pages,
 >   and support contacts.
 > - **Offer**: which plans its merchants can buy, at what prices, with which features, limits,
@@ -125,7 +125,7 @@ The admin console is for insiders, so it may use platform terms, but it uses the
 | **Merchant** | the Owner membership of a store | The business that pays for the store. |
 | **Vendor** | a vendor in a store; its rows carry `seller_id` (UI word: "Supplier") | A supplier inside a store. The admin console shows counts, rarely individuals. |
 | **Portal** | `apps/ui/store` and the Store API, on the partner's portal host | What merchants and vendors sign in to, shown in the brand's look. |
-| **Storefront** | per-store repo holding the AI-written theme on `@dripfunnel/storefront-core`, built in the platform's containers and deployed to Cloudflare (preview and live) | What shoppers see. A store may use its own frontend instead. |
+| **Storefront** | per-store public repo holding the AI-written theme on `@dripfunnel/storefront-core`, built by its GitHub Actions workflow, served from R2 by one edge Worker (live), with the preview on `{key}.webpreview.store` | What shoppers see. A store may use its own frontend instead. |
 | **Plan** | engine `plan` table, per partner | What a merchant buys. Each brand has its own plan list. |
 | **Entitlement** | engine `entitlement` rows on a plan, enforced on the server | One feature or limit inside a plan (on/off, a limit, or a meter). |
 | **Wholesale price** | partner contract terms (release: decide) | What DripFunnel charges the partner per store or per plan. |
@@ -189,9 +189,11 @@ why it shapes the interface. The engine is specified in
    staff or partner decision).
 9. **The storefront is a repo per store** created from the template, its theme written by
    the AI behind walls and gates and its commerce logic in the published
-   `@dripfunnel/storefront-core` package (docs/storefront/ARCHITECTURE.md). Every AI change and
-   every build runs in the platform's **Cloudflare Containers**, and every publish passes a full
-   gate before an atomic deploy, with automatic rollback (decided 2026-10-08 on #470). An
+   `@dripfunnel/storefront-core` package (docs/storefront/ARCHITECTURE.md). Every AI change runs
+   in the platform's **Cloudflare Containers**; every build runs in the store's public repo on
+   GitHub Actions, passes a full gate there, and goes live by an atomic switch of the store's
+   build in R2, with automatic rollback (decided 2026-10-08 on #470; builds and hosting
+   2026-10-09, docs/storefront/LIVE-SHOP.md). An
    **upgrade bot** rolls `storefront-core` upgrades across the fleet with canaries, codemods and
    a migration agent; a store that can't take one stays pinned, or gets the baseline theme for a
    security fix. The admin console is where fleet drift, rollouts, refused publishes, rollbacks
@@ -560,7 +562,8 @@ rollouts and no build internals. First release:
   reported by live sites; each with the store, the commit and the gate's report, and a
   **Rebuild** that uses no allowance.
 - L6. **Studio capacity**: open studio sessions, the queue and its waits, container time per
-  day against the account's limits (storefront ARCHITECTURE §6.1).
+  day against the account's limits (storefront AI-STUDIO §7), and the GitHub org's Actions
+  jobs at once against its plan (storefront LIVE-SHOP §10).
 - L4. Templates catalogue: which templates exist, which brands may use them (G4).
 - L5. **Catalogue publishing**: stores with unpublished changes, the next automatic run,
   builds in progress and failed, and "Publish now" presses used against each store's monthly

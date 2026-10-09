@@ -17,7 +17,7 @@ non-production hosts only.
 
 Paste everything below the line.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-09 (the preview address card removed).
 
 ---
 
@@ -344,8 +344,8 @@ Merchants still see the published version. This affects 86 stores." with Discard
 
 ### 6.7 Domains
 
-"Every address your platform uses." Four cards — **Merchant portal** (`store.northstar.com`),
-**Preview address, all stores** (`*.preview.northstar.com`), **Shop address, all stores**
+"Every address your platform uses." Three cards — **Merchant portal** (`store.northstar.com`),
+**Shop address, all stores**
 (`*.shops.northstar.com`), **Email sender** (`mail.northstar.com`, DKIM, SPF and DMARC, with
 "Until it's live, emails come from no-reply@northstar.dripfunnel-mail.com with your product
 name.") — each with status (Waiting for DNS · Verifying · Issuing certificate · Live ·

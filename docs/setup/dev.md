@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-09 (#493: the merchant mobile app's `dev` profile).
+Last updated: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -148,13 +148,13 @@ The Store strand needs these before its cards can run against real services. Eac
 by a person (the account's owner signs the terms); the cards build against local adapters until
 then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 
-1. **Cloudflare**: the Pages project limit on the dev account (Workers & Pages › the account
-   overview, or ask Cloudflare to raise it for the expected store count); whether Cloudflare for
-   SaaS serves `*.preview.<partner domain>` and `*.shops.<partner domain>` on the plan, and the
-   price per hostname. Record both, with the date, in THIRD-PARTY-ACCESS §2.1. Then a Pages-scoped
-   token per pool account → `CF_PAGES_POOL`.
+1. **Cloudflare**: no Pages project per store any more, and the hostname questions are answered
+   (THIRD-PARTY-ACCESS §2.1, checked 2026-10-09). Register `webpreview.store` and add its zone
+   (`../storefront/PREVIEW.md` §2), create the storefront buckets, and the R2 storefront upload
+   credential (`../storefront/LIVE-SHOP.md` §2, §9).
 2. **GitHub**: the *DripFunnel Provisioning* App with THIRD-PARTY-ACCESS §2.3's permissions
-   (repos and contents only; store repos need no package access since #470) → `GITHUB_APP_*`.
+   (repos, contents, workflows and actions; store repos need no package access, since the build
+   image is public) → `GITHUB_APP_*`.
    **Cloudflare Containers** on the dev account: the limits and price THIRD-PARTY-ACCESS §2.1
    asks to verify, recorded there with the date.
 3. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
@@ -196,7 +196,7 @@ Never reuse a value from local or production.
 | `SES_SENDER_DOMAIN` | Text | a domain verified in that SES account | SES › Identities › *Create identity* › Domain, then its DKIM records in DNS |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
 | `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
-| `CF_PAGES_POOL` | Secret | the dev pool, JSON `[{ "accountId", "token" }]` | §2.8 item 1; each token scoped to *Pages: Edit* on its own account (THIRD-PARTY-ACCESS §8.2). Needed from INF 1 |
+| ~~`CF_PAGES_POOL`~~ | — | — | Not needed since 2026-10-09: no Pages project per store; the R2 storefront upload credential replaces it (THIRD-PARTY-ACCESS §2.1, names on #317) |
 | `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 3. Read since #309 |
 | `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 6). Needed from ST 1a |

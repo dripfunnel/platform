@@ -35,6 +35,7 @@ document disagrees. Then open only the part your task touches:
 | Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
 | Merchant mobile app (`apps/ui/mobile-app/merchant`, planned) | [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md): start with REACT-NATIVE, then DESIGN and ARCHITECTURE |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
+| Storefront builds, hosting, preview, the studio's sandbox | [docs/storefront/LIVE-SHOP.md](docs/storefront/LIVE-SHOP.md), [PREVIEW.md](docs/storefront/PREVIEW.md), [AI-STUDIO.md](docs/storefront/AI-STUDIO.md) |
 
 The first platform's documents are ported into `docs/` and its repositories are gone;
 `docs/` is the only specification (docs/README.md §7).
@@ -78,9 +79,9 @@ Run the gates before reporting a change as done.
   template. Commerce logic belongs in `storefront-core`, never in the template or a theme.
   *Planned, not yet present*: `themes/` with the starting themes (#486).
 - *Planned, not yet present*: **`apps/sandbox`**, the container image that will run AI changes
-  and storefront builds (Cloudflare Containers, docs/storefront/ARCHITECTURE.md §6.1; #482). It
-  is Node, holds no secret and reaches no network; the API Worker makes every outside call for
-  it.
+  in Cloudflare Containers (docs/storefront/AI-STUDIO.md; #482) and, published on `ghcr.io`,
+  every store repo's build on GitHub Actions (docs/storefront/LIVE-SHOP.md). It is Node, holds
+  no secret and reaches no network; the API Worker makes every outside call for it.
 - **`docs/`** is the specification, laid out like the code (docs/README.md §3). Update the
   relevant document in the same change as the code it describes, following docs/README.md §6.
 - **`designs/`** holds one clickable prototype per portal (`DF Store Prototype` →

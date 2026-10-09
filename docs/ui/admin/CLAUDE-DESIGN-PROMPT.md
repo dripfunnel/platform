@@ -7,7 +7,7 @@ prompt should be updated.
 
 Paste everything below the line.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-09 (previews off the partner domain).
 
 ---
 
@@ -132,7 +132,7 @@ Tabs:
 | Overview | Partner details and contacts, state history (timeline), setup checklist with each item's status |
 | Stores | This partner's stores (the Stores list, pre-filtered) |
 | Branding | **Read-only** preview of the partner's look: logo, colours, product name, a thumbnail of their sign-in page, "Powered by DripFunnel" on or off |
-| Domains | Portal host, preview and shop wildcards (`*.preview.northstar.com`, `*.shops.northstar.com`), email sender domain: each with the DNS records expected, what was found, a status, and "Re-check now" |
+| Domains | Portal host, shop wildcard (`*.shops.northstar.com`), email sender domain (previews are on DripFunnel's `{key}.webpreview.store` since 2026-10-09): each with the DNS records expected, what was found, a status, and "Re-check now" |
 | Plans | **Read-only** list of the partner's plans, prices and limits (edited in the partner console, by the partner or by staff through "Set up for partner"; say so) |
 | Team | The partner's users and their roles, last sign-in, with an **Impersonate** button on each |
 | Activity | Everything done about this partner (see 5.8) |

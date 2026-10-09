@@ -7,7 +7,8 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-08 (#470: Cloudflare Containers for AI changes and storefront builds).
+Last updated: 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
+Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 
 ---
 
@@ -20,7 +21,7 @@ Last updated: 2026-10-08 (#470: Cloudflare Containers for AI changes and storefr
 | **Four apps**: `api` (one Worker) and three SPAs in `apps/ui/`: `store`, `platform` and `admin` | Five API Workers; a package per concern | Fewest moving parts: one API deploy, one config, one set of bindings, no wiring copied between Workers. The modules inside `api` stay separate, so splitting a Worker out later is cheap. |
 | **One API Worker** serves the Store, Platform, Admin and Shop APIs, webhooks, queues, Cron and Workflows, choosing by hostname and path (§2) | A Worker per API | Simpler. Its costs are covered: a bad deploy is limited by manual promotion and instant rollback, and a hostname guard with a test keeps each API off hosts it doesn't belong on. |
 | **Only code the AI could reach is a published package**: `@dripfunnel/storefront-core`, installed by store repos | Publishing shared internal code | Store repos are the only code outside this repo, and the AI writes their themes (storefront/ARCHITECTURE.md §1). The core they run must be versioned and outside the files the AI may change. Our own apps ship from one commit and need no versions. |
-| **AI changes and storefront builds run in Cloudflare Containers** (`apps/sandbox`'s image), each store's held by a Durable Object in the API Worker (decided 2026-10-08 on #470) | GitHub Actions in each store repo (decided 2026-10-05 on #284); a third-party sandbox | Workers can't run a build. Containers give each store its own machine in seconds, next to R2 and the Worker, with no new vendor; the sandbox has no network and no credential (storefront/ARCHITECTURE.md §6.1). |
+| **AI changes run in Cloudflare Containers** (`apps/sandbox`'s image), each store's held by a Durable Object in the API Worker (decided 2026-10-08 on #470). **Storefront builds run in each store's public repo on GitHub Actions**, inside the same image published publicly on `ghcr.io`, with no secret in any repo (decided 2026-10-09 with Gaurav) | GitHub Actions for AI changes (decided 2026-10-05 on #284); builds in Containers (2026-10-08, replaced); a third-party sandbox | Workers can't run a build. Containers give each studio its own machine in seconds, next to R2 and the Worker, with no network and no credential (storefront/AI-STUDIO.md). Builds cost nothing on public repos and upload through 15-minute credentials the API mints after a GitHub OIDC check (storefront/LIVE-SHOP.md §1). |
 | **`apps/ui/shared/` holds only code that more than one app uses**, today browser code the SPAs share | Shared packages in advance | Nothing is shared before a second app needs it. Server code lives only in `apps/api`, so it can't leak into a browser bundle. |
 | **UIs are independent static SPAs on Cloudflare Pages** | Next.js servers that also host the API | A UI deploy can't break the API and the reverse; UIs are pure static assets served from the edge; any client (the SPAs, integrations) uses the same APIs. |
 | **The SPAs are built with Vite, React and TanStack Router** | Next.js static export | A pure client-side app: fast builds, no server features to avoid, typed routes and search params. Next.js stays only in the storefront template, which needs static generation. |
@@ -42,15 +43,15 @@ Last updated: 2026-10-08 (#470: Cloudflare Containers for AI changes and storefr
 | Deployable | Kind | Serves | Hostnames |
 |---|---|---|---|
 | `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host; `hooks.dripfunnel.com` |
-| `store-proxy` | **Worker** | Sits on the zone's `*/*` route in front of partner portal hosts, which reach us through Cloudflare for SaaS: `/api/*` to the API Worker, the rest to the store Pages project; our own hosts pass through (SAAS.md §8). Dev only so far | every partner portal host |
+| `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS. Partner portal hosts: `/api/*` to the API Worker, the rest to the store Pages project. Storefront hosts and `*.webpreview.store`: each store's built files from R2, `/shop-api/*` to the API Worker (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09). Our own hosts pass through (SAAS.md §8). Portal part on dev only so far | every partner portal host; every storefront host; `*.webpreview.store` |
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
 | `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |
 | `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every storefront runs on, with the validator and gate suites. Store repos never install it: they pin a version, and the sandbox image for that version has it preinstalled (code/ARCHITECTURE.md §5) | none |
-| `apps/sandbox` | **Container image** (Cloudflare Containers), one per core version, run by the API Worker's `StudioSession` and `StorefrontBuild` Durable Objects | A store's studio session (applying the AI's changes, the fast gate, the live preview) and every storefront build and gate; Node, not the Workers runtime; no network, no credential | none |
-| Store repos | GitHub repo per store, holding its theme; built in `apps/sandbox`, never by Actions | The store's storefront: preview and live SSG on its Cloudflare Pages project (`storefront/ARCHITECTURE.md` §4) | `{shop}.preview.<partnerdomain>`; `{shop}.shops.<partnerdomain>`; the merchant's own domain |
+| `apps/sandbox` | **Container image**, one per core version: run in Cloudflare Containers by the API Worker's `StudioSession` Durable Object, and published publicly on `ghcr.io` for store repos' builds | A store's studio session (applying the AI's changes, the fast gate, the live frame) and, inside each store repo's workflow, every storefront build; Node, not the Workers runtime; no network, no credential | none |
+| Store repos | **Public** GitHub repo per store, holding its published theme and one locked workflow that builds it inside `apps/sandbox`'s image (storefront/LIVE-SHOP.md §3–§4) | The store's live static build, uploaded to R2 and served by the edge Worker; its preview comes from the studio (storefront/PREVIEW.md) | `{shop}.shops.<partnerdomain>`; the merchant's own domain; preview on `{key}.webpreview.store` |
 | Postgres | **Neon**, via **Hyperdrive** | The system of record | none |
-| R2 buckets | **R2** | Assets, imports and exports, invoices | public assets through a custom domain with Cloudflare image resizing (decided 2026-10-05 on #337) |
+| R2 buckets | **R2** | Assets, imports and exports, invoices; storefront builds, previews and private drafts (storefront/LIVE-SHOP.md §2) | public assets through a custom domain with Cloudflare image resizing (decided 2026-10-05 on #337) |
 
 **How the one Worker routes**, before any other code runs:
 
@@ -158,8 +159,10 @@ current documentation before relying on it.**
 - **Configuration** is validated from `env` once per isolate, failing the request loudly on a
   bad value.
 - **Long-running and external work** (storefront builds, the AI designer's sandbox) doesn't
-  run in Workers. It runs in **Cloudflare Containers** from `apps/sandbox`'s image, each store's
-  held by a Durable Object (decided 2026-10-08 on #470, replacing GitHub Actions). Code in
+  run in Workers. The sandbox runs in **Cloudflare Containers** from `apps/sandbox`'s image,
+  each store's held by a Durable Object (decided 2026-10-08 on #470); storefront builds run in
+  each store repo's GitHub Actions inside the same image (decided 2026-10-09,
+  storefront/LIVE-SHOP.md). Code in
   `apps/sandbox` is Node and may use Node modules; it never holds a secret, and the Worker
   makes every outside call (the model, GitHub, Cloudflare) on its behalf.
 
@@ -181,9 +184,11 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   cache purge.
 - Workflows own multi-step jobs and record each step in the `job` table, so the platform
   console sees progress, errors and compensation.
-- A store's studio session and every storefront build run in a container that only its
-  Durable Object talks to: the Worker sends it files and receives files and reports back; the
-  container reaches nothing else (storefront/ARCHITECTURE.md §6.1).
+- A store's studio session runs in a container that only its Durable Object talks to: the
+  Worker sends it files and receives files and reports back; the container reaches nothing else
+  (storefront/AI-STUDIO.md). A storefront build runs in the store repo's workflow with no secret
+  and no network, and uploads through 15-minute credentials the API mints
+  (storefront/LIVE-SHOP.md §4).
 
 ---
 
@@ -269,10 +274,13 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 ## 8. Open questions
 
 - ~~The Shop API hostname pattern for storefronts.~~ `/shop-api` on the store's own storefront hosts: `{code}.` under its
-  partner's `*.shops.` or `*.preview.` wildcard, or its live custom domain; on any other host the public store key alone
+  partner's `*.shops.` or `*.preview.` wildcard (built), or its live custom domain; the preview
+  moves to `{key}.webpreview.store` (decided 2026-10-09, storefront/PREVIEW.md §5) with
+  #518; on any other host the public store key alone
   names the store, and a key sent on a store's own host must be that store's (decided on #306).
 - Password hashing choice under Workers CPU limits.
 - Logpush destination, and whether to keep a copy of logs outside Cloudflare.
 - ~~Where the AI designer's sandbox runs (GitHub Actions, Cloudflare Containers, or elsewhere).~~
   GitHub Actions (decided 2026-10-05 on #284); **Cloudflare Containers** (decided 2026-10-08 on
-  #470, with storefront builds).
+  #470, with storefront builds); storefront builds then moved to each store repo's GitHub
+  Actions (decided 2026-10-09, storefront/LIVE-SHOP.md).
