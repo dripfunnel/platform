@@ -130,16 +130,18 @@ jobs:
             exit 1
           fi
           if [ "${EVENT}" = "pull_request_review_comment" ]; then
-            gh api --method POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/comments/${COMMENT_ID}/replies" -f body="$1" >/dev/null
+            # Replies attach to a thread's first comment, and the mention may itself be a reply.
+            root="$(gh api "repos/${GH_REPO}/pulls/comments/${COMMENT_ID}" --jq '.in_reply_to_id // .id')"
+            gh api --method POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/comments/${root}/replies" -f body="$1" >/dev/null
           else
             gh pr comment "${PR_NUMBER}" --body "$1" >/dev/null
           fi
           HELPER
           chmod 555 "${RUNNER_TEMP}/reply"
 
-      # The comment is untrusted text: it reaches Claude as files beside the checkout, never
-      # through the shell, and outside the temp folder the reads are kept away from.
-      - name: Write the request and the prompt
+      # The comment is untrusted text: it is appended to the prompt from the environment, never
+      # through the shell or sed, after the placeholders are filled.
+      - name: Write the prompt
         if: steps.pr.outputs.fork != 'true'
         env:
           REQUEST_BODY: ${{ github.event.comment.body || github.event.review.body }}
@@ -147,14 +149,10 @@ jobs:
           REQUEST_PATH: ${{ github.event.comment.path }}
           REQUEST_LINE: ${{ github.event.comment.line }}
         run: |
-          request="${GITHUB_WORKSPACE}/../claude-request"
-          mkdir -p "${request}"
-          printf '%s\n' "${REQUEST_BODY}" > "${request}/comment.md"
-          printf 'author: %s\nanchor: %s\n' "${REQUEST_AUTHOR}" "${REQUEST_PATH:+${REQUEST_PATH}:${REQUEST_LINE}}" > "${request}/context.txt"
           cat > "${RUNNER_TEMP}/prompt.md" <<'PROMPT'
-          A member of REPOSITORY mentioned you on pull request PR_NUMBER. Their comment is in
-          REQUEST/comment.md; who wrote it, and the file and line it is on when it is a review
-          comment, are in REQUEST/context.txt. Answer it.
+          A member of REPOSITORY mentioned you on pull request PR_NUMBER. Their comment is at the
+          end of this prompt, after who wrote it and, for a review comment, the file and line it is
+          on. Answer it.
 
           The pull request's head commit is checked out in the working directory.
           `gh pr diff PR_NUMBER` shows what it changes, and
@@ -170,7 +168,12 @@ jobs:
           Post exactly one reply, with `REPLY_HELPER <text>`. Keep it short and specific. Do not
           write the answer as a chat message.
           PROMPT
-          sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|REQUEST|${request}|g; s|REPLY_HELPER|${RUNNER_TEMP}/reply|g" "${RUNNER_TEMP}/prompt.md"
+          sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|REPLY_HELPER|${RUNNER_TEMP}/reply|g" "${RUNNER_TEMP}/prompt.md"
+          {
+            printf '\nAuthor: %s\n' "${REQUEST_AUTHOR}"
+            if [ -n "${REQUEST_PATH}" ]; then printf 'On: %s:%s\n' "${REQUEST_PATH}" "${REQUEST_LINE}"; fi
+            printf '\n--- comment ---\n%s\n--- end of comment ---\n' "${REQUEST_BODY}"
+          } >> "${RUNNER_TEMP}/prompt.md"
 
       # Reads stay out of the places a token can be found, as in ci.yml's review (WORKFLOW.md §7).
       - name: Reply
