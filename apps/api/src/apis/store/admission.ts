@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { personSignedIn, type ActivityLog, type RequestFacts } from '#auth/activity'
 import type { CodeCheck } from '#auth/codeCheck'
 import type { SecretBox } from '#auth/secretBox'
+import { wantsBodySession } from '#auth/storeCredential'
 import { createUserSession, setStoreCookie, type UserSessionStage } from '#auth/storeSession'
 import type { ScopedSql } from '#db/scoped/index'
 import { markUserSignedIn, type SignInCandidate } from '#db/scoped/userSignIn'
@@ -41,5 +42,17 @@ export const admit = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFa
   return { session, stage, remember, method: candidate.two_factor_method }
 }
 
-export const admitted = (a: Admission): Response =>
-  json(200, { ok: true, step: a.stage === 'full' ? 'done' : a.stage, ...(a.stage === 'second-factor' ? { method: a.method } : {}) }, setStoreCookie(a.session, a.remember, a.stage))
+export interface OpenedSession {
+  id: string
+  remember: boolean
+  stage?: UserSessionStage
+}
+
+/** The session as the cookie, or in the body as `token` for the mobile app (ACCESS.md §4); never both. */
+export const withSession = (request: Request, body: Record<string, unknown>, session: OpenedSession | null): Response => {
+  if (!session) return json(200, body)
+  return wantsBodySession(request) ? json(200, { ...body, token: session.id }) : json(200, body, setStoreCookie(session.id, session.remember, session.stage))
+}
+
+export const admitted = (request: Request, a: Admission): Response =>
+  withSession(request, { ok: true, step: a.stage === 'full' ? 'done' : a.stage, ...(a.stage === 'second-factor' ? { method: a.method } : {}) }, { id: a.session, remember: a.remember, stage: a.stage })

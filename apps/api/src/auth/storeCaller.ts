@@ -4,9 +4,9 @@ import type { Subscription, TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { crossingsLoggedSince, selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
 import type { ActivityLog, RequestFacts } from './activity'
-import { readCookie } from './cookie'
+import { storeSessionId } from './storeCredential'
 import { hashSessionId } from './session'
-import { readUserSession, storeCookieName } from './storeSession'
+import { readUserSession } from './storeSession'
 import { isMerchantRole, isSupplierRole, isSupplierTier, type StoreRole } from './storePermissions'
 import { isUuid } from '#core/ids'
 
@@ -119,13 +119,13 @@ export const resolveStoreStanding = async (
   activity: ActivityLog,
   facts: RequestFacts,
 ): Promise<StoreStanding> => {
-  const cookie = readCookie(request.headers.get('cookie'), storeCookieName)
-  if (!cookie) return { kind: 'signed-out' }
+  const sessionId = storeSessionId(request)
+  if (!sessionId) return { kind: 'signed-out' }
   return withSystemScope(sql, async (tx) => {
-    const session = await readUserSession(tx, cookie, partnerId, now)
+    const session = await readUserSession(tx, sessionId, partnerId, now)
     const row = session ? await selectStorePerson(tx, session.userId, partnerId) : null
     if (!row) return { kind: 'signed-out' }
-    const sessionHash = await hashSessionId(cookie)
+    const sessionHash = await hashSessionId(sessionId)
     const person: StorePerson = { ...row, partnerId, sessionHash }
     const asked = request.headers.get(storeHeader)
     if (!asked) return { kind: 'no-store', person }
