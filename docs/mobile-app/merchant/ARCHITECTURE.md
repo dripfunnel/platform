@@ -7,7 +7,7 @@ builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.m
 **Status: proposed, not built.** The app folder doesn't exist yet. Rows marked *(proposed)*
 await a yes.
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
 
 ---
 
@@ -26,10 +26,14 @@ Last updated: 2026-10-08.
 4. **No secrets in the app or the repo.** The session token lives only in the phone's secure
    storage, and is never logged or shown. Signing credentials and store keys live in EAS
    (BUILDS-AND-STORE-ACCOUNTS.md §2).
-5. **The SPA conventions hold** unless this document says otherwise (ui/README.md §2–§4): text
-   from `messages/`, formatting through `@dripfunnel/shared/format`, errors handled by code,
+5. **The SPA conventions hold, without `@dripfunnel/shared`** (REACT-NATIVE.md §2), unless this
+   document says otherwise (ui/README.md §2–§4): text from `messages/`, formatting through the
+   app's own `src/format/`, errors handled by code,
    named exports, one component per file, and every screen's empty, loading, error,
    permission-denied and read-only states.
+6. **A mobile card needs only the Store API card for its area, never the web screen card**
+   (decided 2026-10-09). Where that Store API card is still open, the mobile card **Needs** it
+   and is built on the real API, with no fixtures.
 
 ---
 
@@ -38,9 +42,9 @@ Last updated: 2026-10-08.
 | Decision | Rejected | Why |
 |---|---|---|
 | **Expo Router** for navigation *(proposed)* | React Navigation configured by hand | Expo's default. File routes like the SPAs' TanStack Router, so screens and URLs (deep links) line up with the web portal. |
-| **The SPAs' folder pattern**: thin routes, `features/<area>/`, `api/<area>.ts`, `messages/`, `brand/` *(proposed)* | A mobile-specific layout | A developer moves between `apps/ui/store` and the app without relearning. Code moves to `apps/ui/shared/` the moment both use it. |
-| **No state library** at first: screens call `api/` functions, as the SPAs do *(proposed)* | Redux, Zustand or React Query from day one | No dependency without a stated need (AGENTS.md "Dependencies"). Added when the offline queue (§5) or caching needs it. |
-| **Theme tokens as a TypeScript object**, filled from DripFunnel's values and overridden by the brand query *(proposed)* | Reading `shared/ui/tokens.css` | React Native has no CSS variables. The values match the `--df-*` tokens. They move to `shared/` only if a web app needs them in TypeScript too. |
+| **The SPAs' folder pattern**: thin routes, `features/<area>/`, `api/<area>.ts`, `messages/`, `brand/` *(proposed)* | A mobile-specific layout | A developer moves between `apps/ui/store` and the app without relearning. The code itself is not shared (REACT-NATIVE.md §2). |
+| **No state library** at first: screens call `api/` functions, as the SPAs do *(proposed)* | Redux, Zustand or React Query from day one | No dependency without a stated need (AGENTS.md "Dependencies"). Added when caching, or an offline queue after the first release (§5), needs it. |
+| **Theme tokens as a TypeScript object**, filled from DripFunnel's values and overridden by the brand query *(proposed)* | Reading `shared/ui/tokens.css` | React Native has no CSS variables. The values match the `--df-*` tokens. |
 | **Jest with the `jest-expo` preset** for component tests; logic tests can stay on Vitest *(proposed)* | Vitest for everything | React Native components need its Babel transform and native mocks, which `jest-expo` provides. The gates stay `typecheck`, `lint`, `test`. |
 
 ---
@@ -64,7 +68,9 @@ apps/ui/mobile-app/merchant/
       (tabs)/               signed in: the tab bar (DESIGN.md §2)
         home.tsx  orders/  catalogue/  offers/  more/
     features/<area>/        screens, private components and hooks per area
+    graphql/                the app's own API client and types generated from apps/api/schema/ (§5)
     api/<area>.ts           this app's GraphQL operations, typed from apps/api/schema/
+    format/                 the app's own money, date, number and plural formatting (REACT-NATIVE.md §6)
     session/                the bearer token in secure storage, acting store and supplier
     brand/                  loads the partner's look and turns it into the theme
     theme/                  tokens and the theme provider
@@ -91,16 +97,17 @@ apps/ui/mobile-app/merchant/
 
 ## 5. Talking to the API
 
-- **One client**: `createApiClient` from `@dripfunnel/shared/graphql`, with
-  `endpoint: https://<portal domain>/api/`. Its `headers` adds `Authorization: Bearer <token>`,
-  plus `X-Store` and `X-Supplier` (ACCESS.md §4).
+- **One client, the app's own** (`src/graphql/`, not `createApiClient`; REACT-NATIVE.md §2), at
+  `https://<portal domain>/api/`. It sends `Authorization: Bearer <token>`, plus `X-Store` and
+  `X-Supplier` (ACCESS.md §4).
 - **`api/` is the only place that writes GraphQL**, with operations named for what they do.
   Screens call these functions, never `fetch`.
 - **Errors by code** (`UNAUTHENTICATED`, `FORBIDDEN`, `PLAN_LIMIT_REACHED`, `NOT_CONNECTED`…),
   each mapped to a state from DESIGN.md §4.
-- **Offline**: the prototype keeps changes on the device and saves them when the phone is back
-  online (DESIGN.md §4). Which writes may wait in the queue is decided before it's built. These
-  rules hold for any design:
+- **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
+  offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write
+  needs a connection. If a queue is added later, which writes may wait in it is decided first,
+  and these rules hold for any design:
   - **Each queued write belongs to one session, store and supplier.** It is wiped, never
     replayed, on sign-out, on session expiry, and on a store or supplier switch. A write is
     never sent under a different session or acting store from the one it was made in.
@@ -124,6 +131,5 @@ already has. These are the only API changes, each built on its own card with per
 |---|---|---|---|
 | **Bearer-token session** (ACCESS.md §4) | The routes that open a session (sign-in, 2-factor, invitation, reset) return the session in the body to a request with no `Origin` and no cookie. The session reader accepts `Authorization: Bearer` when no cookie is sent. | None: the same `user_session` row | Before any screen that calls the API |
 | **App icon and splash uploads** (BUILDS-AND-STORE-ACCOUNTS.md §5) | An upload on the partner console's branding screen (Platform API), stored with `partner_branding` | A new field on `partner_branding`; likely a migration | Before a partner's first build |
-| **In-app purchase** (FIRST-RELEASE.md §3) | Apple's and Google's purchase notifications update the store's subscription | Two webhook endpoints; a billing source on the subscription (migration) | Only after FIRST-RELEASE.md §4 is answered; the app ships without purchases until then |
 
 Anything a screen needs beyond these is a question first, never code.

@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-08 (#470: Cloudflare Containers; no package access for store repos).
+Last updated: 2026-10-09 (#493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -23,6 +23,7 @@ Feature environments (one per `feature` branch) are a separate setup:
 | Consoles | Pages projects `dripfunnel-admin-dev`, `dripfunnel-platform-dev`, `dripfunnel-store-dev` |
 | Database | Neon project `dripfunnel-dev`, its persistent `dev` branch, through Hyperdrive |
 | Gate | Cloudflare Access: `*.dripfunnel.ai` allows `@softobotics.com`; `*-hooks.dripfunnel.ai` is bypassed so providers' test webhooks arrive |
+| Merchant mobile app | Its `dev` profile points at `dev-store.dripfunnel.ai` ([mobile-app/merchant/CONFIGURATION.md §2](../mobile-app/merchant/CONFIGURATION.md), #493); the Access gate above refuses the app's API calls until its own card solves that |
 | Deploys | `.github/workflows/dev.yml`, on every push to `dev`, or by hand |
 | Third parties | Test mode everywhere: Stripe test keys, the SES sandbox or a test identity, the Entra registration's dev redirect |
 
