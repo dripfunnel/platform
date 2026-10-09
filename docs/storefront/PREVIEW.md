@@ -155,6 +155,9 @@ container.
 - **The store comes only from the hostname's key**, looked up by the Worker. A path or a
   parameter can't name another store, and a link, cookie or studio token for one store is
   refused on another store's host (§5 steps 2–3; an isolation test on #317).
+- **Nothing on a preview host answers without the cookie and the access re-check**: not HTML,
+  not a chunk, not `/shop-api` (no test-mode cart or checkout either). Each has an isolation
+  test on #317 (§5 steps 3–5).
 - **A draft is private**: its files sit behind the cookie check, never on the public asset host.
 - **No secret reaches the browser** beyond the session cookie. The SPA uses only the public
   store key (ARCHITECTURE §5).
