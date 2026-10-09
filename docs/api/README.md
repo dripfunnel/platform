@@ -396,7 +396,6 @@ host leaves it out, since which integration is missing would tell a caller where
 3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
    `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
    presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
-   Production leaves `integrations` out: `/health` is public, and which integration is missing would tell a caller where a check is off.
 
 ---
 

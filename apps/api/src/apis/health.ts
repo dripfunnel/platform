@@ -23,7 +23,6 @@ export const integrationsOf = (config: Config, hasAssets: boolean) => ({
   assets: hasAssets ? 'configured' : 'missing',
 })
 
-// Public, so only where a missing value helps whoever is setting the environment up: dev and local.
 export const isHealthPath = (area: Exclude<Area, 'hooks'>, pathname: string): boolean => pathname === healthPath[area]
 
 export const handleHealthCheck = async (
@@ -41,6 +40,7 @@ export const handleHealthCheck = async (
   if (!success) return new Response('Too many requests', { status: 429 })
   const db = await checkHealth(config, ctx)
   const ok = db === 'ok' || db === 'unconfigured'
+  // Public, so integrations only where a missing value helps whoever sets the environment up (README §7).
   const body = { ok, area, db, version }
   return Response.json(isDevOrLocal(config) ? { ...body, integrations: integrationsOf(config, hasAssets) } : body, { status: ok ? 200 : 503 })
 }
