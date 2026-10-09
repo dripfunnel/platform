@@ -579,8 +579,9 @@ SaaS layer owns the state and the rules:
 - Publishing is a capability, **separate from settings**: holding it grants nothing else
   (the lesson of the first platform's `UpdateChannel` trap, where one permission both published and
   could rewrite deploy credentials). Deploy credentials are never on a row a merchant can
-  write, and never in a repo or a sandbox; a build gets only a 15-minute credential for its own
-  folder ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §9).
+  write, and never in a repo or a sandbox; a build gets only a 15-minute credential for a private
+  staging folder, after a passing report, and never one that names a build folder
+  ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4 step 8, §9).
 
 ### 9.2 The AI designer loop
 
