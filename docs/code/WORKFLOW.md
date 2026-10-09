@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-10-09 (`@claude` replies on pull requests, §7).
+Last updated: 2026-10-07 (#466: how a card is written).
 
 ---
 
@@ -223,11 +223,6 @@ pull request's **base** branch and refuses one starting with `#`
 ([anthropics/claude-code-action#751](https://github.com/anthropics/claude-code-action/issues/751)),
 with no input or event that avoids the check, so the workflow does not use the action. Branch
 names are checked by the `naming` job alone; the review has no opinion on them.
-
-**`@claude` in an issue or a pull request comment** runs Claude through
-`anthropics/claude-code-action` ([`claude.yml`](../../.github/workflows/claude.yml)), with the
-review's token. Because of the base-branch check above, it can't answer on a stacked pull request.
-GitHub runs comment events from the default branch's copy, so it answers once the file is on `main`.
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
