@@ -124,7 +124,8 @@ container.
    link for store A must never open store B's draft. The token doesn't stay in
    browser history or leak in a Referer, and the `__Host-` prefix ties the cookie to this one
    subdomain.
-3. **Every later request needs the cookie, naming this host's store.** Without it, or once the
+3. **Every later request needs the cookie, naming this host's store** (except the studio frame's
+   requests under `/__studio/{session}/`, which present the studio-session id instead: §6). Without it, or once the
    session has run out (a tab left idle for over 15 minutes), the Worker answers with a plain
    page that shows no store data: "This preview has closed. Open it again from your link or from
    the portal." `/shop-api` answers the SPA with an error that makes it show the same screen.
@@ -176,13 +177,15 @@ container.
 
 - **One origin per store**, plus the Public Suffix List entry once accepted (§2 step 4).
 - **The store comes only from the hostname's key**, looked up by the Worker. A path or a
-  parameter can't name another store, and a link, cookie or studio token for one store is
+  parameter can't name another store, and a link, cookie or studio-session id for one store is
   refused on another store's host (§5 steps 2–3; an isolation test on #317).
 - **Nothing on a preview host answers without the cookie**:
   - HTML and `/shop-api` get the full access re-check on every request;
   - chunks get the cookie, which only a passing re-check renews, every 15 minutes;
-  - the studio's `/__studio/` frame and WebSocket use a studio token instead, under the same
-    re-check (AI-STUDIO §3 step 6, §8).
+  - the studio's frame on this host is cross-site inside the portal, where the cookie isn't
+    sent. So everything under `/__studio/{session}/` (its HTML, chunks, `/shop-api` and
+    WebSocket) presents the studio-session id in the path instead. The id is store-bound and live
+    only while renewed through the same re-check (AI-STUDIO §3 step 6, §8).
 
   Each has an isolation test on #317 (§5 steps 3–5).
 - **A draft is private**: its files sit behind the cookie check, never on the public asset host.

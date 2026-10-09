@@ -43,7 +43,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
  │ └────────────────────────────┘ │          │   container (apps/sandbox, the store's       │
  └────────────────────────────────┘          │   core version): no network, no credential   │
                                              │         │                                    │
-                                             │   R2 drafts (private): drafts/{id}.bundle    │
+                                             │   R2 drafts (private): drafts/{store}.bundle │
                                              │   R2 storefront-sites: preview folders       │
                                              └──────────────────────────────────────────────┘
  GitHub: the store's public repo ◄── the draft is pushed only once its publish is live
@@ -79,13 +79,22 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    GitHub:* it doesn't have the unpublished changes, its `main` can lag behind a publish whose push
    is still retrying, and reading R2 doesn't use GitHub's API limits.
 5. **The container builds the first bundle** with the fast gate's bundle step.
-6. **The frame opens** at `https://{key}.webpreview.store/__studio/`, carrying a short-lived
-   studio token the Store API signed for this session. The edge Worker checks the token, and that
-   **its store is the store the hostname's preview key resolves to** (else nothing is served),
-   and passes requests to the same Durable Object, which serves the bundle from the container. Until
-   the container is ready, the frame shows the current preview ([PREVIEW.md](PREVIEW.md) §3) under
-   "Opening your studio…".
-   *Why:* the frame is never blank, and a cold start is a few seconds.
+6. **The frame opens** at `https://{key}.webpreview.store/__studio/{session}/`. `{session}` is
+   an unguessable studio-session id (128 random bits) that the Store API creates for this store's
+   session. **Every frame request carries it in its path**, so no cookie is needed in the
+   cross-site iframe (browsers don't send a SameSite=Lax cookie there, and many block third-party
+   cookies):
+   - the HTML and the theme's chunks, by relative URL;
+   - `/__studio/{session}/shop-api/*`, through core's client base path;
+   - the hot-reload WebSocket.
+
+   The edge Worker checks that the hostname's store is the session's store (else nothing is
+   served) and asks the store's Durable Object whether the session is live. The Durable Object
+   then serves the bundle from the container. Responses carry `Referrer-Policy: no-referrer`,
+   and the id is never logged. Until the container is ready, the frame shows the current preview
+   ([PREVIEW.md](PREVIEW.md) §3) under "Opening your studio…", served under the same path.
+   *Why:* the frame is never blank, a cold start is a few seconds, and the frame works in every
+   browser without third-party cookies.
 
 ---
 
@@ -189,12 +198,12 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **AI-written code runs only on the store's preview origin**, never on the portal host
   (decision above). The studio and the frame talk by `postMessage`, and each checks the other's
   origin.
-- **The studio token** names one store and one session, must name the store of the hostname it
-  arrives on (PREVIEW §5 step 2), and is checked on every frame request and on the WebSocket. It
-  lives **5 minutes** *(proposed)* and is renewed by the studio through the Store API, which
+- **The studio-session id** (§3 step 6) names one store and one session and is accepted only on
+  that store's host, on every frame request, chunk, `/shop-api` call and the WebSocket. It stays
+  live for **5 minutes** *(proposed)* unless the studio renews it through the Store API, which
   re-checks the user's membership and capability each time, as PREVIEW §5 step 4 does for the
-  preview. A user removed or stripped of the capability gets no renewal, so the frame stops and
-  the WebSocket closes within 5 minutes.
+  preview. A user removed or stripped of the capability gets no renewal, so the Durable Object
+  ends the session: the frame stops and the WebSocket closes within 5 minutes.
 - **Drafts never go public before they are live.** A failed or refused publish pushes nothing
   (§6 step 4). They sit in the private drafts bucket, under
   `drafts/{store}.bundle`, which only the Durable Object reads and writes. The same bucket holds
@@ -211,7 +220,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   theme *(decide on #482)*.
 - The idle timeout: 10 minutes proposed, 5 suggested *(decide on #482)*.
 - Whether a plan caps simultaneous studio sessions *(decide on #287 and #482)*.
-- The studio token's lifetime (5 minutes proposed, renewed through the Store API with the access
-  re-check) and the WebSocket path through the edge Worker *(decide on #482)*.
+- The studio session's renewal interval (5 minutes proposed, renewed through the Store API with
+  the access re-check) and the WebSocket path through the edge Worker *(decide on #482)*.
 - Core's hot-swap entry point for the preview adapter *(decide on #304 and #482)*.
 - The retirement rule for old core versions' images *(decide on #485)*.
