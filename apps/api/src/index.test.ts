@@ -30,10 +30,10 @@ describe('worker', () => {
   it('reports health per area, returning 503 and ok: false on a misconfigured database', async () => {
     const response = await call('https://platform.dripfunnel.com/api/health')
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'down', version: 'test-version' })
+    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'down', version: 'test-version', integrations: { entra: 'missing', stripe: 'missing', ses: 'missing', assets: 'missing' } })
     const admin = await call('https://admin.dripfunnel.com/api/health')
     expect(admin.status).toBe(503)
-    expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down', version: 'test-version' })
+    expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down', version: 'test-version', integrations: { entra: 'missing', stripe: 'missing', ses: 'missing', assets: 'missing' } })
   })
 
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
@@ -41,7 +41,23 @@ describe('worker', () => {
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured', version: 'test-version' })
+    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured', version: 'test-version', integrations: { entra: 'missing', stripe: 'missing', ses: 'missing', assets: 'missing' } })
+  })
+
+  it('names which integrations are configured, never a value', async () => {
+    const configured = {
+      ...env,
+      ASSETS: {} as R2Bucket,
+      ENTRA_TENANT_ID: 't',
+      ENTRA_CLIENT_ID: 'c',
+      ENTRA_CLIENT_SECRET: 'secret-entra',
+      STRIPE_SECRET_KEY: 'rk_test_abc',
+      STRIPE_WEBHOOK_SECRET: 'whsec_abc',
+    }
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], configured, ctx)).text()
+    expect(JSON.parse(text).integrations).toEqual({ entra: 'configured', stripe: 'configured', ses: 'missing', assets: 'configured' })
+    expect(text).not.toMatch(/secret-entra|rk_test|whsec_/)
   })
 
   it('reports 503 when the environment requires a database and the binding is gone (#30)', async () => {
@@ -49,7 +65,7 @@ describe('worker', () => {
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], lost, ctx)
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'missing', version: 'test-version' })
+    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'missing', version: 'test-version', integrations: { entra: 'missing', stripe: 'missing', ses: 'missing', assets: 'missing' } })
   })
 
   it('rate-limits /health', async () => {

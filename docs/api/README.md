@@ -278,6 +278,14 @@ together. Install it natively — no Docker required.
 and what its local check stops on are in [setup/local.md](../setup/local.md).** This section
 keeps how the Worker and the scripts use that database.
 
+### Local, the same as dev
+
+1. `cp apps/api/.env.example apps/api/.env.local` and put the dev test values in it (THIRD-PARTY-ACCESS §8).
+2. `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"`, and set the `whsec_…` it prints as `STRIPE_WEBHOOK_SECRET`.
+3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
+   `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
+   presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
+
 `.env.local` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (the same
 connection string as `DATABASE_URL`, **with a password in the URL**, even a dummy one a trust-auth
 Postgres ignores): `wrangler dev --env local` uses it to make the `HYPERDRIVE` binding proxy to

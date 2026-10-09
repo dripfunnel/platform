@@ -12,6 +12,17 @@ interface WaitUntil {
   waitUntil: (promise: Promise<unknown>) => void
 }
 
+type Presence = 'configured' | 'missing'
+
+const presence = (...values: unknown[]): Presence => (values.every((value) => value !== undefined) ? 'configured' : 'missing')
+
+export const integrationsOf = (config: Config, hasAssets: boolean) => ({
+  entra: presence(config.ENTRA_TENANT_ID, config.ENTRA_CLIENT_ID, config.ENTRA_CLIENT_SECRET),
+  stripe: presence(config.STRIPE_SECRET_KEY, config.STRIPE_WEBHOOK_SECRET),
+  ses: presence(config.SES_REGION, config.SES_ACCESS_KEY_ID, config.SES_SECRET_ACCESS_KEY, config.SES_SENDER_DOMAIN, config.EMAIL_SUPPRESSION_KEY),
+  assets: hasAssets ? 'configured' : 'missing',
+})
+
 export const isHealthPath = (area: Exclude<Area, 'hooks'>, pathname: string): boolean => pathname === healthPath[area]
 
 export const handleHealthCheck = async (
@@ -21,6 +32,7 @@ export const handleHealthCheck = async (
   ctx: WaitUntil,
   rateLimiter: RateLimiter,
   version: string,
+  hasAssets: boolean,
 ): Promise<Response> => {
   const ip = request.headers.get('cf-connecting-ip')
   if (!ip) return new Response('Bad request', { status: 400 })
@@ -28,5 +40,5 @@ export const handleHealthCheck = async (
   if (!success) return new Response('Too many requests', { status: 429 })
   const db = await checkHealth(config, ctx)
   const ok = db === 'ok' || db === 'unconfigured'
-  return Response.json({ ok, area, db, version }, { status: ok ? 200 : 503 })
+  return Response.json({ ok, area, db, version, integrations: integrationsOf(config, hasAssets) }, { status: ok ? 200 : 503 })
 }
