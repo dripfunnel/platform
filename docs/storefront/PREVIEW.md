@@ -115,7 +115,7 @@ container.
    cookie (HttpOnly, Secure, SameSite=Lax, signed, naming the store, ending when the token does)
    and redirects to `/` without the token.
    *Why:* the preview key is opaque but not secret (it is in every shared link), so a valid
-   link for store A must never open store B's draft (PR #521's review). The token doesn't stay in
+   link for store A must never open store B's draft. The token doesn't stay in
    browser history or leak in a Referer, and the `__Host-` prefix ties the cookie to this one
    subdomain.
 3. **Every later request needs the cookie, naming this host's store.** Without it, or once it has expired, the Worker
@@ -127,14 +127,20 @@ container.
    one (`storefront.preview_epoch` *(proposed, #317)*, which "End all preview links" or a team
    member's removal moves on). Otherwise the expired-link page.
    *Why:* a removed team member or vendor, or a user whose capability was taken away, loses the
-   private draft on their next page, not when the link expires (PR #521's review). It then serves `index.html` for any
+   private draft on their next page, not when the link expires. It then serves `index.html` for any
    path that isn't a file (the SPA fallback), with:
-   - `Cache-Control: no-store` on HTML, and cached-forever on hashed chunks;
+   - **every request, HTML or a chunk, passes the cookie check of steps 3–4 before anything is
+     read**; chunks may then be kept in the Worker's cache under the store, the change folder and
+     the path, and are sent with `Cache-Control: private, max-age=31536000, immutable`, so no
+     shared cache can serve them to a request without the cookie;
+   - `Cache-Control: no-store` on HTML;
    - `X-Robots-Tag: noindex, nofollow`, and a `robots.txt` that disallows everything;
    - the same CSP as live sites.
    *Why:* a fresh change shows on the next load, a draft never reaches a search engine, and the
    browser's walls are the same as on the live site.
-5. **`/shop-api/*` goes to the API Worker**, which finds the store from the preview key in the
+5. **`/shop-api/*` goes to the API Worker only with a valid cookie for this host's store** (steps
+   3–4; the preview key isn't secret, so the key alone opens nothing). The API Worker finds the
+   store from the preview key in the
    hostname ([../ARCHITECTURE.md](../ARCHITECTURE.md) §8). The SPA reads products, prices and stock live.
    *Why:* catalogue changes show in the preview at once, with no build.
 6. **Checkout runs in each provider's test mode** (decided 2026-10-05 on #284). Whether express

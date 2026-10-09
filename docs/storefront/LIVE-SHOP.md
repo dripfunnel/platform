@@ -25,7 +25,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 | Decision | Rejected | Why |
 |---|---|---|
 | **One public GitHub repo per store**, created when the merchant first picks a template | Private repos built in Cloudflare Containers (decided 2026-10-08 on #470, replaced); one repo holding every store | Builds on GitHub-hosted runners cost nothing in public repos. A repo per store keeps its own push limit (GitHub allows 6 pushes a minute per repo), its own history, and makes deleting or exporting a merchant one repo operation. One shared repo would share those 6 pushes between every store, pass GitHub's recommended 3,000 entries per folder and 10 GB, and turn a merchant's deletion request into a rewrite of everyone's history. |
-| **The code reaches GitHub only once its publish is live** (decided 2026-10-09; first "at Publish", moved after the switch on PR #521's review) | A commit to the repo for each accepted AI change (decided 2026-10-08 on #470, replaced); pushing at Publish, before the checks | The repos are public. A commit per change would show unreleased products, sale banners and half-finished designs before the merchant publishes them, and a busy studio would push several times a minute. The draft lives in private storage until then ([AI-STUDIO.md](AI-STUDIO.md) §1), and a publish that fails its checks never makes it public. |
+| **The code reaches GitHub only once its publish is live** (decided 2026-10-09; first "at Publish", moved after the switch on #520) | A commit to the repo for each accepted AI change (decided 2026-10-08 on #470, replaced); pushing at Publish, before the checks | The repos are public. A commit per change would show unreleased products, sale banners and half-finished designs before the merchant publishes them, and a busy studio would push several times a minute. The draft lives in private storage until then ([AI-STUDIO.md](AI-STUDIO.md) §1), and a publish that fails its checks never makes it public. |
 | **A locked workflow in each repo builds the site, started only by the platform** (`workflow_dispatch`) | A build on every push; a pool of build containers | The platform decides when a build runs and keeps one build at a time per store (SAAS §9.1). A push alone builds nothing, so nothing outside the platform can start a deploy. |
 | **The build runs inside the public build image for the store's core version, with networking off** | `npm install` on the runner; a private image or package with a pull token | It is the same image the studio uses ([AI-STUDIO.md](AI-STUDIO.md) §1), so a theme that passed the studio's fast gate builds the same way. GitHub's npm registry needs a token even for public packages, but a public image on `ghcr.io` needs none. With no network, the AI's code can't call out during the build, and the same inputs always give the same files. |
 | **No secret in any repo: GitHub OIDC, and the API mints 15-minute R2 credentials limited to that build's staging folder** | A Cloudflare token in each repo's secrets; one token in an organisation secret | An R2 token can be limited to a bucket, never to a folder, so a token in every repo could overwrite every store's site and its old versions. A GitHub OIDC token lasts minutes and names the repo and the workflow that asked. The credential the API mints can write only the new build's staging folder: not any build folder, not older builds, and not the live pointer. The API copies verified files into the build's folder itself (§4 step 9). |
@@ -107,7 +107,7 @@ checking, deploying, live, failed, rolled back).
    live build's kept source bundle (step 3), never from GitHub. The repo's `main` gets the draft
    only once this publish is live (step 9).
    *Why:* the repo is public. A publish that fails its checks, or is refused or bisected, must
-   never make an unreleased design public (decided 2026-10-09 with Gaurav, on PR #521's review).
+   never make an unreleased design public (decided 2026-10-09 with Gaurav, #520).
 3. **The platform freezes the input**, as private files for this build behind 15-minute links:
    - the catalogue snapshot, read once from the Shop API (ARCHITECTURE §5);
    - the source to build, as a git bundle of that commit, **kept privately with the build** for as
@@ -181,21 +181,25 @@ checking, deploying, live, failed, rolled back).
 9. **Verify, copy, switch, then push.** The API:
    1. checks that the report came through an OIDC-verified call (§9) and passed, and that the
       manifest's digest equals the report's;
-   2. reads each staged object through its R2 binding, checks its SHA-256 against the manifest
-      (R2's upload checksums aren't relied on), and copies it into the build's folder, the hashed
-      JS and CSS into the public bucket only now that they are verified:
-      `stores/{id}/builds/{build id}/` in `storefront-sites`, and
-      `stores/{id}/builds/{build id}/assets/` in `storefront-assets`. A file the manifest marks
-      unchanged since the live build *(proposed, §10)* is copied server-side from the live build's
-      folder instead, after the same SHA-256 check, so **every build folder is complete on its
-      own**: the Worker never follows a reference, and clean-up can delete any old build;
+   2. reads each staged object **once**, through its R2 binding, streaming the same bytes into
+      both a SHA-256 hash and a write to the build's folder in the private bucket
+      (`stores/{id}/builds/{build id}/` in `storefront-sites`). It keeps that object only if the
+      hash matches the manifest (R2's upload checksums aren't relied on), so a file can't be swapped
+      between the check and the copy. From "uploaded" on, the API ignores the staging folder:
+      anything written there later is never read, and the folder is deleted at step 3. Only then
+      are the verified JS and CSS copied from that private build folder, which no credential can
+      write, into `stores/{id}/builds/{build id}/assets/` in the public `storefront-assets`. A file
+      the manifest marks unchanged since the live build *(proposed, §10)* is copied server-side
+      from the live build's folder instead, after the same check, so **every build folder is
+      complete on its own**: the Worker never follows a reference, and clean-up can delete any old
+      build;
    3. deletes the staging folder, moves the live pointer, records the new build as live
       (`publish_run` with the report as its `gate`, `design_version`) and refreshes the edge
       Worker's lookup (§5 step 1);
    4. for a design publish, pushes the published tree to the repo's `main` as **one squashed
       commit with a platform-written message** ("Publish version N" and the build id), through
       the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6). The merchant's requests, the per-change
-      commits and undone versions stay private (PR #521's review). If GitHub is down, the push
+      commits and undone versions stay private. If GitHub is down, the push
       retries through the outbox; the live site doesn't wait for it. The push is made from the
       live build's source bundle, so one that lagged catches up with a commit for each version
       published since `main`, fast-forward.
