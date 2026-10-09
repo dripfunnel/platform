@@ -149,7 +149,7 @@ by a person (the account's owner signs the terms); the cards build against local
 then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 
 1. **Cloudflare, buckets** (dev account): create `storefront-sites` (private), `storefront-assets`
-   (public through the asset host once #317 names it; created with the r2.dev address on, which is for testing only) and `storefront-drafts` (private). Create the R2 storefront
+   (made public through the asset host once #317 names it; keep the r2.dev address off until then) and `storefront-drafts` (private). Create the R2 storefront
    upload credential (*Object Read & Write* on those three buckets only, able to create temporary
    credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
    `R2_STOREFRONT_SECRET_ACCESS_KEY`, and a cache purge token → `CF_CACHE_PURGE_TOKEN`

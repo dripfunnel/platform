@@ -109,7 +109,7 @@ GitHub holds the code, the store repos (each store's published theme and its his
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
-| **`dripfunnel` org on GitHub Team** | Branch protection on `main` before the first deploy workflow ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6). Also sets how many Actions jobs every store repo shares at once: 20 on Free, 60 on Team, 500 on Enterprise (checked 2026-10-09), so the plan follows the number of stores. *(decide on #287)* | Plan | — | 1 |
+| **`dripfunnel` org on GitHub Team** | Branch protection on `main` before the first deploy workflow ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6). Also sets how many Actions jobs every store repo shares at once: 20 on Free, 60 on Team, 500 on Enterprise (checked 2026-10-09), so the plan follows the number of stores *(decide on #287)* | Plan | — | 1 |
 | **GitHub App** "DripFunnel Provisioning", installed on the org | Every repo operation. Short-lived installation tokens per request, never a token per store ([../api/SAAS.md](../api/SAAS.md) §2) | App ID, **private key (PEM)**, installation ID | Worker secret (PEM); IDs as variables | 6 |
 | — | Permissions to request (decided 2026-10-09, builds back on Actions): *Administration: write* (create and delete public repos), *Contents: write* (the template, the draft pushed at each Publish, the upgrade bot's commits), *Workflows: write* (the locked build workflow), *Actions: write* (start a build with `workflow_dispatch`, read its state), *Metadata: read*. No Secrets, Variables, Pull requests or Checks: store repos have no secrets or variables | — | — | — |
 | — | Webhook events: none needed; the upload job reports to the API and the API reads the run's state | — | — | — |
