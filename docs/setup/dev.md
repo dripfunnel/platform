@@ -155,10 +155,10 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    `R2_STOREFRONT_SECRET_ACCESS_KEY`, and a cache purge token → `CF_CACHE_PURGE_TOKEN`
    (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
 2. **Preview domain**: register `webpreview.store` (or a separate dev domain, as decided on the
-   card), add it as its own zone on the main account (Free plan), add the proxied wildcard record
+   card), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
    `*.<domain>`, and confirm Universal SSL covers it. In Logpush leave out `ClientRequestURI`,
-   `ClientRequestPath` and `ClientRequestQuery` (`../storefront/PREVIEW.md` §2). The Worker route is #517's.
-3. **Cloudflare Containers and Durable Objects**: enable both on the main account. Measure the cold
+   `ClientRequestPath` and `ClientRequestQuery` (`../api/LOGGING.md` §9, `../storefront/PREVIEW.md` §2). The Worker route is #517's.
+3. **Cloudflare Containers and Durable Objects**: enable both on the Cloudflare account you use for dev. Measure the cold
    start of a 1.5–2 GB image at `basic` and `standard-1`, and record it with the date in
    THIRD-PARTY-ACCESS §2.1. Ask for a raise only if the limits are below the studio load (AI-STUDIO §7).
 4. **GitHub**: the org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,
