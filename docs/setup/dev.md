@@ -149,7 +149,7 @@ by a person (the account's owner signs the terms); the cards build against local
 then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 
 1. **Cloudflare, buckets** (dev account): create `storefront-sites` (private), `storefront-assets`
-   (public, behind the asset host) and `storefront-drafts` (private). Create the R2 storefront
+   (public through the asset host once #317 names it; created with the r2.dev address on, which is for testing only) and `storefront-drafts` (private). Create the R2 storefront
    upload credential (*Object Read & Write* on those three buckets only, able to create temporary
    credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
    `R2_STOREFRONT_SECRET_ACCESS_KEY`, and a cache purge token → `CF_CACHE_PURGE_TOKEN`
@@ -161,8 +161,8 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 3. **Cloudflare Containers and Durable Objects**: enable both on the main account. Measure the cold
    start of a 1.5–2 GB image at `basic` and `standard-1`, and record it with the date in
    THIRD-PARTY-ACCESS §2.1. Ask for a raise only if the limits are below the studio load (AI-STUDIO §7).
-4. **GitHub**: the org stays on the Free plan for dev (20 Actions jobs at once; decided 2026-10-09 on
-   #287, recorded in THIRD-PARTY-ACCESS §2.3 and LIVE-SHOP §10–§11). Create
+4. **GitHub**: the org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,
+   500 Enterprise; main's protection needs Team, ARCHITECTURE §6). Create
    the *DripFunnel Provisioning* App with *Administration*, *Contents*, *Workflows* and *Actions*
    write and *Metadata* read, **no webhook**; install it on the org → `GITHUB_APP_ID`,
    `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`. Store repos need no package access.
