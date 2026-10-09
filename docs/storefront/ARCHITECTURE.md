@@ -341,7 +341,8 @@ core upgrade):
 5. pass → upload, and the API switches the store's live pointer on the OIDC-verified report
    (atomic; LIVE-SHOP §4 steps 8–9), purges the store's cache, then POST-DEPLOY CHECKS from the edge within about two minutes (home, a product,
    add to cart, checkout opens, the payment element renders)
-6. post-deploy failure → AUTOMATIC ROLLBACK to the previous build (a pointer move, seconds),
+6. post-deploy failure → AUTOMATIC ROLLBACK to the previous build (a pointer move, live
+   everywhere within a minute: LIVE-SHOP §5 step 1),
    then the repair loop on the candidate
 ```
 

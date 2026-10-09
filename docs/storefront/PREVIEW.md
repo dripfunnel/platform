@@ -81,10 +81,12 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
    writes them to `stores/{id}/preview/{change id}/`.
    *Why:* the container has no credential and no network (ARCHITECTURE §6.1); the Durable Object
    makes every outside call.
-3. The Durable Object moves `design_draft.preview_deploy_ref` to the new folder and purges the
-   preview host's cached lookup.
+3. The Durable Object moves `design_draft.preview_deploy_ref` to the new folder.
 4. The next request to the preview link gets the new version, about 1–2 seconds after the gate
-   (our estimate).
+   (our estimate). **The preview's lookup is never cached** (§5 step 4).
+   *Why:* the Cache API is per data centre, so a cached pointer could show an old draft for a
+   while elsewhere. Preview traffic is only the merchant's team, so asking the API every time
+   costs nothing that matters.
 
 **For a brand-new store:** each template's preview bundle is built once per core version, when
 the template ships with a core release (ARCHITECTURE §2.3). Creating the store's repo copies that
@@ -113,7 +115,9 @@ container.
    ties the cookie to this one subdomain.
 3. **Every later request needs the cookie.** Without it, or once it has expired, the Worker
    answers with a plain "This preview link has expired" page that shows no store data.
-4. **The Worker serves `index.html` for any path that isn't a file** (the SPA fallback), with:
+4. **The Worker asks the API for the store's current preview folder on every HTML request** (no
+   cached lookup, unlike live sites: LIVE-SHOP §5 step 1). It then serves `index.html` for any
+   path that isn't a file (the SPA fallback), with:
    - `Cache-Control: no-store` on HTML, and cached-forever on hashed chunks;
    - `X-Robots-Tag: noindex, nofollow`, and a `robots.txt` that disallows everything;
    - the same CSP as live sites.

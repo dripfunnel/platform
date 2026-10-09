@@ -140,9 +140,14 @@ checking, deploying, live, failed, rolled back).
 
    The checkout smoke test runs against core's offline Shop API fixture *(proposed)*; the real
    checkout is the post-deploy check (step 10). The job writes a **report** with each check's
-   pass or fail. It doesn't read anything the build job left besides the built files.
+   pass or fail, and the **digest of the files it checked**: SHA-256 over the sorted list of each
+   file's path and SHA-256. It reads nothing the build job left besides the built files, and has
+   no `id-token` permission, so it can't talk to the API at all.
    *Why:* the checks cost nothing on public repos and need no browser service of ours. The AI's
-   code runs here only inside the headless browser, which can't touch the report.
+   code runs here only inside the headless browser, which has no access to the runner's files or
+   to the report. The digest ties the report to exact bytes (step 9). A theme that behaves
+   differently under checks is what the validator's ban on environment sniffing (ARCHITECTURE
+   §3.4) and the post-deploy checks from the edge (step 10) are there to catch.
 8. **Job `upload`:** it runs none of the repo's code. It gets a fresh OIDC token and sends the
    report.
    - **On a pass**, the API mints **R2 temporary credentials, one per bucket, limited to
@@ -154,18 +159,24 @@ checking, deploying, live, failed, rolled back).
      sandbox (AI-STUDIO), then a new build. The live site stays as it was.
 
    *Why:* the credential can't touch an older build or another store, and a failing build never
-   writes anything. The manifest tells the Worker exactly which files make up the build.
-9. **Switch:** the API moves the live pointer **only on an OIDC-verified report that passed
-   (§9), for a build whose upload matches its manifest**. It records the new build as live
-   (`publish_run` with the report as its `gate`, `design_version`) and purges the edge Worker's
-   cached lookup for the store (§5 step 1). The upload's credential itself can never move the
-   pointer.
-   *Why:* a single row change makes the whole new build live at once, and the next request
-   already gets it. The result comes from the workflow's own check job, a run of the locked
-   workflow the API started. The post-deploy checks (step 10) are the platform's own backstop.
+   writes anything. The manifest lists every file with its SHA-256 and tells the Worker exactly
+   which files make up the build.
+9. **Switch:** the API moves the live pointer **only when all of these hold**:
+   - the report came through an OIDC-verified call (§9) and passed;
+   - the manifest's digest equals the digest in the report;
+   - every uploaded object hashes to its manifest entry (the API reads each one back through its
+     R2 binding; R2's own upload checksums aren't relied on).
+
+   It records the new build as live (`publish_run` with the report as its `gate`,
+   `design_version`) and refreshes the edge Worker's lookup (§5 step 1). The upload's credential
+   itself can never move the pointer.
+   *Why:* the build that goes live is provably the build that passed: the same bytes, checked by
+   a run of the locked workflow the API started. A single row change switches the whole build at
+   once in each data centre, and everywhere within the lookup's 60-second limit (§5 step 1). The
+   post-deploy checks (step 10) are the platform's own backstop.
 10. **Post-deploy checks and automatic rollback**, from the edge, run by the platform, follow
-    ARCHITECTURE §4.2 steps 5–6. A rollback
-    is the same pointer move back to the previous build: seconds, no rebuild.
+    ARCHITECTURE §4.2 steps 5–6. A rollback is the same pointer move back to the previous build:
+    no rebuild, live everywhere within a minute (§5 step 1).
 11. **Clean-up:** a store keeps its last builds *(decide: 20 proposed)* and every build a kept
     version in the history refers to (SAAS §9.2). Older build folders are deleted, along with
     each build's snapshot.
@@ -176,11 +187,18 @@ checking, deploying, live, failed, rolled back).
 
 What the edge Worker does on each request to a storefront host.
 
-1. **Hostname → store, live build and state**, looked up through Cloudflare's cache (the
-   Cache API), and purged when a store publishes, changes its domain or changes state.
+1. **Hostname → store, live build and state**, cached in each data centre through the Cache
+   API for **at most 60 seconds**. On a miss, the Worker asks the API Worker (service binding,
+   Postgres through Hyperdrive). A publish, a domain change or a state change also sends a purge
+   by the store's cache tag, which makes the change show sooner where it reaches. Nothing depends
+   on that purge: the Cache API is per data centre, and Cloudflare doesn't promise every purge
+   reaches its entries *(to verify on #317)*. So a switch, a rollback or a suspension is atomic
+   in each data centre and reaches every data centre **within 60 seconds**.
    *Why:* the store comes **only from the hostname**, never from the path or the client. A KV
    read on every request would cost more than the requests themselves; a cache lookup costs
-   nothing extra.
+   nothing extra. A miss happens at most once a minute per store per data centre, roughly once
+   per visit at 1,000 visits a day, which the API and Postgres take easily. A strongly consistent
+   lookup on every request (a Durable Object) would cost a call per page for a minute's gain.
 2. **A past-due or suspended store** gets its degraded page from the Worker, with no rebuild
    (ARCHITECTURE §4.2, DESIGN-BRIEF fact 9).
 3. **`/shop-api/*` goes to the API Worker** through a service binding, keeping the shopper's
@@ -259,6 +277,15 @@ What the edge Worker does on each request to a storefront host.
   upload job holds a 15-minute, single-folder credential, only after a passing report, and runs
   none of the repo's code. Every third-party action in the workflow is pinned by commit hash.
   *Why:* the AI-written code and the credential are never in the same job.
+- **The workflow's permissions:**
+  - top-level `permissions: {}`;
+  - only the `prepare` and `upload` jobs get `id-token: write`;
+  - no job gets `contents: write`.
+
+  The `build` and `check` jobs get no token of any kind, so code running in them can't ask the
+  API for anything.
+- **The report is bound to the bytes**: the check job's digest must equal the manifest's, and
+  every uploaded object must hash to its manifest entry before the pointer moves (§4 step 9).
 - **The repo is public by design**, so it holds nothing private: no secrets, no catalogue
   snapshot, no draft. The snapshot holds only what the live site already shows.
 - **Only the edge Worker reads `storefront-sites`.** It builds every key from the hostname's

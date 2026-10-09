@@ -113,7 +113,7 @@ code** (storefront ARCHITECTURE §1, §3, §4.2, §6; DESIGN §2–§3; SAAS §9
 | A change that fails its check | The AI repairs it from the exact errors, at most three times, else "nothing changed"; repairs and gate runs are **the platform's cost**, never the merchant's meters |
 | Publishing | A full gate before going live; repair, then "publish everything before this change", then refuse; automatic rollback if the live site breaks after deploy |
 | Preview host | Every change that passes is deployed there, so "Open preview" always shows the draft |
-| Go back to version N | ~~Redeploy its kept deployment~~ Make its kept build live again by moving the pointer (instant, free; 2026-10-09, storefront LIVE-SHOP), then reset the draft to that version |
+| Go back to version N | ~~Redeploy its kept deployment~~ Make its kept build live again by moving the pointer (no build, free, live everywhere within a minute; 2026-10-09, storefront LIVE-SHOP), then reset the draft to that version |
 | Brand and search and sharing | Read by the theme through core; the AI never copies them |
 | Paths | One namespace: core's routes reserved; an AI page and a content page or post can't share a path |
 | Templates | Kept as a gallery; each template is complete starting theme code |
