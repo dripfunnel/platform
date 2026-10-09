@@ -31,6 +31,9 @@ Last updated: 2026-10-09 (#493: own client and formatting, no offline queue, no 
    app's own `src/format/`, errors handled by code,
    named exports, one component per file, and every screen's empty, loading, error,
    permission-denied and read-only states.
+6. **A mobile card needs only the Store API card for its area, never the web screen card**
+   (decided 2026-10-09). Where that Store API card is still open, the mobile card **Needs** it
+   and is built on the real API, with no fixtures.
 
 ---
 
@@ -40,7 +43,7 @@ Last updated: 2026-10-09 (#493: own client and formatting, no offline queue, no 
 |---|---|---|
 | **Expo Router** for navigation *(proposed)* | React Navigation configured by hand | Expo's default. File routes like the SPAs' TanStack Router, so screens and URLs (deep links) line up with the web portal. |
 | **The SPAs' folder pattern**: thin routes, `features/<area>/`, `api/<area>.ts`, `messages/`, `brand/` *(proposed)* | A mobile-specific layout | A developer moves between `apps/ui/store` and the app without relearning. The code itself is not shared (REACT-NATIVE.md §2). |
-| **No state library** at first: screens call `api/` functions, as the SPAs do *(proposed)* | Redux, Zustand or React Query from day one | No dependency without a stated need (AGENTS.md "Dependencies"). Added when the offline queue (§5) or caching needs it. |
+| **No state library** at first: screens call `api/` functions, as the SPAs do *(proposed)* | Redux, Zustand or React Query from day one | No dependency without a stated need (AGENTS.md "Dependencies"). Added when caching, or an offline queue after the first release (§5), needs it. |
 | **Theme tokens as a TypeScript object**, filled from DripFunnel's values and overridden by the brand query *(proposed)* | Reading `shared/ui/tokens.css` | React Native has no CSS variables. The values match the `--df-*` tokens. |
 | **Jest with the `jest-expo` preset** for component tests; logic tests can stay on Vitest *(proposed)* | Vitest for everything | React Native components need its Babel transform and native mocks, which `jest-expo` provides. The gates stay `typecheck`, `lint`, `test`. |
 

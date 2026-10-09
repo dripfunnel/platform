@@ -164,6 +164,7 @@ Run the gates before reporting a change as done.
    committed on or pushed to `main` or `dev`. Without an issue number, ask for one.
 3. **Local databases only.** Nothing in development points at `dbpg01.softobotics.org`
    (dev or prod) until the user says otherwise.
+   Exception: the merchant mobile app's `dev` profile targets `dev-store.dripfunnel.ai` (mobile-app/merchant/CONFIGURATION.md §2).
 4. **Report what is true.** Say which commands you ran and what they returned. Compiling is
    not verification. If a check fails, say so; never weaken, skip or delete a test to make
    it pass.
