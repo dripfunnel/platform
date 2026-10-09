@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-08 (#490: the merchant mobile app's bearer-token session, §4).
+Last updated: 2026-10-09 (#494: the bearer-token session is built, §4).
 
 ---
 
@@ -324,8 +324,14 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   - **This applies only to the merchant mobile app.** Nothing changes for the merchant portal,
     the partner console or the admin console: every browser request keeps the cookie and the
     `Origin` check. No new endpoint or table. The change is in the session-opening routes'
-    response and in how the API reads a session. Not built yet; it ships on its own card
-    ([mobile-app/merchant/ARCHITECTURE.md](../mobile-app/merchant/ARCHITECTURE.md) §6).
+    response and in how the API reads a session.
+  - **Built on #494** (`auth/storeCredential.ts`): the session comes back as `token` beside the
+    route's usual answer, on sign-in, `second-factor`, `backup-code`, `enrol-second-factor`,
+    `accept-invitation`, `join` and `reset-password`. A request with both a cookie and a bearer
+    token reads as signed out (`UNAUTHENTICATED`, or the route's `INVALID_CREDENTIALS`).
+    Sign-out by bearer deletes the row and answers as the cookie path does. Sign-up,
+    `confirm-email`, the invitation look-up and `request-password-reset` keep the `Origin` check:
+    the app sends those links to the browser (mobile-app/merchant/DESIGN.md §5).
 - **Staff re-authentication** (CONSOLE-DESIGN A2): `/api/auth/reauth` sends the staff member
   back to the provider with `prompt=login`, so its own session cannot answer for them, and
   stamps `staff_session.reauth_at` on the session they already hold — a second staff member

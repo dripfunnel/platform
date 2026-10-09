@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { personJoinedStore, personPasswordReset, type RequestFacts } from '#auth/activity'
 import { hashPassword, minPasswordLength } from '#auth/password'
 import { hashSessionId } from '#auth/session'
-import { holdForEnrolment, readUserSession, setStoreCookie } from '#auth/storeSession'
+import { holdForEnrolment, readUserSession } from '#auth/storeSession'
 import { userPasswordResetRequestKind } from '#auth/storeTokens'
 import { withSystemScope } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
@@ -15,7 +15,7 @@ import {
   type StoreInvitationByToken,
 } from '#db/scoped/userInvitations'
 import { selectSignInCandidate, selectUserSecondFactor } from '#db/scoped/userSignIn'
-import { admit, admitted, type Admission, type StoreAuthDeps } from './admission'
+import { admit, admitted, withSession, type Admission, type StoreAuthDeps } from './admission'
 import { json, readBody, refuse, type Refusal } from './authHttp'
 
 // Store invitations (`/accept-invite` for a new person, `/join` for an existing account) and
@@ -84,17 +84,17 @@ export const acceptStoreInvitation = async (request: Request, deps: StoreAuthDep
     if (!candidate) return { code: 'INVITATION_INVALID' }
     return admit(tx, deps, facts, candidate, false, now)
   })
-  return 'code' in outcome ? refuse(outcome) : admitted(outcome)
+  return 'code' in outcome ? refuse(outcome) : admitted(request, outcome)
 }
 
 /** An existing account, signed in on this host, joins without any change to it (ACCESS.md §6.2). */
-export const joinStore = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null): Promise<Response> => {
+export const joinStore = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, sessionId: string | null): Promise<Response> => {
   const input = await readBody(request, tokenInput)
   if (!input) return refuse({ code: 'INVITATION_INVALID' })
   const now = deps.now()
   const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | { enrol: boolean }> => {
-    const session = cookie ? await readUserSession(tx, cookie, deps.partnerId, now) : null
-    if (!cookie || !session) return { code: 'INVALID_CREDENTIALS' }
+    const session = sessionId ? await readUserSession(tx, sessionId, deps.partnerId, now) : null
+    if (!sessionId || !session) return { code: 'INVALID_CREDENTIALS' }
     const found = await findOpen(tx, deps, input.token, now)
     if (isRefusal(found)) return found
     // Someone else's link reads as any other bad link: it never says whose it is.
@@ -103,12 +103,12 @@ export const joinStore = async (request: Request, deps: StoreAuthDeps, facts: Re
     await deps.activity.record(tx, personJoinedStore({ id: session.userId, partnerId: deps.partnerId }, facts, { id: found.store_id, name: found.store_name }, found.seller_id, found.role_key))
     const state = await selectUserSecondFactor(tx, session.userId)
     const enrol = !!state && state.is_owner && state.two_factor_method === null
-    if (enrol) await holdForEnrolment(tx, cookie, now)
+    if (enrol) await holdForEnrolment(tx, sessionId, now)
     return { enrol }
   })
   if ('code' in outcome) return refuse(outcome)
-  if (!outcome.enrol || !cookie) return json(200, { ok: true, step: 'done' })
-  return json(200, { ok: true, step: 'enrol' }, setStoreCookie(cookie, false, 'enrol'))
+  if (!outcome.enrol || !sessionId) return json(200, { ok: true, step: 'done' })
+  return withSession(request, { ok: true, step: 'enrol' }, { id: sessionId, remember: false, stage: 'enrol' })
 }
 
 // The same answer, and the same single write, whether or not the email has an account here
@@ -147,5 +147,5 @@ export const resetStorePassword = async (request: Request, deps: StoreAuthDeps, 
     if (!candidate) return { code: 'RESET_INVALID' }
     return admit(tx, deps, facts, candidate, false, now)
   })
-  return 'code' in outcome ? refuse(outcome) : admitted(outcome)
+  return 'code' in outcome ? refuse(outcome) : admitted(request, outcome)
 }
