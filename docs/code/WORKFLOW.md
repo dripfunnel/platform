@@ -225,9 +225,12 @@ with no input or event that avoids the check, so the workflow does not use the a
 names are checked by the `naming` job alone; the review has no opinion on them.
 
 **`@claude` in an issue or a pull request comment** runs Claude through
-`anthropics/claude-code-action` ([`claude.yml`](../../.github/workflows/claude.yml)), with the
-review's token. Because of the base-branch check above, it can't answer on a stacked pull request.
-GitHub runs comment events from the default branch's copy, so it answers once the file is on `main`.
+`anthropics/claude-code-action`, pinned to a release ([`claude.yml`](../../.github/workflows/claude.yml)),
+with the review's token, for commenters with write access. It replies, and when asked it can
+push commits to the pull request's branch through the Claude GitHub App; those commits still
+pass `naming` and the review. As in the review, settings, hooks and MCP servers from the checked-out
+branch are ignored and reads keep out of token locations. Because of the base-branch check above, it
+can't answer on a stacked pull request. Comment events run from the default branch's copy (`dev`).
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
