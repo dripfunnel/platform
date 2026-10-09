@@ -109,7 +109,7 @@ GitHub holds the code, the store repos (each store's published theme and its his
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
-| **`dripfunnel` org on GitHub Team** | Branch protection on `main` before the first deploy workflow ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6). Also sets how many Actions jobs every store repo shares at once: 20 on Free, 60 on Team, 500 on Enterprise (checked 2026-10-09), so the plan follows the number of stores *(decide on #287)* | Plan | — | 1 |
+| **`dripfunnel` org on GitHub Team** | Branch protection on `main` before the first deploy workflow ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6). Also sets how many Actions jobs every store repo shares at once: 20 on Free, 60 on Team, 500 on Enterprise (checked 2026-10-09), so the plan follows the number of stores. **Decided 2026-10-09 on #287: stay on Free for dev** (20 jobs at once; builds queue past that); revisit when stores' builds queue, and note branch protection on `main` needs the plan §2.3 names | Plan | — | 1 |
 | **GitHub App** "DripFunnel Provisioning", installed on the org | Every repo operation. Short-lived installation tokens per request, never a token per store ([../api/SAAS.md](../api/SAAS.md) §2) | App ID, **private key (PEM)**, installation ID | Worker secret (PEM); IDs as variables | 6 |
 | — | Permissions to request (decided 2026-10-09, builds back on Actions): *Administration: write* (create and delete public repos), *Contents: write* (the template, the draft pushed at each Publish, the upgrade bot's commits), *Workflows: write* (the locked build workflow), *Actions: write* (start a build with `workflow_dispatch`, read its state), *Metadata: read*. No Secrets, Variables, Pull requests or Checks: store repos have no secrets or variables | — | — | — |
 | — | Webhook events: none needed; the upload job reports to the API and the API reads the run's state | — | — | — |
@@ -603,6 +603,7 @@ generation are in the section it cites. *First needed* names a slice (§6) for t
 | Name | Role | Kept in | Section | First needed |
 |---|---|---|---|---|
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY` | Store repos through the provisioning App. `GITHUB_APP_WEBHOOK_SECRET` is not needed: the App has no webhook (the upload job reports to the API, 2026-10-09) | Ids as Worker variables; the key as a Worker secret | §2.3 | slice 6 |
+| `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | The R2 storefront upload credential: *Object Read & Write* on the three storefront buckets only; the API mints 15-minute temporary credentials from it (LIVE-SHOP §2, §9). Names proposed on #287, #317 confirms | Worker secrets (the account id may be a variable) | §2.1 | INF 2 |
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
 | ~~`CF_PAGES_POOL`~~ | **Not needed** (decided 2026-10-09): no Pages project per store. Replaced by the R2 storefront upload credential (§2.1), names decided on #317 | — | §2.1 | — |
 | `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |

@@ -355,7 +355,7 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
 - **GitHub Actions concurrency is shared by every repo in the org**: 20 jobs at once on Free, 60
   on Team, 500 on Enterprise; a job may run 6 hours. One build a day for 5,000 stores is about
   20,000 build-minutes a day, roughly 14 at once on average. The org's plan follows from that
-  *(decide on #287)*.
+  **Decided 2026-10-09 on #287: Free for dev**; revisit when builds queue.
 - **GitHub's Actions terms** forbid "excessive use" and serverless use. Thousands of repos
   building on a schedule should be raised with GitHub before it reaches that size, and a
   fallback should exist: the same build image run in Cloudflare Containers *(decide)*.
@@ -383,7 +383,7 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   7–9).
 - Whether the checkout smoke test can run offline against core's Shop API fixture, leaving the
   real checkout to the post-deploy check *(proposed, decide on #483)*.
-- The GitHub org's plan for Actions concurrency *(decide on #287)*.
+- ~~The GitHub org's plan for Actions concurrency~~ Decided 2026-10-09 on #287: Free for dev; revisit when builds queue.
 - A fallback build runner if GitHub limits Actions on the org *(decide)*.
 - Where single-page renders run: the workflow (about a minute, free) or a container (seconds,
   billed) *(decide on #484)*.
