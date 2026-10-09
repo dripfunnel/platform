@@ -228,12 +228,13 @@ names are checked by the `naming` job alone; the review has no opinion on them.
 `anthropics/claude-code-action`, pinned to a release ([`claude.yml`](../../.github/workflows/claude.yml)),
 with the review's token, for commenters with write access. It replies, and when asked it can
 push commits to the pull request's branch through the Claude GitHub App; those commits still
-pass `naming` and the review. Settings, hooks and MCP servers from the pull request's branch are
-ignored (`--setting-sources user`, `--strict-mcp-config`) and reads keep out of token locations. A
-`CLAUDE.md` on that branch may still be read as instructions; that is accepted, because only people
-with write access can trigger it, and they can already push to the branch. Because of the base-branch
-check above, it can't answer on a stacked pull request. Comment events run from the default branch's
-copy, which is `dev`, so it works once merged there.
+pass `naming` and the review. On a pull request it checks out the pull request's head; an issue
+gets the default branch. Settings, hooks and MCP servers from that branch are ignored
+(`--setting-sources user`, `--strict-mcp-config`) and reads keep out of token locations. A
+`CLAUDE.md` on the branch may still be read as instructions; that is accepted, because only people
+with write access can trigger it, and they can already push to the branch. A pull request from a
+fork is the exception, so Claude never runs on one. Because of the base-branch check above, it can't
+answer on a stacked pull request. Comment events run from the default branch's copy (`dev`).
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
