@@ -212,10 +212,10 @@ There is no per-store hostname fee.
 - The preview link's lifetime *(decide on #317)*. ~~Whether the merchant can revoke shared
   links.~~ Yes: access is re-checked on every page, and the store's revocation number ends every
   link at once (§5 step 4).
-- **Whether a preview link may be passed to someone outside the store's team** *(ask)*. Until
-  decided, a link works for whoever holds it, only while the user who issued it still has access
-  and the store hasn't ended its links. Binding the link to the viewer's own portal session would
-  stop forwarding entirely.
+- ~~Whether a preview link may be passed to someone outside the store's team.~~ **Yes** (decided
+  2026-10-09 with Gaurav, #520): a link works for whoever holds it, only while the user who issued
+  it still has access and the store hasn't ended its links (§5 steps 2–4). A merchant can ask a
+  friend for feedback; "End all preview links" stops every copy at once.
 - ~~The `storefront.preview_key` column and its format.~~ 10 lowercase base32 characters, made
   with the store (decided 2026-10-09, §2 step 5).
 - ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,
