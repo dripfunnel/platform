@@ -189,8 +189,10 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   the hostname it arrives on (PREVIEW §5 step 2), and is checked on every
   frame request and on the WebSocket.
 - **Drafts never go public before they are live.** A failed or refused publish pushes nothing
-  (§6 step 4). They sit in a private bucket that only the Durable
-  Object reads and writes.
+  (§6 step 4). They sit in the private drafts bucket, under
+  `drafts/{store}.bundle`, which only the Durable Object reads and writes. The same bucket holds
+  each build's source under `sources/`, which only the platform writes and hands out as 15-minute
+  links to that build's own run (LIVE-SHOP §2).
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).
 

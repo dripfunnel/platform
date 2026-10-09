@@ -527,8 +527,9 @@ or admin console (ACCESS.md §8), integrations and apps:
   storefront wildcards (`*.shops.partner.com`).
 - **Builds** run in the store repo's locked workflow inside the public build image
   (`apps/sandbox`) from the store's commit and a catalogue snapshot, offline, and upload to R2
-  through a 15-minute credential limited to that build's folder, minted after a GitHub OIDC
-  check, so no token ever sits in a repo (decided 2026-10-09;
+  through a 15-minute credential limited to a private staging folder, minted after a GitHub OIDC
+  check and a passing report; the API copies the verified files into the build's write-once
+  folder, so no token ever sits in a repo (decided 2026-10-09;
   [`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §4).
 - **Cache purge** on catalogue change: the Shop API's own answers by the catalogue version in their key (§5.5); the static storefront files by build id in the cache key, so a publish needs no purge of them ([`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §5).
 - **Assets** on R2, served through **Cloudflare image resizing** (decided 2026-10-05 on #337).

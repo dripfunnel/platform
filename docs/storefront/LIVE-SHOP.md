@@ -61,9 +61,9 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 |---|---|---|
 | **Store repo** | The published theme code, the generated files and the locked workflow (ARCHITECTURE §2.2) | The public, free place to build. It holds only what is already live. |
 | **API Worker** | Starts builds, checks OIDC tokens, mints R2 credentials, records `publish_run`, moves the live pointer | Every credential and every decision stays on the platform, never in a repo or a runner. |
-| **`storefront-sites` bucket** *(proposed name)* | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Read only by the edge Worker, never public. |
+| **`storefront-sites` bucket** *(proposed name)* | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Never public. The edge Worker reads build and preview folders; the API reads staging folders and writes build folders (§4 step 9); the studio's Durable Object writes preview folders (PREVIEW §4); an upload credential writes one staging folder only. |
 | **`storefront-assets` bucket** *(proposed name)* | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
-| **A private drafts bucket** | Unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3) | Source code that isn't public yet must never share a bucket with files that are served. |
+| **A private drafts bucket** *(proposed name `storefront-drafts`)* | `drafts/{store}.bundle`, unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3); `sources/{store}/{build id}.bundle`, each build's source (§4 step 3); the snapshots | Source code that isn't public yet must never share a bucket with files that are served. Only the platform touches it: the studio's Durable Object reads and writes `drafts/` and reads `sources/`; the API writes `sources/` and the snapshots and hands a run 15-minute read links to its own build's files; nothing else reads it. |
 | **Edge Worker** | Answers every storefront request | One code path for every store; nothing per store to deploy. |
 | **Postgres** | `storefront`, `publish_run`, `design_version`: which build is live, and the history (DATA-MODEL §7) | The live pointer is state the consoles show, not a file. |
 
@@ -208,7 +208,10 @@ checking, deploying, live, failed, rolled back).
     no rebuild, live everywhere within a minute (§5 step 1).
 11. **Clean-up:** a store keeps its last builds *(decide: 20 proposed)* and every build a kept
     version in the history refers to (SAAS §9.2). Older build folders are deleted, along with
-    each build's snapshot.
+    each build's snapshot and its source bundle (`sources/{store}/{build id}.bundle`). Staging
+    folders are deleted at the switch or when a run fails. **Deleting a store** (or a deletion
+    request) deletes all its folders in both buckets and everything of its in the drafts bucket:
+    the draft, every source bundle and every snapshot (SAAS §5).
 
 ---
 
@@ -322,8 +325,11 @@ What the edge Worker does on each request to a storefront host.
     them on the runner; there are no artifacts);
   - no draft until its publish is live (§4 step 2);
   - nothing in the logs but which step ran and whether it passed.
-- **Only the edge Worker reads `storefront-sites`.** It builds every key from the hostname's
-  store, so no request can name another store's folder.
+- **Who touches each bucket** (§2 table): the edge Worker only reads `storefront-sites`, building
+  every key from the hostname's store, so no request can name another store's folder. The API
+  reads staging folders and writes build folders; the studio's Durable Object writes preview
+  folders; an upload credential writes one staging folder for 15 minutes. The drafts bucket is
+  the platform's alone (§2).
 - **The GitHub App is the only writer** to store repos (THIRD-PARTY-ACCESS §2.3), and merchants
   never get repo access (SAAS §10).
 
