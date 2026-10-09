@@ -357,7 +357,7 @@ changes don't rebuild, adapted to SSG)*:
 1. **A new or renamed product gets its page at once** (decided 2026-10-08 on #470): a
    **single-page render** builds that product's page (and its version URLs) with the store's
    live theme, adds it to the sitemap, redirects the old address (§8), stores it as a new build
-   that reuses the live build's other files (LIVE-SHOP §7) and notifies IndexNow. It takes seconds and uses no allowance. Until it lands,
+   into which the API copies the live build's other files (LIVE-SHOP §7) and notifies IndexNow. It takes seconds and uses no allowance. Until it lands,
    and for any other unknown catalogue URL, the edge serves a client-rendered fallback.
 2. **Catalogue publishing**:
    - **Change detection**: engine events (product, version, collection, filter, menu,

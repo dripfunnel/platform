@@ -185,7 +185,10 @@ checking, deploying, live, failed, rolled back).
       (R2's upload checksums aren't relied on), and copies it into the build's folder, the hashed
       JS and CSS into the public bucket only now that they are verified:
       `stores/{id}/builds/{build id}/` in `storefront-sites`, and
-      `stores/{id}/builds/{build id}/assets/` in `storefront-assets`;
+      `stores/{id}/builds/{build id}/assets/` in `storefront-assets`. A file the manifest marks
+      unchanged since the live build *(proposed, §10)* is copied server-side from the live build's
+      folder instead, after the same SHA-256 check, so **every build folder is complete on its
+      own**: the Worker never follows a reference, and clean-up can delete any old build;
    3. deletes the staging folder, moves the live pointer, records the new build as live
       (`publish_run` with the report as its `gate`, `design_version`) and refreshes the edge
       Worker's lookup (§5 step 1);
@@ -277,8 +280,9 @@ What the edge Worker does on each request to a storefront host.
   - or a small render in a Cloudflare container: seconds, as decided, but billed.
 - **Saving the home page's search and sharing** re-renders the home page the same way (SAAS
   §9.2).
-- Either way, the new files go into a **new build folder** that reuses the live build's other
-  files through its manifest, and the pointer moves.
+- Either way, the new files go into a **new build folder**, the API copies the live build's
+  other files into it server-side (§4 step 9), and the pointer moves. Every build folder stays
+  complete on its own.
   *Why:* a live build is never changed in place, so it can always be gone back to.
 
 ---
@@ -354,9 +358,9 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   - assets off the Worker path (§5 step 7);
   - the hostname lookup in the cache, not KV (§5 step 1);
   - no per-request HTML rewriting (§5 step 5);
-  - a manifest that points at unchanged files in the store's earlier build folders (read only)
-    instead of uploading them again, which never writes outside the new build's folder
-    *(proposed)*.
+  - uploading only the files that changed since the live build: the manifest marks the rest
+    unchanged, and the API copies them server-side from the live build's folder into the new one
+    (§4 step 9), so every build folder stays complete *(proposed)*.
 - **For scale:** our estimate for 5,000 stores with 1,000 visits a day each and one build a day
   each is about **$3,500–5,000 a month all-in**, studio included. About $250 of that is the edge
   Worker.
