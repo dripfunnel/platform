@@ -52,7 +52,8 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
  │ R2 storefront-sites         │ ◄────────── │   hostname → store → live build → file       │
  │   stores/{id}/builds/{b}/   │   reads     │   /shop-api/* → API Worker                   │
  │ R2 storefront-assets        │             └──────────────▲───────────────────────────────┘
- │ stores/{id}/builds/{b}/ core/{v}/│ ◄─ asset host (no Worker)  │
+ │   stores/{id}/builds/{b}/   │ ◄─ asset host (no Worker)  │
+ │   core/{v}/                 │                            │
  └─────────────────────────────┘                            │ Cloudflare for SaaS
                                                    shopper on www.merchantbrand.com
 ```
@@ -186,7 +187,7 @@ checking, deploying, live, failed, rolled back).
       (`stores/{id}/builds/{build id}/` in `storefront-sites`). It keeps that object only if the
       hash matches the manifest (R2's upload checksums aren't relied on), so a file can't be swapped
       between the check and the copy. From "uploaded" on, the API ignores the staging folder:
-      anything written there later is never read, and the folder is deleted at step 3. Only then
+      anything written there later is never read, and the folder is deleted in item 3 below. Only then
       are the verified JS and CSS copied from that private build folder, which no credential can
       write, into `stores/{id}/builds/{build id}/assets/` in the public `storefront-assets`. A file
       the manifest marks unchanged since the live build *(proposed, §10)* is copied server-side

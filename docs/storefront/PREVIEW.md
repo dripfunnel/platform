@@ -118,30 +118,43 @@ container.
    link for store A must never open store B's draft. The token doesn't stay in
    browser history or leak in a Referer, and the `__Host-` prefix ties the cookie to this one
    subdomain.
-3. **Every later request needs the cookie, naming this host's store.** Without it, or once it has expired, the Worker
-   answers with a plain "This preview link has expired" page that shows no store data.
-4. **The Worker asks the API for the store's current preview folder on every HTML request** (no
-   cached lookup, unlike live sites: LIVE-SHOP §5 step 1). **The same call re-checks access**: the
-   user the cookie names must still have an active membership of the store with the right to see
-   its storefront (ACCESS §5), and the cookie's revocation number must equal the store's current
-   one (`storefront.preview_epoch` *(proposed, #317)*, which "End all preview links" or a team
-   member's removal moves on). Otherwise the expired-link page.
-   *Why:* a removed team member or vendor, or a user whose capability was taken away, loses the
-   private draft on their next page, not when the link expires. It then serves `index.html` for any
-   path that isn't a file (the SPA fallback), with:
-   - **every request, HTML or a chunk, passes the cookie check of steps 3–4 before anything is
-     read**; chunks may then be kept in the Worker's cache under the store, the change folder and
-     the path, and are sent with `Cache-Control: private, max-age=31536000, immutable`, so no
-     shared cache can serve them to a request without the cookie;
+3. **Every later request needs the cookie, naming this host's store.** Without it, or once it
+   has expired, the Worker answers with a plain "This preview link has expired" page that shows
+   no store data.
+4. **Which check runs on which request:**
+   - **HTML and `/shop-api/*` requests get the full re-check.** The Worker asks the API for the
+     store's current preview folder (no cached lookup, unlike live sites: LIVE-SHOP §5 step 1),
+     and the same call re-checks access:
+     - the user the cookie names must still have an active membership of the store with the right
+       to see its storefront (ACCESS §5);
+     - the cookie's revocation number must equal the store's current one
+       (`storefront.preview_epoch` *(proposed, #317)*, which "End all preview links" or a team
+       member's removal moves on).
+
+     On a pass, the Worker **re-issues the cookie with a 15-minute life** *(proposed)*.
+     Otherwise it serves the expired-link page.
+   - **Chunks need a valid cookie only** (signature, expiry, this host's store), with no API call.
+     They may be kept in the Worker's cache under the store, the change folder and the path, and
+     are sent with `Cache-Control: private, max-age=31536000, immutable`, so no shared cache serves
+     them to a request without the cookie.
+
+   *Why:* a removed team member or vendor, a user whose capability was taken away, or "End all
+   preview links" loses the HTML and `/shop-api` at once. Because the cookie lives 15 minutes and
+   is renewed only by a passing re-check, revocation reaches the chunks within 15 minutes too, with
+   no API call per chunk. A theme's chunks are useless without its HTML.
+
+   The Worker then serves `index.html` for any HTML path that isn't a file (the SPA fallback),
+   with:
    - `Cache-Control: no-store` on HTML;
    - `X-Robots-Tag: noindex, nofollow`, and a `robots.txt` that disallows everything;
    - the same CSP as live sites.
+
    *Why:* a fresh change shows on the next load, a draft never reaches a search engine, and the
    browser's walls are the same as on the live site.
-5. **`/shop-api/*` goes to the API Worker only with a valid cookie for this host's store** (steps
-   3–4; the preview key isn't secret, so the key alone opens nothing). The API Worker finds the
-   store from the preview key in the
-   hostname ([../ARCHITECTURE.md](../ARCHITECTURE.md) §8). The SPA reads products, prices and stock live.
+5. **`/shop-api/*` goes to the API Worker only after the full re-check of step 4** (the preview
+   key isn't secret, so the key alone opens nothing: no test-mode cart or checkout either). The
+   API Worker finds the store from the preview key in the hostname
+   ([../ARCHITECTURE.md](../ARCHITECTURE.md) §8). The SPA reads products, prices and stock live.
    *Why:* catalogue changes show in the preview at once, with no build.
 6. **Checkout runs in each provider's test mode** (decided 2026-10-05 on #284). Whether express
    wallets (Apple Pay, Google Pay) can show on `*.webpreview.store`, given their domain
@@ -155,9 +168,13 @@ container.
 - **The store comes only from the hostname's key**, looked up by the Worker. A path or a
   parameter can't name another store, and a link, cookie or studio token for one store is
   refused on another store's host (§5 steps 2–3; an isolation test on #317).
-- **Nothing on a preview host answers without the cookie and the access re-check**: not HTML,
-  not a chunk, not `/shop-api` (no test-mode cart or checkout either). Each has an isolation
-  test on #317 (§5 steps 3–5).
+- **Nothing on a preview host answers without the cookie**:
+  - HTML and `/shop-api` get the full access re-check on every request;
+  - chunks get the cookie, which only a passing re-check renews, every 15 minutes;
+  - the studio's `/__studio/` frame and WebSocket use a studio token instead, under the same
+    re-check (AI-STUDIO §3 step 6, §8).
+
+  Each has an isolation test on #317 (§5 steps 3–5).
 - **A draft is private**: its files sit behind the cookie check, never on the public asset host.
 - **No secret reaches the browser** beyond the session cookie. The SPA uses only the public
   store key (ARCHITECTURE §5).

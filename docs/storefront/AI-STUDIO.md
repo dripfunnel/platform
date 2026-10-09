@@ -147,8 +147,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    undone version ever reaches the repo; that history stays in the private draft. The draft and `main` are then the same,
    and the next change starts a new draft. A publish that fails its checks, or is refused or
    bisected, pushes nothing: the draft stays private, and the merchant repairs it in the studio.
-   *Why:* the design becomes public only when it is live (decided 2026-10-09 with Gaurav, on PR
-   #521's review). One push per publish stays far below GitHub's limit of 6 pushes a minute per
+   *Why:* the design becomes public only when it is live (decided 2026-10-09 with Gaurav,
+   #520). One push per publish stays far below GitHub's limit of 6 pushes a minute per
    repo.
 
 ---
@@ -189,9 +189,12 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **AI-written code runs only on the store's preview origin**, never on the portal host
   (decision above). The studio and the frame talk by `postMessage`, and each checks the other's
   origin.
-- **The studio token** is short-lived, names one store and one session, must name the store of
-  the hostname it arrives on (PREVIEW §5 step 2), and is checked on every
-  frame request and on the WebSocket.
+- **The studio token** names one store and one session, must name the store of the hostname it
+  arrives on (PREVIEW §5 step 2), and is checked on every frame request and on the WebSocket. It
+  lives **5 minutes** *(proposed)* and is renewed by the studio through the Store API, which
+  re-checks the user's membership and capability each time, as PREVIEW §5 step 4 does for the
+  preview. A user removed or stripped of the capability gets no renewal, so the frame stops and
+  the WebSocket closes within 5 minutes.
 - **Drafts never go public before they are live.** A failed or refused publish pushes nothing
   (§6 step 4). They sit in the private drafts bucket, under
   `drafts/{store}.bundle`, which only the Durable Object reads and writes. The same bucket holds
@@ -208,6 +211,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   theme *(decide on #482)*.
 - The idle timeout: 10 minutes proposed, 5 suggested *(decide on #482)*.
 - Whether a plan caps simultaneous studio sessions *(decide on #287 and #482)*.
-- The studio token's lifetime and the WebSocket path through the edge Worker *(decide on #482)*.
+- The studio token's lifetime (5 minutes proposed, renewed through the Store API with the access
+  re-check) and the WebSocket path through the edge Worker *(decide on #482)*.
 - Core's hot-swap entry point for the preview adapter *(decide on #304 and #482)*.
 - The retirement rule for old core versions' images *(decide on #485)*.
