@@ -29,9 +29,11 @@ jobs:
       id-token: write
       actions: read
     steps:
+      # On a pull request, its head: the action reads the files it changes, which the default branch may lack.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.issue.pull_request && format('refs/pull/{0}/head', github.event.issue.number) || github.event.pull_request && format('refs/pull/{0}/head', github.event.pull_request.number) || '' }}
           fetch-depth: 1
           persist-credentials: false
 
