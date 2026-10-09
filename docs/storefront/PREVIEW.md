@@ -111,16 +111,23 @@ container.
    *Why:* only the portal can hand out a preview, and every link runs out.
 2. **The edge Worker checks the token**: its signature, its expiry, and that **the token's store
    is the store the hostname's preview key resolves to**. Any mismatch gets the same "This
-   preview link has expired" page as an expired link. On a match it sets a `__Host-df_preview`
-   cookie (HttpOnly, Secure, SameSite=Lax, signed, naming the store, ending when the token does)
-   and redirects to `/` without the token.
+   preview link has expired" page as an expired link. On a match, and after the same access re-check as step 4, it
+   sets a `__Host-df_preview` cookie (HttpOnly, Secure, SameSite=Lax, signed, naming the store and
+   the user) and redirects to `/` without the token.
+   **Lifetimes:**
+   - the **cookie is a 15-minute sliding session** *(proposed)*, renewed by every HTML or
+     `/shop-api` request that passes the re-check (step 4);
+   - the **link is only the way in**: valid for its own lifetime *(decide on #317, 7 days
+     proposed)*, and opening it again starts a new session as long as its issuer still has
+     access and the store hasn't ended its links.
    *Why:* the preview key is opaque but not secret (it is in every shared link), so a valid
    link for store A must never open store B's draft. The token doesn't stay in
    browser history or leak in a Referer, and the `__Host-` prefix ties the cookie to this one
    subdomain.
-3. **Every later request needs the cookie, naming this host's store.** Without it, or once it
-   has expired, the Worker answers with a plain "This preview link has expired" page that shows
-   no store data.
+3. **Every later request needs the cookie, naming this host's store.** Without it, or once the
+   session has run out (a tab left idle for over 15 minutes), the Worker answers with a plain
+   page that shows no store data: "This preview has closed. Open it again from your link or from
+   the portal." `/shop-api` answers the SPA with an error that makes it show the same screen.
 4. **Which check runs on which request:**
    - **HTML and `/shop-api/*` requests get the full re-check.** The Worker asks the API for the
      store's current preview folder (no cached lookup, unlike live sites: LIVE-SHOP §5 step 1),
@@ -131,15 +138,18 @@ container.
        (`storefront.preview_epoch` *(proposed, #317)*, which "End all preview links" or a team
        member's removal moves on).
 
-     On a pass, the Worker **re-issues the cookie with a 15-minute life** *(proposed)*.
-     Otherwise it serves the expired-link page.
+     On a pass, the Worker **renews the 15-minute session cookie**. Otherwise it serves the page
+     of step 3.
    - **Chunks need a valid cookie only** (signature, expiry, this host's store), with no API call.
-     They may be kept in the Worker's cache under the store, the change folder and the path, and
-     are sent with `Cache-Control: private, max-age=31536000, immutable`, so no shared cache serves
-     them to a request without the cookie.
+     The Worker **checks the cookie first and only then** looks in its cache, under the store,
+     the change folder and the path. The copy it stores carries `Cache-Control: max-age=31536000,
+     immutable`, which the Cache API keeps. The response it sends carries `Cache-Control: private,
+     max-age=31536000, immutable`, so no shared cache serves it to a request without the cookie.
+     Whether the Cache API keeps responses marked `private` is to verify on #317; the stored copy
+     never depends on it.
 
    *Why:* a removed team member or vendor, a user whose capability was taken away, or "End all
-   preview links" loses the HTML and `/shop-api` at once. Because the cookie lives 15 minutes and
+   preview links" loses the HTML and `/shop-api` at once. Because the session lives 15 minutes and
    is renewed only by a passing re-check, revocation reaches the chunks within 15 minutes too, with
    no API call per chunk. A theme's chunks are useless without its HTML.
 

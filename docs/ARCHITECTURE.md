@@ -274,9 +274,10 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 ## 8. Open questions
 
 - ~~The Shop API hostname pattern for storefronts.~~ `/shop-api` on the store's own storefront hosts: `{code}.` under its
-  partner's `*.shops.` or `*.preview.` wildcard (built), or its live custom domain; the preview
-  moves to `{key}.webpreview.store` (decided 2026-10-09, storefront/PREVIEW.md §5) with
-  #518; on any other host the public store key alone
+  partner's `*.shops.` wildcard, or its live custom domain. Previews are on
+  `{key}.webpreview.store` (decided 2026-10-09, storefront/PREVIEW.md §5): the partner's
+  `*.preview.` wildcard is no longer a preview host, and the code that still resolves it (built on
+  #306) is removed by #518. On any other host the public store key alone
   names the store, and a key sent on a store's own host must be that store's (decided on #306).
 - Password hashing choice under Workers CPU limits.
 - Logpush destination, and whether to keep a copy of logs outside Cloudflare.
