@@ -14,7 +14,7 @@ those two win.
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
 Last updated: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
-served by the edge Worker, previews on `webpreview.store`, drafts private until Publish; #493: no
+served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
 
 ---
@@ -25,7 +25,7 @@ Recorded so they aren't relitigated.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **A repo per store**, created when the merchant first picks a template; **the AI writes the store's theme code** (`src/theme/**`, `content/**`, `routes.json`) behind a file allowlist, a code validator, sealed components and gates; each change that passes is a commit in the store's private draft, pushed to its **public** repo at Publish (decided 2026-10-08 with Gaurav on #470, "Plan A"; public repos and drafts decided 2026-10-09, [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1) | The AI editing a fixed site-data schema (`site.json`; decided earlier the same day, reversed); a design tree or HTML blocks | Merchants want any design they can describe or show; every schema caps that. Logic stays in core and the engine, and the walls don't depend on the AI behaving ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §1, §3). |
+| **A repo per store**, created when the merchant first picks a template; **the AI writes the store's theme code** (`src/theme/**`, `content/**`, `routes.json`) behind a file allowlist, a code validator, sealed components and gates; each change that passes is a commit in the store's private draft, pushed to its **public** repo once its publish is live (decided 2026-10-08 with Gaurav on #470, "Plan A"; public repos and drafts decided 2026-10-09, [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1) | The AI editing a fixed site-data schema (`site.json`; decided earlier the same day, reversed); a design tree or HTML blocks | Merchants want any design they can describe or show; every schema caps that. Logic stays in core and the engine, and the walls don't depend on the AI behaving ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §1, §3). |
 | **AI changes run in Cloudflare Containers**: one container per store with a studio open, held by one Durable Object per store that runs one change at a time (decided 2026-10-08 on #470). **Publish builds run in the store repo's locked GitHub Actions workflow**, inside the public build image, and upload to R2 through credentials minted after a GitHub OIDC check (decided 2026-10-09 with Gaurav) | GitHub Actions for AI changes (decided 2026-10-05 on #284; 30–90 s per change); builds in a container pool (2026-10-08, replaced); a third-party sandbox | Seconds per change, beside R2 and the Worker, and stores never share a machine ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md)). Builds cost nothing on public repos, and no repo holds a secret ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1). |
 | **Nothing reaches live that hasn't passed**: a deterministic build, a full gate, an atomic deploy, post-deploy checks and automatic rollback; repairs and bisecting before refusing; repairs and gate runs at the platform's cost (decided 2026-10-08 on #470) | Build on publish and hope | A failure leaves the live site as it was and never costs the merchant ([../storefront/ARCHITECTURE.md](../storefront/ARCHITECTURE.md) §4.2). |
 | **Commerce in a versioned package**, `@dripfunnel/storefront-core`, which store repos pin (the build image has it preinstalled) | A `core/` folder in each repo guarded only by a CI path check | The AI can't edit a dependency, and a fleet upgrade is a version bump instead of a merge into 1,000 diverged folders (§10). The path check stays as a second line. |
@@ -603,8 +603,8 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
     preview gets the same bundle ([../storefront/AI-STUDIO.md](../storefront/AI-STUDIO.md) §4)
   → undo (revert the latest change), discard (back to the live version's commit),
     Open preview (signed link)
-  → publishDesign: the draft is pushed to the store repo (GitHub App), then the publish
-    pipeline (§9.1) → a new version in the history
+  → publishDesign: the publish pipeline (§9.1) builds the draft from private storage → a new
+    version in the history; once it is live, the draft is pushed to the store repo (GitHub App)
 ```
 
 **Guardrails, in priority order** (PLATFORM-PROMPT §2 item 14):

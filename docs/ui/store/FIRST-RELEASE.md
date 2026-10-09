@@ -109,7 +109,7 @@ code** (storefront ARCHITECTURE §1, §3, §4.2, §6; DESIGN §2–§3; SAAS §9
 | Question | Answer |
 |---|---|
 | What the AI edits | The store's **theme code**: pages, components, CSS Modules, the words per language and its own pages (`src/theme/**`, `content/**`, `routes.json`), behind a file allowlist, a code validator, sealed components, CSP and gates. Full freedom over look and front-end behaviour (an image matched, a page featuring one product, any element anywhere, zoom, infinite scroll), none over commerce |
-| Where changes and builds run | **Cloudflare Containers**: one per store with a studio open, held by one Durable Object per store (one change at a time); ~~publish builds in their own pool~~ publish builds in each store's public repo on GitHub Actions, and drafts stay private until Publish (2026-10-09, storefront LIVE-SHOP and AI-STUDIO) |
+| Where changes and builds run | **Cloudflare Containers**: one per store with a studio open, held by one Durable Object per store (one change at a time); ~~publish builds in their own pool~~ publish builds in each store's public repo on GitHub Actions, and drafts stay private until their publish is live (2026-10-09, storefront LIVE-SHOP and AI-STUDIO) |
 | A change that fails its check | The AI repairs it from the exact errors, at most three times, else "nothing changed"; repairs and gate runs are **the platform's cost**, never the merchant's meters |
 | Publishing | A full gate before going live; repair, then "publish everything before this change", then refuse; automatic rollback if the live site breaks after deploy |
 | Preview host | Every change that passes is deployed there, so "Open preview" always shows the draft |

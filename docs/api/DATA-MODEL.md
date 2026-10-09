@@ -1659,7 +1659,8 @@ design_draft        (store_id PK, head_commit, base_version_id NULL, template, c
                      changed_at, changed_by, preview_deploy_ref NULL)
                     -- the one unpublished design per store: the draft's head (decided
                     -- 2026-10-08 on #470, "Plan A"); every accepted AI change moves head_commit;
-                    -- the commits live in the private draft bundle until Publish pushes them to
+                    -- the commits live in the private draft bundle until a publish of them goes
+                    -- live, which pushes them to
                     -- the public repo (decided 2026-10-09, storefront AI-STUDIO §4, §6);
                     -- preview_deploy_ref is the preview's folder (PREVIEW §3);
                     -- discard resets it to the live version's commit; deleted on publish

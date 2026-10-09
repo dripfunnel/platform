@@ -12,7 +12,7 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 
 **Status: specification only.** Nothing below is built.
 
-Last updated: 2026-10-09 (decided with Gaurav: drafts in private R2 until Publish, the live frame
+Last updated: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
 ---
@@ -23,7 +23,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 |---|---|---|
 | **One container per store with a studio open, held by one Durable Object per store** (`StudioSession`) that runs one change at a time (decided 2026-10-08 on #470) | A container per AI request; one shared machine | A change takes seconds because the container is already warm. Merchants never share a machine or a file system, and two tabs on one store can't race. |
 | **The container has no network and no credential** (decided 2026-10-08 on #470) | A sandbox that fetches its own files or calls the model | Instructions hidden in a pasted image or a sample site have nowhere to go. The Worker and the Durable Object make every outside call. |
-| **The draft is a git bundle in a private R2 bucket until Publish; GitHub gets it only then** (decided 2026-10-09 with Gaurav) | A commit to the store's repo per change (decided 2026-10-08 on #470, replaced) | Store repos are public ([LIVE-SHOP.md](LIVE-SHOP.md) §1). A git bundle is the repo and its history in one file, so undo, history and "publish everything before this change" still work on commits. |
+| **The draft is a git bundle in a private R2 bucket; GitHub gets it only once its publish is live** (decided 2026-10-09 with Gaurav; "at Publish" moved after the switch on PR #521's review) | A commit to the store's repo per change (decided 2026-10-08 on #470, replaced) | Store repos are public ([LIVE-SHOP.md](LIVE-SHOP.md) §1). A git bundle is the repo and its history in one file, so undo, history and "publish everything before this change" still work on commits. |
 | **The live frame shows the fast gate's own client bundle, with hot reload** (decided 2026-10-09 with Gaurav) | The Next.js dev server in the container | The gate already builds the bundle, so the frame updates in under a second with no second build. It is byte-for-byte what the preview link shows. The container stays small (about 1 GiB) and starts faster. |
 | **The frame runs on the store's preview origin, `{key}.webpreview.store`, not on the portal host** (decided 2026-10-09 with Gaurav) | The frame served through the Store API on the portal host (ARCHITECTURE §6.1 as written on 2026-10-08) | AI-written code must never run on the portal's origin, where the merchant's session lives. The preview origin belongs to this store alone ([PREVIEW.md](PREVIEW.md) §1). |
 | **One image per core version, used for the studio and for builds** (decided 2026-10-09 with Gaurav) | Separate studio and build images | A theme that passes in the studio builds the same at Publish. The release workflow publishes it publicly on `ghcr.io` for builds and pushes it to Cloudflare's registry for containers (`../code/ARCHITECTURE.md` §5). |
@@ -46,7 +46,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
                                              │   R2 drafts (private): drafts/{id}.bundle    │
                                              │   R2 storefront-sites: preview folders       │
                                              └──────────────────────────────────────────────┘
- GitHub: the store's public repo ◄── the Durable Object pushes the draft at Publish only
+ GitHub: the store's public repo ◄── the draft is pushed only once its publish is live
 ```
 
 | Piece | Role | Why |
@@ -79,8 +79,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    GitHub doesn't have the unpublished changes, and reading R2 doesn't use GitHub's API limits.
 5. **The container builds the first bundle** with the fast gate's bundle step.
 6. **The frame opens** at `https://{key}.webpreview.store/__studio/`, carrying a short-lived
-   studio token the Store API signed for this session. The edge Worker checks the token and
-   passes requests to the same Durable Object, which serves the bundle from the container. Until
+   studio token the Store API signed for this session. The edge Worker checks the token, and that
+   **its store is the store the hostname's preview key resolves to** (else nothing is served),
+   and passes requests to the same Durable Object, which serves the bundle from the container. Until
    the container is ready, the frame shows the current preview ([PREVIEW.md](PREVIEW.md) §3) under
    "Opening your studio…".
    *Why:* the frame is never blank, and a cold start is a few seconds.
@@ -130,15 +131,19 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 ## 6. Publishing from the studio
 
 1. **The merchant presses Publish.** The Durable Object finishes any change in progress first.
-2. **The Durable Object pushes the draft's commits to the repo's `main`** through the GitHub
-   App, in one push.
-   *Why:* this is the moment the design becomes public, and one push per publish stays far
-   below GitHub's limit of 6 pushes a minute per repo.
-3. **If `main` moved since the draft started** (the upgrade bot commits only `package.json` and
-   codemods, never the theme), the container rebases the draft onto it first and runs the fast
-   gate again.
-4. **The live pipeline runs** from [LIVE-SHOP.md](LIVE-SHOP.md) §4 step 3. Once the new
-   version is live, the draft and `main` are the same, and the next change starts a new draft.
+2. **If the live commit moved since the draft started** (the upgrade bot's commits touch only
+   `package.json` and codemods, never the theme), the container rebases the draft onto it first
+   and runs the fast gate again.
+3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
+   the Durable Object hands the platform the draft's head commit as a git bundle, which the
+   workflow fetches through a 15-minute link. Nothing is pushed yet.
+4. **Once the new build is live**, the draft's commits are pushed to the repo's `main` in one
+   push through the GitHub App (LIVE-SHOP §4 step 9). The draft and `main` are then the same,
+   and the next change starts a new draft. A publish that fails its checks, or is refused or
+   bisected, pushes nothing: the draft stays private, and the merchant repairs it in the studio.
+   *Why:* the design becomes public only when it is live (decided 2026-10-09 with Gaurav, on PR
+   #521's review). One push per publish stays far below GitHub's limit of 6 pushes a minute per
+   repo.
 
 ---
 
@@ -178,9 +183,11 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **AI-written code runs only on the store's preview origin**, never on the portal host
   (decision above). The studio and the frame talk by `postMessage`, and each checks the other's
   origin.
-- **The studio token** is short-lived, names one store and one session, and is checked on every
+- **The studio token** is short-lived, names one store and one session, must name the store of
+  the hostname it arrives on (PREVIEW §5 step 2), and is checked on every
   frame request and on the WebSocket.
-- **Drafts never go public before Publish.** They sit in a private bucket that only the Durable
+- **Drafts never go public before they are live.** A failed or refused publish pushes nothing
+  (§6 step 4). They sit in a private bucket that only the Durable
   Object reads and writes.
 - **A sample site** is fetched as a screenshot by the platform, public addresses only, never by
   the container (ARCHITECTURE §6.2; [../ARCHITECTURE.md](../ARCHITECTURE.md) §7).

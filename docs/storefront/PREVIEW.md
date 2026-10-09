@@ -109,11 +109,16 @@ container.
    The token names the store and the user, is signed with a Worker secret, and expires
    *(decide the lifetime: 7 days proposed)*.
    *Why:* only the portal can hand out a preview, and every link runs out.
-2. **The edge Worker checks the token**, sets a `__Host-df_preview` cookie (HttpOnly, Secure,
-   SameSite=Lax, ending when the token does) and redirects to `/` without the token.
-   *Why:* the token doesn't stay in browser history or leak in a Referer. The `__Host-` prefix
-   ties the cookie to this one subdomain.
-3. **Every later request needs the cookie.** Without it, or once it has expired, the Worker
+2. **The edge Worker checks the token**: its signature, its expiry, and that **the token's store
+   is the store the hostname's preview key resolves to**. Any mismatch gets the same "This
+   preview link has expired" page as an expired link. On a match it sets a `__Host-df_preview`
+   cookie (HttpOnly, Secure, SameSite=Lax, signed, naming the store, ending when the token does)
+   and redirects to `/` without the token.
+   *Why:* the preview key is opaque but not secret (it is in every shared link), so a valid
+   link for store A must never open store B's draft (PR #521's review). The token doesn't stay in
+   browser history or leak in a Referer, and the `__Host-` prefix ties the cookie to this one
+   subdomain.
+3. **Every later request needs the cookie, naming this host's store.** Without it, or once it has expired, the Worker
    answers with a plain "This preview link has expired" page that shows no store data.
 4. **The Worker asks the API for the store's current preview folder on every HTML request** (no
    cached lookup, unlike live sites: LIVE-SHOP §5 step 1). It then serves `index.html` for any
@@ -136,7 +141,8 @@ container.
 
 - **One origin per store**, plus the Public Suffix List entry once accepted (§2 step 4).
 - **The store comes only from the hostname's key**, looked up by the Worker. A path or a
-  parameter can't name another store.
+  parameter can't name another store, and a link, cookie or studio token for one store is
+  refused on another store's host (§5 steps 2–3; an isolation test on #317).
 - **A draft is private**: its files sit behind the cookie check, never on the public asset host.
 - **No secret reaches the browser** beyond the session cookie. The SPA uses only the public
   store key (ARCHITECTURE §5).
