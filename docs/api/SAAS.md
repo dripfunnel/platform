@@ -605,7 +605,8 @@ the store's own sandbox, behind the walls of storefront ARCHITECTURE §3.
   → undo (revert the latest change), discard (back to the live version's commit),
     Open preview (signed link)
   → publishDesign: the publish pipeline (§9.1) builds the draft from private storage → a new
-    version in the history; once it is live, the draft is pushed to the store repo (GitHub App)
+    version in the history; once it is live, its tree is pushed to the store repo as one squashed
+    commit with a platform-written message (GitHub App)
 ```
 
 **Guardrails, in priority order** (PLATFORM-PROMPT §2 item 14):

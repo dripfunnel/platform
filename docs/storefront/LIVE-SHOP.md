@@ -192,11 +192,13 @@ checking, deploying, live, failed, rolled back).
    3. deletes the staging folder, moves the live pointer, records the new build as live
       (`publish_run` with the report as its `gate`, `design_version`) and refreshes the edge
       Worker's lookup (§5 step 1);
-   4. for a design publish, pushes the draft's commits to the repo's `main` in one push through
-      the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6). If GitHub is down, the push retries
-      through the outbox; the live site doesn't wait for it. The push is always made from the live
-      build's source bundle, so a push that lags behind catches up with every commit since
-      `main`, fast-forward.
+   4. for a design publish, pushes the published tree to the repo's `main` as **one squashed
+      commit with a platform-written message** ("Publish version N" and the build id), through
+      the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6). The merchant's requests, the per-change
+      commits and undone versions stay private (PR #521's review). If GitHub is down, the push
+      retries through the outbox; the live site doesn't wait for it. The push is made from the
+      live build's source bundle, so one that lagged catches up with a commit for each version
+      published since `main`, fast-forward.
 
    *Why:* **build folders are write-once by construction**, because no credential ever names
    them, so a kept build stays exactly as it was for going back. The build that goes live is
@@ -327,7 +329,9 @@ What the edge Worker does on each request to a storefront host.
   - no secrets;
   - no catalogue snapshot or built site (the run fetches them through 15-minute links and keeps
     them on the runner; there are no artifacts);
-  - no draft until its publish is live (§4 step 2);
+  - no draft until its publish is live (§4 step 2), and then only one squashed commit per
+    published version, with a platform-written message: never the merchant's requests, the
+    per-change commits or undone versions (§4 step 9);
   - nothing in the logs but which step ran and whether it passed.
 - **Who touches each bucket** (§2 table): the edge Worker only reads `storefront-sites`, building
   every key from the hostname's store, so no request can name another store's folder. The API

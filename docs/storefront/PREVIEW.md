@@ -121,7 +121,13 @@ container.
 3. **Every later request needs the cookie, naming this host's store.** Without it, or once it has expired, the Worker
    answers with a plain "This preview link has expired" page that shows no store data.
 4. **The Worker asks the API for the store's current preview folder on every HTML request** (no
-   cached lookup, unlike live sites: LIVE-SHOP §5 step 1). It then serves `index.html` for any
+   cached lookup, unlike live sites: LIVE-SHOP §5 step 1). **The same call re-checks access**: the
+   user the cookie names must still have an active membership of the store with the right to see
+   its storefront (ACCESS §5), and the cookie's revocation number must equal the store's current
+   one (`storefront.preview_epoch` *(proposed, #317)*, which "End all preview links" or a team
+   member's removal moves on). Otherwise the expired-link page.
+   *Why:* a removed team member or vendor, or a user whose capability was taken away, loses the
+   private draft on their next page, not when the link expires (PR #521's review). It then serves `index.html` for any
    path that isn't a file (the SPA fallback), with:
    - `Cache-Control: no-store` on HTML, and cached-forever on hashed chunks;
    - `X-Robots-Tag: noindex, nofollow`, and a `robots.txt` that disallows everything;
@@ -162,8 +168,13 @@ There is no per-store hostname fee.
 ## 8. Open questions
 
 - The Public Suffix List submission for `webpreview.store` *(proposed)*.
-- The preview link's lifetime, and whether the merchant can revoke shared links (a new preview
-  key would end them all) *(decide on #317)*.
+- The preview link's lifetime *(decide on #317)*. ~~Whether the merchant can revoke shared
+  links.~~ Yes: access is re-checked on every page, and the store's revocation number ends every
+  link at once (§5 step 4).
+- **Whether a preview link may be passed to someone outside the store's team** *(ask)*. Until
+  decided, a link works for whoever holds it, only while the user who issued it still has access
+  and the store hasn't ended its links. Binding the link to the viewer's own portal session would
+  stop forwarding entirely.
 - ~~The `storefront.preview_key` column and its format.~~ 10 lowercase base32 characters, made
   with the store (decided 2026-10-09, §2 step 5).
 - ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,

@@ -1614,7 +1614,7 @@ content). Specified in SAAS §9 and storefront/ARCHITECTURE §4.2. **One home pe
 table owns the rest and every write to it updates the mirror in the same transaction.
 
 ```
-storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview_url, live_url, public_store_key,
+storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview_epoch, preview_url, live_url, public_store_key,
                      allowed_origins text[], checkout_url NULL, account_url NULL,
                      has_unpublished_changes boolean, changes_since NULL, changed_kinds text[],
                      changed_count integer, next_auto_publish_at, template NULL,
@@ -1636,8 +1636,9 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                     -- source bundle (sources/{store}/{build id}.bundle, private) is the record of
                     -- the live code, never GitHub's main (§4 step 3); it replaces
                     -- hosting_target, a Pages project (2026-10-09). preview_key is the opaque,
-                    -- platform-unique label of {key}.webpreview.store (PREVIEW §2). Both
-                    -- (proposed; live_build_id on #317, preview_key on #518);
+                    -- platform-unique label of {key}.webpreview.store (PREVIEW §2); preview_epoch
+                    -- (integer, proposed) ends every preview link when moved (PREVIEW §5 step 4). All
+                    -- (proposed; live_build_id and preview_epoch on #317, preview_key on #518);
                     -- repo is the public repo's opaque name
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
                     -- and catalog_version (moved by triggers on every change a storefront shows; the
