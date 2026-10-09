@@ -224,17 +224,17 @@ pull request's **base** branch and refuses one starting with `#`
 with no input or event that avoids the check, so the workflow does not use the action. Branch
 names are checked by the `naming` job alone; the review has no opinion on them.
 
-**`@claude` in an issue or a pull request comment** runs Claude through
-`anthropics/claude-code-action`, pinned to a release ([`claude.yml`](../../.github/workflows/claude.yml)),
-with the review's token, for commenters with write access. It replies, and when asked it can
-push commits to the pull request's branch through the Claude GitHub App; those commits still
-pass `naming` and the review. On a pull request it checks out the pull request's head; an issue
-gets the default branch. Settings, hooks and MCP servers from that branch are ignored
-(`--setting-sources user`, `--strict-mcp-config`) and reads keep out of token locations. A
-`CLAUDE.md` on the branch may still be read as instructions; that is accepted, because only people
-with write access can trigger it, and they can already push to the branch. A pull request from a
-fork is the exception, so Claude never runs on one. Because of the base-branch check above, it can't
-answer on a stacked pull request. Comment events run from the default branch's copy (`dev`).
+**`@claude`** runs Claude ([`claude.yml`](../../.github/workflows/claude.yml)) with the review's
+token, for people with write access. Comment events run from the default branch's copy (`dev`).
+
+- **In an issue**, through `anthropics/claude-code-action`, pinned to a release. It can reply and,
+  when asked, open a branch and push. Settings, hooks and MCP servers from a checked-out branch are
+  ignored (`--setting-sources user`, `--strict-mcp-config`) and reads keep out of token locations.
+- **On a pull request**, through the CLI as in the review, because the action refuses a branch name
+  starting with `#`, head or base. It checks out the pull request's head, drops its Claude
+  configuration, reads the diff, description and conversation, and posts one reply through a helper
+  that refuses token-shaped text. It never edits, commits or pushes, and never runs on a pull
+  request from a fork, whose code nobody here could push.
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
