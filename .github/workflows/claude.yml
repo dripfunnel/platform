@@ -35,12 +35,8 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # As in ci.yml's review: no checked-out file may configure Claude.
-      - name: Drop the checkout's own Claude configuration
-        run: rm -rf .claude .mcp.json .claude.json CLAUDE.md
-
-      # Pinned to v1.0.247 since it holds the token; settings, hooks and MCP servers from any branch
-      # it checks out are ignored, and reads kept from token locations, as in ci.yml (WORKFLOW.md §7).
+      # Pinned to v1.0.247 since it holds the token. The flags ignore a checked-out branch's settings,
+      # hooks and MCP servers, and keep reads out of token locations (WORKFLOW.md §7 says what they don't cover).
       - name: Run Claude Code
         uses: anthropics/claude-code-action@2dca132ff0e0c4094ce6048b422c6915a071210b
         with:
