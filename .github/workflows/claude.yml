@@ -29,17 +29,35 @@ jobs:
       id-token: write
       actions: read
     steps:
+      # A fork's branch is code nobody here could push, so Claude never runs on one (WORKFLOW.md §7).
+      - name: Find the pull request's head
+        id: pr
+        if: github.event.issue.pull_request || github.event.pull_request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" --jq .head.repo.full_name)"
+          if [ "${head}" != "${GITHUB_REPOSITORY}" ]; then
+            echo "::notice::Pull request ${NUMBER} comes from a fork, so Claude does not run on it."
+            echo "fork=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "ref=refs/pull/${NUMBER}/head" >> "${GITHUB_OUTPUT}"
+          fi
+
       # On a pull request, its head: the action reads the files it changes, which the default branch may lack.
       - name: Checkout repository
+        if: steps.pr.outputs.fork != 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.issue.pull_request && format('refs/pull/{0}/head', github.event.issue.number) || github.event.pull_request && format('refs/pull/{0}/head', github.event.pull_request.number) || '' }}
+          ref: ${{ steps.pr.outputs.ref }}
           fetch-depth: 1
           persist-credentials: false
 
       # Pinned to v1.0.247 since it holds the token. The flags ignore a checked-out branch's settings,
       # hooks and MCP servers, and keep reads out of token locations (WORKFLOW.md §7 says what they don't cover).
       - name: Run Claude Code
+        if: steps.pr.outputs.fork != 'true'
         uses: anthropics/claude-code-action@2dca132ff0e0c4094ce6048b422c6915a071210b
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
