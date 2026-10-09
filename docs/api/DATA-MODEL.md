@@ -1632,7 +1632,9 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                     -- custom_paths are the draft theme's own pages (routes.json), which
                     -- SAPI 24 checks a new slug against (storefront ARCHITECTURE §3.1).
                     -- live_build_id is the live pointer: the publish_run whose files in R2 the
-                    -- edge Worker serves (storefront LIVE-SHOP §4 step 9, §5); it replaces
+                    -- edge Worker serves (storefront LIVE-SHOP §4 step 9, §5), and whose kept
+                    -- source bundle (sources/{store}/{build id}.bundle, private) is the record of
+                    -- the live code, never GitHub's main (§4 step 3); it replaces
                     -- hosting_target, a Pages project (2026-10-09). preview_key is the opaque,
                     -- platform-unique label of {key}.webpreview.store (PREVIEW §2). Both
                     -- (proposed; live_build_id on #317, preview_key on #518);

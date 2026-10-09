@@ -73,10 +73,11 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 4. **The Durable Object loads the code into the container:**
    - from **`drafts/{store}.bundle`** when the store has unpublished changes (a `design_draft`
      row exists);
-   - otherwise from the repo's `main`, the published code, through the GitHub App.
+   - otherwise from the **live build's source bundle** (LIVE-SHOP §4 step 3), the published code.
 
-   *Why the Durable Object and not the container:* the container has no network. *Why R2 first:*
-   GitHub doesn't have the unpublished changes, and reading R2 doesn't use GitHub's API limits.
+   *Why the Durable Object and not the container:* the container has no network. *Why never
+   GitHub:* it doesn't have the unpublished changes, its `main` can lag behind a publish whose push
+   is still retrying, and reading R2 doesn't use GitHub's API limits.
 5. **The container builds the first bundle** with the fast gate's bundle step.
 6. **The frame opens** at `https://{key}.webpreview.store/__studio/`, carrying a short-lived
    studio token the Store API signed for this session. The edge Worker checks the token, and that
@@ -120,7 +121,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 
 - **Undo this change** reverts the latest commit in the container. That is a new change, so §4
   steps 3–8 run again.
-- **Discard** resets the draft to the live version's commit (the repo's `main`), deletes the
+- **Discard** resets the draft to the live version's commit (the live build's source bundle,
+  never GitHub's `main`), deletes the
   draft bundle and the `design_draft` row, and points the preview at the live code.
 - **Go back to version N** first makes that version's build live again by moving the pointer
   ([LIVE-SHOP.md](LIVE-SHOP.md) §4 step 10), then resets the draft to that version's commit

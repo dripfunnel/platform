@@ -61,7 +61,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 |---|---|---|
 | **Store repo** | The published theme code, the generated files and the locked workflow (ARCHITECTURE §2.2) | The public, free place to build. It holds only what is already live. |
 | **API Worker** | Starts builds, checks OIDC tokens, mints R2 credentials, records `publish_run`, moves the live pointer | Every credential and every decision stays on the platform, never in a repo or a runner. |
-| **`storefront-sites` bucket** *(proposed name)* | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders uploads land in (§4 step 8) | Read only by the edge Worker, never public. |
+| **`storefront-sites` bucket** *(proposed name)* | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Read only by the edge Worker, never public. |
 | **`storefront-assets` bucket** *(proposed name)* | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
 | **A private drafts bucket** | Unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3) | Source code that isn't public yet must never share a bucket with files that are served. |
 | **Edge Worker** | Answers every storefront request | One code path for every store; nothing per store to deploy. |
@@ -103,13 +103,17 @@ checking, deploying, live, failed, rolled back).
    `publish_run`, one at a time per store.
    *Why:* two builds racing for one store could put the older one live.
 2. **Nothing reaches GitHub yet.** A design publish builds the draft's head commit from the
-   store's private draft (AI-STUDIO §6); other publishes build the live commit. The repo's `main`
-   gets the draft only once this publish is live (step 9).
+   store's private draft (AI-STUDIO §6); other publishes build the **live commit**, read from the
+   live build's kept source bundle (step 3), never from GitHub. The repo's `main` gets the draft
+   only once this publish is live (step 9).
    *Why:* the repo is public. A publish that fails its checks, or is refused or bisected, must
    never make an unreleased design public (decided 2026-10-09 with Gaurav, on PR #521's review).
 3. **The platform freezes the input**, as private files for this build behind 15-minute links:
    - the catalogue snapshot, read once from the Shop API (ARCHITECTURE §5);
-   - the source to build, as a git bundle of that commit;
+   - the source to build, as a git bundle of that commit, **kept privately with the build** for as
+     long as the build is kept (`sources/{store}/{build id}.bundle` in the private drafts bucket).
+     The live build's bundle is the platform's own record of the live code: the studio, Discard,
+     the next publish and the upgrade bot read the live commit from it, never from GitHub;
    - the live build's files, for the visual diff.
 
    *Why:* the run reads only these, so it needs no network and no repo checkout, and two builds
@@ -163,9 +167,10 @@ checking, deploying, live, failed, rolled back).
    environment sniffing (ARCHITECTURE §3.4) and the post-deploy checks from the edge (step 10)
    are there to catch.
 8. **Step `upload`:**
-   - **After a passing report**, the API mints **R2 temporary credentials, one per bucket,
-     limited to a staging folder `stores/{id}/uploads/{build id}/` and to 15 minutes**. The step
-     uploads the HTML and data files, the hashed JS and CSS, and a **manifest** listing every
+   - **After a passing report**, the API mints **an R2 temporary credential for the private
+     `storefront-sites` bucket only, limited to a staging folder `stores/{id}/uploads/{build id}/`
+     and to 15 minutes**. Nothing is ever staged in the public `storefront-assets` bucket. The
+     step uploads the HTML and data files, the hashed JS and CSS, and a **manifest** listing every
      file with its SHA-256, then tells the API "uploaded".
    - **On a failure** nothing is uploaded. The API records the report, and the repair, bisect or
      refuse steps of ARCHITECTURE §4.2 step 4 start from it. A repair runs in the studio's
@@ -177,7 +182,8 @@ checking, deploying, live, failed, rolled back).
    1. checks that the report came through an OIDC-verified call (§9) and passed, and that the
       manifest's digest equals the report's;
    2. reads each staged object through its R2 binding, checks its SHA-256 against the manifest
-      (R2's upload checksums aren't relied on), and copies it into the build's folder:
+      (R2's upload checksums aren't relied on), and copies it into the build's folder, the hashed
+      JS and CSS into the public bucket only now that they are verified:
       `stores/{id}/builds/{build id}/` in `storefront-sites`, and
       `stores/{id}/builds/{build id}/assets/` in `storefront-assets`;
    3. deletes the staging folder, moves the live pointer, records the new build as live
@@ -185,14 +191,17 @@ checking, deploying, live, failed, rolled back).
       Worker's lookup (§5 step 1);
    4. for a design publish, pushes the draft's commits to the repo's `main` in one push through
       the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6). If GitHub is down, the push retries
-      through the outbox; the live site doesn't wait for it.
+      through the outbox; the live site doesn't wait for it. The push is always made from the live
+      build's source bundle, so a push that lags behind catches up with every commit since
+      `main`, fast-forward.
 
    *Why:* **build folders are write-once by construction**, because no credential ever names
    them, so a kept build stays exactly as it was for going back. The build that goes live is
    provably the build that passed: the same bytes, checked by a run of the locked workflow the
    API started. A switch is atomic in each data centre and everywhere within the lookup's
-   60-second limit (§5 step 1). The repo gets the code only once it is live, so GitHub's `main`
-   is always what's live. Each core version's shared runtime (`core/{version}/`) is written only
+   60-second limit (§5 step 1). The repo gets the code only once it is live; `main` follows the
+   live code, usually within seconds, but the platform never reads it back: the live build's
+   source bundle is the record (step 3). Each core version's shared runtime (`core/{version}/`) is written only
    by the release workflow. The post-deploy checks (step 10) are the platform's own backstop.
 10. **Post-deploy checks and automatic rollback**, from the edge, run by the platform, follow
     ARCHITECTURE §4.2 steps 5–6. A rollback is the same pointer move back to the previous build:
@@ -225,7 +234,9 @@ What the edge Worker does on each request to a storefront host.
    own hostname ([../ARCHITECTURE.md](../ARCHITECTURE.md) §2).
    *Why:* same origin, so the shopper's cookies stay first-party and there is no CORS.
 4. **Any other path → the file** `stores/{id}/builds/{live build}/{path}` from the edge cache,
-   or from R2 on a miss. The cache key includes the build id.
+   or from R2 on a miss. **The cache key is the store id, the build id and the path**, and build
+   ids are random and unique across the platform (the `publish_run` id), so no store's cached page
+   can answer for another's (AGENTS.md: cache keys always include the tenant).
    *Why:* when the pointer moves, old cached pages simply stop matching, so a switch is atomic.
 5. **The file is passed through untouched**, with headers set from the build: the CSP (built
    from fixed hashes, never a fresh nonce), the cache rules, and the redirects the build
@@ -235,7 +246,7 @@ What the edge Worker does on each request to a storefront host.
 6. **Unknown or removed product addresses** get a client-rendered fallback, a 404 or a
    redirect (ARCHITECTURE §4.2, "Staying current").
 7. **JS, CSS and images** load from the shared asset host (`storefront-assets` through its own
-   domain, outside the catch-all route) and from Cloudflare image resizing, never through this
+   domain, outside the catch-all route; it holds only verified build folders and `core/`) and from Cloudflare image resizing, never through this
    Worker.
 
 ---
