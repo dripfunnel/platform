@@ -283,15 +283,6 @@ connection string as `DATABASE_URL`, **with a password in the URL**, even a dumm
 Postgres ignores): `wrangler dev --env local` uses it to make the `HYPERDRIVE` binding proxy to
 local Postgres instead of a real Hyperdrive resource, and refuses a passwordless URL.
 
-### Local, the same as dev
-
-1. `cp apps/api/.env.example apps/api/.env.local` and put the dev test values in it (THIRD-PARTY-ACCESS §8).
-2. `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"`, and set the `whsec_…` it prints as `STRIPE_WEBHOOK_SECRET`.
-3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
-   `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
-   presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
-   Production leaves `integrations` out: `/health` is public, and which integration is missing would tell a caller where a check is off.
-
 The runner applies migrations as the owner of the schema's tables (DATA-MODEL.md §5.3): when
 the connecting role is another member of that owner it runs each migration under
 `set local role <owner>`, so what the migration creates stays the owner's; when it is neither
@@ -398,6 +389,14 @@ identifies a build, not a secret, and knowing it grants no access. On dev and lo
 `integrations` (which of Entra, Stripe, SES and assets are `configured` or `missing`, never a value); a production
 host leaves it out, since which integration is missing would tell a caller where a check is off.
 
+### Local, the same as dev
+
+1. `cp apps/api/.env.example apps/api/.env.local` and put the dev test values in it (THIRD-PARTY-ACCESS §8).
+2. `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"`, and set the `whsec_…` it prints as `STRIPE_WEBHOOK_SECRET`.
+3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
+   `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
+   presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
+   Production leaves `integrations` out: `/health` is public, and which integration is missing would tell a caller where a check is off.
 ---
 
 ## 8. Rules that apply to every line in `apps/api`
