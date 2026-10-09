@@ -27,6 +27,7 @@ export const BrandingScreen = () => {
   const [contrast, setContrast] = useState<ContrastReport>(branding.contrast)
   const [confirming, setConfirming] = useState(forced === 'confirm' && branding.permission.allowed)
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState<BrandFile | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [screen, setScreen] = useState<PreviewScreen>('signin')
   const [device, setDevice] = useState<PreviewDevice>('desktop')
@@ -80,8 +81,10 @@ export const BrandingScreen = () => {
   // The file is stored at once under the partner's prefix; it shows only once the draft is published.
   const upload = (file: BrandFile, picked: File) => {
     setBusy(true)
+    setUploading(file)
     void uploadBrandFile(file, picked).then((result) => {
       setBusy(false)
+      setUploading(null)
       if (!result.ok && result.code === 'UNAUTHENTICATED') return void navigate({ to: '/sign-in', search: { next: '/branding', outcome: 'expired' } })
       if (!result.ok) return setToast(fill(messages.branding.upload.refused, { reason: messages.branding.upload.codes[result.code] }))
       setDraft((current) => ({ ...current, look: { ...current.look, files: { ...current.look.files, [file]: result.key } } }))
@@ -100,6 +103,7 @@ export const BrandingScreen = () => {
         tab={tab}
         forced={forced}
         busy={busy}
+        uploading={uploading}
         preview={{ screen, device, mode, onScreen: setScreen, onDevice: setDevice, onMode: setMode }}
         onDraft={setDraft}
         onDiscard={() => setDraft(original)}

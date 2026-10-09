@@ -397,7 +397,8 @@ Product name merchants see; primary and accent colours (picker and hex); **Contr
 Lora, DM Sans); corners (Rounded · Soft · Square); sign-in background (Sand texture · Plain
 colour · Photo); the four files — logo for light backgrounds, logo for dark, mark, favicon —
 each with its picture, Replace and Remove (Remove clears the draft; Publish saves it, and the
-old file stays in the bucket). The preview draws the same files the portal will: the logo for
+old file stays in the bucket). Under **Mobile app**, the same rows for the merchant app's icon,
+Android icon foreground and splash, each saying what it must be (#495). The preview draws the same files the portal will: the logo for
 the background, else the mark, else a plain tile. Publish is disabled with "Fix the contrast first." while a pair fails; **the API
 refuses a failing pair too** (`CONTRAST_FAILS`, SAAS §3.3), the hint on screen is a courtesy.
 
@@ -849,10 +850,14 @@ api/README.md §2.1); a partner id in a request is not authority.
   `INVALID_INPUT`. **Reading a file back (#448)**: `GET /api/uploads/brand-file?key=…` answers the
   caller's own file for the console's pictures, 404 for any key outside `partners/<id>/brand/`.
   **The upload, built on #219**: `POST /api/uploads/brand-file?kind=logoLight|
-  logoDark|mark|favicon` with the file as the body. The session (`UNAUTHENTICATED`) and
+  logoDark|mark|favicon|appIcon|appIconForeground|splash` with the file as the body. The session (`UNAUTHENTICATED`) and
   `branding.write` (`FORBIDDEN`) are checked before the kind, the bucket or the body; then
   SVG, PNG or WebP by its bytes, at most 512 KB, an SVG that could run script or load anything
-  refused (`UNSAFE_SVG`); it answers the key `partners/<partner>/brand/<uuid>.<ext>` and logs
+  refused (`UNSAFE_SVG`). The three mobile app images (#495) are PNG only (`NOT_PNG`), both
+  icons exactly 1024 × 1024 (`WRONG_DIMENSIONS`) and the app icon without an alpha channel or
+  transparent colour (`HAS_TRANSPARENCY`). Their key names the kind (`…/brand/appIcon-<uuid>.png`),
+  and publish takes a key in a mobile app slot only when it names that slot's kind, so no file
+  skips its checks. It answers the key `partners/<partner>/brand/<uuid>.<ext>` and logs
   `branding.file_uploaded`. `NOT_CONNECTED` until the environment's assets bucket is bound
   (THIRD-PARTY-ACCESS §2.1). The file is written inside the log entry's transaction, so a
   failed write logs nothing; a commit that fails after the write leaves an unlogged object

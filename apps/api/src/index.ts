@@ -19,6 +19,7 @@ import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { resolvePortalPartner, resolveStoreStanding } from '#auth/storeCaller'
+import { storeOriginAllowed } from '#auth/storeCredential'
 import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
 import { staffPortalCookieName } from '#auth/staffPortal'
@@ -391,7 +392,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
 // A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
 // caller is the session's person acting in the store the request names (ACCESS.md §4).
 const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
-  if (!originAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
+  if (!isStoreAuthPath(url.pathname) && !storeOriginAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
   const hyperdrive = config.HYPERDRIVE
   if (!hyperdrive) return servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
   const secrets = await secretsFor(config)

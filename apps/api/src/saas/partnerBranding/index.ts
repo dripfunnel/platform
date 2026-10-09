@@ -11,6 +11,7 @@ import { selectShellFacts } from '#db/scoped/partnerConsole'
 import { selectContractTerms } from '#db/scoped/partnerPlans'
 import { selectPartner, upsertSetupItem } from '#db/scoped/partners'
 import type { PartnerRow } from '#db/schema/saas'
+import { appImageKinds, uploadedAs } from './brandFile'
 import { contrastReport, type ContrastReport } from './contrast'
 
 // Branding on the Platform API (ui/platform/FIRST-RELEASE.md §8; card #162): the look and the
@@ -43,7 +44,7 @@ export const brandingInput = z.strictObject({
     font: z.enum(brandFonts),
     corner: z.enum(['rounded', 'soft', 'square']),
     background: z.enum(['sand', 'plain', 'photo']),
-    files: z.strictObject({ logoLight: fileKey, logoDark: fileKey, mark: fileKey, favicon: fileKey }),
+    files: z.strictObject({ logoLight: fileKey, logoDark: fileKey, mark: fileKey, favicon: fileKey, appIcon: fileKey, appIconForeground: fileKey, splash: fileKey }),
   }),
   words: z.strictObject({
     supportEmail: z.string().trim().email().max(254),
@@ -85,7 +86,15 @@ const toInput = (row: BrandingRow): BrandingInput => ({
     font: row.font,
     corner: row.corner,
     background: row.background,
-    files: { logoLight: row.logo_light_key ?? '', logoDark: row.logo_dark_key ?? '', mark: row.mark_key ?? '', favicon: row.favicon_key ?? '' },
+    files: {
+      logoLight: row.logo_light_key ?? '',
+      logoDark: row.logo_dark_key ?? '',
+      mark: row.mark_key ?? '',
+      favicon: row.favicon_key ?? '',
+      appIcon: row.app_icon_key ?? '',
+      appIconForeground: row.app_icon_foreground_key ?? '',
+      splash: row.splash_key ?? '',
+    },
   },
   words: {
     supportEmail: row.support_email ?? '',
@@ -112,6 +121,9 @@ const toFields = (input: BrandingInput): BrandingFields => ({
   logo_dark_key: blank(input.look.files.logoDark),
   mark_key: blank(input.look.files.mark),
   favicon_key: blank(input.look.files.favicon),
+  app_icon_key: blank(input.look.files.appIcon),
+  app_icon_foreground_key: blank(input.look.files.appIconForeground),
+  splash_key: blank(input.look.files.splash),
   support_email: input.words.supportEmail,
   support_url: blank(input.words.supportUrl),
   help_url: blank(input.words.helpUrl),
@@ -170,7 +182,7 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity }: P
       font: brandFonts[0],
       corner: 'rounded',
       background: 'sand',
-      files: { logoLight: '', logoDark: '', mark: '', favicon: '' },
+      files: { logoLight: '', logoDark: '', mark: '', favicon: '', appIcon: '', appIconForeground: '', splash: '' },
     },
     words: { supportEmail: '', supportUrl: '', helpUrl: '', termsUrl: '', privacyUrl: '', dpaUrl: '', impressum: '', poweredBy: true },
   })
@@ -204,6 +216,8 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity }: P
     const input = parsed.data
     const foreign = Object.entries(input.look.files).find(([, key]) => key !== '' && !key.startsWith(`partners/${partnerId}/`))
     if (foreign) return { ok: false, reason: 'INVALID_INPUT', field: `look.files.${foreign[0]}` }
+    const misfiled = appImageKinds.find((kind) => input.look.files[kind] !== '' && !uploadedAs(input.look.files[kind], partnerId, kind))
+    if (misfiled) return { ok: false, reason: 'INVALID_INPUT', field: `look.files.${misfiled}` }
     const contrast = contrastReport(input.look.primary, input.look.accent)
     if (!contrast.passes) return { ok: false, reason: 'CONTRAST_FAILS', fix: contrast.fix ?? '' }
 

@@ -130,6 +130,8 @@ sign-up, password reset and invitation emails (CONSOLE-DESIGN §3 facts 4, 17; p
 
 - name, logo (light and dark), mark and favicon, primary and accent colours, font, corner
   style, sign-in background;
+- the merchant mobile app's icon, Android icon foreground and splash, which each partner's app
+  build takes (#495; mobile-app/merchant/BUILD-CHECKLIST §2);
 - **contrast checked to WCAG AA before saving**, with an explanation when a colour fails;
 - **versioned**: every change is recorded, can be rolled back, and can be scheduled (F8)
   (`partner_branding`, built on #211, DATA-MODEL §2.5; publishing is #162);

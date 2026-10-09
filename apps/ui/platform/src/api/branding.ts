@@ -7,7 +7,9 @@ export const brandFonts = ['Nunito', 'Source Sans 3', 'Manrope', 'Lora', 'DM San
 export const brandCorners = ['rounded', 'soft', 'square'] as const
 export const brandBackgrounds = ['sand', 'plain', 'photo'] as const
 export const brandFiles = ['logoLight', 'logoDark', 'mark', 'favicon'] as const
-export type BrandFile = (typeof brandFiles)[number]
+// The merchant app's images (#495): PNG only, checked on the server.
+export const appFiles = ['appIcon', 'appIconForeground', 'splash'] as const
+export type BrandFile = (typeof brandFiles)[number] | (typeof appFiles)[number]
 
 export const hexColour = /^#[0-9a-fA-F]{6}$/
 const hex = z.string().regex(hexColour)
@@ -22,7 +24,7 @@ export const brandingInput = z.object({
     corner: z.enum(brandCorners),
     background: z.enum(brandBackgrounds),
     // The uploaded file's key under the partner's prefix, or '' for none yet (apps/api partnerBranding).
-    files: z.object({ logoLight: z.string(), logoDark: z.string(), mark: z.string(), favicon: z.string() }),
+    files: z.object({ logoLight: z.string(), logoDark: z.string(), mark: z.string(), favicon: z.string(), appIcon: z.string(), appIconForeground: z.string(), splash: z.string() }),
   }),
   words: z.object({
     supportEmail: z.string().trim().email().max(254),
@@ -79,7 +81,7 @@ const brandingSchema = z.object({
       font: z.enum(brandFonts),
       corner: z.enum(brandCorners),
       background: z.enum(brandBackgrounds),
-      files: z.object({ logoLight: z.string(), logoDark: z.string(), mark: z.string(), favicon: z.string() }),
+      files: z.object({ logoLight: z.string(), logoDark: z.string(), mark: z.string(), favicon: z.string(), appIcon: z.string(), appIconForeground: z.string(), splash: z.string() }),
     }),
     words: z.object({ supportEmail: z.string(), supportUrl: z.string(), helpUrl: z.string(), termsUrl: z.string(), privacyUrl: z.string(), dpaUrl: z.string(), impressum: z.string(), poweredBy: z.boolean() }),
     affects: z.number().int().nonnegative(),
@@ -95,7 +97,7 @@ const brandingSchema = z.object({
 export const loadBranding = async (): Promise<Branding> => {
   const { branding: b } = await query(
     `{ branding {
-      look { productName primary accent font corner background files { logoLight logoDark mark favicon } }
+      look { productName primary accent font corner background files { logoLight logoDark mark favicon appIcon appIconForeground splash } }
       words { supportEmail supportUrl helpUrl termsUrl privacyUrl dpaUrl impressum poweredBy }
       affects contrast { ${contrastFields} } poweredByRule impressumRequired dpaRequired permission { allowed reason }
     } }`,
@@ -128,7 +130,7 @@ export const publishBranding = async (input: BrandingInput): Promise<PublishResu
   return { ok: false, reason: reason.success ? reason.data : 'INVALID_INPUT' }
 }
 
-export const uploadRefusals = ['TOO_LARGE', 'UNSUPPORTED_TYPE', 'UNSAFE_SVG', 'FORBIDDEN', 'UNAUTHENTICATED', 'NOT_CONNECTED'] as const
+export const uploadRefusals = ['TOO_LARGE', 'UNSUPPORTED_TYPE', 'UNSAFE_SVG', 'NOT_PNG', 'WRONG_DIMENSIONS', 'HAS_TRANSPARENCY', 'FORBIDDEN', 'UNAUTHENTICATED', 'NOT_CONNECTED'] as const
 export type UploadRefusal = (typeof uploadRefusals)[number]
 
 // The raw file to `/api/uploads/brand-file` (card #219): the key it was stored under, or why not.

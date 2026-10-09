@@ -2,6 +2,7 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import type { BrandFile } from '../../api/branding'
 import type { Me } from '../../api/me'
 import { messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
@@ -32,6 +33,7 @@ const view = (props: Partial<BrandingProps> = {}, role: PartnerRole = 'partner-o
       tab="look"
       forced={null}
       busy={false}
+      uploading={null}
       preview={{ screen: 'signin', device: 'desktop', mode: 'light', onScreen: noop, onDevice: noop, onMode: noop }}
       onDraft={noop}
       onDiscard={noop}
@@ -113,10 +115,10 @@ describe('Branding', () => {
   })
 
   describe('brand files', () => {
-    const withFiles = (files: Partial<Record<'logoLight' | 'logoDark' | 'mark' | 'favicon', string>>, screen: 'signin' | 'header' = 'signin', mode: 'light' | 'dark' = 'light') => {
+    const withFiles = (files: Partial<Record<BrandFile, string>>, screen: 'signin' | 'header' = 'signin', mode: 'light' | 'dark' = 'light') => {
       const branding = northstarBranding['partner-owner']
       const original = draftOf(branding)
-      const draft = { ...original, look: { ...original.look, files: { logoLight: '', logoDark: '', mark: '', favicon: '', ...files } } }
+      const draft = { ...original, look: { ...original.look, files: { logoLight: '', logoDark: '', mark: '', favicon: '', appIcon: '', appIconForeground: '', splash: '', ...files } } }
       return view({ draft, original, preview: { screen, device: 'desktop', mode, onScreen: noop, onDevice: noop, onMode: noop } })
     }
     const url = (key: string) => `/api/uploads/brand-file?key=${encodeURIComponent(key)}`
@@ -127,6 +129,32 @@ describe('Branding', () => {
       expect(html).toContain(`aria-label="${words.look.removeLabel.replace('{file}', words.look.files.mark)}"`)
       expect(html).not.toContain(`aria-label="${words.look.removeLabel.replace('{file}', words.look.files.logoLight)}"`)
       expect(textOf(html)).toContain(words.look.noFile)
+    })
+
+    it('groups the mobile app images under Mobile app, PNG only, each with what it must be', async () => {
+      const html = await withFiles({ appIcon: 'partners/p/brand/icon.png' })
+      const app = html.slice(html.indexOf('id="brand-app-group"'))
+      expect(textOf(app)).toContain(words.look.appGroup)
+      for (const file of ['appIcon', 'appIconForeground', 'splash'] as const) {
+        expect(app).toMatch(new RegExp(`<input type="file" accept="image/png"[^>]*aria-label="${words.look.replaceLabel.replace('{file}', words.look.files[file])}"`))
+        expect(textOf(app)).toContain(words.look.appHints[file])
+      }
+      expect(app).toContain(`class="df-brand-thumb" src="${url('partners/p/brand/icon.png')}"`)
+      expect(app).toContain(`aria-label="${words.look.removeLabel.replace('{file}', words.look.files.appIcon)}"`)
+      expect(app).not.toContain(`aria-label="${words.look.removeLabel.replace('{file}', words.look.files.splash)}"`)
+    })
+
+    it('shows Uploading in the row being uploaded, and only there', async () => {
+      const html = await view({ uploading: 'splash', busy: true })
+      expect(html.match(new RegExp(words.look.uploading, 'g'))).toHaveLength(1)
+      expect(html.slice(html.indexOf(words.look.files.splash))).toContain(words.look.uploading)
+    })
+
+    it('disables every upload, Mobile app included, for a role that can’t change branding', async () => {
+      const html = await withFiles({})
+      const readOnly = await view({}, 'partner-read-only')
+      expect(html.match(/<input type="file"[^>]*disabled=""/g) ?? []).toHaveLength(0)
+      expect(readOnly.match(/<input type="file"[^>]*disabled=""/g)).toHaveLength(7)
     })
 
     it('draws the light logo on the sign-in card, the dark one in dark mode and in the header', async () => {

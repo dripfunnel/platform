@@ -63,17 +63,23 @@ type BillingSettings {
 }
 
 type BrandFiles {
+  appIcon: String
+  appIconForeground: String
   favicon: String
   logoDark: String
   logoLight: String
   mark: String
+  splash: String
 }
 
 input BrandFilesInput {
+  appIcon: String! = ""
+  appIconForeground: String! = ""
   favicon: String!
   logoDark: String!
   logoLight: String!
   mark: String!
+  splash: String! = ""
 }
 
 type BrandLook {
