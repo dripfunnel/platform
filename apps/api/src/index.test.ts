@@ -60,6 +60,25 @@ describe('worker', () => {
     expect(text).not.toMatch(/secret-entra|rk_test|whsec_/)
   })
 
+  it('needs all five SES values, and shows none of them', async () => {
+    const ses = {
+      SES_REGION: 'eu-west-1',
+      SES_ACCESS_KEY_ID: 'AKIAsecretkeyid',
+      SES_SECRET_ACCESS_KEY: 'secret-ses-access-key',
+      SES_SENDER_DOMAIN: 'mail.example.com',
+      EMAIL_SUPPRESSION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    }
+    const ask = async (extra: Record<string, string | undefined>) => {
+      const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+      const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, ...extra }, ctx)).text()
+      return { text, ses: JSON.parse(text).integrations.ses }
+    }
+    const all = await ask(ses)
+    expect(all.ses).toBe('configured')
+    expect(all.text).not.toMatch(/AKIAsecretkeyid|secret-ses-access-key|mail\.example\.com|AAAAAAAA/)
+    expect((await ask({ ...ses, EMAIL_SUPPRESSION_KEY: undefined })).ses).toBe('missing')
+  })
+
   it('reports 503 when the environment requires a database and the binding is gone (#30)', async () => {
     const lost = { ...env, HYPERDRIVE: undefined, HYPERDRIVE_REQUIRED: '1' }
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
