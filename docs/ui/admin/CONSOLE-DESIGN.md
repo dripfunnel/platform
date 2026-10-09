@@ -411,8 +411,9 @@ choice limited to what its contract allows. First release:
   payment failed, store suspended, receipts. Edit subject and a small set of blocks, preview
   in the brand's look, per language *(ask which languages)*. Variables shown as chips, never
   raw braces.
-- F7. **Storefront defaults**: preview and shop wildcards (`{store}.preview.northstar.com`,
-  `{store}.shops.northstar.com`), default template, default "Powered by" on storefronts.
+- F7. **Storefront defaults**: the shop wildcard (`{store}.shops.northstar.com`; previews are on
+  DripFunnel's own `{key}.webpreview.store` since 2026-10-09), default template, default "Powered
+  by" on storefronts.
 - F8. Versioning: every brand change is recorded and can be rolled back; changes can be
   scheduled (e.g. a rebrand on 1 Nov).
 - F9. What merchants see when their brand's look changes (a notice, or nothing) *(ask)*.

@@ -52,7 +52,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
  │ R2 storefront-sites         │ ◄────────── │   hostname → store → live build → file       │
  │   stores/{id}/builds/{b}/   │   reads     │   /shop-api/* → API Worker                   │
  │ R2 storefront-assets        │             └──────────────▲───────────────────────────────┘
- │   stores/{id}/… core/{v}/…  │ ◄─ asset host (no Worker)  │
+ │ stores/{id}/builds/{b}/ core/{v}/│ ◄─ asset host (no Worker)  │
  └─────────────────────────────┘                            │ Cloudflare for SaaS
                                                    shopper on www.merchantbrand.com
 ```
@@ -62,7 +62,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 | **Store repo** | The published theme code, the generated files and the locked workflow (ARCHITECTURE §2.2) | The public, free place to build. It holds only what is already live. |
 | **API Worker** | Starts builds, checks OIDC tokens, mints R2 credentials, records `publish_run`, moves the live pointer | Every credential and every decision stays on the platform, never in a repo or a runner. |
 | **`storefront-sites` bucket** *(proposed name)* | Each build's HTML and data files, and the preview files ([PREVIEW.md](PREVIEW.md) §3) | Read only by the edge Worker, never public. |
-| **`storefront-assets` bucket** *(proposed name)* | Content-hashed JS and CSS per store, and each core version's shared runtime | Public and immutable, so the asset host serves it straight from cache with no Worker. |
+| **`storefront-assets` bucket** *(proposed name)* | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
 | **A private drafts bucket** | Unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3) | Source code that isn't public yet must never share a bucket with files that are served. |
 | **Edge Worker** | Answers every storefront request | One code path for every store; nothing per store to deploy. |
 | **Postgres** | `storefront`, `publish_run`, `design_version`: which build is live, and the history (DATA-MODEL §7) | The live pointer is state the consoles show, not a file. |
@@ -119,16 +119,24 @@ checking, deploying, live, failed, rolled back).
    id, to the API. The API checks the token (§9) and answers with a 15-minute download link for
    the snapshot.
    *Why:* the snapshot is fetched before the build, so the build itself never needs the network.
-6. **Job `build`:** runs inside `ghcr.io/dripfunnel/storefront-build:<core version>` with
-   networking off and **no secrets in the job**. It runs the validator over the whole theme
-   (ARCHITECTURE §3.4), then the static build (SSG). Its output is passed to the next job as a
-   workflow artifact.
-   *Why:* the AI-written code runs in this job, so nothing in it is worth stealing and it can
-   reach nothing.
+   **How "networking off" works in every job:** the AI-written code (the static build, and the
+   theme in the headless browser) runs only inside a `docker run --network none` container of
+   `ghcr.io/dripfunnel/storefront-build:<core version>`, with an allowlisted environment:
+   - no `GITHUB_TOKEN`, no `ACTIONS_*` variables and no OIDC request URL are passed in;
+   - the repo and inputs are mounted read-only, and one output folder is writable.
+
+   The runner steps around the container are the locked workflow's own code. They alone use the
+   network: checkout, the artifact service, the OIDC call to the API.
+6. **Job `build`:** the container runs the validator over the whole theme (ARCHITECTURE §3.4),
+   then the static build (SSG), into its output folder. A runner step then uploads the folder
+   as the workflow artifact `site`. There are no secrets in the job, and it has no `id-token`
+   permission.
+   *Why:* the AI-written code runs in this job. Inside the container it can reach neither the
+   network nor the runner's tokens, so it can't write any artifact but its own output.
 7. **Job `check`:** the gate suite of ARCHITECTURE §4.2 step 3 runs **inside the workflow**
    (decided 2026-10-09 with Gaurav). It uses the same image, with the browser and gate tools
-   preinstalled, networking off, and no secrets. It serves the build's files on the runner
-   itself and checks them:
+   preinstalled. A runner step downloads `site`, and the container (networking off, `site`
+   mounted read-only) serves the files to its own headless browser and checks them:
    - contract tests per route;
    - sealed-component visibility at 3 widths;
    - axe accessibility checks;
@@ -139,21 +147,33 @@ checking, deploying, live, failed, rolled back).
    - a visual diff against the live build, whose files `prepare` fetched with the snapshot.
 
    The checkout smoke test runs against core's offline Shop API fixture *(proposed)*; the real
-   checkout is the post-deploy check (step 10). The job writes a **report** with each check's
-   pass or fail, and the **digest of the files it checked**: SHA-256 over the sorted list of each
-   file's path and SHA-256. It reads nothing the build job left besides the built files, and has
-   no `id-token` permission, so it can't talk to the API at all.
+   checkout is the post-deploy check (step 10). The container writes each check's pass or fail
+   to its output folder. A runner step then:
+   - computes the **digest of the files it handed to the container**: SHA-256 over the sorted
+     list of each file's path and SHA-256, computed outside the container;
+   - sends the **report** (the results and the digest) **straight to the API** with the job's
+     own OIDC token.
+
+   The report never travels as an artifact, so nothing the build job wrote can stand in for it.
    *Why:* the checks cost nothing on public repos and need no browser service of ours. The AI's
-   code runs here only inside the headless browser, which has no access to the runner's files or
-   to the report. The digest ties the report to exact bytes (step 9). A theme that behaves
+   code runs here only inside the headless browser in a container with no network and no token,
+   so it can't reach the runner, the report or the API. The digest ties the report to exact bytes
+   (step 9). A theme that behaves
    differently under checks is what the validator's ban on environment sniffing (ARCHITECTURE
    §3.4) and the post-deploy checks from the edge (step 10) are there to catch.
-8. **Job `upload`:** it runs none of the repo's code. It gets a fresh OIDC token and sends the
-   report.
-   - **On a pass**, the API mints **R2 temporary credentials, one per bucket, limited to
-     `stores/{id}/builds/{build id}/` and to 15 minutes**. The job uploads HTML and data files
-     to `storefront-sites`, hashed JS and CSS to `storefront-assets` (`stores/{id}/…`), and a
-     **manifest** of every file, then tells the API "uploaded".
+8. **Job `upload`:** it runs none of the repo's code. It downloads `site` and asks the API for
+   credentials with a fresh OIDC token.
+   - **On a pass** recorded by `check`, the API mints **R2 temporary credentials, one per
+     bucket, limited to `stores/{id}/builds/{build id}/` and to 15 minutes**. The job uploads:
+     - HTML and data files to `storefront-sites` at that prefix;
+     - hashed JS and CSS to `storefront-assets` at the **same build prefix** (`stores/{id}/builds/{build
+       id}/assets/…`);
+     - a **manifest** of every file.
+
+     Then it tells the API "uploaded". Every key is **write-once inside its own build's folder**:
+     no build can write, overwrite or delete another build's files, so a kept build stays exactly
+     as it was for going back. Each core version's shared runtime (`core/{version}/`) is written
+     only by the release workflow, never by a store's build.
    - **On a failure** nothing is uploaded. The API records the report, and the repair, bisect
      or refuse steps of ARCHITECTURE §4.2 step 4 start from it. A repair runs in the studio's
      sandbox (AI-STUDIO), then a new build. The live site stays as it was.
@@ -273,17 +293,18 @@ What the edge Worker does on each request to a storefront host.
     uses it.
 
   *Why:* a token from any other repo, workflow, branch or run is worthless.
-- **The build and check jobs hold nothing and reach nothing**: no secrets, networking off. The
-  upload job holds a 15-minute, single-folder credential, only after a passing report, and runs
-  none of the repo's code. Every third-party action in the workflow is pinned by commit hash.
+- **The containers in the build and check jobs hold nothing and reach nothing**: no secrets,
+  no tokens, networking off. The upload job holds a 15-minute, single-folder credential, only
+  after a passing report, and runs none of the repo's code. Every third-party action in the workflow is pinned by commit hash.
   *Why:* the AI-written code and the credential are never in the same job.
 - **The workflow's permissions:**
   - top-level `permissions: {}`;
-  - only the `prepare` and `upload` jobs get `id-token: write`;
+  - `id-token: write` only on `prepare`, `check` and `upload`, never on `build`;
   - no job gets `contents: write`.
 
-  The `build` and `check` jobs get no token of any kind, so code running in them can't ask the
-  API for anything.
+  Every job still has GitHub's artifact token on the runner. **The AI's code never sees either
+  token**: it runs only inside `--network none` containers with an allowlisted environment
+  (§4 step 6). Only the locked workflow's own runner steps use the artifact service and OIDC.
 - **The report is bound to the bytes**: the check job's digest must equal the manifest's, and
   every uploaded object must hash to its manifest entry before the pointer moves (§4 step 9).
 - **The repo is public by design**, so it holds nothing private: no secrets, no catalogue
@@ -314,7 +335,9 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   - assets off the Worker path (§5 step 7);
   - the hostname lookup in the cache, not KV (§5 step 1);
   - no per-request HTML rewriting (§5 step 5);
-  - a manifest that reuses unchanged files instead of uploading them again *(proposed)*.
+  - a manifest that points at unchanged files in the store's earlier build folders (read only)
+    instead of uploading them again, which never writes outside the new build's folder
+    *(proposed)*.
 - **For scale:** our estimate for 5,000 stores with 1,000 visits a day each and one build a day
   each is about **$3,500–5,000 a month all-in**, studio included. About $250 of that is the edge
   Worker.
