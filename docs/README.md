@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-10-09 (#493: the mobile app's first release has no Billing or in-app purchase).
+Last updated: 2026-10-09 (#520: storefront LIVE-SHOP, PREVIEW and AI-STUDIO added; #493: the mobile app's first release has no Billing or in-app purchase).
 
 ---
 
@@ -27,7 +27,7 @@ its clients; everything runs on Cloudflare, with Postgres on Neon.
 | **Admin console** | `apps/ui/admin` | `admin.dripfunnel.com` | DripFunnel staff: Super admin, Partner manager, Support, Finance, Engineer on call, Read-only | Admin API | [ui/admin/](ui/admin/README.md) |
 | **Partner console** | `apps/ui/platform` | `platform.dripfunnel.com` | Partner users: Owner, Admin, Support, Finance, Read-only | Platform API | [ui/platform/](ui/platform/README.md) |
 | **Merchant portal** | `apps/ui/store` | each partner's portal host, e.g. `store.<partnerdomain>` | Merchant Owner, Manager, Staff; vendors: Stock only, Products and stock, Products, stock and their orders | Store API | [ui/store/](ui/store/README.md) |
-| **Storefront** | one repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{shop}.preview.<partnerdomain>`, `{shop}.shops.<partnerdomain>`, the merchant's domain | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
+| **Storefront** | one public repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{shop}.shops.<partnerdomain>`, the merchant's domain; preview on `{key}.webpreview.store` | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
 
 All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
 
@@ -97,6 +97,9 @@ docs/
     ARCHITECTURE.md         the storefront template, storefront-core, the walls around AI-written themes,
                             render modes, the publish pipeline, the studio sandbox, fleet upgrades
     DESIGN.md               what the AI may design and the rules every design keeps
+    LIVE-SHOP.md            infra: the store repo, the build on GitHub Actions, R2, the edge Worker, domains
+    PREVIEW.md              infra: the preview link on webpreview.store, its files in R2, access
+    AI-STUDIO.md            infra: the studio's container and Durable Object, the private draft, the live frame
 ```
 
 **Outside `docs/`, at the repo root, is [`designs/`](../designs/design.md)**: one clickable
@@ -153,6 +156,7 @@ run it, then the guide for the part you'll touch.
 | Shared UI, tokens, formatting | [ui/shared/](ui/shared/README.md), and `designs/DripFunnel Style Guide.dc.html` for the tokens themselves |
 | Running locally, setting up or deploying dev or production | [setup/local.md](setup/local.md), [setup/dev.md](setup/dev.md), [setup/prod.md](setup/prod.md) |
 | Storefront template, `storefront-core`, AI design | [storefront/ARCHITECTURE.md](storefront/ARCHITECTURE.md), [storefront/DESIGN.md](storefront/DESIGN.md), [code/ARCHITECTURE.md](code/ARCHITECTURE.md) §5 |
+| Storefront builds, hosting, preview, the studio's sandbox | [storefront/LIVE-SHOP.md](storefront/LIVE-SHOP.md), [storefront/PREVIEW.md](storefront/PREVIEW.md), [storefront/AI-STUDIO.md](storefront/AI-STUDIO.md) |
 
 ---
 

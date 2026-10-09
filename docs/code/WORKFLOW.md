@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-10-07 (#466: how a card is written).
+Last updated: 2026-10-09 (#522: `@claude` in issues and pull request comments, §7).
 
 ---
 
@@ -223,6 +223,17 @@ pull request's **base** branch and refuses one starting with `#`
 ([anthropics/claude-code-action#751](https://github.com/anthropics/claude-code-action/issues/751)),
 with no input or event that avoids the check, so the workflow does not use the action. Branch
 names are checked by the `naming` job alone; the review has no opinion on them.
+
+**`@claude` in an issue or a pull request comment** runs Claude through
+`anthropics/claude-code-action`, pinned to a release ([`claude.yml`](../../.github/workflows/claude.yml)),
+with the review's token, for commenters with write access. It replies, and when asked it can
+push commits to the pull request's branch through the Claude GitHub App; those commits still
+pass `naming` and the review. Settings, hooks and MCP servers from the pull request's branch are
+ignored (`--setting-sources user`, `--strict-mcp-config`) and reads keep out of token locations. A
+`CLAUDE.md` on that branch may still be read as instructions; that is accepted, because only people
+with write access can trigger it, and they can already push to the branch. Because of the base-branch
+check above, it can't answer on a stacked pull request. Comment events run from the default branch's
+copy, which is `dev`, so it works once merged there.
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.

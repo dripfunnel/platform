@@ -5,7 +5,7 @@ Who uses the platform, where each of them signs in, and which hostnames exist. *
 "brand" they mean a **partner**'s white-label identity, and where they say "DF Admin" they
 mean the admin console at `admin.dripfunnel.com`.
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-09 (previews moved to `{key}.webpreview.store`; §5's checks answered).
 
 ---
 
@@ -37,13 +37,13 @@ a separate, unrelated account, so white label never leaks (api/ACCESS.md §2).
 | `admin.dripfunnel.com` | The admin console (`apps/ui/admin`) and the Admin API at `/api` | DripFunnel staff (Admin) only | Fixed |
 | `platform.dripfunnel.com` | The platform console (`apps/ui/platform`) and the Platform API at `/api` | Partner users only | Fixed |
 | **Partner portal host**, chosen by the partner (suggested `store.<partnerdomain>`) | The merchant portal (`apps/ui/store`) in the partner's look, and the Store API at `/api` | Merchants, their staff, vendors | Partner, on `platform.dripfunnel.com` |
-| `{shop}.preview.<partnerdomain>` | Each merchant's storefront **preview** (client-rendered SPA, live data) | The merchant and their team | Partner adds one wildcard DNS record |
+| `{key}.webpreview.store` | Each merchant's storefront **preview** (client-rendered SPA, live data), on one generic domain for every partner (decided 2026-10-09 with Gaurav, replacing `{shop}.preview.<partnerdomain>`; [storefront/PREVIEW.md](storefront/PREVIEW.md)) | The merchant and their team, by a signed link | Fixed: one wildcard on our own zone |
 | `{shop}.<partner shop domain>`, e.g. `{shop}.shops.<partnerdomain>` | Each merchant's **live** storefront until they connect their own domain | Customers | Partner adds one wildcard DNS record |
 | The merchant's own domain, e.g. `www.merchantbrand.com` | The merchant's **live** storefront (static build) | Customers | Merchant, in the portal |
 | The partner's email sender domain | Email from the partner's platform (verification, invitations, receipts, order emails) | None (email only) | Partner (SES DKIM, SPF, DMARC records) |
 
-DripFunnel, as the house partner, uses the same pattern (decided): `store.dripfunnel.com`,
-`{shop}.preview.dripfunnel.com` and `{shop}.shops.dripfunnel.com`.
+DripFunnel, as the house partner, uses the same pattern (decided): `store.dripfunnel.com` and
+`{shop}.shops.dripfunnel.com`.
 
 **One portal host per partner** (decided): a partner has exactly one brand, one look and one
 portal host.
@@ -57,7 +57,7 @@ portal host.
 1. **Admin creates the partner** on `admin.dripfunnel.com` (name, Owner email, country) as
    *Draft*, and its Owner gets an invitation to the partner console. The Owner accepts it,
    sets a password and 2-factor (never a password sent by email), and signs in.
-2. Sets up branding, portal host, preview and shop wildcard domains, email sender domain,
+2. Sets up branding, portal host, shop wildcard domain, email sender domain,
    plans and prices, and its billing with DripFunnel. Each domain shows the DNS records to add
    and live verification status.
 3. **Admin approves** the partner, on `admin.dripfunnel.com` (contract, KYC, billing). Until then the partner can set
@@ -76,7 +76,7 @@ Offboarding → Closed*.
 1. Signs up in the partner's look, **or the partner creates the merchant from
    `platform.dripfunnel.com`** and the merchant's Owner gets an invitation to set a password
    (never a password sent by email). Either way the store is provisioned automatically.
-2. Gets a preview link (`{shop}.preview.<partnerdomain>`) and a live link
+2. Gets a preview link (`{key}.webpreview.store`) and a live link
    (`{shop}.shops.<partnerdomain>`) straight away.
 3. Designs the storefront with the AI, publishes, and connects their own domain whenever
    they like.
@@ -164,12 +164,17 @@ hostname**, with certificates issued automatically. The console shows each recor
 checks it, and reports progress (the archived domain flow, DESIGN-BRIEF flow 58).
 
 **Verify before building:**
-- **Wildcard custom hostnames** (`*.preview.<partnerdomain>`, `*.shops.<partnerdomain>`) and
-  which Cloudflare plan supports them.
+- ~~**Wildcard custom hostnames** (`*.preview.<partnerdomain>`, `*.shops.<partnerdomain>`) and
+  which Cloudflare plan supports them.~~ Enterprise only (checked 2026-10-09). So each store's
+  `{shop}.shops.<partnerdomain>` is registered as its own custom hostname under the partner's
+  wildcard DNS record, and previews moved to our own `webpreview.store`
+  ([storefront/PREVIEW.md](storefront/PREVIEW.md) §1).
 - **Apex domains** for merchants (`merchantbrand.com` without `www`): most DNS providers can't
   point an apex at a CNAME, so decide between requiring `www` with a redirect, or supporting
   apex records.
-- Limits and pricing per custom hostname at thousands of merchants.
+- ~~Limits and pricing per custom hostname at thousands of merchants.~~ 100 included, then
+  $0.10 a month each, up to 50,000 below Enterprise (checked 2026-10-09,
+  [storefront/LIVE-SHOP.md](storefront/LIVE-SHOP.md) §6).
 
 ---
 
@@ -179,7 +184,7 @@ checks it, and reports progress (the archived domain flow, DESIGN-BRIEF flow 58)
 |---|---|---|
 | `admin.dripfunnel.com`, `platform.dripfunnel.com` | Two, on our own zone | Low: standard Pages custom domain plus a Worker route |
 | Partner portal hosts | One per partner, on partners' domains | **Tested 2026-10-05 (dev):** a SaaS hostname cannot reach Pages directly (522; the `Host` rewrite is Enterprise only). A catch-all Worker in front of Pages and the API works; serving the portal from Workers static assets remains the fallback. SAAS.md §8 |
-| Previews and live storefronts | One or more per merchant | Already planned on Workers and Cloudflare for SaaS |
+| Live storefronts and previews | One or more per merchant | None: live hosts are Cloudflare for SaaS hostnames on the edge Worker's catch-all route, and previews are on our own `webpreview.store` zone; neither uses Pages ([storefront/LIVE-SHOP.md](storefront/LIVE-SHOP.md) §5–§6, [PREVIEW.md](storefront/PREVIEW.md) §2) |
 
 ---
 
