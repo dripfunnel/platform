@@ -161,8 +161,8 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 3. **Cloudflare Containers and Durable Objects**: enable both on the main account. Measure the cold
    start of a 1.5–2 GB image at `basic` and `standard-1`, and record it with the date in
    THIRD-PARTY-ACCESS §2.1. Ask for a raise only if the limits are below the studio load (AI-STUDIO §7).
-4. **GitHub**: decide and set the org's plan from Actions concurrency (20 jobs Free, 60 Team, 500
-   Enterprise), and record it with the date in THIRD-PARTY-ACCESS §2.3 and LIVE-SHOP §10–§11. Create
+4. **GitHub**: the org stays on the Free plan for dev (20 Actions jobs at once; decided 2026-10-09 on
+   #287, recorded in THIRD-PARTY-ACCESS §2.3 and LIVE-SHOP §10–§11). Create
    the *DripFunnel Provisioning* App with *Administration*, *Contents*, *Workflows* and *Actions*
    write and *Metadata* read, **no webhook**; install it on the org → `GITHUB_APP_ID`,
    `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`. Store repos need no package access.
@@ -213,8 +213,13 @@ Never reuse a value from local or production.
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
 | `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
 | ~~`CF_PAGES_POOL`~~ | — | — | Not needed since 2026-10-09: no Pages project per store; the R2 storefront upload credential replaces it (THIRD-PARTY-ACCESS §2.1, names on #317) |
-| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 3. Read since #309 |
+| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 5. Read since #309 |
 | `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout |
+| `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID` | Text | the Cloudflare account id; the upload credential's access key id | §2.8 item 1 |
+| `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's secret | Shown once when the R2 token is created (§2.8 item 1) |
+| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token | Profile › API Tokens (§2.8 item 1) |
+| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
+| `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Needed from ST 1a |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
