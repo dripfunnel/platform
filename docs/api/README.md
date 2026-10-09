@@ -278,6 +278,11 @@ together. Install it natively — no Docker required.
 and what its local check stops on are in [setup/local.md](../setup/local.md).** This section
 keeps how the Worker and the scripts use that database.
 
+`.env.local` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (the same
+connection string as `DATABASE_URL`, **with a password in the URL**, even a dummy one a trust-auth
+Postgres ignores): `wrangler dev --env local` uses it to make the `HYPERDRIVE` binding proxy to
+local Postgres instead of a real Hyperdrive resource, and refuses a passwordless URL.
+
 ### Local, the same as dev
 
 1. `cp apps/api/.env.example apps/api/.env.local` and put the dev test values in it (THIRD-PARTY-ACCESS §8).
@@ -286,11 +291,6 @@ keeps how the Worker and the scripts use that database.
    `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
    presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
    Production leaves `integrations` out: `/health` is public, and which integration is missing would tell a caller where a check is off.
-
-`.env.local` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (the same
-connection string as `DATABASE_URL`, **with a password in the URL**, even a dummy one a trust-auth
-Postgres ignores): `wrangler dev --env local` uses it to make the `HYPERDRIVE` binding proxy to
-local Postgres instead of a real Hyperdrive resource, and refuses a passwordless URL.
 
 The runner applies migrations as the owner of the schema's tables (DATA-MODEL.md §5.3): when
 the connecting role is another member of that owner it runs each migration under
@@ -394,7 +394,9 @@ Cloudflare; a request without it (only possible off Cloudflare, e.g. `wrangler d
 `/health` also returns the Worker's `version` (a Cloudflare-assigned version UUID, from
 `CF_VERSION_METADATA`), unauthenticated, so that `promote.yml`'s post-promotion health check
 can confirm prod is serving the version it just promoted. This is intentional: the UUID
-identifies a build, not a secret, and knowing it grants no access.
+identifies a build, not a secret, and knowing it grants no access. On dev and local hosts it also returns
+`integrations` (which of Entra, Stripe, SES and assets are `configured` or `missing`, never a value); a production
+host leaves it out, since which integration is missing would tell a caller where a check is off.
 
 ---
 
