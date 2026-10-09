@@ -23,6 +23,9 @@ export const integrationsOf = (config: Config, hasAssets: boolean) => ({
   assets: hasAssets ? 'configured' : 'missing',
 })
 
+// Public, so only where a missing value helps whoever is setting the environment up: dev and local.
+const showsIntegrations = (config: Config): boolean => config.HOOKS_HOST === 'dev-hooks.dripfunnel.ai' || /(^|\.)localhost$/.test(config.HOOKS_HOST)
+
 export const isHealthPath = (area: Exclude<Area, 'hooks'>, pathname: string): boolean => pathname === healthPath[area]
 
 export const handleHealthCheck = async (
@@ -40,5 +43,6 @@ export const handleHealthCheck = async (
   if (!success) return new Response('Too many requests', { status: 429 })
   const db = await checkHealth(config, ctx)
   const ok = db === 'ok' || db === 'unconfigured'
-  return Response.json({ ok, area, db, version, integrations: integrationsOf(config, hasAssets) }, { status: ok ? 200 : 503 })
+  const body = { ok, area, db, version }
+  return Response.json(showsIntegrations(config) ? { ...body, integrations: integrationsOf(config, hasAssets) } : body, { status: ok ? 200 : 503 })
 }

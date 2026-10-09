@@ -30,10 +30,10 @@ describe('worker', () => {
   it('reports health per area, returning 503 and ok: false on a misconfigured database', async () => {
     const response = await call('https://platform.dripfunnel.com/api/health')
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'down', version: 'test-version', integrations: { entra: 'missing', stripe: 'missing', ses: 'missing', assets: 'missing' } })
+    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'down', version: 'test-version' })
     const admin = await call('https://admin.dripfunnel.com/api/health')
     expect(admin.status).toBe(503)
-    expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down', version: 'test-version', integrations: { entra: 'missing', stripe: 'missing', ses: 'missing', assets: 'missing' } })
+    expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down', version: 'test-version' })
   })
 
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
@@ -41,12 +41,13 @@ describe('worker', () => {
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured', version: 'test-version', integrations: { entra: 'missing', stripe: 'missing', ses: 'missing', assets: 'missing' } })
+    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured', version: 'test-version' })
   })
 
   it('names which integrations are configured, never a value', async () => {
     const configured = {
       ...env,
+      HOOKS_HOST: 'dev-hooks.dripfunnel.ai',
       ASSETS: {} as R2Bucket,
       ENTRA_TENANT_ID: 't',
       ENTRA_CLIENT_ID: 'c',
@@ -60,6 +61,12 @@ describe('worker', () => {
     expect(text).not.toMatch(/secret-entra|rk_test|whsec_/)
   })
 
+  it('leaves integrations out of the public answer on a production host', async () => {
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const body = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, ASSETS: {} as R2Bucket }, ctx)).json()
+    expect(body).not.toHaveProperty('integrations')
+  })
+
   it('needs all five SES values, and shows none of them', async () => {
     const ses = {
       SES_REGION: 'eu-west-1',
@@ -70,7 +77,7 @@ describe('worker', () => {
     }
     const ask = async (extra: Record<string, string | undefined>) => {
       const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
-      const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, ...extra }, ctx)).text()
+      const text = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HOOKS_HOST: 'dev-hooks.dripfunnel.ai', ...extra }, ctx)).text()
       return { text, ses: JSON.parse(text).integrations.ses }
     }
     const all = await ask(ses)
@@ -84,7 +91,7 @@ describe('worker', () => {
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], lost, ctx)
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'missing', version: 'test-version', integrations: { entra: 'missing', stripe: 'missing', ses: 'missing', assets: 'missing' } })
+    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'missing', version: 'test-version' })
   })
 
   it('rate-limits /health', async () => {
