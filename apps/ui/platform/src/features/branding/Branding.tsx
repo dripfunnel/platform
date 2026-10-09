@@ -29,11 +29,12 @@ export interface BrandingProps {
   tab: BrandingTab
   forced: BrandingState | null
   busy: boolean
+  uploading: BrandFile | null
   preview: Pick<BrandPreviewProps, 'screen' | 'device' | 'mode' | 'onScreen' | 'onDevice' | 'onMode'>
   onDraft: (draft: BrandDraft) => void
   onDiscard: () => void
   onPublish: () => void
-  // Uploads a picked file for one of the four slots; the screen puts the key it gets back in the draft.
+  // Uploads a picked file for one of the slots; the screen puts the key it gets back in the draft.
   onUpload: (file: BrandFile, picked: File) => void
   onReload: () => void
 }
@@ -63,7 +64,7 @@ export const BrandingError = ({ product, onRetry }: { product: string; onRetry: 
 
 const affectsText = (count: number) => (count === 0 ? words.affectsNone : fill(plural(words.affects, count), { count: formatCount(count) }))
 
-export const Branding = ({ me, branding, draft, original, contrast, tab, forced, busy, preview, onDraft, onDiscard, onPublish, onUpload, onReload }: BrandingProps) => {
+export const Branding = ({ me, branding, draft, original, contrast, tab, forced, busy, uploading, preview, onDraft, onDiscard, onPublish, onUpload, onReload }: BrandingProps) => {
   const product = me.partner.product
   if (forced === 'loading') return <BrandingLoading product={product} />
   if (forced === 'error') return <BrandingError product={product} onRetry={onReload} />
@@ -96,7 +97,7 @@ export const Branding = ({ me, branding, draft, original, contrast, tab, forced,
       )}
       <div className="df-brand-layout">
         {tab === 'look' ? (
-          <LookTab draft={draft} contrast={contrast} invalid={invalid} disabled={!canEdit || busy} onChange={(look) => onDraft({ ...draft, look })} onUpload={onUpload} />
+          <LookTab draft={draft} contrast={contrast} invalid={invalid} disabled={!canEdit || busy} uploading={uploading} onChange={(look) => onDraft({ ...draft, look })} onUpload={onUpload} />
         ) : (
           <WordsTab draft={draft} branding={branding} invalid={invalid} disabled={!canEdit} onChange={(next) => onDraft({ ...draft, words: next })} />
         )}

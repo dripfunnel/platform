@@ -16,7 +16,10 @@ export const northstarBranding: Record<PartnerRole, Branding> = {
         "logoLight": "northstar-shops-logo.svg",
         "logoDark": "northstar-shops-logo-white.svg",
         "mark": "northstar-mark.svg",
-        "favicon": "favicon-64.png"
+        "favicon": "favicon-64.png",
+        "appIcon": "",
+        "appIconForeground": "",
+        "splash": ""
       }
     },
     "words": {
@@ -67,7 +70,10 @@ export const northstarBranding: Record<PartnerRole, Branding> = {
         "logoLight": "northstar-shops-logo.svg",
         "logoDark": "northstar-shops-logo-white.svg",
         "mark": "northstar-mark.svg",
-        "favicon": "favicon-64.png"
+        "favicon": "favicon-64.png",
+        "appIcon": "",
+        "appIconForeground": "",
+        "splash": ""
       }
     },
     "words": {
@@ -118,7 +124,10 @@ export const northstarBranding: Record<PartnerRole, Branding> = {
         "logoLight": "northstar-shops-logo.svg",
         "logoDark": "northstar-shops-logo-white.svg",
         "mark": "northstar-mark.svg",
-        "favicon": "favicon-64.png"
+        "favicon": "favicon-64.png",
+        "appIcon": "",
+        "appIconForeground": "",
+        "splash": ""
       }
     },
     "words": {
@@ -170,7 +179,10 @@ export const northstarBranding: Record<PartnerRole, Branding> = {
         "logoLight": "northstar-shops-logo.svg",
         "logoDark": "northstar-shops-logo-white.svg",
         "mark": "northstar-mark.svg",
-        "favicon": "favicon-64.png"
+        "favicon": "favicon-64.png",
+        "appIcon": "",
+        "appIconForeground": "",
+        "splash": ""
       }
     },
     "words": {
@@ -222,7 +234,10 @@ export const northstarBranding: Record<PartnerRole, Branding> = {
         "logoLight": "northstar-shops-logo.svg",
         "logoDark": "northstar-shops-logo-white.svg",
         "mark": "northstar-mark.svg",
-        "favicon": "favicon-64.png"
+        "favicon": "favicon-64.png",
+        "appIcon": "",
+        "appIconForeground": "",
+        "splash": ""
       }
     },
     "words": {
@@ -276,7 +291,10 @@ export const kaufladenBranding: Branding = {
       "logoLight": "kaufladen-shops-logo.svg",
       "logoDark": "kaufladen-shops-logo-white.svg",
       "mark": "kaufladen-mark.svg",
-      "favicon": "favicon-64.png"
+      "favicon": "favicon-64.png",
+      "appIcon": "",
+      "appIconForeground": "",
+      "splash": ""
     }
   },
   "words": {

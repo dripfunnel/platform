@@ -126,10 +126,10 @@ partner that leaves keeps its app.
 
 ## 5. Partner accounts: setup and responsibility (decided 2026-10-08)
 
-- **App icon and splash.** `partner_branding` stores the logo and mark (SAAS.md §3.3) but no
-  app-icon or splash images. The partner console's branding screen gets an upload for them,
-  stored with `partner_branding`. That is a new field and likely a migration, built on its own
-  card.
+- **App icon and splash** (built on #495). The partner console's Branding screen uploads the app
+  icon, the Android icon foreground and the splash, stored and versioned with the rest of
+  `partner_branding` (DATA-MODEL.md §2.5). The server holds them to BUILD-CHECKLIST.md §2: PNG,
+  1024 × 1024 for both icons, no transparency in the app icon, at most 512 KB.
 - **The access DripFunnel asks for** is the least that lets it build, sign and submit: the
   smallest Apple role or App Store Connect API key scope, and the smallest Play Console
   permissions. What each partner granted is recorded in

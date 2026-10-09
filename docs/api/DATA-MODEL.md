@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-09 (synced with the schema migrations 0000–0074 create: built shapes, "not built"
+Last updated: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
 preview key, build ids).
 
@@ -264,12 +264,13 @@ Migration `0014`, for what the partner console's Stores list and store detail re
 
 ### 2.5 The partner's look and words (built on #211)
 
-Migration `0016`, from SAAS §3.3–§3.4 and the prototype's Branding screens:
+Migration `0016`, from SAAS §3.3–§3.4 and the prototype's Branding screens; `0075` adds the mobile app's images (#495):
 
 ```
 partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), product_name, primary_color,
                    accent_color, font, corner, background, logo_light_key, logo_dark_key,
-                   mark_key, favicon_key, support_email, support_url, help_url, terms_url,
+                   mark_key, favicon_key, app_icon_key, app_icon_foreground_key, splash_key,
+                   support_email, support_url, help_url, terms_url,
                    privacy_url, dpa_url, impressum, powered_by, created_by_kind,
                    created_by_label, created_at, published_at, published_by_label)
 ```
@@ -283,7 +284,9 @@ partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), prod
   back-dated. A scheduled version (published, not live yet) may only be **cancelled**, nothing
   else about it changing. A live or past version is never changed. Anything not a draft carries
   who published it and when (a check constraint).
-- The files are R2 object keys, never a URL a browser was given; colours are `#RRGGBB`; the font,
+- The files are R2 object keys, never a URL a browser was given. The three mobile app images
+  (the app icon, the Android icon foreground and the splash, BUILD-CHECKLIST §2) are versioned and
+  published with the rest of the version, and are null until uploaded. Colours are `#RRGGBB`; the font,
   corner and background come from the prototype's lists.
 - The partner reads and writes its own, inserting under its own kind (`partner_user`); staff and
   jobs reach every partner's; no merchant role has a grant (the portal's look is resolved by

@@ -56,7 +56,7 @@ describe('uploadBrandFile', () => {
     expect(init?.body).toBe(file)
   })
 
-  it.each(['TOO_LARGE', 'UNSUPPORTED_TYPE', 'UNSAFE_SVG', 'FORBIDDEN', 'UNAUTHENTICATED', 'NOT_CONNECTED'])('passes %s through by its code', async (code) => {
+  it.each(['TOO_LARGE', 'UNSUPPORTED_TYPE', 'UNSAFE_SVG', 'NOT_PNG', 'WRONG_DIMENSIONS', 'HAS_TRANSPARENCY', 'FORBIDDEN', 'UNAUTHENTICATED', 'NOT_CONNECTED'])('passes %s through by its code', async (code) => {
     respond.mockReturnValue(new Response(JSON.stringify({ ok: false, code }), { status: 400 }))
     expect(await uploadBrandFile('mark', file)).toEqual({ ok: false, code })
   })

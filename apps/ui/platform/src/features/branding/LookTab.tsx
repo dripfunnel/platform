@@ -1,6 +1,6 @@
 import { StatusPill } from '@dripfunnel/shared/ui'
 import { BrandFileImage } from './BrandFileImage'
-import { brandBackgrounds, brandCorners, brandFiles, brandFonts, hexColour, type BrandFile, type Branding, type ContrastReport } from '../../api/branding'
+import { appFiles, brandBackgrounds, brandCorners, brandFiles, brandFonts, hexColour, type BrandFile, type Branding, type ContrastReport } from '../../api/branding'
 import { fill, messages } from '../../messages'
 import type { BrandDraft, DraftField } from './brandDraft'
 
@@ -11,9 +11,52 @@ export interface LookTabProps {
   contrast: ContrastReport
   invalid: readonly DraftField[]
   disabled: boolean
+  uploading: BrandFile | null
   onChange: (look: Branding['look']) => void
   onUpload: (file: BrandFile, picked: File) => void
 }
+
+const appHints: Partial<Record<BrandFile, string>> = words.appHints
+
+const FileRows = ({ files, accept, draft, uploading, disabled, onRemove, onUpload }: { files: readonly BrandFile[]; accept: string; draft: BrandDraft; uploading: BrandFile | null; disabled: boolean; onRemove: (file: BrandFile) => void; onUpload: (file: BrandFile, picked: File) => void }) => (
+  <ul className="df-brand-files">
+    {files.map((file) => (
+      <li key={file}>
+        <strong>{words.files[file]}</strong>
+        {appHints[file] && <span className="df-field-hint">{appHints[file]}</span>}
+        {uploading === file ? (
+          <code className="df-muted" role="status">
+            {words.uploading}
+          </code>
+        ) : draft.look.files[file] ? (
+          <BrandFileImage className="df-brand-thumb" src={`/api/uploads/brand-file?key=${encodeURIComponent(draft.look.files[file])}`} alt={words.files[file]} fallback={<code className="df-muted">{words.fileFailed}</code>} />
+        ) : (
+          <code className="df-muted">{words.noFile}</code>
+        )}
+        <label className={disabled ? 'df-brand-replace df-brand-replace--off' : 'df-brand-replace'}>
+          {words.replace}
+          <input
+            type="file"
+            accept={accept}
+            className="df-visually-hidden"
+            aria-label={fill(words.replaceLabel, { file: words.files[file] })}
+            disabled={disabled}
+            onChange={(event) => {
+              const picked = event.target.files?.[0]
+              if (picked) onUpload(file, picked)
+              event.target.value = ''
+            }}
+          />
+        </label>
+        {draft.look.files[file] && (
+          <button type="button" className="df-brand-remove" disabled={disabled} aria-label={fill(words.removeLabel, { file: words.files[file] })} onClick={() => onRemove(file)}>
+            {words.remove}
+          </button>
+        )}
+      </li>
+    ))}
+  </ul>
+)
 
 const ColourField = ({ id, label, pickLabel, value, invalid, disabled, onChange }: { id: string; label: string; pickLabel: string; value: string; invalid: boolean; disabled: boolean; onChange: (value: string) => void }) => (
   <div className="df-field">
@@ -30,9 +73,11 @@ const ColourField = ({ id, label, pickLabel, value, invalid, disabled, onChange 
   </div>
 )
 
-// The look (§8.1): name, colours with the API's contrast report, font, corners, background, the four files.
-export const LookTab = ({ draft, contrast, invalid, disabled, onChange, onUpload }: LookTabProps) => {
+// The look (§8.1): name, colours with the API's contrast report, font, corners, background, the four files
+// and the mobile app's three (#495).
+export const LookTab = ({ draft, contrast, invalid, disabled, uploading, onChange, onUpload }: LookTabProps) => {
   const set = (patch: Partial<Branding['look']>) => onChange({ ...draft.look, ...patch })
+  const remove = (file: BrandFile) => set({ files: { ...draft.look.files, [file]: '' } })
   return (
     <section className="df-panel df-brand-card" aria-label={messages.branding.tabs.look}>
       <div className="df-field">
@@ -91,38 +136,14 @@ export const LookTab = ({ draft, contrast, invalid, disabled, onChange, onUpload
           </select>
         </div>
       </div>
-      <ul className="df-brand-files">
-        {brandFiles.map((file) => (
-          <li key={file}>
-            <strong>{words.files[file]}</strong>
-            {draft.look.files[file] ? (
-              <BrandFileImage className="df-brand-thumb" src={`/api/uploads/brand-file?key=${encodeURIComponent(draft.look.files[file])}`} alt={words.files[file]} fallback={<code className="df-muted">{words.fileFailed}</code>} />
-            ) : (
-              <code className="df-muted">{words.noFile}</code>
-            )}
-            <label className={disabled ? 'df-brand-replace df-brand-replace--off' : 'df-brand-replace'}>
-              {words.replace}
-              <input
-                type="file"
-                accept="image/svg+xml,image/png"
-                className="df-visually-hidden"
-                aria-label={fill(words.replaceLabel, { file: words.files[file] })}
-                disabled={disabled}
-                onChange={(event) => {
-                  const picked = event.target.files?.[0]
-                  if (picked) onUpload(file, picked)
-                  event.target.value = ''
-                }}
-              />
-            </label>
-            {draft.look.files[file] && (
-              <button type="button" className="df-brand-remove" disabled={disabled} aria-label={fill(words.removeLabel, { file: words.files[file] })} onClick={() => set({ files: { ...draft.look.files, [file]: '' } })}>
-                {words.remove}
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+      <FileRows files={brandFiles} accept="image/svg+xml,image/png" draft={draft} uploading={uploading} disabled={disabled} onRemove={remove} onUpload={onUpload} />
+      <div className="df-brand-group" role="group" aria-labelledby="brand-app-group">
+        <span id="brand-app-group" className="df-eyebrow">
+          {words.appGroup}
+        </span>
+        <p className="df-field-hint">{words.appGroupHint}</p>
+        <FileRows files={appFiles} accept="image/png" draft={draft} uploading={uploading} disabled={disabled} onRemove={remove} onUpload={onUpload} />
+      </div>
     </section>
   )
 }

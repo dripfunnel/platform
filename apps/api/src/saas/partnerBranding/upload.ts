@@ -4,7 +4,7 @@ import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { withScope } from '#db/scoped/index'
 import { partnerEntry } from '#saas/activity/index'
-import { checkBrandFile, type BrandFileCheck, type BrandFileKind } from './brandFile'
+import { brandFileKey, checkBrandFile, type BrandFileCheck, type BrandFileKind } from './brandFile'
 
 /** The one thing an upload needs of the assets bucket (the Worker's `ASSETS` R2 binding). */
 export interface BrandFileStore {
@@ -27,9 +27,9 @@ export const brandUploadAudit = 'branding.file_uploaded'
 /** Stores a checked file under the caller's own prefix and answers its key, which publishBranding takes. */
 export const uploadBrandFile = async ({ sql, caller, facts, activity, store }: BrandUploadDeps, kind: BrandFileKind, bytes: Uint8Array): Promise<BrandUploadResult> => {
   if (!partnerRoleHas(caller.role, 'branding.write')) return { ok: false, code: 'FORBIDDEN' }
-  const checked = checkBrandFile(bytes)
+  const checked = checkBrandFile(bytes, kind)
   if (!checked.ok) return checked
-  const key = `partners/${caller.partner.id}/brand/${crypto.randomUUID()}.${checked.type.ext}`
+  const key = brandFileKey(caller.partner.id, kind, checked.type.ext)
   const context = partnerContextOf(caller)
   // The file is written inside the entry's transaction: a failed write rolls the entry back, but a
   // commit failing after it leaves an unlogged object that no branding names (FIRST-RELEASE §8).

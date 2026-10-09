@@ -79,6 +79,7 @@
 
 .df-brand-files li {
   display: grid;
+  align-content: start;
   gap: var(--df-space-1);
   padding: var(--df-space-3);
   border: 1px dashed var(--df-color-border);
@@ -86,12 +87,23 @@
   font-size: 13px;
 }
 
+.df-brand-group {
+  display: grid;
+  gap: var(--df-space-2);
+}
+
+.df-brand-group > p {
+  margin: 0;
+}
+
 .df-brand-files code {
   font-size: 11px;
   overflow-wrap: anywhere;
 }
 
+/* Holds the hidden file input, which would otherwise sit against the page and stretch it past the shell. */
 .df-brand-replace {
+  position: relative;
   justify-self: start;
   color: var(--df-color-link);
   font-size: 12px;

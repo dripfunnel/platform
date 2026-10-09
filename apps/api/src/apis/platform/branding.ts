@@ -7,7 +7,15 @@ import { partnerRead, signedIn } from './fields'
 // decides, and the scope is always the session's partner.
 
 const Files = builder.objectRef<BrandingInput['look']['files']>('BrandFiles').implement({
-  fields: (t) => ({ logoLight: t.exposeString('logoLight'), logoDark: t.exposeString('logoDark'), mark: t.exposeString('mark'), favicon: t.exposeString('favicon') }),
+  fields: (t) => ({
+    logoLight: t.exposeString('logoLight'),
+    logoDark: t.exposeString('logoDark'),
+    mark: t.exposeString('mark'),
+    favicon: t.exposeString('favicon'),
+    appIcon: t.exposeString('appIcon'),
+    appIconForeground: t.exposeString('appIconForeground'),
+    splash: t.exposeString('splash'),
+  }),
 })
 
 const Look = builder.objectRef<BrandingInput['look']>('BrandLook').implement({
@@ -72,7 +80,16 @@ const Result = builder.objectRef<PublishResult>('PublishBrandingResult').impleme
 })
 
 const FilesInput = builder.inputType('BrandFilesInput', {
-  fields: (t) => ({ logoLight: t.string({ required: true }), logoDark: t.string({ required: true }), mark: t.string({ required: true }), favicon: t.string({ required: true }) }),
+  fields: (t) => ({
+    logoLight: t.string({ required: true }),
+    logoDark: t.string({ required: true }),
+    mark: t.string({ required: true }),
+    favicon: t.string({ required: true }),
+    // Defaulted, so a console from before #495 can still publish while the two deploy.
+    appIcon: t.string({ required: true, defaultValue: '' }),
+    appIconForeground: t.string({ required: true, defaultValue: '' }),
+    splash: t.string({ required: true, defaultValue: '' }),
+  }),
 })
 const LookInput = builder.inputType('BrandLookInput', {
   fields: (t) => ({

@@ -13,6 +13,9 @@ export interface BrandingFields {
   logo_dark_key: string | null
   mark_key: string | null
   favicon_key: string | null
+  app_icon_key: string | null
+  app_icon_foreground_key: string | null
+  splash_key: string | null
   support_email: string | null
   support_url: string | null
   help_url: string | null
@@ -35,6 +38,7 @@ export interface BrandingRow extends BrandingFields {
 
 const fields = [
   'product_name', 'primary_color', 'accent_color', 'font', 'corner', 'background', 'logo_light_key', 'logo_dark_key', 'mark_key', 'favicon_key',
+  'app_icon_key', 'app_icon_foreground_key', 'splash_key',
   'support_email', 'support_url', 'help_url', 'terms_url', 'privacy_url', 'dpa_url', 'impressum', 'powered_by',
 ] as const
 
