@@ -397,6 +397,7 @@ host leaves it out, since which integration is missing would tell a caller where
    `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
    presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
    Production leaves `integrations` out: `/health` is public, and which integration is missing would tell a caller where a check is off.
+
 ---
 
 ## 8. Rules that apply to every line in `apps/api`

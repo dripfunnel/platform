@@ -67,6 +67,12 @@ describe('worker', () => {
     expect(body).not.toHaveProperty('integrations')
   })
 
+  it('shows integrations on a localhost host too', async () => {
+    const request = new Request('https://platform.localhost/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const body = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HOOKS_HOST: 'hooks.localhost' }, ctx)).json()
+    expect(body).toHaveProperty('integrations')
+  })
+
   it('needs all five SES values, and shows none of them', async () => {
     const ses = {
       SES_REGION: 'eu-west-1',

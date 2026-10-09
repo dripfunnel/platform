@@ -1,4 +1,4 @@
-import type { Config } from '#core/config'
+import { isDevOrLocal, type Config } from '#core/config'
 import { checkHealth } from '#db/health'
 import type { Area } from '../router'
 
@@ -24,8 +24,6 @@ export const integrationsOf = (config: Config, hasAssets: boolean) => ({
 })
 
 // Public, so only where a missing value helps whoever is setting the environment up: dev and local.
-const showsIntegrations = (config: Config): boolean => config.HOOKS_HOST === 'dev-hooks.dripfunnel.ai' || /(^|\.)localhost$/.test(config.HOOKS_HOST)
-
 export const isHealthPath = (area: Exclude<Area, 'hooks'>, pathname: string): boolean => pathname === healthPath[area]
 
 export const handleHealthCheck = async (
@@ -44,5 +42,5 @@ export const handleHealthCheck = async (
   const db = await checkHealth(config, ctx)
   const ok = db === 'ok' || db === 'unconfigured'
   const body = { ok, area, db, version }
-  return Response.json(showsIntegrations(config) ? { ...body, integrations: integrationsOf(config, hasAssets) } : body, { status: ok ? 200 : 503 })
+  return Response.json(isDevOrLocal(config) ? { ...body, integrations: integrationsOf(config, hasAssets) } : body, { status: ok ? 200 : 503 })
 }
