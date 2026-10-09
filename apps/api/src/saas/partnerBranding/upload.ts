@@ -27,7 +27,7 @@ export const brandUploadAudit = 'branding.file_uploaded'
 /** Stores a checked file under the caller's own prefix and answers its key, which publishBranding takes. */
 export const uploadBrandFile = async ({ sql, caller, facts, activity, store }: BrandUploadDeps, kind: BrandFileKind, bytes: Uint8Array): Promise<BrandUploadResult> => {
   if (!partnerRoleHas(caller.role, 'branding.write')) return { ok: false, code: 'FORBIDDEN' }
-  const checked = checkBrandFile(bytes)
+  const checked = checkBrandFile(bytes, kind)
   if (!checked.ok) return checked
   const key = `partners/${caller.partner.id}/brand/${crypto.randomUUID()}.${checked.type.ext}`
   const context = partnerContextOf(caller)

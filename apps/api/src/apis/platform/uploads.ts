@@ -46,5 +46,5 @@ export const handleBrandUpload = async (request: Request, deps: BrandUploadRoute
   const bytes = read.bytes
   const result = await uploadBrandFile({ sql: deps.sql, caller, facts: factsOf(request), activity: deps.activity, store: deps.store }, kind as BrandFileKind, bytes)
   if (result.ok) return json(200, result)
-  return refuse(result.code === 'FORBIDDEN' ? 403 : result.code === 'TOO_LARGE' ? 413 : 415, result.code)
+  return refuse(result.code === 'FORBIDDEN' ? 403 : result.code === 'TOO_LARGE' ? 413 : result.code === 'WRONG_DIMENSIONS' || result.code === 'HAS_TRANSPARENCY' ? 422 : 415, result.code)
 }

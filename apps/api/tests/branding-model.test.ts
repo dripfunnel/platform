@@ -17,7 +17,8 @@ const as = <T>(context: CallerContext, work: (tx: ScopedSql) => Promise<T>) => w
 
 const look: BrandingFields = {
   product_name: 'Northstar Shops', primary_color: '#0F5E63', accent_color: '#E8C9A0', font: 'Nunito', corner: 'rounded', background: 'sand',
-  logo_light_key: null, logo_dark_key: null, mark_key: null, favicon_key: null, support_email: 'help@northstar.example', support_url: null,
+  logo_light_key: null, logo_dark_key: null, mark_key: null, favicon_key: null, app_icon_key: null, app_icon_foreground_key: null, splash_key: null,
+  support_email: 'help@northstar.example', support_url: null,
   help_url: null, terms_url: null, privacy_url: null, dpa_url: null, impressum: null, powered_by: false,
 }
 
@@ -62,6 +63,18 @@ describe('who reads and writes it', () => {
       expect(await as(context, (tx) => tx`update partner_branding set product_name = 'Rewritten' where id = ${draft} returning id`)).toEqual([])
     }
     expect((await as(partner(ids.ns), (tx) => selectBranding(tx, ids.ns))).live?.product_name).toBe('Northstar Stores')
+  })
+
+  it('keeps the mobile app images with the version: a partner sets them on its draft, never on a published one (0075)', async () => {
+    const icon = `partners/${ids.ns}/brand/icon.png`
+    const draft = await as(partner(ids.ns), (tx) => insertBranding(tx, { ...look, app_icon_key: icon, partnerId: ids.ns, state: 'draft', by: { kind: 'partner_user', label: 'Maya Chen' } }))
+    expect(await as(partner(ids.ns), (tx) => tx`update partner_branding set app_icon_foreground_key = ${icon}, splash_key = ${icon} where id = ${draft} returning id`)).toHaveLength(1)
+    await as(partner(ids.ns), (tx) => tx`update partner_branding set state = 'published', published_at = now(), published_by_label = 'Maya Chen' where id = ${draft}`)
+    expect((await as(partner(ids.ns), (tx) => selectBranding(tx, ids.ns))).live).toMatchObject({ app_icon_key: icon, app_icon_foreground_key: icon, splash_key: icon })
+    for (const context of [partner(ids.ns), staff]) {
+      expect(await as(context, (tx) => tx`update partner_branding set app_icon_key = null where id = ${draft} returning id`)).toEqual([])
+    }
+    expect(await as(partner(ids.kl), (tx) => tx`update partner_branding set splash_key = null where id = ${draft} returning id`)).toEqual([])
   })
 
   it('lets a partner write only its own, under its own name, and never another partner’s', async () => {

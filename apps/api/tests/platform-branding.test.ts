@@ -31,7 +31,7 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
   return { data: (result.data ?? null) as T | null, code: error?.extensions['code'] as string | undefined }
 }
 
-const brandingQuery = `{ branding { look { productName primary accent font corner background files { logoLight logoDark mark favicon } }
+const brandingQuery = `{ branding { look { productName primary accent font corner background files { logoLight logoDark mark favicon appIcon appIconForeground splash } }
   words { supportEmail supportUrl helpUrl termsUrl privacyUrl dpaUrl impressum poweredBy }
   published affects contrast { passes fix pairs { key ratio passes } } poweredByRule impressumRequired dpaRequired permission { allowed reason } } }`
 type B = { branding: BrandingInput & { published: boolean; affects: number; contrast: { passes: boolean }; poweredByRule: string; impressumRequired: boolean; dpaRequired: boolean; permission: { allowed: boolean } } }
@@ -53,8 +53,9 @@ describe('the seed', () => {
   // Publish refuses a key outside the partner's own prefix, so the seed's must already be inside it.
   it('keys every brand file under its partner', async () => {
     for (const id of [ids.ns, ids.kl]) {
-      const { look } = await current(id)
-      for (const key of Object.values(look.files)) expect(key.startsWith(`partners/${id}/`)).toBe(true)
+      const { appIcon, appIconForeground, splash, ...logos } = (await current(id)).look.files
+      for (const key of Object.values(logos)) expect(key.startsWith(`partners/${id}/`)).toBe(true)
+      expect([appIcon, appIconForeground, splash]).toEqual(['', '', ''])
     }
   })
 })
@@ -112,6 +113,7 @@ describe('publishBranding refusals', () => {
     expect(await owner.publishBranding({ ...ns, words: { ...ns.words, supportEmail: 'not an email' } })).toEqual({ ok: false, reason: 'INVALID_INPUT', field: 'words.supportEmail' })
     expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, logoLight: `partners/${ids.kl}/brand/logo.svg` } } })).toEqual({ ok: false, reason: 'INVALID_INPUT', field: 'look.files.logoLight' })
     expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, mark: 'https://evil.example/mark.svg' } } })).toMatchObject({ ok: false, reason: 'INVALID_INPUT', field: 'look.files.mark' })
+    expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, appIcon: `partners/${ids.kl}/brand/icon.png` } } })).toEqual({ ok: false, reason: 'INVALID_INPUT', field: 'look.files.appIcon' })
     expect(await owner.publishBranding({ ...ns, look: { ...ns.look, primary: '#9ACDD6' } })).toMatchObject({ ok: false, reason: 'CONTRAST_FAILS', fix: expect.stringContaining('try a darker primary') })
     for (const link of ['javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'http://northstar.example/terms']) {
       expect(await owner.publishBranding({ ...ns, words: { ...ns.words, termsUrl: link } })).toEqual({ ok: false, reason: 'INVALID_INPUT', field: 'words.termsUrl' })
@@ -130,13 +132,39 @@ describe('publishing', () => {
     const pid = p?.id ?? ''
     const base = await current(ids.ns)
     // No contract yet, so "Powered by" stays on.
-    const input = { look: { ...base.look, files: { logoLight: '', logoDark: '', mark: '', favicon: '' } }, words: { ...base.words, poweredBy: true } }
+    const input = { look: { ...base.look, files: { logoLight: '', logoDark: '', mark: '', favicon: '', appIcon: '', appIconForeground: '', splash: '' } }, words: { ...base.words, poweredBy: true } }
     const fresh = serviceFor(callerOf(pid, 'partner-owner'))
     const results = await Promise.all([fresh.publishBranding(input), fresh.publishBranding(input)])
     expect(results.map((r) => r.ok)).toEqual([true, true])
     const back = await serviceFor(callerOf(pid, 'partner-owner')).branding()
-    expect(back?.look.files).toEqual({ logoLight: '', logoDark: '', mark: '', favicon: '' })
+    expect(back?.look.files).toEqual({ logoLight: '', logoDark: '', mark: '', favicon: '', appIcon: '', appIconForeground: '', splash: '' })
     expect(await fresh.publishBranding({ look: back?.look ?? input.look, words: back?.words ?? input.words })).toMatchObject({ ok: true })
+  })
+
+  it('publishes the mobile app images with the draft, keeps the version before them, and leaves them as they were when a publish is refused', async () => {
+    const ns = await current(ids.ns)
+    const app = { appIcon: `partners/${ids.ns}/brand/icon.png`, appIconForeground: `partners/${ids.ns}/brand/fg.png`, splash: `partners/${ids.ns}/brand/splash.png` }
+    const owner = serviceFor(callerOf(ids.ns, 'partner-owner'))
+    expect(await owner.publishBranding({ ...ns, look: { ...ns.look, files: { ...ns.look.files, ...app } } })).toMatchObject({ ok: true })
+    expect((await current(ids.ns)).look.files).toMatchObject(app)
+    const live = db.sql`select app_icon_key, app_icon_foreground_key, splash_key from partner_branding where partner_id = ${ids.ns} and state = 'published' order by published_at desc, id desc`
+    const [newest, before] = await live
+    expect(newest).toEqual({ app_icon_key: app.appIcon, app_icon_foreground_key: app.appIconForeground, splash_key: app.splash })
+    expect(before).toEqual({ app_icon_key: null, app_icon_foreground_key: null, splash_key: null })
+
+    const refused = { ...ns, look: { ...ns.look, primary: '#9ACDD6', files: { ...ns.look.files, appIcon: '', splash: '' } } }
+    expect(await owner.publishBranding(refused)).toMatchObject({ ok: false, reason: 'CONTRAST_FAILS' })
+    expect((await current(ids.ns)).look.files).toMatchObject(app)
+    expect(await owner.publishBranding(ns)).toMatchObject({ ok: true })
+    expect((await current(ids.ns)).look.files).toMatchObject({ appIcon: '', appIconForeground: '', splash: '' })
+  })
+
+  it('takes a publish from a console that sends no mobile app images, and leaves them empty', async () => {
+    const { look, words } = await current(ids.ns)
+    const files = { logoLight: look.files.logoLight, logoDark: look.files.logoDark, mark: look.files.mark, favicon: look.files.favicon }
+    const { data } = await run<{ publishBranding: { ok: boolean } }>('mutation($i: BrandingInput!) { publishBranding(input: $i) { ok } }', callerOf(ids.ns, 'partner-owner'), { i: { look: { ...look, files }, words } })
+    expect(data?.publishBranding.ok).toBe(true)
+    expect((await current(ids.ns)).look.files).toMatchObject({ appIcon: '', appIconForeground: '', splash: '' })
   })
 
   it('puts Legal pages back to missing when a publish drops a page', async () => {

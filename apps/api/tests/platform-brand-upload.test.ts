@@ -25,6 +25,10 @@ const store: BrandFileStore = {
 }
 const cookies = { admin: '', reader: '', adminB: '' }
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13])
+const u32 = (n: number) => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff]
+// A PNG's signature and IHDR at a size and colour type (6 has alpha), enough for the server's checks.
+const pngOf = (side: number, colourType: number) =>
+  new Uint8Array([...png.subarray(0, 8), ...png.subarray(8, 12), ...new TextEncoder().encode('IHDR'), ...u32(side), ...u32(side), 8, colourType, 0, 0, 0, 0, 0, 0, 0])
 const tooBig = () => {
   const big = new Uint8Array(512 * 1024 + 1)
   big.set(png)
@@ -107,6 +111,30 @@ describe('brand file upload', () => {
     expect(stored.size).toBe(before)
   })
 
+  it('stores the mobile app images as PNGs and logs each by its kind (#495)', async () => {
+    for (const [kind, file] of [['appIcon', pngOf(1024, 2)], ['appIconForeground', pngOf(1024, 6)], ['splash', pngOf(600, 6)]] as const) {
+      const response = await upload(file, cookies.admin, kind)
+      const body = (await response.json()) as { key: string }
+      expect(response.status, kind).toBe(200)
+      expect(body.key).toMatch(new RegExp(`^partners/${t.partnerA}/brand/[0-9a-f-]{36}\\.png$`))
+      expect(await db.sql`select target_label from activity_log where action = 'branding.file_uploaded' and target_id = ${body.key}`).toEqual([{ target_label: kind }])
+    }
+  })
+
+  it('refuses a mobile app image of the wrong type, size or transparency, and stores nothing', async () => {
+    const before = stored.size
+    const big = new Uint8Array(512 * 1024 + 1)
+    big.set(pngOf(1024, 2))
+    expect(await answer(upload('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', cookies.admin, 'appIcon'))).toEqual([415, 'NOT_PNG'])
+    expect(await answer(upload(png, cookies.admin, 'splash'))).toEqual([415, 'NOT_PNG'])
+    expect(await answer(upload(pngOf(512, 2), cookies.admin, 'appIcon'))).toEqual([422, 'WRONG_DIMENSIONS'])
+    expect(await answer(upload(pngOf(1000, 6), cookies.admin, 'appIconForeground'))).toEqual([422, 'WRONG_DIMENSIONS'])
+    expect(await answer(upload(pngOf(1024, 6), cookies.admin, 'appIcon'))).toEqual([422, 'HAS_TRANSPARENCY'])
+    expect(await answer(upload(big, cookies.admin, 'appIcon'))).toEqual([413, 'TOO_LARGE'])
+    expect(await answer(upload(pngOf(1024, 2), cookies.reader, 'appIcon'))).toEqual([403, 'FORBIDDEN'])
+    expect(stored.size).toBe(before)
+  })
+
   it('refuses a role without branding.write before the kind, the bucket or the body, and leaves the body unread', async () => {
     const cases: [BodyInit, string, BrandFileStore | null][] = [
       [png, 'kind=banner', store],
@@ -165,5 +193,15 @@ describe('brand file upload', () => {
     const before = stored.size
     expect(await answer(upload(`partners/${t.partnerA}/brand/evil.png`, cookies.adminB))).toEqual([415, 'UNSUPPORTED_TYPE'])
     expect(stored.size).toBe(before)
+  })
+
+  it('never lets partner B read partner A’s app icon, and files B’s under B', async () => {
+    const keyA = ((await (await upload(pngOf(1024, 2), cookies.admin, 'appIcon')).json()) as { key: string }).key
+    const read = (cookie: string) => send(new Request(`https://${host}/api/uploads/brand-file?key=${encodeURIComponent(keyA)}`, { headers: { cookie: `${partnerCookieName}=${cookie}` } }))
+    expect((await read(cookies.admin)).status).toBe(200)
+    expect((await read(cookies.adminB)).status).toBe(404)
+    const keyB = ((await (await send(brandRequest(pngOf(1024, 2), cookies.adminB, `kind=appIcon&key=${keyA}`))).json()) as { key: string }).key
+    expect(keyB).toMatch(new RegExp(`^partners/${t.partnerB}/brand/`))
+    expect(stored.has(keyA)).toBe(true)
   })
 })

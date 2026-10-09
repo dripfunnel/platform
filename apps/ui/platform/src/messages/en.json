@@ -1638,8 +1638,19 @@
         "logoLight": "Logo, light backgrounds",
         "logoDark": "Logo, dark backgrounds",
         "mark": "Mark",
-        "favicon": "Favicon"
+        "favicon": "Favicon",
+        "appIcon": "App icon",
+        "appIconForeground": "Android icon foreground",
+        "splash": "Splash image"
       },
+      "appGroup": "Mobile app",
+      "appGroupHint": "Your merchant app’s icon and launch screen. Each is a PNG of at most 512 KB, used from the next app build after you publish.",
+      "appHints": {
+        "appIcon": "1024 × 1024, no transparency. The stores round the corners.",
+        "appIconForeground": "1024 × 1024, transparent, with the mark inside the centre two thirds.",
+        "splash": "Transparent, with the mark centred."
+      },
+      "uploading": "Uploading…",
       "replace": "Replace",
       "replaceLabel": "Replace {file}",
       "remove": "Remove",
@@ -1722,6 +1733,9 @@
         "TOO_LARGE": "it’s larger than 512 KB.",
         "UNSUPPORTED_TYPE": "use a PNG, WebP or SVG file.",
         "UNSAFE_SVG": "the SVG contains scripts or links, which aren’t allowed.",
+        "NOT_PNG": "use a PNG file.",
+        "WRONG_DIMENSIONS": "it must be exactly 1024 × 1024 pixels.",
+        "HAS_TRANSPARENCY": "the app icon can’t have transparency. Save it on a solid background.",
         "FORBIDDEN": "your role can’t change branding. Owners and Admins can.",
         "NOT_CONNECTED": "file storage isn’t available right now. Nothing was changed.",
         "UNAUTHENTICATED": "your session ended. Sign in again."
