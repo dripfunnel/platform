@@ -437,8 +437,14 @@ through. Your site stays live."), as is a support session.
   suggestions, and the error "I couldn't make that change — nothing on your site changed. Try
   again, or say it a different way." **Edit text** on any words in the preview opens them in
   every language the store offers. **Open preview ↗** (left of Discard, only with a draft)
-  opens the draft on the preview host. **Discard** asks first.
-  **Not drawn** (the prototype card adds them; storefront ARCHITECTURE §6): "Opening your
+  opens the draft on the preview host. **Discard** asks first. **End all preview links** (in
+  Open preview's menu; `publish` only, so a Manager doesn't see it and the API refuses them)
+  asks first: "Anyone you've shared a preview link with loses access now. Your team can open a
+  new link from here." with **End links** and **Cancel**. It moves the store's revocation
+  number, is recorded as `storefront.preview_links_ended`, and shows "Preview links ended"
+  (storefront PREVIEW §5, §8; decided 2026-10-09, #520).
+  **Not drawn** (the prototype card adds them; storefront ARCHITECTURE §6): "End all preview
+  links" and its confirmation; "Opening your
   studio…" while the sandbox starts; "You're next — about N seconds" while studios queue;
   "Finishing your previous change…" when another tab is changing the store; "Checking your
   change…" while the change is checked and repaired.

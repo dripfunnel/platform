@@ -215,7 +215,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   - **Kept out of logs:**
     - the edge Worker writes the path as `/__studio/:session/…` in its own logs;
     - Workers' automatic invocation logs are off for the edge Worker;
-    - the request logs for the `webpreview.store` zone leave out the request path
+    - the request logs for the `webpreview.store` zone leave out the request path and query
       (LOGGING §9);
     - `Referrer-Policy: no-referrer` keeps it out of Referer headers.
   - **Visible to the theme's code**, which runs on the same origin and could read the address.

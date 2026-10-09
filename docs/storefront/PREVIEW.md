@@ -120,8 +120,12 @@ container.
    - the **link is only the way in**: valid for its own lifetime *(decide on #317, 7 days
      proposed)*, and opening it again starts a new session as long as its issuer still has
      access and the store hasn't ended its links.
+   The `__open` response, like every response on a preview host, carries
+   `Referrer-Policy: no-referrer`, and the token is never logged: the edge Worker writes
+   `/__open?t=:token`, and the zone's request logs leave out the query (LOGGING §9).
    *Why:* the preview key is opaque but not secret (it is in every shared link), so a valid
-   link for store A must never open store B's draft. The token doesn't stay in
+   link for store A must never open store B's draft. The link is a bearer credential for its
+   lifetime (§8), so it must not land in a log or a Referer. The token doesn't stay in
    browser history or leak in a Referer, and the `__Host-` prefix ties the cookie to this one
    subdomain.
 3. **Every later request needs the cookie, naming this host's store** (except the studio frame's
@@ -168,7 +172,19 @@ container.
    key isn't secret, so the key alone opens nothing: no test-mode cart or checkout either). The
    API Worker finds the store from the preview key in the hostname
    ([../ARCHITECTURE.md](../ARCHITECTURE.md) §8). The SPA reads products, prices and stock live.
-   *Why:* catalogue changes show in the preview at once, with no build.
+   **What a link holder can do there** is exactly what a shopper can do on the live site, in
+   test mode, and nothing more:
+   - read the same public store-key surface: the published catalogue, prices and stock as
+     shoppers see them, never a draft product, a cost, a stock count beyond what shoppers see,
+     or another customer's or any order's data;
+   - keep a **test-mode guest cart** and check out in test mode, as a guest. The holder is never
+     the issuer: the cookie names the issuer only so step 4 can re-check their access, and the
+     issuer's id never reaches the page, the cart or a log line;
+   - an order placed there is a test order (test-mode checkout, decided 2026-10-05 on #284),
+     kept apart from real ones.
+
+   *Why:* catalogue changes show in the preview at once, with no build, and a shared link
+   exposes nothing a shopper couldn't already see, apart from the draft's design.
 6. **Checkout runs in each provider's test mode** (decided 2026-10-05 on #284). Whether express
    wallets (Apple Pay, Google Pay) can show on `*.webpreview.store`, given their domain
    registration, is open *(decide on #313)*.
@@ -215,7 +231,13 @@ There is no per-store hostname fee.
 - ~~Whether a preview link may be passed to someone outside the store's team.~~ **Yes** (decided
   2026-10-09 with Gaurav, #520): a link works for whoever holds it, only while the user who issued
   it still has access and the store hasn't ended its links (§5 steps 2–4). A merchant can ask a
-  friend for feedback; "End all preview links" stops every copy at once.
+  friend for feedback. **End all preview links** stops every copy at once:
+  - it is in Open preview's menu in the studio, for those with the `publish` capability
+    (ACCESS §5; a Manager doesn't see it, and the API refuses them);
+  - it asks first, then moves `storefront.preview_epoch`, and is recorded as
+    `storefront.preview_links_ended` (LOGGING §3);
+  - it is specified in ui/store/FIRST-RELEASE (the Storefront studio) and built on #318 (the API)
+    and #319 (the screen).
 - ~~The `storefront.preview_key` column and its format.~~ 10 lowercase base32 characters, made
   with the store (decided 2026-10-09, §2 step 5).
 - ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,

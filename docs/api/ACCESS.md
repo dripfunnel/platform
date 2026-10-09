@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-08 (#490: the merchant mobile app's bearer-token session, §4).
+Last updated: 2026-10-09 (#520: End all preview links under `publish`, §5.1; #490: the mobile app's bearer-token session, §4).
 
 ---
 
@@ -434,7 +434,7 @@ store and a vendor in another:
 | `invite` | People: invite, resend, revoke, change role, remove (flows 8–12) |
 | `manage-vendors` | Create, invite, change tier, suspend, remove vendors (flows 14–17) |
 | `approve` | The approval setting and queue (flows 18–19) |
-| `publish` | Storefront: the brand step and Site settings (brand, search and sharing, domains), choose a template, the AI studio (describe with words, images or a sample site, edit text, undo, discard, open preview), publish, publish everything before a change, go back (flows 48–52; redesigned 2026-10-08 on #470) and catalogue **Publish now**; a Manager sees the Storefront read-only |
+| `publish` | Storefront: the brand step and Site settings (brand, search and sharing, domains), choose a template, the AI studio (describe with words, images or a sample site, edit text, undo, discard, open preview), publish, publish everything before a change, go back (flows 48–52; redesigned 2026-10-08 on #470), **End all preview links** (2026-10-09, #520: storefront PREVIEW §5) and catalogue **Publish now**; a Manager sees the Storefront read-only |
 | `billing` | Plan, subscription, invoices, the subscription payment method (flows 59–64) |
 | `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access** (the On/Off switch; Allow/Deny is `support.allow_write`), and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
 

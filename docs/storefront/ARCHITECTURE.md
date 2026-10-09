@@ -288,15 +288,20 @@ through their class names, and the banners are not yet in the top layer.
   need their host added to the store's analytics settings. The header and the `default` policy
   are built on #481.
 - **The studio frame's CSP is stricter** (decided 2026-10-09, #520; AI-STUDIO §8):
-  - `script-src`, `connect-src` and `font-src` are `'self'` only: the frame's own origin, which
-    means `/__studio/{session}/`, its `/shop-api` and its WebSocket;
-  - `img-src` is `'self'` and the platform's own media host (product photos), never another
-    party's;
+  - **`default-src 'none'`**, so every directive not listed below is closed;
+  - `script-src`, `connect-src`, `font-src` and `style-src` are `'self'` only: the frame's own
+    origin, which means `/__studio/{session}/`, its `/shop-api` and its WebSocket, with the
+    build's style hashes;
+  - `img-src` and `media-src` are `'self'` and the platform's own media host (product photos and
+    core's `<Video>`), never another party's;
+  - `form-action`, `frame-src`, `object-src`, `base-uri`, `manifest-src` and `worker-src` are
+    `'none'`;
   - no analytics and no payment provider: the studio loads neither, and checkout there shows a
-    placeholder (a test checkout is the preview link's, PREVIEW §5 step 6);
+    placeholder (a test checkout is the preview link's, PREVIEW §5 step 6). Links to other hosts
+    open a new tab outside the frame, carrying nothing from it (`noreferrer`);
   - `frame-ancestors` only the store's portal host.
 
-  So nothing in the frame can reach another host.
+  So nothing in the frame can send a request to another host.
 - **Error boundaries**: core wraps every section; a section that throws falls back to the
   baseline section and is reported. Checkout falls back to the baseline checkout.
 
