@@ -916,7 +916,7 @@ type Mutation {
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
-  issueGiftCard(productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
+  issueGiftCard(issueKey: ID!, productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
   keepProducts(ids: [ID!]!): PlanKeep
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int

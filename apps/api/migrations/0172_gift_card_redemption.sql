@@ -16,3 +16,7 @@ grant select (id, store_id, product_id, code_last4, currency, initial_amount, ba
   recipient_email, message, send_on, sent_at, order_line_id, issued_by, status, created_at, updated_at) on gift_card to app_request;
 create policy gift_card_merchant on gift_card for select to app_request
 using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id') and app_setting_text('app.seller_id') = '');
+
+-- "Issue a card" names its request once, so a double click or a retry after a timeout issues one card, not two.
+alter table gift_card add column issue_key uuid;
+create unique index gift_card_issue_key on gift_card (store_id, issue_key) where issue_key is not null;

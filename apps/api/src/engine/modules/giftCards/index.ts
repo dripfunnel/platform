@@ -47,7 +47,7 @@ export const giftCardById = async (sql: postgres.Sql, storeId: string, id: strin
   return row ? viewOf(row) : null
 }
 
-export type GiftCardRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'READ_ONLY'
+export type GiftCardRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'READ_ONLY' | 'KEY_REUSED'
 export type GiftCardResult<T> = { ok: true; value: T } | { ok: false; reason: GiftCardRefusal }
 
 export interface GiftCardDeps {
@@ -59,7 +59,7 @@ export interface GiftCardDeps {
   now: () => Date
 }
 
-export const createGiftCardService = ({ sql, context, actor, activity, facts, now }: GiftCardDeps) => {
+export const createGiftCardService = ({ sql, context, actor, activity, facts }: GiftCardDeps) => {
   const { storeId } = context
 
   /** A gift card product's cards issued, newest first; null when the product isn't the caller's to read. */
@@ -67,17 +67,19 @@ export const createGiftCardService = ({ sql, context, actor, activity, facts, no
     isUuid(productId) ? withScope(sql, context, (tx) => selectIssuedGiftCards(tx, storeId, productId.toLowerCase(), window)) : Promise.resolve([])
 
   /** "Issue a card" (CatEditor): one of the product's amounts, emailed now and logged under the person's name. */
-  const issue = async (productId: string, versionId: string, input: { email: string; name: string | null }): Promise<GiftCardResult<string>> => {
+  const issue = async (productId: string, versionId: string, input: { email: string; name: string | null; issueKey: string }): Promise<GiftCardResult<string>> => {
     if (context.caller.kind === 'support' && context.caller.access === 'read') return { ok: false, reason: 'READ_ONLY' }
     const email = cleanEmail(input.email)
     const name = input.name?.trim() || null
-    if (!email || (name?.length ?? 0) > 120 || !isUuid(productId) || !isUuid(versionId)) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!email || (name?.length ?? 0) > 120 || !isUuid(productId) || !isUuid(versionId) || !isUuid(input.issueKey)) return { ok: false, reason: 'INVALID_INPUT' }
     // Read in the caller's scope, so only the acting store's own gift card product can be issued from.
     const amount = await withScope(sql, context, (tx) => selectGiftCardAmount(tx, storeId, productId.toLowerCase(), versionId.toLowerCase()))
     if (!amount) return { ok: false, reason: 'NOT_FOUND' }
-    const at = now()
     const id = await withSystemScope(sql, async (tx) => {
-      const made = await insertIssuedGiftCard(tx, { storeId, productId: amount.product_id, currency: amount.currency, amount: BigInt(amount.amount), expiryMonths: amount.expiry_months, recipientName: name, recipientEmail: email, issuedBy: actor.id, at })
+      const card = await insertIssuedGiftCard(tx, { storeId, productId: amount.product_id, currency: amount.currency, amount: BigInt(amount.amount), expiryMonths: amount.expiry_months, recipientName: name, recipientEmail: email, issuedBy: actor.id, issueKey: input.issueKey.toLowerCase() })
+      // A replay of the same request answers the card it made, emailed and logged once.
+      if (!card || !card.created) return card?.id ?? null
+      const made = card.id
       await queueEmail(tx, { partnerId: amount.partner_id, storeId, key: `gift-card:${made}`, payload: { template: 'gift-card', giftCardId: made } })
       await activity.record(tx, {
         category: 'write',
@@ -97,7 +99,7 @@ export const createGiftCardService = ({ sql, context, actor, activity, facts, no
       })
       return made
     })
-    return { ok: true, value: id }
+    return id ? { ok: true, value: id } : { ok: false, reason: 'KEY_REUSED' }
   }
 
   return { issued, issue }

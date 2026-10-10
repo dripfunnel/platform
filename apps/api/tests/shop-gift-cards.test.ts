@@ -93,8 +93,8 @@ const merchant = async (source: string, who: Who, as: { support?: 'read' } = {})
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
-const issue = (who: Who, email = 'meera@example.com', product = ids.cardProduct, version = ids.amount, as: { support?: 'read' } = {}) =>
-  merchant(`mutation { issueGiftCard(productId: "${product}", versionId: "${version}", recipientEmail: "${email}", recipientName: "Meera") }`, who, as)
+const issue = (who: Who, email = 'meera@example.com', product = ids.cardProduct, version = ids.amount, as: { support?: 'read' } = {}, key: string = crypto.randomUUID()) =>
+  merchant(`mutation { issueGiftCard(productId: "${product}", versionId: "${version}", recipientEmail: "${email}", recipientName: "Meera", issueKey: "${key}") }`, who, as)
 /** The card's email, composed as the relay would: its code read back from it. */
 const send = async (giftCardId: string, storeId = stores.kesari) => {
   const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: { template: 'gift-card', giftCardId }, partnerId: t.partnerA, storeId }, { adminHost: 'a', platformHost: 'p' }, new Date()))
@@ -133,7 +133,13 @@ describe('Issue a card', () => {
     expect((await issue('owner', 'meera@example.com', ids.cardProduct, ids.amount, { support: 'read' })).code).toBe('READ_ONLY')
     expect((await issue('owner', 'not-an-email')).code).toBe('INVALID_INPUT')
     expect((await issue('owner', 'meera@example.com', ids.cardProduct, ids.pack)).code).toBe('NOT_FOUND')
-    cardId = String((await issue('owner')).data?.['issueGiftCard'])
+    const key = crypto.randomUUID()
+    cardId = String((await issue('owner', 'meera@example.com', ids.cardProduct, ids.amount, {}, key)).data?.['issueGiftCard'])
+    // A double click or a retry with the same request key answers the same card, issued, emailed and logged once.
+    expect((await issue('owner', 'meera@example.com', ids.cardProduct, ids.amount, {}, key)).data?.['issueGiftCard']).toBe(cardId)
+    expect((await issue('owner', 'someone@example.com', ids.cardProduct, ids.amount, {}, key)).code).toBe('KEY_REUSED')
+    expect((await issue('owner', 'meera@example.com', ids.cardProduct, ids.amount, {}, 'not-a-key')).code).toBe('INVALID_INPUT')
+    expect(await db.sql`select id from gift_card where product_id = ${ids.cardProduct}`).toEqual([{ id: cardId }])
     expect(await db.sql`select reason from activity_log where action = 'gift_card.issued' and target_id = ${cardId}`).toEqual([{ reason: 'INR 100000' }])
     expect(await db.sql`select payload ->> 'template' as template from outbox where kind = 'email' and payload ->> 'giftCardId' = ${cardId}`).toEqual([{ template: 'gift-card' }])
     // Not usable until its email, which holds its code, has gone.
@@ -282,7 +288,7 @@ describe('redeeming', () => {
   })
 
   it('refuses another store’s card and a used-up one with the one refusal, and takes one off', async () => {
-    const theirs = String((await merchant(`mutation { issueGiftCard(productId: "${ids.suratCard}", versionId: "${ids.suratAmount}", recipientEmail: "x@example.com") }`, 'suratOwner')).data?.['issueGiftCard'])
+    const theirs = String((await merchant(`mutation { issueGiftCard(productId: "${ids.suratCard}", versionId: "${ids.suratAmount}", recipientEmail: "x@example.com", issueKey: "${crypto.randomUUID()}") }`, 'suratOwner')).data?.['issueGiftCard'])
     const theirCode = await send(theirs, stores.surat)
     const token = await cartOf(1)
     const refused = await apply(token, theirCode)

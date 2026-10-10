@@ -97,13 +97,36 @@ export const selectGiftCardAmount = async (tx: ScopedSql, storeId: string, produ
     `
   )[0] ?? null
 
-export const insertIssuedGiftCard = async (tx: ScopedSql, g: { storeId: string; productId: string; currency: string; amount: bigint; expiryMonths: number | null; recipientName: string | null; recipientEmail: string; issuedBy: string; at: Date }): Promise<string> => {
+export interface NewIssuedGiftCard {
+  storeId: string
+  productId: string
+  currency: string
+  amount: bigint
+  expiryMonths: number | null
+  recipientName: string | null
+  recipientEmail: string
+  issuedBy: string
+  issueKey: string
+}
+
+/**
+ * The card "Issue a card" asked for, made once per request key: a replay answers the card that key made (`created`
+ * false), or null when the key made a different card.
+ */
+export const insertIssuedGiftCard = async (tx: ScopedSql, g: NewIssuedGiftCard): Promise<{ id: string; created: boolean } | null> => {
   const [made] = await tx<{ id: string }[]>`
-    insert into gift_card (store_id, product_id, currency, initial_amount, balance_amount, expiry_months, recipient_name, recipient_email, issued_by)
-    values (${g.storeId}, ${g.productId}, ${g.currency}, ${g.amount.toString()}, ${g.amount.toString()}, ${g.expiryMonths}, ${g.recipientName}, ${g.recipientEmail}, ${g.issuedBy})
+    insert into gift_card (store_id, product_id, currency, initial_amount, balance_amount, expiry_months, recipient_name, recipient_email, issued_by, issue_key)
+    values (${g.storeId}, ${g.productId}, ${g.currency}, ${g.amount.toString()}, ${g.amount.toString()}, ${g.expiryMonths}, ${g.recipientName}, ${g.recipientEmail}, ${g.issuedBy}, ${g.issueKey})
+    on conflict (store_id, issue_key) where issue_key is not null do nothing
     returning id
   `
-  if (!made) throw new Error('gift_card: insert returned no row')
-  await tx`insert into gift_card_movement (gift_card_id, store_id, kind, amount, currency) values (${made.id}, ${g.storeId}, 'issued', ${g.amount.toString()}, ${g.currency})`
-  return made.id
+  if (made) {
+    await tx`insert into gift_card_movement (gift_card_id, store_id, kind, amount, currency) values (${made.id}, ${g.storeId}, 'issued', ${g.amount.toString()}, ${g.currency})`
+    return { id: made.id, created: true }
+  }
+  const [earlier] = await tx<{ id: string }[]>`
+    select id from gift_card where store_id = ${g.storeId} and issue_key = ${g.issueKey}
+      and product_id = ${g.productId} and initial_amount = ${g.amount.toString()} and currency = ${g.currency} and recipient_email = ${g.recipientEmail}
+  `
+  return earlier ? { id: earlier.id, created: false } : null
 }

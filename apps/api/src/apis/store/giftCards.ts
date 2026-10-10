@@ -13,6 +13,7 @@ const words: Record<GiftCardRefusal, string> = {
   NOT_FOUND: 'That gift card amount isn’t here any more.',
   INVALID_INPUT: 'Enter an email like name@example.com.',
   READ_ONLY: 'A read-only support session can’t change this store.',
+  KEY_REUSED: 'That request already issued a different card. Open Issue a card again to send another.',
 }
 
 const answered = <T>(result: GiftCardResult<T>): T => {
@@ -66,13 +67,14 @@ export const registerGiftCards = (builder: StoreBuilder) => {
     }),
   }))
   builder.mutationFields((t) => ({
-    // One of the product's amounts (a version), emailed now with its code, logged under the person's name.
+    // One of the product's amounts (a version), emailed now with its code, logged under the person's name. `issueKey` is a
+    // UUID made once per request: sending it again answers the same card.
     issueGiftCard: t.id({
-      args: { productId: t.arg.id({ required: true }), versionId: t.arg.id({ required: true }), recipientEmail: t.arg.string({ required: true }), recipientName: t.arg.string() },
+      args: { productId: t.arg.id({ required: true }), versionId: t.arg.id({ required: true }), recipientEmail: t.arg.string({ required: true }), recipientName: t.arg.string(), issueKey: t.arg.id({ required: true }) },
       extensions: { access: { ...write, audit: giftCardsAudit.issued } },
       resolve: async (_, args, ctx) => {
         if (args.recipientEmail.length > 320 || (args.recipientName?.length ?? 0) > 200) throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
-        return answered(await service(ctx).issue(String(args.productId), String(args.versionId), { email: args.recipientEmail, name: args.recipientName ?? null }))
+        return answered(await service(ctx).issue(String(args.productId), String(args.versionId), { email: args.recipientEmail, name: args.recipientName ?? null, issueKey: String(args.issueKey) }))
       },
     }),
   }))
