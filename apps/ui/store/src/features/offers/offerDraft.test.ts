@@ -1,0 +1,108 @@
+import { describe, expect, it } from 'vitest'
+import type { Offer, OfferAction } from '../../api/offers'
+import { messages } from '../../messages'
+import { blankDraft, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, type StoreFacts } from './offerDraft'
+
+// The editor's form and the record it saves (OFFERS-DESIGN §3.1): the store's time zone, money per currency, what each
+// kind of offer sends, and what stops it saving.
+
+const words = messages.offers.editor.errors
+const india: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }
+const multi: StoreFacts = { timeZone: 'America/New_York', country: 'US', main: 'USD', others: ['EUR', 'JPY'], perEuro: { USD: 1.1, EUR: 1, JPY: 160 } }
+const ctx = (facts: StoreFacts) => ({ facts, now: new Date('2026-10-10T06:30:00.000Z'), ship: 'delivery', season: { name: 'Diwali', on: new Date('2026-11-08T00:00:00.000Z') } })
+const action = (a: Partial<OfferAction> & Pick<OfferAction, 'operation'>): OfferAction => ({ percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], ...a })
+const leaf = { amounts: [], minimum: null, productIds: [], collectionIds: [], filterValueIds: [], groupIds: [], customerIds: [], countries: [], days: [], from: null, to: null, conditions: [] }
+
+describe('dates in the store’s time zone', () => {
+  it('reads and writes the store’s wall clock, daylight saving included', () => {
+    expect(instantOf('2026-10-12T09:00', 'Asia/Kolkata')).toBe('2026-10-12T03:30:00.000Z')
+    expect(localOf('2026-10-12T03:30:00.000Z', 'Asia/Kolkata')).toBe('2026-10-12T09:00')
+    expect(instantOf('2026-07-01T09:00', 'America/New_York')).toBe('2026-07-01T13:00:00.000Z')
+    expect(instantOf('2026-12-01T09:00', 'America/New_York')).toBe('2026-12-01T14:00:00.000Z')
+    expect(instantOf('not a date', 'UTC')).toBeNull()
+  })
+
+  it('ends a day ending at 23:59 at its last second (fact 9)', () => {
+    expect(endInstantOf('2026-10-31T23:59', 'Asia/Kolkata')).toBe('2026-10-31T18:29:59.000Z')
+    expect(endInstantOf('2026-10-31T18:00', 'Asia/Kolkata')).toBe('2026-10-31T12:30:00.000Z')
+  })
+})
+
+describe('a new offer', () => {
+  it('combines with nothing and is a code with once per customer, as §5 and #337 decide', () => {
+    const d = blankDraft('order', null, ctx(india))
+    expect(d).toMatchObject({ combines: { product: false, order: false, shipping: false }, trigger: 'code', perCustomer: '1', name: '10% off your order' })
+    expect(blankDraft('shipping', null, ctx(india))).toMatchObject({ trigger: 'automatic', perCustomer: '', name: 'Free delivery' })
+  })
+
+  it('fills the form from a recipe for the merchant to adjust (V)', () => {
+    expect(blankDraft('order', 'welcome', ctx(india))).toMatchObject({ code: 'WELCOME10', who: 'first', percent: '10' })
+    expect(blankDraft('order', 'seasonal', ctx(india))).toMatchObject({ code: 'DIWALI20', name: 'Diwali 20% off', startsAt: '2026-11-01T00:00', endsAt: '2026-11-08T23:59' })
+    expect(blankDraft('order', 'vip', ctx(india))).toMatchObject({ who: 'groups', code: 'VIP15' })
+    expect(blankDraft('order', 'winBack', ctx(india))).toMatchObject({ who: 'customers', totalUses: '1' })
+    expect(blankDraft('order', 'buy2get1', ctx(india)).type).toBe('bxgy')
+  })
+})
+
+describe('what Save sends', () => {
+  it('sends only each operation’s own arguments, amounts in minor units in every currency the store sells', () => {
+    const d = { ...blankDraft('products', null, ctx(multi)), kind: 'fixed' as const, amounts: { USD: '5', JPY: '900' }, productIds: ['p1'], excludeGiftCards: true, minimum: 'amount' as const, minAmounts: { USD: '50' }, startsAt: '2026-11-27T00:00', endsAt: '2026-11-30T23:59' }
+    const input = inputOf(d, multi, true)
+    expect(input.action).toEqual({ operation: 'line_fixed_discount', amounts: [{ currency: 'USD', amount: '500' }, { currency: 'EUR', amount: '455' }, { currency: 'JPY', amount: '900' }], targets: { productIds: ['p1'], collectionIds: undefined, filterValueIds: undefined }, exclude: { giftCards: true, onSale: false } })
+    expect(input.conditions).toEqual([{ operation: 'minimum_order_amount', amounts: [{ currency: 'USD', amount: '5000' }, { currency: 'EUR', amount: '4545' }, { currency: 'JPY', amount: '7273' }] }])
+    expect(input).toMatchObject({ enabled: true, trigger: 'code', startsAt: '2026-11-27T05:00:00.000Z', endsAt: '2026-12-01T04:59:59.000Z', perCustomerLimit: 1, totalUsesLimit: null })
+    expect(convertedText('5', multi, 'EUR')).toBe('4.55')
+  })
+
+  it('sends buy X get Y, tiers, a cap, groups and a weekly repeat as the engine reads them', () => {
+    const bxgy = inputOf({ ...blankDraft('bxgy', null, ctx(india)), buyIds: ['p11'], getPercent: '50', oncePerOrder: true }, india, false)
+    expect(bxgy.action).toEqual({ operation: 'buy_x_get_y', buy: { quantity: 2, targets: { productIds: ['p11'], collectionIds: undefined, filterValueIds: undefined } }, get: { quantity: 1, targets: undefined }, percent: 50, oncePerOrder: true })
+    expect(bxgy.code).toBeNull()
+    const tiers = inputOf({ ...blankDraft('order', null, ctx(india)), code: 'BIG', tiers: [{ off: '10', minimum: '500' }, { off: '15', minimum: '1000' }] }, india, true)
+    expect(tiers.action).toEqual({ operation: 'tiered_discount', kind: 'percent', tiers: [{ minimum: [{ currency: 'INR', amount: '50000' }], percent: 10 }, { minimum: [{ currency: 'INR', amount: '100000' }], percent: 15 }] })
+    const capped = inputOf({ ...blankDraft('order', null, ctx(india)), code: 'VIP', capOn: true, cap: '300', who: 'groups', groupIds: ['g1', 'g2'], repeat: { days: [6, 5], from: '17:00', to: '21:00' } }, india, true)
+    expect(capped.action).toEqual({ operation: 'order_percentage_discount', percent: 10, cap: [{ currency: 'INR', amount: '30000' }] })
+    expect(capped.conditions).toEqual([{ operation: 'customer_group', groupIds: ['g1', 'g2'] }, { operation: 'recurrence', days: [5, 6], from: '17:00', to: '21:00' }])
+  })
+
+  it('reads an offer back into the same form, keeping conditions the form doesn’t draw', () => {
+    const offer: Offer = {
+      id: 'o1',
+      name: 'VIP 15% off',
+      internalName: 'Q4',
+      trigger: 'code',
+      code: 'VIP15',
+      status: 'live',
+      enabled: true,
+      startsAt: '2026-10-12T03:30:00.000Z',
+      endsAt: null,
+      totalUsesLimit: 100,
+      perCustomerLimit: 2,
+      usesCount: 0,
+      combines: { product: true, order: false, shipping: true },
+      conditions: [
+        { ...leaf, operation: 'customer_group', groupIds: ['g1'] },
+        { ...leaf, operation: 'any_of', conditions: [{ ...leaf, operation: 'first_order' }, { ...leaf, operation: 'minimum_quantity', minimum: 3 }] },
+      ],
+      action: action({ operation: 'products_percentage_discount', percent: 15, targets: { productIds: [], collectionIds: ['c1'], filterValueIds: [] }, cap: [{ currency: 'INR', amount: '25000' }] }),
+      revision: 4,
+    }
+    const d = draftOf(offer, india)
+    expect(d).toMatchObject({ type: 'products', kind: 'percent', percent: '15', target: 'collection', collectionIds: ['c1'], capOn: true, cap: '250.00', who: 'groups', note: 'Q4', startsAt: '2026-10-12T09:00', totalUses: '100', perCustomer: '2' })
+    const input = inputOf(d, india, true)
+    expect(input.conditions).toEqual([{ operation: 'customer_group', groupIds: ['g1'] }, { operation: 'any_of', conditions: [{ operation: 'first_order' }, { operation: 'minimum_quantity', minimum: 3 }] }])
+    expect(input.startsAt).toBe('2026-10-12T03:30:00.000Z')
+  })
+})
+
+describe('what stops it saving (C5)', () => {
+  it('says each problem in plain words, within the API’s own limits', () => {
+    const d = blankDraft('products', null, ctx(india))
+    expect(errorsOf(d, india)).toEqual({ targets: words.products, code: words.codeMissing })
+    expect(errorsOf({ ...d, percent: '120', code: 'a b', productIds: ['p1'] }, india)).toEqual({ value: words.percent, code: words.codeShape })
+    expect(errorsOf({ ...d, productIds: ['p1'], code: 'SUMMER20', startsAt: '2026-10-12T09:00', endsAt: '2026-10-11T09:00' }, india)).toEqual({ ends: words.endsBefore })
+    expect(errorsOf({ ...d, productIds: ['p1'], code: 'X1', singleUse: true, batch: { count: '9000', prefix: '', length: '8' } }, india)).toEqual({ batch: 'Make between 1 and 5,000 codes.' })
+    expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', who: 'groups', repeat: { days: [], from: '17:00', to: '21:00' }, totalUses: '0' }, india)).toEqual({ who: words.groups, repeat: words.repeatDays, total: words.total })
+    expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', tiers: [{ off: '10', minimum: '500' }] }, india)).toEqual({ tiers: 'Give between 2 and 5 steps.' })
+  })
+})

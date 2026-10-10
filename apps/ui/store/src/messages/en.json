@@ -4580,6 +4580,52 @@
       },
       "countError": "Make between 1 and {max} codes at a time.",
       "prefixError": "Start with up to {max} letters, numbers, - or _."
+    },
+    "editor": {
+      "recipeNames": {
+        "welcome": "Welcome 10% off",
+        "freeShipping": "Free {ship}",
+        "seasonal": "{season} 20% off",
+        "sale": "Sale 20% off",
+        "buy2get1": "Buy 2, get 1 free",
+        "flash": "Flash sale 20% off",
+        "vip": "VIP 15% off",
+        "winBack": "We miss you: 15% off"
+      },
+      "defaultNames": {
+        "products": "20% off",
+        "order": "10% off your order",
+        "bxgy": "Buy 2, get 1 free",
+        "shipping": "Free {ship}"
+      },
+      "errors": {
+        "percent": "Percentage must be between 1 and 100.",
+        "amount": "Enter an amount above zero.",
+        "products": "Choose at least one product.",
+        "filterValue": "Choose a filter value.",
+        "collection": "Choose a collection.",
+        "tierCount": "Give between {low} and {high} steps.",
+        "tiers": "Give every step a discount and an order total above zero.",
+        "buy": "Choose what the shopper must buy.",
+        "get": "Choose what the shopper gets.",
+        "quantity": "Use whole numbers from 1 to {max}.",
+        "codeMissing": "Type a code or generate one.",
+        "codeShape": "Use 3 to 32 letters, numbers, - or _. No spaces.",
+        "batchCount": "Make between 1 and {max} codes.",
+        "batchPrefix": "Start the codes with up to 12 letters, numbers, - or _.",
+        "name": "Add the name shoppers see.",
+        "nameLong": "Keep the name to {max} characters.",
+        "minimumAmount": "Enter an order total above zero.",
+        "minimumItems": "Enter how many items, from 1 to 999.",
+        "groups": "Choose at least one customer group.",
+        "customers": "Choose at least one customer.",
+        "market": "Choose a market.",
+        "date": "Enter a whole date and time.",
+        "endsBefore": "End date is before the start date.",
+        "repeatDays": "Pick at least one day for the repeat.",
+        "repeatTimes": "The repeat must end after it starts.",
+        "total": "Enter 1 or more, or choose Unlimited."
+      }
     }
   },
   "sales": {

@@ -375,6 +375,15 @@ dates in the store's time zone, limits and what it combines with). Decided here:
 has no offer filter), "Export uses", change history, QR or "Copy link" (the storefront reads no `?code=` and the Store API
 gives no shop address), each a follow-up.
 
+**Built on #325, part 3** (`features/offers/offerDraft.ts`): the editor's form and the one record it saves (OFFERS-DESIGN
+§3.1). Dates are typed on the store's wall clock and sent as instants, daylight saving included, an end at 23:59 being the
+day's last second; amounts are typed in major units and sent in minor units. A new offer combines with nothing and, as a
+code, is once per customer; recipes fill the form (V1–V7, the seasonal one from the store's next occasion). Only each
+operation's own arguments are sent, and a condition the form doesn't draw (the API's "any of") is saved back as it came.
+Decided here: a fixed amount and a minimum have one box per currency the store sells in, an empty one filled at save from
+today's reference rate (#337), while a tier's and a cap's amounts are typed in the main currency only and converted the
+same way for the others.
+
 ## 9. Abandoned carts (`Carts`)
 
 Carts tab: checkouts left, reminders sent, recovered and recovered sales for the last 14 days, and
