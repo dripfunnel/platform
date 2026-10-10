@@ -5207,7 +5207,8 @@
       "reminded": "Last sent {ago}",
       "paused": "Reminders paused",
       "yourself": "Send a reminder yourself",
-      "scheduled": "Goes by itself on your schedule"
+      "scheduled": "Goes by itself on your schedule",
+      "waiting": "No reminder sent yet"
     },
     "notes": {
       "readOnlyTitle": "Reminders are paused.",
