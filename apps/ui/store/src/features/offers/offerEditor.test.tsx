@@ -15,10 +15,10 @@ const words = messages.offers.editor
 
 const api = vi.hoisted(() => ({ loadOffer: vi.fn(), loadOfferFacts: vi.fn(), loadProductNames: vi.fn(), loadCustomerNames: vi.fn(), saveOffer: vi.fn(), generateCodes: vi.fn() }))
 vi.mock('../../api/offers', async (actual) => ({ ...(await actual<typeof import('../../api/offers')>()), ...api }))
-const lists = vi.hoisted(() => ({ loadFilters: vi.fn(), loadCollections: vi.fn(), loadCustomerGroups: vi.fn(), createGroup: vi.fn(), loadAllMarkets: vi.fn(), loadProducts: vi.fn(), loadCustomers: vi.fn() }))
+const lists = vi.hoisted(() => ({ loadFilters: vi.fn(), loadCollections: vi.fn(), loadCustomerGroups: vi.fn(), createGroup: vi.fn(), loadAllMarkets: vi.fn(), loadProducts: vi.fn(), findCustomers: vi.fn() }))
 vi.mock('../../api/filters', async (actual) => ({ ...(await actual<typeof import('../../api/filters')>()), loadFilters: lists.loadFilters }))
 vi.mock('../../api/collections', async (actual) => ({ ...(await actual<typeof import('../../api/collections')>()), loadCollections: lists.loadCollections }))
-vi.mock('../../api/customers', async (actual) => ({ ...(await actual<typeof import('../../api/customers')>()), loadCustomerGroups: lists.loadCustomerGroups, createGroup: lists.createGroup, loadCustomers: lists.loadCustomers }))
+vi.mock('../../api/customers', async (actual) => ({ ...(await actual<typeof import('../../api/customers')>()), loadCustomerGroups: lists.loadCustomerGroups, createGroup: lists.createGroup, findCustomers: lists.findCustomers }))
 vi.mock('../../api/markets', async (actual) => ({ ...(await actual<typeof import('../../api/markets')>()), loadAllMarkets: lists.loadAllMarkets }))
 vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), loadProducts: lists.loadProducts }))
 
@@ -197,6 +197,32 @@ describe('a new offer', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
     await settle()
     expect(within(dialog()).getByText('Your plan allows 3 live offers. Ask your store owner to upgrade.')).toBeTruthy()
+  })
+
+  it('drops unsaved work kept by an older form, rather than opening it broken', async () => {
+    sessionStorage.setItem('df-draft:offer:s1:new', JSON.stringify({ revision: null, draft: { type: 'order', name: 'Old shape' } }))
+    await show(owner, '/offers/new?recipe=welcome')
+    expect(screen.queryByText(words.kept.title)).toBeNull()
+    expect((screen.getByRole('textbox', { name: words.name }) as HTMLInputElement).value).toBe('Welcome 10% off')
+    expect(sessionStorage.getItem('df-draft:offer:s1:new')).toBeNull()
+  })
+
+  it('shows the error with a retry when a list the form needs can’t be read, never an empty choice', async () => {
+    lists.loadCustomerGroups.mockRejectedValueOnce(new Error('down'))
+    await show(owner, '/offers/new?recipe=vip')
+    expect(screen.getByText(messages.offers.error.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: messages.offers.error.retry }))
+    await settle()
+    expect(screen.getByRole('button', { name: 'VIP · 12' })).toBeTruthy()
+  })
+
+  it('names a taken code’s holder without guessing a state it didn’t give', async () => {
+    api.saveOffer.mockRejectedValueOnce(new ApiError('CODE_TAKEN', 'taken', { offerId: 'o5', name: 'Summer 2025', status: 'archived' }))
+    await show(owner, '/offers/new?recipe=welcome')
+    fireEvent.click(saveButton())
+    fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
+    await settle()
+    expect(screen.getAllByText('WELCOME10 is already used by “Summer 2025”. Pick another.').length).toBeGreaterThan(0)
   })
 
   it('brings unsaved work back after a reload, and lets the merchant discard it', async () => {

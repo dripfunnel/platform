@@ -2,7 +2,7 @@ import { minorOf } from '@dripfunnel/shared/format'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { CollectionSummary } from '../../api/collections'
-import { loadCustomers, type CustomerGroup } from '../../api/customers'
+import { findCustomers, type CustomerGroup } from '../../api/customers'
 import type { Filter } from '../../api/filters'
 import type { Market } from '../../api/markets'
 import { fill, formatCount, formatList, messages } from '../../messages'
@@ -123,8 +123,8 @@ const CustomerSearch = ({ chosen, onPick }: { chosen: readonly string[]; onPick:
     let live = true
     const timer = setTimeout(
       () =>
-        void loadCustomers(null, typed).then(
-          (page) => live && setFound(page.rows.map((r) => ({ id: r.id, name: r.name ?? r.email ?? words.unnamed }))),
+        void findCustomers(typed).then(
+          (rows) => live && setFound(rows.map((r) => ({ id: r.id, name: r.name ?? r.email ?? words.unnamed }))),
           () => live && setFound('failed'),
         ),
       300,

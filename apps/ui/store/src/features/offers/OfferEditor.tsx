@@ -16,7 +16,7 @@ import { fill, formatCount, messages, plural } from '../../messages'
 import { seasonalDatesFor } from '../collections/seasonal'
 import { offerAccessOf } from './offerAccess'
 import { offerRefusal } from './offerActions'
-import { blankDraft, draftOf, errorsOf, inputOf, localOf, offerLimits, offerOf, recipes, type OfferDraft, type StoreFacts } from './offerDraft'
+import { blankDraft, draftOf, errorsOf, fitsDraft, inputOf, localOf, offerLimits, offerOf, recipes, type OfferDraft, type StoreFacts } from './offerDraft'
 import { editorSample, editorStates } from './offerStates'
 import { OfferForm, typedMoney, type FormLists } from './OfferForm'
 import { zoneName } from '../orders/orderView'
@@ -42,15 +42,16 @@ type Picking = 'productIds' | 'buyIds' | 'getIds' | null
 // Unsaved work survives a reload or a lost session in this tab (C4), tied to its store and the revision it started from.
 const draftKey = (storeId: string, id: string | null) => `${draftPrefix}offer:${storeId}:${id ?? 'new'}`
 const keptSchema = z.object({ revision: z.number().nullable(), draft: z.record(z.string(), z.unknown()) })
-const keptDraft = (storeId: string, id: string | null, revision: number | null): OfferDraft | null => {
+const keptDraft = (storeId: string, id: string | null, revision: number | null, template: OfferDraft): OfferDraft | null => {
   try {
     const kept = keptSchema.safeParse(JSON.parse(sessionStorage.getItem(draftKey(storeId, id)) ?? 'null'))
-    return kept.success && kept.data.revision === revision ? (kept.data.draft as unknown as OfferDraft) : null
+    if (kept.success && kept.data.revision === revision && fitsDraft(kept.data.draft, template)) return kept.data.draft
   } catch {
-    return null
+    // Unreadable storage is as good as nothing kept.
   }
+  sessionStorage.removeItem(draftKey(storeId, id))
+  return null
 }
-const optional = <T,>(read: Promise<T[]>): Promise<T[]> => read.catch(() => [])
 const holderSchema = z.object({ name: z.string(), status: z.string() })
 
 export const OfferEditor = () => {
@@ -101,14 +102,14 @@ export const OfferEditor = () => {
     }
     if (!access.canRead || access.viewOnly) return
     setLoaded({ kind: 'loading' })
-    void Promise.all([loadOfferFacts(), optional(loadFilters()), optional(loadCollections()), optional(loadCustomerGroups()), optional(loadAllMarkets()), offerId ? loadOffer(offerId) : Promise.resolve(null)]).then(
+    void Promise.all([loadOfferFacts(), loadFilters(), loadCollections(), loadCustomerGroups(), loadAllMarkets(), offerId ? loadOffer(offerId) : Promise.resolve(null)]).then(
       async ([facts, filters, collections, groups, markets, offer]) => {
         if (!live) return
         if (offerId && !offer) return setLoaded({ kind: 'missing' })
         const next = seasonalDatesFor(markets.filter((m) => m.active).flatMap((m) => m.countries).concat(facts.country ?? []), new Date(), 1)[0]
         const season = next ? { name: messages.collections.seasonal.names[next.key], on: next.on } : null
         const fresh = offer ? draftOf(offer, facts) : asked.type || asked.recipe ? blankDraft(asked.type ?? 'order', asked.recipe ?? null, { facts, now: new Date(), ship: regionWords(facts.country).ship, season }) : null
-        const kept = keptDraft(storeId, offerId, offer?.revision ?? null)
+        const kept = keptDraft(storeId, offerId, offer?.revision ?? null, blankDraft('order', null, { facts, now: new Date(), ship: '', season: null }))
         const d = kept ?? fresh
         const [names, people] = await Promise.all([
           loadProductNames([...new Set([...(d?.productIds ?? []), ...(d?.buyIds ?? []), ...(d?.getIds ?? [])])]).catch(() => new Map<string, string>()),
@@ -257,7 +258,7 @@ export const OfferEditor = () => {
         const status = holder.success ? holder.data.status : ''
         const name = holder.success ? holder.data.name : ''
         const code = shaped.code ?? ''
-        setCodeTaken(status === 'deleted' ? fill(words.codeTaken.deleted, { code, name }) : status === 'ended' || status === 'used_up' ? fill(words.codeTaken.ended, { code, name }) : fill(words.codeTaken.other, { code, name, status: messages.offers.status[status === 'live' || status === 'scheduled' || status === 'off' ? status : 'live'] }))
+        setCodeTaken(status === 'deleted' ? fill(words.codeTaken.deleted, { code, name }) : status === 'ended' || status === 'used_up' ? fill(words.codeTaken.ended, { code, name }) : status === 'live' || status === 'scheduled' || status === 'off' ? fill(words.codeTaken.other, { code, name, status: messages.offers.status[status] }) : fill(words.codeTaken.unknown, { code, name }))
         setTried(true)
         setAsk(null)
       } else if (isApiError(error, 'STALE_REVISION')) {
