@@ -449,9 +449,14 @@ export const claimUse = async (tx: ScopedSql, storeId: string, promotionId: stri
     `
   ).count > 0
 
-/** The code the order was priced with: a single-use one is taken, false when another order took it first; a shared one is left as it is. */
-export const claimCode = async (tx: ScopedSql, codeId: string, now: Date): Promise<boolean> =>
-  (await tx`update promotion_code set used_at = case when single_use then ${now} else used_at end where id = ${codeId} and (not single_use or used_at is null)`).count > 0
+/** The code the order was priced with, checked again: a single-use one is taken; false when it was taken, replaced or ended meanwhile. */
+export const claimCode = async (tx: ScopedSql, storeId: string, codeId: string, now: Date): Promise<boolean> =>
+  (
+    await tx`
+      update promotion_code set used_at = case when single_use then ${now} else used_at end
+      where id = ${codeId} and store_id = ${storeId} and replaced_at is null and (expires_at is null or expires_at > ${now}) and (not single_use or used_at is null)
+    `
+  ).count > 0
 
 export const insertUsage = async (
   tx: ScopedSql,
@@ -469,7 +474,7 @@ export const releaseUses = async (tx: ScopedSql, storeId: string, orderId: strin
     delete from promotion_usage where store_id = ${storeId} and order_id = ${orderId} returning promotion_id, promotion_code_id
   `
   for (const u of [...gone].sort((a, b) => a.promotion_id.localeCompare(b.promotion_id))) {
-    await tx`update promotion set uses_count = greatest(uses_count - 1, 0) where id = ${u.promotion_id}`
-    if (u.promotion_code_id) await tx`update promotion_code set used_at = null where id = ${u.promotion_code_id} and single_use`
+    await tx`update promotion set uses_count = greatest(uses_count - 1, 0) where id = ${u.promotion_id} and store_id = ${storeId}`
+    if (u.promotion_code_id) await tx`update promotion_code set used_at = null where id = ${u.promotion_code_id} and store_id = ${storeId} and single_use`
   }
 }

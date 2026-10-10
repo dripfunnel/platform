@@ -26,8 +26,9 @@ let scarf = ''
 let owner = ''
 let attempts: { allow: boolean; keys: string[] } = { allow: true, keys: [] }
 
-const shop = async (source: string, cart: string | null = null, o: { noLimiter?: boolean } = {}) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host)
+const shop = async (source: string, cart: string | null = null, o: { noLimiter?: boolean; on?: string } = {}) => {
+  const on = o.on ?? host
+  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on)
   if (found.kind !== 'found') throw new Error('no store')
   const allowCodeAttempt = async (key: string) => {
     attempts.keys.push(key)
@@ -100,7 +101,8 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
+  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x'),
+    (${t.partnerA}, 'preview', '*.preview.acme.example', 'live', 'CNAME', 'x')`
   const make = async (name: string, code: string) =>
     (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status) values (${t.partnerA}, ${name}, ${code}, 'IN', 'INR', 'active') returning id`)[0]?.id ?? ''
   store = await make('Jaipur', 'jaipur')
@@ -297,3 +299,65 @@ describe('the last use, raced (OFFERS fact 8; PLATFORM-PROMPT §5.9)', () => {
     expect([again.codes, again.discount.amount]).toEqual([[{ code: 'LAST1', state: 'USED_UP' }], '0'])
   })
 })
+
+describe('each store’s own offers (ACCESS §11)', () => {
+  it('never prices one store’s cart with another store’s automatic offer or code', async () => {
+    await off()
+    await offer({ storeId: other, name: 'Surat half price', action: { operation: 'order_percentage_discount', percent: 50 } })
+    const token = await add(kurta, 1)
+    expect((await cartOf(token)).discount.amount).toBe('0')
+    const theirs = await apply(token, 'THEIRS10')
+    expect([theirs.state, theirs.cart.codes]).toEqual(['INVALID', []])
+  })
+
+  it('reads whether a shopper has ordered before, and their uses, in this store only', async () => {
+    await off()
+    const welcome = await offer({ name: 'Welcome', code: 'WELCOME', perCustomer: 1, conditions: [{ operation: 'first_order' }], action: { operation: 'order_percentage_discount', percent: 10 } })
+    const theirs = await offer({ storeId: other, name: 'Their welcome', code: 'WELCOME', perCustomer: 1, action: { operation: 'order_percentage_discount', percent: 10 } })
+    const [o] = await db.sql<{ id: string }[]>`
+      insert into "order" (store_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, payment_method, email)
+      values (${other}, 'placed', 'paid', 'INR', 'S-1', now(), 100000, 0, 100000, 'cod', 'meera@example.com') returning id`
+    await db.sql`insert into promotion_usage (promotion_id, store_id, order_id, customer_email, discount_amount, currency) values (${theirs}, ${other}, ${o?.id ?? ''}, 'meera@example.com', 10000, 'INR')`
+    const token = await add(kurta, 1)
+    await shop('mutation { setCartContact(email: "meera@example.com") { cart { id } } }', token)
+    expect((await apply(token, 'WELCOME')).state).toBe('APPLIED')
+    expect(welcome).not.toBe(theirs)
+  })
+})
+
+describe('the codes a cart holds', () => {
+  it('holds five at most, and keeps both of two codes applied at once from two tabs', async () => {
+    await off()
+    for (const code of ['TABA', 'TABB', 'C3', 'C4', 'C5', 'C6'].map((c) => `${c}-CODE`)) {
+      await offer({ name: code, code, action: { operation: 'order_fixed_discount', amounts: { INR: '100' } }, conditions: [{ operation: 'minimum_quantity', minimum: 50 }] })
+    }
+    const token = await add(kurta, 1)
+    const [a, b] = await Promise.all([apply(token, 'TABA-CODE'), apply(token, 'TABB-CODE')])
+    expect([a.state, b.state]).toEqual(['NOT_ELIGIBLE', 'NOT_ELIGIBLE'])
+    expect((await cartOf(token)).codes.map((c) => c.code).sort()).toEqual(['TABA-CODE', 'TABB-CODE'])
+    for (const code of ['C3-CODE', 'C4-CODE', 'C5-CODE']) expect((await apply(token, code)).state).toBe('NOT_ELIGIBLE')
+    expect((await apply(token, 'C6-CODE')).code).toBe('TOO_MANY_CODES')
+  })
+})
+
+describe('the preview storefront (storefront PREVIEW)', () => {
+  it('prices offers as the live shop does, and its test order takes no use', async () => {
+    await off()
+    const id = await offer({ name: 'Preview 10%', code: 'TRYME', limit: 1, singleUse: true, action: { operation: 'order_percentage_discount', percent: 10 } })
+    const preview = 'jaipur.preview.acme.example'
+    const p = (source: string, token: string | null = null) => shop(source, token, { on: preview })
+    const token = ((await p(`mutation { addToCart(versionId: "${kurta}", quantity: 1) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
+    expect(((await p('mutation { applyCode(code: "TRYME") { state } }', token)).data?.['applyCode'] as { state: string }).state).toBe('APPLIED')
+    await p('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', token)
+    await p('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', token)
+    await p('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
+    await p('mutation { checkout { id } }', token)
+    const placed = (await p('mutation { placeOrder(provider: "cod") { orderId total { amount } } }', token)).data?.['placeOrder'] as { orderId: string; total: { amount: string } }
+    expect(placed.total.amount).toBe('95000')
+    expect(await db.sql`select uses_count from promotion where id = ${id}`).toEqual([{ uses_count: 0 }])
+    expect(await db.sql`select used_at from promotion_code where promotion_id = ${id}`).toEqual([{ used_at: null }])
+    expect(await db.sql`select 1 from promotion_usage where order_id = ${placed.orderId}`).toHaveLength(0)
+    expect(await db.sql`select label from order_adjustment where order_id = ${placed.orderId} and kind = 'discount'`).toEqual([{ label: 'Preview 10%' }])
+  })
+})
+

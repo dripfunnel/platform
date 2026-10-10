@@ -214,7 +214,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
         const used = (await selectShopperUses(tx, storeId, [d.offerId], { customerId, email })).get(d.offerId) ?? 0
         if (used >= d.perCustomerLimit) throw new Refused('OFFER_CHANGED')
       }
-      if (d.codeId && !(await claimCode(tx, d.codeId, at))) throw new Refused('OFFER_CHANGED')
+      if (d.codeId && !(await claimCode(tx, storeId, d.codeId, at))) throw new Refused('OFFER_CHANGED')
       await insertUsage(tx, { promotionId: d.offerId, codeId: d.codeId, storeId, orderId: cart.id, customerId, email, amount: d.amount.amount, currency: cart.currency })
     }
   }

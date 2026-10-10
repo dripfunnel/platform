@@ -5,7 +5,7 @@ import type { PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { insertCart, selectCart, selectGuestCartId, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
+import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
 import type { FeatureKey } from '#db/scoped/catalogListing'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
@@ -233,6 +233,10 @@ export const createCartService = (deps: CartDeps) => {
   const change = async (work: (tx: ScopedSql, row: CartRow) => Promise<void>): Promise<CartResult<CartChange>> => {
     try {
       const row = await withScope(sql, deps.context, async (tx) => {
+        const seen = await selectCart(tx, storeId, now())
+        if (!seen) throw new Refused('NO_CART')
+        // Read again under the row's lock, so a change works on what the last one left (two tabs, two codes).
+        await lockCartRow(tx, storeId, seen.id)
         const found = await selectCart(tx, storeId, now())
         if (!found) throw new Refused('NO_CART')
         await work(tx, found)
@@ -333,16 +337,17 @@ export const createCartService = (deps: CartDeps) => {
     const current = await withScope(sql, deps.context, (tx) => selectCart(tx, storeId, now()))
     if (!current) return { ok: false, reason: 'NO_CART' }
     if (!code) return { ok: true, value: { state: 'INVALID', cart: await view(deps.context, current) } }
-    const held = current.promotion_codes.filter((c) => c.toLowerCase() !== code.toLowerCase())
-    if (held.length >= maxCartCodes) return { ok: false, reason: 'TOO_MANY_CODES' }
+    const without = (codes: readonly string[]) => codes.filter((c) => c.toLowerCase() !== code.toLowerCase())
     const added = await change(async (tx, row) => {
+      const held = without(row.promotion_codes)
+      if (held.length >= maxCartCodes) throw new Refused('TOO_MANY_CODES')
       await write(tx, row, { promotionCodes: [...held, code] })
     })
     if (!added.ok) return added
     const state = added.value.cart.codes.find((c) => c.code === code)?.state ?? 'INVALID'
     if (!deadCodeStates.includes(state)) return { ok: true, value: { state, cart: added.value.cart } }
     const removed = await change(async (tx, row) => {
-      await write(tx, row, { promotionCodes: held })
+      await write(tx, row, { promotionCodes: without(row.promotion_codes) })
     })
     return removed.ok ? { ok: true, value: { state, cart: removed.value.cart } } : removed
   }

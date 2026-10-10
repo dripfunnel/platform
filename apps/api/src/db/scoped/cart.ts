@@ -47,6 +47,11 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
     `
   )[0] ?? null
 
+/** Holds the cart's row to the end of the transaction, so two changes from two tabs apply one after the other. */
+export const lockCartRow = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
+  await tx`select id from "order" where id = ${id} and store_id = ${storeId} and state = 'cart' for update`
+}
+
 /** The guest cart the request's token opens, which the policy alone decides (migration 0066). */
 export const selectGuestCartId = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
   (await tx<{ id: string }[]>`select id from "order" where store_id = ${storeId} and state = 'cart' and customer_id is null limit 1`)[0]?.id ?? null

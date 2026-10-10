@@ -380,8 +380,9 @@ minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store
 - **A preview's test order takes no use**, so trying an offer on the preview never spends a real limit or code.
 - **A cart holds up to five codes**; a code that can't work whatever is added comes straight back off it, one whose
   conditions aren't met yet stays and applies once they are.
-- **Used up or ended between pricing and paying**: placement refuses `OFFER_CHANGED` and the shopper sees the cart again
-  without it, never an order at a price they didn't see.
+- **Used up or ended while the order is being placed** (the last use taken by another order under the same lock):
+  placement refuses `OFFER_CHANGED` and the shopper sees the cart again without it. Placement prices the cart afresh, as
+  it does a price change, so an offer turned off before "Pay" is simply not on the order.
 
 ---
 
