@@ -180,7 +180,7 @@ export const deleteOffer = async (id: string): Promise<void> => {
 }
 
 /** The API's limits on one run of single-use codes (src/engine/modules/promotions/service.ts). */
-export const codeBatchLimits = { count: 5000, minLength: 6, maxLength: 16, prefix: 12 } as const
+export const codeBatchLimits = { count: 5000, prefix: 12 } as const
 
 export const generateCodes = async (offerId: string, run: { count: number; prefix: string; length: number }): Promise<CodeBatch> =>
   (

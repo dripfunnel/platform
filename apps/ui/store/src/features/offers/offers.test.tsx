@@ -233,13 +233,15 @@ describe('the Offers list', () => {
     expect(api.deleteOffer).toHaveBeenCalledWith('o1')
   })
 
-  it('opens the copy a Duplicate makes', async () => {
+  it('opens the copy a Duplicate makes, saying so', async () => {
+    api.loadOffer.mockResolvedValue({ ...welcome, id: 'o9', name: 'Copy of Welcome 10% off', status: 'off', enabled: false, code: null })
     const router = await show(owner)
     openMenu('Welcome 10% off')
     fireEvent.click(menuItem('Welcome 10% off', /^Duplicate/))
     await settle()
     expect(api.duplicateOffer).toHaveBeenCalledWith('o1')
     expect(router.state.location.pathname).toBe('/offers/o9')
+    expect(screen.getByText(words.act.duplicated)).toBeTruthy()
   })
 
   it('lets Staff read offers and check codes, with no action that changes one', async () => {
@@ -339,6 +341,22 @@ describe('one offer’s page', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.act.delete }))
     await settle()
     expect(router.state.location.pathname).toBe('/offers')
+    expect(screen.getByText('Welcome 10% off deleted.')).toBeTruthy()
+  })
+
+  it('opens a copy from the page without showing the original under its address while it loads', async () => {
+    let answerCopy: (o: Offer) => void = () => undefined
+    api.loadOffer.mockImplementation((id: string) => (id === 'o9' ? new Promise<Offer>((resolve) => (answerCopy = resolve)) : Promise.resolve(welcome)))
+    const router = await show(owner, { entry: '/offers/o1' })
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }))
+    await settle()
+    expect(router.state.location.pathname).toBe('/offers/o9')
+    expect(screen.queryByRole('heading', { level: 1, name: 'Welcome 10% off' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
+    answerCopy({ ...welcome, id: 'o9', name: 'Copy of Welcome 10% off', status: 'off', enabled: false, code: null })
+    await settle()
+    expect(screen.getByRole('heading', { level: 1, name: 'Copy of Welcome 10% off' })).toBeTruthy()
+    expect(screen.getByText(words.act.duplicated)).toBeTruthy()
   })
 
   it('shows an offer that isn’t the store’s as not found, and Staff no actions', async () => {
