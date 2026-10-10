@@ -4636,7 +4636,8 @@
         "repeatTimes": "The repeat must end after it starts.",
         "total": "Enter 1 or more, or choose Unlimited.",
         "perCustomer": "Uses per customer must be a whole number from 1 to {max}, or Unlimited.",
-        "otherAmount": "Give each other currency an amount above zero, or leave its box empty to convert at today’s rate."
+        "otherAmount": "Give each other currency an amount above zero, or leave its box empty to convert at today’s rate.",
+        "tooMany": "An offer can name up to {max}. Remove some."
       },
       "crumbNew": "New offer",
       "loading": "Loading the offer",
@@ -5015,7 +5016,8 @@
         "done": {
           "one": "Done · {count} chosen",
           "other": "Done · {count} chosen"
-        }
+        },
+        "full": "That’s the most one offer can name ({max}). Remove one to add another."
       },
       "codePlaceholder": "SUMMER20",
       "removeGlyph": "×",

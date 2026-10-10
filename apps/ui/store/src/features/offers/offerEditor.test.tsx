@@ -159,6 +159,16 @@ describe('a new offer', () => {
     expect(screen.getByText('This gives ₹100.00 off every order on your store, starting now.')).toBeTruthy()
   })
 
+  it('stops the product picker at the most one offer can name', async () => {
+    const draft = { ...(await import('./offerDraft')).blankDraft('products', null, { facts: { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }, now: new Date(), ship: 'delivery', season: null }), productIds: Array.from({ length: 250 }, (_, i) => `x${i}`) }
+    sessionStorage.setItem('df-draft:offer:s1:new', JSON.stringify({ revision: null, draft }))
+    await show(owner, '/offers/new?type=products')
+    fireEvent.click(screen.getByRole('button', { name: words.chooseProducts }))
+    await settle(300)
+    expect(within(screen.getByRole('dialog')).getByText('That’s the most one offer can name (250). Remove one to add another.')).toBeTruthy()
+    expect(within(screen.getByRole('dialog')).getByRole('checkbox', { name: /Linen kurta/ })).toHaveProperty('disabled', true)
+  })
+
   it('makes the single-use codes after saving, and names the plan when the API refuses', async () => {
     api.generateCodes.mockResolvedValue({ id: 'b1', prefix: 'INSTA-', length: 8, count: 200, used: 0, createdAt: '' })
     await show(owner, '/offers/new?type=order')
