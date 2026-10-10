@@ -54,6 +54,8 @@ export const OffersPage = () => {
   const [failure, setFailure] = useState<string | null>(null)
   const latest = useRef(0)
 
+  // Reaching a tab again, by a click, Back or a link, starts on its first page.
+  if (paging.tab !== tab) setPaging({ tab, cursor: {}, index: 0 })
   const cursor = useMemo(() => (paging.tab === tab ? paging.cursor : {}), [paging, tab])
   const pageIndex = paging.tab === tab ? paging.index : 0
 

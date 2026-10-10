@@ -155,7 +155,7 @@ describe('the Offers list', () => {
     expect(screen.getByText('Showing 1–25')).toBeTruthy()
   })
 
-  it('starts a tab reached through the address, or a new filter, on its first page', async () => {
+  it('starts a tab reached through the address, again or for the first time, or a new filter, on its first page', async () => {
     api.loadOffers.mockImplementation((_: unknown, cursor: { after?: string }) => Promise.resolve(cursor.after ? { rows: [paused], next: null, previous: 'c26' } : { rows: [welcome], next: 'c25', previous: null }))
     const router = await show(owner)
     fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
@@ -164,6 +164,11 @@ describe('the Offers list', () => {
     await settle()
     expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'off', kind: null, trigger: null, search: '' }, {})
     expect(screen.getByText('Showing 1–1')).toBeTruthy()
+    await act(() => router.navigate({ to: '/offers', search: {} }))
+    await settle()
+    expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'live', kind: null, trigger: null, search: '' }, {})
+    await act(() => router.navigate({ to: '/offers', search: { status: 'off' } }))
+    await settle()
     fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
     await settle()
     fireEvent.change(screen.getByRole('combobox', { name: words.filters.how }), { target: { value: 'code' } })
