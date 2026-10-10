@@ -3,11 +3,12 @@ import { z } from 'zod'
 import type { SecretBox } from '#auth/secretBox'
 import { withSystemScope } from '#db/scoped/index'
 import { storeEvents } from '#db/scoped/storeEvents'
-import { disableEndpoint, failDelivery, holdDelivery, insertDelivery, markEndpointFailing, markEndpointWorking, recordDeliveryAttempt, selectDeliveryToSend, selectEndpointsFor } from '#db/scoped/webhooks'
+import { insertOutboxMany } from '#db/scoped/outbox'
+import { disableEndpoint, failDelivery, holdDelivery, insertDelivery, markEndpointFailing, markEndpointWorking, recordDeliveryAttempt, releaseHeld, selectDeliveryToSend, selectEndpointsFor } from '#db/scoped/webhooks'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { postPublic } from '#integrations/http/publicPost'
 import { queueSideEffect } from '#saas/outbox/index'
-import { failingForMs, signWebhook, webhookDeliveryKind } from '#saas/webhooks/index'
+import { failingForMs, signWebhook, webhookDeliveryKind, webhookReleaseKind } from '#saas/webhooks/index'
 import { defaultRelayOptions, GiveUp, type Deliverer } from '../outbox-relay'
 
 // Webhooks from the outbox (PLATFORM-PROMPT §5.5): `webhook.event` makes one delivery per endpoint that takes the event,
@@ -70,7 +71,10 @@ export const webhookDeliveryDeliverer = (sql: postgres.Sql, deps: WebhookSendDep
       return
     }
     const secret = deps.secrets ? await deps.secrets.open(d.secret_sealed) : null
-    if (!secret) throw new GiveUp('no_signing_key')
+    if (!secret) {
+      await withSystemScope(sql, (tx) => failDelivery(tx, d.id, 'no_signing_key'))
+      throw new GiveUp('no_signing_key')
+    }
     const at = now()
     const headers = {
       'content-type': 'application/json',
@@ -103,5 +107,29 @@ export const webhookDeliveryDeliverer = (sql: postgres.Sql, deps: WebhookSendDep
     })
     // The relay backs off and tries again, up to its limit; a code, never the endpoint's words (outbox-relay.ts).
     if (outcome === 'retry') throw new Error(error ?? 'failed')
+  },
+})
+
+const release = z.object({ endpointId: z.uuid(), since: z.iso.datetime(), pass: z.number().int().min(0) }).strict()
+
+/** Held deliveries released per pass; a fuller week is passed on to the next one. */
+export const releaseBatch = 500
+
+/** `webhook.release`: "Turn back on"'s week of held deliveries, queued a batch at a time, each pass its own transaction. */
+export const webhookReleaseDeliverer = (sql: postgres.Sql): Deliverer => ({
+  deliver: async (effect) => {
+    const parsed = release.safeParse(effect.payload)
+    if (!parsed.success || !effect.storeId || !effect.partnerId) throw new GiveUp('bad_payload')
+    const { endpointId, since, pass } = parsed.data
+    const storeId = effect.storeId
+    const partnerId = effect.partnerId
+    await withSystemScope(sql, async (tx) => {
+      const released = await releaseHeld(tx, storeId, endpointId, new Date(since), releaseBatch)
+      await insertOutboxMany(tx, released.map((deliveryId) => ({ kind: webhookDeliveryKind, idempotencyKey: `${deliveryId}:on:${since}`, payload: { deliveryId }, partnerId, storeId })))
+      if (released.length === releaseBatch) {
+        const next = pass + 1
+        await queueSideEffect(tx, { kind: webhookReleaseKind, idempotencyKey: `${endpointId}:${new Date(since).getTime()}:${next}`, payload: { endpointId, since, pass: next }, partnerId, storeId })
+      }
+    })
   },
 })

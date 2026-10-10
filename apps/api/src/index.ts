@@ -90,9 +90,9 @@ import { keyedGateways } from '#integrations/payments/index'
 import { deleteExpiredCarts } from '#db/scoped/cart'
 import { storeEventKind } from '#db/scoped/storeEvents'
 import { deleteOldDeliveries } from '#db/scoped/webhooks'
-import { webhookDeliveryKind } from '#saas/webhooks/index'
+import { webhookDeliveryKind, webhookReleaseKind } from '#saas/webhooks/index'
 import { appNoticeKind } from '#saas/apps/index'
-import { webhookDeliveryDeliverer, webhookEventDeliverer } from '#jobs/queues/deliverers/webhooks'
+import { webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDeliverer } from '#jobs/queues/deliverers/webhooks'
 import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
@@ -223,6 +223,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [ratesRefreshKind]: ratesRefreshDeliverer(sql, ecbRates()),
     [storeEventKind]: webhookEventDeliverer(sql),
     [webhookDeliveryKind]: webhookDeliveryDeliverer(sql, { lookup, secrets }),
+    [webhookReleaseKind]: webhookReleaseDeliverer(sql),
     [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
   }
 }
