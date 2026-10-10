@@ -156,6 +156,10 @@ export const lockPlacedOrder = async (tx: ScopedSql, storeId: string, orderId: s
     `
   )[0] ?? null
 
+/** A preview storefront's order, paid in test mode: no shopper is told of it and no webhook hears of it (storefront ARCHITECTURE §4.1). */
+export const orderIsTest = async (tx: ScopedSql, orderId: string): Promise<boolean> =>
+  (await tx`select 1 from payment where order_id = ${orderId} and mode = 'test' limit 1`).length > 0
+
 /** Paid: the order and its pending payment both, at once. */
 export const recordPaid = async (tx: ScopedSql, storeId: string, orderId: string, now: Date): Promise<void> => {
   await tx`update "order" set payment_state = 'paid', paid_at = ${now}, payment_due_by = null, updated_at = ${now}, revision = revision + 1 where id = ${orderId} and store_id = ${storeId}`

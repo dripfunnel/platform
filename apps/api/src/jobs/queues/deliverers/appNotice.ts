@@ -36,7 +36,9 @@ export const appNoticeDeliverer = (sql: postgres.Sql, deps: AppNoticeDeps): Deli
       return app ? { app, host: await selectLivePortalHost(tx, app.partner_id) } : null
     })
     if (!found || found.app.partner_id !== effect.partnerId) throw new GiveUp('no_grant')
-    if (found.app.status !== 'live') throw new GiveUp('app_suspended')
+    // A token for a grant removed since has nothing to open; a suspended app hears once it's restored, so it isn't lost.
+    if (n.notice === 'installed' && found.app.revoked) throw new GiveUp('grant_revoked')
+    if (found.app.status !== 'live') throw new NotYet('app_suspended', 60 * 60 * 1000)
     if (!found.host) throw new NotYet('no_portal_host', 60 * 60 * 1000)
     const secret = deps.secrets ? await deps.secrets.open(found.app.secret_sealed) : null
     const token = n.notice === 'installed' && deps.secrets ? await deps.secrets.open(n.tokenSealed) : null

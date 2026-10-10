@@ -128,6 +128,7 @@ export const touchGrant = async (tx: ScopedSql, id: string, now: Date): Promise<
 }
 
 export interface AppNoticeRow {
+  revoked: boolean
   webhook_url: string
   secret_sealed: string
   status: 'live' | 'suspended'
@@ -139,7 +140,7 @@ export interface AppNoticeRow {
 export const selectAppNotice = async (tx: ScopedSql, grantId: string): Promise<AppNoticeRow | null> =>
   (
     await tx<AppNoticeRow[]>`
-      select a.webhook_url, a.secret_sealed, a.status, s.name as store_name, s.partner_id
+      select g.revoked_at is not null as revoked, a.webhook_url, a.secret_sealed, a.status, s.name as store_name, s.partner_id
       from app_grant g join app a on a.id = g.app_id join store s on s.id = g.store_id where g.id = ${grantId}
     `
   )[0] ?? null
