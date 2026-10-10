@@ -338,12 +338,12 @@ export const setCancelAt = async (tx: ScopedSql, storeId: string, at: Date): Pro
   `
 }
 
-/** Trials past their end with no plan chosen, oldest first, locked for this sweep and skipped by any other. */
+/** Trials past their end with no plan chosen, oldest first; each is locked and checked again as it ends. */
 export const selectEndedTrials = (tx: ScopedSql, now: Date, limit: number): Promise<{ store_id: string }[]> =>
   tx<{ store_id: string }[]>`
     select sub.store_id from store_subscription sub join store s on s.id = sub.store_id
     where sub.status = 'trial' and sub.trial_ends_at <= ${now} and s.status = 'trial'
-    order by sub.trial_ends_at, sub.store_id limit ${limit} for update of sub skip locked
+    order by sub.trial_ends_at, sub.store_id limit ${limit}
   `
 
 /** The store's data export (exportStoreData): its parts, each a catalogue export job, read back by the one who asked. */

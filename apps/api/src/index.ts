@@ -678,9 +678,10 @@ const sweepSchedules = (env: Env): Promise<void> =>
     // FIRST-RELEASE §3.3: a trial that ended without a plan moves to the free plan, or owes one.
     const trials = await endTrials(sql, activityLog, new Date()).catch((error: unknown) => {
       logEvent({ event: 'trial_end_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return 0
+      return { ended: 0, failed: 0 }
     })
-    if (trials > 0) logEvent({ event: 'trials_ended', api: 'system', code: 'ended', count: trials })
+    if (trials.ended > 0) logEvent({ event: 'trials_ended', api: 'system', code: 'ended', count: trials.ended })
+    if (trials.failed > 0) logEvent({ event: 'trial_end_failed', api: 'system', code: 'store_failed', count: trials.failed })
     // SAAS §7.3: a store 14 days past due is suspended.
     const suspended = await suspendOverdueStores(sql, activityLog, new Date()).catch((error: unknown) => {
       logEvent({ event: 'dunning_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

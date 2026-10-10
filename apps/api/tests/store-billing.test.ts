@@ -602,8 +602,8 @@ describe('choose what to keep (SAAS §6.2, PortalKeep)', () => {
 
     // The trial ends with no plan chosen: Free, with the picks, and nothing deleted.
     clock = new Date(periodEnd.getTime() + 60_000)
-    expect(await endTrials(db.sql, activityLog, clock)).toBe(1)
-    expect(await endTrials(db.sql, activityLog, clock)).toBe(0)
+    expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 1, failed: 0 })
+    expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 0, failed: 0 })
     expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active', plan_id: plans.free })
     expect(await pausedIn(t.storeA2)).toEqual([kept.second, kept.fourth].sort())
     expect(await entries(t.storeA2, 'store.trial_ended')).toEqual([{ actor_kind: 'job', reason: 'free_plan' }])
@@ -624,7 +624,7 @@ describe('choose what to keep (SAAS §6.2, PortalKeep)', () => {
   it('leaves a trial with no free plan owing one: read-only, and choosing a plan is how it pays', async () => {
     await db.sql`update plan set status = 'retired' where id = ${plans.free}`
     clock = new Date(periodEnd.getTime() + 60_000)
-    expect(await endTrials(db.sql, activityLog, clock)).toBe(1)
+    expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 1, failed: 0 })
     expect(await storeRow(t.storeA2)).toMatchObject({ status: 'past_due' })
     expect(await entries(t.storeA2, 'store.trial_ended')).toContainEqual({ actor_kind: 'job', reason: 'no_free_plan' })
     cookies.trialOwner = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: people.trialOwner, partnerId: t.partnerA }, clock))
@@ -632,6 +632,22 @@ describe('choose what to keep (SAAS §6.2, PortalKeep)', () => {
     await gql(q.card, 'trialOwner', { t: 'pm_card12345' })
     expect((await change('trialOwner', plans.starter, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Starter' }, status: 'active' })
     expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active' })
+  })
+
+  it('ends each trial in its own transaction, so one that fails leaves the others to end', async () => {
+    await subscribe(t.storeB1, t.partnerB, plans.otherPartner, 'trial', 500, null)
+    await db.sql.unsafe(`create function fail_trial_end() returns trigger language plpgsql as $$ begin raise exception 'failing store'; end $$`)
+    await db.sql.unsafe(`create trigger fail_trial_end before update on store_subscription for each row when (new.store_id = '${t.storeB1}') execute function fail_trial_end()`)
+    clock = new Date(periodEnd.getTime() + 60_000)
+    try {
+      expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 1, failed: 1 })
+    } finally {
+      await db.sql.unsafe('drop trigger fail_trial_end on store_subscription; drop function fail_trial_end()')
+    }
+    expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active', plan_id: plans.free })
+    expect(await storeRow(t.storeB1)).toMatchObject({ status: 'trial' })
+    expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 1, failed: 0 })
+    expect(await storeRow(t.storeB1)).toMatchObject({ status: 'past_due' })
   })
 })
 

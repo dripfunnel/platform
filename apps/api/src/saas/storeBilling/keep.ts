@@ -50,28 +50,38 @@ const trialEntry = (store: { id: string; partner_id: string; name: string }, rea
   userAgent: null,
 })
 
-/** The cron's trial step: each trial past its end with no plan chosen moves to the free plan, or is past due without one. */
-export const endTrials = (sql: postgres.Sql, activity: ActivityLog, now: Date): Promise<number> =>
-  withSystemScope(sql, async (tx) => {
-    let ended = 0
-    for (const { store_id: storeId } of await selectEndedTrials(tx, now, sweepSize)) {
-      const sub = await selectBillingSubscription(tx, storeId)
-      const store = await selectStoreForUpdate(tx, storeId)
-      if (!sub || !store || store.status !== 'trial') continue
-      const free = await selectFreePlan(tx, sub.partner_id, sub.currency)
-      if (free) {
-        const version = (await selectCurrentVersions(tx, [free.id])).get(free.id)
-        const amount = version?.prices.find((p) => p.currency === sub.currency)?.monthly ?? 0
-        await applyPlan(tx, storeId, { planId: free.id, planVersion: free.version, interval: 'month', amount, subscriptionId: null, periodStart: now, periodEnd: addInterval(now, 'month'), activate: true })
-        await transitionStore(tx, store, { to: 'active' }, now)
-        await keepWithinPlan(tx, storeId, now)
-        await activity.record(tx, trialEntry(store, 'free_plan', [{ field: 'plan', before: sub.plan_id, after: free.id }]))
-      } else {
-        await markTrialUnpaid(tx, storeId)
-        await transitionStore(tx, store, { to: 'past_due' }, now)
-        await activity.record(tx, trialEntry(store, 'no_free_plan', [{ field: 'status', before: 'trial', after: 'past_due' }]))
-      }
-      ended += 1
+const endTrial = async (tx: ScopedSql, activity: ActivityLog, storeId: string, now: Date): Promise<boolean> => {
+  const sub = await selectBillingSubscription(tx, storeId, true)
+  if (!sub || sub.status !== 'trial' || !sub.trial_ends_at || sub.trial_ends_at > now) return false
+  const store = await selectStoreForUpdate(tx, storeId)
+  if (!store || store.status !== 'trial') return false
+  const free = await selectFreePlan(tx, sub.partner_id, sub.currency)
+  if (free) {
+    const version = (await selectCurrentVersions(tx, [free.id])).get(free.id)
+    const amount = version?.prices.find((p) => p.currency === sub.currency)?.monthly ?? 0
+    await applyPlan(tx, storeId, { planId: free.id, planVersion: free.version, interval: 'month', amount, subscriptionId: null, periodStart: now, periodEnd: addInterval(now, 'month'), activate: true })
+    await transitionStore(tx, store, { to: 'active' }, now)
+    await keepWithinPlan(tx, storeId, now)
+    await activity.record(tx, trialEntry(store, 'free_plan', [{ field: 'plan', before: sub.plan_id, after: free.id }]))
+  } else {
+    await markTrialUnpaid(tx, storeId)
+    await transitionStore(tx, store, { to: 'past_due' }, now)
+    await activity.record(tx, trialEntry(store, 'no_free_plan', [{ field: 'status', before: 'trial', after: 'past_due' }]))
+  }
+  return true
+}
+
+/** The cron's trial step: each trial past its end with no plan chosen moves to the free plan, or is past due without one.
+ * Each store is its own transaction, so one that fails is counted and the others still end. */
+export const endTrials = async (sql: postgres.Sql, activity: ActivityLog, now: Date): Promise<{ ended: number; failed: number }> => {
+  const due = await withSystemScope(sql, (tx) => selectEndedTrials(tx, now, sweepSize))
+  const done = { ended: 0, failed: 0 }
+  for (const { store_id: storeId } of due) {
+    try {
+      if (await withSystemScope(sql, (tx) => endTrial(tx, activity, storeId, now))) done.ended += 1
+    } catch {
+      done.failed += 1
     }
-    return ended
-  })
+  }
+  return done
+}
