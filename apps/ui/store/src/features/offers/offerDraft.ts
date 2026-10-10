@@ -231,6 +231,15 @@ const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 /** A readable code: no 0/O or 1/I to confuse (H1). */
 export const generateCode = (length = 8): string => Array.from(crypto.getRandomValues(new Uint8Array(length)), (b) => codeAlphabet[b % codeAlphabet.length] ?? 'A').join('')
 
+/**
+ * A seasonal recipe's code from the occasion's name: its letters and digits once accents are taken off ("Diwali" is
+ * DIWALI20), or, for a name with none in A–Z 0–9 (春节, Рождество), a generated SALE code, so the code is always valid.
+ */
+export const seasonCode = (name: string): string => {
+  const latin = name.normalize('NFKD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
+  return latin ? `${latin}20` : `SALE${generateCode(4)}20`
+}
+
 export interface RecipeContext {
   facts: StoreFacts
   now: Date
@@ -255,7 +264,7 @@ export const blankDraft = (type: OfferKind, recipe: Recipe | null, ctx: RecipeCo
       if (!season) return { ...d, percent: '20', name: names.sale }
       const day = local(season.on.getTime()).slice(0, 10)
       const start = new Date(season.on.getTime() - 7 * 86_400_000)
-      return { ...d, percent: '20', code: `${season.name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)}20`, name: fill(names.seasonal, { season: season.name }), startsAt: `${local(start.getTime()).slice(0, 10)}T00:00`, endsAt: `${day}T23:59` }
+      return { ...d, percent: '20', code: seasonCode(season.name), name: fill(names.seasonal, { season: season.name }), startsAt: `${local(start.getTime()).slice(0, 10)}T00:00`, endsAt: `${day}T23:59` }
     }
     case 'buy2get1':
       return { ...d, name: names.buy2get1 }
@@ -476,7 +485,7 @@ export const inputOf = (d: OfferDraft, facts: StoreFacts, enabled: boolean) => {
 export type Field = 'value' | 'targets' | 'buy' | 'get' | 'code' | 'batch' | 'name' | 'minimum' | 'who' | 'ends' | 'repeat' | 'total' | 'perCustomer' | 'tiers' | 'cap'
 
 /** The API's own limits (src/engine/modules/promotions), so the form says them before the API refuses. */
-export const offerLimits = { name: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: 5000, tiers: [2, 5] as const } as const
+export const offerLimits = { prefix: 12, name: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: 5000, tiers: [2, 5] as const } as const
 
 const amountOk = (text: string, currency: string) => {
   const minor = minorOf(text, currency)
@@ -519,17 +528,17 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   if (d.trigger === 'code' && !d.singleUse) {
     const code = d.code.trim().toUpperCase()
     if (!code) e.code = words.codeMissing
-    else if (!/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(code)) e.code = words.codeShape
+    else if (!/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(code)) e.code = fill(words.codeShape, { min: '3', max: '32' })
   }
   if (d.trigger === 'code' && d.singleUse) {
     if (!between(d.batch.count, 1, offerLimits.batch)) e.batch = fill(words.batchCount, { max: formatCount(offerLimits.batch) })
-    else if (!/^([A-Z0-9][A-Z0-9_-]{0,11})?$/.test(d.batch.prefix.trim().toUpperCase())) e.batch = words.batchPrefix
+    else if (!/^([A-Z0-9][A-Z0-9_-]{0,11})?$/.test(d.batch.prefix.trim().toUpperCase())) e.batch = fill(words.batchPrefix, { max: String(offerLimits.prefix) })
   }
   if (!d.name.trim()) e.name = words.name
   else if (d.name.trim().length > offerLimits.name) e.name = fill(words.nameLong, { max: String(offerLimits.name) })
   if (d.minimum === 'amount' && !amountOk(d.minAmounts[main] ?? '', main)) e.minimum = words.minimumAmount
   else if (d.minimum === 'amount' && !othersOk(d.minAmounts, facts)) e.minimum = words.otherAmount
-  if ((d.minimum === 'items' || d.minimum === 'these') && !between(d.minQuantity, 1, offerLimits.minimum)) e.minimum = words.minimumItems
+  if ((d.minimum === 'items' || d.minimum === 'these') && !between(d.minQuantity, 1, offerLimits.minimum)) e.minimum = fill(words.minimumItems, { max: String(offerLimits.minimum) })
   if (d.who === 'groups' && !d.groupIds.length) e.who = words.groups
   if (d.who === 'customers' && !d.customerIds.length) e.who = words.customers
   if (d.who === 'market' && !d.countries.length) e.who = words.market

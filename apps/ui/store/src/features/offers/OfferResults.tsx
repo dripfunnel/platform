@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { loadOfferResults, type OfferResults as Results } from '../../api/offers'
 import type { ApiMoney } from '../../api/orders'
 import { fill, formatCount, formatDay, formatList, messages, plural } from '../../messages'
+import { samplePlan } from './offerStates'
 import { moneyText } from '../orders/orderView'
 
 // An offer's results (P1, U1): uses, discount given, sales with it and the average order, and uses by day. "Sales
@@ -30,7 +31,7 @@ export const usesByDay = (byDay: Results['byDay'], timeZone: string, now: Date):
   })
 }
 
-const moneyList = (list: readonly ApiMoney[]) => (list.length ? formatList(list.map(moneyText)) : '—')
+const moneyList = (list: readonly ApiMoney[]) => (list.length ? formatList(list.map(moneyText)) : words.none)
 
 export const OfferResults = ({ offerId, usesLimit, sample, timeZone, canUpgrade }: { offerId: string; usesLimit: number | null; sample: Results | 'locked' | null; timeZone: string; canUpgrade: boolean }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })
@@ -38,7 +39,7 @@ export const OfferResults = ({ offerId, usesLimit, sample, timeZone, canUpgrade 
 
   const load = useCallback(() => {
     const mine = ++latest.current
-    if (sample === 'locked') return setView({ kind: 'locked', plan: 'Growth Pro' })
+    if (sample === 'locked') return setView({ kind: 'locked', plan: samplePlan })
     if (sample) return setView({ kind: 'ready', results: sample })
     setView({ kind: 'loading' })
     void loadOfferResults(offerId).then(
