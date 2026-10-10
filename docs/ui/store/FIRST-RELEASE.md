@@ -676,6 +676,15 @@ totals) and **Your team** (Supplier admin: invite, change admin or member, resen
 the last admin; DATA-MODEL §4.2). Their own warehouses and stock. Never offers, customers beyond
 §6, plans, other suppliers or the store's totals.
 
+**Built on #327 (SUI 15)**: Your products and To ship are Products' and Orders' supplier views (#298, #314), and a
+Stock-only supplier's menu row says "stock only" (§3.1). **Your sales** (`/sales`) reads `mySales` in pages of 25:
+order and day, product and version, quantity, the line at the price sold, and its status; the note that the store
+settles outside the portal; and Export CSV, the supplier's own orders export (`exportOrders`). It asks the API only
+for a seat that holds `sales.read`, and tells every other seat it has no access. Decided here: **no status chips and no
+shipping status on Your sales**, because `mySales` answers the order's state and the units refunded but not the part's
+shipping, and has no filter: a line is Sold, "N of M refunded", Refunded or Cancelled, and its dates are UTC (a
+supplier reads no store settings).
+
 ---
 
 ## 18. Prototype differences
