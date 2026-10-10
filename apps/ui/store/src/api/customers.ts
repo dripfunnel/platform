@@ -100,6 +100,9 @@ export const updateCustomer = async (id: string, edit: { name: string; phone: st
   await query('mutation U($id: ID!, $n: String, $p: String, $a: CustomerAddressInput) { updateCustomer(id: $id, name: $n, phone: $p, address: $a) }', z.object({ updateCustomer: z.boolean() }), { id, n: edit.name, p: edit.phone, a: edit.address })
 }
 
+/** The API's limits on a customer's tags (`setCustomerTags`, FIRST-RELEASE §19): how many, and how long each. */
+export const customerTagLimits = { count: 20, length: 24 } as const
+
 export const setCustomerTags = async (id: string, tags: string[]): Promise<string[]> =>
   (await query('mutation T($id: ID!, $t: [String!]!) { setCustomerTags(id: $id, tags: $t) }', z.object({ setCustomerTags: z.array(z.string()) }), { id, t: tags })).setCustomerTags
 

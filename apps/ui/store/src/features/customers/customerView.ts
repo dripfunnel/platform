@@ -3,8 +3,8 @@ import type { Customer, CustomerAddress } from '../../api/customers'
 import { fill, formatList, locale, messages } from '../../messages'
 import { moneyText } from '../orders/orderView'
 
-// How PortalOrders › Customers words a customer (FIRST-RELEASE §7): who may change what, what they've spent and their
-// marketing consent. The API decides every figure; these only say them.
+// How PortalOrders › Customers words a customer (FIRST-RELEASE §7): who may change what, what they've spent (every
+// seat with customers.read, Staff included, ACCESS §5.1) and their marketing consent. The API decides every figure.
 
 const words = messages.customers.detail
 
@@ -12,14 +12,12 @@ export interface CustomersAccess {
   canRead: boolean
   canEdit: boolean
   canExport: boolean
-  /** What they've spent: never Staff's to see (PortalOrders `money`). */
-  money: boolean
   readOnly: boolean
 }
 
-export const customersAccessOf = (acting: { role: string; permissions: readonly string[] }, readOnly: boolean): CustomersAccess => {
+export const customersAccessOf = (acting: { permissions: readonly string[] }, readOnly: boolean): CustomersAccess => {
   const has = (p: string) => acting.permissions.includes(p)
-  return { canRead: has('customers.read'), canEdit: has('customers.write') && !readOnly, canExport: has('customers.export'), money: acting.role !== 'staff', readOnly }
+  return { canRead: has('customers.read'), canEdit: has('customers.write') && !readOnly, canExport: has('customers.export'), readOnly }
 }
 
 /** One figure a currency, as the API keeps them. */

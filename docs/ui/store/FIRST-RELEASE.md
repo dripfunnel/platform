@@ -316,8 +316,8 @@ team may record that they asked to stop) and their orders. Add a customer (order
 edit, manage groups (showing where a group is used before it changes), **export** (Owner,
 Manager and Staff, §1). "Suppliers never see this list."
 - **Built on #314, part 4** (`apps/ui/store/src/features/customers/`, `/customers`, `?customer=` opens one, as an
-  order's customer link does): People with search and the groups as chips, each row's city and tags, spend (not
-  Staff's) and orders, pages of 25, and the customer beside the list: contact and default address, groups toggled in
+  order's customer link does): People with search and the groups as chips, each row's city and tags, spend (Staff's
+  too, ACCESS §5.1) and orders, pages of 25, and the customer beside the list: contact and default address, groups toggled in
   and out, tags (up to 20, 24 characters), the team's note, marketing consent with "Record that they asked to stop"
   while they're opted in, and the newest orders; **Add a customer** (name, email, phone; an email already a customer
   opens that one), **Edit details** (name, number, the default delivery address whole or not at all), Groups (make,
@@ -607,7 +607,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Sign-in counts down the tries left and shows the paused screen after five wrong passwords | Every wrong password gets the same "don't match" answer; only the right password, during the pause, is told it is paused (ACCESS §2: never reveal an account) | rule |
 | README §4's "To approve" and "Suppliers" menu rows | The prototype's: approval in Products, suppliers in Settings (§3.1) | behaviour, decided here |
 | Customers export is offered to Owner and Manager | Staff too (§1) | behaviour, decided |
-| Orders hide totals and payment from Staff | Staff see them: ACCESS §5.1 gives Staff `orders.read`, and the API answers it (decided on #314's review) | rule |
+| Orders and Customers hide totals, payment and spend from Staff | Staff see them: ACCESS §5.1 gives Staff `orders.read`, `customers.read` and the customers export with spend, and the API answers them (decided on #314's review) | rule |
 | ~~No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload~~ | Drawn by SUI 1 (#286) | resolved |
 | Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | WhatsApp reminders ship with email, through MSG91 (decided 2026-10-05 on #337) | scope, decided |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |

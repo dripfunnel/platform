@@ -97,9 +97,9 @@ afterEach(() => {
 })
 
 describe('what Customers works out', () => {
-  it('gives the team the list and its changes, Staff no money, and a read-only store no changes', () => {
-    expect(customersAccessOf(owner, false)).toEqual({ canRead: true, canEdit: true, canExport: true, money: true, readOnly: false })
-    expect(customersAccessOf(staff, false)).toMatchObject({ canEdit: true, money: false })
+  it('gives the team the list and its changes, Staff included, and a read-only store no changes', () => {
+    expect(customersAccessOf(owner, false)).toEqual({ canRead: true, canEdit: true, canExport: true, readOnly: false })
+    expect(customersAccessOf(staff, false)).toEqual({ canRead: true, canEdit: true, canExport: true, readOnly: false })
     expect(customersAccessOf(owner, true)).toMatchObject({ canEdit: false, readOnly: true })
     expect(customersAccessOf(supplier, false).canRead).toBe(false)
   })
@@ -129,6 +129,47 @@ describe('the Customers screen', () => {
     expect(detail().getByRole('link', { name: /KT-1042/ }).getAttribute('href')).toBe('/orders/o1')
     expect(api.loadCustomers).toHaveBeenCalledWith(null, '', {})
     expect(api.loadCustomer).toHaveBeenCalledWith('c1')
+  })
+
+  it('shows the customer clicked last, whatever order the answers come in', async () => {
+    let answerVikram: (c: Customer) => void = () => undefined
+    await show(owner)
+    api.loadCustomer.mockImplementation((id: string) => (id === 'c4' ? new Promise<Customer>((resolve) => (answerVikram = resolve)) : Promise.resolve(ananya)))
+    const rows = () => within(screen.getByRole('list', { name: words.list.label })).getAllByRole('button')
+    fireEvent.click(rows()[1] as HTMLElement)
+    await settle()
+    fireEvent.click(rows()[0] as HTMLElement)
+    await settle()
+    answerVikram({ ...ananya, id: 'c4', name: 'Vikram Shah' })
+    await settle()
+    expect(screen.getByRole('region', { name: 'Ananya Rao' })).toBeTruthy()
+    expect(screen.queryByRole('region', { name: 'Vikram Shah' })).toBeNull()
+  })
+
+  it('moves between People and Groups with the arrow keys, Home and End, as the tabs pattern does', async () => {
+    await show(owner)
+    const people = screen.getByRole('tab', { name: 'People · 2' })
+    const groupsTab = screen.getByRole('tab', { name: 'Groups · 2' })
+    expect(people.getAttribute('tabindex')).toBe('0')
+    expect(groupsTab.getAttribute('tabindex')).toBe('-1')
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(people.id)
+    fireEvent.keyDown(people, { key: 'ArrowRight' })
+    expect(groupsTab.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(groupsTab)
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(groupsTab.id)
+    fireEvent.keyDown(groupsTab, { key: 'Home' })
+    expect(people.getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(people, { key: 'ArrowLeft' })
+    expect(groupsTab.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('reads the count and groups once, not again for every search', async () => {
+    await show(owner)
+    fireEvent.change(screen.getByRole('searchbox', { name: words.search.label }), { target: { value: 'rao' } })
+    await settle(350)
+    expect(api.loadCustomers).toHaveBeenLastCalledWith(null, 'rao', {})
+    expect(api.loadCustomerCount).toHaveBeenCalledTimes(1)
+    expect(api.loadCustomerGroups).toHaveBeenCalledTimes(1)
   })
 
   it('searches, filters by a group, and opens the customer a link names', async () => {
@@ -246,10 +287,10 @@ describe('the Customers screen', () => {
     expect(api.loadCustomers).toHaveBeenLastCalledWith('g2', '', {})
   })
 
-  it('shows Staff no money, a read-only store no changes, and a supplier nothing', async () => {
+  it('shows Staff the spend the API and its export give them (ACCESS §5.1), a read-only store no changes, and a supplier nothing', async () => {
     await show(staff)
-    expect(within(screen.getByRole('list', { name: words.list.label })).getAllByRole('button')[0]?.textContent).not.toContain('₹')
-    expect(detail().queryByText('₹12,291.00 spent')).toBeNull()
+    expect(within(screen.getByRole('list', { name: words.list.label })).getAllByRole('button')[0]?.textContent).toContain('₹12,291.00')
+    expect(detail().getByText('₹12,291.00 spent')).toBeTruthy()
     cleanup()
     await show(owner, { readOnly: true })
     expect(screen.getByText(words.readOnly)).toBeTruthy()

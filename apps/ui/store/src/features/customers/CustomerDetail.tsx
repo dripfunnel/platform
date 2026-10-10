@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useState } from 'react'
-import { setCustomerGroups, setCustomerNote, setCustomerTags, type Customer, type CustomerGroup } from '../../api/customers'
+import { customerTagLimits, setCustomerGroups, setCustomerNote, setCustomerTags, type Customer, type CustomerGroup } from '../../api/customers'
 import { harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { merchantStatus, timeText } from '../orders/orderView'
@@ -63,7 +63,7 @@ export const CustomerDetail = ({ customer, groups, access, timeZone, busy, act, 
       </p>
       <div className="df-customer-facts">
         <span className="df-customer-fact">{fill(plural(words.orders, customer.ordersCount), { count: formatCount(customer.ordersCount) })}</span>
-        {access.money && spent && <span className="df-customer-fact df-customer-fact--money">{fill(words.spent, { amount: spent })}</span>}
+        {spent && <span className="df-customer-fact df-customer-fact--money">{fill(words.spent, { amount: spent })}</span>}
       </div>
 
       <div className="df-customer-block">
@@ -98,7 +98,7 @@ export const CustomerDetail = ({ customer, groups, access, timeZone, busy, act, 
             </span>
           ))}
           {access.canEdit && (
-            <button type="button" className="df-link-button" disabled={busy || customer.tags.length >= 20} onClick={onTag}>
+            <button type="button" className="df-link-button" disabled={busy || customer.tags.length >= customerTagLimits.count} onClick={onTag}>
               {words.addTag}
             </button>
           )}

@@ -2,10 +2,11 @@ import { ConfirmDialog, EmptyState, ErrorState, ExportJobStatus, LoadingState, S
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   addCustomer,
   createGroup,
+  customerTagLimits,
   customerPageSize,
   deleteGroup,
   loadCustomer,
@@ -40,7 +41,11 @@ const pageRoute = getRouteApi('/_app/customers')
 const refused = refusalIn({ ...words.refused, other: words.failed })
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: CustomerPage; count: number; groups: CustomerGroup[] }
+type ListView = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: CustomerPage }
+type Meta = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; count: number; groups: CustomerGroup[] }
 type Detail = { kind: 'none' } | { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; customer: Customer }
+const tabs = ['people', 'groups'] as const
+type Tab = (typeof tabs)[number]
 type Cursor = { after?: string | null; before?: string | null }
 type Dialog = { kind: 'tag' } | { kind: 'stop' } | { kind: 'newGroup' } | { kind: 'renameGroup'; group: CustomerGroup } | { kind: 'deleteGroup'; group: CustomerGroup }
 
@@ -56,10 +61,9 @@ const exportWords: ExportJobWords = {
 }
 
 const forcedAccess = (forced: string | null, live: CustomersAccess): CustomersAccess => {
-  if (forced === 'denied') return { canRead: false, canEdit: false, canExport: false, money: false, readOnly: false }
-  if (forced === 'readOnly') return { canRead: true, canEdit: false, canExport: true, money: true, readOnly: true }
-  if (forced === 'staff') return { canRead: true, canEdit: true, canExport: true, money: false, readOnly: false }
-  if (forced) return { canRead: true, canEdit: true, canExport: true, money: true, readOnly: false }
+  if (forced === 'denied') return { canRead: false, canEdit: false, canExport: false, readOnly: false }
+  if (forced === 'readOnly') return { canRead: true, canEdit: false, canExport: true, readOnly: true }
+  if (forced) return { canRead: true, canEdit: true, canExport: true, readOnly: false }
   return live
 }
 
@@ -74,12 +78,13 @@ export const CustomersPage = () => {
   const phone = usePhone()
   const exportJob = useListExport('customers')
 
-  const [tab, setTab] = useState<'people' | 'groups'>(forced === 'groups' || forced === 'noGroups' ? 'groups' : 'people')
+  const [tab, setTab] = useState<Tab>(forced === 'groups' || forced === 'noGroups' ? 'groups' : 'people')
   const [search, setSearch] = useState('')
   const [groupId, setGroupId] = useState<string | null>(null)
   const [cursor, setCursor] = useState<Cursor>({})
   const [pageIndex, setPageIndex] = useState(0)
-  const [view, setView] = useState<View>({ kind: 'loading' })
+  const [list, setList] = useState<ListView>({ kind: 'loading' })
+  const [meta, setMeta] = useState<Meta>({ kind: 'loading' })
   const [detail, setDetail] = useState<Detail>({ kind: 'none' })
   const [timeZone, setTimeZone] = useState('UTC')
   const [adding, setAdding] = useState(false)
@@ -88,23 +93,39 @@ export const CustomersPage = () => {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const latest = useRef(0)
+  const latestDetail = useRef(0)
 
+  // The page of rows follows the search, group and page; the count and the groups are read once and after a change.
   const load = useCallback(() => {
     const mine = ++latest.current
-    if (forced === 'loading') return setView({ kind: 'loading' })
-    if (forced === 'error') return setView({ kind: 'error' })
-    if (sample) return setView({ kind: 'ready', page: { rows: sample.rows, next: null, previous: null }, count: sample.count, groups: sample.groups })
+    if (forced === 'loading') return setList({ kind: 'loading' })
+    if (forced === 'error') return setList({ kind: 'error' })
+    if (sample) return setList({ kind: 'ready', page: { rows: sample.rows, next: null, previous: null } })
     if (!access.canRead) return
-    void Promise.all([loadCustomers(groupId, search, cursor), loadCustomerCount(), loadCustomerGroups()]).then(
-      ([page, count, groups]) => {
-        if (mine === latest.current) setView({ kind: 'ready', page, count, groups })
+    void loadCustomers(groupId, search, cursor).then(
+      (page) => {
+        if (mine === latest.current) setList({ kind: 'ready', page })
       },
       () => {
-        if (mine === latest.current) setView({ kind: 'error' })
+        if (mine === latest.current) setList({ kind: 'error' })
       },
     )
   }, [forced, sample, access.canRead, groupId, search, cursor])
   useEffect(load, [load])
+
+  const loadMeta = useCallback(() => {
+    if (forced === 'loading' || forced === 'error') return
+    if (sample) return setMeta({ kind: 'ready', count: sample.count, groups: sample.groups })
+    if (!access.canRead) return
+    void Promise.all([loadCustomerCount(), loadCustomerGroups()]).then(
+      ([count, groups]) => setMeta({ kind: 'ready', count, groups }),
+      () => setMeta({ kind: 'error' }),
+    )
+  }, [forced, sample, access.canRead])
+  useEffect(loadMeta, [loadMeta])
+
+  const view: View =
+    list.kind === 'error' || meta.kind === 'error' ? { kind: 'error' } : list.kind === 'loading' || meta.kind === 'loading' ? { kind: 'loading' } : { kind: 'ready', page: list.page, count: meta.count, groups: meta.groups }
 
   useEffect(() => {
     if (forced) return setTimeZone('Asia/Kolkata')
@@ -122,13 +143,39 @@ export const CustomersPage = () => {
       const row = sample.rows.find((r) => r.id === selectedId)
       return setDetail(row ? { kind: 'ready', customer: sampleCustomer(row, sample.customer) } : { kind: 'none' })
     }
+    // Only the latest request answers: a slower one for the customer clicked before never replaces it.
+    const mine = ++latestDetail.current
     setDetail((current) => (current.kind === 'ready' && current.customer.id === selectedId ? current : { kind: 'loading' }))
     void loadCustomer(selectedId).then(
-      (customer) => setDetail(customer ? { kind: 'ready', customer } : { kind: 'none' }),
-      () => setDetail({ kind: 'error' }),
+      (customer) => {
+        if (mine === latestDetail.current) setDetail(customer ? { kind: 'ready', customer } : { kind: 'none' })
+      },
+      () => {
+        if (mine === latestDetail.current) setDetail({ kind: 'error' })
+      },
     )
   }, [selectedId, sample])
   useEffect(loadDetail, [loadDetail])
+
+  const reload = () => {
+    load()
+    loadMeta()
+  }
+  const refresh = () => {
+    reload()
+    loadDetail()
+  }
+
+  const tabsId = useId()
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ people: null, groups: null })
+  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const at = tabs.indexOf(tab)
+    const next = event.key === 'ArrowRight' ? tabs[(at + 1) % tabs.length] : event.key === 'ArrowLeft' ? tabs[(at + tabs.length - 1) % tabs.length] : event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] : undefined
+    if (!next) return
+    event.preventDefault()
+    setTab(next)
+    tabRefs.current[next]?.focus()
+  }
 
   const select = (id: string) => void navigate({ to: '/customers', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), customer: id }), replace: true })
   const change = (next: { search?: string; groupId?: string | null }) => {
@@ -148,8 +195,7 @@ export const CustomersPage = () => {
     try {
       await work()
       setToast(done)
-      load()
-      loadDetail()
+      refresh()
       return true
     } catch (error) {
       setToast(refused(error))
@@ -166,8 +212,7 @@ export const CustomersPage = () => {
       .then(() => {
         setDialog(null)
         setToast(done)
-        load()
-        loadDetail()
+        refresh()
       })
       .catch((error: unknown) => setDialogError(refused(error)))
       .finally(() => setBusy(false))
@@ -182,7 +227,7 @@ export const CustomersPage = () => {
         setToast(fill(existed ? words.addForm.existed : words.addForm.added, { name }))
         change({ search: '', groupId: null })
         select(id)
-        load()
+        refresh()
       })
       .catch((error: unknown) => setToast(refused(error)))
       .finally(() => setBusy(false))
@@ -222,7 +267,7 @@ export const CustomersPage = () => {
           target: name,
           consequence: words.detail.tag.body,
           confirmLabel: words.detail.tag.confirm,
-          input: { label: words.detail.tag.label, type: 'text', initial: '', placeholder: words.detail.tag.placeholder, error: (value) => (!value.trim() ? words.detail.tag.missing : value.trim().length > 24 ? words.detail.tag.tooLong : null) },
+          input: { label: words.detail.tag.label, type: 'text', initial: '', placeholder: words.detail.tag.placeholder, error: (value) => (!value.trim() ? words.detail.tag.missing : value.trim().length > customerTagLimits.length ? words.detail.tag.tooLong : null) },
           onConfirm: (_, value) => {
             const tag = (value ?? '').trim()
             if (!customer || customer.tags.includes(tag)) return setDialog(null)
@@ -297,18 +342,32 @@ export const CustomersPage = () => {
       )}
       {access.readOnly && <p className="df-customers-readonly">{words.readOnly}</p>}
 
-      <div className="df-customers-tabs" role="tablist" aria-label={words.tabs.label}>
-        {(['people', 'groups'] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+      {/* The ARIA tabs pattern: arrow keys, Home and End move between the two, and only the chosen one is a tab stop. */}
+      <div className="df-customers-tabs" role="tablist" aria-label={words.tabs.label} onKeyDown={onTabKey}>
+        {tabs.map((t) => (
+          <button
+            key={t}
+            ref={(el) => {
+              tabRefs.current[t] = el
+            }}
+            id={`${tabsId}-${t}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            aria-controls={`${tabsId}-panel`}
+            tabIndex={tab === t ? 0 : -1}
+            onClick={() => setTab(t)}
+          >
             {fill(t === 'people' ? words.tabs.people : words.tabs.groups, { count: formatCount(t === 'people' ? count : groups.length) })}
           </button>
         ))}
       </div>
 
+      <div role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`} className="df-customers-panel">
       {adding && <AddCustomer busy={busy} onAdd={add} onCancel={() => setAdding(false)} />}
 
       {view.kind === 'loading' && <LoadingState label={words.loading} />}
-      {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}
+      {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: reload }} />}
 
       {view.kind === 'ready' && tab === 'groups' && (
         <GroupsTab
@@ -345,7 +404,7 @@ export const CustomersPage = () => {
             <div>
               <ul className="df-customer-card df-customers-rows" aria-label={words.list.label}>
                 {rows.map((row) => {
-                  const spent = access.money ? spentText(row.spent) : null
+                  const spent = spentText(row.spent)
                   return (
                     <li key={row.id}>
                       <button type="button" className="df-customers-row" aria-current={row.id === selectedId || undefined} onClick={() => select(row.id)}>
@@ -402,6 +461,8 @@ export const CustomersPage = () => {
           </div>
         </>
       ))}
+
+      </div>
 
       {openDialog && <ConfirmDialog {...openDialog} />}
       <Toast message={toast} onDone={() => setToast(null)} />

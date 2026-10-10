@@ -1,8 +1,8 @@
 import type { Customer, CustomerGroup, CustomerSummary } from '../../api/customers'
 
 // Customers' states under ?state= (ui/README.md §6): loading, error, empty, list, noMatch, groups, noGroups, readOnly,
-// staff, denied.
-export const customerStates = ['loading', 'error', 'empty', 'list', 'noMatch', 'groups', 'noGroups', 'readOnly', 'staff', 'denied'] as const
+// denied.
+export const customerStates = ['loading', 'error', 'empty', 'list', 'noMatch', 'groups', 'noGroups', 'readOnly', 'denied'] as const
 export type CustomerState = (typeof customerStates)[number]
 
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
