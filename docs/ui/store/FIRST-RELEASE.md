@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#322: Home's figures per seat, and Reports).
+Last updated: 2026-10-10 (#326: the Home screen; #322: Home's figures per seat, and Reports).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -273,6 +273,14 @@ collections, payments, shipping) only while the store has no order, each item fo
 **Not built:** team requests, which need `access_request` and a "Send request" (DATA-MODEL §7.10) no card builds yet;
 "products missing details for some countries", which needs a store-wide readiness count; and the checklist's
 storefront item, which waits for SAPI 17. The locale check reads `storeLocale` and `storeInfo`.
+
+**Built on #326, part 1** (`apps/ui/store/src/features/home`): Home per seat as `home` answers it. "Needs you" in the
+prototype's order, each opening its filtered list (Orders on To ship, Products on Waiting for approval or Low stock,
+Settings › Shipping, and the oldest payment to collect's order), or "Nothing is waiting for you" once a store with orders
+has none; the numbers and the latest orders while the store has orders, Staff's titled "Today" with items in place of
+totals; the checklist with only the items the API gives the seat. Decided here: the API keeps no "confirmed" fact for the
+locale check, so the Owner's line shows what sign-up set (country, pricing currency, main language) as done, with Change
+opening Settings › Store info; and a Manager's note names "the store owner", since a Manager can't read who that is.
 
 ---
 

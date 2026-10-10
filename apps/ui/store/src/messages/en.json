@@ -1,8 +1,121 @@
 {
   "home": {
     "title": "Home",
-    "account": "Your account",
-    "accountSub": "What a staff session can’t change is turned off here, with the reason."
+    "greeting": {
+      "morning": "Good morning, {name}",
+      "afternoon": "Good afternoon, {name}",
+      "evening": "Good evening, {name}"
+    },
+    "dateLine": "{date} · {store}",
+    "needsYou": "Needs you",
+    "tasks": {
+      "toShip": {
+        "title": {
+          "one": "order to pack and ship",
+          "other": "orders to pack and ship"
+        },
+        "body": "{partly} partly shipped · oldest from {date}",
+        "cta": "Ship"
+      },
+      "collect": {
+        "title": {
+          "one": "payment to collect",
+          "other": "payments to collect"
+        },
+        "body": "Cash on delivery or bank transfer — mark it paid when the money arrives.",
+        "cta": "Review"
+      },
+      "approval": {
+        "title": {
+          "one": "supplier product waiting for approval",
+          "other": "supplier products waiting for approval"
+        },
+        "body": "They go live once you approve them.",
+        "cta": "Review"
+      },
+      "lowStock": {
+        "title": {
+          "one": "product low on stock",
+          "other": "products low on stock"
+        },
+        "more": "{names}…",
+        "cta": "Restock"
+      },
+      "courier": {
+        "title": "{name} stopped working",
+        "body": "Its login was rejected. Orders fall back to your next courier.",
+        "cta": "Fix"
+      }
+    },
+    "allClear": {
+      "title": "Nothing is waiting for you.",
+      "body": "Orders are packed, approvals are done."
+    },
+    "setup": {
+      "title": "Get your shop ready for its first order",
+      "progress": "{done} of {total}",
+      "locale": {
+        "label": "Confirm your country, currency and language",
+        "note": "{country} · {currency} · {language}",
+        "cta": "Change"
+      },
+      "products": {
+        "label": "Add your first product",
+        "cta": "Add"
+      },
+      "collections": {
+        "label": "Group products into a collection",
+        "cta": "Create"
+      },
+      "payments": {
+        "label": "Choose how shoppers pay",
+        "cta": "Set up"
+      },
+      "shipping": {
+        "label": "Choose how you ship",
+        "cta": "Set up"
+      },
+      "done": "Done",
+      "doneSuffix": "(done)",
+      "ownerNote": "Payments, shipping and your country settings are set by the store owner — they’re not on your list.",
+      "footer": "This list disappears once your first order arrives."
+    },
+    "staffWait": {
+      "title": "No orders yet",
+      "body": "The shop is still being set up. When the first order comes in it appears here, and in Orders, ready to pack."
+    },
+    "numbers": {
+      "title": "How the shop is doing",
+      "titleToday": "Today",
+      "salesYesterday": "Sales yesterday",
+      "up": "▲ {pct}% vs the day before",
+      "down": "▼ {pct}% vs the day before",
+      "nothingBefore": "Nothing the day before",
+      "ordersToday": "Orders today",
+      "ordersYesterday": "{count} yesterday",
+      "average": "Average order",
+      "averageNote": "last 7 days",
+      "none": "—",
+      "returning": "Returning customers",
+      "returningNote": "bought more than once"
+    },
+    "latest": {
+      "title": "Latest orders",
+      "all": "All orders →",
+      "label": "Latest orders"
+    },
+    "loading": "Loading your shop",
+    "error": {
+      "title": "Home didn’t load",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You don’t have access to Home",
+      "body": "Suppliers can’t open Home. Ask {store} if you need it.",
+      "action": "Go to your products"
+    },
+    "readOnly": "Your store is view-only until the bill is paid. You can look around; saving works again once it’s paid."
   },
   "signIn": {
     "title": "Sign in"
