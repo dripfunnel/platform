@@ -30,7 +30,11 @@ const globals = new Map<string, ReadonlySet<string> | 'any'>([
   ['JSON', new Set(['parse', 'stringify'])],
   ['Object', new Set(['entries', 'freeze', 'fromEntries', 'hasOwn', 'keys', 'values'])],
   // Math.random would make two builds of the same commit differ (LIVE-SHOP §4 step 3).
-  ['Math', new Set(['abs', 'ceil', 'floor', 'max', 'min', 'round', 'sign', 'trunc', 'sqrt', 'pow', 'PI', 'sin', 'cos', 'atan2', 'hypot'])],
+  ['Math', new Set([
+    ...['abs', 'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'cbrt', 'ceil', 'clz32', 'cos', 'cosh', 'exp', 'expm1', 'floor', 'fround', 'hypot', 'imul'],
+    ...['log', 'log10', 'log1p', 'log2', 'max', 'min', 'pow', 'round', 'sign', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'trunc'],
+    ...['E', 'LN10', 'LN2', 'LOG10E', 'LOG2E', 'PI', 'SQRT1_2', 'SQRT2'],
+  ])],
 ])
 const timers = new Set(['setTimeout', 'setInterval'])
 
@@ -57,6 +61,11 @@ const elementMembers = new Set([
 // Inline styles animate only what CSS may (§3.4 "CSS"), and custom properties through setProperty.
 const styleMembers = new Set(['transform', 'opacity', 'filter', 'translate', 'scale', 'rotate', 'setProperty', 'removeProperty'])
 const browserTypes = new Set(['Window', 'WindowProxy', 'Document', 'Location', 'Navigator', 'Storage', 'History', 'Screen', 'CookieStore', 'CacheStorage', 'IDBFactory', 'Performance', 'Crypto', 'Console'])
+
+const memberMessage = (global: string, name: string, allowed: ReadonlySet<string>) =>
+  global === 'Math' && name === 'random'
+    ? 'A theme may not use Math.random: two builds of the same commit must come out the same (LIVE-SHOP §4 step 3).'
+    : `A theme may not use ${global}.${name}; of ${global} it may use only ${[...allowed].join(', ')}.`
 
 const browserMessage = (name: string) => `A theme may not use "${name}". Browser behaviour comes from core's hooks (useInView, useMediaQuery, navigate and the rest) and data from core's other hooks.`
 
@@ -122,7 +131,7 @@ const checkMember = (w: Walk, node: ts.Node, object: ts.Expression | undefined, 
   const global = object && globalName(w, object)
   if (global !== undefined) {
     const allowed = globals.get(global)
-    if (allowed !== undefined && allowed !== 'any' && !allowed.has(name)) w.report(node, 'code/browser-global', browserMessage(`${global}.${name}`))
+    if (allowed !== undefined && allowed !== 'any' && !allowed.has(name)) w.report(node, 'code/browser-global', memberMessage(global, name, allowed))
     return
   }
   if (browserMembers.has(name)) return w.report(node, 'code/browser-global', browserMessage(name))
