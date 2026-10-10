@@ -105,11 +105,8 @@ export interface TaxRow {
   amount: string
 }
 
-/**
- * Tax as charged at checkout: by state for a US store (each order's delivery state), by rate otherwise (each line's
- * rate, then the order's tax its lines don't carry, delivery's, under a null key). Refunds don't change it. The rows
- * are the top ones by amount; the total is every order's.
- */
+// By state or rate as FIRST-RELEASE §10 says; delivery's tax, which no line carries, is the null key. Tax as charged:
+// refunds don't change it, and the total is every order's, not only the rows listed.
 export const selectTax = async (tx: ScopedSql, w: ReportWindow, by: 'state' | 'rate', limit: number): Promise<{ total: string; rows: TaxRow[] }> => {
   const [total] = await tx<{ amount: string }[]>`select coalesce(sum(o.tax_amount), 0)::text as amount from "order" o where ${within(tx, w)}`
   const rows =
