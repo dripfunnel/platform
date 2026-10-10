@@ -42,11 +42,15 @@ describe('an address and a contact', () => {
 })
 
 describe('what stands between a cart and payment', () => {
-  const ready = { lines: [priceLine({ versionId: 'v', quantity: 1, item })], hasContact: true, shippingOption: 'flat' as const, hasShippingAddress: true, optionOffered: true, taxKnown: true }
+  const ready = { lines: [priceLine({ versionId: 'v', quantity: 1, item })], hasContact: true, needsShipping: true, shippingOption: 'flat' as const, hasShippingAddress: true, optionOffered: true, taxKnown: true }
 
   it('is nothing for a cart with everything in place, and no address for collection in person', () => {
     expect(checkoutProblems(ready)).toEqual([])
     expect(checkoutProblems({ ...ready, shippingOption: 'pickup', hasShippingAddress: false })).toEqual([])
+  })
+
+  it('asks no address or delivery of a cart with nothing to send (CATALOG T14)', () => {
+    expect(checkoutProblems({ ...ready, needsShipping: false, shippingOption: null, hasShippingAddress: false, optionOffered: false })).toEqual([])
   })
 
   it('names every gap in checkout’s order', () => {

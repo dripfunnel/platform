@@ -359,6 +359,29 @@ type CustomerSummary {
   tags: [String!]
 }
 
+type DownloadDetails {
+  days: Int
+  file: DownloadFile
+  keysLeft: Int
+  keysSold: Int
+  limit: Int
+  mode: String
+}
+
+input DownloadDetailsInput {
+  days: Int!
+  fileId: ID
+  limit: Int!
+  mode: String!
+}
+
+type DownloadFile {
+  bytes: Int
+  id: ID
+  mime: String
+  url: String
+}
+
 type Facet {
   id: ID
   name: String
@@ -391,6 +414,15 @@ type FacetValue {
 input FacetValueInput {
   id: String
   name: String!
+}
+
+type GiftCardDetails {
+  expiryMonths: Int
+  shortestMonths: Int
+}
+
+input GiftCardDetailsInput {
+  expiryMonths: Int
 }
 
 type HomeLowStock {
@@ -568,6 +600,7 @@ input MoneyInput {
 
 type Mutation {
   addCustomer(email: String!, name: String!, phone: String): AddedCustomer
+  addLicenceKeys(keys: [String!]!, productId: ID!): ProductKind
   addOrderNote(note: String!, orderId: ID!): Boolean
   addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
   addSupplierPerson(email: String!, id: ID!, role: String): ID
@@ -650,6 +683,7 @@ type Mutation {
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
   saveOffer(id: ID, input: OfferInput!, revision: Int): SavedOffer
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
+  saveProductKind(input: ProductKindInput!, productId: ID!, revision: Int!): ProductKind
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
   saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
   saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
@@ -1288,6 +1322,21 @@ input ProductInput {
   warrantyText: String
 }
 
+type ProductKind {
+  download: DownloadDetails
+  giftCard: GiftCardDetails
+  productId: ID
+  productType: String
+  revision: Int
+  service: ServiceDetails
+}
+
+input ProductKindInput {
+  download: DownloadDetailsInput
+  giftCard: GiftCardDetailsInput
+  service: ServiceDetailsInput
+}
+
 type ProductListing {
   ageRestricted: Boolean
   badgeIds: [String!]
@@ -1551,6 +1600,7 @@ type Query {
   product(id: ID!): Product
   productCollections(productId: ID!): [ProductCollection!]
   productCounts: ProductCounts
+  productKind(productId: ID!): ProductKind
   productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
   productStory(productId: ID!): ProductStory
   productTranslation(language: String!, productId: ID!): [Translation!]
@@ -1717,6 +1767,16 @@ type SecondFactorStep {
   hint: String
   secret: String
   uri: String
+}
+
+type ServiceDetails {
+  duration: String
+  location: String
+}
+
+input ServiceDetailsInput {
+  duration: String
+  location: String
 }
 
 type SharedName {

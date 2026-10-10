@@ -86,6 +86,8 @@ export type CheckoutProblem = 'EMPTY' | 'LINE_PROBLEM' | 'NO_CONTACT' | 'NO_ADDR
 export interface CheckoutFacts {
   lines: readonly PricedLine[]
   hasContact: boolean
+  /** Whether anything in it is sent: a download, a service and a gift card are not (CATALOG T14). */
+  needsShipping: boolean
   shippingOption: 'courier' | 'flat' | 'pickup' | null
   hasShippingAddress: boolean
   /** Whether the chosen option is among the options offered now. */
@@ -99,9 +101,11 @@ export const checkoutProblems = (f: CheckoutFacts): CheckoutProblem[] => {
   if (f.lines.length === 0) problems.push('EMPTY')
   if (f.lines.some((l) => l.problem !== null)) problems.push('LINE_PROBLEM')
   if (!f.hasContact) problems.push('NO_CONTACT')
-  if (f.shippingOption !== 'pickup' && !f.hasShippingAddress) problems.push('NO_ADDRESS')
-  if (f.shippingOption === null) problems.push('NO_SHIPPING')
-  else if (!f.optionOffered) problems.push('SHIPPING_UNAVAILABLE')
+  if (f.needsShipping) {
+    if (f.shippingOption !== 'pickup' && !f.hasShippingAddress) problems.push('NO_ADDRESS')
+    if (f.shippingOption === null) problems.push('NO_SHIPPING')
+    else if (!f.optionOffered) problems.push('SHIPPING_UNAVAILABLE')
+  }
   if (!f.taxKnown) problems.push('TAX_UNAVAILABLE')
   return problems
 }

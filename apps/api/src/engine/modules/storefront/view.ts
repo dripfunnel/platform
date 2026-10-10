@@ -31,6 +31,8 @@ export interface ShopProductView {
   warranty: string | null
   returns: string | null
   sizeChartId: string | null
+  /** What a download, a service or a gift card tells the shopper (CATALOG-DESIGN T14); null for a physical item. */
+  kind: ShopKindView | null
   /** The cheapest version's price ("from"), with its compare-at; null when no version is priced here. */
   price: Money | null
   compareAt: Money | null
@@ -39,6 +41,27 @@ export interface ShopProductView {
   photos: { assetId: string; alt: string | null; versionId: string | null }[]
   badges: { label: string; tone: string }[]
   versions: ShopVersionView[]
+}
+
+export interface ShopKindView {
+  /** How many times and for how many days a paid order's link works. */
+  download: { limit: number; days: number } | null
+  service: { duration: string | null; location: string | null } | null
+  /** Null months: a card never expires. */
+  giftCard: { expiryMonths: number | null } | null
+}
+
+const kindOf = (row: ShopProductRow): ShopKindView | null => {
+  switch (row.product_type) {
+    case 'digital':
+      return { download: { limit: row.download_limit, days: row.download_days }, service: null, giftCard: null }
+    case 'service':
+      return { download: null, service: { duration: row.service_duration, location: row.service_location }, giftCard: null }
+    case 'gift_card':
+      return { download: null, service: null, giftCard: { expiryMonths: row.gift_card_expiry_months } }
+    default:
+      return null
+  }
 }
 
 export interface ViewFacts {
@@ -59,7 +82,8 @@ export const productView = (row: ShopProductRow, f: ViewFacts): ShopProductView 
     // The market's adjustment applies when the cart is in its currency; another currency is the store's own price in it.
     const price = f.market.currency === f.currency ? priceInMarket(typed, f.market, f.pricing) : priceInCurrency(typed, f.currency, f.pricing)
     const stock = f.stock.get(v.id)
-    const available = v.track_stock ? (stock?.available ?? 0) : null
+    // A key-pool download is counted by its keys left, as a tracked version by its stock (migration 0110).
+    const available = stock ? stock.available : v.track_stock ? 0 : null
     return {
       id: v.id,
       name: v.name,
@@ -68,7 +92,7 @@ export const productView = (row: ShopProductRow, f: ViewFacts): ShopProductView 
       price: price.amount === null ? null : { amount: price.amount, currency: f.currency },
       compareAt: price.amount !== null && price.compareAt !== null && price.compareAt > price.amount ? { amount: price.compareAt, currency: f.currency } : null,
       available,
-      inStock: !v.track_stock || v.continue_selling || (available ?? 0) > 0,
+      inStock: available === null || v.continue_selling || available > 0,
       continueSelling: v.continue_selling,
       weightGrams: v.weight_grams,
     }
@@ -76,7 +100,7 @@ export const productView = (row: ShopProductRow, f: ViewFacts): ShopProductView 
   const priced = versions.filter((v): v is ShopVersionView & { price: Money } => v.price !== null)
   const cheapest = priced.reduce<(typeof priced)[number] | null>((best, v) => (best === null || v.price.amount < best.price.amount ? v : best), null)
   const dearest = priced.reduce<(typeof priced)[number] | null>((best, v) => (best === null || v.price.amount > best.price.amount ? v : best), null)
-  const low = row.versions.some((v) => v.track_stock && !v.continue_selling && f.stock.get(v.id)?.low === true && (f.stock.get(v.id)?.available ?? 0) > 0)
+  const low = row.versions.some((v) => !v.continue_selling && f.stock.get(v.id)?.low === true && (f.stock.get(v.id)?.available ?? 0) > 0)
   // A badge is shown only when what it says is true: no rule is guessed (AGENTS.md "No invented data").
   const earned = (b: ShopBadgeRow) => {
     switch (b.rule) {
@@ -104,6 +128,7 @@ export const productView = (row: ShopProductRow, f: ViewFacts): ShopProductView 
     warranty: row.warranty_text,
     returns: row.returns_text,
     sizeChartId: row.size_chart_id,
+    kind: kindOf(row),
     price: cheapest?.price ?? null,
     compareAt: cheapest?.compareAt ?? null,
     maxPrice: dearest?.price ?? null,

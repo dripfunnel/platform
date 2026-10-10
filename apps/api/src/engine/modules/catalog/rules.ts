@@ -445,7 +445,8 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     seoTitle: seoTitle ?? null,
     seoDescription: seoDescription ?? null,
     options,
-    versions,
+    // Only a physical item is counted in stock: a download, a service and a gift card have none (CATALOG T14).
+    versions: productType === 'physical' ? versions : versions.map((v) => ({ ...v, trackStock: false })),
     photos,
     video,
     filterValues,

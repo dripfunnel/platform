@@ -33,7 +33,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   DUPLICATE_SKU: 'You already use that product code on another product.',
   NOT_FOUND: 'That product isn’t here any more.',
   CURRENCY_REQUIRED: 'Choose the store’s currency first.',
-  SUPPLIER_FIELD: 'That’s the store’s to set: whether a product shows, and its prices in other currencies.',
+  SUPPLIER_FIELD: 'That’s the store’s to set: whether a product shows, its prices in other currencies, and selling anything but a physical item.',
   NOT_SHOWABLE: 'This product is paused by your plan or waiting for approval, so it can’t be shown yet.',
   STALE_REVISION: 'Someone else saved this product. Reload to see their changes.',
   PLAN_LIMIT: 'Your plan has no room for more products.',

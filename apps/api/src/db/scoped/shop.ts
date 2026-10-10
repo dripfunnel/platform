@@ -333,6 +333,11 @@ export interface ShopProductRow {
   warranty_text: string | null
   returns_text: string | null
   size_chart_id: string | null
+  download_limit: number
+  download_days: number
+  service_duration: string | null
+  service_location: string | null
+  gift_card_expiry_months: number | null
   versions: ShopVersionRow[]
   photos: { asset_id: string; alt: string | null; version_id: string | null }[]
   manual_badges: string[]
@@ -345,6 +350,7 @@ export const selectShopProductRows = (tx: ScopedSql, storeId: string, ids: reado
       ${translated(tx, 'product', tx`p.id`, 'slug', tx`p.slug`, language)} as slug,
       ${translated(tx, 'product', tx`p.id`, 'description', tx`p.description`, language)} as description,
       p.product_type, p.created_at, p.seo_title, p.seo_description, p.warranty_text, p.returns_text, p.size_chart_id,
+      p.download_limit, p.download_days, p.service_duration, p.service_location, p.gift_card_expiry_months,
       coalesce((select json_agg(json_build_object('id', v.id, 'name', ${translated(tx, 'version', tx`v.id`, 'name', tx`v.name`, language)}, 'sku', v.sku,
           'weight_grams', v.weight_grams, 'track_stock', v.track_stock, 'continue_selling', v.continue_selling,
           'prices', coalesce((select json_agg(json_build_object('currency', vp.currency, 'amount', vp.amount::text, 'compare_at_amount', vp.compare_at_amount::text)) from version_price vp where vp.version_id = v.id), '[]'::json),

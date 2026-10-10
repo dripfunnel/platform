@@ -35,7 +35,7 @@ import { selectCartVersions } from '#db/scoped/cart'
 import { productView, type ShopProductView, type ShopVersionView } from './view'
 
 export type { ShopCollectionRow, ShopFacetRow, ShopProductExtrasRow, ShopSort, ShopStoreRow } from '#db/scoped/shop'
-export type { ShopProductView, ShopVersionView } from './view'
+export type { ShopKindView, ShopProductView, ShopVersionView } from './view'
 
 // The catalogue a storefront shows (PLATFORM-PROMPT §5.5; FIRST-RELEASE §19 Shop API), read as the shopper: what the
 // merchant has made visible, in the shopper's language, never a supplier's id, a cost or a draft.

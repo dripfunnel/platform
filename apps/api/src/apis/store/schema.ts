@@ -4,6 +4,7 @@ import { createStoreBuilder } from './builder'
 import { registerListing } from './listing'
 import { registerPeople } from './people'
 import { registerProducts } from './products'
+import { registerProductKinds } from './productKinds'
 import { registerProfile } from './profile'
 import { registerShell } from './shell'
 import { registerStructure } from './structure'
@@ -41,6 +42,7 @@ registerShell(builder)
 registerProfile(builder)
 registerPeople(builder)
 registerProducts(builder)
+registerProductKinds(builder)
 registerStructure(builder)
 registerStory(builder)
 registerInventory(builder)

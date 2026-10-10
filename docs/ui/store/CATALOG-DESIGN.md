@@ -1198,6 +1198,16 @@ information (S4)**, which is configuration only.
 - T14. **Digital, service and gift-card products** (§3 fact 48): a different, shorter form with
   no weight, stock or shipping. File upload or a licence-key pool for downloads; an optional
   duration and location for services, with no booking (decided 2026-10-05 on #337).
+  **Built on #323 (SAPI 22), part 1** (`productKind`, `saveProductKind`, `addLicenceKeys`;
+  `POST /api/assets?kind=download`): a download is a private file (PDF, ZIP, MP3, MP4, WebM or
+  an image, up to 30 MB while uploads go through the Worker's memory, as video does) or a key
+  pool, its link working 3, 5 or 10 times over 7, 30 or 365 days; keys are counted and never
+  shown again once saved, and a pool's keys left are the product's stock on the storefront,
+  sold out at none. A service keeps an optional length (60 characters) and place (200). A gift
+  card's amounts are its versions, priced as any product; it expires after 12–120 months or
+  never, no sooner than its country allows (FIRST-RELEASE §1). None of the three is counted in
+  stock, a cart holding only them asks no address or delivery, and a gift card carries no tax.
+  Decided here: these kinds are the merchant's own, never a supplier's (ACCESS §7.1).
 - T15. **Vendors across borders**: a vendor may be in a different country from the merchant
   (e.g. a UK merchant with a Chinese supplier). Country of origin, importer and customs
   details default from the vendor, not the merchant (decided 2026-10-05 on #337).

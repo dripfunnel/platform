@@ -104,6 +104,7 @@ type ShopCart {
   email: String
   id: ID
   lines: [ShopCartLine!]
+  needsShipping: Boolean
   note: String
   phone: String
   problems: [String!]
@@ -196,6 +197,11 @@ type ShopDeliveryOption {
   service: String
 }
 
+type ShopDownloadDetails {
+  days: Int
+  limit: Int
+}
+
 type ShopFacet {
   id: ID
   name: String
@@ -221,6 +227,10 @@ type ShopFilterTag {
 type ShopFlags {
   ageRestricted: Boolean
   hazardous: Boolean
+}
+
+type ShopGiftCardDetails {
+  expiryMonths: Int
 }
 
 type ShopMarket {
@@ -331,9 +341,11 @@ type ShopProduct {
   compareAt: ShopMoney
   compliance: [ShopCompliance!]
   description: String
+  download: ShopDownloadDetails
   faqs: [ShopFaq!]
   filters: [ShopFilterTag!]
   flags: ShopFlags
+  giftCard: ShopGiftCardDetails
   highlights: [String!]
   id: String
   inStock: Boolean
@@ -347,6 +359,7 @@ type ShopProduct {
   returns: String
   seoDescription: String
   seoTitle: String
+  service: ShopServiceDetails
   sizeChart: ShopSizeChart
   slug: String
   soldHere: Boolean
@@ -407,6 +420,11 @@ input ShopSavedAddressInput {
   phone: String
   postalCode: String
   region: String
+}
+
+type ShopServiceDetails {
+  duration: String
+  location: String
 }
 
 type ShopSession {

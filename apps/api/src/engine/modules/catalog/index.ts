@@ -50,6 +50,7 @@ import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
 export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
+export { createKindService, downloadDays, downloadLimits, kindsAudit, maxKeysPerSave, shortestGiftCardMonths, type KindInput, type KindRefusal, type KindResult, type ProductKindView } from './kinds'
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
 export { maxSizeCharts } from '#db/scoped/catalogListing'
 export { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from './settings'
@@ -297,9 +298,10 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     if (!currency) throw new Refused({ reason: 'CURRENCY_REQUIRED' })
     const result = cleanProduct(input, currency)
     if (typeof result === 'string') throw new Refused({ reason: result })
-    // Vendor input can't carry visibility (ACCESS §7.2), nor prices in the store's other currencies (CATALOG O14):
+    // Vendor input can't carry visibility (ACCESS §7.2), prices in the store's other currencies (CATALOG O14) or a kind
+    // other than a physical item (CATALOG T14):
     // refused, not quietly dropped.
-    if (sellerId !== null && (result.visible !== null || result.versions.some((v) => v.taxClassId !== undefined || v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    if (sellerId !== null && (result.visible !== null || result.productType !== 'physical' || result.versions.some((v) => v.taxClassId !== undefined || v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
     // A version's tax class is one of the store's live ones (fact 37); a supplier's take the store's default.
     const classes = [...new Set(result.versions.flatMap((v) => (v.taxClassId ? [v.taxClassId] : [])))]
     if (classes.length > 0 && (await classesOfStore(tx, storeId, classes)) !== classes.length) throw new Refused({ reason: 'INVALID_INPUT' })

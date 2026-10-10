@@ -786,6 +786,10 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   carry `seller_id` of their own because warehouses are per owner.
 - A **Stock only** vendor may **propose** new products, which the merchant approves; it changes
   nothing else, and the merchant may also assign products to it (decided 2026-10-05 on #337).
+- **A vendor sells physical items only** (decided on #323): downloads, services and gift cards
+  are the merchant's own, as a gift card is the store's liability. The engine refuses any other
+  kind from a vendor (`SUPPLIER_FIELD`), and `product_supplier_physical` refuses the row; a
+  download's file, key pool and kind details are Store API fields of scope `store` only.
 
 ### 7.2 Approval is a per-store setting
 
