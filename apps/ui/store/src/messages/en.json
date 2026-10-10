@@ -2697,7 +2697,9 @@
       "markets": "Markets",
       "catalogue": "Catalogue",
       "customers": "Customer accounts",
-      "developers": "Developers"
+      "developers": "Developers",
+      "apps": "Apps",
+      "support": "Support access"
     },
     "title": "Settings",
     "denied": {
@@ -3736,6 +3738,122 @@
         "turnedOnNone": "Turned back on. No events were waiting.",
         "stale": "Your endpoints didn’t load again. Reload the page to see them as they are.",
         "storeFirst": "Store the signing secret below before adding another endpoint."
+      }
+    },
+    "apps": {
+      "title": "Apps",
+      "sub": "Programs that work with your store, each with only the access you gave it.",
+      "add": "Add an app",
+      "about": "An app is a program you or your developer runs on its own website. It reaches your store with only the access you approve, and you open it from here. There’s no app store yet.",
+      "empty": "No apps yet. When a developer gives you an install link, add it here.",
+      "listLabel": "Your apps",
+      "addBody": "Paste the install link the developer gave you.",
+      "link": "Install link",
+      "linkPlaceholder": "https://ledgersync.app/install/…",
+      "notHttps": "Paste a link that starts with https://",
+      "noApp": "That link doesn’t name an app. Ask the developer for its install link.",
+      "next": "Continue",
+      "cancel": "Cancel",
+      "installTitle": "Install {name}?",
+      "by": "By {developer}",
+      "can": "It will be able to",
+      "cannot": "It won’t be able to",
+      "scopes": {
+        "catalog.read": "See your products and prices",
+        "stock.read": "See your stock",
+        "orders.read": "See your orders, refunds and invoices",
+        "customers.read": "See your customers"
+      },
+      "never": [
+        "Change anything in your store",
+        "See your payment details or passwords"
+      ],
+      "wholeStore": "It works for the whole store. You can remove it any time.",
+      "install": "Install",
+      "installed": "{name} installed. Open it to finish setting it up.",
+      "meta": "By {developer} · installed {time} by {name}",
+      "metaNoName": "By {developer} · installed {time}",
+      "access": "Can: {scopes}",
+      "lastUsed": "Last used {time}",
+      "suspended": "Paused by your platform: it can’t reach your store until it’s allowed again.",
+      "waiting": "Still handing it its access. Open it in a few minutes.",
+      "failed": "It never received its access. Remove it and install it again.",
+      "open": "Open app",
+      "openName": "Open {name} on its own site",
+      "remove": "Remove",
+      "removeName": "Remove {name}",
+      "removeBody": "Its access ends now. Anything it already copied stays with it — ask the developer to delete it.",
+      "removeGo": "Remove app",
+      "removed": "{name} removed",
+      "stale": "Your apps didn’t load again. Reload the page to see them as they are.",
+      "refused": {
+        "INVALID_INPUT": "Something here isn’t valid.",
+        "INVALID_SCOPES": "Those aren’t things an app can be given.",
+        "UNAVAILABLE": "Apps can’t be installed just now. Try again later.",
+        "NOT_FOUND": "That app isn’t available.",
+        "SCOPES_CHANGED": "This app now asks for different access. Look again before installing.",
+        "ALREADY_INSTALLED": "This app is already installed.",
+        "SUPPORT_READ_ONLY": "Support can’t change your apps.",
+        "BLOCKED_FOR_SUPPORT": "Support can’t install apps.",
+        "other": "That didn’t work. Try again."
+      }
+    },
+    "support": {
+      "title": "Support access",
+      "sub": "Whether {partner}’s support team can open your store to help you.",
+      "switch": "Allow {partner} support to view my store",
+      "on": "On. Support can open a read-only session when you ask for help.",
+      "off": "Off. Support can only ask you to switch this on.",
+      "offTitle": "Turn off support access?",
+      "offBody": "Any support session open now ends straight away. {partner} support can then only ask you to switch this back on.",
+      "offGo": "Turn off",
+      "cancel": "Cancel",
+      "turnedOn": "Support access is on",
+      "turnedOff": "Support access is off",
+      "ended": {
+        "one": "Support access is off. 1 open session ended.",
+        "other": "Support access is off. {count} open sessions ended."
+      },
+      "howTitle": "How a support session works",
+      "how": [
+        "Support opens one only with a reason or a ticket number, and only while this is on.",
+        "It’s read-only and ends after 30 minutes. Everyone signed in sees a banner while it’s open.",
+        "You’re emailed when one starts. You or a manager can let them make changes for that one session.",
+        "Even then they can’t change passwords, payment details, payouts or who works here.",
+        "Every page they open and everything they change is in your Activity log, under their name."
+      ],
+      "staff": "Separately, the platform’s own staff can sign in as a user to fix a problem. That’s rare, and logged too.",
+      "logTitle": "Support access log",
+      "logRange": "Last 90 days",
+      "logEmpty": "No support sessions yet. When {partner} support opens one, it’s listed here.",
+      "cols": {
+        "who": "Who",
+        "why": "Why",
+        "when": "When",
+        "changes": "Changes"
+      },
+      "org": "{partner} support · as {name}",
+      "orgSupplier": "{partner} support · as {name}, {supplier}",
+      "ticket": "Ticket {ticket}: {reason}",
+      "openNow": "Open now · ends {time}",
+      "lasted": "{duration}",
+      "endedBy": {
+        "expired": "{duration} · timed out",
+        "store": "{duration} · ended when support access was turned off",
+        "targetGone": "{duration} · ended when that person left",
+        "storeClosed": "{duration} · ended when the store closed"
+      },
+      "readOnly": "Read-only",
+      "allowed": "Allowed by {name}",
+      "allowedNoName": "Allowed to make changes",
+      "denied": "Asked to make changes · denied",
+      "asking": "Asking to make changes",
+      "more": "Show older",
+      "moreFailed": "Older sessions didn’t load. Try again.",
+      "refused": {
+        "SUPPORT_READ_ONLY": "Support can’t change this.",
+        "BLOCKED_FOR_SUPPORT": "Support can’t change this.",
+        "other": "That didn’t work. Try again."
       }
     }
   },

@@ -698,6 +698,18 @@ off with "Turn back on", which says how many waiting events it sends). "Add endp
 "Send again" (`replayDelivery`); only the newest opening lands. **Decided here**: an endpoint can be removed, after saying its
 waiting events are dropped, though SetDev draws no Remove, because `removeWebhook` exists and a store holds at most ten; editing
 an endpoint's address or events waits for a drawing.
+**Part 3, Apps and Support access**: Apps lists each installed app with its developer, who installed it and when, what it can
+see, when it was last used, and whether it is paused by the platform or never received its access (`connection: failed`: remove
+and install again). "Open app ↗" is a link to its own site, shown only when that parses as https; nothing of the app runs in the
+portal. "Add an app" takes the install link and reads the app's id from it (**decided here**: the first UUID anywhere in an https
+link, since the API names apps by id and no link format is set), then the consent card says what it will and won't be able to
+do (the reads it wasn't given, never changing the store, never payment details or passwords); Install sends back the scopes it
+showed, and on `SCOPES_CHANGED` the card shows what the app asks now. Remove restates that its access ends and what it copied
+stays with it. Support access is the On/Off switch (turning off restates that open sessions end and says how many did; on needs
+no ask), how a session works, and the support access log: who (the agent, the partner, the seat they acted as), why (ticket and
+reason), when and how long or how it ended, and whether they could change things (allowed by whom, a request denied, or
+read-only), 25 a page with "Show older". **Decided here**: the switch stays usable in a read-only store, because the API lets a
+privacy control change then (`whileReadOnly`); the partner is named by the brand's product name, as the rest of the portal does.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 

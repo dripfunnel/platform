@@ -1,8 +1,10 @@
+import type { InstalledApp } from '../../api/apps'
 import type { CustomerAccounts } from '../../api/customerAccounts'
 import type { ApiKey, ApiKeyChoices, WebhookDelivery, WebhookEndpoint } from '../../api/developers'
 import type { Gateway } from '../../api/payments'
 import type { ShippingSettings } from '../../api/shipping'
 import type { StoreInfo, StoreLocale } from '../../api/settings'
+import type { SupportAccess } from '../../api/support'
 import type { Market } from '../../api/markets'
 import type { ProductBasics } from '../../api/productEditor'
 import type { InvoiceSettings, TaxSetupFull } from '../../api/tax'
@@ -98,6 +100,8 @@ export interface SettingsReads {
   webhooks: () => Promise<WebhookEndpoint[]>
   webhookEvents: () => Promise<string[]>
   deliveries: (endpointId: string) => Promise<WebhookDelivery[]>
+  apps: () => Promise<InstalledApp[]>
+  supportAccess: (after: string | null) => Promise<SupportAccess>
 }
 
 const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
@@ -202,6 +206,39 @@ const sampleDeliveries = (endpointId: string): WebhookDelivery[] =>
         delivery({ id: 'd3', event: 'order.shipped', status: 'delivered', responseCode: 200, durationMs: 201, createdAt: '2026-10-11T09:02:00Z' }),
       ]
 
+const sampleApps: InstalledApp[] = harness
+  ? [
+      { id: 'g1', appId: 'a1', name: 'Ledger Sync', developer: 'Tally Bridges Pvt Ltd', siteUrl: 'https://ledgersync.app', scopes: ['orders.read', 'catalog.read'], suspended: false, installedByName: 'Farhan Ali', installedAt: '2026-09-12T10:00:00Z', lastUsedAt: '2026-10-11T02:00:00Z', connection: 'sent' },
+      { id: 'g2', appId: 'a2', name: 'Shelf Count', developer: 'Shelfwise', siteUrl: 'https://shelfwise.io', scopes: ['stock.read'], suspended: false, installedByName: null, installedAt: '2026-10-09T08:00:00Z', lastUsedAt: null, connection: 'failed' },
+    ]
+  : []
+
+const session = (s: Pick<SupportAccess['sessions']['nodes'][number], 'id' | 'agentName' | 'reason' | 'startedAt' | 'expiresAt'> & Partial<SupportAccess['sessions']['nodes'][number]>) => ({
+  partnerName: 'Juniper Commerce',
+  actingAs: { name: 'Farhan Ali', role: 'owner', supplier: null },
+  ticket: null,
+  endedAt: null,
+  endedBy: null,
+  access: 'read' as const,
+  allowedBy: null,
+  writeRequest: null,
+  ...s,
+})
+
+const sampleSupport: SupportAccess = {
+  allowed: true,
+  sessions: {
+    nodes: harness
+      ? [
+          session({ id: 'ss1', agentName: 'Ravi Kumar', ticket: '4821', reason: 'product photos look blurry', startedAt: '2026-10-11T10:42:00Z', expiresAt: '2026-10-11T11:12:00Z', endedAt: '2026-10-11T11:10:00Z', endedBy: 'agent', access: 'write', allowedBy: 'Farhan Ali', writeRequest: { state: 'allowed' } }),
+          session({ id: 'ss2', agentName: 'Ravi Kumar', reason: 'Can’t connect Razorpay', startedAt: '2026-10-02T16:05:00Z', expiresAt: '2026-10-02T16:35:00Z', endedAt: '2026-10-02T16:17:00Z', endedBy: 'agent' }),
+          session({ id: 'ss3', agentName: 'Anita Shah', ticket: '4590', reason: 'shipping rates', startedAt: '2026-09-24T11:20:00Z', expiresAt: '2026-09-24T11:50:00Z', endedAt: '2026-09-24T11:50:00Z', endedBy: 'expired', writeRequest: { state: 'denied' } }),
+        ]
+      : [],
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+}
+
 /** The tabs' reads under ?state=: the samples above. */
 export const sampleReads: SettingsReads = {
   storeInfo: async () => sampleInfo,
@@ -220,6 +257,8 @@ export const sampleReads: SettingsReads = {
   webhooks: async () => sampleHooks,
   webhookEvents: async () => ['order.placed', 'order.paid', 'order.shipped', 'order.refunded', 'product.updated', 'stock.changed'],
   deliveries: async (endpointId) => sampleDeliveries(endpointId),
+  apps: async () => sampleApps,
+  supportAccess: async () => sampleSupport,
   catalogue: async () => ({
     pricingCurrency: 'INR',
     unitSystem: 'metric',
