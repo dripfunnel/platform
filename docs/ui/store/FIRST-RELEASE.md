@@ -563,6 +563,21 @@ product, store custom fields (decided on #337 to live here) and the "What you're
 API**: custom fields and default legal details were left on #293, and plan usage comes with Billing (SUI 12).
 They aren't drawn until then.
 
+**Built on #315 (SUI 8), part 1**: Payment setup lists the region's providers as `gateways` answers them, the card
+gateways apart from the ways paid later, each live, test only (the preview storefront's keys) or not connected, and one
+the platform hasn't set up said so with nothing to press. **Stripe connects by OAuth** (decided 2026-10-05 on #337): "Connect"
+asks `connectStripe` and follows the address only if it is https; Stripe's way back lands on `/settings/payments`, which opens
+this tab, takes the one-time key out of the address and history at once and sends it to `finishStripeConnect` once, however
+often the tab mounts. A cancel on Stripe, a failure and each refusal (`EXPIRED`, `ACCOUNT_IN_USE`, `SUPPORT_SESSION`) are said on
+the gateways card. PayPal, Razorpay, Cashfree and PhonePe connect with **their own named keys** for live or test (the
+prototype draws one "API key"), secrets masked and never read back, a refusal kept in the dialog with what was typed;
+each connected mode's webhook address is shown to paste into the provider. Cash on delivery turns on after saying what it
+means; a bank transfer asks for the details shoppers pay to, and can change them. Turning off or disconnecting restates what
+stops; the only live way to pay can't go (`LAST_METHOD`). Customer accounts picks email, mobile or both, says what shoppers
+see and through which text service codes go (MSG91 in India, Twilio in the US); codes go by text only, as the API sends them (the
+prototype's WhatsApp waits for a sender). Dropping mobile warns with the count of phone-only shoppers that they can't sign in
+while the store takes email only (ACCESS §2.1: the add-an-email step isn't built), rather than the prototype's promise to ask them.
+
 ## 16. Billing (`PortalBilling`, Owner only)
 
 *Billing is not in the merchant mobile app, and the app's Close my store is in Settings › Store
@@ -610,6 +625,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Orders and Customers hide totals, payment and spend from Staff | Staff see them: ACCESS §5.1 gives Staff `orders.read`, `customers.read` and the customers export with spend, and the API answers them (decided on #314's review) | rule |
 | ~~No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload~~ | Drawn by SUI 1 (#286) | resolved |
 | Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | WhatsApp reminders ship with email, through MSG91 (decided 2026-10-05 on #337) | scope, decided |
+| Payment setup pastes one "API key" for every gateway, Stripe included | Stripe by OAuth (decided on #337); every other provider its own named keys for live or test (#315) | rule |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |
 | The sandbox's stock-reason values | The list #183 settled is what DATA-MODEL stores | behaviour, decided |
 

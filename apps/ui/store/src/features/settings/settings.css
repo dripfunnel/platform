@@ -1045,3 +1045,137 @@
   display: flex;
   gap: 12px;
 }
+
+/* Payment setup and Customer accounts (designs/SetOps.dc.html "payments", designs/SetAccess.dc.html "customers") */
+
+.df-set-title {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.df-set-sub {
+  margin: 2px 0 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-set-text {
+  margin: 0;
+  color: var(--df-color-text-strong);
+  font-size: 13px;
+}
+
+.df-set-note,
+.df-set-warning {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-info-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 13px;
+}
+
+.df-set-warning {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-ops-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-ops-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-ops-row .df-button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.df-ops-mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text-strong);
+  font-family: var(--df-font-heading);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.df-ops-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+}
+
+.df-ops-text strong {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-ops-text > span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-ops-webhook code {
+  font-family: var(--df-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.df-ops-status {
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-ops-status--ok {
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-ops-status--info {
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-ops-status--warn {
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-link);
+}
+
+@media (max-width: 720px) {
+  .df-ops-row .df-button {
+    min-height: 44px;
+  }
+}

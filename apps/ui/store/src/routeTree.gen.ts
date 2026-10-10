@@ -39,6 +39,7 @@ import { Route as AppProductsProductIdRouteImport } from './routes/_app/products
 import { Route as AppProductsImportRouteImport } from './routes/_app/products_.import'
 import { Route as AppProductsSizeChartsRouteImport } from './routes/_app/products_.size-charts'
 import { Route as AppProductsWarehousesRouteImport } from './routes/_app/products_.warehouses'
+import { Route as AppSettingsPaymentsRouteImport } from './routes/_app/settings_.payments'
 import { Route as AppProductsProductIdStoryRouteImport } from './routes/_app/products_.$productId_.story'
 
 const AppRoute = AppRouteImport.update({
@@ -189,6 +190,11 @@ const AppProductsWarehousesRoute = AppProductsWarehousesRouteImport.update({
   path: '/products/warehouses',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsPaymentsRoute = AppSettingsPaymentsRouteImport.update({
+  id: '/settings_/payments',
+  path: '/settings/payments',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProductsProductIdStoryRoute =
   AppProductsProductIdStoryRouteImport.update({
     id: '/products_/$productId_/story',
@@ -225,6 +231,7 @@ export interface FileRoutesByFullPath {
   '/products/import': typeof AppProductsImportRoute
   '/products/size-charts': typeof AppProductsSizeChartsRoute
   '/products/warehouses': typeof AppProductsWarehousesRoute
+  '/settings/payments': typeof AppSettingsPaymentsRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesByTo {
@@ -256,6 +263,7 @@ export interface FileRoutesByTo {
   '/products/import': typeof AppProductsImportRoute
   '/products/size-charts': typeof AppProductsSizeChartsRoute
   '/products/warehouses': typeof AppProductsWarehousesRoute
+  '/settings/payments': typeof AppSettingsPaymentsRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesById {
@@ -290,6 +298,7 @@ export interface FileRoutesById {
   '/_app/products_/import': typeof AppProductsImportRoute
   '/_app/products_/size-charts': typeof AppProductsSizeChartsRoute
   '/_app/products_/warehouses': typeof AppProductsWarehousesRoute
+  '/_app/settings_/payments': typeof AppSettingsPaymentsRoute
   '/_app/products_/$productId_/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRouteTypes {
@@ -323,6 +332,7 @@ export interface FileRouteTypes {
     | '/products/import'
     | '/products/size-charts'
     | '/products/warehouses'
+    | '/settings/payments'
     | '/products/$productId/story'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -354,6 +364,7 @@ export interface FileRouteTypes {
     | '/products/import'
     | '/products/size-charts'
     | '/products/warehouses'
+    | '/settings/payments'
     | '/products/$productId/story'
   id:
     | '__root__'
@@ -387,6 +398,7 @@ export interface FileRouteTypes {
     | '/_app/products_/import'
     | '/_app/products_/size-charts'
     | '/_app/products_/warehouses'
+    | '/_app/settings_/payments'
     | '/_app/products_/$productId_/story'
   fileRoutesById: FileRoutesById
 }
@@ -609,6 +621,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsWarehousesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings_/payments': {
+      id: '/_app/settings_/payments'
+      path: '/settings/payments'
+      fullPath: '/settings/payments'
+      preLoaderRoute: typeof AppSettingsPaymentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/products_/$productId_/story': {
       id: '/_app/products_/$productId_/story'
       path: '/products/$productId/story'
@@ -640,6 +659,7 @@ interface AppRouteChildren {
   AppProductsImportRoute: typeof AppProductsImportRoute
   AppProductsSizeChartsRoute: typeof AppProductsSizeChartsRoute
   AppProductsWarehousesRoute: typeof AppProductsWarehousesRoute
+  AppSettingsPaymentsRoute: typeof AppSettingsPaymentsRoute
   AppProductsProductIdStoryRoute: typeof AppProductsProductIdStoryRoute
 }
 
@@ -664,6 +684,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppProductsImportRoute: AppProductsImportRoute,
   AppProductsSizeChartsRoute: AppProductsSizeChartsRoute,
   AppProductsWarehousesRoute: AppProductsWarehousesRoute,
+  AppSettingsPaymentsRoute: AppSettingsPaymentsRoute,
   AppProductsProductIdStoryRoute: AppProductsProductIdStoryRoute,
 }
 

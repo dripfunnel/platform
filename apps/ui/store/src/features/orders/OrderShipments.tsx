@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Order, OrderShipment } from '../../api/order'
 import { fill, formatCount, formatList, messages } from '../../messages'
+import { isHttps } from '../common/https'
 import { lineName } from './orderDetail'
 import { timeText } from './orderView'
 
@@ -17,15 +18,6 @@ export interface OrderShipmentsProps {
   /** A tracking form opened or closed: its last refusal is cleared. */
   onFormChange: () => void
   onTrack: (shipment: OrderShipment, courierName: string | null, trackingNumber: string, trackingUrl: string | null) => void
-}
-
-/** Only an https address becomes a link: the page shows what a supplier's shipments carry, whatever was stored. */
-const isHttps = (url: string): boolean => {
-  try {
-    return new URL(url).protocol === 'https:'
-  } catch {
-    return false
-  }
 }
 
 const whenText = (s: OrderShipment, timeZone: string) => {
