@@ -4619,6 +4619,7 @@
         "codeShape": "Use {min} to {max} letters, numbers, - or _. No spaces.",
         "batchCount": "Make between 1 and {max} codes.",
         "batchPrefix": "Start the codes with up to {max} letters, numbers, - or _.",
+        "batchLength": "Make the codes {low} to {high} characters long.",
         "name": "Add the name shoppers see.",
         "nameLong": "Keep the name to {max} characters.",
         "minimumAmount": "Enter an order total above zero.",
@@ -4633,7 +4634,8 @@
         "total": "Enter 1 or more, or choose Unlimited.",
         "perCustomer": "Uses per customer must be a whole number from 1 to {max}, or Unlimited.",
         "otherAmount": "Give each other currency an amount above zero, or leave its box empty to convert at today’s rate.",
-        "noRate": "There’s no exchange rate for {currencies} today, so it can’t be converted: type the amount in each of them."
+        "noRate": "There’s no exchange rate for {currencies} today, so it can’t be converted: type the amount in each of them.",
+        "tooMany": "An offer can name up to {max}. Remove some."
       }
     },
     "timesIn": "Times in {zone}",

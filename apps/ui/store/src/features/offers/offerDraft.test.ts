@@ -223,6 +223,12 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...d, percent: '120', code: 'a b', productIds: ['p1'] }, india)).toEqual({ value: words.percent, code: 'Use 3 to 32 letters, numbers, - or _. No spaces.' })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'SUMMER20', startsAt: '2026-10-12T09:00', endsAt: '2026-10-11T09:00' }, india)).toEqual({ ends: words.endsBefore })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'X1', singleUse: true, batch: { count: '9000', prefix: '', length: '8' } }, india)).toEqual({ batch: 'Make between 1 and 5,000 codes.' })
+    for (const length of ['3', '40', 'abc']) expect(errorsOf({ ...d, productIds: ['p1'], singleUse: true, batch: { count: '500', prefix: 'VIP', length } }, india)).toEqual({ batch: 'Make the codes 6 to 16 characters long.' })
+    const many = Array.from({ length: 251 }, (_, i) => `p${i}`)
+    const tooMany = 'An offer can name up to 250. Remove some.'
+    expect(errorsOf({ ...d, productIds: many, code: 'OK1' }, india)).toEqual({ targets: tooMany })
+    expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', who: 'customers', customerIds: many }, india)).toEqual({ who: tooMany })
+    expect(errorsOf({ ...blankDraft('bxgy', null, ctx(india)), code: 'OK1', buyIds: many, getSame: false, getIds: many }, india)).toEqual({ buy: tooMany, get: tooMany })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', who: 'groups', repeat: { days: [], from: '17:00', to: '21:00' }, totalUses: '0' }, india)).toEqual({ who: words.groups, repeat: words.repeatDays, total: words.total })
     expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', tiers: [{ off: '10', minimum: '500' }] }, india)).toEqual({ tiers: 'Give between 2 and 5 steps.' })
     const perCustomer = 'Uses per customer must be a whole number from 1 to 1,000, or Unlimited.'
