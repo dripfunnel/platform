@@ -19,6 +19,12 @@ import {
   bumpBillingRevision,
   claimBilling,
   clearScheduledChange,
+  saveKeepPicks,
+  selectFreePlan,
+  selectKeepSummary,
+  selectPlanVersionAmount,
+  selectStoreProductIds,
+  setCancelAt,
   releaseBilling,
   saveCard,
   saveStripeCustomer,
@@ -36,11 +42,15 @@ import {
 import { StripeRefused, StripeUnavailable, type StoreBillingStripe, type StripeApi, type StripeSubscription } from '#integrations/stripe/index'
 import { taxIdOf } from '#engine/modules/storeInfo/index'
 import { transitionStore } from '#saas/stores/index'
+import { queueSideEffect } from '#saas/outbox/index'
+import { keepWithinPlan, productLimitOf } from './keep'
 import { addInterval, offeredWays, quoteChange, type CurrentPlan, type Interval, type When } from './quote'
 
 export { addInterval, offeredWays, quoteChange } from './quote'
 export type { Interval, Quote, When } from './quote'
 export { applyStoreSubscription, dunningLabel, suspendOverdueStores, suspendAfterDays } from './dunning'
+export { endTrials, keepWithinPlan } from './keep'
+export { createStoreDataExport, storeDataAudit, storeDataParts } from './exportData'
 
 // The store's Billing (FIRST-RELEASE §16, SAAS §7; card #329): the partner's plans, the plan change with its
 // proration, the card that pays for the plan, the details on invoices, the invoices and this month's usage. The
@@ -50,6 +60,8 @@ export const storeBillingAudit = {
   changePlan: 'billing.plan_changed',
   scheduleChange: 'billing.change_scheduled',
   cancelChange: 'billing.change_cancelled',
+  keepProducts: 'billing.products_kept',
+  cancelStore: 'store.cancelled',
   setPaymentMethod: 'billing.payment_method_set',
   saveBillingDetails: 'billing.details_saved',
 } as const
@@ -71,6 +83,9 @@ export type StoreBillingRefusal =
   | 'CHANGE_IN_PROGRESS'
   | 'CANCELLED'
   | 'NO_PDF'
+  | 'NOTHING_TO_KEEP'
+  | 'TOO_MANY'
+  | 'READ_ONLY'
 
 export type StoreBillingResult<T> = { ok: true; value: T } | { ok: false; reason: StoreBillingRefusal }
 
@@ -319,6 +334,8 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
       if (!sub) return refused('NO_SUBSCRIPTION')
       if (sub.billing_mode === 'own') return refused('BILLED_BY_PARTNER')
       if (sub.status === 'cancelled' || sub.cancel_at) return refused('CANCELLED')
+      // Read-only, the only plan change is the one that pays: a trial that ended with no plan choosing one (SAAS §4.2).
+      if (sub.store_status === 'past_due' && paidOf(sub)) return refused('READ_ONLY')
       const plan = await selectLivePlan(tx, partnerId, planId)
       if (!plan) return refused('PLAN_NOT_LIVE')
       const versions = await selectCurrentVersions(tx, [plan.id, sub.plan_id])
@@ -417,7 +434,9 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
           await applyPlan(tx, storeId, { ...move, ...applied, activate: !paidOf(sub) })
           // Out of the trial the store is active too (SAAS §4.2: Active is a paid subscription, or a free plan).
           const store = paidOf(sub) ? null : await selectStoreForUpdate(tx, storeId)
-          if (store?.status === 'trial') await transitionStore(tx, store, { to: 'active' }, at)
+          if (store?.status === 'trial' || store?.status === 'past_due') await transitionStore(tx, store, { to: 'active' }, at)
+          // A smaller limit pauses what is over it, a larger one brings it back (SAAS §6.2).
+          await keepWithinPlan(tx, storeId, at)
         } else if (keeps) await clearScheduledChange(tx, storeId)
         else await scheduleChange(tx, storeId, { ...move, at: sub.period_end })
         await activity.record(tx, entry(applied ? storeBillingAudit.changePlan : keeps ? storeBillingAudit.cancelChange : storeBillingAudit.scheduleChange, changes))
@@ -477,7 +496,88 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
     }
   }
 
-  return { subscription, planCatalogue, usage, billingDetails, invoices, quotePlanChange, changePlan, setPaymentMethod, saveBillingDetails, downloadInvoice }
+  // Choose what to keep (SAAS §6.2): the plan the picks are for is a scheduled smaller one, the free plan a trial
+  // ends on, or else the plan the store is on now, whose limit applies at once.
+  const keepTarget = async (tx: ScopedSql, sub: BillingSubscriptionRow): Promise<{ plan: { id: string; name: string }; limit: number; from: Date | null } | null> => {
+    if (sub.next_plan_id && sub.next_plan_version !== null && sub.change_at) {
+      const limit = await selectPlanVersionAmount(tx, sub.next_plan_id, sub.next_plan_version, 'products')
+      return limit === null ? null : { plan: { id: sub.next_plan_id, name: sub.next_plan_name ?? '' }, limit, from: sub.change_at }
+    }
+    if (sub.status === 'trial') {
+      const free = await selectFreePlan(tx, partnerId, sub.currency)
+      const limit = free ? await selectPlanVersionAmount(tx, free.id, free.version, 'products') : null
+      return free && limit !== null ? { plan: { id: free.id, name: free.name }, limit, from: sub.trial_ends_at } : null
+    }
+    const limit = await productLimitOf(tx, storeId, now())
+    return limit === null ? null : { plan: { id: sub.plan_id, name: sub.plan_name }, limit, from: null }
+  }
+
+  const keepListMax = 200
+
+  const planKeep = () =>
+    system(async (tx) => {
+      const sub = await selectBillingSubscription(tx, storeId)
+      const target = sub ? await keepTarget(tx, sub) : null
+      if (!sub || !target) return null
+      const summary = await selectKeepSummary(tx, storeId, sub.keep_products ?? [], Math.min(target.limit, UNLIMITED), keepListMax)
+      return { ...target, limit: target.limit, products: summary.products, paused: summary.over, kept: summary.kept, waiting: summary.waiting }
+    })
+
+  const keepInput = z.array(z.guid()).max(10_000)
+
+  const keepProducts = async (raw: unknown): Promise<StoreBillingResult<NonNullable<Awaited<ReturnType<typeof planKeep>>>>> => {
+    const ids = keepInput.safeParse(raw)
+    if (!ids.success) return refused('INVALID_INPUT')
+    const picks = [...new Set(ids.data)]
+    const done = await system(async (tx): Promise<StoreBillingResult<null>> => {
+      const sub = await selectBillingSubscription(tx, storeId, true)
+      if (!sub) return refused('NO_SUBSCRIPTION')
+      const target = await keepTarget(tx, sub)
+      if (!target || target.limit >= UNLIMITED) return refused('NOTHING_TO_KEEP')
+      if (picks.length > target.limit) return refused('TOO_MANY')
+      if ((await selectStoreProductIds(tx, storeId, picks)).length !== picks.length) return refused('NOT_FOUND')
+      await saveKeepPicks(tx, storeId, picks)
+      // On the plan it is on, the picks apply now; a smaller plan to come applies them when it takes effect.
+      if (target.from === null) await keepWithinPlan(tx, storeId, now())
+      await activity.record(tx, entry(storeBillingAudit.keepProducts, [{ field: 'kept', before: null, after: String(picks.length) }]))
+      return { ok: true, value: null }
+    })
+    if (!done.ok) return done
+    const after = await planKeep()
+    return after ? { ok: true, value: after } : refused('NOTHING_TO_KEEP')
+  }
+
+  // Close my store (SAAS §4.2): cancelled now and read-only; a paid plan ends at its period's end on Stripe, and the
+  // storefront sells until then; a trial ends at once. Data is kept 90 days, with the export offered (#337).
+  const cancelStore = async (): Promise<StoreBillingResult<BillingSubscriptionDto>> =>
+    claimed(async () => {
+      const sub = await subscriptionRow()
+      if (!sub) return refused('NO_SUBSCRIPTION')
+      if (sub.status === 'cancelled' || sub.cancel_at || sub.store_status === 'cancelled' || sub.store_status === 'closed') return refused('CANCELLED')
+      let until = now()
+      if (paidOf(sub) && sub.stripe_subscription_id && sub.billing_mode === 'dripfunnel') {
+        if (!stripe) return refused('NOT_CONNECTED')
+        try {
+          const current = await stripe.subscription(sub.stripe_subscription_id)
+          if (current.schedule) await stripe.releaseSchedule(current.schedule)
+          const cancelled = await stripe.cancelAtPeriodEnd(current.id, `cancel:${storeId}:${sub.billing_revision}`)
+          until = periodOf(cancelled)?.periodEnd ?? sub.period_end
+        } catch (error) {
+          return providerRefusal(error, 'PROVIDER_UNAVAILABLE')
+        }
+      }
+      await system(async (tx) => {
+        await setCancelAt(tx, storeId, until)
+        const store = await selectStoreForUpdate(tx, storeId)
+        if (store) await transitionStore(tx, store, { to: 'cancelled' }, now())
+        await activity.record(tx, entry(storeBillingAudit.cancelStore, [{ field: 'live_until', before: null, after: until.toISOString() }]))
+        await queueSideEffect(tx, { kind: 'email', idempotencyKey: `store-cancelled:${storeId}`, payload: { template: 'store-cancelled', storeId, until: until.toISOString() }, partnerId, storeId })
+      })
+      const after = await subscriptionRow()
+      return after ? { ok: true, value: subscriptionDto(after) } : refused('NO_SUBSCRIPTION')
+    })
+
+  return { subscription, planCatalogue, usage, billingDetails, invoices, quotePlanChange, changePlan, setPaymentMethod, saveBillingDetails, downloadInvoice, planKeep, keepProducts, cancelStore }
 }
 
 export type StoreBillingService = ReturnType<typeof createStoreBillingService>

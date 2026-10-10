@@ -1,4 +1,5 @@
 import type { Keyset } from '#core/cursor'
+import type { CatalogExportRow } from './catalogExports'
 import { pageLimit, pgArray, type ScopedSql } from './index'
 
 // The store's own billing (migrations/0014, 0140; DATA-MODEL §7.9). The subscription is read and written in system
@@ -29,6 +30,8 @@ export interface BillingSubscriptionRow {
   payment_method_last4: string | null
   payment_method_expires: Date | null
   billing_revision: number
+  /** The Owner's picks for a smaller plan to come (SAAS §6.2); null when none were made. */
+  keep_products: string[] | null
   partner_name: string
   billing_mode: 'dripfunnel' | 'own'
   store_name: string
@@ -41,7 +44,7 @@ const subscriptionColumns = (tx: ScopedSql) => tx`
   select sub.store_id, sub.partner_id, sub.plan_id, sub.plan_version, p.name as plan_name, sub.status, sub.interval, sub.currency, sub.amount,
     sub.period_start, sub.period_end, sub.trial_ends_at, sub.cancel_at, sub.next_plan_id, sub.next_plan_version, np.name as next_plan_name,
     sub.next_interval, sub.change_at, sub.stripe_customer_id, sub.stripe_subscription_id, sub.payment_method_brand, sub.payment_method_last4,
-    sub.payment_method_expires, sub.billing_revision, pa.name as partner_name, pa.billing_mode, s.name as store_name, s.status as store_status, f.synced_at
+    sub.payment_method_expires, sub.billing_revision, sub.keep_products, pa.name as partner_name, pa.billing_mode, s.name as store_name, s.status as store_status, f.synced_at
   from store_subscription sub
   join store s on s.id = sub.store_id
   join plan p on p.id = sub.plan_id
@@ -329,8 +332,8 @@ export const applyProductKeep = async (tx: ScopedSql, storeId: string, picks: re
 /** Cancelled from `at`: a trial at once, a paid plan at its period's end, with nothing scheduled after it. */
 export const setCancelAt = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
   await tx`
-    update store_subscription set cancel_at = ${at}, status = case when status = 'trial' then 'cancelled' else status end,
-      next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null
+    update store_subscription set cancel_at = ${at}, status = case when status in ('trial', 'past_due') and stripe_subscription_id is null then 'cancelled' else status end,
+      next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null, billing_revision = billing_revision + 1
     where store_id = ${storeId}
   `
 }
@@ -344,8 +347,17 @@ export const selectEndedTrials = (tx: ScopedSql, now: Date, limit: number): Prom
   `
 
 /** The store's data export (exportStoreData): its parts, each a catalogue export job, read back by the one who asked. */
-export const selectExportBundle = (tx: ScopedSql, storeId: string, requesterId: string, bundle: string) =>
-  tx<{ id: string }[]>`
-    select id from catalog_export where store_id = ${storeId} and requested_by_id = ${requesterId} and filter->>'bundle' = ${bundle}
+export const selectExportBundle = (tx: ScopedSql, storeId: string, requesterId: string, bundle: string): Promise<CatalogExportRow[]> =>
+  tx<CatalogExportRow[]>`
+    select * from catalog_export where store_id = ${storeId} and requested_by_id = ${requesterId} and bundle = ${bundle}
     order by kind
   `
+
+/** A trial that ended with no free plan to go to owes a plan, as an unpaid one does (FIRST-RELEASE §3.3). */
+export const markTrialUnpaid = async (tx: ScopedSql, storeId: string): Promise<void> => {
+  await tx`update store_subscription set status = 'past_due' where store_id = ${storeId} and status = 'trial'`
+}
+
+/** A plan version's limit for one key, null when it sets none. */
+export const selectPlanVersionAmount = async (tx: ScopedSql, planId: string, version: number, key: string): Promise<number | null> =>
+  (await tx<{ amount: number | null }[]>`select amount from plan_entitlement where plan_id = ${planId} and version = ${version} and key = ${key}`)[0]?.amount ?? null

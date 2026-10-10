@@ -1,14 +1,15 @@
 import { GraphQLError } from 'graphql'
 import type { Page } from '#core/paging'
 import type { BillingDetailsRow, StoreInvoiceRow } from '#db/scoped/storeBilling'
-import { createStoreBillingService, storeBillingAudit, type BillingSubscriptionDto, type StoreBillingRefusal, type StoreBillingResult } from '#saas/storeBilling/index'
+import type { CatalogExportDto } from '#engine/modules/catalog/index'
+import { createStoreBillingService, createStoreDataExport, storeBillingAudit, storeDataAudit, type BillingSubscriptionDto, type StoreBillingRefusal, type StoreBillingResult } from '#saas/storeBilling/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
-// Billing (FIRST-RELEASE §16, PortalBilling; SAAS §7): the Owner's (`billing`). Paying (the card) works while the
-// store is read-only, since that is how a past-due store pays (SAAS §4.2); every other change waits as all writes do.
+// Billing (FIRST-RELEASE §16, PortalBilling, PortalKeep; SAAS §7): the Owner's (`billing`; the data export `store.export`).
+// Paying works while the store is read-only, since that is how a past-due store pays (SAAS §4.2), as do closing and the export.
 
 const words: Record<StoreBillingRefusal, string> = {
   INVALID_INPUT: 'Something here isn’t valid.',
@@ -27,6 +28,9 @@ const words: Record<StoreBillingRefusal, string> = {
   CHANGE_IN_PROGRESS: 'Another change to your plan is going through. Try again in a minute.',
   CANCELLED: 'Your store is closing, so its plan can’t change.',
   NO_PDF: 'That invoice’s PDF isn’t available.',
+  NOTHING_TO_KEEP: 'Your plan holds all your products, so there’s nothing to choose.',
+  TOO_MANY: 'That’s more products than the plan keeps. Untick some first.',
+  READ_ONLY: 'This store is read-only.',
 }
 
 const answered = <T>(result: StoreBillingResult<T>): T => {
@@ -216,7 +220,8 @@ export const registerBilling = (builder: StoreBuilder) => {
     changePlan: t.field({
       type: Subscription,
       args: { planId: t.arg.id({ required: true }), interval: t.arg({ type: Interval, required: true }), when: t.arg({ type: When, required: true }) },
-      extensions: { access: { ...read, audit: storeBillingAudit.changePlan } },
+      // While read-only only a trial that ended with no plan may choose one, which the service decides (SAAS §4.2).
+      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.changePlan } },
       resolve: async (_, args, ctx) => answered(await service(ctx, true).changePlan({ planId: String(args.planId), interval: args.interval, when: args.when })),
     }),
     // The token from Stripe's hosted card field (`pm_…`); a card number is refused before anything reads it.
@@ -231,6 +236,75 @@ export const registerBilling = (builder: StoreBuilder) => {
       args: { input: t.arg({ type: DetailsInput, required: true }) },
       extensions: { access: { ...read, audit: storeBillingAudit.saveBillingDetails } },
       resolve: async (_, { input }, ctx) => answered(await service(ctx, true).saveBillingDetails(input)),
+    }),
+  }))
+
+  // ---- Part 2: Choose what to keep, close the store, take the store's data (FIRST-RELEASE §16) ----
+
+  type KeepDto = Awaited<ReturnType<ReturnType<typeof createStoreBillingService>['planKeep']>>
+  const Keep = builder.objectRef<NonNullable<KeepDto>>('PlanKeep').implement({
+    fields: (t) => ({
+      // The plan the picks are for: a scheduled smaller one, the free plan a trial ends on, or the plan it is on.
+      plan: t.field({ type: Named, resolve: (k) => k.plan }),
+      limit: t.exposeInt('limit'),
+      // When the smaller plan takes effect; null when it already has.
+      from: t.string({ nullable: true, resolve: (k) => k.from?.toISOString() ?? null }),
+      products: t.exposeInt('products'),
+      // How many would be paused, never deleted.
+      paused: t.exposeInt('paused'),
+      // The products kept (at most 200): those with an order waiting to ship, the Owner's picks, then the best sellers.
+      kept: t.exposeIDList('kept'),
+      waiting: t.exposeIDList('waiting'),
+    }),
+  })
+  const DataPart = builder.objectRef<CatalogExportDto>('StoreDataPart').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // products, orders or customers
+      kind: t.exposeString('kind'),
+      // queued, done, failed or expired
+      state: t.exposeString('state'),
+      rows: t.exposeInt('rows', { nullable: true }),
+      truncated: t.exposeBoolean('truncated'),
+      csv: t.exposeString('csv', { nullable: true }),
+      expiresAt: t.string({ nullable: true, resolve: (e) => e.expiresAt?.toISOString() ?? null }),
+    }),
+  })
+  const exportAccess = { api: 'store', scope: 'store', permission: 'store.export', target: 'none' } as const
+  const dataExport = (ctx: StoreContext) => {
+    if (!ctx.sql) throw forbidden()
+    const caller = actingCaller(ctx)
+    // Everything the store holds leaves with its Owner only, never through a support session (ACCESS §8).
+    if (caller.context.caller.kind !== 'person') throw forbidden()
+    return createStoreDataExport({ sql: ctx.sql, caller, facts: ctx.facts, activity: ctx.activity, now: ctx.now })
+  }
+
+  builder.queryFields((t) => ({
+    planKeep: t.field({ type: Keep, nullable: true, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).planKeep() }),
+    storeDataExport: t.field({ type: [DataPart], args: { id: t.arg.id({ required: true }) }, extensions: { access: exportAccess }, resolve: (_, { id }, ctx) => dataExport(ctx).read(String(id)) }),
+  }))
+
+  builder.mutationFields((t) => ({
+    keepProducts: t.field({
+      type: Keep,
+      args: { ids: t.arg.idList({ required: true }) },
+      extensions: { access: { ...read, audit: storeBillingAudit.keepProducts } },
+      resolve: async (_, { ids }, ctx) => answered(await service(ctx, true).keepProducts(ids.map(String))),
+    }),
+    // Close my store: read-only now, the storefront selling until the paid period ends (SAAS §4.2); paying works while read-only.
+    cancelStore: t.field({
+      type: Subscription,
+      extensions: { access: { ...read, whileReadOnly: true, audit: storeBillingAudit.cancelStore } },
+      resolve: async (_, __, ctx) => answered(await service(ctx, true).cancelStore()),
+    }),
+    // A job of three parts; taking data away is a read, so a read-only or closing store may (SAAS §4.2 "export only").
+    exportStoreData: t.id({
+      extensions: { access: { ...exportAccess, whileReadOnly: true, audit: storeDataAudit } },
+      resolve: async (_, __, ctx) => {
+        const bundle = await dataExport(ctx).request()
+        if (!bundle) throw forbidden()
+        return bundle
+      },
     }),
   }))
 }

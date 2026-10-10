@@ -25,6 +25,8 @@ export interface StoreBillingStripe {
   /** The change at the current period's end, through a subscription schedule; answers the schedule's id. */
   scheduleChange: (subscription: StripeSubscription, input: { price: SubscriptionPrice; metadata: Record<string, string> }, idempotencyKey: string) => Promise<string>
   releaseSchedule: (scheduleId: string) => Promise<void>
+  /** Ends the subscription at its period's end; nothing more is charged. */
+  cancelAtPeriodEnd: (subscriptionId: string, idempotencyKey: string) => Promise<StripeSubscription>
   /** Tries the open invoice again with the customer's card; the key is per card, so a new card tries once more. */
   payInvoice: (invoiceId: string, idempotencyKey: string) => Promise<StripeInvoice>
 }
@@ -118,6 +120,8 @@ export const storeBillingStripe = ({ secretKey, fetchImpl = fetch }: { secretKey
         if (!(error instanceof StripeRefused)) throw error
       }
     },
+    cancelAtPeriodEnd: (subscriptionId, idempotencyKey) =>
+      call(subscription, 'POST', `/subscriptions/${encodeURIComponent(subscriptionId)}`, { body: form({ cancel_at_period_end: 'true' }), idempotencyKey }),
     payInvoice: (invoiceId, idempotencyKey) => call(invoiceSchema.loose(), 'POST', `/invoices/${encodeURIComponent(invoiceId)}/pay`, { idempotencyKey }),
   }
 }
