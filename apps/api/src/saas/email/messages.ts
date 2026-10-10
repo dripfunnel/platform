@@ -150,6 +150,8 @@ export const en = {
     body: (store: string) => `${store} is suspended. Shoppers see a notice instead of your storefront, and the portal can be viewed but not changed.`,
     reason: (reason: string) => `Reason: ${reason}`,
     contact: (contact: string) => `To resolve it, contact ${contact}.`,
+    // Dunning's reason (SAAS §7.3): a suspended store can't pay in the portal, so it names no way to but support.
+    unpaid: 'The plan has been unpaid for 14 days.',
   },
   storeRestored: {
     subject: (store: string) => `${store} is back`,

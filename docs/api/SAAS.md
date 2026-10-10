@@ -479,8 +479,9 @@ partner's billing, or both) is open (§14).
 Past due stores by age (1–7, 8–14, 15+ days), the retry schedule, emails sent, and the moment
 past due becomes suspended (H4): **after 14 days unpaid** (decided 2026-10-05 on #284). **Built on
 #329**: the cron suspends every store 14 days past due, by `Billing` with the partner's support as
-its contact, and emails the Owner; Stripe reporting it paid afterwards restores it and makes it
-active, while a person's suspension stays. Payouts to partners, when
+its contact, and emails the Owner. A suspended store can't pay in the portal (§4.2), so its reason
+names no way to but that contact, which may restore it (ACCESS §5.3); Stripe reporting it paid
+afterwards (its own retry) restores it and makes it active, while a person's suspension stays. Payouts to partners, when
 DripFunnel bills on their behalf, show period, gross, fees, payout and status (H5).
 
 ---

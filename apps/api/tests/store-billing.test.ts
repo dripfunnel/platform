@@ -8,6 +8,7 @@ import { withScope, withSystemScope } from '#db/scoped/index'
 import { StripeRefused, type StoreBillingStripe, type StripeApi, type StripeInvoice, type StripeSubscription } from '#integrations/stripe/index'
 import type { ActivityLog } from '#auth/activity'
 import { activityLog } from '#saas/activity/index'
+import { en } from '#saas/email/index'
 import { handleStripeEvent } from '#saas/billing/index'
 import { suspendOverdueStores } from '#saas/storeBilling/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -461,7 +462,14 @@ describe('past due, paid again, and 14 days unpaid (SAAS §4.2, §7.3)', () => {
     expect(await suspendOverdueStores(db.sql, activityLog, clock)).toBe(0)
     expect(await storeRow(t.storeA1)).toMatchObject({ status: 'suspended', suspended_by_label: 'Billing' })
     expect(await entries(t.storeA1, 'store.suspended')).toEqual([{ actor_kind: 'job', reason: 'unpaid' }])
-    expect(await db.sql`select 1 from outbox where store_id = ${t.storeA1} and payload->>'template' = 'store-suspended'`).toHaveLength(1)
+    expect(await db.sql`select 1 from outbox where store_id = ${t.storeA1} and payload->>'template' = 'store-suspended' and payload->>'contact' = 'partner-support'`).toHaveLength(1)
+    // A suspended store can't pay in the portal (SAAS §4.2), so the reason points to the partner's support, never a payment there.
+    expect((await db.sql<{ suspended_reason: string }[]>`select suspended_reason from store where id = ${t.storeA1}`)[0]?.suspended_reason).toBe(en.storeSuspended.unpaid)
+    const signedInBefore = cookies.owner
+    cookies.owner = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: people.owner, partnerId: t.partnerA }, clock))
+    expect((await gql(q.subscription, 'owner')).code).toBe('STORE_SUSPENDED')
+    expect((await gql(q.card, 'owner', { t: 'pm_newcard123' })).code).toBe('STORE_SUSPENDED')
+    cookies.owner = signedInBefore
     paid()
     await event('evt_paidlate', 'customer.subscription.updated', 'sub_a1')
     expect(await storeRow(t.storeA1)).toMatchObject({ status: 'active', suspended_by_label: null })
