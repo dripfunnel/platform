@@ -169,12 +169,12 @@ export interface StoreInvoiceRow {
   currency: string
   issued_at: Date
   paid_at: Date | null
-  lines: { label: string; amount: string; kind: string; period_start: string | null; period_end: string | null }[]
+  lines: { label: string; amount: string; currency: string; kind: string; period_start: string | null; period_end: string | null }[]
 }
 
 const invoiceColumns = (tx: ScopedSql) => tx`
   select i.id, i.stripe_invoice_id, i.number, i.kind, i.status, i.amount::text, i.tax_amount::text, i.currency, i.issued_at, i.paid_at,
-    coalesce((select json_agg(json_build_object('label', l.label, 'amount', l.amount::text, 'kind', l.kind, 'period_start', l.period_start, 'period_end', l.period_end) order by l.position)
+    coalesce((select json_agg(json_build_object('label', l.label, 'amount', l.amount::text, 'currency', l.currency, 'kind', l.kind, 'period_start', l.period_start, 'period_end', l.period_end) order by l.position)
       from invoice_line l where l.invoice_id = i.id), '[]'::json) as lines
   from invoice i
 `

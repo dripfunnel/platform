@@ -365,6 +365,7 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
       ]
       const at = now()
       let applied: { subscriptionId: string | null; periodStart: Date; periodEnd: Date } | null = null
+      let released = false
       // Asking for the plan it has, with a change scheduled, keeps it: the change is cancelled (SAAS §6.3).
       const keeps = paidOf(sub) && plan.id === sub.plan_id && interval === sub.interval
       if (!paidOf(sub) && amount === 0) {
@@ -383,7 +384,10 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
           } else {
             const current = await stripe.subscription(sub.stripe_subscription_id)
             // A change already scheduled gives way to this one.
-            if (current.schedule) await stripe.releaseSchedule(current.schedule)
+            if (current.schedule) {
+              await stripe.releaseSchedule(current.schedule)
+              released = true
+            }
             if (keeps) {
               // Nothing more on Stripe: the release was the change.
             } else if (when === 'now') {
@@ -395,7 +399,14 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
             }
           }
         } catch (error) {
-          if (error instanceof StripeRefused) await system((tx) => bumpBillingRevision(tx, storeId))
+          await system(async (tx) => {
+            if (error instanceof StripeRefused) await bumpBillingRevision(tx, storeId)
+            // Stripe has no scheduled change any more, so neither does the store: the change asked for replaced it.
+            if (released && sub.next_plan_id) {
+              await clearScheduledChange(tx, storeId)
+              await activity.record(tx, entry(storeBillingAudit.cancelChange, [{ field: 'plan', before: sub.next_plan_id, after: sub.plan_id }]))
+            }
+          })
           return providerRefusal(error, 'PAYMENT_FAILED')
         }
       }

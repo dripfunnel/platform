@@ -221,7 +221,7 @@ const q = {
   catalogue: '{ planCatalogue { id name current monthly { amount currency } yearly { amount } values { key kind enabled amount unlimited } } }',
   usage: '{ usage { key used limit unlimited monthly } }',
   details: '{ billingDetails { legalName email address { line1 city country } taxId taxIdKind } }',
-  invoices: '{ invoices(first: 10) { nodes { id number kind status amount { amount currency } lines { label amount kind } } pageInfo { hasNextPage } } }',
+  invoices: '{ invoices(first: 10) { nodes { id number kind status amount { amount currency } lines { label amount { amount currency } kind } } pageInfo { hasNextPage } } }',
   quote: 'query Q($p: ID!, $i: BillingInterval!, $w: PlanChangeWhen!) { planChangeQuote(planId: $p, interval: $i, when: $w) { offered charge { amount } credit { amount } today { amount currency } from nextPrice { amount } } }',
   download: 'query D($id: ID!) { downloadInvoice(id: $id) }',
   change: `mutation C($p: ID!, $i: BillingInterval!, $w: PlanChangeWhen!) { changePlan(planId: $p, interval: $i, when: $w) { ${SUB} } }`,
@@ -423,6 +423,16 @@ describe('changing a paid plan', () => {
     expect((await gql(q.subscription, 'owner')).data?.['subscription']).toMatchObject({ plan: { name: 'Starter' }, price: { amount: '1000' }, scheduled: null })
   })
 
+  it('drops a scheduled downgrade with Stripe’s when an upgrade asked for in its place is declined', async () => {
+    await change('owner', plans.starter, 'PERIOD_END')
+    const before = (await entries(t.storeA1, 'billing.change_cancelled')).length
+    declineNext = true
+    expect((await change('owner', plans.business, 'NOW')).code).toBe('PAYMENT_FAILED')
+    expect(calls).toContain('release')
+    expect((await gql(q.subscription, 'owner')).data?.['subscription']).toMatchObject({ plan: { name: 'Growth' }, scheduled: null })
+    expect(await entries(t.storeA1, 'billing.change_cancelled')).toHaveLength(before + 1)
+  })
+
   it('moves monthly to yearly now, and yearly back to monthly only at the year’s end', async () => {
     expect((await gql(q.quote, 'owner', { p: plans.growth, i: 'YEAR', w: 'NOW' })).data?.['planChangeQuote']).toMatchObject({ charge: { amount: '30000' }, credit: { amount: '2100' }, today: { amount: '27900' } })
     expect((await change('owner', plans.growth, 'NOW', 'YEAR')).data?.['changePlan']).toMatchObject({ interval: 'YEAR', price: { amount: '30000' } })
@@ -492,9 +502,9 @@ describe('invoices and the details on them', () => {
     expect(await event('evt_i1', 'invoice.paid', 'in_pr', 'invoice')).toBe('handled')
     invoices.set('in_pr', invoiceOf('in_pr', { status: 'open', amount_paid: 0 }))
     expect(await event('evt_i2', 'invoice.payment_failed', 'in_pr', 'invoice')).toBe('handled')
-    const page = (await gql(q.invoices, 'owner')).data?.['invoices'] as { nodes: { id: string; kind: string; status: string; amount: { amount: string }; lines: { amount: string; kind: string }[] }[] }
+    const page = (await gql(q.invoices, 'owner')).data?.['invoices'] as { nodes: { id: string; kind: string; status: string; amount: { amount: string }; lines: { amount: { amount: string }; kind: string }[] }[] }
     expect(page.nodes).toHaveLength(1)
-    expect(page.nodes[0]).toMatchObject({ kind: 'proration', status: 'paid', amount: { amount: '1000', currency: 'USD' }, lines: [{ amount: '2000', kind: 'proration_charge' }, { amount: '-1000', kind: 'proration_credit' }] })
+    expect(page.nodes[0]).toMatchObject({ kind: 'proration', status: 'paid', amount: { amount: '1000', currency: 'USD' }, lines: [{ amount: { amount: '2000', currency: 'USD' }, kind: 'proration_charge' }, { amount: { amount: '-1000', currency: 'USD' }, kind: 'proration_credit' }] })
     expect((await gql(q.download, 'owner', { id: page.nodes[0]?.id })).data?.['downloadInvoice']).toBe('https://pay.stripe.com/invoice/acct_1/pdf')
   })
 
