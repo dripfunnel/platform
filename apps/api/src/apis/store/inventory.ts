@@ -2,7 +2,7 @@ import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
 import { createInventoryService, defaultLowStock, inventoryAudit, type InventoryRefusal, type InventoryResult, type StockLevelRow, type StockMovementRow, type StockVersionRow, type WarehouseRow } from '#engine/modules/inventory/index'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { tenantCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -28,8 +28,8 @@ export const registerInventory = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
   const service = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
-    const caller = actingCaller(ctx)
-    return createInventoryService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+    const caller = tenantCaller(ctx)
+    return createInventoryService({ sql: ctx.sql, context: caller.context, actor: { id: caller.actor.id, partnerId: caller.actor.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
   }
 
   const Address = builder.objectRef<WarehouseRow['address']>('WarehouseAddress').implement({
@@ -117,7 +117,7 @@ export const registerInventory = (builder: StoreBuilder) => {
     warehouses: t.field({
       type: WarehousePage,
       args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: { ...read, machine: true } },
       resolve: async (_, args, ctx) => {
         const window = storePage(args)
         return pageOf(await service(ctx).warehouses(window), window, (w) => ({ occurredAt: w.created_at, id: w.id }))
@@ -127,7 +127,7 @@ export const registerInventory = (builder: StoreBuilder) => {
     productStock: t.field({
       type: StockVersionPage,
       args: { productId: t.arg.id({ required: true }), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: { ...read, machine: true } },
       resolve: async (_, args, ctx) => {
         const window = storePage(args)
         return pageOf(await service(ctx).productStock(String(args.productId), window), window, (v) => ({ occurredAt: new Date(-v.position), id: v.version_id }))
@@ -136,7 +136,7 @@ export const registerInventory = (builder: StoreBuilder) => {
     stockHistory: t.field({
       type: MovementPage,
       args: { productId: t.arg.id({ required: true }), versionId: t.arg.id(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: { ...read, machine: true } },
       resolve: async (_, args, ctx) => {
         const window = storePage(args)
         const rows = await service(ctx).history(String(args.productId), args.versionId === null || args.versionId === undefined ? null : String(args.versionId), window)

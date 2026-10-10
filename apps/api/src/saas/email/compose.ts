@@ -9,6 +9,7 @@ import { selectCodeForEmail, setCodeHash } from '#db/scoped/shopper'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { selectBranding } from '#db/scoped/branding'
+import { selectKeyCreatorName } from '#db/scoped/apiKeys'
 import { markReminderSent, selectReminderFlow, selectReminderToSend, selectSampleItems, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
 import { defaultReminderStep, defaultReminderSteps, mayEmail } from '#engine/modules/cartReminders/index'
 import type { ScopedSql } from '#db/scoped/index'
@@ -74,6 +75,8 @@ const payloads = {
   'store-plan-changed': z.object({ storeId: id, planId: id, when: z.enum(['next', 'now']) }),
   'store-suspended': z.object({ storeId: id, reason: z.string().max(500) }),
   'store-restored': z.object({ storeId: id }),
+  'webhook-disabled': z.object({ storeId: id, host: z.string().max(253) }),
+  'api-keys-creator-gone': z.object({ storeId: id, creatorId: id, keys: z.number().int().positive() }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
   'order-delivered': z.object({ orderId: id, fulfilmentId: id }),
@@ -400,6 +403,24 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
         ...(shipment.tracking_url ? { action: { label: w.action, url: shipment.tracking_url } } : {}),
       }
       return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
+    }
+    case 'webhook-disabled': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const w = en.webhookDisabled
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(p.host, m.store.name)] } }
+    }
+    case 'api-keys-creator-gone': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const creator = await selectKeyCreatorName(tx, p.creatorId, m.store.partner_id)
+      if (!creator) return { send: false, reason: 'no_recipient' }
+      const w = en.apiKeysCreatorGone
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(creator, p.keys, m.store.name)] } }
     }
     case 'cart-reminder': {
       const p = parse(t)

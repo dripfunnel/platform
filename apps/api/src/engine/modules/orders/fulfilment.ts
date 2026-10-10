@@ -7,6 +7,7 @@ import type { TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { insertLabel, lockShipmentToCollect, selectBookingLines, selectBookingOrder, selectBookingPlace, setPickup } from '#db/scoped/labels'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
+import { queueStoreEvent } from '#db/scoped/storeEvents'
 import type { AssetStore } from '#engine/modules/catalog/index'
 import { checksumOf, courierFailureOf, fromAddressOf, parcelOf, toAddressOf } from './labels'
 import {
@@ -205,6 +206,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
           // The shopper hears of what is on its way to them, never of a hand-off to the store or a pickup they collected.
           const id = made.at(-1)
           if (kind === 'manual' && id && !order.test) await queueOrderUpdate(tx, storeId, { event: 'shipped', orderId: order.id, fulfilmentId: id }, `shipped:${id}`)
+          if (!handOff && id && !order.test) await queueStoreEvent(tx, storeId, 'order.shipped', { object: 'order', id: order.id, number: order.number }, id, shippedAt)
         }
         await settleShippingStates(tx, order.id, shippedAt, sellerId === null)
         return { ok: true, value: made }
@@ -271,6 +273,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
         await insertLabel(tx, { storeId, orderId: order.id, sellerId, fulfilmentId: id, key, mime: booked.label.mime, bytes: booked.label.bytes.byteLength, checksum: await checksumOf(booked.label.bytes), createdBy: actor.id })
         await record(tx, fulfilmentAudit.shipped, order, picked[0]?.line.seller_id ?? null, 'booked')
         await queueOrderUpdate(tx, storeId, { event: 'shipped', orderId: order.id, fulfilmentId: id }, `shipped:${id}`)
+        await queueStoreEvent(tx, storeId, 'order.shipped', { object: 'order', id: order.id, number: order.number }, id, shippedAt)
         await settleShippingStates(tx, order.id, shippedAt, sellerId === null)
         // Last, as asset uploads are: a failed write rolls the shipment back.
         await files.put(key, booked.label.bytes, { httpMetadata: { contentType: booked.label.mime } })

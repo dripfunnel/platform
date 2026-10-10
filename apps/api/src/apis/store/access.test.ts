@@ -1,6 +1,6 @@
 import { graphql, type GraphQLSchema } from 'graphql'
 import { describe, expect, it } from 'vitest'
-import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
+import { standingPerson, type StoreCaller, type StoreStanding } from '#auth/storeCaller'
 import type { StoreRole } from '#auth/storePermissions'
 import type { Subscription } from '#core/tenancy'
 import { secureSchema } from '../graphql/scope'
@@ -37,7 +37,7 @@ const Rows = builder.objectRef<{ nodes: string[]; pageInfo: { startCursor: strin
   fields: (t) => ({ nodes: t.exposeStringList('nodes'), pageInfo: t.field({ type: PageInfo, resolve: (r) => r.pageInfo }) }),
 })
 builder.queryFields((t) => ({
-  whoami: t.string({ extensions: { access: { api: 'store', scope: 'session', permission: null } }, resolve: (_, __, ctx) => (ctx.standing.kind === 'signed-out' ? '' : ctx.standing.person.name) }),
+  whoami: t.string({ extensions: { access: { api: 'store', scope: 'session', permission: null } }, resolve: (_, __, ctx) => standingPerson(ctx.standing)?.name ?? '' }),
   storeName: t.string({ extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } }, resolve: (_, __, ctx) => actingCaller(ctx).store.name }),
   stock: t.string({ extensions: { access: { api: 'store', scope: 'store-seller', permission: 'stock.read', target: 'none' } }, resolve: (_, __, ctx) => actingCaller(ctx).context.sellerScope.kind }),
   rows: t.field({

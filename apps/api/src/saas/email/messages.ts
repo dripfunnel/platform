@@ -158,6 +158,18 @@ export const en = {
     heading: 'Your store is restored',
     body: (store: string) => `${store} is restored. The storefront is live again and the portal works as before.`,
   },
+  webhookDisabled: {
+    subject: (store: string) => `A webhook for ${store} is turned off`,
+    heading: 'We turned off a webhook',
+    body: (host: string, store: string) =>
+      `Deliveries to ${host} for ${store} have failed for 3 days, so we turned it off. Nothing was lost: its events wait 7 days. Fix the server, then turn it back on in Settings › Developers to send them.`,
+  },
+  apiKeysCreatorGone: {
+    subject: (store: string) => `API keys in ${store} need a look`,
+    heading: 'API keys made by someone who has left',
+    body: (who: string, keys: number, store: string) =>
+      `${who} is no longer an Owner of ${store}. ${keys === 1 ? 'The API key they made keeps' : `The ${keys} API keys they made keep`} working, because keys belong to the store. Check them in Settings › Developers, and revoke any you don’t need.`,
+  },
   orderConfirmed: {
     subject: (store: string, order: string) => `Your ${store} order ${order}`,
     heading: 'Thanks for your order',

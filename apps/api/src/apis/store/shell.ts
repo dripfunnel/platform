@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { isMerchantRole, isSupplierRole, isSupplierTier, storePermissions, storeRoleHas, type StoreRole } from '#auth/storePermissions'
-import { recordCrossing } from '#auth/storeCaller'
+import { recordCrossing, standingPerson } from '#auth/storeCaller'
 import { selectMemberships } from '#db/scoped/storeCaller'
 import { pageOf } from '#core/paging'
 import { withScope, withSystemScope } from '#db/scoped/index'
@@ -201,8 +201,8 @@ export const registerShell = (builder: StoreBuilder) => {
       nullable: true,
       extensions: { access: { api: 'store', scope: 'public', permission: null } },
       resolve: (_, __, { standing }) => {
-        if (standing.kind === 'signed-out') return null
-        const { person } = standing
+        const person = standingPerson(standing)
+        if (!person) return null
         const acting = standing.kind === 'acting' ? { store: { id: standing.caller.store.id, name: standing.caller.store.name }, role: standing.caller.role, seller: standing.caller.seller, plan: standing.caller.plan } : null
         return { id: person.id, name: person.name, email: person.email, acting }
       },
@@ -212,10 +212,10 @@ export const registerShell = (builder: StoreBuilder) => {
       args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
       extensions: { access: { api: 'store', scope: 'session', permission: null } },
       resolve: async (_, args, ctx) => {
-        const { standing } = ctx
-        if (standing.kind === 'signed-out') throw forbidden()
+        const person = standingPerson(ctx.standing)
+        if (!person) throw forbidden()
         const window = storePage(args)
-        const rows = await withSystemScope(sqlOf(ctx), (tx) => selectMyMemberships(tx, standing.person.id, standing.person.partnerId, window))
+        const rows = await withSystemScope(sqlOf(ctx), (tx) => selectMyMemberships(tx, person.id, person.partnerId, window))
         const page = pageOf(rows, window, (r) => ({ occurredAt: r.created_at, id: r.membership_id }))
         return { nodes: page.nodes.map(choiceOf).filter((c): c is Choice => c !== null), pageInfo: page.pageInfo }
       },
@@ -230,7 +230,7 @@ export const registerShell = (builder: StoreBuilder) => {
         // reads nothing of the store row: the support banner comes from its definer function (0036).
         if (caller.role.side !== 'merchant') {
           const open = await withScope(sql, caller.context, (tx) => selectOpenSupportSession(tx, ctx.now()))
-          return { readOnly: readOnlyFor(caller.role, caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: open ? bannerOf(open) : null }
+          return { readOnly: readOnlyFor(caller.role.side, caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: open ? bannerOf(open) : null }
         }
         const { row, support } = await withScope(sql, caller.context, async (tx) => ({
           row: await selectStoreState(tx, caller.store.id),
@@ -238,7 +238,7 @@ export const registerShell = (builder: StoreBuilder) => {
         }))
         const status = row?.status ?? caller.store.status
         return {
-          readOnly: readOnlyFor(caller.role, status),
+          readOnly: readOnlyFor(caller.role.side, status),
           status,
           trialEndsAt: row?.trial_ends_at ? row.trial_ends_at.toISOString() : null,
           pastDueSince: row?.past_due_since ? row.past_due_since.toISOString() : null,
@@ -257,9 +257,8 @@ export const registerShell = (builder: StoreBuilder) => {
       args: { storeId: t.arg.id({ required: true }), supplierId: t.arg.id() },
       extensions: { access: { api: 'store', scope: 'session', permission: null, audit: 'person.switched_store', whileReadOnly: true } },
       resolve: async (_, { storeId, supplierId }, ctx) => {
-        const { standing } = ctx
-        if (standing.kind === 'signed-out') throw forbidden()
-        const person = standing.person
+        const person = standingPerson(ctx.standing)
+        if (!person) throw forbidden()
         const sql = sqlOf(ctx)
         // Null is a store not held: logged as a crossing in this transaction, refused once it commits.
         const switched = await withSystemScope(sql, async (tx): Promise<Choice | null> => {

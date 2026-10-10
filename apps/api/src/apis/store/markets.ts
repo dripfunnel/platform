@@ -3,7 +3,7 @@ import { pageOf } from '#core/paging'
 import { createMarketsService, marketsAudit, offeredLanguages, type ConversionExample, type LocaleRow, type MarketRow, type MarketsResult, type RateRow } from '#engine/modules/markets/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { actingCaller, tenantCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -34,11 +34,11 @@ const words: Record<Exclude<MarketsResult<unknown>, { ok: true }>['reason'], str
 export const marketsService = (ctx: StoreContext) => {
   if (!ctx.sql) throw forbidden()
   const sql = ctx.sql
-  const caller = actingCaller(ctx)
+  const caller = tenantCaller(ctx)
   return createMarketsService({
     sql,
     context: caller.context,
-    actor: { id: caller.person.id, partnerId: caller.person.partnerId },
+    actor: { id: caller.actor.id, partnerId: caller.actor.partnerId },
     activity: ctx.activity,
     facts: ctx.facts,
     now: ctx.now,
