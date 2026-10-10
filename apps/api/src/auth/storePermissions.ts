@@ -107,3 +107,10 @@ export const storeRoleHas = (role: StoreRole, permission: StorePermission): bool
 export const isMerchantRole = (value: string): value is MerchantRole => (merchantRoles as readonly string[]).includes(value)
 export const isSupplierRole = (value: string): value is SupplierRole => (supplierRoles as readonly string[]).includes(value)
 export const isSupplierTier = (value: string): value is SupplierTier => (supplierTiers as readonly string[]).includes(value)
+
+/** A seat's role from its membership row; null for a key nobody can read (a data fault, never a guess). */
+export const storeRoleOf = (row: { role_key: string; seller_id: string | null; access_level: string | null }): StoreRole | null => {
+  if (row.seller_id === null) return isMerchantRole(row.role_key) ? { side: 'merchant', role: row.role_key } : null
+  if (!isSupplierRole(row.role_key) || row.access_level === null || !isSupplierTier(row.access_level)) return null
+  return { side: 'supplier', role: row.role_key, tier: row.access_level }
+}

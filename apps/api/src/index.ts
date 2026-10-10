@@ -12,6 +12,7 @@ import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache
 import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema, type StoreContext } from '#apis/store/schema'
@@ -19,6 +20,7 @@ import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { resolvePortalPartner, resolveStoreStanding } from '#auth/storeCaller'
+import { storeActivityFor } from '#auth/storeSupport'
 import { storeOriginAllowed } from '#auth/storeCredential'
 import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
@@ -403,6 +405,20 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (!partnerId) return notFound()
     const brandFile = brandFileOf(url.pathname)
     if (brandFile) return request.method === 'GET' ? serveBrandFile(sql, env.ASSETS ?? null, env.IMAGES ?? null, partnerId, brandFile, new Date()) : notFound()
+    if (isSupportSessionPath(url.pathname)) {
+      const exchangeLimiter = env.SIGN_IN_RATE_LIMITER
+      const readLimiter = env.STAFF_SESSION_RATE_LIMITER
+      if (!exchangeLimiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+      if (!readLimiter) return misconfigured('STAFF_SESSION_RATE_LIMITER')
+      return handleSupportSession(request, url, {
+        sql,
+        partnerId,
+        activity: activityLog,
+        now: () => new Date(),
+        allowExchange: async (key) => (await exchangeLimiter.limit({ key })).success,
+        allowRead: async (key) => (await readLimiter.limit({ key })).success,
+      })
+    }
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
@@ -410,7 +426,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)

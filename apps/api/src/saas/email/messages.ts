@@ -144,6 +144,22 @@ export const en = {
     now: (store: string, plan: string) => `${store} is now on the ${plan} plan.`,
     next: (store: string, plan: string) => `${store} moves to the ${plan} plan at its next renewal.`,
   },
+  supportStarted: {
+    subject: (partner: string, store: string) => `${partner} support opened ${store}`,
+    heading: 'Support is viewing your store',
+    body: (agent: string, partner: string, store: string, user: string) =>
+      `${agent} from ${partner} support opened a read-only support session in ${store}, signed in as ${user}. It ends after 30 minutes, and everything they open is in your Activity log.`,
+    reason: (reason: string) => `Reason: ${reason}`,
+    ticket: (ticket: string) => `Ticket: ${ticket}`,
+    control: 'To end it, and stop new ones, turn off support access in Settings › Support access.',
+  },
+  supportWriteAllowed: {
+    subject: (store: string) => `Support can make changes in ${store}`,
+    heading: 'Support can make changes',
+    body: (by: string, agent: string, partner: string, store: string) =>
+      `${by} let ${agent} from ${partner} support make changes in ${store} for the rest of this support session. Passwords, payment details, payouts and who works here stay locked.`,
+    control: 'To end the session now, turn off support access in Settings › Support access.',
+  },
   storeSuspended: {
     subject: (store: string) => `${store} is suspended`,
     heading: 'Your store is suspended',
