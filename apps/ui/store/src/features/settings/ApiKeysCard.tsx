@@ -53,11 +53,12 @@ export const ApiKeysCard = ({ initial, choices, suppliers, read, canEdit, onToas
   const [note, setNote] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const ro = !canEdit || busy
+  // A new secret can't replace one not yet stored: the API never shows it again (ACCESS §5.6).
+  const pending = secret !== null
   const now = Date.now()
 
   const open = () => {
     setNote(null)
-    setSecret(null)
     setForm({ name: '', scopes: choices.scopes.includes(firstScope) ? [firstScope] : [], supplierId: '', expires: choices.expiresInDays.includes(defaultDays) ? String(defaultDays) : '', error: null })
   }
 
@@ -132,10 +133,11 @@ export const ApiKeysCard = ({ initial, choices, suppliers, read, canEdit, onToas
             {words.sub} {fill(words.limits, { minute: formatCount(choices.requestsPerMinute), month: formatCount(choices.requestsPerMonth) })}
           </p>
         </div>
-        <button type="button" className="df-button" disabled={ro || form !== null} onClick={open}>
+        <button type="button" className="df-button" disabled={ro || pending || form !== null} onClick={open}>
           {words.create}
         </button>
       </div>
+      {pending && <p className="df-set-help">{words.storeFirst}</p>}
       {secret && <SecretOnce title={words.secretTitle} warning={words.secretWarn} secret={secret} onStored={() => setSecret(null)} />}
       {form && (
         <form
@@ -241,7 +243,7 @@ export const ApiKeysCard = ({ initial, choices, suppliers, read, canEdit, onToas
                   {oldWorks && <span className="df-dev-muted">{fill(words.oldWorks, { time: formatTime(oldWorks) })}</span>}
                 </span>
                 <span className="df-dev-actions">
-                  <button type="button" className="df-set-link" disabled={ro} aria-label={fill(words.rotateName, { name: key.name })} onClick={() => askRotate(key)}>
+                  <button type="button" className="df-set-link" disabled={ro || pending} aria-label={fill(words.rotateName, { name: key.name })} onClick={() => askRotate(key)}>
                     {words.rotate}
                   </button>
                   <button type="button" className="df-set-link df-dev-danger" disabled={ro} aria-label={fill(words.revokeName, { name: key.name })} onClick={() => askRevoke(key)}>

@@ -55,6 +55,8 @@ export const WebhooksCard = ({ initial, events, read, deliveries, canEdit, onToa
   const [log, setLog] = useState<Log | null>(null)
   const latestLog = useRef(0)
   const ro = !canEdit || busy
+  // A new secret can't replace one not yet stored: the API never shows it again (ACCESS §5.6).
+  const pending = secret !== null
 
   const readLog = (endpointId: string) => {
     const ask = ++latestLog.current
@@ -72,7 +74,6 @@ export const WebhooksCard = ({ initial, events, read, deliveries, canEdit, onToa
 
   const open = () => {
     setNote(null)
-    setSecret(null)
     setForm({ url: '', events: events.includes(firstEvent) ? [firstEvent] : [], error: null })
   }
 
@@ -184,10 +185,11 @@ export const WebhooksCard = ({ initial, events, read, deliveries, canEdit, onToa
           </h2>
           <p className="df-set-sub">{words.sub}</p>
         </div>
-        <button type="button" className="df-button" disabled={ro || form !== null} onClick={open}>
+        <button type="button" className="df-button" disabled={ro || pending || form !== null} onClick={open}>
           {words.add}
         </button>
       </div>
+      {pending && <p className="df-set-help">{words.storeFirst}</p>}
       {secret && <SecretOnce title={words.secretTitle} warning={words.secretWarn} secret={secret} onStored={() => setSecret(null)} />}
       {form && (
         <form

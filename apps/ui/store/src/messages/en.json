@@ -3663,7 +3663,8 @@
           "BLOCKED_FOR_SUPPORT": "Support can’t change your keys.",
           "other": "That didn’t work. Try again."
         },
-        "stale": "Your keys didn’t load again. Reload the page to see them as they are."
+        "stale": "Your keys didn’t load again. Reload the page to see them as they are.",
+        "storeFirst": "Store the key below before making or rotating another."
       },
       "hooks": {
         "title": "Webhooks",
@@ -3733,7 +3734,8 @@
           "other": "That didn’t work. Try again."
         },
         "turnedOnNone": "Turned back on. No events were waiting.",
-        "stale": "Your endpoints didn’t load again. Reload the page to see them as they are."
+        "stale": "Your endpoints didn’t load again. Reload the page to see them as they are.",
+        "storeFirst": "Store the signing secret below before adding another endpoint."
       }
     }
   },
