@@ -1,5 +1,5 @@
 import { graphql, type GraphQLSchema } from 'graphql'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
@@ -146,6 +146,29 @@ describe('single-use codes (H4)', () => {
     expect([two.nodes.map((n) => n.id), two.pageInfo.hasNextPage]).toEqual([[ids[0]], false])
     expect(((await page('', 'other')).data?.['offerCodeBatches'] as Page).nodes).toEqual([])
     expect((await page('', 'supplier')).code).toBe('FORBIDDEN')
+  })
+
+  it('makes a run whole or not at all: a draw that can’t find enough new codes leaves nothing behind', async () => {
+    const short = await offer(t.storeA1)
+    // Every draw comes out the same, so only the first code is new and the run can't be completed.
+    const draw = vi.spyOn(crypto, 'getRandomValues').mockImplementation(<T extends ArrayBufferView | null>(array: T): T => array)
+    try {
+      expect((await generate(short, ', count: 3, prefix: "SAME"')).code).toBe('CODES_EXHAUSTED')
+    } finally {
+      draw.mockRestore()
+    }
+    expect(await db.sql`select 1 from promotion_code_batch where promotion_id = ${short}`).toHaveLength(0)
+    expect(await db.sql`select 1 from promotion_code where promotion_id = ${short}`).toHaveLength(0)
+  })
+
+  it('refuses a read-only support session and a past-due store', async () => {
+    expect((await gql(`mutation { generateCodes(offerId: "${insta}", count: 1) { id } }`, 'owner', { support: 'read' })).code).toBe('READ_ONLY')
+    await db.sql`update store set status = 'past_due' where id = ${t.storeA1}`
+    try {
+      expect((await generate(insta, ', count: 1')).code).toBe('READ_ONLY')
+    } finally {
+      await db.sql`update store set status = 'active' where id = ${t.storeA1}`
+    }
   })
 
   it('holds an offer to 100,000 codes, and says so', async () => {
