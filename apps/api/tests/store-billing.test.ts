@@ -10,7 +10,9 @@ import type { ActivityLog } from '#auth/activity'
 import { activityLog } from '#saas/activity/index'
 import { en } from '#saas/email/index'
 import { handleStripeEvent } from '#saas/billing/index'
-import { suspendOverdueStores } from '#saas/storeBilling/index'
+import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
+import { resolveShopper, shopKeyHeader } from '#auth/shopCaller'
+import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -104,6 +106,14 @@ const stripe: StripeApi & StoreBillingStripe = {
   releaseSchedule: async () => {
     calls.push('release')
   },
+  cancelAtPeriodEnd: (id, key) =>
+    once(key, async () => {
+      calls.push(`cancel:${id}`)
+      const current = subs.get(id) ?? (await missing())
+      const cancelled = { ...current, cancel_at_period_end: true }
+      subs.set(id, cancelled)
+      return cancelled
+    }),
   payInvoice: (id, key) =>
     once(key, async () => {
       calls.push(`pay:${id}`)
@@ -162,6 +172,8 @@ const reset = async () => {
   slowCharge = null
   clock = new Date('2026-10-10T00:00:00Z')
   await db.sql`update partner set billing_mode = 'dripfunnel'`
+  await db.sql`update plan set status = 'live' where id = ${plans.free}`
+  await db.sql`update product set hidden_by = null where store_id = ${t.storeA2} and hidden_by = 'plan'`
   await db.sql`delete from invoice`
   await db.sql`delete from store_billing_details`
   await db.sql`update store set status = 'active', past_due_since = null, suspended_at = null, suspended_reason = null, suspended_by_label = null, suspended_previous_status = null where id in (${t.storeA1}, ${t.storeA2}, ${t.storeB1})`
@@ -176,7 +188,7 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`insert into partner_contract (partner_id, fee_currency) values (${t.partnerA}, 'USD'), (${t.partnerB}, 'USD')`
-  plans.free = await plan(t.partnerA, 'Free', 0, 0, 10)
+  plans.free = await plan(t.partnerA, 'Free', 0, 0, 2)
   plans.starter = await plan(t.partnerA, 'Starter', 1000, 10000, 100)
   plans.growth = await plan(t.partnerA, 'Growth', 3000, 30000, 1000)
   plans.business = await plan(t.partnerA, 'Business', 6000, null, 5000)
@@ -535,5 +547,159 @@ describe('invoices and the details on them', () => {
     await event('evt_snap2', 'invoice.updated', 'in_snap', 'invoice')
     expect((await db.sql<{ name: string }[]>`select billing_details->>'legal_name' as name from invoice where stripe_invoice_id = 'in_snap'`)[0]?.name).toBe('A1 Retail Pvt Ltd')
     expect((await gql(q.details, 'owner')).data?.['billingDetails']).toMatchObject({ legalName: 'Renamed Ltd', address: { city: 'Jaipur', country: 'IN' } })
+  })
+})
+
+// ---- Part 2: Choose what to keep, close the store, take its data, and the trials that end ----
+
+const kept = { waiting: '', second: '', third: '', fourth: '' }
+const productIn = async (storeId: string, name: string) => {
+  const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, ${name}, ${name.toLowerCase().replaceAll(' ', '-')}, 'visible') returning id`
+  const [v] = await db.sql<{ id: string }[]>`insert into product_version (store_id, product_id, sku, position) values (${storeId}, ${p?.id ?? ''}, ${name.replaceAll(' ', '-')}, 0) returning id`
+  return { id: p?.id ?? '', version: v?.id ?? '' }
+}
+const orderOf = async (storeId: string, line: { id: string; version: string }, quantity: number, fulfilled: boolean, number: string) => {
+  const [o] = await db.sql<{ id: string }[]>`
+    insert into "order" (store_id, state, payment_state, fulfilment_state, currency, number, placed_at, total_amount, payment_method, shipping_option, stock_reserved, email, shipping_address)
+    values (${storeId}, 'placed', 'paid', ${fulfilled ? 'fulfilled' : 'unfulfilled'}, 'USD', ${number}, now(), 1000, 'cod', 'courier', false, 'priya@example.com',
+      ${db.sql.json({ name: 'Priya', line1: '1 Main St', line2: null, city: 'Austin', region: 'TX', postalCode: '73301', country: 'US', phone: null })})
+    returning id`
+  await db.sql`insert into order_line (order_id, store_id, version_id, product_id, name, sku, quantity, fulfilled_quantity, unit_amount, line_total_amount, position)
+    values (${o?.id ?? ''}, ${storeId}, ${line.version}, ${line.id}, 'Item', 'IT-1', ${quantity}, ${fulfilled ? quantity : 0}, 500, ${500 * quantity}, 0)`
+}
+const pausedIn = async (storeId: string) => (await db.sql<{ id: string }[]>`select id from product where store_id = ${storeId} and hidden_by = 'plan' order by id`).map((r) => r.id).sort()
+const KEEP = 'plan { name } limit from products paused kept waiting'
+
+describe('choose what to keep (SAAS §6.2, PortalKeep)', () => {
+  beforeAll(async () => {
+    // A2 (in its trial) sells four products: one with an order waiting to ship, one its best seller.
+    const a = await productIn(t.storeA2, 'Waiting Kurta')
+    const b = await productIn(t.storeA2, 'Second Kurta')
+    const c = await productIn(t.storeA2, 'Third Kurta')
+    const d = await productIn(t.storeA2, 'Fourth Kurta')
+    Object.assign(kept, { waiting: a.id, second: b.id, third: c.id, fourth: d.id })
+    await orderOf(t.storeA2, a, 1, false, 'A2-1001')
+    await orderOf(t.storeA2, d, 9, true, 'A2-1002')
+  })
+
+  it('shows what the free plan would keep when the trial ends: the waiting order’s product always, then the best seller', async () => {
+    const k = (await gql(`{ planKeep { ${KEEP} } }`, 'trialOwner')).data?.['planKeep'] as { plan: { name: string }; limit: number; from: string; products: number; paused: number; kept: string[]; waiting: string[] }
+    expect(k).toMatchObject({ plan: { name: 'Free' }, limit: 2, from: periodEnd.toISOString(), products: 4, paused: 2, waiting: [kept.waiting] })
+    expect(new Set(k.kept)).toEqual(new Set([kept.waiting, kept.fourth]))
+    expect(await pausedIn(t.storeA2)).toEqual([])
+  })
+
+  it('takes the Owner’s picks within the limit, only the store’s own products, and keeps them for the trial’s end', async () => {
+    const keep = (ids: string[], who: Who = 'trialOwner') => gql(`mutation K($ids: [ID!]!) { keepProducts(ids: $ids) { ${KEEP} } }`, who, { ids })
+    expect((await keep([kept.second, kept.third, kept.fourth])).code).toBe('TOO_MANY')
+    const other = await productIn(t.storeB1, 'Elsewhere')
+    expect((await keep([other.id])).code).toBe('NOT_FOUND')
+    expect((await keep(['not-an-id'])).code).toBe('INVALID_INPUT')
+    expect((await keep([kept.third], 'owner')).code).toBe('NOTHING_TO_KEEP')
+    for (const who of ['manager', 'staff', 'supplier'] as const) expect((await keep([kept.third], who)).code).toBe('FORBIDDEN')
+    expect((await keep([kept.third])).data?.['keepProducts']).toMatchObject({ kept: expect.arrayContaining([kept.waiting, kept.third]) })
+    expect(await pausedIn(t.storeA2)).toEqual([])
+
+    // The trial ends with no plan chosen: Free, with the picks, and nothing deleted.
+    clock = new Date(periodEnd.getTime() + 60_000)
+    expect(await endTrials(db.sql, activityLog, clock)).toBe(1)
+    expect(await endTrials(db.sql, activityLog, clock)).toBe(0)
+    expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active', plan_id: plans.free })
+    expect(await pausedIn(t.storeA2)).toEqual([kept.second, kept.fourth].sort())
+    expect(await entries(t.storeA2, 'store.trial_ended')).toEqual([{ actor_kind: 'job', reason: 'free_plan' }])
+    expect(await db.sql`select 1 from product where store_id = ${t.storeA2} and deleted_at is not null`).toHaveLength(0)
+  })
+
+  it('applies picks at once on the plan the store is on, and brings everything back on a bigger plan', async () => {
+    await db.sql`update store_subscription set status = 'active', trial_ends_at = null, plan_id = ${plans.free}, amount = 0 where store_id = ${t.storeA2}`
+    await db.sql`update store set status = 'active', plan_id = ${plans.free} where id = ${t.storeA2}`
+    const keep = (ids: string[]) => gql(`mutation K($ids: [ID!]!) { keepProducts(ids: $ids) { ${KEEP} } }`, 'trialOwner', { ids })
+    expect((await keep([kept.second])).data?.['keepProducts']).toMatchObject({ from: null, paused: 2 })
+    expect(await pausedIn(t.storeA2)).toEqual([kept.third, kept.fourth].sort())
+    await gql(q.card, 'trialOwner', { t: 'pm_card12345' })
+    expect((await change('trialOwner', plans.starter, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Starter' } })
+    expect(await pausedIn(t.storeA2)).toEqual([])
+  })
+
+  it('leaves a trial with no free plan owing one: read-only, and choosing a plan is how it pays', async () => {
+    await db.sql`update plan set status = 'retired' where id = ${plans.free}`
+    clock = new Date(periodEnd.getTime() + 60_000)
+    expect(await endTrials(db.sql, activityLog, clock)).toBe(1)
+    expect(await storeRow(t.storeA2)).toMatchObject({ status: 'past_due' })
+    expect(await entries(t.storeA2, 'store.trial_ended')).toContainEqual({ actor_kind: 'job', reason: 'no_free_plan' })
+    cookies.trialOwner = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: people.trialOwner, partnerId: t.partnerA }, clock))
+    expect((await gql(q.save, 'trialOwner', { input: details })).code).toBe('READ_ONLY')
+    await gql(q.card, 'trialOwner', { t: 'pm_card12345' })
+    expect((await change('trialOwner', plans.starter, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Starter' }, status: 'active' })
+    expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active' })
+  })
+})
+
+describe('closing the store (SAAS §4.2)', () => {
+  const close = (who: Who, as: 'person' | 'support' | 'impersonation' = 'person') => gql(`mutation { cancelStore { ${SUB} cancelAt } }`, who, {}, as)
+  const shopAvailable = async (storeId: string) => {
+    const [row] = await db.sql<{ key: string }[]>`select public_store_key as key from storefront where store_id = ${storeId}`
+    await db.sql`update store set pricing_currency = 'USD' where id = ${storeId}`
+    const found = await resolveShopper(db.sql, new Request('https://api.example/shop-api', { headers: { [shopKeyHeader]: row?.key ?? '' } }), 'api.example')
+    return found.kind === 'found' ? found.shopper.available : null
+  }
+
+  it('is the Owner’s own act', async () => {
+    for (const who of ['manager', 'staff', 'supplier'] as const) expect((await close(who)).code).toBe('FORBIDDEN')
+    for (const as of ['support', 'impersonation'] as const) expect((await close('owner', as)).code).toBe('FORBIDDEN')
+    expect(await storeRow(t.storeA1)).toMatchObject({ status: 'active' })
+  })
+
+  it('ends a paid plan at its period’s end: read-only now, the storefront selling until then, once', async () => {
+    const closed = (await close('owner')).data?.['cancelStore']
+    expect(closed).toMatchObject({ cancelAt: periodEnd.toISOString() })
+    expect(calls).toEqual(['cancel:sub_a1'])
+    expect(await storeRow(t.storeA1)).toMatchObject({ status: 'cancelled' })
+    expect(await entries(t.storeA1, 'store.cancelled')).toContainEqual({ actor_kind: 'person', reason: null })
+    expect(await db.sql`select 1 from outbox where store_id = ${t.storeA1} and payload->>'template' = 'store-cancelled'`).toHaveLength(1)
+    expect(await shopAvailable(t.storeA1)).toBe(true)
+    expect((await close('owner')).code).toBe('CANCELLED')
+    expect((await change('owner', plans.business, 'NOW')).code).toBe('CANCELLED')
+    expect((await gql(q.save, 'owner', { input: details })).code).toBe('READ_ONLY')
+    // The period ends: Stripe deletes the subscription, and the storefront stops.
+    subs.set('sub_a1', { ...(subs.get('sub_a1') as StripeSubscription), status: 'canceled' })
+    expect(await event('evt_ended', 'customer.subscription.deleted', 'sub_a1')).toBe('handled')
+    await db.sql`update store_subscription set cancel_at = ${new Date(Date.now() - 1000)} where store_id = ${t.storeA1}`
+    expect(await shopAvailable(t.storeA1)).toBe(false)
+  })
+
+  it('ends a trial at once, with nothing on Stripe', async () => {
+    expect((await close('trialOwner')).data?.['cancelStore']).toMatchObject({ status: 'cancelled' })
+    expect(calls).toEqual([])
+    expect(await storeRow(t.storeA2)).toMatchObject({ status: 'cancelled' })
+  })
+})
+
+describe('the store’s data (`store.export`)', () => {
+  const ask = (who: Who, as: 'person' | 'support' | 'impersonation' = 'person') => gql('mutation { exportStoreData }', who, {}, as)
+  const parts = (who: Who, id: string) => gql('query E($id: ID!) { storeDataExport(id: $id) { kind state rows csv } }', who, { id })
+
+  it('is the Owner’s alone, never a Manager’s, Staff’s, supplier’s or a support session’s', async () => {
+    for (const who of ['manager', 'staff', 'supplier'] as const) expect((await ask(who)).code).toBe('FORBIDDEN')
+    for (const as of ['support', 'impersonation'] as const) expect((await ask('owner', as)).code).toBe('FORBIDDEN')
+    expect((await parts('manager', crypto.randomUUID())).code).toBe('FORBIDDEN')
+  })
+
+  it('makes the products, orders and customers, read back together by its Owner only, even read-only', async () => {
+    await db.sql`update store set status = 'cancelled', cancelled_at = now() where id = ${t.storeA2}`
+    const bundle = (await ask('trialOwner')).data?.['exportStoreData'] as string
+    expect(bundle).toMatch(/^[0-9a-f-]{36}$/)
+    const queued = (await parts('trialOwner', bundle)).data?.['storeDataExport'] as { kind: string; state: string }[]
+    expect(queued.map((p) => [p.kind, p.state])).toEqual([['customers', 'queued'], ['orders', 'queued'], ['products', 'queued']])
+    const deliver = catalogExportDeliverer(db.sql)
+    for (const row of await db.sql<{ id: string; payload: Record<string, unknown> }[]>`select id, payload from outbox where kind = 'export.catalog' and store_id = ${t.storeA2}`) {
+      await deliver.deliver({ id: row.id, kind: 'export.catalog', payload: row.payload, attempt: 1 } as Parameters<typeof deliver.deliver>[0], new AbortController().signal)
+    }
+    const done = (await parts('trialOwner', bundle)).data?.['storeDataExport'] as { kind: string; state: string; rows: number; csv: string }[]
+    expect(done.map((p) => p.state)).toEqual(['done', 'done', 'done'])
+    expect(done.find((p) => p.kind === 'products')?.csv).toContain('Waiting Kurta')
+    expect(((await parts('otherOwner', bundle)).data?.['storeDataExport'] as unknown[])).toEqual([])
+    expect(((await parts('owner', bundle)).data?.['storeDataExport'] as unknown[])).toEqual([])
+    expect(await entries(t.storeA2, 'store.data_exported')).toHaveLength(1)
   })
 })
