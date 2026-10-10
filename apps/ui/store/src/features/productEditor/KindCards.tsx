@@ -1,11 +1,13 @@
-import { useId, useRef, useState } from 'react'
-import { downloadDays, downloadLimits, maxDownloadBytes, maxKeyLength, maxKeysPerSave, maxServiceDuration, maxServiceLocation, uploadDownload, type DownloadFile } from '../../api/productKinds'
-import { fill, formatCount, formatMegabytes, messages, plural } from '../../messages'
+import { minorOf, moneyDigits } from '@dripfunnel/shared/format'
+import { useId, useRef, useState, type ReactNode } from 'react'
+import { downloadDays, downloadLimits, giftCardMonths, maxDownloadBytes, maxKeyLength, maxKeysPerSave, maxServiceDuration, maxServiceLocation, uploadDownload, type DownloadFile } from '../../api/productKinds'
+import { fill, formatCount, formatMegabytes, locale, messages, plural } from '../../messages'
 import { keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
-import type { Draft } from '../common/productDraft'
-import { Card, type Update } from './EditorCards'
+import { amountsOf, withAmounts, type Draft, type DraftProblem } from '../common/productDraft'
+import type { Ask } from './ChoicesCard'
+import { Card, exampleOf, type Update } from './EditorCards'
 
-// The kinds' own cards (CatEditor "What the shopper gets", "About the service"; CATALOG T14).
+// The kinds' own cards (CatEditor "What the shopper gets", "About the service", "Gift card amounts"; CATALOG T14).
 
 const words = messages.editor.kinds
 
@@ -174,6 +176,86 @@ export const ServiceCard = ({ draft, update, disabled }: { draft: Draft; update:
         </div>
       </div>
       <p className="df-editor-note">{words.service.note}</p>
+    </Card>
+  )
+}
+
+/** "₹500", or "$12.50": an amount as its chip and its choice name show it. */
+export const amountLabel = (amount: number, currency: string) => {
+  const digits = moneyDigits(currency)
+  const whole = amount % 10 ** digits === 0
+  return new Intl.NumberFormat(locale, { style: 'currency', currency, ...(whole ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}) }).format(amount / 10 ** digits)
+}
+
+const periods: Record<string, string | undefined> = words.giftCard.months
+const periodOf = (months: number) => periods[String(months)] ?? formatCount(months)
+
+/** A gift card: its amounts (its versions), when its cards expire, and the cards issued, given after it. */
+export const GiftCardCard = ({ draft, update, disabled, currency, problems, shortestMonths, ask, onToast, children }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; shortestMonths: number | null; ask: Ask; onToast: (text: string) => void; children?: ReactNode }) => {
+  const id = useId()
+  const amounts = amountsOf(draft, currency)
+  const setAmounts = (next: number[]) => update((d) => withAmounts(d, next, currency, words.giftCard.option, (a) => amountLabel(a, currency)))
+  const remove = (amount: number) => (amounts.length <= 1 ? onToast(words.giftCard.keepOne) : setAmounts(amounts.filter((a) => a !== amount)))
+  const add = () =>
+    ask({
+      title: words.giftCard.addTitle,
+      target: draft.name.trim() || words.giftCard.title,
+      consequence: '',
+      confirmLabel: words.giftCard.addConfirm,
+      input: {
+        label: fill(words.giftCard.addLabel, { currency }),
+        type: 'text',
+        initial: '',
+        error: (value) => {
+          const minor = minorOf(value, currency)
+          if (typeof minor !== 'number' || minor <= 0) return fill(words.giftCard.addInvalid, { example: exampleOf(currency) })
+          return amounts.includes(minor) ? words.giftCard.addTaken : null
+        },
+      },
+      onConfirm: (_, value) => {
+        const minor = minorOf(value ?? '', currency)
+        if (typeof minor === 'number') setAmounts([...amounts, minor])
+      },
+    })
+  const expiry = draft.details.giftCard.expiryMonths
+  const offered = giftCardMonths.filter((m) => shortestMonths === null || m >= shortestMonths)
+  return (
+    <Card title={words.giftCard.title}>
+      <div className="df-editor-values">
+        {amounts.map((amount) => (
+          <span key={amount} className="df-editor-value">
+            {amountLabel(amount, currency)}
+            {!disabled && (
+              <button type="button" aria-label={fill(words.giftCard.remove, { amount: amountLabel(amount, currency) })} onClick={() => remove(amount)}>
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+        {!disabled && (
+          <button type="button" className="df-editor-chip df-editor-chip--add" onClick={add}>
+            {words.giftCard.add}
+          </button>
+        )}
+      </div>
+      {problems.includes('price') && amounts.length === 0 && <span className="df-editor-problem">{words.giftCard.missing}</span>}
+      <div className="df-editor-field df-editor-narrow">
+        <label htmlFor={`${id}-x`}>{words.giftCard.expiry}</label>
+        <select id={`${id}-x`} value={expiry ?? 'never'} disabled={disabled} aria-describedby={`${id}-xr`} onChange={(event) => setDetails(update, (d) => ({ ...d, giftCard: { expiryMonths: event.target.value === 'never' ? null : Number(event.target.value) } }))}>
+          {offered.map((m) => (
+            <option key={m} value={m}>
+              {m === shortestMonths ? fill(words.giftCard.shortest, { period: periodOf(m) }) : periodOf(m)}
+            </option>
+          ))}
+          {expiry !== null && !offered.some((m) => m === expiry) && <option value={expiry}>{periodOf(expiry)}</option>}
+          <option value="never">{words.giftCard.never}</option>
+        </select>
+        <span id={`${id}-xr`} className="df-editor-hint">
+          {shortestMonths === null ? words.giftCard.ruleUnknown : fill(words.giftCard.rule, { period: periodOf(shortestMonths) })}
+        </span>
+      </div>
+      <p className="df-editor-hint">{words.giftCard.tax}</p>
+      {children}
     </Card>
   )
 }

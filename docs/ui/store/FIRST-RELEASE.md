@@ -457,17 +457,26 @@ asking, as the API can't make a file without a currency.
   listing sections, translations, prices in other currencies and per market), A+ content at
   `/products/$productId/story`, and a supplier's Warehouses tab at `/products/warehouses` (#337). Still to
   come with their own cards: a fixed price per market, product video upload, and Import and Export (§13).
-- **Built on #328** (SUI 16, on #323's API: CATALOG-DESIGN T14): downloads and services in the editor, each with its
+- **Built on #328** (SUI 16, on #323's API: CATALOG-DESIGN T14): the other three kinds in the editor, each with its
   own card under "What are you selling?". A **download** uploads its file privately (`POST /api/assets?kind=download`,
   up to 30 MB, shown by its type and size) with how often and how long its link works, or keeps a **licence-key pool**:
   keys pasted are added on save (`addLicenceKeys`) and from then on only counted ("3 keys left", low under five, sold
-  out at none). A **service** keeps an optional length and place. The product saves first, then its kind's card at
-  the revision that answered (`saveProductKind`), then any keys; when the kind's card fails after the product saved,
-  what was typed stays on the page and the bar says so (a new product's carries to its own page, never its keys). A
-  supplier's kinds are physical only (the API refuses `SUPPLIER_FIELD`); Staff and a read-only store see the counts
-  with nothing to change. Gift cards (amounts, expiry, cards issued) are #328's part 2.
+  out at none). A **service** keeps an optional length and place. A **gift card** edits its amounts (its versions,
+  in place of the price and choices cards), its expiry (1, 2, 3, 5, 7 or 10 years, or never, none shorter than the
+  API's `shortestMonths`) and lists its **cards issued** (`giftCards`, ten a page with Show more), each by its last
+  four characters only, with **Issue a card** for the Owner and Managers (`issueGiftCard`, one `issueKey` per opening
+  of its dialog, so a retry answers the same card). The product saves first, then its kind's card at the revision
+  that answered (`saveProductKind`), then any keys; when the kind's card fails after the product saved, what was typed
+  stays on the page and the bar says so (a new product's carries to its own page, never its keys). A supplier's
+  kinds are physical only (the API refuses `SUPPLIER_FIELD`); Staff and a read-only store see the cards and the
+  counts with nothing to change.
   Decided here: a download's file is named by its type and size, as the API keeps no file name; a download without
-  its file can't be saved.
+  its file can't be saved; a gift card's amounts are **one kind of choice, "Amount"**, a value per amount named as it
+  is shown ("₹500"), and none for a single amount; switching a product to a gift card makes its prices its amounts
+  and drops its other choices (Discard brings them back); the expiry starts from what the API stores (never, for a
+  new card), and until the product is saved as a gift card the hint states both countries' rules, since
+  `shortestMonths` arrives only then; the Issue dialog offers only amounts already saved and asks for an email only;
+  an expiry date is shown in UTC, named.
 
 ## 12. Collections, Filters, Menus, Size charts (`CatCollections`, `CatSizeCharts`)
 

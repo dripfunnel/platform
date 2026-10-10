@@ -12,9 +12,10 @@ import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { editorAccessOf } from '../common/access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
-import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem, type ListingSection, type ProductKind, type Units } from '../common/productDraft'
+import { amountsOf, blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, withAmounts, type Draft, type DraftProblem, type ListingSection, type ProductKind, type Units } from '../common/productDraft'
 import { detailsOf, kindChanged, kindInputOf, kindProblemsOf, keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
-import { DownloadCard, ServiceCard } from './KindCards'
+import { amountLabel, DownloadCard, GiftCardCard, ServiceCard } from './KindCards'
+import { GiftCardsIssued } from './GiftCardsIssued'
 import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
 import { EditorSections, SidePanel } from './EditorSections'
 import { CollectionsPart, ListingSections, type EditorExtras as Extras, type UnavailableChoice } from './ListingSections'
@@ -63,9 +64,9 @@ const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: s
 }
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'notFound' } | ({ kind: 'ready' } & Loaded)
 
-const problemWords = (units: Units): Record<DraftProblem | KindProblem, string> => ({
+const problemWords = (units: Units, kind: ProductKind): Record<DraftProblem | KindProblem, string> => ({
   name: words.name.missing,
-  price: words.price.missing,
+  price: kind === 'gift_card' ? words.kinds.giftCard.missing : words.price.missing,
   compare: words.price.compareLow,
   cost: words.refused.INVALID_PRICE,
   options: words.refused.OPTION_VALUES_REQUIRED,
@@ -87,7 +88,7 @@ declare module '@tanstack/react-router' {
   interface HistoryState {
     unsavedCounts?: Record<string, Record<string, string>> | undefined
     unsavedCollections?: string[] | undefined
-    /** A new download's or service's details that didn't save; never its licence keys. */
+    /** A new download's, service's or gift card's details that didn't save; never its licence keys. */
     unsavedDetails?: Omit<KindDetails, 'keys'> | undefined
   }
 }
@@ -313,8 +314,8 @@ export const ProductEditor = () => {
         const counted = draft.kind === 'physical' && Object.values(draft.stock).some((byPlace) => Object.values(byPlace).some((t) => t.trim() !== ''))
         const unsavedCounts = counted ? await (stored ? saveStock(stored, saved) : Promise.reject(new Error('not read back'))).then(() => undefined, () => draft.stock) : undefined
         const unsavedCollections = await saveCollections(done.id).then(() => undefined, () => draft.collectionIds)
-        const { download, service } = draft.details
-        const unsavedDetails = kindFailure ? { download, service } : undefined
+        const { download, service, giftCard } = draft.details
+        const unsavedDetails = kindFailure ? { download, service, giftCard } : undefined
         leaving.current = true
         void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts, unsavedCollections, unsavedDetails }) }).finally(() => (leaving.current = false))
         setSaving(false)
@@ -355,9 +356,15 @@ export const ProductEditor = () => {
   }
 
   const names = new Map((product?.versions ?? []).map((v) => [v.id, v.choices.join(' / ')]))
+  // Only amounts already saved can be issued: each is a version with its id.
+  const issueAmounts = (product?.versions ?? []).flatMap((v) => {
+    const price = v.prices.find((p) => p.currency === currency)
+    return price ? [{ versionId: v.id, label: amountLabel(Number(price.amount), currency) }] : []
+  })
   const pickKind = (kind: ProductKind) => {
     if (kind === draft.kind) return
-    update((d) => ({ ...d, kind }))
+    // A gift card's amounts are its versions (CATALOG T14): its prices become its amounts, its other choices go.
+    update((d) => (kind === 'gift_card' ? withAmounts({ ...d, kind, options: [] }, amountsOf(d, currency), currency, words.kinds.giftCard.option, (a) => amountLabel(a, currency)) : { ...d, kind }))
     if (draft.kind === 'physical') setToast(words.kind.gone)
   }
   const listingProps = { draft, update, disabled, choices: view.extras.choices, productId: product?.id ?? null, readiness: isNew ? undefined : (product?.readiness ?? null) }
@@ -430,7 +437,7 @@ export const ProductEditor = () => {
   const banners: { tone: 'info' | 'warn'; title: string; body: string; action?: { label: string; run: () => void } }[] = []
   if (failure?.stale) banners.push({ tone: 'warn', title: words.banner.stale, body: words.banner.staleBody, action: { label: words.banner.reload, run: load } })
   const allProblems = [...problems, ...kindProblems]
-  if (showProblems && allProblems.length > 1) banners.push({ tone: 'warn', title: fill(plural(words.banner.fix, allProblems.length), { count: String(allProblems.length) }), body: allProblems.map((p) => problemWords(draft.units)[p]).join(' · ') })
+  if (showProblems && allProblems.length > 1) banners.push({ tone: 'warn', title: fill(plural(words.banner.fix, allProblems.length), { count: String(allProblems.length) }), body: allProblems.map((p) => problemWords(draft.units, draft.kind)[p]).join(' · ') })
   if (access.readOnlyStore) banners.push({ tone: 'warn', title: words.banner.readOnly, body: words.banner.readOnlyBody })
   if (access.side === 'supplier' && product?.approval === 'sent_back' && product.sentBackReason) banners.push({ tone: 'warn', title: words.banner.sentBack, body: fill(words.banner.sentBackBody, { reason: product.sentBackReason }) })
   if (access.side === 'merchant' && product?.supplier) banners.push({ tone: 'info', title: fill(words.banner.theirs, { supplier: product.supplier.name }), body: words.banner.theirsBody })
@@ -496,16 +503,24 @@ export const ProductEditor = () => {
           <KindCard draft={draft} disabled={disabled} supplier={access.side === 'supplier'} onPick={pickKind} />
           {draft.kind === 'digital' && <DownloadCard draft={draft} update={update} disabled={disabled} problems={showProblems ? kindProblems : []} pool={product?.productType === 'digital' && view.kindView?.download?.mode === 'keys' ? { left: view.kindView.download.keysLeft, sold: view.kindView.download.keysSold } : null} />}
           {draft.kind === 'service' && <ServiceCard draft={draft} update={update} disabled={disabled} />}
+          {draft.kind === 'gift_card' && (
+            <GiftCardCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} shortestMonths={view.kindView?.giftCard?.shortestMonths ?? null} ask={setAsk} onToast={setToast}>
+              {product?.productType === 'gift_card' && access.side === 'merchant' && (
+                <GiftCardsIssued productId={product.id} productName={product.name} amounts={issueAmounts} canIssue={access.storeFields} onToast={setToast} preset={sample?.cards ?? null} />
+              )}
+              {product?.productType !== 'gift_card' && access.storeFields && <p className="df-editor-hint">{words.kinds.giftCard.issueAfterSave}</p>}
+            </GiftCardCard>
+          )}
           <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} onRetry={(id) => { const file = files.current.get(id); if (file) upload(id, file) }} onDismiss={(id) => { files.current.delete(id); setPending((list) => list.filter((p) => p.id !== id)) }} />
           <BasicsCard draft={draft} update={update} disabled={disabled} problems={shownProblems} />
-          {!made && (
+          {!made && draft.kind !== 'gift_card' && (
                 <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} >
                   <PricesAbroad draft={draft} update={update} disabled={disabled} currencies={view.extras.currencies} converted={view.extras.converted.get(product?.versions[0]?.id ?? '') ?? []} problems={shownProblems} failed={view.extras.choices.unavailable.has('prices')} />
                   {product && access.storeFields && <MarketPrices productId={product.id} />}
                 </PriceCard>
               )}
           {physical && !made && <StockCard draft={draft} update={update} canStock={access.canStock && !saving} warehouses={view.warehouses} levels={product ? (view.levels.get(product.versions[0]?.id ?? '') ?? []) : []} versionId={product?.versions[0]?.id ?? null} problems={shownProblems} history={history} onHistory={toggleHistory} onAdjust={adjust} names={names} />}
-          <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />
+          {draft.kind !== 'gift_card' && <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />}
           <EditorSections
             draft={draft}
             update={update}

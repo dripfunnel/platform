@@ -91,7 +91,7 @@ export interface Draft {
   sizeChartId: string | null
   /** The hand-picked collections it is in (the merchant side's), saved after the product. */
   collectionIds: string[]
-  /** A download's or service's own card, saved after the product (`saveProductKind`). */
+  /** A download's, service's or gift card's own card, saved after the product (`saveProductKind`). */
   details: KindDetails
 }
 
@@ -327,6 +327,33 @@ export const syncVersions = (draft: Draft): DraftVersion[] => {
     const kept = existing.get(keyOf(choices))
     return kept ? { ...kept, choices } : blankVersion(choices, template)
   })
+}
+
+/** A gift card's amounts (its versions' prices, CATALOG T14), lowest first. */
+export const amountsOf = (draft: Draft, currency: string): number[] =>
+  [...new Set(draft.versions.filter((v) => !v.removed).map((v) => minorOf(v.price, currency)).filter((p): p is number => typeof p === 'number' && p > 0))].sort((a, b) => a - b)
+
+/**
+ * A gift card's versions made from its amounts: one kind of choice named `optionName` with a value per amount, a version
+ * kept where its price matches; none at all for a single amount.
+ */
+export const withAmounts = (draft: Draft, amounts: readonly number[], currency: string, optionName: string, label: (amount: number) => string): Draft => {
+  const sorted = [...new Set(amounts)].sort((a, b) => a - b)
+  const live = draft.versions.filter((v) => !v.removed)
+  const kept = (amount: number) => live.find((v) => minorOf(v.price, currency) === amount)
+  if (sorted.length <= 1) {
+    const amount = sorted[0]
+    const from = amount === undefined ? live[0] : (kept(amount) ?? live[0])
+    const price = amount === undefined ? '' : moneyText({ amount, currency })
+    return { ...draft, options: [], versions: [{ ...blankVersion([], from), id: from?.id ?? null, sku: from?.sku ?? '', price, compareAt: '', otherPrices: [] }] }
+  }
+  const option = draft.options.length === 1 ? draft.options[0] : undefined
+  const values = sorted.map((amount) => ({ id: option?.values.find((v) => v.name === label(amount))?.id ?? null, name: label(amount) }))
+  const versions = sorted.map((amount) => {
+    const from = kept(amount)
+    return { ...blankVersion([label(amount)], from), id: from?.id ?? null, sku: from?.sku ?? '', price: moneyText({ amount, currency }), compareAt: '', otherPrices: [] }
+  })
+  return { ...draft, options: [{ id: option?.id ?? null, name: option?.name || optionName, values }], versions }
 }
 
 /** How many versions "Update versions" would add. */
