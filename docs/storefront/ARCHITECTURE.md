@@ -19,7 +19,7 @@ as customised by us, now removed from the workspace); §11 records what was take
 
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, the first required components, SEO and the route contract (#304), and the
-validator's file, content and routes rules (#480); everything else below is to build.
+validator's file, content, routes and code rules (#480); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
@@ -259,6 +259,39 @@ together are refused.
   JSX text literals, and string literals rendered as text, are refused. A brand field
   (shop name, tagline, contact) appears only through `useStorefront()`, never as a literal.
 - `'use client'` only in `src/theme/components/interactive/`.
+
+As built on #480 *(decided there, the stricter reading where the list above is silent)*:
+- **Imports**: only named imports from `react`'s hooks, `Fragment`, `Suspense`, `memo`,
+  `forwardRef` and `createContext`, so not `createElement`, `lazy` or a namespace or default import,
+  and not `react/jsx-runtime`. From `motion`, only its components and hooks that act on their own
+  element: not `animate`, `useAnimate` or `useScroll`. No import attributes, side-effect imports or
+  `import defer`. `./theme` is core's theme entry: `useStorefront` and the required components
+  today, with the hooks of §2.1 joining it as they are built.
+- **Globals**: only the language's own `Array`, `Boolean`, `Error`, `Map`, `Number`, `Promise`,
+  `Set`, `String`, `JSON`, `Object` (its read-only helpers), `Math` (not `random`) and the timers
+  given a function. `Date`, `Intl` and `Math.random` are refused, so a theme can't sniff its
+  environment or build differently twice (LIVE-SHOP §4 step 3). The browser's names are refused
+  however they're reached: `e.view.document`, an `export { window }`, or any value typed as the
+  window, the document, `location`, `navigator` or storage.
+- **The DOM**: on an element, only `style`, `classList`, focus, measuring, scrolling and event
+  listeners. On its `style`, only `transform`, `opacity`, `filter` and custom properties through
+  `setProperty`. The walking names are refused on any value, so a cast doesn't hide them, and a
+  computed key must be written out or typed as a list of names.
+- **JSX**: elements from an allowlist of layout, text, table and SVG shape elements, and attributes
+  from an allowlist on each. No `style` attribute (motion's own `style` only with transform and
+  opacity), no spread on an element, no `popover` or `<dialog>` (the top layer belongs to core's
+  banners), buttons only `type="button"`, and no `df-` class or id or `data-df-*` attribute. motion's
+  `animate`, `initial`, `exit`, `while*`, `variants` and `style` may name only transform, opacity
+  and filter.
+- **Text**: JSX text with a letter, digit or symbol; literals reaching a rendered place through
+  variables, lists, lookups and the theme's own functions; numbers rendered as written; values
+  given to `t()`; a text attribute (`alt`, `title`, `aria-label` and the rest) written out; and a
+  string prop of the theme's own components that isn't declared as a choice (`'warm' | 'cool'`).
+  Words in any string anywhere in the code, any address (`https:`, `//`, `javascript:`, `url(`)
+  and any copied brand field are refused too.
+- **`t()`**: `t('file.key')` reads `content/{language}/file.json`. Its key is written out, `t`
+  isn't passed on as another type, and every key exists in every language the store offers.
+- No `declare`, `namespace`, `import =`, `export =` or `/// <reference>`.
 
 **CSS**: CSS Modules only; every selector starts with a module class; no `:global`, no
 `@import`, no `@font-face`; `url()` only for the store's media ids; no selector naming a core
