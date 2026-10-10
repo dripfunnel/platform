@@ -1,6 +1,6 @@
 import { ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { codeBatchLimits, codeLengths, generateCodes, loadCodeBatches, loadCodesExport, requestCodesExport, type CodeBatch } from '../../api/offers'
+import { codeBatchLimits, codeLengths, codePrefixPattern, generateCodes, loadCodeBatches, loadCodesExport, requestCodesExport, type CodeBatch } from '../../api/offers'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { offerRefusal } from './offerActions'
 
@@ -117,7 +117,7 @@ export const CodeBatches = ({ offerId, sample, canEdit, canExport, canUpgrade }:
   const n = Number(count)
   const countOk = Number.isInteger(n) && n >= 1 && n <= codeBatchLimits.count
   const cleanPrefix = prefix.trim().toUpperCase()
-  const prefixOk = /^([A-Z0-9][A-Z0-9_-]{0,11})?$/.test(cleanPrefix)
+  const prefixOk = codePrefixPattern.test(cleanPrefix)
   const make = () => {
     setProblem(null)
     setMade(null)

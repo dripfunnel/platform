@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Offer, OfferAction } from '../../api/offers'
+import type { Offer, OfferTargets } from '../../api/offers'
 import { messages } from '../../messages'
-import { blankCondition, blankDraft, seasonCode, convertedMinor, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, type StoreFacts } from './offerDraft'
+import { blankAction, blankCondition, blankDraft, seasonCode, convertedMinor, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, noTargets, type StoreFacts } from './offerDraft'
 
 // The editor's form and the record it saves (OFFERS-DESIGN §3.1): the store's time zone, money per currency, what each
 // kind of offer sends, and what stops it saving.
@@ -10,9 +10,7 @@ const words = messages.offers.editor.errors
 const india: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }
 const multi: StoreFacts = { timeZone: 'America/New_York', country: 'US', main: 'USD', others: ['EUR', 'JPY'], perEuro: { USD: 1.1, EUR: 1, JPY: 160 } }
 const ctx = (facts: StoreFacts) => ({ facts, now: new Date('2026-10-10T06:30:00.000Z'), ship: 'delivery', season: { name: 'Diwali', on: new Date('2026-11-08T00:00:00.000Z') } })
-const action = (a: Partial<OfferAction> & Pick<OfferAction, 'operation'>): OfferAction => ({ percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], ...a })
-const base: Offer = { id: 'o1', name: 'Offer', internalName: null, description: null, trigger: 'automatic', code: null, status: 'off', enabled: false, startsAt: null, endsAt: null, totalUsesLimit: null, perCustomerLimit: null, usesCount: 0, combines: { product: false, order: false, shipping: false }, conditions: [], action: { percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], operation: 'free_shipping' }, revision: 1 }
-const leaf = { amounts: [], minimum: null, productIds: [], collectionIds: [], filterValueIds: [], groupIds: [], customerIds: [], countries: [], days: [], from: null, to: null, conditions: [] }
+const base: Offer = { id: 'o1', name: 'Offer', internalName: null, description: null, trigger: 'automatic', code: null, status: 'off', enabled: false, startsAt: null, endsAt: null, totalUsesLimit: null, perCustomerLimit: null, usesCount: 0, combines: { product: false, order: false, shipping: false }, conditions: [], action: blankAction({ operation: 'free_shipping' }), revision: 1 }
 
 describe('dates in the store’s time zone', () => {
   it('reads and writes the store’s wall clock, daylight saving included', () => {
@@ -109,10 +107,10 @@ describe('what Save sends', () => {
       usesCount: 0,
       combines: { product: true, order: false, shipping: true },
       conditions: [
-        { ...leaf, operation: 'customer_group', groupIds: ['g1'] },
-        { ...leaf, operation: 'any_of', conditions: [{ ...leaf, operation: 'first_order' }, { ...leaf, operation: 'minimum_quantity', minimum: 3 }] },
+        blankCondition({ operation: 'customer_group', groupIds: ['g1'] }),
+        blankCondition({ operation: 'any_of', conditions: [blankCondition({ operation: 'first_order' }), blankCondition({ operation: 'minimum_quantity', minimum: 3 })] }),
       ],
-      action: action({ operation: 'products_percentage_discount', percent: 15, targets: { productIds: [], collectionIds: ['c1'], filterValueIds: [] }, cap: [{ currency: 'INR', amount: '25000' }] }),
+      action: blankAction({ operation: 'products_percentage_discount', percent: 15, targets: { productIds: [], collectionIds: ['c1'], filterValueIds: [] }, cap: [{ currency: 'INR', amount: '25000' }] }),
       revision: 4,
     }
     const d = draftOf(offer, india)
@@ -135,13 +133,13 @@ describe('money in other currencies', () => {
   })
 
   it('reads a fixed and a tiered offer back to the same input', () => {
-    const fixed: Offer = { ...base, action: action({ operation: 'order_fixed_discount', amounts: [{ currency: 'USD', amount: '1000' }, { currency: 'EUR', amount: '900' }, { currency: 'JPY', amount: '1500' }] }), conditions: [{ ...leaf, operation: 'minimum_order_amount', amounts: [{ currency: 'USD', amount: '5000' }, { currency: 'EUR', amount: '4500' }, { currency: 'JPY', amount: '7500' }] }] }
+    const fixed: Offer = { ...base, action: blankAction({ operation: 'order_fixed_discount', amounts: [{ currency: 'USD', amount: '1000' }, { currency: 'EUR', amount: '900' }, { currency: 'JPY', amount: '1500' }] }), conditions: [blankCondition({ operation: 'minimum_order_amount', amounts: [{ currency: 'USD', amount: '5000' }, { currency: 'EUR', amount: '4500' }, { currency: 'JPY', amount: '7500' }] })] }
     const d = draftOf(fixed, multi)
     expect(d).toMatchObject({ kind: 'fixed', amounts: { USD: '10.00', EUR: '9.00', JPY: '1500' }, minimum: 'amount', minAmounts: { USD: '50.00', EUR: '45.00', JPY: '7500' } })
     const back = inputOf(d, multi, true)
     expect(back.action).toEqual({ operation: 'order_fixed_discount', amounts: fixed.action.amounts })
     expect(back.conditions).toEqual([{ operation: 'minimum_order_amount', amounts: fixed.conditions[0]?.amounts }])
-    const tiered: Offer = { ...base, action: action({ operation: 'tiered_discount', kind: 'fixed', tiers: [{ minimum: [{ currency: 'INR', amount: '50000' }], percent: null, amounts: [{ currency: 'INR', amount: '5000' }] }, { minimum: [{ currency: 'INR', amount: '100000' }], percent: null, amounts: [{ currency: 'INR', amount: '15000' }] }] }) }
+    const tiered: Offer = { ...base, action: blankAction({ operation: 'tiered_discount', kind: 'fixed', tiers: [{ minimum: [{ currency: 'INR', amount: '50000' }], percent: null, amounts: [{ currency: 'INR', amount: '5000' }] }, { minimum: [{ currency: 'INR', amount: '100000' }], percent: null, amounts: [{ currency: 'INR', amount: '15000' }] }] }) }
     const t = draftOf(tiered, india)
     expect(t).toMatchObject({ type: 'order', kind: 'fixed', tiers: [{ off: '50.00', minimum: '500.00' }, { off: '150.00', minimum: '1000.00' }] })
     expect(inputOf(t, india, true).action).toEqual({ operation: 'tiered_discount', kind: 'fixed', tiers: [{ minimum: [{ currency: 'INR', amount: '50000' }], amounts: [{ currency: 'INR', amount: '5000' }] }, { minimum: [{ currency: 'INR', amount: '100000' }], amounts: [{ currency: 'INR', amount: '15000' }] }] })
@@ -149,7 +147,7 @@ describe('money in other currencies', () => {
 
   it('keeps a cap’s and a step’s amounts in every currency while the main amount is unchanged', () => {
     const cap = [{ currency: 'USD', amount: '1200' }, { currency: 'EUR', amount: '1000' }, { currency: 'JPY', amount: '2000' }]
-    const capped: Offer = { ...base, action: action({ operation: 'order_percentage_discount', percent: 20, cap }) }
+    const capped: Offer = { ...base, action: blankAction({ operation: 'order_percentage_discount', percent: 20, cap }) }
     const d = draftOf(capped, multi)
     expect(inputOf(d, multi, true).action).toEqual({ operation: 'order_percentage_discount', percent: 20, cap })
     expect(inputOf({ ...d, cap: '15' }, multi, true).action).toEqual({ operation: 'order_percentage_discount', percent: 20, cap: [{ currency: 'USD', amount: '1500' }, { currency: 'EUR', amount: '1364' }, { currency: 'JPY', amount: '2182' }] })
@@ -157,7 +155,7 @@ describe('money in other currencies', () => {
       { minimum: [{ currency: 'USD', amount: '5000' }, { currency: 'EUR', amount: '4000' }, { currency: 'JPY', amount: '9000' }], percent: 10, amounts: [] },
       { minimum: [{ currency: 'USD', amount: '9000' }, { currency: 'EUR', amount: '8000' }, { currency: 'JPY', amount: '15000' }], percent: 20, amounts: [] },
     ]
-    const tiered = draftOf({ ...base, action: action({ operation: 'tiered_discount', kind: 'percent', tiers: steps }) }, multi)
+    const tiered = draftOf({ ...base, action: blankAction({ operation: 'tiered_discount', kind: 'percent', tiers: steps }) }, multi)
     expect(inputOf(tiered, multi, true).action).toEqual({ operation: 'tiered_discount', kind: 'percent', tiers: steps.map((t) => ({ minimum: t.minimum, percent: t.percent })) })
   })
 
@@ -170,7 +168,7 @@ describe('money in other currencies', () => {
       blankCondition({ operation: 'recurrence', days: [5], from: '17:00', to: '21:00' }),
       blankCondition({ operation: 'recurrence', days: [6], from: '10:00', to: '12:00' }),
     ]
-    const d = draftOf({ ...base, action: action({ operation: 'order_percentage_discount', percent: 10 }), conditions }, india)
+    const d = draftOf({ ...base, action: blankAction({ operation: 'order_percentage_discount', percent: 10 }), conditions }, india)
     expect(d).toMatchObject({ who: 'groups', groupIds: ['g1'], minimum: 'amount', repeat: { days: [5], from: '17:00', to: '21:00' } })
     expect(d.kept.map((c) => c.operation)).toEqual(['shipping_country', 'minimum_quantity', 'recurrence'])
     expect(inputOf(d, india, true).conditions).toEqual([
@@ -185,26 +183,26 @@ describe('money in other currencies', () => {
 
   it('keeps a repeat without both times as it came, never giving it times the merchant didn’t set', () => {
     const allDay = blankCondition({ operation: 'recurrence', days: [5], from: null, to: null })
-    const d = draftOf({ ...base, action: action({ operation: 'order_percentage_discount', percent: 10 }), conditions: [allDay] }, india)
+    const d = draftOf({ ...base, action: blankAction({ operation: 'order_percentage_discount', percent: 10 }), conditions: [allDay] }, india)
     expect(d.repeat).toBeNull()
     expect(inputOf(d, india, true).conditions).toEqual([{ operation: 'recurrence', days: [5], from: null, to: null }])
   })
 
   it('keeps a “buys at least N” it can’t draw, as it came', () => {
-    const these = { ...leaf, operation: 'contains_products', minimum: 2, productIds: ['p9'] }
-    const onOrder = draftOf({ ...base, action: action({ operation: 'order_percentage_discount', percent: 10 }), conditions: [these] }, india)
+    const these = blankCondition({ operation: 'contains_products', minimum: 2, productIds: ['p9'] })
+    const onOrder = draftOf({ ...base, action: blankAction({ operation: 'order_percentage_discount', percent: 10 }), conditions: [these] }, india)
     expect(onOrder.minimum).toBe('none')
     expect(inputOf(onOrder, india, true).conditions).toEqual([{ operation: 'contains_products', minimum: 2, productIds: ['p9'] }])
-    const otherIds = draftOf({ ...base, action: action({ operation: 'products_percentage_discount', percent: 10, targets: { productIds: ['p1'], collectionIds: [], filterValueIds: [] } }), conditions: [these] }, india)
+    const otherIds = draftOf({ ...base, action: blankAction({ operation: 'products_percentage_discount', percent: 10, targets: { productIds: ['p1'], collectionIds: [], filterValueIds: [] } }), conditions: [these] }, india)
     expect(inputOf(otherIds, india, true).conditions).toEqual([{ operation: 'contains_products', minimum: 2, productIds: ['p9'] }])
-    const drawn = draftOf({ ...base, action: action({ operation: 'products_percentage_discount', percent: 10, targets: { productIds: ['p9'], collectionIds: [], filterValueIds: [] } }), conditions: [these] }, india)
+    const drawn = draftOf({ ...base, action: blankAction({ operation: 'products_percentage_discount', percent: 10, targets: { productIds: ['p9'], collectionIds: [], filterValueIds: [] } }), conditions: [these] }, india)
     expect(drawn).toMatchObject({ minimum: 'these', minQuantity: '2', kept: [] })
     expect(inputOf(drawn, india, true).conditions).toEqual([{ operation: 'contains_products', minimum: 2, productIds: ['p9'] }])
   })
 
   it('keeps the collections and filter values a buy X get Y names, which the form doesn’t draw', () => {
-    const t = (x: Partial<OfferAction['targets'] & object>) => ({ productIds: [], collectionIds: [], filterValueIds: [], ...x })
-    const bxgy: Offer = { ...base, action: action({ operation: 'buy_x_get_y', percent: 100, buy: { quantity: 2, targets: t({ productIds: ['p1'], collectionIds: ['c1'] }) }, get: { quantity: 1, targets: t({ filterValueIds: ['fv1'] }) } }) }
+    const t = (x: Partial<OfferTargets>): OfferTargets => ({ ...noTargets, ...x })
+    const bxgy: Offer = { ...base, action: blankAction({ operation: 'buy_x_get_y', percent: 100, buy: { quantity: 2, targets: t({ productIds: ['p1'], collectionIds: ['c1'] }) }, get: { quantity: 1, targets: t({ filterValueIds: ['fv1'] }) } }) }
     const d = draftOf(bxgy, india)
     expect(errorsOf(d, india)).toEqual({})
     expect(inputOf(d, india, true).action).toEqual({ operation: 'buy_x_get_y', buy: { quantity: 2, targets: { productIds: ['p1'], collectionIds: ['c1'], filterValueIds: undefined } }, get: { quantity: 1, targets: { productIds: undefined, collectionIds: undefined, filterValueIds: ['fv1'] } }, percent: 100, oncePerOrder: false })
@@ -224,6 +222,9 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'SUMMER20', startsAt: '2026-10-12T09:00', endsAt: '2026-10-11T09:00' }, india)).toEqual({ ends: words.endsBefore })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'X1', singleUse: true, batch: { count: '9000', prefix: '', length: '8' } }, india)).toEqual({ batch: 'Make between 1 and 5,000 codes.' })
     for (const length of ['3', '40', 'abc']) expect(errorsOf({ ...d, productIds: ['p1'], singleUse: true, batch: { count: '500', prefix: 'VIP', length } }, india)).toEqual({ batch: 'Make the codes 6 to 16 characters long.' })
+    expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', note: 'n'.repeat(121) }, india)).toEqual({ note: 'Keep the internal note to 120 characters.' })
+    expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', note: 'n'.repeat(120) }, india)).toEqual({})
+    expect(errorsOf({ ...d, productIds: ['p1'], code: 'C'.repeat(33) }, india)).toEqual({ code: 'Use 3 to 32 letters, numbers, - or _. No spaces.' })
     const many = Array.from({ length: 251 }, (_, i) => `p${i}`)
     const tooMany = 'An offer can name up to 250. Remove some.'
     expect(errorsOf({ ...d, productIds: many, code: 'OK1' }, india)).toEqual({ targets: tooMany })
