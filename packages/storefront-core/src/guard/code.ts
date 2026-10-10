@@ -59,6 +59,7 @@ const elementMembers = new Set([
   ...['clientWidth', 'clientHeight', 'offsetWidth', 'offsetHeight', 'addEventListener', 'removeEventListener', 'setPointerCapture', 'releasePointerCapture', 'hasPointerCapture'],
 ])
 // Inline styles animate only what CSS may (§3.4 "CSS"), and custom properties through setProperty.
+const customPropertyCalls = new Set(['setProperty', 'removeProperty'])
 const styleMembers = new Set(['transform', 'opacity', 'filter', 'translate', 'scale', 'rotate', 'setProperty', 'removeProperty'])
 const browserTypes = new Set(['Window', 'WindowProxy', 'Document', 'Location', 'Navigator', 'Storage', 'History', 'Screen', 'CookieStore', 'CacheStorage', 'IDBFactory', 'Performance', 'Crypto', 'Console'])
 
@@ -268,6 +269,12 @@ const losesElement = (w: Walk, expr: ts.Expression): boolean => {
 const checkCall = (w: Walk, call: ts.CallExpression) => {
   if (call.expression.kind === ts.SyntaxKind.ImportKeyword) return w.report(call, 'code/dynamic-import', 'A theme may not load code with import(); import from the allowed modules at the top of the file.')
   const callee = call.expression
+  if (ts.isPropertyAccessExpression(callee) && customPropertyCalls.has(callee.name.text) && kindOfValue(w, w.checker.getTypeAtLocation(callee.expression)) === 'style') {
+    const first = call.arguments[0]
+    if (!first || !ts.isStringLiteralLike(first) || !first.text.startsWith('--')) {
+      w.report(call, 'code/dom-walking', `${callee.name.text} takes a custom property written out, such as '--progress'; other properties are styled in a CSS Module.`)
+    }
+  }
   if (ts.isIdentifier(callee) && timers.has(callee.text) && isGlobal(w, callee)) {
     const first = call.arguments[0]
     if (!first || w.checker.getSignaturesOfType(w.checker.getTypeAtLocation(first), ts.SignatureKind.Call).length === 0) w.report(call, 'code/string-timer', `${callee.text} takes a function, never a string of code.`)
@@ -363,9 +370,20 @@ const isDeclarationEscape = (node: ts.Node) =>
   ts.isModuleDeclaration(node) || ts.isImportEqualsDeclaration(node) || (ts.isExportAssignment(node) && node.isExportEquals === true) ||
   (ts.canHaveModifiers(node) && (ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword) ?? false))
 
+const openKeywords = new Set([ts.SyntaxKind.AnyKeyword, ts.SyntaxKind.UnknownKeyword])
+
+// An element typed any escapes every element and style check, so a theme never writes any or unknown, or leaves a parameter untyped.
+const openTypeMessage = 'Give every value its real type, such as useRef<HTMLDivElement>(null) or (e: MouseEvent<HTMLButtonElement>); a value typed any or unknown would go unchecked.'
+
+const reportOpenTypes = (w: Walk, node: ts.Node): void => {
+  if (openKeywords.has(node.kind)) return w.report(node, 'code/dom-walking', openTypeMessage)
+  ts.forEachChild(node, (child) => reportOpenTypes(w, child))
+}
+
 const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
   if (ts.isExpressionWithTypeArguments(node)) return visit(w, node.expression, files)
-  if (ts.isTypeNode(node) || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) return
+  if (ts.isTypeNode(node) || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) return reportOpenTypes(w, node)
+  if (ts.isParameter(node) && node.type === undefined && isOpen(w.checker.getTypeAtLocation(node))) w.report(node, 'code/dom-walking', openTypeMessage)
   if (isDeclarationEscape(node)) return w.report(node, 'code/declaration-not-allowed', "A theme may not declare names that exist elsewhere ('declare', 'namespace', 'import =', 'export =').")
   if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
     checkModule(w, node, files)
