@@ -24,8 +24,9 @@ export const handleCourierHook = async (
   allow: (key: string) => Promise<boolean>,
 ): Promise<Response> => {
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
-  // Unproven posts count against their sender only, so junk can't use up a partner's allowance for its real hooks.
-  if (!(await allow(`courier-hook-ip:${request.headers.get('cf-connecting-ip') ?? 'unknown'}`))) return new Response(null, { status: 429 })
+  // Per sender and partner before the proof: junk can't use up a partner's own allowance, and since each courier sends
+  // every partner's hooks from shared addresses, one partner's burst can't refuse another's.
+  if (!(await allow(`courier-hook-ip:${request.headers.get('cf-connecting-ip') ?? 'unknown'}:${hook.partnerId}`))) return new Response(null, { status: 429 })
   const read = await readCapped(request, maxBodyBytes)
   if (!read.ok) return new Response(null, { status: 413 })
   // No account, a partner that doesn't exist and a bad signature all answer alike, so the address can't be probed.
