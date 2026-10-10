@@ -18,10 +18,7 @@
     "accountOrder": "account/AccountPage",
     "policy": "PolicyPage",
     "notFound": "NotFoundPage",
-    "degraded": "DegradedPage",
-    "contentPage": "ContentPage",
-    "blog": "BlogPage",
-    "blogPost": "BlogPostPage"
+    "degraded": "DegradedPage"
   },
   "custom": {
     "/products/featured": "AboutPage"
