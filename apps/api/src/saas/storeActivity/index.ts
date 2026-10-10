@@ -41,6 +41,7 @@ export const storeActivityFilter = z
     from: z.iso.date().optional(),
     to: z.iso.date().optional(),
   })
+  .refine((f) => !f.from || !f.to || f.from <= f.to)
   .refine((f) => (f.personKind === undefined) === (f.personId === undefined))
 export type StoreActivityFilter = z.infer<typeof storeActivityFilter>
 
