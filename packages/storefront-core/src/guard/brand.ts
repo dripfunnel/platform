@@ -15,6 +15,9 @@ const digitValue = (c: string) => {
 const digits = (text: string) => text.replace(/\P{Nd}/gu, '').replace(/\p{Nd}/gu, digitValue)
 const bareLink = (url: string) => url.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '')
 
+// One written number: digits joined only by the spaces, dots, dashes and brackets a phone number uses.
+const phoneLike = /[+(\p{Nd}][\p{Nd} ().-]{5,40}\p{Nd}/gu
+
 type Field = { label: string; copies: (text: string) => boolean }
 
 const phrase = (label: string, value: string | null): Field[] => {
@@ -37,7 +40,7 @@ export const brandCopied = (brand: GuardContext['brand']): ((text: string) => st
     ...phrase('tagline', brand.tagline),
     ...brand.address.flatMap((line) => phrase('address', line)),
     ...(email ? [{ label: 'contact email', copies: (text: string) => text.toLowerCase().includes(email) }] : []),
-    ...(phone.length >= 7 ? [{ label: 'contact phone', copies: (text: string) => digits(text).includes(phone) }] : []),
+    ...(phone.length >= 7 ? [{ label: 'contact phone', copies: (text: string) => (text.match(phoneLike) ?? []).some((run) => digits(run).includes(phone)) }] : []),
     ...brand.socialLinks.map(bareLink).filter((link) => link.length >= 3).map((link) => ({ label: 'social link', copies: (text: string) => text.toLowerCase().includes(link) })),
   ]
   return (text) => {
