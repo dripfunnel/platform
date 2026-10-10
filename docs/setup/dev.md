@@ -148,24 +148,40 @@ The Store strand needs these before its cards can run against real services. Eac
 by a person (the account's owner signs the terms); the cards build against local adapters until
 then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 
-1. **Cloudflare**: no Pages project per store any more, and the hostname questions are answered
-   (THIRD-PARTY-ACCESS §2.1, checked 2026-10-09). Register `webpreview.store` and add its zone
-   (`../storefront/PREVIEW.md` §2), create the storefront buckets, and the R2 storefront upload
-   credential (`../storefront/LIVE-SHOP.md` §2, §9).
-2. **GitHub**: the *DripFunnel Provisioning* App with THIRD-PARTY-ACCESS §2.3's permissions
-   (repos, contents, workflows and actions; store repos need no package access, since the build
-   image is public) → `GITHUB_APP_*`.
-   **Cloudflare Containers** on the dev account: the limits and price THIRD-PARTY-ACCESS §2.1
-   asks to verify, recorded there with the date.
-3. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
+1. **Cloudflare, buckets** (dev account): create `storefront-sites` (private), `storefront-assets`
+   (made public through the asset host once #317 names it; keep the r2.dev address off until then) and `storefront-drafts` (private). Create the R2 storefront
+   upload credential (*Object Read & Write* on those three buckets only, able to create temporary
+   credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
+   `R2_STOREFRONT_SECRET_ACCESS_KEY`, and a cache purge token → `CF_CACHE_PURGE_TOKEN`
+   (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
+2. **Preview domain**: register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §8:
+   `webpreview.store` itself is prod's), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
+   `*.<domain>`, and confirm Universal SSL covers it. In Logpush leave out `ClientRequestURI`,
+   `ClientRequestPath` and `ClientRequestQuery` (`../api/LOGGING.md` §9, `../storefront/PREVIEW.md` §2). The Worker route is #517's.
+3. **Cloudflare Containers and Durable Objects**: enable both on the Cloudflare account you use for dev. Measure the cold
+   start of a 1.5–2 GB image at `basic` and `standard-1`, and record it with the date in
+   THIRD-PARTY-ACCESS §2.1. Ask for a raise only if the limits are below the studio load (AI-STUDIO §7).
+4. **GitHub**: the org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,
+   500 Enterprise; main's protection needs Team, ARCHITECTURE §6). Create
+   the *DripFunnel Provisioning* App with *Administration*, *Contents*, *Workflows* and *Actions*
+   write and *Metadata* read, **no webhook**; install it on the org → `GITHUB_APP_ID`,
+   `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`. Store repos need no package access.
+5. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
    redirect `https://dev-hooks.dripfunnel.ai/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
    row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
-4. **SMS**: MSG91 and Twilio test accounts for the house partner, and India's DLT registration
-   started (templates for codes and order updates). These are partner credentials, entered in
-   the partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
-5. **Sandboxes** for merchant testing: PayPal, Razorpay, Cashfree, PhonePe, Shiprocket and
+6. **SMS**: test accounts for the house partner. These are partner credentials, entered in the
+   partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
+   - **Twilio** (US, no wait): sign up and verify, keep the trial account's Account SID, Auth Token
+     and phone number. A trial texts only verified numbers: verify the team's.
+   - **MSG91** (India): sign up and verify the account. Delivery to Indian numbers waits for DLT.
+   - **India DLT** (start now, takes days): on an operator's DLT portal (Jio, Airtel or Vi; one
+     registration covers all) register DripFunnel as the **entity** (company documents, PAN,
+     authorised signatory letter), then a **sender ID**, then the **templates** (sign-in codes,
+     order updates). MSG91 asks for the entity and template ids once approved. Check the
+     portal for its current documents.
+7. **Sandboxes** for merchant testing: PayPal, Razorpay, Cashfree, PhonePe, Shiprocket and
    EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (THIRD-PARTY-ACCESS §3).
-6. `openssl rand -base64 32` → `PREVIEW_LINK_KEY`.
+8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY`.
 
 ---
 
@@ -197,9 +213,15 @@ Never reuse a value from local or production.
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
 | `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
 | ~~`CF_PAGES_POOL`~~ | — | — | Not needed since 2026-10-09: no Pages project per store; the R2 storefront upload credential replaces it (THIRD-PARTY-ACCESS §2.1, names on #317) |
-| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 3. Read since #309 |
+| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 5. Read since #309 |
 | `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout |
-| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 6). Needed from ST 1a |
+| `R2_STOREFRONT_ACCOUNT_ID` | Text | the Cloudflare account id | §2.8 item 1 |
+| `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's key pair | Shown once when the R2 token is created (§2.8 item 1) |
+| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token | Profile › API Tokens (§2.8 item 1) |
+| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
+| `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
+| `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §8); `preview.localhost` locally |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Needed from ST 1a |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
 "not connected" instead of failing. Leaving out part of a group does the same, so set each
