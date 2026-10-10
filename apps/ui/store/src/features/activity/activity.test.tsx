@@ -86,6 +86,8 @@ describe('the words of an entry', () => {
   it('names the person without their email, the agent behind a support session, and a code it doesn’t word', () => {
     expect(nameOf('Priya Shah <priya@example.com>')).toBe('Priya Shah')
     expect(nameOf(null)).toBe(w.system)
+    expect(nameOf('ananya@example.com')).toBe(w.unnamed)
+    expect(nameOf('ananya@example.com <ananya@example.com>')).toBe(w.unnamed)
     expect(actorOf(entries[0] as ActivityEntry)).toBe('Ravi Kumar')
     expect(doneOf(entries[1] as ActivityEntry)).toBe('refunded order KT-1031')
     expect(doneOf(entry({ id: 'x', action: 'store.something_new' }))).toBe('store.something_new')
@@ -108,15 +110,38 @@ describe('Store activity, for a Manager', () => {
     expect(screen.getByText('Main photo: a.jpg → b.jpg')).toBeTruthy()
     expect(screen.getByText('Reason: Ticket #4821')).toBeTruthy()
     expect((screen.getByRole('link', { name: 'Open Organic Tee' }) as HTMLAnchorElement).getAttribute('href')).toBe('/products/prod-1')
-    fireEvent.click(screen.getByRole('button', { name: 'Everything by Ravi' }))
+    fireEvent.click(screen.getByRole('button', { name: w.bySession }))
     await settle()
     expect(router.state.location.search).toMatchObject({ who: 'support_session:ss1' })
     expect(router.state.location.search).not.toHaveProperty('whoName')
     expect(api.loadActivity).toHaveBeenLastCalledWith({ person: { kind: 'support_session', id: 'ss1' }, what: null, search: '' }, null)
-    expect(screen.getByText('Showing everything by Ravi Kumar in this store.')).toBeTruthy()
+    // The filter is the session, so the line says so rather than naming the agent alone.
+    expect(screen.getByText('Showing everything by Ravi Kumar’s support session in this store.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: w.clearPerson }))
     await settle()
     expect(router.state.location.search).not.toHaveProperty('who')
+  })
+
+  it('keeps typing that goes on while the last search reaches the address', async () => {
+    const router = await show(manager)
+    const field = screen.getByLabelText(w.search) as HTMLInputElement
+    fireEvent.change(field, { target: { value: 'KT' } })
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 320)))
+    // The search for "KT" is on its way; more is typed before it lands.
+    fireEvent.change(field, { target: { value: 'KT-10' } })
+    await settle()
+    expect(router.state.location.search).toMatchObject({ q: 'KT' })
+    expect(field.value).toBe('KT-10')
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 350)))
+    await settle()
+    expect(router.state.location.search).toMatchObject({ q: 'KT-10' })
+    expect(field.value).toBe('KT-10')
+  })
+
+  it('names a person by their whole name, as the Person list does', async () => {
+    await show(manager)
+    fireEvent.click(screen.getByRole('button', { name: /Priya Shah refunded/ }))
+    expect(screen.getByRole('button', { name: 'Everything by Priya Shah' })).toBeTruthy()
   })
 
   it('keeps the filter in the address and searches once typing settles', async () => {

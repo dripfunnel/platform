@@ -8,7 +8,7 @@ import { startListExport, useListExport } from '../common/listExport'
 import '../settings/settings.css'
 import './activity.css'
 import type { ActivitySearch } from './activitySearch'
-import { actorOf, doneOf, kindOf, nameOf, personOf, targetLink } from './activityText'
+import { actorOf, doneOf, kindOf, nameOf, personOf, targetLink, whoseOf } from './activityText'
 
 const words = messages.activity
 const ex = words.exportWords
@@ -81,10 +81,19 @@ export const ActivityLog = ({ title, heading: Heading, search, onSearch, read, c
   }
 
   // Typing settles before it searches; the field keeps what is typed meanwhile.
-  useEffect(() => setTyped(q ?? ''), [q])
+  // Only a search that didn't come from this field (back, a link, Everyone) replaces what is typed.
+  const sent = useRef(q)
+  useEffect(() => {
+    if (q === sent.current) return
+    sent.current = q
+    setTyped(q ?? '')
+  }, [q])
   useEffect(() => {
     if (typed.trim() === (q ?? '')) return
-    const timer = setTimeout(() => onSearch({ who, what, q: typed.trim() || undefined }), typingMs)
+    const timer = setTimeout(() => {
+      sent.current = typed.trim() || undefined
+      onSearch({ who, what, q: sent.current })
+    }, typingMs)
     return () => clearTimeout(timer)
   }, [typed, who, what, q, onSearch])
 
@@ -99,7 +108,7 @@ export const ActivityLog = ({ title, heading: Heading, search, onSearch, read, c
     if (view.kind === 'ready')
       for (const entry of view.entries) {
         const person = personOf(entry)
-        if (person) seen.set(`${person.kind}:${person.id}`, { name: actorOf(entry), label: `${actorOf(entry)} · ${kindOf(entry.actor.kind)}` })
+        if (person) seen.set(`${person.kind}:${person.id}`, { name: whoseOf(entry), label: `${actorOf(entry)} · ${kindOf(entry.actor.kind)}` })
       }
     if (who && !seen.has(who)) seen.set(who, { name: words.thisPerson, label: words.thisPerson })
     return [...seen]
@@ -137,7 +146,7 @@ export const ActivityLog = ({ title, heading: Heading, search, onSearch, read, c
             <span className="df-act-links">
               {personOf(entry) && (
                 <button type="button" className="df-set-link" onClick={() => pickPerson(entry)}>
-                  {fill(words.byPerson, { name: actor.split(' ')[0] ?? actor })}
+                  {entry.actor.kind === 'support_session' ? words.bySession : fill(words.byPerson, { name: actor })}
                 </button>
               )}
               {link && entry.target?.label && (

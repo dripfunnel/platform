@@ -6,10 +6,18 @@ const words = messages.activity
 const actions: Record<string, string> = words.actions
 
 /** A label is "Name <email>" (LOGGING §4); a row names the person, as StoreActivity does. */
-export const nameOf = (label: string | null): string => (label ? label.replace(/\s*<[^>]*>\s*$/, '') : words.system)
+export const nameOf = (label: string | null): string => {
+  if (!label) return words.system
+  const name = label.replace(/\s*<[^>]*>\s*$/, '')
+  // A label that is only an address (a shopper without a name) is never shown: "a person's email is never shown".
+  return /^[^\s@<>]+@[^\s@<>]+$/.test(name) ? words.unnamed : name
+}
 
 /** Who did it: for a support session, the agent behind it (ACCESS §8, "Attribution"). */
 export const actorOf = (entry: ActivityEntry): string => (entry.actor.kind === 'support_session' && entry.onBehalfOf ? nameOf(entry.onBehalfOf.label) : nameOf(entry.actor.label))
+
+/** Whose entries a person filter shows: a support session's are that session's, not all of its agent's. */
+export const whoseOf = (entry: ActivityEntry): string => (entry.actor.kind === 'support_session' ? fill(words.sessionOf, { name: actorOf(entry) }) : actorOf(entry))
 
 /** The person filter's key for whoever did it: the session for support, as the API filters it. */
 export const personOf = (entry: ActivityEntry): { kind: string; id: string } | null => (entry.actor.id ? { kind: entry.actor.kind, id: entry.actor.id } : null)

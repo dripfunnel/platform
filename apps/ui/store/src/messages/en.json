@@ -5278,6 +5278,9 @@
     },
     "noneBody": "Try another person, another kind of change or a shorter search.",
     "emptyBody": "What your team, suppliers, apps, support and shoppers do here shows up as it happens.",
-    "thisPerson": "this person"
+    "thisPerson": "this person",
+    "bySession": "Everything in this support session",
+    "sessionOf": "{name}’s support session",
+    "unnamed": "Someone without a name"
   }
 }
