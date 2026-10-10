@@ -13,7 +13,7 @@ export const handleDownload = async (request: Request, ctx: ShopContext, files: 
   if (request.method !== 'GET') return new Response('Method not allowed', { status: 405 })
   const url = new URL(request.url)
   const { ip } = ctx.facts
-  if (!ip || !(await (ctx.allowAttempt ?? (async () => false))(`download:${url.hostname}:${ip}`))) return refusal(429, 'RATE_LIMITED', 'Too many tries. Wait a minute and try again.')
+  if (!ip || !(await (ctx.allowDownload ?? (async () => false))(`download:${url.hostname}:${ip}`))) return refusal(429, 'RATE_LIMITED', 'Too many tries. Wait a minute and try again.')
   const closed = () => refusal(404, 'LINK_CLOSED', 'This download link doesn’t work any more. Open your order to get a new one, or contact the shop.')
   if (!ctx.sql || !ctx.shopper || !ctx.downloadLinks || !files) return closed()
   const file = await openDownload({ sql: ctx.sql, storeId: ctx.shopper.context.storeId, signer: ctx.downloadLinks, files, now: ctx.now }, url.pathname.slice(downloadPath.length + 1))

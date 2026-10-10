@@ -1210,7 +1210,7 @@ information (S4)**, which is configuration only.
   Decided here: these kinds are the merchant's own, never a supplier's (ACCESS §7.1).
   **Part 2, delivery** (`deliverOrder`, run as a payment settles or is marked paid, never before;
   nothing for a preview's test order): a download's grant, served at `/shop-api/downloads/{grant}.{signature}`
-  from R2 as an attachment, rate-limited per host and address, with one refusal (`LINK_CLOSED`) for
+  from R2 as an attachment, rate-limited per host and address (`DOWNLOAD_RATE_LIMITER`, 30 a minute), with one refusal (`LINK_CLOSED`) for
   a link unknown, another shop's, expired, used up or of a refunded order; a key per unit from the
   pool, an order the pool ran dry for logged and given the next keys added; a gift card issued per
   gift card line (one card a line, for the recipient chosen last), emailed with its code at 08:00

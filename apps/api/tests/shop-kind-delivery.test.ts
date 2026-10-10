@@ -126,7 +126,7 @@ const orderView = async (orderId: string, token: string) =>
   }
 const fetchDownload = async (url: string, allow = true) => {
   const target = new URL(url)
-  const context = { ...(await shopContext(target.host, null)), allowAttempt: async () => allow }
+  const context = { ...(await shopContext(target.host, null)), allowAttempt: async () => false, allowDownload: async () => allow }
   const response = await handleDownload(new Request(url), context, files)
   return { status: response.status, text: await response.text(), disposition: response.headers.get('content-disposition') }
 }
@@ -294,6 +294,15 @@ describe('delivery', () => {
     expect(refused.status).toBe(404)
     expect(refused.text).toContain('LINK_CLOSED')
     expect(await emailFor({ template: 'order-downloads', orderId: bought.orderId })).toEqual({ send: false, reason: 'link_closed' })
+  })
+
+  it('never sends a gift card whose order was refunded before its day', async () => {
+    const bought = await placed([{ versionId: v.card, gift: meera }])
+    expect(await markPaid(bought.orderId)).toBe(true)
+    const [card] = await db.sql<{ id: string }[]>`select g.id from gift_card g join order_line l on l.id = g.order_line_id where l.order_id = ${bought.orderId}`
+    expect((await merchant(`mutation { cancelOrder(orderId: "${bought.orderId}", reason: store) }`)).data?.['cancelOrder']).toBe(true)
+    expect(await emailFor({ template: 'gift-card', giftCardId: card?.id ?? '' })).toEqual({ send: false, reason: 'link_closed' })
+    expect(await db.sql`select code_hash, sent_at from gift_card where id = ${card?.id ?? ''}`).toEqual([{ code_hash: null, sent_at: null }])
   })
 
   it('hands nothing out for a preview’s test order', async () => {

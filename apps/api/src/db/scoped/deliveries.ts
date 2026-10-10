@@ -162,7 +162,8 @@ export interface GiftCardToSendRow {
 
 /**
  * The card's code set as its email is composed, once: the code lives only in that email, so a card already sent is
- * never sent again (its code can't be shown twice). Null for one sent, disabled or unknown.
+ * never sent again (its code can't be shown twice). Null for one sent, disabled or unknown, and for one whose order was
+ * refunded in full or cancelled before its day.
  */
 export const markGiftCardSent = async (tx: ScopedSql, id: string, code: { hash: string; last4: string }, at: Date): Promise<GiftCardToSendRow | null> =>
   (
@@ -171,6 +172,7 @@ export const markGiftCardSent = async (tx: ScopedSql, id: string, code: { hash: 
         expires_at = case when g.expiry_months is null then null else ${at}::timestamptz + make_interval(months => g.expiry_months) end, updated_at = ${at}
       from store s
       where g.id = ${id} and s.id = g.store_id and g.code_hash is null and g.status = 'active'
+        and (g.order_line_id is null or exists (select 1 from order_line l join "order" o on o.id = l.order_id where l.id = g.order_line_id and ${handedOut(tx)}))
       returning g.id, g.store_id, s.partner_id, s.name as store_name, s.main_language as locale, g.currency, g.balance_amount::text as balance_amount,
         g.recipient_name, g.recipient_email, g.message, g.expires_at
     `
