@@ -142,6 +142,8 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       tax: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.tax_amount), currency: o.currency }) }),
       pricesIncludeTax: t.exposeBoolean('tax_inclusive'),
       total: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.total_amount), currency: o.currency }) }),
+      // What a gift card paid of the total; the rest is the order's payment.
+      giftCard: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.gift_card_amount), currency: o.currency }) }),
       // A paid order's downloads and the keys it took (CATALOG T14); none before payment.
       downloads: t.field({
         type: [DownloadType],

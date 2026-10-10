@@ -1,5 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { createCartService, type CartAddress, type CartGift, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView } from '#engine/modules/cart/index'
+import { findGiftCard, type GiftCardView } from '#engine/modules/giftCards/index'
 import type { DeliveryOption } from '#engine/modules/shipping/index'
 import { shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
@@ -16,11 +17,22 @@ const words: Record<CartRefusal, string> = {
   NOT_READY: 'There’s something to finish before you pay.',
   RATE_LIMITED: 'Too many new carts from here. Wait a minute and try again.',
   TOO_MANY_CODES: 'Your cart already holds five codes. Remove one to add another.',
+  GIFT_CARD_INVALID: 'That number doesn’t match a gift card. Check it and try again.',
+  NOT_IN_PREVIEW: 'Gift cards can’t be used on a preview of the shop.',
 }
 
 const answered = <T>(result: CartResult<T>): T => {
   if (result.ok) return result.value
   throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(result.problems ? { problems: result.problems } : {}) } })
+}
+
+/** Gift card numbers tried per store and address, with the offer codes' limiter, so a script can't walk the space. */
+const giftCardAttempt = async (ctx: ShopContext): Promise<void> => {
+  const { shopper } = shopOf(ctx)
+  const { ip } = ctx.facts
+  if (ip === null || !ctx.allowCodeAttempt || !(await ctx.allowCodeAttempt(`gift-card:${shopper.context.storeId}:${ip}`))) {
+    throw new GraphQLError('Too many numbers tried. Wait a minute and try again.', { extensions: { code: 'RATE_LIMITED' } })
+  }
 }
 
 export const cartOf = async (ctx: ShopContext) => {
@@ -29,7 +41,7 @@ export const cartOf = async (ctx: ShopContext) => {
   // A guest's new carts are counted per store and address, so a script can't fill the table.
   const { ip } = ctx.facts
   const allowNewCart = async () => ip !== null && (await ctx.allowNewCart(`cart:${shopper.context.storeId}:${ip}`))
-  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, stripeTax: stripeTaxOf(ctx), activity: ctx.activity, facts: ctx.facts, allowNewCart, now: ctx.now })
+  return createCartService({ sql, context: shopper.context, language: shopper.language, currency: shopper.currency, marketId: shopper.marketId, features: shopper.features, couriers, stripeTax: stripeTaxOf(ctx), activity: ctx.activity, facts: ctx.facts, allowNewCart, preview: shopper.preview, now: ctx.now })
 }
 
 export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
@@ -139,10 +151,25 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       shippingDiscount: t.field({ type: Money_, nullable: true, resolve: (c) => c.shippingDiscount }),
       tax: t.field({ type: Tax, nullable: true, resolve: (c) => c.tax }),
       total: t.field({ type: Money_, resolve: (c) => c.total }),
+      giftCard: t.field({ type: AppliedGiftCard, nullable: true, resolve: (c) => c.giftCard }),
+      // The total less the gift card's part: what placeOrder takes payment for; 0 is placed with provider "gift_card".
+      amountDue: t.field({ type: Money_, resolve: (c) => c.amountDue }),
       // EMPTY, LINE_PROBLEM, NO_CONTACT, NO_ADDRESS, NO_SHIPPING, SHIPPING_UNAVAILABLE, TAX_UNAVAILABLE.
       problems: t.stringList({ resolve: (c) => c.problems }),
       readyToPay: t.boolean({ resolve: (c) => c.problems.length === 0 && c.checkoutStep === 'pay' }),
     }),
+  })
+  const AppliedGiftCard = builder.objectRef<NonNullable<CartView['giftCard']>>('ShopAppliedGiftCard').implement({
+    fields: (t) => ({
+      last4: t.exposeString('last4'),
+      balance: t.field({ type: Money_, resolve: (g) => g.balance }),
+      // What it takes off this cart.
+      applied: t.field({ type: Money_, resolve: (g) => g.applied }),
+      expiresAt: t.string({ nullable: true, resolve: (g) => g.expiresAt?.toISOString() ?? null }),
+    }),
+  })
+  const Balance = builder.objectRef<GiftCardView>('ShopGiftCardBalance').implement({
+    fields: (t) => ({ balance: t.field({ type: Money_, resolve: (g) => g.balance }), expiresAt: t.string({ nullable: true, resolve: (g) => g.expiresAt?.toISOString() ?? null }) }),
   })
   const Change = builder.objectRef<CartChange>('ShopCartChange').implement({
     fields: (t) => ({
@@ -176,6 +203,20 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
 
   builder.queryFields((t) => ({
     cart: t.field({ type: Cart, nullable: true, extensions: { access: read }, resolve: async (_, __, ctx) => (await cartOf(ctx)).cart() }),
+    // "Check what's left on a gift card" (Account › Gift cards): the one refusal for any number that opens no card here.
+    giftCardBalance: t.field({
+      type: Balance,
+      args: { number: t.arg.string({ required: true }) },
+      extensions: { access: read },
+      resolve: async (_, args, ctx) => {
+        if (args.number.length > 40) throw new GraphQLError(words.GIFT_CARD_INVALID, { extensions: { code: 'GIFT_CARD_INVALID' } })
+        await giftCardAttempt(ctx)
+        const { sql, shopper } = shopOf(ctx)
+        const card = await findGiftCard(sql, shopper.context.storeId, args.number, ctx.now())
+        if (!card) throw new GraphQLError(words.GIFT_CARD_INVALID, { extensions: { code: 'GIFT_CARD_INVALID' } })
+        return card
+      },
+    }),
   }))
 
   builder.mutationFields((t) => ({
@@ -231,6 +272,19 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       resolve: async (_, args, ctx) => answered(await (await cartOf(ctx)).setShippingOption(args.option)),
     }),
     // "Discount code or coupon": the code's state, and the cart priced with it; a code that can't work comes back off.
+    // A gift card's number at the payment step (FIRST-RELEASE §19): rate-limited per store and address, one refusal for any
+    // number that opens no card here.
+    applyGiftCard: t.field({
+      type: Change,
+      args: { number: t.arg.string({ required: true }) },
+      extensions: { access: write },
+      resolve: async (_, args, ctx) => {
+        bounded(args.number)
+        await giftCardAttempt(ctx)
+        return answered(await (await cartOf(ctx)).applyGiftCard(args.number))
+      },
+    }),
+    removeGiftCard: t.field({ type: Change, extensions: { access: write }, resolve: async (_, __, ctx) => answered(await (await cartOf(ctx)).removeGiftCard()) }),
     applyCode: t.field({
       type: Applied,
       args: { code: t.arg.string({ required: true }) },

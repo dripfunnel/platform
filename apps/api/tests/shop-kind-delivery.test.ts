@@ -253,7 +253,7 @@ describe('isolation', () => {
   })
   const merchantOf = (storeId: string, seller: string | null = null): TenantContext => ({ caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: t.partnerA, storeId, sellerScope: seller ? { kind: 'seller', sellerId: seller } : { kind: 'all' }, subscription: 'active' })
 
-  it('shows a download and a key only to the guest whose order took it, and a gift card to no request role at all', async () => {
+  it('shows a download and a key only to the guest whose order took it, and a gift card to no shopper', async () => {
     expect(await withScope(db.sql, await guest(order.token), (tx) => tx`select id from order_download`)).toHaveLength(1)
     expect(await withScope(db.sql, await guest(order.token), (tx) => tx`select key from licence_key`)).toEqual([{ key: 'KEY-ONE' }])
     expect(await withScope(db.sql, await guest('f'.repeat(64)), (tx) => tx`select id from order_download`)).toHaveLength(0)
@@ -261,8 +261,10 @@ describe('isolation', () => {
     await expect(withScope(db.sql, await guest(order.token), (tx) => tx`update order_download set uses_left = 99`)).rejects.toThrow(/permission denied/)
     for (const table of ['gift_card', 'gift_card_movement']) {
       await expect(withScope(db.sql, await guest(order.token), (tx) => tx.unsafe(`select id from ${table}`))).rejects.toThrow(/permission denied/)
-      await expect(withScope(db.sql, merchantOf(stores.kesari), (tx) => tx.unsafe(`select id from ${table}`))).rejects.toThrow(/permission denied/)
     }
+    // The merchant side reads its cards issued (part 3), never their ledger rows or a code's hash.
+    await expect(withScope(db.sql, merchantOf(stores.kesari), (tx) => tx`select id from gift_card_movement`)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, merchantOf(stores.kesari), (tx) => tx`select code_hash from gift_card`)).rejects.toThrow(/permission denied/)
     expect(await withScope(db.sql, merchantOf(stores.kesari), (tx) => tx`select id from order_download`)).not.toHaveLength(0)
     expect(await withScope(db.sql, merchantOf(stores.surat), (tx) => tx`select id from order_download`)).toHaveLength(0)
     await expect(withScope(db.sql, merchantOf(stores.kesari, t.sellerA1First), (tx) => tx`select id from order_download`)).rejects.toThrow(/permission denied/)

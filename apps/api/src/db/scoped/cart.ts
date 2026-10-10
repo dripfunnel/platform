@@ -39,6 +39,8 @@ export interface CartRow {
   revision: number
   /** The codes the shopper typed, as typed after normalising; the engine decides what each does (OFFERS fact 6). */
   promotion_codes: string[]
+  /** The gift card the engine put on it (migration 0112); never the shopper's to write. */
+  gift_card_id: string | null
   lines: { version_id: string; quantity: number; gift: CartGift | null }[]
 }
 
@@ -47,7 +49,7 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
   (
     await tx<CartRow[]>`
       select o.id, o.customer_id, o.email, o.phone, o.currency, o.market_id, o.shipping_address, o.billing_address, o.shipping_option,
-        o.shopper_note, o.checkout_step, o.revision, to_json(o.promotion_codes) as promotion_codes,
+        o.shopper_note, o.checkout_step, o.revision, to_json(o.promotion_codes) as promotion_codes, o.gift_card_id,
         coalesce((select json_agg(json_build_object('version_id', l.version_id, 'quantity', l.quantity, 'gift', case when l.gift_recipient_email is null then null else json_build_object(
           'recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'message', l.gift_message, 'sendOn', l.gift_send_on) end) order by l.added_at, l.version_id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
       from "order" o

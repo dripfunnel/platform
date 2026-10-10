@@ -6,12 +6,14 @@ type Image {
 type Mutation {
   addToCart(gift: ShopGiftCardInput, quantity: Int!, versionId: ID!): ShopCartChange
   applyCode(code: String!): ShopCodeResult
+  applyGiftCard(number: String!): ShopCartChange
   checkout: ShopCart
   confirmPayment(orderId: ID!): ShopOrder
   deleteAddress(id: ID!): Boolean
   payOrder(orderId: ID!): ShopPaymentStart
   placeOrder(provider: String!): ShopPlacedOrder
   removeCode(code: String!): ShopCartChange
+  removeGiftCard: ShopCartChange
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
   saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
   setBillingAddress(address: ShopAddressInput): ShopCartChange
@@ -37,6 +39,7 @@ type Query {
   cart: ShopCart
   collection(slug: String!): ShopCollection
   collections(after: String, before: String, first: Int): ShopCollectionPage
+  giftCardBalance(number: String!): ShopGiftCardBalance
   health: String
   menu: [ShopMenuItem!]
   order(id: ID!): ShopOrder
@@ -88,12 +91,20 @@ type ShopAddressLines {
   region: String
 }
 
+type ShopAppliedGiftCard {
+  applied: ShopMoney
+  balance: ShopMoney
+  expiresAt: String
+  last4: String
+}
+
 type ShopBadge {
   label: String
   tone: String
 }
 
 type ShopCart {
+  amountDue: ShopMoney
   billingAddress: ShopAddressLines
   checkoutStep: String
   codes: [ShopCartCode!]
@@ -102,6 +113,7 @@ type ShopCart {
   discount: ShopMoney
   discounts: [ShopCartDiscount!]
   email: String
+  giftCard: ShopAppliedGiftCard
   id: ID
   lines: [ShopCartLine!]
   needsShipping: Boolean
@@ -230,6 +242,11 @@ type ShopFlags {
   hazardous: Boolean
 }
 
+type ShopGiftCardBalance {
+  balance: ShopMoney
+  expiresAt: String
+}
+
 type ShopGiftCardDetails {
   expiryMonths: Int
 }
@@ -290,6 +307,7 @@ type ShopOrder {
   discount: ShopMoney
   discounts: [ShopOrderDiscount!]
   downloads: [ShopOrderDownload!]
+  giftCard: ShopMoney
   id: ID
   licenceKeys: [ShopOrderLicenceKey!]
   lines: [ShopOrderLine!]

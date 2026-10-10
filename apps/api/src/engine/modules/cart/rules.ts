@@ -1,4 +1,5 @@
 import { isCountry } from '#core/countries'
+import { cleanEmail } from '#core/email'
 import { isE164 } from '#core/sms'
 import type { Money } from '#core/money'
 import type { CartAddress, CartGift } from '#db/scoped/cart'
@@ -43,12 +44,11 @@ export const cleanAddress = (input: AddressInput): CartAddress | null => {
   return address
 }
 
-const email = /^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{2,}$/
-
 export const cleanContact = (input: { email?: string | null | undefined; phone?: string | null | undefined }): { email: string | null; phone: string | null } | null => {
-  const e = input.email?.trim().toLowerCase() || null
+  const typed = input.email?.trim() || null
+  const e = typed === null ? null : cleanEmail(typed)
   const p = input.phone?.trim().replaceAll(/[\s-]/g, '') || null
-  if ((e !== null && (e.length > 254 || !email.test(e))) || (p !== null && !isE164(p))) return null
+  if ((typed !== null && e === null) || (p !== null && !isE164(p))) return null
   return { email: e, phone: p }
 }
 

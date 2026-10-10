@@ -441,6 +441,26 @@ input InvoiceSettingsInput {
   taxPerLine: Boolean!
 }
 
+type IssuedGiftCard {
+  amount: Money
+  balance: Money
+  createdAt: String
+  expiresAt: String
+  id: ID
+  last4: String
+  recipientEmail: String
+  recipientName: String
+  sendOn: String
+  sentAt: String
+  source: String
+  status: String
+}
+
+type IssuedGiftCardPage {
+  nodes: [IssuedGiftCard!]
+  pageInfo: PageInfo
+}
+
 type Market {
   active: Boolean
   countries: [String!]
@@ -607,6 +627,7 @@ type Mutation {
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
+  issueGiftCard(productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   pauseOffer(id: ID!): Boolean
@@ -1529,6 +1550,7 @@ type Query {
   customers(after: String, before: String, first: Int, groupId: ID, search: String): CustomerPage
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
+  giftCards(after: String, before: String, first: Int, productId: ID!): IssuedGiftCardPage
   health: String
   invoiceSettings: InvoiceSettings
   market(id: ID!): Market

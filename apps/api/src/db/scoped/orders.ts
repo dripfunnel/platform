@@ -1,4 +1,5 @@
 import type { CartGift } from './cart'
+import { restoreGiftCard } from './giftCards'
 import { pgArray, type ScopedSql } from './index'
 import { releaseUses } from './promotions'
 
@@ -180,6 +181,9 @@ export const releaseStock = async (tx: ScopedSql, storeId: string, orderId: stri
 }
 
 export const cancelOrder = async (tx: ScopedSql, storeId: string, orderId: string, reason: 'unpaid_transfer' | 'unpaid' | 'shopper' | 'store' | 'out_of_stock', now: Date): Promise<void> => {
+  // An unpaid order gives its gift card back whole; a paid one's share went back with its refund (orders/refunds.ts).
+  const [unpaid] = await tx<{ amount: string }[]>`select gift_card_amount::text as amount from "order" where id = ${orderId} and store_id = ${storeId} and payment_state = 'pending' and state = 'placed'`
+  if (unpaid) await restoreGiftCard(tx, storeId, orderId, BigInt(unpaid.amount), now)
   await tx`
     update "order" set state = 'cancelled', cancelled_at = ${now}, cancel_reason = ${reason}, stock_reserved = false, payment_due_by = null, updated_at = ${now}, revision = revision + 1
     where id = ${orderId} and store_id = ${storeId}
@@ -227,6 +231,8 @@ export interface ShopOrderRow {
   shipping_amount: string
   tax_amount: string
   total_amount: string
+  /** What a gift card paid (migration 0112). */
+  gift_card_amount: string
   tax_inclusive: boolean
   shipping_method_label: string | null
   shipping_option: 'courier' | 'flat' | 'pickup' | null
@@ -245,7 +251,7 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
   (
     await tx<ShopOrderRow[]>`
       select o.id, o.number, o.state, o.payment_state, o.payment_method, o.email, o.phone, o.currency, o.subtotal_amount::text as subtotal_amount,
-        o.discount_amount::text as discount_amount, o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.tax_inclusive,
+        o.discount_amount::text as discount_amount, o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.gift_card_amount::text as gift_card_amount, o.tax_inclusive,
         o.shipping_method_label, o.shipping_option, o.placed_at, o.payment_due_by,
         coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', l.quantity,
           'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text, 'gift', case when l.gift_recipient_email is null then null

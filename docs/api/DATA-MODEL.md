@@ -1502,8 +1502,13 @@ gift_card_movement  (id, gift_card_id, store_id, kind ('issued'|'redeemed'|'rest
                     -- built on #323 (0111): a paid gift card line issues one card, worth the line's
                     -- price before offers; its code is minted as its email is composed, on the
                     -- morning of send_on in the store's time zone, kept only as a hash salted with
-                    -- the store, and its expiry counts from sending. Inside the store, system scope
-                    -- only (part 3 adds the merchant's read and the shopper's redemption).
+                    -- the store, and its expiry counts from sending. Inside the store: every write in
+                    -- system scope; the merchant side reads every column but code_hash (#323, 0112).
+                    -- Redemption (0112): "order".gift_card_id (put on a cart by the engine once its
+                    -- code opens a card of the store in the cart's currency) and gift_card_amount
+                    -- (what placement took, under the card's row lock; the payment is for the rest,
+                    -- payment_method 'gift_card' when it covers all). An unpaid cancellation gives it
+                    -- back whole; a refund goes to the payment first, the rest onto the card
                     -- cart_line and order_line hold the recipient (gift_recipient_name, _email,
                     -- gift_message, gift_send_on); a gift card line is one card (#323)
 payment             (id, order_id, store_id, provider, provider_account_id, provider_ref, kind
@@ -2033,7 +2038,8 @@ decide which columns and which tables each caller kind may select at all**. `app
   `cart_reminder_flow`, `cart_reminder_step`, `store_ai_account`, `store_billing_details`,
   `licence_key` (merchant side only: `insert` and a count, never `select` on `key`; its **shop
   branch** is the keys its own order took, through `order_line`'s; #323), `order_download` (shop
-  branch through its order), `gift_card`, `gift_card_movement` (system scope only so far; #323),
+  branch through its order), `gift_card` (the merchant side reads it, never `code_hash`), `gift_card_movement`
+  (system scope only; #323),
   and every settings table in §7.2 not named in the next class. `"order"` alone also has
   the **shop branch** (built on #308, migration 0066) `customer_id = app.customer_id OR (customer_id IS NULL AND
   access_token_hash = current_order_token_hash())`, where `current_order_token_hash()` is an `app_definer` function

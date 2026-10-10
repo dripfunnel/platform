@@ -1215,6 +1215,13 @@ information (S4)**, which is configuration only.
   pool, an order the pool ran dry for logged and given the next keys added; a gift card issued per
   gift card line (one card a line, for the recipient chosen last), emailed with its code at 08:00
   in the store's time zone on the day chosen. The order page and an email list the links and keys.
+  **Part 3, gift cards** (`giftCards`, `issueGiftCard`; Shop API `giftCardBalance`, `applyGiftCard`,
+  `removeGiftCard`, `ShopCart.amountDue`, `placeOrder(provider: "gift_card")`): a number checked in the
+  shop's own store only, rate-limited per store and address with the offer codes' limiter, one
+  refusal (`GIFT_CARD_INVALID`) for a wrong, unsent, expired or used-up card or another store's; a
+  card is spent only in its own currency and never on a preview; placement takes what it applies
+  under the card's lock, so a second order priced against the same balance is told
+  `CART_CHANGED`. "Issue a card" (Owner and Manager) gives one of the product's amounts by email.
 - T15. **Vendors across borders**: a vendor may be in a different country from the merchant
   (e.g. a UK merchant with a Chinese supplier). Country of origin, importer and customs
   details default from the vendor, not the merchant (decided 2026-10-05 on #337).
