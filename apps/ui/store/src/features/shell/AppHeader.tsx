@@ -62,6 +62,8 @@ export const AppHeader = ({ me, seat, current, stores, brand, menuOpen, onOpenMe
         themeStorageKey="df-store-theme"
         items={[
           { key: 'profile', label: words.userMenu.profile, to: '/profile' },
+          // A Manager reads the store's log here; the Owner has it in Settings (FIRST-RELEASE §15).
+          ...(seat.side === 'merchant' && seat.role === 'manager' ? [{ key: 'activity', label: words.userMenu.activity, to: '/activity' }] : []),
           { key: 'switch', label: words.userMenu.switchStore, to: '/stores' },
           { key: 'signOut', label: words.userMenu.signOut, to: '/sign-in', onSelect: signOut },
         ]}

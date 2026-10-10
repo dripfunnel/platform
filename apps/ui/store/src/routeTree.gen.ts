@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as StoresRouteImport } from './routes/stores'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppActivityRouteImport } from './routes/_app/activity'
 import { Route as AppBillingRouteImport } from './routes/_app/billing'
 import { Route as AppCartsRouteImport } from './routes/_app/carts'
 import { Route as AppCollectionsRouteImport } from './routes/_app/collections'
@@ -59,6 +60,11 @@ const StoresRoute = StoresRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBillingRoute = AppBillingRouteImport.update({
@@ -211,6 +217,7 @@ const AppProductsProductIdStoryRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/stores': typeof StoresRoute
+  '/activity': typeof AppActivityRoute
   '/billing': typeof AppBillingRoute
   '/carts': typeof AppCartsRoute
   '/collections': typeof AppCollectionsRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/stores': typeof StoresRoute
+  '/activity': typeof AppActivityRoute
   '/billing': typeof AppBillingRoute
   '/carts': typeof AppCartsRoute
   '/collections': typeof AppCollectionsRoute
@@ -279,6 +287,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
   '/stores': typeof StoresRoute
+  '/_app/activity': typeof AppActivityRoute
   '/_app/billing': typeof AppBillingRoute
   '/_app/carts': typeof AppCartsRoute
   '/_app/collections': typeof AppCollectionsRoute
@@ -315,6 +324,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/stores'
+    | '/activity'
     | '/billing'
     | '/carts'
     | '/collections'
@@ -348,6 +358,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/stores'
+    | '/activity'
     | '/billing'
     | '/carts'
     | '/collections'
@@ -382,6 +393,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/stores'
+    | '/_app/activity'
     | '/_app/billing'
     | '/_app/carts'
     | '/_app/collections'
@@ -449,6 +461,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/activity': {
+      id: '/_app/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/billing': {
@@ -658,6 +677,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppActivityRoute: typeof AppActivityRoute
   AppBillingRoute: typeof AppBillingRoute
   AppCartsRoute: typeof AppCartsRoute
   AppCollectionsRoute: typeof AppCollectionsRoute
@@ -684,6 +704,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppActivityRoute: AppActivityRoute,
   AppBillingRoute: AppBillingRoute,
   AppCartsRoute: AppCartsRoute,
   AppCollectionsRoute: AppCollectionsRoute,
