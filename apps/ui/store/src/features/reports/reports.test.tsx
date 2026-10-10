@@ -136,6 +136,19 @@ describe('the Reports screen', () => {
     expect(screen.getByText(/· 5 orders$/)).toBeTruthy()
   })
 
+  it('takes the supplier card away while another range’s units load, never showing the range before’s', async () => {
+    await show(owner)
+    expect(panel(words.suppliers.title).getByText('23 units')).toBeTruthy()
+    let answer90: (rows: ReportSuppliers) => void = () => undefined
+    api.loadReportSuppliers.mockReturnValueOnce(new Promise<ReportSuppliers>((resolve) => (answer90 = resolve)))
+    fireEvent.click(screen.getByRole('button', { name: '90 days' }))
+    await settle()
+    expect(screen.getByRole('region', { name: words.takings.title })).toBeTruthy()
+    expect(screen.queryByRole('region', { name: words.suppliers.title })).toBeNull()
+    await act(async () => answer90([{ supplierId: 's1', name: 'Northwind', units: 70 }]))
+    expect(panel(words.suppliers.title).getByText('70 units')).toBeTruthy()
+  })
+
   it('shows the Owner the locked view naming the plan, with the way to Billing', async () => {
     api.loadReport.mockRejectedValue(planLimit('Growth'))
     await show(owner)

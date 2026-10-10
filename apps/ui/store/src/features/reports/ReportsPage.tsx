@@ -108,6 +108,8 @@ export const ReportsPage = () => {
     const mine = ++latestSuppliers.current
     if (sample) return setSuppliers(sample.suppliers === 'locked' ? { kind: 'locked', plan: samplePlans.export } : { kind: 'ready', rows: sample.suppliers })
     if (forced || !seat.canRead) return setSuppliers({ kind: 'hidden' })
+    // The card leaves until this range's units arrive, so it never shows another range's.
+    setSuppliers({ kind: 'loading' })
     void loadReportSuppliers(days, currency).then(
       (rows) => {
         if (mine === latestSuppliers.current) setSuppliers({ kind: 'ready', rows })
