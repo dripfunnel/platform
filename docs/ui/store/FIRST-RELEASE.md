@@ -287,8 +287,8 @@ check. Every figure is the API's (`home`, §19).
   for staying unpaid is cancelled by the system and logged as such (LOGGING §3).
 - **Built on #314, part 1** (`apps/ui/store/src/features/orders/`, `/orders`): the list with its chips and counts
   (a supplier's four, its part's), search, pages of 25 and Export as a job the shell follows, each row's number, time,
-  shopper and city (a supplier's "For {store}" and where it sends them), status, total and payment; Staff see no money,
-  as PortalOrders draws it. Decided there: a row says how many items, not their names, since `orders` answers a count;
+  shopper and city (a supplier's "For {store}" and where it sends them), status, total and payment; Staff see the money
+  too, since ACCESS §5.1 gives them `orders.read` and the API answers them (PortalOrders hides it). Decided there: a row says how many items, not their names, since `orders` answers a count;
   times are the store's zone (`storeInfo.timeZone`; a supplier's UTC), named once above the list rather than on every
   row; "Copy your store link" waits for the portal to know the shop's address (§4). `?state=` per `orderStates.ts`.
 - **Built on #314, part 2** (`/orders/$orderId`): an order's lines by who packs them, payment, the shopper and the
@@ -607,6 +607,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Sign-in counts down the tries left and shows the paused screen after five wrong passwords | Every wrong password gets the same "don't match" answer; only the right password, during the pause, is told it is paused (ACCESS §2: never reveal an account) | rule |
 | README §4's "To approve" and "Suppliers" menu rows | The prototype's: approval in Products, suppliers in Settings (§3.1) | behaviour, decided here |
 | Customers export is offered to Owner and Manager | Staff too (§1) | behaviour, decided |
+| Orders hide totals and payment from Staff | Staff see them: ACCESS §5.1 gives Staff `orders.read`, and the API answers it (decided on #314's review) | rule |
 | ~~No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload~~ | Drawn by SUI 1 (#286) | resolved |
 | Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | WhatsApp reminders ship with email, through MSG91 (decided 2026-10-05 on #337) | scope, decided |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |

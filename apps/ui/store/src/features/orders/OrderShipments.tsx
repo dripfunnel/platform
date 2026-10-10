@@ -14,6 +14,8 @@ export interface OrderShipmentsProps {
   canTrack: (shipment: OrderShipment) => boolean
   busy: boolean
   error: string | null
+  /** A tracking form opened or closed: its last refusal is cleared. */
+  onFormChange: () => void
   onTrack: (shipment: OrderShipment, courierName: string | null, trackingNumber: string, trackingUrl: string | null) => void
 }
 
@@ -25,8 +27,12 @@ const whenText = (s: OrderShipment, timeZone: string) => {
 }
 
 /** What has left: each shipment's items and tracking, and adding tracking to one sent without it (`addTracking`). */
-export const OrderShipments = ({ order, timeZone, canTrack, busy, error, onTrack }: OrderShipmentsProps) => {
-  const [open, setOpen] = useState<string | null>(null)
+export const OrderShipments = ({ order, timeZone, canTrack, busy, error, onFormChange, onTrack }: OrderShipmentsProps) => {
+  const [open, setOpenId] = useState<string | null>(null)
+  const setOpen = (id: string | null) => {
+    onFormChange()
+    setOpenId(id)
+  }
   const names = new Map(order.parts.flatMap((p) => p.lines.map((l) => [l.id, lineName(l)] as const)))
   if (order.shipments.length === 0) return null
   return (

@@ -8,7 +8,7 @@ import { locale } from '../../messages'
 
 export interface OrdersAccess {
   supplier: boolean
-  /** Totals and payment: the merchant side's, but never Staff's (PortalOrders `money`). */
+  /** Totals and payment: every merchant seat's, Staff included (ACCESS §5.1 `orders.read`); a supplier reads none. */
   money: boolean
   canShip: boolean
   canMarkPaid: boolean
@@ -19,12 +19,12 @@ export interface OrdersAccess {
   readOnly: boolean
 }
 
-export const ordersAccessOf = (acting: { role: string; permissions: readonly string[]; seller: unknown }, readOnly: boolean): OrdersAccess => {
+export const ordersAccessOf = (acting: { permissions: readonly string[]; seller: unknown }, readOnly: boolean): OrdersAccess => {
   const has = (p: string) => acting.permissions.includes(p)
   const supplier = acting.seller !== null
   return {
     supplier,
-    money: !supplier && acting.role !== 'staff',
+    money: !supplier,
     canShip: has('orders.fulfil'),
     canMarkPaid: !supplier && has('orders.mark_paid'),
     canCancel: !supplier && has('orders.write'),

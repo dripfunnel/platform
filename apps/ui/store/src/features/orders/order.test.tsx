@@ -243,11 +243,60 @@ describe('an order’s page', () => {
     await show(staff, { ...placed, paymentState: 'pending', paymentMethod: 'cod' })
     expect((button(words.actions.markPaid) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText(words.staffOnly)).toBeTruthy()
-    // Staff see no money, so no Payment card either.
-    expect(screen.queryByRole('region', { name: words.totals.title })).toBeNull()
+    // Staff read the order's money (ACCESS §5.1), so the Payment card is theirs too.
+    expect(within(screen.getByRole('region', { name: words.totals.title })).getByText('Cash on delivery')).toBeTruthy()
     cleanup()
     await show(owner, { ...placed, paymentState: 'pending', paymentMethod: 'stripe' })
     expect(screen.queryByRole('button', { name: words.actions.markPaid })).toBeNull()
+  })
+
+  it('gives a supplier no Cancel and no team note, even for a to-shopper part', async () => {
+    const own: Order = { ...placed, total: null, subtotal: null, tax: null, shipping: null, paymentState: null, paymentMethod: null, email: null, phone: null, parts: [part({ id: 'nw', supplierId: 'v1', supplierName: 'Northwind Textiles', shippingMode: 'to-shopper', lines: [dupatta] })] }
+    await show(supplier, own)
+    expect(screen.getByText(words.supplierNoteShopper)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.actions.cancel })).toBeNull()
+    expect(screen.queryByRole('button', { name: words.note.add })).toBeNull()
+    expect(screen.queryByRole('button', { name: words.actions.markPaid })).toBeNull()
+    expect(within(screen.getByRole('region', { name: words.customer.title })).queryByText('ananya@example.in')).toBeNull()
+  })
+
+  it('refuses a tracking link without its number, or one that isn’t https, before sending anything', async () => {
+    await show(owner, placed)
+    fireEvent.click(button(words.actions.ship))
+    await settle()
+    const form = within(screen.getByRole('region', { name: 'Ship 3 items' }))
+    fireEvent.change(form.getByRole('textbox', { name: new RegExp(words.ship.link) }), { target: { value: 'https://track.example/1' } })
+    fireEvent.click(form.getByRole('button', { name: words.ship.confirm }))
+    expect(form.getByRole('alert').textContent).toBe(words.ship.linkNeedsNumber)
+    fireEvent.change(form.getByRole('textbox', { name: new RegExp(words.ship.tracking) }), { target: { value: 'DL1' } })
+    fireEvent.change(form.getByRole('textbox', { name: new RegExp(words.ship.link) }), { target: { value: 'http://track.example/1' } })
+    fireEvent.click(form.getByRole('button', { name: words.ship.confirm }))
+    expect(form.getByRole('alert').textContent).toBe(words.ship.linkInvalid)
+    expect(api.shipItems).not.toHaveBeenCalled()
+  })
+
+  it('keeps each refusal in its own form, and clears a dialog’s when it opens again', async () => {
+    api.shipItems.mockRejectedValue(new ApiError('NOT_YOURS', 'no'))
+    api.cancelOrder.mockRejectedValue(new ApiError('NOT_CANCELLABLE', 'no'))
+    await show(owner, { ...placed, shipments: [{ id: 'f1', kind: 'manual', supplierId: null, warehouseName: 'Main location', courierName: null, trackingNumber: null, trackingUrl: null, shippedAt: '2026-10-10T08:00:00.000Z', lines: [{ lineId: 'l1', quantity: 1 }] }] })
+    fireEvent.click(button(words.actions.ship))
+    await settle()
+    fireEvent.click(button(words.ship.confirm))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(words.refused.NOT_YOURS)
+    fireEvent.click(within(screen.getByRole('region', { name: 'Ship 3 items' })).getByRole('button', { name: words.ship.cancel }))
+    fireEvent.click(button(words.shipments.add))
+    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.click(button(words.actions.ship))
+    await settle()
+    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.click(button(words.actions.cancel))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: messages.orders.cancel.confirm }))
+    await settle()
+    expect(within(screen.getByRole('dialog')).getByText(words.refused.NOT_CANCELLABLE)).toBeTruthy()
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: messages.orders.cancel.keep }))
+    fireEvent.click(button(words.note.add))
+    expect(within(screen.getByRole('dialog')).queryByText(words.refused.NOT_CANCELLABLE)).toBeNull()
   })
 
   it('cancels an unshipped order with a reason, saying the shopper gets their money back', async () => {
@@ -285,6 +334,10 @@ describe('an order’s page', () => {
     fireEvent.click(shipments.getByRole('button', { name: words.shipments.save }))
     expect(shipments.getByRole('alert').textContent).toBe(words.shipments.numberMissing)
     fireEvent.change(shipments.getByRole('textbox', { name: words.ship.tracking }), { target: { value: 'DL123' } })
+    fireEvent.change(shipments.getByRole('textbox', { name: new RegExp(words.ship.link) }), { target: { value: 'http://track.example/DL123' } })
+    fireEvent.click(shipments.getByRole('button', { name: words.shipments.save }))
+    expect(shipments.getByRole('alert').textContent).toBe(words.ship.linkInvalid)
+    fireEvent.change(shipments.getByRole('textbox', { name: new RegExp(words.ship.link) }), { target: { value: '' } })
     fireEvent.click(shipments.getByRole('button', { name: words.shipments.save }))
     await settle()
     expect(api.addTracking).toHaveBeenCalledWith('f1', 'Delhivery', 'DL123', null)
@@ -466,6 +519,57 @@ describe('returns and refunds', () => {
     fireEvent.click(button(refundWords.confirmPicked))
     await settle()
     expect(screen.getByRole('alert').textContent).toBe(words.refused.PROVIDER_UNAVAILABLE)
+    expect(screen.getByRole('region', { name: refundWords.title })).toBeTruthy()
+  })
+
+  it('says a refund went through without an amount when the order can’t be read back', async () => {
+    api.refund.mockResolvedValue(['f9'])
+    await show(owner, withReturns)
+    api.loadOrder.mockRejectedValue(new Error('offline'))
+    fireEvent.click(within(screen.getByRole('region', { name: 'Return R-1' })).getByRole('button', { name: returnWords.refundThese }))
+    fireEvent.click(button(refundWords.confirmPicked))
+    await settle()
+    expect(screen.getByText('Refunded to Ananya Rao')).toBeTruthy()
+  })
+
+  it('leaves returns and refunds disabled on a read-only store', async () => {
+    await show(owner, withReturns, true)
+    expect((button(words.actions.return) as HTMLButtonElement).disabled).toBe(true)
+    expect((button(words.actions.refund) as HTMLButtonElement).disabled).toBe(true)
+    const coming = within(screen.getByRole('region', { name: 'Return R-2' }))
+    expect((coming.getByRole('button', { name: returnWords.receive }) as HTMLButtonElement).disabled).toBe(true)
+    expect((coming.getByRole('button', { name: returnWords.cancel }) as HTMLButtonElement).disabled).toBe(true)
+    expect((within(screen.getByRole('region', { name: 'Return R-1' })).getByRole('button', { name: returnWords.refundThese }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('gives staff no Receive or Cancel on a return, nor its refund', async () => {
+    await show(staff, withReturns)
+    const coming = within(screen.getByRole('region', { name: 'Return R-2' }))
+    expect(coming.getByText(returnWords.states.requested)).toBeTruthy()
+    expect(coming.queryByRole('button', { name: returnWords.receive })).toBeNull()
+    expect(coming.queryByRole('button', { name: returnWords.cancel })).toBeNull()
+    expect(within(screen.getByRole('region', { name: 'Return R-1' })).queryByRole('button', { name: returnWords.refundThese })).toBeNull()
+  })
+
+  it('shows a supplier the returns of its own lines to refund once received, but never to receive or cancel', async () => {
+    const nw = shipped.parts[1] ?? part({ id: 'x', lines: [] })
+    const own: Order = {
+      ...shipped,
+      total: null,
+      paymentState: null,
+      paymentMethod: null,
+      parts: [{ ...nw, lines: [{ ...dupatta, fulfilledQuantity: 1, returnedQuantity: 1 }] }],
+      returns: [
+        { id: 'r3', number: 'R-3', state: 'requested', reason: 'damaged', startedAt: '2026-10-10T09:00:00.000Z', lines: [{ lineId: 'l3', quantity: 1 }] },
+        { id: 'r4', number: 'R-4', state: 'received', reason: 'damaged', startedAt: '2026-10-10T09:00:00.000Z', lines: [{ lineId: 'l3', quantity: 1 }] },
+      ],
+    }
+    await show(supplier, own)
+    const coming = within(screen.getByRole('region', { name: 'Return R-3' }))
+    expect(coming.queryByRole('button', { name: returnWords.receive })).toBeNull()
+    expect(coming.queryByRole('button', { name: returnWords.cancel })).toBeNull()
+    expect(screen.queryByRole('button', { name: words.actions.return })).toBeNull()
+    fireEvent.click(within(screen.getByRole('region', { name: 'Return R-4' })).getByRole('button', { name: returnWords.refundThese }))
     expect(screen.getByRole('region', { name: refundWords.title })).toBeTruthy()
   })
 
