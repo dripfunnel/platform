@@ -129,3 +129,22 @@ export const roundPrice = (money: Money, rounding: PriceRounding): Money => {
   const step = unit === 1n ? 100n : unit
   return { amount: money.amount + ((step - 1n - (money.amount % step)) % step), currency: money.currency }
 }
+
+/**
+ * `total` spread over `weights` in proportion, by largest remainder, so the shares sum to it exactly and none passes its
+ * weight while the total doesn't pass theirs (OFFERS fact 11: an order discount spread across lines, rounded in one place).
+ */
+export const allocate = (total: bigint, weights: readonly bigint[]): bigint[] => {
+  const sum = weights.reduce((s, w) => s + w, 0n)
+  if (total <= 0n || sum <= 0n) return weights.map(() => 0n)
+  const capped = total > sum ? sum : total
+  const shares = weights.map((w) => (w > 0n ? (capped * w) / sum : 0n))
+  let left = capped - shares.reduce((s, x) => s + x, 0n)
+  const byRemainder = weights.map((w, i) => ({ i, r: w > 0n ? (capped * w) % sum : -1n })).sort((a, b) => (a.r === b.r ? a.i - b.i : a.r > b.r ? -1 : 1))
+  for (const { i } of byRemainder) {
+    if (left === 0n) break
+    shares[i] = (shares[i] ?? 0n) + 1n
+    left -= 1n
+  }
+  return shares
+}

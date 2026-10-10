@@ -1,7 +1,7 @@
 // Every setting a plan can carry (SAAS.md §6.1), in the pricing page's order (designs/DF Store Pricing).
 // `switch` holds `enabled`; `amount` is a limit or a monthly allowance; `choice` is an index into `choices`.
 // `enforced` is false while the feature behind the row isn't built: the value is stored, the console
-// says Planned, and nothing checks it yet. Migration 0070 inserts the same keys into `plan_key`.
+// says Planned, and nothing checks it yet. Migrations 0070 and 0076 insert the same keys into `plan_key`.
 
 export const UNLIMITED = 2_147_483_647
 
@@ -37,8 +37,9 @@ export const planKeyDefs = [
   amount('ai_prompts', 'catalogue', true, true),
   amount('payment_gateways', 'payments'),
   sw('offers', 'payments', true),
-  sw('group_offers', 'payments'),
-  sw('offer_results', 'payments'),
+  amount('live_offers', 'payments', true),
+  sw('group_offers', 'payments', true),
+  sw('offer_results', 'payments', true),
   amount('staff', 'team', true),
   sw('manager_role', 'team'),
   sw('suppliers_enabled', 'team', true),
@@ -93,9 +94,14 @@ export const numberKeys: NumberKey[] = [...amountKeys, ...choiceKeys]
 /** Rows added after the first catalogue that are checked on the server: plans written before them keep today's behaviour, so they start on (migration 0070). */
 export const permissiveBackfill: readonly SwitchKey[] = ['badges', 'faqs_related', 'product_video', 'import_spreadsheet', 'import_shopify']
 
+/** Limits added after the first catalogue that are checked on the server: plans written before them stay unlimited (migration 0076). */
+export const permissiveLimits: readonly AmountKey[] = ['live_offers']
+
 /** What a plan version written before a row existed gets. Planned rows are never checked, so off and zero are safe; a checked new row starts on. */
 export const backfillOf = (def: PlanKeyDef): { enabled: boolean | null; amount: number | null } =>
-  def.kind === 'switch' ? { enabled: (permissiveBackfill as readonly string[]).includes(def.key), amount: null } : { enabled: null, amount: 0 }
+  def.kind === 'switch'
+    ? { enabled: (permissiveBackfill as readonly string[]).includes(def.key), amount: null }
+    : { enabled: null, amount: (permissiveLimits as readonly string[]).includes(def.key) ? UNLIMITED : 0 }
 
 /** Every key at its backfill value; a plan's own values go over it. A new plan in the console starts from the editor's blanks, not from this. */
 export const defaultEntitlements = (): Entitlements =>

@@ -1474,6 +1474,7 @@
         "ai_prompts": "AI design prompts",
         "payment_gateways": "Payment gateways",
         "offers": "Discount codes and offers",
+        "live_offers": "Live offers at once",
         "group_offers": "Customer-group offers, tiers, single-use codes",
         "offer_results": "Offer results",
         "staff": "Staff seats",

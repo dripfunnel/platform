@@ -6,7 +6,7 @@ import { forbidden } from '../graphql/scope'
 import { marketsService } from './markets'
 import { translationService } from './translations'
 import { actingCaller, type StoreContext } from './access'
-import { moneyType, pageInfoType, type Money, type StoreBuilder } from './builder'
+import { moneyInputType, moneyType, pageInfoType, type Money, type StoreBuilder } from './builder'
 import { sortedPage, sortedPageOf } from './refusals'
 import { requireFeature } from './listing'
 import { recomputeFor } from './structure'
@@ -340,7 +340,7 @@ export const registerProducts = (builder: StoreBuilder) => {
   const PriceInput = builder.inputType('VersionPriceInput', {
     fields: (t) => ({ currency: t.string({ required: true }), amount: t.string({ required: true }), compareAtAmount: t.string() }),
   })
-  const MoneyInput = builder.inputType('MoneyInput', { fields: (t) => ({ currency: t.string({ required: true }), amount: t.string({ required: true }) }) })
+  const MoneyInput = moneyInputType(builder)
   const VersionInput = builder.inputType('ProductVersionInput', {
     fields: (t) => ({
       id: t.id(),

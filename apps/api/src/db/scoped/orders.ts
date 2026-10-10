@@ -1,4 +1,5 @@
 import { pgArray, type ScopedSql } from './index'
+import { releaseUses } from './promotions'
 
 // Placing an order and paying for it (migration 0068; DATA-MODEL §7.6), in system scope: the engine has priced the cart as
 // its shopper, and these queries write the snapshot, the number, the stock held and the payment for the store named.
@@ -69,6 +70,8 @@ export interface SnapshotLine {
   taxRateBps: number | null
   quantity: number
   unitAmount: bigint
+  /** What the offers took off this line (fact 11: spread over the lines in one place). */
+  discountAmount: bigint
   taxAmount: bigint
   lineTotalAmount: bigint
   weightGrams: number | null
@@ -85,6 +88,9 @@ export interface OrderSnapshot {
   /** The cart's choice, or null when nothing in it is sent (CATALOG T14). */
   shippingOption: 'courier' | 'flat' | 'pickup' | null
   tax: { amount: bigint; inclusive: boolean }
+  /** Each offer taken, named as shoppers see it (OFFERS fact 13); `discount` is their sum, delivery's included. */
+  discounts: readonly { promotionId: string; codeId: string | null; label: string; amount: bigint }[]
+  discount: bigint
   subtotal: bigint
   total: bigint
   paymentMethod: string
@@ -97,19 +103,22 @@ export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnap
   for (const [position, l] of s.lines.entries()) {
     await tx`
       insert into order_line (order_id, store_id, seller_id, version_id, product_id, name, version_name, sku, hs_code, tax_class_id, tax_rate_bps,
-        quantity, unit_amount, tax_amount, line_total_amount, weight_grams, reserved_warehouse_id, position)
+        quantity, unit_amount, discount_amount, tax_amount, line_total_amount, weight_grams, reserved_warehouse_id, position)
       values (${s.orderId}, ${storeId}, ${l.sellerId}, ${l.versionId}, ${l.productId}, ${l.name}, ${l.versionName}, ${l.sku}, ${l.hsCode}, ${l.taxClassId}, ${l.taxRateBps},
-        ${l.quantity}, ${l.unitAmount.toString()}, ${l.taxAmount.toString()}, ${l.lineTotalAmount.toString()}, ${l.weightGrams}, ${l.reservedWarehouseId}, ${position})
+        ${l.quantity}, ${l.unitAmount.toString()}, ${l.discountAmount.toString()}, ${l.taxAmount.toString()}, ${l.lineTotalAmount.toString()}, ${l.weightGrams}, ${l.reservedWarehouseId}, ${position})
     `
   }
   for (const p of s.parts) {
     await tx`insert into order_part (order_id, store_id, seller_id, shipping_mode) values (${s.orderId}, ${storeId}, ${p.sellerId}, ${p.shippingMode})`
   }
   if (s.shipping) await tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'shipping', ${s.shipping.label}, ${s.shipping.amount.toString()})`
+  for (const d of s.discounts) {
+    await tx`insert into order_adjustment (order_id, store_id, kind, label, amount, promotion_id, promotion_code_id) values (${s.orderId}, ${storeId}, 'discount', ${d.label}, ${d.amount.toString()}, ${d.promotionId}, ${d.codeId})`
+  }
   if (s.tax.amount > 0n) await tx`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${s.orderId}, ${storeId}, 'tax', null, ${s.tax.amount.toString()})`
   await tx`
     update "order" set state = 'placed', number = ${s.number}, placed_at = ${s.now}, tax_inclusive = ${s.tax.inclusive},
-      subtotal_amount = ${s.subtotal.toString()}, shipping_amount = ${(s.shipping?.amount ?? 0n).toString()}, tax_amount = ${s.tax.amount.toString()},
+      subtotal_amount = ${s.subtotal.toString()}, discount_amount = ${s.discount.toString()}, shipping_amount = ${(s.shipping?.amount ?? 0n).toString()}, tax_amount = ${s.tax.amount.toString()},
       total_amount = ${s.total.toString()}, shipping_method_label = ${s.shipping?.label ?? null}, shipping_option = ${s.shippingOption}, payment_method = ${s.paymentMethod},
       payment_due_by = ${s.paymentDueBy}, stock_reserved = ${s.stockReserved}, checkout_step = null, cart_expires_at = null,
       updated_at = ${s.now}, revision = revision + 1
@@ -172,6 +181,7 @@ export const cancelOrder = async (tx: ScopedSql, storeId: string, orderId: strin
   `
   await tx`update payment set state = 'failed', updated_at = ${now} where order_id = ${orderId} and store_id = ${storeId} and state = 'pending'`
   await tx`update order_part set state = 'cancelled' where order_id = ${orderId} and store_id = ${storeId}`
+  await releaseUses(tx, storeId, orderId)
 }
 
 /** Orders unpaid past their time (a transfer's 3 days, a card's day), oldest first, a batch at a time; each is locked when let go. */
@@ -208,6 +218,7 @@ export interface ShopOrderRow {
   phone: string | null
   currency: string
   subtotal_amount: string
+  discount_amount: string
   shipping_amount: string
   tax_amount: string
   total_amount: string
@@ -217,6 +228,8 @@ export interface ShopOrderRow {
   placed_at: Date
   payment_due_by: Date | null
   lines: { name: string; version_name: string | null; quantity: number; unit_amount: string; line_total_amount: string }[]
+  /** The discount lines, named as the shopper saw them (OFFERS fact 13). */
+  discounts: { label: string | null; amount: string }[]
 }
 
 /** A shopper's own placed order, as its policy lets it read one (its account's, or a guest's by its token). */
@@ -224,10 +237,11 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
   (
     await tx<ShopOrderRow[]>`
       select o.id, o.number, o.state, o.payment_state, o.payment_method, o.email, o.phone, o.currency, o.subtotal_amount::text as subtotal_amount,
-        o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.tax_inclusive,
+        o.discount_amount::text as discount_amount, o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.tax_inclusive,
         o.shipping_method_label, o.shipping_option, o.placed_at, o.payment_due_by,
         coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', l.quantity,
-          'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text) order by l.position) from order_line l where l.order_id = o.id), '[]'::json) as lines
+          'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text) order by l.position) from order_line l where l.order_id = o.id), '[]'::json) as lines,
+        coalesce((select json_agg(json_build_object('label', a.label, 'amount', a.amount::text) order by a.label, a.id) from order_adjustment a where a.order_id = o.id and a.kind = 'discount'), '[]'::json) as discounts
       from "order" o where o.id = ${orderId} and o.store_id = ${storeId} and o.state <> 'cart'
     `
   )[0] ?? null

@@ -5,11 +5,13 @@ type Image {
 
 type Mutation {
   addToCart(quantity: Int!, versionId: ID!): ShopCartChange
+  applyCode(code: String!): ShopCodeResult
   checkout: ShopCart
   confirmPayment(orderId: ID!): ShopOrder
   deleteAddress(id: ID!): Boolean
   payOrder(orderId: ID!): ShopPaymentStart
   placeOrder(provider: String!): ShopPlacedOrder
+  removeCode(code: String!): ShopCartChange
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
   saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
   setBillingAddress(address: ShopAddressInput): ShopCartChange
@@ -94,8 +96,11 @@ type ShopBadge {
 type ShopCart {
   billingAddress: ShopAddressLines
   checkoutStep: String
+  codes: [ShopCartCode!]
   currency: String
   deliverable: Boolean
+  discount: ShopMoney
+  discounts: [ShopCartDiscount!]
   email: String
   id: ID
   lines: [ShopCartLine!]
@@ -106,6 +111,7 @@ type ShopCart {
   readyToPay: Boolean
   shipping: ShopMoney
   shippingAddress: ShopAddressLines
+  shippingDiscount: ShopMoney
   shippingOption: String
   shippingOptions: [ShopDeliveryOption!]
   subtotal: ShopMoney
@@ -118,8 +124,20 @@ type ShopCartChange {
   cartToken: String
 }
 
+type ShopCartCode {
+  code: String
+  state: String
+}
+
+type ShopCartDiscount {
+  amount: ShopMoney
+  code: String
+  name: String
+}
+
 type ShopCartLine {
   available: Int
+  discount: ShopMoney
   lineTotal: ShopMoney
   photoUrl: String
   problem: String
@@ -134,6 +152,11 @@ type ShopCartLine {
 type ShopCartTax {
   amount: ShopMoney
   pricesIncludeTax: Boolean
+}
+
+type ShopCodeResult {
+  cart: ShopCart
+  state: String
 }
 
 type ShopCollection {
@@ -249,6 +272,8 @@ type ShopOptionValue {
 }
 
 type ShopOrder {
+  discount: ShopMoney
+  discounts: [ShopOrderDiscount!]
   id: ID
   lines: [ShopOrderLine!]
   number: String
@@ -264,6 +289,11 @@ type ShopOrder {
   subtotal: ShopMoney
   tax: ShopMoney
   total: ShopMoney
+}
+
+type ShopOrderDiscount {
+  amount: ShopMoney
+  name: String
 }
 
 type ShopOrderLine {
