@@ -86,7 +86,7 @@ export interface StoreFacts {
   perEuro: Record<string, number>
 }
 
-const noTargets: OfferTargets = { productIds: [], collectionIds: [], filterValueIds: [] }
+export const noTargets: OfferTargets = { productIds: [], collectionIds: [], filterValueIds: [] }
 
 
 const partsIn = (t: number, timeZone: string) => {
@@ -353,8 +353,9 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
 }
 
 
-const leaf = (c: Partial<OfferCondition> & Pick<OfferCondition, 'operation'>): OfferCondition => ({ amounts: [], minimum: null, productIds: [], collectionIds: [], filterValueIds: [], groupIds: [], customerIds: [], countries: [], days: [], from: null, to: null, conditions: [], ...c })
-const action = (a: Partial<OfferAction> & Pick<OfferAction, 'operation'>): OfferAction => ({ percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], ...a })
+/** A condition or an action in the API's full shape, every argument it doesn't name empty: the one builder of each. */
+export const blankCondition = (c: Partial<OfferCondition> & Pick<OfferCondition, 'operation'>): OfferCondition => ({ amounts: [], minimum: null, productIds: [], collectionIds: [], filterValueIds: [], groupIds: [], customerIds: [], countries: [], days: [], from: null, to: null, conditions: [], ...c })
+export const blankAction = (a: Partial<OfferAction> & Pick<OfferAction, 'operation'>): OfferAction => ({ percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], ...a })
 const whole = (text: string) => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : null)
 
 const targetsOf = (d: OfferDraft): OfferTargets =>
@@ -365,17 +366,17 @@ const actionOf = (d: OfferDraft, facts: StoreFacts): OfferAction => {
   const cap = d.capOn && d.kind === 'percent' ? keptOr(d.cap, d.capSaved, facts) : []
   switch (d.type) {
     case 'products':
-      return d.kind === 'percent' ? action({ operation: 'products_percentage_discount', percent: whole(d.percent), targets: targetsOf(d), exclude, cap }) : action({ operation: 'line_fixed_discount', amounts: amountsOf(d.amounts, facts), targets: targetsOf(d), exclude })
+      return d.kind === 'percent' ? blankAction({ operation: 'products_percentage_discount', percent: whole(d.percent), targets: targetsOf(d), exclude, cap }) : blankAction({ operation: 'line_fixed_discount', amounts: amountsOf(d.amounts, facts), targets: targetsOf(d), exclude })
     case 'order':
       if (d.tiers.length)
-        return action({
+        return blankAction({
           operation: 'tiered_discount',
           kind: d.kind,
           tiers: d.tiers.map((t) => ({ minimum: keptOr(t.minimum, t.savedMinimum ?? [], facts), percent: d.kind === 'percent' ? whole(t.off) : null, amounts: d.kind === 'fixed' ? keptOr(t.off, t.savedOff ?? [], facts) : [] })),
         })
-      return d.kind === 'percent' ? action({ operation: 'order_percentage_discount', percent: whole(d.percent), cap }) : action({ operation: 'order_fixed_discount', amounts: amountsOf(d.amounts, facts) })
+      return d.kind === 'percent' ? blankAction({ operation: 'order_percentage_discount', percent: whole(d.percent), cap }) : blankAction({ operation: 'order_fixed_discount', amounts: amountsOf(d.amounts, facts) })
     case 'bxgy':
-      return action({
+      return blankAction({
         operation: 'buy_x_get_y',
         buy: { quantity: whole(d.buyQuantity) ?? 1, targets: { ...d.buyKept, productIds: d.buyIds } },
         get: { quantity: whole(d.getQuantity) ?? 1, targets: d.getSame ? null : { ...d.getKept, productIds: d.getIds } },
@@ -383,30 +384,30 @@ const actionOf = (d: OfferDraft, facts: StoreFacts): OfferAction => {
         oncePerOrder: d.oncePerOrder,
       })
     case 'shipping':
-      return d.shipMode === 'off' ? action({ operation: 'shipping_fixed_discount', amounts: amountsOf(d.amounts, facts) }) : action({ operation: 'free_shipping' })
+      return d.shipMode === 'off' ? blankAction({ operation: 'shipping_fixed_discount', amounts: amountsOf(d.amounts, facts) }) : blankAction({ operation: 'free_shipping' })
   }
 }
 
 const conditionsOf = (d: OfferDraft, facts: StoreFacts): OfferCondition[] => {
   const out: OfferCondition[] = []
   const n = whole(d.minQuantity)
-  if (d.minimum === 'amount') out.push(leaf({ operation: 'minimum_order_amount', amounts: amountsOf(d.minAmounts, facts) }))
-  if (d.minimum === 'items') out.push(leaf({ operation: 'minimum_quantity', minimum: n }))
+  if (d.minimum === 'amount') out.push(blankCondition({ operation: 'minimum_order_amount', amounts: amountsOf(d.minAmounts, facts) }))
+  if (d.minimum === 'items') out.push(blankCondition({ operation: 'minimum_quantity', minimum: n }))
   if (d.minimum === 'these' && d.type === 'products') {
     const t = targetsOf(d)
     out.push(
       d.target === 'collection'
-        ? leaf({ operation: 'contains_collection', minimum: n, collectionIds: t.collectionIds })
+        ? blankCondition({ operation: 'contains_collection', minimum: n, collectionIds: t.collectionIds })
         : d.target === 'filter'
-          ? leaf({ operation: 'at_least_n_with_filter_values', minimum: n, filterValueIds: t.filterValueIds })
-          : leaf({ operation: 'contains_products', minimum: n, productIds: t.productIds }),
+          ? blankCondition({ operation: 'at_least_n_with_filter_values', minimum: n, filterValueIds: t.filterValueIds })
+          : blankCondition({ operation: 'contains_products', minimum: n, productIds: t.productIds }),
     )
   }
-  if (d.who === 'groups') out.push(leaf({ operation: 'customer_group', groupIds: d.groupIds }))
-  if (d.who === 'first') out.push(leaf({ operation: 'first_order' }))
-  if (d.who === 'customers') out.push(leaf({ operation: 'specific_customers', customerIds: d.customerIds }))
-  if (d.who === 'market') out.push(leaf({ operation: 'shipping_country', countries: d.countries }))
-  if (d.repeat) out.push(leaf({ operation: 'recurrence', days: [...d.repeat.days].sort(), from: d.repeat.from, to: d.repeat.to }))
+  if (d.who === 'groups') out.push(blankCondition({ operation: 'customer_group', groupIds: d.groupIds }))
+  if (d.who === 'first') out.push(blankCondition({ operation: 'first_order' }))
+  if (d.who === 'customers') out.push(blankCondition({ operation: 'specific_customers', customerIds: d.customerIds }))
+  if (d.who === 'market') out.push(blankCondition({ operation: 'shipping_country', countries: d.countries }))
+  if (d.repeat) out.push(blankCondition({ operation: 'recurrence', days: [...d.repeat.days].sort(), from: d.repeat.from, to: d.repeat.to }))
   return [...out, ...d.kept]
 }
 
