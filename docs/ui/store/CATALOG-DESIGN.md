@@ -1221,7 +1221,10 @@ information (S4)**, which is configuration only.
   refusal (`GIFT_CARD_INVALID`) for a wrong, unsent, expired or used-up card or another store's; a
   card is spent only in its own currency and never on a preview; placement takes what it applies
   under the card's lock, so a second order priced against the same balance is told
-  `CART_CHANGED`. "Issue a card" (Owner and Manager) gives one of the product's amounts by email.
+  `CART_CHANGED`, as is one whose card was spent or lapsed since it was shown. "Issue a card" (Owner
+  and Manager) gives one of the product's amounts by email; its `issueKey`, a UUID made once per
+  request, makes a double click or a retry answer the same card (`KEY_REUSED` for a key that made
+  another).
 - T15. **Vendors across borders**: a vendor may be in a different country from the merchant
   (e.g. a UK merchant with a Chinese supplier). Country of origin, importer and customs
   details default from the vendor, not the merchant (decided 2026-10-05 on #337).

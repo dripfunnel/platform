@@ -1528,7 +1528,7 @@ order_download      (id, order_id, order_line_id UNIQUE, store_id, asset_id, use
 gift_card           (id, store_id, product_id, code_hash NULL, code_last4 NULL, currency, initial_amount,
                      balance_amount, expiry_months NULL, expires_at NULL, recipient_name, recipient_email,
                      message, send_on, sent_at, order_line_id NULL UNIQUE, issued_by NULL, status
-                     ('active'|'disabled'))
+                     ('active'|'disabled'), issue_key NULL)  UNIQUE (store_id, issue_key)
 gift_card_movement  (id, gift_card_id, store_id, kind ('issued'|'redeemed'|'restored'), amount, currency,
                      order_id NULL)  UNIQUE (gift_card_id, kind, order_id) for issued and redeemed
                     -- built on #323 (0171): a paid gift card line issues one card, worth the line's
@@ -1540,7 +1540,9 @@ gift_card_movement  (id, gift_card_id, store_id, kind ('issued'|'redeemed'|'rest
                     -- code opens a card of the store in the cart's currency) and gift_card_amount
                     -- (what placement took, under the card's row lock; the payment is for the rest,
                     -- payment_method 'gift_card' when it covers all). An unpaid cancellation gives it
-                    -- back whole; a refund goes to the payment first, the rest onto the card
+                    -- back whole; a refund goes to the payment first, the rest onto the card, never
+                    -- above initial_amount, its movement the amount put back. issue_key (0172) is
+                    -- "Issue a card"'s request key: a replay answers the card it made, once
                     -- cart_line and order_line hold the recipient (gift_recipient_name, _email,
                     -- gift_message, gift_send_on); a gift card line is one card (#323)
 payment             (id, order_id, store_id, provider, provider_account_id, provider_ref, kind
