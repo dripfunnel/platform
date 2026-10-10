@@ -133,9 +133,12 @@ describe('a new offer', () => {
 
   it('says what is missing instead of saving, and a taken code where the code is typed', async () => {
     await show(owner, '/offers/new?type=products')
+    fireEvent.change(screen.getByRole('textbox', { name: /^Note for your team/ }), { target: { value: 'n'.repeat(121) } })
     fireEvent.click(saveButton())
-    expect(screen.getByText('Fix 2 things to save:')).toBeTruthy()
+    expect(screen.getByText('Fix 3 things to save:')).toBeTruthy()
+    expect(screen.getAllByText('Keep the internal note to 120 characters.').length).toBeGreaterThan(0)
     expect(api.saveOffer).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByRole('textbox', { name: /^Note for your team/ }), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: words.chooseProducts }))
     await settle(300)
     fireEvent.click(within(dialog()).getByRole('checkbox', { name: /Linen kurta/ }))
@@ -246,6 +249,16 @@ describe('a new offer', () => {
     fireEvent.click(screen.getByRole('button', { name: messages.offers.error.retry }))
     await settle()
     expect(screen.getByRole('button', { name: 'VIP · 12' })).toBeTruthy()
+  })
+
+  it('shows the error with a retry when the names of what an offer names can’t be read, never unnamed chips', async () => {
+    api.loadOffer.mockResolvedValue({ ...welcome, action: action({ operation: 'products_percentage_discount', percent: 10, targets: { productIds: ['p1'], collectionIds: [], filterValueIds: [] } }) })
+    api.loadProductNames.mockRejectedValueOnce(new Error('down')).mockResolvedValue(new Map([['p1', 'Linen kurta']]))
+    await show(owner, '/offers/o1/edit')
+    expect(screen.getByText(messages.offers.error.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: messages.offers.error.retry }))
+    await settle()
+    expect(screen.getByText('Linen kurta')).toBeTruthy()
   })
 
   it('names a taken code’s holder without guessing a state it didn’t give', async () => {
