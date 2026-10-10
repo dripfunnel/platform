@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CourierRejected, CourierUnavailable, type LabelRequest } from '#core/couriers'
+import { CourierBoughtUnfinished, CourierRejected, CourierUnavailable, type LabelRequest } from '#core/couriers'
 import { localCouriers } from '../local/index'
 import { easyPostBook, easyPostHook, easyPostPickup } from './easypost'
 import { courierCall, fetchLabel, isLabelHost } from './request'
@@ -84,6 +84,15 @@ describe('a Shiprocket label', () => {
     await expect(shiprocketBook({ ...creds, fetchImpl: answering([{ status: 400, body: {} }]) }, india)).rejects.toBeInstanceOf(CourierRejected)
   })
 
+  it('names the shipment when the label fails once its courier is assigned, and books the label though a scheduled pickup fails', async () => {
+    const assigned = [login, { status: 200 }, { status: 200, body: { shipment_id: 77 } }, { status: 200, body: { response: { data: { awb_code: 'A7', courier_name: 'Ekart' } } } }]
+    const failed = await shiprocketBook({ ...creds, fetchImpl: answering([...assigned, { status: 200, body: { label_url: 'https://x.s3.amazonaws.com/a.pdf' } }, { status: 200, bytes: new TextEncoder().encode('<html>') }]) }, india).catch((e: unknown) => e)
+    expect(failed).toBeInstanceOf(CourierBoughtUnfinished)
+    expect((failed as CourierBoughtUnfinished).providerRef).toBe('77')
+    const booked = await shiprocketBook({ ...creds, fetchImpl: answering([...assigned, { status: 200, body: { label_url: 'https://x.s3.amazonaws.com/a.pdf' } }, { status: 200, bytes: pdf }, { status: 400, body: {} }]) }, india)
+    expect(booked).toMatchObject({ providerRef: '77', trackingNumber: 'A7', pickup: null })
+  })
+
   it('asks a booked parcel’s pickup by its shipment id', async () => {
     const seen: Request[] = []
     expect(await shiprocketPickup({ ...creds, fetchImpl: answering([login, { status: 200, body: { response: { pickup_scheduled_date: '2026-10-13 09:00:00' } } }], seen) }, { providerRef: '4411', from: india.from })).toEqual({ ref: null, date: '2026-10-13' })
@@ -101,6 +110,12 @@ describe('an EasyPost label', () => {
     expect(label).toEqual({ providerRef: 'shp_1', trackingNumber: '9400100000000000000000', trackingUrl: 'https://track.easypost.com/abc', courierName: 'USPS GroundAdvantage', label: { bytes: pdf, mime: 'application/pdf' }, pickup: null })
     expect(await seen[1]?.json()).toEqual({ rate: { id: 'rate_b' } })
     expect(((await seen[0]?.json()) as { shipment: { reference: string; options: unknown } }).shipment).toMatchObject({ reference: us.reference, options: { label_format: 'PDF', label_size: '4x6' } })
+  })
+
+  it('names the bought shipment when its label can’t be fetched, so it can be refunded', async () => {
+    const failed = await easyPostBook({ apiKey: 'EZK', fetchImpl: answering([{ status: 201, body: created }, { status: 200, body: bought }, { status: 200, bytes: new TextEncoder().encode('<html>') }]) }, 'usps', us).catch((e: unknown) => e)
+    expect(failed).toBeInstanceOf(CourierBoughtUnfinished)
+    expect((failed as CourierBoughtUnfinished).providerRef).toBe('shp_1')
   })
 
   it('answers null for an address it can’t use or no rate from this carrier, and a refused key is the account’s', async () => {

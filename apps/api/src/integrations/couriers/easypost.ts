@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CourierRejected, courierTimeoutMs, CourierUnavailable, type BookedLabel, type CourierHook, type CourierProvider, type CourierRate, type LabelAddress, type LabelRequest, type LabelSize, type Parcel, type PickupBooked, type TrackingEvent, type TrackingStatus } from '#core/couriers'
+import { CourierBoughtUnfinished, CourierRejected, courierTimeoutMs, CourierUnavailable, type BookedLabel, type CourierHook, type CourierProvider, type CourierRate, type LabelAddress, type LabelRequest, type LabelSize, type Parcel, type PickupBooked, type TrackingEvent, type TrackingStatus } from '#core/couriers'
 import { fromMajor, isCurrency } from '#core/money'
 import { courierCall, fetchLabel } from './request'
 
@@ -122,9 +122,10 @@ export const easyPostBook = async ({ apiKey, fetchImpl = fetch }: EasyPostCreden
   const rate = cheapestOf(shipment.rates.filter((r) => r.carrier.toUpperCase().startsWith(wanted)))
   if (!rate) return null
   const bought = await readAs(await send(apiKey, fetchImpl, `/shipments/${encodeURIComponent(shipment.id)}/buy`, { rate: { id: rate.id } }, signal), boughtSchema, 'purchase')
+  // Bought from here: a failure names the shipment, so it can be refunded there.
   const link = bought.postage_label.label_pdf_url ?? bought.postage_label.label_url
-  if (!link) throw new CourierUnavailable('easypost: no label')
-  const label = await fetchLabel(link, { fetchImpl, signal, name: 'easypost' })
+  const label = link ? await fetchLabel(link, { fetchImpl, signal, name: 'easypost' }).catch(() => null) : null
+  if (!label) throw new CourierBoughtUnfinished('easypost: label not fetched', bought.id)
   return {
     providerRef: bought.id,
     trackingNumber: bought.tracking_code.slice(0, 80),
