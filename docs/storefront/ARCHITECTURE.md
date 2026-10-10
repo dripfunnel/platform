@@ -268,14 +268,15 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   `import defer`. `./theme` is core's theme entry: `useStorefront` and the required components
   today, with the hooks of §2.1 joining it as they are built.
 - **Globals**: only the language's own `Array`, `Boolean`, `Error`, `Map`, `Number`, `Promise`,
-  `Set`, `String`, `JSON`, `Object` (its read-only helpers), `Math` (not `random`) and the timers
+  `Set`, `String`, `JSON` (`parse`, `stringify`), `Object` (`entries`, `freeze`, `fromEntries`,
+  `hasOwn`, `keys`, `values`), `Math` (every member but `random`) and the timers
   given a function. `Date`, `Intl` and `Math.random` are refused, so a theme can't sniff its
   environment or build differently twice (LIVE-SHOP §4 step 3). The browser's names are refused
   however they're reached: `e.view.document`, an `export { window }`, or any value typed as the
   window, the document, `location`, `navigator` or storage.
 - **The DOM**: on an element, only `style`, `classList`, focus, measuring, scrolling and event
-  listeners. On its `style`, only `transform`, `opacity`, `filter` and custom properties through
-  `setProperty`. An element (an event's target included) is never cast or handed to a type that
+  listeners. On its `style`, only `transform`, `opacity`, `filter`, the `translate`, `scale` and
+  `rotate` shorthands, and custom properties through `setProperty` and `removeProperty`. An element (an event's target included) is never cast or handed to a type that
   isn't an element, the walking names are refused on any value, and a computed key must be written
   out or typed as a list of names.
 - **JSX**: elements from an allowlist of layout, text, table and SVG shape elements, and attributes
