@@ -179,7 +179,8 @@ describe('a download', () => {
     await expect(withScope(db.sql, merchantOf(t.storeA1, t.sellerA1First), (tx) => tx`select id from licence_key`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: crypto.randomUUID() }, partnerId: t.partnerA }, (tx) => tx`select id from licence_key`)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, { caller: { kind: 'staff', staffId: crypto.randomUUID() } }, (tx) => tx`select id from licence_key`)).rejects.toThrow(/permission denied/)
-    await expect(withScope(db.sql, { ...merchantOf(t.storeA1), caller: { kind: 'shopper', customerId: null } }, (tx) => tx`select id from licence_key`)).rejects.toThrow(/permission denied/)
+    // A shopper reads only the keys its own order took (part 2): none of the pool.
+    expect(await withScope(db.sql, { ...merchantOf(t.storeA1), caller: { kind: 'shopper', customerId: null } }, (tx) => tx`select id from licence_key`)).toEqual([])
   })
 })
 

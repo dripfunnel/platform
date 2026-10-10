@@ -17,7 +17,7 @@ import { ImportApiContext, liveImportApi, useImportApi } from './importApi'
 import { importRun, useImportRun } from './importRun'
 import { importSearch } from './importSearch'
 import { importSample, importStates, type ImportSample } from './importStates'
-import { downloadCsv } from './download'
+import { downloadCsv } from '../common/download'
 import './imports.css'
 
 const words = messages.imports
