@@ -1,4 +1,5 @@
 import type { CustomerAccounts } from '../../api/customerAccounts'
+import type { ApiKey, ApiKeyChoices, WebhookDelivery, WebhookEndpoint } from '../../api/developers'
 import type { Gateway } from '../../api/payments'
 import type { ShippingSettings } from '../../api/shipping'
 import type { StoreInfo, StoreLocale } from '../../api/settings'
@@ -92,6 +93,11 @@ export interface SettingsReads {
   gateways: () => Promise<Gateway[]>
   shipping: () => Promise<ShippingSettings>
   customerAccounts: () => Promise<CustomerAccounts>
+  apiKeys: () => Promise<ApiKey[]>
+  apiKeyChoices: () => Promise<ApiKeyChoices>
+  webhooks: () => Promise<WebhookEndpoint[]>
+  webhookEvents: () => Promise<string[]>
+  deliveries: (endpointId: string) => Promise<WebhookDelivery[]>
 }
 
 const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
@@ -166,6 +172,36 @@ const sampleShipping: ShippingSettings = {
   couriers: [{ provider: 'shiprocket', status: 'pricing', offered: true, pickupMode: 'scheduled', labelSize: 'a6', trackingEmails: true, lastTestedAt: '2026-10-09T08:30:00Z', lastTestResult: 'ok' }],
 }
 
+const sampleKeys: ApiKey[] = harness
+  ? [
+      { id: 'k1', name: 'Warehouse stock sync', prefix: 'dfk_7Hq2LmX9', scopes: ['catalog.read', 'stock.read'], supplier: null, createdByName: 'Farhan Ali', createdByHere: true, createdAt: '2026-10-01T18:05:00Z', expiresAt: '2027-01-01T18:05:00Z', lastUsedAt: '2026-10-11T09:30:00Z', previousWorksUntil: null },
+      { id: 'k2', name: 'Northwind feed', prefix: 'dfk_Pz81QwE3', scopes: ['catalog.read'], supplier: { id: 'v1', name: 'Northwind Textiles' }, createdByName: 'Meera Joshi', createdByHere: false, createdAt: '2026-08-12T10:00:00Z', expiresAt: '2026-10-14T10:00:00Z', lastUsedAt: null, previousWorksUntil: null },
+      { id: 'k3', name: 'Accounts export', prefix: 'dfk_Ab4CdEf5', scopes: ['orders.read', 'customers.read'], supplier: null, createdByName: 'Farhan Ali', createdByHere: true, createdAt: '2026-06-02T08:00:00Z', expiresAt: null, lastUsedAt: '2026-10-10T02:00:00Z', previousWorksUntil: '2026-10-12T08:00:00Z' },
+    ]
+  : []
+
+const sampleHooks: WebhookEndpoint[] = harness
+  ? [
+      { id: 'h1', url: 'https://erp.kesarithreads.in/hooks/dripfunnel', events: ['order.placed', 'order.paid', 'order.shipped'], status: 'active', failingSince: null, disabledAt: null, createdAt: '2026-09-01T09:00:00Z' },
+      { id: 'h2', url: 'https://old-crm.example.com/events', events: ['order.placed'], status: 'disabled', failingSince: '2026-09-30T09:12:00Z', disabledAt: '2026-10-03T09:12:00Z', createdAt: '2026-07-01T09:00:00Z' },
+    ]
+  : []
+
+const delivery = (d: Pick<WebhookDelivery, 'id' | 'event' | 'status' | 'createdAt'> & Partial<WebhookDelivery>): WebhookDelivery => ({ attempts: 1, responseCode: null, error: null, durationMs: null, ...d })
+
+const sampleDeliveries = (endpointId: string): WebhookDelivery[] =>
+  endpointId === 'h2'
+    ? [
+        delivery({ id: 'd4', event: 'order.placed', status: 'held', createdAt: '2026-10-05T11:00:00Z' }),
+        delivery({ id: 'd5', event: 'order.placed', status: 'failed', error: 'status', responseCode: 500, durationMs: 1200, attempts: 8, createdAt: '2026-10-03T09:12:00Z' }),
+        delivery({ id: 'd6', event: 'order.placed', status: 'failed', error: 'timeout', durationMs: 5000, attempts: 8, createdAt: '2026-10-02T18:03:00Z' }),
+      ]
+    : [
+        delivery({ id: 'd1', event: 'order.placed', status: 'delivered', responseCode: 200, durationMs: 182, createdAt: '2026-10-11T10:44:00Z' }),
+        delivery({ id: 'd2', event: 'order.paid', status: 'delivered', responseCode: 200, durationMs: 164, createdAt: '2026-10-11T10:44:30Z' }),
+        delivery({ id: 'd3', event: 'order.shipped', status: 'delivered', responseCode: 200, durationMs: 201, createdAt: '2026-10-11T09:02:00Z' }),
+      ]
+
 /** The tabs' reads under ?state=: the samples above. */
 export const sampleReads: SettingsReads = {
   storeInfo: async () => sampleInfo,
@@ -179,6 +215,11 @@ export const sampleReads: SettingsReads = {
   gateways: async () => sampleGateways,
   shipping: async () => sampleShipping,
   customerAccounts: async () => ({ mode: 'both', customers: 1284, withEmail: 812, withPhone: 686, phoneOnly: 214 }),
+  apiKeys: async () => sampleKeys,
+  apiKeyChoices: async () => ({ scopes: ['catalog.read', 'stock.read', 'orders.read', 'customers.read'], expiresInDays: [30, 90, 365], requestsPerMinute: 60, requestsPerMonth: 100000 }),
+  webhooks: async () => sampleHooks,
+  webhookEvents: async () => ['order.placed', 'order.paid', 'order.shipped', 'order.refunded', 'product.updated', 'stock.changed'],
+  deliveries: async (endpointId) => sampleDeliveries(endpointId),
   catalogue: async () => ({
     pricingCurrency: 'INR',
     unitSystem: 'metric',

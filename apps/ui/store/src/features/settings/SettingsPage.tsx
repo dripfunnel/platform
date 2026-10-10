@@ -4,6 +4,7 @@ import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { loadCustomerAccounts } from '../../api/customerAccounts'
+import { loadApiKeyChoices, loadApiKeys, loadDeliveries, loadWebhookEvents, loadWebhooks } from '../../api/developers'
 import { loadAllMarkets } from '../../api/markets'
 import { loadGateways } from '../../api/payments'
 import { loadShipping } from '../../api/shipping'
@@ -17,6 +18,7 @@ import '../common/pageTabs.css'
 import { sampleReads, settingsStates, type SettingsReads } from './settingsStates'
 import { StoreInfoTab } from './StoreInfoTab'
 import { CustomerAccountsTab } from './CustomerAccountsTab'
+import { DevelopersTab } from './DevelopersTab'
 import { PaymentsTab } from './PaymentsTab'
 import { ShippingTab } from './ShippingTab'
 import { settingsTabs, type SettingsTab } from './settingsSearch'
@@ -43,7 +45,7 @@ interface Done {
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries }
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: boolean }): Record<SettingsTab, () => Promise<Render>> => ({
@@ -90,6 +92,13 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
   customers: async () => {
     const [accounts, info] = await Promise.all([reads.customerAccounts(), reads.storeInfo()])
     return (done, canEdit) => <CustomerAccountsTab accounts={accounts} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} />
+  },
+  // Each list reads itself again after a write, so a secret shown once survives it.
+  developers: async () => {
+    const [keys, choices, suppliers, hooks, events] = await Promise.all([reads.apiKeys(), reads.apiKeyChoices(), reads.suppliers(), reads.webhooks(), reads.webhookEvents()])
+    const data = { keys, choices, suppliers: suppliers.filter((s) => s.status === 'active').map(({ id, name }) => ({ id, name })), hooks, events }
+    const again = { keys: reads.apiKeys, hooks: reads.webhooks, deliveries: reads.deliveries }
+    return (done, canEdit) => <DevelopersTab data={data} reads={again} canEdit={canEdit} onToast={done.toast} />
   },
 })
 
@@ -150,7 +159,7 @@ export const SettingsPage = () => {
         <DetailTabs
           label={words.tabs.label}
           tabs={settingsTabs}
-          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers }}
+          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers, developers: words.tabs.developers }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />
