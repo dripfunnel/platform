@@ -404,7 +404,7 @@ describe('the Reminders tab', () => {
 
   it('sends a test of the reminder shown to the person’s own email only', async () => {
     await show(owner, { entry: '/carts?pane=reminders' })
-    fireEvent.click(step(2).getByRole('button', { name: rw.preview }))
+    fireEvent.click(step(2).getByRole('button', { name: 'Preview reminder 2' }))
     fireEvent.click(screen.getByRole('button', { name: rw.test }))
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('farhan@kesari.in')).toBeTruthy()
@@ -530,7 +530,7 @@ describe('the Reminders tab', () => {
   it('previews a WhatsApp step in an Indian store on the plan’s automatic', async () => {
     await show(owner, { entry: '/carts?pane=reminders' })
     fireEvent.change(step(2).getByRole('combobox', { name: rw.sendBy }), { target: { value: 'whatsapp' } })
-    fireEvent.click(step(2).getByRole('button', { name: rw.preview }))
+    fireEvent.click(step(2).getByRole('button', { name: 'Preview reminder 2' }))
     expect(screen.getByText('Preview · Reminder 2 · WhatsApp')).toBeTruthy()
     expect(screen.getByText(rw.waStop)).toBeTruthy()
     expect(step(2).queryByRole('textbox', { name: rw.subject })).toBeNull()

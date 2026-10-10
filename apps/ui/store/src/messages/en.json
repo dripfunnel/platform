@@ -5416,6 +5416,7 @@
       "after": "{delay} after they leave",
       "percentOff": "{percent}% off",
       "preview": "Preview",
+      "previewStep": "Preview reminder {n}",
       "delay": "Send after they leave",
       "sendBy": "Send by",
       "email": "Email",

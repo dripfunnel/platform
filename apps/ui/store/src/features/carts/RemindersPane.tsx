@@ -38,7 +38,7 @@ const formOf = (s: ReminderSettings): Form => ({
  * Each step's problem, as the API would refuse it: later than the one before, and a subject for an email (#321). A step
  * locked below the plan's automatic is drawn without its fields, so it is sent back as read and never blocks a save.
  */
-export const stepErrors = (steps: readonly ReminderStep[], automatic: boolean): (string | null)[] =>
+const stepErrors = (steps: readonly ReminderStep[], automatic: boolean): (string | null)[] =>
   steps.map((x, i) => {
     if (!x.enabled || (!automatic && i > 0)) return null
     const before = steps.slice(0, i).filter((y, j) => y.enabled && (automatic || j === 0)).pop()
@@ -178,7 +178,7 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
                   <strong id={`df-step-${n}`}>{fill(words.step, { n })}</strong>
                   <span className="df-carts-sub">{summary}</span>
                 </span>
-                <button type="button" className="df-button" aria-pressed={shown === i} onClick={() => setShown(i)}>
+                <button type="button" className="df-button" aria-pressed={shown === i} aria-label={fill(words.previewStep, { n })} onClick={() => setShown(i)}>
                   {words.preview}
                 </button>
                 {i > 0 && !locked && (
