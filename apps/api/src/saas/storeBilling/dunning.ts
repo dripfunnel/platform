@@ -4,6 +4,7 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectStoreForUpdate } from '#db/scoped/stores'
 import { applyPlan, selectOverdueStores, selectStoreBySubscription, syncSubscription, type BillingSubscriptionRow } from '#db/scoped/storeBilling'
 import type { StripeSubscription } from '#integrations/stripe/index'
+import { en } from '#saas/email/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { transitionStore } from '#saas/stores/index'
 
@@ -14,7 +15,6 @@ import { transitionStore } from '#saas/stores/index'
 export const suspendAfterDays = 14
 /** Who suspended a store for being unpaid, so a payment that arrives later restores it and a person's suspension stays. */
 export const dunningLabel = 'Billing'
-const suspendedReason = 'Your plan has been unpaid for 14 days. Pay the overdue invoice to open the store again.'
 const sweepSize = 100
 const dayMs = 86_400_000
 
@@ -71,7 +71,7 @@ export const applyStoreSubscription = async (tx: ScopedSql, sub: StripeSubscript
   // A scheduled change takes effect when Stripe's subscription names it: its phase sets the plan's metadata (SAAS §6.3).
   const m = sub.metadata
   if (row.next_plan_id && m['plan_id'] === row.next_plan_id && m['plan_version'] === String(row.next_plan_version) && item?.price.unit_amount != null) {
-    await applyPlan(tx, storeId, { planId: row.next_plan_id, planVersion: row.next_plan_version ?? 1, interval: m['interval'] === 'year' ? 'year' : 'month', amount: item.price.unit_amount, subscriptionId: sub.id, periodStart, periodEnd })
+    await applyPlan(tx, storeId, { planId: row.next_plan_id, planVersion: row.next_plan_version ?? 1, interval: m['interval'] === 'year' ? 'year' : 'month', amount: item.price.unit_amount, subscriptionId: sub.id, periodStart, periodEnd, activate: false })
   }
   const status = statusOf(sub.status, row.status)
   await syncSubscription(tx, storeId, { status, periodStart, periodEnd, cancelAt: sub.cancel_at_period_end ? periodEnd : null })
@@ -98,20 +98,23 @@ export const applyStoreSubscription = async (tx: ScopedSql, sub: StripeSubscript
   return row.partner_id
 }
 
-/** The cron's dunning step: every store 14 days past due is suspended, with the partner's support as its contact (SAAS §4.2). */
+/**
+ * The cron's dunning step: every store 14 days past due is suspended, with the partner's support as its contact, who
+ * may restore it (SAAS §4.2, ACCESS §5.3); Stripe's own later retry paying it restores it too.
+ */
 export const suspendOverdueStores = (sql: postgres.Sql, activity: ActivityLog, now: Date): Promise<number> =>
   withSystemScope(sql, async (tx) => {
     let suspended = 0
     for (const { id } of await selectOverdueStores(tx, new Date(now.getTime() - suspendAfterDays * dayMs), sweepSize)) {
       const store = await selectStoreForUpdate(tx, id)
       if (!store || store.status !== 'past_due') continue
-      const done = await transitionStore(tx, store, { to: 'suspended', reason: suspendedReason, by: dunningLabel }, now)
+      const done = await transitionStore(tx, store, { to: 'suspended', reason: en.storeSuspended.unpaid, by: dunningLabel }, now)
       if (!done.ok) continue
       await activity.record(tx, systemEntry(store, 'store.suspended', 'job', 'unpaid', [{ field: 'status', before: 'past_due', after: 'suspended' }]))
       await queueSideEffect(tx, {
         kind: 'email',
         idempotencyKey: `store-suspended:${store.id}:${now.toISOString()}`,
-        payload: { template: 'store-suspended', storeId: store.id, reason: suspendedReason, contact: 'partner-support' },
+        payload: { template: 'store-suspended', storeId: store.id, reason: en.storeSuspended.unpaid, contact: 'partner-support' },
         partnerId: store.partner_id,
         storeId: store.id,
       })

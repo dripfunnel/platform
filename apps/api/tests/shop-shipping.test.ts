@@ -18,7 +18,7 @@ let theirs = ''
 const couriers: CourierDirectory = {
   forPartner: async () => ({
     accounts: new Set(['shiprocket'] as const),
-    gateway: { quote: async () => ({ amount: { amount: 8500n, currency: 'INR' }, service: 'Surface', minDays: 3, maxDays: 5 }) },
+    gateway: { quote: async () => ({ amount: { amount: 8500n, currency: 'INR' }, service: 'Surface', minDays: 3, maxDays: 5 }), book: async () => null, pickup: async () => ({ ref: null, date: null }), readHook: async () => null },
   }),
 }
 

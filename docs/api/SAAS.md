@@ -440,7 +440,9 @@ partner's billing, or both) is open (§14).
   monthly, waits for the period's end as a Stripe subscription schedule, recorded as
   `next_plan_*` and applied when the subscription's metadata names it. Asking for the plan it has
   calls a scheduled change off. One change at a time per store (`billing_claim`, two minutes), and
-  each Stripe write's idempotency key is that claim, so two tabs or a retry never charge twice.
+  each Stripe write's idempotency key is the change and the store's `billing_revision`, which moves
+  only when a change is recorded or Stripe refuses one: two tabs, or a retry after a commit that was
+  lost once Stripe had answered, never charge twice.
   `customer.subscription.*` events set the subscription's status and period and the store's
   past due, paid and cancelled; merchant invoices are also kept as `invoice` rows with their lines.
   *Decided here*: Stripe's own PDF is the invoice's PDF (as the partner's), so no `pdf_asset_id`;
@@ -477,8 +479,9 @@ partner's billing, or both) is open (§14).
 Past due stores by age (1–7, 8–14, 15+ days), the retry schedule, emails sent, and the moment
 past due becomes suspended (H4): **after 14 days unpaid** (decided 2026-10-05 on #284). **Built on
 #329**: the cron suspends every store 14 days past due, by `Billing` with the partner's support as
-its contact, and emails the Owner; Stripe reporting it paid afterwards restores it and makes it
-active, while a person's suspension stays. Payouts to partners, when
+its contact, and emails the Owner. A suspended store can't pay in the portal (§4.2), so its reason
+names no way to but that contact, which may restore it (ACCESS §5.3); Stripe reporting it paid
+afterwards (its own retry) restores it and makes it active, while a person's suspension stays. Payouts to partners, when
 DripFunnel bills on their behalf, show period, gross, fees, payout and status (H5).
 
 ---

@@ -1,3 +1,53 @@
+type AbandonedCart {
+  abandonedAt: String
+  customerId: ID
+  email: String
+  firstItem: String
+  id: ID
+  lastSentAt: String
+  lineCount: Int
+  name: String
+  phone: String
+  recoveredOrderId: ID
+  recoveredOrderNumber: String
+  recoveredWithCode: Boolean
+  remindersSent: Int
+  skipReason: String
+  status: String
+  step: String
+  stoppedAt: String
+  stoppedBy: String
+  stoppedNote: String
+  value: Money
+}
+
+type AbandonedCartCounts {
+  lost: Int
+  open: Int
+  recovered: Int
+}
+
+type AbandonedCartDetail {
+  cart: AbandonedCart
+  lines: [AbandonedCartLine!]
+  reminders: [CartReminder!]
+}
+
+type AbandonedCartLine {
+  available: Int
+  lineTotal: Money
+  name: String
+  outOfStock: Boolean
+  quantity: Int
+  versionId: ID
+  versionName: String
+}
+
+type AbandonedCartPage {
+  nodes: [AbandonedCart!]
+  pageInfo: PageInfo
+}
+
 type ActingStore {
   permissions: [String!]
   plan: Named
@@ -171,6 +221,30 @@ type BrandFiles {
   logoDark: String
   logoLight: String
   mark: String
+}
+
+type CartReminder {
+  channel: String
+  clickedAt: String
+  code: String
+  id: ID
+  position: Int
+  queuedAt: String
+  sentAt: String
+  sentBy: String
+  skipReason: String
+  state: String
+}
+
+type CartSummary {
+  abandoned: Int
+  days: Int
+  leftBehind: [Money!]
+  reachable: Int
+  recovered: Int
+  recoveredSales: [Money!]
+  recoveredWithCode: Int
+  remindersSent: Int
 }
 
 type CatalogExport {
@@ -771,6 +845,7 @@ type Mutation {
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   approveProduct(id: ID!): Boolean
+  bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   changeEmail(email: String!, password: String!): Boolean
@@ -824,6 +899,7 @@ type Mutation {
   recordMarketingStop(id: ID!): Boolean
   refund(extra: String, lines: [RefundLineInput!]!, note: String, orderId: ID!, override: Boolean, reason: RefundReason!, restock: Boolean, returnId: ID): [ID!]
   regenerateBackupCodes: [String!]
+  remindNow(cartId: ID!, discountPercent: Int): ID
   removeMember(membershipId: ID!): Boolean
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
@@ -831,8 +907,10 @@ type Mutation {
   replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
   replayDelivery(id: ID!): ID
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
+  requestPickup(shipmentId: ID!): Boolean
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
+  resumeCartReminders(cartId: ID!): Boolean
   resumeOffer(id: ID!): Boolean
   resumeSupplier(id: ID!): Int
   revokeApiKey(id: ID!): Boolean
@@ -868,6 +946,7 @@ type Mutation {
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
   saveWebhook(events: [String!]!, id: ID, url: String!): SavedWebhook
   sendBackProduct(id: ID!, reason: String!): Boolean
+  sendTestReminder(position: Int!): Boolean
   setApproval(on: Boolean!): Boolean
   setCustomerGroups(groupIds: [ID!]!, id: ID!): [ID!]
   setCustomerNote(id: ID!, note: String): Boolean
@@ -890,6 +969,7 @@ type Mutation {
   startCatalogImport(file: String!): ID
   startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
+  stopCartReminders(cartId: ID!, note: String): Boolean
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
@@ -1321,13 +1401,20 @@ type OrderReturnLine {
 }
 
 type OrderShipment {
+  courier: String
   courierName: String
+  deliveredAt: String
   id: ID
   kind: String
+  labelDocumentId: ID
   lines: [OrderShipmentLine!]
+  pickupDate: String
+  pickupReference: String
+  pickupRequestedAt: String
   shippedAt: String
   supplierId: ID
   trackingNumber: String
+  trackingStatus: String
   trackingUrl: String
   warehouseId: ID
   warehouseName: String
@@ -1739,11 +1826,15 @@ type Provisioning {
 }
 
 type Query {
+  abandonedCart(id: ID!): AbandonedCartDetail
+  abandonedCartCounts: AbandonedCartCounts
+  abandonedCarts(after: String, before: String, first: Int, search: String, tab: String!): AbandonedCartPage
   apiKeyChoices: ApiKeyChoices
   apiKeys(after: String, before: String, first: Int): ApiKeyPage
   apps(after: String, before: String, first: Int): InstalledAppPage
   billingDetails: BillingDetails
   brand: Brand
+  cartSummary(days: Int): CartSummary
   catalogExport(id: ID!): CatalogExport
   catalogExports: [CatalogExport!]
   catalogImport(id: ID!): CatalogImport

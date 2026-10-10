@@ -3,7 +3,7 @@ import { levelOf, mayEmail, quietWaitMs, settingsSchema, skipReasonOf, type Deci
 
 const sendable: DecisionFacts = {
   byHand: false, storeSending: true, flowEnabled: true, levelAllows: true, stepEnabled: true, cartOpen: true, stopped: false, recovered: false,
-  email: 'asha@example.com', mayEmail: true, suppressed: false, skipOutOfStock: true, allOutOfStock: false, underMinimum: false, weeklyCap: true, remindedAnotherCart: false,
+  contact: 'asha@example.com', mayContact: true, suppressed: false, skipOutOfStock: true, allOutOfStock: false, underMinimum: false, weeklyCap: true, remindedAnotherCart: false,
 }
 
 describe('skipReasonOf', () => {
@@ -12,11 +12,11 @@ describe('skipReasonOf', () => {
   })
 
   it('answers in the prototype’s order: recovered › stopped › no contact › opted out › out of stock › under minimum', () => {
-    const all = { ...sendable, recovered: true, stopped: true, email: null, mayEmail: false, allOutOfStock: true, underMinimum: true }
+    const all = { ...sendable, recovered: true, stopped: true, contact: null, mayContact: false, allOutOfStock: true, underMinimum: true }
     expect(skipReasonOf(all)).toBe('recovered')
     expect(skipReasonOf({ ...all, recovered: false })).toBe('stopped')
     expect(skipReasonOf({ ...all, recovered: false, stopped: false })).toBe('no_contact')
-    expect(skipReasonOf({ ...all, recovered: false, stopped: false, email: 'a@b.example' })).toBe('opted_out')
+    expect(skipReasonOf({ ...all, recovered: false, stopped: false, contact: 'a@b.example' })).toBe('opted_out')
     expect(skipReasonOf({ ...sendable, allOutOfStock: true, underMinimum: true })).toBe('out_of_stock')
     expect(skipReasonOf({ ...sendable, underMinimum: true })).toBe('under_minimum')
   })
@@ -27,7 +27,7 @@ describe('skipReasonOf', () => {
       expect(skipReasonOf({ ...sendable, ...off, byHand: true })).toBeNull()
     }
     expect(skipReasonOf({ ...sendable, byHand: true, allOutOfStock: true, underMinimum: true, remindedAnotherCart: true })).toBeNull()
-    expect(skipReasonOf({ ...sendable, byHand: true, mayEmail: false })).toBe('opted_out')
+    expect(skipReasonOf({ ...sendable, byHand: true, mayContact: false })).toBe('opted_out')
     expect(skipReasonOf({ ...sendable, byHand: true, suppressed: true })).toBe('undeliverable')
   })
 
