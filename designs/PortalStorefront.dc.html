@@ -374,7 +374,6 @@ class Component extends DCLogic {
     if (Object.keys(patch).length) { this._syncing = true; app.set('storefront', x => ({ ...x, ...patch })); setTimeout(() => { this._syncing = false; }, 0); }
   }
 
-  previewHost(app) { return this.slug(app) + '.northstarpreview.com'; }
   primaryHost(sf, app) { const d = (sf.domains || []).find(x => x.primary && x.status === 'live'); return d ? d.host : this.slug(app) + '.dripfunnel.shop'; }
   setStudio(on) { const app = this.props.app; if (app.setStudio) app.setStudio(on); }
   setGallery(on) { this.props.app.set('sfGallery', on); }
@@ -507,7 +506,8 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
     const x = Math.max(8, Math.min(kind === 'page' ? b.left - R.left : b.right - R.left - w, R.width - w - 8)); const y = b.bottom - R.top + 4;
     this.setState({ pageMenu: kind === 'page', prevMenu: kind === 'prev', menuPos: { x: x + 'px', y: y + 'px', w: w + 'px', mh: Math.max(160, R.height - y - 12) + 'px' } });
   }
-  openPreview() { this.props.app.toast('Opens your preview on ' + this.previewHost(this.props.app) + ' in a new tab'); }
+  // Names no host: the preview domain's shape is being redecided (design.md, Storefront row).
+  openPreview() { this.props.app.toast('Opens your preview in a new tab'); }
   // Moves the store's revocation number, so every shared link stops (storefront PREVIEW §5 step 4).
   endLinks() {
     const app = this.props.app; this.closeMenus();
