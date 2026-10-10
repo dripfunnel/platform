@@ -534,6 +534,7 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
       if (!sub) return refused('NO_SUBSCRIPTION')
       const target = await keepTarget(tx, sub)
       if (!target || target.limit >= UNLIMITED) return refused('NOTHING_TO_KEEP')
+      if ((await selectKeepSummary(tx, storeId, [], target.limit, 0)).products <= target.limit) return refused('NOTHING_TO_KEEP')
       if (picks.length > target.limit) return refused('TOO_MANY')
       if ((await selectStoreProductIds(tx, storeId, picks)).length !== picks.length) return refused('NOT_FOUND')
       await saveKeepPicks(tx, storeId, picks)
