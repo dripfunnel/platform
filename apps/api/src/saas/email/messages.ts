@@ -144,17 +144,54 @@ export const en = {
     now: (store: string, plan: string) => `${store} is now on the ${plan} plan.`,
     next: (store: string, plan: string) => `${store} moves to the ${plan} plan at its next renewal.`,
   },
+  supportStarted: {
+    subject: (partner: string, store: string) => `${partner} support opened ${store}`,
+    heading: 'Support is viewing your store',
+    body: (agent: string, partner: string, store: string, user: string) =>
+      `${agent} from ${partner} support opened a read-only support session in ${store}, signed in as ${user}. It ends after 30 minutes, and everything they open is in your Activity log.`,
+    reason: (reason: string) => `Reason: ${reason}`,
+    ticket: (ticket: string) => `Ticket: ${ticket}`,
+    control: 'To end it, and stop new ones, turn off support access in Settings › Support access.',
+  },
+  supportWriteAllowed: {
+    subject: (store: string) => `Support can make changes in ${store}`,
+    heading: 'Support can make changes',
+    body: (by: string, agent: string, partner: string, store: string) =>
+      `${by} let ${agent} from ${partner} support make changes in ${store} for the rest of this support session. Passwords, payment details, payouts and who works here stay locked.`,
+    control: 'To end the session now, turn off support access in Settings › Support access.',
+  },
   storeSuspended: {
     subject: (store: string) => `${store} is suspended`,
     heading: 'Your store is suspended',
     body: (store: string) => `${store} is suspended. Shoppers see a notice instead of your storefront, and the portal can be viewed but not changed.`,
     reason: (reason: string) => `Reason: ${reason}`,
     contact: (contact: string) => `To resolve it, contact ${contact}.`,
+    // Dunning's reason (SAAS §7.3): a suspended store can't pay in the portal, so it names no way to but support.
+    unpaid: 'The plan has been unpaid for 14 days.',
+  },
+  storeCancelled: {
+    subject: (store: string) => `${store} is closing`,
+    heading: 'Your store is closing',
+    body: (store: string, date: string) => `You closed ${store}. Shoppers can buy until ${date}; then the storefront goes offline. The portal can be viewed but not changed.`,
+    // Decided on #337: data, assets and the repo are kept 90 days, with the export offered.
+    data: 'Your products, orders and customers are kept for 90 days. Download them from Billing before then.',
   },
   storeRestored: {
     subject: (store: string) => `${store} is back`,
     heading: 'Your store is restored',
     body: (store: string) => `${store} is restored. The storefront is live again and the portal works as before.`,
+  },
+  webhookDisabled: {
+    subject: (store: string) => `A webhook for ${store} is turned off`,
+    heading: 'We turned off a webhook',
+    body: (host: string, store: string) =>
+      `Deliveries to ${host} for ${store} have failed for 3 days, so we turned it off. Nothing was lost: its events wait 7 days. Fix the server, then turn it back on in Settings › Developers to send them.`,
+  },
+  apiKeysCreatorGone: {
+    subject: (store: string) => `API keys in ${store} need a look`,
+    heading: 'API keys made by someone who has left',
+    body: (who: string, keys: number, store: string) =>
+      `${who} is no longer an Owner of ${store}. ${keys === 1 ? 'The API key they made keeps' : `The ${keys} API keys they made keep`} working, because keys belong to the store. Check them in Settings › Developers, and revoke any you don’t need.`,
   },
   orderConfirmed: {
     subject: (store: string, order: string) => `Your ${store} order ${order}`,
@@ -194,6 +231,23 @@ export const en = {
     never: 'It never expires.',
     use: (store: string) => `Enter the number in the payment step at checkout on ${store}’s shop.`,
     action: 'Go to the shop',
+  },
+  orderDelivered: {
+    subject: (store: string, order: string) => `Your ${store} order ${order} was delivered`,
+    heading: 'It’s arrived',
+    intro: (order: string) => `The courier delivered these items from order ${order}:`,
+    line: (quantity: number, item: string) => `${quantity} × ${item}`,
+  },
+  // The store's own subject and message come first; these are the parts added for it (Carts' preview).
+  cartReminder: {
+    greeting: (name: string | null) => (name ? `Hi ${name},` : 'Hi,'),
+    line: (quantity: number, item: string, amount: string | null) => (amount ? `${quantity} × ${item}: ${amount}` : `${quantity} × ${item}`),
+    code: (code: string, percent: number) => `Use ${code} for ${percent}% off your cart. It works once, for 48 hours, and is added for you when you go back.`,
+    action: 'Return to your cart',
+    why: (host: string) => `You’re getting this because you started checkout at ${host}.`,
+    unsubscribe: (url: string) => `Unsubscribe: ${url}`,
+    testSubject: (subject: string) => `[Test] ${subject}`,
+    test: 'This is a test of your cart reminder, with a sample cart. Its code works at no checkout.',
   },
   money: (locale: string, amount: string, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(toMajor({ amount: BigInt(amount), currency }) as `${number}`),
   date: (at: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(at)} (UTC)`,

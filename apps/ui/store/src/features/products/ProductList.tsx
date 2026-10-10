@@ -39,6 +39,7 @@ import './products.css'
 
 const words = messages.products
 const shellRoute = getRouteApi('/_app')
+const pageRoute = getRouteApi('/_app/products')
 
 const countOf: Record<ProductFilter, keyof ProductCounts> = {
   all: 'all',
@@ -92,7 +93,8 @@ export const ProductList = () => {
   const phone = usePhone()
   const exportJob = useListExport('catalog')
 
-  const [query, setQuery] = useState<ProductQuery>(firstQuery)
+  const { filter: opened } = pageRoute.useSearch()
+  const [query, setQuery] = useState<ProductQuery>(() => ({ ...firstQuery, filter: opened ?? 'all' }))
   const [cursor, setCursor] = useState<Cursor>({})
   const [pageIndex, setPageIndex] = useState(0)
   const [view, setView] = useState<View>({ kind: 'loading' })

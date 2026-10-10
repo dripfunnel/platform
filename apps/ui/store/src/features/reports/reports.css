@@ -1,0 +1,249 @@
+/* Reports (designs/PortalReports.dc.html): the range, a card per panel, and the locked view. */
+.df-reports {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-reports .df-page-title {
+  font-size: 26px;
+}
+
+.df-reports .df-page-lede {
+  font-size: 14px;
+}
+
+.df-reports-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-reports-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+}
+
+.df-reports-range {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+}
+
+.df-reports-range button {
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  background: var(--df-color-surface);
+  color: var(--df-color-text-strong);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-reports-range button[aria-pressed='true'] {
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+}
+
+.df-reports-currency select,
+.df-reports-export {
+  height: 36px;
+  font-family: inherit;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+.df-reports-export {
+  cursor: pointer;
+}
+
+.df-reports-export:disabled {
+  color: var(--df-color-muted);
+  cursor: default;
+}
+
+.df-reports-note,
+.df-reports-refusal {
+  margin: 0;
+  font-size: 13px;
+}
+
+.df-reports-note {
+  color: var(--df-color-muted);
+}
+
+.df-reports-refusal {
+  color: var(--df-color-danger);
+}
+
+.df-reports-readonly {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: 10px;
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 13px;
+}
+
+.df-reports-thin {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--df-color-info-border);
+  border-radius: 10px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 14px;
+}
+
+.df-reports-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.df-reports-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-reports-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+}
+
+.df-reports-panel-head h2 {
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.df-reports-panel-export {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.df-reports-panel-export:disabled {
+  color: var(--df-color-muted);
+  cursor: default;
+}
+
+.df-reports-big {
+  font-family: var(--df-font-heading);
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-reports-delta {
+  font-size: 12px;
+}
+
+.df-reports-delta--up {
+  color: var(--df-color-success);
+}
+
+.df-reports-delta--down {
+  color: var(--df-color-link);
+}
+
+.df-reports-delta--muted {
+  color: var(--df-color-muted);
+}
+
+.df-reports-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-reports-row-item,
+.df-reports-panel > .df-reports-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-1);
+  padding: 6px 0;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-reports-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.df-reports-panel > .df-reports-row {
+  flex-direction: row;
+}
+
+.df-reports-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.df-reports-refund {
+  color: var(--df-color-link);
+}
+
+.df-reports-bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--df-color-neutral-surface);
+}
+
+.df-reports-bar span {
+  display: block;
+  height: 100%;
+  background: var(--df-color-focus);
+}
+
+.df-reports-none {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-reports-panel-note {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 639px) {
+  .df-reports .df-page-title {
+    font-size: 22px;
+  }
+
+  .df-reports-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

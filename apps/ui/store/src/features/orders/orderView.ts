@@ -1,7 +1,7 @@
 import { formatMoney } from '@dripfunnel/shared/format'
-import type { StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
+import type { ExportJobWords, StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
 import type { ApiMoney, OrderCounts, OrderFilter, OrderSummary } from '../../api/orders'
-import { locale } from '../../messages'
+import { fill, formatCount, formatTime, locale, messages, plural } from '../../messages'
 
 // How PortalOrders words the list (FIRST-RELEASE §6): who may do what, the chips, each order's status and payment. The
 // API decides every figure and every action again; these only say them and shape the page.
@@ -78,3 +78,17 @@ export const moneyText = (money: ApiMoney): string => formatMoney({ amount: Numb
 export const timeText = (iso: string, timeZone: string): string => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone }).format(new Date(iso))
 
 export const zoneName = (timeZone: string): string => new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'longGeneric' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? timeZone
+
+const exportWords = messages.orders.export
+
+/** An orders export's progress in words: the store's list, or a supplier's own lines from To ship or Your sales. */
+export const orderExportWords: ExportJobWords = {
+  preparing: exportWords.preparing,
+  ready: (count, truncated) => (truncated ? fill(exportWords.truncated, { count: formatCount(count) }) : fill(plural(exportWords.ready, count), { count: formatCount(count) })),
+  download: exportWords.download,
+  file: (date) => fill(exportWords.file, { date }),
+  expires: (time) => fill(exportWords.expires, { time: formatTime(time) }),
+  expired: exportWords.expired,
+  tooLarge: exportWords.tooLarge,
+  failed: exportWords.failed,
+}

@@ -453,7 +453,7 @@ describe('Stripe’s events for a connected account', () => {
     const body = JSON.stringify({ id: event.id, type: event.type, account: event.account, data: { object: event.object } })
     const at = Math.floor(Date.now() / 1000)
     const request = new Request('https://hooks.acme.example/stripe', { method: 'POST', body, headers: { 'stripe-signature': `t=${at},v1=${await signPayload(signingSecret, at, body)}` } })
-    return handleStripeHook(request, { sql: db.sql, stripe: billing, signingSecret, payments: settleDeps(), now: () => new Date() })
+    return handleStripeHook(request, { sql: db.sql, stripe: billing, signingSecret, payments: settleDeps(), activity: activityLog, now: () => new Date() })
   }
 
   it('settles a payment from its webhook, reading it back, and never reaches billing with a merchant’s event', async () => {

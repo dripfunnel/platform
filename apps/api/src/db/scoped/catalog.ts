@@ -603,7 +603,7 @@ export interface NewAsset {
   storeId: string
   sellerId: string | null
   key: string
-  kind: 'image' | 'video' | 'file'
+  kind: 'image' | 'video' | 'file' | 'document'
   mime: string
   bytes: number
   width: number | null

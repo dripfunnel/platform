@@ -1,0 +1,61 @@
+.hero {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  min-height: min(80vh, 640px);
+  padding: clamp(16px, 4vw, 48px);
+  background: url(m_hero01) center / cover no-repeat, linear-gradient(180deg, rgb(0 0 0 / 0%), rgb(0 0 0 / 40%));
+  color: var(--color-on-hero, #fff);
+}
+
+.hero .title {
+  font-size: clamp(2rem, 6vw, 4rem);
+  transition: transform 0.3s ease-out, opacity 0.3s;
+  will-change: transform;
+}
+
+.hero:hover .title,
+.hero:focus-within .title {
+  transform: translateY(-4px);
+}
+
+.list > li:nth-child(2n + 1):not(.muted) {
+  opacity: 0.9;
+}
+
+.price::part(amount) {
+  font-weight: 600;
+}
+
+.step::before {
+  content: counter(step) '';
+  counter-increment: step;
+}
+
+.fade {
+  animation: fade-in 0.4s ease-out both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade {
+    animation: none;
+  }
+}
+
+@container (min-width: 600px) {
+  .hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

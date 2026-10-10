@@ -18,10 +18,13 @@ export interface StorefrontRow {
   features: Record<string, boolean>
   /** Reached on its partner's preview wildcard: checkout there is in each provider's test mode (storefront ARCHITECTURE §4.1). */
   preview: boolean
+  /** Closed by its Owner with paid time left: it sells until the period ends (SAAS §4.2). */
+  selling_out: boolean
 }
 
 const storefrontColumns = (tx: ScopedSql) => tx`
   s.id as store_id, s.partner_id, s.status,
+  (s.status = 'cancelled' and exists (select 1 from store_subscription x where x.store_id = s.id and x.cancel_at > now())) as selling_out,
   -- A store converting prices shows a new rate's prices: the rate's date moves its version too, as it has no store to touch.
   f.catalog_version::text || case when exists (select 1 from store_currency c where c.store_id = s.id and c.mode = 'convert' and c.status = 'active')
     then '.' || coalesce((select max(r.published_on)::text from exchange_rate r), '') else '' end as catalog_version, s.main_language, s.country, s.pricing_currency::text as pricing_currency,

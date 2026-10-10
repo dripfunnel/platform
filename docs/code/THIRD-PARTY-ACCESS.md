@@ -225,6 +225,13 @@ on Charges, Invoices and Payouts. The webhook endpoint listens for `invoice.*`, 
 until SAAS §7.3's dunning policy is decided. The publishable key and Stripe.js reach the console
 with the Billing wiring (#204).
 
+**The store's own plan (#329)** uses the same key and endpoint, with no new value. The restricted
+key also needs write on Products, Subscriptions, Subscription schedules and Invoices (paying an
+open one), and the endpoint also listens for `customer.subscription.*`. Still to register on dev:
+the test-mode `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, and the endpoint itself; until
+then the Store API's plan and card writes answer `NOT_CONNECTED` there, and a move to a free plan
+still works.
+
 ### 2.8 Services still to choose
 
 Each row is an open question in the specs. Each needs an account and key once chosen.
@@ -355,6 +362,15 @@ on #184; **EasyPost** (decided 2026-10-05 on #337)), and India uses **Shiprocket
 carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
 region.
 
+**Built on #311** (part 1): each adapter books a label at its courier's cheapest service and asks a pickup (Shiprocket's
+adhoc order, courier, label and pickup, its pickup address registered once per location; EasyPost's shipment bought, and a
+pickup bought from its rates), each call with a timeout and only reads retried; a label file is taken only from the
+courier's file store over https. Locally the stand-in books too. Part 2: tracking arrives on each account's hook,
+`hooks.<host>/couriers/shiprocket/{partnerId}` (the partner sets a token on its Shiprocket webhook, sent as `x-api-key`)
+and `hooks.<host>/couriers/easypost/{partnerId}` (an EasyPost webhook with a secret, which signs each event); there is no
+polling. Still missing on dev: each partner's Shiprocket API user and webhook token, and EasyPost key and webhook secret
+(#275 stores them with the account).
+
 **Built on #305**: the adapters (`integrations/couriers/`: Shiprocket's serviceability rates after a login per quote,
 since the Worker keeps nothing between requests; EasyPost's shipment rates, one carrier's at a time) and a store's choice
 of couriers, which it connects only where its partner has the account. Until #275 reads partners' accounts none has one,
@@ -448,6 +464,20 @@ cron's sweep, which leaves a row the relay holds); once a text is sent or given 
 the message kind, never the number or the code.
 Neither provider takes an idempotency key, so a crash between its acceptance and the row being marked
 can text twice.
+
+**The WhatsApp templates a partner has Meta approve (built on #321).** Cart reminders in India go by the partner's
+WhatsApp Business number through its MSG91 account (MSG91's outbound template API), as a template the partner registers
+word for word, with its name entered beside its MSG91 credentials (#275): `apps/api/src/saas/whatsapp/index.ts` holds the
+wording. The store's own subject and message never go by WhatsApp, since an approved template can't carry free text.
+
+| Message | Wording (variables numbered) |
+|---|---|
+| `cart.reminder` | {{1}}: you left {{2}} in your cart. It’s saved for you: {{3}} |
+| `cart.reminder_code` | {{1}}: you left {{2}} in your cart. Use {{3}} for {{4}}% off, once, for 48 hours: {{5}} |
+
+{{1}} is the store's name, {{2}} the count of items ("2 items"), and the link is the reminder's return link. Until #275
+reads partners' accounts, the Worker registers the `whatsapp` deliverer only locally (`SMS_LOCAL`, whose stand-in prints
+it), and `cart.remind` sends every reminder by email.
 
 ---
 

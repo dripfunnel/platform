@@ -33,6 +33,7 @@ vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof 
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stockApi }))
 
 const { ProductList } = await import('./ProductList')
+const { Route: productsRoute } = await import('../../routes/_app/products')
 
 const row = (r: Partial<ProductRow> & Pick<ProductRow, 'id' | 'name'>): ProductRow => ({
   visible: true,
@@ -59,12 +60,12 @@ const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier
 const staff: Acting = { ...owner, role: 'staff', permissions: ['catalog.read'] }
 const supplier: Acting = { ...owner, role: 'supplier-member', tier: 'vendor-catalogue', seller: { id: 'v1', name: 'Northwind Textiles' }, permissions: ['catalog.read', 'catalog.propose'] }
 
-const show = async (acting: Acting, readOnly = false) => {
+const show = async (acting: Acting, readOnly = false, entry = '/products') => {
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
-  const list = createRoute({ getParentRoute: () => app, path: '/products', component: ProductList })
+  const list = createRoute({ getParentRoute: () => app, path: '/products', validateSearch: productsRoute.options.validateSearch, component: ProductList })
   const editor = createRoute({ getParentRoute: () => app, path: '/products/$productId', component: () => null })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, editor])]), history: createMemoryHistory({ initialEntries: ['/products'] }) })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, editor])]), history: createMemoryHistory({ initialEntries: [entry] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -110,6 +111,15 @@ describe('the Products list', () => {
     expect(screen.getByRole('button', { name: new RegExp(`^${words.chips.pending}\\s*1$`) }).getAttribute('aria-pressed')).toBe('false')
     // A chip with nothing in it is left out.
     expect(screen.queryByRole('button', { name: new RegExp(words.chips.sent_back) })).toBeNull()
+    expect(api.loadProducts).toHaveBeenCalledWith({ filter: 'all', search: '', supplier: '', sort: 'updated' }, {})
+  })
+
+  it('opens on the chip a link from Home names, and drops one it doesn’t know', async () => {
+    await show(owner, false, '/products?filter=low_stock')
+    expect(api.loadProducts).toHaveBeenCalledWith({ filter: 'low_stock', search: '', supplier: '', sort: 'updated' }, {})
+    cleanup()
+    api.loadProducts.mockClear()
+    await show(owner, false, '/products?filter=nonsense')
     expect(api.loadProducts).toHaveBeenCalledWith({ filter: 'all', search: '', supplier: '', sort: 'updated' }, {})
   })
 

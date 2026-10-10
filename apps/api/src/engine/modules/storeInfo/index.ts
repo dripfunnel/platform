@@ -7,6 +7,7 @@ import { cleanStoreInfo, type StoreInfoInput, type StoreInfoRefusal } from './ru
 
 export type { StoreInfoRow } from '#db/scoped/storeInfo'
 export type { StoreInfoInput } from './rules'
+export { taxIdOf } from './rules'
 
 // Settings › Store info (SetStore): the Owner's. Languages and currencies are their own sections (markets).
 

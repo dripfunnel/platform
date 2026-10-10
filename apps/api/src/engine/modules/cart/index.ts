@@ -6,7 +6,7 @@ import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
 import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartGift, setCartLine, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
-import type { FeatureKey } from '#db/scoped/catalogListing'
+import { defaultFeatures, type FeatureKey } from '#db/scoped/catalogListing'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
@@ -104,6 +104,33 @@ export interface CartChange {
 
 const zero = (currency: string): Money => ({ amount: 0n, currency })
 
+export interface CartLineNow extends PricedLine {
+  name: string | null
+  versionName: string | null
+  /** Nothing left to sell and not sold on when out, or no longer for sale at all. */
+  outOfStock: boolean
+}
+
+/** A cart's lines as any shopper would buy them now, for the engine's own work on a cart (abandoned carts, #321). */
+export const cartLinesNow = async (
+  deps: { sql: postgres.Sql; storeId: string; partnerId: string; language: string; currency: string; marketId: string | null; features: Partial<Record<FeatureKey, boolean>>; now: () => Date },
+  lines: readonly { version_id: string; quantity: number }[],
+): Promise<CartLineNow[]> => {
+  const context: TenantContext = { caller: { kind: 'shopper', customerId: null, orderTokenHash: null }, partnerId: deps.partnerId, storeId: deps.storeId, sellerScope: { kind: 'all' }, subscription: 'active' }
+  const features = { ...defaultFeatures, ...deps.features }
+  const items = await createStorefrontCatalog({ sql: deps.sql, context, language: deps.language, currency: deps.currency, marketId: deps.marketId, features, now: deps.now }).cartItems(lines.map((l) => l.version_id))
+  return lines.map((l) => {
+    const item = items.get(l.version_id) ?? null
+    const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
+    return {
+      ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }),
+      name: item?.product.name ?? null,
+      versionName: item?.version.name ?? null,
+      outOfStock: !item || !item.soldHere || (!item.version.inStock && !item.version.continueSelling),
+    }
+  })
+}
+
 export const createCartService = (deps: CartDeps) => {
   const { sql, language, currency, marketId, now } = deps
   const { storeId } = deps.context
@@ -178,6 +205,7 @@ export const createCartService = (deps: CartDeps) => {
     const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? null
     const offers = await cartOffers(sql, {
       storeId,
+      cartId: row.id,
       currency,
       codes: row.promotion_codes,
       customerId: row.customer_id,

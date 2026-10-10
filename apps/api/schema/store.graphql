@@ -1,3 +1,53 @@
+type AbandonedCart {
+  abandonedAt: String
+  customerId: ID
+  email: String
+  firstItem: String
+  id: ID
+  lastSentAt: String
+  lineCount: Int
+  name: String
+  phone: String
+  recoveredOrderId: ID
+  recoveredOrderNumber: String
+  recoveredWithCode: Boolean
+  remindersSent: Int
+  skipReason: String
+  status: String
+  step: String
+  stoppedAt: String
+  stoppedBy: String
+  stoppedNote: String
+  value: Money
+}
+
+type AbandonedCartCounts {
+  lost: Int
+  open: Int
+  recovered: Int
+}
+
+type AbandonedCartDetail {
+  cart: AbandonedCart
+  lines: [AbandonedCartLine!]
+  reminders: [CartReminder!]
+}
+
+type AbandonedCartLine {
+  available: Int
+  lineTotal: Money
+  name: String
+  outOfStock: Boolean
+  quantity: Int
+  versionId: ID
+  versionName: String
+}
+
+type AbandonedCartPage {
+  nodes: [AbandonedCart!]
+  pageInfo: PageInfo
+}
+
 type ActingStore {
   permissions: [String!]
   plan: Named
@@ -10,6 +60,38 @@ type ActingStore {
 type AddedCustomer {
   existed: Boolean
   id: ID
+}
+
+type ApiKey {
+  createdAt: String
+  createdByHere: Boolean
+  createdByName: String
+  expiresAt: String
+  id: ID
+  lastUsedAt: String
+  name: String
+  prefix: String
+  previousWorksUntil: String
+  scopes: [String!]
+  supplier: ApiKeySupplier
+}
+
+type ApiKeyChoices {
+  expiresInDays: [Int!]
+  maxKeys: Int
+  requestsPerMinute: Int
+  requestsPerMonth: Int
+  scopes: [String!]
+}
+
+type ApiKeyPage {
+  nodes: [ApiKey!]
+  pageInfo: PageInfo
+}
+
+type ApiKeySupplier {
+  id: ID
+  name: String
 }
 
 type Badge {
@@ -25,6 +107,97 @@ input BadgeInput {
   position: Int
   rule: String!
   tone: String!
+}
+
+type BillingAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postal: String
+  region: String
+}
+
+input BillingAddressInput {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  postal: String!
+  region: String
+}
+
+type BillingCard {
+  brand: String
+  expires: String
+  last4: String
+}
+
+type BillingDetails {
+  address: BillingAddress
+  email: String
+  legalName: String
+  taxId: String
+  taxIdKind: String
+}
+
+input BillingDetailsInput {
+  address: BillingAddressInput!
+  email: String!
+  legalName: String!
+  taxId: String
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
+type BillingPlan {
+  current: Boolean
+  description: String
+  id: ID
+  monthly: Money
+  name: String
+  values: [BillingPlanValue!]
+  yearly: Money
+}
+
+type BillingPlanName {
+  id: ID
+  name: String
+}
+
+type BillingPlanValue {
+  amount: Int
+  enabled: Boolean
+  key: String
+  kind: String
+  unlimited: Boolean
+}
+
+type BillingSubscription {
+  asOf: String
+  cancelAt: String
+  card: BillingCard
+  collectedBy: String
+  interval: BillingInterval
+  partnerName: String
+  periodEnd: String
+  periodStart: String
+  plan: BillingPlanName
+  price: Money
+  scheduled: ScheduledPlanChange
+  status: String
+  trialEndsAt: String
+}
+
+type BillingUsage {
+  key: String
+  limit: Int
+  monthly: Boolean
+  unlimited: Boolean
+  used: Int
 }
 
 type Brand {
@@ -48,6 +221,30 @@ type BrandFiles {
   logoDark: String
   logoLight: String
   mark: String
+}
+
+type CartReminder {
+  channel: String
+  clickedAt: String
+  code: String
+  id: ID
+  position: Int
+  queuedAt: String
+  sentAt: String
+  sentBy: String
+  skipReason: String
+  state: String
+}
+
+type CartSummary {
+  abandoned: Int
+  days: Int
+  leftBehind: [Money!]
+  reachable: Int
+  recovered: Int
+  recoveredSales: [Money!]
+  recoveredWithCode: Int
+  remindersSent: Int
 }
 
 type CatalogExport {
@@ -461,12 +658,47 @@ type HomeSetup {
   shipping: Boolean
 }
 
+type InstallableApp {
+  developer: String
+  id: ID
+  name: String
+  scopes: [String!]
+  siteUrl: String
+}
+
+type InstalledApp {
+  appId: ID
+  connection: String
+  developer: String
+  id: ID
+  installedAt: String
+  installedByName: String
+  lastUsedAt: String
+  name: String
+  scopes: [String!]
+  siteUrl: String
+  suspended: Boolean
+}
+
+type InstalledAppPage {
+  nodes: [InstalledApp!]
+  pageInfo: PageInfo
+}
+
 input InviteSupplierInput {
   accessLevel: String!
   email: String!
   labelAccount: String
   name: String!
   shippingMode: String
+}
+
+type InvoiceLine {
+  amount: Money
+  kind: String
+  label: String
+  periodEnd: String
+  periodStart: String
 }
 
 type InvoiceSettings {
@@ -480,6 +712,12 @@ input InvoiceSettingsInput {
   emailWithDispatch: Boolean!
   footer: String
   taxPerLine: Boolean!
+}
+
+type IssuedApiKey {
+  id: ID
+  prefix: String
+  secret: String
 }
 
 type Market {
@@ -607,11 +845,15 @@ type Mutation {
   addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
+  allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
+  bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
+  cancelStore: BillingSubscription
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
+  changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
@@ -620,6 +862,7 @@ type Mutation {
   connectShopify(shop: String!): String
   connectStripe: String
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
+  createApiKey(expiresInDays: Int, name: String!, scopes: [String!]!, supplierId: ID): IssuedApiKey
   createGroup(description: String, name: String!): ID
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
@@ -633,22 +876,27 @@ type Mutation {
   deleteTaxClass(id: ID!): Boolean
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
+  denySupportWrite(sessionId: ID!): Boolean
   disconnectCourier(provider: String!): String
   disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
   duplicateOffer(id: ID!): ID
   duplicateProduct(id: ID!): SavedProduct
   endOffer(id: ID!): Boolean
+  exportActivity(filter: StoreActivityFilter): ID
   exportCustomers(groupId: ID, search: String): ID
   exportOfferCodes(batchId: ID!): ID
   exportOrders(filter: OrderFilter, search: String): ID
   exportReport(currency: String, custom: CustomReportInput, days: Int!, panel: ReportPanel!): ID
+  exportStoreData: ID
   finishShopifyConnect(key: String!): String
   finishStripeConnect(key: String!): Boolean
   generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
+  installApp(appId: ID!, scopes: [String!]!): ID
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
+  keepProducts(ids: [ID!]!): PlanKeep
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   pauseOffer(id: ID!): Boolean
@@ -658,18 +906,27 @@ type Mutation {
   recordMarketingStop(id: ID!): Boolean
   refund(extra: String, lines: [RefundLineInput!]!, note: String, orderId: ID!, override: Boolean, reason: RefundReason!, restock: Boolean, returnId: ID): [ID!]
   regenerateBackupCodes: [String!]
+  remindNow(cartId: ID!, discountPercent: Int): ID
   removeMember(membershipId: ID!): Boolean
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
+  removeWebhook(id: ID!): Boolean
   replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
+  replayDelivery(id: ID!): ID
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
+  requestPickup(shipmentId: ID!): Boolean
+  requestSupportWrite(note: String!): Boolean
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
+  resumeCartReminders(cartId: ID!): Boolean
   resumeOffer(id: ID!): Boolean
   resumeSupplier(id: ID!): Int
+  revokeApiKey(id: ID!): Boolean
   revokeInvitation(invitationId: ID!): Boolean
   revokeSupplierInvitation(invitationId: ID!): Boolean
+  rotateApiKey(id: ID!): IssuedApiKey
   saveBadge(id: ID, input: BadgeInput!): ID
+  saveBillingDetails(input: BillingDetailsInput!): BillingDetails
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
@@ -686,6 +943,7 @@ type Mutation {
   saveProductKind(input: ProductKindInput!, productId: ID!, revision: Int!): ProductKind
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
   saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
+  saveReminderSettings(input: ReminderSettingsInput!, revision: Int): Int
   saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
   saveShipping(input: ShippingInput!, revision: Int!): Int
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
@@ -694,7 +952,9 @@ type Mutation {
   saveTaxClass(id: ID, input: TaxClassInput!): ID
   saveTaxZone(id: ID, input: TaxZoneInput!): ID
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
+  saveWebhook(events: [String!]!, id: ID, url: String!): SavedWebhook
   sendBackProduct(id: ID!, reason: String!): Boolean
+  sendTestReminder(position: Int!): Boolean
   setApproval(on: Boolean!): Boolean
   setCustomerGroups(groupIds: [ID!]!, id: ID!): [ID!]
   setCustomerNote(id: ID!, note: String): Boolean
@@ -703,6 +963,7 @@ type Mutation {
   setEverywhereElse(marketId: ID): Boolean
   setHomeTaxRate(homeZoneName: String!, rateBps: Int!, taxClassId: ID!): Boolean
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
+  setPaymentMethod(token: String!): BillingSubscription
   setPricesIncludeTax(included: Boolean!): Boolean
   setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
@@ -710,15 +971,19 @@ type Mutation {
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
+  setSupportAccess(allowed: Boolean!): SupportAccessSet
   setTheme(theme: String!): Profile
   shipItems(courierName: String, lines: [ShipLineInput!]!, orderId: ID!, trackingNumber: String, trackingUrl: String, warehouseId: ID!): [ID!]
   signOutOtherSessions: Int
   startCatalogImport(file: String!): ID
   startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
+  stopCartReminders(cartId: ID!, note: String): Boolean
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
+  turnOnWebhook(id: ID!): Int
+  uninstallApp(id: ID!): Boolean
   updateCustomer(address: CustomerAddressInput, id: ID!, name: String, phone: String): Boolean
   updateGroup(description: String, id: ID!, name: String!): Boolean
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
@@ -1145,13 +1410,20 @@ type OrderReturnLine {
 }
 
 type OrderShipment {
+  courier: String
   courierName: String
+  deliveredAt: String
   id: ID
   kind: String
+  labelDocumentId: ID
   lines: [OrderShipmentLine!]
+  pickupDate: String
+  pickupReference: String
+  pickupRequestedAt: String
   shippedAt: String
   supplierId: ID
   trackingNumber: String
+  trackingStatus: String
   trackingUrl: String
   warehouseId: ID
   warehouseName: String
@@ -1219,6 +1491,30 @@ input PaymentGatewayKeysInput {
 enum PaymentMode {
   LIVE
   TEST
+}
+
+type PlanChangeQuote {
+  charge: Money
+  credit: Money
+  from: String
+  nextPrice: Money
+  offered: [PlanChangeWhen!]
+  today: Money
+}
+
+enum PlanChangeWhen {
+  NOW
+  PERIOD_END
+}
+
+type PlanKeep {
+  from: String
+  kept: [ID!]
+  limit: Int
+  paused: Int
+  plan: BillingPlanName
+  products: Int
+  waiting: [ID!]
 }
 
 type Product {
@@ -1549,7 +1845,17 @@ type Provisioning {
 }
 
 type Query {
+  abandonedCart(id: ID!): AbandonedCartDetail
+  abandonedCartCounts: AbandonedCartCounts
+  abandonedCarts(after: String, before: String, first: Int, search: String, tab: String!): AbandonedCartPage
+  activityExport(id: ID!): StoreActivityExport
+  activityLog(after: String, before: String, filter: StoreActivityFilter, first: Int): StoreActivityPage
+  apiKeyChoices: ApiKeyChoices
+  apiKeys(after: String, before: String, first: Int): ApiKeyPage
+  apps(after: String, before: String, first: Int): InstalledAppPage
+  billingDetails: BillingDetails
   brand: Brand
+  cartSummary(days: Int): CartSummary
   catalogExport(id: ID!): CatalogExport
   catalogExports: [CatalogExport!]
   catalogImport(id: ID!): CatalogImport
@@ -1569,11 +1875,14 @@ type Query {
   customerExports: [CustomerExport!]
   customerGroups: [CustomerGroup!]
   customers(after: String, before: String, first: Int, groupId: ID, search: String): CustomerPage
+  downloadInvoice(id: ID!): String
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
   health: String
   home: StoreHome
+  installableApp(id: ID!): InstallableApp
   invoiceSettings: InvoiceSettings
+  invoices(after: String, before: String, first: Int): StoreInvoicePage
   market(id: ID!): Market
   markets(after: String, before: String, first: Int): MarketPage
   me: Me
@@ -1597,6 +1906,9 @@ type Query {
   orders(after: String, before: String, filter: OrderFilter, first: Int, search: String): OrderPage
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
+  planCatalogue: [BillingPlan!]
+  planChangeQuote(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): PlanChangeQuote
+  planKeep: PlanKeep
   product(id: ID!): Product
   productCollections(productId: ID!): [ProductCollection!]
   productCounts: ProductCounts
@@ -1606,6 +1918,7 @@ type Query {
   productTranslation(language: String!, productId: ID!): [Translation!]
   products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
+  reminderSettings: ReminderSettings
   report(currency: String, days: Int!): StoreReport
   reportExport(id: ID!): ReportExport
   reportExports: [ReportExport!]
@@ -1616,20 +1929,27 @@ type Query {
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeDataExport(id: ID!): [StoreDataPart!]
   storeInfo: StoreInfo
   storeLocale: StoreLocale
   storeState: StoreState
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  subscription: BillingSubscription
   supplier(id: ID!): Supplier
   supplierApprovalRequired: Boolean
   supplierCounts: SupplierCounts
   supplierLedger(after: String, before: String, first: Int, supplierId: ID): SupplierLedger
   suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
+  supportAccess(after: String, before: String, first: Int): SupportAccess
   taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
   taxSetup: TaxSetup
   translationProgress(language: String!): TranslationProgress
+  usage: [BillingUsage!]
   warehouses(after: String, before: String, first: Int): WarehousePage
+  webhookDeliveries(after: String, before: String, endpointId: ID!, first: Int): WebhookDeliveryPage
+  webhookEvents: [String!]
+  webhooks(after: String, before: String, first: Int): WebhookEndpointPage
 }
 
 type ReferenceRate {
@@ -1654,6 +1974,46 @@ enum RefundReason {
 type RelatedProduct {
   id: ID
   name: String
+}
+
+type ReminderSettings {
+  enabled: Boolean
+  level: String
+  minimum: Money
+  quietHours: Boolean
+  revision: Int
+  skipOutOfStock: Boolean
+  steps: [ReminderStep!]
+  weeklyCap: Boolean
+}
+
+input ReminderSettingsInput {
+  enabled: Boolean!
+  minimum: MoneyInput
+  quietHours: Boolean!
+  skipOutOfStock: Boolean!
+  steps: [ReminderStepInput!]!
+  weeklyCap: Boolean!
+}
+
+type ReminderStep {
+  body: String
+  channel: String
+  delayMinutes: Int
+  discountPercent: Int
+  enabled: Boolean
+  position: Int
+  subject: String
+}
+
+input ReminderStepInput {
+  body: String!
+  channel: String!
+  delayMinutes: Int!
+  discountPercent: Int
+  enabled: Boolean!
+  position: Int!
+  subject: String!
 }
 
 type ReportExport {
@@ -1759,6 +2119,17 @@ type SavedSizeChart {
 type SavedStoryBlock {
   id: ID
   revision: Int
+}
+
+type SavedWebhook {
+  id: ID
+  secret: String
+}
+
+type ScheduledPlanChange {
+  at: String
+  interval: BillingInterval
+  plan: BillingPlanName
 }
 
 type SecondFactorStep {
@@ -1982,6 +2353,76 @@ type StockVersionPage {
   pageInfo: PageInfo
 }
 
+type StoreActivityActor {
+  id: String
+  kind: String
+  label: String
+}
+
+type StoreActivityAgent {
+  id: String
+  kind: String
+  label: String
+}
+
+type StoreActivityChange {
+  after: String
+  before: String
+  field: String
+}
+
+type StoreActivityEntry {
+  action: String
+  actor: StoreActivityActor
+  at: String
+  category: String
+  changes: [StoreActivityChange!]
+  customerId: String
+  id: ID
+  onBehalfOf: StoreActivityAgent
+  reason: String
+  result: String
+  sellerId: String
+  target: StoreActivityTarget
+  through: StoreActivityThrough
+}
+
+type StoreActivityExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+input StoreActivityFilter {
+  from: String
+  personId: String
+  personKind: String
+  result: String
+  search: String
+  to: String
+  what: String
+}
+
+type StoreActivityPage {
+  items: [StoreActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type StoreActivityTarget {
+  id: String
+  label: String
+  type: String
+}
+
+type StoreActivityThrough {
+  id: String
+  kind: String
+}
+
 type StoreAddress {
   city: String
   postal: String
@@ -2020,6 +2461,16 @@ input StoreCurrencyInput {
   code: String!
   mode: String!
   rounding: String
+}
+
+type StoreDataPart {
+  csv: String
+  expiresAt: String
+  id: ID
+  kind: String
+  rows: Int
+  state: String
+  truncated: Boolean
 }
 
 type StoreHome {
@@ -2069,6 +2520,23 @@ input StoreInfoInput {
   taxId: String
   timeZone: String!
   unitSystem: String!
+}
+
+type StoreInvoice {
+  amount: Money
+  id: ID
+  issuedAt: String
+  kind: String
+  lines: [InvoiceLine!]
+  number: String
+  paidAt: String
+  status: String
+  tax: Money
+}
+
+type StoreInvoicePage {
+  nodes: [StoreInvoice!]
+  pageInfo: PageInfo
 }
 
 type StoreLanguage {
@@ -2136,6 +2604,28 @@ type StoreState {
   status: String
   support: SupportBanner
   trialEndsAt: String
+}
+
+type StoreSupportSession {
+  access: String
+  actingAs: SupportActingAs
+  agentName: String
+  allowedBy: String
+  endedAt: String
+  endedBy: String
+  endedByName: String
+  expiresAt: String
+  id: ID
+  partnerName: String
+  reason: String
+  startedAt: String
+  ticket: String
+  writeRequest: SupportSessionWriteRequest
+}
+
+type StoreSupportSessions {
+  nodes: [StoreSupportSession!]
+  pageInfo: PageInfo
 }
 
 type StoryBlock {
@@ -2311,10 +2801,42 @@ type SupplierTeamPerson {
   you: Boolean
 }
 
+type SupportAccess {
+  allowed: Boolean
+  sessions: StoreSupportSessions
+}
+
+type SupportAccessSet {
+  allowed: Boolean
+  ended: Int
+}
+
+type SupportActingAs {
+  name: String
+  role: String
+  supplier: String
+}
+
 type SupportBanner {
+  access: String
   agentFirstName: String
+  allowedBy: String
   endsAt: String
   partnerName: String
+  sessionId: ID
+  writeRequest: SupportWriteRequest
+}
+
+type SupportSessionWriteRequest {
+  note: String
+  requestedAt: String
+  state: String
+}
+
+type SupportWriteRequest {
+  note: String
+  requestedAt: String
+  state: String
 }
 
 type TaxClass {
@@ -2481,5 +3003,40 @@ input WarehouseInput {
 
 type WarehousePage {
   nodes: [Warehouse!]
+  pageInfo: PageInfo
+}
+
+type WebhookDelivery {
+  attempts: Int
+  createdAt: String
+  deliveredAt: String
+  durationMs: Int
+  error: String
+  event: String
+  eventId: ID
+  id: ID
+  lastAttemptAt: String
+  replayOf: ID
+  responseCode: Int
+  status: String
+}
+
+type WebhookDeliveryPage {
+  nodes: [WebhookDelivery!]
+  pageInfo: PageInfo
+}
+
+type WebhookEndpoint {
+  createdAt: String
+  disabledAt: String
+  events: [String!]
+  failingSince: String
+  id: ID
+  status: String
+  url: String
+}
+
+type WebhookEndpointPage {
+  nodes: [WebhookEndpoint!]
   pageInfo: PageInfo
 }

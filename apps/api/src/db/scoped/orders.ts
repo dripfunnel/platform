@@ -77,7 +77,7 @@ export interface SnapshotLine {
   lineTotalAmount: bigint
   weightGrams: number | null
   reservedWarehouseId: string | null
-  /** A gift card's recipient and day, as the cart held them (migration 0111). */
+  /** A gift card's recipient and day, as the cart held them (migration 0171). */
   gift: CartGift | null
 }
 
@@ -161,6 +161,10 @@ export const lockPlacedOrder = async (tx: ScopedSql, storeId: string, orderId: s
     `
   )[0] ?? null
 
+/** A preview storefront's order, paid in test mode: no shopper is told of it and no webhook hears of it (storefront ARCHITECTURE §4.1). */
+export const orderIsTest = async (tx: ScopedSql, orderId: string): Promise<boolean> =>
+  (await tx`select 1 from payment where order_id = ${orderId} and mode = 'test' limit 1`).length > 0
+
 /** Paid: the order and its pending payment both, at once. */
 export const recordPaid = async (tx: ScopedSql, storeId: string, orderId: string, now: Date): Promise<void> => {
   await tx`update "order" set payment_state = 'paid', paid_at = ${now}, payment_due_by = null, updated_at = ${now}, revision = revision + 1 where id = ${orderId} and store_id = ${storeId}`
@@ -233,7 +237,7 @@ export interface ShopOrderRow {
   placed_at: Date
   payment_due_by: Date | null
   lines: { name: string; version_name: string | null; quantity: number; unit_amount: string; line_total_amount: string; gift: { recipientName: string; recipientEmail: string; sendOn: string | null } | null }[]
-  /** Each paid download's grant, and each key the order took (migration 0111): none before payment. */
+  /** Each paid download's grant, and each key the order took (migration 0171): none before payment. */
   downloads: { id: string; name: string; uses_left: number; expires_at: string }[]
   keys: { name: string; key: string }[]
   /** The discount lines, named as the shopper saw them (OFFERS fact 13). */

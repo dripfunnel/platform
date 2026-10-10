@@ -31,6 +31,7 @@ export { orderFilters, type SaleRow, type OrderCounts, type OrderDetailRow, type
 
 export { buildOrderExport, createOrderExportService, orderExportAudit, type OrderExportDto } from './exports'
 export { cancelReasons, createRefundService, refundAudit, refundReasons, returnReasons, type LedgerRow, type RefundInput, type RefundRefusal, type RefundResult, type RefundRow, type ReturnRow } from './refunds'
+export { applyTracking, trackingAudit, type TrackingDeps } from './tracking'
 export { createFulfilmentService, fulfilmentAudit, type FulfilmentRefusal, type FulfilmentResult, type FulfilmentRow, type ShipInput } from './fulfilment'
 
 export const ordersAudit = { noteAdded: 'order.note_added' } as const

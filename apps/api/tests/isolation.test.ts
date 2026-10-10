@@ -346,7 +346,8 @@ describe('the backstop itself', () => {
       'asset', 'product_photo', 'product_video',
       'filter', 'filter_value', 'product_filter_value', 'collection', 'collection_rule', 'collection_product', 'menu', 'menu_item',
       'store_feature', 'badge', 'size_chart', 'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag', 'product_compliance', 'product_market_rule',
-      'product_story', 'story_block', 'warehouse', 'stock_level', 'stock_movement', 'licence_key', 'order_download', 'gift_card', 'gift_card_movement',
+      'product_story', 'story_block', 'warehouse', 'stock_level', 'stock_movement', 'licence_key', 'order_download', 'gift_card', 'gift_card_movement', 'api_key', 'api_usage', 'webhook_endpoint', 'webhook_delivery', 'app', 'app_grant',
+      'store_billing_details', 'invoice', 'invoice_line',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -637,8 +638,9 @@ describe('the backstop itself', () => {
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier'
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and table_name not in ('store', 'story_block') order by 1`)).toEqual([
       'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'external_connection', 'filter', 'filter_value', 'fulfilment', 'fulfilment_line', 'invitation', 'membership',
-      // Its own parts and lines without money, the two views of the order and its lines' money (#310, 0070), and its own shipments (0071).
-      'order_for_supplier', 'order_line', 'order_line_for_supplier', 'order_part', 'outbox', 'price_history',
+      // Its own parts and lines without money, the two views of the order and its lines' money (#310, 0070), its own shipments (0071)
+      // and the labels it booked for its own parts (0130).
+      'order_document', 'order_for_supplier', 'order_line', 'order_line_for_supplier', 'order_part', 'outbox', 'price_history',
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
       'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
       'product_version', 'product_version_option_value', 'product_video',
@@ -679,6 +681,7 @@ describe('the backstop itself', () => {
     expect(owned.map((f) => f.proname)).toEqual([
       'acting_store_main_language',
       'current_order_token_hash',
+      'decide_support_write',
       'end_partner_user_sessions',
       'end_staff_user_sessions',
       'latest_job_of',
@@ -693,6 +696,7 @@ describe('the backstop itself', () => {
       'plan_first_version',
       'save_store_info',
       'set_store_main_language',
+      'set_store_support_access',
       'set_store_tax_inclusive',
       'set_store_vendor_approval',
       'shop_stock',
@@ -708,8 +712,10 @@ describe('the backstop itself', () => {
       'store_markets_follow_currency',
       'store_pricing_currency',
       'store_product_count',
+      'store_support_sessions',
       'store_unit_system',
       'store_vendor_approval',
+      'store_webhook_partner',
       'storefront_catalog_touched',
       'storefront_for_store',
       'storefront_store_touched',

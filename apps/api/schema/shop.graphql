@@ -13,6 +13,7 @@ type Mutation {
   placeOrder(provider: String!): ShopPlacedOrder
   removeCode(code: String!): ShopCartChange
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
+  restoreCart(token: String!): ShopRestoredCart
   saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
   setBillingAddress(address: ShopAddressInput): ShopCartChange
   setCartContact(email: String, note: String, phone: String): ShopCartChange
@@ -21,6 +22,7 @@ type Mutation {
   setShippingOption(option: String!): ShopCartChange
   signIn(email: String!, password: String!): ShopSession
   signOut: Boolean
+  unsubscribe(token: String!): Boolean
   updateAccount(name: String): Boolean
   verifySignInCode(channel: ShopSignInChannel!, code: String!, name: String, password: String, to: String!): ShopSession
 }
@@ -432,6 +434,12 @@ type ShopProductSummary {
   price: ShopMoney
   productType: String
   slug: String
+}
+
+type ShopRestoredCart {
+  cart: ShopCart
+  cartToken: String
+  signInRequired: Boolean
 }
 
 type ShopSavedAddress {

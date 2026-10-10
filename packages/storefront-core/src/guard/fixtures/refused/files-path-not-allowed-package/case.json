@@ -1,0 +1,5 @@
+{
+  "rule": "files/path-not-allowed",
+  "file": "package.json",
+  "line": null
+}

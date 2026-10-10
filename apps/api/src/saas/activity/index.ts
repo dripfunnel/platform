@@ -4,6 +4,7 @@ export {
   activityFilter,
   activityPageSize,
   listActivity,
+  queryOf,
   type ActivityFilter,
   type ActivityPage,
   type ActivityPageRequest,

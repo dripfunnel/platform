@@ -39,6 +39,7 @@ import {
   type VersionFields,
 } from '#db/scoped/catalog'
 import { approvalRequired, submitForApproval } from '#db/scoped/approval'
+import { queueStoreEvent } from '#db/scoped/storeEvents'
 import { classesOfStore } from '#db/scoped/tax'
 import { listingRefused, setProductListing, setProductSizeChart } from '#db/scoped/catalogListing'
 import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStructure'
@@ -332,6 +333,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const made = await insertProduct(tx, { storeId, sellerId, createdBy: actor.id, fields: { ...fieldsOf(product, visibility), slug: sellerId !== null ? supplierSlug(product.slug) : product.slug } })
       await writeChildren(tx, made.id, product, null)
       await activity.record(tx, entry(proposal ? approvalAudit.proposed : catalogAudit.created, { id: made.id, label: product.name }))
+      await queueStoreEvent(tx, storeId, 'product.updated', { object: 'product', id: made.id }, crypto.randomUUID(), now())
       const pending = sellerId !== null && (proposal || (await approvalRequired(tx)))
       await alongside?.(tx, made.id)
       return { ok: true, id: made.id, slug: made.slug, revision: 1, approval: pending ? 'pending' : null, reviewed: [] }
@@ -370,6 +372,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (!done) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
       await writeChildren(tx, id, product, existing)
       await activity.record(tx, entry(catalogAudit.updated, { id, label: product.name }))
+      await queueStoreEvent(tx, storeId, 'product.updated', { object: 'product', id }, crypto.randomUUID(), now())
       const review = await reviewAfterSave(tx, id, product, existing)
       await alongside?.(tx, id)
       return { ok: true, id, slug: done.slug, revision: revision + 1, ...review }

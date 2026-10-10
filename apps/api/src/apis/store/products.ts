@@ -5,7 +5,7 @@ import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { marketsService } from './markets'
 import { translationService } from './translations'
-import { actingCaller, type StoreContext } from './access'
+import { actingCaller, tenantCaller, type StoreContext } from './access'
 import { moneyInputType, moneyType, pageInfoType, type Money, type StoreBuilder } from './builder'
 import { sortedPage, sortedPageOf } from './refusals'
 import { requireFeature } from './listing'
@@ -143,7 +143,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       lowStock: t.exposeBoolean('lowStock'),
       createdAt: t.exposeString('createdAt'),
       updatedAt: t.exposeString('updatedAt'),
-      readiness: t.field({ type: [Readiness], nullable: true, extensions: { access: merchantRead }, resolve: (p) => p.readiness }),
+      readiness: t.field({ type: [Readiness], nullable: true, extensions: { access: { ...merchantRead, machine: true } }, resolve: (p) => p.readiness }),
     }),
   })
   const SummaryPage = builder.objectRef<{ nodes: SummaryView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('ProductPage').implement({
@@ -271,7 +271,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       readiness: t.field({
         type: [Readiness],
         nullable: true,
-        extensions: { access: merchantRead },
+        extensions: { access: { ...merchantRead, machine: true } },
         resolve: async (p, _, ctx) => (await marketsService(ctx).readiness([p.id])).get(p.id) ?? [],
       }),
       // Prices in the store's other currencies and in a market are the merchant's (CATALOG O14): a supplier reads null.
@@ -279,7 +279,7 @@ export const registerProducts = (builder: StoreBuilder) => {
         type: [VersionPricingType],
         nullable: true,
         args: { marketId: t.arg.id() },
-        extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } },
+        extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none', machine: true } },
         resolve: (p, args, ctx) => marketsService(ctx).pricing(p.versions, args.marketId ? String(args.marketId) : null),
       }),
       warrantyText: t.exposeString('warranty_text', { nullable: true }),
@@ -407,11 +407,11 @@ export const registerProducts = (builder: StoreBuilder) => {
   const service = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const sql = ctx.sql
-    const caller = actingCaller(ctx)
+    const caller = tenantCaller(ctx)
     return createCatalogService({
       sql,
       context: caller.context,
-      actor: { id: caller.person.id, partnerId: caller.person.partnerId },
+      actor: { id: caller.actor.id, partnerId: caller.actor.partnerId },
       activity: ctx.activity,
       facts: ctx.facts,
       now: ctx.now,
@@ -438,7 +438,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       type: SummaryPage,
       // sort: created (the default) | updated | name | price_low | price_high | stock (CatList's sorts).
       args: { filter: t.arg.string(), search: t.arg.string(), supplier: t.arg.string(), untranslatedIn: t.arg.string(), sort: t.arg.string(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: { ...read, machine: true } },
       resolve: async (_, args, ctx) => {
         const filter = filters.find((f) => f === (args.filter ?? 'all'))
         if (!filter) throw new GraphQLError('Choose a list to show.', { extensions: { code: 'INVALID_INPUT' } })
@@ -458,21 +458,21 @@ export const registerProducts = (builder: StoreBuilder) => {
         const { currency, rows } = await service(ctx).list({ filter, search, seller: supplier, untranslatedIn }, window, sort)
         const page = sortedPageOf(rows, window, sort, byTime, (r) => ({ value: sortValueOf(r, sort), id: r.id }))
         // The page's readiness in one go, the merchant side's alone (a supplier reads no market).
-        const readiness = actingCaller(ctx).seller === null ? await marketsService(ctx).readiness(page.nodes.map((r) => r.id)) : null
+        const readiness = tenantCaller(ctx).seller === null ? await marketsService(ctx).readiness(page.nodes.map((r) => r.id)) : null
         return { nodes: page.nodes.map((r) => summaryOf(r, currency, readiness ? (readiness.get(r.id) ?? []) : null)), pageInfo: page.pageInfo }
       },
     }),
-    productCounts: t.field({ type: Counts, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).counts() }),
+    productCounts: t.field({ type: Counts, extensions: { access: { ...read, machine: true } }, resolve: (_, __, ctx) => service(ctx).counts() }),
     product: t.field({
       type: ProductType,
       nullable: true,
       args: { id: t.arg.id({ required: true }) },
-      extensions: { access: read },
+      extensions: { access: { ...read, machine: true } },
       resolve: async (_, args, ctx) => {
         const id = String(args.id)
         if (!isUuid(id)) return null
         const { currency, product } = await service(ctx).get(id)
-        return product ? { ...product, pricingCurrency: currency, viewerIsSupplier: actingCaller(ctx).seller !== null } : null
+        return product ? { ...product, pricingCurrency: currency, viewerIsSupplier: tenantCaller(ctx).seller !== null } : null
       },
     }),
   }))

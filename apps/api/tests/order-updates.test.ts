@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { TenantContext } from '#core/tenancy'
 import { withSystemScope } from '#db/scoped/index'
 import { orderUpdateKind, queueOrderUpdate } from '#db/scoped/orderUpdates'
-import { createFulfilmentService } from '#engine/modules/orders/index'
+import { applyTracking, createFulfilmentService } from '#engine/modules/orders/index'
 import { SesUnavailable, type OutgoingEmail, type SesApi } from '#integrations/ses/index'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { orderNotifyDeliverer } from '#jobs/queues/deliverers/orderNotify'
@@ -185,5 +185,34 @@ describe('the shipping news', () => {
     await db.sql`update "order" set payment_state = 'paid' where id = ${id}`
     await shipping().ship({ orderId: id, warehouseId: place, lines: [{ lineId: await lineOf(id), quantity: 1 }], courierName: null, trackingNumber: null, trackingUrl: null })
     expect(await db.sql`select 1 from outbox where kind = ${orderUpdateKind} and payload ->> 'orderId' = ${id}`).toHaveLength(0)
+  })
+})
+
+describe('the delivery news (#311)', () => {
+  it('emails what arrived and texts the tracking link once a booked parcel is delivered, and once only', async () => {
+    const id = await order('JL-40')
+    const made = await shipping().ship({ orderId: id, warehouseId: place, lines: [{ lineId: await lineOf(id), quantity: 2 }], courierName: 'Delhivery', trackingNumber: 'AWB40', trackingUrl: 'https://shiprocket.co/tracking/AWB40' })
+    const shipment = made.ok ? (made.value[0] ?? '') : ''
+    // As a label booked through the courier would be (migration 0130).
+    await db.sql`update fulfilment set kind = 'booked', courier_provider = 'shiprocket', provider_ref = 'sr-40', booked_at = now() where id = ${shipment}`
+    const delivered = { providerRef: null, trackingNumber: 'AWB40', status: 'delivered' as const, at: new Date('2026-10-12T10:00:00Z') }
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [delivered])).toBe(1)
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [{ ...delivered, at: new Date('2026-10-12T11:00:00Z') }])).toBe(1)
+    await relay()
+    const [mail, ...again] = mailTo('Your Jaipur Looms order JL-40 was delivered')
+    expect(again).toEqual([])
+    expect(mail?.text).toContain('2 × Kurta, Red, M')
+    expect((await texts('JL-40')).filter((m) => m.message === 'order.delivered')).toEqual([{ message: 'order.delivered', to: '+919800000001', brand: 'Jaipur Looms', vars: { order: 'JL-40', link: 'https://shiprocket.co/tracking/AWB40' } }])
+  })
+
+  it('tells nobody when the store switched that courier’s tracking emails off', async () => {
+    const id = await order('JL-41')
+    const made = await shipping().ship({ orderId: id, warehouseId: place, lines: [{ lineId: await lineOf(id), quantity: 1 }], courierName: 'Delhivery', trackingNumber: 'AWB41', trackingUrl: null })
+    const shipment = made.ok ? (made.value[0] ?? '') : ''
+    await db.sql`update fulfilment set kind = 'booked', courier_provider = 'shiprocket', provider_ref = 'sr-41', booked_at = now() where id = ${shipment}`
+    await db.sql`insert into store_courier (store_id, provider, role, label_size, tracking_emails) values (${t.storeA1}, 'shiprocket', 'pricing', 'a6', false)`
+    expect(await applyTracking({ sql: db.sql, activity: activityLog }, t.partnerA, 'shiprocket', [{ providerRef: null, trackingNumber: 'AWB41', status: 'delivered', at: new Date() }])).toBe(1)
+    expect(await db.sql`select 1 from outbox where kind = ${orderUpdateKind} and payload ->> 'event' = 'delivered' and payload ->> 'orderId' = ${id}`).toHaveLength(0)
+    await db.sql`delete from store_courier where store_id = ${t.storeA1}`
   })
 })

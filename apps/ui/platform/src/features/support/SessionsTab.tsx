@@ -46,6 +46,8 @@ const Why = ({ session }: { session: SupportSession }) => (
 
 const endedText = (session: SupportSession): string => {
   if (session.endedBy === 'expired') return words.endedBy.expired
+  // The merchant switched support off, or its user or store went (ACCESS.md §8).
+  if (session.endedBy === 'store') return words.endedBy.store
   const name = session.endedBy === 'colleague' ? (session.endedByName ?? '') : session.you ? words.you : session.agent.name
   return fill(session.endedBy === 'colleague' ? words.endedBy.colleague : words.endedBy.agent, { name })
 }

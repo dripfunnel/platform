@@ -1,34 +1,24 @@
-import { EmptyState, ErrorState, ExportJobStatus, LoadingState, SearchField, StatusPill, usePhone, useScreenState, type ExportJobWords } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, ExportJobStatus, LoadingState, SearchField, StatusPill, usePhone, useScreenState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadOrderCounts, loadOrders, loadStoreTimeZone, orderPageSize, requestOrderExport, type OrderCounts, type OrderFilter, type OrderPage, type OrderSummary } from '../../api/orders'
 import { harnessEnabled, harnessSearch } from '../../harness'
-import { fill, formatCount, formatTime, messages, plural } from '../../messages'
+import { fill, formatCount, messages, plural } from '../../messages'
 import { startListExport, useListExport } from '../common/listExport'
 import '../common/chips.css'
 import { orderListSample, orderListStates } from './orderStates'
 import { ordersSeatOf } from './ordersAccess'
-import { chipsFor, countKey, moneyText, paymentOf, rowStatus, statusPill, timeText, zoneName, type OrdersAccess } from './orderView'
+import { chipsFor, countKey, moneyText, orderExportWords, paymentOf, rowStatus, statusPill, timeText, zoneName, type OrdersAccess } from './orderView'
 import './orders.css'
 
 const words = messages.orders
 const shellRoute = getRouteApi('/_app')
+const pageRoute = getRouteApi('/_app/orders')
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: OrderPage; counts: OrderCounts }
 type Cursor = { after?: string | null; before?: string | null }
-
-const exportWords: ExportJobWords = {
-  preparing: words.export.preparing,
-  ready: (count, truncated) => (truncated ? fill(words.export.truncated, { count: formatCount(count) }) : fill(plural(words.export.ready, count), { count: formatCount(count) })),
-  download: words.export.download,
-  file: (date) => fill(words.export.file, { date }),
-  expires: (time) => fill(words.export.expires, { time: formatTime(time) }),
-  expired: words.export.expired,
-  tooLarge: words.export.tooLarge,
-  failed: words.export.failed,
-}
 
 /** Orders (PortalOrders, FIRST-RELEASE §6): the store's orders, or a supplier's To ship; ?state= per orderStates.ts. */
 export const OrderList = () => {
@@ -39,7 +29,8 @@ export const OrderList = () => {
   const phone = usePhone()
   const exportJob = useListExport('orders')
 
-  const [filter, setFilter] = useState<OrderFilter>('ALL')
+  const { filter: opened } = pageRoute.useSearch()
+  const [filter, setFilter] = useState<OrderFilter>(() => (opened && chipsFor(access.supplier).includes(opened) ? opened : 'ALL'))
   const [search, setSearch] = useState('')
   const [cursor, setCursor] = useState<Cursor>({})
   const [pageIndex, setPageIndex] = useState(0)
@@ -117,7 +108,7 @@ export const OrderList = () => {
       </div>
       {exportJob && (
         <p className="df-orders-export" role="status">
-          <ExportJobStatus job={exportJob} words={exportWords} />
+          <ExportJobStatus job={exportJob} words={orderExportWords} />
         </p>
       )}
 

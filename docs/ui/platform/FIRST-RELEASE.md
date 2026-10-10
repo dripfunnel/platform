@@ -642,6 +642,8 @@ refusal names, and what the caller may do to each session are the API's; the con
   `startSupportSession`; the portal tab is opened on the click and closed on any refusal.
 - **A store's Support tab** starts the same flow for each of its people (§6.3), for Owners, Admins
   and Support, outside a staff session.
+- **Ended by the store** (#331): History says "Ended by the store" when the merchant switched support
+  off, or its user or store went (`endedBy: store`).
 - **Not here:** the bar, its five-minute countdown and expiry are the merchant portal's, with the
   merchant's Allow/Deny (the Store strand, after #184). A DripFunnel staff session gets a refusal,
   never the screen (ACCESS §8.2).

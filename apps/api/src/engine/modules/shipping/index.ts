@@ -26,6 +26,7 @@ import {
 } from '#db/scoped/shipping'
 import { cleanShipping, defaultWeightGrams, deliveryOptions, labelSizesFor, maxPostalCodes, normalisePostal, type DeliveryOption, type ShippingInput, type ShippingRefusal } from './rules'
 
+export { defaultWeightGrams } from './rules'
 export type { DeliveryOption, ShippingInput, ShippingRefusal } from './rules'
 
 // Settings › Shipping (SetOps) and what delivery costs a cart (SAPI 23, #305; DATA-MODEL §7.2): couriers on the

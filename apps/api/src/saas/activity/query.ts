@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { CallerContext } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
-import { activityResults, actorKinds, type ActivityRow } from '#db/schema/activity'
-import { activityLevels, activityWhos, selectActivity, selectOwnActivity } from '#db/scoped/activity'
+import { activityCategories, activityResults, actorKinds, type ActivityRow } from '#db/schema/activity'
+import { activityLevels, activityWhos, selectActivity, selectOwnActivity, type ActivityQuery } from '#db/scoped/activity'
 import { withScope } from '#db/scoped/index'
 
 // The admin console reads 50 at a time (ui/admin/FIRST-RELEASE.md §9); nothing asks for more.
@@ -27,6 +27,9 @@ export const activityFilter = z
     accessRef: z.guid().optional(),
     personKind: z.enum(actorKinds).optional(),
     personId: z.string().min(1).max(200).optional(),
+    category: z.enum(activityCategories).optional(),
+    families: z.array(z.string().regex(/^[a-z_]{1,40}$/)).min(1).max(30).optional(),
+    search: z.string().trim().min(1).max(100).optional(),
     /** UTC calendar days, inclusive (FIRST-RELEASE §9). */
     from: z.iso.date().optional(),
     to: z.iso.date().optional(),
@@ -71,6 +74,30 @@ export interface ActivityScope {
   assignedTo?: string | undefined
 }
 
+/** The log's query for a parsed filter, within the caller's scope. */
+export const queryOf = (f: ActivityFilter, scope: ActivityScope = {}): ActivityQuery => ({
+  actorKind: f.actorKind,
+  actorId: f.actorId,
+  targetType: f.targetType,
+  targetId: f.targetId,
+  partnerId: f.partnerId,
+  storeId: f.storeId,
+  customerId: f.customerId,
+  action: f.action,
+  from: f.from ? dayStart(f.from) : undefined,
+  to: f.to ? nextDay(f.to) : undefined,
+  assignedTo: scope.assignedTo,
+  who: f.who,
+  result: f.result,
+  level: f.level,
+  ip: f.ip,
+  accessRef: f.accessRef,
+  person: f.personKind && f.personId ? { kind: f.personKind, id: f.personId } : undefined,
+  category: f.category,
+  families: f.families,
+  search: f.search,
+})
+
 export const listActivity = async (
   sql: postgres.Sql,
   context: CallerContext,
@@ -88,32 +115,7 @@ export const listActivity = async (
   const f = parsed.data
   const own = isTenantContext(context) && context.caller.kind === 'shopper'
   const ownFilter = { action: f.action, from: f.from ? dayStart(f.from) : undefined, to: f.to ? nextDay(f.to) : undefined, result: f.result }
-  const rows = await withScope(sql, context, (tx) =>
-    own ? selectOwnActivity(tx, ownFilter, { after, before }, limit) : selectActivity(
-      tx,
-      {
-        actorKind: f.actorKind,
-        actorId: f.actorId,
-        targetType: f.targetType,
-        targetId: f.targetId,
-        partnerId: f.partnerId,
-        storeId: f.storeId,
-        customerId: f.customerId,
-        action: f.action,
-        from: f.from ? dayStart(f.from) : undefined,
-        to: f.to ? nextDay(f.to) : undefined,
-        assignedTo: scope.assignedTo,
-        who: f.who,
-        result: f.result,
-        level: f.level,
-        ip: f.ip,
-        accessRef: f.accessRef,
-        person: f.personKind && f.personId ? { kind: f.personKind, id: f.personId } : undefined,
-      },
-      { after, before },
-      limit,
-    ),
-  )
+  const rows = await withScope(sql, context, (tx) => (own ? selectOwnActivity(tx, ownFilter, { after, before }, limit) : selectActivity(tx, queryOf(f, scope), { after, before }, limit)))
 
   const more = rows.length > limit
   // Reading backwards, the extra row is the oldest one fetched, which sits first.
