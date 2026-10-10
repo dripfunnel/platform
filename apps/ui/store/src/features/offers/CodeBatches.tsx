@@ -1,6 +1,6 @@
 import { ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { codeBatchLimits, generateCodes, loadCodeBatches, loadCodesExport, requestCodesExport, type CodeBatch } from '../../api/offers'
+import { codeBatchLimits, codeLengths, generateCodes, loadCodeBatches, loadCodesExport, requestCodesExport, type CodeBatch } from '../../api/offers'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { offerRefusal } from './offerActions'
 
@@ -87,7 +87,7 @@ export const CodeBatches = ({ offerId, sample, canEdit, canExport, canUpgrade }:
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [count, setCount] = useState('500')
   const [prefix, setPrefix] = useState('')
-  const [length, setLength] = useState('8')
+  const [length, setLength] = useState<number>(codeLengths[1])
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [made, setMade] = useState<string | null>(null)
@@ -125,7 +125,7 @@ export const CodeBatches = ({ offerId, sample, canEdit, canExport, canUpgrade }:
     if (!prefixOk) return setProblem(fill(words.prefixError, { max: String(codeBatchLimits.prefix) }))
     if (sample) return setMade(fill(plural(words.made, n), { count: formatCount(n) }))
     setBusy(true)
-    void generateCodes(offerId, { count: n, prefix: cleanPrefix, length: Number(length) })
+    void generateCodes(offerId, { count: n, prefix: cleanPrefix, length })
       .then(
         (batch) => {
           setMade(fill(plural(words.made, batch.count), { count: formatCount(batch.count) }))
@@ -136,7 +136,7 @@ export const CodeBatches = ({ offerId, sample, canEdit, canExport, canUpgrade }:
       .finally(() => setBusy(false))
   }
 
-  const sampleCodes = Array.from({ length: 3 }, (_, i) => `${cleanPrefix}${'K7QX2M9P4RT8WZ3N5H6J'.slice(i * 2, i * 2 + Number(length))}`).join(' · ')
+  const sampleCodes = Array.from({ length: 3 }, (_, i) => `${cleanPrefix}${words.sampleChars.slice(i * 2, i * 2 + length)}`).join(words.sampleJoiner)
   return (
     <section className="df-offer-card" aria-labelledby="df-offer-codes">
       <div className="df-offer-card-head">
@@ -176,8 +176,8 @@ export const CodeBatches = ({ offerId, sample, canEdit, canExport, canUpgrade }:
             </label>
             <label>
               <span>{words.length}</span>
-              <select value={length} onChange={(e) => setLength(e.target.value)}>
-                {['6', '8', '10'].map((l) => (
+              <select value={length} onChange={(e) => setLength(Number(e.target.value))}>
+                {codeLengths.map((l) => (
                   <option key={l} value={l}>
                     {l}
                   </option>
