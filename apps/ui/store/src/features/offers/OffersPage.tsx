@@ -165,8 +165,6 @@ export const OffersPage = () => {
         <span className="df-offers-menu-sub">{words.menuSub[act]}</span>
       </button>
     )
-    // No menu at all rather than an empty one: Staff, or a view-only store, on an automatic offer has nothing to do.
-    if (!offer.code && acts.length === 0) return null
     return (
       <MoreActions label={words.row.actions}>
         {(close) => (
