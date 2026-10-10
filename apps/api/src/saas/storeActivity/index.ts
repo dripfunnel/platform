@@ -8,15 +8,14 @@ import { insertCatalogExport, selectCatalogExport, type CatalogExportRow } from 
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { exportDtoOf, jobPayloadOf, type CatalogExportDto, type CatalogJobPayload } from '#engine/modules/catalog/index'
 import { activityFilter, listActivity, queryOf, type ActivityPageRequest, type PageInfo } from '#saas/activity/index'
-import { activityCsvHeader, activityCsvLine } from '#saas/partnerActivity/index'
+import { activityAudit, activityCsvHeader, activityCsvLine, exportMaxRows } from '#saas/partnerActivity/index'
 
 // The store's Activity log (FIRST-RELEASE §15, StoreActivity; LOGGING §6–7; #331): the whole store's
 // entries for its Owner and Manager, the CSV for the Owner. Which entries a store reads is the log's
 // own policy (0006, 0007): its own, and the partner's that name it; never a `staff` one.
 
-export const storeActivityAudit = { exportActivity: 'activity.exported' } as const
-/** LOGGING §6: a store's export caps as the partner's does. */
-export const storeActivityExportMax = 10_000
+// LOGGING §6: a store's export caps, and is logged, as the partner's is.
+export { activityAudit, exportMaxRows } from '#saas/partnerActivity/index'
 
 /** StoreActivity's "What": action families, or one of the log's own columns. */
 const families = {
@@ -109,7 +108,7 @@ export const createStoreActivityService = ({ sql, caller, activity, facts, now, 
       if (payload) await queue(tx, payload)
       await activity.record(tx, {
         category: 'write',
-        action: storeActivityAudit.exportActivity,
+        action: activityAudit.exportActivity,
         result: 'success',
         actorKind: 'person',
         actorId,
@@ -146,7 +145,7 @@ export type StoreActivityService = ReturnType<typeof createStoreActivityService>
 const pageRows = 100
 
 /** The file, read in the asker's own scope a page at a time as the screen reads it, cut at the cap with a last line saying so. */
-export const buildActivityExport = async (tx: ScopedSql, job: CatalogExportRow, max = storeActivityExportMax): Promise<{ rows: number; truncated: boolean; csv: string }> => {
+export const buildActivityExport = async (tx: ScopedSql, job: CatalogExportRow, max = exportMaxRows): Promise<{ rows: number; truncated: boolean; csv: string }> => {
   const query = queryOf(activityFilter.parse(logFilterOf(storeActivityFilter.parse(job.filter))))
   const lines = [activityCsvHeader]
   let after: KeysetPage['after']

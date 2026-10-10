@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { catalogExportKind, type CatalogExportDto } from '#engine/modules/catalog/index'
 import { queueSideEffect } from '#saas/outbox/index'
-import { createStoreActivityService, storeActivityAudit, type StoreActivityEntry } from '#saas/storeActivity/index'
+import { activityAudit, createStoreActivityService, type StoreActivityEntry } from '#saas/storeActivity/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
@@ -115,7 +115,7 @@ export const registerActivity = (builder: StoreBuilder) => {
     // An export is a read, so a read-only store allows it.
     exportActivity: t.id({
       args: { filter: t.arg({ type: Filter }) },
-      extensions: { access: { ...exporting, whileReadOnly: true, audit: storeActivityAudit.exportActivity } },
+      extensions: { access: { ...exporting, whileReadOnly: true, audit: activityAudit.exportActivity } },
       resolve: async (_, { filter }, ctx) => {
         const result = await serviceOf(ctx).exportActivity(filterOf(filter))
         if (!result.ok) throw invalid()
