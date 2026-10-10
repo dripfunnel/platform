@@ -1,4 +1,5 @@
 import type postgres from 'postgres'
+import type { ActivityLog } from '#auth/activity'
 import { logEvent } from '#core/log'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
@@ -19,8 +20,10 @@ import {
   upsertPartnerInvoice,
   upsertPayout,
 } from '#db/scoped/partnerBilling'
-import { StripeUnavailable, type StripeAccount, type StripeApi, type StripeCharge, type StripeEvent, type StripeInvoice, type StripePayout, type StripeRefund } from '#integrations/stripe/index'
+import { upsertStoreInvoice, type InvoiceUpsert } from '#db/scoped/storeBilling'
+import { StripeUnavailable, type StripeAccount, type StripeApi, type StripeCharge, type StripeEvent, type StripeInvoice, type StripePayout, type StripeRefund, type StripeSubscription } from '#integrations/stripe/index'
 import { queueSideEffect } from '#saas/outbox/index'
+import { applyStoreSubscription } from '#saas/storeBilling/index'
 import { payoutStatusOf } from './partner'
 
 // The Stripe webhook's work (SAAS §7.2; #201). Every event is answered by reading the object as
@@ -49,6 +52,7 @@ type Subject =
   | { kind: 'charge'; invoice: StripeInvoice | null; refunds: StripeRefund[] }
   | { kind: 'payout'; accountId: string; payout: StripePayout }
   | { kind: 'account'; account: StripeAccount }
+  | { kind: 'subscription'; subscription: StripeSubscription }
   | { kind: 'none' }
 
 const seconds = (s: number) => new Date(s * 1000)
@@ -65,23 +69,56 @@ const refundsOf = async (stripe: StripeApi, invoice: StripeInvoice | null): Prom
   return charge && (charge.amount_refunded ?? 0) > 0 ? stripe.refunds(charge.id) : []
 }
 
+// The invoice with all its lines, so the merchant's copy adds up to its amount however many Stripe embedded.
+const invoiceOf = async (stripe: StripeApi, invoiceId: string): Promise<StripeInvoice> => {
+  const invoice = await stripe.invoice(invoiceId)
+  return invoice.lines?.has_more ? { ...invoice, lines: { data: await stripe.invoiceLines(invoice.id), has_more: false } } : invoice
+}
+
 const fetchSubject = async (stripe: StripeApi, event: StripeEvent): Promise<Subject> => {
   const object = event.data.object
   if (event.type.startsWith('invoice.')) {
-    const invoice = await stripe.invoice(object.id)
+    const invoice = await invoiceOf(stripe, object.id)
     return { kind: 'invoice', invoice, refunds: await refundsOf(stripe, invoice) }
   }
   if (event.type.startsWith('charge.')) {
     const charge = await stripe.charge(object.id)
-    const invoice = charge.invoice ? await stripe.invoice(charge.invoice) : null
+    const invoice = charge.invoice ? await invoiceOf(stripe, charge.invoice) : null
     return { kind: 'charge', invoice, refunds: await refundsOf(stripe, invoice) }
   }
+  // A store's plan (#329): its status and period, and a scheduled change taking effect.
+  if (event.type.startsWith('customer.subscription.') && !event.account) return { kind: 'subscription', subscription: await stripe.subscription(object.id) }
   if (event.type.startsWith('payout.') && event.account) return { kind: 'payout', accountId: event.account, payout: await stripe.payout(event.account, object.id) }
   if (event.type.startsWith('account.')) {
     const accountId = event.account ?? (object.object === 'account' ? object.id : null)
     if (accountId) return { kind: 'account', account: await stripe.account(accountId) }
   }
   return { kind: 'none' }
+}
+
+// The merchant's own copy for its Billing screen (DATA-MODEL §7.9): Stripe's lines, a proration's credit below zero.
+const storeInvoiceOf = (storeId: string, invoice: StripeInvoice, refunds: StripeRefund[]): InvoiceUpsert => {
+  const refunded = refunds.filter((r) => r.status === 'succeeded').reduce((sum, r) => sum + r.amount, 0)
+  const paidAt = invoice.status_transitions?.paid_at
+  return {
+    storeId,
+    stripeInvoiceId: invoice.id,
+    number: invoice.number ?? null,
+    kind: invoice.billing_reason === 'subscription_update' ? 'proration' : 'subscription',
+    status: invoice.status === 'paid' ? (invoice.amount_paid > 0 && refunded >= invoice.amount_paid ? 'refunded' : 'paid') : invoice.status === 'open' ? 'open' : 'void',
+    amount: invoice.status === 'paid' ? invoice.amount_paid : invoice.amount_due,
+    taxAmount: invoice.tax ?? 0,
+    currency: upper(invoice.currency),
+    issuedAt: seconds(invoice.status_transitions?.finalized_at ?? invoice.created),
+    paidAt: paidAt ? seconds(paidAt) : null,
+    lines: (invoice.lines?.data ?? []).map((l) => ({
+      label: (l.description ?? '').slice(0, 300),
+      amount: l.amount ?? 0,
+      kind: l.proration ? ((l.amount ?? 0) < 0 ? 'proration_credit' : 'proration_charge') : 'plan',
+      periodStart: l.period ? seconds(l.period.start) : null,
+      periodEnd: l.period ? seconds(l.period.end) : null,
+    })),
+  }
 }
 
 const metadataOf = (invoice: StripeInvoice) => ({ ...(invoice.subscription_details?.metadata ?? {}), ...invoice.metadata })
@@ -92,6 +129,7 @@ const applyMerchantInvoice = async (tx: ScopedSql, invoice: StripeInvoice, refun
   const store = await selectStoreByCustomer(tx, storeId, invoice.customer)
   if (!store) return null
   if (invoice.status === 'draft' || (invoice.status === 'open' && invoice.attempt_count === 0)) return placed(store.partner_id)
+  await upsertStoreInvoice(tx, storeInvoiceOf(store.store_id, invoice, refunds))
   const payoutCurrency = await selectContractCurrency(tx, store.partner_id)
   if (!payoutCurrency) return mismatched(store.partner_id)
 
@@ -239,7 +277,7 @@ const applyAccount = async (tx: ScopedSql, account: StripeAccount, at: Date): Pr
   return placed(partnerId)
 }
 
-const apply = async (tx: ScopedSql, subject: Subject, type: string, at: Date): Promise<Placed> => {
+const apply = async (tx: ScopedSql, subject: Subject, type: string, at: Date, activity: ActivityLog): Promise<Placed> => {
   switch (subject.kind) {
     case 'invoice':
       return (await selectPartnerByCustomer(tx, subject.invoice.customer)) ? applyPartnerInvoice(tx, subject.invoice, type, at) : applyMerchantInvoice(tx, subject.invoice, subject.refunds)
@@ -249,6 +287,10 @@ const apply = async (tx: ScopedSql, subject: Subject, type: string, at: Date): P
       return applyPayout(tx, subject.accountId, subject.payout)
     case 'account':
       return applyAccount(tx, subject.account, at)
+    case 'subscription': {
+      const partnerId = await applyStoreSubscription(tx, subject.subscription, activity, at)
+      return partnerId ? placed(partnerId) : null
+    }
     case 'none':
       return null
   }
@@ -266,7 +308,7 @@ const partnerNamed = async (tx: ScopedSql, event: StripeEvent): Promise<string |
  * Handles one verified event. Throws StripeUnavailable when Stripe can't be read back, so the hook
  * answers 503 and Stripe delivers it again; nothing is recorded for it until then.
  */
-export const handleStripeEvent = async ({ sql, stripe, event, now }: { sql: postgres.Sql; stripe: StripeApi; event: StripeEvent; now: () => Date }): Promise<EventOutcome> => {
+export const handleStripeEvent = async ({ sql, stripe, event, activity, now }: { sql: postgres.Sql; stripe: StripeApi; event: StripeEvent; activity: ActivityLog; now: () => Date }): Promise<EventOutcome> => {
   let subject: Subject
   try {
     subject = await fetchSubject(stripe, event)
@@ -283,7 +325,7 @@ export const handleStripeEvent = async ({ sql, stripe, event, now }: { sql: post
     const at = now()
     if (!(await insertBillingEvent(tx, { id: event.id, type: event.type, partnerId: null, storeId: null, at }))) return 'duplicate'
     if (subject.kind === 'none') return 'ignored'
-    const result = await apply(tx, subject, event.type, at)
+    const result = await apply(tx, subject, event.type, at, activity)
     if (!result) {
       await deleteBillingEvent(tx, event.id)
       return 'unplaced'

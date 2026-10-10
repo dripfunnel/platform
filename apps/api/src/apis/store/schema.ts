@@ -30,6 +30,7 @@ import { registerCartReminders } from './cartReminders'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
+import { registerBilling } from './billing'
 
 export type { StoreContext } from './access'
 
@@ -68,5 +69,6 @@ registerHome(builder)
 registerReports(builder)
 registerReportExports(builder)
 registerListing(builder)
+registerBilling(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

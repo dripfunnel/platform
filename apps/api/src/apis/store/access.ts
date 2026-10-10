@@ -9,6 +9,7 @@ import { isStorePermission, storePermissions, storeRoleHas, type StorePermission
 import { accessErrorCode, forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 import type { CourierDirectory } from '#core/couriers'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
+import type { StoreBillingStripe, StripeApi } from '#integrations/stripe/index'
 
 export interface StoreContext extends Record<string, unknown> {
   /** Where the request stands on this portal host (auth/storeCaller.ts). */
@@ -27,6 +28,8 @@ export interface StoreContext extends Record<string, unknown> {
   shopify?: ShopConnect | null
   /** The partners' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached yet (#275). */
   couriers?: CourierDirectory | null
+  /** DripFunnel's own Stripe account, which bills the store's plan (SAAS §7.2); null where its keys aren't set. */
+  billing?: (StripeApi & StoreBillingStripe) | null
   /** The Worker's `ASSETS` bucket, where a booked label's file is kept; null where it isn't bound. */
   files?: AssetStore | null
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */

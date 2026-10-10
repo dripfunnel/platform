@@ -225,6 +225,13 @@ on Charges, Invoices and Payouts. The webhook endpoint listens for `invoice.*`, 
 until SAAS §7.3's dunning policy is decided. The publishable key and Stripe.js reach the console
 with the Billing wiring (#204).
 
+**The store's own plan (#329)** uses the same key and endpoint, with no new value. The restricted
+key also needs write on Products, Subscriptions, Subscription schedules and Invoices (paying an
+open one), and the endpoint also listens for `customer.subscription.*`. Still to register on dev:
+the test-mode `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, and the endpoint itself; until
+then the Store API's plan and card writes answer `NOT_CONNECTED` there, and a move to a free plan
+still works.
+
 ### 2.8 Services still to choose
 
 Each row is an open question in the specs. Each needs an account and key once chosen.
