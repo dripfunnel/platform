@@ -700,6 +700,32 @@ offered yet: a key reads the catalogue, stock, orders and customers only (ACCESS
 code, error code, time), `saveWebhook` (the signing secret answered when it is made), `removeWebhook`, `turnOnWebhook` (answers how
 many waiting events it sends) and `replayDelivery`; Apps' `installableApp` (the consent screen), `apps`, `installApp(appId, scopes)`
 and `uninstallApp`. The prototype's install link names its app: the portal takes the app's id from it.
+**Built on #333 (SUI 14), part 1, Developers › API keys**: the keys newest first, each by its prefix only (`dfk_…`), with what it
+can do, the whole store or one supplier, last used, who made it (or that they're no longer here), when it expires and until when
+a rotated-from secret still works. "Create API key" asks a name, what it can do (`apiKeyChoices.scopes`), whole store or one
+active supplier and a lifetime (`expiresInDays` or never); the secret from `createApiKey` or `rotateApiKey` is shown once, in a
+card with Copy, until "I've stored it", and never read back. Rotate and Revoke each restate what happens first. The list reads
+itself again after each write rather than the whole tab, so a secret on screen survives it; a refusal stays in the form or on the
+card it came from. **Not drawn yet**: the prototype's storefront key and "Websites allowed to use it", which the Store API doesn't
+read or change (an open question on #333); the 50-key cap is the API's to refuse (`TOO_MANY_KEYS`), not counted in the browser.
+**Part 2, Developers › Webhooks**: each endpoint with its address, its events and its state (working, failing since when, or turned
+off with "Turn back on", which says how many waiting events it sends). "Add endpoint" takes an https address and at least one of
+`webhookEvents`; the API refuses a private or unreachable one, said in the form, and the signing secret is shown once like a key's.
+"Recent deliveries" opens one endpoint's latest ten (when, event, the server's code or what stopped it, how long it took) with
+"Send again" (`replayDelivery`); only the newest opening lands. Removing or
+editing an endpoint waits for a drawing (SetDev draws neither; `removeWebhook` is in the API, an open question on #333).
+**Part 3, Apps and Support access**: Apps lists each installed app with its developer, who installed it and when, what it can
+see, when it was last used, and whether it is paused by the platform or never received its access (`connection: failed`: remove
+and install again). "Open app ↗" is a link to its own site, shown only when that parses as https; nothing of the app runs in the
+portal. "Add an app" takes the install link and reads the app's id from it (**decided here**: the first UUID anywhere in an https
+link, since the API names apps by id and no link format is set), then the consent card says what it will and won't be able to
+do (the reads it wasn't given, never changing the store, never payment details or passwords); Install sends back the scopes it
+showed, and on `SCOPES_CHANGED` the card shows what the app asks now. Remove restates that its access ends and what it copied
+stays with it. Support access is the On/Off switch (turning off restates that open sessions end and says how many did; on needs
+no ask), how a session works, and the support access log: who (the agent, the partner, the seat they acted as), why (ticket and
+reason), when and how long or how it ended, and whether they could change things (allowed by whom, a request denied, or
+read-only), 25 a page with "Show older". **Decided here**: the switch stays usable in a read-only store, because the API lets a
+privacy control change then (`whileReadOnly`); the partner is named by the brand's product name, as the rest of the portal does.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
