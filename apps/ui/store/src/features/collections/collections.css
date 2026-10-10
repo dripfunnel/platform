@@ -510,44 +510,9 @@
 }
 
 .df-coll-switch {
-  display: flex;
-  align-items: center;
   gap: 10px;
   min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--df-color-text);
-  font: inherit;
   font-size: 14px;
-  cursor: pointer;
-}
-
-.df-coll-switch > span {
-  position: relative;
-  width: 38px;
-  height: 22px;
-  border-radius: 11px;
-  background: var(--df-color-neutral-border);
-}
-
-.df-coll-switch > span::after {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--df-color-surface);
-  content: '';
-}
-
-.df-coll-switch[aria-checked='true'] > span {
-  background: var(--df-color-success);
-}
-
-.df-coll-switch[aria-checked='true'] > span::after {
-  left: 19px;
 }
 
 .df-coll-delete {

@@ -5,6 +5,7 @@ import { loadProductBasics, type ProductBasics } from '../../api/productEditor'
 import { badgeRules, deleteBadge, saveBadge, saveSections, sectionKeys, type BadgeRule, type SectionKey } from '../../api/settings'
 import { fill, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
+import '../common/switch.css'
 
 const words = messages.settings.catalogue
 
@@ -167,7 +168,7 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved }: Cata
                 ) : (
                   <span className="df-set-help">{words.askOwner}</span>
                 )}
-                <button type="button" role="switch" aria-checked={allowed && sections[k]} aria-label={words.sections[k]} className="df-set-switch" disabled={ro || !allowed} onClick={() => setSections({ ...sections, [k]: !sections[k] })}>
+                <button type="button" role="switch" aria-checked={allowed && sections[k]} aria-label={words.sections[k]} className="df-switch" disabled={ro || !allowed} onClick={() => setSections({ ...sections, [k]: !sections[k] })}>
                   <span aria-hidden="true" />
                 </button>
               </li>

@@ -6,6 +6,7 @@ import { uploadPhoto } from '../../api/productEditor'
 import { loadTranslationProgress, saveCurrencies, saveLanguages, saveStoreInfo, type StoreInfo, type StoreInfoInput, type StoreLocale } from '../../api/settings'
 import { fill, formatCount, formatDay, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
+import '../common/switch.css'
 
 const words = messages.settings.store
 
@@ -321,7 +322,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
                 <span>{c.mode === 'convert' ? fill(words.converted, { code: loc.pricingCurrency ?? '' }) : words.typed}</span>
                 {canEdit && (
                   <>
-                    <button type="button" role="switch" aria-checked={c.mode === 'convert'} aria-label={fill(words.convertNamed, { code: c.code })} className="df-set-switch" onClick={() => (c.mode === 'convert' ? stopConverting(c) : setCurrencies((list) => list.map((x) => (x.code === c.code ? { ...x, mode: 'convert', rounding: 'ends-99' } : x))))}>
+                    <button type="button" role="switch" aria-checked={c.mode === 'convert'} aria-label={fill(words.convertNamed, { code: c.code })} className="df-switch" onClick={() => (c.mode === 'convert' ? stopConverting(c) : setCurrencies((list) => list.map((x) => (x.code === c.code ? { ...x, mode: 'convert', rounding: 'ends-99' } : x))))}>
                       <span aria-hidden="true" />
                       {words.convert}
                     </button>

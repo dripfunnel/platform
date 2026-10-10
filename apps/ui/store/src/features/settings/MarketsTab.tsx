@@ -8,6 +8,7 @@ import { fill, formatList, locale, messages } from '../../messages'
 import { ProductSearch } from '../common/ProductSearch'
 import { RadioCards } from '../common/RadioCards'
 import { refusalIn } from '../common/refusal'
+import '../common/switch.css'
 
 const words = messages.settings.markets
 
@@ -302,7 +303,7 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
               {words.name}
             </label>
             <input id={`${id}-name`} className="df-mkt-name" value={draft.name} readOnly={ro} maxLength={60} aria-invalid={tried && problem === 'name'} onChange={(e) => set({ name: e.target.value })} />
-            <button type="button" role="switch" aria-checked={draft.primary || draft.active} className="df-set-switch" disabled={ro || draft.primary} onClick={() => set({ active: !draft.active })}>
+            <button type="button" role="switch" aria-checked={draft.primary || draft.active} className="df-switch" disabled={ro || draft.primary} onClick={() => set({ active: !draft.active })}>
               <span aria-hidden="true" />
               {draft.primary || draft.active ? words.selling : words.notSelling}
             </button>
@@ -445,7 +446,7 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
               <span className="df-set-help">{words.excludedHelp}</span>
             </>
           )}
-          <button type="button" role="switch" aria-checked={draft.duties !== 'none'} className="df-set-switch" disabled={ro} onClick={() => set({ duties: draft.duties === 'none' ? 'by_code' : 'none' })}>
+          <button type="button" role="switch" aria-checked={draft.duties !== 'none'} className="df-switch" disabled={ro} onClick={() => set({ duties: draft.duties === 'none' ? 'by_code' : 'none' })}>
             <span aria-hidden="true" />
             <span className="df-mkt-duty">
               <span>{words.duties}</span>

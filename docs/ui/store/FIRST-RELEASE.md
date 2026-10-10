@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports).
+Last updated: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -356,6 +356,50 @@ discount given, the stacking warning, "Check a code a customer gives you"; the g
 bulk single-use codes and QR downloads; pause, end, duplicate, delete. Staff see the list
 read-only. Plan gates as OFFERS-DESIGN U and the Pricing page draw them.
 
+**Built on #325, part 1** (`apps/ui/store/src/features/offers/`, `/offers`, `?status=` picks the tab): the list with its
+four tabs and counts, search, the type and "how shoppers get it" filters, "Check a code a customer gives you" (the API's
+answer as the shopper meets it), each row's name, what it gives, code or Automatic, status with its time line in the
+store's time zone, and uses ("38 / 100" with a meter); row actions Turn off, Turn on, End now, Duplicate, Delete and Copy
+code, each confirmation restating its consequence; Staff read and check codes only. Decided here: the list has no
+"Discount given" column (`offers` carries uses only; the figure is on the offer's page), no bulk selection (no bulk API)
+and no "Stacks with" marker (the stacking check needs an API), each a follow-up.
+
+**Built on #325, part 2** (`/offers/$offerId`): one offer's page, each row's name and "View results" opening it. Its
+sentence and status with the store's time zone named; results (uses, discount given, sales with it and the average order,
+each per currency, and uses by day for the API's last 30 days, today being the store's), locked with the plan that unlocks
+them for the Owner and "Ask your store owner to upgrade" for a Manager; a shared code with Copy code; for a code offer
+without one, its runs of single-use codes with each run's used and unused, the run's file (a job followed until made, its
+id kept for the tab's session so a reload doesn't lose it; Owner and Manager, `offers.export`) and making another run within
+the API's limits; and its details (type, how shoppers get it, the name shoppers see, the team's note, who it's for,
+dates in the store's time zone, limits and what it combines with). Decided here: no "See orders with this offer" (Orders
+has no offer filter), "Export uses", change history, QR or "Copy link" (the storefront reads no `?code=` and the Store API
+gives no shop address), each a follow-up.
+
+**Built on #325, part 3** (`features/offers/offerDraft.ts`): the editor's form and the one record it saves (OFFERS-DESIGN
+§3.1). Dates are typed on the store's wall clock and sent as instants, daylight saving included, an end at 23:59 being the
+day's last second; amounts are typed in major units and sent in minor units. A new offer combines with nothing and, as a
+code, is once per customer; recipes fill the form (V1–V7, the seasonal one from the store's next occasion). Only each
+operation's own arguments are sent, and a condition the form doesn't draw (the API's "any of") is saved back as it came.
+Decided here: a fixed amount and a minimum have one box per currency the store sells in, an empty one filled at save from
+today's reference rate (#337), while a tier's and a cap's amounts are typed in the main currency only and converted the
+same way for the others.
+
+**Built on #325, part 4** (`/offers/new`, `?type=` or `?recipe=` skipping the picker, and `/offers/$offerId/edit`): the
+editor. "What kind of offer?" with the four kinds and the recipes; then one page of numbered sections in §1's order (what
+the shopper gets, how they get it with the name shoppers see and the team's note, what they must buy, who it's for, when
+and how often in the store's time zone with quick picks, and what it combines with), the summary sentence beside it with
+"every order, starting now" said out loud, the status it will have and the calm warnings, and a sticky save bar ("Live
+now" on a live offer). Save on a new offer asks **Start now / Schedule / Keep off** (Schedule only with a start ahead);
+a live offer's change is confirmed, naming a code that stops working; a taken code is said by the code box, by its
+holder's state (H2); someone else's save first offers "Load their version" or "Keep mine"; unsaved work is kept for the
+tab's session and offered back. Single-use codes are made right after the first save. The list gains Create offer (a
+button, and on a phone a floating one), the first-time panel with the four kinds and three recipes, and Edit on each row
+and offer. Decided here: the prototype's "What shoppers see" tab (test cart, storefront, code errors, receipt), its
+worked price examples and its stacking check need the API's dry-run pricing and an overlap answer (facts 7, 20), so they
+are follow-ups; "only the best discount", "one code per order", keeping an old code working, an automatic free gift, a
+fixed price for the item they get, shipping methods and names per language have no API yet and aren't drawn (§7: no dead
+controls). The storefront countdown (#337) has no API field either: an open question on #325.
+
 ## 9. Abandoned carts (`Carts`)
 
 Carts tab: checkouts left, reminders sent, recovered and recovered sales for the last 14 days, and
@@ -387,6 +431,26 @@ here (#321):** a shopper who agreed to some channels and not email gets no remin
 email to the person's own address only, never one typed in, so a store can't email strangers with it (the prototype's
 field is prefilled with it); "Send reminder now" below `automatic` gives one reminder a cart and no code, checked under the
 cart's lock.
+
+**Built on #325, part 5** (`apps/ui/store/src/features/carts/`, `/carts`, `?status=` picks the tab, and
+`/carts/$cartId`): the Carts tab. The last 14 days' tiles (`cartSummary`); In progress, Recovered and Not recovered with
+their counts; search by name, email or product; each cart's shopper, items, value, where they left and how long ago, and
+its reminder status with its line (who stopped it and why, why it was skipped, when it was last reminded, or "Reminder
+due" while the schedule sends and "Not contacted" while the merchant does). Send reminder now (with a 10% single-use code
+on the plan's `automatic`), Stop reminders with the team's note, and Resume reminders, each refusal kept in its own
+dialog; Staff read only; a supplier meets "not found". A cart's page shows its lines as they would be bought now, what's
+out of stock, what happened (left, each reminder and its click, a stop, the order), the shopper, and links to the order
+and the customer. Decided here: no bulk selection and no "Copy cart link" (the API gives neither a bulk action nor a
+cart's link), each a follow-up.
+
+**Built on #325, part 6** (`/carts?pane=reminders`): the Reminders tab. "Send reminders automatically" (the plan's
+`youSend` names the plan that sends them, to the Owner); three reminders, each with its delay, channel (WhatsApp only in
+an Indian store on `automatic`), discount (5–20%, on `automatic`), subject and message, steps 2–3 locked below
+`automatic`; who gets reminded (a minimum cart value in the store's currency, skip out of stock, quiet hours, once a week,
+and "stop as soon as they buy", always on) with the region's consent note; a preview of the chosen reminder by email or
+WhatsApp; "Send me a test" to the person's own email only (#321); and one save at the revision read, a later step having
+to go later and an email needing a subject. Decided here: the preview shows where the shopper's name and cart go rather
+than a sample shopper's, since the portal invents no data.
 
 ## 10. Reports (`PortalReports`)
 
@@ -1258,6 +1322,8 @@ and bearer tokens included); the rows name the cases easiest to miss.
   the preview (decided 2026-10-05 on #337).
 - ~~Apps: embedded pages or links only, and a public marketplace or private apps first
   (PLATFORM-PROMPT §10) — SUI 1 draws the first answer.~~ Private apps, as links (decided 2026-10-05 on #337).
+- **The storefront countdown per offer** (#325): decided optional per offer (#337), but the Offer API has no field for it,
+  so the editor draws no switch. It needs the field on `OfferInput` and `Offer`, and the Shop API giving it to the storefront.
 - **Cash on delivery through a courier's label** (#311): labels are booked prepaid for now, since the courier would remit
   the cash it collects to the partner's own account, and nothing settles it on to the store. Collect through the label, and
   how the partner pays it on?

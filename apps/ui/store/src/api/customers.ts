@@ -39,6 +39,16 @@ export const loadCustomers = async (groupId: string | null, search: string, curs
   return { rows: customers.nodes, next: customers.pageInfo.hasNextPage ? customers.pageInfo.endCursor : null, previous: customers.pageInfo.hasPreviousPage ? customers.pageInfo.startCursor : null }
 }
 
+/** A picker's search: id, name and email only, nothing more about a customer than choosing one needs. */
+export const findCustomers = async (search: string): Promise<{ id: string; name: string | null; email: string | null }[]> =>
+  (
+    await query(
+      'query F($s: String, $first: Int) { customers(search: $s, first: $first) { nodes { id name email } } }',
+      z.object({ customers: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string().nullable(), email: z.string().nullable() })) }) }),
+      { s: search.trim() || null, first: customerPageSize },
+    )
+  ).customers.nodes
+
 export const loadCustomerCount = async (): Promise<number> => (await query('{ customerCount }', z.object({ customerCount: z.number().int() }))).customerCount
 
 const groupSchema = z.object({ id: z.string(), name: z.string(), description: z.string().nullable(), members: z.number().int() })

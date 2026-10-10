@@ -1,0 +1,94 @@
+import type { CodeBatch, Offer, OfferCounts, OfferResults } from '../../api/offers'
+import { blankAction, blankCondition, noTargets, type StoreFacts } from './offerDraft'
+import type { FormLists } from './OfferForm'
+
+// Offers' states under ?state= (ui/README.md §6): loading, error, empty, list, noMatch, staff, readOnly, denied, locked.
+// `locked` is the offer page's results on a plan without them.
+export const offerStates = ['loading', 'error', 'empty', 'list', 'noMatch', 'staff', 'readOnly', 'denied', 'locked'] as const
+export type OfferState = (typeof offerStates)[number]
+
+// A build-time constant Vite folds, so a production bundle carries none of these literals.
+const harness = import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
+
+const day = 86_400_000
+const at = (days: number) => new Date(Date.now() + days * day).toISOString()
+const inr = (amount: string) => [{ amount, currency: 'INR' }]
+const none = { product: false, order: false, shipping: false }
+const base = { internalName: null, description: null, code: null, enabled: true, startsAt: null, endsAt: null, totalUsesLimit: null, perCustomerLimit: null, usesCount: 0, combines: none, conditions: [], revision: 1 }
+
+const offers: Offer[] = harness
+  ? [
+      { ...base, id: 'o1', name: 'Festive linen 20% off', trigger: 'automatic', status: 'live', startsAt: at(-12), endsAt: at(1.5), usesCount: 38, action: blankAction({ operation: 'products_percentage_discount', percent: 20, targets: { ...noTargets, filterValueIds: ['fv-linen'] }, exclude: { giftCards: true, onSale: false } }) },
+      { ...base, id: 'o2', name: 'Welcome 10% off', trigger: 'code', code: 'WELCOME10', status: 'live', startsAt: at(-200), perCustomerLimit: 1, usesCount: 112, conditions: [blankCondition({ operation: 'first_order' })], action: blankAction({ operation: 'order_percentage_discount', percent: 10 }) },
+      { ...base, id: 'o3', name: 'Free delivery over ₹999', trigger: 'automatic', status: 'live', usesCount: 264, conditions: [blankCondition({ operation: 'minimum_order_amount', amounts: inr('99900') })], action: blankAction({ operation: 'free_shipping' }) },
+      { ...base, id: 'o9', name: 'Instagram single-use 15%', trigger: 'code', status: 'live', perCustomerLimit: 1, usesCount: 37, action: blankAction({ operation: 'order_percentage_discount', percent: 15 }) },
+      { ...base, id: 'o7', name: 'VIP 15% off', trigger: 'code', code: 'VIP15', status: 'live', usesCount: 46, combines: { product: true, order: false, shipping: true }, conditions: [blankCondition({ operation: 'customer_group', groupIds: ['g1'] })], action: blankAction({ operation: 'order_percentage_discount', percent: 15 }) },
+    ]
+  : []
+
+const others: Record<'scheduled' | 'off' | 'ended', Offer[]> = harness
+  ? {
+      scheduled: [{ ...base, id: 'o5', name: 'Diwali 15% off', trigger: 'code', code: 'DIWALI15', status: 'scheduled', startsAt: at(3), endsAt: at(12), perCustomerLimit: 1, action: blankAction({ operation: 'order_percentage_discount', percent: 15 }) }],
+      off: [{ ...base, id: 'o4', name: 'Socks: buy 2, get 1 free', trigger: 'automatic', status: 'off', enabled: false, usesCount: 21, action: blankAction({ operation: 'buy_x_get_y', percent: 100, buy: { quantity: 2, targets: { ...noTargets, productIds: ['p11'] } }, get: { quantity: 1, targets: null } }) }],
+      ended: [
+        { ...base, id: 'o6', name: 'Monsoon 20% off', trigger: 'code', code: 'MONSOON20', status: 'ended', startsAt: at(-100), endsAt: at(-40), usesCount: 204, action: blankAction({ operation: 'products_percentage_discount', percent: 20, targets: { ...noTargets, filterValueIds: ['fv-cotton'] } }) },
+        { ...base, id: 'o8', name: 'Flash sale 50% off silk', trigger: 'code', code: 'FLASH50', status: 'used_up', totalUsesLimit: 50, usesCount: 50, endsAt: at(2), action: blankAction({ operation: 'products_percentage_discount', percent: 50, targets: { ...noTargets, productIds: ['p8'] } }) },
+      ],
+    }
+  : { scheduled: [], off: [], ended: [] }
+
+export interface OfferSample {
+  live: Offer[]
+  scheduled: Offer[]
+  off: Offer[]
+  ended: Offer[]
+  counts: OfferCounts
+}
+
+export const offerSample = (state: OfferState | null): OfferSample | null => {
+  if (!harness || !state || state === 'loading' || state === 'error' || state === 'denied') return null
+  if (state === 'empty') return { live: [], scheduled: [], off: [], ended: [], counts: { live: 0, scheduled: 0, off: 0, ended: 0 } }
+  const all = { live: offers, ...others }
+  const counts = { live: all.live.length, scheduled: all.scheduled.length, off: all.off.length, ended: all.ended.length }
+  return state === 'noMatch' ? { live: [], scheduled: [], off: [], ended: [], counts } : { ...all, counts }
+}
+
+export const sampleNames = harness
+  ? { collections: new Map<string, string>(), filterValues: new Map([['fv-linen', 'Fabric: Linen'], ['fv-cotton', 'Fabric: Cotton']]), groups: new Map([['g1', 'VIP']]) }
+  : null
+
+/** The plan the harness's locked results name, as a PLAN_LIMIT's `unlockedBy` would. */
+export const samplePlan = harness ? 'Growth Pro' : null
+
+export const sampleResults: OfferResults | null = harness
+  ? { uses: 38, discountGiven: inr('4120000'), salesWithOffer: inr('22100000'), averageOrder: inr('581500'), byDay: Array.from({ length: 14 }, (_, i) => ({ day: new Date(Date.now() - (13 - i) * day).toISOString().slice(0, 10), uses: [2, 3, 1, 4, 2, 0, 3, 5, 2, 1, 4, 3, 6, 2][i] ?? 0 })) }
+  : null
+
+export const sampleBatches: CodeBatch[] = harness ? [{ id: 'b1', prefix: 'INSTA-', length: 8, count: 500, used: 37, createdAt: at(-5) }] : []
+
+// The editor's states: loading, error, pick (the type picker), new, edit, live (a live offer, its save bar green),
+// errors (a save tried with the form incomplete), staff, readOnly, denied.
+export const editorStates = ['loading', 'error', 'pick', 'new', 'edit', 'live', 'errors', 'staff', 'readOnly', 'denied'] as const
+export type EditorState = (typeof editorStates)[number]
+
+export interface EditorSample {
+  facts: StoreFacts
+  lists: FormLists
+  offer: Offer | null
+  productNames: [string, string][]
+  pick: boolean
+}
+
+export const editorSample = (state: EditorState | null): EditorSample | null => {
+  if (!harness || !state || state === 'loading' || state === 'error' || state === 'denied' || state === 'staff') return null
+  const facts: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }
+  const lists: FormLists = {
+    filters: [{ id: 'f1', name: 'Fabric', position: 0, revision: 1, shopperVisible: true, values: [{ id: 'fv-linen', name: 'Linen', products: 12 }, { id: 'fv-cotton', name: 'Cotton', products: 30 }] }],
+    collections: [{ id: 'c1', name: 'Festive edit', kind: 'manual', visible: true, parentId: null, inheritParent: false, match: 'all', rules: [], products: 24, computedAt: null }],
+    groups: [{ id: 'g1', name: 'VIP', description: null, members: 12 }, { id: 'g2', name: 'Wholesale', description: null, members: 5 }],
+    markets: [],
+  }
+  const first = offers[0]
+  const offer = first && state === 'live' ? first : first && state === 'edit' ? { ...first, status: 'off' as const, enabled: false } : null
+  return { facts, lists, offer, productNames: [['p8', 'Silk Banarasi saree']], pick: state === 'pick' }
+}

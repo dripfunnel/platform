@@ -1,4 +1,8 @@
+import { optionalParam } from '@dripfunnel/shared/search'
 import { createFileRoute } from '@tanstack/react-router'
-import { ScreenPlaceholder } from '../../features/shell/ScreenPlaceholder'
+import { z } from 'zod'
+import { offerTabs } from '../../api/offers'
+import { OffersPage } from '../../features/offers/OffersPage'
 
-export const Route = createFileRoute('/_app/offers')({ component: () => <ScreenPlaceholder screen="offers" /> })
+// `status` is the tab (Live is the default); lists filter by ?status=, never the harness's ?state= (ui/README.md §6).
+export const Route = createFileRoute('/_app/offers')({ validateSearch: z.looseObject({ status: optionalParam(z.enum(offerTabs)) }), component: OffersPage })
