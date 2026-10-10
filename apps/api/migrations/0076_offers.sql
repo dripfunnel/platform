@@ -84,12 +84,13 @@ create table promotion_code (
 );
 -- Unique per store including spent, replaced and deleted offers' codes (fact 14, #188).
 create unique index promotion_code_store_code_key on promotion_code (store_id, lower(code));
+create unique index promotion_code_id_store_key on promotion_code (id, store_id);
 create index promotion_code_promotion_idx on promotion_code (promotion_id, batch_id);
 
 create table promotion_usage (
   id uuid primary key default gen_random_uuid(),
   promotion_id uuid not null,
-  promotion_code_id uuid references promotion_code (id),
+  promotion_code_id uuid,
   store_id uuid not null,
   order_id uuid not null,
   customer_id uuid,
@@ -99,7 +100,10 @@ create table promotion_usage (
   currency text not null check (currency ~ '^[A-Z]{3}$'),
   created_at timestamptz(3) not null default now(),
   unique (promotion_id, order_id),
+  -- Every end in the usage row's own store, whatever scope wrote it (placement runs in system scope).
   foreign key (promotion_id, store_id) references promotion (id, store_id),
+  foreign key (promotion_code_id, store_id) references promotion_code (id, store_id),
+  foreign key (customer_id, store_id) references customer (id, store_id),
   foreign key (order_id, store_id) references "order" (id, store_id)
 );
 create index promotion_usage_customer_idx on promotion_usage (promotion_id, customer_id) where customer_id is not null;

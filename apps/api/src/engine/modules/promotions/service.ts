@@ -247,7 +247,8 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
       const before = id ? await locked(tx, id.toLowerCase()) : null
       if (before && before.revision !== revision) throw new Refused({ ok: false, reason: 'STALE_REVISION', revision: before.revision })
       // Creating one, or turning one on, needs the plan's switches; an offer already on keeps running after a downgrade (#337).
-      const turnsOn = d.enabled && !before?.enabled
+      // On again counts as turning on: an end date moved on, or a use limit raised, brings an ended offer back (L4).
+      const turnsOn = counts({ enabled: d.enabled, ends_at: d.endsAt, uses_count: before?.uses_count ?? 0, total_uses_limit: d.totalUsesLimit }, now()) && !(before && counts(before, now()))
       if (!before || turnsOn) await requireSwitch('offers')
       if (needsGroupOffers(d) && (!before || turnsOn || !needsGroupOffers(viewOf(before, now())))) await requireSwitch('group_offers')
       const sold = await selectStoreCurrencies(tx, storeId)

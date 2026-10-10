@@ -7,7 +7,7 @@ import { isCurrency, parseMinor } from '#core/money'
 // `any_of`), one action, how shoppers get it, dates, limits and what it combines with. Every rule here is platform-defined
 // (PLATFORM-PROMPT §5.10); a merchant only fills in the arguments.
 
-export const maxTargetIds = 250
+const maxTargetIds = 250
 export const maxConditions = 20
 
 const uuid = z
@@ -22,7 +22,7 @@ const count = z.number().int().min(1).max(999)
 const percent = z.number().int().min(1).max(100)
 
 /** One amount per currency the store sells in, minor units as strings (fact 10): never one integer read as every currency's. */
-export const amountsSchema = z.record(z.string(), z.string()).transform((raw, ctx) => {
+const amountsSchema = z.record(z.string(), z.string()).transform((raw, ctx) => {
   const out: Record<string, bigint> = {}
   for (const [currency, value] of Object.entries(raw)) {
     const money = isCurrency(currency) ? parseMinor(value, currency) : null
