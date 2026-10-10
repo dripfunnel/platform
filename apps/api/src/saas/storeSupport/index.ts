@@ -3,7 +3,9 @@ import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { hashSessionId, newSessionId } from '#auth/session'
 import type { StoreCaller } from '#auth/storeCaller'
-import { resolveSupportCaller, seatOf, supportActor, type SupportSeat } from '#auth/storeSupport'
+import { resolveSupportCaller, seatOf, supportActor, writeRequestOf, type SupportSeat } from '#auth/storeSupport'
+
+export { writeRequestOf } from '#auth/storeSupport'
 import { pageOf, type Page, type PageWindow } from '#core/paging'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
@@ -47,14 +49,6 @@ const endedByOf = (s: Ending, now: Date): EndedBy | null => {
   if (s.ended_by_partner_user_id === null) return 'expired'
   return s.ended_by_partner_user_id === s.agent ? 'agent' : 'colleague'
 }
-
-type Asking = Pick<StoreSupportRow, 'access' | 'write_requested_at' | 'write_request_note' | 'write_decided_at'>
-
-/** The agent's request for writes and where it stands: waiting, allowed or denied. */
-export const writeRequestOf = (s: Asking) =>
-  s.write_requested_at === null
-    ? null
-    : { note: s.write_request_note ?? '', requestedAt: s.write_requested_at, state: s.write_decided_at === null ? ('pending' as const) : s.access === 'write' ? ('allowed' as const) : ('denied' as const) }
 
 const sessionDto = (s: StoreSupportRow, now: Date) => ({
   id: s.id,

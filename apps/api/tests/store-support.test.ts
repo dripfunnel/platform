@@ -8,7 +8,7 @@ import { storeRoleHas, type StorePermission } from '#auth/storePermissions'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { storeActivityFor, supportCookieName } from '#auth/storeSupport'
-import { withSystemScope } from '#db/scoped/index'
+import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { prepareEmail } from '#saas/email/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -345,12 +345,31 @@ describe('isolation (ACCESS.md §11)', () => {
     expect(await db.sql`select 1 from activity_log where action = 'store.crossing_refused' and actor_kind = 'support_session'`).toHaveLength(5)
     expect((await gql(q.taxSetup, { support: cookie, partnerId: t.partnerB })).code).toBe('UNAUTHENTICATED')
 
-    await opened('supplier', agents.sam, 'tok-iso-supplier')
+    const supplierSession = await opened('supplier', agents.sam, 'tok-iso-supplier')
     const supplierCookie = await enter('tok-iso-supplier')
     expect((await gql(q.taxSetup, { support: supplierCookie })).code).toBe('FORBIDDEN')
     expect((await gql(q.access, { support: supplierCookie })).code).toBe('FORBIDDEN')
     const banner = (await gql<{ storeState: { support: { sessionId: string | null } | null } }>(q.banner, { support: supplierCookie })).data?.storeState.support
-    expect(banner?.sessionId ?? null).toBeNull()
+    expect(banner?.sessionId).toBe(supplierSession)
+  })
+
+  it('two agents in one store: each session’s banner is its own, a person’s is the newest, and the log refuses both', async () => {
+    const first = await opened('owner', agents.priya, 'tok-two-a')
+    const priya = await enter('tok-two-a')
+    await gql(q.ask, { support: priya }, { n: 'Priya’s note' })
+    clock = new Date(clock.getTime() + 60_000)
+    const second = await opened('staff', agents.sam, 'tok-two-b')
+    const sam = await enter('tok-two-b')
+    type Banner = { storeState: { support: { sessionId: string; agentFirstName: string; writeRequest: { note: string } | null } } }
+    expect((await gql<Banner>(q.banner, { support: priya })).data?.storeState.support).toMatchObject({ sessionId: first, agentFirstName: 'priya', writeRequest: { note: 'Priya’s note' } })
+    expect((await gql<Banner>(q.banner, { support: sam })).data?.storeState.support).toMatchObject({ sessionId: second, writeRequest: null })
+    expect((await gql<Banner>(q.banner, { person: 'owner' })).data?.storeState.support.sessionId).toBe(second)
+    expect((await gql(q.access, { support: priya })).code).toBe('BLOCKED_FOR_SUPPORT')
+    // Sam acts as Staff, whose seat never holds Settings.
+    expect((await gql(q.access, { support: sam })).code).toBe('FORBIDDEN')
+    // The database refuses it too, whatever a resolver declares (0160).
+    const asSession = { caller: { kind: 'support' as const, supportSessionId: first, partnerUserId: agents.priya, access: 'write' as const }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'trial' as const }
+    await expect(withScope(db.sql, asSession, (tx) => tx`select * from store_support_sessions(null, null, null, null, null, null, 10)`)).rejects.toThrow(/merchant side/)
   })
 
   it('a person’s banner shows only an open session on their own store', async () => {
