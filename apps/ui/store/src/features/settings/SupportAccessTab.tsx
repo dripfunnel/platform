@@ -24,10 +24,11 @@ export const whenLine = (s: SupportSession, now: number): string => {
 }
 
 /** Whether support could change things in the session, and who let it. */
-export const changesLine = (s: SupportSession): { text: string; wrote: boolean } => {
+export const changesLine = (s: SupportSession, now: number): { text: string; wrote: boolean } => {
   if (s.access === 'write') return { text: s.allowedBy ? fill(words.allowed, { name: s.allowedBy }) : words.allowedNoName, wrote: true }
   if (s.writeRequest?.state === 'denied') return { text: words.denied, wrote: false }
-  if (s.writeRequest?.state === 'pending' && !s.endedAt) return { text: words.asking, wrote: false }
+  // Only an open session is still asking; one past its end timed out, as whenLine says.
+  if (s.writeRequest?.state === 'pending' && !s.endedAt && Date.parse(s.expiresAt) > now) return { text: words.asking, wrote: false }
   return { text: words.readOnly, wrote: false }
 }
 
@@ -46,6 +47,7 @@ export const SupportAccessTab = ({ initial, read, onToast }: SupportAccessTabPro
   const [sessions, setSessions] = useState<readonly SupportSession[]>(initial.sessions.nodes)
   const [next, setNext] = useState(initial.sessions.pageInfo.hasNextPage ? initial.sessions.pageInfo.endCursor : null)
   const [more, setMore] = useState<'idle' | 'loading' | 'failed'>('idle')
+  const [rereading, setRereading] = useState(false)
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -53,17 +55,23 @@ export const SupportAccessTab = ({ initial, read, onToast }: SupportAccessTabPro
   const now = Date.now()
 
   // The first page again after a switch: turning it off ends open sessions. Only the newest read lands.
+  // Show older waits while it runs, and the switch while an older page loads, so the two never cross.
   const reread = useCallback(async () => {
     const ask = ++latest.current
+    setRereading(true)
     try {
       const page = await read(null)
       if (ask !== latest.current) return
       setAllowed(page.allowed)
       setSessions(page.sessions.nodes)
       setNext(page.sessions.pageInfo.hasNextPage ? page.sessions.pageInfo.endCursor : null)
-      setMore('idle')
     } catch {
       // The switch's own answer stands; the log keeps what it showed.
+    } finally {
+      if (ask === latest.current) {
+        setRereading(false)
+        setMore('idle')
+      }
     }
   }, [read])
 
@@ -113,7 +121,7 @@ export const SupportAccessTab = ({ initial, read, onToast }: SupportAccessTabPro
         aria-checked={allowed}
         className="df-set-switch df-sup-switch"
         // A privacy control: a read-only store may still switch it (apis/store/support.ts `whileReadOnly`).
-        disabled={busy}
+        disabled={busy || more === 'loading'}
         onClick={() => (allowed ? setAsking(true) : void flip(true))}
       >
         <span aria-hidden="true" />
@@ -152,7 +160,7 @@ export const SupportAccessTab = ({ initial, read, onToast }: SupportAccessTabPro
             </thead>
             <tbody>
               {sessions.map((s) => {
-                const changes = changesLine(s)
+                const changes = changesLine(s, now)
                 return (
                   <tr key={s.id}>
                     <td>
@@ -181,7 +189,7 @@ export const SupportAccessTab = ({ initial, read, onToast }: SupportAccessTabPro
           </p>
         )}
         {next && (
-          <button type="button" className="df-button df-dev-start" disabled={more === 'loading'} onClick={() => void older(next)}>
+          <button type="button" className="df-button df-dev-start" disabled={more === 'loading' || rereading} onClick={() => void older(next)}>
             {words.more}
           </button>
         )}

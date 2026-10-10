@@ -237,31 +237,42 @@ describe('support access', () => {
     expect(screen.queryByRole('button', { name: s.more })).toBeNull()
   })
 
-  it('never lets an older page land over a log read again since', async () => {
-    let late: (p: SupportAccess) => void = () => undefined
-    support.loadSupportAccess
-      .mockResolvedValueOnce(page([session({ id: 'ss1' })], true, 'c1'))
-      .mockReturnValueOnce(new Promise((resolve) => (late = resolve)))
-      .mockResolvedValue(page([session({ id: 'ss9', agentName: 'Fresh Agent' })], false))
-    await show('support')
-    fireEvent.click(screen.getByRole('button', { name: s.more }))
-    fireEvent.click(screen.getByRole('switch'))
-    fireEvent.click(dialog().getByRole('button', { name: s.offGo }))
-    await settle()
-    await act(async () => late(page([session({ id: 'ss2', agentName: 'Stale Agent' })])))
-    await settle()
-    expect(screen.getByText('Fresh Agent')).toBeTruthy()
-    expect(screen.queryByText('Stale Agent')).toBeNull()
-  })
-
   it('words how a session went', () => {
     const now = Date.parse('2026-10-11T12:00:00Z')
     expect(whenLine(session({ id: 'a' }), now)).toBe('12 min')
     expect(whenLine(session({ id: 'b', endedAt: '2026-10-02T16:30:00Z', endedBy: 'expired' }), now)).toBe('30 min · timed out')
     expect(whenLine(session({ id: 'c', endedAt: null, endedBy: null }), now)).toBe('30 min · timed out')
     expect(whenLine(session({ id: 'd', endedAt: null, endedBy: null, expiresAt: '2026-10-11T12:20:00Z' }), now)).toMatch(/^Open now · ends /)
-    expect(changesLine(session({ id: 'e' }))).toEqual({ text: s.readOnly, wrote: false })
-    expect(changesLine(session({ id: 'f', access: 'write', allowedBy: null }))).toEqual({ text: s.allowedNoName, wrote: true })
+    expect(changesLine(session({ id: 'e' }), now)).toEqual({ text: s.readOnly, wrote: false })
+    expect(changesLine(session({ id: 'f', access: 'write', allowedBy: null }), now)).toEqual({ text: s.allowedNoName, wrote: true })
+    const asking = { writeRequest: { state: 'pending' as const }, endedAt: null, endedBy: null }
+    expect(changesLine(session({ id: 'g', ...asking, expiresAt: '2026-10-11T12:20:00Z' }), now)).toEqual({ text: s.asking, wrote: false })
+    // Past its end, nothing is still asking.
+    expect(changesLine(session({ id: 'h', ...asking }), now)).toEqual({ text: s.readOnly, wrote: false })
+    expect(changesLine(session({ id: 'i', writeRequest: { state: 'pending' } }), now)).toEqual({ text: s.readOnly, wrote: false })
+  })
+
+  it('never leaves Show older stuck: the switch waits for an older page, and Show older for a log read again', async () => {
+    let olderPage: (p: SupportAccess) => void = () => undefined
+    let fresh: (p: SupportAccess) => void = () => undefined
+    support.loadSupportAccess
+      .mockResolvedValueOnce(page([session({ id: 'ss1' })], true, 'c1'))
+      .mockReturnValueOnce(new Promise((resolve) => (olderPage = resolve)))
+      .mockReturnValueOnce(new Promise((_, reject) => (fresh = () => reject(new Error('down')))))
+    await show('support')
+    fireEvent.click(screen.getByRole('button', { name: s.more }))
+    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => olderPage(page([session({ id: 'ss2', agentName: 'Anita Shah' })], true, 'c2')))
+    await settle()
+    fireEvent.click(screen.getByRole('switch'))
+    fireEvent.click(dialog().getByRole('button', { name: s.offGo }))
+    await settle()
+    expect((screen.getByRole('button', { name: s.more }) as HTMLButtonElement).disabled).toBe(true)
+    // The log read again fails: the switch's answer stands and Show older works again.
+    await act(async () => fresh(page([])))
+    await settle()
+    expect((screen.getByRole('button', { name: s.more }) as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.getByText('Anita Shah')).toBeTruthy()
   })
 
   it('says when no session has been opened', async () => {
