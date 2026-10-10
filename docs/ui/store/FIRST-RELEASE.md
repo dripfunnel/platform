@@ -686,6 +686,19 @@ invoices with PDF and export; **Close my store** with "Download my data first" (
 customers) and "Move to Free instead". Who charges is the partner or DripFunnel on its behalf
 (SAAS §7.1) and the screen says which.
 
+**Built on #329 (SAPI 19), part 1**: `subscription` (plan, status, period, a scheduled change, the
+card's brand, last 4 and expiry, who collects, when Stripe last spoke), `planCatalogue` (the
+partner's Live plans priced in the store's currency, each with every value it sets, Unlimited as
+such), `usage` (products, staff and suppliers counted now; AI prompts and "Publish now" this
+month; bandwidth has no meter yet, so it isn't answered), `planChangeQuote` (what is offered, the
+charge, the credit, today's amount, from when, the next price), `changePlan`, `setPaymentMethod`
+(a Stripe `pm_` token only; while past due it also tries the open invoice, and it works while
+read-only), `billingDetails` and `saveBillingDetails` (a GSTIN in India, a VAT number in the EU),
+`invoices` and `downloadInvoice`. The Owner's only (`billing`), never a support session's or an
+impersonation's writes. A partner that bills its merchants itself answers `BILLED_BY_PARTNER`.
+Choose what to keep, close store and `exportStoreData` are part 2; `buyBandwidth` and `buySetup`
+wait for a bandwidth meter and the partner's setup offer.
+
 ## 17. Supplier views
 
 **Your products** (only theirs, with counts and empty states; stock only for the Stock-only tier;
@@ -765,7 +778,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | Storefront site settings (SAPI 17b, #471) | `storefrontBrand` (with `brandReady`), `storefrontSeo`, `storefrontDomains` | `saveStorefrontBrand`, `saveStorefrontSeo`, `connectDomain`, `checkDomain`, `makeDomainPrimary`, `removeDomain` |
 | Settings | `storeInfo`, `people`, `suppliers`, `gateways`, `shipping`, `warehouses`, `tax`, `markets`, `catalogueSettings`, `customerAccounts`, `apiKeys`, `webhooks(…deliveries)`, `apps`, `supportAccess` (+ log) | `saveStoreInfo`, `saveCurrencies`, `saveLanguages`, `inviteMember`, `changeRole`, `removeMember`, `inviteSupplier`, `setSupplierAccess`, `setSupplierShippingMode`, `suspendSupplier(hide)`, `removeSupplier`, `setApproval`, `connectGateway`, `disconnectGateway`, `saveShipping`, `connectCourier`, `testCouriers`, `saveWarehouse`, `setDefaultWarehouse`, `saveTax`, `saveInvoiceSettings`, `saveMarket`, `saveCatalogueSettings`, `saveBadge`, `saveLegalDefaults`, `setCustomerSignIn`, `createApiKey` (secret shown once), `rotateApiKey`, `revokeApiKey`, `saveWebhook`, `replayDelivery`, `installApp`, `uninstallApp`, `setSupportAccess`, `answerSupportElevation(allow)` |
 | Activity (Owner, and Manager as Store activity) | `activityLog(filter)` (`activity.read`, Owner and Manager, shoppers included), never behind the Settings permission | `exportActivity` (job, `activity.export`, Owner only) |
-| Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails` | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `downloadInvoice`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
+| Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails`, `planChangeQuote(plan, period, when)`, `downloadInvoice` (a read, as the partner's) | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
 | Supplier | Only these, seller-scoped, by ACCESS §5.2's tier: `me` and `storeState` **masked** to what the shell needs (person, role, tier, store name, the read-only flag; never the plan, trial or billing state, §2), `myStores`, `navBadges`, the Profile queries; `products`, `productCounts`, `product`, `facets` (to tag its own products; each value's count is of its own products only), `productStory`, `productStock`, `warehouses` (their own), `stockHistory`, `readiness` (`catalog.read`, `stock.read`); `catalogExport` and `catalogExports`, its own exports only (`exports.products`); `catalogImport`, `catalogImports` and `catalogImportTemplate`, its own imports only (`catalog.import`); `shopifyConnection` and `shopifyProducts`, its own connected shop (`catalog.import`); `orders`, `order` and `orderCounts` for their own lines only, so the To ship chips count nothing else (`orders.read`); `mySales` (`sales.read`, no totals); `mySupplierTeam` (Supplier admin). **Every other query is refused**: `home`, `customers`, `offers`, `abandonedCarts`, `report`, Collections but `facets`, Settings, Billing | Only these, by tier: `saveProduct`, its `filterValues` tagging its own products with the store's filter values, `saveProductStory`, `publishProductStory`, `copyProductStory` (`catalog.write`), `adjustStock`, `setStock`, `setLowStockThreshold`, `saveWarehouse`, `setDefaultWarehouse`, `deleteWarehouse` (`stock.write`, `warehouses.write`), `shipItems`, `addTracking` on their own shipments, `refund` on their own lines (`orders.fulfil`, `orders.refund`), `requestCatalogExport` (`exports.products`, its own rows), `exportOrders` (`exports.orders`, the two order tiers only), `startCatalogImport`, `confirmCatalogImport` (`catalog.import`, writing only its own rows), `connectShopify`, `finishShopifyConnect`, `startShopifyImport`, `disconnectShopify` (`catalog.import`, its own shop), the Profile mutations; `inviteSupplierUser`, `changeSupplierRole`, `removeSupplierUser` (Supplier admin). Every other mutation is refused |
 
 Every mutation is authorised by ACCESS §5.1–5.2 per role and tier, refused while past due
