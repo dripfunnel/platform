@@ -76,11 +76,11 @@ const offer = async (o: { storeId?: string; name: string; action: Record<string,
 }
 const off = async () => db.sql`update promotion set enabled = false where store_id = ${store}`
 /** Signs a shopper in on this store with their proven email (as a code by email does, ACCESS §2.1), for the calls that follow. */
-const signIn = async (email: string) => {
-  // A guest who bought before has a row already (#312): signing in proves it theirs.
-  await db.sql`update customer set status = 'active', email_verified_at = now() where store_id = ${store} and email = ${email}`
+const signIn = async (email: string, proven = true) => {
+  // A guest who bought before has a row already (#312): signing in by the emailed code proves it theirs.
+  await db.sql`update customer set status = 'active', email_verified_at = ${proven ? new Date() : null} where store_id = ${store} and email = ${email}`
   const [c] = await db.sql<{ id: string }[]>`
-    insert into customer (store_id, email, status, email_verified_at) values (${store}, ${email}, 'active', now())
+    insert into customer (store_id, email, status, email_verified_at) values (${store}, ${email}, 'active', ${proven ? new Date() : null})
     on conflict do nothing returning id`
   const id = c?.id ?? (await db.sql<{ id: string }[]>`select id from customer where store_id = ${store} and email = ${email}`)[0]?.id ?? ''
   const token = newSessionId()
@@ -290,6 +290,37 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     } finally {
       session = null
     }
+  })
+
+  it('never lets an account inherit a guest’s history through an email it hasn’t proven', async () => {
+    await off()
+    await db.sql`update promotion set enabled = true where id = ${placeOffer}`
+    const first = await offer({ name: 'First only', code: 'FIRSTONLY', action: { operation: 'order_percentage_discount', percent: 5 }, conditions: [{ operation: 'first_order' }], combines: { product: true, order: true, shipping: true } })
+    await db.sql`update promotion set combines_with = '{"product": true, "order": true, "shipping": true}' where id = ${placeOffer}`
+    const [o] = await db.sql<{ id: string }[]>`
+      insert into "order" (store_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, payment_method, email)
+      values (${store}, 'placed', 'paid', 'INR', 'J-RAVI', now(), 100000, 0, 100000, 'cod', 'ravi@example.com') returning id`
+    await db.sql`insert into promotion_usage (promotion_id, store_id, order_id, customer_email, discount_amount, currency) values (${placeOffer}, ${store}, ${o?.id ?? ''}, 'ravi@example.com', 20000, 'INR')`
+    await signIn('ravi@example.com', false)
+    try {
+      // Signed in with an email nobody proved: Ravi's guest use and order don't count against this account, and say nothing.
+      const cart = await add(kurta, 1)
+      expect((await apply(cart, 'PLACE20')).state).toBe('APPLIED')
+      expect((await apply(cart, 'FIRSTONLY')).cart.codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
+      // Proven, they are his.
+      await db.sql`update customer set email_verified_at = now() where store_id = ${store} and email = 'ravi@example.com'`
+      expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'ALREADY_USED' }, { code: 'FIRSTONLY', state: 'NOT_ELIGIBLE' }])
+    } finally {
+      session = null
+    }
+    expect(first).not.toBe(placeOffer)
+  })
+
+  it('asks a guest to sign in for a first-order offer even inside an any-of', async () => {
+    await off()
+    await offer({ name: 'New or VIP', code: 'NEWORVIP', action: { operation: 'order_percentage_discount', percent: 5 }, conditions: [{ operation: 'any_of', conditions: [{ operation: 'first_order' }, { operation: 'customer_group', groupIds: [crypto.randomUUID()] }] }] })
+    const cart = await add(kurta, 1)
+    expect((await apply(cart, 'NEWORVIP')).state).toBe('SIGN_IN_REQUIRED')
   })
 
   it('takes a single-use code once, and gives it back with a cancelled order', async () => {

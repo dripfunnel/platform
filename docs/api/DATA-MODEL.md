@@ -756,8 +756,8 @@ lists every view and checks the filter is there.
   supplier** (§7.6); **3 options and 100 versions** per product (§7.3); A+ reusable blocks
   (`story_block`) **ship**; `menu_item` **may** point at pages and URLs; **several** shipping
   methods at once; **one domain per store**, never per market; store custom fields and product
-  video **ship**; offer targets resolve at pricing time, guests are recognised by email or a
-  proven phone, a cancellation before fulfilment gives an offer use back (#337). Still open: whether
+  video **ship**; offer targets resolve at pricing time, a once-per-customer or first-order
+  offer counts a signed-in shopper by account and proven email, never a guest's typed contact (#337, narrowed on #320), a cancellation before fulfilment gives an offer use back (#337). Still open: whether
   report schedules are designed at all (#183).
 
 ---
@@ -1608,9 +1608,10 @@ promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_i
                      customer_id NULL, customer_email, discount_amount, currency)
                     UNIQUE (promotion_id, order_id)
                     -- a placed order's row; cancelling before fulfilment deletes it and lowers
-                    -- uses_count in one transaction (fact 8, #337); matched per customer_id
-                    -- (a proven phone resolves to one, ACCESS §2.1), else normalised
-                    -- customer_email; results (part P) aggregate this table
+                    -- uses_count in one transaction (fact 8, #337); matched per customer_id, or
+                    -- the account's own email once proven (narrowed on #320: a guest's typed
+                    -- customer_email is kept for results, never counted); results (part P)
+                    -- aggregate this table
 ```
 
 **Built on #320 (SAPI 14), migration 0076**, with these differences from the sketch above: `promotion` gains

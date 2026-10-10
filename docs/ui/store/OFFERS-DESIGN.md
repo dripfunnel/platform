@@ -226,11 +226,12 @@ promotions tests before relying on it.
    - Total uses and uses per customer work for codes and for automatic offers. The engine's
      usage counting must survive concurrency (PLATFORM-PROMPT §5.4, §5.9): two shoppers
      placing orders at once can't both take the last use.
-   - "Per customer" only works once the shopper is known. A **guest** is recognised by normalised
-     email, or by phone only once proven by a code (mobile sign-in, ACCESS §2.1); a typed,
-     unproven phone never counts (decided 2026-10-05 on #337). Limits are best-effort for guests. The form's helper
-     text (a `messages/` key) says so: guests are recognised by email, and shoppers who signed
-     in with a mobile code by their number. **Narrowed on #320's review:** a typed email doesn't count either, since an answer turning on it would reveal another shopper's history; the shopper proves it by signing in (§3.1).
+   - "Per customer" and "first order only" work only once the shopper is known, which means **signed in**: by
+     their account, and by its email once proven (which also counts the guest orders placed with it). A guest is never
+     counted, by a typed email or a typed number, since any answer turning on what they typed would reveal another
+     shopper's history (ACCESS §2.1); such an offer asks a guest to sign in. Decided on #320's review, narrowing #337's
+     "guests recognised by normalised email, or by a phone proven by a code" (§3.1). The form's helper text (a
+     `messages/` key, with the editor) says so: "Shoppers sign in to use it, so we know who has used it."
    - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).
    - Show usage as "38 of 100 used".
 9. **Status is derived, not stored.** The portal (or the Store API) computes it from
