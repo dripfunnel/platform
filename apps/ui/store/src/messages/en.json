@@ -4627,7 +4627,8 @@
         "endsBefore": "End date is before the start date.",
         "repeatDays": "Pick at least one day for the repeat.",
         "repeatTimes": "The repeat must end after it starts.",
-        "total": "Enter 1 or more, or choose Unlimited."
+        "total": "Enter 1 or more, or choose Unlimited.",
+        "perCustomer": "Uses per customer must be a whole number from 1 to {max}, or Unlimited."
       }
     }
   },

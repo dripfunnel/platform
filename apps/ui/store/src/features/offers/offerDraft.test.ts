@@ -104,5 +104,8 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'X1', singleUse: true, batch: { count: '9000', prefix: '', length: '8' } }, india)).toEqual({ batch: 'Make between 1 and 5,000 codes.' })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', who: 'groups', repeat: { days: [], from: '17:00', to: '21:00' }, totalUses: '0' }, india)).toEqual({ who: words.groups, repeat: words.repeatDays, total: words.total })
     expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', tiers: [{ off: '10', minimum: '500' }] }, india)).toEqual({ tiers: 'Give between 2 and 5 steps.' })
+    const perCustomer = 'Uses per customer must be a whole number from 1 to 1,000, or Unlimited.'
+    for (const typed of ['abc', '1.5', '-1', '0', '5000']) expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', perCustomer: typed }, india)).toEqual({ perCustomer })
+    expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', perCustomer: '' }, india)).toEqual({})
   })
 })

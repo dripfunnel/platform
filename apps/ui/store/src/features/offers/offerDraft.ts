@@ -419,7 +419,7 @@ export const inputOf = (d: OfferDraft, facts: StoreFacts, enabled: boolean) => {
 }
 
 
-export type Field = 'value' | 'targets' | 'buy' | 'get' | 'code' | 'batch' | 'name' | 'minimum' | 'who' | 'ends' | 'repeat' | 'total' | 'tiers' | 'cap'
+export type Field = 'value' | 'targets' | 'buy' | 'get' | 'code' | 'batch' | 'name' | 'minimum' | 'who' | 'ends' | 'repeat' | 'total' | 'perCustomer' | 'tiers' | 'cap'
 
 /** The API's own limits (src/engine/modules/promotions), so the form says them before the API refuses. */
 export const offerLimits = { name: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: 5000, tiers: [2, 5] as const } as const
@@ -481,5 +481,7 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   if (d.repeat && !d.repeat.days.length) e.repeat = words.repeatDays
   else if (d.repeat && d.repeat.from >= d.repeat.to) e.repeat = words.repeatTimes
   if (d.totalUses.trim() && !between(d.totalUses, 1, offerLimits.total)) e.total = words.total
+  // Empty is unlimited; anything else must be a whole number the API takes, never read as unlimited.
+  if (d.perCustomer.trim() && !between(d.perCustomer, 1, offerLimits.perCustomer)) e.perCustomer = fill(words.perCustomer, { max: formatCount(offerLimits.perCustomer) })
   return e
 }
