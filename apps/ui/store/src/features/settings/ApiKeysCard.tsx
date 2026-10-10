@@ -97,14 +97,13 @@ export const ApiKeysCard = ({ initial, choices, suppliers, read, canEdit, onToas
 
   const askRotate = (key: ApiKey) =>
     setAsk({
-      title: fill(words.rotateName, { name: key.name }) + '?',
+      title: fill(words.rotateTitle, { name: key.name }),
       target: key.name,
       consequence: words.rotateBody,
       confirmLabel: words.rotateGo,
       onConfirm: () =>
         void act(async () => {
           const issued = await rotateApiKey(key.id)
-          setForm(null)
           setSecret(issued.secret)
           return fill(words.rotated, { name: key.name })
         }),
@@ -112,7 +111,7 @@ export const ApiKeysCard = ({ initial, choices, suppliers, read, canEdit, onToas
 
   const askRevoke = (key: ApiKey) =>
     setAsk({
-      title: fill(words.revokeName, { name: key.name }) + '?',
+      title: fill(words.revokeTitle, { name: key.name }),
       target: key.name,
       consequence: words.revokeBody,
       confirmLabel: words.revokeGo,
@@ -243,7 +242,7 @@ export const ApiKeysCard = ({ initial, choices, suppliers, read, canEdit, onToas
                   {oldWorks && <span className="df-dev-muted">{fill(words.oldWorks, { time: formatTime(oldWorks) })}</span>}
                 </span>
                 <span className="df-dev-actions">
-                  <button type="button" className="df-set-link" disabled={ro || pending} aria-label={fill(words.rotateName, { name: key.name })} onClick={() => askRotate(key)}>
+                  <button type="button" className="df-set-link" disabled={ro || pending || form !== null} aria-label={fill(words.rotateName, { name: key.name })} onClick={() => askRotate(key)}>
                     {words.rotate}
                   </button>
                   <button type="button" className="df-set-link df-dev-danger" disabled={ro} aria-label={fill(words.revokeName, { name: key.name })} onClick={() => askRevoke(key)}>

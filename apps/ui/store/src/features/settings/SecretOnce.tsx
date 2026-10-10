@@ -1,3 +1,5 @@
+import { copyText } from '@dripfunnel/shared/ui'
+import { useBlocker } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import { messages } from '../../messages'
 
@@ -14,11 +16,10 @@ export interface SecretOnceProps {
 export const SecretOnce = ({ title, warning, secret, onStored }: SecretOnceProps) => {
   const [copy, setCopy] = useState<'copied' | 'failed' | null>(null)
   const copyIt = useCallback(() => {
-    void (navigator.clipboard?.writeText(secret) ?? Promise.reject(new Error('no clipboard'))).then(
-      () => setCopy('copied'),
-      () => setCopy('failed'),
-    )
+    void copyText(secret).then((ok) => setCopy(ok ? 'copied' : 'failed'))
   }, [secret])
+  // Leaving loses the secret for good, so it asks first, within the portal or away from it.
+  useBlocker({ shouldBlockFn: () => !window.confirm(words.leave), enableBeforeUnload: true })
 
   return (
     <section className="df-set-card df-dev-new" aria-label={title}>
