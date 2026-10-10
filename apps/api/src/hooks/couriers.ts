@@ -24,7 +24,8 @@ export const handleCourierHook = async (
   allow: (key: string) => Promise<boolean>,
 ): Promise<Response> => {
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
-  if (!(await allow(`courier-hook:${hook.partnerId}`))) return new Response(null, { status: 429 })
+  // Unproven posts count against their sender only, so junk can't use up a partner's allowance for its real hooks.
+  if (!(await allow(`courier-hook-ip:${request.headers.get('cf-connecting-ip') ?? 'unknown'}`))) return new Response(null, { status: 429 })
   const read = await readCapped(request, maxBodyBytes)
   if (!read.ok) return new Response(null, { status: 413 })
   // No account, a partner that doesn't exist and a bad signature all answer alike, so the address can't be probed.
@@ -34,6 +35,7 @@ export const handleCourierHook = async (
     logEvent({ event: 'courier_webhook', api: 'hooks', partnerId: hook.partnerId, code: `${hook.account}:invalid` })
     return new Response(null, { status: 400 })
   }
+  if (!(await allow(`courier-hook:${hook.partnerId}`))) return new Response(null, { status: 429 })
   const applied = await applyTracking(deps, hook.partnerId, hook.account, events)
   logEvent({ event: 'courier_webhook', api: 'hooks', partnerId: hook.partnerId, code: `${hook.account}:received`, count: applied })
   return Response.json({ received: true })

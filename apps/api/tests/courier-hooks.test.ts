@@ -35,10 +35,10 @@ const gql = async (source: string, who: Who) => {
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
 
-const post = async (path: string, body: string, headers: Record<string, string>, allowed = true) => {
+const post = async (path: string, body: string, headers: Record<string, string>, allow: (key: string) => Promise<boolean> = async () => true) => {
   const hook = courierHookOf(path)
   if (!hook) return 404
-  const response = await handleCourierHook(new Request(`https://hooks.example${path}`, { method: 'POST', body, headers }), hook, { sql: db.sql, activity: activityLog, couriers, now: () => new Date() }, async () => allowed)
+  const response = await handleCourierHook(new Request(`https://hooks.example${path}`, { method: 'POST', body, headers }), hook, { sql: db.sql, activity: activityLog, couriers, now: () => new Date() }, allow)
   return response.status
 }
 const shiprocket = (partnerId: string, awb: string, status: string, at: string, token = localCourierHookSecret) =>
@@ -150,7 +150,7 @@ describe('a test label booked and tracked', () => {
     await db.sql`update fulfilment set courier_provider = 'usps', provider_ref = 'shp_t4' where id = ${parcel}`
     const body = JSON.stringify({ description: 'tracker.updated', result: { tracking_code: 'EZ1', shipment_id: 'shp_t4', status: 'out_for_delivery', updated_at: '2026-10-12T08:00:00Z' } })
     expect(await post(`/couriers/easypost/${t.partnerA}`, body, { 'x-hmac-signature': await signed(body, 'not-the-secret') })).toBe(400)
-    expect(await post(`/couriers/easypost/${t.partnerA}`, body, { 'x-hmac-signature': await signed(body) }, false)).toBe(429)
+    expect(await post(`/couriers/easypost/${t.partnerA}`, body, { 'x-hmac-signature': await signed(body) }, async () => false)).toBe(429)
     expect(await post(`/couriers/easypost/${t.partnerA}`, body, { 'x-hmac-signature': await signed(body) })).toBe(200)
     expect(await shipment(parcel)).toMatchObject({ tracking_status: 'out_for_delivery', delivered_at: null })
     const hook = courierHookOf(`/couriers/easypost/${t.partnerA}`)
@@ -158,5 +158,52 @@ describe('a test label booked and tracked', () => {
     expect((await handleCourierHook(new Request('https://hooks.example/x'), hook, { sql: db.sql, activity: activityLog, couriers, now: () => new Date() }, async () => true)).status).toBe(405)
     expect(courierHookOf('/couriers/dhl/x')).toBeNull()
     expect(courierHookOf(`/couriers/shiprocket/${t.partnerA}/extra`)).toBeNull()
+  })
+})
+
+describe('a delivery nobody is told of (#563)', () => {
+  const deliver = async (number: string, before: (orderId: string) => Promise<unknown>) => {
+    const { id, shipments } = await order(number, [{ version: house, seller: null, at: main }])
+    await before(id)
+    expect(await shiprocket(t.partnerA, await awbOf(shipments[0] ?? ''), 'DELIVERED', '2026-10-12 11:00:00')).toBe(200)
+    return { id, parcel: shipments[0] ?? '' }
+  }
+  const stillRecorded = async (id: string, parcel: string) => {
+    expect((await shipment(parcel))?.delivered_at).toEqual(new Date('2026-10-12T05:30:00Z'))
+    expect(await db.sql`select 1 from activity_log where target_id = ${id} and action = 'order.delivered'`).toHaveLength(1)
+    expect(await delivered(id)).toEqual([])
+  }
+
+  it('tells no shopper of a test-mode order’s or a cancelled order’s delivery, yet records it', async () => {
+    const test = await deliver('T-10', (id) => db.sql`update payment set mode = 'test' where order_id = ${id}`)
+    await stillRecorded(test.id, test.parcel)
+    const cancelled = await deliver('T-11', (id) => db.sql`update "order" set state = 'cancelled' where id = ${id}`)
+    await stillRecorded(cancelled.id, cancelled.parcel)
+  })
+
+  it('tells no shopper when the store has that courier’s Tracking emails off, yet records it', async () => {
+    const off = await deliver('T-12', () => db.sql`update store_courier set tracking_emails = false where store_id = ${t.storeA1}`)
+    await stillRecorded(off.id, off.parcel)
+    await db.sql`update store_courier set tracking_emails = true where store_id = ${t.storeA1}`
+  })
+})
+
+describe('the hook’s rate limits (#563)', () => {
+  it('counts unproven posts against their sender alone, so a flood of bad signatures leaves the partner’s real hooks through', async () => {
+    const { shipments } = await order('T-20', [{ version: house, seller: null, at: main }])
+    const awb = await awbOf(shipments[0] ?? '')
+    const used = new Map<string, number>()
+    // Three a key, as a limiter would allow in its window.
+    const allow = async (key: string) => {
+      used.set(key, (used.get(key) ?? 0) + 1)
+      return (used.get(key) ?? 0) <= 3
+    }
+    const body = (status: string) => JSON.stringify({ awb, current_status: status, current_timestamp: '2026-10-12 11:00:00' })
+    const junk = await Promise.all([1, 2, 3, 4, 5].map(() => post(`/couriers/shiprocket/${t.partnerA}`, body('DELIVERED'), { 'x-api-key': 'guess', 'cf-connecting-ip': '203.0.113.9' }, allow)))
+    expect(junk).toEqual([400, 400, 400, 429, 429])
+    expect(used.get(`courier-hook:${t.partnerA}`)).toBeUndefined()
+    expect(await post(`/couriers/shiprocket/${t.partnerA}`, body('IN TRANSIT'), { 'x-api-key': localCourierHookSecret, 'cf-connecting-ip': '198.51.100.7' }, allow)).toBe(200)
+    expect(used.get(`courier-hook:${t.partnerA}`)).toBe(1)
+    expect((await shipment(shipments[0] ?? ''))?.tracking_status).toBe('in_transit')
   })
 })
