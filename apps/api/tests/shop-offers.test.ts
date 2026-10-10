@@ -269,12 +269,10 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 1 }])
   })
 
-  it('counts a signed-in shopper’s uses by account and proven email, and gives a use back when the order is cancelled', async () => {
+  it('counts a signed-in shopper’s uses by account, and gives a use back when the order is cancelled', async () => {
     await signIn('asha@example.com')
     try {
-      // Her guest order with this email counts, now that the email is proven hers.
       const before = await add(kurta, 1)
-      expect((await apply(before, 'PLACE20')).state).toBe('ALREADY_USED')
       expect((await merchant(`mutation { cancelOrder(orderId: "${order}", reason: shopper) }`)).data?.['cancelOrder']).toBe(true)
       expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 0 }])
       expect(await db.sql`select 1 from promotion_usage where order_id = ${order}`).toHaveLength(0)
@@ -292,7 +290,7 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     }
   })
 
-  it('never lets an account inherit a guest’s history through an email it hasn’t proven', async () => {
+  it('never counts an order or a use by its typed email, proven or not: whoever placed it may have typed someone else’s', async () => {
     await off()
     await db.sql`update promotion set enabled = true where id = ${placeOffer}`
     const first = await offer({ name: 'First only', code: 'FIRSTONLY', action: { operation: 'order_percentage_discount', percent: 5 }, conditions: [{ operation: 'first_order' }], combines: { product: true, order: true, shipping: true } })
@@ -303,13 +301,13 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     await db.sql`insert into promotion_usage (promotion_id, store_id, order_id, customer_email, discount_amount, currency) values (${placeOffer}, ${store}, ${o?.id ?? ''}, 'ravi@example.com', 20000, 'INR')`
     await signIn('ravi@example.com', false)
     try {
-      // Signed in with an email nobody proved: Ravi's guest use and order don't count against this account, and say nothing.
+      // A guest order and use placed with Ravi's email are no history of his account, whoever placed them.
       const cart = await add(kurta, 1)
       expect((await apply(cart, 'PLACE20')).state).toBe('APPLIED')
       expect((await apply(cart, 'FIRSTONLY')).cart.codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
-      // Proven, they are his.
+      // Nor once the email is proven his: proving it says nothing about who typed it on those orders.
       await db.sql`update customer set email_verified_at = now() where store_id = ${store} and email = 'ravi@example.com'`
-      expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'ALREADY_USED' }, { code: 'FIRSTONLY', state: 'NOT_ELIGIBLE' }])
+      expect((await cartOf(cart)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }, { code: 'FIRSTONLY', state: 'APPLIED' }])
     } finally {
       session = null
     }
