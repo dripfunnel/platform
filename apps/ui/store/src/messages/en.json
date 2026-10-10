@@ -3372,7 +3372,10 @@
         "confirmAmount": "Refund {amount}",
         "done": "{amount} refunded to {name}",
         "doneOverride": "{amount} refunded to {name} — recorded against {suppliers} to settle with them",
-        "doneSupplier": "{amount} refunded for your items"
+        "doneSupplier": "{amount} refunded for your items",
+        "doneNoAmount": "Refunded to {name}",
+        "doneOverrideNoAmount": "Refunded to {name} — recorded against {suppliers} to settle with them",
+        "doneSupplierNoAmount": "Your items were refunded"
       }
     },
     "cancel": {

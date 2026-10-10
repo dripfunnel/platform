@@ -522,6 +522,57 @@ describe('returns and refunds', () => {
     expect(screen.getByRole('region', { name: refundWords.title })).toBeTruthy()
   })
 
+  it('says a refund went through without an amount when the order can’t be read back', async () => {
+    api.refund.mockResolvedValue(['f9'])
+    await show(owner, withReturns)
+    api.loadOrder.mockRejectedValue(new Error('offline'))
+    fireEvent.click(within(screen.getByRole('region', { name: 'Return R-1' })).getByRole('button', { name: returnWords.refundThese }))
+    fireEvent.click(button(refundWords.confirmPicked))
+    await settle()
+    expect(screen.getByText('Refunded to Ananya Rao')).toBeTruthy()
+  })
+
+  it('leaves returns and refunds disabled on a read-only store', async () => {
+    await show(owner, withReturns, true)
+    expect((button(words.actions.return) as HTMLButtonElement).disabled).toBe(true)
+    expect((button(words.actions.refund) as HTMLButtonElement).disabled).toBe(true)
+    const coming = within(screen.getByRole('region', { name: 'Return R-2' }))
+    expect((coming.getByRole('button', { name: returnWords.receive }) as HTMLButtonElement).disabled).toBe(true)
+    expect((coming.getByRole('button', { name: returnWords.cancel }) as HTMLButtonElement).disabled).toBe(true)
+    expect((within(screen.getByRole('region', { name: 'Return R-1' })).getByRole('button', { name: returnWords.refundThese }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('gives staff no Receive or Cancel on a return, nor its refund', async () => {
+    await show(staff, withReturns)
+    const coming = within(screen.getByRole('region', { name: 'Return R-2' }))
+    expect(coming.getByText(returnWords.states.requested)).toBeTruthy()
+    expect(coming.queryByRole('button', { name: returnWords.receive })).toBeNull()
+    expect(coming.queryByRole('button', { name: returnWords.cancel })).toBeNull()
+    expect(within(screen.getByRole('region', { name: 'Return R-1' })).queryByRole('button', { name: returnWords.refundThese })).toBeNull()
+  })
+
+  it('shows a supplier the returns of its own lines to refund once received, but never to receive or cancel', async () => {
+    const nw = shipped.parts[1] ?? part({ id: 'x', lines: [] })
+    const own: Order = {
+      ...shipped,
+      total: null,
+      paymentState: null,
+      paymentMethod: null,
+      parts: [{ ...nw, lines: [{ ...dupatta, fulfilledQuantity: 1, returnedQuantity: 1 }] }],
+      returns: [
+        { id: 'r3', number: 'R-3', state: 'requested', reason: 'damaged', startedAt: '2026-10-10T09:00:00.000Z', lines: [{ lineId: 'l3', quantity: 1 }] },
+        { id: 'r4', number: 'R-4', state: 'received', reason: 'damaged', startedAt: '2026-10-10T09:00:00.000Z', lines: [{ lineId: 'l3', quantity: 1 }] },
+      ],
+    }
+    await show(supplier, own)
+    const coming = within(screen.getByRole('region', { name: 'Return R-3' }))
+    expect(coming.queryByRole('button', { name: returnWords.receive })).toBeNull()
+    expect(coming.queryByRole('button', { name: returnWords.cancel })).toBeNull()
+    expect(screen.queryByRole('button', { name: words.actions.return })).toBeNull()
+    fireEvent.click(within(screen.getByRole('region', { name: 'Return R-4' })).getByRole('button', { name: returnWords.refundThese }))
+    expect(screen.getByRole('region', { name: refundWords.title })).toBeTruthy()
+  })
+
   it('shows staff Start a return and Refund disabled, with who can', async () => {
     await show(staff, shipped)
     expect((button(words.actions.return) as HTMLButtonElement).disabled).toBe(true)

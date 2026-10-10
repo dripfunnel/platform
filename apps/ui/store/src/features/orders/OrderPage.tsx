@@ -153,6 +153,7 @@ export const OrderPage = () => {
         {view.kind === 'loading' && <LoadingState label={words.loading} />}
         {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}
         {view.kind === 'missing' && <EmptyState title={words.notFound.title} body={words.notFound.body} action={back} />}
+        <Toast message={toast} onDone={() => setToast(null)} />
       </div>
     )
 
@@ -223,9 +224,12 @@ export const OrderPage = () => {
         const fresh = await loadOrder(order.id).catch(() => null)
         const made = (fresh ?? order).refunds.filter((r) => ids.includes(r.id))
         const first = made[0]
-        const total = first ? moneyText({ amount: String(made.reduce((sum, r) => sum + BigInt(r.amount.amount), 0n)), currency: first.amount.currency }) : ''
         const name = order.customerName ?? words.customer.guest
-        setToast(access.supplier ? fill(words.refund.doneSupplier, { amount: total }) : suppliers.length > 0 ? fill(words.refund.doneOverride, { amount: total, name, suppliers: formatList(suppliers) }) : fill(words.refund.done, { amount: total, name }))
+        // The amount is the API's, read back with the order; if that read fails, the toast says it went through without one.
+        const amount = first ? moneyText({ amount: String(made.reduce((sum, r) => sum + BigInt(r.amount.amount), 0n)), currency: first.amount.currency }) : null
+        const said = access.supplier ? words.refund.doneSupplier : suppliers.length > 0 ? words.refund.doneOverride : words.refund.done
+        const unsaid = access.supplier ? words.refund.doneSupplierNoAmount : suppliers.length > 0 ? words.refund.doneOverrideNoAmount : words.refund.doneNoAmount
+        setToast(fill(amount ? said : unsaid, { amount: amount ?? '', name, suppliers: formatList(suppliers) }))
         closeForms()
         if (fresh) setView({ kind: 'ready', order: fresh })
         else load()
