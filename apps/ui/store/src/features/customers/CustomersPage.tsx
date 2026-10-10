@@ -138,7 +138,7 @@ export const CustomersPage = () => {
   const selectedId = chosen ?? rows[0]?.id ?? null
 
   const loadDetail = useCallback(() => {
-    if (!selectedId) return setDetail({ kind: 'none' })
+    if (!access.canRead || !selectedId) return setDetail({ kind: 'none' })
     if (sample) {
       const row = sample.rows.find((r) => r.id === selectedId)
       return setDetail(row ? { kind: 'ready', customer: sampleCustomer(row, sample.customer) } : { kind: 'none' })
@@ -154,7 +154,7 @@ export const CustomersPage = () => {
         if (mine === latestDetail.current) setDetail({ kind: 'error' })
       },
     )
-  }, [selectedId, sample])
+  }, [access.canRead, selectedId, sample])
   useEffect(loadDetail, [loadDetail])
 
   const reload = () => {

@@ -298,9 +298,11 @@ describe('the Customers screen', () => {
     expect((detail().getByRole('button', { name: '✓ VIP' }) as HTMLButtonElement).disabled).toBe(true)
     expect(detail().queryByRole('button', { name: words.detail.consent.stop })).toBeNull()
     cleanup()
-    await show(supplier)
+    api.loadCustomer.mockClear()
+    await show(supplier, { entry: '/customers?customer=c1' })
     expect(screen.getByRole('heading', { name: words.denied.title })).toBeTruthy()
     expect(api.loadCustomers).toHaveBeenCalledTimes(2)
+    expect(api.loadCustomer).not.toHaveBeenCalled()
   })
 
   it('greets a new store with its empty state, and shows the error state with a retry', async () => {
