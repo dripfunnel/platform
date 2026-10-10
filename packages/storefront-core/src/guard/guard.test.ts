@@ -1,6 +1,9 @@
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { maxFileBytes, maxFiles, maxThemeBytes, ruleIds, validateChange, type GuardContext, type Problem, type RuleId, type ThemeFile } from './index'
+
+// The first case builds the TypeScript program with the DOM's types, which takes over 10 s on CI's runners.
+vi.setConfig({ testTimeout: 30_000 })
 
 const fixtures = decodeURIComponent(new URL('./fixtures/', import.meta.url).pathname)
 
