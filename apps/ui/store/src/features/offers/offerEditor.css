@@ -287,6 +287,11 @@
   font-size: 13px;
 }
 
+.df-offer-chip--gone {
+  border-color: var(--df-color-danger-border);
+  background: var(--df-color-danger-surface);
+}
+
 .df-offer-chip button,
 .df-offer-remove {
   width: 28px;

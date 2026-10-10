@@ -159,6 +159,13 @@ describe('money in other currencies', () => {
     expect(inputOf(tiered, multi, true).action).toEqual({ operation: 'tiered_discount', kind: 'percent', tiers: steps.map((t) => ({ minimum: t.minimum, percent: t.percent })) })
   })
 
+  it('converts a kept amount into a currency added since it was saved, and leaves out one no longer sold', () => {
+    const now: StoreFacts = { ...multi, others: ['EUR', 'GBP'], perEuro: { USD: 1.1, EUR: 1, GBP: 0.85 } }
+    const cap = [{ currency: 'USD', amount: '1200' }, { currency: 'EUR', amount: '1000' }, { currency: 'JPY', amount: '2000' }]
+    const d = draftOf({ ...base, action: blankAction({ operation: 'order_percentage_discount', percent: 20, cap }) }, now)
+    expect(inputOf(d, now, true).action).toEqual({ operation: 'order_percentage_discount', percent: 20, cap: [{ currency: 'USD', amount: '1200' }, { currency: 'EUR', amount: '1000' }, { currency: 'GBP', amount: '927' }] })
+  })
+
   it('keeps a second condition for a slot the form draws once, so an edit loses no restriction', () => {
     const conditions = [
       blankCondition({ operation: 'customer_group', groupIds: ['g1'] }),

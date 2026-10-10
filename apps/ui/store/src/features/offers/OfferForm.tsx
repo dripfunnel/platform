@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { CollectionSummary } from '../../api/collections'
 import { findCustomers, type CustomerGroup } from '../../api/customers'
-import { codeLengths } from '../../api/offers'
+import { codeLengths, type OfferIdNames } from '../../api/offers'
 import type { Filter } from '../../api/filters'
 import type { Market } from '../../api/markets'
 import { fill, formatCount, formatList, messages } from '../../messages'
@@ -32,8 +32,8 @@ export interface FormProps {
   facts: StoreFacts
   region: RegionWords
   lists: FormLists
-  productNames: ReadonlyMap<string, string>
-  customerNames: ReadonlyMap<string, string>
+  productNames: OfferIdNames
+  customerNames: OfferIdNames
   onCustomerName: (id: string, name: string) => void
   onPick: (field: 'productIds' | 'buyIds' | 'getIds') => void
   onCreateGroup: (name: string) => Promise<string | null>
@@ -96,12 +96,13 @@ const AmountBoxes = ({ label, value, onChange, facts, invalid, disabled }: { lab
   </>
 )
 
-const Chips = ({ ids, names, label, onRemove, disabled }: { ids: readonly string[]; names: ReadonlyMap<string, string>; label: string; onRemove: (id: string) => void; disabled: boolean }) => (
+const Chips = ({ ids, names, label, onRemove, disabled }: { ids: readonly string[]; names: OfferIdNames; label: string; onRemove: (id: string) => void; disabled: boolean }) => (
   <>
     {ids.map((id) => {
-      const name = names.get(id) ?? words.unnamed
+      const gone = !names.has(id)
+      const name = gone ? words.gone : (names.get(id) ?? words.unnamed)
       return (
-        <span key={id} className="df-offer-chip">
+        <span key={id} className={gone ? 'df-offer-chip df-offer-chip--gone' : 'df-offer-chip'}>
           {name}
           {!disabled && (
             <button type="button" aria-label={fill(label, { name })} onClick={() => onRemove(id)}>

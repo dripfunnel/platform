@@ -261,6 +261,19 @@ describe('a new offer', () => {
     expect(screen.getByText('Linen kurta')).toBeTruthy()
   })
 
+  it('shows a chosen product that’s gone, and won’t save until it’s removed', async () => {
+    api.loadOffer.mockResolvedValue({ ...welcome, status: 'off', enabled: false, action: action({ operation: 'products_percentage_discount', percent: 10, targets: { productIds: ['p1', 'p2'], collectionIds: [], filterValueIds: [] } }) })
+    api.loadProductNames.mockResolvedValue(new Map([['p1', 'Linen kurta']]))
+    await show(owner, '/offers/o1/edit')
+    expect(screen.getByText(words.gone)).toBeTruthy()
+    fireEvent.click(saveButton(words.saveChanges))
+    expect(screen.getAllByText(words.errors.gone).length).toBeGreaterThan(0)
+    expect(api.saveOffer).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: `Remove ${words.gone}` }))
+    expect(screen.queryByText(words.errors.gone)).toBeNull()
+    expect(screen.getByText('Linen kurta')).toBeTruthy()
+  })
+
   it('names a taken code’s holder without guessing a state it didn’t give', async () => {
     api.saveOffer.mockRejectedValueOnce(new ApiError('CODE_TAKEN', 'taken', { offerId: 'o5', name: 'Summer 2025', status: 'archived' }))
     await show(owner, '/offers/new?recipe=welcome')
