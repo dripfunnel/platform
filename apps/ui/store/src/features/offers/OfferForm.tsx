@@ -8,7 +8,7 @@ import type { Market } from '../../api/markets'
 import { fill, formatCount, formatList, messages } from '../../messages'
 import '../common/chips.css'
 import { RadioCards } from '../common/RadioCards'
-import { convertedText, generateCode, localOf, type Amounts, type Field, type Minimum, type OfferDraft, type StoreFacts, type Target, type Who } from './offerDraft'
+import { convertedText, generateCode, localOf, offerLimits, type Amounts, type Field, type Minimum, type OfferDraft, type StoreFacts, type Target, type Who } from './offerDraft'
 import { countryName, repeatText, weekdayName, zoneName, type RegionWords } from './offerView'
 import { moneyText } from '../orders/orderView'
 
@@ -563,7 +563,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
         {d.who === 'customers' && (
           <div className="df-offer-chips">
             <Chips ids={d.customerIds} names={customerNames} label={words.remove} disabled={disabled} onRemove={(id) => set({ customerIds: d.customerIds.filter((x) => x !== id) })} />
-            {!disabled && (
+            {!disabled && d.customerIds.length < offerLimits.ids && (
               <CustomerSearch
                 chosen={d.customerIds}
                 onPick={(id, name) => {

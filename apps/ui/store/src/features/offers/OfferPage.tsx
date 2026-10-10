@@ -63,7 +63,9 @@ export const OfferPage = () => {
 
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [names, setNames] = useState<OfferNames>(noNames)
-  const [place, setPlace] = useState<{ timeZone: string; country: string | null }>({ timeZone: 'UTC', country: null })
+  // Every date here is the store's and named so: the page waits for its zone, and a failed read is its error (fact 9).
+  const [place, setPlace] = useState<{ timeZone: string; country: string | null } | null>(null)
+  const [placeFailed, setPlaceFailed] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const latest = useRef(0)
@@ -91,20 +93,24 @@ export const OfferPage = () => {
   }, [forced, sample, access.canRead, offerId])
   useEffect(load, [load])
 
-  useEffect(() => {
-    if (forced) {
-      setPlace({ timeZone: 'Asia/Kolkata', country: 'IN' })
-      return setNames(sampleNames ?? noNames)
-    }
+  const loadPlace = useCallback(() => {
+    if (forced) return setPlace({ timeZone: 'Asia/Kolkata', country: 'IN' })
     if (!access.canRead) return
-    void loadOfferPlace().then(setPlace, () => undefined)
+    setPlaceFailed(false)
+    void loadOfferPlace().then(setPlace, () => setPlaceFailed(true))
+  }, [forced, access.canRead])
+  useEffect(loadPlace, [loadPlace])
+
+  useEffect(() => {
+    if (forced) return setNames(sampleNames ?? noNames)
+    if (!access.canRead) return
     void loadOfferNames().then(setNames, () => undefined)
   }, [forced, access.canRead])
 
   const actions = useOfferActions({
     sample: Boolean(sample),
     canUpgrade: access.canUpgrade,
-    timeZone: place.timeZone,
+    timeZone: place?.timeZone ?? 'UTC',
     now: () => new Date(),
     onDone: (message, done) => {
       if (done.kind === 'deleted' || done.kind === 'duplicated') flash(message)
@@ -132,18 +138,21 @@ export const OfferPage = () => {
         <EmptyState title={words.denied.title} body={view.kind === 'missing' && access.canRead ? words.page.missing : words.denied.body} />
       </div>
     )
-  if (view.kind === 'loading')
+  if (view.kind === 'loading' || (!place && !placeFailed))
     return (
       <div className="df-offers">
         {crumb}
         <LoadingState label={words.page.loading} />
       </div>
     )
-  if (view.kind === 'error')
+  if (view.kind === 'error' || !place)
     return (
       <div className="df-offers">
         {crumb}
-        <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
+        <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: () => {
+              load()
+              loadPlace()
+            } }} />
       </div>
     )
 

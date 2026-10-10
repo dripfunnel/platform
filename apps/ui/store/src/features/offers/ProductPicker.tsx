@@ -11,7 +11,7 @@ const words = messages.offers.editor.picker
 
 type Found = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; rows: ProductRow[] }
 
-export const ProductPicker = ({ chosen, onToggle, onClose }: { chosen: readonly string[]; onToggle: (product: { id: string; name: string }, on: boolean) => void; onClose: () => void }) => {
+export const ProductPicker = ({ chosen, limit, onToggle, onClose }: { chosen: readonly string[]; limit: number; onToggle: (product: { id: string; name: string }, on: boolean) => void; onClose: () => void }) => {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const [q, setQ] = useState('')
@@ -50,6 +50,7 @@ export const ProductPicker = ({ chosen, onToggle, onClose }: { chosen: readonly 
     >
       <h2 id={titleId}>{words.title}</h2>
       <input type="search" value={q} aria-label={words.search} placeholder={words.search} onChange={(e) => setQ(e.target.value)} />
+      {chosen.length >= limit && <p className="df-offers-sub" role="status">{fill(words.full, { max: formatCount(limit) })}</p>}
       <div className="df-offer-picker-list" role="status">
         {found.kind === 'loading' && <span className="df-offers-sub">{words.searching}</span>}
         {found.kind === 'failed' && <span className="df-offers-error">{words.failed}</span>}
@@ -59,7 +60,7 @@ export const ProductPicker = ({ chosen, onToggle, onClose }: { chosen: readonly 
             const on = chosen.includes(p.id)
             return (
               <label key={p.id} className="df-offer-picker-row">
-                <input type="checkbox" checked={on} onChange={() => onToggle({ id: p.id, name: p.name }, !on)} />
+                <input type="checkbox" checked={on} disabled={!on && chosen.length >= limit} onChange={() => onToggle({ id: p.id, name: p.name }, !on)} />
                 <span>
                   <strong>{p.name}</strong>
                   <span className="df-offers-sub">{fill(plural(words.versions, p.versionCount), { count: formatCount(p.versionCount) })}</span>

@@ -16,7 +16,7 @@ import { fill, formatCount, messages, plural } from '../../messages'
 import { seasonalDatesFor } from '../collections/seasonal'
 import { offerAccessOf } from './offerAccess'
 import { offerRefusal } from './offerActions'
-import { blankDraft, draftOf, errorsOf, inputOf, localOf, offerOf, recipes, type OfferDraft, type StoreFacts } from './offerDraft'
+import { blankDraft, draftOf, errorsOf, inputOf, localOf, offerLimits, offerOf, recipes, type OfferDraft, type StoreFacts } from './offerDraft'
 import { editorSample, editorStates } from './offerStates'
 import { OfferForm, typedMoney, type FormLists } from './OfferForm'
 import { dateTimeText, regionWords, sentence, statusKeyOf, statusLook, timeLine, zoneName, type OfferNames } from './offerView'
@@ -430,6 +430,7 @@ export const OfferEditor = () => {
       {picking && (
         <ProductPicker
           chosen={pickedIds}
+          limit={offerLimits.ids}
           onToggle={(p, on) => {
             setProductNames((m) => new Map(m).set(p.id, p.name))
             const next = on ? [...pickedIds, p.id] : pickedIds.filter((x) => x !== p.id)
