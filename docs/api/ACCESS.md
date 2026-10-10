@@ -694,7 +694,7 @@ test (§11.2).
   `order.placed`, `order.paid`, `order.shipped`, `order.refunded`, `product.updated` and `stock.changed` in the transaction that made
   them, only when an endpoint takes the event and never for a preview's test order; `webhook.event` makes one delivery per endpoint,
   and `webhook.deliver` sends it with `DripFunnel-Signature: t=<seconds>,v1=<HMAC-SHA256 of "t.body">`, the address checked again
-  first, a 5-second timeout and no redirect followed, retried by the relay's backoff up to its limit. **Decided here**: a body holds
+  first, a 5-second timeout and no redirect followed, retried by the relay's backoff up to its limit; a delivery whose signing key can't be opened is marked failed (`no_signing_key`). `turnOnWebhook` answers how many held events of the last week it will send and hands them to `webhook.release`, which queues 500 a pass, each its own transaction. **Decided here**: a body holds
   ids only (`{ id, type, createdAt, store, data: { object, id, number? } }`), so neither the outbox nor the delivery log holds a
   shopper's details; the receiver reads the rest with a key. **Apps**: staff with `apps.manage` register one (name, developer, site,
   webhook address, scopes from `machineScopes`, its signing secret answered once); the Owner sees `installableApp`, and

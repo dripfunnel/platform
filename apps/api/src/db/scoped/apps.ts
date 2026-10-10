@@ -1,5 +1,6 @@
 import type { PageWindow } from '#core/paging'
 import { pgArray, type ScopedSql } from './index'
+import { keysetOrder, keysetWhere } from './keyset'
 
 // Private apps and their grants (DATA-MODEL §7.10, migrations/0152): the registry in platform scope (staff), a store's
 // installs in its own scope, and a presented grant token resolved in system scope.
@@ -18,18 +19,10 @@ export interface AppAdminRow extends AppRow {
   created_at: Date
 }
 
-const keyset = (tx: ScopedSql, window: PageWindow, column: string) => tx`
-  ${window.after ? tx`(${tx(column)}, id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
-  and ${window.before ? tx`(${tx(column)}, id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}`
-const ordered = (tx: ScopedSql, window: PageWindow, column: string) => {
-  const dir = window.before && !window.after ? tx`asc` : tx`desc`
-  return tx`order by ${tx(column)} ${dir}, id ${dir} limit ${window.limit + 1}`
-}
-
 export const selectAppsForStaff = (tx: ScopedSql, window: PageWindow): Promise<AppAdminRow[]> =>
   tx<AppAdminRow[]>`
     select id, name, developer, site_url, webhook_url, to_jsonb(scopes) as scopes, status, created_at from app
-    where ${keyset(tx, window, 'created_at')} ${ordered(tx, window, 'created_at')}
+    where ${keysetWhere(tx, window, 'created_at', 'id')} ${keysetOrder(tx, window, 'created_at', 'id')}
   `
 
 export const insertApp = async (tx: ScopedSql, a: { id: string; name: string; developer: string; siteUrl: string; webhookUrl: string; scopes: readonly string[]; secretSealed: string; by: string; now: Date }): Promise<void> => {
@@ -72,10 +65,8 @@ export const selectGrants = (tx: ScopedSql, storeId: string, window: PageWindow)
       g.installed_at, g.last_used_at, g.token_sent_at, g.token_failed_at
     from app_grant g join app a on a.id = g.app_id left join "user" u on u.id = g.installed_by_user_id
     where g.store_id = ${storeId} and g.revoked_at is null
-      and ${window.after ? tx`(g.installed_at, g.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
-      and ${window.before ? tx`(g.installed_at, g.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
-    order by g.installed_at ${window.before && !window.after ? tx`asc` : tx`desc`}, g.id ${window.before && !window.after ? tx`asc` : tx`desc`}
-    limit ${window.limit + 1}
+      and ${keysetWhere(tx, window, 'g.installed_at', 'g.id')}
+    ${keysetOrder(tx, window, 'g.installed_at', 'g.id')}
   `
 
 /** False when the app is already installed here: the live-install index refused the second. */

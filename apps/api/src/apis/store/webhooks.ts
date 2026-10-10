@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { pageOf } from '#core/paging'
+import { pageOf, type Page } from '#core/paging'
 import { storeEvents } from '#db/scoped/storeEvents'
 import type { DeliveryRow, EndpointRow } from '#db/scoped/webhooks'
 import { createWebhooksService, maxEndpoints, webhookAudit, type WebhookRefusal, type WebhookResult } from '#saas/webhooks/index'
@@ -27,7 +27,6 @@ const answered = <T>(result: WebhookResult<T>): T => {
 }
 
 const iso = (d: Date | null) => d?.toISOString() ?? null
-type PageOf<T> = { nodes: T[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }
 
 export const registerWebhooks = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
@@ -43,7 +42,7 @@ export const registerWebhooks = (builder: StoreBuilder) => {
       createdAt: t.string({ resolve: (e) => e.created_at.toISOString() }),
     }),
   })
-  const EndpointPage = builder.objectRef<PageOf<EndpointRow>>('WebhookEndpointPage').implement({
+  const EndpointPage = builder.objectRef<Page<EndpointRow>>('WebhookEndpointPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [Endpoint], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
   const Delivery = builder.objectRef<DeliveryRow>('WebhookDelivery').implement({
@@ -55,7 +54,7 @@ export const registerWebhooks = (builder: StoreBuilder) => {
       status: t.exposeString('status'),
       attempts: t.exposeInt('attempts'),
       responseCode: t.exposeInt('response_code', { nullable: true }),
-      // A code, never the endpoint's own words: status, timeout, private_address, bad_url, unavailable, endpoint_removed.
+      // A code, never the endpoint's own words: status, timeout, private_address, bad_url, unavailable, endpoint_removed, no_signing_key.
       error: t.exposeString('error', { nullable: true }),
       durationMs: t.exposeInt('duration_ms', { nullable: true }),
       createdAt: t.string({ resolve: (d) => d.created_at.toISOString() }),
@@ -64,7 +63,7 @@ export const registerWebhooks = (builder: StoreBuilder) => {
       replayOf: t.exposeID('replay_of', { nullable: true }),
     }),
   })
-  const DeliveryPage = builder.objectRef<PageOf<DeliveryRow>>('WebhookDeliveryPage').implement({
+  const DeliveryPage = builder.objectRef<Page<DeliveryRow>>('WebhookDeliveryPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [Delivery], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
   const Saved = builder.objectRef<{ id: string; secret: string | null }>('SavedWebhook').implement({
@@ -116,7 +115,7 @@ export const registerWebhooks = (builder: StoreBuilder) => {
       extensions: { access: { ...access, audit: webhookAudit.removed } },
       resolve: async (_, args, ctx) => answered(await service(ctx).remove(String(args.id))),
     }),
-    // Answers how many waiting events it sends.
+    // Answers how many waiting events it will send; a job queues them (webhook.release).
     turnOnWebhook: t.field({
       type: 'Int',
       args: { id: t.arg.id({ required: true }) },

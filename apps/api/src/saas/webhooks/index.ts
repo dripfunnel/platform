@@ -12,7 +12,7 @@ import {
   insertEndpoint,
   lockEndpoint,
   markEndpointWorking,
-  releaseHeld,
+  countHeld,
   removeEndpoint,
   selectDeliveries,
   selectEndpoints,
@@ -34,6 +34,7 @@ export const webhookAudit = {
 } as const
 
 export const webhookDeliveryKind = 'webhook.deliver'
+export const webhookReleaseKind = 'webhook.release'
 
 /** Endpoints a store may have at once. */
 export const maxEndpoints = 10
@@ -179,10 +180,12 @@ export const createWebhooksService = ({ sql, caller, activity, facts, secrets, l
       const old = await lockEndpoint(tx, storeId, id)
       if (!old) return { ok: false, reason: 'NOT_FOUND' } as const
       await markEndpointWorking(tx, id, at)
-      const released = await releaseHeld(tx, id, new Date(at.getTime() - replayWindowMs))
-      for (const deliveryId of released) await queueDelivery(tx, deliveryId, `${deliveryId}:on:${at.getTime()}`)
+      const since = new Date(at.getTime() - replayWindowMs)
+      const waiting = await countHeld(tx, id, since)
+      // The job releases them in batches, so a long-off endpoint's week never rides on this request (AGENTS.md: Queues).
+      if (waiting > 0) await queueSideEffect(tx, { kind: webhookReleaseKind, idempotencyKey: `${id}:${since.getTime()}:0`, payload: { endpointId: id, since: since.toISOString(), pass: 0 }, partnerId: caller.context.partnerId, storeId })
       await activity.record(tx, entry(webhookAudit.turnedOn, old, [], old.status))
-      return { ok: true, value: released.length } as const
+      return { ok: true, value: waiting } as const
     })
   }
 

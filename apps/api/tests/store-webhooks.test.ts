@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { withScope } from '#db/scoped/index'
 import { storeEventKind } from '#db/scoped/storeEvents'
-import { webhookDeliveryDeliverer, webhookEventDeliverer } from '#jobs/queues/deliverers/webhooks'
+import { releaseBatch, webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDeliverer } from '#jobs/queues/deliverers/webhooks'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
-import { webhookDeliveryKind } from '#saas/webhooks/index'
+import { webhookDeliveryKind, webhookReleaseKind } from '#saas/webhooks/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { fakeEndpoint, fakeLookup, seedStoreWorld, type StoreWorld, type Who } from './support/storeWorld'
@@ -31,6 +31,7 @@ const endpoint = fakeEndpoint(() => answer)
 const deliverers = (): Deliverers => ({
   [storeEventKind]: webhookEventDeliverer(db.sql, () => now),
   [webhookDeliveryKind]: webhookDeliveryDeliverer(db.sql, { lookup: fakeLookup(dns), secrets, fetchImpl: endpoint.fetchImpl, now: () => now }),
+  [webhookReleaseKind]: webhookReleaseDeliverer(db.sql),
 })
 // Rows take the database's clock when queued, so the test's clock never runs behind it.
 const relay = () => {
@@ -230,6 +231,35 @@ describe('Delivering', () => {
     expect((await db.sql<{ status: string; error: string }[]>`select status, error from webhook_delivery where id = ${d?.id ?? ''}`)[0]).toEqual({ status: 'failed', error: 'endpoint_removed' })
   })
 
+  it('marks a delivery failed when its signing key can’t be opened, rather than leaving it pending', async () => {
+    const { saved } = await save('owner', 'https://hooks.shop.example/nokey', ['product.updated'])
+    await product('owner', 'No key')
+    await relay()
+    const noKey = { ...deliverers(), [webhookDeliveryKind]: webhookDeliveryDeliverer(db.sql, { lookup: fakeLookup(dns), secrets: null, fetchImpl: endpoint.fetchImpl, now: () => now }) }
+    await relayDue(db.sql, noKey, { ...defaultRelayOptions, now: () => now })
+    expect((await deliveries('owner', saved?.id ?? '')).list?.[0]).toMatchObject({ status: 'failed', error: 'no_signing_key' })
+    await w.gql('owner', 'mutation R($id: ID!) { removeWebhook(id: $id) }', { id: saved?.id })
+  })
+
+  it('releases a long-off endpoint’s held week a batch per pass, each sent once', async () => {
+    const { saved } = await save('owner', 'https://hooks.shop.example/backlog', ['product.updated'])
+    const id = saved?.id ?? ''
+    await db.sql`update webhook_endpoint set status = 'disabled', failing_since = now() - interval '4 days', disabled_at = now() where id = ${id}`
+    const total = releaseBatch + 3
+    await db.sql`insert into webhook_delivery (id, endpoint_id, store_id, event, event_id, body, status, created_at)
+      select gen_random_uuid(), ${id}, ${t.storeA1}, 'product.updated', gen_random_uuid(), '{}', 'held', now() - interval '1 hour' from generate_series(1, ${total})`
+    const on = await w.gql('owner', 'mutation R($id: ID!) { turnOnWebhook(id: $id) }', { id })
+    expect(on.data?.['turnOnWebhook']).toBe(total)
+    const passes = await db.sql`select 1 from outbox where kind = ${webhookReleaseKind} and payload->>'endpointId' = ${id}`
+    expect(passes).toHaveLength(1)
+    const sentBefore = endpoint.sent.length
+    for (let i = 0; i < 4; i++) await relayDue(db.sql, deliverers(), { ...defaultRelayOptions, batch: total * 2, now: () => now })
+    expect(await db.sql`select 1 from outbox where kind = ${webhookReleaseKind} and payload->>'endpointId' = ${id}`).toHaveLength(2)
+    expect(await db.sql`select 1 from webhook_delivery where endpoint_id = ${id} and status = 'held'`).toHaveLength(0)
+    expect(endpoint.sent.length - sentBefore).toBe(total)
+    await w.gql('owner', 'mutation R($id: ID!) { removeWebhook(id: $id) }', { id })
+  })
+
   it('retries a failing endpoint with growing waits up to the relay’s limit, then marks the delivery failed', async () => {
     const { saved, code: savedCode } = await save('owner', 'https://other.shop.example/flaky', ['product.updated'])
     expect(savedCode).toBeUndefined()
@@ -292,6 +322,7 @@ describe('Turning off and back on', () => {
       answer = 200
       const released = await w.gql('owner', 'mutation R($id: ID!) { turnOnWebhook(id: $id) }', { id })
       expect(released.data?.['turnOnWebhook']).toBe(held.length - 1)
+      await relay()
       await relay()
       expect(endpoint.sent.length).toBe(sentBefore + held.length - 1)
       expect((await endpoints('owner')).list?.find((e) => e.id === id)).toMatchObject({ status: 'active', failingSince: null })
