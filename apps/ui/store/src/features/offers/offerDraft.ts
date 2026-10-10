@@ -223,6 +223,20 @@ const blank = (type: OfferKind): OfferDraft => ({
   description: null,
 })
 
+/** Whether something kept in storage still has a form's shape (every field, of the same kind): an older build's draft doesn't. */
+export const fitsDraft = (x: unknown, template: OfferDraft): x is OfferDraft => {
+  const kind = (v: unknown) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
+  const same = (a: unknown, b: unknown): boolean => {
+    if (kind(b) === 'null') return kind(a) === 'null' || kind(a) === 'object'
+    if (kind(a) !== kind(b)) return false
+    if (kind(b) !== 'object') return true
+    const ra = a as Record<string, unknown>
+    const rb = b as Record<string, unknown>
+    return Object.keys(rb).length === Object.keys(ra).length && Object.keys(rb).every((k) => k in ra && same(ra[k], rb[k]))
+  }
+  return same(x, template)
+}
+
 export const recipes = ['welcome', 'freeShipping', 'seasonal', 'buy2get1', 'flash', 'vip', 'winBack'] as const
 export type Recipe = (typeof recipes)[number]
 export const recipeType: Record<Recipe, OfferKind> = { welcome: 'order', freeShipping: 'shipping', seasonal: 'order', buy2get1: 'bxgy', flash: 'products', vip: 'order', winBack: 'order' }
