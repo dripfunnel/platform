@@ -176,12 +176,13 @@ export const saveProduct = async (id: string | null, revision: number | null, in
 export const uploadRefusals = ['TOO_LARGE', 'UNSUPPORTED_TYPE', 'EMPTY', 'FORBIDDEN', 'READ_ONLY', 'NOT_CONNECTED'] as const
 export type UploadRefusal = (typeof uploadRefusals)[number]
 
-const uploadSchema = z.union([z.object({ ok: z.literal(true), asset: z.object({ id: z.string(), kind: z.string() }) }), z.object({ ok: z.literal(false), code: z.string() })])
+const uploadSchema = z.union([z.object({ ok: z.literal(true), asset: z.object({ id: z.string(), kind: z.string(), mime: z.string(), bytes: z.number().int() }) }), z.object({ ok: z.literal(false), code: z.string() })])
+type Uploaded = Extract<z.infer<typeof uploadSchema>, { ok: true }>['asset']
 
-/** The raw file to `/api/assets` (FIRST-RELEASE §19 uploadAsset): its asset id, or why not. */
-export const uploadPhoto = async (file: Blob): Promise<{ ok: true; assetId: string } | { ok: false; code: UploadRefusal }> => {
+/** The raw file to `/api/assets` (FIRST-RELEASE §19 uploadAsset), with `search` naming what it is for: the asset, or why not. */
+export const postAsset = async (file: Blob, search = ''): Promise<{ ok: true; asset: Uploaded } | { ok: false; code: UploadRefusal }> => {
   try {
-    const response = await fetch('/api/assets', {
+    const response = await fetch(`/api/assets${search}`, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { ...actingHeaders(), 'content-type': file.type || 'application/octet-stream' },
@@ -190,12 +191,19 @@ export const uploadPhoto = async (file: Blob): Promise<{ ok: true; assetId: stri
     })
     const answer = uploadSchema.safeParse(await response.json())
     if (!answer.success) return { ok: false, code: 'NOT_CONNECTED' }
-    if (answer.data.ok) return answer.data.asset.kind === 'image' ? { ok: true, assetId: answer.data.asset.id } : { ok: false, code: 'UNSUPPORTED_TYPE' }
+    if (answer.data.ok) return answer.data
     const code = z.enum(uploadRefusals).safeParse(answer.data.code)
     return { ok: false, code: code.success ? code.data : 'NOT_CONNECTED' }
   } catch {
     return { ok: false, code: 'NOT_CONNECTED' }
   }
+}
+
+/** A photo: its asset id, or why not. */
+export const uploadPhoto = async (file: Blob): Promise<{ ok: true; assetId: string } | { ok: false; code: UploadRefusal }> => {
+  const answer = await postAsset(file)
+  if (!answer.ok) return answer
+  return answer.asset.kind === 'image' ? { ok: true, assetId: answer.asset.id } : { ok: false, code: 'UNSUPPORTED_TYPE' }
 }
 
 /** What the editor needs of the tax setup; Settings › Tax setup reads the whole of it (api/tax.ts). */
