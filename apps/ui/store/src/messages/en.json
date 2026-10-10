@@ -180,9 +180,6 @@
     "home": {
       "title": "Home"
     },
-    "orders": {
-      "title": "Orders"
-    },
     "customers": {
       "title": "Customers"
     },
@@ -3118,6 +3115,238 @@
       "expired": "That export’s link has expired. Export again.",
       "tooLarge": "That export is too large. Narrow the filter and try again.",
       "failed": "The export couldn’t be made. Try again."
+    },
+    "detail": {
+      "back": "Orders",
+      "backSupplier": "To ship",
+      "loading": "Loading the order",
+      "error": {
+        "title": "We couldn’t load this order",
+        "body": "Nothing was changed. Try again in a moment.",
+        "retry": "Try again"
+      },
+      "notFound": {
+        "title": "We can’t find that order.",
+        "body": "It may not exist, or it isn’t one you can see.",
+        "cta": "Back to orders"
+      },
+      "pay": {
+        "pending": "Payment pending",
+        "authorised": "Card authorised",
+        "paid": "Paid",
+        "partlyRefunded": "Refunded {amount}",
+        "refunded": "Refunded {amount}"
+      },
+      "test": "Test order from a preview · never ships",
+      "placed": "Placed {time}",
+      "readOnly": "Your store is read-only until the bill is paid. You can look, but orders can’t be changed until then.",
+      "staffOnly": "Only the owner or a manager can mark an order paid, start a return or refund.",
+      "supplierNote": "You see only your items in this order. The store delivers to the shopper, so you don’t see who bought it, and totals cover other sellers too.",
+      "supplierNoteShopper": "You see only your items in this order. You send them to the shopper yourself.",
+      "failed": "That didn’t work. Nothing was changed; try again.",
+      "refused": {
+        "NOT_FOUND": "That order isn’t here any more.",
+        "NOT_SHIPPABLE": "This order can’t ship: it’s cancelled, a test, or still waiting for its card payment.",
+        "NOT_YOURS": "Some of these items or that location aren’t yours to ship from.",
+        "TOO_MANY": "That’s more than is left. Someone may have shipped some already.",
+        "NOT_ENOUGH_STOCK": "That location hasn’t that many. Change the stock or pick another location.",
+        "NO_STORE_LOCATION": "The store has no location to send these to yet.",
+        "NOT_CANCELLABLE": "Something has already been sent, so this order can’t be cancelled. Start a return instead.",
+        "PAYMENT_PENDING": "The shopper’s card payment is still going through. Try again in a few minutes.",
+        "NOT_PENDING": "This order isn’t waiting for payment any more.",
+        "READ_ONLY": "A read-only support session can’t change this store.",
+        "INVALID_INPUT": "Something here isn’t valid. Check it and try again."
+      },
+      "actions": {
+        "ship": "Ship items",
+        "choosing": "Choosing items…",
+        "markPaid": "Mark as paid",
+        "cancel": "Cancel order"
+      },
+      "groups": {
+        "mine": "You pack these",
+        "supplier": "{supplier} packs these",
+        "yours": "Your items",
+        "toShip": "{count} to ship",
+        "allShipped": "All shipped",
+        "cancelled": "Cancelled",
+        "shopperShips": "{supplier} sends these to the shopper"
+      },
+      "line": {
+        "name": "{name} · {version}",
+        "quantity": "× {count}",
+        "shipped": "{shipped} of {count} shipped",
+        "sent": "{sent} of {count} sent to the store",
+        "notShipped": "Not shipped yet",
+        "shipNow": "Ship now",
+        "fewer": "Fewer of {name}",
+        "more": "More of {name}",
+        "picked": "{picked} / {left}"
+      },
+      "ship": {
+        "title": {
+          "one": "Ship {count} item",
+          "other": "Ship {count} items"
+        },
+        "titleToStore": {
+          "one": "Send {count} item to the store",
+          "other": "Send {count} items to the store"
+        },
+        "location": "Ship from",
+        "courier": "Courier",
+        "courierPlaceholder": "e.g. Delhivery",
+        "tracking": "Tracking number",
+        "trackingHint": "Optional — without one, the shopper’s email says “on its way” with no link",
+        "trackingPlaceholder": "e.g. 1Z999AA10123456784",
+        "link": "Tracking link",
+        "linkHint": "Optional — the courier’s page for this parcel",
+        "linkPlaceholder": "https://",
+        "linkInvalid": "A tracking link starts with https://",
+        "linkNeedsNumber": "Add the tracking number this link is for",
+        "note": "Shipping part of an order is normal — the rest stays “to ship”. The shopper gets an email, with tracking if you add it.",
+        "notePickup": "The shopper collects this order. Mark it handed over once they have it.",
+        "noteToStore": "Send these to {store}. The store delivers them to the shopper.",
+        "noLocation": "Add a location under Products › Warehouses before you ship.",
+        "pickNone": "Pick at least one item to ship.",
+        "cancel": "Cancel",
+        "confirm": "Mark as shipped",
+        "confirmPickup": "Mark as handed over",
+        "confirmToStore": "Mark as sent",
+        "done": {
+          "one": "{count} item shipped — {name} gets an email",
+          "other": "{count} items shipped — {name} gets an email"
+        },
+        "doneShort": {
+          "one": "{count} item shipped",
+          "other": "{count} items shipped"
+        },
+        "doneHanded": {
+          "one": "{count} item handed over",
+          "other": "{count} items handed over"
+        },
+        "doneToStore": {
+          "one": "{count} item marked as sent to {store}",
+          "other": "{count} items marked as sent to {store}"
+        }
+      },
+      "shipments": {
+        "title": "Shipments",
+        "item": "{count}× {name}",
+        "shipped": "Shipped {time} from {place}",
+        "sentToStore": "Sent to the store {time}",
+        "pickup": "Handed over {time}",
+        "tracking": "{courier} · {number}",
+        "trackingOnly": "Tracking {number}",
+        "track": "Track",
+        "noTracking": "No tracking yet",
+        "add": "Add tracking",
+        "save": "Save tracking",
+        "cancel": "Cancel",
+        "numberMissing": "Type the tracking number",
+        "added": "Tracking saved — the shopper gets it by email"
+      },
+      "markPaid": {
+        "title": "Mark {number} as paid?",
+        "body": "Only once the {amount} has actually reached you ({method}).",
+        "confirm": "Mark as paid",
+        "cancel": "Not yet",
+        "done": "{number} marked as paid"
+      },
+      "history": {
+        "title": "History",
+        "empty": "Nothing has happened to this order yet."
+      },
+      "note": {
+        "add": "+ Add a note (only your team sees it)",
+        "title": "Add a note",
+        "target": "Order {number}",
+        "body": "Only your team sees this.",
+        "label": "Note",
+        "placeholder": "e.g. Gift wrap — shopper called",
+        "missing": "Type the note",
+        "confirm": "Add note",
+        "cancel": "Cancel",
+        "done": "Note added",
+        "tooLong": "Keep the note under 1,000 characters"
+      },
+      "totals": {
+        "title": "Payment",
+        "items": "Items",
+        "discount": "Discount",
+        "delivery": "Delivery",
+        "free": "Free",
+        "includesTax": "Includes tax",
+        "tax": "Tax",
+        "duties": "Duties",
+        "total": "Total",
+        "refunded": "Refunded",
+        "paidWith": "Paid with",
+        "less": "−{amount}"
+      },
+      "customer": {
+        "title": "Customer",
+        "guest": "Guest",
+        "deliverTo": "Deliver to",
+        "pickup": "Collects the order from you",
+        "market": "Market: {market}",
+        "shopperNote": "Note from the shopper"
+      },
+      "sendTo": {
+        "title": "Send your items to",
+        "body": "{store} sends it on to the shopper. You don’t see who bought it."
+      }
+    },
+    "cancel": {
+      "title": "Cancel {number}?",
+      "bodyPaid": "{name} gets {amount} back through {method}. The items go back in stock.",
+      "bodyPaidNoAmount": "{name} gets back what they paid, through {method}. The items go back in stock.",
+      "bodyUnpaid": "Nothing has been paid, so nothing is refunded. The items go back in stock.",
+      "reason": "Why",
+      "reasons": {
+        "out_of_stock": "Out of stock",
+        "shopper": "Shopper asked",
+        "store": "Looks like fraud",
+        "unpaid": "Not paid in time",
+        "unpaid_transfer": "Transfer not paid in time"
+      },
+      "confirm": "Cancel order",
+      "keep": "Keep order",
+      "done": "{number} cancelled"
+    },
+    "methods": {
+      "stripe": "Card",
+      "paypal": "PayPal",
+      "razorpay": "Razorpay",
+      "cashfree": "Cashfree",
+      "phonepe": "PhonePe",
+      "cod": "Cash on delivery",
+      "bank_transfer": "Bank transfer",
+      "other": "Online payment"
+    },
+    "history": {
+      "withDetail": "{action} · {detail}",
+      "by": "{what} · {name}",
+      "actions": {
+        "order.placed": "Order placed",
+        "order.paid": "Paid",
+        "order.marked_paid": "Marked as paid",
+        "order.payment_retried": "Payment tried again",
+        "order.paid_after_cancel": "Paid after it was cancelled",
+        "order.paid_twice": "Paid twice",
+        "order.oversold": "Sold more than was in stock",
+        "payment.amount_mismatch": "Paid a different amount than the order",
+        "order.cancelled": "Cancelled",
+        "order.note_added": "Note",
+        "order.shipped": "Items shipped",
+        "order.sent_to_store": "Items sent to the store",
+        "order.tracking_added": "Tracking added",
+        "return.started": "Return started",
+        "return.received": "Return received",
+        "return.cancelled": "Return cancelled",
+        "refund.issued": "Refunded",
+        "refund.overridden": "Refunded for a supplier",
+        "other": "Updated"
+      }
     }
   }
 }

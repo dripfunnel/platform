@@ -1,0 +1,418 @@
+/* An order (designs/PortalOrders.dc.html, the detail): header and actions, the part cards, the forms, history and the side cards. */
+.df-order {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-order h2 {
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.df-order-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-order-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  font-size: 13px;
+}
+
+.df-order-number {
+  margin: 0;
+  font-family: var(--df-font-mono);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.df-order-pay {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+  font-family: var(--df-font-heading);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-order-pay--pending {
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-order-head-gap {
+  flex: 1;
+}
+
+.df-order-action {
+  min-height: 36px;
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-order-action--primary {
+  border-color: var(--df-color-brand);
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+}
+
+.df-order-action--primary:hover:not(:disabled) {
+  background: var(--df-color-brand-hover);
+}
+
+.df-order-action--warning {
+  border-color: var(--df-color-warning-border);
+  color: var(--df-color-warning);
+}
+
+.df-order-note,
+.df-order-info {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-info-border);
+  border-radius: 10px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 13px;
+}
+
+.df-order-note {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-order-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--df-space-4);
+  align-items: start;
+}
+
+.df-order-main,
+.df-order-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.df-order-card {
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-order-part-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-page);
+  font-size: 13px;
+}
+
+.df-order-part-head strong {
+  font-family: var(--df-font-heading);
+}
+
+.df-order-part-state {
+  color: var(--df-color-warning);
+}
+
+.df-order-part-state--done {
+  color: var(--df-color-success);
+}
+
+.df-order-line-wrap {
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-order-line-wrap:last-child {
+  border-bottom: 0;
+}
+
+.df-order-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 50px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 13px;
+}
+
+.df-order-line[data-money] {
+  grid-template-columns: minmax(0, 1fr) 50px 90px;
+}
+
+.df-order-line-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-order-line-qty {
+  color: var(--df-color-muted);
+}
+
+.df-order-line-total {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-order-sub {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-order-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 16px 12px;
+  font-size: 13px;
+  color: var(--df-color-muted);
+}
+
+.df-order-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--df-color-text);
+}
+
+.df-order-stepper button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius-small);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.df-order-stepper button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.df-order-stepper > span {
+  min-width: 44px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.df-order-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 2px solid var(--df-color-focus);
+}
+
+.df-order-form h2 {
+  font-size: 15px;
+}
+
+.df-order-form h2:focus {
+  outline: none;
+}
+
+.df-order-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.df-order-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-order-field small {
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.df-order-field :is(input, select) {
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.df-order-field :is(input, select):focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 1px;
+}
+
+.df-order-mono {
+  font-family: var(--df-font-mono);
+}
+
+.df-order-problem {
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-order-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--df-space-2);
+}
+
+.df-order-form-actions .df-button {
+  min-height: 38px;
+  font-size: 13px;
+}
+
+.df-order-shipments,
+.df-order-history,
+.df-order-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+  padding: 16px;
+  font-size: 13px;
+}
+
+.df-order-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+}
+
+.df-order-shipment {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--df-space-2);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-order-shipment a {
+  color: var(--df-color-link);
+}
+
+.df-order-tracking-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: var(--df-space-2);
+}
+
+.df-order-events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-order-events li {
+  display: flex;
+  gap: 10px;
+}
+
+.df-order-event-time {
+  flex: none;
+  min-width: 150px;
+  color: var(--df-color-muted);
+}
+
+.df-order-add-note {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-focus);
+  font: inherit;
+  cursor: pointer;
+}
+
+.df-order-add-note:disabled {
+  color: var(--df-color-muted);
+  cursor: default;
+}
+
+.df-order-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.df-order-total {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+}
+
+.df-order-total dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-order-total--strong {
+  font-weight: 700;
+}
+
+.df-order-total--refund {
+  color: var(--df-color-link);
+}
+
+.df-order-customer-name {
+  font-size: 14px;
+}
+
+.df-order-text2 {
+  color: var(--df-color-text);
+}
+
+.df-order-address {
+  display: flex;
+  flex-direction: column;
+  padding-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .df-order-grid,
+  .df-order-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-order-event-time {
+    min-width: 110px;
+  }
+}

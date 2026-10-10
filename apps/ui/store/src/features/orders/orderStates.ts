@@ -9,8 +9,8 @@ export type OrderListState = (typeof orderListStates)[number]
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
 const harness = import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
 
-const inr = (amount: string) => ({ amount, currency: 'INR' })
-const hoursAgo = (hours: number) => new Date(Date.UTC(2026, 9, 10, 9, 30) - hours * 3_600_000).toISOString()
+export const inr = (amount: string) => ({ amount, currency: 'INR' })
+export const hoursAgo = (hours: number) => new Date(Date.UTC(2026, 9, 10, 9, 30) - hours * 3_600_000).toISOString()
 
 const summary = (r: Partial<OrderSummary> & Pick<OrderSummary, 'id' | 'number'>): OrderSummary => ({
   placedAt: hoursAgo(2),

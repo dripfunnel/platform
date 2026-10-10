@@ -34,6 +34,12 @@ const loadWarehouseNodes = <T>(fields: string, node: z.ZodType<T>): Promise<T[]>
 /** The caller's locations: the store's for the merchant, a supplier's own for a supplier. */
 export const loadWarehouses = (): Promise<Warehouse[]> => loadWarehouseNodes('id name isDefault', warehouseSchema)
 
+/** Where the caller ships from: the store's own locations (the merchant side also reads its suppliers'), or a supplier's. */
+export const loadShipFrom = async (supplier: boolean): Promise<Warehouse[]> =>
+  (await loadWarehouseNodes('id name isDefault supplierId', warehouseSchema.extend({ supplierId: z.string().nullable() })))
+    .filter((w) => supplier || w.supplierId === null)
+    .map(({ id, name, isDefault }) => ({ id, name, isDefault }))
+
 const movementSchema = z.object({
   id: z.string(),
   versionId: z.string(),

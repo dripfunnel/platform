@@ -291,6 +291,14 @@ check. Every figure is the API's (`home`, §19).
   as PortalOrders draws it. Decided there: a row says how many items, not their names, since `orders` answers a count;
   times are the store's zone (`storeInfo.timeZone`; a supplier's UTC), named once above the list rather than on every
   row; "Copy your store link" waits for the portal to know the shop's address (§4). `?state=` per `orderStates.ts`.
+- **Built on #314, part 2** (`/orders/$orderId`): an order's lines by who packs them, payment, the shopper and the
+  history with team notes; **Ship items** per line and quantity from one of the caller's own locations, with a courier,
+  tracking number and tracking link (https), a pickup handed over with neither, and a supplier's to-store items marked
+  as sent; **Add tracking** to a shipment sent without it; **Mark as paid** for cash on delivery and transfers
+  (`orders.mark_paid`; Staff, who see no money, aren't offered it); **Cancel order** with a reason for every merchant
+  seat, as `cancelOrder` takes `orders.write`. Decided there: the courier is typed, since booking a label is #311's
+  and the courier list is the Owner's (`shippingSettings`); the tracking link is asked for because the shipping text
+  waits for one; Print (packing slip, invoice) is left for its own card. `?state=` per `orderPageStates.ts`.
 
 ## 7. Customers (`PortalOrders` › Customers, flows 40, 72)
 
