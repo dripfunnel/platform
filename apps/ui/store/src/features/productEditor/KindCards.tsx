@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { downloadDays, downloadLimits, maxDownloadBytes, maxKeyLength, maxKeysPerSave, maxServiceDuration, maxServiceLocation, uploadDownload, type DownloadFile } from '../../api/productKinds'
 import { fill, formatCount, formatMegabytes, messages, plural } from '../../messages'
 import { keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
@@ -23,6 +23,9 @@ export const fileMeta = (file: DownloadFile) => fill(words.download.fileMeta, { 
 export const DownloadCard = ({ draft, update, disabled, problems, pool }: { draft: Draft; update: Update; disabled: boolean; problems: readonly KindProblem[]; pool: { left: number; sold: number } | null }) => {
   const input = useRef<HTMLInputElement>(null)
   const latest = useRef(0)
+  const drop = useRef<HTMLButtonElement>(null)
+  const replace = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
   const [uploading, setUploading] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
   const id = useId()
@@ -39,9 +42,18 @@ export const DownloadCard = ({ draft, update, disabled, problems, pool }: { draf
       if (mine !== latest.current) return
       setUploading(false)
       if (!result.ok) return setRefusal(fill(words.download.refused[result.code], { size: formatMegabytes(maxDownloadBytes) }))
+      // The drop area gives way to the file's line: focus follows to its Replace (WCAG 2.4.3).
+      refocus.current = document.activeElement === drop.current
       set({ file: result.file })
     })
   }
+  useEffect(() => {
+    if (!refocus.current || !download.file) return
+    refocus.current = false
+    replace.current?.focus()
+  }, [download.file])
+  // Not `disabled` while uploading, so the control keeps its focus.
+  const choose = () => !uploading && input.current?.click()
   const missing = problems.includes('file') && !uploading
 
   return (
@@ -59,13 +71,13 @@ export const DownloadCard = ({ draft, update, disabled, problems, pool }: { draf
             <div className="df-editor-file">
               <strong>{fileMeta(download.file)}</strong>
               {!disabled && (
-                <button type="button" className="df-button" disabled={uploading} onClick={() => input.current?.click()}>
+                <button ref={replace} type="button" className="df-button" aria-disabled={uploading || undefined} onClick={choose}>
                   {uploading ? words.download.uploading : words.download.replace}
                 </button>
               )}
             </div>
           ) : (
-            <button type="button" className="df-editor-drop" disabled={disabled || uploading} aria-describedby={missing ? `${id}-p` : undefined} onClick={() => input.current?.click()}>
+            <button ref={drop} type="button" className="df-editor-drop" disabled={disabled} aria-disabled={uploading || undefined} aria-describedby={missing ? `${id}-p` : undefined} onClick={choose}>
               <strong>{uploading ? words.download.uploading : words.download.upload}</strong>
               <span>{fill(words.download.uploadHint, { size: formatMegabytes(maxDownloadBytes) })}</span>
             </button>

@@ -29,7 +29,7 @@ const api = vi.hoisted(() => ({
 }))
 const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn(), loadHandPicked: vi.fn(), loadProducts: vi.fn() }))
 const translationApi = vi.hoisted(() => ({ loadProductTranslation: vi.fn(), saveProductTranslation: vi.fn() }))
-const kindApi = vi.hoisted(() => ({ loadProductKind: vi.fn(), saveProductKind: vi.fn(), addLicenceKeys: vi.fn(), uploadDownload: vi.fn(), loadGiftCards: vi.fn(), issueGiftCard: vi.fn() }))
+const kindApi = vi.hoisted(() => ({ loadProductKind: vi.fn(), saveProductKind: vi.fn(), addLicenceKeys: vi.fn(), uploadDownload: vi.fn() }))
 const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), loadStockHistory: vi.fn(), adjustStock: vi.fn(), setStock: vi.fn() }))
 
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...api }))
@@ -315,7 +315,7 @@ describe('the product editor', () => {
 
   it('saves no counts for a product that is no longer physical', async () => {
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
-    kindApi.saveProductKind.mockResolvedValue({ productId: 'p1', productType: 'service', revision: 4, download: null, service: { duration: null, location: null }, giftCard: null })
+    kindApi.saveProductKind.mockResolvedValue({ productId: 'p1', productType: 'service', revision: 4, download: null, service: { duration: null, location: null } })
     await show(owner)
     fireEvent.change(field('Stock at Jaipur studio'), { target: { value: 'many' } })
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(words.kind.service) }))
@@ -646,7 +646,7 @@ const deferred = <T,>() => {
   return { promise, resolve }
 }
 
-describe('downloads, services and gift cards in the editor', () => {
+describe('downloads and services in the editor', () => {
   it('creates a download: the file uploads first, and what the shopper gets saves after the product', async () => {
     api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: null })
     api.loadProduct.mockResolvedValue(cushion({ id: 'p9', productType: 'digital' }))
@@ -714,6 +714,49 @@ describe('downloads, services and gift cards in the editor', () => {
     expect(field(kinds.download.keysLabel).value).toBe('')
     expect(screen.getByText(/5 keys left/)).toBeTruthy()
     expect(screen.queryByText(/K-1/)).toBeNull()
+  })
+
+  it('keeps what the shopper gets on the page when it is refused after an existing product saved, and adds the same keys again', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ productType: 'digital' }))
+    kindApi.loadProductKind.mockResolvedValue(kindView({ download: { mode: 'file', file: { id: 'f1', mime: 'application/pdf', bytes: 1024 * 1024 }, limit: 5, days: 30, keysLeft: 0, keysSold: 0 } }))
+    api.saveProduct.mockResolvedValueOnce({ id: 'p1', revision: 3, approval: null }).mockResolvedValueOnce({ id: 'p1', revision: 4, approval: null }).mockResolvedValueOnce({ id: 'p1', revision: 6, approval: null })
+    kindApi.saveProductKind.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale')).mockResolvedValueOnce(kindView({ revision: 5, download: { ...pool(0), limit: 10 } }))
+    kindApi.addLicenceKeys.mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'offline')).mockResolvedValueOnce(kindView({ revision: 7, download: pool(2) }))
+    await show(owner)
+    fireEvent.change(field(kinds.download.limit), { target: { value: '10' } })
+    fireEvent.click(saveButton())
+    await settle()
+    expect(kindApi.saveProductKind).toHaveBeenLastCalledWith('p1', 3, { download: { mode: 'file', fileId: 'f1', limit: 10, days: 30 } })
+    expect(within(screen.getByRole('region', { name: words.bar.failed })).getByText(kinds.refused.STALE_REVISION)).toBeTruthy()
+    expect((field(kinds.download.limit) as unknown as HTMLSelectElement).value).toBe('10')
+    fireEvent.click(screen.getByRole('radio', { name: kinds.download.keys }))
+    fireEvent.change(field(kinds.download.keysLabel), { target: { value: 'K-1\nK-2' } })
+    fireEvent.click(saveButton())
+    await settle()
+    expect(kindApi.saveProductKind).toHaveBeenLastCalledWith('p1', 4, { download: { mode: 'keys', fileId: null, limit: 10, days: 30 } })
+    expect(kindApi.addLicenceKeys).toHaveBeenLastCalledWith('p1', ['K-1', 'K-2'])
+    expect(within(screen.getByRole('region', { name: words.bar.failed })).getByText(kinds.refused.other)).toBeTruthy()
+    expect(field(kinds.download.keysLabel).value).toBe('K-1\nK-2')
+    fireEvent.click(saveButton())
+    await settle()
+    expect(kindApi.saveProductKind).toHaveBeenCalledTimes(2)
+    expect(kindApi.addLicenceKeys).toHaveBeenCalledTimes(2)
+    expect(kindApi.addLicenceKeys).toHaveBeenLastCalledWith('p1', ['K-1', 'K-2'])
+    expect(field(kinds.download.keysLabel).value).toBe('')
+    expect(screen.getByText(/2 keys left/)).toBeTruthy()
+  })
+
+  it('moves focus to the file’s Replace once the upload answers, so a keyboard user isn’t left on the page’s body', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ productType: 'digital' }))
+    kindApi.loadProductKind.mockResolvedValue(kindView({ download: { mode: 'file', file: null, limit: 5, days: 30, keysLeft: 0, keysSold: 0 } }))
+    kindApi.uploadDownload.mockResolvedValue({ ok: true, file: { id: 'f1', mime: 'application/pdf', bytes: 1024 } })
+    await show(owner)
+    const dropArea = screen.getByRole('button', { name: new RegExp(kinds.download.upload) })
+    dropArea.focus()
+    fireEvent.change(document.querySelector('input[accept^="application/pdf"]') as HTMLInputElement, { target: { files: [new File(['%PDF-'], 'a.pdf', { type: 'application/pdf' })] } })
+    expect(document.activeElement).toBe(dropArea)
+    await settle()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: kinds.download.replace }))
   })
 
   it('refuses more keys than a save takes, before sending any', async () => {
