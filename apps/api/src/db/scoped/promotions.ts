@@ -109,10 +109,11 @@ export const countOffers = async (tx: ScopedSql, storeId: string, now: Date): Pr
   return row ?? { live: 0, scheduled: 0, off: 0, ended: 0 }
 }
 
+// The reminders' own offers (cartReminders.ts) are made and read only by the reminders, never by Offers: no list, count,
+// detail, results, code check or edit reaches one.
 export const selectOffer = async (tx: ScopedSql, storeId: string, id: string): Promise<OfferRow | null> =>
-  (await tx<OfferRow[]>`select ${columns(tx)} from promotion p where p.id = ${id} and p.store_id = ${storeId} and p.deleted_at is null`)[0] ?? null
+  (await tx<OfferRow[]>`select ${columns(tx)} from promotion p where p.id = ${id} and p.store_id = ${storeId} and p.deleted_at is null and not p.cart_reminder`)[0] ?? null
 
-// The reminders' own offers (cartReminders.ts) are listed, counted and changed only by their settings, never here.
 export const lockOffer = async (tx: ScopedSql, storeId: string, id: string): Promise<OfferRow | null> => {
   const locked = await tx<{ id: string }[]>`select id from promotion where id = ${id} and store_id = ${storeId} and deleted_at is null and not cart_reminder for update`
   return locked.length > 0 ? selectOffer(tx, storeId, id) : null
@@ -322,7 +323,7 @@ export const selectCodeCheck = async (tx: ScopedSql, storeId: string, code: stri
     await tx<CodeCheckRow[]>`
       select c.code, c.promotion_id, c.single_use, c.used_at, c.expires_at, c.replaced_at is not null as replaced, p.deleted_at is not null as deleted
       from promotion_code c join promotion p on p.id = c.promotion_id
-      where c.store_id = ${storeId} and lower(c.code) = lower(${code})
+      where c.store_id = ${storeId} and lower(c.code) = lower(${code}) and not p.cart_reminder
     `
   )[0] ?? null
 
