@@ -1,6 +1,0 @@
-<!doctype html><body style="margin:0"><iframe id="f" style="width:390px;height:900px;border:0"></iframe><pre id="out"></pre>
-<script>
-localStorage.setItem('df-store-theme','light')
-const f=document.getElementById('f');f.src=decodeURIComponent(location.search.slice(1))
-f.onload=()=>setTimeout(()=>{const d=f.contentDocument;const w=d.documentElement.scrollWidth;let wide=[];d.querySelectorAll('main *').forEach(e=>{const r=e.getBoundingClientRect();if(r.right>390.5)wide.push(e.tagName+'.'+e.className+':'+Math.round(r.right))});const small=[...d.querySelectorAll('main button:not([disabled]), main a')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height<44}).map(e=>e.textContent.trim().slice(0,20)+':'+Math.round(e.getBoundingClientRect().height));document.getElementById('out').textContent='scrollWidth='+w+' wider='+JSON.stringify(wide.slice(0,10))+' smallTargets='+JSON.stringify(small.slice(0,10))},3000)
-</script>
