@@ -110,6 +110,8 @@ export const instantOf = (local: string, timeZone: string): string | null => {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local)
   if (!m) return null
   const wall = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]))
+  // A date the calendar hasn't got (31 February, month 13, hour 25) is no date, never the day it rolls over to.
+  if (new Date(wall).toISOString().slice(0, 16) !== local) return null
   const offset = (t: number) => {
     const p = partsIn(t, timeZone)
     return Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi) - t
