@@ -669,6 +669,10 @@ they're still an Owner, expiry, last used, until when a rotated-from secret work
 the lifetimes 30, 90 and 365 days or never, the 50-key cap and the calls a minute and month), `createApiKey` and `rotateApiKey`
 (each answering the secret once) and `revokeApiKey`. The prototype's "Change products", "Change stock" and "Update orders" aren't
 offered yet: a key reads the catalogue, stock, orders and customers only (ACCESS §5.6, decided on #330).
+**Part 2**: `webhookEvents` (the six SetDev draws), `webhooks`, `webhookDeliveries(endpointId)` (event, status, attempts, response
+code, error code, time), `saveWebhook` (the signing secret answered when it is made), `removeWebhook`, `turnOnWebhook` (answers how
+many waiting events it sends) and `replayDelivery`; Apps' `installableApp` (the consent screen), `apps`, `installApp(appId, scopes)`
+and `uninstallApp`. The prototype's install link names its app: the portal takes the app's id from it.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
