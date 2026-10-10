@@ -14,9 +14,8 @@ import {
 } from '#db/scoped/storeHome'
 import { selectMerchantOrders, type OrderListRow } from '#db/scoped/storeOrders'
 
-// Home (FIRST-RELEASE §5, §20 SAPI 18): what waits and how the shop is doing, withheld per seat on the server. A field a
-// seat may not have is null, never zero: money and returning customers need `reports.read`, the approval queue
-// `approve`, collecting payments `orders.mark_paid`, couriers `shipping.configure` (ACCESS §5.1).
+// Home (FIRST-RELEASE §5, §20 SAPI 18), withheld per seat on the server: a field a seat may not have (ACCESS §5.1) is
+// null, never zero.
 
 /** The latest orders and the low-stock names Home lists. */
 export const homeLatestOrders = 5
