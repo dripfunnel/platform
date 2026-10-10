@@ -235,6 +235,9 @@ export const registerOrders = (builder: StoreBuilder) => {
       pickupRequestedAt: t.string({ nullable: true, resolve: (f) => (f.pickup_requested_at ? new Date(f.pickup_requested_at).toISOString() : null) }),
       pickupDate: t.exposeString('pickup_date', { nullable: true }),
       pickupReference: t.exposeString('pickup_ref', { nullable: true }),
+      // A booked parcel's latest status from its courier: in_transit, out_for_delivery, delivered, exception, returned or cancelled.
+      trackingStatus: t.exposeString('tracking_status', { nullable: true }),
+      deliveredAt: t.string({ nullable: true, resolve: (f) => (f.delivered_at ? new Date(f.delivered_at).toISOString() : null) }),
       lines: t.field({ type: [ShipmentLine], resolve: (f) => f.lines }),
     }),
   })

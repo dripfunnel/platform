@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { CourierRejected, CourierUnavailable, type BookedLabel, type CourierRate, type LabelAddress, type LabelRequest, type Parcel, type PickupBooked } from '#core/couriers'
+import { CourierRejected, CourierUnavailable, type BookedLabel, type CourierHook, type CourierRate, type LabelAddress, type LabelRequest, type Parcel, type PickupBooked, type TrackingEvent, type TrackingStatus } from '#core/couriers'
 import { fromDecimalRounded, toMajor } from '#core/money'
-import { courierCall, fetchLabel } from './request'
+import { courierCall, fetchLabel, sameSecret } from './request'
 
 // A partner's Shiprocket account (THIRD-PARTY-ACCESS §3.2, §4): a dedicated API user's email and password, exchanged
 // for a token on each quote, since the Worker keeps nothing between requests. Domestic India only.
@@ -9,6 +9,8 @@ import { courierCall, fetchLabel } from './request'
 export interface ShiprocketCredentials {
   email: string
   password: string
+  /** The token the partner set on its Shiprocket webhook, which tracking hooks carry (#275 stores it). */
+  webhookToken?: string | null
 }
 
 const base = 'https://apiv2.shiprocket.in/v1/external'
@@ -141,4 +143,42 @@ export const shiprocketBook = async ({ fetchImpl = fetch, ...creds }: Shiprocket
 export const shiprocketPickup = async ({ fetchImpl = fetch, ...creds }: ShiprocketCredentials & { fetchImpl?: typeof fetch }, shipment: { providerRef: string; from: LabelAddress }, signal?: AbortSignal): Promise<PickupBooked> => {
   const token = await logIn({ ...creds, fetchImpl }, signal, true)
   return askPickup(fetchImpl, token, shipment.providerRef, signal)
+}
+
+// Tracking (SAPI 12): Shiprocket posts each status change with the token the partner set on its webhook as `x-api-key`;
+// its times are India's, without a zone.
+const hookSchema = z.object({ awb: z.union([z.string(), z.number()]), current_status: z.string(), current_timestamp: z.string().nullish() }).loose()
+
+const statusOf = (raw: string): TrackingStatus | null => {
+  const s = raw.trim().toUpperCase()
+  if (s === 'DELIVERED') return 'delivered'
+  if (s === 'OUT FOR DELIVERY') return 'out_for_delivery'
+  if (s.startsWith('RTO')) return 'returned'
+  if (s === 'CANCELED' || s === 'CANCELLED') return 'cancelled'
+  if (['UNDELIVERED', 'LOST', 'DAMAGED', 'DESTROYED', 'MISROUTED'].includes(s)) return 'exception'
+  if (['PICKED UP', 'SHIPPED', 'IN TRANSIT', 'REACHED AT DESTINATION HUB', 'REACHED DESTINATION HUB', 'DELAYED'].includes(s)) return 'in_transit'
+  // Before the courier has it (manifested, pickup scheduled), nothing has moved.
+  return null
+}
+
+const istTime = (raw: string | null | undefined): Date | null => {
+  const m = raw ? /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/.exec(raw.trim()) ?? /^(\d{2}) (\d{2}) (\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(raw.trim()) : null
+  if (!m) return null
+  const [y, mo, d] = (m[1]?.length === 4 ? [m[1], m[2], m[3]] : [m[3], m[2], m[1]]) as [string, string, string]
+  const at = new Date(`${y}-${mo}-${d}T${m[4]}:${m[5]}:${m[6]}+05:30`)
+  return Number.isNaN(at.getTime()) ? null : at
+}
+
+export const shiprocketHook = async (token: string | null | undefined, hook: CourierHook): Promise<TrackingEvent[] | null> => {
+  if (!token || !(await sameSecret(hook.headers.get('x-api-key') ?? '', token))) return null
+  let json: unknown
+  try {
+    json = JSON.parse(hook.body)
+  } catch {
+    return []
+  }
+  const parsed = hookSchema.safeParse(json)
+  const status = parsed.success ? statusOf(parsed.data.current_status) : null
+  if (!parsed.success || !status) return []
+  return [{ providerRef: null, trackingNumber: String(parsed.data.awb).slice(0, 80), status, at: istTime(parsed.data.current_timestamp) ?? hook.receivedAt }]
 }

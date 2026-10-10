@@ -1,4 +1,4 @@
-import type { CourierProvider } from '#core/couriers'
+import type { CourierProvider, TrackingStatus } from '#core/couriers'
 import { pgArray, type ScopedSql } from './index'
 
 // Shipping an order's lines (migration 0071; DATA-MODEL §7.6, §7.4), in system scope: the engine has named the store and
@@ -190,6 +190,8 @@ export interface FulfilmentRow {
   pickup_requested_at: Date | null
   pickup_ref: string | null
   pickup_date: string | null
+  tracking_status: TrackingStatus | null
+  delivered_at: Date | null
   /** The printed label's document, which the caller's scope reads only when it is its own (migration 0130). */
   label_document_id: string | null
   lines: { line_id: string; quantity: number }[]
@@ -199,7 +201,7 @@ export interface FulfilmentRow {
 export const selectFulfilments = (tx: ScopedSql, orderId: string): Promise<FulfilmentRow[]> =>
   tx<FulfilmentRow[]>`
     select f.id, f.seller_id, f.kind, f.warehouse_id, w.name as warehouse_name, f.courier_name, f.tracking_number, f.tracking_url, f.shipped_at,
-      f.courier_provider, f.booked_at, f.pickup_requested_at, f.pickup_ref, to_char(f.pickup_date, 'YYYY-MM-DD') as pickup_date,
+      f.courier_provider, f.booked_at, f.pickup_requested_at, f.pickup_ref, to_char(f.pickup_date, 'YYYY-MM-DD') as pickup_date, f.tracking_status, f.delivered_at,
       (select d.id from order_document d where d.fulfilment_id = f.id and d.kind = 'label') as label_document_id,
       coalesce((select json_agg(json_build_object('line_id', fl.order_line_id, 'quantity', fl.quantity)) from fulfilment_line fl where fl.fulfilment_id = f.id), '[]'::json) as lines
     from fulfilment f join warehouse w on w.id = f.warehouse_id

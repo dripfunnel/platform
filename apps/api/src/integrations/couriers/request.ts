@@ -47,6 +47,13 @@ export const isLabelHost = (raw: string): boolean => {
   }
 }
 
+/** Whether two secrets match, compared as digests so the time taken says nothing about where they differ. */
+export const sameSecret = async (given: string, held: string): Promise<boolean> => {
+  const digest = async (v: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)))
+  const [a, b] = await Promise.all([digest(given), digest(held)])
+  return a.reduce((diff, byte, i) => diff | (byte ^ (b[i] ?? 0)), 0) === 0
+}
+
 const startsWith = (bytes: Uint8Array, magic: readonly number[]) => magic.every((b, i) => bytes[i] === b)
 
 /** The label file a courier links to, checked by its bytes: a PDF or a PNG, within the cap. */

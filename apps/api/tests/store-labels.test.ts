@@ -53,6 +53,7 @@ const couriers: CourierDirectory = {
         if (courier.answer === 'down') throw new CourierUnavailable('no answer')
         return { ref: 'PU-2', date: '2026-10-13' }
       },
+      readHook: async () => null,
     },
   }),
 }

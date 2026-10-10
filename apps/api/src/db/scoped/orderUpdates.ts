@@ -6,7 +6,7 @@ import { insertOutbox } from './outbox'
 
 export const orderUpdateKind = 'order.notify'
 
-export type OrderUpdate = { event: 'confirmed'; orderId: string } | { event: 'shipped'; orderId: string; fulfilmentId: string }
+export type OrderUpdate = { event: 'confirmed'; orderId: string } | { event: 'shipped' | 'delivered'; orderId: string; fulfilmentId: string }
 
 /** Queued once an event: confirmed once an order, shipped once a shipment and once more when tracking first arrives. */
 export const queueOrderUpdate = async (tx: ScopedSql, storeId: string, update: OrderUpdate, key: string): Promise<void> => {

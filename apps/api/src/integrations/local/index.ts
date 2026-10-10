@@ -1,5 +1,7 @@
 import type postgres from 'postgres'
 import type { BookedLabel, CourierDirectory, CourierProvider } from '#core/couriers'
+import { easyPostHook } from '../couriers/easypost'
+import { shiprocketHook } from '../couriers/shiprocket'
 import type { SmsSender } from '#core/sms'
 import { withSystemScope } from '#db/scoped/index'
 import { selectLocalExpectedRecords } from '#db/scoped/partnerDomains'
@@ -59,6 +61,9 @@ const localTariff: Record<CourierProvider, { currency: string; base: bigint; ste
   fedex: { currency: 'USD', base: 850n, step: 150n, service: 'Local express', days: [1, 3] },
 }
 
+/** Both local accounts' webhook secret (setup/local.md §6.1): Shiprocket's `x-api-key`, and EasyPost's signing key. */
+export const localCourierHookSecret = 'local-courier-hook'
+
 const servesRoute = (provider: CourierProvider, from: string, to: string) => from === to && from === (provider === 'shiprocket' ? 'IN' : 'US')
 
 /** A one-page PDF naming the parcel, which the portal prints as the courier's label would be. */
@@ -105,6 +110,8 @@ export const localCouriers = (): CourierDirectory => ({
         }
       },
       pickup: async (_, shipment) => ({ ref: `local-pickup-${shipment.providerRef}`, date: null }),
+      // Read as the real hooks are, under one known secret, so a local label can be tracked by posting to the hook.
+      readHook: (account, hook) => (account === 'shiprocket' ? shiprocketHook(localCourierHookSecret, hook) : easyPostHook(localCourierHookSecret, hook)),
     },
   }),
 })

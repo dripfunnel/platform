@@ -1,7 +1,7 @@
 import { type CourierAccountKind, type CourierDirectory, type CourierGateway } from '#core/couriers'
 import { CourierUnavailable } from '#core/couriers'
-import { easyPostBook, easyPostPickup, easyPostQuote, type EasyPostCredentials } from './easypost'
-import { shiprocketBook, shiprocketPickup, shiprocketQuote, type ShiprocketCredentials } from './shiprocket'
+import { easyPostBook, easyPostHook, easyPostPickup, easyPostQuote, type EasyPostCredentials } from './easypost'
+import { shiprocketBook, shiprocketHook, shiprocketPickup, shiprocketQuote, type ShiprocketCredentials } from './shiprocket'
 
 // A partner's couriers on its own accounts (THIRD-PARTY-ACCESS §4), read decrypted by #275; a missing account quotes
 // nothing, so a store can't turn on a courier its partner hasn't connected.
@@ -25,6 +25,7 @@ export const courierGateway = (accounts: PartnerCourierAccounts, fetchImpl: type
     if (provider === 'shiprocket') return accounts.shiprocket ? shiprocketPickup({ ...accounts.shiprocket, fetchImpl }, shipment, signal) : Promise.reject(new CourierUnavailable('shiprocket: no account'))
     return accounts.easypost ? easyPostPickup({ ...accounts.easypost, fetchImpl }, shipment, signal) : Promise.reject(new CourierUnavailable('easypost: no account'))
   },
+  readHook: (account, hook) => (account === 'shiprocket' ? shiprocketHook(accounts.shiprocket?.webhookToken, hook) : easyPostHook(accounts.easypost?.webhookSecret, hook)),
 })
 
 export const courierDirectory = (accountsOf: (partnerId: string) => Promise<PartnerCourierAccounts>, fetchImpl: typeof fetch = fetch): CourierDirectory => ({

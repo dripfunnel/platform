@@ -50,6 +50,7 @@ const fakeCouriers = (accounts: ('shiprocket' | 'easypost')[]): CourierDirectory
       },
       book: async () => null,
       pickup: async () => ({ ref: null, date: null }),
+      readHook: async () => null,
     },
   }),
 })

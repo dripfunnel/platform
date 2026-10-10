@@ -76,6 +76,25 @@ export interface BookedLabel {
   pickup: PickupBooked | null
 }
 
+/** Where a booked parcel is, as either courier's tracking says it in its own words (THIRD-PARTY-ACCESS §3.2). */
+export const trackingStatuses = ['in_transit', 'out_for_delivery', 'delivered', 'exception', 'returned', 'cancelled'] as const
+export type TrackingStatus = (typeof trackingStatuses)[number]
+
+export interface TrackingEvent {
+  /** The courier's id for the parcel, or its tracking number: each courier's hook names one or both. */
+  providerRef: string | null
+  trackingNumber: string | null
+  status: TrackingStatus
+  at: Date
+}
+
+/** A tracking hook as it arrived, read once and verified with the account's own secret. */
+export interface CourierHook {
+  body: string
+  headers: Headers
+  receivedAt: Date
+}
+
 export interface CourierGateway {
   /** The cheapest rate this courier offers for the parcel; null when it serves no such route. */
   quote: (provider: CourierProvider, parcel: Parcel, signal?: AbortSignal) => Promise<CourierRate | null>
@@ -83,6 +102,8 @@ export interface CourierGateway {
   book: (provider: CourierProvider, request: LabelRequest, signal?: AbortSignal) => Promise<BookedLabel | null>
   /** Asks the courier to collect a booked parcel from where it left. */
   pickup: (provider: CourierProvider, shipment: { providerRef: string; from: LabelAddress }, signal?: AbortSignal) => Promise<PickupBooked>
+  /** A tracking hook's events, or null when the account has no secret or the hook doesn't prove it was signed with it. */
+  readHook: (account: CourierAccountKind, hook: CourierHook) => Promise<TrackingEvent[] | null>
 }
 
 /** The courier's login or key was refused: the partner's account needs fixing, not the parcel. */

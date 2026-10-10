@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CourierRejected, courierTimeoutMs, CourierUnavailable, type BookedLabel, type CourierProvider, type CourierRate, type LabelAddress, type LabelRequest, type LabelSize, type Parcel, type PickupBooked } from '#core/couriers'
+import { CourierRejected, courierTimeoutMs, CourierUnavailable, type BookedLabel, type CourierHook, type CourierProvider, type CourierRate, type LabelAddress, type LabelRequest, type LabelSize, type Parcel, type PickupBooked, type TrackingEvent, type TrackingStatus } from '#core/couriers'
 import { fromMajor, isCurrency } from '#core/money'
 import { courierCall, fetchLabel } from './request'
 
@@ -8,6 +8,8 @@ import { courierCall, fetchLabel } from './request'
 
 export interface EasyPostCredentials {
   apiKey: string
+  /** The secret the partner set on its EasyPost webhook, which signs tracking hooks (#275 stores it). */
+  webhookSecret?: string | null
 }
 
 const rateSchema = z.object({ carrier: z.string(), service: z.string(), rate: z.string(), currency: z.string(), delivery_days: z.number().nullish(), est_delivery_days: z.number().nullish() }).loose()
@@ -149,4 +151,39 @@ export const easyPostPickup = async ({ apiKey, fetchImpl = fetch }: EasyPostCred
   if (!cheapest) throw new CourierUnavailable('easypost: no pickup offered')
   const bought = await readAs(await send(apiKey, fetchImpl, `/pickups/${encodeURIComponent(asked.id)}/buy`, { carrier: cheapest.carrier, service: cheapest.service }, signal), pickupBoughtSchema, 'pickup purchase')
   return { ref: (bought.confirmation ?? asked.id).slice(0, 100), date: bought.min_datetime && /^\d{4}-\d{2}-\d{2}/.test(bought.min_datetime) ? bought.min_datetime.slice(0, 10) : null }
+}
+
+// Tracking (SAPI 12): a tracker's `tracker.updated` event, signed as `hmac-sha256-hex=<hex>` over the body with the
+// webhook's secret (EasyPost normalises the secret to NFKD first).
+const eventSchema = z.object({
+  description: z.string(),
+  result: z.object({ tracking_code: z.string().nullish(), shipment_id: z.string().nullish(), status: z.string(), updated_at: z.string().nullish() }).loose(),
+}).loose()
+
+const trackingOf: Partial<Record<string, TrackingStatus>> = {
+  in_transit: 'in_transit', available_for_pickup: 'in_transit', out_for_delivery: 'out_for_delivery', delivered: 'delivered',
+  return_to_sender: 'returned', failure: 'exception', cancelled: 'cancelled',
+}
+
+const hexBytes = (hex: string): Uint8Array<ArrayBuffer> | null =>
+  /^(?:[0-9a-f]{2})+$/i.test(hex) ? new Uint8Array(hex.match(/../g)?.map((b) => Number.parseInt(b, 16)) ?? []) : null
+
+export const easyPostHook = async (secret: string | null | undefined, hook: CourierHook): Promise<TrackingEvent[] | null> => {
+  const signature = hexBytes((hook.headers.get('x-hmac-signature') ?? '').replace(/^hmac-sha256-hex=/, ''))
+  if (!secret || !signature) return null
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret.normalize('NFKD')), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'])
+  if (!(await crypto.subtle.verify('HMAC', key, signature, new TextEncoder().encode(hook.body)))) return null
+  let json: unknown
+  try {
+    json = JSON.parse(hook.body)
+  } catch {
+    return []
+  }
+  const parsed = eventSchema.safeParse(json)
+  if (!parsed.success || parsed.data.description !== 'tracker.updated') return []
+  const r = parsed.data.result
+  const status = trackingOf[r.status]
+  const at = r.updated_at ? new Date(r.updated_at) : null
+  if (!status || (!r.shipment_id && !r.tracking_code)) return []
+  return [{ providerRef: r.shipment_id ?? null, trackingNumber: r.tracking_code?.slice(0, 80) ?? null, status, at: at && !Number.isNaN(at.getTime()) ? at : hook.receivedAt }]
 }
