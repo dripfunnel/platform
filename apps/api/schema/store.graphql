@@ -607,6 +607,7 @@ type Mutation {
   addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
+  allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
@@ -633,6 +634,7 @@ type Mutation {
   deleteTaxClass(id: ID!): Boolean
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
+  denySupportWrite(sessionId: ID!): Boolean
   disconnectCourier(provider: String!): String
   disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
@@ -663,6 +665,7 @@ type Mutation {
   removeSupplierUser(membershipId: ID!): Boolean
   replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
+  requestSupportWrite(note: String!): Boolean
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
   resumeOffer(id: ID!): Boolean
@@ -710,6 +713,7 @@ type Mutation {
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
+  setSupportAccess(allowed: Boolean!): SupportAccessSet
   setTheme(theme: String!): Profile
   shipItems(courierName: String, lines: [ShipLineInput!]!, orderId: ID!, trackingNumber: String, trackingUrl: String, warehouseId: ID!): [ID!]
   signOutOtherSessions: Int
@@ -1626,6 +1630,7 @@ type Query {
   supplierCounts: SupplierCounts
   supplierLedger(after: String, before: String, first: Int, supplierId: ID): SupplierLedger
   suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
+  supportAccess(after: String, before: String, first: Int): SupportAccess
   taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
   taxSetup: TaxSetup
   translationProgress(language: String!): TranslationProgress
@@ -2138,6 +2143,28 @@ type StoreState {
   trialEndsAt: String
 }
 
+type StoreSupportSession {
+  access: String
+  actingAs: SupportActingAs
+  agentName: String
+  allowedBy: String
+  endedAt: String
+  endedBy: String
+  endedByName: String
+  expiresAt: String
+  id: ID
+  partnerName: String
+  reason: String
+  startedAt: String
+  ticket: String
+  writeRequest: SupportSessionWriteRequest
+}
+
+type StoreSupportSessions {
+  nodes: [StoreSupportSession!]
+  pageInfo: PageInfo
+}
+
 type StoryBlock {
   body: String
   id: ID
@@ -2311,10 +2338,42 @@ type SupplierTeamPerson {
   you: Boolean
 }
 
+type SupportAccess {
+  allowed: Boolean
+  sessions: StoreSupportSessions
+}
+
+type SupportAccessSet {
+  allowed: Boolean
+  ended: Int
+}
+
+type SupportActingAs {
+  name: String
+  role: String
+  supplier: String
+}
+
 type SupportBanner {
+  access: String
   agentFirstName: String
+  allowedBy: String
   endsAt: String
   partnerName: String
+  sessionId: ID
+  writeRequest: SupportWriteRequest
+}
+
+type SupportSessionWriteRequest {
+  note: String
+  requestedAt: String
+  state: String
+}
+
+type SupportWriteRequest {
+  note: String
+  requestedAt: String
+  state: String
 }
 
 type TaxClass {

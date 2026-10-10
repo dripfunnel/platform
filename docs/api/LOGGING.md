@@ -61,7 +61,7 @@ detail, never the code), `person.signed_in`, `person.signed_out`, `person.sign_i
 `customer.exported`, `customer.added`, `customer.edited` (the names of the fields that changed, never their values), `customer.tags_changed` (how many, never the tags), `customer.note_changed` (never the note), `customer.consent_recorded` (the state before and after), `customer.groups_changed` (how many), `customer_group.created`, `customer_group.updated` (the name before and after), `customer_group.deleted` (#312), `offer.created`, `offer.updated` (the names of the fields that changed), `offer.paused`, `offer.resumed`, `offer.ended`, `offer.duplicated` (the offer copied), `offer.deleted`, `offer.codes_generated` (how many), `offer.codes_exported` (the run, never a code) (#320), `storefront.template_chosen` (the template's key; whether the words were kept), `storefront.design_requested` (that a request was made and its outcome, never the text), `storefront.published` (the version), `storefront.reverted` (the version gone back to), `storefront.discarded`, `storefront.preview_links_ended` (who ended them, never a link or token), `storefront.change_undone`, `storefront.text_edited` (the language and the key, never the words), `storefront.publish_refused` (the version and the failing check), `storefront.rolled_back` (system actor: the version put back and why), `storefront.baseline_served` and `storefront.core_pinned` (system actor: the core version; #470), `storefront.brand_changed` (the names of the fields that changed, never their values), `storefront.seo_changed`, `custom_domain.connected`, `custom_domain.made_primary`, `custom_domain.removed` (the host; #470), `store.created` (by the partner, or by the new Owner with the reason `signup`, #290), `stores.exported`, `branding.file_uploaded` (the key and the kind),
 `impersonation.started`, `impersonation.extended`, `impersonation.ended`,
 `staff_session.link_reissued` (never the link), `support_session.started`, `support_session.link_reissued`,
-`support_session.ended`, `partner_user.reauthenticated` (never the proof),
+`support_session.ended`, `support_session.entered` (the store's exchange), `support_session.viewed` (each query a session ran, by field and the id it named; #331), `support_session.write_requested`, `support_session.write_allowed`, `support_session.write_denied`, `support_access.changed` (the switch's before and after), `partner_user.reauthenticated` (never the proof),
 `partner_user.invitation_accepted`, `partner_user.password_reset_requested`,
 `partner_user.password_reset` (never the token or the password), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
 the reason), `catalog.import_started`, `catalog.imported` (the products and the matching chosen), `shopify.connect_started`, `shopify.connected`, `shopify.disconnected`, `shopify.approved` and `shopify.callback_rejected` (Shopify's own answer at the callback, logged as the `provider`, with `signature` or `exchange_failed`), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
@@ -74,7 +74,11 @@ store visibility, and a second thin entry for the supplier names only the action
 number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §2.2).
 
 **Reads are not logged**, with one exception: every support session logs what it opened,
-because the merchant has a right to know what support looked at (ACCESS.md §8). A second
+because the merchant has a right to know what support looked at (ACCESS.md §8). Built on #331: each query field
+a support session runs is a `support_session.viewed` entry, store visibility, naming the field and
+any id it was given, never its other arguments; the shell's 15-second `storeState` poll is not one.
+A session's lifecycle (entered, write requested, allowed or denied, ended) has partner visibility,
+so the partner reads it as the store does. A second
 exception: **staff opening a customer's detail page** in the admin console is logged
 (`customer.viewed`, staff-only visibility). Staff
 impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the staff member

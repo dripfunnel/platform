@@ -211,7 +211,7 @@ every store on this device"). On a phone the menu is a drawer behind a button.
 
 **Built on #291**: the header (§3.2) and the banners for trial and its last day, past due,
 suspended, cancelled, provisioning, partner support and offline, in the prototype's words. The
-import banner is built on #302 from the caller's own `catalogImports`, not `storeState` (a run is its importer's); support's Allow / Deny waits for SAPI 21.
+import banner is built on #302 from the caller's own `catalogImports`, not `storeState` (a run is its importer's); support's Allow / Deny is built on #331: `storeState.support` adds the session's id, its access, who allowed it and the agent's request (`writeRequest`: note, state), answered with `allowSupportWrite` and `denySupportWrite` (ACCESS §8).
 
 ---
 

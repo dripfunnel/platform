@@ -679,6 +679,7 @@ describe('the backstop itself', () => {
     expect(owned.map((f) => f.proname)).toEqual([
       'acting_store_main_language',
       'current_order_token_hash',
+      'decide_support_write',
       'end_partner_user_sessions',
       'end_staff_user_sessions',
       'latest_job_of',
@@ -693,6 +694,7 @@ describe('the backstop itself', () => {
       'plan_first_version',
       'save_store_info',
       'set_store_main_language',
+      'set_store_support_access',
       'set_store_tax_inclusive',
       'set_store_vendor_approval',
       'shop_stock',
@@ -708,6 +710,7 @@ describe('the backstop itself', () => {
       'store_markets_follow_currency',
       'store_pricing_currency',
       'store_product_count',
+      'store_support_sessions',
       'store_unit_system',
       'store_vendor_approval',
       'storefront_catalog_touched',
