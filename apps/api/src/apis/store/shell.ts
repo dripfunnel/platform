@@ -8,6 +8,7 @@ import { selectPortalBrand } from '#db/scoped/portalBrand'
 import { selectMyMemberships, selectOpenSupportSession, selectStoreState, type MembershipChoiceRow } from '#db/scoped/storeShell'
 import { selectOpenStoreSupportSession, type StoreSupportRow } from '#db/scoped/storeSupport'
 import { writeRequestOf } from '#saas/storeSupport/index'
+import type { SupportSeat } from '#auth/storeSupport'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, readOnlyFor, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
@@ -78,6 +79,17 @@ const bannerOf = (s: { partner_name: string; agent_name: string; expires_at: Dat
   access: null,
   allowedBy: null,
   writeRequest: null,
+})
+
+/** A support caller's own session, from its seat: no read of the store's other sessions. */
+const ownBannerOf = (seat: SupportSeat): Banner => ({
+  partnerName: seat.partnerName,
+  agentFirstName: seat.agent.name.split(' ')[0] ?? seat.agent.name,
+  endsAt: seat.expiresAt.toISOString(),
+  sessionId: seat.sessionId,
+  access: seat.access,
+  allowedBy: null,
+  writeRequest: seat.writeRequest && { ...seat.writeRequest, requestedAt: seat.writeRequest.requestedAt.toISOString() },
 })
 
 /** The merchant side's banner (0160), with the agent's request for writes to Allow or Deny. */
@@ -274,13 +286,15 @@ export const registerShell = (builder: StoreBuilder) => {
         const sql = sqlOf(ctx)
         // A supplier hears whether the store is read-only and who from support is in it (§19 "masked"), so it
         // reads nothing of the store row: the support banner comes from its definer function (0036).
+        // A support session hears only of itself, never of another agent in the store (ACCESS.md §8).
+        const own = caller.support ? ownBannerOf(caller.support) : null
         if (caller.role.side !== 'merchant') {
-          const open = await withScope(sql, caller.context, (tx) => selectOpenSupportSession(tx, ctx.now()))
-          return { readOnly: readOnlyFor(caller.role.side, caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: open ? bannerOf(open) : null }
+          const open = own ? null : await withScope(sql, caller.context, (tx) => selectOpenSupportSession(tx, ctx.now()))
+          return { readOnly: readOnlyFor(caller.role.side, caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: own ?? (open ? bannerOf(open) : null) }
         }
         const { row, support } = await withScope(sql, caller.context, async (tx) => ({
           row: await selectStoreState(tx, caller.store.id),
-          support: await selectOpenStoreSupportSession(tx, ctx.now()),
+          support: own ? null : await selectOpenStoreSupportSession(tx, ctx.now()),
         }))
         const status = row?.status ?? caller.store.status
         return {
@@ -289,7 +303,7 @@ export const registerShell = (builder: StoreBuilder) => {
           trialEndsAt: row?.trial_ends_at ? row.trial_ends_at.toISOString() : null,
           pastDueSince: row?.past_due_since ? row.past_due_since.toISOString() : null,
           provisioning: row?.job_state && row.job_step && row.job_state !== 'done' ? { state: row.job_state, step: row.job_step } : null,
-          support: support ? merchantBannerOf(support) : null,
+          support: own ?? (support ? merchantBannerOf(support) : null),
         }
       },
     }),

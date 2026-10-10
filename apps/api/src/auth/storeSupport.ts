@@ -24,7 +24,20 @@ export interface SupportSeat {
   actingAs: string
   access: 'read' | 'write'
   expiresAt: Date
+  writeRequest: WriteRequest | null
 }
+
+export interface WriteRequest {
+  note: string
+  requestedAt: Date
+  state: 'pending' | 'allowed' | 'denied'
+}
+
+/** The agent's request for writes and where it stands: waiting, allowed or denied. */
+export const writeRequestOf = (s: Pick<SupportPortalRow, 'access' | 'write_requested_at' | 'write_request_note' | 'write_decided_at'>): WriteRequest | null =>
+  s.write_requested_at === null
+    ? null
+    : { note: s.write_request_note ?? '', requestedAt: s.write_requested_at, state: s.write_decided_at === null ? 'pending' : s.access === 'write' ? 'allowed' : 'denied' }
 
 export const seatOf = (row: SupportPortalRow): SupportSeat => ({
   sessionId: row.id,
@@ -33,6 +46,7 @@ export const seatOf = (row: SupportPortalRow): SupportSeat => ({
   actingAs: row.user_name,
   access: row.access,
   expiresAt: row.expires_at,
+  writeRequest: writeRequestOf(row),
 })
 
 /** The session as an entry's actor, with the agent behind it (LOGGING.md §4). */

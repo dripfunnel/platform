@@ -122,8 +122,9 @@ security definer
 set search_path = public
 as $$
 begin
-  if app_setting_text('app.scope') <> 'store' or app_setting_text('app.seller_id') <> '' then
-    raise exception 'store_support_sessions: the merchant side of a store only' using errcode = '42501';
+  -- Never a support session: other agents' reasons, tickets and requests are the merchant's (ACCESS.md §8).
+  if app_setting_text('app.scope') <> 'store' or app_setting_text('app.seller_id') <> '' or app_setting_text('app.support') <> '' then
+    raise exception 'store_support_sessions: a person on the merchant side of the store only' using errcode = '42501';
   end if;
   return query
     select ss.id, p.name, ss.partner_user_id, pu.name, u.name, m.role_key, sl.name,

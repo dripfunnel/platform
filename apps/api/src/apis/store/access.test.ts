@@ -134,7 +134,7 @@ describe('a partner support session (ACCESS.md §8, #331)', () => {
   const supportAs = (access: 'read' | 'write'): StoreStanding => {
     const standing = acting(owner)
     if (standing.kind !== 'acting') throw new Error('acting')
-    const support = { sessionId: 'ss1', agent: { id: 'pu1', name: 'Priya' }, partnerName: 'Northstar', actingAs: 'Farhan Ali', access, expiresAt: new Date() }
+    const support = { sessionId: 'ss1', agent: { id: 'pu1', name: 'Priya' }, partnerName: 'Northstar', actingAs: 'Farhan Ali', access, expiresAt: new Date(), writeRequest: null }
     return { ...standing, caller: { ...standing.caller, support, context: { ...standing.caller.context, caller: { kind: 'support', supportSessionId: 'ss1', partnerUserId: 'pu1', access } } } }
   }
 
