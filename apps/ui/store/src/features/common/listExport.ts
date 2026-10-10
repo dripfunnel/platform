@@ -26,11 +26,25 @@ export const startListExport = (kind: ExportKind, started: Promise<ExportJob>) =
     ),
   )
 
-/** The shell's watcher reads each job back by its own kind's query. */
-export const loadAnyExport = (id: string): Promise<ExportJob | null> => readers[kinds.get(id) ?? 'catalog'](id)
+/**
+ * The shell's watcher reads each job back by its own kind's query. A job whose kind this tab doesn't know is asked of
+ * each kind in turn, and the one that answers is remembered.
+ */
+export const loadAnyExport = async (id: string): Promise<ExportJob | null> => {
+  const known = kinds.get(id)
+  if (known) return readers[known](id)
+  for (const kind of Object.keys(readers) as ExportKind[]) {
+    const job = await readers[kind](id)
+    if (job) {
+      kinds.set(id, kind)
+      return job
+    }
+  }
+  return null
+}
 
 /** The running export, when it is this list's kind. */
 export const useListExport = (kind: ExportKind): ExportJob | null => {
   const job = useExportJob()
-  return job && (kinds.get(job.id) ?? 'catalog') === kind ? job : null
+  return job && kinds.get(job.id) === kind ? job : null
 }
