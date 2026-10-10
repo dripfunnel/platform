@@ -9,14 +9,14 @@ import { loadCollections } from '../../api/collections'
 import { createGroup, loadCustomerGroups } from '../../api/customers'
 import { loadFilters } from '../../api/filters'
 import { loadAllMarkets } from '../../api/markets'
-import { generateCodes, loadCustomerNames, loadOffer, loadOfferFacts, loadProductNames, offerKinds, saveOffer, type Offer } from '../../api/offers'
+import { generateCodes, loadCustomerNames, loadOffer, loadOfferFacts, loadProductNames, offerKinds, saveOffer, type Offer, type OfferIdNames } from '../../api/offers'
 import { draftPrefix } from '../../drafts'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { seasonalDatesFor } from '../collections/seasonal'
 import { offerAccessOf } from './offerAccess'
 import { offerRefusal } from './offerActions'
-import { blankDraft, draftOf, errorsOf, fitsDraft, inputOf, localOf, offerLimits, offerOf, recipes, type OfferDraft, type StoreFacts } from './offerDraft'
+import { blankDraft, draftOf, errorsOf, fitsDraft, inputOf, localOf, offerLimits, offerOf, recipes, type Field, type OfferDraft, type StoreFacts } from './offerDraft'
 import { editorSample, editorStates } from './offerStates'
 import { OfferForm, typedMoney, type FormLists } from './OfferForm'
 import { zoneName } from '../orders/orderView'
@@ -30,6 +30,17 @@ import './offers.css'
 // five questions with the summary beside it, and Save asking Start now / Schedule / Keep off (#337).
 
 const words = messages.offers.editor
+
+/** A chosen product or customer that's no longer there is shown, and must be removed before a save sends its id. */
+const goneErrors = (d: OfferDraft, products: OfferIdNames, customers: OfferIdNames): Partial<Record<Field, string>> => {
+  const gone = (ids: readonly string[], names: OfferIdNames) => ids.some((id) => !names.has(id))
+  return {
+    ...(d.type === 'products' && d.target === 'products' && gone(d.productIds, products) ? { targets: words.errors.gone } : {}),
+    ...(d.type === 'bxgy' && gone(d.buyIds, products) ? { buy: words.errors.gone } : {}),
+    ...(d.type === 'bxgy' && !d.getSame && gone(d.getIds, products) ? { get: words.errors.gone } : {}),
+    ...(d.who === 'customers' && gone(d.customerIds, customers) ? { who: words.errors.gone } : {}),
+  }
+}
 const shellRoute = getRouteApi('/_app')
 const searchSchema = z.object({ type: z.enum(offerKinds).optional().catch(undefined), recipe: z.enum(recipes).optional().catch(undefined) })
 
@@ -71,8 +82,8 @@ export const OfferEditor = () => {
   const [orig, setOrig] = useState('')
   const [revision, setRevision] = useState<number | null>(null)
   const [restored, setRestored] = useState(false)
-  const [productNames, setProductNames] = useState<Map<string, string>>(new Map())
-  const [customerNames, setCustomerNames] = useState<Map<string, string>>(new Map())
+  const [productNames, setProductNames] = useState<Map<string, string | null>>(new Map())
+  const [customerNames, setCustomerNames] = useState<Map<string, string | null>>(new Map())
   const [tried, setTried] = useState(forced === 'errors')
   const [codeTaken, setCodeTaken] = useState<string | null>(null)
   const [stale, setStale] = useState<number | null>(null)
@@ -189,7 +200,7 @@ export const OfferEditor = () => {
 
   const names: OfferNames = { collections: new Map(lists.collections.map((c) => [c.id, c.name])), filterValues: new Map(lists.filters.flatMap((f) => f.values.map((v) => [v.id, `${f.name}: ${v.name}`] as const))), groups: new Map(lists.groups.map((g) => [g.id, g.name])) }
   const shaped = offerOf(draft, facts)
-  const errors = { ...errorsOf(draft, facts), ...(codeTaken ? { code: codeTaken } : {}) }
+  const errors = { ...errorsOf(draft, facts), ...goneErrors(draft, productNames, customerNames), ...(codeTaken ? { code: codeTaken } : {}) }
   const errorList = Object.values(errors)
   const set = (patch: Partial<OfferDraft>) => {
     if ('code' in patch) setCodeTaken(null)
@@ -273,7 +284,7 @@ export const OfferEditor = () => {
 
   const save = (asOff: boolean) => {
     setTried(true)
-    if (Object.keys(errorsOf(draft, facts)).length > 0) return window.scrollTo?.({ top: 0 })
+    if (Object.keys(errorsOf(draft, facts)).length + Object.keys(goneErrors(draft, productNames, customerNames)).length > 0) return window.scrollTo?.({ top: 0 })
     setDialogError(null)
     if (isNew && asOff) return void commit(false, false)
     if (isNew) return setAsk('start')

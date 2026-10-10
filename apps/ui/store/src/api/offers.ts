@@ -261,16 +261,23 @@ export const loadOfferFacts = async () => {
 export const offerIdLimit = 250
 const namesChunk = 50
 
-/** Names for the ids an offer names, the Store API having no read by many ids; one that's gone answers nothing. */
-const namesOf = async (field: 'product' | 'customer', ids: readonly string[]): Promise<Map<string, string>> => {
-  const out = new Map<string, string>()
+/** What an offer's ids are called, by the id asked: a name (a customer's email without one) or null; one that's gone is absent. */
+export type OfferIdNames = ReadonlyMap<string, string | null>
+
+/** Names for the ids an offer names, the Store API having no read by many ids. */
+const namesOf = async (field: 'product' | 'customer', ids: readonly string[]): Promise<Map<string, string | null>> => {
+  const out = new Map<string, string | null>()
   const wanted = ids.slice(0, offerIdLimit)
+  const selection = field === 'customer' ? '{ name email }' : '{ name }'
   for (let at = 0; at < wanted.length; at += namesChunk) {
     const chunk = wanted.slice(at, at + namesChunk)
-    const fields = chunk.map((_, i) => `n${i}: ${field}(id: $i${i}) { id name }`).join(' ')
+    const fields = chunk.map((_, i) => `n${i}: ${field}(id: $i${i}) ${selection}`).join(' ')
     const params = chunk.map((_, i) => `$i${i}: ID!`).join(', ')
-    const answer = await query(`query N(${params}) { ${fields} }`, z.record(z.string(), z.object({ id: z.string(), name: z.string().nullable() }).nullable()), Object.fromEntries(chunk.map((id, i) => [`i${i}`, id])))
-    for (const x of Object.values(answer)) if (x?.name) out.set(x.id, x.name)
+    const answer = await query(`query N(${params}) { ${fields} }`, z.record(z.string(), z.object({ name: z.string().nullable(), email: z.string().nullable().optional() }).nullable()), Object.fromEntries(chunk.map((id, i) => [`i${i}`, id])))
+    chunk.forEach((id, i) => {
+      const x = answer[`n${i}`]
+      if (x) out.set(id, x.name ?? x.email ?? null)
+    })
   }
   return out
 }
