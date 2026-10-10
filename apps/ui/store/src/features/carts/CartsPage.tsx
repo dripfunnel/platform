@@ -17,7 +17,8 @@ const words = messages.carts
 const shellRoute = getRouteApi('/_app')
 const pageRoute = getRouteApi('/_app/carts')
 
-type List = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: CartPage }
+// A page is shown only for the tab, search and page it was read for; anything else shows loading until its own answers.
+type List = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: CartPage; key: string }
 type Paging = { key: string; cursor: { after?: string | null; before?: string | null }; index: number }
 
 const money = (list: readonly { amount: string; currency: string }[]) => (list.length ? formatList(list.map(moneyText)) : '—')
@@ -54,11 +55,12 @@ export const CartsPage = () => {
     const mine = ++latest.current
     if (forced === 'loading') return setList({ kind: 'loading' })
     if (forced === 'error') return setList({ kind: 'error' })
-    if (sample) return setList({ kind: 'ready', page: { rows: sample[tab].filter((c) => !search || `${c.name ?? ''} ${c.email ?? ''} ${c.firstItem ?? ''}`.toLowerCase().includes(search.toLowerCase())), next: null, previous: null } })
+    if (sample) return setList({ kind: 'ready', key: '', page: { rows: sample[tab].filter((c) => !search || `${c.name ?? ''} ${c.email ?? ''} ${c.firstItem ?? ''}`.toLowerCase().includes(search.toLowerCase())), next: null, previous: null } })
     if (!access.canRead) return
-    setList((current) => (current.kind === 'ready' ? current : { kind: 'loading' }))
+    const read = JSON.stringify([tab, search, cursor])
+    setList((current) => (current.kind === 'ready' && current.key === read ? current : { kind: 'loading' }))
     void loadCarts(tab, search, cursor).then(
-      (page) => mine === latest.current && setList({ kind: 'ready', page }),
+      (page) => mine === latest.current && setList({ kind: 'ready', page, key: read }),
       () => mine === latest.current && setList({ kind: 'error' }),
     )
   }, [forced, sample, access.canRead, tab, search, cursor])

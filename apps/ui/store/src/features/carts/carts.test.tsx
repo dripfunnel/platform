@@ -123,6 +123,19 @@ describe('the Abandoned carts list', () => {
     expect(api.loadCarts).toHaveBeenLastCalledWith('recovered', '', {})
   })
 
+  it('shows loading, never the last tab’s carts and their actions, while another tab is read', async () => {
+    let answerLost: (p: Page) => void = () => undefined
+    api.loadCarts.mockImplementation((tab: string) => (tab === 'lost' ? new Promise<Page>((resolve) => (answerLost = resolve)) : Promise.resolve(page([vikram]))))
+    await show(owner)
+    fireEvent.click(screen.getByRole('tab', { name: 'Not recovered 1' }))
+    await settle()
+    expect(screen.queryByRole('link', { name: 'Vikram Shah' })).toBeNull()
+    expect(screen.getByText(words.loading)).toBeTruthy()
+    answerLost(page([meera]))
+    await settle()
+    expect(screen.getByRole('link', { name: 'Meera Iyer' })).toBeTruthy()
+  })
+
   it('sends a reminder with a code on the plan’s automatic, and says what was sent', async () => {
     await show(owner)
     fireEvent.click(menu('Vikram Shah', /^Send reminder now/))
@@ -219,6 +232,14 @@ describe('one cart’s page', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.act.send }))
     await settle()
     expect(api.remindNow).toHaveBeenCalledWith('ab1', null)
+  })
+
+  it('shows a seat without carts.read “not found”, reading nothing', async () => {
+    await show(supplier, { entry: '/carts/ab1' })
+    expect(screen.getByText(words.denied.title)).toBeTruthy()
+    expect(screen.queryByText('Vikram Shah')).toBeNull()
+    expect(api.loadCart).not.toHaveBeenCalled()
+    expect(api.loadReminderSending).not.toHaveBeenCalled()
   })
 
   it('links a recovered cart to its order, and shows a cart that isn’t here as not found', async () => {
