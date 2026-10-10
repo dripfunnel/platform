@@ -2,9 +2,9 @@ import { z } from 'zod'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { isE164 } from '#core/sms'
 import type { OutgoingWhatsApp } from '#core/whatsapp'
-import { markReminderSent, selectReminderToSend, selectShopHost, skipReminder, switchReminderToEmail } from '#db/scoped/cartReminders'
-import { insertOutbox } from '#db/scoped/outbox'
+import { markReminderSent, selectReminderToSend, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
 import type { ScopedSql } from '#db/scoped/index'
+import { mayWhatsApp } from '#engine/modules/cartReminders/index'
 
 // What the platform sends by WhatsApp (THIRD-PARTY-ACCESS §2.8, decided on #337): abandoned-cart reminders, for stores in
 // India. Each message is a template the partner has Meta approve, worded here exactly as it is registered, variables in
@@ -33,7 +33,7 @@ export interface PartnerWhatsAppAccounts {
   forPartner: (tx: ScopedSql, partnerId: string) => Promise<PartnerWhatsAppAccount | null>
 }
 
-export type PreparedWhatsApp = { send: true; message: OutgoingWhatsApp } | { send: false; reason: 'link_closed' | 'tenant_mismatch' | 'no_recipient' | 'no_template' | 'no_shop_host' }
+export type PreparedWhatsApp = { send: true; message: OutgoingWhatsApp } | { send: false; reason: 'link_closed' | 'tenant_mismatch' | 'no_recipient' | 'no_template' | 'no_shop_host' | 'opted_out' }
 
 /** The `whatsapp` outbox row: the reminder, and the email it becomes if WhatsApp can't take it (cartReminders jobs.ts). */
 export const whatsappPayloadSchema = z
@@ -44,13 +44,6 @@ export const whatsappPayloadSchema = z
   })
   .strict()
 export type WhatsAppPayload = z.infer<typeof whatsappPayloadSchema>
-
-/** WhatsApp can't take it after all (no account, template or number now): the shopper gets the email instead, once. */
-export const fallBackToEmail = async (tx: ScopedSql, payload: WhatsAppPayload, row: { partnerId: string; storeId: string | null }): Promise<boolean> => {
-  if (!(await switchReminderToEmail(tx, payload.reminderId))) return false
-  await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${payload.reminderId}`, payload: { template: 'cart-reminder', ...payload }, partnerId: row.partnerId, storeId: row.storeId })
-  return true
-}
 
 const itemsIn = (n: number) => (n === 1 ? '1 item' : `${n} items`)
 
@@ -63,6 +56,11 @@ export const prepareWhatsAppReminder = async (tx: ScopedSql, reminderId: string,
   if (!r || r.state !== 'queued' || r.channel !== 'whatsapp') return { send: false, reason: 'link_closed' }
   if (r.partner_id !== row.partnerId || r.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
   if (!r.phone || !isE164(r.phone)) return { send: false, reason: 'no_recipient' }
+  // Asked again as it goes: an outbox retry can come after the shopper stopped or dropped WhatsApp.
+  if (!mayWhatsApp(r.consent)) {
+    await skipReminder(tx, reminderId, 'opted_out')
+    return { send: false, reason: 'opted_out' }
+  }
   const message: WhatsAppMessage = r.code && r.code_percent ? 'cart.reminder_code' : 'cart.reminder'
   const template = account.templates[message]
   if (!template) return { send: false, reason: 'no_template' }

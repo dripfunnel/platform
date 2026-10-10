@@ -16,14 +16,15 @@ const statusOf: Record<string, number> = { UNAUTHENTICATED: 401, STORE_REQUIRED:
 
 export const handleDocument = async (request: Request, ctx: StoreContext, store: AssetStore | null): Promise<Response> => {
   if (request.method !== 'GET') return new Response(null, { status: 405, headers: { allow: 'GET' } })
+  const id = new URL(request.url).pathname.slice(documentsPath.length + 1)
   try {
-    await storePolicy.authorize({ api: 'store', scope: 'store-seller', permission: 'orders.read', target: 'none' }, ctx, {}, 'query', { name: 'documents', root: false })
+    // A read is one a support session's log names, with the document's id (LOGGING.md §3).
+    await storePolicy.authorize({ api: 'store', scope: 'store-seller', permission: 'orders.read', target: 'none' }, ctx, { id }, 'query', { name: 'documents', root: true })
   } catch (error) {
     const code = error instanceof GraphQLError ? String(error.extensions['code'] ?? 'FORBIDDEN') : 'FORBIDDEN'
     return new Response(JSON.stringify({ ok: false, code }), { status: statusOf[code] ?? 403, headers: { 'content-type': 'application/json' } })
   }
   if (!ctx.sql || !store) return new Response(null, { status: 503 })
-  const id = new URL(request.url).pathname.slice(documentsPath.length + 1)
   const caller = actingCaller(ctx)
   // Another store's, or another owner's, is "not found", like one that never was (ACCESS §11).
   const row = isUuid(id) ? await withScope(ctx.sql, caller.context, (tx) => selectDocumentFile(tx, caller.context.storeId, id)) : null

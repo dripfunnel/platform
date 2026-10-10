@@ -11,6 +11,7 @@ import {
   insertPayment,
   lockCart,
   lockPlacedOrder,
+  orderIsTest,
   recordPaid,
   reserveLine,
   selectLivePaymentAccounts,
@@ -367,7 +368,7 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
     if (!order) return { ok: false, reason: 'NOT_FOUND' }
     if (order.state !== 'placed' || order.payment_state !== 'pending' || !(order.payment_method && isManual(order.payment_method))) return { ok: false, reason: 'NOT_PENDING' }
     await recordPaid(tx, deps.context.storeId, orderId, deps.now())
-    await queueStoreEvent(tx, deps.context.storeId, 'order.paid', { object: 'order', id: orderId, number: order.number }, orderId, deps.now())
+    if (!(await orderIsTest(tx, orderId))) await queueStoreEvent(tx, deps.context.storeId, 'order.paid', { object: 'order', id: orderId, number: order.number }, orderId, deps.now())
     await deps.activity.record(tx, {
       category: 'write',
       action: checkoutAudit.markedPaid,

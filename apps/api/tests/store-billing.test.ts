@@ -33,6 +33,8 @@ const plans = { free: '', starter: '', growth: '', business: '', otherPartner: '
 const s = (n: number) => Math.floor(n / 1000)
 const subs = new Map<string, StripeSubscription>()
 const invoices = new Map<string, StripeInvoice>()
+// The full list of an invoice's lines, where Stripe embedded only its first page.
+const allLines = new Map<string, NonNullable<StripeInvoice['lines']>['data']>()
 const keys = new Map<string, unknown>()
 const calls: string[] = []
 let declineNext = false
@@ -67,6 +69,7 @@ const stripe: StripeApi & StoreBillingStripe = {
   charge: missing,
   refunds: async () => [],
   invoice: async (id) => invoices.get(id) ?? missing(),
+  invoiceLines: async (id) => allLines.get(id) ?? missing(),
   payout: missing,
   account: missing,
   subscription: async (id) => subs.get(id) ?? missing(),
@@ -151,6 +154,7 @@ const subscribe = async (storeId: string, partnerId: string, planId: string, sta
 const reset = async () => {
   subs.clear()
   invoices.clear()
+  allLines.clear()
   keys.clear()
   calls.length = 0
   declineNext = false
@@ -221,7 +225,7 @@ const q = {
   catalogue: '{ planCatalogue { id name current monthly { amount currency } yearly { amount } values { key kind enabled amount unlimited } } }',
   usage: '{ usage { key used limit unlimited monthly } }',
   details: '{ billingDetails { legalName email address { line1 city country } taxId taxIdKind } }',
-  invoices: '{ invoices(first: 10) { nodes { id number kind status amount { amount currency } lines { label amount kind } } pageInfo { hasNextPage } } }',
+  invoices: '{ invoices(first: 10) { nodes { id number kind status amount { amount currency } lines { label amount { amount currency } kind } } pageInfo { hasNextPage } } }',
   quote: 'query Q($p: ID!, $i: BillingInterval!, $w: PlanChangeWhen!) { planChangeQuote(planId: $p, interval: $i, when: $w) { offered charge { amount } credit { amount } today { amount currency } from nextPrice { amount } } }',
   download: 'query D($id: ID!) { downloadInvoice(id: $id) }',
   change: `mutation C($p: ID!, $i: BillingInterval!, $w: PlanChangeWhen!) { changePlan(planId: $p, interval: $i, when: $w) { ${SUB} } }`,
@@ -419,8 +423,22 @@ describe('changing a paid plan', () => {
     // Scheduled again, and the period ends: Stripe's phase names the plan, which the webhook applies.
     await change('owner', plans.starter, 'PERIOD_END')
     subs.set('sub_a1', subscriptionOf('sub_a1', 'cus_a1', 1000, { store_id: t.storeA1, plan_id: plans.starter, plan_version: '1', interval: 'month' }))
+    const byStripe = async () => (await entries(t.storeA1, 'billing.plan_changed')).filter((e) => e.actor_kind === 'provider')
+    expect(await byStripe()).toEqual([])
     expect(await event('evt_sched', 'customer.subscription.updated', 'sub_a1')).toBe('handled')
+    // The move itself is in the log, by Stripe as provider.
+    expect(await byStripe()).toEqual([{ actor_kind: 'provider', reason: 'scheduled' }])
     expect((await gql(q.subscription, 'owner')).data?.['subscription']).toMatchObject({ plan: { name: 'Starter' }, price: { amount: '1000' }, scheduled: null })
+  })
+
+  it('drops a scheduled downgrade with Stripe’s when an upgrade asked for in its place is declined', async () => {
+    await change('owner', plans.starter, 'PERIOD_END')
+    const before = (await entries(t.storeA1, 'billing.change_cancelled')).length
+    declineNext = true
+    expect((await change('owner', plans.business, 'NOW')).code).toBe('PAYMENT_FAILED')
+    expect(calls).toContain('release')
+    expect((await gql(q.subscription, 'owner')).data?.['subscription']).toMatchObject({ plan: { name: 'Growth' }, scheduled: null })
+    expect(await entries(t.storeA1, 'billing.change_cancelled')).toHaveLength(before + 1)
   })
 
   it('moves monthly to yearly now, and yearly back to monthly only at the year’s end', async () => {
@@ -492,10 +510,18 @@ describe('invoices and the details on them', () => {
     expect(await event('evt_i1', 'invoice.paid', 'in_pr', 'invoice')).toBe('handled')
     invoices.set('in_pr', invoiceOf('in_pr', { status: 'open', amount_paid: 0 }))
     expect(await event('evt_i2', 'invoice.payment_failed', 'in_pr', 'invoice')).toBe('handled')
-    const page = (await gql(q.invoices, 'owner')).data?.['invoices'] as { nodes: { id: string; kind: string; status: string; amount: { amount: string }; lines: { amount: string; kind: string }[] }[] }
+    const page = (await gql(q.invoices, 'owner')).data?.['invoices'] as { nodes: { id: string; kind: string; status: string; amount: { amount: string }; lines: { amount: { amount: string }; kind: string }[] }[] }
     expect(page.nodes).toHaveLength(1)
-    expect(page.nodes[0]).toMatchObject({ kind: 'proration', status: 'paid', amount: { amount: '1000', currency: 'USD' }, lines: [{ amount: '2000', kind: 'proration_charge' }, { amount: '-1000', kind: 'proration_credit' }] })
+    expect(page.nodes[0]).toMatchObject({ kind: 'proration', status: 'paid', amount: { amount: '1000', currency: 'USD' }, lines: [{ amount: { amount: '2000', currency: 'USD' }, kind: 'proration_charge' }, { amount: { amount: '-1000', currency: 'USD' }, kind: 'proration_credit' }] })
     expect((await gql(q.download, 'owner', { id: page.nodes[0]?.id })).data?.['downloadInvoice']).toBe('https://pay.stripe.com/invoice/acct_1/pdf')
+  })
+
+  it('keeps every line of an invoice whose list Stripe embedded only in part', async () => {
+    const line = (n: number) => ({ id: `il_${n}`, description: `Line ${n}`, amount: 500, proration: false, period: null })
+    invoices.set('in_long', invoiceOf('in_long', { amount_paid: 1500, amount_due: 1500, billing_reason: 'subscription_cycle', lines: { data: [line(1)], has_more: true } }))
+    allLines.set('in_long', [line(1), line(2), line(3)])
+    expect(await event('evt_long', 'invoice.paid', 'in_long', 'invoice')).toBe('handled')
+    expect((await db.sql<{ n: string }[]>`select sum(l.amount)::text as n from invoice_line l join invoice i on i.id = l.invoice_id where i.stripe_invoice_id = 'in_long'`)[0]?.n).toBe('1500')
   })
 
   it('saves the details with a valid tax number, and an issued invoice keeps the details it was issued with', async () => {

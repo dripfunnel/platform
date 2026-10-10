@@ -700,7 +700,8 @@ test (§11.2).
   webhook address, scopes from `machineScopes`, its signing secret answered once); the Owner sees `installableApp`, and
   `installApp` takes the scopes shown back, refusing `SCOPES_CHANGED` when they moved; the grant's token (`dfa_`) goes once to the
   app's address, signed with its secret, with the Store API's address; it calls the Store API store-wide within its scopes, and
-  stops when uninstalled, or while DripFunnel has the app suspended. Opening the app is a link to its site; nothing of it runs
+  stops when uninstalled, or while DripFunnel has the app suspended. The notice waits while the app is suspended; if the relay gives
+  up on it, the token is gone for good, and the install shows `connection: failed` so the Owner removes it and installs again. Opening the app is a link to its site; nothing of it runs
   in the portal (decided on #337).
 
 ---
