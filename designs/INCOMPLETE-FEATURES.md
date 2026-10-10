@@ -159,13 +159,15 @@ the missing backend.
   - the **"Your brand"** step before the gallery, and Site settings › **Brand**;
   - the **Pages** and **Journal** tabs (the new file has only Design and Site settings; `StorefrontContent` holds their drawing);
   - the catalogue **Publish now** bar on the Design tab;
-  - **Open preview ↗** in the studio's top bar.
-- Decided 2026-10-08 on #470 ("Plan A": the AI writes theme code) and not drawn yet (FIRST-RELEASE §14):
-  - images and a website address in the chat, and **Edit text** in every language;
-  - the page picker listing every page of the store, the AI's own pages included (the drawing has Home, Product, Cart, About, Contact);
-  - the sandbox's states: "Opening your studio…", "You're next — about N seconds", "Finishing your previous change…", "Checking your change…";
-  - the publish gate: "Checking your site…", a refused publish with **Publish everything before this change**, a publish rolled back after going live;
+  - ~~**Open preview ↗** in the studio's top bar.~~ Drawn on #487, with **End all preview links** in its menu.
+- Decided 2026-10-08 on #470 ("Plan A": the AI writes theme code), drawn on #487 (FIRST-RELEASE §14; each under `?state=`, design.md §2):
+  - ~~images and a website address in the chat, and **Edit text** in every language;~~
+  - ~~the page picker listing every page of the store, the AI's own pages included (the drawing has Home, Product, Cart, About, Contact);~~ Pages the drawing has no site JSON for show a plain page in the template's look.
+  - ~~the sandbox's states: "Opening your studio…", "You're next — about N seconds", "Finishing your previous change…", "Checking your change…";~~ and the session ended state with **Reopen**.
+  - ~~the publish gate: "Checking your site…", a refused publish with **Publish everything before this change**, a publish rolled back after going live;~~
+  - ~~**End all preview links**, its confirmation and "Preview links ended".~~
   - the drawing still renders site JSON (`storefront-lib.js`); that is how it draws, not what is built.
+- The queue, "Finishing your previous change…", a refused publish and a rollback are reached only through `?state=`; nothing in the drawing makes them happen.
 - "View live site" is still toast only.
 
 ### Settings
