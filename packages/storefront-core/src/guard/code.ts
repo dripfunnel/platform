@@ -159,11 +159,40 @@ const checkBindingPattern = (w: Walk, pattern: ts.ObjectBindingPattern) => {
   }
 }
 
+// A library's names passed on from one theme file to another would escape the checks tied to their import.
+const reexportMessage = "A theme passes on only its own code; import a library's names in the file that uses them."
+
+const passesOnLibrary = (w: Walk, specifier: ts.ExportSpecifier): boolean => {
+  const decl = w.checker.getExportSpecifierLocalTargetSymbol(specifier)?.declarations?.[0]
+  const statement = decl && (ts.isImportSpecifier(decl) ? decl.parent.parent.parent : ts.isNamespaceImport(decl) ? decl.parent.parent : ts.isImportClause(decl) ? decl.parent : undefined)
+  return statement !== undefined && ts.isStringLiteral(statement.moduleSpecifier) && !statement.moduleSpecifier.text.startsWith('.')
+}
+
+// motion's element factories: `motion.a` held in a name would render an element the JSX rules never see.
+const motionFactories = new Set(['motion', 'm'])
+
+const isMotionFactory = (w: Walk, id: ts.Identifier): boolean => {
+  const decl = w.checker.getSymbolAtLocation(id)?.declarations?.[0]
+  if (!decl || !ts.isImportSpecifier(decl)) return false
+  const from = decl.parent.parent.parent.moduleSpecifier
+  return ts.isStringLiteral(from) && (from.text === 'motion' || from.text === 'motion/react') && motionFactories.has((decl.propertyName ?? decl.name).text)
+}
+
+/** `motion` as the object of a tag written out, as in <motion.div> and </motion.div>. */
+const isWrittenTag = (id: ts.Identifier): boolean => {
+  const access = id.parent
+  if (!ts.isPropertyAccessExpression(access) || access.expression !== id) return false
+  const tag = access.parent
+  return (ts.isJsxOpeningElement(tag) || ts.isJsxSelfClosingElement(tag) || ts.isJsxClosingElement(tag)) && tag.tagName === access
+}
+
 const checkIdentifier = (w: Walk, id: ts.Identifier) => {
   if (!isValueReference(id)) return
   if (id.text === 'require' && isGlobal(w, id)) return w.report(id, 'code/dynamic-import', 'A theme may not load code with require; import from the allowed modules at the top of the file.')
+  if (ts.isExportSpecifier(id.parent) && passesOnLibrary(w, id.parent)) return w.report(id, 'code/import-not-allowed', reexportMessage)
   if (!isGlobal(w, id)) {
     if (kindOfValue(w, w.checker.getTypeAtLocation(id)) === 'browser') w.report(id, 'code/browser-global', browserMessage(id.text))
+    if (isMotionFactory(w, id) && !isWrittenTag(id)) w.report(id, 'jsx/element-not-allowed', "Use motion's elements written out as tags, such as <motion.div>, so each one is checked; never hold one in a name or make one with create().")
     return
   }
   const called = ts.isCallExpression(id.parent) && id.parent.expression === id
@@ -282,9 +311,7 @@ const checkModule = (w: Walk, node: ts.ImportDeclaration | ts.ExportDeclaration,
   const refuse = (name: string) => w.report(node, 'code/import-not-allowed', `A theme may not use "${name}" from ${spec.text}.`)
   const names = library.names
   if (ts.isExportDeclaration(node)) {
-    if (node.isTypeOnly || names === 'any') return
-    if (!node.exportClause || !ts.isNamedExports(node.exportClause)) return refuse('*')
-    for (const el of node.exportClause.elements) if (!el.isTypeOnly && !names.has((el.propertyName ?? el.name).text)) refuse((el.propertyName ?? el.name).text)
+    if (!node.isTypeOnly) w.report(node, 'code/import-not-allowed', reexportMessage)
     return
   }
   const clause = node.importClause
