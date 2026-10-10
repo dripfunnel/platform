@@ -1,0 +1,226 @@
+import { graphql, type GraphQLSchema } from 'graphql'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { StoreContext } from '#apis/store/access'
+import { storeSchema } from '#apis/store/schema'
+import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
+import { createUserSession, storeCookieName } from '#auth/storeSession'
+import { withSystemScope } from '#db/scoped/index'
+import { activityLog } from '#saas/activity/index'
+import { createTestDatabase, type TestDatabase } from './support/database'
+import { seedTenants, type Tenants } from './support/fixtures'
+
+// Card #322 (SAPI 18), part 2: Reports' panels (FIRST-RELEASE §10): takings, what sold, markets, tax, suppliers and
+// offers over the store's own days, Owner and Manager only, behind the plan (ACCESS §5.1 `reports.read`, §11).
+
+let db: TestDatabase
+let t: Tenants
+type Who = 'owner' | 'manager' | 'staff' | 'supplier' | 'other'
+const cookies = {} as Record<Who, string>
+const plans = { full: '', sales: '', none: '' }
+const products = { kurta: '', scarf: '' }
+let india = ''
+// 11:30 in Kolkata on 10 October: the last 7 days began at midnight there on the 4th (18:30 UTC on the 3rd).
+const now = new Date('2026-10-10T06:00:00Z')
+
+const subscribe = async (storeId: string, partnerId: string, planId: string, currency: string) => {
+  await db.sql`update store set plan_id = ${planId} where id = ${storeId}`
+  await db.sql`delete from store_subscription where store_id = ${storeId}`
+  await db.sql`insert into store_subscription (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end)
+    values (${storeId}, ${partnerId}, ${planId}, 1, 'active', 'month', ${currency}, 0, ${now}, ${new Date(now.getTime() + 30 * 86_400_000)})`
+}
+
+interface Line { product: string; seller?: string | null; name: string; quantity: number; total: number; rateBps?: number; tax?: number }
+const order = async (storeId: string, number: string, placedAt: string, o: {
+  total: number; refunded?: number; tax?: number; paid?: boolean; method?: string; state?: 'placed' | 'cancelled'; currency?: string; market?: string | null; region?: string; test?: boolean
+  lines?: Line[]; discounts?: [string, number][]
+}) => {
+  const [row] = await db.sql<{ id: string }[]>`
+    insert into "order" (store_id, state, payment_state, currency, market_id, email, shipping_address, number, placed_at, subtotal_amount, shipping_amount, tax_amount, total_amount,
+      refunded_amount, payment_method, cancelled_at, cancel_reason)
+    values (${storeId}, ${o.state ?? 'placed'}, ${o.paid === false ? 'pending' : o.refunded ? 'partly_refunded' : 'paid'}, ${o.currency ?? 'INR'}, ${o.market ?? null}, 'a@example.com',
+      ${db.sql.json({ name: 'Buyer', line1: '1 Road', city: 'Town', region: o.region ?? 'MH', country: 'IN' })}, ${number}, ${placedAt}, ${o.total}, 0, ${o.tax ?? 0}, ${o.total},
+      ${o.refunded ?? 0}, ${o.method ?? 'stripe'}, ${o.state === 'cancelled' ? placedAt : null}, ${o.state === 'cancelled' ? 'store' : null})
+    returning id`
+  const id = row?.id ?? ''
+  for (const [position, l] of (o.lines ?? [{ product: products.kurta, name: 'Kurta', quantity: 1, total: o.total }]).entries()) {
+    await db.sql`insert into order_line (order_id, store_id, seller_id, version_id, product_id, name, quantity, unit_amount, tax_rate_bps, tax_amount, line_total_amount, position)
+      select ${id}, ${storeId}, ${l.seller ?? null}, v.id, v.product_id, ${l.name}, ${l.quantity}, ${Math.floor(l.total / l.quantity)}, ${l.rateBps ?? null}, ${l.tax ?? 0}, ${l.total}, ${position}
+      from product_version v where v.product_id = ${l.product}`
+  }
+  for (const [label, amount] of o.discounts ?? []) await db.sql`insert into order_adjustment (order_id, store_id, kind, label, amount) values (${id}, ${storeId}, 'discount', ${label}, ${amount})`
+  if (o.test) await db.sql`insert into payment (order_id, store_id, provider, kind, state, amount, currency, mode) values (${id}, ${storeId}, 'stripe', 'card', 'captured', ${o.total}, ${o.currency ?? 'INR'}, 'test')`
+}
+
+const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
+  const facts = { requestId: 'r', ip: null, userAgent: null }
+  const headers: Record<string, string> = {
+    cookie: `${storeCookieName}=${cookies[who]}`,
+    [storeHeader]: who === 'other' ? t.storeA2 : t.storeA1,
+    ...(who === 'supplier' ? { [supplierHeader]: t.sellerA1First } : {}),
+  }
+  const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, new Date(), activityLog, facts)
+  const standing = as.support && resolved.kind === 'acting'
+    ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
+    : resolved
+  const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => now }
+  const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
+  return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
+}
+
+const panels = `days timeZone from to previousFrom currency currencies
+  takings { orders sales { amount currency } refunds { amount } net { amount } previousNet { amount } previousOrders }
+  sold { productId name units amount { amount } }
+  markets { marketId name orders amount { amount } }
+  tax { by total { amount currency } rows { key orders amount { amount } } }
+  offers { name orders discount { amount } amount { amount } }`
+const report = async (who: Who, args = 'days: 7', fields = panels) => gql(`{ report(${args}) { ${fields} } }`, who)
+
+beforeAll(async () => {
+  db = await createTestDatabase()
+  t = await seedTenants(db.sql)
+  await db.sql`update store set country = 'IN', time_zone = 'Asia/Kolkata', pricing_currency = 'INR' where id = ${t.storeA1}`
+  await db.sql`update store set country = 'US', time_zone = 'America/New_York', pricing_currency = 'USD' where id = ${t.storeA2}`
+  const plan = async (name: string, keys: string[]) => {
+    const [row] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${t.partnerA}, ${name}, 'live') returning id`
+    for (const key of keys) await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${row?.id ?? ''}, ${t.partnerA}, 1, ${key}, true)`
+    return row?.id ?? ''
+  }
+  plans.full = await plan('Pro', ['reports_sales', 'reports_export'])
+  plans.sales = await plan('Growth', ['reports_sales'])
+  plans.none = await plan('Starter', [])
+  await subscribe(t.storeA1, t.partnerA, plans.full, 'INR')
+  await subscribe(t.storeA2, t.partnerA, plans.full, 'USD')
+
+  const person = async (email: string, storeId: string, role: string, seller: string | null = null) => {
+    const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, ${email}, ${email.split('@')[0] ?? ''}, 'active') returning id`
+    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${u?.id ?? ''}, ${storeId}, ${seller}, ${role}, 'active')`
+    return withSystemScope(db.sql, (tx) => createUserSession(tx, { id: u?.id ?? '', partnerId: t.partnerA }, new Date()))
+  }
+  await db.sql`update seller set access_level = 'vendor-orders-fulfil' where id = ${t.sellerA1First}`
+  cookies.owner = await person('owner@a1.example', t.storeA1, 'owner')
+  cookies.manager = await person('manager@a1.example', t.storeA1, 'manager')
+  cookies.staff = await person('staff@a1.example', t.storeA1, 'staff')
+  cookies.supplier = await person('anand@a1.example', t.storeA1, 'supplier-admin', t.sellerA1First)
+  cookies.other = await person('owner@a2.example', t.storeA2, 'owner')
+
+  const product = async (storeId: string, name: string, seller: string | null = null) => {
+    const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, seller_id, name, slug, visibility) values (${storeId}, ${seller}, ${name}, ${name.toLowerCase()}, 'visible') returning id`
+    await db.sql`insert into product_version (store_id, product_id, sku, position) values (${storeId}, ${p?.id ?? ''}, ${name}, 0)`
+    return p?.id ?? ''
+  }
+  products.kurta = await product(t.storeA1, 'Kurta')
+  products.scarf = await product(t.storeA1, 'Scarf', t.sellerA1First)
+  const tee = await product(t.storeA2, 'Tee')
+  // Every store starts with its Home market (migration 0051).
+  india = (await db.sql<{ id: string }[]>`update market set name = 'India' where store_id = ${t.storeA1} and is_primary returning id`)[0]?.id ?? ''
+
+  await order(t.storeA1, 'R-1', '2026-10-05T10:00:00Z', {
+    total: 10000, refunded: 1000, tax: 1000, market: india, discounts: [['DIWALI10', 500]],
+    lines: [
+      { product: products.kurta, name: 'Kurta', quantity: 2, total: 6000, rateBps: 1200, tax: 600 },
+      { product: products.scarf, seller: t.sellerA1First, name: 'Scarf', quantity: 1, total: 4000, rateBps: 500, tax: 200 },
+    ],
+  })
+  // 01:30 on the 10th in Kolkata: inside the range though it is still the 9th in UTC.
+  await order(t.storeA1, 'R-2', '2026-10-09T20:00:00Z', { total: 5000, discounts: [['DIWALI10', 300], ['FREESHIP', 200]] })
+  // 22:30 on the 3rd in Kolkata: the period before.
+  await order(t.storeA1, 'R-3', '2026-10-03T17:00:00Z', { total: 4000 })
+  await order(t.storeA1, 'R-4', '2026-10-06T10:00:00Z', { total: 9000, state: 'cancelled' })
+  await order(t.storeA1, 'R-5', '2026-10-06T11:00:00Z', { total: 3000, paid: false, method: 'cod' })
+  await order(t.storeA1, 'R-6', '2026-10-06T12:00:00Z', { total: 7000, test: true })
+  await order(t.storeA1, 'R-7', '2026-10-07T10:00:00Z', { total: 2000, currency: 'USD' })
+  await order(t.storeA2, 'S-1', '2026-10-07T10:00:00Z', { total: 8000, tax: 600, currency: 'USD', region: 'ny', lines: [{ product: tee, name: 'Tee', quantity: 4, total: 8000 }] })
+  await order(t.storeA2, 'S-2', '2026-10-08T10:00:00Z', { total: 3000, tax: 300, currency: 'USD', region: 'CA', lines: [{ product: tee, name: 'Tee', quantity: 1, total: 3000 }] })
+}, 60_000)
+
+afterAll(async () => {
+  await db?.drop()
+})
+
+describe('the panels', () => {
+  it('reports the last 7 of the store’s days in its pricing currency against the 7 before', async () => {
+    const r = await report('owner')
+    expect(r.errors).toBeUndefined()
+    expect(r.data?.['report']).toEqual({
+      days: 7,
+      timeZone: 'Asia/Kolkata',
+      from: '2026-10-03T18:30:00.000Z',
+      to: '2026-10-10T06:00:00.000Z',
+      previousFrom: '2026-09-26T18:30:00.000Z',
+      currency: 'INR',
+      currencies: ['INR', 'USD'],
+      // R-1 and R-2: never the cancelled, unpaid, test or dollar orders.
+      takings: { orders: 2, sales: { amount: '15000', currency: 'INR' }, refunds: { amount: '1000' }, net: { amount: '14000' }, previousNet: { amount: '4000' }, previousOrders: 1 },
+      sold: [
+        { productId: products.kurta, name: 'Kurta', units: 3, amount: { amount: '11000' } },
+        { productId: products.scarf, name: 'Scarf', units: 1, amount: { amount: '4000' } },
+      ],
+      markets: [{ marketId: india, name: 'India', orders: 1, amount: { amount: '9000' } }, { marketId: null, name: null, orders: 1, amount: { amount: '5000' } }],
+      // India's GST by rate; what no line carries (R-1's delivery) last.
+      tax: { by: 'rate', total: { amount: '1000', currency: 'INR' }, rows: [{ key: '1200', orders: 1, amount: { amount: '600' } }, { key: '500', orders: 1, amount: { amount: '200' } }, { key: null, orders: 1, amount: { amount: '200' } }] },
+      offers: [
+        { name: 'DIWALI10', orders: 2, discount: { amount: '800' }, amount: { amount: '14000' } },
+        { name: 'FREESHIP', orders: 1, discount: { amount: '200' }, amount: { amount: '5000' } },
+      ],
+    })
+  })
+
+  it('widens to 30 days, reads another currency the store sold in, and limits a panel’s rows', async () => {
+    expect((await report('manager', 'days: 30', 'takings { orders net { amount } } sold(first: 1) { name }')).data?.['report']).toEqual({ takings: { orders: 3, net: { amount: '18000' } }, sold: [{ name: 'Kurta' }] })
+    expect((await report('owner', 'days: 7, currency: "usd"', 'currency takings { orders sales { amount currency } } offers { name }')).data?.['report']).toEqual({
+      currency: 'USD', takings: { orders: 1, sales: { amount: '2000', currency: 'USD' } }, offers: [],
+    })
+    for (const args of ['days: 14', 'days: 7, currency: "rupees"']) expect((await report('owner', args, 'days')).code, args).toBe('INVALID_INPUT')
+  })
+
+  it('counts units per supplier, the store’s own first, and never their money', async () => {
+    expect((await report('owner', 'days: 7', 'suppliers { supplierId name units }')).data?.['report']).toEqual({
+      suppliers: [{ supplierId: null, name: null, units: 3 }, { supplierId: t.sellerA1First, name: 'Anand Textiles', units: 1 }],
+    })
+  })
+
+  it('goes by state for a US store, and counts nothing of another store', async () => {
+    expect((await report('other', 'days: 7', 'currency currencies takings { orders sales { amount } } tax { by total { amount } rows { key amount { amount } } } sold { name units }')).data?.['report']).toEqual({
+      currency: 'USD',
+      currencies: ['USD'],
+      takings: { orders: 2, sales: { amount: '11000' } },
+      tax: { by: 'state', total: { amount: '900' }, rows: [{ key: 'NY', amount: { amount: '600' } }, { key: 'CA', amount: { amount: '300' } }] },
+      sold: [{ name: 'Tee', units: 5 }],
+    })
+  })
+})
+
+describe('who may read them (ACCESS §5.1, §11)', () => {
+  it('refuses Staff and every supplier', async () => {
+    expect((await report('staff', 'days: 7', 'days')).code).toBe('FORBIDDEN')
+    for (const tier of ['vendor-orders-fulfil', 'vendor-catalogue', 'vendor-stock']) {
+      await db.sql`update seller set access_level = ${tier} where id = ${t.sellerA1First}`
+      expect((await report('supplier', 'days: 7', 'days')).code, tier).toBe('FORBIDDEN')
+    }
+    await db.sql`update seller set access_level = 'vendor-orders-fulfil' where id = ${t.sellerA1First}`
+  })
+
+  it('locks Reports below the plan that has them, and the supplier panel below export, naming the plan that unlocks it', async () => {
+    await subscribe(t.storeA1, t.partnerA, plans.none, 'INR')
+    try {
+      const refused = await report('owner', 'days: 7', 'days')
+      expect(refused.errors?.[0]?.extensions).toMatchObject({ code: 'PLAN_LIMIT', key: 'reports_sales', unlockedBy: { id: plans.sales } })
+      expect((await report('manager', 'days: 7', 'days')).code).toBe('PLAN_LIMIT')
+      await subscribe(t.storeA1, t.partnerA, plans.sales, 'INR')
+      const partial = await report('owner', 'days: 7', 'takings { orders } suppliers { units }')
+      expect(partial.errors?.[0]?.extensions).toMatchObject({ code: 'PLAN_LIMIT', key: 'reports_export', unlockedBy: { id: plans.full } })
+    } finally {
+      await subscribe(t.storeA1, t.partnerA, plans.full, 'INR')
+    }
+  })
+
+  it('reads in a read-only support session and while the store is past due', async () => {
+    expect((await gql('{ report(days: 7) { takings { orders } } }', 'owner', { support: 'read' })).data?.['report']).toEqual({ takings: { orders: 2 } })
+    await db.sql`update store set status = 'past_due' where id = ${t.storeA1}`
+    try {
+      expect((await report('manager', 'days: 7', 'takings { orders }')).data?.['report']).toEqual({ takings: { orders: 2 } })
+    } finally {
+      await db.sql`update store set status = 'active' where id = ${t.storeA1}`
+    }
+  })
+})

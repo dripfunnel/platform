@@ -1323,6 +1323,7 @@ type Query {
   productTranslation(language: String!, productId: ID!): [Translation!]
   products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
+  report(currency: String, days: Int!): StoreReport
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   shippingSettings: ShippingSettings
   shopifyConnection: ShopifyConnection
@@ -1368,6 +1369,54 @@ enum RefundReason {
 type RelatedProduct {
   id: ID
   name: String
+}
+
+type ReportMarket {
+  amount: Money
+  marketId: ID
+  name: String
+  orders: Int
+}
+
+type ReportOffer {
+  amount: Money
+  discount: Money
+  name: String
+  orders: Int
+}
+
+type ReportProduct {
+  amount: Money
+  name: String
+  productId: ID
+  units: Int
+}
+
+type ReportSupplier {
+  name: String
+  supplierId: ID
+  units: Int
+}
+
+type ReportTakings {
+  net: Money
+  orders: Int
+  previousNet: Money
+  previousOrders: Int
+  refunds: Money
+  sales: Money
+}
+
+type ReportTax {
+  by: String
+  rows: [ReportTaxLine!]
+  total: Money
+}
+
+type ReportTaxLine {
+  amount: Money
+  key: String
+  orders: Int
 }
 
 enum ReturnReason {
@@ -1742,6 +1791,22 @@ type StorePerson {
   role: String
   since: String
   you: Boolean
+}
+
+type StoreReport {
+  currencies: [String!]
+  currency: String
+  days: Int
+  from: String
+  markets(first: Int): [ReportMarket!]
+  offers(first: Int): [ReportOffer!]
+  previousFrom: String
+  sold(first: Int): [ReportProduct!]
+  suppliers: [ReportSupplier!]
+  takings: ReportTakings
+  tax: ReportTax
+  timeZone: String
+  to: String
 }
 
 type StoreState {

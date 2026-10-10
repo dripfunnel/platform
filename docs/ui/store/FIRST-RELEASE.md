@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#322: Home's figures per seat).
+Last updated: 2026-10-10 (#322: Home's figures per seat, and Reports).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -364,6 +364,17 @@ came from (by market), tax collected (by state in the US, by rate in India), sup
 never a supplier's own totals shown to another), and the **custom report builder** (rows and
 columns). Every panel exports. Locked below Growth. Owner and Manager.
 
+**Built on #322, part 2** (`report(days, currency)`): the last 7, 30 or 90 of the store's days, today included, against
+as many days before, over Home's sales (§5), in **one currency at a time** (the pricing currency unless another is asked
+for; `currencies` lists every one sold in), never converted. Panels: `takings` (sales, refunds, net, the period
+before's net and orders), `sold` (products by money taken on their lines), `markets` (net by the market bought in),
+`tax` (as charged at checkout: by delivery state for a US store, by line rate otherwise, delivery's tax as a row with no
+rate), `suppliers` (units per owner, the store's own first, never money), and **top offers** (decided on #337: each
+discount line's name as shoppers saw it, its orders, the discount and those orders' net); `sold`, `markets` and `offers`
+answer their top rows (5 by default, up to 50). Locked below Growth by the plan's `reports_sales` and the supplier panel by
+`reports_export` ("Export and supplier report", the pricing page), each refused as `PLAN_LIMIT` with the plan that
+unlocks it; Staff and every supplier are refused.
+
 ---
 
 ## 11. Products (`CatList`, `CatEditor`, CATALOG-DESIGN A–G, L, N–T)
@@ -686,7 +697,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | Customers | `customers(filter)`, `customer(id)`, `customerGroups` | `addCustomer`, `updateCustomer`, `setCustomerTags`, `setCustomerNote`, `recordMarketingStop`, `createGroup`, `updateGroup`, `deleteGroup`, `exportCustomers` (job) |
 | Offers | `offers(filter)`, `offer(id)`, `checkCode(code)`, `offerResults(id)` | `saveOffer`, `pauseOffer`, `endOffer`, `duplicateOffer`, `deleteOffer`, `generateCodes`, `exportOfferCodes` (job) |
 | Abandoned carts | `abandonedCarts(filter)`, `cartSummary(range)`, `reminderSettings` | `saveReminderSettings`, `remindNow(cartId, discount)`, `sendTestReminder` |
-| Reports | `report(panel, range)`, `customReport(rows, columns, range)` | `exportReport(panel, range)` (job) |
+| Reports | `report(days, currency)` with its panels (built on #322), `customReport(rows, columns, range)` | `exportReport(panel, range)` (job) |
 | Products | `products(filter, sort)`, `productCounts`, `product(id)`, `productStock(productId)`, `stockHistory(productId, versionId)`, `readiness(productId)`, `catalogExport(id)`, `catalogExports`, `catalogImport(id)`, `catalogImports`, `catalogImportTemplate` | `saveProduct`, `updateProducts(ids, patch)`, `deleteProducts`, `adjustStock(versionId, warehouseId, delta, reason)`, `setStock(entries)`, `setLowStockThreshold`, `approveProduct`, `sendBackProduct(reason)`, `uploadAsset` (signed upload), `writeDescription` (AI, metered), `requestCatalogExport(kind)` (job: products or stock), `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)` (jobs) |
 | Collections | `collections`, `facets` (the one a supplier reaches too, counting its own products only), `menu`, `sizeCharts`, `productCollections` (merchant side) | `saveCollection`, `deleteCollection`, `saveFacet`, `mergeFacetValues`, `saveMenu`, `saveSizeChart`, `deleteSizeChart`, `setProductCollections` (merchant side) |
 | Import | `catalogImport(id)`, `catalogImports`, `catalogImportTemplate`, `shopifyConnection`, `shopifyProducts` | `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)`, `connectShopify`, `finishShopifyConnect`, `disconnectShopify`, `startShopifyImport`. No pause: a run carries on on the server, chunk by chunk |

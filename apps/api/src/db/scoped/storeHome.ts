@@ -25,7 +25,7 @@ export const selectStoreDays = async (tx: ScopedSql, storeId: string, now: Date)
     `
   )[0] ?? null
 
-const sale = (tx: ScopedSql) => tx`o.state = 'placed' and o.payment_state in ('paid', 'partly_refunded', 'refunded') and ${goneThrough(tx)}`
+export const sale = (tx: ScopedSql) => tx`o.state = 'placed' and o.payment_state in ('paid', 'partly_refunded', 'refunded') and ${goneThrough(tx)}`
 
 export interface DayFiguresRow {
   currency: string
