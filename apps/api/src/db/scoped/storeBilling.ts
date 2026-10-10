@@ -338,13 +338,18 @@ export const setCancelAt = async (tx: ScopedSql, storeId: string, at: Date): Pro
   `
 }
 
-/** Trials past their end with no plan chosen, oldest first; each is locked and checked again as it ends. */
+/** Trials past their end with no plan chosen, oldest first and any that failed to end last; each is locked and checked again as it ends. */
 export const selectEndedTrials = (tx: ScopedSql, now: Date, limit: number): Promise<{ store_id: string }[]> =>
   tx<{ store_id: string }[]>`
     select sub.store_id from store_subscription sub join store s on s.id = sub.store_id
     where sub.status = 'trial' and sub.trial_ends_at <= ${now} and s.status = 'trial'
-    order by sub.trial_ends_at, sub.store_id limit ${limit}
+    order by sub.trial_end_failed_at nulls first, sub.trial_ends_at, sub.store_id limit ${limit}
   `
+
+/** A trial that failed to end goes behind the others in the next sweep. */
+export const markTrialEndFailed = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
+  await tx`update store_subscription set trial_end_failed_at = ${at} where store_id = ${storeId} and status = 'trial'`
+}
 
 /** The store's data export (exportStoreData): its parts, each a catalogue export job, read back by the one who asked. */
 export const selectExportBundle = (tx: ScopedSql, storeId: string, requesterId: string, bundle: string): Promise<CatalogExportRow[]> =>

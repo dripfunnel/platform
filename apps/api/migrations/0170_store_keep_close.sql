@@ -8,5 +8,7 @@ grant select (keep_products) on store_subscription to app_request;
 alter table catalog_export add column bundle uuid;
 create index catalog_export_bundle_idx on catalog_export (store_id, bundle) where bundle is not null;
 
--- The trial sweep finds trials that ended (store_trial_ends_idx covers the store's mirror).
-create index store_subscription_trial_idx on store_subscription (trial_ends_at) where status = 'trial';
+-- The trial sweep finds trials that ended (store_trial_ends_idx covers the store's mirror); one that failed to end
+-- goes behind the rest, so it never holds the sweep up.
+alter table store_subscription add column trial_end_failed_at timestamptz;
+create index store_subscription_trial_idx on store_subscription (trial_end_failed_at nulls first, trial_ends_at, store_id) where status = 'trial';

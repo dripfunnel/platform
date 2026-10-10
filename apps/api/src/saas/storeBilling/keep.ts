@@ -4,7 +4,7 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectStoreEntitlement } from '#db/scoped/entitlements'
 import { UNLIMITED } from '#db/scoped/planKeys'
 import { selectStoreForUpdate } from '#db/scoped/stores'
-import { applyPlan, applyProductKeep, markTrialUnpaid, saveKeepPicks, selectBillingSubscription, selectEndedTrials, selectFreePlan } from '#db/scoped/storeBilling'
+import { applyPlan, applyProductKeep, markTrialEndFailed, markTrialUnpaid, saveKeepPicks, selectBillingSubscription, selectEndedTrials, selectFreePlan } from '#db/scoped/storeBilling'
 import { selectCurrentVersions } from '#db/scoped/partnerPlans'
 import { transitionStore } from '#saas/stores/index'
 import { addInterval } from './quote'
@@ -72,15 +72,16 @@ const endTrial = async (tx: ScopedSql, activity: ActivityLog, storeId: string, n
 }
 
 /** The cron's trial step: each trial past its end with no plan chosen moves to the free plan, or is past due without one.
- * Each store is its own transaction, so one that fails is counted and the others still end. */
-export const endTrials = async (sql: postgres.Sql, activity: ActivityLog, now: Date): Promise<{ ended: number; failed: number }> => {
-  const due = await withSystemScope(sql, (tx) => selectEndedTrials(tx, now, sweepSize))
+ * Each store is its own transaction; one that fails is counted and goes behind the rest, so it never holds them up. */
+export const endTrials = async (sql: postgres.Sql, activity: ActivityLog, now: Date, limit = sweepSize): Promise<{ ended: number; failed: number }> => {
+  const due = await withSystemScope(sql, (tx) => selectEndedTrials(tx, now, limit))
   const done = { ended: 0, failed: 0 }
   for (const { store_id: storeId } of due) {
     try {
       if (await withSystemScope(sql, (tx) => endTrial(tx, activity, storeId, now))) done.ended += 1
     } catch {
       done.failed += 1
+      await withSystemScope(sql, (tx) => markTrialEndFailed(tx, storeId, now))
     }
   }
   return done

@@ -634,18 +634,22 @@ describe('choose what to keep (SAAS §6.2, PortalKeep)', () => {
     expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active' })
   })
 
-  it('ends each trial in its own transaction, so one that fails leaves the others to end', async () => {
+  it('ends each trial in its own transaction, and a store that fails goes behind the others, never holding them up', async () => {
+    // B1's trial ended first, so it heads the sweep; its end fails until the trigger goes.
     await subscribe(t.storeB1, t.partnerB, plans.otherPartner, 'trial', 500, null)
+    await db.sql`update store_subscription set trial_ends_at = ${periodStart} where store_id = ${t.storeB1}`
     await db.sql.unsafe(`create function fail_trial_end() returns trigger language plpgsql as $$ begin raise exception 'failing store'; end $$`)
-    await db.sql.unsafe(`create trigger fail_trial_end before update on store_subscription for each row when (new.store_id = '${t.storeB1}') execute function fail_trial_end()`)
+    await db.sql.unsafe(`create trigger fail_trial_end before update on store_subscription for each row when (new.store_id = '${t.storeB1}' and new.status is distinct from old.status) execute function fail_trial_end()`)
     clock = new Date(periodEnd.getTime() + 60_000)
     try {
-      expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 1, failed: 1 })
+      expect(await endTrials(db.sql, activityLog, clock, 1)).toEqual({ ended: 0, failed: 1 })
+      expect(await endTrials(db.sql, activityLog, clock, 1)).toEqual({ ended: 1, failed: 0 })
+      expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active', plan_id: plans.free })
+      expect(await storeRow(t.storeB1)).toMatchObject({ status: 'trial' })
+      expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 0, failed: 1 })
     } finally {
       await db.sql.unsafe('drop trigger fail_trial_end on store_subscription; drop function fail_trial_end()')
     }
-    expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active', plan_id: plans.free })
-    expect(await storeRow(t.storeB1)).toMatchObject({ status: 'trial' })
     expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 1, failed: 0 })
     expect(await storeRow(t.storeB1)).toMatchObject({ status: 'past_due' })
   })

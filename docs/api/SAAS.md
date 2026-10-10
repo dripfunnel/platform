@@ -248,7 +248,8 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
   ends at once. The Owner gets `store-cancelled`, which says the data is kept 90 days, and
   `exportStoreData` works while read-only. The cron ends each trial past `trial_ends_at` with no plan
   chosen: it moves to the partner's free plan in the store's currency, with Choose what to keep
-  applied (§6.2), or becomes past due where the partner has none. *Decided here*: that past-due
+  applied (§6.2), or becomes past due where the partner has none. Each store ends in its own
+  transaction, and one that fails goes behind the others in the next run. *Decided here*: that past-due
   store may still choose a plan while read-only, since paying is how it leaves (ui/store
   FIRST-RELEASE.md §3.3). The 90-day deletion is Closed's, not built here.
 

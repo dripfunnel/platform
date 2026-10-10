@@ -1924,7 +1924,8 @@ are Stripe's), and carries `stripe_invoice_id` unique and `paid_at`; `invoice_li
 `billing_revision` (what Stripe's idempotency keys carry, SAAS §7.2). Part 2 (migration `0170`):
 `store_subscription.keep_products` (the Owner's picks of Choose what to keep, at most 10,000,
 cleared once applied; SAAS §6.2), `catalog_export.bundle` (the three parts of `exportStoreData`,
-read back together) and a partial index on trials for the cron that ends them.
+read back together) and `trial_end_failed_at` with a partial index on trials for the cron that ends them
+(a trial that failed to end goes behind the rest).
 
 **Reconciled on #157**: `plan.trial_days` is `0..90` (migration `0013`; it was `(0, 7, 14,
 30)`), so the house partner's 10-day trial fits (SAAS §6.1), and the seed's house plans carry
