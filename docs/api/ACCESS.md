@@ -186,6 +186,7 @@ The declaration replaces the first platform's tRPC procedure bases:
 | `scope: 'store'` | `tenantProcedure` | Acting store verified (§9 checks 1 and 10), `TenantContext` built, subscription gate applied. |
 | `scope: 'store-seller'` | `scopedProcedure` | `store` plus the `SellerScope` handed to the scoped query layer, so vendor reads and writes are filtered without the resolver asking. Every catalogue, inventory and order field uses this. |
 | `permission: <key>` | `capabilityProcedure(cap)` | The permission (or Owner-only capability, §5.1) must be in `TenantContext.permissions` for the acting store. |
+| `machine: true` | (none) | API keys may call it too, within their scopes (§5.6); the build fails when it names a permission no key can hold. |
 | `audit: <action>` | `privilegedProcedure(cap)` (never built) | The resolver's writes and its audit row commit in one transaction (§10). Required on every field that needs a capability, and on every Platform and Admin API mutation. |
 | `scope: 'partner'`, `scope: 'platform'` | (none) | Platform API fields see only the caller's partner; Admin API fields see every partner, per staff role. |
 
@@ -670,6 +671,21 @@ test (§11.2).
   uninstall; the app runs out of process and reaches the Store API like any other caller.
 - Creating, rotating and revoking keys, and installing and uninstalling apps, are audited.
 - **Webhook and key rules as drawn** (`SetDev`, #286; *proposed* for SAPI 20 to confirm): a rotated key's old secret keeps working for **24 hours**; an endpoint failing for **3 days** is disabled automatically and the Owner told; events for a disabled endpoint are kept **7 days** for replay.
+- **Built on #330 part 1** (API keys; `auth/apiKeys.ts`, `auth/machineCaller.ts`, `saas/apiKeys`, migration 0150): a key is
+  `dfk_` and 48 random characters, sent as `Authorization: Bearer`; only its SHA-256 and its first 12 characters (the prefix)
+  are kept, and the secret is in the answer to `createApiKey` or `rotateApiKey` alone. It is resolved in `system` scope on every
+  request, ignoring `X-Store` and `X-Supplier`; a key sent beside the portal's cookie, an unknown, revoked or expired one, one
+  for another partner's host, and a supplier-bound one whose supplier is suspended or removed all read as no key
+  (`UNAUTHENTICATED`). A key reaches only the fields declared `machine` (§3.1), within its scopes; every other field answers
+  `FORBIDDEN`. **Decided here**: the scopes a key may hold are the permissions of those fields, `catalog.read`, `stock.read`,
+  `orders.read` and `customers.read` (`machineScopes`), because no write records a key as its actor yet (LOGGING §4); a later
+  card opens writes field by field. A supplier-bound key holds only scopes of its supplier's tier, and is narrowed again to the
+  tier it has on each request. Rotating makes a new key and keeps the old secret working 24 hours; revoking ends the key and every
+  secret it was rotated from at once. Lifetimes are 30, 90 or 365 days or none; a store holds at most 50 live keys. When an Owner
+  who made keys is demoted or removed, the keys keep working, the list shows `createdByHere: false` and the Owners left get an
+  email (`api-keys-creator-gone`). **Calls are counted per store** (decided on #337): 60 a minute and 100,000 a month until the
+  plan sets its own (SAPI 19's entitlements); past either, the request answers HTTP 429 with `Retry-After`, and every address is
+  held to 1,200 key requests a minute before any key is looked up (`API_RATE_LIMITER`).
 
 ---
 
@@ -981,7 +997,7 @@ codes still allow a session.
   own. After it, the "never" list still refuses with `BLOCKED_FOR_SUPPORT`, by permission
   (`invite`, `manage-vendors`, `supplier.team`, `payments.configure`, `billing`,
   `support.allow_write`, `activity.export`) and by `blockedFor: ['support']` on a field
-  (`setSupportAccess`).
+  (`setSupportAccess`, `createApiKey`, `rotateApiKey`).
 - **Elevation.** The agent asks with a note (`requestSupportWrite`, one open request at a time,
   again after a Deny). The banner (`storeState.support`) shows it to the merchant side, and an
   Owner or Manager answers with `allowSupportWrite` or `denySupportWrite`. The answer locks the

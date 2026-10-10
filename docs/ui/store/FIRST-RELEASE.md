@@ -365,6 +365,19 @@ minimum cart value, skip when everything is out of stock, quiet hours in the sho
 a week per shopper, stop on any purchase (always on), an unsubscribe link in every email. Sent by
 **email through Amazon SES** from the partner's sender domain (SAAS §3.6). Staff view only.
 
+**Built on #321 (SAPI 15), part 1** (DATA-MODEL §7.2, §7.6): the every-minute cron marks a cart abandoned 20 minutes after
+its last change once the shopper gave an email or number or started checkout, with what its lines came to; queues each
+cart's latest step now due, once (a step after the first, a code and WhatsApp need the plan's `automatic`, the first alone
+`onePerCart`; `youSend` sends nothing by itself); and the `cart.remind` outbox row decides it as it is delivered: skipped
+as recovered, stopped, no email, opted out, undeliverable (bounced or complained), out of stock, under the minimum (in the
+minimum's own currency) or the weekly cap, held through quiet hours, else sent as one email from the store with its
+lines, its code, **Return to your cart** (`https://{shop host}/cart/r/{token}`) and **Unsubscribe**
+(`https://{shop host}/unsubscribe/{token}`). A placed live order recovers its shopper's carts left that week and stops
+their reminders. **Decided here (#321):** a store in the EU or EEA reminds only shoppers who agreed to email; quiet hours
+are the store's own time zone (a shopper's isn't known); the link gives a guest's cart to the browser that follows it (a
+new cart token), and asks the shopper to sign in for an account's cart; WhatsApp and the Carts tab's list, figures and
+actions are part 2.
+
 ## 10. Reports (`PortalReports`)
 
 7, 30 or 90 days against the period before: takings (sales, refunds, net), what sold, where it
@@ -651,6 +664,12 @@ in the card. "Upload list" reads a CSV or text file in the browser, keeps only c
 sends them at once (`replaceDeliveryArea`). A courier change or an upload reads the settings back without losing what is
 typed: an edited field stays, the rest follows the server (a last courier going switches its rate off there).
 
+**API side of Developers, #330 part 1** (SUI 14 draws it): `apiKeys` (name, prefix, scopes, supplier, who made it and whether
+they're still an Owner, expiry, last used, until when a rotated-from secret works), `apiKeyChoices` (the scopes a key may hold,
+the lifetimes 30, 90 and 365 days or never, the 50-key cap and the calls a minute and month), `createApiKey` and `rotateApiKey`
+(each answering the secret once) and `revokeApiKey`. The prototype's "Change products", "Change stock" and "Update orders" aren't
+offered yet: a key reads the catalogue, stock, orders and customers only (ACCESS §5.6, decided on #330).
+
 ## 16. Billing (`PortalBilling`, Owner only)
 
 *Billing is not in the merchant mobile app, and the app's Close my store is in Settings › Store
@@ -666,6 +685,19 @@ that pays for the plan in a hosted field**, never the shoppers' payments; detail
 invoices with PDF and export; **Close my store** with "Download my data first" (products, orders,
 customers) and "Move to Free instead". Who charges is the partner or DripFunnel on its behalf
 (SAAS §7.1) and the screen says which.
+
+**Built on #329 (SAPI 19), part 1**: `subscription` (plan, status, period, a scheduled change, the
+card's brand, last 4 and expiry, who collects, when Stripe last spoke), `planCatalogue` (the
+partner's Live plans priced in the store's currency, each with every value it sets, Unlimited as
+such), `usage` (products, staff and suppliers counted now; AI prompts and "Publish now" this
+month; bandwidth has no meter yet, so it isn't answered), `planChangeQuote` (what is offered, the
+charge, the credit, today's amount, from when, the next price), `changePlan`, `setPaymentMethod`
+(a Stripe `pm_` token only; while past due it also tries the open invoice, and it works while
+read-only), `billingDetails` and `saveBillingDetails` (a GSTIN in India, a VAT number in the EU),
+`invoices` and `downloadInvoice`. The Owner's only (`billing`), never a support session's or an
+impersonation's writes. A partner that bills its merchants itself answers `BILLED_BY_PARTNER`.
+Choose what to keep, close store and `exportStoreData` are part 2; `buyBandwidth` and `buySetup`
+wait for a bandwidth meter and the partner's setup offer.
 
 ## 17. Supplier views
 
@@ -737,6 +769,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | | *Built on #320 (part 2): `offers(status, kind, trigger, search)` (status `live`, `scheduled`, `off` or `ended`, Used up under Ended; kind `products`, `order`, `bxgy` or `shipping`; search by name, team note or any part of a shared code, never a single-use one), `offerCounts` (the tabs), `offer(id)`, `saveOffer(id, revision, input)` (a new offer without `id`; `enabled` and `startsAt` are Start now, Schedule and Keep off; `STALE_REVISION` with the revision, `CODE_TAKEN` with the offer holding it and its status, deleted included, `UNKNOWN_TARGET`, `CURRENCY_NOT_SOLD`, `PLAN_LIMIT` with `offers`, `group_offers` or `live_offers`), `pauseOffer`, `resumeOffer` ("Turn back on", held to the live limit), `endOffer`, `duplicateOffer`, `deleteOffer` (soft). A changed shared code stops working and stays the offer's. Owner and Manager write, Staff read; the live limit counts live and scheduled offers, under the store's lock, so a downgrade keeps them running and blocks one more.* | |
 | | *Part 3: `generateCodes(offerId, count, prefix, length)` (a run of up to 5,000 single-use codes, readable with no 0/O or 1/I, from the Worker's random source, at most 100,000 an offer; `group_offers`; `NOT_A_CODE_OFFER` for an automatic one), `offerCodeBatches(offerId)` (cursor-paged, newest first) with each run's used count; `CODES_EXHAUSTED` when a prefix leaves too few new codes to draw, `exportOfferCodes(batchId)` (`offers.export`, a job read back by its asker with `offerCodesExport(id)`, never by a read-only support session), `checkCode(code)` (the offer, whether the code is single-use or used, and `answer`: `WORKS`, `INVALID`, `EXPIRED` or `USED_UP`, what a shopper meets; null alike for a malformed, a missing and another store's code; 30 a minute per person and store, `OFFER_CODE_RATE_LIMITER`, refused where unbound), `offerResults(id)` (uses, discount given, sales with the offer and the average order per currency, uses per day for 30 days in the store's time zone; `offer_results`).* | |
 | Abandoned carts | `abandonedCarts(filter)`, `cartSummary(range)`, `reminderSettings` | `saveReminderSettings`, `remindNow(cartId, discount)`, `sendTestReminder` |
+| | *Built on #321 (part 1): `reminderSettings` (the three steps, minimum, switches, `revision` and the plan's `level`; the prototype's starting words until the store saves) and `saveReminderSettings(revision, input)` (`carts.write`; `STALE_REVISION`; `PLAN_LIMIT` with `key: cart_reminders` for anything the plan doesn't allow that wasn't saved already; WhatsApp in India only). Shop API: `restoreCart(token)` (the cart, a guest's new `cartToken`, or `signInRequired`) and `unsubscribe(token)`, each limited per host and address with one refusal, `LINK_INVALID`.* | |
 | Reports | `report(days, currency)` with its panels, `reportExport(id)`, `reportExports` (built on #322) | `exportReport(panel, days, currency, custom)` (job; `panel: custom` is the custom report builder) |
 | Products | `products(filter, sort)`, `productCounts`, `product(id)`, `productStock(productId)`, `stockHistory(productId, versionId)`, `readiness(productId)`, `catalogExport(id)`, `catalogExports`, `catalogImport(id)`, `catalogImports`, `catalogImportTemplate` | `saveProduct`, `updateProducts(ids, patch)`, `deleteProducts`, `adjustStock(versionId, warehouseId, delta, reason)`, `setStock(entries)`, `setLowStockThreshold`, `approveProduct`, `sendBackProduct(reason)`, `uploadAsset` (signed upload), `writeDescription` (AI, metered), `requestCatalogExport(kind)` (job: products or stock), `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)` (jobs) |
 | Collections | `collections`, `facets` (the one a supplier reaches too, counting its own products only), `menu`, `sizeCharts`, `productCollections` (merchant side) | `saveCollection`, `deleteCollection`, `saveFacet`, `mergeFacetValues`, `saveMenu`, `saveSizeChart`, `deleteSizeChart`, `setProductCollections` (merchant side) |
@@ -745,7 +778,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | Storefront site settings (SAPI 17b, #471) | `storefrontBrand` (with `brandReady`), `storefrontSeo`, `storefrontDomains` | `saveStorefrontBrand`, `saveStorefrontSeo`, `connectDomain`, `checkDomain`, `makeDomainPrimary`, `removeDomain` |
 | Settings | `storeInfo`, `people`, `suppliers`, `gateways`, `shipping`, `warehouses`, `tax`, `markets`, `catalogueSettings`, `customerAccounts`, `apiKeys`, `webhooks(…deliveries)`, `apps`, `supportAccess` (+ log) | `saveStoreInfo`, `saveCurrencies`, `saveLanguages`, `inviteMember`, `changeRole`, `removeMember`, `inviteSupplier`, `setSupplierAccess`, `setSupplierShippingMode`, `suspendSupplier(hide)`, `removeSupplier`, `setApproval`, `connectGateway`, `disconnectGateway`, `saveShipping`, `connectCourier`, `testCouriers`, `saveWarehouse`, `setDefaultWarehouse`, `saveTax`, `saveInvoiceSettings`, `saveMarket`, `saveCatalogueSettings`, `saveBadge`, `saveLegalDefaults`, `setCustomerSignIn`, `createApiKey` (secret shown once), `rotateApiKey`, `revokeApiKey`, `saveWebhook`, `replayDelivery`, `installApp`, `uninstallApp`, `setSupportAccess`, `answerSupportElevation(allow)` |
 | Activity (Owner, and Manager as Store activity) | `activityLog(filter)` (`activity.read`, Owner and Manager, shoppers included), never behind the Settings permission | `exportActivity` (job, `activity.export`, Owner only) |
-| Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails` | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `downloadInvoice`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
+| Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails`, `planChangeQuote(plan, period, when)`, `downloadInvoice` (a read, as the partner's) | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
 | Supplier | Only these, seller-scoped, by ACCESS §5.2's tier: `me` and `storeState` **masked** to what the shell needs (person, role, tier, store name, the read-only flag; never the plan, trial or billing state, §2), `myStores`, `navBadges`, the Profile queries; `products`, `productCounts`, `product`, `facets` (to tag its own products; each value's count is of its own products only), `productStory`, `productStock`, `warehouses` (their own), `stockHistory`, `readiness` (`catalog.read`, `stock.read`); `catalogExport` and `catalogExports`, its own exports only (`exports.products`); `catalogImport`, `catalogImports` and `catalogImportTemplate`, its own imports only (`catalog.import`); `shopifyConnection` and `shopifyProducts`, its own connected shop (`catalog.import`); `orders`, `order` and `orderCounts` for their own lines only, so the To ship chips count nothing else (`orders.read`); `mySales` (`sales.read`, no totals); `mySupplierTeam` (Supplier admin). **Every other query is refused**: `home`, `customers`, `offers`, `abandonedCarts`, `report`, Collections but `facets`, Settings, Billing | Only these, by tier: `saveProduct`, its `filterValues` tagging its own products with the store's filter values, `saveProductStory`, `publishProductStory`, `copyProductStory` (`catalog.write`), `adjustStock`, `setStock`, `setLowStockThreshold`, `saveWarehouse`, `setDefaultWarehouse`, `deleteWarehouse` (`stock.write`, `warehouses.write`), `shipItems`, `addTracking` on their own shipments, `refund` on their own lines (`orders.fulfil`, `orders.refund`), `requestCatalogExport` (`exports.products`, its own rows), `exportOrders` (`exports.orders`, the two order tiers only), `startCatalogImport`, `confirmCatalogImport` (`catalog.import`, writing only its own rows), `connectShopify`, `finishShopifyConnect`, `startShopifyImport`, `disconnectShopify` (`catalog.import`, its own shop), the Profile mutations; `inviteSupplierUser`, `changeSupplierRole`, `removeSupplierUser` (Supplier admin). Every other mutation is refused |
 
 Every mutation is authorised by ACCESS §5.1–5.2 per role and tier, refused while past due

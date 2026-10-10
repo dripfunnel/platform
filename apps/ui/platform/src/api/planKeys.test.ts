@@ -6,7 +6,9 @@ import { planGroups, planKeyDefs } from './planKeys'
 // so this reads the API's file and compares each row.
 describe('plan keys', () => {
   const api = readFileSync(new URL('../../../../api/src/db/scoped/planKeys.ts', import.meta.url), 'utf8')
-  const rows = [...api.matchAll(/\b(sw|amount|choice)\('([a-z_]+)', '([a-z]+)'(?:, (true|false))?(?:, (true))?(?:, (\[[^\]]*\]))?/g)]
+  const rows = [...api.matchAll(/\b(sw|amount|choice)\('([a-z_]+)', '([a-z]+)'(?:, (true|false))?(?:, (true))?(?:, (\[[^\]]*\]))?(?:, (true))?/g)]
+  // A choice names its choices first and whether it is enforced after them.
+  const enforced = (m: RegExpMatchArray) => (m[1] === 'choice' ? m[7] === 'true' : m[4] === 'true')
 
   it('lists the same keys, kinds and groups as the API, in the same order', () => {
     const kind = { sw: 'switch', amount: 'amount', choice: 'choice' } as const
@@ -14,7 +16,7 @@ describe('plan keys', () => {
   })
 
   it('agrees on which rows are enforced and which are monthly', () => {
-    expect(planKeyDefs.filter((d) => d.enforced).map((d) => d.key)).toEqual(rows.filter((m) => m[1] !== 'choice' && m[4] === 'true').map((m) => m[2]))
+    expect(planKeyDefs.filter((d) => d.enforced).map((d) => d.key)).toEqual(rows.filter(enforced).map((m) => m[2]))
     expect(planKeyDefs.filter((d) => d.monthly).map((d) => d.key)).toEqual(rows.filter((m) => m[5] === 'true').map((m) => m[2]))
   })
 

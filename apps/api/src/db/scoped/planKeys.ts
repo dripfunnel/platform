@@ -19,7 +19,7 @@ interface Def {
 
 const sw = <const K extends string>(key: K, group: PlanGroup, enforced = false) => ({ key, kind: 'switch', group, enforced }) as const
 const amount = <const K extends string>(key: K, group: PlanGroup, enforced = false, monthly?: true) => ({ key, kind: 'amount', group, enforced, ...(monthly ? { monthly } : {}) }) as const
-const choice = <const K extends string, const C extends readonly string[]>(key: K, group: PlanGroup, choices: C) => ({ key, kind: 'choice', group, enforced: false, choices }) as const
+const choice = <const K extends string, const C extends readonly string[]>(key: K, group: PlanGroup, choices: C, enforced = false) => ({ key, kind: 'choice', group, enforced, choices }) as const
 
 export const planKeyDefs = [
   amount('products', 'catalogue', true),
@@ -62,7 +62,8 @@ export const planKeyDefs = [
   sw('powered_by_removal', 'storefront', true),
   amount('publish_now', 'storefront', true, true),
   amount('history_days', 'storefront'),
-  choice('cart_reminders', 'storefront', ['youSend', 'onePerCart', 'automatic']),
+  // You send one a cart by hand; the first goes automatically; all three, with codes and WhatsApp (SAPI 15, #321).
+  choice('cart_reminders', 'storefront', ['youSend', 'onePerCart', 'automatic'], true),
   sw('blog', 'storefront'),
   sw('reports_sales', 'reports', true),
   sw('reports_export', 'reports', true),

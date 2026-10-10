@@ -16,7 +16,10 @@ export interface PlanDraft {
 export const switchKeys = planKeyDefs.filter((d) => d.kind === 'switch').map((d) => d.key)
 export const numberKeys = planKeyDefs.filter((d) => d.kind !== 'switch').map((d) => d.key)
 // A new plan starts blank on the limits the API checks, and at the first choice or zero on the rest.
-const defaultText = (key: string) => (planKeyDefs.find((d) => d.key === key)?.enforced ? '' : '0')
+const defaultText = (key: string) => {
+  const def = planKeyDefs.find((d) => d.key === key)
+  return def?.enforced && def.kind === 'amount' ? '' : '0'
+}
 export const isUnlimited = (text: string) => numberOf(text) === UNLIMITED
 
 const textOfMoney = (money: Money | null) => (money ? moneyText(money) : '')
