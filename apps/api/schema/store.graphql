@@ -850,6 +850,7 @@ type Mutation {
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
+  cancelStore: BillingSubscription
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription
@@ -887,6 +888,7 @@ type Mutation {
   exportOfferCodes(batchId: ID!): ID
   exportOrders(filter: OrderFilter, search: String): ID
   exportReport(currency: String, custom: CustomReportInput, days: Int!, panel: ReportPanel!): ID
+  exportStoreData: ID
   finishShopifyConnect(key: String!): String
   finishStripeConnect(key: String!): Boolean
   generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
@@ -894,6 +896,7 @@ type Mutation {
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
+  keepProducts(ids: [ID!]!): PlanKeep
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   pauseOffer(id: ID!): Boolean
@@ -1504,6 +1507,16 @@ enum PlanChangeWhen {
   PERIOD_END
 }
 
+type PlanKeep {
+  from: String
+  kept: [ID!]
+  limit: Int
+  paused: Int
+  plan: BillingPlanName
+  products: Int
+  waiting: [ID!]
+}
+
 type Product {
   approval: String
   category: String
@@ -1895,6 +1908,7 @@ type Query {
   peopleCounts: StorePeopleCounts
   planCatalogue: [BillingPlan!]
   planChangeQuote(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): PlanChangeQuote
+  planKeep: PlanKeep
   product(id: ID!): Product
   productCollections(productId: ID!): [ProductCollection!]
   productCounts: ProductCounts
@@ -1915,6 +1929,7 @@ type Query {
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeDataExport(id: ID!): [StoreDataPart!]
   storeInfo: StoreInfo
   storeLocale: StoreLocale
   storeState: StoreState
@@ -2446,6 +2461,16 @@ input StoreCurrencyInput {
   code: String!
   mode: String!
   rounding: String
+}
+
+type StoreDataPart {
+  csv: String
+  expiresAt: String
+  id: ID
+  kind: String
+  rows: Int
+  state: String
+  truncated: Boolean
 }
 
 type StoreHome {

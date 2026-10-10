@@ -73,7 +73,7 @@ export const supportBlocked = () => refusal('Only someone in the store can chang
 export const supportReadOnly = () => refusal('This support session is read-only until the store allows changes.', accessErrorCode.supportReadOnly)
 
 // ACCESS.md §8 "Never", by permission: who works here, payments, billing, its own access, and taking the log away.
-export const supportNeverWrites: readonly StorePermission[] = ['invite', 'manage-vendors', 'supplier.team', 'payments.configure', 'billing', 'support.allow_write', 'activity.export']
+export const supportNeverWrites: readonly StorePermission[] = ['invite', 'manage-vendors', 'supplier.team', 'payments.configure', 'billing', 'support.allow_write', 'activity.export', 'store.export']
 
 /** What a support session may not do in its seat; `supportOwn` fields are its own, so its read-only state never refuses them. */
 const admitSupport = (access: Access, seat: SupportSeat, permission: StorePermission, operation: string) => {

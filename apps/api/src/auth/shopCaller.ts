@@ -20,7 +20,7 @@ export const shopSessionHeader = 'x-shop-session'
 
 export interface Shopper {
   context: TenantContext
-  /** What the store's storefronts may show: past due keeps selling (FIRST-RELEASE §1); suspended and closed don't. */
+  /** What the store's storefronts may show: past due keeps selling (FIRST-RELEASE §1), as a cancelled one does until its paid period ends; suspended and closed don't. */
   available: boolean
   catalogVersion: string
   mainLanguage: string
@@ -50,7 +50,7 @@ const shopperOf = (row: StorefrontRow, request: Request, orderTokenHash: string 
   const currency = [currencyAsked, market?.currency ?? ''].find((c) => currencies.includes(c)) ?? row.pricing_currency
   return {
     context: { caller: { kind: 'shopper', customerId, orderTokenHash }, partnerId: row.partner_id, storeId: row.store_id, sellerScope: { kind: 'all' }, subscription: row.status === 'closed' ? 'cancelled' : row.status },
-    available: row.status === 'trial' || row.status === 'active' || row.status === 'past_due',
+    available: row.status === 'trial' || row.status === 'active' || row.status === 'past_due' || row.selling_out,
     catalogVersion: row.catalog_version,
     mainLanguage: row.main_language,
     country: row.country,

@@ -169,6 +169,13 @@ export const en = {
     // Dunning's reason (SAAS §7.3): a suspended store can't pay in the portal, so it names no way to but support.
     unpaid: 'The plan has been unpaid for 14 days.',
   },
+  storeCancelled: {
+    subject: (store: string) => `${store} is closing`,
+    heading: 'Your store is closing',
+    body: (store: string, date: string) => `You closed ${store}. Shoppers can buy until ${date}; then the storefront goes offline. The portal can be viewed but not changed.`,
+    // Decided on #337: data, assets and the repo are kept 90 days, with the export offered.
+    data: 'Your products, orders and customers are kept for 90 days. Download them from Billing before then.',
+  },
   storeRestored: {
     subject: (store: string) => `${store} is back`,
     heading: 'Your store is restored',

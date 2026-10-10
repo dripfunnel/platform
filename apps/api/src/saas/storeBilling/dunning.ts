@@ -7,6 +7,7 @@ import type { StripeSubscription } from '#integrations/stripe/index'
 import { en } from '#saas/email/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { transitionStore } from '#saas/stores/index'
+import { keepWithinPlan } from './keep'
 
 // The store's state from its Stripe subscription (SAAS §4.2, §7.2–7.3): a failed renewal makes it past due, which
 // keeps the storefront selling and the portal read-only; paid again it is active; 14 days unpaid suspend it.
@@ -80,6 +81,7 @@ export const applyStoreSubscription = async (tx: ScopedSql, sub: StripeSubscript
         { field: 'interval', before: row.interval, after: interval },
       ]),
     )
+    await keepWithinPlan(tx, storeId, at)
   }
   const status = statusOf(sub.status, row.status)
   await syncSubscription(tx, storeId, { status, periodStart, periodEnd, cancelAt: sub.cancel_at_period_end ? periodEnd : null })

@@ -242,6 +242,16 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
   (CONSOLE-DESIGN §8). Suspended is a person's decision; past due is a billing fact.
 - Every state change writes an audit entry and an outbox event (email to the Owner, cache
   purge of the storefront's degraded rule).
+- **Built on #329, part 2**: `cancelStore` (the Owner's, never a support session's) makes the store
+  cancelled and read-only at once. A paid plan ends at its period's end through Stripe's
+  `cancel_at_period_end`, and the Shop API keeps selling until `cancel_at`; a trial or a free plan
+  ends at once. The Owner gets `store-cancelled`, which says the data is kept 90 days, and
+  `exportStoreData` works while read-only. The cron ends each trial past `trial_ends_at` with no plan
+  chosen: it moves to the partner's free plan in the store's currency, with Choose what to keep
+  applied (§6.2), or becomes past due where the partner has none. Each store ends in its own
+  transaction, and one that fails goes behind the others in the next run. *Decided here*: that past-due
+  store may still choose a plan while read-only, since paying is how it leaves (ui/store
+  FIRST-RELEASE.md §3.3). The 90-day deletion is Closed's, not built here.
 
 ### 4.3 What the partner can do to an account
 
@@ -370,6 +380,13 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   it and nothing pauses; the card that enforces a row adds its keep-or-pause rule. An
   **Unlimited** limit is never near and never over: usage reads it as no cap, whatever an
   override adds.
+- **Built on #329, part 2, for products** (`planKeep`, `keepProducts(ids)`): the picks are for a
+  scheduled smaller plan, the free plan a trial ends on, or else the plan the store is on, where
+  they apply at once. What stays is every product with an order waiting to ship, then the Owner's
+  picks, then the best sellers and the most recently changed. The rest gets `hidden_by = 'plan'` when
+  the plan takes effect, and a bigger plan brings it back. `NOTHING_TO_KEEP` answers when the
+  catalogue already fits. *Decided here*: only products pause here, because staff, gateways,
+  couriers and markets get their keep rule with the card that enforces their limit (above).
 
 ### 6.3 Changing and retiring plans
 

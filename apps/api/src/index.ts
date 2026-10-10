@@ -97,7 +97,7 @@ import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
-import { suspendOverdueStores } from '#saas/storeBilling/index'
+import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
@@ -675,6 +675,13 @@ const sweepSchedules = (env: Env): Promise<void> =>
       return 0
     })
     if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
+    // FIRST-RELEASE §3.3: a trial that ended without a plan moves to the free plan, or owes one.
+    const trials = await endTrials(sql, activityLog, new Date()).catch((error: unknown) => {
+      logEvent({ event: 'trial_end_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return { ended: 0, failed: 0 }
+    })
+    if (trials.ended > 0) logEvent({ event: 'trials_ended', api: 'system', code: 'ended', count: trials.ended })
+    if (trials.failed > 0) logEvent({ event: 'trial_end_failed', api: 'system', code: 'store_failed', count: trials.failed })
     // SAAS §7.3: a store 14 days past due is suspended.
     const suspended = await suspendOverdueStores(sql, activityLog, new Date()).catch((error: unknown) => {
       logEvent({ event: 'dunning_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

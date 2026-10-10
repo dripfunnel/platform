@@ -25,12 +25,12 @@ export interface CatalogExportRow {
 
 export const insertCatalogExport = async (
   tx: ScopedSql,
-  e: { storeId: string; sellerId: string | null; kind: CatalogExportKind; filter: Record<string, unknown>; byId: string; byLabel: string },
+  e: { storeId: string; sellerId: string | null; kind: CatalogExportKind; filter: Record<string, unknown>; byId: string; byLabel: string; bundle?: string },
 ): Promise<string> => {
   const id = crypto.randomUUID()
   await tx`
-    insert into catalog_export (id, store_id, seller_id, kind, filter, requested_by_id, requested_by_label)
-    values (${id}, ${e.storeId}, ${e.sellerId}, ${e.kind}, ${JSON.stringify(e.filter)}::text::jsonb, ${e.byId}, ${e.byLabel})
+    insert into catalog_export (id, store_id, seller_id, kind, filter, requested_by_id, requested_by_label, bundle)
+    values (${id}, ${e.storeId}, ${e.sellerId}, ${e.kind}, ${JSON.stringify(e.filter)}::text::jsonb, ${e.byId}, ${e.byLabel}, ${e.bundle ?? null})
   `
   return id
 }

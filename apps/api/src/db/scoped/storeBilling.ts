@@ -1,7 +1,8 @@
 import type { Keyset } from '#core/cursor'
-import { pageLimit, type ScopedSql } from './index'
+import type { CatalogExportRow } from './catalogExports'
+import { pageLimit, pgArray, type ScopedSql } from './index'
 
-// The store's own billing (migrations/0014, 0140; DATA-MODEL §7.9). The subscription is read and written in system
+// The store's own billing (migrations/0014, 0140, 0170; DATA-MODEL §7.9). The subscription is read and written in system
 // scope by billing alone, always by the caller's own store id; the details and invoices are read in the store's scope.
 
 export interface BillingSubscriptionRow {
@@ -29,6 +30,8 @@ export interface BillingSubscriptionRow {
   payment_method_last4: string | null
   payment_method_expires: Date | null
   billing_revision: number
+  /** The Owner's picks for a smaller plan to come (SAAS §6.2); null when none were made. */
+  keep_products: string[] | null
   partner_name: string
   billing_mode: 'dripfunnel' | 'own'
   store_name: string
@@ -41,7 +44,7 @@ const subscriptionColumns = (tx: ScopedSql) => tx`
   select sub.store_id, sub.partner_id, sub.plan_id, sub.plan_version, p.name as plan_name, sub.status, sub.interval, sub.currency, sub.amount,
     sub.period_start, sub.period_end, sub.trial_ends_at, sub.cancel_at, sub.next_plan_id, sub.next_plan_version, np.name as next_plan_name,
     sub.next_interval, sub.change_at, sub.stripe_customer_id, sub.stripe_subscription_id, sub.payment_method_brand, sub.payment_method_last4,
-    sub.payment_method_expires, sub.billing_revision, pa.name as partner_name, pa.billing_mode, s.name as store_name, s.status as store_status, f.synced_at
+    sub.payment_method_expires, sub.billing_revision, to_jsonb(sub.keep_products) as keep_products, pa.name as partner_name, pa.billing_mode, s.name as store_name, s.status as store_status, f.synced_at
   from store_subscription sub
   join store s on s.id = sub.store_id
   join plan p on p.id = sub.plan_id
@@ -251,3 +254,115 @@ export const selectCataloguePlans = (tx: ScopedSql, partnerId: string): Promise<
 
 export const selectLivePlan = async (tx: ScopedSql, partnerId: string, planId: string): Promise<CataloguePlanRow | null> =>
   (await tx<CataloguePlanRow[]>`select id, name, description, version from plan where partner_id = ${partnerId} and id = ${planId} and status = 'live'`)[0] ?? null
+
+/** The partner's free plan in this currency, the one a trial that ended without a plan moves to (FIRST-RELEASE §3.3). */
+export const selectFreePlan = async (tx: ScopedSql, partnerId: string, currency: string): Promise<CataloguePlanRow | null> =>
+  (
+    await tx<CataloguePlanRow[]>`
+      select p.id, p.name, p.description, p.version from plan p join plan_price pp on pp.plan_id = p.id and pp.version = p.version
+      where p.partner_id = ${partnerId} and p.status = 'live' and pp.currency = ${currency} and pp.monthly_amount = 0 order by p.name, p.id limit 1
+    `
+  )[0] ?? null
+
+// ---- Choose what to keep (SAAS §6.2; PortalKeep) ----
+
+export const saveKeepPicks = async (tx: ScopedSql, storeId: string, ids: readonly string[] | null): Promise<void> => {
+  await tx`update store_subscription set keep_products = ${ids ? pgArray([...ids]) : null}::uuid[] where store_id = ${storeId}`
+}
+
+/** Which of these ids are the store's own products, its suppliers' included (the plan counts the whole catalogue). */
+export const selectStoreProductIds = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<string[]> =>
+  ids.length === 0 ? [] : (await tx<{ id: string }[]>`select id from product where store_id = ${storeId} and id = any(${pgArray([...ids])}::uuid[]) and deleted_at is null and not is_sample`).map((r) => r.id)
+
+// What stays within `limit`: a product with an order waiting to ship always (PortalKeep), then the Owner's picks,
+// then the best sellers and the newest; the rest is paused. Unlimited keeps everything.
+const keepRanking = (tx: ScopedSql, storeId: string, picks: readonly string[], limit: number) => tx`
+  with live as (select p.id, p.updated_at from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample),
+  waiting as (
+    select distinct l.product_id from order_line l join "order" o on o.id = l.order_id
+    where o.store_id = ${storeId} and o.state = 'placed' and o.fulfilment_state <> 'fulfilled' and l.fulfilled_quantity < l.quantity
+  ),
+  sold as (select l.product_id, sum(l.quantity) as n from order_line l join "order" o on o.id = l.order_id where o.store_id = ${storeId} and o.state = 'placed' group by l.product_id),
+  ranked as (
+    select live.id, w.product_id is not null as waiting,
+      row_number() over (order by w.product_id is not null desc, live.id = any(${pgArray([...picks])}::uuid[]) desc, coalesce(sold.n, 0) desc, live.updated_at desc, live.id) as rank
+    from live left join waiting w on w.product_id = live.id left join sold on sold.product_id = live.id
+  )
+  select id, waiting, (waiting or rank <= ${limit}) as kept from ranked
+`
+
+export interface KeepSummary {
+  products: number
+  over: number
+  kept: string[]
+  waiting: string[]
+}
+
+/** What keeping within `limit` would pause, without pausing it; at most `listMax` ids of each list. */
+export const selectKeepSummary = async (tx: ScopedSql, storeId: string, picks: readonly string[], limit: number, listMax: number): Promise<KeepSummary> => {
+  const [row] = await tx<KeepSummary[]>`
+    with r as (${keepRanking(tx, storeId, picks, limit)})
+    select count(*)::int as products, count(*) filter (where not kept)::int as over,
+      coalesce((select to_jsonb(array_agg(id)) from (select id from r where kept limit ${listMax}) k), '[]') as kept,
+      coalesce((select to_jsonb(array_agg(id)) from (select id from r where waiting limit ${listMax}) w), '[]') as waiting
+    from r
+  `
+  return row ?? { products: 0, over: 0, kept: [], waiting: [] }
+}
+
+/** Pauses what is over `limit` (never a supplier's own hide) and brings back what is kept; nothing is deleted (SAAS §6.2). */
+export const applyProductKeep = async (tx: ScopedSql, storeId: string, picks: readonly string[], limit: number, at: Date): Promise<{ paused: number; back: number }> => {
+  const [row] = await tx<{ paused: number; back: number }[]>`
+    with r as (${keepRanking(tx, storeId, picks, limit)}),
+    paused as (
+      update product p set hidden_by = 'plan', updated_at = ${at}, revision = p.revision + 1 from r
+      where p.id = r.id and p.store_id = ${storeId} and not r.kept and p.hidden_by is null returning p.id
+    ),
+    back as (
+      update product p set hidden_by = null, updated_at = ${at}, revision = p.revision + 1 from r
+      where p.id = r.id and p.store_id = ${storeId} and r.kept and p.hidden_by = 'plan' returning p.id
+    )
+    select (select count(*) from paused)::int as paused, (select count(*) from back)::int as back
+  `
+  return row ?? { paused: 0, back: 0 }
+}
+
+// ---- Closing the store, and the trials that ended (SAAS §4.2) ----
+
+/** Cancelled from `at`: a trial at once, a paid plan at its period's end, with nothing scheduled after it. */
+export const setCancelAt = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
+  await tx`
+    update store_subscription set cancel_at = ${at}, status = case when status in ('trial', 'past_due') and stripe_subscription_id is null then 'cancelled' else status end,
+      next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null, billing_revision = billing_revision + 1
+    where store_id = ${storeId}
+  `
+}
+
+/** Trials past their end with no plan chosen, oldest first and any that failed to end last; each is locked and checked again as it ends. */
+export const selectEndedTrials = (tx: ScopedSql, now: Date, limit: number): Promise<{ store_id: string }[]> =>
+  tx<{ store_id: string }[]>`
+    select sub.store_id from store_subscription sub join store s on s.id = sub.store_id
+    where sub.status = 'trial' and sub.trial_ends_at <= ${now} and s.status = 'trial'
+    order by sub.trial_end_failed_at nulls first, sub.trial_ends_at, sub.store_id limit ${limit}
+  `
+
+/** A trial that failed to end goes behind the others in the next sweep. */
+export const markTrialEndFailed = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
+  await tx`update store_subscription set trial_end_failed_at = ${at} where store_id = ${storeId} and status = 'trial'`
+}
+
+/** The store's data export (exportStoreData): its parts, each a catalogue export job, read back by the one who asked. */
+export const selectExportBundle = (tx: ScopedSql, storeId: string, requesterId: string, bundle: string): Promise<CatalogExportRow[]> =>
+  tx<CatalogExportRow[]>`
+    select * from catalog_export where store_id = ${storeId} and requested_by_id = ${requesterId} and bundle = ${bundle}
+    order by kind
+  `
+
+/** A trial that ended with no free plan to go to owes a plan, as an unpaid one does (FIRST-RELEASE §3.3). */
+export const markTrialUnpaid = async (tx: ScopedSql, storeId: string): Promise<void> => {
+  await tx`update store_subscription set status = 'past_due' where store_id = ${storeId} and status = 'trial'`
+}
+
+/** A plan version's limit for one key, null when it sets none. */
+export const selectPlanVersionAmount = async (tx: ScopedSql, planId: string, version: number, key: string): Promise<number | null> =>
+  (await tx<{ amount: number | null }[]>`select amount from plan_entitlement where plan_id = ${planId} and version = ${version} and key = ${key}`)[0]?.amount ?? null
