@@ -519,37 +519,6 @@
   font-weight: 800;
 }
 
-.df-reminders-switch {
-  position: relative;
-  flex: none;
-  width: 44px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 12px;
-  background: var(--df-color-neutral-border);
-  cursor: pointer;
-}
-
-.df-reminders-switch[aria-checked='true'] {
-  background: var(--df-color-success);
-}
-
-.df-reminders-switch span {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--df-color-surface);
-  transition: transform 0.15s;
-}
-
-.df-reminders-switch[aria-checked='true'] span {
-  transform: translateX(20px);
-}
-
 .df-reminders-fields {
   display: flex;
   flex-direction: column;

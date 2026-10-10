@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadReminderSettings, reminderDelays, reminderPercents, reminderText, saveReminderSettings, sendTestReminder, type ReminderSettings, type ReminderStep } from '../../api/carts'
 import { loadOfferFacts } from '../../api/offers'
 import { fill, messages } from '../../messages'
+import '../common/switch.css'
 import { cartRefusal } from './cartActions'
 import { consentNoteOf, type CartAccess } from './cartView'
 
@@ -160,8 +161,8 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
               <span className="df-carts-sub">{words.askOwner}</span>
             )
           ) : (
-            <button type="button" role="switch" className="df-reminders-switch" aria-checked={form.enabled} aria-label={words.auto} disabled={ro} onClick={() => set({ enabled: !form.enabled })}>
-              <span />
+            <button type="button" role="switch" className="df-switch" aria-checked={form.enabled} aria-label={words.auto} disabled={ro} onClick={() => set({ enabled: !form.enabled })}>
+              <span aria-hidden="true" />
             </button>
           )}
         </section>
@@ -187,8 +188,8 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
                   {words.preview}
                 </button>
                 {i > 0 && !locked && (
-                  <button type="button" role="switch" className="df-reminders-switch" aria-checked={x.enabled} aria-label={fill(words.stepOn, { n })} disabled={ro} onClick={() => setStep(i, { enabled: !x.enabled })}>
-                    <span />
+                  <button type="button" role="switch" className="df-switch" aria-checked={x.enabled} aria-label={fill(words.stepOn, { n })} disabled={ro} onClick={() => setStep(i, { enabled: !x.enabled })}>
+                    <span aria-hidden="true" />
                   </button>
                 )}
               </div>

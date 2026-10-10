@@ -7,6 +7,7 @@ import { loadMenu } from '../../api/menu'
 import type { Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { RadioCards } from '../common/RadioCards'
+import '../common/switch.css'
 import { blankDraft, draftOf, nameField, newRow, ruleFields, ruleInputs, slugOf, type CollectionDraft, type RuleRow } from './collectionDraft'
 
 const words = messages.collections.editor
@@ -356,7 +357,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
         </section>
 
         <div className="df-coll-actions">
-          <button type="button" role="switch" aria-checked={draft.visible} disabled={ro} className="df-coll-switch" onClick={() => set({ visible: !draft.visible })}>
+          <button type="button" role="switch" aria-checked={draft.visible} disabled={ro} className="df-switch df-coll-switch" onClick={() => set({ visible: !draft.visible })}>
             <span aria-hidden="true" />
             {draft.visible ? words.visible : words.hidden}
           </button>
