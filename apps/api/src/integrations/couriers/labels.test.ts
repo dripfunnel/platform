@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { CourierRejected, CourierUnavailable, type LabelRequest } from '#core/couriers'
 import { localCouriers } from '../local/index'
-import { easyPostBook, easyPostPickup } from './easypost'
+import { easyPostBook, easyPostHook, easyPostPickup } from './easypost'
 import { courierCall, fetchLabel, isLabelHost } from './request'
-import { shiprocketBook, shiprocketPickup } from './shiprocket'
+import { shiprocketBook, shiprocketHook, shiprocketPickup } from './shiprocket'
 
 // SAPI 12 (#311): booking a label and a pickup through each adapter, against answers shaped as Shiprocket's and EasyPost's.
 
@@ -152,5 +152,35 @@ describe('the local stand-in', () => {
     expect(new TextDecoder().decode(booked?.label.bytes.slice(0, 5))).toBe('%PDF-')
     expect(await gateway.book('usps', india)).toBeNull()
     expect(await gateway.pickup('usps', { providerRef: 'local-1', from: us.from })).toEqual({ ref: 'local-pickup-local-1', date: null })
+  })
+})
+
+describe('tracking hooks', () => {
+  const at = new Date('2026-10-12T00:00:00Z')
+  const hook = (body: unknown, headers: Record<string, string>) => ({ body: JSON.stringify(body), headers: new Headers(headers), receivedAt: at })
+
+  it('take Shiprocket’s status only with the partner’s token, in India’s time, ignoring what happens before the courier has it', async () => {
+    expect(await shiprocketHook('tok', hook({ awb: 149, current_status: 'OUT FOR DELIVERY', current_timestamp: '12 10 2026 09:15:00' }, { 'x-api-key': 'tok' }))).toEqual([
+      { providerRef: null, trackingNumber: '149', status: 'out_for_delivery', at: new Date('2026-10-12T03:45:00Z') },
+    ])
+    expect(await shiprocketHook('tok', hook({ awb: '149', current_status: 'RTO DELIVERED' }, { 'x-api-key': 'tok' }))).toEqual([{ providerRef: null, trackingNumber: '149', status: 'returned', at }])
+    expect(await shiprocketHook('tok', hook({ awb: '149', current_status: 'MANIFEST GENERATED' }, { 'x-api-key': 'tok' }))).toEqual([])
+    expect(await shiprocketHook('tok', hook({ awb: '149', current_status: 'DELIVERED' }, { 'x-api-key': 'tok2' }))).toBeNull()
+    expect(await shiprocketHook(null, hook({ awb: '149', current_status: 'DELIVERED' }, { 'x-api-key': '' }))).toBeNull()
+  })
+
+  it('take EasyPost’s tracker events only when signed with the secret as EasyPost normalises it', async () => {
+    const body = { description: 'tracker.updated', result: { tracking_code: 'EZ1', shipment_id: 'shp_1', status: 'delivered', updated_at: '2026-10-12T08:00:00Z' } }
+    const sign = async (text: string, secret: string) => {
+      const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+      return `hmac-sha256-hex=${[...new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, '0')).join('')}`
+    }
+    // "ﬁ" is one character that NFKD writes as "fi".
+    const signature = await sign(JSON.stringify(body), 'fine-secret')
+    expect(await easyPostHook('ﬁne-secret', hook(body, { 'x-hmac-signature': signature }))).toEqual([{ providerRef: 'shp_1', trackingNumber: 'EZ1', status: 'delivered', at: new Date('2026-10-12T08:00:00Z') }])
+    expect(await easyPostHook('other', hook(body, { 'x-hmac-signature': signature }))).toBeNull()
+    expect(await easyPostHook('fine-secret', hook(body, {}))).toBeNull()
+    const other = { description: 'batch.created', result: { status: 'created' } }
+    expect(await easyPostHook('fine-secret', hook(other, { 'x-hmac-signature': await sign(JSON.stringify(other), 'fine-secret') }))).toEqual([])
   })
 })

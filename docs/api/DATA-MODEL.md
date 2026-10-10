@@ -1496,7 +1496,9 @@ fulfilment_line     (fulfilment_id, order_line_id, store_id, seller_id NULL, qua
                     -- store_courier it went through, in place of courier_account_id), provider_ref (the
                     -- courier's own id, unique per courier), booked_at and the pickup (pickup_requested_at,
                     -- pickup_ref, pickup_date). A booked label's tracking is the courier's, so addTracking
-                    -- refuses it. The engine writes both tables in system
+                    -- refuses it. 0131 added tracking_status and tracking_status_at (the courier's time,
+                    -- which a later hook must pass) and sets delivered_at on the first 'delivered'. The
+                    -- engine writes both tables in system
                     -- scope; the merchant side reads every row, a supplier its own. A part is shipped once
                     -- every line has gone, partly_shipped once some has, sent_to_store once a to-store part
                     -- has handed all of it over and none has gone on; the order's fulfilment_state follows

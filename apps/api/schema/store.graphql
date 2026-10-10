@@ -1150,6 +1150,7 @@ type OrderReturnLine {
 type OrderShipment {
   courier: String
   courierName: String
+  deliveredAt: String
   id: ID
   kind: String
   labelDocumentId: ID
@@ -1160,6 +1161,7 @@ type OrderShipment {
   shippedAt: String
   supplierId: ID
   trackingNumber: String
+  trackingStatus: String
   trackingUrl: String
   warehouseId: ID
   warehouseName: String
