@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type Keyboard
 import { loadOfferCounts, loadOfferNames, loadOfferPlace, loadOffers, offerKinds, offerPageSize, offerTabs, type Offer, type OfferCounts, type OfferKind, type OfferPage, type OfferTab } from '../../api/offers'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { zoneName } from '../orders/orderView'
 import { CodeCheck } from './CodeCheck'
 import { copyText } from './copyText'
 import { actsFor, useOfferActions, type OfferAct } from './offerActions'
@@ -239,6 +240,7 @@ export const OffersPage = () => {
                 <option value="automatic">{words.filters.automatic}</option>
                 <option value="code">{words.filters.code}</option>
               </select>
+              {place && <span className="df-offers-zone">{fill(words.timesIn, { zone: zoneName(place.timeZone) })}</span>}
             </div>
 
             {list.kind === 'loading' && <LoadingState label={words.loading} />}

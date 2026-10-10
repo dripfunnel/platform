@@ -147,9 +147,7 @@ export const deleteOffer = async (id: string): Promise<void> => {
   await query('mutation D($id: ID!) { deleteOffer(id: $id) }', z.object({ deleteOffer: z.boolean() }), { id })
 }
 
-
-/** Where the store is: its time zone (dates, fact 9) and country (the region's words, T5). */
-/** Refused when the store has no info yet, so no screen guesses a zone it would then name as the store's. */
+/** The store's time zone (dates, fact 9) and country (the region's words, T5); refused for a store without info, never guessed. */
 export const loadOfferPlace = async (): Promise<{ timeZone: string; country: string | null }> => {
   const { storeInfo } = await query('{ storeInfo { timeZone country } }', z.object({ storeInfo: z.object({ timeZone: z.string(), country: z.string().nullable() }).nullable() }))
   if (!storeInfo) throw new Error('The store has no time zone yet.')

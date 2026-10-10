@@ -4280,49 +4280,6 @@
       "shipAmount": "{amount} off {ship}",
       "shipFree": "Free {ship}"
     },
-    "sentence": {
-      "giftCards": "gift cards",
-      "onSale": "items already reduced",
-      "percentOff": "{percent}% off {targets}",
-      "eachOff": "{amount} off each item of {targets}",
-      "orderPercent": "{percent}% off the whole order",
-      "orderAmount": "{amount} off the whole order",
-      "tier": "{off} off orders over {minimum}",
-      "bxgyFree": "Buy {buy} of {buyTargets}, get {get} of {getTargets} free",
-      "bxgyHalf": "Buy {buy} of {buyTargets}, get {get} of {getTargets} half price",
-      "bxgyPercent": "Buy {buy} of {buyTargets}, get {get} of {getTargets} at {percent}% off",
-      "more": "the same",
-      "oncePerOrder": " (once per order)",
-      "shipAmount": "{amount} off {ship}",
-      "shipFree": "Free {ship}",
-      "except": "except {list}",
-      "cap": "up to {amount}",
-      "automatic": "automatic at checkout",
-      "code": "code {code}",
-      "singleUse": "single-use codes",
-      "minimumAmount": "orders of {amount} or more",
-      "minimumItems": "with {count}+ items in the cart",
-      "minimumThese": "when buying {count} or more of these",
-      "groups": "for {names} customers",
-      "firstOrder": "first order only",
-      "customers": {
-        "one": "for {count} chosen customer",
-        "other": "for {count} chosen customers"
-      },
-      "countries": "for shoppers shipping to {countries}",
-      "starts": "starts {day}",
-      "ends": "ends {day}",
-      "noEnd": "no end date",
-      "oncePerCustomer": "once per customer",
-      "timesPerCustomer": "{count} times per customer",
-      "firstUses": "first {count} uses",
-      "kinds": {
-        "product": "product",
-        "order": "order"
-      },
-      "combinesNothing": "doesn’t combine with other offers",
-      "combinesNot": "doesn’t combine with other {kinds} offers"
-    },
     "notes": {
       "readOnlyTitle": "Your store is view-only.",
       "readOnly": "Offers can’t be changed until billing is sorted.",
@@ -4489,7 +4446,8 @@
       "usedUp": "{code} is used up.",
       "usedUpBody": "{name}. All {total} uses are gone. Shoppers see “This code can’t be used any more”.",
       "usedOnce": "{name}. This single-use code was used {date}."
-    }
+    },
+    "timesIn": "Times in {zone}"
   },
   "sales": {
     "title": "Your sales",

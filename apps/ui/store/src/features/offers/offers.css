@@ -380,3 +380,9 @@
   display: flex;
   gap: 8px;
 }
+
+.df-offers-zone {
+  margin-left: auto;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}

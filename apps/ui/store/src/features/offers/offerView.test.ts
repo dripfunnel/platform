@@ -3,9 +3,9 @@ import type { Offer, OfferAction } from '../../api/offers'
 import { messages } from '../../messages'
 import { actsFor } from './offerActions'
 import { checkWords } from './CodeCheck'
-import { kindOf, regionWords, sentence, statusKeyOf, timeLine, whatText, type OfferNames } from './offerView'
+import { kindOf, regionWords, statusKeyOf, timeLine, whatText, type OfferNames } from './offerView'
 
-// How an offer is worded (OFFERS-DESIGN §3 fact 9, B2, §1): status, time line, the row's words and the sentence.
+// How an offer is worded (OFFERS-DESIGN §3 fact 9, B2, §1): status, time line and the row's words.
 
 const now = new Date('2026-10-10T06:30:00.000Z')
 const zone = 'Asia/Kolkata'
@@ -62,22 +62,6 @@ describe('what an offer gives, in words', () => {
     expect(whatText(offer({ action: action({ operation: 'free_shipping' }) }), regionWords('US'), names)).toBe('Free shipping')
     expect(whatText(offer({ conditions: [{ ...leaf, operation: 'customer_group', groupIds: ['g1', 'g2'] }] }), india, names)).toBe('10% off the order · VIP or Wholesale')
     expect(whatText(offer({ action: action({ operation: 'buy_x_get_y', percent: 50, buy: { quantity: 2, targets: null }, get: { quantity: 1, targets: null } }) }), india, names)).toBe('Buy 2, get 1 half price')
-  })
-
-  it('says the whole offer in one sentence, and that a new offer combines with nothing (#337)', () => {
-    const welcome = offer({ perCustomerLimit: 1, conditions: [{ ...leaf, operation: 'first_order' }] })
-    expect(sentence(welcome, india, names, now, zone)).toBe('10% off the whole order · code WELCOME10 · first order only · no end date · once per customer · doesn’t combine with other offers')
-    const flash = offer({
-      trigger: 'automatic',
-      code: null,
-      startsAt: '2026-10-12T00:00:00.000Z',
-      endsAt: '2026-10-13T00:00:00.000Z',
-      totalUsesLimit: 100,
-      combines: { product: true, order: false, shipping: true },
-      action: action({ operation: 'line_fixed_discount', amounts: inr('5000'), targets: { productIds: [], collectionIds: ['c1'], filterValueIds: [] }, exclude: { giftCards: true, onSale: true } }),
-    })
-    expect(sentence(flash, india, names, now, zone)).toBe('₹50.00 off each item of Summer · except gift cards and items already reduced · automatic at checkout · starts Oct 12 · ends Oct 13 · first 100 uses · doesn’t combine with other order offers')
-    expect(sentence(offer({ code: null }), india, names, now, zone)).toContain('single-use codes')
   })
 })
 

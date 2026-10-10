@@ -37,7 +37,7 @@ export const regionWords = (country: string | null): RegionWords => ({
 export type StatusKey = 'live' | 'ending' | 'scheduled' | 'off' | 'ended' | 'used_up'
 
 /** "Ending soon" is the portal's reading of a live offer's end (fact 9): within this many hours. */
-export const endingSoonHours = 48
+const endingSoonHours = 48
 const hour = 3_600_000
 
 export const statusKeyOf = (offer: Pick<Offer, 'status' | 'endsAt'>, now: Date): StatusKey =>
@@ -56,9 +56,6 @@ export const statusLook: Record<StatusKey, { tone: StatusTone; icon: StatusIconN
 export const dateTimeText = (iso: string, timeZone: string): string =>
   new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone }).format(new Date(iso))
 export const dayText = (iso: string, timeZone: string): string => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone }).format(new Date(iso))
-
-/** The store's time zone as people say it ("India Standard Time"), so no time is shown without its zone (fact 9). */
-export const zoneName = (timeZone: string): string => new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'longGeneric' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? timeZone
 
 const weekday = (day: number) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + day)))
 const recurrenceOf = (offer: Pick<Offer, 'conditions'>) => offer.conditions.find((c) => c.operation === 'recurrence') ?? null
@@ -103,10 +100,9 @@ export const noNames: OfferNames = { collections: new Map(), filterValues: new M
 const amountText = (amounts: readonly ApiMoney[]): string => formatList(amounts.map(moneyText))
 /** Any of several: "VIP or Wholesale" (I2, "several groups mean any of"). */
 export const orList = (items: readonly string[]): string => new Intl.ListFormat(locale, { type: 'disjunction' }).format(items)
-export const countryName = (code: string) => new Intl.DisplayNames(locale, { type: 'region' }).of(code) ?? code
 const counted = (forms: { one?: string; other: string }, n: number) => fill(plural(forms, n), { count: formatCount(n) })
 
-export const targetsText = (t: OfferTargets | null, names: OfferNames): string => {
+const targetsText = (t: OfferTargets | null, names: OfferNames): string => {
   if (!t) return words.what.chosenProducts
   const named = (ids: readonly string[], map: ReadonlyMap<string, string>) => ids.map((id) => map.get(id)).filter((n): n is string => Boolean(n))
   const parts = [
@@ -148,64 +144,3 @@ export const whatText = (offer: Pick<Offer, 'action' | 'conditions'>, region: Re
 }
 
 const getWords = (percent: number | null) => (percent === null || percent === 100 ? words.what.bxgyFree : percent === 50 ? words.what.bxgyHalf : words.what.bxgyPercent)
-/** The offer in one sentence (§1, C1): what they get, how, the minimum, who, when, limits and what it combines with. */
-export const sentence = (offer: Pick<Offer, 'action' | 'conditions' | 'trigger' | 'code' | 'startsAt' | 'endsAt' | 'perCustomerLimit' | 'totalUsesLimit' | 'combines'>, region: RegionWords, names: OfferNames, now: Date, timeZone: string): string => {
-  const s = words.sentence
-  const a = offer.action
-  const parts: string[] = []
-  const exclusions = [a.exclude?.giftCards ? s.giftCards : '', a.exclude?.onSale ? s.onSale : ''].filter(Boolean)
-  switch (a.operation) {
-    case 'products_percentage_discount':
-      parts.push(fill(s.percentOff, { percent: String(a.percent ?? 0), targets: targetsText(a.targets, names) }))
-      break
-    case 'line_fixed_discount':
-      parts.push(fill(s.eachOff, { amount: amountText(a.amounts), targets: targetsText(a.targets, names) }))
-      break
-    case 'order_percentage_discount':
-      parts.push(fill(s.orderPercent, { percent: String(a.percent ?? 0) }))
-      break
-    case 'order_fixed_discount':
-      parts.push(fill(s.orderAmount, { amount: amountText(a.amounts) }))
-      break
-    case 'tiered_discount':
-      parts.push(formatList(a.tiers.map((t) => fill(s.tier, { off: a.kind === 'fixed' ? amountText(t.amounts) : `${t.percent ?? 0}%`, minimum: amountText(t.minimum) }))))
-      break
-    case 'buy_x_get_y':
-      parts.push(
-        fill(a.percent === null || a.percent === 100 ? s.bxgyFree : a.percent === 50 ? s.bxgyHalf : s.bxgyPercent, {
-          buy: String(a.buy?.quantity ?? 1),
-          buyTargets: targetsText(a.buy?.targets ?? null, names),
-          get: String(a.get?.quantity ?? 1),
-          getTargets: a.get?.targets ? targetsText(a.get.targets, names) : s.more,
-          percent: String(a.percent ?? 100),
-        }) + (a.oncePerOrder ? s.oncePerOrder : ''),
-      )
-      break
-    case 'shipping_fixed_discount':
-      parts.push(fill(s.shipAmount, { amount: amountText(a.amounts), ship: region.ship }))
-      break
-    default:
-      parts.push(fill(s.shipFree, { ship: region.ship }))
-  }
-  if (exclusions.length) parts.push(fill(s.except, { list: formatList(exclusions) }))
-  if (a.cap.length) parts.push(fill(s.cap, { amount: amountText(a.cap) }))
-  parts.push(offer.trigger === 'automatic' ? s.automatic : offer.code ? fill(s.code, { code: offer.code }) : s.singleUse)
-  for (const c of offer.conditions) {
-    if (c.operation === 'minimum_order_amount') parts.push(fill(s.minimumAmount, { amount: amountText(c.amounts) }))
-    if (c.operation === 'minimum_quantity') parts.push(fill(s.minimumItems, { count: String(c.minimum ?? 1) }))
-    if (c.operation === 'contains_products' || c.operation === 'contains_collection' || c.operation === 'at_least_n_with_filter_values') parts.push(fill(s.minimumThese, { count: String(c.minimum ?? 1) }))
-    if (c.operation === 'customer_group') parts.push(fill(s.groups, { names: orList(c.groupIds.map((id) => names.groups.get(id) ?? words.what.aGroup)) }))
-    if (c.operation === 'first_order') parts.push(s.firstOrder)
-    if (c.operation === 'specific_customers') parts.push(counted(s.customers, c.customerIds.length))
-    if (c.operation === 'shipping_country') parts.push(fill(s.countries, { countries: formatList(c.countries.map(countryName)) }))
-    if (c.operation === 'recurrence') parts.push(repeatText(c))
-  }
-  if (offer.startsAt && new Date(offer.startsAt) > now) parts.push(fill(s.starts, { day: dayText(offer.startsAt, timeZone) }))
-  parts.push(offer.endsAt ? fill(s.ends, { day: dayText(offer.endsAt, timeZone) }) : s.noEnd)
-  if (offer.perCustomerLimit) parts.push(offer.perCustomerLimit === 1 ? s.oncePerCustomer : fill(s.timesPerCustomer, { count: String(offer.perCustomerLimit) }))
-  if (offer.totalUsesLimit) parts.push(fill(s.firstUses, { count: formatCount(offer.totalUsesLimit) }))
-  const kinds = (['product', 'order', 'shipping'] as const).filter((k) => !offer.combines[k]).map((k) => (k === 'shipping' ? region.ship : s.kinds[k]))
-  if (kinds.length === 3) parts.push(s.combinesNothing)
-  else if (kinds.length) parts.push(fill(s.combinesNot, { kinds: formatList(kinds) }))
-  return parts.join(words.joiner)
-}
