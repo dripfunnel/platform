@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ReminderChannel, SkipReason } from '#db/scoped/cartReminders'
+import { euCountries } from '#core/countries'
 
 // The pure rules of abandoned carts and their reminders (FIRST-RELEASE §9; the Carts prototype's Reminders tab).
 
@@ -35,18 +36,21 @@ export const quietWaitMs = (minutes: number): number => {
  * Countries whose stores remind only shoppers who agreed to marketing (the EU and EEA: Carts' "EU rules … only shoppers who
  * tick 'Email me about my cart and offers'"). Decided here (#321): the EU's 27 and Iceland, Liechtenstein and Norway.
  */
-export const optInCountries: ReadonlySet<string> = new Set([
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
-  'IS', 'LI', 'NO',
-])
+export const optInCountries: ReadonlySet<string> = new Set([...euCountries, 'IS', 'LI', 'NO'])
 
-/** Whether the store may email this shopper about their cart: never after they stopped; in an opt-in country only once they agreed. */
+/** Whether the store may email this shopper about their cart: never after they stopped or chose other channels; in an opt-in country only once they agreed. */
 export const mayEmail = (storeCountry: string | null, consent: { consent_state: string; consent_channels: readonly string[] } | null): boolean => {
   const state = consent?.consent_state ?? 'not_asked'
   if (state === 'stopped' || state === 'declined') return false
+  // Agreeing to some channels and not email is no agreement to email, wherever the store is (decided on #321).
+  if (state === 'opted_in' && consent && consent.consent_channels.length > 0 && !consent.consent_channels.includes('email')) return false
   if (storeCountry !== null && optInCountries.has(storeCountry)) return state === 'opted_in' && (consent?.consent_channels.includes('email') ?? false)
   return true
 }
+
+/** Whether the shopper agreed to WhatsApp (Carts: "WhatsApp needs opt-in"); checked when it is chosen and again as it goes. */
+export const mayWhatsApp = (consent: { consent_state: string; consent_channels: readonly string[] } | null): boolean =>
+  consent?.consent_state === 'opted_in' && consent.consent_channels.includes('whatsapp')
 
 export interface DecisionFacts {
   byHand: boolean
@@ -58,8 +62,10 @@ export interface DecisionFacts {
   cartOpen: boolean
   stopped: boolean
   recovered: boolean
-  email: string | null
-  mayEmail: boolean
+  /** The email, or for WhatsApp the number, it would go to. */
+  contact: string | null
+  /** The shopper's marketing answer allows this channel (mayEmail; WhatsApp is checked as it is chosen). */
+  mayContact: boolean
   /** On the suppression list: it bounced or complained (THIRD-PARTY-ACCESS §2.4). */
   suppressed: boolean
   skipOutOfStock: boolean
@@ -77,8 +83,8 @@ export const skipReasonOf = (f: DecisionFacts): SkipReason | null => {
   if (!f.cartOpen) return 'cart_gone'
   if (f.recovered) return 'recovered'
   if (f.stopped) return 'stopped'
-  if (f.email === null) return 'no_contact'
-  if (!f.mayEmail) return 'opted_out'
+  if (f.contact === null) return 'no_contact'
+  if (!f.mayContact) return 'opted_out'
   if (f.suppressed) return 'undeliverable'
   if (f.byHand) return null
   if (!f.storeSending || !f.flowEnabled || !f.levelAllows || !f.stepEnabled) return 'paused'

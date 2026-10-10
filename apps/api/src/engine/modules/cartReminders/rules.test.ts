@@ -3,7 +3,7 @@ import { levelOf, mayEmail, quietWaitMs, settingsSchema, skipReasonOf, type Deci
 
 const sendable: DecisionFacts = {
   byHand: false, storeSending: true, flowEnabled: true, levelAllows: true, stepEnabled: true, cartOpen: true, stopped: false, recovered: false,
-  email: 'asha@example.com', mayEmail: true, suppressed: false, skipOutOfStock: true, allOutOfStock: false, underMinimum: false, weeklyCap: true, remindedAnotherCart: false,
+  contact: 'asha@example.com', mayContact: true, suppressed: false, skipOutOfStock: true, allOutOfStock: false, underMinimum: false, weeklyCap: true, remindedAnotherCart: false,
 }
 
 describe('skipReasonOf', () => {
@@ -12,11 +12,11 @@ describe('skipReasonOf', () => {
   })
 
   it('answers in the prototype’s order: recovered › stopped › no contact › opted out › out of stock › under minimum', () => {
-    const all = { ...sendable, recovered: true, stopped: true, email: null, mayEmail: false, allOutOfStock: true, underMinimum: true }
+    const all = { ...sendable, recovered: true, stopped: true, contact: null, mayContact: false, allOutOfStock: true, underMinimum: true }
     expect(skipReasonOf(all)).toBe('recovered')
     expect(skipReasonOf({ ...all, recovered: false })).toBe('stopped')
     expect(skipReasonOf({ ...all, recovered: false, stopped: false })).toBe('no_contact')
-    expect(skipReasonOf({ ...all, recovered: false, stopped: false, email: 'a@b.example' })).toBe('opted_out')
+    expect(skipReasonOf({ ...all, recovered: false, stopped: false, contact: 'a@b.example' })).toBe('opted_out')
     expect(skipReasonOf({ ...sendable, allOutOfStock: true, underMinimum: true })).toBe('out_of_stock')
     expect(skipReasonOf({ ...sendable, underMinimum: true })).toBe('under_minimum')
   })
@@ -27,7 +27,7 @@ describe('skipReasonOf', () => {
       expect(skipReasonOf({ ...sendable, ...off, byHand: true })).toBeNull()
     }
     expect(skipReasonOf({ ...sendable, byHand: true, allOutOfStock: true, underMinimum: true, remindedAnotherCart: true })).toBeNull()
-    expect(skipReasonOf({ ...sendable, byHand: true, mayEmail: false })).toBe('opted_out')
+    expect(skipReasonOf({ ...sendable, byHand: true, mayContact: false })).toBe('opted_out')
     expect(skipReasonOf({ ...sendable, byHand: true, suppressed: true })).toBe('undeliverable')
   })
 
@@ -55,6 +55,9 @@ describe('mayEmail', () => {
     expect(mayEmail('US', { consent_state: 'not_asked', consent_channels: [] })).toBe(true)
     expect(mayEmail('US', { consent_state: 'stopped', consent_channels: [] })).toBe(false)
     expect(mayEmail('IN', { consent_state: 'declined', consent_channels: [] })).toBe(false)
+    // Agreed to WhatsApp alone: no email, in India as anywhere.
+    expect(mayEmail('IN', { consent_state: 'opted_in', consent_channels: ['whatsapp'] })).toBe(false)
+    expect(mayEmail('IN', { consent_state: 'opted_in', consent_channels: ['whatsapp', 'email'] })).toBe(true)
   })
 
   it('in the EU and EEA only once they agreed to email', () => {

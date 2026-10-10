@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { StoreCaller } from '#auth/storeCaller'
+import { euCountries } from '#core/countries'
 import { encodeCursor } from '#core/cursor'
 import { pageWith, type PageWindow } from '#core/paging'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
@@ -12,8 +13,10 @@ import { countLiveSuppliers } from '#db/scoped/suppliers'
 import { selectCurrentVersions } from '#db/scoped/partnerPlans'
 import { planKeyDefs, UNLIMITED } from '#db/scoped/planKeys'
 import { selectStoreAccount } from '#db/scoped/storeAccount'
+import { selectStoreForUpdate } from '#db/scoped/stores'
 import {
   applyPlan,
+  bumpBillingRevision,
   claimBilling,
   clearScheduledChange,
   releaseBilling,
@@ -31,6 +34,8 @@ import {
   type CataloguePlanRow,
 } from '#db/scoped/storeBilling'
 import { StripeRefused, StripeUnavailable, type StoreBillingStripe, type StripeApi, type StripeSubscription } from '#integrations/stripe/index'
+import { taxIdOf } from '#engine/modules/storeInfo/index'
+import { transitionStore } from '#saas/stores/index'
 import { addInterval, offeredWays, quoteChange, type CurrentPlan, type Interval, type When } from './quote'
 
 export { addInterval, offeredWays, quoteChange } from './quote'
@@ -77,10 +82,6 @@ const claimMs = 2 * 60_000
 const cardToken = z.string().regex(/^pm_[A-Za-z0-9]{6,}$/)
 const planChange = z.strictObject({ planId: z.guid(), interval: z.enum(['month', 'year']), when: z.enum(['now', 'period_end']) })
 
-const euCountries = new Set(['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'])
-const gstin = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
-// Greece's VAT numbers start EL, not GR.
-const vatPrefix = (country: string) => (country === 'GR' ? 'EL' : country)
 const text = (max: number) => z.string().trim().min(1).max(max)
 const detailsInput = z.strictObject({
   legalName: text(200),
@@ -89,12 +90,16 @@ const detailsInput = z.strictObject({
   taxId: z.string().max(30).nullish(),
 })
 
-/** The tax number in its kind (SAAS §7.2: GSTIN in India, a VAT number in the EU); `false` when it isn't one. */
-export const taxIdOf = (raw: string | null | undefined, country: string): { tax_id: string; tax_id_kind: 'gstin' | 'vat' } | null | false => {
-  const id = (raw ?? '').replace(/[\s.-]/g, '').toUpperCase()
-  if (id === '') return null
-  if (country === 'IN') return gstin.test(id) ? { tax_id: id, tax_id_kind: 'gstin' } : false
-  if (euCountries.has(country)) return new RegExp(`^${vatPrefix(country)}[0-9A-Z]{2,12}$`).test(id) ? { tax_id: id, tax_id_kind: 'vat' } : false
+/**
+ * The tax number on invoices (SAAS §7.2: a GSTIN in India, a VAT number in the EU), read as Store info reads it;
+ * `false` when it isn't one, or the country has no such number on DripFunnel's invoices.
+ */
+export const invoiceTaxIdOf = (raw: string | null | undefined, country: string): { tax_id: string; tax_id_kind: 'gstin' | 'vat' } | null | false => {
+  if ((raw ?? '').trim() === '') return null
+  if (country !== 'IN' && !euCountries.has(country)) return false
+  const read = taxIdOf(country, raw ?? '')
+  if (read?.kind === 'gst') return { tax_id: read.number, tax_id_kind: 'gstin' }
+  if (read?.kind === 'vat') return { tax_id: read.number, tax_id_kind: 'vat' }
   return false
 }
 
@@ -246,13 +251,13 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
     throw error
   }
 
-  /** Runs `work` holding the store's billing claim, so a second tab or a retry waits its turn instead of charging again. */
-  const claimed = async <T>(work: (claim: string) => Promise<StoreBillingResult<T>>): Promise<StoreBillingResult<T>> => {
+  /** Runs `work` holding the store's billing claim, so a second tab waits its turn instead of charging again. */
+  const claimed = async <T>(work: () => Promise<StoreBillingResult<T>>): Promise<StoreBillingResult<T>> => {
     const at = now()
     const claim = await system((tx) => claimBilling(tx, storeId, at, new Date(at.getTime() + claimMs)))
     if (!claim) return refused('CHANGE_IN_PROGRESS')
     try {
-      return await work(claim)
+      return await work()
     } finally {
       await system((tx) => releaseBilling(tx, storeId, claim))
     }
@@ -348,10 +353,12 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
   }
 
   const changePlan = async (raw: unknown): Promise<StoreBillingResult<BillingSubscriptionDto>> =>
-    claimed(async (claim) => {
+    claimed(async () => {
       const p = await planned(raw)
       if (!p.ok) return p
       const { sub, plan, amount, interval, when } = p.value
+      // The same change from the same recorded state is the same request to Stripe, however often it is retried.
+      const key = (kind: string) => `${kind}:${storeId}:${sub.billing_revision}:${plan.id}:${plan.version}:${interval}`
       const move = { planId: plan.id, planVersion: plan.version, interval, amount }
       const changes = [
         { field: 'plan', before: sub.plan_id, after: plan.id },
@@ -360,6 +367,7 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
       ]
       const at = now()
       let applied: { subscriptionId: string | null; periodStart: Date; periodEnd: Date } | null = null
+      let released = false
       // Asking for the plan it has, with a change scheduled, keeps it: the change is cancelled (SAAS §6.3).
       const keeps = paidOf(sub) && plan.id === sub.plan_id && interval === sub.interval
       if (!paidOf(sub) && amount === 0) {
@@ -372,30 +380,45 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
           const price = { product: await stripe.ensurePlanProduct({ id: plan.id, name: plan.name }), currency: sub.currency, amount, interval }
           if (!paidOf(sub) || !sub.stripe_subscription_id) {
             const customer = await customerOf(stripe, sub)
-            const made = await stripe.createSubscription({ customer, price, metadata: metadataOf(plan, interval) }, `plan-start:${claim}`)
+            const made = await stripe.createSubscription({ customer, price, metadata: metadataOf(plan, interval) }, key('plan-start'))
             const period = periodOf(made)
             applied = { subscriptionId: made.id, periodStart: period?.periodStart ?? at, periodEnd: period?.periodEnd ?? addInterval(at, interval) }
           } else {
             const current = await stripe.subscription(sub.stripe_subscription_id)
             // A change already scheduled gives way to this one.
-            if (current.schedule) await stripe.releaseSchedule(current.schedule)
+            if (current.schedule) {
+              await stripe.releaseSchedule(current.schedule)
+              released = true
+            }
             if (keeps) {
               // Nothing more on Stripe: the release was the change.
             } else if (when === 'now') {
-              const changed = await stripe.changeSubscription(current, { price, metadata: metadataOf(plan, interval) }, `plan-change:${claim}`)
+              const changed = await stripe.changeSubscription(current, { price, metadata: metadataOf(plan, interval) }, key('plan-change'))
               const period = periodOf(changed)
               applied = { subscriptionId: changed.id, periodStart: period?.periodStart ?? sub.period_start, periodEnd: period?.periodEnd ?? sub.period_end }
             } else {
-              await stripe.scheduleChange(current, { price, metadata: metadataOf(plan, interval) }, `plan-schedule:${claim}`)
+              await stripe.scheduleChange(current, { price, metadata: metadataOf(plan, interval) }, key('plan-schedule'))
             }
           }
         } catch (error) {
+          await system(async (tx) => {
+            if (error instanceof StripeRefused) await bumpBillingRevision(tx, storeId)
+            // Stripe has no scheduled change any more, so neither does the store: the change asked for replaced it.
+            if (released && sub.next_plan_id) {
+              await clearScheduledChange(tx, storeId)
+              await activity.record(tx, entry(storeBillingAudit.cancelChange, [{ field: 'plan', before: sub.next_plan_id, after: sub.plan_id }]))
+            }
+          })
           return providerRefusal(error, 'PAYMENT_FAILED')
         }
       }
       await system(async (tx) => {
-        if (applied) await applyPlan(tx, storeId, { ...move, ...applied })
-        else if (keeps) await clearScheduledChange(tx, storeId)
+        if (applied) {
+          await applyPlan(tx, storeId, { ...move, ...applied, activate: !paidOf(sub) })
+          // Out of the trial the store is active too (SAAS §4.2: Active is a paid subscription, or a free plan).
+          const store = paidOf(sub) ? null : await selectStoreForUpdate(tx, storeId)
+          if (store?.status === 'trial') await transitionStore(tx, store, { to: 'active' }, at)
+        } else if (keeps) await clearScheduledChange(tx, storeId)
         else await scheduleChange(tx, storeId, { ...move, at: sub.period_end })
         await activity.record(tx, entry(applied ? storeBillingAudit.changePlan : keeps ? storeBillingAudit.cancelChange : storeBillingAudit.scheduleChange, changes))
       })
@@ -408,7 +431,7 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
     const input = detailsInput.safeParse(raw)
     if (!input.success) return refused('INVALID_INPUT')
     const { legalName, email, address, taxId } = input.data
-    const tax = taxIdOf(taxId, address.country)
+    const tax = invoiceTaxIdOf(taxId, address.country)
     if (tax === false) return refused('INVALID_INPUT')
     const sub = await subscriptionRow()
     if (!sub) return refused('NO_SUBSCRIPTION')

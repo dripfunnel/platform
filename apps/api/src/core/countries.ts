@@ -33,5 +33,8 @@ export const countriesIn = (currencies: ReadonlySet<string>): Country[] =>
 
 const anyRegion = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'none' })
 
+/** The European Union's 27 member states. */
+export const euCountries: ReadonlySet<string> = new Set(['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'])
+
 /** Any ISO 3166-1 alpha-2 country the runtime names, for where a market sells (wider than where a store is made). */
 export const isCountry = (code: string): boolean => /^[A-Z]{2}$/.test(code) && anyRegion.of(code) !== undefined
