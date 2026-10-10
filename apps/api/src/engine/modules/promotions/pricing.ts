@@ -110,7 +110,7 @@ const holds = (c: LeafCondition, f: Facts): boolean => {
   }
 }
 
-export const conditionsHold = (conditions: readonly Condition[], f: Facts): boolean =>
+const conditionsHold = (conditions: readonly Condition[], f: Facts): boolean =>
   conditions.every((c) => (c.operation === 'any_of' ? c.conditions.some((x) => holds(x, f)) : holds(c, f)))
 
 interface State {

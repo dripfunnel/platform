@@ -94,6 +94,18 @@ describe('the offers tables', () => {
     await expect(db.sql`insert into promotion_code (promotion_id, store_id, code) values (${offers.a1}, ${t.storeA1}, 'summer20')`).rejects.toThrow(/promotion_code_code_check/)
   })
 
+  it('holds a usage row to its own store at every end: offer, code, customer and order', async () => {
+    const [code] = await db.sql<{ id: string }[]>`select id from promotion_code where store_id = ${t.storeA2} limit 1`
+    const [order] = await db.sql<{ id: string }[]>`
+      insert into "order" (store_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, payment_method)
+      values (${t.storeA1}, 'placed', 'paid', 'INR', 'N-KEYS', now(), 100, 0, 100, 'cod') returning id`
+    const use = (o: { codeId?: string; customerId?: string }) =>
+      db.sql`insert into promotion_usage (promotion_id, promotion_code_id, store_id, order_id, customer_id, discount_amount, currency)
+        values (${offers.a1}, ${o.codeId ?? null}, ${t.storeA1}, ${order?.id ?? ''}, ${o.customerId ?? null}, 1, 'INR')`
+    await expect(use({ codeId: code?.id ?? '' })).rejects.toThrow(/promotion_usage_promotion_code_id_store_id_fkey/)
+    await expect(use({ customerId: t.customerA2 })).rejects.toThrow(/promotion_usage_customer_id_store_id_fkey/)
+  })
+
   it('adds the live-offer limit to the plan settings, unlimited for every version written before it', async () => {
     expect(await db.sql`select kind from plan_key where key = 'live_offers'`).toEqual([{ kind: 'amount' }])
     const short = await db.sql`select 1 from plan_version v where not exists (select 1 from plan_entitlement e where e.plan_id = v.plan_id and e.version = v.version and e.key = 'live_offers')`
