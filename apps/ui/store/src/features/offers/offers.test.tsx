@@ -388,6 +388,26 @@ describe('one offer’s page', () => {
     expect(screen.getByText(words.act.duplicated)).toBeTruthy()
   })
 
+  it('shows a seat without offers.read “not found”, reading nothing and naming no offer', async () => {
+    await show(supplier, { entry: '/offers/o1' })
+    expect(screen.getByText(words.denied.title)).toBeTruthy()
+    expect(screen.getByText(words.denied.body)).toBeTruthy()
+    expect(screen.queryByText('Welcome 10% off')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
+    expect(api.loadOffer).not.toHaveBeenCalled()
+    expect(api.loadOfferResults).not.toHaveBeenCalled()
+    expect(api.loadCodeBatches).not.toHaveBeenCalled()
+    expect(api.loadOfferNames).not.toHaveBeenCalled()
+  })
+
+  it('says a code couldn’t be copied where the browser gives no clipboard', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    await show(owner, { entry: '/offers/o1' })
+    fireEvent.click(screen.getByRole('button', { name: words.menu.copy }))
+    await settle()
+    expect(screen.getByText(words.copyFailed)).toBeTruthy()
+  })
+
   it('shows an offer that isn’t the store’s as not found, and Staff no actions', async () => {
     await show(owner, { entry: '/offers/nope' })
     expect(screen.getByText(words.page.missing)).toBeTruthy()
