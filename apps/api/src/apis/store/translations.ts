@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { createTranslationService, translationAudit, type SharedNameRow, type TranslationResult, type TranslationRow } from '#engine/modules/catalog/index'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { tenantCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 
 // Translations (CATALOG facts 18–22, N): the catalogue's write permission; a supplier its own products only, the
@@ -26,8 +26,8 @@ const maxShared = 100
 /** The translation service for the acting caller; products.ts checks its list's language with it. */
 export const translationService = (ctx: StoreContext) => {
   if (!ctx.sql) throw forbidden()
-  const caller = actingCaller(ctx)
-  return createTranslationService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+  const caller = tenantCaller(ctx)
+  return createTranslationService({ sql: ctx.sql, context: caller.context, actor: { id: caller.actor.id, partnerId: caller.actor.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
 }
 
 export const registerTranslations = (builder: StoreBuilder) => {

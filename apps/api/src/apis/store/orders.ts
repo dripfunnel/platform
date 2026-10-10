@@ -37,7 +37,7 @@ import { storeRoleHas } from '#auth/storePermissions'
 import { catalogExportKind } from '#engine/modules/catalog/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { actingCaller, tenantCaller, type StoreContext } from './access'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -99,8 +99,8 @@ export const registerOrders = (builder: StoreBuilder) => {
   const Money = moneyType(builder)
   const service = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
-    const caller = actingCaller(ctx)
-    return createOrdersService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+    const caller = tenantCaller(ctx)
+    return createOrdersService({ sql: ctx.sql, context: caller.context, actor: { id: caller.actor.id, partnerId: caller.actor.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
   }
   const refunds = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
@@ -399,7 +399,7 @@ export const registerOrders = (builder: StoreBuilder) => {
     orders: t.field({
       type: SummaryPage,
       args: { filter: t.arg({ type: Filter }), search: t.arg.string(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: { ...read, machine: true } },
       resolve: async (_, args, ctx) => {
         const window = storePage(args)
         return pageOf(await service(ctx).list(filterOf(args.filter), args.search ?? null, window), window, (o) => ({ occurredAt: o.placed_at, id: o.id }))
@@ -425,12 +425,12 @@ export const registerOrders = (builder: StoreBuilder) => {
     orderExport: t.field({ type: OrderExport, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, { id }, ctx) => exportsOf(ctx).read(String(id)) }),
     orderExports: t.field({ type: [OrderExport], extensions: { access: read }, resolve: (_, __, ctx) => exportsOf(ctx).recent() }),
     // The chips' counts (FIRST-RELEASE §19: counts come from their own query); a supplier's are its own parts'.
-    orderCounts: t.field({ type: Counts, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).counts() }),
+    orderCounts: t.field({ type: Counts, extensions: { access: { ...read, machine: true } }, resolve: (_, __, ctx) => service(ctx).counts() }),
     order: t.field({
       type: Order,
       nullable: true,
       args: { id: t.arg.id({ required: true }) },
-      extensions: { access: read },
+      extensions: { access: { ...read, machine: true } },
       resolve: (_, args, ctx) => service(ctx).detail(String(args.id).toLowerCase()),
     }),
   }))

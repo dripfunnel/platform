@@ -12,6 +12,38 @@ type AddedCustomer {
   id: ID
 }
 
+type ApiKey {
+  createdAt: String
+  createdByHere: Boolean
+  createdByName: String
+  expiresAt: String
+  id: ID
+  lastUsedAt: String
+  name: String
+  prefix: String
+  previousWorksUntil: String
+  scopes: [String!]
+  supplier: ApiKeySupplier
+}
+
+type ApiKeyChoices {
+  expiresInDays: [Int!]
+  maxKeys: Int
+  requestsPerMinute: Int
+  requestsPerMonth: Int
+  scopes: [String!]
+}
+
+type ApiKeyPage {
+  nodes: [ApiKey!]
+  pageInfo: PageInfo
+}
+
+type ApiKeySupplier {
+  id: ID
+  name: String
+}
+
 type Badge {
   id: ID
   label: String
@@ -482,6 +514,12 @@ input InvoiceSettingsInput {
   taxPerLine: Boolean!
 }
 
+type IssuedApiKey {
+  id: ID
+  prefix: String
+  secret: String
+}
+
 type Market {
   active: Boolean
   countries: [String!]
@@ -620,6 +658,7 @@ type Mutation {
   connectShopify(shop: String!): String
   connectStripe: String
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
+  createApiKey(expiresInDays: Int, name: String!, scopes: [String!]!, supplierId: ID): IssuedApiKey
   createGroup(description: String, name: String!): ID
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
@@ -667,8 +706,10 @@ type Mutation {
   resendSupplierInvitation(invitationId: ID!): ID
   resumeOffer(id: ID!): Boolean
   resumeSupplier(id: ID!): Int
+  revokeApiKey(id: ID!): Boolean
   revokeInvitation(invitationId: ID!): Boolean
   revokeSupplierInvitation(invitationId: ID!): Boolean
+  rotateApiKey(id: ID!): IssuedApiKey
   saveBadge(id: ID, input: BadgeInput!): ID
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
@@ -1549,6 +1590,8 @@ type Provisioning {
 }
 
 type Query {
+  apiKeyChoices: ApiKeyChoices
+  apiKeys(after: String, before: String, first: Int): ApiKeyPage
   brand: Brand
   catalogExport(id: ID!): CatalogExport
   catalogExports: [CatalogExport!]

@@ -20,6 +20,7 @@ import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { resolvePortalPartner, resolveStoreStanding } from '#auth/storeCaller'
 import { storeOriginAllowed } from '#auth/storeCredential'
+import { apiKeyOf } from '#auth/apiKeys'
 import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
 import { staffPortalCookieName } from '#auth/staffPortal'
@@ -115,6 +116,8 @@ interface Env extends Record<string, unknown> {
   CART_RATE_LIMITER?: RateLimit | undefined
   // "Check a code" in the Store API per person and store, and a shopper's codes per store and IP (SAPI 14); unbound, every one is refused.
   OFFER_CODE_RATE_LIMITER?: RateLimit | undefined
+  // Every request carrying an API key, per address, before the key is looked up (ACCESS.md §9 check 13); unbound, none is refused.
+  API_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
   IMAGES?: ImagesBinding | undefined
@@ -391,6 +394,13 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   })
 }
 
+// A key over its plan's calls, or an address sending too many keys (decided on #337).
+const tooManyRequests = (retryAfterSeconds: number) =>
+  new Response(JSON.stringify({ errors: [{ message: 'Too many requests. Try again later.', extensions: { code: 'RATE_LIMITED' } }] }), {
+    status: 429,
+    headers: { 'content-type': 'application/json', 'retry-after': String(retryAfterSeconds) },
+  })
+
 // A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
 // caller is the session's person acting in the store the request names (ACCESS.md §4).
 const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
@@ -409,7 +419,12 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
       return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
     }
     const facts = factsOf(request)
+    if (apiKeyOf(request) !== null && env.API_RATE_LIMITER) {
+      const ip = request.headers.get('cf-connecting-ip')
+      if (!ip || !(await env.API_RATE_LIMITER.limit({ key: `api-key:${ip}` })).success) return tooManyRequests(60)
+    }
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
+    if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
     const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)

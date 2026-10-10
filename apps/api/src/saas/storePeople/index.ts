@@ -24,6 +24,7 @@ import {
 } from '#db/scoped/people'
 import { allowanceFor, planLimitFor, type PlanLimit } from '#saas/entitlements/index'
 import { queueSideEffect } from '#saas/outbox/index'
+import { countKeysMadeBy } from '#db/scoped/apiKeys'
 import { isUuid } from '#core/ids'
 
 // Settings › People (ACCESS.md §6, SetTeam): the store's merchant side. Every write takes the store's
@@ -94,6 +95,13 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
     if ('refusal' in write) return { ok: false, ...write.refusal }
     const limit = await planLimitFor(sql, caller.context, { key: 'staff', total: write.seatsWanted }, now())
     return limit ? { ok: false, reason: 'PLAN_LIMIT', limit } : { ok: false, reason: 'PLAN_LIMIT', limit: { key: 'staff', limit: 0, unlockedBy: null } }
+  }
+
+  // Only an Owner makes keys; theirs keep working when they go, and the Owners left are told (decided on #337).
+  const tellOwnersOfKeys = async (tx: ScopedSql, member: { id: string; user_id: string; label: string }) => {
+    const keys = await countKeysMadeBy(tx, storeId, member.user_id, now())
+    if (keys === 0) return
+    await queueSideEffect(tx, { kind: 'email', idempotencyKey: `api-keys-creator-gone:${member.id}:${now().getTime()}`, payload: { template: 'api-keys-creator-gone', storeId, creator: member.label, keys }, partnerId: caller.person.partnerId, storeId })
   }
 
   const seatsFor = (tx: ScopedSql, exceptInvitationId: string | null) => countStaffSeats(tx, storeId, exceptInvitationId)
@@ -187,6 +195,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
           if (allowance !== null && wanted > allowance) return { ok: false, seatsWanted: wanted }
         }
         await setMemberRole(tx, member.id, role)
+        if (member.role_key === 'owner') await tellOwnersOfKeys(tx, member)
         await activity.record(tx, { ...entry(peopleAudit.changeRole, { type: 'membership', id: member.id, label: member.label }, null), changes: [{ field: 'role', before: member.role_key, after: role }] })
         return { ok: true }
       }),
@@ -202,6 +211,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
         if (!member) return { ok: false, refusal: { reason: 'NOT_FOUND' } }
         if (member.role_key === 'owner' && (await countOtherOwners(tx, storeId, member.id)) === 0) return { ok: false, refusal: { reason: 'LAST_OWNER' } }
         await removeMember(tx, member.id)
+        if (member.role_key === 'owner') await tellOwnersOfKeys(tx, member)
         await activity.record(tx, entry(peopleAudit.removeMember, { type: 'membership', id: member.id, label: member.label }, null))
         return { ok: true }
       }),

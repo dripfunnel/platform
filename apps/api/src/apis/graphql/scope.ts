@@ -31,6 +31,8 @@ export interface Access<Args = Record<string, unknown>> {
   blockedFor?: readonly StaffSessionKind[]
   /** A mutation that still works while the store is read-only: paying, signing out (FIRST-RELEASE §19). */
   whileReadOnly?: boolean
+  /** API keys may call it too, within their scopes (ACCESS.md §5.6); every other field refuses them. */
+  machine?: true
 }
 
 export type StaffSessionKind = 'impersonation' | 'setup'
@@ -78,6 +80,8 @@ export interface AccessPolicy<Context> {
   scopes: readonly FieldScope[]
   /** This API's permission catalogue; a field naming another API's permission fails the build. */
   permissions: readonly string[]
+  /** The permissions a `machine` field may declare; an API without machine callers leaves it out, and any `machine` field fails the build. */
+  machinePermissions?: readonly string[]
   /** Throws `unauthenticated()` or `forbidden()`. Never called for `public` fields. */
   authorize: (access: Access, context: Context, args: Record<string, unknown>, operation: 'query' | 'mutation' | 'subscription') => Promise<void>
 }
@@ -102,6 +106,9 @@ const checkDeclaration = <Context>(
   }
   if (access.permission !== null && !policy.permissions.includes(access.permission)) {
     throw new AccessDeclarationError(`${where} declares ${access.permission}, which is not a ${policy.api} API permission`)
+  }
+  if (access.machine && (access.permission === null || !(policy.machinePermissions ?? []).includes(access.permission))) {
+    throw new AccessDeclarationError(`${where} is open to keys with ${access.permission ?? 'no permission'}, which they can't be granted`)
   }
   if (!open && access.target === undefined) {
     throw new AccessDeclarationError(`${where} declares no target; use 'none' for a list`)

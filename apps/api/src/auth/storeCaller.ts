@@ -4,11 +4,13 @@ import type { Subscription, TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { crossingsLoggedSince, selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
 import type { ActivityLog, RequestFacts } from './activity'
-import { storeSessionId } from './storeCredential'
+import { sendsStoreCookie, storeSessionId } from './storeCredential'
 import { hashSessionId } from './session'
 import { readUserSession } from './storeSession'
 import { isMerchantRole, isSupplierRole, isSupplierTier, type StoreRole } from './storePermissions'
 import { isUuid } from '#core/ids'
+import { apiKeyOf } from './apiKeys'
+import { planApiLimits, resolveApiKey, type MachineCaller } from './machineCaller'
 
 // The acting store and, for a person working for more than one supplier in it, the acting
 // supplier (ACCESS.md §4).
@@ -45,7 +47,13 @@ export type StoreStanding =
   | { kind: 'supplier-required'; person: StorePerson }
   | { kind: 'crossing'; person: StorePerson }
   | { kind: 'acting'; person: StorePerson; caller: StoreCaller }
+  /** An API key, in its own store with its own scopes (auth/machineCaller.ts). */
+  | { kind: 'machine'; caller: MachineCaller }
+  /** A key over its plan's calls this minute or month: answered 429 before the API runs. */
+  | { kind: 'limited'; retryAfterSeconds: number }
 
+/** The signed-in person behind a standing; null when nobody is, or a key is asking. */
+export const standingPerson = (standing: StoreStanding): StorePerson | null => ('person' in standing ? standing.person : null)
 
 /** The partner whose portal host this is; null answers 404 (docs/ARCHITECTURE.md §2). */
 export const resolvePortalPartner = async (sql: postgres.Sql, host: string): Promise<string | null> =>
@@ -119,6 +127,13 @@ export const resolveStoreStanding = async (
   activity: ActivityLog,
   facts: RequestFacts,
 ): Promise<StoreStanding> => {
+  const key = apiKeyOf(request)
+  if (key !== null) {
+    // A key never rides with a session: one sent beside the portal's cookie is refused like a bad key.
+    if (sendsStoreCookie(request)) return { kind: 'signed-out' }
+    const resolved = await resolveApiKey(sql, key, partnerId, now, planApiLimits)
+    return resolved === null ? { kind: 'signed-out' } : 'retryAfterSeconds' in resolved ? { kind: 'limited', retryAfterSeconds: resolved.retryAfterSeconds } : { kind: 'machine', caller: resolved }
+  }
   const sessionId = storeSessionId(request)
   if (!sessionId) return { kind: 'signed-out' }
   return withSystemScope(sql, async (tx) => {

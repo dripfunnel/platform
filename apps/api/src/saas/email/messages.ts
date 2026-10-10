@@ -156,6 +156,12 @@ export const en = {
     heading: 'Your store is restored',
     body: (store: string) => `${store} is restored. The storefront is live again and the portal works as before.`,
   },
+  apiKeysCreatorGone: {
+    subject: (store: string) => `API keys in ${store} need a look`,
+    heading: 'API keys made by someone who has left',
+    body: (who: string, keys: number, store: string) =>
+      `${who} is no longer an Owner of ${store}. ${keys === 1 ? 'The API key they made keeps' : `The ${keys} API keys they made keep`} working, because keys belong to the store. Check them in Settings › Developers, and revoke any you don’t need.`,
+  },
   orderConfirmed: {
     subject: (store: string, order: string) => `Your ${store} order ${order}`,
     heading: 'Thanks for your order',

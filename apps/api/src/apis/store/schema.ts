@@ -29,6 +29,7 @@ import { registerOffers } from './offers'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
+import { registerDevelopers } from './developers'
 
 export type { StoreContext } from './access'
 
@@ -66,5 +67,6 @@ registerHome(builder)
 registerReports(builder)
 registerReportExports(builder)
 registerListing(builder)
+registerDevelopers(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)
