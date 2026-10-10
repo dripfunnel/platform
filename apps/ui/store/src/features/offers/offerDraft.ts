@@ -167,11 +167,12 @@ const amountsOf = (typed: Amounts, facts: StoreFacts): ApiMoney[] => {
 }
 const typedOf = (list: readonly ApiMoney[]): Amounts => Object.fromEntries(list.map((m) => [m.currency, majorOf(m.amount, m.currency)]))
 const mainOf = (list: readonly ApiMoney[], facts: StoreFacts): string => typedOf(list)[facts.main] ?? ''
-/** Amounts typed in the main currency only: as saved while the main amount is unchanged, else converted afresh. */
+/** Amounts typed in the main currency only: while it's unchanged each currency still sold keeps its saved amount and one
+ *  added since is converted (OFFERS-DESIGN §3.1); a changed main amount converts them all afresh. */
 const keptOr = (typed: string, saved: readonly ApiMoney[], facts: StoreFacts): ApiMoney[] => {
   const minor = minorOf(typed, facts.main)
   const savedMain = saved.find((m) => m.currency === facts.main)
-  return typeof minor === 'number' && savedMain && Number(savedMain.amount) === minor ? [...saved] : amountsOf({ [facts.main]: typed }, facts)
+  return amountsOf(typeof minor === 'number' && savedMain && Number(savedMain.amount) === minor ? typedOf(saved) : { [facts.main]: typed }, facts)
 }
 
 
