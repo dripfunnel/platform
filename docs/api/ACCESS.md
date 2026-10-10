@@ -1013,7 +1013,7 @@ codes still allow a session.
   own. After it, the "never" list still refuses with `BLOCKED_FOR_SUPPORT`, by permission
   (`invite`, `manage-vendors`, `supplier.team`, `payments.configure`, `billing`,
   `support.allow_write`, `activity.export`) and by `blockedFor: ['support']` on a field
-  (`setSupportAccess`, `createApiKey`, `rotateApiKey`, `installApp`, and `saveWebhook`, which would send
+  (`setSupportAccess` and the `supportAccess` log, `createApiKey`, `rotateApiKey`, `installApp`, and `saveWebhook`, which would send
   the store's events to an address the agent chose).
 - **Elevation.** The agent asks with a note (`requestSupportWrite`, one open request at a time,
   again after a Deny). The banner (`storeState.support`) shows it to the merchant side, and an

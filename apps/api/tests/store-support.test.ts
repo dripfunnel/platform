@@ -143,6 +143,7 @@ describe('the exchange', () => {
     const current = await currentOf(cookie)
     expect(current.session).toMatchObject({ id, state: 'open', endedBy: null, agentName: 'priya', actingAs: { name: 'Olivia Owner', role: 'owner' }, access: 'read', writeRequest: null })
     expect((await gql(q.taxSetup, { support: cookie })).code).toBeUndefined()
+    expect((await gql(q.access, { support: cookie })).code).toBe('BLOCKED_FOR_SUPPORT')
     expect((await entries(id)).map((e) => e.action)).toEqual(['support_session.entered', 'support_session.viewed'])
     const viewed = (await entries(id))[1]
     expect(viewed).toMatchObject({ actor_kind: 'support_session', actor_id: id, on_behalf_of_id: agents.priya, target_label: 'taxSetup', visibility: 'store' })

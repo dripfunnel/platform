@@ -76,7 +76,8 @@ export const registerSupport = (builder: StoreBuilder) => {
     supportAccess: t.field({
       type: Access,
       args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
-      extensions: { access: settings },
+      // Other agents' reasons, tickets and requests are the merchant's to read, never a session's (ACCESS.md §8).
+      extensions: { access: { ...settings, blockedFor: ['support'] } },
       resolve: (_, args, ctx) => {
         const window = pageWindow(args, supportLogPageSize)
         if (!window.ok) throw refused(window.code, messages.INVALID_CURSOR)
