@@ -108,6 +108,19 @@ describe('the Offers list', () => {
     expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'off', kind: 'bxgy', trigger: 'automatic', search: '' }, {})
   })
 
+  it('shows loading, never the last tab’s rows and actions, while another tab is read', async () => {
+    let answerOff: (p: Page) => void = () => undefined
+    api.loadOffers.mockImplementation(({ tab }: { tab: string }) => (tab === 'off' ? new Promise<Page>((resolve) => (answerOff = resolve)) : Promise.resolve(page([welcome]))))
+    await show(owner)
+    fireEvent.click(screen.getByRole('tab', { name: 'Off 1' }))
+    await settle()
+    expect(screen.queryByText('Welcome 10% off')).toBeNull()
+    expect(screen.getByText(words.loading)).toBeTruthy()
+    answerOff(page([paused]))
+    await settle()
+    expect(row('Socks deal')).toBeTruthy()
+  })
+
   it('pages 25 at a time: Next asks after, Previous asks before, and says which rows it shows', async () => {
     const many = Array.from({ length: 25 }, (_, i) => ({ ...welcome, id: `o${i}`, name: `Offer ${i}` }))
     api.loadOffers.mockImplementation((_: unknown, cursor: { after?: string; before?: string }) => Promise.resolve(cursor.after ? { rows: [paused], next: null, previous: 'c26' } : { rows: many, next: 'c25', previous: null }))
