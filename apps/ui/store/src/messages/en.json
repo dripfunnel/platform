@@ -3717,11 +3717,6 @@
         "replay": "Send again",
         "replayName": "Send {event} again",
         "replayed": "Sent again: {event}",
-        "remove": "Remove",
-        "removeName": "Remove {url}",
-        "removeBody": "We stop sending events to it straight away, and its waiting events are dropped.",
-        "removeGo": "Remove endpoint",
-        "removed": "Endpoint removed",
         "refused": {
           "INVALID_INPUT": "Pick at least one event.",
           "BAD_URL": "Use an address that starts with https:// and that the internet can find.",
