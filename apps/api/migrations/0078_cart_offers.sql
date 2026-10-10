@@ -10,6 +10,6 @@ alter table order_adjustment
   add column promotion_id uuid,
   add column promotion_code_id uuid,
   add constraint order_adjustment_promotion_fkey foreign key (promotion_id, store_id) references promotion (id, store_id),
-  add constraint order_adjustment_promotion_code_fkey foreign key (promotion_code_id) references promotion_code (id),
+  add constraint order_adjustment_promotion_code_fkey foreign key (promotion_code_id, store_id) references promotion_code (id, store_id),
   add constraint order_adjustment_promotion_kind check (promotion_id is null or kind = 'discount');
 create index order_adjustment_promotion_idx on order_adjustment (promotion_id) where promotion_id is not null;
