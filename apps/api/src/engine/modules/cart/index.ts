@@ -9,7 +9,7 @@ import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartGift, se
 import type { FeatureKey } from '#db/scoped/catalogListing'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
-import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CartOffersInput, type CodeState } from '#engine/modules/promotions/index'
+import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
@@ -83,8 +83,6 @@ export interface CartView {
   discount: Money
   /** Each code the cart holds and what it does now (fact 6). */
   codes: { code: string; state: CodeState }[]
-  /** What its offers were priced from, so placement can check them again as it counts their uses. */
-  offersInput: CartOffersInput
   /** Null until there is an address to deliver to; collection in person is offered without one. */
   deliverable: boolean | null
   shippingOptions: DeliveryOption[]
@@ -178,19 +176,16 @@ export const createCartService = (deps: CartDeps) => {
       }
     }
     const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? null
-    const offersInput: CartOffersInput = {
+    const offers = await cartOffers(sql, {
       storeId,
       currency,
       codes: row.promotion_codes,
       customerId: row.customer_id,
-      email: row.email,
-      phone: row.phone,
       country: address?.country ?? null,
       lines: priced.flatMap((l) => (l.item ? [{ versionId: l.versionId, productId: l.item.product.id, quantity: l.quantity, amount: l.lineTotal.amount, giftCard: l.item.product.productType === 'gift_card', onSale: l.item.version.compareAt !== null }] : [])),
       shipping: chosen?.amount.amount ?? null,
       now: now(),
-    }
-    const offers = await cartOffers(sql, offersInput)
+    })
     for (const l of lines) l.discount = l.lineTotal ? { amount: offers.pricing.lineDiscounts.get(l.versionId) ?? 0n, currency } : null
     // Tax is on what each line and the delivery come to after their offers (OFFERS fact 11).
     const afterOffers = taxable.map((l) => ({ ...l, lineTotal: { amount: l.lineTotal.amount - (l.discount?.amount ?? 0n), currency } }))
@@ -228,7 +223,6 @@ export const createCartService = (deps: CartDeps) => {
       discounts: offers.discounts.map((d) => ({ ...d, amount: { amount: d.amount, currency } })),
       discount: { amount: offers.pricing.discount, currency },
       codes: offers.codes,
-      offersInput,
       deliverable,
       shippingOptions,
       shipping: chosen?.amount ?? null,

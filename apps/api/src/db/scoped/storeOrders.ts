@@ -29,10 +29,10 @@ export interface OrderListRow {
 }
 
 // An order that went through (paid, or paid later by cash or transfer) on the live storefront, as a supplier's view has it.
-const goneThrough = (tx: ScopedSql) =>
+export const goneThrough = (tx: ScopedSql) =>
   tx`(o.payment_state <> 'pending' or o.payment_method in ('cod', 'bank_transfer')) and not exists (select 1 from payment m where m.order_id = o.id and m.mode = 'test')`
 
-const merchantFilter = (tx: ScopedSql, filter: OrderFilter) => {
+export const merchantFilter = (tx: ScopedSql, filter: OrderFilter) => {
   switch (filter) {
     case 'all':
       return tx`true`

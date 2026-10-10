@@ -110,8 +110,8 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
   const CodeType = builder.objectRef<CartView['codes'][number]>('ShopCartCode').implement({
     fields: (t) => ({
       code: t.exposeString('code'),
-      // APPLIED, NOT_ELIGIBLE (not yet: the cart doesn't meet its conditions), DOESNT_COMBINE, SIGN_IN_REQUIRED (it is once per
-      // customer and a number alone doesn't say who), INVALID, EXPIRED, USED_UP or ALREADY_USED.
+      // APPLIED, NOT_ELIGIBLE (not yet: the cart doesn't meet its conditions), DOESNT_COMBINE, SIGN_IN_REQUIRED (once per
+      // customer or first order only, for every guest), INVALID, EXPIRED, USED_UP or ALREADY_USED.
       state: t.exposeString('state'),
     }),
   })

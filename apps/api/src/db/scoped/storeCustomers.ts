@@ -41,7 +41,7 @@ export interface CustomerDetailRow extends CustomerListRow {
 const like = (search: string) => `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
 
 // A customer's orders: its own, and a guest's placed with its email (or, with none, its number); never a test order.
-const theirOrders = (tx: ScopedSql) => tx`
+export const theirOrders = (tx: ScopedSql) => tx`
   o.store_id = c.store_id and o.state <> 'cart'
   and (o.customer_id = c.id or (o.customer_id is null and ((c.email is not null and o.email = c.email) or (c.phone is not null and o.email is null and o.phone = c.phone))))
   and not exists (select 1 from payment m where m.order_id = o.id and m.mode = 'test')

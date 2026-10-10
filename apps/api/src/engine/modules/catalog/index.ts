@@ -64,6 +64,7 @@ export {
   catalogExportKind,
   catalogExportLifetimeMs,
   createCatalogExportService,
+  exportDtoOf,
   type CatalogExportDto,
   type CatalogExportService,
 } from './exports'

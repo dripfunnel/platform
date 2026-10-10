@@ -25,7 +25,6 @@ import { queueOrderUpdate } from '#db/scoped/orderUpdates'
 import { claimCode, claimUse, insertUsage, selectShopperUses } from '#db/scoped/promotions'
 import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
-import { cartOffers } from '#engine/modules/promotions/index'
 import { ensureGuestCustomer } from '#engine/modules/customers/index'
 import { deliverOrder } from '#engine/modules/deliveries/index'
 import type { StripeTaxDeps } from '#engine/modules/tax/index'
@@ -211,10 +210,9 @@ export const createCheckout = (deps: CheckoutDeps) => {
     for (const d of [...cart.discounts].sort((a, b) => a.offerId.localeCompare(b.offerId))) {
       if (!(await claimUse(tx, storeId, d.offerId, at))) throw new Refused('OFFER_CHANGED')
       if (d.perCustomerLimit !== null) {
-        const key = customerId ?? email
-        if (key === null) throw new Refused('OFFER_CHANGED')
-        await serialise(tx, `promotion-use:${d.offerId}:${key}`)
-        const used = (await selectShopperUses(tx, storeId, [d.offerId], { customerId, email })).get(d.offerId) ?? 0
+        if (customerId === null) throw new Refused('OFFER_CHANGED')
+        await serialise(tx, `promotion-use:${d.offerId}:${customerId}`)
+        const used = (await selectShopperUses(tx, storeId, [d.offerId], customerId)).get(d.offerId) ?? 0
         if (used >= d.perCustomerLimit) throw new Refused('OFFER_CHANGED')
       }
       if (d.codeId && !(await claimCode(tx, storeId, d.codeId, at))) throw new Refused('OFFER_CHANGED')
@@ -229,10 +227,6 @@ export const createCheckout = (deps: CheckoutDeps) => {
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
     if (cart.lines.some((l) => l.problem === 'short' || l.problem === 'unavailable')) return { ok: false, reason: 'OUT_OF_STOCK' }
     if (cart.problems.length > 0 || cart.checkoutStep !== 'pay') return { ok: false, reason: 'NOT_READY', problems: cart.problems }
-    // Checked again with the guest's email as who they are: a once-per-customer or first-order offer they can't have is refused.
-    const strict = cart.discounts.length > 0 ? await cartOffers(sql, { ...cart.offersInput, enforce: true }) : null
-    const same = (a: { offerId: string; amount: bigint }[], b: { offerId: string; amount: bigint }[]) => a.length === b.length && a.every((x, i) => x.offerId === b[i]?.offerId && x.amount === b[i]?.amount)
-    if (strict && !same(strict.discounts, cart.discounts.map((d) => ({ offerId: d.offerId, amount: d.amount.amount })))) return { ok: false, reason: 'OFFER_CHANGED' }
     // One read: the option and the account the payment names can't drift apart.
     const accounts = await liveAccounts()
     const option = optionsOf(accounts, deps.country, mode, deps.gateways).find((o) => o.provider === provider)

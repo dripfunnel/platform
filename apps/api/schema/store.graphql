@@ -257,6 +257,11 @@ type CurrencyPrice {
   source: String
 }
 
+input CustomReportInput {
+  columns: String!
+  rows: String!
+}
+
 type Customer {
   addresses: [CustomerAddress!]
   city: String
@@ -418,6 +423,42 @@ type GiftCardDetails {
 
 input GiftCardDetailsInput {
   expiryMonths: Int
+}
+
+type HomeLowStock {
+  count: Int
+  names: [String!]
+}
+
+type HomeOrder {
+  customerName: String
+  fulfilmentState: String
+  id: ID
+  items: Int
+  number: String
+  paymentState: String
+  placedAt: String
+  state: String
+  test: Boolean
+  total: Money
+}
+
+type HomePaymentsToCollect {
+  count: Int
+  firstOrderId: ID
+}
+
+type HomeSales {
+  averageWeek: Money
+  dayBefore: Money
+  yesterday: Money
+}
+
+type HomeSetup {
+  collections: Boolean
+  payments: Boolean
+  products: Boolean
+  shipping: Boolean
 }
 
 input InviteSupplierInput {
@@ -601,6 +642,7 @@ type Mutation {
   exportCustomers(groupId: ID, search: String): ID
   exportOfferCodes(batchId: ID!): ID
   exportOrders(filter: OrderFilter, search: String): ID
+  exportReport(currency: String, custom: CustomReportInput, days: Int!, panel: ReportPanel!): ID
   finishShopifyConnect(key: String!): String
   finishStripeConnect(key: String!): Boolean
   generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
@@ -1530,6 +1572,7 @@ type Query {
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
   health: String
+  home: StoreHome
   invoiceSettings: InvoiceSettings
   market(id: ID!): Market
   markets(after: String, before: String, first: Int): MarketPage
@@ -1563,6 +1606,9 @@ type Query {
   productTranslation(language: String!, productId: ID!): [Translation!]
   products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
+  report(currency: String, days: Int!): StoreReport
+  reportExport(id: ID!): ReportExport
+  reportExports: [ReportExport!]
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   shippingSettings: ShippingSettings
   shopifyConnection: ShopifyConnection
@@ -1608,6 +1654,74 @@ enum RefundReason {
 type RelatedProduct {
   id: ID
   name: String
+}
+
+type ReportExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type ReportMarket {
+  amount: Money
+  marketId: ID
+  name: String
+  orders: Int
+}
+
+type ReportOffer {
+  amount: Money
+  discount: Money
+  name: String
+  orders: Int
+}
+
+enum ReportPanel {
+  custom
+  markets
+  offers
+  sold
+  suppliers
+  takings
+  tax
+}
+
+type ReportProduct {
+  amount: Money
+  name: String
+  productId: ID
+  units: Int
+}
+
+type ReportSupplier {
+  name: String
+  supplierId: ID
+  units: Int
+}
+
+type ReportTakings {
+  net: Money
+  orders: Int
+  previousNet: Money
+  previousOrders: Int
+  refunds: Money
+  sales: Money
+}
+
+type ReportTax {
+  by: String
+  rows: [ReportTaxLine!]
+  total: Money
+}
+
+type ReportTaxLine {
+  amount: Money
+  key: String
+  orders: Int
 }
 
 enum ReturnReason {
@@ -1908,6 +2022,24 @@ input StoreCurrencyInput {
   rounding: String
 }
 
+type StoreHome {
+  awaitingApproval: Int
+  hasOrders: Boolean
+  latestOrders: [HomeOrder!]
+  lowStock: HomeLowStock
+  oldestToShipAt: String
+  ordersToday: Int
+  ordersYesterday: Int
+  partlyShipped: Int
+  paymentsToCollect: HomePaymentsToCollect
+  rejectedCouriers: [String!]
+  returningCustomers: Int
+  sales: [HomeSales!]
+  setup: HomeSetup
+  timeZone: String
+  toShip: Int
+}
+
 type StoreInfo {
   address: StoreAddress
   contactEmail: String
@@ -1979,6 +2111,22 @@ type StorePerson {
   role: String
   since: String
   you: Boolean
+}
+
+type StoreReport {
+  currencies: [String!]
+  currency: String
+  days: Int
+  from: String
+  markets(first: Int): [ReportMarket!]
+  offers(first: Int): [ReportOffer!]
+  previousFrom: String
+  sold(first: Int): [ReportProduct!]
+  suppliers(first: Int): [ReportSupplier!]
+  takings: ReportTakings
+  tax(first: Int): ReportTax
+  timeZone: String
+  to: String
 }
 
 type StoreState {
