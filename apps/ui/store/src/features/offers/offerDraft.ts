@@ -345,7 +345,9 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
   for (const c of offer.conditions) {
     const minimumTaken = d.minimum !== 'none' && (minimums.includes(c.operation) || theseOf(d, c))
     const audienceTaken = d.who !== 'all' && audiences.includes(c.operation)
-    if (minimumTaken || audienceTaken || (c.operation === 'recurrence' && d.repeat)) d.kept.push(c)
+    // A repeat without both times isn't one the form can draw; it is kept rather than given times the merchant never set.
+    const repeatKept = c.operation === 'recurrence' && (d.repeat !== null || c.from === null || c.to === null)
+    if (minimumTaken || audienceTaken || repeatKept) d.kept.push(c)
     else if (c.operation === 'minimum_order_amount') Object.assign(d, { minimum: 'amount', minAmounts: typedOf(c.amounts) })
     else if (c.operation === 'minimum_quantity') Object.assign(d, { minimum: 'items', minQuantity: String(c.minimum ?? '') })
     else if (theseOf(d, c)) Object.assign(d, { minimum: 'these', minQuantity: String(c.minimum ?? '') })
@@ -353,7 +355,7 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
     else if (c.operation === 'first_order') d.who = 'first'
     else if (c.operation === 'specific_customers') Object.assign(d, { who: 'customers', customerIds: c.customerIds })
     else if (c.operation === 'shipping_country') Object.assign(d, { who: 'market', countries: c.countries })
-    else if (c.operation === 'recurrence') d.repeat = { days: c.days, from: c.from ?? '17:00', to: c.to ?? '21:00' }
+    else if (c.operation === 'recurrence' && c.from !== null && c.to !== null) d.repeat = { days: c.days, from: c.from, to: c.to }
     else d.kept.push(c)
   }
   return d
