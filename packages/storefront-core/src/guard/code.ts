@@ -40,9 +40,10 @@ const timers = new Set(['setTimeout', 'setInterval'])
 
 const prototypeMembers = new Set(['constructor', 'prototype', '__proto__', '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__'])
 // Reached through any value, since an event's view, a ref's owner or a cast can lead to the window.
+// Names with no use but the browser's; `top`, `location`, `history` and the like are judged by the value's type instead (a rect's top is fine).
 const browserMembers = new Set([
-  ...['window', 'document', 'globalThis', 'self', 'top', 'opener', 'frames', 'frameElement', 'defaultView', 'ownerDocument', 'location', 'navigator', 'history'],
-  ...['fetch', 'localStorage', 'sessionStorage', 'indexedDB', 'caches', 'cookie', 'cookieStore', 'eval', 'Function', 'XMLHttpRequest', 'WebSocket', 'EventSource'],
+  ...['window', 'document', 'globalThis', 'opener', 'frameElement', 'defaultView', 'ownerDocument', 'navigator'],
+  ...['fetch', 'localStorage', 'sessionStorage', 'indexedDB', 'cookieStore', 'eval', 'Function', 'XMLHttpRequest', 'WebSocket', 'EventSource'],
   ...['sendBeacon', 'postMessage', 'Worker', 'SharedWorker', 'serviceWorker', 'importScripts', 'requestIdleCallback'],
 ])
 const scriptMembers = new Set(['currentScript'])
@@ -68,7 +69,7 @@ const memberMessage = (global: string, name: string, allowed: ReadonlySet<string
     ? 'A theme may not use Math.random: two builds of the same commit must come out the same (LIVE-SHOP §4 step 3).'
     : `A theme may not use ${global}.${name}; of ${global} it may use only ${[...allowed].join(', ')}.`
 
-const browserMessage = (name: string) => `A theme may not use "${name}". Browser behaviour comes from core's hooks (useInView, useMediaQuery, navigate and the rest) and data from core's other hooks.`
+const browserMessage = (name: string) => `A theme may not use "${name}". Data comes from core's useStorefront() and its components; a ref may only style its own element.`
 
 type Walk = {
   file: string
