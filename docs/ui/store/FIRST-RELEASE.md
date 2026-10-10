@@ -676,6 +676,20 @@ totals) and **Your team** (Supplier admin: invite, change admin or member, resen
 the last admin; DATA-MODEL §4.2). Their own warehouses and stock. Never offers, customers beyond
 §6, plans, other suppliers or the store's totals.
 
+**Built on #327 (SUI 15)**: Your products and To ship are Products' and Orders' supplier views (#298, #314), and a
+Stock-only supplier's menu row says "stock only" (§3.1). **Your sales** (`/sales`) reads `mySales` in pages of 25:
+order and day, product and version, quantity, the line at the price sold, and its status; the note that the store
+settles outside the portal; and Export CSV, the supplier's own orders export (`exportOrders`). It asks the API only
+for a seat that holds `sales.read`, and tells every other seat it has no access. Decided here: **no status chips and no
+shipping status on Your sales**, because `mySales` answers the order's state and the units refunded but not the part's
+shipping, and has no filter: a line is Sold, "N of M refunded", Refunded or Cancelled, and its dates are UTC (a
+supplier reads no store settings).
+**Your team** (`/team`, part 2 of #327) reads `mySupplierTeam` and invites (member or admin), resends, cancels, changes
+the role and removes (restating that they lose access at once); the last admin's menu explains why nothing can change,
+and a refusal such as the server's `LAST_ADMIN` stays in the dialog that asked. It asks the API only for a seat that
+holds `supplier.team`, and tells every other seat it has no access. Decided here: a member's invitation choice is worded
+with the supplier's access level ("Supplier member — Stock only"), and the rows reuse Settings › People's (#290).
+
 ---
 
 ## 18. Prototype differences
