@@ -2,7 +2,7 @@ import { ConfirmDialog, EmptyState, ErrorState, ExportJobStatus, LoadingState, S
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   addCustomer,
   createGroup,
@@ -28,6 +28,7 @@ import '../common/chips.css'
 import '../common/form.css'
 import { startListExport, useListExport } from '../common/listExport'
 import { refusalIn } from '../common/refusal'
+import { tabKeyHandler } from '../common/tabKeys'
 import { AddCustomer } from './AddCustomer'
 import { CustomerDetail } from './CustomerDetail'
 import { customerSample, customerStates, sampleCustomer } from './customerStates'
@@ -168,14 +169,7 @@ export const CustomersPage = () => {
 
   const tabsId = useId()
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ people: null, groups: null })
-  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    const at = tabs.indexOf(tab)
-    const next = event.key === 'ArrowRight' ? tabs[(at + 1) % tabs.length] : event.key === 'ArrowLeft' ? tabs[(at + tabs.length - 1) % tabs.length] : event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] : undefined
-    if (!next) return
-    event.preventDefault()
-    setTab(next)
-    tabRefs.current[next]?.focus()
-  }
+  const onTabKey = tabKeyHandler(tabs, tab, setTab, (next) => tabRefs.current[next]?.focus())
 
   const select = (id: string) => void navigate({ to: '/customers', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), customer: id }), replace: true })
   const change = (next: { search?: string; groupId?: string | null }) => {
