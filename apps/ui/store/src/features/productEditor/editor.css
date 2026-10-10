@@ -1171,7 +1171,7 @@
   max-width: 360px;
 }
 
-.df-editor-keys {
+.df-editor-field .df-editor-keys {
   font-family: var(--df-font-mono);
   font-size: 13px;
 }

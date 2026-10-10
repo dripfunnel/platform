@@ -508,6 +508,7 @@ export const ProductEditor = () => {
               {product?.productType === 'gift_card' && access.side === 'merchant' && (
                 <GiftCardsIssued productId={product.id} productName={product.name} amounts={issueAmounts} canIssue={access.storeFields} onToast={setToast} preset={sample?.cards ?? null} />
               )}
+              {product?.productType !== 'gift_card' && access.storeFields && <p className="df-editor-hint">{words.kinds.giftCard.issueAfterSave}</p>}
             </GiftCardCard>
           )}
           <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} onRetry={(id) => { const file = files.current.get(id); if (file) upload(id, file) }} onDismiss={(id) => { files.current.delete(id); setPending((list) => list.filter((p) => p.id !== id)) }} />

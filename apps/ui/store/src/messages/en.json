@@ -1852,8 +1852,6 @@
         "more": "Show more",
         "code": "•••• {last4}",
         "notSent": "Not sent yet",
-        "to": "To",
-        "balance": "Balance",
         "expires": "Expires {date} UTC",
         "expired": "Expired {date} UTC",
         "noExpiry": "Never expires",
@@ -1894,7 +1892,6 @@
         "FORBIDDEN": "You can’t change this product.",
         "other": "The product saved, but what the shopper gets didn’t. Save again to keep it."
       },
-      "failed": "The product saved, but {what} Your changes are still here; save again to keep them.",
       "newFailed": "The product saved, but what the shopper gets didn’t: check it below and save again. Paste any licence keys again."
     }
   },
