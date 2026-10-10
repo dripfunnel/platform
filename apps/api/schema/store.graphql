@@ -688,6 +688,7 @@ type Mutation {
   saveProductKind(input: ProductKindInput!, productId: ID!, revision: Int!): ProductKind
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
   saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
+  saveReminderSettings(input: ReminderSettingsInput!, revision: Int): Int
   saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
   saveShipping(input: ShippingInput!, revision: Int!): Int
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
@@ -1613,6 +1614,7 @@ type Query {
   productTranslation(language: String!, productId: ID!): [Translation!]
   products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
+  reminderSettings: ReminderSettings
   report(currency: String, days: Int!): StoreReport
   reportExport(id: ID!): ReportExport
   reportExports: [ReportExport!]
@@ -1661,6 +1663,46 @@ enum RefundReason {
 type RelatedProduct {
   id: ID
   name: String
+}
+
+type ReminderSettings {
+  enabled: Boolean
+  level: String
+  minimum: Money
+  quietHours: Boolean
+  revision: Int
+  skipOutOfStock: Boolean
+  steps: [ReminderStep!]
+  weeklyCap: Boolean
+}
+
+input ReminderSettingsInput {
+  enabled: Boolean!
+  minimum: MoneyInput
+  quietHours: Boolean!
+  skipOutOfStock: Boolean!
+  steps: [ReminderStepInput!]!
+  weeklyCap: Boolean!
+}
+
+type ReminderStep {
+  body: String
+  channel: String
+  delayMinutes: Int
+  discountPercent: Int
+  enabled: Boolean
+  position: Int
+  subject: String
+}
+
+input ReminderStepInput {
+  body: String!
+  channel: String!
+  delayMinutes: Int!
+  discountPercent: Int
+  enabled: Boolean!
+  position: Int!
+  subject: String!
 }
 
 type ReportExport {
