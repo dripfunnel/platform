@@ -20,6 +20,8 @@ const pageRoute = getRouteApi('/_app/offers')
 type List = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: OfferPage }
 type Counts = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; counts: OfferCounts }
 type Cursor = { after?: string | null; before?: string | null }
+// A page belongs to the tab it was read in: a tab reached any way (a click, Back, a link) starts on its first page.
+type Paging = { tab: OfferTab; cursor: Cursor; index: number }
 
 /** Offers (designs/Offers.dc.html, FIRST-RELEASE §8): tabs by status, search and filters, "Check a code", row actions. */
 export const OffersPage = () => {
@@ -35,8 +37,7 @@ export const OffersPage = () => {
   const [search, setSearch] = useState('')
   const [kind, setKind] = useState<OfferKind | null>(null)
   const [trigger, setTrigger] = useState<Offer['trigger'] | null>(null)
-  const [cursor, setCursor] = useState<Cursor>({})
-  const [pageIndex, setPageIndex] = useState(0)
+  const [paging, setPaging] = useState<Paging>({ tab, cursor: {}, index: 0 })
   const [list, setList] = useState<List>({ kind: 'loading' })
   const [counts, setCounts] = useState<Counts>({ kind: 'loading' })
   const [names, setNames] = useState<OfferNames>(noNames)
@@ -44,6 +45,9 @@ export const OffersPage = () => {
   const [toast, setToast] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const latest = useRef(0)
+
+  const cursor = useMemo(() => (paging.tab === tab ? paging.cursor : {}), [paging, tab])
+  const pageIndex = paging.tab === tab ? paging.index : 0
 
   // Only the latest request answers: a slow read of the tab or search before never replaces the one on screen.
   const load = useCallback(() => {
@@ -101,8 +105,6 @@ export const OffersPage = () => {
   const tabsId = useId()
   const tabRefs = useRef<Partial<Record<OfferTab, HTMLButtonElement | null>>>({})
   const goTab = (next: OfferTab) => {
-    setCursor({})
-    setPageIndex(0)
     void navigate({ to: '/offers', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), status: next === 'live' ? undefined : next }), replace: true })
   }
   const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -117,8 +119,7 @@ export const OffersPage = () => {
     if (next.search !== undefined) setSearch(next.search)
     if (next.kind !== undefined) setKind(next.kind)
     if (next.trigger !== undefined) setTrigger(next.trigger)
-    setCursor({})
-    setPageIndex(0)
+    setPaging({ tab, cursor: {}, index: 0 })
   }
 
   if (!access.canRead)
@@ -311,14 +312,12 @@ export const OffersPage = () => {
                 <span>{fill(words.pages.showing, { from: formatCount(pageIndex * offerPageSize + 1), to: formatCount(pageIndex * offerPageSize + rows.length) })}</span>
                 <span>
                   <button type="button" className="df-button" disabled={!list.page.previous} onClick={() => {
-                      setCursor({ before: list.page.previous })
-                      setPageIndex((i) => Math.max(0, i - 1))
+                      setPaging({ tab, cursor: { before: list.page.previous }, index: Math.max(0, pageIndex - 1) })
                     }}>
                     {words.pages.previous}
                   </button>
                   <button type="button" className="df-button" disabled={!list.page.next} onClick={() => {
-                      setCursor({ after: list.page.next })
-                      setPageIndex((i) => i + 1)
+                      setPaging({ tab, cursor: { after: list.page.next }, index: pageIndex + 1 })
                     }}>
                     {words.pages.next}
                   </button>

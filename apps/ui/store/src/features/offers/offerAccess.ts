@@ -10,19 +10,18 @@ export interface OfferAccess {
   viewOnly: boolean
   /** The store is past due and view-only (§7). */
   readOnly: boolean
-  canExport: boolean
   /** Billing is the Owner's: a Manager is told to ask (U2). */
   canUpgrade: boolean
 }
 
-const none: OfferAccess = { canRead: false, canEdit: false, viewOnly: false, readOnly: false, canExport: false, canUpgrade: false }
+const none: OfferAccess = { canRead: false, canEdit: false, viewOnly: false, readOnly: false, canUpgrade: false }
 
 export const offerAccessOf = (forced: OfferState | null, acting: { permissions: readonly string[] }, readOnly: boolean): OfferAccess => {
   if (forced === 'denied') return none
   if (forced === 'staff') return { ...none, canRead: true, viewOnly: true }
-  if (forced === 'readOnly') return { ...none, canRead: true, readOnly: true, canExport: true, canUpgrade: true }
-  if (forced) return { canRead: true, canEdit: true, viewOnly: false, readOnly: false, canExport: true, canUpgrade: true }
+  if (forced === 'readOnly') return { ...none, canRead: true, readOnly: true, canUpgrade: true }
+  if (forced) return { canRead: true, canEdit: true, viewOnly: false, readOnly: false, canUpgrade: true }
   const has = (p: string) => acting.permissions.includes(p)
   const writes = has('offers.write')
-  return { canRead: has('offers.read'), canEdit: writes && !readOnly, viewOnly: has('offers.read') && !writes, readOnly, canExport: has('offers.export'), canUpgrade: has('billing') }
+  return { canRead: has('offers.read'), canEdit: writes && !readOnly, viewOnly: has('offers.read') && !writes, readOnly, canUpgrade: has('billing') }
 }
