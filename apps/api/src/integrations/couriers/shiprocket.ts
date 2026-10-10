@@ -78,7 +78,7 @@ const pickupSchema = z.object({ response: z.object({ pickup_scheduled_date: z.st
 /** Shiprocket's own tracking page, which the shopper's email and text link to. */
 export const shiprocketTrackingUrl = (awb: string) => `https://shiprocket.co/tracking/${encodeURIComponent(awb)}`
 
-// Shiprocket asks for a box; an order line carries no dimensions, so every parcel goes as a 10 cm cube (decided on #311).
+// Shiprocket asks for a box and an order line carries no dimensions, so every parcel goes as a 10 cm cube (FIRST-RELEASE §19).
 const boxCm = 10
 
 const post = async (fetchImpl: typeof fetch, token: string, path: string, body: unknown, signal: AbortSignal | undefined): Promise<Response> =>

@@ -231,7 +231,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
         const planned = await plan(tx, input, true)
         if (!planned.ok) return planned
         const { order, picked, handOff } = planned.value
-        // A hand-off to the store is the supplier's own trip, entered by hand (decided on #311).
+        // A hand-off to the store is entered by hand (FIRST-RELEASE §19, part 1).
         if (handOff) return { ok: false, reason: 'INVALID_INPUT' }
         const partId = picked[0]?.line.part_id
         if (!partId || picked.some((p) => p.line.part_id !== partId)) return { ok: false, reason: 'ONE_PART' }
@@ -294,7 +294,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
       const place = await selectBookingPlace(tx, storeId, found.warehouse_id, provider, sellerId)
       // As for booking: a courier the store has switched off is asked for nothing, a pickup costing money at some.
       if (!place?.courier || !couriers || !couriers.accounts.has(accountKindOf(provider))) return { ok: false, reason: 'NOT_CONNECTED' }
-      const from = place ? fromAddressOf(place, found.warehouse_id) : null
+      const from = fromAddressOf(place, found.warehouse_id)
       if (!from) return { ok: false, reason: 'NO_ADDRESS' }
       let pickup: { ref: string | null; date: string | null }
       try {
