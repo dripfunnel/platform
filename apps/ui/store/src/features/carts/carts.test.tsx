@@ -108,7 +108,7 @@ describe('the Abandoned carts list', () => {
     expect(api.loadCarts).toHaveBeenLastCalledWith('lost', 'stole', {})
   })
 
-  it('shows only the latest read, and starts each tab on its first page', async () => {
+  it('shows only the latest read, and starts each tab and search on its first page, coming back too', async () => {
     let slow: (p: Page) => void = () => undefined
     api.loadCarts.mockImplementation((tab: string, _: string, cursor: { after?: string }) => (tab === 'open' && !cursor.after ? new Promise<Page>((r) => (slow = r)) : Promise.resolve(page(tab === 'lost' ? [meera] : [vikram], tab === 'open' ? null : 'c25'))))
     const router = await show(owner)
@@ -123,6 +123,17 @@ describe('the Abandoned carts list', () => {
     await act(() => router.navigate({ to: '/carts', search: { status: 'recovered' } }))
     await settle()
     expect(api.loadCarts).toHaveBeenLastCalledWith('recovered', '', {})
+    await act(() => router.navigate({ to: '/carts', search: { status: 'lost' } }))
+    await settle()
+    expect(api.loadCarts).toHaveBeenLastCalledWith('lost', '', {})
+    fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
+    await settle()
+    const box = screen.getByRole('searchbox', { name: words.search.label })
+    fireEvent.change(box, { target: { value: 'stole' } })
+    await settle(350)
+    fireEvent.change(box, { target: { value: '' } })
+    await settle(350)
+    expect(api.loadCarts).toHaveBeenLastCalledWith('lost', '', {})
   })
 
   it('shows loading, never the last tab’s carts and their actions, while another tab is read', async () => {

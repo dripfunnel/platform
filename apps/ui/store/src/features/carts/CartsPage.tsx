@@ -45,8 +45,9 @@ export const CartsPage = () => {
   const [failure, setFailure] = useState<string | null>(null)
   const latest = useRef(0)
 
-  // A page belongs to the tab and search it was read in: any other starts on its first page.
+  // A page belongs to the tab and search it was read in: any other, or the same one reached again, starts on its first page.
   const key = `${tab}|${search}`
+  if (paging.key !== key) setPaging({ key, cursor: {}, index: 0 })
   const cursor = useMemo(() => (paging.key === key ? paging.cursor : {}), [paging, key])
   const pageIndex = paging.key === key ? paging.index : 0
 
