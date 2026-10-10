@@ -8,9 +8,11 @@ alter table store_subscription add constraint store_subscription_next check (
   (next_plan_id is null) = (next_plan_version is null) and (next_plan_id is null) = (change_at is null) and (next_interval is null or next_plan_id is not null)
 );
 grant select (next_interval) on store_subscription to app_partner, app_request;
--- One plan or card change at a time per store, taken before Stripe is asked and let go after, so two tabs or a retry
--- never charge twice; one left by a crash lapses at billing_claim_until.
-alter table store_subscription add column billing_claim uuid, add column billing_claim_until timestamptz(3);
+-- One plan or card change at a time per store, taken before Stripe is asked and let go after; one left by a crash
+-- lapses at billing_claim_until. Stripe's idempotency keys carry billing_revision, which moves only when a change is
+-- recorded or Stripe refuses one, so a retry after a lost commit gets Stripe's first answer, never a second charge.
+alter table store_subscription add column billing_claim uuid, add column billing_claim_until timestamptz(3),
+  add column billing_revision integer not null default 0;
 
 create table store_billing_details (
   store_id uuid primary key references store (id),

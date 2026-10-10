@@ -166,11 +166,19 @@ export const en = {
     body: (store: string) => `${store} is suspended. Shoppers see a notice instead of your storefront, and the portal can be viewed but not changed.`,
     reason: (reason: string) => `Reason: ${reason}`,
     contact: (contact: string) => `To resolve it, contact ${contact}.`,
+    // Dunning's reason (SAAS §7.3): a suspended store can't pay in the portal, so it names no way to but support.
+    unpaid: 'The plan has been unpaid for 14 days.',
   },
   storeRestored: {
     subject: (store: string) => `${store} is back`,
     heading: 'Your store is restored',
     body: (store: string) => `${store} is restored. The storefront is live again and the portal works as before.`,
+  },
+  webhookDisabled: {
+    subject: (store: string) => `A webhook for ${store} is turned off`,
+    heading: 'We turned off a webhook',
+    body: (host: string, store: string) =>
+      `Deliveries to ${host} for ${store} have failed for 3 days, so we turned it off. Nothing was lost: its events wait 7 days. Fix the server, then turn it back on in Settings › Developers to send them.`,
   },
   apiKeysCreatorGone: {
     subject: (store: string) => `API keys in ${store} need a look`,
@@ -197,6 +205,12 @@ export const en = {
     tracking: (tracking: string) => `Tracking number ${tracking}.`,
     action: 'Track your parcel',
   },
+  orderDelivered: {
+    subject: (store: string, order: string) => `Your ${store} order ${order} was delivered`,
+    heading: 'It’s arrived',
+    intro: (order: string) => `The courier delivered these items from order ${order}:`,
+    line: (quantity: number, item: string) => `${quantity} × ${item}`,
+  },
   // The store's own subject and message come first; these are the parts added for it (Carts' preview).
   cartReminder: {
     greeting: (name: string | null) => (name ? `Hi ${name},` : 'Hi,'),
@@ -205,6 +219,8 @@ export const en = {
     action: 'Return to your cart',
     why: (host: string) => `You’re getting this because you started checkout at ${host}.`,
     unsubscribe: (url: string) => `Unsubscribe: ${url}`,
+    testSubject: (subject: string) => `[Test] ${subject}`,
+    test: 'This is a test of your cart reminder, with a sample cart. Its code works at no checkout.',
   },
   money: (locale: string, amount: string, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(toMajor({ amount: BigInt(amount), currency }) as `${number}`),
   date: (at: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(at)} (UTC)`,

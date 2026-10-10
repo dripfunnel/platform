@@ -11,8 +11,8 @@ import { readUserSession } from './storeSession'
 import { storeRoleOf, type StoreRole } from './storePermissions'
 import { resolveSupportCaller, supportActor, supportCookieName, type SupportSeat } from './storeSupport'
 import { isUuid } from '#core/ids'
-import { apiKeyOf } from './apiKeys'
-import { planApiLimits, resolveApiKey, type MachineCaller } from './machineCaller'
+import { machineCredentialOf } from './apiKeys'
+import { planApiLimits, resolveMachine, type MachineCaller } from './machineCaller'
 
 // The acting store and, for a person working for more than one supplier in it, the acting
 // supplier (ACCESS.md §4).
@@ -51,9 +51,9 @@ export type StoreStanding =
   | { kind: 'supplier-required'; person: StorePerson }
   | { kind: 'crossing'; person: StorePerson }
   | { kind: 'acting'; person: StorePerson; caller: StoreCaller }
-  /** An API key, in its own store with its own scopes (auth/machineCaller.ts). */
+  /** An API key or an app's grant, in its own store with its own scopes (auth/machineCaller.ts). */
   | { kind: 'machine'; caller: MachineCaller }
-  /** A key over its plan's calls this minute or month: answered 429 before the API runs. */
+  /** A key or app over its plan's calls this minute or month: answered 429 before the API runs. */
   | { kind: 'limited'; retryAfterSeconds: number }
 
 /** The signed-in person behind a standing; null when nobody is, or a key is asking. */
@@ -140,11 +140,11 @@ export const resolveStoreStanding = async (
   activity: ActivityLog,
   facts: RequestFacts,
 ): Promise<StoreStanding> => {
-  const key = apiKeyOf(request)
-  if (key !== null) {
-    // A key never rides with a session: one sent beside the portal's cookie is refused like a bad key.
+  const credential = machineCredentialOf(request)
+  if (credential !== null) {
+    // A key or app token never rides with a session: one sent beside the portal's cookie is refused like a bad one.
     if (sendsStoreCookie(request)) return { kind: 'signed-out' }
-    const resolved = await resolveApiKey(sql, key, partnerId, now, planApiLimits)
+    const resolved = await resolveMachine(sql, credential, partnerId, now, planApiLimits)
     return resolved === null ? { kind: 'signed-out' } : 'retryAfterSeconds' in resolved ? { kind: 'limited', retryAfterSeconds: resolved.retryAfterSeconds } : { kind: 'machine', caller: resolved }
   }
   const sessionId = storeSessionId(request)

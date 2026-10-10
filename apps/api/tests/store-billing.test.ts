@@ -6,7 +6,9 @@ import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCa
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { StripeRefused, type StoreBillingStripe, type StripeApi, type StripeInvoice, type StripeSubscription } from '#integrations/stripe/index'
+import type { ActivityLog } from '#auth/activity'
 import { activityLog } from '#saas/activity/index'
+import { en } from '#saas/email/index'
 import { handleStripeEvent } from '#saas/billing/index'
 import { suspendOverdueStores } from '#saas/storeBilling/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -35,11 +37,10 @@ const keys = new Map<string, unknown>()
 const calls: string[] = []
 let declineNext = false
 let slowCharge: Promise<void> | null = null
+// Stripe keeps a refusal under its key too, so the same key never charges after it either.
 const once = async <T>(key: string, work: () => Promise<T>): Promise<T> => {
-  if (keys.has(key)) return keys.get(key) as T
-  const made = await work()
-  keys.set(key, made)
-  return made
+  if (!keys.has(key)) keys.set(key, work())
+  return keys.get(key) as Promise<T>
 }
 const subscriptionOf = (id: string, customer: string, amount: number, metadata: Record<string, string>, status: StripeSubscription['status'] = 'active'): StripeSubscription => ({
   id,
@@ -107,6 +108,19 @@ const stripe: StripeApi & StoreBillingStripe = {
     }),
 }
 
+// A plan change's entry that fails once: its transaction rolls back after Stripe has answered, as a lost commit would.
+let failPlanEntry = false
+const activity: ActivityLog = {
+  record: async (tx, entry) => {
+    if (failPlanEntry && entry.action === 'billing.plan_changed') {
+      failPlanEntry = false
+      throw new Error('test: the commit is lost')
+    }
+    return activityLog.record(tx, entry)
+  },
+  recordAll: (tx, entries) => activityLog.recordAll(tx, entries),
+}
+
 // ---- The world ----
 
 const user = async (partnerId: string, email: string) => (await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${partnerId}, ${email}, ${email.split('@')[0] ?? ''}, 'active') returning id`)[0]?.id ?? ''
@@ -140,6 +154,7 @@ const reset = async () => {
   keys.clear()
   calls.length = 0
   declineNext = false
+  failPlanEntry = false
   slowCharge = null
   clock = new Date('2026-10-10T00:00:00Z')
   await db.sql`update partner set billing_mode = 'dripfunnel'`
@@ -149,6 +164,7 @@ const reset = async () => {
   await subscribe(t.storeA1, t.partnerA, plans.growth, 'active', 3000, { customer: 'cus_a1', subscription: 'sub_a1' })
   subs.set('sub_a1', subscriptionOf('sub_a1', 'cus_a1', 3000, { store_id: t.storeA1, plan_id: plans.growth, plan_version: '1', interval: 'month' }))
   await subscribe(t.storeA2, t.partnerA, plans.business, 'trial', 6000, null)
+  await db.sql`update store set status = 'trial' where id = ${t.storeA2}`
   await subscribe(t.storeB1, t.partnerB, plans.otherPartner, 'active', 500, { customer: 'cus_b1', subscription: 'sub_b1' })
 }
 
@@ -192,7 +208,7 @@ const contextFor = async (who: Who, as: 'person' | 'support' | 'impersonation' =
     const caller = as === 'support' ? { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'write' as const } : { kind: 'impersonation' as const, impersonationId: crypto.randomUUID(), staffId: crypto.randomUUID(), userId: people[who] }
     standing = { ...standing, caller: { ...standing.caller, context: { ...standing.caller.context, caller } } }
   }
-  return { standing, partnerId, sql: db.sql, activity: activityLog, facts, billing: stripe, now: () => clock }
+  return { standing, partnerId, sql: db.sql, activity, facts, billing: stripe, now: () => clock }
 }
 const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, as: 'person' | 'support' | 'impersonation' = 'person') => {
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue: await contextFor(who, as), variableValues: variables })
@@ -326,13 +342,14 @@ describe('choosing a plan out of the trial', () => {
     expect((await change('trialOwner', plans.starter, 'PERIOD_END')).code).toBe('AT_PERIOD_END_ONLY')
     expect((await change('trialOwner', plans.starter, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Starter' }, status: 'active', price: { amount: '1000' }, collectedBy: 'dripfunnel' })
     expect(calls).toEqual(['create:1000'])
-    expect(await storeRow(t.storeA2)).toMatchObject({ plan_id: plans.starter })
+    expect(await storeRow(t.storeA2)).toMatchObject({ plan_id: plans.starter, status: 'active' })
     expect(await entries(t.storeA2, 'billing.plan_changed')).toHaveLength(1)
     expect(await entries(t.storeA2, 'billing.payment_method_set')).toHaveLength(1)
   })
 
   it('moves to Free with no card and nothing on Stripe', async () => {
     expect((await change('trialOwner', plans.free, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Free' }, status: 'active' })
+    expect(await storeRow(t.storeA2)).toMatchObject({ plan_id: plans.free, status: 'active' })
     expect(calls).toEqual([])
   })
 
@@ -374,6 +391,19 @@ describe('changing a paid plan', () => {
     expect((await first).data?.['changePlan']).toMatchObject({ plan: { name: 'Business' } })
     expect(calls.filter((c) => c.startsWith('change:'))).toHaveLength(1)
     expect((await change('owner', plans.business, 'NOW')).code).toBe('SAME_PLAN')
+  })
+
+  it('charges once when the commit after Stripe is lost and the Owner tries again', async () => {
+    failPlanEntry = true
+    expect((await change('owner', plans.business, 'NOW')).data?.['changePlan'] ?? null).toBeNull()
+    expect(await storeRow(t.storeA1)).toMatchObject({ plan_id: plans.growth })
+    expect((await change('owner', plans.business, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Business' } })
+    expect(calls.filter((c) => c.startsWith('change:'))).toHaveLength(1)
+    await gql(q.card, 'trialOwner', { t: 'pm_card12345' })
+    failPlanEntry = true
+    expect((await change('trialOwner', plans.starter, 'NOW')).data?.['changePlan'] ?? null).toBeNull()
+    expect((await change('trialOwner', plans.starter, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Starter' } })
+    expect(calls.filter((c) => c.startsWith('create:'))).toHaveLength(1)
   })
 
   it('schedules a downgrade for the period’s end, applies it when Stripe moves, and can be called off', async () => {
@@ -432,7 +462,14 @@ describe('past due, paid again, and 14 days unpaid (SAAS §4.2, §7.3)', () => {
     expect(await suspendOverdueStores(db.sql, activityLog, clock)).toBe(0)
     expect(await storeRow(t.storeA1)).toMatchObject({ status: 'suspended', suspended_by_label: 'Billing' })
     expect(await entries(t.storeA1, 'store.suspended')).toEqual([{ actor_kind: 'job', reason: 'unpaid' }])
-    expect(await db.sql`select 1 from outbox where store_id = ${t.storeA1} and payload->>'template' = 'store-suspended'`).toHaveLength(1)
+    expect(await db.sql`select 1 from outbox where store_id = ${t.storeA1} and payload->>'template' = 'store-suspended' and payload->>'contact' = 'partner-support'`).toHaveLength(1)
+    // A suspended store can't pay in the portal (SAAS §4.2), so the reason points to the partner's support, never a payment there.
+    expect((await db.sql<{ suspended_reason: string }[]>`select suspended_reason from store where id = ${t.storeA1}`)[0]?.suspended_reason).toBe(en.storeSuspended.unpaid)
+    const signedInBefore = cookies.owner
+    cookies.owner = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: people.owner, partnerId: t.partnerA }, clock))
+    expect((await gql(q.subscription, 'owner')).code).toBe('STORE_SUSPENDED')
+    expect((await gql(q.card, 'owner', { t: 'pm_newcard123' })).code).toBe('STORE_SUSPENDED')
+    cookies.owner = signedInBefore
     paid()
     await event('evt_paidlate', 'customer.subscription.updated', 'sub_a1')
     expect(await storeRow(t.storeA1)).toMatchObject({ status: 'active', suspended_by_label: null })

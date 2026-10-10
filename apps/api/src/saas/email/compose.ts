@@ -9,8 +9,8 @@ import { selectCodeForEmail, setCodeHash } from '#db/scoped/shopper'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { selectBranding } from '#db/scoped/branding'
-import { markReminderSent, selectReminderEmail, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
-import { defaultReminderStep } from '#engine/modules/cartReminders/index'
+import { markReminderSent, selectReminderFlow, selectReminderToSend, selectSampleItems, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
+import { defaultReminderStep, defaultReminderSteps } from '#engine/modules/cartReminders/index'
 import type { ScopedSql } from '#db/scoped/index'
 import { selectOrderEmail, selectShipmentToTell, type OrderEmailRow } from '#db/scoped/orderUpdates'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
@@ -77,9 +77,12 @@ const payloads = {
   'store-restored': z.object({ storeId: id }),
   'support-session-started': z.object({ supportSessionId: id }),
   'support-write-allowed': z.object({ supportSessionId: id }),
+  'webhook-disabled': z.object({ storeId: id, host: z.string().max(253) }),
   'api-keys-creator-gone': z.object({ storeId: id, creator: z.string().max(320), keys: z.number().int().positive() }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
+  'order-delivered': z.object({ orderId: id, fulfilmentId: id }),
+  'cart-reminder-test': z.object({ storeId: id, position: z.number().int().min(1).max(3), to: email }),
   'cart-reminder': z.object({
     reminderId: id,
     currency: z.string().regex(/^[A-Z]{3}$/),
@@ -378,7 +381,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
     }
     case 'order-confirmed':
-    case 'order-shipped': {
+    case 'order-shipped':
+    case 'order-delivered': {
       const p = parse(t)
       const fulfilmentId = 'fulfilmentId' in p ? p.fulfilmentId : null
       const o = await selectOrderEmail(tx, p.orderId, fulfilmentId)
@@ -405,6 +409,11 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       }
       const shipment = fulfilmentId ? await selectShipmentToTell(tx, fulfilmentId) : null
       if (!shipment || shipment.order_id !== p.orderId) return { send: false, reason: 'tenant_mismatch' }
+      if (t === 'order-delivered') {
+        const d = en.orderDelivered
+        const content: EmailContent = { subject: d.subject(o.store_name, o.number), heading: d.heading, paragraphs: [d.intro(o.number), ...o.lines.map((l) => d.line(l.quantity, item(l)))] }
+        return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
+      }
       const w = en.orderShipped
       const tracking = shipment.tracking_number ? [shipment.courier_name ? w.courier(shipment.courier_name, shipment.tracking_number) : w.tracking(shipment.tracking_number)] : []
       const content: EmailContent = {
@@ -414,6 +423,14 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
         ...(shipment.tracking_url ? { action: { label: w.action, url: shipment.tracking_url } } : {}),
       }
       return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
+    }
+    case 'webhook-disabled': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const w = en.webhookDisabled
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(p.host, m.store.name)] } }
     }
     case 'api-keys-creator-gone': {
       const p = parse(t)
@@ -425,7 +442,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'cart-reminder': {
       const p = parse(t)
-      const r = await selectReminderEmail(tx, p.reminderId)
+      const r = await selectReminderToSend(tx, p.reminderId)
       // Decided otherwise since it was queued, or sent by an earlier delivery: nothing goes twice.
       if (!r || r.state !== 'queued' || r.channel !== 'email') return { send: false, reason: 'link_closed' }
       if (r.partner_id !== row.partnerId || r.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
@@ -453,6 +470,27 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const brand: Brand = { ...look.brand, name: r.store_name, supportEmail: r.contact_email, supportUrl: null }
       const content: EmailContent = { subject: words.subject || defaultReminderStep.subject, heading: w.greeting(r.name?.trim().split(/\s+/)[0] || null), paragraphs, action: { label: w.action, url: `https://${host}/cart/r/${token}` }, note }
       return { send: true, accountSecurity: false, to: [r.to], voice: look.voice, brand, content }
+    }
+    case 'cart-reminder-test': {
+      const p = parse(t)
+      if (p.storeId !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      const store = await selectStore(tx, p.storeId)
+      if (!store) return { send: false, reason: 'no_recipient' }
+      if (store.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, store.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const host = (await selectShopHost(tx, p.storeId)) ?? `${store.code}.example`
+      const saved = (await selectReminderFlow(tx, p.storeId)).steps.find((x) => x.position === p.position)
+      const fallback = defaultReminderSteps.find((x) => x.position === p.position)
+      const step = saved ? { subject: saved.subject, body: saved.body } : fallback
+      const percent = saved ? (saved.discount_bps === null ? null : saved.discount_bps / 100) : (fallback?.discountPercent ?? null)
+      const w = en.cartReminder
+      const items = await selectSampleItems(tx, p.storeId)
+      // A sample cart and a code that works at no checkout; nothing in it counts in the store's results (Carts "Send me a test").
+      const paragraphs = [w.test, step?.body ?? '', ...items.map((i) => w.line(1, i.name, null)), ...(percent ? [w.code('BACK-SAMPLE', percent)] : [])].filter((x) => x !== '')
+      const brand: Brand = { ...look.brand, name: store.name, supportEmail: null, supportUrl: null }
+      const content: EmailContent = { subject: w.testSubject(step?.subject || defaultReminderStep.subject), heading: w.greeting(null), paragraphs, action: { label: w.action, url: `https://${host}/` }, note: w.why(host) }
+      return { send: true, accountSecurity: false, to: [p.to], voice: look.voice, brand, content }
     }
     case 'store-restored': {
       const p = parse(t)

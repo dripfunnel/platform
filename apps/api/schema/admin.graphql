@@ -377,6 +377,7 @@ type Mutation {
   pausePartner(id: ID!, reason: String!): PartnerMutationOutcome
   recheckDomain(id: ID!, kind: String!): PartnerMutationOutcome
   recheckStoreDomain(id: ID!): StoreMutationOutcome
+  registerApp(developer: String!, name: String!, scopes: [String!]!, siteUrl: String!, webhookUrl: String!): RegisteredAppSecret
   removeStaff(id: ID!): StaffResult
   resendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   resendStaffInvite(id: ID!): StaffResult
@@ -388,6 +389,7 @@ type Mutation {
   revokeStaffInvite(id: ID!): StaffResult
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
+  setAppStatus(id: ID!, suspended: Boolean!): Boolean
   setPartnerContract(id: ID!, input: PartnerContractInput!, reason: String!): PartnerMutationOutcome
   startImpersonation(membershipId: ID!, reason: String!, targetId: ID!, ticket: String): StaffSessionStart
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
@@ -671,6 +673,7 @@ type Query {
   personTimeline(after: String, before: String, filter: ActivityFilter, first: Int, person: String!): ActivityTimeline
   provisioningJob(id: ID!): JobProgress
   provisioningJobs(after: String, before: String, filter: ProvisioningFilter, first: Int): ProvisioningJobPage
+  registeredApps(after: String, before: String, first: Int): RegisteredAppPage
   search(query: String!): SearchResult
   staff(after: String, before: String, first: Int): StaffPage
   staffSession(id: ID!): StaffSessionLookup
@@ -682,6 +685,27 @@ type Query {
 type Ref {
   id: ID
   name: String
+}
+
+type RegisteredApp {
+  createdAt: String
+  developer: String
+  id: ID
+  name: String
+  scopes: [String!]
+  siteUrl: String
+  status: String
+  webhookUrl: String
+}
+
+type RegisteredAppPage {
+  items: [RegisteredApp!]
+  pageInfo: PageInfo
+}
+
+type RegisteredAppSecret {
+  id: ID
+  secret: String
 }
 
 type SearchResult {

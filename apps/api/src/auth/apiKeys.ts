@@ -1,10 +1,11 @@
 import { isStorePermission, merchantRolePermissions, supplierTierPermissions, type StorePermission, type SupplierTier } from './storePermissions'
 import { hashSessionId } from './session'
 
-// The store's API keys (ACCESS.md §5.6): a secret shown once, kept as its SHA-256, named by a visible prefix.
+// The store's API keys and app grant tokens (ACCESS.md §5.6): a secret shown once, kept as its SHA-256, named by a visible prefix.
 
 const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 export const apiKeyMark = 'dfk_'
+export const appTokenMark = 'dfa_'
 const secretLength = 48
 const prefixLength = apiKeyMark.length + 8
 
@@ -25,20 +26,31 @@ export interface MintedApiKey {
   hash: string
 }
 
-export const mintApiKey = async (): Promise<MintedApiKey> => {
-  const secret = apiKeyMark + randomText(secretLength)
+const mint = async (mark: string): Promise<MintedApiKey> => {
+  const secret = mark + randomText(secretLength)
   return { secret, prefix: secret.slice(0, prefixLength), hash: await hashSessionId(secret) }
 }
 
-const keyShape = new RegExp(`^${apiKeyMark}[0-9A-Za-z]{${secretLength}}$`)
+export const mintApiKey = (): Promise<MintedApiKey> => mint(apiKeyMark)
+export const mintAppToken = (): Promise<MintedApiKey> => mint(appTokenMark)
 
-/** The API key a request carries as its bearer token; null for a session token or none. */
-export const apiKeyOf = (request: Request): string | null => {
+const shapeOf = (mark: string) => new RegExp(`^${mark}[0-9A-Za-z]{${secretLength}}$`)
+const keyShape = shapeOf(apiKeyMark)
+const tokenShape = shapeOf(appTokenMark)
+
+export type MachineCredential = { kind: 'api_key'; secret: string } | { kind: 'app_grant'; secret: string }
+
+/** The API key or app token a request carries as its bearer token; null for a session token or none. */
+export const machineCredentialOf = (request: Request): MachineCredential | null => {
   const bearer = /^Bearer ([^\s,;]+)$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? null
-  return bearer !== null && bearer.startsWith(apiKeyMark) ? bearer : null
+  if (bearer === null) return null
+  if (bearer.startsWith(apiKeyMark)) return { kind: 'api_key', secret: bearer }
+  if (bearer.startsWith(appTokenMark)) return { kind: 'app_grant', secret: bearer }
+  return null
 }
 
 export const isApiKeyShape = (value: string): boolean => keyShape.test(value)
+export const isAppTokenShape = (value: string): boolean => tokenShape.test(value)
 
 export const hashApiKey = (secret: string): Promise<string> => hashSessionId(secret)
 
