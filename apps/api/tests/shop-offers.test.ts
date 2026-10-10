@@ -8,6 +8,7 @@ import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { claimUse } from '#db/scoped/promotions'
+import { hashSessionId, newSessionId } from '#auth/session'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -25,10 +26,13 @@ let kurta = ''
 let scarf = ''
 let owner = ''
 let attempts: { allow: boolean; keys: string[] } = { allow: true, keys: [] }
+/** The signed-in shopper's session the next calls present (X-Shop-Session); null for a guest. */
+let session: string | null = null
 
 const shop = async (source: string, cart: string | null = null, o: { noLimiter?: boolean; on?: string } = {}) => {
   const on = o.on ?? host
-  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on)
+  const headers: Record<string, string> = { ...(cart ? { 'x-shop-cart': cart } : {}), ...(session ? { 'x-shop-session': session } : {}) }
+  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers }), on)
   if (found.kind !== 'found') throw new Error('no store')
   const allowCodeAttempt = async (key: string) => {
     attempts.keys.push(key)
@@ -71,6 +75,18 @@ const offer = async (o: { storeId?: string; name: string; action: Record<string,
   return id
 }
 const off = async () => db.sql`update promotion set enabled = false where store_id = ${store}`
+/** Signs a shopper in on this store with their proven email (as a code by email does, ACCESS §2.1), for the calls that follow. */
+const signIn = async (email: string) => {
+  // A guest who bought before has a row already (#312): signing in proves it theirs.
+  await db.sql`update customer set status = 'active', email_verified_at = now() where store_id = ${store} and email = ${email}`
+  const [c] = await db.sql<{ id: string }[]>`
+    insert into customer (store_id, email, status, email_verified_at) values (${store}, ${email}, 'active', now())
+    on conflict do nothing returning id`
+  const id = c?.id ?? (await db.sql<{ id: string }[]>`select id from customer where store_id = ${store} and email = ${email}`)[0]?.id ?? ''
+  const token = newSessionId()
+  await db.sql`insert into customer_session (id_hash, store_id, customer_id, created_at, last_seen_at, expires_at) values (${await hashSessionId(token)}, ${store}, ${id}, now(), now(), now() + interval '1 day')`
+  session = token
+}
 
 type Cart = { subtotal: { amount: string }; discount: { amount: string }; shipping: { amount: string } | null; shippingDiscount: { amount: string } | null; total: { amount: string }; discounts: { name: string; code: string | null; amount: { amount: string } }[]; codes: { code: string; state: string }[]; lines: { discount: { amount: string } | null; lineTotal: { amount: string } }[] }
 const cartFields = 'subtotal { amount } discount { amount } shipping { amount } shippingDiscount { amount } total { amount } discounts { name code amount { amount } } codes { code state } lines { discount { amount } lineTotal { amount } }'
@@ -235,24 +251,45 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     expect(seen).toEqual({ discount: { amount: '20000' }, discounts: [{ name: 'Summer 20% off', amount: { amount: '20000' } }], total: { amount: '85000' } })
   })
 
-  it('answers for a typed email as for no contact, holds the limit for it at placement, and won’t take a typed number at all (#337)', async () => {
+  it('asks every guest to sign in for a once-per-customer offer, whatever email they type, and never refuses their order for it', async () => {
     await db.sql`update promotion set per_customer_limit = 1 where id = ${placeOffer}`
-    // Asha used it: a stranger typing her email learns nothing from the cart, and can't place the order with it.
-    const again = await ready(1, { email: 'ASHA@example.com', code: 'PLACE20' })
-    expect((await cartOf(again)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }])
-    expect((await place(again)).code).toBe('OFFER_CHANGED')
-    const phoneOnly = await add(kurta, 1)
-    await shop('mutation { setCartContact(phone: "+919800000009") { cart { id } } }', phoneOnly)
-    expect((await apply(phoneOnly, 'PLACE20')).state).toBe('SIGN_IN_REQUIRED')
+    // Asha used it as a guest; typing her email, a stranger's or only a number all answer the same.
+    for (const contact of ['email: "ASHA@example.com"', 'email: "stranger@example.com"', 'phone: "+919800000009"']) {
+      const cart = await add(kurta, 1)
+      await shop(`mutation { setCartContact(${contact}) { cart { id } } }`, cart)
+      expect({ contact, state: (await apply(cart, 'PLACE20')).state }).toEqual({ contact, state: 'SIGN_IN_REQUIRED' })
+    }
+    // A returning guest is never stranded: the code stays on, says why, and the order goes through without it, twice.
+    for (let time = 0; time < 2; time += 1) {
+      const again = await ready(1, { email: 'asha@example.com', code: 'PLACE20' })
+      const cart = await cartOf(again)
+      expect([cart.codes, cart.discount.amount]).toEqual([[{ code: 'PLACE20', state: 'SIGN_IN_REQUIRED' }], '0'])
+      expect((await place(again)).data?.['placeOrder']).toMatchObject({ total: { amount: '105000' } })
+    }
+    expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 1 }])
   })
 
-  it('gives the use back when the order is cancelled before fulfilment', async () => {
-    expect((await merchant(`mutation { cancelOrder(orderId: "${order}", reason: shopper) }`)).data?.['cancelOrder']).toBe(true)
-    expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 0 }])
-    expect(await db.sql`select 1 from promotion_usage where order_id = ${order}`).toHaveLength(0)
-    const back = await ready(1, { code: 'PLACE20' })
-    expect((await place(back)).code).toBeUndefined()
-    expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 1 }])
+  it('counts a signed-in shopper’s uses by account and proven email, and gives a use back when the order is cancelled', async () => {
+    await signIn('asha@example.com')
+    try {
+      // Her guest order with this email counts, now that the email is proven hers.
+      const before = await add(kurta, 1)
+      expect((await apply(before, 'PLACE20')).state).toBe('ALREADY_USED')
+      expect((await merchant(`mutation { cancelOrder(orderId: "${order}", reason: shopper) }`)).data?.['cancelOrder']).toBe(true)
+      expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 0 }])
+      expect(await db.sql`select 1 from promotion_usage where order_id = ${order}`).toHaveLength(0)
+      expect((await apply(before, 'PLACE20')).state).toBe('APPLIED')
+      await shop('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', before)
+      await shop('mutation { setShippingAddress(address: { name: "Asha", line1: "12 MG Road", city: "Pune", region: "Maharashtra", postalCode: "411001", country: "IN" }) { cart { id } } }', before)
+      await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', before)
+      await shop('mutation { checkout { id } }', before)
+      expect((await place(before)).data?.['placeOrder']).toMatchObject({ total: { amount: '85000' } })
+      expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 1 }])
+      const third = await add(kurta, 1)
+      expect((await apply(third, 'PLACE20')).state).toBe('ALREADY_USED')
+    } finally {
+      session = null
+    }
   })
 
   it('takes a single-use code once, and gives it back with a cancelled order', async () => {
@@ -316,14 +353,22 @@ describe('each store’s own offers (ACCESS §11)', () => {
       insert into "order" (store_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, payment_method, email)
       values (${other}, 'placed', 'paid', 'INR', 'S-1', now(), 100000, 0, 100000, 'cod', 'meera@example.com') returning id`
     await db.sql`insert into promotion_usage (promotion_id, store_id, order_id, customer_email, discount_amount, currency) values (${theirs}, ${other}, ${o?.id ?? ''}, 'meera@example.com', 10000, 'INR')`
-    // Meera ordered and used their code in Surat: a first order here all the same.
-    const token = await ready(1, { email: 'meera@example.com', code: 'WELCOME' })
-    expect((await cartOf(token)).discounts.map((d) => d.name)).toEqual(['Welcome'])
-    expect((await place(token)).code).toBeUndefined()
-    // Her second here is not, which placement finds whatever the cart said.
-    const second = await ready(1, { email: 'meera@example.com', code: 'WELCOME' })
-    expect((await cartOf(second)).codes).toEqual([{ code: 'WELCOME', state: 'APPLIED' }])
-    expect((await place(second)).code).toBe('OFFER_CHANGED')
+    // A guest typing Meera's email is asked to sign in, as anyone is.
+    const guest = await add(kurta, 1)
+    await shop('mutation { setCartContact(email: "meera@example.com") { cart { id } } }', guest)
+    expect((await apply(guest, 'WELCOME')).state).toBe('SIGN_IN_REQUIRED')
+    // Signed in, she ordered and used their code in Surat: a first order here all the same.
+    await signIn('meera@example.com')
+    try {
+      const token = await ready(1, { email: 'meera@example.com', code: 'WELCOME' })
+      expect((await cartOf(token)).discounts.map((d) => d.name)).toEqual(['Welcome'])
+      expect((await place(token)).code).toBeUndefined()
+      // Her second here is not.
+      const second = await add(kurta, 1)
+      expect((await apply(second, 'WELCOME')).state).toBe('ALREADY_USED')
+    } finally {
+      session = null
+    }
     expect(welcome).not.toBe(theirs)
   })
 
