@@ -28,6 +28,7 @@ export interface BillingSubscriptionRow {
   payment_method_brand: string | null
   payment_method_last4: string | null
   payment_method_expires: Date | null
+  billing_revision: number
   partner_name: string
   billing_mode: 'dripfunnel' | 'own'
   store_name: string
@@ -40,7 +41,7 @@ const subscriptionColumns = (tx: ScopedSql) => tx`
   select sub.store_id, sub.partner_id, sub.plan_id, sub.plan_version, p.name as plan_name, sub.status, sub.interval, sub.currency, sub.amount,
     sub.period_start, sub.period_end, sub.trial_ends_at, sub.cancel_at, sub.next_plan_id, sub.next_plan_version, np.name as next_plan_name,
     sub.next_interval, sub.change_at, sub.stripe_customer_id, sub.stripe_subscription_id, sub.payment_method_brand, sub.payment_method_last4,
-    sub.payment_method_expires, pa.name as partner_name, pa.billing_mode, s.name as store_name, s.status as store_status, f.synced_at
+    sub.payment_method_expires, sub.billing_revision, pa.name as partner_name, pa.billing_mode, s.name as store_name, s.status as store_status, f.synced_at
   from store_subscription sub
   join store s on s.id = sub.store_id
   join plan p on p.id = sub.plan_id
@@ -66,6 +67,11 @@ export const claimBilling = async (tx: ScopedSql, storeId: string, at: Date, unt
   return rows.length === 1 ? claim : null
 }
 
+/** A refusal from Stripe charged nothing, so the next try is a new request to it, not the refused one again. */
+export const bumpBillingRevision = async (tx: ScopedSql, storeId: string): Promise<void> => {
+  await tx`update store_subscription set billing_revision = billing_revision + 1 where store_id = ${storeId}`
+}
+
 export const releaseBilling = async (tx: ScopedSql, storeId: string, claim: string): Promise<void> => {
   await tx`update store_subscription set billing_claim = null, billing_claim_until = null where store_id = ${storeId} and billing_claim = ${claim}`
 }
@@ -76,7 +82,8 @@ export const saveStripeCustomer = async (tx: ScopedSql, storeId: string, custome
 
 export const saveCard = async (tx: ScopedSql, storeId: string, card: { brand: string; last4: string; expires: Date }): Promise<void> => {
   await tx`
-    update store_subscription set payment_method_brand = ${card.brand}, payment_method_last4 = ${card.last4}, payment_method_expires = ${card.expires}
+    update store_subscription set payment_method_brand = ${card.brand}, payment_method_last4 = ${card.last4}, payment_method_expires = ${card.expires},
+      billing_revision = billing_revision + 1
     where store_id = ${storeId}
   `
 }
@@ -97,7 +104,7 @@ export const applyPlan = async (tx: ScopedSql, storeId: string, move: PlanMove &
     update store_subscription set plan_id = ${move.planId}, plan_version = ${move.planVersion}, interval = ${move.interval}, amount = ${move.amount},
       stripe_subscription_id = coalesce(${move.subscriptionId}, stripe_subscription_id), period_start = ${move.periodStart}, period_end = ${move.periodEnd},
       status = case when ${move.activate} then 'active' else status end, trial_ends_at = case when ${move.activate} then null else trial_ends_at end,
-      next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null
+      next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null, billing_revision = billing_revision + 1
     where store_id = ${storeId}
   `
   await tx`update store set plan_id = ${move.planId}, trial_ends_at = null where id = ${storeId}`
@@ -105,13 +112,17 @@ export const applyPlan = async (tx: ScopedSql, storeId: string, move: PlanMove &
 
 export const scheduleChange = async (tx: ScopedSql, storeId: string, move: PlanMove & { at: Date }): Promise<void> => {
   await tx`
-    update store_subscription set next_plan_id = ${move.planId}, next_plan_version = ${move.planVersion}, next_interval = ${move.interval}, change_at = ${move.at}
+    update store_subscription set next_plan_id = ${move.planId}, next_plan_version = ${move.planVersion}, next_interval = ${move.interval}, change_at = ${move.at},
+      billing_revision = billing_revision + 1
     where store_id = ${storeId}
   `
 }
 
 export const clearScheduledChange = async (tx: ScopedSql, storeId: string): Promise<void> => {
-  await tx`update store_subscription set next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null where store_id = ${storeId}`
+  await tx`
+    update store_subscription set next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null, billing_revision = billing_revision + 1
+    where store_id = ${storeId}
+  `
 }
 
 /** What Stripe says of the subscription now: its status and period, never the plan, which the service moves (SAAS §7.2). */

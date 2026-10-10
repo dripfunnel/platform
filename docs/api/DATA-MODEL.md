@@ -1895,7 +1895,8 @@ or a storefront; staff read the invoices, never the details) with the four role 
 differently: `invoice` has no `pdf_asset_id`, `tax_label` or `reverse_charge` (the PDF and its tax
 are Stripe's), and carries `stripe_invoice_id` unique and `paid_at`; `invoice_line` carries
 `position`, its amount signed (a credit below zero). `store_subscription` gains `next_interval`
-(a scheduled change of period) and `billing_claim`, `billing_claim_until` (one change at a time).
+(a scheduled change of period), `billing_claim`, `billing_claim_until` (one change at a time) and
+`billing_revision` (what Stripe's idempotency keys carry, SAAS §7.2).
 
 **Reconciled on #157**: `plan.trial_days` is `0..90` (migration `0013`; it was `(0, 7, 14,
 30)`), so the house partner's 10-day trial fits (SAAS §6.1), and the seed's house plans carry
