@@ -176,6 +176,13 @@ describe('money in other currencies', () => {
     ])
   })
 
+  it('keeps a repeat without both times as it came, never giving it times the merchant didn’t set', () => {
+    const allDay = blankCondition({ operation: 'recurrence', days: [5], from: null, to: null })
+    const d = draftOf({ ...base, action: action({ operation: 'order_percentage_discount', percent: 10 }), conditions: [allDay] }, india)
+    expect(d.repeat).toBeNull()
+    expect(inputOf(d, india, true).conditions).toEqual([{ operation: 'recurrence', days: [5], from: null, to: null }])
+  })
+
   it('keeps a “buys at least N” it can’t draw, as it came', () => {
     const these = { ...leaf, operation: 'contains_products', minimum: 2, productIds: ['p9'] }
     const onOrder = draftOf({ ...base, action: action({ operation: 'order_percentage_discount', percent: 10 }), conditions: [these] }, india)
