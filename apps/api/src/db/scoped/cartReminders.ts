@@ -304,6 +304,9 @@ export interface ReminderToSendRow {
   code: string | null
   code_percent: number | null
   code_expires_at: Date | null
+  store_country: string | null
+  /** The shopper's marketing answer now: their account's, or for a guest the customer row their email is. */
+  consent: { consent_state: string; consent_channels: string[] } | null
 }
 
 /** What a reminder says, read as it is sent. */
@@ -312,7 +315,10 @@ export const selectReminderToSend = async (tx: ScopedSql, id: string): Promise<R
     await tx<ReminderToSendRow[]>`
       select r.store_id, s.partner_id, s.name as store_name, s.code as store_code, s.contact_email, s.address, s.main_language as locale, r.state, r.channel,
         coalesce(o.email, c.email) as to, c.phone, coalesce((select sum(l.quantity)::int from cart_line l where l.order_id = o.id), 0) as items, coalesce(o.shipping_address ->> 'name', c.name) as name,
-        st.subject, st.body, pc.code, (a.args ->> 'percent')::int as code_percent, pc.expires_at as code_expires_at
+        st.subject, st.body, pc.code, (a.args ->> 'percent')::int as code_percent, pc.expires_at as code_expires_at, s.country as store_country,
+        (select json_build_object('consent_state', k.consent_state, 'consent_channels', k.consent_channels) from customer k
+          where k.store_id = r.store_id and (k.id = o.customer_id or (o.customer_id is null and o.email is not null and lower(k.email) = lower(o.email)))
+          order by (k.id = o.customer_id) desc nulls last limit 1) as consent
       from cart_reminder r join "order" o on o.id = r.order_id and o.store_id = r.store_id join store s on s.id = r.store_id
       left join customer c on c.id = o.customer_id and c.store_id = o.store_id
       left join cart_reminder_step st on st.store_id = r.store_id and (st.id = r.step_id or (r.step_id is null and st.position = 1))

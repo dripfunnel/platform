@@ -123,7 +123,7 @@ const relay = async () => {
   return relayDue(db.sql, {
     'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, whatsappAccounts),
     email: emailDeliverer(db.sql, ses, { hosts, senderDomain: 'mail.dripfunnel.test', suppressionKey }),
-    whatsapp: whatsappDeliverer(db.sql, whatsappAccounts ?? { forPartner: async () => null }, () => whatsappSender),
+    whatsapp: whatsappDeliverer(db.sql, whatsappAccounts ?? { forPartner: async () => null }, () => whatsappSender, suppressionKey),
   }, { ...defaultRelayOptions, now: () => at })
 }
 /** Sweeps and delivers until nothing more goes: the cron and the outbox, as the Worker runs them. */
@@ -651,10 +651,55 @@ describe('WhatsApp in India (#337)', () => {
       const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
       const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
       await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
-      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, gone, () => whatsappSender) }, opts)
+      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, gone, () => whatsappSender, suppressionKey) }, opts)
       const mailed = mailTo('member.wa@example.com').length
       for (let i = 0; i < 2; i++) await relay()
       expect([await reminders(cart), mailTo('member.wa@example.com').length - mailed]).toMatchObject([[{ state: 'sent', channel: 'email' }], 1])
+    }
+  })
+
+  it('falls back to email only under email’s own rules: a shopper who stopped since, agreed to WhatsApp alone, or whose address bounced gets nothing', async () => {
+    const gone: PartnerWhatsAppAccounts = { forPartner: async () => null }
+    const cases: [string, () => Promise<unknown>, () => Promise<unknown>][] = [
+      ['opted_out', () => db.sql`update customer set consent_state = 'stopped' where id = ${member}`, () => db.sql`update customer set consent_state = 'opted_in' where id = ${member}`],
+      // A store in India, the shopper agreed to WhatsApp and never to email.
+      ['opted_out', () => db.sql`update customer set consent_channels = '{whatsapp}' where id = ${member}`, () => db.sql`update customer set consent_channels = '{email,whatsapp}' where id = ${member}`],
+      ['undeliverable', () => withSystemScope(db.sql, (tx) => suppressAll(tx, suppressionKey, ['member.wa@example.com'], 'bounce', new Date())), () => db.sql`delete from email_suppression`],
+    ]
+    for (const [reason, set, reset] of cases) {
+      await whatsappFlow()
+      const cart = await memberCart()
+      await sweep()
+      const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
+      const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
+      await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
+      // Decided for WhatsApp; the shopper's answer or address changes before it goes.
+      await set()
+      const mailed = mailTo('member.wa@example.com').length
+      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, gone, () => whatsappSender, suppressionKey) }, opts)
+      for (let i = 0; i < 2; i++) await relay()
+      await reset()
+      expect([await reminders(cart), mailTo('member.wa@example.com').length - mailed]).toMatchObject([[{ state: 'skipped', skip_reason: reason }], 0])
+    }
+  })
+
+  it('asks again as it goes: a shopper who stops while the message waits for a retry gets neither the WhatsApp nor the email', async () => {
+    for (const channel of ['whatsapp', 'email'] as const) {
+      await whatsappFlow()
+      if (channel === 'email') await db.sql`update cart_reminder_step set channel = 'email' where store_id = ${store}`
+      const cart = await memberCart()
+      await sweep()
+      const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
+      const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
+      await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
+      expect((await reminders(cart))[0]?.channel).toBe(channel)
+      // The first try failed (MSG91 or SES down) and the shopper unsubscribed before the retry.
+      await db.sql`update customer set consent_state = 'stopped' where id = ${member}`
+      const before = [texts.length, mailTo('member.wa@example.com').length]
+      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => whatsappSender, suppressionKey) }, opts)
+      for (let i = 0; i < 2; i++) await relay()
+      await db.sql`update customer set consent_state = 'opted_in' where id = ${member}`
+      expect([channel, await reminders(cart), texts.length - (before[0] ?? 0), mailTo('member.wa@example.com').length - (before[1] ?? 0)]).toMatchObject([channel, [{ state: 'skipped', skip_reason: 'opted_out' }], 0, 0])
     }
   })
 
@@ -693,7 +738,7 @@ describe('WhatsApp in India (#337)', () => {
     const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
     const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
     await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
-    await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => refusing) }, opts)
+    await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => refusing, suppressionKey) }, opts)
     expect(await reminders(cart)).toMatchObject([{ state: 'skipped', skip_reason: 'undeliverable' }])
   })
 })
