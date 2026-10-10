@@ -37,7 +37,7 @@ export const missingRoutes = (manifest: ThemeManifest): CoreRoute[] => coreRoute
 
 export type RequiredPart = 'price' | 'consent' | 'preview' | 'legal' | 'powered'
 
-/** What each route must render (the required components, DESIGN §3), by its data-df-required mark. */
+/** The sealed components each route must render (DESIGN §3), by their data-df-sealed mark. */
 export const requiredParts = (route: CoreRoute, page: { preview: boolean; poweredBy: boolean; legal: boolean }): RequiredPart[] => {
   const parts: RequiredPart[] = ['consent']
   if (page.preview) parts.push('preview')
