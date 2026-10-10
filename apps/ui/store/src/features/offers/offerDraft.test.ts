@@ -255,6 +255,17 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...order, tiers: [{ off: '10', minimum: '50' }, { off: '15', minimum: '100' }] }, noEur)).toEqual({ tiers: noRate })
   })
 
+  it('needs no rate for a cap’s or a step’s amount kept as saved, only for one it would convert', () => {
+    const noEur: StoreFacts = { ...multi, perEuro: { USD: 1.1, JPY: 160 } }
+    const all = (usd: string, eur: string, jpy: string) => [{ currency: 'USD', amount: usd }, { currency: 'EUR', amount: eur }, { currency: 'JPY', amount: jpy }]
+    const capped = draftOf({ ...base, code: 'OK1', trigger: 'code', action: blankAction({ operation: 'order_percentage_discount', percent: 20, cap: all('3000', '2700', '4800') }) }, noEur)
+    expect(errorsOf(capped, noEur)).toEqual({})
+    expect(errorsOf({ ...capped, cap: '35' }, noEur)).toEqual({ cap: 'There’s no exchange rate for EUR today, so it can’t be converted: type the amount in each of them.' })
+    const steps = [{ minimum: all('5000', '4500', '8000'), percent: null, amounts: all('500', '450', '800') }, { minimum: all('9000', '8000', '14000'), percent: null, amounts: all('1500', '1300', '2400') }]
+    const tiered = draftOf({ ...base, code: 'OK1', trigger: 'code', action: blankAction({ operation: 'tiered_discount', kind: 'fixed', tiers: steps }) }, noEur)
+    expect(errorsOf(tiered, noEur)).toEqual({})
+  })
+
   it('checks every kind of offer’s own fields, and every currency’s box', () => {
     const order = { ...blankDraft('order', null, ctx(multi)), code: 'OK1' }
     expect(errorsOf({ ...order, kind: 'fixed', amounts: {} }, multi)).toEqual({ value: words.amount })
