@@ -143,6 +143,30 @@ describe('saving an offer', () => {
     expect((await create({ code: 'SUMMER20' }, 'other')).code).toBeUndefined()
   })
 
+  it('gives a code to one of two offers saved with it at once, and tells the other who holds it', async () => {
+    // Another save has taken the code's lock and written its offer and code, not yet committed.
+    let release = () => {}
+    let ready = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const held = new Promise<void>((resolve) => (ready = resolve))
+    let first = ''
+    const other = db.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(hashtext(${`offer-code:${t.storeA1}:twins10`}))`
+      first = (await tx<{ id: string }[]>`insert into promotion (store_id, name, trigger, enabled) values (${t.storeA1}, 'Twin one', 'code', false) returning id`)[0]?.id ?? ''
+      await tx`insert into promotion_action (promotion_id, store_id, operation, args, position) values (${first}, ${t.storeA1}, 'free_shipping', '{}', 0)`
+      await tx`insert into promotion_code (promotion_id, store_id, code) values (${first}, ${t.storeA1}, 'TWINS10')`
+      ready()
+      await gate
+    })
+    await held
+    const second = create({ name: 'Twin two', code: 'twins10', enabled: false })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    release()
+    await other
+    const refused = await second
+    expect([refused.code, refused.extensions?.['offerId']]).toEqual(['CODE_TAKEN', first])
+  })
+
   it('keeps a replaced code reserved to its offer, and lets the offer take it back (H5)', async () => {
     const o = await offer(id)
     await gql(save, 'owner', { id, revision: o?.['revision'], input: offerInput({ code: 'SUMMER25' }) })

@@ -257,7 +257,11 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
       const named = namedIds(d)
       const total = Object.values(named).reduce((n, list) => n + list.length, 0)
       if ((await countKnownIds(tx, storeId, named)) !== total) throw new Refused({ ok: false, reason: 'UNKNOWN_TARGET' })
-      if (d.code) await statusOfHolder(tx, d.code, before?.id ?? null)
+      if (d.code) {
+        // Two saves taking the same new code wait for each other, so the second meets the first's as CODE_TAKEN.
+        await serialise(tx, `offer-code:${storeId}:${d.code.toLowerCase()}`)
+        await statusOfHolder(tx, d.code, before?.id ?? null)
+      }
       const offerId = before ? before.id : await insertOffer(tx, storeId, writeOf(d), actor.id)
       const saved = before ? await updateOffer(tx, before.id, writeOf(d), now()) : 1
       const rules = rulesOf(d)
