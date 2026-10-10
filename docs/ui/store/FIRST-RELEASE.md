@@ -372,8 +372,9 @@ new cart token), and asks the shopper to sign in for an account's cart.
 **Part 2 (#321):** a step set to WhatsApp, in an Indian store on the plan's `automatic`, goes by the partner's WhatsApp
 Business number through MSG91 to a **signed-in** shopper who agreed to WhatsApp, at their account's own number (never a
 number typed in the cart); anyone else, or a partner whose account can't be read yet (#275), gets the email, and so
-does one whose account, template or number is gone by the time it goes. A provider's refusal for good marks it
-undeliverable. The Carts tab reads its list, counts, one cart and its figures, and writes
+does one whose account, template or number is gone by the time it goes, under the email's own rules checked then (the
+shopper's answer for email and the suppression list). A provider's refusal for good marks it undeliverable. **Decided
+here (#321):** a shopper who agreed to some channels and not email gets no reminder email, in any country. The Carts tab reads its list, counts, one cart and its figures, and writes
 "Send reminder now", "Stop reminders", "Resume reminders" and "Send me a test". **Decided here (#321):** a test goes by
 email to the person's own address only, never one typed in, so a store can't email strangers with it (the prototype's
 field is prefilled with it); "Send reminder now" below `automatic` gives one reminder a cart and no code, checked under the
