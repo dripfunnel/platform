@@ -5483,11 +5483,12 @@
       "stale": "Someone else saved your reminders. Reload to see their changes.",
       "reload": "Reload",
       "testTitle": "Send a test of reminder {n}",
-      "testBody": "It goes to your own email, with a sample cart and a code that doesn’t work at checkout. It doesn’t count in your results.",
+      "testBody": "It sends the saved reminder to your own email, with a sample cart and a code that doesn’t work at checkout. It doesn’t count in your results.",
       "testSend": "Send test",
       "cancel": "Cancel",
       "testSent": "Test sent to {email} — check spam if it isn’t there in a minute.",
-      "testTooMany": "Too many tests. Wait a minute and try again."
+      "testTooMany": "Too many tests. Wait a minute and try again.",
+      "testSaveFirst": "Save first: a test sends the saved reminder."
     }
   }
 }

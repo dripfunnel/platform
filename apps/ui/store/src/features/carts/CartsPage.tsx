@@ -31,6 +31,7 @@ export const CartsPage = () => {
   const navigate = useNavigate()
   const forced = useScreenState(cartStates, harnessEnabled)
   const sample = useMemo(() => cartSample(forced), [forced])
+  const settingsSample = useMemo(() => sampleSettings(forced), [forced])
   const access = useMemo(() => cartAccessOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
   const phone = usePhone()
   const tab: CartTab = status ?? 'open'
@@ -180,7 +181,7 @@ export const CartsPage = () => {
       {failure && <p className="df-carts-note df-carts-note--danger" role="alert">{failure}</p>}
 
       {pane === 'reminders' ? (
-        <RemindersPane access={access} sample={sampleSettings(forced)} storeName={acting.store.name} email={me.email} />
+        <RemindersPane access={access} forced={forced === 'loading' || forced === 'error' ? forced : null} sample={settingsSample} storeName={acting.store.name} email={me.email} />
       ) : none ? (
         <section className="df-carts-first" aria-labelledby="df-carts-first">
           <h2 id="df-carts-first">{words.first.title}</h2>

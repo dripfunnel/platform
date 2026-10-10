@@ -339,6 +339,64 @@ describe('the Reminders tab', () => {
     expect(screen.getByText(/Test sent to farhan@kesari.in/)).toBeTruthy()
   })
 
+  it('won’t save a zero minimum, and Discard brings the form back as read', async () => {
+    await show(owner, { entry: '/carts?pane=reminders' })
+    const minimum = screen.getByRole('textbox', { name: /Only carts worth at least/ })
+    fireEvent.change(minimum, { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: rw.save }))
+    expect(screen.getByText(rw.errors.minimum)).toBeTruthy()
+    expect(api.saveReminderSettings).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: rw.discard }))
+    expect((screen.getByRole('textbox', { name: /Only carts worth at least/ }) as HTMLInputElement).value).toBe('')
+    expect(screen.queryByText(rw.unsaved)).toBeNull()
+  })
+
+  it('never blocks a save on a step locked below the plan’s automatic, and sends it back as read', async () => {
+    api.loadReminderSettings.mockResolvedValue({ ...settings, level: 'onePerCart' })
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.change(step(1).getByRole('combobox', { name: rw.delay }), { target: { value: '4320' } })
+    fireEvent.click(screen.getByRole('button', { name: rw.save }))
+    await settle()
+    expect(api.saveReminderSettings).toHaveBeenCalledWith(expect.objectContaining({ steps: [{ ...steps[0], delayMinutes: 4320 }, steps[1], steps[2]] }), 3)
+  })
+
+  it('sends a test only of the saved reminder, and says when there have been too many', async () => {
+    api.sendTestReminder.mockRejectedValue(new ApiError('RATE_LIMITED', 'slow down'))
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.change(step(1).getByRole('textbox', { name: rw.subject }), { target: { value: 'New subject' } })
+    expect(screen.getByRole('button', { name: rw.test })).toHaveProperty('disabled', true)
+    expect(screen.getByText(rw.testSaveFirst)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: rw.discard }))
+    fireEvent.click(screen.getByRole('button', { name: rw.test }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: rw.testSend }))
+    await settle()
+    expect(within(screen.getByRole('dialog')).getByText(rw.testTooMany)).toBeTruthy()
+  })
+
+  it('shows a view-only store every field disabled, with nothing to save or test', async () => {
+    await show(owner, { readOnly: true, entry: '/carts?pane=reminders' })
+    expect(step(2).getByRole('combobox', { name: rw.delay })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('switch', { name: rw.auto })).toHaveProperty('disabled', true)
+    expect(screen.queryByRole('button', { name: rw.test })).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox', { name: /Quiet hours/ }))
+    expect(screen.queryByRole('button', { name: rw.save })).toBeNull()
+  })
+
+  it('draws the harness’s states under the Reminders tab, and an edit sticks there', async () => {
+    await show(owner, { entry: '/carts?pane=reminders&state=loading' })
+    expect(screen.getByText(rw.loading)).toBeTruthy()
+    expect(api.loadReminderSettings).not.toHaveBeenCalled()
+    cleanup()
+    await show(owner, { entry: '/carts?pane=reminders&state=error' })
+    expect(screen.getByText(rw.error)).toBeTruthy()
+    cleanup()
+    await show(owner, { entry: '/carts?pane=reminders&state=list' })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Quiet hours/ }))
+    await settle(50)
+    expect(screen.getByText(rw.unsaved)).toBeTruthy()
+    expect(api.loadReminderSettings).not.toHaveBeenCalled()
+  })
+
   it('locks follow-ups, codes and WhatsApp below the plan’s automatic, and lets Staff only look', async () => {
     api.loadReminderSettings.mockResolvedValue({ ...settings, level: 'youSend', enabled: false })
     await show(owner, { entry: '/carts?pane=reminders' })

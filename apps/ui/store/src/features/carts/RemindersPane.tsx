@@ -34,18 +34,21 @@ const formOf = (s: ReminderSettings): Form => ({
   steps: [...s.steps].sort((a, b) => a.position - b.position).map((x) => ({ ...x })),
 })
 
-/** Each step's problem, as the API would refuse it: later than the one before, and a subject for an email (#321). */
-export const stepErrors = (steps: readonly ReminderStep[]): (string | null)[] =>
+/**
+ * Each step's problem, as the API would refuse it: later than the one before, and a subject for an email (#321). A step
+ * locked below the plan's automatic is drawn without its fields, so it is sent back as read and never blocks a save.
+ */
+export const stepErrors = (steps: readonly ReminderStep[], automatic: boolean): (string | null)[] =>
   steps.map((x, i) => {
-    if (!x.enabled) return null
-    const before = steps.slice(0, i).filter((y) => y.enabled).pop()
+    if (!x.enabled || (!automatic && i > 0)) return null
+    const before = steps.slice(0, i).filter((y, j) => y.enabled && (automatic || j === 0)).pop()
     if (before && x.delayMinutes <= before.delayMinutes) return words.errors.later
     if (x.channel === 'email' && !x.subject.trim()) return words.errors.subject
     if (x.subject.trim().length > reminderText.subject || x.body.trim().length > reminderText.body) return fill(words.errors.long, { subject: String(reminderText.subject), body: String(reminderText.body) })
     return null
   })
 
-export const RemindersPane = ({ access, sample, storeName, email }: { access: CartAccess; sample: ReminderSettings | null; storeName: string; email: string }) => {
+export const RemindersPane = ({ access, forced, sample, storeName, email }: { access: CartAccess; forced: 'loading' | 'error' | null; sample: ReminderSettings | null; storeName: string; email: string }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [form, setForm] = useState<Form | null>(null)
   const [orig, setOrig] = useState('')
@@ -67,6 +70,8 @@ export const RemindersPane = ({ access, sample, storeName, email }: { access: Ca
       setOrig(JSON.stringify(f))
       setView({ kind: 'ready', settings, currency, country })
     }
+    if (forced === 'loading') return setView({ kind: 'loading' })
+    if (forced === 'error') return setView({ kind: 'error' })
     if (sample) return ready(sample, 'INR', 'IN')
     setView({ kind: 'loading' })
     void Promise.all([loadReminderSettings(), loadOfferFacts()]).then(
@@ -77,7 +82,7 @@ export const RemindersPane = ({ access, sample, storeName, email }: { access: Ca
       },
       () => mine === latest.current && setView({ kind: 'error' }),
     )
-  }, [sample])
+  }, [forced, sample])
   useEffect(load, [load])
 
   if (view.kind === 'error') return <ErrorState title={words.error} body={messages.carts.error.body} retry={{ label: messages.carts.error.retry, onRetry: load }} />
@@ -88,7 +93,7 @@ export const RemindersPane = ({ access, sample, storeName, email }: { access: Ca
   const automatic = level === 'automatic'
   const ro = !access.canEdit
   const dirty = JSON.stringify(form) !== orig
-  const errors = stepErrors(form.steps)
+  const errors = stepErrors(form.steps, automatic)
   const minimumMinor = form.minimum.trim() ? minorOf(form.minimum, currency) : null
   const minimumBad = minimumMinor === 'invalid' || minimumMinor === 0
   const set = (patch: Partial<Form>) => {
@@ -277,7 +282,7 @@ export const RemindersPane = ({ access, sample, storeName, email }: { access: Ca
           <div className="df-reminders-preview-head">
             <span className="df-eyebrow">{fill(words.previewOf, { n: String(step.position), channel: channelText(step.channel) })}</span>
             {!ro && (
-              <button type="button" className="df-button" onClick={() => {
+              <button type="button" className="df-button" disabled={dirty} aria-describedby={dirty ? 'df-reminders-test-note' : undefined} onClick={() => {
                   setTestError(null)
                   setTesting(true)
                 }}>
@@ -285,6 +290,11 @@ export const RemindersPane = ({ access, sample, storeName, email }: { access: Ca
               </button>
             )}
           </div>
+          {!ro && dirty && (
+            <span id="df-reminders-test-note" className="df-carts-sub">
+              {words.testSaveFirst}
+            </span>
+          )}
           {step.channel === 'email' ? (
             <div className="df-reminders-mail">
               <div className="df-reminders-mail-head">
