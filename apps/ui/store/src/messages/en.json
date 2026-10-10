@@ -4642,7 +4642,8 @@
         "otherAmount": "Give each other currency an amount above zero, or leave its box empty to convert at today’s rate.",
         "tooMany": "An offer can name up to {max}. Remove some.",
         "noRate": "There’s no exchange rate for {currencies} today, so it can’t be converted: type the amount in each of them.",
-        "batchLength": "Make the codes {low} to {high} characters long."
+        "batchLength": "Make the codes {low} to {high} characters long.",
+        "gone": "Remove what’s no longer in your shop to save."
       },
       "crumbNew": "New offer",
       "loading": "Loading the offer",
@@ -4650,6 +4651,7 @@
       "missingBody": "It may have been deleted.",
       "leave": "Leave without saving? Your changes to this offer will be lost.",
       "unnamed": "Unnamed",
+      "gone": "No longer in your shop",
       "pickTitle": "What kind of offer?",
       "pickLede": "Pick what you want to happen. You choose automatic or a code on the next screen.",
       "examples": {
