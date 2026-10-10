@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ReminderChannel, SkipReason } from '#db/scoped/cartReminders'
+import { euCountries } from '#core/countries'
 
 // The pure rules of abandoned carts and their reminders (FIRST-RELEASE §9; the Carts prototype's Reminders tab).
 
@@ -35,10 +36,7 @@ export const quietWaitMs = (minutes: number): number => {
  * Countries whose stores remind only shoppers who agreed to marketing (the EU and EEA: Carts' "EU rules … only shoppers who
  * tick 'Email me about my cart and offers'"). Decided here (#321): the EU's 27 and Iceland, Liechtenstein and Norway.
  */
-export const optInCountries: ReadonlySet<string> = new Set([
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
-  'IS', 'LI', 'NO',
-])
+export const optInCountries: ReadonlySet<string> = new Set([...euCountries, 'IS', 'LI', 'NO'])
 
 /** Whether the store may email this shopper about their cart: never after they stopped or chose other channels; in an opt-in country only once they agreed. */
 export const mayEmail = (storeCountry: string | null, consent: { consent_state: string; consent_channels: readonly string[] } | null): boolean => {
