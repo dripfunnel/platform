@@ -206,4 +206,17 @@ describe('the hook’s rate limits (#563)', () => {
     expect(used.get(`courier-hook:${t.partnerA}`)).toBe(1)
     expect((await shipment(shipments[0] ?? ''))?.tracking_status).toBe('in_transit')
   })
+
+  it('never lets one partner’s burst of proven hooks from a courier’s shared address refuse another partner’s', async () => {
+    const used = new Map<string, number>()
+    const allow = async (key: string) => {
+      used.set(key, (used.get(key) ?? 0) + 1)
+      return (used.get(key) ?? 0) <= 3
+    }
+    const courierIp = { 'x-api-key': localCourierHookSecret, 'cf-connecting-ip': '192.0.2.50' }
+    const body = JSON.stringify({ awb: 'NONE', current_status: 'IN TRANSIT', current_timestamp: '2026-10-12 11:00:00' })
+    const busy = await Promise.all([1, 2, 3, 4].map(() => post(`/couriers/shiprocket/${t.partnerA}`, body, courierIp, allow)))
+    expect(busy).toEqual([200, 200, 200, 429])
+    expect(await post(`/couriers/shiprocket/${t.partnerB}`, body, courierIp, allow)).toBe(200)
+  })
 })
