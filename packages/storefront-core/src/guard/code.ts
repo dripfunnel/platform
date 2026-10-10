@@ -171,6 +171,35 @@ const checkBindingPattern = (w: Walk, pattern: ts.ObjectBindingPattern) => {
   }
 }
 
+/** `({ a: x } = y)` and `for ({ a } of ys)`: each name read from the right side is judged as a member of it, as a binding pattern is. */
+const checkAssignedPattern = (w: Walk, pattern: ts.ObjectLiteralExpression | ts.ArrayLiteralExpression, source: ts.Expression | undefined, type: ts.Type) => {
+  if (ts.isArrayLiteralExpression(pattern)) {
+    const element = w.checker.getIndexTypeOfType(type, ts.IndexKind.Number) ?? type
+    for (const el of pattern.elements) {
+      const target = ts.isSpreadElement(el) ? el.expression : ts.isBinaryExpression(el) ? el.left : el
+      if (ts.isObjectLiteralExpression(target) || ts.isArrayLiteralExpression(target)) checkAssignedPattern(w, target, undefined, element)
+    }
+    return
+  }
+  for (const p of pattern.properties) {
+    if (!ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) continue
+    const name = p.name
+    if (ts.isComputedPropertyName(name)) checkKey(w, p, source, type, name.expression)
+    else if (ts.isIdentifier(name) || ts.isStringLiteral(name)) checkMember(w, p, source, type, name.text)
+    const value = ts.isPropertyAssignment(p) ? (ts.isBinaryExpression(p.initializer) ? p.initializer.left : p.initializer) : undefined
+    if (value && (ts.isObjectLiteralExpression(value) || ts.isArrayLiteralExpression(value))) {
+      const inner = !ts.isComputedPropertyName(name) && (ts.isIdentifier(name) || ts.isStringLiteral(name)) ? w.checker.getPropertyOfType(type, name.text) : undefined
+      checkAssignedPattern(w, value, undefined, inner ? w.checker.getTypeOfSymbol(inner) : w.checker.getAnyType())
+    }
+  }
+}
+
+const assignedPattern = (node: ts.Node): [ts.ObjectLiteralExpression | ts.ArrayLiteralExpression, ts.Expression] | undefined => {
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && (ts.isObjectLiteralExpression(node.left) || ts.isArrayLiteralExpression(node.left))) return [node.left, node.right]
+  if ((ts.isForOfStatement(node) || ts.isForInStatement(node)) && (ts.isObjectLiteralExpression(node.initializer) || ts.isArrayLiteralExpression(node.initializer))) return [node.initializer, node.expression]
+  return undefined
+}
+
 // A library's names passed on from one theme file to another would escape the checks tied to their import.
 const reexportMessage = "A theme passes on only its own code; import a library's names in the file that uses them."
 
@@ -392,6 +421,13 @@ const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
   if (ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword) w.report(node, 'code/script-url', "A theme may not read import.meta; core's chunk loader alone handles script addresses.")
   if (ts.isExpression(node) && losesElement(w, node)) w.report(node, 'code/dom-walking', "An element goes only where an element is expected; cast or handed to another type, what's reached through it would go unchecked.")
   if (ts.isExpression(node) && losesTranslate(w, node)) w.report(node, 'code/t-key-not-literal', "Call t() as core gives it, without passing it on as another type, so every key it's called with can be checked.")
+  const assigned = assignedPattern(node)
+  if (assigned) {
+    const [pattern, from] = assigned
+    const fromType = w.checker.getTypeAtLocation(from)
+    if (ts.isForOfStatement(node) || ts.isForInStatement(node)) checkAssignedPattern(w, pattern, undefined, ts.isForInStatement(node) ? w.checker.getStringType() : (w.checker.getIndexTypeOfType(fromType, ts.IndexKind.Number) ?? fromType))
+    else checkAssignedPattern(w, pattern, from, fromType)
+  }
   if (ts.isIdentifier(node)) checkIdentifier(w, node)
   else if (ts.isPropertyAccessExpression(node)) checkMember(w, node, node.expression, w.checker.getTypeAtLocation(node.expression), node.name.text)
   else if (ts.isElementAccessExpression(node)) checkKey(w, node, node.expression, w.checker.getTypeAtLocation(node.expression), node.argumentExpression)
