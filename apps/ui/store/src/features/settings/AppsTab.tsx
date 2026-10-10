@@ -77,7 +77,7 @@ export const AppsTab = ({ initial, read, canEdit, onToast }: AppsTabProps) => {
 
   const askRemove = (app: InstalledApp) =>
     setAsk({
-      title: fill(words.removeName, { name: app.name }) + '?',
+      title: fill(words.removeTitle, { name: app.name }),
       target: app.name,
       consequence: words.removeBody,
       confirmLabel: words.removeGo,

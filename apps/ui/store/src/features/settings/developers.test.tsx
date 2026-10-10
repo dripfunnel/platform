@@ -28,7 +28,6 @@ const dev = vi.hoisted(() => ({
   loadWebhookEvents: vi.fn(),
   loadDeliveries: vi.fn(),
   addWebhook: vi.fn(),
-  removeWebhook: vi.fn(),
   turnOnWebhook: vi.fn(),
   replayDelivery: vi.fn(),
 }))
@@ -80,6 +79,16 @@ const show = async ({ acting = owner, readOnly = false, state = '' } = {}) => {
   })
   await settle()
   await settle()
+  return router
+}
+
+const makeKey = async () => {
+  fireEvent.click(screen.getByRole('button', { name: k.create }))
+  const form = within(screen.getByRole('form', { name: k.newTitle }))
+  fireEvent.change(form.getByLabelText(k.name), { target: { value: 'Feed' } })
+  fireEvent.click(form.getByRole('button', { name: k.createKey }))
+  await settle()
+  return within(screen.getByRole('region', { name: k.secretTitle }))
 }
 
 beforeEach(() => {
@@ -92,7 +101,6 @@ beforeEach(() => {
   dev.rotateApiKey.mockResolvedValue({ id: 'k10', prefix: 'dfk_RRRRRRRR', secret })
   dev.revokeApiKey.mockResolvedValue(undefined)
   dev.addWebhook.mockResolvedValue({ id: 'h9', secret: 'whsec_ONCE' })
-  dev.removeWebhook.mockResolvedValue(undefined)
   dev.turnOnWebhook.mockResolvedValue(4)
   dev.replayDelivery.mockResolvedValue(undefined)
   team.loadSuppliers.mockResolvedValue([
@@ -103,6 +111,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
   vi.resetAllMocks()
 })
 
@@ -269,15 +278,6 @@ describe('webhooks', () => {
     expect(screen.getByText('Sent again: order.placed')).toBeTruthy()
   })
 
-  it('removes an endpoint after saying its waiting events are dropped', async () => {
-    await show()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove https://erp.example.com/hooks' }))
-    expect(dialog().getByText(h.removeBody)).toBeTruthy()
-    fireEvent.click(dialog().getByRole('button', { name: h.removeGo }))
-    await settle()
-    expect(dev.removeWebhook).toHaveBeenCalledWith('h1')
-  })
-
   it('words a delivery’s answer and how long it took', () => {
     expect(outcomeOf(delivery({ id: 'a' }))).toEqual({ text: '200', ok: true })
     expect(outcomeOf(delivery({ id: 'b', status: 'failed', error: 'status', responseCode: 500 }))).toEqual({ text: '500', ok: false })
@@ -285,7 +285,55 @@ describe('webhooks', () => {
     expect(outcomeOf(delivery({ id: 'd', status: 'failed', error: 'something_new', responseCode: null }))).toEqual({ text: h.outcome.failed, ok: false })
     expect(durationOf(182)).toBe('182 ms')
     expect(durationOf(1200)).toBe('1.2 s')
+    expect(durationOf(5000)).toBe('5 s')
     expect(durationOf(null)).toBe('')
+  })
+})
+
+describe('a secret on screen', () => {
+  it('copies it, and says when the browser wouldn’t', async () => {
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('denied'))
+    await show()
+    const once = await makeKey()
+    fireEvent.click(once.getByRole('button', { name: w.copy }))
+    await settle()
+    expect(write).toHaveBeenCalledWith(secret)
+    expect(once.getByRole('status').textContent).toBe(w.copied)
+    fireEvent.click(once.getByRole('button', { name: w.copy }))
+    await settle()
+    expect(once.getByRole('status').textContent).toBe(w.copyFailed)
+  })
+
+  it('asks before leaving while it isn’t stored, and stays when the Owner says no', async () => {
+    const ask = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
+    vi.stubGlobal('confirm', ask)
+    const router = await show()
+    await makeKey()
+    // A blocked navigation never settles, so it isn't awaited.
+    act(() => void router.navigate({ to: '/settings', search: { tab: 'people' } }))
+    await settle()
+    expect(ask).toHaveBeenCalledWith(w.leave)
+    expect(screen.getByText(secret)).toBeTruthy()
+    act(() => void router.navigate({ to: '/settings', search: { tab: 'people' } }))
+    await settle()
+    expect(screen.queryByText(secret)).toBeNull()
+  })
+
+  it('leaves without asking once it is stored', async () => {
+    const ask = vi.fn()
+    vi.stubGlobal('confirm', ask)
+    const router = await show()
+    const once = await makeKey()
+    fireEvent.click(once.getByRole('button', { name: k.stored }))
+    act(() => void router.navigate({ to: '/settings', search: { tab: 'people' } }))
+    await settle()
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('can’t rotate a key while a new one is being made, so nothing typed is lost', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: k.create }))
+    expect((screen.getByRole('button', { name: 'Rotate Stock sync' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
 
@@ -293,7 +341,7 @@ describe('who and when', () => {
   it('lets a read-only store look at keys and endpoints without changing anything', async () => {
     await show({ readOnly: true })
     expect(keysRegion().getByText('Stock sync')).toBeTruthy()
-    for (const name of [k.create, h.add, 'Rotate Stock sync', 'Revoke Stock sync', h.turnOn, 'Remove https://erp.example.com/hooks']) expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true)
+    for (const name of [k.create, h.add, 'Rotate Stock sync', 'Revoke Stock sync', h.turnOn]) expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true)
     // Opening deliveries is a read.
     expect((hooksRegion().getAllByRole('button', { name: h.showLog })[0] as HTMLButtonElement).disabled).toBe(false)
   })

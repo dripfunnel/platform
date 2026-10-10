@@ -3666,7 +3666,9 @@
           "other": "That didn’t work. Try again."
         },
         "stale": "Your keys didn’t load again. Reload the page to see them as they are.",
-        "storeFirst": "Store the key below before making or rotating another."
+        "storeFirst": "Store the key below before making or rotating another.",
+        "rotateTitle": "Rotate {name}?",
+        "revokeTitle": "Revoke {name}?"
       },
       "hooks": {
         "title": "Webhooks",
@@ -3717,11 +3719,6 @@
         "replay": "Send again",
         "replayName": "Send {event} again",
         "replayed": "Sent again: {event}",
-        "remove": "Remove",
-        "removeName": "Remove {url}",
-        "removeBody": "We stop sending events to it straight away, and its waiting events are dropped.",
-        "removeGo": "Remove endpoint",
-        "removed": "Endpoint removed",
         "refused": {
           "INVALID_INPUT": "Pick at least one event.",
           "BAD_URL": "Use an address that starts with https:// and that the internet can find.",
@@ -3738,7 +3735,8 @@
         "turnedOnNone": "Turned back on. No events were waiting.",
         "stale": "Your endpoints didn’t load again. Reload the page to see them as they are.",
         "storeFirst": "Store the signing secret below before adding another endpoint."
-      }
+      },
+      "leave": "Leave without storing the secret? We can’t show it again."
     },
     "apps": {
       "title": "Apps",
@@ -3796,7 +3794,8 @@
         "SUPPORT_READ_ONLY": "Support can’t change your apps.",
         "BLOCKED_FOR_SUPPORT": "Support can’t install apps.",
         "other": "That didn’t work. Try again."
-      }
+      },
+      "removeTitle": "Remove {name}?"
     },
     "support": {
       "title": "Support access",

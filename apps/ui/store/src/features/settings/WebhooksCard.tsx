@@ -1,7 +1,6 @@
-import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useRef, useState } from 'react'
-import { addWebhook, removeWebhook, replayDelivery, turnOnWebhook, type WebhookDelivery, type WebhookEndpoint } from '../../api/developers'
-import { fill, formatCount, formatTime, messages, plural } from '../../messages'
+import { addWebhook, replayDelivery, turnOnWebhook, type WebhookDelivery, type WebhookEndpoint } from '../../api/developers'
+import { fill, formatCount, formatTime, locale, messages, plural } from '../../messages'
 import { isHttps } from '../common/https'
 import { refusalIn } from '../common/refusal'
 import { SecretOnce } from './SecretOnce'
@@ -12,8 +11,6 @@ const refusalOf = refusalIn(words.refused)
 
 /** SetDev ticks this one on a new endpoint. */
 const firstEvent = 'order.placed'
-
-type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>
 
 interface HookForm {
   url: string
@@ -41,7 +38,9 @@ export const outcomeOf = (d: WebhookDelivery): { text: string; ok: boolean } => 
   return { text: (words.outcome as Record<string, string>)[d.error ?? 'failed'] ?? words.outcome.failed, ok: false }
 }
 
-export const durationOf = (ms: number | null): string => (ms === null ? '' : ms < 1000 ? fill(words.duration.ms, { count: formatCount(ms) }) : fill(words.duration.s, { count: (ms / 1000).toFixed(1) }))
+const seconds = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
+
+export const durationOf = (ms: number | null): string => (ms === null ? '' : ms < 1000 ? fill(words.duration.ms, { count: formatCount(ms) }) : fill(words.duration.s, { count: seconds.format(ms / 1000) }))
 
 /** Developers › Webhooks (SetDev): endpoints with their events and state, the signing secret once, deliveries and sending again. */
 export const WebhooksCard = ({ initial, events, read, deliveries, canEdit, onToast }: WebhooksCardProps) => {
@@ -49,7 +48,6 @@ export const WebhooksCard = ({ initial, events, read, deliveries, canEdit, onToa
   const { list: hooks, stale, refresh } = useFreshList(initial, read)
   const [form, setForm] = useState<HookForm | null>(null)
   const [secret, setSecret] = useState<string | null>(null)
-  const [ask, setAsk] = useState<Ask | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [log, setLog] = useState<Log | null>(null)
@@ -123,23 +121,6 @@ export const WebhooksCard = ({ initial, events, read, deliveries, canEdit, onToa
       async () => (await replayDelivery(d.id), fill(words.replayed, { event: d.event })),
       () => readLog(hook.id),
     )
-
-  const askRemove = (hook: WebhookEndpoint) =>
-    setAsk({
-      title: fill(words.removeName, { url: hook.url }) + '?',
-      target: hook.url,
-      consequence: words.removeBody,
-      confirmLabel: words.removeGo,
-      danger: true,
-      onConfirm: () =>
-        void act(
-          async () => (await removeWebhook(hook.id), words.removed),
-          () => {
-            if (log?.id === hook.id) setLog(null)
-            void refresh()
-          },
-        ),
-    })
 
   const toggleEvent = (f: HookForm, event: string) => setForm({ ...f, events: f.events.includes(event) ? f.events.filter((e) => e !== event) : [...f.events, event], error: null })
 
@@ -262,26 +243,10 @@ export const WebhooksCard = ({ initial, events, read, deliveries, canEdit, onToa
             <button type="button" className="df-set-link" aria-expanded={log?.id === hook.id} onClick={() => toggleLog(hook.id)}>
               {log?.id === hook.id ? words.hideLog : words.showLog}
             </button>
-            <button type="button" className="df-set-link df-dev-danger" disabled={ro} aria-label={fill(words.removeName, { url: hook.url })} onClick={() => askRemove(hook)}>
-              {words.remove}
-            </button>
           </div>
           {deliveriesOf(hook)}
         </article>
       ))}
-      {ask && (
-        <ConfirmDialog
-          key={`${ask.title}|${ask.confirmLabel}`}
-          {...ask}
-          open
-          cancelLabel={messages.settings.developers.cancel}
-          onCancel={() => setAsk(null)}
-          onConfirm={(...args) => {
-            setAsk(null)
-            ask.onConfirm(...args)
-          }}
-        />
-      )}
     </section>
   )
 }

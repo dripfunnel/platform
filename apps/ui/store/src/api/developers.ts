@@ -131,10 +131,6 @@ export const loadDeliveries = async (endpointId: string): Promise<WebhookDeliver
 export const addWebhook = async (url: string, events: readonly string[]): Promise<{ id: string; secret: string | null }> =>
   (await query('mutation S($u: String!, $e: [String!]!) { saveWebhook(url: $u, events: $e) { id secret } }', z.object({ saveWebhook: z.object({ id: z.string(), secret: z.string().nullable() }) }), { u: url, e: events })).saveWebhook
 
-export const removeWebhook = async (id: string): Promise<void> => {
-  await query('mutation R($id: ID!) { removeWebhook(id: $id) }', z.object({ removeWebhook: z.boolean() }), { id })
-}
-
 /** Answers how many held events it sends. */
 export const turnOnWebhook = async (id: string): Promise<number> => (await query('mutation T($id: ID!) { turnOnWebhook(id: $id) }', z.object({ turnOnWebhook: z.number().int() }), { id })).turnOnWebhook
 

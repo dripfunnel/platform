@@ -695,9 +695,8 @@ read or change (an open question on #333); the 50-key cap is the API's to refuse
 off with "Turn back on", which says how many waiting events it sends). "Add endpoint" takes an https address and at least one of
 `webhookEvents`; the API refuses a private or unreachable one, said in the form, and the signing secret is shown once like a key's.
 "Recent deliveries" opens one endpoint's latest ten (when, event, the server's code or what stopped it, how long it took) with
-"Send again" (`replayDelivery`); only the newest opening lands. **Decided here**: an endpoint can be removed, after saying its
-waiting events are dropped, though SetDev draws no Remove, because `removeWebhook` exists and a store holds at most ten; editing
-an endpoint's address or events waits for a drawing.
+"Send again" (`replayDelivery`); only the newest opening lands. Removing or
+editing an endpoint waits for a drawing (SetDev draws neither; `removeWebhook` is in the API, an open question on #333).
 **Part 3, Apps and Support access**: Apps lists each installed app with its developer, who installed it and when, what it can
 see, when it was last used, and whether it is paused by the platform or never received its access (`connection: failed`: remove
 and install again). "Open app ↗" is a link to its own site, shown only when that parses as https; nothing of the app runs in the
