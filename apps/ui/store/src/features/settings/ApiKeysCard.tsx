@@ -83,6 +83,7 @@ export const ApiKeysCard = ({ initial, choices, suppliers, read, canEdit, onToas
   const act = async (work: () => Promise<string>) => {
     setBusy(true)
     setNote(null)
+    setForm((f) => f && { ...f, error: null })
     try {
       onToast(await work())
       void refresh()

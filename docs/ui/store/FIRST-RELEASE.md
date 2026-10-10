@@ -683,6 +683,14 @@ offered yet: a key reads the catalogue, stock, orders and customers only (ACCESS
 code, error code, time), `saveWebhook` (the signing secret answered when it is made), `removeWebhook`, `turnOnWebhook` (answers how
 many waiting events it sends) and `replayDelivery`; Apps' `installableApp` (the consent screen), `apps`, `installApp(appId, scopes)`
 and `uninstallApp`. The prototype's install link names its app: the portal takes the app's id from it.
+**Built on #333 (SUI 14), part 1, Developers › API keys**: the keys newest first, each by its prefix only (`dfk_…`), with what it
+can do, the whole store or one supplier, last used, who made it (or that they're no longer here), when it expires and until when
+a rotated-from secret still works. "Create API key" asks a name, what it can do (`apiKeyChoices.scopes`), whole store or one
+active supplier and a lifetime (`expiresInDays` or never); the secret from `createApiKey` or `rotateApiKey` is shown once, in a
+card with Copy, until "I've stored it", and never read back. Rotate and Revoke each restate what happens first. The list reads
+itself again after each write rather than the whole tab, so a secret on screen survives it; a refusal stays in the form or on the
+card it came from. **Not drawn yet**: the prototype's storefront key and "Websites allowed to use it", which the Store API doesn't
+read or change (an open question on #333); the 50-key cap is the API's to refuse (`TOO_MANY_KEYS`), not counted in the browser.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
