@@ -4585,7 +4585,8 @@
       "loadingMore": "Loading more runs…",
       "moreFailed": "We couldn’t load more runs. Try again."
     },
-    "timesIn": "Times in {zone}"
+    "timesIn": "Times in {zone}",
+    "countsFailed": "We couldn’t count the offers on each tab."
   },
   "sales": {
     "title": "Your sales",
