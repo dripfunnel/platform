@@ -45,7 +45,7 @@ export const StoreBanners = ({ seat, acting, state, brand }: { seat: Seat; actin
         </Strip>
       )}
       {owner && days !== null && days <= 1 && (
-        <Strip tone="warning" action={<Link className="df-strip-button" to="/billing">{words.trialEnding.action}</Link>}>
+        <Strip tone="warning" action={<Link className="df-strip-button" to="/billing/keep">{words.trialEnding.action}</Link>}>
           <Said title={words.trialEnding.title} body={words.trialEnding.body} />
         </Strip>
       )}

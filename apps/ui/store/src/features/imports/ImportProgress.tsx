@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { CatalogImport } from '../../api/imports'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { useOnline } from '../common/online'
-import { downloadCsv } from './download'
+import { downloadCsv } from '../common/download'
 
 const words = messages.imports
 

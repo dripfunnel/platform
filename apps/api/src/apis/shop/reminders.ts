@@ -2,7 +2,7 @@ import { GraphQLError } from 'graphql'
 import { hashSessionId } from '#auth/session'
 import type { CartView } from '#engine/modules/cart/index'
 import { restoreCart, unsubscribe, type LinkResult } from '#engine/modules/cartReminders/index'
-import { shopOf, type ShopContext } from './access'
+import { limitCodeTries, shopOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 import { cartOf, type registerCart } from './cart'
 
@@ -17,13 +17,7 @@ const answered = <T>(result: LinkResult<T>): T => {
 }
 
 /** Per storefront host and address, on the codes' limiter: a token can't be guessed by trying (FIRST-RELEASE §19). */
-const limited = async (ctx: ShopContext) => {
-  const { shopper } = shopOf(ctx)
-  const { ip } = ctx.facts
-  if (ip === null || !ctx.allowCodeAttempt || !(await ctx.allowCodeAttempt(`cart-link:${shopper.context.storeId}:${ip}`))) {
-    throw new GraphQLError('Too many tries. Wait a minute and try again.', { extensions: { code: 'RATE_LIMITED' } })
-  }
-}
+const limited = (ctx: ShopContext) => limitCodeTries(ctx, 'cart-link', 'Too many tries. Wait a minute and try again.')
 
 interface RestoredView {
   cart: CartView | null

@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import type { SecretBox } from '#auth/secretBox'
+import type { LinkSigner } from '#auth/signedLink'
 import type { PaymentMode } from '#core/payments'
 import { withSystemScope } from '#db/scoped/index'
 import { selectStripeAccountId } from '#db/scoped/payments'
@@ -32,6 +33,10 @@ export interface ShopContext extends Record<string, unknown> {
   codeCheck?: CodeCheck
   /** The session token this request presents (X-Shop-Session), for signing out. */
   sessionToken?: string | null
+  /** Signs and checks a paid order's download links; null where CREDENTIALS_KEK isn't set. */
+  downloadLinks?: LinkSigner | null
+  /** The download limiter (DOWNLOAD_RATE_LIMITER) by key, its own budget apart from sign-in's; refuses every download where it isn't bound. */
+  allowDownload?: (key: string) => Promise<boolean>
   /** The new-cart limiter (CART_RATE_LIMITER) by key; the Worker refuses to serve without it. */
   allowNewCart: (key: string) => Promise<boolean>
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key, so codes can't be guessed; refuses every code where it isn't bound. */
@@ -55,6 +60,15 @@ export const shopPolicy: AccessPolicy<ShopContext> = {
 export const shopOf = (ctx: ShopContext): { sql: postgres.Sql; shopper: Shopper } => {
   if (!ctx.sql || !ctx.shopper) throw storeUnavailable()
   return { sql: ctx.sql, shopper: ctx.shopper }
+}
+
+/** A guessable code's tries per store and address, on the codes' limiter (FIRST-RELEASE §19); every try refused where it isn't bound. */
+export const limitCodeTries = async (ctx: ShopContext, kind: string, message: string): Promise<void> => {
+  const { shopper } = shopOf(ctx)
+  const { ip } = ctx.facts
+  if (ip === null || !ctx.allowCodeAttempt || !(await ctx.allowCodeAttempt(`${kind}:${shopper.context.storeId}:${ip}`))) {
+    throw new GraphQLError(message, { extensions: { code: 'RATE_LIMITED' } })
+  }
 }
 
 /** Test on a preview storefront, live everywhere else (storefront ARCHITECTURE §4.1). */

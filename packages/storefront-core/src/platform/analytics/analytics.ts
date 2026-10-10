@@ -1,15 +1,16 @@
 import type { ConsentChoice } from '../consent/consent'
-import { toDecimal, type ShopMoney } from '../pricing/money'
+import { setScriptSrc } from '../csp/trustedTypes'
+import { toDecimal, type Money } from '../../pricing/money'
 
 // Commerce events to the providers the store set up, each only after the shopper agreed to its
 // kind (storefront ARCHITECTURE §2.1: GA4, Meta Pixel and Google Tag Manager, decided on #337).
 
 /** `value` is the Shop API's money (minor units with its currency); the adapters convert it. */
 export type CommerceEvent =
-  | { name: 'view_item'; itemId: string; value: ShopMoney }
-  | { name: 'add_to_cart'; itemId: string; quantity: number; value: ShopMoney }
-  | { name: 'begin_checkout'; value: ShopMoney }
-  | { name: 'purchase'; orderId: string; value: ShopMoney }
+  | { name: 'view_item'; itemId: string; value: Money }
+  | { name: 'add_to_cart'; itemId: string; quantity: number; value: Money }
+  | { name: 'begin_checkout'; value: Money }
+  | { name: 'purchase'; orderId: string; value: Money }
 
 type ConsentKind = 'analytics' | 'marketing'
 type Consent = Record<ConsentKind, boolean>
@@ -56,7 +57,7 @@ const win = () => globalThis as unknown as Layer & { document?: Document }
 
 const analyticsHosts = ['www.googletagmanager.com', 'connect.facebook.net']
 
-/** A script URL core may load: https, on an analytics host (the Trusted Types policy around it is #481's). */
+/** A script URL core may load: https, on an analytics host; set through Trusted Types' `df-core`. */
 export const analyticsScriptUrl = (src: string): string => {
   const url = new URL(src)
   if (url.protocol !== 'https:' || !analyticsHosts.includes(url.host)) throw new Error(`Not an analytics script URL: ${src}`)
@@ -68,7 +69,7 @@ const addScript = (src: string) => {
   if (!doc) return
   const s = doc.createElement('script')
   s.async = true
-  s.src = analyticsScriptUrl(src)
+  setScriptSrc(s, analyticsScriptUrl(src))
   doc.head.appendChild(s)
 }
 

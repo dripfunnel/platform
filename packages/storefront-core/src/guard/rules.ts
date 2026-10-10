@@ -25,6 +25,7 @@ export const ruleIds = [
   'code/url-in-code',
   'code/brand-literal',
   'code/t-key-not-literal',
+  'code/core-type-cast',
   'jsx/element-not-allowed',
   'jsx/attribute-not-allowed',
   'jsx/dangerous-html',

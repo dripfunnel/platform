@@ -1208,6 +1208,23 @@ information (S4)**, which is configuration only.
   never, no sooner than its country allows (FIRST-RELEASE §1). None of the three is counted in
   stock, a cart holding only them asks no address or delivery, and a gift card carries no tax.
   Decided here: these kinds are the merchant's own, never a supplier's (ACCESS §7.1).
+  **Part 2, delivery** (`deliverOrder`, run as a payment settles or is marked paid, never before;
+  nothing for a preview's test order): a download's grant, served at `/shop-api/downloads/{grant}.{signature}`
+  from R2 as an attachment, rate-limited per host and address (`DOWNLOAD_RATE_LIMITER`, 30 a minute), with one refusal (`LINK_CLOSED`) for
+  a link unknown, another shop's, expired, used up or of a refunded order; a key per unit from the
+  pool, an order the pool ran dry for logged and given the next keys added; a gift card issued per
+  gift card line (one card a line, for the recipient chosen last), emailed with its code at 08:00
+  in the store's time zone on the day chosen. The order page and an email list the links and keys.
+  **Part 3, gift cards** (`giftCards`, `issueGiftCard`; Shop API `giftCardBalance`, `applyGiftCard`,
+  `removeGiftCard`, `ShopCart.amountDue`, `placeOrder(provider: "gift_card")`): a number checked in the
+  shop's own store only, rate-limited per store and address with the offer codes' limiter, one
+  refusal (`GIFT_CARD_INVALID`) for a wrong, unsent, expired or used-up card or another store's; a
+  card is spent only in its own currency and never on a preview; placement takes what it applies
+  under the card's lock, so a second order priced against the same balance is told
+  `CART_CHANGED`, as is one whose card was spent or lapsed since it was shown. "Issue a card" (Owner
+  and Manager) gives one of the product's amounts by email; its `issueKey`, a UUID made once per
+  request, makes a double click or a retry answer the same card (`KEY_REUSED` for a key that made
+  another). **The editor's side is built on #328** (SUI 16; FIRST-RELEASE §11).
 - T15. **Vendors across borders**: a vendor may be in a different country from the merchant
   (e.g. a UK merchant with a Chinese supplier). Country of origin, importer and customs
   details default from the vendor, not the merchant (decided 2026-10-05 on #337).

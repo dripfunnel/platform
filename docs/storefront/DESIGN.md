@@ -69,7 +69,8 @@ Enforced by the walls of ARCHITECTURE §3.3–§3.5, not by this document alone:
 - **Sealed components** (ARCHITECTURE §3.5): the price with its tax label, the payment
   element, legal and compliance notices, the consent banner, the preview banner, the brand's
   "Powered by" line, breadcrumbs and the order summary at review. The AI places and styles
-  them; it doesn't remove, cover or reword them.
+  them, through their class, core's `--df-*` custom properties and their `::part` names
+  (ARCHITECTURE §3.5); it doesn't remove, cover or reword them.
 - **SEO and accessibility plumbing**: the `<head>`, structured data, canonical and hreflang,
   the sitemap, redirects, landmarks, labels, focus handling.
 - **Anything outside its files**: the route shims, configuration, dependencies, core, tests.

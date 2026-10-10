@@ -364,7 +364,8 @@
         "system": "System",
         "light": "Light",
         "dark": "Dark"
-      }
+      },
+      "activity": "Store activity"
     },
     "switcher": {
       "label": "Switch store: {store}",
@@ -467,9 +468,6 @@
     },
     "storefront": {
       "title": "Storefront"
-    },
-    "billing": {
-      "title": "Billing"
     },
     "yourProducts": {
       "title": "Your products"
@@ -1301,7 +1299,8 @@
       "serviceSub": "Arranged after the order",
       "gift_card": "A gift card",
       "gift_cardSub": "Sent by email",
-      "later": "Files, licence keys, service details and gift card amounts come with their own screens; the product saves now."
+      "merchantOnly": "Suppliers sell physical items. Downloads, services and gift cards are the store’s own.",
+      "gone": "No weight, box, shipping or stock for this kind — those boxes are gone"
     },
     "photos": {
       "title": "Photos",
@@ -1752,6 +1751,148 @@
         "other": "That didn’t save. Your text is still here; try again."
       },
       "saveProductFirst": "Save your changes to the product first, then translate it."
+    },
+    "kinds": {
+      "download": {
+        "title": "What the shopper gets",
+        "file": "A file to download",
+        "keys": "A licence key",
+        "upload": "Upload the file",
+        "uploadHint": "PDF, ZIP, MP3, MP4, WebM or an image · up to {size} · stored privately, never on your storefront",
+        "uploading": "Uploading…",
+        "replace": "Replace",
+        "fileMeta": "{type} file · {size}",
+        "types": {
+          "application/pdf": "PDF",
+          "application/zip": "ZIP",
+          "audio/mpeg": "MP3",
+          "video/mp4": "MP4",
+          "video/webm": "WebM",
+          "image": "Image",
+          "other": "A"
+        },
+        "missing": "Upload the file the shopper gets",
+        "limit": "Downloads per order",
+        "days": "Link works for",
+        "dayOptions": {
+          "7": "7 days",
+          "30": "30 days",
+          "365": "1 year"
+        },
+        "rule": "The shopper gets the link as soon as the payment goes through — never before, so a bank transfer waits until you mark it paid.",
+        "refused": {
+          "TOO_LARGE": "That file is too big. Use one under {size}.",
+          "UNSUPPORTED_TYPE": "Use a PDF, ZIP, MP3, MP4, WebM or an image.",
+          "EMPTY": "That file is empty.",
+          "FORBIDDEN": "You can’t add files here.",
+          "READ_ONLY": "Nothing can change in this store right now.",
+          "NOT_CONNECTED": "The file didn’t upload. Check your connection and try again."
+        },
+        "keysLabel": "Add licence keys",
+        "keysPlaceholder": "One key per line",
+        "keysHint": "Saved keys are never shown again, only counted. Each order takes one; when none are left the product shows as sold out.",
+        "keysLeft": {
+          "one": "{count} key left · one is sent per order",
+          "other": "{count} keys left · one is sent per order"
+        },
+        "keysNone": "No keys left: the product shows as sold out until you add more.",
+        "keysLow": "Running low: add more before they run out.",
+        "keysSold": {
+          "one": "{count} sent so far",
+          "other": "{count} sent so far"
+        },
+        "keysTyped": {
+          "one": "{count} new key to add when you save",
+          "other": "{count} new keys to add when you save"
+        },
+        "keysInvalid": "Add up to {max} keys at a time, each up to {length} characters."
+      },
+      "service": {
+        "title": "About the service",
+        "duration": "How long it takes",
+        "location": "Where",
+        "optional": "Optional",
+        "durationPlaceholder": "e.g. 2 hours",
+        "locationPlaceholder": "e.g. Our studio, 12 MI Road",
+        "note": "No booking calendar. After an order, you arrange a time with the shopper. They’re told: “We’ll email you within a working day to arrange a time.” No shipping, weight or stock."
+      },
+      "giftCard": {
+        "title": "Gift card amounts",
+        "option": "Amount",
+        "add": "+ Add an amount",
+        "remove": "Remove {amount}",
+        "keepOne": "Keep at least one amount",
+        "missing": "Add at least one amount",
+        "addTitle": "Add an amount",
+        "addLabel": "Amount in {currency}",
+        "addInvalid": "Enter an amount above zero, like {example}.",
+        "addTaken": "That amount is already there.",
+        "addConfirm": "Add",
+        "expiry": "Cards expire after",
+        "never": "Never",
+        "months": {
+          "12": "1 year",
+          "24": "2 years",
+          "36": "3 years",
+          "60": "5 years",
+          "84": "7 years",
+          "120": "10 years"
+        },
+        "shortest": "{period} (the shortest allowed)",
+        "rule": "At least {period} from the day a card is sent.",
+        "ruleUnknown": "At least 5 years from the day a card is sent in the US, 1 year elsewhere.",
+        "tax": "No tax when a card is bought; tax is charged on what it’s spent on. Sent by email on the date the shopper picks.",
+        "issued": "Cards issued",
+        "issue": "Issue a card",
+        "issueAfterSave": "Save the product to issue cards.",
+        "none": "No cards yet. Cards bought on your storefront and cards you issue show here.",
+        "loading": "Loading cards…",
+        "failed": "The cards didn’t load.",
+        "retry": "Try again",
+        "more": "Show more",
+        "code": "•••• {last4}",
+        "notSent": "Not sent yet",
+        "expires": "Expires {date} UTC",
+        "expired": "Expired {date} UTC",
+        "noExpiry": "Never expires",
+        "status": {
+          "active": "Active",
+          "partUsed": "Part used",
+          "usedUp": "Used up",
+          "expired": "Expired",
+          "unsent": "Not sent yet",
+          "disabled": "Disabled"
+        },
+        "issueTitle": "Issue a gift card",
+        "issueBody": "For store credit or a goodwill gesture. It’s emailed now and logged under your name.",
+        "issueAmount": "Amount",
+        "issueEmail": "Send to (email)",
+        "issueEmailInvalid": "Enter an email like name@example.com.",
+        "issueConfirm": "Issue the card",
+        "issuedToast": "Gift card sent to {email}",
+        "refused": {
+          "INVALID_INPUT": "Enter an email like name@example.com.",
+          "NOT_FOUND": "That amount isn’t here any more. Reload and try again.",
+          "KEY_REUSED": "That request already issued a different card. Open Issue a card again to send another.",
+          "READ_ONLY": "Nothing can change in this store right now.",
+          "FORBIDDEN": "Only the Owner and Managers issue cards.",
+          "other": "The card wasn’t issued. Try again."
+        },
+        "issueTarget": "{name} · {amount}",
+        "issueEmailPlaceholder": "name@example.com"
+      },
+      "refused": {
+        "WRONG_KIND": "That isn’t this kind of product any more. Reload to see it.",
+        "FILE_REFUSED": "That file isn’t here any more. Upload it again.",
+        "EXPIRY_TOO_SHORT": "Gift cards must last at least 5 years in the US and 1 year elsewhere.",
+        "INVALID_INPUT": "Something in what the shopper gets isn’t valid. Check it and save again.",
+        "STALE_REVISION": "Someone else saved this product. Reload to see their changes.",
+        "READ_ONLY": "Nothing can change in this store right now.",
+        "NOT_FOUND": "This product isn’t here any more.",
+        "FORBIDDEN": "You can’t change this product.",
+        "other": "The product saved, but what the shopper gets didn’t. Save again to keep it."
+      },
+      "newFailed": "The product saved, but what the shopper gets didn’t: check it below and save again. Paste any licence keys again."
     }
   },
   "story": {
@@ -2056,8 +2197,7 @@
         "title": "That file can’t be imported"
       },
       "chooseAnother": "Choose another file",
-      "template": "Download the template",
-      "megabytes": "{size} MB"
+      "template": "Download the template"
     },
     "shopify": {
       "title": "Connect your Shopify store",
@@ -2699,7 +2839,11 @@
       "tax": "Tax setup",
       "markets": "Markets",
       "catalogue": "Catalogue",
-      "customers": "Customer accounts"
+      "customers": "Customer accounts",
+      "developers": "Developers",
+      "apps": "Apps",
+      "support": "Support access",
+      "activity": "Activity log"
     },
     "title": "Settings",
     "denied": {
@@ -3591,6 +3735,268 @@
         "NOT_FOUND": "That is no longer here. Reload to see your shipping.",
         "READ_ONLY": "This store is read-only.",
         "other": "That didn’t save. Check your connection and try again."
+      }
+    },
+    "developers": {
+      "title": "Developers",
+      "sub": "Keys and webhooks for software that works with your store.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Couldn’t copy. Select the text and copy it yourself.",
+      "cancel": "Cancel",
+      "keys": {
+        "title": "API keys",
+        "sub": "For your own programs on a server — never in a website or an app on a phone.",
+        "limits": "Your plan: {minute} requests a minute, {month} a month.",
+        "create": "Create API key",
+        "empty": "No API keys. Create one when a developer asks for access.",
+        "listLabel": "Your API keys",
+        "newTitle": "New API key",
+        "name": "Name",
+        "namePlaceholder": "e.g. Warehouse stock sync",
+        "can": "What it can do",
+        "scopes": {
+          "catalog.read": "See products",
+          "stock.read": "See stock",
+          "orders.read": "See orders",
+          "customers.read": "See customers"
+        },
+        "worksFor": "Works for",
+        "wholeStore": "The whole store",
+        "onlySupplier": "Only supplier {name}",
+        "wholeHelp": "It sees the whole store, within what you tick above.",
+        "supplierHelp": "It only sees that supplier’s products, stock and orders.",
+        "expires": "Expires",
+        "inDays": {
+          "one": "In {count} day",
+          "other": "In {count} days"
+        },
+        "never": "Never",
+        "createKey": "Create key",
+        "nameMissing": "Give it a name you’ll recognise later.",
+        "scopesMissing": "Tick at least one thing it can do.",
+        "secretTitle": "Copy your key now",
+        "secretWarn": "This is the only time we show it. Store it somewhere safe, like your server’s secret settings. If you lose it, create a new one.",
+        "stored": "I’ve stored it",
+        "created": "{name} created",
+        "prefix": "{prefix}…",
+        "whole": "Whole store",
+        "lastUsed": "Last used {time}",
+        "neverUsed": "Never used",
+        "by": "Created by {name}",
+        "byGone": "Created by {name} — no longer here",
+        "byUnknown": "Created by someone no longer here",
+        "expiresOn": "Expires {time}",
+        "expired": "Expired {time}",
+        "noExpiry": "Never expires",
+        "oldWorks": "The old key works until {time}",
+        "rotate": "Rotate",
+        "rotateName": "Rotate {name}",
+        "rotateBody": "We make a new key and show it once. The old one keeps working for 24 hours so you can swap it without downtime.",
+        "rotateGo": "Rotate key",
+        "rotated": "{name} rotated. Copy the new key now.",
+        "revoke": "Revoke",
+        "revokeName": "Revoke {name}",
+        "revokeBody": "It stops working straight away. Anything using it gets an error until it has a new key.",
+        "revokeGo": "Revoke key",
+        "revoked": "{name} revoked",
+        "refused": {
+          "INVALID_INPUT": "Give it a name you’ll recognise later, and choose when it expires.",
+          "INVALID_SCOPES": "Tick at least one thing it can do, within what that supplier may do.",
+          "NOT_FOUND": "That key or supplier is no longer here.",
+          "TOO_MANY_KEYS": "Your store has as many keys as it can hold. Revoke one first.",
+          "SUPPORT_READ_ONLY": "Support can’t change your keys.",
+          "BLOCKED_FOR_SUPPORT": "Support can’t change your keys.",
+          "other": "That didn’t work. Try again."
+        },
+        "stale": "Your keys didn’t load again. Reload the page to see them as they are.",
+        "storeFirst": "Store the key below before making or rotating another.",
+        "rotateTitle": "Rotate {name}?",
+        "revokeTitle": "Revoke {name}?"
+      },
+      "hooks": {
+        "title": "Webhooks",
+        "sub": "We send an event to your server when something happens in your store.",
+        "add": "Add endpoint",
+        "empty": "No endpoints. Add one when a developer gives you an address.",
+        "url": "Endpoint URL",
+        "urlPlaceholder": "https://api.yoursite.com/dripfunnel",
+        "events": "Events",
+        "notHttps": "Use an address that starts with https://",
+        "eventsMissing": "Pick at least one event.",
+        "secretTitle": "Copy the signing secret now",
+        "secretWarn": "We don’t show it again. Your server uses it to check each event came from us.",
+        "added": "Endpoint added",
+        "status": {
+          "active": "Working",
+          "failing": "Failing",
+          "disabled": "Turned off"
+        },
+        "failingSince": "Failing since {time}. After 3 days of failures we turn it off.",
+        "disabled": "Turned off {time} after 3 days of failed deliveries. Nothing was lost: events wait for 7 days.",
+        "turnOn": "Turn back on",
+        "turnedOn": {
+          "one": "Turned back on. 1 waiting event is being sent.",
+          "other": "Turned back on. {count} waiting events are being sent."
+        },
+        "showLog": "Recent deliveries",
+        "hideLog": "Hide recent deliveries",
+        "logLoading": "Loading deliveries",
+        "logFailed": "The deliveries didn’t load. Try again.",
+        "logEmpty": "Nothing sent yet.",
+        "logLabel": "Recent deliveries to {url}",
+        "duration": {
+          "ms": "{count} ms",
+          "s": "{count} s"
+        },
+        "outcome": {
+          "pending": "Sending",
+          "held": "Waiting",
+          "timeout": "Timed out",
+          "private_address": "Private address",
+          "bad_url": "Bad address",
+          "unavailable": "Couldn’t reach",
+          "endpoint_removed": "Endpoint removed",
+          "no_signing_key": "Not signed",
+          "failed": "Failed"
+        },
+        "replay": "Send again",
+        "replayName": "Send {event} again",
+        "replayed": "Sent again: {event}",
+        "refused": {
+          "INVALID_INPUT": "Pick at least one event.",
+          "BAD_URL": "Use an address that starts with https:// and that the internet can find.",
+          "PRIVATE_ADDRESS": "That address points inside a private network. Use one the internet can reach.",
+          "NOT_FOUND": "That endpoint or delivery is no longer here.",
+          "TOO_MANY_ENDPOINTS": "Your store has as many endpoints as it can hold, so another can’t be added.",
+          "UNAVAILABLE": "We couldn’t check that address just now. Try again.",
+          "ENDPOINT_OFF": "This endpoint is turned off. Turn it back on to send its events.",
+          "TOO_OLD": "Events can be sent again for 7 days.",
+          "SUPPORT_READ_ONLY": "Support can’t change your webhooks.",
+          "BLOCKED_FOR_SUPPORT": "Support can’t change your webhooks.",
+          "other": "That didn’t work. Try again."
+        },
+        "turnedOnNone": "Turned back on. No events were waiting.",
+        "stale": "Your endpoints didn’t load again. Reload the page to see them as they are.",
+        "storeFirst": "Store the signing secret below before adding another endpoint."
+      },
+      "leave": "Leave without storing the secret? We can’t show it again."
+    },
+    "apps": {
+      "title": "Apps",
+      "sub": "Programs that work with your store, each with only the access you gave it.",
+      "add": "Add an app",
+      "about": "An app is a program you or your developer runs on its own website. It reaches your store with only the access you approve, and you open it from here. There’s no app store yet.",
+      "empty": "No apps yet. When a developer gives you an install link, add it here.",
+      "listLabel": "Your apps",
+      "addBody": "Paste the install link the developer gave you.",
+      "link": "Install link",
+      "linkPlaceholder": "https://ledgersync.app/install/…",
+      "notHttps": "Paste a link that starts with https://",
+      "noApp": "That link doesn’t name an app. Ask the developer for its install link.",
+      "next": "Continue",
+      "cancel": "Cancel",
+      "installTitle": "Install {name}?",
+      "by": "By {developer}",
+      "can": "It will be able to",
+      "cannot": "It won’t be able to",
+      "scopes": {
+        "catalog.read": "See your products and prices",
+        "stock.read": "See your stock",
+        "orders.read": "See your orders, refunds and invoices",
+        "customers.read": "See your customers"
+      },
+      "never": [
+        "Change anything in your store",
+        "See your payment details or passwords"
+      ],
+      "wholeStore": "It works for the whole store. You can remove it any time.",
+      "install": "Install",
+      "installed": "{name} installed. Open it to finish setting it up.",
+      "meta": "By {developer} · installed {time} by {name}",
+      "metaNoName": "By {developer} · installed {time}",
+      "access": "Can: {scopes}",
+      "lastUsed": "Last used {time}",
+      "suspended": "Paused by your platform: it can’t reach your store until it’s allowed again.",
+      "waiting": "Still handing it its access. Open it in a few minutes.",
+      "failed": "It never received its access. Remove it and install it again.",
+      "open": "Open app",
+      "openName": "Open {name} on its own site",
+      "remove": "Remove",
+      "removeName": "Remove {name}",
+      "removeBody": "Its access ends now. Anything it already copied stays with it — ask the developer to delete it.",
+      "removeGo": "Remove app",
+      "removed": "{name} removed",
+      "stale": "Your apps didn’t load again. Reload the page to see them as they are.",
+      "refused": {
+        "INVALID_INPUT": "Something here isn’t valid.",
+        "INVALID_SCOPES": "Those aren’t things an app can be given.",
+        "UNAVAILABLE": "Apps can’t be installed just now. Try again later.",
+        "NOT_FOUND": "That app isn’t available.",
+        "SCOPES_CHANGED": "This app now asks for different access. Look again before installing.",
+        "ALREADY_INSTALLED": "This app is already installed.",
+        "SUPPORT_READ_ONLY": "Support can’t change your apps.",
+        "BLOCKED_FOR_SUPPORT": "Support can’t install apps.",
+        "other": "That didn’t work. Try again."
+      },
+      "removeTitle": "Remove {name}?"
+    },
+    "support": {
+      "title": "Support access",
+      "sub": "Whether {partner}’s support team can open your store to help you.",
+      "switch": "Allow {partner} support to view my store",
+      "on": "On. Support can open a read-only session when you ask for help.",
+      "off": "Off. Support can only ask you to switch this on.",
+      "offTitle": "Turn off support access?",
+      "offBody": "Any support session open now ends straight away. {partner} support can then only ask you to switch this back on.",
+      "offGo": "Turn off",
+      "cancel": "Cancel",
+      "turnedOn": "Support access is on",
+      "turnedOff": "Support access is off",
+      "ended": {
+        "one": "Support access is off. 1 open session ended.",
+        "other": "Support access is off. {count} open sessions ended."
+      },
+      "howTitle": "How a support session works",
+      "how": [
+        "Support opens one only with a reason or a ticket number, and only while this is on.",
+        "It’s read-only and ends after 30 minutes. Everyone signed in sees a banner while it’s open.",
+        "You’re emailed when one starts. You or a manager can let them make changes for that one session.",
+        "Even then they can’t change passwords, payment details, payouts or who works here.",
+        "Every page they open and everything they change is in your Activity log, under their name."
+      ],
+      "staff": "Separately, the platform’s own staff can sign in as a user to fix a problem. That’s rare, and logged too.",
+      "logTitle": "Support access log",
+      "logRange": "Last 90 days",
+      "logEmpty": "No support sessions yet. When {partner} support opens one, it’s listed here.",
+      "cols": {
+        "who": "Who",
+        "why": "Why",
+        "when": "When",
+        "changes": "Changes"
+      },
+      "org": "{partner} support · as {name}",
+      "orgSupplier": "{partner} support · as {name}, {supplier}",
+      "ticket": "Ticket {ticket}: {reason}",
+      "openNow": "Open now · ends {time}",
+      "lasted": "{duration}",
+      "endedBy": {
+        "expired": "{duration} · timed out",
+        "store": "{duration} · ended when support access was turned off",
+        "targetGone": "{duration} · ended when that person left",
+        "storeClosed": "{duration} · ended when the store closed"
+      },
+      "readOnly": "Read-only",
+      "allowed": "Allowed by {name}",
+      "allowedNoName": "Allowed to make changes",
+      "denied": "Asked to make changes · denied",
+      "asking": "Asking to make changes",
+      "more": "Show older",
+      "moreFailed": "Older sessions didn’t load. Try again.",
+      "refused": {
+        "SUPPORT_READ_ONLY": "Support can’t change this.",
+        "BLOCKED_FOR_SUPPORT": "Support can’t change this.",
+        "other": "That didn’t work. Try again."
       }
     }
   },
@@ -4696,5 +5102,564 @@
       "FORBIDDEN": "Only a Supplier admin can change your team.",
       "other": "That didn’t go through. Try again."
     }
+  },
+  "billing": {
+    "title": "Billing",
+    "payLine": "What you pay {partner} for your shop. Nobody takes a fee on your orders.",
+    "collected": {
+      "dripfunnel": "DripFunnel collects it on {partner}’s behalf.",
+      "partner": "{partner} bills you directly, so plan changes go through them."
+    },
+    "asOf": "Payment status as of {time}. It can be a few minutes behind.",
+    "loading": "Loading your plan",
+    "error": {
+      "title": "We couldn’t load your plan",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "Billing is the store owner’s",
+      "body": "Only the owner sees the plan, the invoices and the card. Ask them if you need something changed."
+    },
+    "noPlan": {
+      "title": "Your store has no plan yet",
+      "body": "It gets one as soon as it’s set up. Come back in a minute."
+    },
+    "readOnly": "View only: nothing on this page can change right now.",
+    "period": {
+      "label": "Billing period",
+      "MONTH": "Monthly",
+      "YEAR": "Yearly"
+    },
+    "banners": {
+      "scheduled": {
+        "title": "You move to {plan} on {date}.",
+        "body": "Until then nothing changes. After that, anything over its limits is paused — never deleted.",
+        "action": "Choose what to keep"
+      },
+      "closing": {
+        "title": "Your shop closes on {date}.",
+        "body": "Until then it keeps selling and the portal is view-only. Everything is kept for 90 days, then deleted — download your data any time.",
+        "action": "Download my data"
+      }
+    },
+    "plans": {
+      "label": "Plans",
+      "none": "{partner} has no plans on offer in your currency yet.",
+      "yours": "Your plan",
+      "from": "From {date}",
+      "trial": "Your trial",
+      "per": {
+        "MONTH": "/month",
+        "YEAR": "/year"
+      },
+      "billed": {
+        "MONTH": "Billed monthly",
+        "YEAR": "Billed yearly"
+      },
+      "notOffered": {
+        "MONTH": "Not offered monthly",
+        "YEAR": "Not offered yearly"
+      },
+      "free": "Free",
+      "choose": "Choose {plan}",
+      "upgrade": "Upgrade",
+      "later": "Switch at period end",
+      "switchTo": {
+        "MONTH": "Switch to monthly",
+        "YEAR": "Switch to yearly"
+      },
+      "keep": "Keep {plan}",
+      "points": {
+        "products": {
+          "one": "{count} product",
+          "other": "{count} products"
+        },
+        "productsUnlimited": "Unlimited products",
+        "staff": {
+          "one": "{count} staff account",
+          "other": "{count} staff accounts"
+        },
+        "staffNone": "Owner only",
+        "staffUnlimited": "Unlimited staff",
+        "markets": {
+          "one": "{count} market",
+          "other": "{count} markets"
+        },
+        "marketsUnlimited": "Unlimited markets",
+        "bandwidth": "{count} GB bandwidth",
+        "bandwidthUnlimited": "Unlimited bandwidth"
+      },
+      "keepLink": "Or choose what to keep on {plan}"
+    },
+    "includes": {
+      "show": "What each plan includes",
+      "hide": "Hide what each plan includes",
+      "caption": "What each plan includes",
+      "setting": "Setting",
+      "unlimited": "Unlimited",
+      "on": "Included",
+      "off": "Not included",
+      "monthly": "{count} a month",
+      "rows": {
+        "products": "Products",
+        "photos_per_product": "Photos per product",
+        "versions_per_product": "Versions per product",
+        "collections": "Collections",
+        "size_charts": "Size charts",
+        "badges": "Badges",
+        "faqs_related": "FAQs and related products",
+        "aplus": "A+ content",
+        "product_video": "Product video",
+        "import_spreadsheet": "Import from a spreadsheet",
+        "import_shopify": "Bring products from Shopify",
+        "ai_mode": "AI for descriptions and translations",
+        "ai_prompts": "AI design prompts",
+        "payment_gateways": "Payment gateways",
+        "offers": "Discount codes and offers",
+        "live_offers": "Live offers at once",
+        "group_offers": "Customer-group offers, tiers, single-use codes",
+        "offer_results": "Offer results",
+        "staff": "Staff accounts",
+        "manager_role": "Manager role",
+        "suppliers_enabled": "Suppliers",
+        "suppliers": "Suppliers allowed",
+        "supplier_approval": "Approve supplier products",
+        "supplier_packing": "Suppliers pack their own orders",
+        "markets": "Markets",
+        "currencies": "Currencies",
+        "languages": "Languages",
+        "price_adjustment": "Price adjustment per market",
+        "fixed_market_prices": "Fixed prices per market",
+        "market_domains": "Own domain per market",
+        "duties_taxes": "Duties and import taxes at checkout",
+        "stock_locations": "Stock locations",
+        "couriers": "Couriers you can connect",
+        "courier_rates": "Live courier rates at checkout",
+        "bandwidth_gb": "Monthly bandwidth (GB)",
+        "extra_bandwidth": "Buy extra bandwidth",
+        "custom_domain": "Your own domain",
+        "powered_by_removal": "Remove “Powered by”",
+        "publish_now": "“Publish now” presses",
+        "history_days": "Version history (days)",
+        "cart_reminders": "Abandoned-cart reminders",
+        "blog": "Blog",
+        "reports_sales": "Takings, what sold, markets, tax",
+        "reports_export": "Export and supplier report",
+        "reports_custom": "Custom reports",
+        "support_level": "Support",
+        "uptime_guarantee": "Uptime guarantee",
+        "white_label": "White-label",
+        "many_stores": "Many stores, one account",
+        "sso_api": "SSO and full API",
+        "onboarding": "Migration and onboarding"
+      },
+      "choices": {
+        "ai_mode": [
+          "Your own AI key",
+          "Included",
+          "Monthly allowance"
+        ],
+        "cart_reminders": [
+          "You send",
+          "One per cart",
+          "Automatic"
+        ],
+        "support_level": [
+          "Help centre",
+          "Email",
+          "Chat",
+          "Priority chat and phone",
+          "Named manager"
+        ]
+      }
+    },
+    "usage": {
+      "title": "This month’s usage",
+      "none": "Nothing is counted yet.",
+      "rows": {
+        "products": "Products",
+        "staff": "Staff accounts",
+        "suppliers": "Suppliers",
+        "ai_prompts": "AI design prompts",
+        "publish_now": "“Publish now” presses"
+      },
+      "of": "{used} of {limit}",
+      "noLimit": "{used} · no limit",
+      "nearly": "Nearly full",
+      "full": "At your limit — your shop stays online",
+      "resets": "Resets {date}"
+    },
+    "card": {
+      "title": "Card that pays for your plan",
+      "none": "No card yet",
+      "on": "{brand} ending {last4}",
+      "expires": "{card} · expires {date}",
+      "note": "Never used for your shoppers’ payments. Not needed during the trial."
+    },
+    "details": {
+      "title": "On your invoices",
+      "edit": "Edit",
+      "editLabel": "Edit the details on your invoices",
+      "none": "Not added yet",
+      "taxId": {
+        "gstin": "GSTIN",
+        "vat": "VAT number",
+        "other": "Tax number"
+      },
+      "taxIdLine": "{label}: {value}",
+      "notes": {
+        "gstin": "Add your GSTIN to claim input tax credit on the fee.",
+        "vat": "With a valid VAT number, invoices are reverse-charge where it applies.",
+        "other": "Shown on every invoice you get."
+      },
+      "form": {
+        "title": "Details on your invoices",
+        "body": "New invoices use these. Invoices already sent keep the details they were sent with.",
+        "legalName": "Company name",
+        "email": "Send invoices to",
+        "line1": "Address",
+        "line2": "Address line 2",
+        "city": "City",
+        "region": "State or region",
+        "postal": "Postal code",
+        "country": "Country",
+        "countryHint": "Two letters, like IN",
+        "taxIdHint": "Optional",
+        "missing": "Fill in the company name, email, address, city, postal code and country.",
+        "badEmail": "Enter an email like name@example.com.",
+        "badCountry": "Type the country as two letters, like IN or DE.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saved": "Saved — the next invoice uses these details."
+      }
+    },
+    "invoices": {
+      "title": "Invoices",
+      "exportAll": "Export all",
+      "exporting": "Exporting…",
+      "none": "No invoices yet.",
+      "noneTrial": "No invoices yet — the trial is free.",
+      "status": {
+        "paid": "Paid",
+        "open": "Due",
+        "void": "Void",
+        "refunded": "Refunded"
+      },
+      "proration": "Plan change",
+      "pdf": "PDF",
+      "pdfLabel": "PDF of invoice {number}",
+      "pdfBlocked": "Your browser blocked the new tab. Allow pop-ups for this site and try again.",
+      "more": "Show more",
+      "file": "invoices.csv",
+      "columns": [
+        "Invoice",
+        "Date",
+        "Description",
+        "Amount",
+        "Tax",
+        "Currency",
+        "Status"
+      ]
+    },
+    "change": {
+      "title": "Switch to {plan}",
+      "titleKeep": "Keep {plan}?",
+      "target": "{plan} · {price}",
+      "loading": "Working out what it costs…",
+      "when": "When",
+      "whenNow": "Now",
+      "whenLater": "At the end of this period",
+      "start": "It starts today. Charged today: {today}, then {price} {per}.",
+      "now": "Today: {today} — {charge} for the rest of this period on {plan}, less {credit} unused on {current}. From {from}, {price} {per}.",
+      "later": "Nothing changes until {from}. Then you move to {plan} at {price} {per}, and anything over its limits is paused — never deleted.",
+      "keep": "Your move to {next} is called off. You stay on {plan}.",
+      "per": {
+        "MONTH": "a month",
+        "YEAR": "a year"
+      },
+      "tax": "Tax is added where it applies.",
+      "noCard": "You’ll need the card that pays for your plan first.",
+      "confirm": "Switch to {plan}",
+      "confirmKeep": "Keep {plan}",
+      "cancel": "Cancel",
+      "done": "You’re on {plan}.",
+      "scheduled": "You’ll move to {plan} on {date}.",
+      "kept": "You stay on {plan}."
+    },
+    "refused": {
+      "NOT_CONNECTED": "Billing isn’t set up yet. Try again later.",
+      "PROVIDER_UNAVAILABLE": "We couldn’t reach our payment provider. Nothing was charged; try again in a minute.",
+      "CARD_REFUSED": "That card was refused. Try another card.",
+      "PAYMENT_FAILED": "The payment didn’t go through, so your plan stays as it is. Check your card and try again.",
+      "BILLED_BY_PARTNER": "Your provider bills you directly. Ask them to change your plan.",
+      "NO_SUBSCRIPTION": "Your store has no plan yet.",
+      "SAME_PLAN": "You’re already on this plan.",
+      "PLAN_NOT_LIVE": "That plan isn’t offered any more.",
+      "NOT_PRICED": "That plan has no price in your currency for that period.",
+      "AT_PERIOD_END_ONLY": "A smaller plan or a shorter period starts when this period ends.",
+      "NO_CARD": "Add the card that pays for your plan first.",
+      "CHANGE_IN_PROGRESS": "Another change to your plan is going through. Try again in a minute.",
+      "CANCELLED": "Your store is closing, so its plan can’t change.",
+      "NO_PDF": "That invoice’s PDF isn’t available.",
+      "NOT_FOUND": "That is no longer here.",
+      "INVALID_INPUT": "Something here isn’t valid. Check the details and try again.",
+      "READ_ONLY": "Your store is view-only right now, so this can’t change.",
+      "FORBIDDEN": "Only the store owner can change billing.",
+      "other": "That didn’t go through. Try again.",
+      "NOTHING_TO_KEEP": "Your plan holds all your products, so there’s nothing to choose.",
+      "TOO_MANY": "That’s more products than the plan keeps. Untick some first."
+    },
+    "close": {
+      "open": "Close my store…",
+      "title": "Close your store?",
+      "paid": "Your shop keeps selling until {date}, then goes offline. The portal becomes view-only now.",
+      "now": "Your shop goes offline now, and the portal becomes view-only.",
+      "kept": "Products, orders and customers are kept for 90 days, then deleted.",
+      "download": "You can download them until then.",
+      "free": "Or move to {plan} instead and keep selling {count}.",
+      "next": "What would you like to do?",
+      "choices": {
+        "export": "Download my data first",
+        "free": "Move to {plan} instead",
+        "close": "Close my store"
+      },
+      "confirm": "Continue",
+      "cancel": "Keep my store",
+      "closed": "Your store is closing. It sells until {date}."
+    },
+    "data": {
+      "title": "Your data",
+      "preparing": "Preparing your products, orders and customers…",
+      "kinds": {
+        "products": "Products",
+        "orders": "Orders",
+        "customers": "Customers"
+      },
+      "rows": {
+        "one": "{count} row",
+        "other": "{count} rows"
+      },
+      "truncated": "{count} rows — the file stops there",
+      "waiting": "Preparing…",
+      "failed": "Couldn’t be prepared. Try again.",
+      "expired": "The link expired. Download again.",
+      "download": "Download",
+      "again": "Download again",
+      "file": "store-{kind}.csv"
+    }
+  },
+  "keep": {
+    "title": "Choose what to keep on {plan}",
+    "from": "From {date} you’re on {plan}, which keeps {limit}. Pick which stay on sale — or choose a plan and keep everything.",
+    "now": "You’re on {plan}, which keeps {limit}. Swap what stays on sale any time.",
+    "products": {
+      "one": "{count} product",
+      "other": "{count} products"
+    },
+    "plans": "Choose a plan instead — keep everything",
+    "listTitle": "Products · {kept} of {limit} stay on sale",
+    "listNote": "Products with orders waiting to ship always stay. Any room left goes to your best sellers.",
+    "waiting": "Has an order waiting to ship — always stays",
+    "supplier": "From {supplier}",
+    "stays": "Stays on sale",
+    "paused": "Paused",
+    "full": "{plan} keeps {limit} — untick one first.",
+    "more": "Show more",
+    "note": "Nothing is deleted. Paused products are hidden from shoppers and kept as they are. Choose a bigger plan any time and they come back exactly as they were.",
+    "back": "Back",
+    "saveFrom": "Keep these from {date}",
+    "save": "Save what’s kept",
+    "saved": "Saved — {kept} stay on sale.",
+    "savedFrom": "Saved — from {date}, {kept} stay on sale.",
+    "readOnly": "View only: what’s kept can’t change right now.",
+    "loading": "Loading your products",
+    "error": {
+      "title": "We couldn’t load your products",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "nothing": {
+      "title": "Nothing to choose",
+      "body": "Your plan holds all your products, so everything stays on sale.",
+      "action": "Back to Billing"
+    },
+    "denied": {
+      "title": "Billing is the store owner’s",
+      "body": "Only the owner chooses what stays on sale on a smaller plan."
+    }
+  },
+  "activity": {
+    "title": "Activity log",
+    "managerTitle": "Store activity",
+    "sub": "Everything done in this store, by your team, suppliers, API keys, apps, support and shoppers. Newest first.",
+    "export": "Export CSV",
+    "exportOwner": "Only the store owner can export",
+    "person": "Person",
+    "everyone": "Everyone",
+    "what": "What",
+    "whats": {
+      "all": "Everything",
+      "catalogue": "Products and stock",
+      "orders": "Orders and refunds",
+      "team": "People and suppliers",
+      "settings": "Settings, keys and apps",
+      "support": "Support sessions",
+      "shoppers": "Shopper accounts",
+      "signins": "Sign-ins"
+    },
+    "search": "Search",
+    "searchPlaceholder": "A name, order 1042, a product",
+    "showing": "Showing everything by {name} in this store.",
+    "clearPerson": "Everyone",
+    "none": "Nothing matches.",
+    "empty": "Nothing has happened in this store yet.",
+    "listLabel": "Activity",
+    "loading": "Loading the activity log",
+    "error": {
+      "title": "The activity log didn’t load",
+      "body": "Check your connection and try again.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "Store activity is for the store’s owner and managers",
+      "body": "Ask your store owner if you need to know who changed something."
+    },
+    "readOnly": "Your store is read-only until the bill is paid. The log and its export still work.",
+    "more": "Show older",
+    "moreFailed": "Older entries didn’t load. Try again.",
+    "foot": "Searchable for 13 months.",
+    "results": {
+      "success": "Done",
+      "denied": "Refused",
+      "failed": "Failed"
+    },
+    "kinds": {
+      "person": "Team member",
+      "customer": "Shopper",
+      "partner_user": "{partner} team",
+      "api_key": "API key",
+      "app_grant": "App",
+      "support_session": "{partner} support",
+      "job": "Automatic",
+      "provider": "Outside service",
+      "staff": "Platform staff"
+    },
+    "system": "The system",
+    "someone": "someone",
+    "through": {
+      "support_session": "During a {partner} support session",
+      "impersonation": "Signed in by support as this person"
+    },
+    "onBehalf": "By {name}",
+    "reason": "Reason: {reason}",
+    "change": "{field}: {before} → {after}",
+    "byPerson": "Everything by {name}",
+    "open": "Open {target}",
+    "details": "Details of: {text}",
+    "other": "{action}",
+    "actions": {
+      "person.signed_in": "signed in",
+      "person.signed_out": "signed out",
+      "person.sign_in_refused": "couldn’t sign in",
+      "person.switched_store": "opened this store",
+      "person.profile_updated": "updated their details",
+      "person.password_changed": "changed their password",
+      "member.invited": "invited {target}",
+      "member.removed": "removed {target}",
+      "member.role_changed": "changed {target}’s role",
+      "member.invitation_resent": "sent {target}’s invitation again",
+      "member.invitation_revoked": "withdrew {target}’s invitation",
+      "supplier.invited": "invited supplier {target}",
+      "supplier.access_changed": "changed what {target} can do",
+      "supplier.shipping_mode_changed": "changed how {target} ships",
+      "supplier.suspended": "suspended {target}",
+      "supplier.resumed": "reactivated {target}",
+      "supplier.removed": "removed {target}",
+      "supplier.person_added": "added a person to {target}",
+      "product.created": "added {target}",
+      "product.updated": "changed {target}",
+      "product.deleted": "deleted {target}",
+      "product.duplicated": "copied {target}",
+      "product.hidden": "hid {target}",
+      "product.shown": "showed {target}",
+      "product.proposed": "added {target} for approval",
+      "product.approved": "approved {target}",
+      "product.sent_back": "sent {target} back",
+      "stock.adjusted": "changed the stock of {target}",
+      "stock.changed": "changed the stock of {target}",
+      "collection.saved": "saved collection {target}",
+      "collection.deleted": "deleted collection {target}",
+      "catalog.imported": "imported products",
+      "catalog.exported": "exported products",
+      "order.placed": "placed order {target}",
+      "order.paid": "paid for order {target}",
+      "order.marked_paid": "marked order {target} paid",
+      "order.cancelled": "cancelled order {target}",
+      "order.shipped": "shipped order {target}",
+      "order.delivered": "marked order {target} delivered",
+      "order.refunded": "refunded order {target}",
+      "order.note_added": "added a note to order {target}",
+      "refund.issued": "refunded {target}",
+      "orders.exported": "exported orders",
+      "customer.added": "added customer {target}",
+      "customer.updated": "changed customer {target}",
+      "customer.signed_in": "signed in",
+      "customer.signed_out": "signed out",
+      "customer.exported": "exported customers",
+      "store.info_saved": "saved the store’s details",
+      "store.currencies_saved": "saved the currencies",
+      "store.languages_saved": "saved the languages",
+      "store.customer_accounts_saved": "changed how shoppers sign in",
+      "store.plan_changed": "changed the plan",
+      "store.data_exported": "exported the store’s data",
+      "shipping.saved": "saved the shipping settings",
+      "tax.inclusive_changed": "changed whether prices include tax",
+      "tax_class.saved": "saved tax category {target}",
+      "market.saved": "saved market {target}",
+      "market.deleted": "deleted market {target}",
+      "payment_method.connected": "connected {target}",
+      "payment_method.disconnected": "disconnected {target}",
+      "payment_method.turned_on": "turned on {target}",
+      "payment_method.turned_off": "turned off {target}",
+      "api_key.created": "created API key {target}",
+      "api_key.rotated": "rotated API key {target}",
+      "api_key.revoked": "revoked API key {target}",
+      "webhook.saved": "saved webhook {target}",
+      "webhook.removed": "removed webhook {target}",
+      "webhook.turned_on": "turned webhook {target} back on",
+      "webhook.delivery_replayed": "sent a webhook event again",
+      "app.installed": "installed {target}",
+      "app.uninstalled": "removed {target}",
+      "support_access.changed": "switched support access",
+      "support_session.started": "opened a support session",
+      "support_session.ended": "ended a support session",
+      "support_session.viewed": "looked at {target}",
+      "support_session.write_requested": "asked to make changes",
+      "support_session.write_allowed": "let support make changes for this session",
+      "support_session.write_denied": "didn’t let support make changes",
+      "activity.exported": "exported the activity log"
+    },
+    "blank": "—",
+    "exportWords": {
+      "preparing": "Preparing your CSV…",
+      "ready": {
+        "one": "{count} entry is ready.",
+        "other": "{count} entries are ready."
+      },
+      "truncated": "Only the first {count} entries are in it; narrow the filter to see the rest.",
+      "download": "Download",
+      "file": "activity-{date}.csv",
+      "expires": "The link works until {time}.",
+      "expired": "That export’s link has expired. Export again.",
+      "tooLarge": "That export is too large. Narrow the filter and try again.",
+      "failed": "The export couldn’t be made. Try again."
+    },
+    "noneBody": "Try another person, another kind of change or a shorter search.",
+    "emptyBody": "What your team, suppliers, apps, support and shoppers do here shows up as it happens.",
+    "thisPerson": "this person",
+    "bySession": "Everything in this support session",
+    "sessionOf": "{name}’s support session",
+    "unnamed": "Someone without a name"
   }
 }

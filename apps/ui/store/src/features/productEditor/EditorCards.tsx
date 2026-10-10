@@ -2,7 +2,7 @@ import { formatMoney, minorOf } from '@dripfunnel/shared/format'
 import { useId, useRef, type ReactNode } from 'react'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
-import { productKinds, type Draft, type DraftProblem } from '../common/productDraft'
+import { productKinds, type Draft, type DraftProblem, type ProductKind } from '../common/productDraft'
 
 const words = messages.editor
 
@@ -20,18 +20,18 @@ export const Card = ({ title, aside, children }: { title?: string; aside?: React
   </section>
 )
 
-/** "What are you selling?": the four kinds (FIRST-RELEASE §1). */
-export const KindCard = ({ draft, update, disabled }: { draft: Draft; update: Update; disabled: boolean }) => (
+/** "What are you selling?": the four kinds (FIRST-RELEASE §1); a supplier's are physical only (ACCESS §7.1). */
+export const KindCard = ({ draft, disabled, supplier, onPick }: { draft: Draft; disabled: boolean; supplier: boolean; onPick: (kind: ProductKind) => void }) => (
   <Card title={words.kind.title}>
     <div className="df-editor-kinds" role="radiogroup" aria-label={words.kind.title}>
       {productKinds.map((kind) => (
-        <button key={kind} type="button" role="radio" aria-checked={draft.kind === kind} className="df-editor-kind" disabled={disabled} onClick={() => update((d) => ({ ...d, kind }))}>
+        <button key={kind} type="button" role="radio" aria-checked={draft.kind === kind} className="df-editor-kind" disabled={disabled || (supplier && kind !== 'physical')} onClick={() => onPick(kind)}>
           <strong>{words.kind[kind]}</strong>
           <span>{words.kind[`${kind}Sub`]}</span>
         </button>
       ))}
     </div>
-    {draft.kind !== 'physical' && <p className="df-editor-hint">{words.kind.later}</p>}
+    {supplier && <p className="df-editor-hint">{words.kind.merchantOnly}</p>}
   </Card>
 )
 
