@@ -191,6 +191,16 @@ describe('a new offer', () => {
     fireEvent.click(screen.getByRole('button', { name: words.kept.discard }))
     expect((screen.getByRole('textbox', { name: words.name }) as HTMLInputElement).value).toBe('Welcome 10% off')
   })
+
+  it('never offers one store’s unsaved work in another store in the same tab', async () => {
+    await show(owner, '/offers/new?recipe=welcome')
+    fireEvent.change(screen.getByRole('textbox', { name: words.name }), { target: { value: 'Welcome gift' } })
+    await settle()
+    cleanup()
+    await show({ ...owner, store: { id: 's2', name: 'Aurelia Home' } }, '/offers/new?recipe=welcome')
+    expect(screen.queryByText(words.kept.title)).toBeNull()
+    expect((screen.getByRole('textbox', { name: words.name }) as HTMLInputElement).value).toBe('Welcome 10% off')
+  })
 })
 
 describe('editing an offer', () => {

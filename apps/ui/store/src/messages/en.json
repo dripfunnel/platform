@@ -5015,7 +5015,10 @@
           "one": "Done · {count} chosen",
           "other": "Done · {count} chosen"
         }
-      }
+      },
+      "codePlaceholder": "SUMMER20",
+      "removeGlyph": "×",
+      "addName": "+ {name}"
     },
     "create": "Create offer",
     "createPlus": "+ Create offer"

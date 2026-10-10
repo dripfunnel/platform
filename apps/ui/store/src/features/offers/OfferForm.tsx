@@ -96,7 +96,7 @@ const Chips = ({ ids, names, label, onRemove, disabled }: { ids: readonly string
           {name}
           {!disabled && (
             <button type="button" aria-label={fill(label, { name })} onClick={() => onRemove(id)}>
-              ×
+              <span aria-hidden="true">{words.removeGlyph}</span>
             </button>
           )}
         </span>
@@ -135,7 +135,7 @@ const CustomerSearch = ({ chosen, onPick }: { chosen: readonly string[]; onPick:
         {Array.isArray(found) && rows.length === 0 && <span className="df-offers-sub">{fill(words.customersNone, { query: q.trim() })}</span>}
         {rows.map((r) => (
           <button key={r.id} type="button" className="df-chip" onClick={() => onPick(r.id, r.name)}>
-            + {r.name}
+            {fill(words.addName, { name: r.name })}
           </button>
         ))}
       </div>
@@ -311,7 +311,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
                     <span>{facts.main}</span>
                     {!disabled && d.tiers.length > 2 && (
                       <button type="button" className="df-offer-remove" aria-label={fill(words.removeTier, { n: String(i + 1) })} onClick={() => set({ tiers: d.tiers.filter((_, j) => j !== i) })}>
-                        ×
+                        <span aria-hidden="true">{words.removeGlyph}</span>
                       </button>
                     )}
                   </div>
@@ -429,7 +429,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
             <label className="df-offer-inline">
               <span>{words.codeLabel}</span>
               <span className="df-offer-row">
-                <input className="df-offer-code-input" aria-label={words.codeLabel} value={d.code} readOnly={disabled} placeholder="SUMMER20" autoCapitalize="characters" spellCheck={false} maxLength={32} aria-invalid={hasCodeError || undefined} onChange={(ev) => set({ code: ev.target.value.toUpperCase().replace(/\s/g, '') })} />
+                <input className="df-offer-code-input" aria-label={words.codeLabel} value={d.code} readOnly={disabled} placeholder={words.codePlaceholder} autoCapitalize="characters" spellCheck={false} maxLength={32} aria-invalid={hasCodeError || undefined} onChange={(ev) => set({ code: ev.target.value.toUpperCase().replace(/\s/g, '') })} />
                 {!disabled && (
                   <button type="button" className="df-button" onClick={() => set({ code: generateCode() })}>
                     {words.generate}

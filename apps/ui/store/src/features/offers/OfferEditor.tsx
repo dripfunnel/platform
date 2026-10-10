@@ -10,6 +10,7 @@ import { createGroup, loadCustomerGroups } from '../../api/customers'
 import { loadFilters } from '../../api/filters'
 import { loadAllMarkets } from '../../api/markets'
 import { generateCodes, loadCustomerNames, loadOffer, loadOfferFacts, loadProductNames, offerKinds, saveOffer, type Offer } from '../../api/offers'
+import { draftPrefix } from '../../drafts'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { seasonalDatesFor } from '../collections/seasonal'
@@ -37,12 +38,12 @@ type Ask = 'start' | 'live' | null
 type Done = { id: string; title: string; body: string }
 type Picking = 'productIds' | 'buyIds' | 'getIds' | null
 
-// Unsaved work survives a reload or a lost session in this tab (C4), tied to the revision it was started from.
-const draftKey = (id: string | null) => `df-offer-draft:${id ?? 'new'}`
+// Unsaved work survives a reload or a lost session in this tab (C4), tied to its store and the revision it started from.
+const draftKey = (storeId: string, id: string | null) => `${draftPrefix}offer:${storeId}:${id ?? 'new'}`
 const keptSchema = z.object({ revision: z.number().nullable(), draft: z.record(z.string(), z.unknown()) })
-const keptDraft = (id: string | null, revision: number | null): OfferDraft | null => {
+const keptDraft = (storeId: string, id: string | null, revision: number | null): OfferDraft | null => {
   try {
-    const kept = keptSchema.safeParse(JSON.parse(sessionStorage.getItem(draftKey(id)) ?? 'null'))
+    const kept = keptSchema.safeParse(JSON.parse(sessionStorage.getItem(draftKey(storeId, id)) ?? 'null'))
     return kept.success && kept.data.revision === revision ? (kept.data.draft as unknown as OfferDraft) : null
   } catch {
     return null
@@ -53,6 +54,7 @@ const holderSchema = z.object({ name: z.string(), status: z.string() })
 
 export const OfferEditor = () => {
   const { acting, state } = shellRoute.useLoaderData()
+  const storeId = acting.store.id
   const params: { offerId?: string } = useParams({ strict: false })
   const offerId = params.offerId ?? null
   const asked = searchSchema.parse(useSearch({ strict: false }))
@@ -105,7 +107,7 @@ export const OfferEditor = () => {
         const next = seasonalDatesFor(markets.filter((m) => m.active).flatMap((m) => m.countries).concat(facts.country ?? []), new Date(), 1)[0]
         const season = next ? { name: messages.collections.seasonal.names[next.key], on: next.on } : null
         const fresh = offer ? draftOf(offer, facts) : asked.type || asked.recipe ? blankDraft(asked.type ?? 'order', asked.recipe ?? null, { facts, now: new Date(), ship: regionWords(facts.country).ship, season }) : null
-        const kept = keptDraft(offerId, offer?.revision ?? null)
+        const kept = keptDraft(storeId, offerId, offer?.revision ?? null)
         const d = kept ?? fresh
         const [names, people] = await Promise.all([
           loadProductNames([...new Set([...(d?.productIds ?? []), ...(d?.buyIds ?? []), ...(d?.getIds ?? [])])]).catch(() => new Map<string, string>()),
@@ -125,14 +127,14 @@ export const OfferEditor = () => {
     return () => {
       live = false
     }
-  }, [forced, sample, access.canRead, access.viewOnly, offerId, asked.type, asked.recipe, attempt])
+  }, [forced, sample, access.canRead, access.viewOnly, storeId, offerId, asked.type, asked.recipe, attempt])
 
   const dirty = draft !== null && JSON.stringify(draft) !== orig
   useEffect(() => {
     if (sample || !draft) return
-    if (dirty) sessionStorage.setItem(draftKey(offerId), JSON.stringify({ revision, draft }))
-    else sessionStorage.removeItem(draftKey(offerId))
-  }, [draft, dirty, offerId, revision, sample])
+    if (dirty) sessionStorage.setItem(draftKey(storeId, offerId), JSON.stringify({ revision, draft }))
+    else sessionStorage.removeItem(draftKey(storeId, offerId))
+  }, [draft, dirty, storeId, offerId, revision, sample])
 
   useBlocker({ shouldBlockFn: () => dirty && !leaving.current && !window.confirm(words.leave), enableBeforeUnload: () => dirty && !leaving.current })
 
@@ -226,7 +228,7 @@ export const OfferEditor = () => {
           (error: unknown) => fill(words.done.codesFailed, { reason: offerRefusal(error, access.canUpgrade) }),
         )
       }
-      sessionStorage.removeItem(draftKey(offerId))
+      sessionStorage.removeItem(draftKey(storeId, offerId))
       leaving.current = true
       setAsk(null)
       setStale(null)
@@ -296,7 +298,7 @@ export const OfferEditor = () => {
         <p className="df-offers-note df-offers-note--info" role="status">
           <strong>{words.kept.title}</strong> {words.kept.body}{' '}
           <button type="button" className="df-button" onClick={() => {
-              sessionStorage.removeItem(draftKey(offerId))
+              sessionStorage.removeItem(draftKey(storeId, offerId))
               setRestored(false)
               setDraft(JSON.parse(orig) as OfferDraft)
             }}>
@@ -308,7 +310,7 @@ export const OfferEditor = () => {
         <p className="df-offers-note df-offers-note--warning" role="alert">
           <strong>{words.stale.title}</strong> {words.stale.body}{' '}
           <button type="button" className="df-button" onClick={() => {
-              sessionStorage.removeItem(draftKey(offerId))
+              sessionStorage.removeItem(draftKey(storeId, offerId))
               setStale(null)
               setAttempt((n) => n + 1)
             }}>

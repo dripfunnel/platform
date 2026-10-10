@@ -255,7 +255,7 @@
 
 .df-offer-segment button[aria-checked='true'] {
   background: var(--df-color-surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 15%);
+  box-shadow: 0 0 0 1px var(--df-color-border);
 }
 
 .df-offer-cards {

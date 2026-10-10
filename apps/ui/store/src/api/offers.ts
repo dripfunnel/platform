@@ -251,13 +251,22 @@ export const loadOfferFacts = async () => {
   }
 }
 
-/** Names for the ids an offer names, one request for all of them; one that's gone answers nothing. */
+/** An offer names at most this many ids of a kind (the engine's own limit); names are asked a chunk at a time. */
+export const offerIdLimit = 250
+const namesChunk = 50
+
+/** Names for the ids an offer names, the Store API having no read by many ids; one that's gone answers nothing. */
 const namesOf = async (field: 'product' | 'customer', ids: readonly string[]): Promise<Map<string, string>> => {
-  if (ids.length === 0) return new Map()
-  const fields = ids.map((_, i) => `n${i}: ${field}(id: $i${i}) { id name }`).join(' ')
-  const params = ids.map((_, i) => `$i${i}: ID!`).join(', ')
-  const answer = await query(`query N(${params}) { ${fields} }`, z.record(z.string(), z.object({ id: z.string(), name: z.string().nullable() }).nullable()), Object.fromEntries(ids.map((id, i) => [`i${i}`, id])))
-  return new Map(Object.values(answer).flatMap((x) => (x?.name ? [[x.id, x.name] as const] : [])))
+  const out = new Map<string, string>()
+  const wanted = ids.slice(0, offerIdLimit)
+  for (let at = 0; at < wanted.length; at += namesChunk) {
+    const chunk = wanted.slice(at, at + namesChunk)
+    const fields = chunk.map((_, i) => `n${i}: ${field}(id: $i${i}) { id name }`).join(' ')
+    const params = chunk.map((_, i) => `$i${i}: ID!`).join(', ')
+    const answer = await query(`query N(${params}) { ${fields} }`, z.record(z.string(), z.object({ id: z.string(), name: z.string().nullable() }).nullable()), Object.fromEntries(chunk.map((id, i) => [`i${i}`, id])))
+    for (const x of Object.values(answer)) if (x?.name) out.set(x.id, x.name)
+  }
+  return out
 }
 export const loadProductNames = (ids: readonly string[]) => namesOf('product', ids)
 export const loadCustomerNames = (ids: readonly string[]) => namesOf('customer', ids)
