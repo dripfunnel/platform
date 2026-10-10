@@ -289,6 +289,8 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
   `db_health_check_failed` are the health check's probe and its connection. Email (#274):
   `email_sent`, `email_skipped` (`link_closed`, `no_recipient`, `suppressed`, `held`, and `tenant_mismatch` when the payload's store or partner isn't the outbox row's),
   `email_refused` with SES's error type, and `ses_event` for the bounce hook. Never an address.
+  Couriers (#311): `label_not_kept` and `pickup_not_kept` when a label or pickup was bought at the courier but couldn't be
+  kept here, with `<courier>:<the courier's id>` as the code, so support can cancel or refund it there.
 - **Credentials in a URL, in its path or its query, are never logged:**
   - the studio frame's session id (storefront AI-STUDIO §8) is written as `/__studio/:session/…`;
   - the preview link's token (storefront PREVIEW §5 step 2) is written as `/__open?t=:token`;

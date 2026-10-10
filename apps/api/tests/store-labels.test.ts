@@ -1,11 +1,11 @@
 import { graphql, type GraphQLSchema } from 'graphql'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { handleDocument } from '#apis/store/documents'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
-import { CourierRejected, CourierUnavailable, type BookedLabel, type CourierDirectory, type CourierProvider, type LabelRequest } from '#core/couriers'
+import { CourierBoughtUnfinished, CourierRejected, CourierUnavailable, type BookedLabel, type CourierDirectory, type CourierProvider, type LabelRequest } from '#core/couriers'
 import { withSystemScope } from '#db/scoped/index'
 import type { AssetStore } from '#engine/modules/catalog/index'
 import { activityLog } from '#saas/activity/index'
@@ -24,7 +24,7 @@ const versions = { house: '', scarf: '', stole: '' }
 let reader = ''
 
 // The courier: what it answers next, what it was asked, and a pause to hold a booking open while another arrives.
-type Answer = 'label' | 'unserved' | 'rejected' | 'down'
+type Answer = 'label' | 'unserved' | 'rejected' | 'down' | 'unfinished'
 const courier = { answer: 'label' as Answer, booked: [] as { provider: CourierProvider; request: LabelRequest }[], pickups: [] as string[], pauseMs: 0 }
 const label = (request: LabelRequest): BookedLabel => ({
   providerRef: `ref-${request.reference}`,
@@ -45,6 +45,7 @@ const couriers: CourierDirectory = {
         if (courier.answer === 'unserved') return null
         if (courier.answer === 'rejected') throw new CourierRejected('login refused')
         if (courier.answer === 'down') throw new CourierUnavailable('no answer')
+        if (courier.answer === 'unfinished') throw new CourierBoughtUnfinished('label not fetched', `ref-${request.reference}`)
         return label(request)
       },
       pickup: async (_, shipment) => {
@@ -144,7 +145,7 @@ beforeEach(() => {
 })
 
 const sellerOf: Partial<Record<Who, () => string>> = { drop: () => t.sellerA1First, hub: () => t.sellerA1Second, reader: () => reader }
-const contextFor = async (who: Who, as: { support?: 'read'; couriers?: CourierDirectory | null } = {}): Promise<StoreContext> => {
+const contextFor = async (who: Who, as: { support?: 'read'; couriers?: CourierDirectory | null; activity?: typeof activityLog } = {}): Promise<StoreContext> => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const seller = sellerOf[who]?.()
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'other' ? t.storeA2 : t.storeA1, ...(seller ? { [supplierHeader]: seller } : {}) }
@@ -152,15 +153,15 @@ const contextFor = async (who: Who, as: { support?: 'read'; couriers?: CourierDi
   const standing = as.support && resolved.kind === 'acting'
     ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
     : resolved
-  return { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, couriers: as.couriers === undefined ? couriers : as.couriers, files, now: () => new Date() }
+  return { standing, partnerId: t.partnerA, sql: db.sql, activity: as.activity ?? activityLog, facts, couriers: as.couriers === undefined ? couriers : as.couriers, files, now: () => new Date() }
 }
-const gql = async (source: string, who: Who, as: { support?: 'read'; couriers?: CourierDirectory | null } = {}) => {
+const gql = async (source: string, who: Who, as: { support?: 'read'; couriers?: CourierDirectory | null; activity?: typeof activityLog } = {}) => {
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue: await contextFor(who, as) })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
 const book = (who: Who, orderId: string, warehouseId: string, lines: { id: string; quantity: number }[], provider = 'shiprocket', as: { support?: 'read'; couriers?: CourierDirectory | null } = {}) =>
   gql(`mutation { bookLabel(orderId: "${orderId}", warehouseId: "${warehouseId}", courier: "${provider}", lines: [${lines.map((l) => `{ lineId: "${l.id}", quantity: ${l.quantity} }`).join(', ')}]) }`, who, as)
-const pickup = (who: Who, shipmentId: string, as: { support?: 'read' } = {}) => gql(`mutation { requestPickup(shipmentId: "${shipmentId}") }`, who, as)
+const pickup = (who: Who, shipmentId: string, as: { support?: 'read'; activity?: typeof activityLog } = {}) => gql(`mutation { requestPickup(shipmentId: "${shipmentId}") }`, who, as)
 const documentStatus = async (who: Who, id: string) => (await handleDocument(new Request(`https://store.example/api/documents/${id}`), await contextFor(who), files)).status
 const shipments = async (who: Who, orderId: string) =>
   ((await gql(`{ order(id: "${orderId}") { shipments { id kind supplierId courier courierName trackingNumber trackingUrl labelDocumentId pickupRequestedAt pickupDate pickupReference lines { quantity } } } }`, who)).data?.['order'] as { shipments: Record<string, unknown>[] } | null)?.shipments
@@ -223,6 +224,17 @@ describe('the store books a label for its own lines', () => {
     expect(await count(id)).toBe(1)
     expect(await level(versions.house, places.main)).toEqual({ on_hand: 48, reserved: 1 })
     expect(kept.size).toBe(1)
+  })
+
+  it('logs the courier’s id when it bought a label it couldn’t finish, and writes nothing here', async () => {
+    const log = vi.spyOn(console, 'log')
+    courier.answer = 'unfinished'
+    expect((await book('owner', id, places.main, [{ id: house, quantity: 1 }])).code).toBe('COURIER_UNAVAILABLE')
+    const reference = courier.booked[0]?.request.reference
+    expect(log.mock.calls.map((c) => String(c[0])).filter((l) => l.includes('label_not_kept'))).toEqual([JSON.stringify({ event: 'label_not_kept', api: 'store', storeId: t.storeA1, code: `shiprocket:ref-${reference}` })])
+    log.mockRestore()
+    expect(await count(id)).toBe(1)
+    expect(await level(versions.house, places.main)).toEqual({ on_hand: 48, reserved: 1 })
   })
 
   it('refuses a courier the store hasn’t connected or its partner doesn’t hold, and asks nobody', async () => {
@@ -338,6 +350,20 @@ describe('a pickup on request', () => {
     await db.sql`update store_courier set role = 'pricing' where store_id = ${t.storeA1}`
     expect(courier.pickups).toEqual([])
     expect((await shipments('owner', id))?.find((s) => s['id'] === shipment)?.['pickupRequestedAt']).toBeNull()
+  })
+
+  it('logs the pickup bought at the courier when it can’t be kept here, so a retry isn’t a second one unseen', async () => {
+    const log = vi.spyOn(console, 'log')
+    const failing = { ...activityLog, recordAll: async (...args: Parameters<typeof activityLog.recordAll>) => {
+      if (args[1][0]?.action === 'order.pickup_requested') throw new Error('log down')
+      return activityLog.recordAll(...args)
+    } }
+    // An error of ours, answered as one: no pickup is said to be asked.
+    expect((await pickup('owner', shipment, { activity: failing })).data?.['requestPickup'] ?? null).toBeNull()
+    expect(log.mock.calls.map((c) => String(c[0])).filter((l) => l.includes('pickup_not_kept'))).toEqual([JSON.stringify({ event: 'pickup_not_kept', api: 'store', storeId: t.storeA1, code: 'shiprocket:PU-2' })])
+    log.mockRestore()
+    expect((await shipments('owner', id))?.find((s) => s['id'] === shipment)?.['pickupRequestedAt']).toBeNull()
+    courier.pickups = []
   })
 
   it('is asked once, however many ask at once', async () => {

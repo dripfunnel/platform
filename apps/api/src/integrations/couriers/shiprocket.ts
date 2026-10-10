@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CourierRejected, CourierUnavailable, type BookedLabel, type CourierRate, type LabelAddress, type LabelRequest, type Parcel, type PickupBooked } from '#core/couriers'
+import { CourierBoughtUnfinished, CourierRejected, CourierUnavailable, type BookedLabel, type CourierRate, type LabelAddress, type LabelRequest, type Parcel, type PickupBooked } from '#core/couriers'
 import { fromDecimalRounded, toMajor } from '#core/money'
 import { courierCall, fetchLabel } from './request'
 
@@ -132,9 +132,16 @@ export const shiprocketBook = async ({ fetchImpl = fetch, ...creds }: Shiprocket
   const awb = await read(awbResponse, awbSchema, 'courier')
   const trackingNumber = String(awb.response.data.awb_code)
   if (!trackingNumber) return null
-  const labelLink = await read(await post(fetchImpl, token, '/courier/generate/label', { shipment_id: [Number(shipmentId)] }, signal), labelSchema, 'label')
-  const label = await fetchLabel(labelLink.label_url, { fetchImpl, signal, name: 'shiprocket' })
-  const pickup = request.pickup === 'scheduled' ? await askPickup(fetchImpl, token, shipmentId, signal) : null
+  // The courier is assigned and billed from here: a failure names the shipment, so it can be cancelled there.
+  let label: BookedLabel['label']
+  try {
+    const labelLink = await read(await post(fetchImpl, token, '/courier/generate/label', { shipment_id: [Number(shipmentId)] }, signal), labelSchema, 'label')
+    label = await fetchLabel(labelLink.label_url, { fetchImpl, signal, name: 'shiprocket' })
+  } catch {
+    throw new CourierBoughtUnfinished('shiprocket: label not fetched', shipmentId)
+  }
+  // A pickup not asked now can be asked later (requestPickup), so it never undoes a label already bought.
+  const pickup = request.pickup === 'scheduled' ? await askPickup(fetchImpl, token, shipmentId, signal).catch(() => null) : null
   return { providerRef: shipmentId, trackingNumber, trackingUrl: shiprocketTrackingUrl(trackingNumber), courierName: awb.response.data.courier_name.slice(0, 80), label, pickup }
 }
 

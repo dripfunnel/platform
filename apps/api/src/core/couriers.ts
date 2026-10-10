@@ -95,6 +95,14 @@ export class CourierUnavailable extends Error {
   override name = 'CourierUnavailable'
 }
 
+/** Bought at the courier, then a later step failed: its id is what support needs to cancel it there. */
+export class CourierBoughtUnfinished extends CourierUnavailable {
+  override name = 'CourierBoughtUnfinished'
+  constructor(message: string, readonly providerRef: string) {
+    super(message)
+  }
+}
+
 export const courierTimeoutMs = 6_000
 /** A whole booking's calls together, which run inside the shipment's transaction (FIRST-RELEASE §19 `bookLabel`). */
 export const bookingDeadlineMs = 20_000
