@@ -66,7 +66,7 @@ const sessionSchema = z.object({
   startedAt: z.string(),
   expiresAt: z.string(),
   endedAt: z.string().nullable(),
-  endedBy: z.enum(['agent', 'colleague', 'expired']).nullable(),
+  endedBy: z.enum(['agent', 'colleague', 'store', 'expired']).nullable(),
   endedByName: z.string().nullable(),
   end: verdictSchema,
   return: verdictSchema,

@@ -30,6 +30,11 @@ import { registerCartReminders } from './cartReminders'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
+import { registerSupport } from './support'
+import { registerActivity } from './activity'
+import { registerDevelopers } from './developers'
+import { registerWebhooks } from './webhooks'
+import { registerApps } from './apps'
 import { registerBilling } from './billing'
 
 export type { StoreContext } from './access'
@@ -69,6 +74,11 @@ registerHome(builder)
 registerReports(builder)
 registerReportExports(builder)
 registerListing(builder)
+registerSupport(builder)
+registerActivity(builder)
+registerDevelopers(builder)
+registerWebhooks(builder)
+registerApps(builder)
 registerBilling(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

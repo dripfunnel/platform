@@ -31,6 +31,7 @@ const table: Record<StaffPermission, string> = {
   'activity.export': 'SA EN',
   'staff.manage': 'SA',
   'partners.assign': 'SA',
+  'apps.manage': 'SA',
 }
 
 const column: Record<StaffRole, string> = {

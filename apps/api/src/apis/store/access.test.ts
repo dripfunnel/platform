@@ -1,6 +1,6 @@
 import { graphql, type GraphQLSchema } from 'graphql'
 import { describe, expect, it } from 'vitest'
-import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
+import { standingPerson, type StoreCaller, type StoreStanding } from '#auth/storeCaller'
 import type { StoreRole } from '#auth/storePermissions'
 import type { Subscription } from '#core/tenancy'
 import { secureSchema } from '../graphql/scope'
@@ -37,7 +37,7 @@ const Rows = builder.objectRef<{ nodes: string[]; pageInfo: { startCursor: strin
   fields: (t) => ({ nodes: t.exposeStringList('nodes'), pageInfo: t.field({ type: PageInfo, resolve: (r) => r.pageInfo }) }),
 })
 builder.queryFields((t) => ({
-  whoami: t.string({ extensions: { access: { api: 'store', scope: 'session', permission: null } }, resolve: (_, __, ctx) => (ctx.standing.kind === 'signed-out' ? '' : ctx.standing.person.name) }),
+  whoami: t.string({ extensions: { access: { api: 'store', scope: 'session', permission: null } }, resolve: (_, __, ctx) => standingPerson(ctx.standing)?.name ?? '' }),
   storeName: t.string({ extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } }, resolve: (_, __, ctx) => actingCaller(ctx).store.name }),
   stock: t.string({ extensions: { access: { api: 'store', scope: 'store-seller', permission: 'stock.read', target: 'none' } }, resolve: (_, __, ctx) => actingCaller(ctx).context.sellerScope.kind }),
   rows: t.field({
@@ -127,5 +127,37 @@ describe('the Store API schema', () => {
     const partnerScoped = createStoreBuilder()
     partnerScoped.queryFields((t) => ({ leak: t.string({ extensions: { access: { api: 'store', scope: 'partner', permission: 'catalog.read', target: 'none' } }, resolve: () => 'x' }) }))
     expect(() => secureSchema(partnerScoped.toSchema(), storePolicy)).toThrow(/does not serve/)
+  })
+})
+
+describe('a partner support session (ACCESS.md §8, #331)', () => {
+  const supportAs = (access: 'read' | 'write'): StoreStanding => {
+    const standing = acting(owner)
+    if (standing.kind !== 'acting') throw new Error('acting')
+    const support = { sessionId: 'ss1', agent: { id: 'pu1', name: 'Priya' }, partnerName: 'Northstar', actingAs: 'Farhan Ali', access, expiresAt: new Date(), writeRequest: null }
+    return { ...standing, caller: { ...standing.caller, support, context: { ...standing.caller.context, caller: { kind: 'support', supportSessionId: 'ss1', partnerUserId: 'pu1', access } } } }
+  }
+
+  it('refuses a person’s own fields, and every write until the store allows it', async () => {
+    expect((await run('{ whoami }', supportAs('write'))).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await run('mutation { saveThing }', supportAs('read'))).code).toBe('SUPPORT_READ_ONLY')
+    expect((await run('mutation { payNow }', supportAs('read'))).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect((await run('mutation { saveThing }', supportAs('write'))).data).toEqual({ saveThing: 'saved' })
+  })
+
+  it('lists the writes an elevated session acting as an Owner is still refused', async () => {
+    const ctx: StoreContext = { standing: supportAs('write'), partnerId: 'p1', activity: { record: async () => undefined, recordAll: async () => undefined }, sql: null, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date() }
+    const refused: string[] = []
+    for (const field of Object.values(storeSchema.getMutationType()?.getFields() ?? {})) {
+      const access = field.extensions.access
+      if (!access) continue
+      const code = await storePolicy.authorize(access, ctx, {}, 'mutation', { name: field.name, root: true }).then(
+        () => null,
+        (error: { extensions?: { code?: string } }) => error.extensions?.code ?? null,
+      )
+      if (code === 'BLOCKED_FOR_SUPPORT') refused.push(field.name)
+    }
+    // A change here is a change to ACCESS.md §8's "never" list.
+    expect(refused.sort()).toMatchSnapshot()
   })
 })

@@ -22,6 +22,7 @@ import {
   type SupportTargetRow,
 } from '#db/scoped/supportSessions'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
+import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
 // Partner support sessions (ACCESS.md §8, ui/platform/FIRST-RELEASE.md §12; card #202): read-only,
@@ -115,7 +116,7 @@ export const createPartnerSupportService = ({ sql, caller, user, facts, activity
     const mine = s.partner_user_id === user.id
     const open = s.ended_at === null && s.expires_at > at
     // A session nobody ended ran out, even once a later start has closed its row (expireStale).
-    const expired = s.ended_by_partner_user_id === null
+    const expired = s.ended_by_partner_user_id === null && s.end_reason === null
     const closed: Verdict = expired ? refused('SESSION_EXPIRED') : refused('SESSION_ENDED')
     return {
       id: s.id,
@@ -129,7 +130,7 @@ export const createPartnerSupportService = ({ sql, caller, user, facts, activity
       expiresAt: s.expires_at,
       endedAt: s.ended_at ?? (open ? null : s.expires_at),
       // §12.3's History: ended by the agent, by a colleague, or ran out.
-      endedBy: open ? null : expired ? ('expired' as const) : s.ended_by_partner_user_id === s.partner_user_id ? ('agent' as const) : ('colleague' as const),
+      endedBy: open ? null : expired ? ('expired' as const) : s.end_reason !== null ? ('store' as const) : s.ended_by_partner_user_id === s.partner_user_id ? ('agent' as const) : ('colleague' as const),
       endedByName: s.ended_by_partner_user_id !== null && s.ended_by_partner_user_id !== s.partner_user_id ? s.ended_by_name : null,
       // ACCESS.md §8.3: each record says what the caller may do to it.
       end: !open ? closed : mine || mayEndOthers ? allowed : refused('NOT_SESSION_OWNER'),
@@ -203,6 +204,14 @@ export const createPartnerSupportService = ({ sql, caller, user, facts, activity
           changes: ticket ? [{ field: 'ticket', before: null, after: ticket }] : [],
         }),
       )
+      // The store's Owners hear of every session as it starts (ACCESS.md §8, decided on #337).
+      await queueSideEffect(tx, {
+        kind: 'email',
+        idempotencyKey: `support-session-started:${inserted.id}`,
+        payload: { template: 'support-session-started', supportSessionId: inserted.id },
+        partnerId,
+        storeId: target.store_id,
+      })
       return { ok: true, sessionId: inserted.id, expiresAt, link: linkFor(host, token) }
     })
   }

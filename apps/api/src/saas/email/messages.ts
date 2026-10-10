@@ -144,6 +144,22 @@ export const en = {
     now: (store: string, plan: string) => `${store} is now on the ${plan} plan.`,
     next: (store: string, plan: string) => `${store} moves to the ${plan} plan at its next renewal.`,
   },
+  supportStarted: {
+    subject: (partner: string, store: string) => `${partner} support opened ${store}`,
+    heading: 'Support is viewing your store',
+    body: (agent: string, partner: string, store: string, user: string) =>
+      `${agent} from ${partner} support opened a read-only support session in ${store}, signed in as ${user}. It ends after 30 minutes, and everything they open is in your Activity log.`,
+    reason: (reason: string) => `Reason: ${reason}`,
+    ticket: (ticket: string) => `Ticket: ${ticket}`,
+    control: 'To end it, and stop new ones, turn off support access in Settings › Support access.',
+  },
+  supportWriteAllowed: {
+    subject: (store: string) => `Support can make changes in ${store}`,
+    heading: 'Support can make changes',
+    body: (by: string, agent: string, partner: string, store: string) =>
+      `${by} let ${agent} from ${partner} support make changes in ${store} for the rest of this support session. Passwords, payment details, payouts and who works here stay locked.`,
+    control: 'To end the session now, turn off support access in Settings › Support access.',
+  },
   storeSuspended: {
     subject: (store: string) => `${store} is suspended`,
     heading: 'Your store is suspended',
@@ -164,6 +180,18 @@ export const en = {
     subject: (store: string) => `${store} is back`,
     heading: 'Your store is restored',
     body: (store: string) => `${store} is restored. The storefront is live again and the portal works as before.`,
+  },
+  webhookDisabled: {
+    subject: (store: string) => `A webhook for ${store} is turned off`,
+    heading: 'We turned off a webhook',
+    body: (host: string, store: string) =>
+      `Deliveries to ${host} for ${store} have failed for 3 days, so we turned it off. Nothing was lost: its events wait 7 days. Fix the server, then turn it back on in Settings › Developers to send them.`,
+  },
+  apiKeysCreatorGone: {
+    subject: (store: string) => `API keys in ${store} need a look`,
+    heading: 'API keys made by someone who has left',
+    body: (who: string, keys: number, store: string) =>
+      `${who} is no longer an Owner of ${store}. ${keys === 1 ? 'The API key they made keeps' : `The ${keys} API keys they made keep`} working, because keys belong to the store. Check them in Settings › Developers, and revoke any you don’t need.`,
   },
   orderConfirmed: {
     subject: (store: string, order: string) => `Your ${store} order ${order}`,

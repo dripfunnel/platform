@@ -9,6 +9,7 @@ import { selectCodeForEmail, setCodeHash } from '#db/scoped/shopper'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { selectBranding } from '#db/scoped/branding'
+import { selectKeyCreatorName } from '#db/scoped/apiKeys'
 import { markReminderSent, selectReminderFlow, selectReminderToSend, selectSampleItems, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
 import { defaultReminderStep, defaultReminderSteps, mayEmail } from '#engine/modules/cartReminders/index'
 import type { ScopedSql } from '#db/scoped/index'
@@ -17,6 +18,7 @@ import { selectBillingAccount } from '#db/scoped/partnerBilling'
 import { selectCataloguePlan } from '#db/scoped/partnerPlans'
 import { selectActivePartnerEmails, selectInvitedPartnerRole, selectLivePortalHost, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectRecordPartner } from '#db/scoped/partners'
 import { selectActiveStoreOwnerEmails, selectStore } from '#db/scoped/stores'
+import { selectSupportEmail } from '#db/scoped/storeSupport'
 import { selectEmailChangeForEmail } from '#db/scoped/profile'
 import { selectSignupForEmail } from '#db/scoped/signup'
 import { selectStoreInvitationForEmail, selectUserResetPartner } from '#db/scoped/userInvitations'
@@ -74,6 +76,10 @@ const payloads = {
   'store-plan-changed': z.object({ storeId: id, planId: id, when: z.enum(['next', 'now']) }),
   'store-suspended': z.object({ storeId: id, reason: z.string().max(500) }),
   'store-restored': z.object({ storeId: id }),
+  'support-session-started': z.object({ supportSessionId: id }),
+  'support-write-allowed': z.object({ supportSessionId: id }),
+  'webhook-disabled': z.object({ storeId: id, host: z.string().max(253) }),
+  'api-keys-creator-gone': z.object({ storeId: id, creatorId: id, keys: z.number().int().positive() }),
   'store-cancelled': z.object({ storeId: id, until: z.iso.datetime() }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
@@ -358,6 +364,24 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const paragraphs = [w.body(m.store.name), w.reason(p.reason), ...(contact ? [w.contact(contact)] : [])]
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
     }
+    case 'support-session-started':
+    case 'support-write-allowed': {
+      const p = parse(t)
+      const session = await selectSupportEmail(tx, p.supportSessionId)
+      if (!session) return { send: false, reason: 'link_closed' }
+      if (session.partner_id !== row.partnerId || session.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      const m = await merchant(tx, session.store_id, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      if (t === 'support-session-started') {
+        const w = en.supportStarted
+        const paragraphs = [w.body(session.agent_name, session.partner_name, m.store.name, session.user_name), w.reason(session.reason), ...(session.ticket ? [w.ticket(session.ticket)] : []), w.control]
+        return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(session.partner_name, m.store.name), heading: w.heading, paragraphs } }
+      }
+      const w = en.supportWriteAllowed
+      const paragraphs = [w.body(session.decided_by_name ?? m.store.name, session.agent_name, session.partner_name, m.store.name), w.control]
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
+    }
     case 'order-confirmed':
     case 'order-shipped':
     case 'order-delivered': {
@@ -401,6 +425,24 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
         ...(shipment.tracking_url ? { action: { label: w.action, url: shipment.tracking_url } } : {}),
       }
       return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
+    }
+    case 'webhook-disabled': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const w = en.webhookDisabled
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(p.host, m.store.name)] } }
+    }
+    case 'api-keys-creator-gone': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const creator = await selectKeyCreatorName(tx, p.creatorId, m.store.partner_id)
+      if (!creator) return { send: false, reason: 'no_recipient' }
+      const w = en.apiKeysCreatorGone
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(creator, p.keys, m.store.name)] } }
     }
     case 'cart-reminder': {
       const p = parse(t)

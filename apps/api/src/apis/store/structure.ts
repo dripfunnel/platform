@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import type { StoreCaller } from '#auth/storeCaller'
+import type { TenantContext } from '#core/tenancy'
 import { pageOf } from '#core/paging'
 import type { ScopedSql } from '#db/scoped/index'
 import { collectionsRecomputeKind, createStructureService, maxCollectionProducts, structureAudit, type StructureRefusal, type StructureResult } from '#engine/modules/catalog/index'
@@ -39,9 +39,9 @@ const answered = <T>(result: StructureResult<T>): T => {
 
 /** The store's automatic collections recomputed after this transaction commits; a new key each time, since each change needs one. */
 export const recomputeFor =
-  (caller: StoreCaller) =>
+  ({ context }: { context: TenantContext }) =>
   (tx: ScopedSql): Promise<unknown> =>
-    queueSideEffect(tx, { kind: collectionsRecomputeKind, idempotencyKey: crypto.randomUUID(), payload: { storeId: caller.store.id }, partnerId: caller.person.partnerId, storeId: caller.store.id })
+    queueSideEffect(tx, { kind: collectionsRecomputeKind, idempotencyKey: crypto.randomUUID(), payload: { storeId: context.storeId }, partnerId: context.partnerId, storeId: context.storeId })
 
 export const registerStructure = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
