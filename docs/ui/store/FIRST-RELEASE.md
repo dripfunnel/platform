@@ -713,8 +713,8 @@ privacy control change then (`whileReadOnly`); the partner is named by the brand
 without `activity.read` is told so and nothing is read) are one view of `activityLog`, 50 a page with "Show older": who (the agent
 behind a support session, a person's name without their email), what in words (a code not worded yet shows itself), Done, Refused
 or Failed, and when; opened, an entry shows its changes, reason, how it was done, "Everything by {name}" and, for a product or an
-order, a link to it. Person, What (`activityWhats`) and Search live in the address (`who`, `whoName`, `what`, `q`), so a reload or
-a link keeps them; search waits for typing to settle. Export CSV (`exportActivity`, the filter as shown) is the Owner's, followed by
+order, a link to it. Person, What (`activityWhats`) and Search live in the address (`who` as kind:id, `what`, `q`; never a
+person's name, which comes from the loaded entries), so a reload or a link keeps them; search waits for typing to settle. Export CSV (`exportActivity`, the filter as shown) is the Owner's, followed by
 the shell's export watcher; a Manager sees it disabled with "Only the store owner can export", and a read-only store still reads
 and exports. **Decided here**: the Person list offers the people in the entries loaded and the one picked, since no API lists the
 log's people; the prototype's scroll-to-load is a "Show older" button, as elsewhere in the portal.
