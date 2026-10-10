@@ -1,4 +1,5 @@
 import type postgres from 'postgres'
+import type { ActivityLog } from '#auth/activity'
 import { logEvent } from '#core/log'
 import { PaymentUnavailable } from '#core/payments'
 import { handleMerchantStripeEvent, type SettleDeps } from '#engine/modules/checkout/index'
@@ -18,10 +19,11 @@ export interface StripeHookDeps {
   signingSecret: string
   /** Settles merchants' payments; null where no card adapter is set up, and every event goes to billing. */
   payments: SettleDeps | null
+  activity: ActivityLog
   now: () => Date
 }
 
-export const handleStripeHook = async (request: Request, { sql, stripe, signingSecret, payments, now }: StripeHookDeps): Promise<Response> => {
+export const handleStripeHook = async (request: Request, { sql, stripe, signingSecret, payments, activity, now }: StripeHookDeps): Promise<Response> => {
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
   if (Number(request.headers.get('content-length') ?? 0) > maxBodyBytes) return new Response(null, { status: 413 })
   const body = await request.text()
@@ -50,7 +52,7 @@ export const handleStripeHook = async (request: Request, { sql, stripe, signingS
     }
   }
   try {
-    const outcome = await handleStripeEvent({ sql, stripe, event: event.data, now })
+    const outcome = await handleStripeEvent({ sql, stripe, event: event.data, activity, now })
     logEvent({ event: 'stripe_event', api: 'hooks', code: outcome })
     // Not applied yet: a non-2xx is the only way Stripe sends it again (saas/billing/webhook.ts).
     if (retriedOutcomes.includes(outcome)) return new Response(null, { status: 503 })

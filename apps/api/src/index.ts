@@ -38,7 +38,7 @@ import { localCloudflare, localCouriers, localDns, localEmail, localSms } from '
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
-import { stripeClient, type StripeApi } from '#integrations/stripe/index'
+import { storeBillingStripe, stripeClient, type StoreBillingStripe, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
 import { handleShopifyCallback, shopifyCallbackPath } from '#hooks/shopify'
@@ -82,6 +82,7 @@ import { deleteExpiredCarts } from '#db/scoped/cart'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
+import { suspendOverdueStores } from '#saas/storeBilling/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
@@ -303,12 +304,12 @@ const handleAdmin = async (
 }
 
 // Built once per isolate from configuration, like the identity provider.
-let stripeBuilt: { key: string; api: StripeApi } | undefined
+let stripeBuilt: { key: string; api: StripeApi & StoreBillingStripe } | undefined
 
-const stripeFor = (config: Config): StripeApi | null => {
+const stripeFor = (config: Config): (StripeApi & StoreBillingStripe) | null => {
   const key = config.STRIPE_SECRET_KEY
   if (!key) return null
-  if (stripeBuilt?.key !== key) stripeBuilt = { key, api: stripeClient({ secretKey: key }) }
+  if (stripeBuilt?.key !== key) stripeBuilt = { key, api: { ...stripeClient({ secretKey: key }), ...storeBillingStripe({ secretKey: key }) } }
   return stripeBuilt.api
 }
 
@@ -410,7 +411,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
@@ -463,7 +464,7 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
   if (!hyperdrive) return new Response(null, { status: 503 })
   const secrets = await (secretsFor(config) ?? null)
   return withConnection(hyperdrive, ctx, (sql) =>
-    handleStripeHook(request, { sql, stripe, signingSecret, payments: { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, now: () => new Date() }),
+    handleStripeHook(request, { sql, stripe, signingSecret, payments: { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, activity: activityLog, now: () => new Date() }),
   )
 }
 
@@ -603,6 +604,12 @@ const sweepSchedules = (env: Env): Promise<void> =>
       return 0
     })
     if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
+    // SAAS §7.3: a store 14 days past due is suspended.
+    const suspended = await suspendOverdueStores(sql, activityLog, new Date()).catch((error: unknown) => {
+      logEvent({ event: 'dunning_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (suspended > 0) logEvent({ event: 'stores_suspended', api: 'system', code: 'unpaid', count: suspended })
     // Old sign-in codes and sessions go, with the addresses they named.
     await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

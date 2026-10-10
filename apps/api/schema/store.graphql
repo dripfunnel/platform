@@ -27,6 +27,97 @@ input BadgeInput {
   tone: String!
 }
 
+type BillingAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postal: String
+  region: String
+}
+
+input BillingAddressInput {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  postal: String!
+  region: String
+}
+
+type BillingCard {
+  brand: String
+  expires: String
+  last4: String
+}
+
+type BillingDetails {
+  address: BillingAddress
+  email: String
+  legalName: String
+  taxId: String
+  taxIdKind: String
+}
+
+input BillingDetailsInput {
+  address: BillingAddressInput!
+  email: String!
+  legalName: String!
+  taxId: String
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
+type BillingPlan {
+  current: Boolean
+  description: String
+  id: ID
+  monthly: Money
+  name: String
+  values: [BillingPlanValue!]
+  yearly: Money
+}
+
+type BillingPlanName {
+  id: ID
+  name: String
+}
+
+type BillingPlanValue {
+  amount: Int
+  enabled: Boolean
+  key: String
+  kind: String
+  unlimited: Boolean
+}
+
+type BillingSubscription {
+  asOf: String
+  cancelAt: String
+  card: BillingCard
+  collectedBy: String
+  interval: BillingInterval
+  partnerName: String
+  periodEnd: String
+  periodStart: String
+  plan: BillingPlanName
+  price: Money
+  scheduled: ScheduledPlanChange
+  status: String
+  trialEndsAt: String
+}
+
+type BillingUsage {
+  key: String
+  limit: Int
+  monthly: Boolean
+  unlimited: Boolean
+  used: Int
+}
+
 type Brand {
   accentColor: String
   background: String
@@ -469,6 +560,14 @@ input InviteSupplierInput {
   shippingMode: String
 }
 
+type InvoiceLine {
+  amount: String
+  kind: String
+  label: String
+  periodEnd: String
+  periodStart: String
+}
+
 type InvoiceSettings {
   emailWithDispatch: Boolean
   footer: String
@@ -612,6 +711,7 @@ type Mutation {
   cancelReturn(returnId: ID!): Boolean
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
+  changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
@@ -670,6 +770,7 @@ type Mutation {
   revokeInvitation(invitationId: ID!): Boolean
   revokeSupplierInvitation(invitationId: ID!): Boolean
   saveBadge(id: ID, input: BadgeInput!): ID
+  saveBillingDetails(input: BillingDetailsInput!): BillingDetails
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
@@ -703,6 +804,7 @@ type Mutation {
   setEverywhereElse(marketId: ID): Boolean
   setHomeTaxRate(homeZoneName: String!, rateBps: Int!, taxClassId: ID!): Boolean
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
+  setPaymentMethod(token: String!): BillingSubscription
   setPricesIncludeTax(included: Boolean!): Boolean
   setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
@@ -1221,6 +1323,20 @@ enum PaymentMode {
   TEST
 }
 
+type PlanChangeQuote {
+  charge: Money
+  credit: Money
+  from: String
+  nextPrice: Money
+  offered: [PlanChangeWhen!]
+  today: Money
+}
+
+enum PlanChangeWhen {
+  NOW
+  PERIOD_END
+}
+
 type Product {
   approval: String
   category: String
@@ -1549,6 +1665,7 @@ type Provisioning {
 }
 
 type Query {
+  billingDetails: BillingDetails
   brand: Brand
   catalogExport(id: ID!): CatalogExport
   catalogExports: [CatalogExport!]
@@ -1569,11 +1686,13 @@ type Query {
   customerExports: [CustomerExport!]
   customerGroups: [CustomerGroup!]
   customers(after: String, before: String, first: Int, groupId: ID, search: String): CustomerPage
+  downloadInvoice(id: ID!): String
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
   health: String
   home: StoreHome
   invoiceSettings: InvoiceSettings
+  invoices(after: String, before: String, first: Int): StoreInvoicePage
   market(id: ID!): Market
   markets(after: String, before: String, first: Int): MarketPage
   me: Me
@@ -1597,6 +1716,8 @@ type Query {
   orders(after: String, before: String, filter: OrderFilter, first: Int, search: String): OrderPage
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
+  planCatalogue: [BillingPlan!]
+  planChangeQuote(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): PlanChangeQuote
   product(id: ID!): Product
   productCollections(productId: ID!): [ProductCollection!]
   productCounts: ProductCounts
@@ -1621,6 +1742,7 @@ type Query {
   storeState: StoreState
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  subscription: BillingSubscription
   supplier(id: ID!): Supplier
   supplierApprovalRequired: Boolean
   supplierCounts: SupplierCounts
@@ -1629,6 +1751,7 @@ type Query {
   taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
   taxSetup: TaxSetup
   translationProgress(language: String!): TranslationProgress
+  usage: [BillingUsage!]
   warehouses(after: String, before: String, first: Int): WarehousePage
 }
 
@@ -1759,6 +1882,12 @@ type SavedSizeChart {
 type SavedStoryBlock {
   id: ID
   revision: Int
+}
+
+type ScheduledPlanChange {
+  at: String
+  interval: BillingInterval
+  plan: BillingPlanName
 }
 
 type SecondFactorStep {
@@ -2069,6 +2198,23 @@ input StoreInfoInput {
   taxId: String
   timeZone: String!
   unitSystem: String!
+}
+
+type StoreInvoice {
+  amount: Money
+  id: ID
+  issuedAt: String
+  kind: String
+  lines: [InvoiceLine!]
+  number: String
+  paidAt: String
+  status: String
+  tax: Money
+}
+
+type StoreInvoicePage {
+  nodes: [StoreInvoice!]
+  pageInfo: PageInfo
 }
 
 type StoreLanguage {
