@@ -53,3 +53,17 @@ export const moneyType = (builder: StoreBuilder) => {
   moneys.set(builder, made)
   return made
 }
+
+const moneyInputs = new WeakMap<StoreBuilder, ReturnType<typeof defineMoneyInput>>()
+
+const defineMoneyInput = (builder: StoreBuilder) =>
+  builder.inputType('MoneyInput', { fields: (t) => ({ currency: t.string({ required: true }), amount: t.string({ required: true }) }) })
+
+/** Money as every area takes it, minor units as a string; one input type per builder. */
+export const moneyInputType = (builder: StoreBuilder) => {
+  const known = moneyInputs.get(builder)
+  if (known) return known
+  const made = defineMoneyInput(builder)
+  moneyInputs.set(builder, made)
+  return made
+}

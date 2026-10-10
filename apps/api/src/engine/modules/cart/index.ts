@@ -5,10 +5,11 @@ import type { PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { insertCart, selectCart, selectGuestCartId, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
+import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
 import type { FeatureKey } from '#db/scoped/catalogListing'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
+import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CartOffersInput, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
@@ -21,7 +22,10 @@ export type { CartAddress } from '#db/scoped/cart'
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
 // engine prices it on every read, so nothing a storefront sends is ever a price (§5.5). Payment and placement are SAPI 10's.
 
-export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED'
+export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED' | 'TOO_MANY_CODES'
+
+/** Codes a cart holds at once (migration 0078). */
+export const maxCartCodes = 5
 export type CartResult<T> = { ok: true; value: T } | { ok: false; reason: CartRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
@@ -50,6 +54,8 @@ export interface CartDeps {
 
 export interface CartLineView extends PricedLine {
   item: CartItem | null
+  /** What the offers take off this line; null when it isn't priced. */
+  discount: Money | null
 }
 
 export interface CartView {
@@ -65,11 +71,22 @@ export interface CartView {
   /** Moves with every change: placement refuses a cart changed after it was priced. */
   revision: number
   lines: CartLineView[]
+  /** Before any offer. */
   subtotal: Money
+  /** Each offer taken, in the order it applied, named as shoppers see it (OFFERS fact 13). */
+  discounts: (Omit<CartDiscount, 'amount'> & { amount: Money })[]
+  /** What the offers take off altogether, delivery's included. */
+  discount: Money
+  /** Each code the cart holds and what it does now (fact 6). */
+  codes: { code: string; state: CodeState }[]
+  /** What its offers were priced from, so placement can check them again as it counts their uses. */
+  offersInput: CartOffersInput
   /** Null until there is an address to deliver to; collection in person is offered without one. */
   deliverable: boolean | null
   shippingOptions: DeliveryOption[]
+  /** The chosen delivery's price, before an offer takes anything off it. */
   shipping: Money | null
+  shippingDiscount: Money | null
   /** Null until the cart knows where it goes; `inclusive` when the prices already hold it (fact 6). */
   tax: { amount: Money; inclusive: boolean; lines: LineTax[] } | null
   total: Money
@@ -130,7 +147,7 @@ export const createCartService = (deps: CartDeps) => {
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
-      return { ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }), item }
+      return { ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }), item, discount: null }
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
     const priced = lines.filter((l): l is CartLineView & { lineTotal: Money } => l.lineTotal !== null)
@@ -151,10 +168,27 @@ export const createCartService = (deps: CartDeps) => {
       }
     }
     const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? null
+    const offersInput: CartOffersInput = {
+      storeId,
+      currency,
+      codes: row.promotion_codes,
+      customerId: row.customer_id,
+      email: row.email,
+      phone: row.phone,
+      country: address?.country ?? null,
+      lines: priced.flatMap((l) => (l.item ? [{ versionId: l.versionId, productId: l.item.product.id, quantity: l.quantity, amount: l.lineTotal.amount, giftCard: l.item.product.productType === 'gift_card', onSale: l.item.version.compareAt !== null }] : [])),
+      shipping: chosen?.amount.amount ?? null,
+      now: now(),
+    }
+    const offers = await cartOffers(sql, offersInput)
+    for (const l of lines) l.discount = l.lineTotal ? { amount: offers.pricing.lineDiscounts.get(l.versionId) ?? 0n, currency } : null
+    // Tax is on what each line and the delivery come to after their offers (OFFERS fact 11).
+    const afterOffers = priced.map((l) => ({ ...l, lineTotal: { amount: l.lineTotal.amount - (l.discount?.amount ?? 0n), currency } }))
+    const shippingDue = chosen ? chosen.amount.amount - offers.pricing.shippingDiscount : null
     // Tax follows where the goods go: the address, or the store itself for collection (CATALOG fact 37).
     const taxTo = pickup ? (setup?.country ? { country: setup.country, region: setup.region } : null) : address ? { country: address.country, region: address.region } : null
-    const tax = setup && taxTo ? await taxOf(setup, taxTo, pickup ? null : (address?.postalCode ?? null), priced, chosen?.amount.amount ?? null) : null
-    const total = subtotal.amount + (chosen?.amount.amount ?? 0n) + (tax && !tax.inclusive ? tax.amount.amount : 0n)
+    const tax = setup && taxTo ? await taxOf(setup, taxTo, pickup ? null : (address?.postalCode ?? null), afterOffers, shippingDue) : null
+    const total = subtotal.amount - offers.pricing.discount + (chosen?.amount.amount ?? 0n) + (tax && !tax.inclusive ? tax.amount.amount : 0n)
     const problems = checkoutProblems({
       lines,
       hasContact: Boolean(row.email || row.phone),
@@ -176,9 +210,14 @@ export const createCartService = (deps: CartDeps) => {
       revision: row.revision,
       lines,
       subtotal,
+      discounts: offers.discounts.map((d) => ({ ...d, amount: { amount: d.amount, currency } })),
+      discount: { amount: offers.pricing.discount, currency },
+      codes: offers.codes,
+      offersInput,
       deliverable,
       shippingOptions,
       shipping: chosen?.amount ?? null,
+      shippingDiscount: chosen ? { amount: offers.pricing.shippingDiscount, currency } : null,
       tax,
       total: { amount: total, currency },
       problems,
@@ -198,6 +237,10 @@ export const createCartService = (deps: CartDeps) => {
   const change = async (work: (tx: ScopedSql, row: CartRow) => Promise<void>): Promise<CartResult<CartChange>> => {
     try {
       const row = await withScope(sql, deps.context, async (tx) => {
+        const seen = await selectCart(tx, storeId, now())
+        if (!seen) throw new Refused('NO_CART')
+        // Read again under the row's lock, so a change works on what the last one left (two tabs, two codes).
+        await lockCartRow(tx, storeId, seen.id)
         const found = await selectCart(tx, storeId, now())
         if (!found) throw new Refused('NO_CART')
         await work(tx, found)
@@ -289,6 +332,35 @@ export const createCartService = (deps: CartDeps) => {
       await write(tx, row, { shippingOption: option, checkoutStep: 'ship' })
     })
 
+  /**
+   * "Discount code or coupon": the code goes on the cart and the cart is priced with it. One that can't work whatever is
+   * added (unknown, ended, used up, already used by this shopper) comes straight back off, with its state.
+   */
+  const applyCode = async (raw: string): Promise<CartResult<{ state: CodeState; cart: CartView }>> => {
+    const code = normaliseCode(raw)
+    const current = await withScope(sql, deps.context, (tx) => selectCart(tx, storeId, now()))
+    if (!current) return { ok: false, reason: 'NO_CART' }
+    if (!code) return { ok: true, value: { state: 'INVALID', cart: await view(deps.context, current) } }
+    const without = (codes: readonly string[]) => codes.filter((c) => c.toLowerCase() !== code.toLowerCase())
+    const added = await change(async (tx, row) => {
+      const held = without(row.promotion_codes)
+      if (held.length >= maxCartCodes) throw new Refused('TOO_MANY_CODES')
+      await write(tx, row, { promotionCodes: [...held, code] })
+    })
+    if (!added.ok) return added
+    const state = added.value.cart.codes.find((c) => c.code === code)?.state ?? 'INVALID'
+    if (!deadCodeStates.includes(state)) return { ok: true, value: { state, cart: added.value.cart } }
+    const removed = await change(async (tx, row) => {
+      await write(tx, row, { promotionCodes: without(row.promotion_codes) })
+    })
+    return removed.ok ? { ok: true, value: { state, cart: removed.value.cart } } : removed
+  }
+
+  const removeCode = (raw: string) =>
+    change(async (tx, row) => {
+      await write(tx, row, { promotionCodes: row.promotion_codes.filter((c) => c.toLowerCase() !== raw.trim().toLowerCase()) })
+    })
+
   /** "Continue to payment": everything priced and chosen, or the reasons it isn't. */
   const checkout = async (): Promise<CartResult<CartView>> => {
     const current = await cart()
@@ -313,5 +385,5 @@ export const createCartService = (deps: CartDeps) => {
     })
   }
 
-  return { cart, add, setQuantity, setContact, setShippingAddress, setBillingAddress, setShippingOption, checkout, claim }
+  return { cart, add, setQuantity, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, checkout, claim }
 }
