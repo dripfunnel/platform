@@ -5488,6 +5488,7 @@
       },
       "unsaved": "Unsaved changes to your reminders",
       "discard": "Discard",
+      "leave": "Your reminder changes aren’t saved. Leave without saving?",
       "save": "Save",
       "saving": "Saving…",
       "saved": "Saved.",

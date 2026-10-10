@@ -425,6 +425,26 @@ describe('the Reminders tab', () => {
     expect(api.saveReminderSettings).toHaveBeenCalledWith(expect.objectContaining({ steps: [{ ...steps[0], delayMinutes: 4320 }, steps[1], steps[2]] }), 3)
   })
 
+  it('asks before leaving the tab with changes unsaved, and stays when told to', async () => {
+    const confirm = vi.fn(() => false)
+    window.confirm = confirm
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.click(screen.getByRole('button', { name: words.panes.carts }))
+    await settle()
+    expect(confirm).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: words.panes.reminders }))
+    await settle()
+    fireEvent.click(screen.getByRole('checkbox', { name: /Quiet hours/ }))
+    fireEvent.click(screen.getByRole('button', { name: words.panes.carts }))
+    await settle()
+    expect(confirm).toHaveBeenCalledWith(rw.leave)
+    expect(screen.getByText(rw.unsaved)).toBeTruthy()
+    confirm.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: words.panes.carts }))
+    await settle()
+    expect(screen.queryByText(rw.unsaved)).toBeNull()
+  })
+
   it('sends a test only of the saved reminder, and says when there have been too many', async () => {
     api.sendTestReminder.mockRejectedValue(new ApiError('RATE_LIMITED', 'slow down'))
     await show(owner, { entry: '/carts?pane=reminders' })

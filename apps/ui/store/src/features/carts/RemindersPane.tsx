@@ -1,7 +1,7 @@
 import { minorOf, moneyText as fieldText } from '@dripfunnel/shared/format'
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
-import { Link } from '@tanstack/react-router'
+import { Link, useBlocker } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadReminderSettings, reminderDelays, reminderPercents, reminderText, saveReminderSettings, sendTestReminder, type ReminderSettings, type ReminderStep } from '../../api/carts'
 import { loadOfferFacts } from '../../api/offers'
@@ -86,6 +86,9 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
   }, [forced, sample])
   useEffect(load, [load])
 
+  const dirty = form !== null && JSON.stringify(form) !== orig
+  useBlocker({ shouldBlockFn: () => dirty && !window.confirm(words.leave), enableBeforeUnload: () => dirty })
+
   if (view.kind === 'error') return <ErrorState title={words.error} body={messages.carts.error.body} retry={{ label: messages.carts.error.retry, onRetry: load }} />
   if (view.kind === 'loading' || !form) return <LoadingState label={words.loading} />
 
@@ -93,7 +96,6 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
   const level = settings.level
   const automatic = level === 'automatic'
   const ro = !access.canEdit
-  const dirty = JSON.stringify(form) !== orig
   const errors = stepErrors(form.steps, automatic)
   const minimumMinor = form.minimum.trim() ? minorOf(form.minimum, currency) : null
   const minimumBad = minimumMinor === 'invalid' || minimumMinor === 0
