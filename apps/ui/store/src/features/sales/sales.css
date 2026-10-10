@@ -1,0 +1,160 @@
+/* Your sales (designs/VendorViews.dc.html "sales"): the header, the note, the lines and the pager. */
+.df-sales {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1000px;
+}
+
+.df-sales-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-sales .df-page-title {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.df-sales-head .df-page-lede {
+  margin-top: var(--df-space-1);
+  font-size: 13px;
+}
+
+.df-sales-zone {
+  margin-left: var(--df-space-3);
+  font-size: 12px;
+}
+
+.df-sales-export {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sales .df-info-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.df-sales-table {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  border-spacing: 0;
+  background: var(--df-color-surface);
+  font-size: 13px;
+}
+
+.df-sales-table tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 0.5fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
+  gap: 4px 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-sales-table tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.df-sales-table th {
+  padding: 10px 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.df-sales-table td {
+  min-width: 0;
+  padding: 12px 0;
+}
+
+.df-sales-table th:first-child,
+.df-sales-table td:first-child {
+  padding-left: 16px;
+}
+
+.df-sales-table th:last-child,
+.df-sales-table td:last-child {
+  padding-right: 16px;
+}
+
+.df-sales-cell span {
+  display: block;
+}
+
+.df-sales-number {
+  display: block;
+}
+
+.df-sales-sub {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-sales-money {
+  font-variant-numeric: tabular-nums;
+}
+
+.df-sales-table .df-pill {
+  white-space: nowrap;
+}
+
+.df-sales-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sales-pager > span:last-child {
+  display: flex;
+  gap: var(--df-space-2);
+}
+
+@media (max-width: 720px) {
+  .df-sales .df-page-title {
+    font-size: 22px;
+  }
+
+  .df-sales-zone {
+    display: block;
+    margin-left: 0;
+  }
+
+  /* The prototype's phone rows: two columns and no heading row. */
+  .df-sales-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .df-sales-table tr {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding: 12px 16px;
+  }
+
+  .df-sales-table td,
+  .df-sales-table td:first-child,
+  .df-sales-table td:last-child {
+    padding: 0;
+  }
+
+  .df-sales-head .df-button,
+  .df-sales-pager .df-button {
+    min-height: 44px;
+  }
+}

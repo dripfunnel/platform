@@ -429,7 +429,8 @@
       "title": "We couldn’t open your store",
       "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
       "retry": "Try again"
-    }
+    },
+    "stockOnly": "stock only"
   },
   "nav": {
     "home": "Home",
@@ -472,12 +473,6 @@
     },
     "yourProducts": {
       "title": "Your products"
-    },
-    "sales": {
-      "title": "Your sales"
-    },
-    "team": {
-      "title": "Your team"
     },
     "profile": {
       "title": "My profile"
@@ -4214,6 +4209,113 @@
       "deleteBody": "{members} leave the group. Offers for {name} stop applying to them.",
       "deleteConfirm": "Delete group",
       "deleted": "{name} deleted"
+    }
+  },
+  "sales": {
+    "title": "Your sales",
+    "sub": "Lines with {supplier}’s products in {store}.",
+    "note": "Only the lines with your products, at the price the store charged. The store settles with you outside this portal, so there are no payouts here.",
+    "export": "Export CSV",
+    "datesIn": "Dates in UTC",
+    "empty": {
+      "title": "No sales here yet",
+      "body": "When a shopper buys one of your products, the line shows up here."
+    },
+    "columns": {
+      "order": "Order",
+      "product": "Product",
+      "quantity": "Qty",
+      "line": "Line",
+      "status": "Status"
+    },
+    "quantity": "× {count}",
+    "status": {
+      "sold": "Sold",
+      "partlyRefunded": "{count} of {quantity} refunded",
+      "refunded": "Refunded",
+      "cancelled": "Cancelled"
+    },
+    "list": "Your sold lines",
+    "loading": "Loading your sales",
+    "error": {
+      "title": "We couldn’t load your sales",
+      "body": "Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You don’t have access to Your sales",
+      "supplier": "Your sales is for suppliers who see their own orders. Ask {store} if you need it.",
+      "merchant": "Your sales is a supplier’s screen. Your store’s sales are in Reports."
+    }
+  },
+  "supplierTeam": {
+    "title": "Your team",
+    "sub": "The people from {supplier} who work in {store}.",
+    "invite": "Invite someone",
+    "inviteTitle": "Invite someone from {supplier}",
+    "inviteBody": "They get an email with a link that works for 7 days. They’ll see only {supplier}’s products and orders.",
+    "theirEmail": "Their email",
+    "emailPlaceholder": "name@example.com",
+    "emailInvalid": "Enter an email like name@example.com.",
+    "roleLabel": "What they can do",
+    "roles": {
+      "supplier-admin": "Supplier admin",
+      "supplier-member": "Supplier member"
+    },
+    "adminSub": "Also invites and removes people",
+    "sendInvite": "Send invitation",
+    "status": {
+      "invited": "Invited · not accepted yet",
+      "expired": "Invitation expired",
+      "active": "Active",
+      "you": "Active · you"
+    },
+    "linkUntil": "Its link works until {when}",
+    "manage": "Options for {name}",
+    "whatNow": "What to do",
+    "go": "Go",
+    "cancel": "Cancel",
+    "ok": "OK",
+    "resend": "Resend invitation",
+    "cancelInvite": "Cancel invitation",
+    "makeAdmin": "Make admin",
+    "makeMember": "Make member",
+    "remove": "Remove from {supplier}",
+    "lastAdmin": "This is the last admin, so the role can’t change and they can’t be removed. Make someone else an admin first.",
+    "removeTitle": "Remove {name} from {supplier}?",
+    "removeBody": "They lose access to {store} straight away. Their own account stays.",
+    "removeConfirm": "Remove",
+    "sent": "Invitation sent to {email}",
+    "resent": "Invitation sent again to {email}",
+    "cancelled": "Invitation to {email} cancelled",
+    "nowAdmin": "{name} is now an admin",
+    "nowMember": "{name} is now a member",
+    "removed": "{name} removed",
+    "list": "People on your team",
+    "foot": "Admins invite and remove people and change roles; members work on products and stock. There’s always at least one admin. Everyone here sees only {supplier}’s products and orders in {store}.",
+    "alone": "It’s just you so far. Invite someone from {supplier} to share the work.",
+    "readOnly": "Your team can’t change while this store is read-only.",
+    "loading": "Loading your team",
+    "error": {
+      "title": "We couldn’t load your team",
+      "body": "Nobody was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You don’t have access to Your team",
+      "supplier": "Only a Supplier admin can invite, change and remove people. Ask an admin at {supplier} if you need someone added.",
+      "merchant": "Your team is a supplier’s screen. Your store’s people are in Settings › People."
+    },
+    "refused": {
+      "NOT_FOUND": "That person or invitation is no longer here.",
+      "INVALID_INPUT": "Choose Supplier admin or Supplier member.",
+      "INVALID_EMAIL": "Enter an email like name@example.com.",
+      "LAST_ADMIN": "This is the last admin, so the role can’t change and they can’t be removed. Make someone else an admin first.",
+      "ALREADY_MEMBER": "They’re already on your team.",
+      "RATE_LIMITED": "Too many invitations for now. Try again later.",
+      "READ_ONLY": "This store isn’t taking changes right now. Try again later.",
+      "FORBIDDEN": "Only a Supplier admin can change your team.",
+      "other": "That didn’t go through. Try again."
     }
   }
 }

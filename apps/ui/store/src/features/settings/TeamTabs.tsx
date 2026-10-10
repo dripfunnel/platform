@@ -1,5 +1,5 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
-import { ConfirmDialog, Icon, initials, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, initials, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { looksLikeEmail } from '@dripfunnel/shared/format'
 import { useState } from 'react'
 import {
@@ -24,6 +24,7 @@ import {
   type Supplier,
 } from '../../api/team'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
+import { TeamRow } from '../common/TeamRow'
 
 const words = messages.settings.team
 
@@ -60,27 +61,6 @@ const Chips = <K extends string>({ chips, current, label, onPick }: { chips: { k
       </button>
     ))}
   </div>
-)
-
-const Row = ({ mark, square, name, sub, role, status, tone, onMenu, menuLabel }: { mark: string; square: boolean; name: string; sub: string; role: string; status: string; tone: 'ok' | 'wait' | 'off'; onMenu: (() => void) | null; menuLabel: string }) => (
-  <li className="df-team-row">
-    <span className="df-team-who">
-      <span className={square ? 'df-team-mark df-team-mark--company' : 'df-team-mark'} aria-hidden="true">
-        {mark}
-      </span>
-      <span>
-        <strong>{name}</strong>
-        <span>{sub}</span>
-      </span>
-    </span>
-    <span className="df-team-role">{role}</span>
-    <span className={`df-team-status df-team-status--${tone}`}>{status}</span>
-    {onMenu && (
-      <button type="button" className="df-team-menu" aria-label={menuLabel} onClick={onMenu}>
-        <Icon name="more" size={18} strokeWidth={3} />
-      </button>
-    )}
-  </li>
 )
 
 export interface PeopleTabProps {
@@ -194,7 +174,7 @@ export const PeopleTab = ({ people, canEdit, onChanged }: PeopleTabProps) => {
       ) : (
         <ul className="df-team-list" aria-label={words.peopleTitle}>
           {shown.map((p) => (
-            <Row
+            <TeamRow
               key={p.id}
               mark={p.name ? initials(p.name) : '?'}
               square={false}
@@ -389,7 +369,7 @@ export const SupplierTab = ({ suppliers, approval, canEdit, onChanged }: Supplie
       ) : (
         <ul className="df-team-list" aria-label={words.suppliersTitle}>
           {shown.map((s) => (
-            <Row
+            <TeamRow
               key={s.id}
               mark={initials(s.name) || '?'}
               square
