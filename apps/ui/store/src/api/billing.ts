@@ -1,11 +1,12 @@
-import { ApiError } from '@dripfunnel/shared/graphql'
+import { ApiError, exportJobSchema } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { allPages } from './allPages'
 import { query } from './client'
 import { moneySchema } from './orders'
 
 // Billing (FIRST-RELEASE §16, PortalBilling; apps/api/schema/store.graphql, src/apis/store/billing.ts): the Owner's
-// plan, usage, invoices and the details on them. Every amount, limit and refusal is the API's.
+// plan, usage, invoices and the details on them, Choose what to keep (PortalKeep) and closing the store. Every amount,
+// limit and refusal is the API's.
 
 export const billingIntervals = ['MONTH', 'YEAR'] as const
 export type BillingInterval = (typeof billingIntervals)[number]
@@ -178,3 +179,36 @@ export const invoicePdf = async (id: string): Promise<string> => {
   if (!url || !/^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(url)) throw new ApiError('NO_PDF', 'The invoice link is not one of Stripe’s.')
   return url
 }
+
+const keepSchema = z.object({ plan: named, limit: z.number().int(), from: z.string().nullable(), products: z.number().int(), paused: z.number().int(), kept: z.array(z.string()), waiting: z.array(z.string()) })
+export type PlanKeep = z.infer<typeof keepSchema>
+const keepFields = 'plan { id name } limit from products paused kept waiting'
+
+/** What a smaller plan keeps (SAAS §6.2); null when the plan has no product limit, so nothing pauses. */
+export const loadPlanKeep = async (): Promise<PlanKeep | null> => (await query(`{ planKeep { ${keepFields} } }`, z.object({ planKeep: keepSchema.nullable() }))).planKeep
+
+export const keepProducts = async (ids: readonly string[]): Promise<PlanKeep> => {
+  const { keepProducts: keep } = await query(`mutation K($ids: [ID!]!) { keepProducts(ids: $ids) { ${keepFields} } }`, z.object({ keepProducts: keepSchema.nullable() }), { ids })
+  if (!keep) throw new ApiError('BAD_RESPONSE', 'The picks answered nothing.')
+  return keep
+}
+
+export const cancelStore = async (): Promise<Subscription> => {
+  const { cancelStore: sub } = await query(`mutation { cancelStore { ${subscriptionFields} } }`, z.object({ cancelStore: subscriptionSchema.nullable() }))
+  if (!sub) throw new ApiError('BAD_RESPONSE', 'Closing answered nothing.')
+  return sub
+}
+
+export const storeDataKinds = ['products', 'orders', 'customers'] as const
+const dataPartSchema = exportJobSchema.extend({ kind: z.enum(storeDataKinds) })
+export type StoreDataPart = z.infer<typeof dataPartSchema>
+
+/** "Download my data first": one job of three parts, products, orders and customers (`store.export`). */
+export const exportStoreData = async (): Promise<string> => {
+  const { exportStoreData: id } = await query('mutation { exportStoreData }', z.object({ exportStoreData: z.string().nullable() }))
+  if (!id) throw new ApiError('BAD_RESPONSE', 'The export answered nothing.')
+  return id
+}
+
+export const loadStoreDataExport = async (id: string): Promise<StoreDataPart[]> =>
+  (await query('query X($id: ID!) { storeDataExport(id: $id) { id kind state rows truncated csv expiresAt } }', z.object({ storeDataExport: z.array(dataPartSchema).nullable() }), { id })).storeDataExport ?? []

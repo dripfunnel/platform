@@ -742,6 +742,19 @@ rest, with `storeInfo` to start the details from. Decided here: the details star
 country is typed as two letters and the API checks the tax number; **Export all** is a CSV the browser builds from every
 page, since the API has no invoice export; a PDF opens only at a Stripe https link.
 
+**Part 3**: **Choose what to keep** (`/billing/keep`, PortalKeep) reads `planKeep` and the products by name, ten
+a page with Show more, ticked as the API keeps them; what has an order waiting to ship is ticked and can't be unticked; one more than
+the plan keeps is refused on the page; Save sends the Owner's picks to `keepProducts`, not while read-only. Reached from
+the trial-ending strip, a scheduled change's strip and, in the trial, "Or choose what to keep on {free plan}".
+**Close my store…** restates what closing does (a paid plan sells until its period's end, a trial or free plan closes
+at once; everything kept 90 days) and offers Download my data first (`exportStoreData`, its three parts read back every
+3 seconds until settled, each a download, the job's id kept for the tab so a reload picks it up), Move to {free plan}
+instead (that plan's quote and change, then Choose what to keep) or Close my store (`cancelStore`). A closing store's
+strip says until when, with Download my data. Decided here: **only products are chosen**, as the API pauses only
+products (SAAS §6.2), so the prototype's team, supplier, market, payment, courier and location cards aren't drawn; the
+rows carry no "N sold", which the API doesn't answer; and **no "Keep my store"** once closing, since the API has no way
+back from `cancelStore` (open question on #332).
+
 ## 17. Supplier views
 
 **Your products** (only theirs, with counts and empty states; stock only for the Stock-only tier;

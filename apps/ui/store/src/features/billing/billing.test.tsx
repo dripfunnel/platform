@@ -21,6 +21,9 @@ const api = vi.hoisted(() => ({
   changePlan: vi.fn(),
   saveBillingDetails: vi.fn(),
   invoicePdf: vi.fn(),
+  cancelStore: vi.fn(),
+  exportStoreData: vi.fn(),
+  loadStoreDataExport: vi.fn(),
 }))
 vi.mock('../../api/billing', async (actual) => ({ ...(await actual<typeof import('../../api/billing')>()), ...api }))
 const download = vi.hoisted(() => ({ downloadCsv: vi.fn() }))
@@ -94,7 +97,8 @@ const show = async (acting: Acting, state: ShellState = { readOnly: false, suppo
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state }), component: Outlet })
   const page = createRoute({ getParentRoute: () => app, path: '/billing', component: BillingPage })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: [path] }) })
+  const keep = createRoute({ getParentRoute: () => app, path: '/billing/keep', component: () => <p>keep screen</p> })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([page, keep])]), history: createMemoryHistory({ initialEntries: [path] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -114,6 +118,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+  sessionStorage.clear()
 })
 
 describe('what Billing says', () => {
@@ -382,5 +387,104 @@ describe('who may see and change Billing', () => {
     fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
     await settle()
     expect(screen.getByText('KC-0002')).toBeTruthy()
+  })
+})
+
+describe('Close my store', () => {
+  const close = async () => {
+    fireEvent.click(screen.getByRole('button', { name: words.close.open }))
+    return dialog()
+  }
+
+  it('restates what closing does to a paid plan, and closes', async () => {
+    api.cancelStore.mockRejectedValueOnce(new ApiError('PROVIDER_UNAVAILABLE', 'down')).mockResolvedValueOnce({ ...sub, cancelAt: sub.periodEnd })
+    await show(owner)
+    const d = await close()
+    expect(d.getByText('Kesari')).toBeTruthy()
+    expect(d.getByText('Your shop keeps selling until Nov 1, 2026, then goes offline. The portal becomes view-only now.')).toBeTruthy()
+    expect(d.getByText(words.close.kept)).toBeTruthy()
+    expect(d.getByText('Or move to Free instead and keep selling 10 products.')).toBeTruthy()
+    fireEvent.change(d.getByLabelText(words.close.next), { target: { value: 'close' } })
+    fireEvent.click(d.getByRole('button', { name: words.close.confirm }))
+    await settle()
+    expect(d.getByRole('alert').textContent).toBe(words.refused.PROVIDER_UNAVAILABLE)
+    fireEvent.click(d.getByRole('button', { name: words.close.confirm }))
+    await settle()
+    expect(api.cancelStore).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('status').textContent).toContain('Your store is closing. It sells until Nov 1, 2026.')
+    expect(api.loadBilling).toHaveBeenCalledTimes(2)
+  })
+
+  it('says a trial closes at once, and offers no free plan the store can’t move to', async () => {
+    api.loadBilling.mockResolvedValue(read({ subscription: { ...sub, status: 'trial', collectedBy: 'partner' } }))
+    await show(owner)
+    const d = await close()
+    expect(d.getByText(words.close.now)).toBeTruthy()
+    expect(within(d.getByLabelText(words.close.next)).queryByText('Move to Free instead')).toBeNull()
+  })
+
+  it('takes the data first: three parts, read back until done, each a download, and the job outlives a reload', async () => {
+    api.exportStoreData.mockResolvedValue('x1')
+    const part = (kind: 'products' | 'orders' | 'customers', state: 'queued' | 'done') => ({ id: kind, kind, state, rows: state === 'done' ? 2 : null, truncated: false, csv: state === 'done' ? 'a\n1\n2\n' : null, expiresAt: null })
+    api.loadStoreDataExport.mockResolvedValueOnce([part('products', 'queued'), part('orders', 'queued'), part('customers', 'queued')]).mockResolvedValue([part('products', 'done'), part('orders', 'done'), part('customers', 'done')])
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      await show(owner)
+      const d = await close()
+      fireEvent.click(d.getByRole('button', { name: words.close.confirm }))
+      await settle()
+      expect(api.cancelStore).not.toHaveBeenCalled()
+      expect(sessionStorage.getItem('df-store-data-export')).toBe('x1')
+      expect(screen.getByText(words.data.preparing)).toBeTruthy()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3100)
+      })
+      const panel = within(screen.getByRole('region', { name: words.data.title }))
+      expect(panel.getAllByRole('link', { name: words.data.download }).map((a) => a.getAttribute('download'))).toEqual(['store-products.csv', 'store-orders.csv', 'store-customers.csv'])
+      expect(panel.queryByText(words.data.preparing)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+    cleanup()
+    api.loadStoreDataExport.mockClear()
+    await show(owner)
+    expect(api.loadStoreDataExport).toHaveBeenCalledWith('x1')
+  })
+
+  it('moves to the free plan instead, from its quote, and goes on to choose what to keep', async () => {
+    api.quotePlanChange.mockRejectedValueOnce(new ApiError('AT_PERIOD_END_ONLY', 'later')).mockResolvedValueOnce(quote({ offered: ['PERIOD_END'], charge: inr('0'), credit: inr('0'), today: inr('0'), from: sub.periodEnd, nextPrice: inr('0') }))
+    api.changePlan.mockResolvedValue({ ...sub, scheduled: { plan: { id: 'free', name: 'Free' }, interval: 'MONTH', at: sub.periodEnd } })
+    const router = await show(owner)
+    const d = await close()
+    fireEvent.change(d.getByLabelText(words.close.next), { target: { value: 'free' } })
+    fireEvent.click(d.getByRole('button', { name: words.close.confirm }))
+    await settle()
+    expect(api.quotePlanChange).toHaveBeenLastCalledWith('free', 'MONTH', 'PERIOD_END')
+    fireEvent.click(dialog().getByRole('button', { name: 'Switch to Free' }))
+    await settle()
+    expect(api.changePlan).toHaveBeenCalledWith('free', 'MONTH', 'PERIOD_END')
+    expect(router.state.location.pathname).toBe('/billing/keep')
+  })
+
+  it('once closing, says until when, offers the data and not closing again; a support session gets neither', async () => {
+    api.loadBilling.mockResolvedValue(read({ subscription: { ...sub, cancelAt: sub.periodEnd } }))
+    await show(owner, { readOnly: true, support: null })
+    expect(screen.getByText('Your shop closes on Nov 1, 2026.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: words.banners.closing.action })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.close.open })).toBeNull()
+    cleanup()
+    await show(owner, { readOnly: true, support: { partnerName: 'Kesari Commerce' } })
+    expect(screen.queryByRole('button', { name: words.banners.closing.action })).toBeNull()
+    expect(screen.queryByRole('button', { name: words.close.open })).toBeNull()
+  })
+
+  it('leads to Choose what to keep from a scheduled change and from the trial', async () => {
+    api.loadBilling.mockResolvedValueOnce(read({ subscription: { ...sub, scheduled: { plan: { id: 'free', name: 'Free' }, interval: 'MONTH', at: sub.periodEnd } } })).mockResolvedValueOnce(read({ subscription: { ...sub, status: 'trial' } }))
+    await show(owner)
+    expect(screen.getByRole('link', { name: words.banners.scheduled.action }).getAttribute('href')).toBe('/billing/keep')
+    cleanup()
+    await show(owner)
+    expect(screen.getByRole('link', { name: 'Or choose what to keep on Free' }).getAttribute('href')).toBe('/billing/keep')
   })
 })

@@ -1,8 +1,8 @@
 import type { BillingRead, CataloguePlan, Invoice, PlanValue, Subscription } from '../../api/billing'
 
 // Billing's states under ?state= (ui/README.md §6): loading, error, active, trial, trialEnding, pastDue, scheduled,
-// partner, noPlan, readOnly, denied.
-export const billingStates = ['loading', 'error', 'active', 'trial', 'trialEnding', 'pastDue', 'scheduled', 'partner', 'noPlan', 'readOnly', 'denied'] as const
+// closing, partner, noPlan, readOnly, denied.
+export const billingStates = ['loading', 'error', 'active', 'trial', 'trialEnding', 'pastDue', 'scheduled', 'closing', 'partner', 'noPlan', 'readOnly', 'denied'] as const
 export type BillingState = (typeof billingStates)[number]
 
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
@@ -96,6 +96,8 @@ export const billingSample = (state: BillingState | null): BillingRead | null =>
       return read({ ...active, status: 'past_due' }, { invoices: { rows: [invoice('i4', 'KC-0004', inDays(-2), '83300', 'open'), ...read(active).invoices.rows], next: null } })
     case 'scheduled':
       return read({ ...active, plan: { id: 'pro', name: 'Growth Pro' }, price: inr('116600'), scheduled: { plan: { id: 'growth', name: 'Growth' }, interval: 'MONTH', at: active.periodEnd } })
+    case 'closing':
+      return read({ ...active, cancelAt: active.periodEnd })
     case 'partner':
       return read({ ...active, collectedBy: 'partner' })
     case 'noPlan':

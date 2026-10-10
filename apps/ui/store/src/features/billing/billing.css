@@ -395,3 +395,154 @@
     display: none;
   }
 }
+
+/* Choose what to keep (designs/PortalKeep.dc.html): the products, each staying on sale or paused. */
+.df-keep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+  max-width: 900px;
+}
+
+.df-keep .df-page-title {
+  font-size: 26px;
+}
+
+.df-keep .df-page-lede {
+  font-size: 14px;
+}
+
+.df-keep > a.df-button,
+.df-keep-actions a.df-button {
+  align-self: flex-start;
+}
+
+.df-keep-list {
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-keep-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-keep-head h2 {
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.df-keep-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-keep-row label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--df-color-border);
+  cursor: pointer;
+}
+
+.df-keep-row--on label {
+  background: var(--df-color-hover);
+}
+
+.df-keep-row input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: var(--df-color-focus);
+}
+
+.df-keep-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-keep-name strong {
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-keep-name span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-keep-state {
+  color: var(--df-color-warning);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-keep-state--on {
+  color: var(--df-color-success);
+}
+
+.df-keep-more {
+  margin: 12px 18px;
+}
+
+.df-keep-note {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-info-border);
+  border-radius: 10px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 13px;
+}
+
+.df-keep-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.df-keep-save {
+  border-color: var(--df-color-heading);
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+  font-family: var(--df-font-heading);
+  font-weight: 700;
+}
+
+.df-billing-close {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.df-billing-data {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-billing-data li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 13px;
+}

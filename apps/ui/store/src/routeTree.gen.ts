@@ -34,6 +34,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppBillingKeepRouteImport } from './routes/_app/billing_.keep'
 import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders_.$orderId'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products_.$productId'
 import { Route as AppProductsImportRouteImport } from './routes/_app/products_.import'
@@ -165,6 +166,11 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppBillingKeepRoute = AppBillingKeepRouteImport.update({
+  id: '/billing_/keep',
+  path: '/billing/keep',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppOrdersOrderIdRoute = AppOrdersOrderIdRouteImport.update({
   id: '/orders_/$orderId',
   path: '/orders/$orderId',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/billing/keep': typeof AppBillingKeepRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/import': typeof AppProductsImportRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/billing/keep': typeof AppBillingKeepRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/import': typeof AppProductsImportRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/billing_/keep': typeof AppBillingKeepRoute
   '/_app/orders_/$orderId': typeof AppOrdersOrderIdRoute
   '/_app/products_/$productId': typeof AppProductsProductIdRoute
   '/_app/products_/import': typeof AppProductsImportRoute
@@ -327,6 +336,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/billing/keep'
     | '/orders/$orderId'
     | '/products/$productId'
     | '/products/import'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/billing/keep'
     | '/orders/$orderId'
     | '/products/$productId'
     | '/products/import'
@@ -393,6 +404,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-up'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/billing_/keep'
     | '/_app/orders_/$orderId'
     | '/_app/products_/$productId'
     | '/_app/products_/import'
@@ -586,6 +598,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/billing_/keep': {
+      id: '/_app/billing_/keep'
+      path: '/billing/keep'
+      fullPath: '/billing/keep'
+      preLoaderRoute: typeof AppBillingKeepRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/orders_/$orderId': {
       id: '/_app/orders_/$orderId'
       path: '/orders/$orderId'
@@ -654,6 +673,7 @@ interface AppRouteChildren {
   AppStorefrontRoute: typeof AppStorefrontRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppBillingKeepRoute: typeof AppBillingKeepRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
   AppProductsImportRoute: typeof AppProductsImportRoute
@@ -679,6 +699,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStorefrontRoute: AppStorefrontRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
+  AppBillingKeepRoute: AppBillingKeepRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
   AppProductsProductIdRoute: AppProductsProductIdRoute,
   AppProductsImportRoute: AppProductsImportRoute,

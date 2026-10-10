@@ -4346,7 +4346,13 @@
     "banners": {
       "scheduled": {
         "title": "You move to {plan} on {date}.",
-        "body": "Until then nothing changes. After that, anything over its limits is paused — never deleted."
+        "body": "Until then nothing changes. After that, anything over its limits is paused — never deleted.",
+        "action": "Choose what to keep"
+      },
+      "closing": {
+        "title": "Your shop closes on {date}.",
+        "body": "Until then it keeps selling and the portal is view-only. Everything is kept for 90 days, then deleted — download your data any time.",
+        "action": "Download my data"
       }
     },
     "plans": {
@@ -4395,7 +4401,8 @@
         "marketsUnlimited": "Unlimited markets",
         "bandwidth": "{count} GB bandwidth",
         "bandwidthUnlimited": "Unlimited bandwidth"
-      }
+      },
+      "keepLink": "Or choose what to keep on {plan}"
     },
     "includes": {
       "show": "What each plan includes",
@@ -4611,7 +4618,87 @@
       "INVALID_INPUT": "Something here isn’t valid. Check the details and try again.",
       "READ_ONLY": "Your store is view-only right now, so this can’t change.",
       "FORBIDDEN": "Only the store owner can change billing.",
-      "other": "That didn’t go through. Try again."
+      "other": "That didn’t go through. Try again.",
+      "NOTHING_TO_KEEP": "Your plan holds all your products, so there’s nothing to choose.",
+      "TOO_MANY": "That’s more products than the plan keeps. Untick some first."
+    },
+    "close": {
+      "open": "Close my store…",
+      "title": "Close your store?",
+      "paid": "Your shop keeps selling until {date}, then goes offline. The portal becomes view-only now.",
+      "now": "Your shop goes offline now, and the portal becomes view-only.",
+      "kept": "Products, orders and customers are kept for 90 days, then deleted.",
+      "download": "You can download them until then.",
+      "free": "Or move to {plan} instead and keep selling {count}.",
+      "next": "What would you like to do?",
+      "choices": {
+        "export": "Download my data first",
+        "free": "Move to {plan} instead",
+        "close": "Close my store"
+      },
+      "confirm": "Continue",
+      "cancel": "Keep my store",
+      "closed": "Your store is closing. It sells until {date}."
+    },
+    "data": {
+      "title": "Your data",
+      "preparing": "Preparing your products, orders and customers…",
+      "kinds": {
+        "products": "Products",
+        "orders": "Orders",
+        "customers": "Customers"
+      },
+      "rows": {
+        "one": "{count} row",
+        "other": "{count} rows"
+      },
+      "truncated": "{count} rows — the file stops there",
+      "waiting": "Preparing…",
+      "failed": "Couldn’t be prepared. Try again.",
+      "expired": "The link expired. Download again.",
+      "download": "Download",
+      "again": "Download again",
+      "file": "store-{kind}.csv"
+    }
+  },
+  "keep": {
+    "title": "Choose what to keep on {plan}",
+    "from": "From {date} you’re on {plan}, which keeps {limit}. Pick which stay on sale — or choose a plan and keep everything.",
+    "now": "You’re on {plan}, which keeps {limit}. Swap what stays on sale any time.",
+    "products": {
+      "one": "{count} product",
+      "other": "{count} products"
+    },
+    "plans": "Choose a plan instead — keep everything",
+    "listTitle": "Products · {kept} of {limit} stay on sale",
+    "listNote": "Products with orders waiting to ship always stay. Any room left goes to your best sellers.",
+    "waiting": "Has an order waiting to ship — always stays",
+    "supplier": "From {supplier}",
+    "stays": "Stays on sale",
+    "paused": "Paused",
+    "full": "{plan} keeps {limit} — untick one first.",
+    "more": "Show more",
+    "note": "Nothing is deleted. Paused products are hidden from shoppers and kept as they are. Choose a bigger plan any time and they come back exactly as they were.",
+    "back": "Back",
+    "saveFrom": "Keep these from {date}",
+    "save": "Save what’s kept",
+    "saved": "Saved — {kept} stay on sale.",
+    "savedFrom": "Saved — from {date}, {kept} stay on sale.",
+    "readOnly": "View only: what’s kept can’t change right now.",
+    "loading": "Loading your products",
+    "error": {
+      "title": "We couldn’t load your products",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "nothing": {
+      "title": "Nothing to choose",
+      "body": "Your plan holds all your products, so everything stays on sale.",
+      "action": "Back to Billing"
+    },
+    "denied": {
+      "title": "Billing is the store owner’s",
+      "body": "Only the owner chooses what stays on sale on a smaller plan."
     }
   }
 }

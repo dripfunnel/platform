@@ -2,17 +2,19 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { csv } from '@dripfunnel/shared/format'
 import { ConfirmDialog, EmptyState, ErrorState, LoadingState, reserveTab, Strip, Toast, useScreenState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/states.css'
-import { getRouteApi, useRouter } from '@tanstack/react-router'
+import { getRouteApi, Link, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { changePlan, invoicePdf, loadAllInvoices, loadBilling, loadMoreInvoices, quotePlanChange, type BillingDetails, type BillingInterval, type BillingRead, type CataloguePlan, type PlanChangeQuote, type PlanChangeWhen, type Subscription } from '../../api/billing'
-import { harnessEnabled } from '../../harness'
-import { fill, formatTime, messages } from '../../messages'
+import { cancelStore, changePlan, invoicePdf, loadAllInvoices, loadBilling, loadMoreInvoices, quotePlanChange, type BillingDetails, type BillingInterval, type BillingRead, type CataloguePlan, type PlanChangeQuote, type PlanChangeWhen, type Subscription } from '../../api/billing'
+import { harnessEnabled, harnessSearch } from '../../harness'
+import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { downloadCsv } from '../common/download'
 import { refusalIn } from '../common/refusal'
 import { BillingDetailsDialog } from './BillingDetailsDialog'
-import { billingSample, billingStates, type BillingState } from './billingStates'
-import { billToLines, cardText, dayOf, invoiceCsvRows, invoiceRow, metersOf, money } from './billingView'
+import { billingSeat } from './billingSeat'
+import { billingSample, billingStates } from './billingStates'
+import { billToLines, cardText, dayOf, invoiceCsvRows, invoiceRow, isFree, metersOf, money } from './billingView'
 import { PlanGrid } from './PlanGrid'
+import { StoreDataPanel, useStoreDataExport } from './StoreData'
 import './billing.css'
 
 const words = messages.billing
@@ -21,28 +23,16 @@ const refused = refusalIn(words.refused)
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; read: BillingRead }
 
-export interface BillingSeat {
-  canRead: boolean
-  /** The plan and its card are the Owner's own act, never a support session's (src/apis/store/billing.ts). */
-  canWrite: boolean
-  readOnly: boolean
-}
+// `thenKeep`: Close my store's "Move to Free instead" goes on to Choose what to keep (PortalBilling).
+type Change = { plan: CataloguePlan; interval: BillingInterval; quotes: Partial<Record<PlanChangeWhen, PlanChangeQuote>>; thenKeep: boolean } | { plan: CataloguePlan; interval: BillingInterval; keep: string }
 
-const seatOf = (forced: BillingState | null, acting: { permissions: readonly string[]; seller: unknown }, state: { readOnly: boolean; support: unknown } | null): BillingSeat => {
-  if (forced === 'denied') return { canRead: false, canWrite: false, readOnly: false }
-  if (forced) return { canRead: true, canWrite: forced !== 'readOnly', readOnly: forced === 'readOnly' || forced === 'pastDue' }
-  return { canRead: acting.seller === null && acting.permissions.includes('billing'), canWrite: !state?.support, readOnly: state?.readOnly ?? false }
-}
-
-export type Change = { plan: CataloguePlan; interval: BillingInterval; quotes: Partial<Record<PlanChangeWhen, PlanChangeQuote>> } | { plan: CataloguePlan; interval: BillingInterval; keep: string }
-
-/** Billing (PortalBilling, FIRST-RELEASE §16): the partner's plans, this month's usage, the card, the invoice details and the invoices. */
+/** Billing (PortalBilling, FIRST-RELEASE §16): the partner's plans, usage, the card, the invoice details, the invoices and Close my store. */
 export const BillingPage = () => {
   const { acting, state } = shellRoute.useLoaderData()
   const router = useRouter()
   const forced = useScreenState(billingStates, harnessEnabled)
   const sample = useMemo(() => billingSample(forced), [forced])
-  const seat = useMemo(() => seatOf(forced, acting, state), [forced, acting, state])
+  const seat = useMemo(() => billingSeat(forced && { denied: forced === 'denied', readOnly: forced === 'readOnly' || forced === 'pastDue' || forced === 'closing' }, acting, state), [forced, acting, state])
 
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [period, setPeriod] = useState<BillingInterval | null>(null)
@@ -53,6 +43,9 @@ export const BillingPage = () => {
   const [editing, setEditing] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [closeError, setCloseError] = useState<string | null>(null)
+  const data = useStoreDataExport(Boolean(sample))
   const latest = useRef(0)
 
   // Only the latest read answers, so a slow first read never replaces the one after a change.
@@ -72,6 +65,7 @@ export const BillingPage = () => {
 
   const read = view.kind === 'ready' ? view.read : null
   const sub = read?.subscription ?? null
+  const free = read?.plans.find((p) => isFree(p) && !p.current)
   const shown = period ?? sub?.interval ?? 'MONTH'
 
   if (!seat.canRead)
@@ -88,11 +82,11 @@ export const BillingPage = () => {
   }
 
   /** The quote first: both amounts and the date before anything is charged (SAAS §7.2). */
-  const pick = async (plan: CataloguePlan) => {
+  const pick = async (plan: CataloguePlan, thenKeep = false) => {
     if (!sub) return
     setNotice(null)
     if (plan.current && sub.scheduled && sub.interval === shown) return openChange({ plan, interval: shown, keep: sub.scheduled.plan.name })
-    if (sample) return openChange({ plan, interval: shown, quotes: sampleQuotes(plan, shown, sub) })
+    if (sample) return openChange({ plan, interval: shown, quotes: sampleQuotes(plan, shown, sub), thenKeep })
     setPending(plan.id)
     try {
       const quotes: Partial<Record<PlanChangeWhen, PlanChangeQuote>> = {}
@@ -102,7 +96,7 @@ export const BillingPage = () => {
         if (!isApiError(error, 'AT_PERIOD_END_ONLY')) throw error
       }
       if (!quotes.NOW || quotes.NOW.offered.includes('PERIOD_END')) quotes.PERIOD_END = await quotePlanChange(plan.id, shown, 'PERIOD_END')
-      openChange({ plan, interval: shown, quotes })
+      openChange({ plan, interval: shown, quotes, thenKeep })
     } catch (error) {
       setNotice(refused(error))
     } finally {
@@ -119,6 +113,7 @@ export const BillingPage = () => {
       .then(async (after) => {
         openChange(null)
         setToast(changedToast(after, change))
+        if ('quotes' in change && change.thenKeep) return router.navigate({ to: '/billing/keep', search: (prev) => harnessSearch(prev) })
         load()
         await router.invalidate()
       })
@@ -130,6 +125,35 @@ export const BillingPage = () => {
     setEditing(false)
     setToast(words.details.form.saved)
     setView((v) => (v.kind === 'ready' ? { kind: 'ready', read: { ...v.read, details } } : v))
+  }
+
+  const openClose = (open: boolean) => {
+    setCloseError(null)
+    setClosing(open)
+  }
+
+  /** Close my store's three ways (PortalBilling): take the data, move to the free plan, or close. */
+  const closeChoice = (next: string, free: CataloguePlan | undefined) => {
+    if (next === 'export') {
+      openClose(false)
+      return data.start()
+    }
+    if (next === 'free' && free) {
+      openClose(false)
+      return void pick(free, true)
+    }
+    if (sample) return openClose(false)
+    setCloseError(null)
+    setBusy(true)
+    cancelStore()
+      .then(async (after) => {
+        openClose(false)
+        setToast(fill(words.close.closed, { date: dayOf(after.cancelAt ?? after.periodEnd) }))
+        load()
+        await router.invalidate()
+      })
+      .catch((error: unknown) => setCloseError(refused(error)))
+      .finally(() => setBusy(false))
   }
 
   const canChange = Boolean(seat.canWrite && sub && sub.collectedBy === 'dripfunnel' && !sub.cancelAt && (!seat.readOnly || sub.status === 'past_due'))
@@ -156,8 +180,29 @@ export const BillingPage = () => {
         )}
       </div>
       {seat.readOnly && <p className="df-billing-readonly">{words.readOnly}</p>}
+      {sub?.cancelAt && (
+        <Strip
+          tone="warning"
+          action={
+            seat.canWrite ? (
+              <button type="button" className="df-strip-button" disabled={data.preparing} onClick={data.start}>
+                {words.banners.closing.action}
+              </button>
+            ) : undefined
+          }
+        >
+          <strong>{fill(words.banners.closing.title, { date: dayOf(sub.cancelAt) })}</strong> {words.banners.closing.body}
+        </Strip>
+      )}
       {sub?.scheduled && (
-        <Strip tone="info">
+        <Strip
+          tone="info"
+          action={
+            <Link className="df-strip-button" to="/billing/keep" search={(prev) => harnessSearch(prev)}>
+              {words.banners.scheduled.action}
+            </Link>
+          }
+        >
           <strong>{fill(words.banners.scheduled.title, { plan: sub.scheduled.plan.name, date: dayOf(sub.scheduled.at) })}</strong> {words.banners.scheduled.body}
         </Strip>
       )}
@@ -172,6 +217,11 @@ export const BillingPage = () => {
       {read && sub && (
         <>
           <PlanGrid plans={read.plans} sub={sub} interval={shown} canChange={canChange} pending={pending} onPick={(plan) => void pick(plan)} />
+          {sub.status === 'trial' && free && (
+            <Link className="df-billing-link" to="/billing/keep" search={(prev) => harnessSearch(prev)}>
+              {fill(words.plans.keepLink, { plan: free.name })}
+            </Link>
+          )}
           <div className="df-billing-two">
             <UsageCard read={read} />
             <div className="df-billing-stack">
@@ -184,13 +234,22 @@ export const BillingPage = () => {
             </div>
           </div>
           <InvoicesCard read={read} sub={sub} sample={Boolean(sample)} onToast={setToast} />
+          <StoreDataPanel data={data} />
           {sub.asOf && <p className="df-billing-note">{fill(words.asOf, { time: formatTime(sub.asOf) })}</p>}
+          {seat.canWrite && !sub.cancelAt && (
+            <button type="button" className="df-billing-close" onClick={() => openClose(true)}>
+              {words.close.open}
+            </button>
+          )}
         </>
       )}
       {change && sub && (
         <ChangeDialog change={change} sub={sub} busy={busy} error={changeError} onConfirm={confirmChange} onCancel={() => openChange(null)} />
       )}
       {editing && read && <BillingDetailsDialog details={read.details} store={read.store} sample={Boolean(sample)} onSaved={savedDetails} onCancel={() => setEditing(false)} />}
+      {closing && sub && (
+        <CloseDialog sub={sub} store={acting.store.name} free={canChange ? free : undefined} error={closeError} onChoose={(next) => closeChoice(next, free)} onCancel={() => openClose(false)} />
+      )}
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>
   )
@@ -385,5 +444,34 @@ const InvoicesCard = ({ read, sub, sample, onToast }: { read: BillingRead; sub: 
         </button>
       )}
     </section>
+  )
+}
+
+const CloseDialog = ({ sub, store, free, error, onChoose, onCancel }: { sub: Subscription; store: string; free: CataloguePlan | undefined; error: string | null; onChoose: (next: string) => void; onCancel: () => void }) => {
+  const w = words.close
+  // A paid plan sells until its period ends; a trial or a free plan closes at once (SAAS §4.2).
+  const paid = sub.status !== 'trial' && Number(sub.price.amount) > 0
+  const products = free?.values.find((v) => v.key === 'products')
+  const keeps = products?.amount != null ? fill(plural(messages.keep.products, products.amount), { count: formatCount(products.amount) }) : null
+  const options = [
+    { value: 'export', label: w.choices.export },
+    ...(free ? [{ value: 'free', label: fill(w.choices.free, { plan: free.name }) }] : []),
+    { value: 'close', label: w.choices.close },
+  ]
+  return (
+    <ConfirmDialog
+      open
+      danger
+      title={w.title}
+      target={store}
+      consequence={paid ? fill(w.paid, { date: dayOf(sub.periodEnd) }) : w.now}
+      notes={[w.kept, w.download, ...(free && keeps ? [fill(w.free, { plan: free.name, count: keeps })] : [])]}
+      choices={[{ key: 'next', label: w.next, options, initial: 'export', error: () => null }]}
+      confirmLabel={w.confirm}
+      cancelLabel={w.cancel}
+      error={error}
+      onConfirm={(_, __, picks) => onChoose(picks['next'] ?? 'export')}
+      onCancel={onCancel}
+    />
   )
 }
