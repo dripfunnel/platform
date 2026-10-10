@@ -7,6 +7,7 @@ import { loadOffer, loadOfferNames, loadOfferPlace, type Offer } from '../../api
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatList, messages } from '../../messages'
 import { CodeBatches } from './CodeBatches'
+import { copyText } from './copyText'
 import { flash, takeFlash } from './flash'
 import { actsFor, useOfferActions } from './offerActions'
 import { offerAccessOf } from './offerAccess'
@@ -153,7 +154,7 @@ export const OfferPage = () => {
   const acts = access.canEdit ? actsFor(offer, now) : []
   // A code offer without a shared code hands out single-use codes instead (H4).
   const singleUse = offer.trigger === 'code' && !offer.code
-  const copy = () => void navigator.clipboard?.writeText(offer.code ?? '').then(() => setToast(fill(words.copied, { code: offer.code ?? '' })), () => setToast(words.copyFailed))
+  const copy = () => void copyText(offer.code ?? '').then((ok) => setToast(ok ? fill(words.copied, { code: offer.code ?? '' }) : words.copyFailed))
 
   return (
     <div className="df-offers">
