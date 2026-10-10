@@ -83,6 +83,7 @@ describe('the shell’s banners', () => {
   it('turns the last day into the warning to choose what to keep', async () => {
     const ending = state({ status: 'trial', trialEndsAt: new Date(Date.now() + day - 60_000).toISOString() })
     expect(text(await banners(owner, ending))).toContain('Your trial ends tomorrow.')
+    expect(await banners(owner, ending)).toContain('href="/billing/keep"')
   })
 
   it('says past due is view-only, and only the Owner gets the way to pay', async () => {

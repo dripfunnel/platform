@@ -23,6 +23,7 @@ import { hashPassword, minPasswordLength, verifyPassword } from './password'
 import { hashSessionId, newSessionId } from './session'
 import { hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newSmsCode, smsCodeMs } from './storeCodes'
 import { codeMatches, type CodeCheck } from './codeCheck'
+import { cleanEmail } from '#core/email'
 
 // A store's shoppers signing in (ACCESS §2.1): email and password, a code by email or text, or both, as Settings ›
 // Customer accounts says. In system scope, as no shopper exists yet; every query names the store. Answers never say
@@ -52,14 +53,9 @@ export interface ShopperAuthDeps {
   now: () => Date
 }
 
-const emailPattern = /^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{2,}$/
-
 /** An email in lower case, or a number in E.164; null for one that can't be. */
 export const shopperTarget = (channel: ShopperChannel, raw: string): string | null => {
-  if (channel === 'email') {
-    const email = raw.trim().toLowerCase()
-    return email.length <= 254 && emailPattern.test(email) ? email : null
-  }
+  if (channel === 'email') return cleanEmail(raw)
   const phone = raw.trim().replaceAll(/[\s()-]/g, '')
   return isE164(phone) ? phone : null
 }

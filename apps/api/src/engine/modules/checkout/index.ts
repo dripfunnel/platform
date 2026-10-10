@@ -29,6 +29,8 @@ import { claimCode, claimUse, insertUsage, selectShopperUses } from '#db/scoped/
 import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
 import { ensureGuestCustomer } from '#engine/modules/customers/index'
+import { deliverOrder } from '#engine/modules/deliveries/index'
+import { lockUsableGiftCard, redeemGiftCard, setCartGiftCard } from '#db/scoped/giftCards'
 import type { StripeTaxDeps } from '#engine/modules/tax/index'
 import { closeLatestAttempt, settleOrder, type SettleDeps } from './payments'
 import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, providersFor, transferDaysMs, type PaymentKind, type PaymentProvider } from './providers'
@@ -49,6 +51,10 @@ export interface PaymentWiring {
   /** A store's own webhook address for a provider account on the hooks host. */
   webhookUrl: (provider: string, accountId: string) => string
 }
+
+/** Placing an order a gift card pays for in full (Shop API `placeOrder(provider: "gift_card")`). */
+export const giftCardMethod = 'gift_card'
+const giftCardOption = { provider: giftCardMethod, kind: 'other', instructions: null } as const
 
 export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
 
@@ -76,7 +82,7 @@ export interface PlacedOrder {
   orderId: string
   number: string
   total: Money
-  provider: PaymentProvider
+  provider: PaymentProvider | typeof giftCardMethod
   instructions: string | null
   /** A card provider's payment, for the storefront to take; null for the ways paid later. */
   payment: PaymentStart | null
@@ -196,6 +202,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
         lineTotalAmount: l.lineTotal.amount - (l.discount?.amount ?? 0n),
         weightGrams: v.weight_grams,
         reservedWarehouseId,
+        gift: l.gift,
       })
     }
     return lines
@@ -228,13 +235,23 @@ export const createCheckout = (deps: CheckoutDeps) => {
     // Sold out since the shopper reached payment: said as such, however the race fell (before the lock or under it).
     if (cart.lines.some((l) => l.problem === 'short' || l.problem === 'unavailable')) return { ok: false, reason: 'OUT_OF_STOCK' }
     if (cart.problems.length > 0 || cart.checkoutStep !== 'pay') return { ok: false, reason: 'NOT_READY', problems: cart.problems }
+    // A gift card that covers it all is the way it is paid; one that covers part leaves the rest to pay (FIRST-RELEASE §19).
+    // A preview never spends a real card (decided on #323).
+    // A card spent or lapsed since the shopper saw it comes off, and the shopper sees the new amount due before paying it.
+    if (cart.giftCardLapsed) {
+      await withSystemScope(sql, (tx) => setCartGiftCard(tx, storeId, cart.id, null, now()))
+      return { ok: false, reason: 'CART_CHANGED' }
+    }
+    const gift = cart.giftCard
+    const covered = gift !== null && cart.amountDue.amount === 0n
+    if ((gift && mode === 'test') || covered !== (provider === giftCardMethod)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     // One read: the option and the account the payment names can't drift apart.
     const accounts = await liveAccounts()
-    const option = optionsOf(accounts, deps.country, mode, deps.gateways).find((o) => o.provider === provider)
+    const option = covered ? giftCardOption : optionsOf(accounts, deps.country, mode, deps.gateways).find((o) => o.provider === provider)
     if (!option) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
     let card: { attemptId: string; accountId: string; started: PaymentStart } | null = null
     if (isCardProvider(option.provider)) {
-      const begun = await begin(option.provider, cart.id, cart.total, { email: cart.email, phone: cart.phone })
+      const begun = await begin(option.provider, cart.id, cart.amountDue, { email: cart.email, phone: cart.phone })
       if (!begun.ok) return begun
       card = begun.value
     }
@@ -245,7 +262,12 @@ export const createCheckout = (deps: CheckoutDeps) => {
         if (!locked) throw new Refused('ALREADY_PLACED')
         // Changed in another tab since it was priced: the shopper sees the new cart before paying for it.
         if (locked.revision !== cart.revision) throw new Refused('CART_CHANGED')
-        const holds = isManual(option.provider) && mode === 'live'
+        const holds = (covered || isManual(option.provider)) && mode === 'live'
+        // Under the card's lock: two orders spending one card can't both take what only one can (the race test).
+        if (gift) {
+          const held = await lockUsableGiftCard(tx, storeId, gift.id, now())
+          if (!held || BigInt(held.balance_amount) < gift.applied.amount) throw new Refused('CART_CHANGED')
+        }
         // A preview's test order takes no real use (storefront PREVIEW); a live one takes each, or the shopper sees the cart again.
         if (mode === 'live') await claimOffers(tx, cart)
         const lines = await snapshotLines(tx, cart, holds)
@@ -267,22 +289,25 @@ export const createCheckout = (deps: CheckoutDeps) => {
           subtotal: cart.subtotal.amount,
           total: cart.total.amount,
           paymentMethod: option.provider,
-          paymentDueBy: dueIn === null ? null : new Date(at.getTime() + dueIn),
+          paymentDueBy: dueIn === null || covered ? null : new Date(at.getTime() + dueIn),
           stockReserved: holds,
           now: at,
         })
-        await insertPayment(tx, {
-          ...(card ? { id: card.attemptId } : {}),
-          orderId: cart.id,
-          storeId,
-          provider: option.provider,
-          accountId: card?.accountId ?? manualAccountId,
-          kind: option.kind,
-          amount: cart.total.amount,
-          currency: cart.currency,
-          mode,
-          providerRef: card?.started.providerRef ?? null,
-        })
+        if (gift && !(await redeemGiftCard(tx, { storeId, giftCardId: gift.id, orderId: cart.id, amount: gift.applied.amount, currency: cart.currency, at }))) throw new Refused('CART_CHANGED')
+        if (!covered) {
+          await insertPayment(tx, {
+            ...(card ? { id: card.attemptId } : {}),
+            orderId: cart.id,
+            storeId,
+            provider: option.provider,
+            accountId: card?.accountId ?? manualAccountId,
+            kind: option.kind,
+            amount: cart.amountDue.amount,
+            currency: cart.currency,
+            mode,
+            providerRef: card?.started.providerRef ?? null,
+          })
+        }
         // Everyone who has bought is a customer (FIRST-RELEASE §7): a guest's row is made here, never linked to the order.
         if (!customerId && mode === 'live') await ensureGuestCustomer(tx, { storeId, email: cart.email, phone: cart.phone, name: cart.shippingAddress?.name ?? null, now: at })
         // Its shopper's carts left this week are recovered by it, and their reminders stop (FIRST-RELEASE §9); a preview's test order isn't a sale.
@@ -291,6 +316,12 @@ export const createCheckout = (deps: CheckoutDeps) => {
         if (mode === 'live') await queueStoreEvent(tx, storeId, 'order.placed', { object: 'order', id: cart.id, number }, cart.id, at)
         // Cash on delivery and a transfer go through as placed; a card's on payment (payments.ts).
         if (holds) await queueOrderUpdate(tx, storeId, { event: 'confirmed', orderId: cart.id }, `confirmed:${cart.id}`)
+        // Paid in full by the card: paid as placed, and delivered as any paid order is.
+        if (covered) {
+          await recordPaid(tx, storeId, cart.id, at)
+          await queueStoreEvent(tx, storeId, 'order.paid', { object: 'order', id: cart.id, number }, cart.id, at)
+          await deliverOrder(tx, activity, storeId, cart.id, at)
+        }
         return { ok: true as const, value: { orderId: cart.id, number, total: cart.total, provider: option.provider, instructions: option.instructions, payment: card?.started ?? null } }
       })
     } catch (error) {
@@ -340,7 +371,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
       if (error instanceof PaymentUnavailable) return { ok: false, reason: 'PAYMENT_UNAVAILABLE' }
       throw error
     }
-    const amount = { amount: BigInt(mine.total_amount), currency: mine.currency }
+    // What is left once the gift card has taken its part, as placement asked for it.
+    const amount = { amount: BigInt(mine.total_amount) - BigInt(mine.gift_card_amount), currency: mine.currency }
     // The contact the order was placed with: Cashfree takes no payment without the number.
     const begun = await begin(method, mine.id, amount, { email: mine.email, phone: mine.phone })
     if (!begun.ok) return begun
@@ -369,6 +401,7 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
     if (order.state !== 'placed' || order.payment_state !== 'pending' || !(order.payment_method && isManual(order.payment_method))) return { ok: false, reason: 'NOT_PENDING' }
     await recordPaid(tx, deps.context.storeId, orderId, deps.now())
     if (!(await orderIsTest(tx, orderId))) await queueStoreEvent(tx, deps.context.storeId, 'order.paid', { object: 'order', id: orderId, number: order.number }, orderId, deps.now())
+    await deliverOrder(tx, deps.activity, deps.context.storeId, orderId, deps.now())
     await deps.activity.record(tx, {
       category: 'write',
       action: checkoutAudit.markedPaid,

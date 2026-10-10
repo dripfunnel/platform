@@ -188,7 +188,7 @@ From the prototype's shell (`design.md` §3), which this release keeps:
 
 The partner's logo; the **store switcher** (current store's name and initial; "Switch store"
 lists the person's stores under this partner, never another partner's); Help; the person's name
-and role with a menu holding **My profile**, **Switch store** and **Sign out** ("Signs you out of
+and role with a menu holding **My profile**, **Store activity** (a Manager's, #333), **Switch store** and **Sign out** ("Signs you out of
 every store on this device"). On a phone the menu is a drawer behind a button.
 
 ### 3.3 Banners and states the shell owns
@@ -500,10 +500,27 @@ asking, as the API can't make a file without a currency.
   list with quick edit and approval, the editor (choices and versions, photos, stock with history, the
   listing sections, translations, prices in other currencies and per market), A+ content at
   `/products/$productId/story`, and a supplier's Warehouses tab at `/products/warehouses` (#337). Still to
-  come with their own cards: download files, service details and gift card amounts, a fixed price per
-  market, product video upload, and Import and Export (§13). **The API for the first three is built on #323**
-  (SAPI 22, part 1: `productKind`, `saveProductKind`, `addLicenceKeys`, `POST /api/assets?kind=download`;
-  CATALOG-DESIGN T14); a gift card's amounts are its versions.
+  come with their own cards: a fixed price per market, product video upload, and Import and Export (§13).
+- **Built on #328** (SUI 16, on #323's API: CATALOG-DESIGN T14): the other three kinds in the editor, each with its
+  own card under "What are you selling?". A **download** uploads its file privately (`POST /api/assets?kind=download`,
+  up to 30 MB, shown by its type and size) with how often and how long its link works, or keeps a **licence-key pool**:
+  keys pasted are added on save (`addLicenceKeys`) and from then on only counted ("3 keys left", low under five, sold
+  out at none). A **service** keeps an optional length and place. A **gift card** edits its amounts (its versions,
+  in place of the price and choices cards), its expiry (1, 2, 3, 5, 7 or 10 years, or never, none shorter than the
+  API's `shortestMonths`) and lists its **cards issued** (`giftCards`, ten a page with Show more), each by its last
+  four characters only, with **Issue a card** for the Owner and Managers (`issueGiftCard`, one `issueKey` per opening
+  of its dialog, so a retry answers the same card). The product saves first, then its kind's card at the revision
+  that answered (`saveProductKind`), then any keys; when the kind's card fails after the product saved, what was typed
+  stays on the page and the bar says so (a new product's carries to its own page, never its keys). A supplier's
+  kinds are physical only (the API refuses `SUPPLIER_FIELD`); Staff and a read-only store see the cards and the
+  counts with nothing to change.
+  Decided here: a download's file is named by its type and size, as the API keeps no file name; a download without
+  its file can't be saved; a gift card's amounts are **one kind of choice, "Amount"**, a value per amount named as it
+  is shown ("₹500"), and none for a single amount; switching a product to a gift card makes its prices its amounts
+  and drops its other choices (Discard brings them back); the expiry starts from what the API stores (never, for a
+  new card), and until the product is saved as a gift card the hint states both countries' rules, since
+  `shortestMonths` arrives only then; the Issue dialog offers only amounts already saved and asks for an email only;
+  an expiry date is shown in UTC, named.
 
 ## 12. Collections, Filters, Menus, Size charts (`CatCollections`, `CatSizeCharts`)
 
@@ -727,6 +744,41 @@ offered yet: a key reads the catalogue, stock, orders and customers only (ACCESS
 code, error code, time), `saveWebhook` (the signing secret answered when it is made), `removeWebhook`, `turnOnWebhook` (answers how
 many waiting events it sends) and `replayDelivery`; Apps' `installableApp` (the consent screen), `apps`, `installApp(appId, scopes)`
 and `uninstallApp`. The prototype's install link names its app: the portal takes the app's id from it.
+**Built on #333 (SUI 14), part 1, Developers › API keys**: the keys newest first, each by its prefix only (`dfk_…`), with what it
+can do, the whole store or one supplier, last used, who made it (or that they're no longer here), when it expires and until when
+a rotated-from secret still works. "Create API key" asks a name, what it can do (`apiKeyChoices.scopes`), whole store or one
+active supplier and a lifetime (`expiresInDays` or never); the secret from `createApiKey` or `rotateApiKey` is shown once, in a
+card with Copy, until "I've stored it", and never read back. Rotate and Revoke each restate what happens first. The list reads
+itself again after each write rather than the whole tab, so a secret on screen survives it; a refusal stays in the form or on the
+card it came from. **Not drawn yet**: the prototype's storefront key and "Websites allowed to use it", which the Store API doesn't
+read or change (an open question on #333); the 50-key cap is the API's to refuse (`TOO_MANY_KEYS`), not counted in the browser.
+**Part 2, Developers › Webhooks**: each endpoint with its address, its events and its state (working, failing since when, or turned
+off with "Turn back on", which says how many waiting events it sends). "Add endpoint" takes an https address and at least one of
+`webhookEvents`; the API refuses a private or unreachable one, said in the form, and the signing secret is shown once like a key's.
+"Recent deliveries" opens one endpoint's latest ten (when, event, the server's code or what stopped it, how long it took) with
+"Send again" (`replayDelivery`); only the newest opening lands. Removing or
+editing an endpoint waits for a drawing (SetDev draws neither; `removeWebhook` is in the API, an open question on #333).
+**Part 3, Apps and Support access**: Apps lists each installed app with its developer, who installed it and when, what it can
+see, when it was last used, and whether it is paused by the platform or never received its access (`connection: failed`: remove
+and install again). "Open app ↗" is a link to its own site, shown only when that parses as https; nothing of the app runs in the
+portal. "Add an app" takes the install link and reads the app's id from it (**decided here**: the first UUID anywhere in an https
+link, since the API names apps by id and no link format is set), then the consent card says what it will and won't be able to
+do (the reads it wasn't given, never changing the store, never payment details or passwords); Install sends back the scopes it
+showed, and on `SCOPES_CHANGED` the card shows what the app asks now. Remove restates that its access ends and what it copied
+stays with it. Support access is the On/Off switch (turning off restates that open sessions end and says how many did; on needs
+no ask), how a session works, and the support access log: who (the agent, the partner, the seat they acted as), why (ticket and
+reason), when and how long or how it ended, and whether they could change things (allowed by whom, a request denied, or
+read-only), 25 a page with "Show older". **Decided here**: the switch stays usable in a read-only store, because the API lets a
+privacy control change then (`whileReadOnly`); the partner is named by the brand's product name, as the rest of the portal does.
+**Part 4, Activity log**: the Owner's Settings tab and the Manager's **Store activity** (`/activity`, from the user menu; anyone
+without `activity.read` is told so and nothing is read) are one view of `activityLog`, 50 a page with "Show older": who (the agent
+behind a support session, a person's name without their email), what in words (a code not worded yet shows itself), Done, Refused
+or Failed, and when; opened, an entry shows its changes, reason, how it was done, "Everything by {name}" and, for a product or an
+order, a link to it. Person, What (`activityWhats`) and Search live in the address (`who` as kind:id, `what`, `q`; never a
+person's name, which comes from the loaded entries), so a reload or a link keeps them; search waits for typing to settle. Export CSV (`exportActivity`, the filter as shown) is the Owner's, followed by
+the shell's export watcher; a Manager sees it disabled with "Only the store owner can export", and a read-only store still reads
+and exports. **Decided here**: the Person list offers the people in the entries loaded and the one picked, since no API lists the
+log's people; the prototype's scroll-to-load is a "Show older" button, as elsewhere in the portal.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
@@ -761,6 +813,43 @@ impersonation's writes. A partner that bills its merchants itself answers `BILLE
 `exportStoreData`, whose id `storeDataExport(id)` reads back as its products, orders and customers
 parts (`store.export`, the Owner in person only, also while read-only). A trial that ends with no
 plan moves to the free plan with the picks applied, or is past due where the partner has none.
+
+**Built on #332 (SUI 13), part 1**: Billing (`/billing`, the Owner's, `billing`) reads `subscription`, `planCatalogue`
+and `usage` in one request: the partner's plans for the period switched to, who charges, this month's usage and the
+card. A plan change reads `planChangeQuote` first, `NOW` and, where offered, `PERIOD_END`, and the dialog states today's
+charge, the credit, the date and the next price before `changePlan`; a refusal stays in the dialog. A support session
+reads and changes nothing; while past due the Owner may still choose a plan. Decided here:
+- **Prices are the API's, as charged**: the yearly price reads "/year", never split into months, and the switch claims
+  no saving (ui/README §3). The button's words (Upgrade, Switch at period end) follow the API's ranking by monthly
+  price; when it happens is the quote's.
+- **A plan's card leads with products, staff, markets and bandwidth**, as the prototype's do, and "What each plan
+  includes" lists every value the plan carries in the API's order (decided on #337), a choice by name and a monthly
+  quota "a month". A usage row whose limit is 0 with nothing used is a feature the plan leaves out, not a meter.
+- **Not drawn**: the prototype's AI card (own key), Storefront setup and Buy extra bandwidth, which the API doesn't
+  offer (`buyBandwidth` and `buySetup` wait, above); and Billing's own trial and past-due strips, which the shell shows.
+  A scheduled change has its strip, and the plan it keeps offers "Keep" (the API calls the change off).
+- **The card is shown, not yet changed**: brand, last 4 and expiry. Stripe's hosted card field needs a publishable key
+  the Store API doesn't answer, so adding or changing the card waits for it (open question on #332), and a paid plan
+  without a card is held at the dialog with the reason rather than refused as `NO_CARD`.
+
+**Part 2** adds the details on invoices (`billingDetails`, `saveBillingDetails`, the Owner's and not while read-only)
+and the invoices (`invoices` ten a page with Show more, Export all, and `downloadInvoice` for the PDF), read with the
+rest, with `storeInfo` to start the details from. Decided here: the details start from Store info's until saved, the
+country is typed as two letters and the API checks the tax number; **Export all** is a CSV the browser builds from every
+page, since the API has no invoice export; a PDF opens only at a Stripe https link.
+
+**Part 3**: **Choose what to keep** (`/billing/keep`, PortalKeep) reads `planKeep` and the products by name, ten
+a page with Show more, ticked as the API keeps them; what has an order waiting to ship is ticked and can't be unticked; one more than
+the plan keeps is refused on the page; Save sends the Owner's picks to `keepProducts`, not while read-only. Reached from
+the trial-ending strip, a scheduled change's strip and, in the trial, "Or choose what to keep on {free plan}".
+**Close my store…** restates what closing does (a paid plan sells until its period's end, a trial or free plan closes
+at once; everything kept 90 days) and offers Download my data first (`exportStoreData`, its three parts read back every
+3 seconds until settled, each a download, the job's id kept per store for the tab so a reload picks it up, and forgotten once the API no longer answers for it), Move to {free plan}
+instead (that plan's quote and change, then Choose what to keep) or Close my store (`cancelStore`). A closing store's
+strip says until when, with Download my data. Decided here: **only products are chosen**, as the API pauses only
+products (SAAS §6.2), so the prototype's team, supplier, market, payment, courier and location cards aren't drawn; the
+rows carry no "N sold", which the API doesn't answer; and **no "Keep my store"** once closing, since the API has no way
+back from `cancelStore` (open question on #332).
 
 ## 17. Supplier views
 
@@ -1066,9 +1155,12 @@ badges, readiness per market), `search`; cart (`cart`, `addToCart`, `updateLine`
 Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer), `checkout`
 (prices, Stripe Tax or the store's rates, offers and totals computed by the engine, stock
 checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by email or mobile
-code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption**; digital
+code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption** (built on #323: `giftCardBalance`, `applyGiftCard`, CATALOG-DESIGN T14); digital
 downloads after payment; services sold with no booking (§1); marketing consent at
-checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
+checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes; and
+`reportStorefrontProblem(kind, subject, detail)`, where core reports a sealed component a theme hid, a section that threw or a
+checkout that fell back to the baseline (`kind` SEALED, SECTION or CHECKOUT, names only, never the address; storefront
+ARCHITECTURE §3.5; named on #481, built with the Shop API's next card). Catalogue
 queries are edge-cached per store, catalogue version, language, currency and market, the version's move being the purge (§5.5 there).
 
 ---

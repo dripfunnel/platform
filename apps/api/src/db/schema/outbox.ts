@@ -21,4 +21,6 @@ export interface NewOutboxRow {
   payload: Record<string, unknown>
   partnerId: string | null
   storeId: string | null
+  /** Not before then: a gift card's email on the day its buyer chose (#323). */
+  notBefore?: Date
 }

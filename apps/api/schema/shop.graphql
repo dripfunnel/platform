@@ -4,14 +4,16 @@ type Image {
 }
 
 type Mutation {
-  addToCart(quantity: Int!, versionId: ID!): ShopCartChange
+  addToCart(gift: ShopGiftCardInput, quantity: Int!, versionId: ID!): ShopCartChange
   applyCode(code: String!): ShopCodeResult
+  applyGiftCard(number: String!): ShopCartChange
   checkout: ShopCart
   confirmPayment(orderId: ID!): ShopOrder
   deleteAddress(id: ID!): Boolean
   payOrder(orderId: ID!): ShopPaymentStart
   placeOrder(provider: String!): ShopPlacedOrder
   removeCode(code: String!): ShopCartChange
+  removeGiftCard: ShopCartChange
   requestSignInCode(channel: ShopSignInChannel!, to: String!): Boolean
   restoreCart(token: String!): ShopRestoredCart
   saveAddress(address: ShopSavedAddressInput!, id: ID, isDefault: Boolean): ID
@@ -39,6 +41,7 @@ type Query {
   cart: ShopCart
   collection(slug: String!): ShopCollection
   collections(after: String, before: String, first: Int): ShopCollectionPage
+  giftCardBalance(number: String!): ShopGiftCardBalance
   health: String
   menu: [ShopMenuItem!]
   order(id: ID!): ShopOrder
@@ -90,12 +93,20 @@ type ShopAddressLines {
   region: String
 }
 
+type ShopAppliedGiftCard {
+  applied: ShopMoney
+  balance: ShopMoney
+  expiresAt: String
+  last4: String
+}
+
 type ShopBadge {
   label: String
   tone: String
 }
 
 type ShopCart {
+  amountDue: ShopMoney
   billingAddress: ShopAddressLines
   checkoutStep: String
   codes: [ShopCartCode!]
@@ -104,6 +115,7 @@ type ShopCart {
   discount: ShopMoney
   discounts: [ShopCartDiscount!]
   email: String
+  giftCard: ShopAppliedGiftCard
   id: ID
   lines: [ShopCartLine!]
   needsShipping: Boolean
@@ -140,6 +152,7 @@ type ShopCartDiscount {
 type ShopCartLine {
   available: Int
   discount: ShopMoney
+  gift: ShopGiftCardRecipient
   lineTotal: ShopMoney
   photoUrl: String
   problem: String
@@ -231,8 +244,27 @@ type ShopFlags {
   hazardous: Boolean
 }
 
+type ShopGiftCardBalance {
+  balance: ShopMoney
+  expiresAt: String
+}
+
 type ShopGiftCardDetails {
   expiryMonths: Int
+}
+
+input ShopGiftCardInput {
+  message: String
+  recipientEmail: String!
+  recipientName: String!
+  sendOn: String
+}
+
+type ShopGiftCardRecipient {
+  message: String
+  recipientEmail: String
+  recipientName: String
+  sendOn: String
 }
 
 type ShopMarket {
@@ -276,7 +308,10 @@ type ShopOptionValue {
 type ShopOrder {
   discount: ShopMoney
   discounts: [ShopOrderDiscount!]
+  downloads: [ShopOrderDownload!]
+  giftCard: ShopMoney
   id: ID
+  licenceKeys: [ShopOrderLicenceKey!]
   lines: [ShopOrderLine!]
   number: String
   paymentDueBy: String
@@ -298,7 +333,26 @@ type ShopOrderDiscount {
   name: String
 }
 
+type ShopOrderDownload {
+  expiresAt: String
+  name: String
+  url: String
+  usesLeft: Int
+}
+
+type ShopOrderGift {
+  recipientEmail: String
+  recipientName: String
+  sendOn: String
+}
+
+type ShopOrderLicenceKey {
+  key: String
+  name: String
+}
+
 type ShopOrderLine {
+  gift: ShopOrderGift
   lineTotal: ShopMoney
   name: String
   quantity: Int

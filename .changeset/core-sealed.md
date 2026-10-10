@@ -1,0 +1,5 @@
+---
+"@dripfunnel/storefront-core": minor
+---
+
+Sealed components, branded commerce types and the visibility check (#481 part 1). `Price`, `PreviewBanner`, `PoweredBy`, `LegalNotices`, `ConsentBanner`, `ConsentSettingsButton` and the new `Breadcrumbs` render in a closed shadow root a theme styles only through its `className`, the `--df-*` custom properties and their `::part` names; the consent and preview banners sit in the top layer. `Money`, `Stock`, `Rating` and `Badge` are branded types only core's decoders make (`moneySchema`, `stockSchema`, `ratingSchema`, `badgeSchema`), replacing `ShopMoney`, `shopMoneySchema` and `isShopMoney`; `formatMoney`, `toDecimal`, `Price`, analytics and SEO take `Money`. Each sealed component checks it is seen after layout and reports one that isn't through `setProblemReporter` (the Shop API's `reportStorefrontProblem` under `StorefrontProvider`). `./testing` adds `visibilityProblems`, and `pageProblems` looks for the `data-df-sealed` mark. The validator refuses a cast to a commerce type (`code/core-type-cast`).

@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { moneySchema } from '../../pricing/money'
 import type { ConsentChoice } from '../consent/consent'
 import { analyticsScriptUrl, createAnalytics, ga4, googleTagManager, metaPixel, type AnalyticsProvider, type CommerceEvent } from './analytics'
 
 const provider = (...needs: AnalyticsProvider['needs']) => ({ needs, load: vi.fn(), send: vi.fn(), setConsent: vi.fn() })
-const event: CommerceEvent = { name: 'begin_checkout', value: { amount: '1200', currency: 'USD' } }
+const event: CommerceEvent = { name: 'begin_checkout', value: moneySchema.parse({ amount: '1200', currency: 'USD' }) }
 const both: ConsentChoice = { analytics: true, marketing: true, at: '2026-10-08T00:00:00Z' }
 
 type Globals = { dataLayer?: unknown[]; gtag?: unknown; fbq?: { queue: unknown[] }; _fbq?: unknown; dfConsentDefault?: boolean }
@@ -62,7 +63,7 @@ describe('ga4', () => {
   it('pushes Arguments objects, which is all gtag.js reads, with a major-unit value', () => {
     const p = ga4('G-TEST')
     p.load({ analytics: true, marketing: false })
-    p.send({ name: 'purchase', orderId: 'o_1', value: { amount: '1999', currency: 'USD' } })
+    p.send({ name: 'purchase', orderId: 'o_1', value: moneySchema.parse({ amount: '1999', currency: 'USD' }) })
     const layer = g.dataLayer ?? []
     expect(layer.every(isArguments)).toBe(true)
     expect(layer.map((e) => Array.from(e as ArrayLike<unknown>)[0])).toEqual(['consent', 'consent', 'js', 'config', 'event'])
@@ -75,7 +76,7 @@ describe('ga4', () => {
 
   it('sends item_id, and reads JPY without decimals', () => {
     const p = ga4('G-TEST')
-    p.send({ name: 'add_to_cart', itemId: 'v_1', quantity: 2, value: { amount: '1200', currency: 'JPY' } })
+    p.send({ name: 'add_to_cart', itemId: 'v_1', quantity: 2, value: moneySchema.parse({ amount: '1200', currency: 'JPY' }) })
     expect(Array.from((g.dataLayer ?? [])[0] as ArrayLike<unknown>)[2]).toEqual({ currency: 'JPY', value: 1200, items: [{ item_id: 'v_1', quantity: 2 }] })
   })
 })
@@ -94,7 +95,7 @@ describe('metaPixel', () => {
   it("queues init and events on Meta's own stub until fbevents.js loads", () => {
     const p = metaPixel('123')
     p.load({ analytics: false, marketing: true })
-    p.send({ name: 'view_item', itemId: 'v_1', value: { amount: '2800', currency: 'INR' } })
+    p.send({ name: 'view_item', itemId: 'v_1', value: moneySchema.parse({ amount: '2800', currency: 'INR' }) })
     expect(g.fbq?.queue).toEqual([
       ['init', '123'],
       ['track', 'ViewContent', { value: 28, currency: 'INR', content_ids: ['v_1'], content_type: 'product' }],

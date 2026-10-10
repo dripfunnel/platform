@@ -2,7 +2,7 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { LoadingState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { ShopifyConnection } from '../../api/imports'
-import { fill, formatCount, messages } from '../../messages'
+import { fill, formatMegabytes, messages } from '../../messages'
 import { useImportApi } from './importApi'
 import type { Mode } from './ImportPage'
 
@@ -14,7 +14,7 @@ const errorWords = (error: FileError): { title: string; body: string } => {
   const e = words.fileErrors
   switch (error.kind) {
     case 'big':
-      return { title: e.big.title, body: fill(e.big.body, { name: error.name, size: fill(e.megabytes, { size: formatCount(Math.round((error.size / 1024 / 1024) * 10) / 10) }) }) }
+      return { title: e.big.title, body: fill(e.big.body, { name: error.name, size: formatMegabytes(error.size) }) }
     case 'other':
       return { title: e.other.title, body: error.message }
     default:
