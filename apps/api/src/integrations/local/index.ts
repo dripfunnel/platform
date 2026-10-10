@@ -3,6 +3,7 @@ import type { BookedLabel, CourierDirectory, CourierProvider } from '#core/couri
 import { easyPostHook } from '../couriers/easypost'
 import { shiprocketHook } from '../couriers/shiprocket'
 import type { SmsSender } from '#core/sms'
+import type { WhatsAppSender } from '#core/whatsapp'
 import { withSystemScope } from '#db/scoped/index'
 import { selectLocalExpectedRecords } from '#db/scoped/partnerDomains'
 import type { CloudflareApi } from '../cloudflare/api'
@@ -15,7 +16,7 @@ import type { SesApi } from '../ses/index'
 /** The marker `pnpm dev` (scripts/local/dev.ts) reads to show a message and keep it in apps/api/.local-mail/. */
 export const localMessageMarker = '[local-message]'
 
-export type LocalMessage = { kind: 'email'; to: readonly string[]; from: string; subject: string; text: string } | { kind: 'sms'; to: string; text: string }
+export type LocalMessage = { kind: 'email'; to: readonly string[]; from: string; subject: string; text: string } | { kind: 'sms' | 'whatsapp'; to: string; text: string }
 
 const print = (message: LocalMessage) => console.log(`${localMessageMarker} ${JSON.stringify(message)}`)
 
@@ -31,6 +32,14 @@ export const localEmail = (): SesApi => ({
 export const localSms = (): SmsSender => ({
   send: async (sms) => {
     print({ kind: 'sms', to: sms.to, text: sms.text })
+    return { providerId: `local-${crypto.randomUUID()}` }
+  },
+})
+
+/** A partner's WhatsApp number's last step on this machine: the template and its variables. */
+export const localWhatsApp = (): WhatsAppSender => ({
+  send: async (message) => {
+    print({ kind: 'whatsapp', to: message.to, text: `${message.template} (${message.language}): ${message.vars.join(' | ')}` })
     return { providerId: `local-${crypto.randomUUID()}` }
   },
 })

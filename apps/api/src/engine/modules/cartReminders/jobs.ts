@@ -10,6 +10,7 @@ import {
   selectReminderConsent,
   setReminderChannel,
   skipReminder,
+  type ReminderChannel,
   type ReminderToDecideRow,
 } from '#db/scoped/cartReminders'
 import { suppressedAmong } from '#db/scoped/emailSuppression'
@@ -33,6 +34,8 @@ export interface ReminderJobDeps {
 export interface DecideDeps extends ReminderJobDeps {
   /** EMAIL_SUPPRESSION_KEY: an address that bounced or complained is never reminded. */
   suppressionKey: string
+  /** Whether the partner's WhatsApp account can send this message now; absent, every reminder goes by email. */
+  whatsappReady?: (tx: ScopedSql, partnerId: string, message: 'cart.reminder' | 'cart.reminder_code') => Promise<boolean>
 }
 
 const linesOf = (sql: postgres.Sql, now: () => Date, c: { storeId: string; partnerId: string; language: string; currency: string; marketId: string | null; features: Record<string, boolean> }, lines: { version_id: string; quantity: number }[]) =>
@@ -69,7 +72,7 @@ export const queueDueReminders = async ({ sql, now }: ReminderJobDeps, limit: nu
     return queued
   })
 
-export type ReminderDecision = { kind: 'done' } | { kind: 'skipped'; reason: string } | { kind: 'queued'; channel: 'email' } | { kind: 'wait'; ms: number }
+export type ReminderDecision = { kind: 'done' } | { kind: 'skipped'; reason: string } | { kind: 'queued'; channel: ReminderChannel } | { kind: 'wait'; ms: number }
 
 /** The words a reminder's code offer goes by on the shopper's receipt (OFFERS fact 13). */
 const codeOfferName = (percent: number) => `${percent}% off your cart`
@@ -78,7 +81,7 @@ const codeOfferName = (percent: number) => `${percent}% off your cart`
  * Decides one queued reminder as it is delivered: skipped with its reason, held through quiet hours, or handed to its
  * channel with its code. The reminder's row is locked, so a second delivery of the same row finds it decided.
  */
-export const decideReminder = async ({ sql, now, suppressionKey }: DecideDeps, reminderId: string, tenant: { partnerId: string | null; storeId: string | null }): Promise<ReminderDecision> => {
+export const decideReminder = async ({ sql, now, suppressionKey, whatsappReady }: DecideDeps, reminderId: string, tenant: { partnerId: string | null; storeId: string | null }): Promise<ReminderDecision> => {
   const peek = await withSystemScope(sql, (tx) => lockReminderToDecide(tx, reminderId, now()))
   // A row filed under another store or partner is someone else's: nobody is reminded (as order.notify refuses one).
   if (!peek || peek.state !== 'queued' || peek.store_id !== tenant.storeId || peek.partner_id !== tenant.partnerId) return { kind: 'done' }
@@ -90,6 +93,15 @@ export const decideReminder = async ({ sql, now, suppressionKey }: DecideDeps, r
     if (!r || r.state !== 'queued') return { kind: 'done' }
     const consent = await selectReminderConsent(tx, r.store_id, r.cart.customer_id, r.cart.email)
     const weeklyCap = r.flow?.weekly_cap ?? true
+    // One sent by hand takes the percentage its sender chose; a step its own. Either needs every reminder (level 2).
+    const bps = r.by_hand ? r.discount_bps : (r.step?.discount_bps ?? null)
+    const percent = bps && r.level >= 2 ? bps / 100 : null
+    // WhatsApp in India, to a signed-in shopper's own number who agreed to it (#337; Carts "WhatsApp needs opt-in"),
+    // through the partner's account; anyone else gets the email.
+    const number = r.cart.customer_id !== null && consent?.consent_state === 'opted_in' && consent.consent_channels.includes('whatsapp') && consent.phone?.startsWith('+91') ? consent.phone : null
+    const wantsWhatsApp = !r.by_hand && r.step?.channel === 'whatsapp' && r.level >= 2 && r.store_country === 'IN' && number !== null
+    const channel: ReminderChannel = wantsWhatsApp && whatsappReady && (await whatsappReady(tx, r.partner_id, percent ? 'cart.reminder_code' : 'cart.reminder')) ? 'whatsapp' : 'email'
+    const email = channel === 'email' ? r.cart.email : null
     const reason = skipReasonOf({
       byHand: r.by_hand,
       storeSending: r.store_status === 'trial' || r.store_status === 'active',
@@ -99,9 +111,9 @@ export const decideReminder = async ({ sql, now, suppressionKey }: DecideDeps, r
       cartOpen: r.cart.state === 'cart' && !r.cart.expired,
       stopped: r.cart.stopped,
       recovered: r.cart.recovered,
-      email: r.cart.email,
-      mayEmail: mayEmail(r.store_country, consent),
-      suppressed: r.cart.email !== null && (await suppressedAmong(tx, suppressionKey, [r.cart.email])).size > 0,
+      contact: channel === 'whatsapp' ? number : email,
+      mayContact: channel === 'whatsapp' || mayEmail(r.store_country, consent),
+      suppressed: email !== null && (await suppressedAmong(tx, suppressionKey, [email])).size > 0,
       skipOutOfStock: r.flow?.skip_out_of_stock ?? true,
       allOutOfStock: lines.length > 0 && lines.every((l) => l.outOfStock),
       underMinimum: underMinimum(r),
@@ -115,13 +127,15 @@ export const decideReminder = async ({ sql, now, suppressionKey }: DecideDeps, r
     // "Remind now" goes at once, even in quiet hours (Carts); an automatic one waits for 8 am in the store's time.
     const wait = !r.by_hand && (r.flow?.quiet_hours ?? true) ? quietWaitMs(localTimeIn(at, r.time_zone).minutes) : 0
     if (wait > 0) return { kind: 'wait', ms: wait }
-    const percent = r.step?.discount_bps && r.level >= 2 ? r.step.discount_bps / 100 : null
     const code = percent ? await issueReminderCode(tx, { storeId: r.store_id, percent, name: codeOfferName(percent), orderId: r.cart.id, customerId: r.cart.customer_id, now: at }) : null
-    await setReminderChannel(tx, r.id, 'email', code?.id ?? null)
+    await setReminderChannel(tx, r.id, channel, code?.id ?? null)
     // Only what can be bought now goes in it: a line gone out of stock is left out (Carts).
     const shown = lines.filter((l) => !l.outOfStock && l.name !== null).map((l) => ({ name: l.versionName ? `${l.name}, ${l.versionName}` : (l.name ?? ''), quantity: l.quantity, amount: l.lineTotal?.amount.toString() ?? null }))
-    await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', reminderId: r.id, currency: r.cart.currency, lines: shown }, partnerId: r.partner_id, storeId: r.store_id })
-    return { kind: 'queued', channel: 'email' }
+    const message = { reminderId: r.id, currency: r.cart.currency, lines: shown }
+    // A WhatsApp row carries its email too, which it falls back to if it can't go after all (deliverers/whatsapp.ts).
+    if (channel === 'whatsapp') await insertOutbox(tx, { kind: 'whatsapp', idempotencyKey: `cart-reminder:${r.id}`, payload: { ...message }, partnerId: r.partner_id, storeId: r.store_id })
+    else await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', ...message }, partnerId: r.partner_id, storeId: r.store_id })
+    return { kind: 'queued', channel }
   })
 }
 

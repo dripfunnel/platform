@@ -458,6 +458,20 @@ the message kind, never the number or the code.
 Neither provider takes an idempotency key, so a crash between its acceptance and the row being marked
 can text twice.
 
+**The WhatsApp templates a partner has Meta approve (built on #321).** Cart reminders in India go by the partner's
+WhatsApp Business number through its MSG91 account (MSG91's outbound template API), as a template the partner registers
+word for word, with its name entered beside its MSG91 credentials (#275): `apps/api/src/saas/whatsapp/index.ts` holds the
+wording. The store's own subject and message never go by WhatsApp, since an approved template can't carry free text.
+
+| Message | Wording (variables numbered) |
+|---|---|
+| `cart.reminder` | {{1}}: you left {{2}} in your cart. It’s saved for you: {{3}} |
+| `cart.reminder_code` | {{1}}: you left {{2}} in your cart. Use {{3}} for {{4}}% off, once, for 48 hours: {{5}} |
+
+{{1}} is the store's name, {{2}} the count of items ("2 items"), and the link is the reminder's return link. Until #275
+reads partners' accounts, the Worker registers the `whatsapp` deliverer only locally (`SMS_LOCAL`, whose stand-in prints
+it), and `cart.remind` sends every reminder by email.
+
 ---
 
 ## 5. Secrets the platform generates itself

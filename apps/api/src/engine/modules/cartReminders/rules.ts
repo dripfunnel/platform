@@ -58,8 +58,10 @@ export interface DecisionFacts {
   cartOpen: boolean
   stopped: boolean
   recovered: boolean
-  email: string | null
-  mayEmail: boolean
+  /** The email, or for WhatsApp the number, it would go to. */
+  contact: string | null
+  /** The shopper's marketing answer allows this channel (mayEmail; WhatsApp is checked as it is chosen). */
+  mayContact: boolean
   /** On the suppression list: it bounced or complained (THIRD-PARTY-ACCESS §2.4). */
   suppressed: boolean
   skipOutOfStock: boolean
@@ -77,8 +79,8 @@ export const skipReasonOf = (f: DecisionFacts): SkipReason | null => {
   if (!f.cartOpen) return 'cart_gone'
   if (f.recovered) return 'recovered'
   if (f.stopped) return 'stopped'
-  if (f.email === null) return 'no_contact'
-  if (!f.mayEmail) return 'opted_out'
+  if (f.contact === null) return 'no_contact'
+  if (!f.mayContact) return 'opted_out'
   if (f.suppressed) return 'undeliverable'
   if (f.byHand) return null
   if (!f.storeSending || !f.flowEnabled || !f.levelAllows || !f.stepEnabled) return 'paused'
