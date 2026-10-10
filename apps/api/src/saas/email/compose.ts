@@ -9,6 +9,7 @@ import { selectCodeForEmail, setCodeHash } from '#db/scoped/shopper'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { selectBranding } from '#db/scoped/branding'
+import { selectKeyCreatorName } from '#db/scoped/apiKeys'
 import { markReminderSent, selectReminderFlow, selectReminderToSend, selectSampleItems, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
 import { defaultReminderStep, defaultReminderSteps } from '#engine/modules/cartReminders/index'
 import type { ScopedSql } from '#db/scoped/index'
@@ -78,7 +79,7 @@ const payloads = {
   'support-session-started': z.object({ supportSessionId: id }),
   'support-write-allowed': z.object({ supportSessionId: id }),
   'webhook-disabled': z.object({ storeId: id, host: z.string().max(253) }),
-  'api-keys-creator-gone': z.object({ storeId: id, creator: z.string().max(320), keys: z.number().int().positive() }),
+  'api-keys-creator-gone': z.object({ storeId: id, creatorId: id, keys: z.number().int().positive() }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
   'order-delivered': z.object({ orderId: id, fulfilmentId: id }),
@@ -437,8 +438,10 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const m = await merchant(tx, p.storeId, row.partnerId)
       if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
       if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const creator = await selectKeyCreatorName(tx, p.creatorId, m.store.partner_id)
+      if (!creator) return { send: false, reason: 'no_recipient' }
       const w = en.apiKeysCreatorGone
-      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(p.creator, p.keys, m.store.name)] } }
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(creator, p.keys, m.store.name)] } }
     }
     case 'cart-reminder': {
       const p = parse(t)
