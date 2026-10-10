@@ -61,6 +61,7 @@ const configSchema = z.object({
 })
 
 const devHooksHost = 'dev-hooks.dripfunnel.ai'
+const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
 const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
@@ -71,13 +72,14 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   const modeOf = (key: string | undefined) => key?.match(/_(test|live)_/)?.[1]
   if (c.STRIPE_PUBLISHABLE_KEY !== undefined && modeOf(c.STRIPE_PUBLISHABLE_KEY) !== modeOf(c.STRIPE_SECRET_KEY)) ctx.addIssue({ code: 'custom', message: 'STRIPE_PUBLISHABLE_KEY must be in STRIPE_SECRET_KEY’s mode', path: ['STRIPE_PUBLISHABLE_KEY'] })
   if ((c.STRIPE_TEST_SECRET_KEY === undefined) !== (c.STRIPE_TEST_PUBLISHABLE_KEY === undefined)) ctx.addIssue({ code: 'custom', message: 'STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PUBLISHABLE_KEY go together', path: ['STRIPE_TEST_SECRET_KEY'] })
-  if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !/(^|\.)localhost$/.test(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
-  if (/(^|\.)localhost$/.test(c.HOOKS_HOST)) return
+  if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !isLocalhost(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
+  if (isLocalhost(c.HOOKS_HOST)) return
   for (const key of localOnly) {
     if (c[key] !== undefined) ctx.addIssue({ code: 'custom', message: `${key} is for local development only (HOOKS_HOST on localhost)`, path: [key] })
   }
 })
 
+export const isDevOrLocal = (config: Pick<Config, 'HOOKS_HOST'>): boolean => config.HOOKS_HOST === devHooksHost || isLocalhost(config.HOOKS_HOST)
 export type Config = z.infer<typeof configSchema>
 
 export const parseConfig = (env: Record<string, unknown>): Config => checkedConfig.parse(env)

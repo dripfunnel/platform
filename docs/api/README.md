@@ -385,7 +385,17 @@ Cloudflare; a request without it (only possible off Cloudflare, e.g. `wrangler d
 `/health` also returns the Worker's `version` (a Cloudflare-assigned version UUID, from
 `CF_VERSION_METADATA`), unauthenticated, so that `promote.yml`'s post-promotion health check
 can confirm prod is serving the version it just promoted. This is intentional: the UUID
-identifies a build, not a secret, and knowing it grants no access.
+identifies a build, not a secret, and knowing it grants no access. On dev and local hosts it also returns
+`integrations` (which of Entra, Stripe, SES and assets are `configured` or `missing`, never a value); a production
+host leaves it out, since which integration is missing would tell a caller where a check is off.
+
+### Local, the same as dev
+
+1. `cp apps/api/.env.example apps/api/.env.local` and put the dev test values in it (THIRD-PARTY-ACCESS §8).
+2. `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"`, and set the `whsec_…` it prints as `STRIPE_WEBHOOK_SECRET`.
+3. `pnpm dev`, then `curl -H "cf-connecting-ip: 127.0.0.1" http://platform.localhost:8787/api/health`.
+   `integrations` reads `configured` or `missing` for `entra`, `stripe`, `ses` and `assets`, from the
+   presence of each value, never a value. Dev answers the same at `https://dev-platform.dripfunnel.ai/api/health`.
 
 ---
 

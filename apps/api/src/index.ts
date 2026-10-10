@@ -506,7 +506,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
   if (!area) return { response: notFound(), area: null }
   if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
   if (isHealthPath(area, url.pathname)) {
-    return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id), area }
+    return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id, env.ASSETS !== undefined), area }
   }
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
   if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
