@@ -13,7 +13,7 @@ export const storeEventKind = 'webhook.event'
 
 /** What an event says: ids only, so neither the outbox nor the delivery log holds a shopper's details. */
 export interface StoreEventData {
-  object: 'order' | 'product'
+  object: 'order' | 'product' | 'product_version'
   id: string
   /** The order's number, which the merchant knows it by. */
   number?: string

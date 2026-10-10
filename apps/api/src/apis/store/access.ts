@@ -9,6 +9,7 @@ import { isStorePermission, storePermissions, storeRoleHas, type StorePermission
 import { machineScopes } from '#auth/apiKeys'
 import type { MachineCaller } from '#auth/machineCaller'
 import type { TenantContext } from '#core/tenancy'
+import type { DnsLookup } from '#integrations/dns/doh'
 import { accessErrorCode, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
 import type { CourierDirectory } from '#core/couriers'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
@@ -36,6 +37,8 @@ export interface StoreContext extends Record<string, unknown> {
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null
   codeCheck?: CodeCheck
+  /** DNS for checking a merchant's webhook address (SSRF, AGENTS.md "Security"); null where none can be asked. */
+  lookup?: DnsLookup | null
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */
   allowCodeCheck?: (key: string) => Promise<boolean>
   now: () => Date

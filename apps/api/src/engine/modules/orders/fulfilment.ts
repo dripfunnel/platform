@@ -4,6 +4,7 @@ import { isUuid } from '#core/ids'
 import type { TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
+import { queueStoreEvent } from '#db/scoped/storeEvents'
 import {
   insertFulfilment,
   lockFulfilmentForTracking,
@@ -164,6 +165,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
           // The shopper hears of what is on its way to them, never of a hand-off to the store or a pickup they collected.
           const id = made.at(-1)
           if (kind === 'manual' && id && !order.test) await queueOrderUpdate(tx, storeId, { event: 'shipped', orderId: order.id, fulfilmentId: id }, `shipped:${id}`)
+          if (!handOff && id && !order.test) await queueStoreEvent(tx, storeId, 'order.shipped', { object: 'order', id: order.id, number: order.number }, id, shippedAt)
         }
         await settleShippingStates(tx, order.id, shippedAt, sellerId === null)
         return { ok: true, value: made }

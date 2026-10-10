@@ -168,3 +168,5 @@ export const createAppRegistryService = ({ sql, staff, activity, facts, secrets,
 
   return { list, register, setStatus }
 }
+
+export type AppRegistryService = ReturnType<typeof createAppRegistryService>

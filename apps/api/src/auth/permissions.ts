@@ -28,6 +28,7 @@ export const staffPermissions = [
   'activity.export',
   'staff.manage',
   'partners.assign',
+  'apps.manage',
 ] as const
 
 export type StaffPermission = (typeof staffPermissions)[number]

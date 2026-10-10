@@ -584,6 +584,32 @@ type HomeSetup {
   shipping: Boolean
 }
 
+type InstallableApp {
+  developer: String
+  id: ID
+  name: String
+  scopes: [String!]
+  siteUrl: String
+}
+
+type InstalledApp {
+  appId: ID
+  developer: String
+  id: ID
+  installedAt: String
+  installedByName: String
+  lastUsedAt: String
+  name: String
+  scopes: [String!]
+  siteUrl: String
+  suspended: Boolean
+}
+
+type InstalledAppPage {
+  nodes: [InstalledApp!]
+  pageInfo: PageInfo
+}
+
 input InviteSupplierInput {
   accessLevel: String!
   email: String!
@@ -785,6 +811,7 @@ type Mutation {
   finishShopifyConnect(key: String!): String
   finishStripeConnect(key: String!): Boolean
   generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
+  installApp(appId: ID!, scopes: [String!]!): ID
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
@@ -800,7 +827,9 @@ type Mutation {
   removeMember(membershipId: ID!): Boolean
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
+  removeWebhook(id: ID!): Boolean
   replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
+  replayDelivery(id: ID!): ID
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
@@ -837,6 +866,7 @@ type Mutation {
   saveTaxClass(id: ID, input: TaxClassInput!): ID
   saveTaxZone(id: ID, input: TaxZoneInput!): ID
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
+  saveWebhook(events: [String!]!, id: ID, url: String!): SavedWebhook
   sendBackProduct(id: ID!, reason: String!): Boolean
   setApproval(on: Boolean!): Boolean
   setCustomerGroups(groupIds: [ID!]!, id: ID!): [ID!]
@@ -863,6 +893,8 @@ type Mutation {
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
+  turnOnWebhook(id: ID!): Int
+  uninstallApp(id: ID!): Boolean
   updateCustomer(address: CustomerAddressInput, id: ID!, name: String, phone: String): Boolean
   updateGroup(description: String, id: ID!, name: String!): Boolean
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
@@ -1709,6 +1741,7 @@ type Provisioning {
 type Query {
   apiKeyChoices: ApiKeyChoices
   apiKeys(after: String, before: String, first: Int): ApiKeyPage
+  apps(after: String, before: String, first: Int): InstalledAppPage
   billingDetails: BillingDetails
   brand: Brand
   catalogExport(id: ID!): CatalogExport
@@ -1735,6 +1768,7 @@ type Query {
   gateways: [PaymentGateway!]
   health: String
   home: StoreHome
+  installableApp(id: ID!): InstallableApp
   invoiceSettings: InvoiceSettings
   invoices(after: String, before: String, first: Int): StoreInvoicePage
   market(id: ID!): Market
@@ -1798,6 +1832,9 @@ type Query {
   translationProgress(language: String!): TranslationProgress
   usage: [BillingUsage!]
   warehouses(after: String, before: String, first: Int): WarehousePage
+  webhookDeliveries(after: String, before: String, endpointId: ID!, first: Int): WebhookDeliveryPage
+  webhookEvents: [String!]
+  webhooks(after: String, before: String, first: Int): WebhookEndpointPage
 }
 
 type ReferenceRate {
@@ -1967,6 +2004,11 @@ type SavedSizeChart {
 type SavedStoryBlock {
   id: ID
   revision: Int
+}
+
+type SavedWebhook {
+  id: ID
+  secret: String
 }
 
 type ScheduledPlanChange {
@@ -2712,5 +2754,40 @@ input WarehouseInput {
 
 type WarehousePage {
   nodes: [Warehouse!]
+  pageInfo: PageInfo
+}
+
+type WebhookDelivery {
+  attempts: Int
+  createdAt: String
+  deliveredAt: String
+  durationMs: Int
+  error: String
+  event: String
+  eventId: ID
+  id: ID
+  lastAttemptAt: String
+  replayOf: ID
+  responseCode: Int
+  status: String
+}
+
+type WebhookDeliveryPage {
+  nodes: [WebhookDelivery!]
+  pageInfo: PageInfo
+}
+
+type WebhookEndpoint {
+  createdAt: String
+  disabledAt: String
+  events: [String!]
+  failingSince: String
+  id: ID
+  status: String
+  url: String
+}
+
+type WebhookEndpointPage {
+  nodes: [WebhookEndpoint!]
   pageInfo: PageInfo
 }

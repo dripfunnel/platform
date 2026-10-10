@@ -16,7 +16,7 @@ import { defaultRelayOptions, GiveUp, type Deliverer } from '../outbox-relay'
 const event = z.object({
   eventId: z.uuid(),
   event: z.enum(storeEvents),
-  data: z.object({ object: z.enum(['order', 'product']), id: z.uuid(), number: z.string().max(40).optional() }).strict(),
+  data: z.object({ object: z.enum(['order', 'product', 'product_version']), id: z.uuid(), number: z.string().max(40).optional() }).strict(),
   occurredAt: z.iso.datetime(),
 }).strict()
 

@@ -82,6 +82,12 @@ import { handleStripeConnectCallback, stripeConnectCallbackPath } from '#hooks/s
 import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
 import { keyedGateways } from '#integrations/payments/index'
 import { deleteExpiredCarts } from '#db/scoped/cart'
+import { storeEventKind } from '#db/scoped/storeEvents'
+import { deleteOldDeliveries } from '#db/scoped/webhooks'
+import { webhookDeliveryKind } from '#saas/webhooks/index'
+import { appNoticeKind } from '#saas/apps/index'
+import { webhookDeliveryDeliverer, webhookEventDeliverer } from '#jobs/queues/deliverers/webhooks'
+import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -96,6 +102,7 @@ import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
 import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
+import { createAppRegistryService } from '#saas/apps/index'
 import { resolveArea, type Area } from './router'
 
 const servers = {
@@ -174,8 +181,11 @@ const emailFor = (config: Config) => {
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
 // (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL.
+// The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
+const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
+
 const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null): Deliverers => {
-  const lookup = config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup()
+  const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
@@ -199,6 +209,9 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
     [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),
     [ratesRefreshKind]: ratesRefreshDeliverer(sql, ecbRates()),
+    [storeEventKind]: webhookEventDeliverer(sql),
+    [webhookDeliveryKind]: webhookDeliveryDeliverer(sql, { lookup, secrets }),
+    [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
   }
 }
 
@@ -286,7 +299,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -305,6 +318,7 @@ const handleAdmin = async (
         : null,
       customers: caller ? createCustomersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffMembers: caller ? createStaffMembersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
+      apps: caller ? createAppRegistryService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, secrets: await (secretsFor(config) ?? null), lookup: lookupFor(sql, config), now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
@@ -432,7 +446,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
@@ -634,6 +648,10 @@ const sweepSchedules = (env: Env): Promise<void> =>
     // Old sign-in codes and sessions go, with the addresses they named.
     await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    })
+    // The webhook delivery log keeps a month (LOGGING §8's technical logs); replays reach back a week.
+    await withSystemScope(sql, (tx) => deleteOldDeliveries(tx, new Date(Date.now() - 30 * 86_400_000), 500)).catch((error: unknown) => {
+      logEvent({ event: 'webhook_log_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
     })
     // Carts past their 30 days go, with whatever address or email a guest left in them.
     await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
