@@ -1,4 +1,6 @@
 import type { CodeBatch, Offer, OfferAction, OfferCounts, OfferResults } from '../../api/offers'
+import type { StoreFacts } from './offerDraft'
+import type { FormLists } from './OfferForm'
 
 // Offers' states under ?state= (ui/README.md §6): loading, error, empty, list, noMatch, staff, readOnly, denied, locked.
 // `locked` is the offer page's results on a plan without them.
@@ -63,3 +65,30 @@ export const sampleResults: OfferResults | null = harness
   : null
 
 export const sampleBatches: CodeBatch[] = harness ? [{ id: 'b1', prefix: 'INSTA-', length: 8, count: 500, used: 37, createdAt: at(-5) }] : []
+
+// The editor's states: loading, error, pick (the type picker), new, edit, live (a live offer, its save bar green),
+// errors (a save tried with the form incomplete), staff, readOnly, denied.
+export const editorStates = ['loading', 'error', 'pick', 'new', 'edit', 'live', 'errors', 'staff', 'readOnly', 'denied'] as const
+export type EditorState = (typeof editorStates)[number]
+
+export interface EditorSample {
+  facts: StoreFacts
+  lists: FormLists
+  offer: Offer | null
+  productNames: [string, string][]
+  pick: boolean
+}
+
+export const editorSample = (state: EditorState | null): EditorSample | null => {
+  if (!harness || !state || state === 'loading' || state === 'error' || state === 'denied' || state === 'staff') return null
+  const facts: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} }
+  const lists: FormLists = {
+    filters: [{ id: 'f1', name: 'Fabric', position: 0, revision: 1, shopperVisible: true, values: [{ id: 'fv-linen', name: 'Linen', products: 12 }, { id: 'fv-cotton', name: 'Cotton', products: 30 }] }],
+    collections: [{ id: 'c1', name: 'Festive edit', kind: 'manual', visible: true, parentId: null, inheritParent: false, match: 'all', rules: [], products: 24, computedAt: null }],
+    groups: [{ id: 'g1', name: 'VIP', description: null, members: 12 }, { id: 'g2', name: 'Wholesale', description: null, members: 5 }],
+    markets: [],
+  }
+  const first = offers[0]
+  const offer = first && state === 'live' ? first : first && state === 'edit' ? { ...first, status: 'off' as const, enabled: false } : null
+  return { facts, lists, offer, productNames: [['p8', 'Silk Banarasi saree']], pick: state === 'pick' }
+}

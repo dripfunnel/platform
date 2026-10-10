@@ -215,3 +215,48 @@ export const loadOfferNames = async () => {
     groups: new Map(groups.map((g) => [g.id, g.name])),
   }
 }
+
+export interface OfferSaved {
+  id: string
+  revision: number
+}
+
+/** "Save" (OfferEditor): a new offer without `id`; an edit names the revision it was read at. Nothing is a draft (#337). */
+export const saveOffer = async (id: string | null, revision: number | null, input: Record<string, unknown>): Promise<OfferSaved> =>
+  (
+    await query(
+      'mutation S($id: ID, $revision: Int, $input: OfferInput!) { saveOffer(id: $id, revision: $revision, input: $input) { id revision } }',
+      z.object({ saveOffer: z.object({ id: z.string(), revision: z.number().int() }) }),
+      { id, revision, input },
+    )
+  ).saveOffer
+
+const factsSchema = z.object({
+  storeInfo: z.object({ timeZone: z.string(), country: z.string().nullable() }).nullable(),
+  storeLocale: z.object({ pricingCurrency: z.string().nullable(), currencies: z.array(z.object({ code: z.string(), status: z.string() })), rates: z.array(z.object({ currency: z.string(), perEuro: z.string() })) }).nullable(),
+})
+
+/** What the editor needs of the store: its time zone and country, the currencies it sells in, and today's rates. */
+export const loadOfferFacts = async () => {
+  const { storeInfo, storeLocale } = await query('{ storeInfo { timeZone country } storeLocale { pricingCurrency currencies { code status } rates { currency perEuro } } }', factsSchema)
+  const main = storeLocale?.pricingCurrency
+  if (!main) throw new Error('The store has no pricing currency yet.')
+  return {
+    timeZone: storeInfo?.timeZone ?? 'UTC',
+    country: storeInfo?.country ?? null,
+    main,
+    others: (storeLocale?.currencies ?? []).filter((c) => c.status === 'active' && c.code !== main).map((c) => c.code),
+    perEuro: Object.fromEntries((storeLocale?.rates ?? []).map((r) => [r.currency, Number(r.perEuro)]).filter(([, n]) => Number(n) > 0)),
+  }
+}
+
+/** Names for the ids an offer names, one request for all of them; one that's gone answers nothing. */
+const namesOf = async (field: 'product' | 'customer', ids: readonly string[]): Promise<Map<string, string>> => {
+  if (ids.length === 0) return new Map()
+  const fields = ids.map((_, i) => `n${i}: ${field}(id: $i${i}) { id name }`).join(' ')
+  const params = ids.map((_, i) => `$i${i}: ID!`).join(', ')
+  const answer = await query(`query N(${params}) { ${fields} }`, z.record(z.string(), z.object({ id: z.string(), name: z.string().nullable() }).nullable()), Object.fromEntries(ids.map((id, i) => [`i${i}`, id])))
+  return new Map(Object.values(answer).flatMap((x) => (x?.name ? [[x.id, x.name] as const] : [])))
+}
+export const loadProductNames = (ids: readonly string[]) => namesOf('product', ids)
+export const loadCustomerNames = (ids: readonly string[]) => namesOf('customer', ids)

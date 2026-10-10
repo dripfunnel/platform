@@ -60,10 +60,11 @@ export const dayText = (iso: string, timeZone: string): string => new Intl.DateT
 /** The store's time zone as people say it ("India Standard Time"), so no time is shown without its zone (fact 9). */
 export const zoneName = (timeZone: string): string => new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'longGeneric' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? timeZone
 
-const weekday = (day: number) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + day)))
+/** A day of the week by its number, 0 being Sunday as a repeat's days are. */
+export const weekdayName = (day: number) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + day)))
 const recurrenceOf = (offer: Pick<Offer, 'conditions'>) => offer.conditions.find((c) => c.operation === 'recurrence') ?? null
 export const repeatText = (r: Pick<OfferCondition, 'days' | 'from' | 'to'>): string =>
-  fill(words.repeat, { days: r.days.length === 7 ? words.everyDay : formatList([...r.days].sort().map(weekday)), from: r.from ?? '', to: r.to ?? '' })
+  fill(words.repeat, { days: r.days.length === 7 ? words.everyDay : formatList([...r.days].sort().map(weekdayName)), from: r.from ?? '', to: r.to ?? '' })
 
 /** The line under a status: when it started, ends or starts, or how much of it is used (fact 9, principle 7). */
 export const timeLine = (offer: Pick<Offer, 'status' | 'startsAt' | 'endsAt' | 'usesCount' | 'totalUsesLimit' | 'conditions'>, now: Date, timeZone: string): string => {

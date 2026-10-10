@@ -7,10 +7,12 @@ import { loadOfferCounts, loadOfferNames, loadOfferPlace, loadOffers, offerKinds
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { CodeCheck } from './CodeCheck'
+import { FirstTime } from './FirstTime'
 import { actsFor, useOfferActions, type OfferAct } from './offerActions'
 import { offerAccessOf } from './offerAccess'
 import { offerSample, offerStates, sampleNames } from './offerStates'
 import { kindOf, noNames, regionWords, statusKeyOf, statusLook, timeLine, whatText, type OfferNames } from './offerView'
+import './offerEditor.css'
 import './offers.css'
 
 const words = messages.offers
@@ -153,6 +155,12 @@ export const OffersPage = () => {
       <MoreActions label={words.row.actions}>
         {(close) => (
           <>
+            {access.canEdit && (
+              <Link className="df-button" to="/offers/$offerId/edit" params={{ offerId: offer.id }} search={(prev) => harnessSearch(prev)} onClick={close}>
+                {words.menu.edit}
+                <span className="df-offers-menu-sub">{words.menuSub.edit}</span>
+              </Link>
+            )}
             <Link className="df-button" to="/offers/$offerId" params={{ offerId: offer.id }} search={(prev) => harnessSearch(prev, forced ?? undefined)} onClick={close}>
               {access.canEdit ? words.menu.results : words.menu.view}
               <span className="df-offers-menu-sub">{access.canEdit ? words.menuSub.results : words.menuSub.view}</span>
@@ -184,6 +192,11 @@ export const OffersPage = () => {
           <h1 className="df-page-title">{words.title}</h1>
           <p className="df-page-lede">{fill(words.lede, { ship: region.ship })}</p>
         </div>
+        {access.canEdit && !phone && (
+          <Link className="df-button df-button--primary" to="/offers/new" search={(prev) => harnessSearch(prev)}>
+            {words.create}
+          </Link>
+        )}
       </div>
 
       {access.readOnly && <p className="df-offers-note df-offers-note--warning" role="status"><strong>{words.notes.readOnlyTitle}</strong> {words.notes.readOnly}</p>}
@@ -191,7 +204,11 @@ export const OffersPage = () => {
       {failure && <p className="df-offers-note df-offers-note--danger" role="alert">{failure}</p>}
 
       {counts.kind === 'ready' && total === 0 ? (
-        <EmptyState title={words.firstTime.title} body={fill(words.firstTime.body, { ship: region.ship })} />
+        access.canEdit ? (
+          <FirstTime ship={region.ship} />
+        ) : (
+          <EmptyState title={words.firstTime.title} body={fill(words.firstTime.body, { ship: region.ship })} />
+        )
       ) : (
         <>
           <CodeCheck sample={sample ? [...sample.live, ...sample.scheduled, ...sample.off, ...sample.ended] : null} timeZone={place.timeZone} />
@@ -245,6 +262,11 @@ export const OffersPage = () => {
                   <button type="button" className="df-button" onClick={() => filter({ search: '', kind: null, trigger: null })}>
                     {words.noMatch.clear}
                   </button>
+                )}
+                {empty && access.canEdit && (tab === 'live' || tab === 'scheduled') && (
+                  <Link className="df-button" to="/offers/new" search={(prev) => ({ ...harnessSearch(prev), recipe: tab === 'scheduled' ? 'seasonal' : undefined })}>
+                    {tab === 'scheduled' ? words.empty.scheduled.cta : words.empty.live.cta}
+                  </Link>
                 )}
               </div>
             )}
@@ -337,6 +359,11 @@ export const OffersPage = () => {
         </>
       )}
 
+      {access.canEdit && phone && (
+        <Link className="df-offers-fab" to="/offers/new" search={(prev) => harnessSearch(prev)}>
+          {words.createPlus}
+        </Link>
+      )}
       {actions.dialog}
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>

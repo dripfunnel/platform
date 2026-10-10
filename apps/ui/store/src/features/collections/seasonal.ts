@@ -60,18 +60,21 @@ const occasions: readonly Occasion[] = [
   { key: 'singlesDay', countries: ['CN', 'SG', 'MY'], on: (y) => day(y, 11, 11), lead: 45 },
 ]
 
-/** The occasions coming up in these countries, soonest first, at most `limit`. */
-export const seasonalFor = (countries: readonly string[], today: Date, limit = 4): SeasonKey[] => {
+/** The occasions coming up in these countries, soonest first, at most `limit`, each with its day (UTC). */
+export const seasonalDatesFor = (countries: readonly string[], today: Date, limit = 4): { key: SeasonKey; on: Date }[] => {
   const sells = new Set(countries)
-  const found = new Map<SeasonKey, number>()
+  const found = new Map<SeasonKey, { until: number; on: Date }>()
   for (const o of occasions) {
     if (!o.countries.some((c) => sells.has(c))) continue
     for (const year of [today.getUTCFullYear() - 1, today.getUTCFullYear(), today.getUTCFullYear() + 1]) {
       const date = o.on(year)
       if (!date) continue
       const until = (date.getTime() - today.getTime()) / dayMs
-      if (until <= o.lead && until >= -(o.lasts ?? 0)) found.set(o.key, Math.min(found.get(o.key) ?? Infinity, until))
+      if (until <= o.lead && until >= -(o.lasts ?? 0) && until < (found.get(o.key)?.until ?? Infinity)) found.set(o.key, { until, on: date })
     }
   }
-  return [...found].sort((a, b) => a[1] - b[1]).slice(0, limit).map(([key]) => key)
+  return [...found].sort((a, b) => a[1].until - b[1].until).slice(0, limit).map(([key, { on }]) => ({ key, on }))
 }
+
+/** The occasions coming up in these countries, soonest first, at most `limit`. */
+export const seasonalFor = (countries: readonly string[], today: Date, limit = 4): SeasonKey[] => seasonalDatesFor(countries, today, limit).map((s) => s.key)

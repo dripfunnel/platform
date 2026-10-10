@@ -35,12 +35,14 @@ import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
 import { Route as AppOffersOfferIdRouteImport } from './routes/_app/offers_.$offerId'
+import { Route as AppOffersNewRouteImport } from './routes/_app/offers_.new'
 import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders_.$orderId'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products_.$productId'
 import { Route as AppProductsImportRouteImport } from './routes/_app/products_.import'
 import { Route as AppProductsSizeChartsRouteImport } from './routes/_app/products_.size-charts'
 import { Route as AppProductsWarehousesRouteImport } from './routes/_app/products_.warehouses'
 import { Route as AppSettingsPaymentsRouteImport } from './routes/_app/settings_.payments'
+import { Route as AppOffersOfferIdEditRouteImport } from './routes/_app/offers_.$offerId_.edit'
 import { Route as AppProductsProductIdStoryRouteImport } from './routes/_app/products_.$productId_.story'
 
 const AppRoute = AppRouteImport.update({
@@ -171,6 +173,11 @@ const AppOffersOfferIdRoute = AppOffersOfferIdRouteImport.update({
   path: '/offers/$offerId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppOffersNewRoute = AppOffersNewRouteImport.update({
+  id: '/offers_/new',
+  path: '/offers/new',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppOrdersOrderIdRoute = AppOrdersOrderIdRouteImport.update({
   id: '/orders_/$orderId',
   path: '/orders/$orderId',
@@ -199,6 +206,11 @@ const AppProductsWarehousesRoute = AppProductsWarehousesRouteImport.update({
 const AppSettingsPaymentsRoute = AppSettingsPaymentsRouteImport.update({
   id: '/settings_/payments',
   path: '/settings/payments',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOffersOfferIdEditRoute = AppOffersOfferIdEditRouteImport.update({
+  id: '/offers_/$offerId_/edit',
+  path: '/offers/$offerId/edit',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProductsProductIdStoryRoute =
@@ -233,12 +245,14 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/offers/$offerId': typeof AppOffersOfferIdRoute
+  '/offers/new': typeof AppOffersNewRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/import': typeof AppProductsImportRoute
   '/products/size-charts': typeof AppProductsSizeChartsRoute
   '/products/warehouses': typeof AppProductsWarehousesRoute
   '/settings/payments': typeof AppSettingsPaymentsRoute
+  '/offers/$offerId/edit': typeof AppOffersOfferIdEditRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesByTo {
@@ -266,12 +280,14 @@ export interface FileRoutesByTo {
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/offers/$offerId': typeof AppOffersOfferIdRoute
+  '/offers/new': typeof AppOffersNewRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/import': typeof AppProductsImportRoute
   '/products/size-charts': typeof AppProductsSizeChartsRoute
   '/products/warehouses': typeof AppProductsWarehousesRoute
   '/settings/payments': typeof AppSettingsPaymentsRoute
+  '/offers/$offerId/edit': typeof AppOffersOfferIdEditRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesById {
@@ -302,12 +318,14 @@ export interface FileRoutesById {
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
   '/_app/offers_/$offerId': typeof AppOffersOfferIdRoute
+  '/_app/offers_/new': typeof AppOffersNewRoute
   '/_app/orders_/$orderId': typeof AppOrdersOrderIdRoute
   '/_app/products_/$productId': typeof AppProductsProductIdRoute
   '/_app/products_/import': typeof AppProductsImportRoute
   '/_app/products_/size-charts': typeof AppProductsSizeChartsRoute
   '/_app/products_/warehouses': typeof AppProductsWarehousesRoute
   '/_app/settings_/payments': typeof AppSettingsPaymentsRoute
+  '/_app/offers_/$offerId_/edit': typeof AppOffersOfferIdEditRoute
   '/_app/products_/$productId_/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRouteTypes {
@@ -337,12 +355,14 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/impersonate/enter'
     | '/offers/$offerId'
+    | '/offers/new'
     | '/orders/$orderId'
     | '/products/$productId'
     | '/products/import'
     | '/products/size-charts'
     | '/products/warehouses'
     | '/settings/payments'
+    | '/offers/$offerId/edit'
     | '/products/$productId/story'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -370,12 +390,14 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/impersonate/enter'
     | '/offers/$offerId'
+    | '/offers/new'
     | '/orders/$orderId'
     | '/products/$productId'
     | '/products/import'
     | '/products/size-charts'
     | '/products/warehouses'
     | '/settings/payments'
+    | '/offers/$offerId/edit'
     | '/products/$productId/story'
   id:
     | '__root__'
@@ -405,12 +427,14 @@ export interface FileRouteTypes {
     | '/impersonate/enter'
     | '/_app/'
     | '/_app/offers_/$offerId'
+    | '/_app/offers_/new'
     | '/_app/orders_/$orderId'
     | '/_app/products_/$productId'
     | '/_app/products_/import'
     | '/_app/products_/size-charts'
     | '/_app/products_/warehouses'
     | '/_app/settings_/payments'
+    | '/_app/offers_/$offerId_/edit'
     | '/_app/products_/$productId_/story'
   fileRoutesById: FileRoutesById
 }
@@ -605,6 +629,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOffersOfferIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/offers_/new': {
+      id: '/_app/offers_/new'
+      path: '/offers/new'
+      fullPath: '/offers/new'
+      preLoaderRoute: typeof AppOffersNewRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/orders_/$orderId': {
       id: '/_app/orders_/$orderId'
       path: '/orders/$orderId'
@@ -647,6 +678,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsPaymentsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/offers_/$offerId_/edit': {
+      id: '/_app/offers_/$offerId_/edit'
+      path: '/offers/$offerId/edit'
+      fullPath: '/offers/$offerId/edit'
+      preLoaderRoute: typeof AppOffersOfferIdEditRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/products_/$productId_/story': {
       id: '/_app/products_/$productId_/story'
       path: '/products/$productId/story'
@@ -674,12 +712,14 @@ interface AppRouteChildren {
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
   AppOffersOfferIdRoute: typeof AppOffersOfferIdRoute
+  AppOffersNewRoute: typeof AppOffersNewRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
   AppProductsImportRoute: typeof AppProductsImportRoute
   AppProductsSizeChartsRoute: typeof AppProductsSizeChartsRoute
   AppProductsWarehousesRoute: typeof AppProductsWarehousesRoute
   AppSettingsPaymentsRoute: typeof AppSettingsPaymentsRoute
+  AppOffersOfferIdEditRoute: typeof AppOffersOfferIdEditRoute
   AppProductsProductIdStoryRoute: typeof AppProductsProductIdStoryRoute
 }
 
@@ -700,12 +740,14 @@ const AppRouteChildren: AppRouteChildren = {
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
   AppOffersOfferIdRoute: AppOffersOfferIdRoute,
+  AppOffersNewRoute: AppOffersNewRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
   AppProductsProductIdRoute: AppProductsProductIdRoute,
   AppProductsImportRoute: AppProductsImportRoute,
   AppProductsSizeChartsRoute: AppProductsSizeChartsRoute,
   AppProductsWarehousesRoute: AppProductsWarehousesRoute,
   AppSettingsPaymentsRoute: AppSettingsPaymentsRoute,
+  AppOffersOfferIdEditRoute: AppOffersOfferIdEditRoute,
   AppProductsProductIdStoryRoute: AppProductsProductIdStoryRoute,
 }
 

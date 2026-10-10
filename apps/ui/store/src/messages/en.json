@@ -4331,7 +4331,9 @@
     },
     "firstTime": {
       "title": "No offers yet",
-      "body": "An offer takes money off, gives something free or makes {ship} free. It can apply by itself at checkout, or when a shopper types a code."
+      "body": "An offer takes money off, gives something free or makes {ship} free. It can apply by itself at checkout, or when a shopper types a code.",
+      "heading": "Give shoppers a reason to buy today",
+      "recipes": "Or start from a recipe"
     },
     "denied": {
       "title": "Page not found",
@@ -4381,11 +4383,13 @@
     "empty": {
       "live": {
         "title": "No live offers",
-        "body": "Nothing is being discounted right now. Turn on an offer from the Off tab."
+        "body": "Nothing is being discounted right now. Create one, or turn on an offer from the Off tab.",
+        "cta": "Create offer"
       },
       "scheduled": {
         "title": "No scheduled offers",
-        "body": "Plan your next sale ahead: set the dates now, and it starts by itself."
+        "body": "Plan your next sale ahead: set the dates now, and it starts by itself.",
+        "cta": "Plan one"
       },
       "off": {
         "title": "Nothing is switched off",
@@ -4408,6 +4412,7 @@
       "next": "Next"
     },
     "menu": {
+      "edit": "Edit",
       "results": "View results",
       "view": "View",
       "copy": "Copy code",
@@ -4418,6 +4423,7 @@
       "delete": "Delete"
     },
     "menuSub": {
+      "edit": "Change what shoppers get, dates and limits",
       "results": "Uses, discount given, sales",
       "view": "See how it works",
       "off": "Pause it without deleting anything",
@@ -4629,8 +4635,389 @@
         "repeatTimes": "The repeat must end after it starts.",
         "total": "Enter 1 or more, or choose Unlimited.",
         "perCustomer": "Uses per customer must be a whole number from 1 to {max}, or Unlimited."
+      },
+      "crumbNew": "New offer",
+      "loading": "Loading the offer",
+      "missing": "Offer not found",
+      "missingBody": "It may have been deleted.",
+      "leave": "Leave without saving? Your changes to this offer will be lost.",
+      "unnamed": "Unnamed",
+      "pickTitle": "What kind of offer?",
+      "pickLede": "Pick what you want to happen. You choose automatic or a code on the next screen.",
+      "examples": {
+        "products": "20% off the Summer collection",
+        "order": "10% off orders over a minimum",
+        "bxgy": "Buy 2 T-shirts, get 1 free",
+        "shipping": "Free {ship} over a minimum"
+      },
+      "recipesTitle": "Recipes",
+      "recipesLede": "Ready-made starting points. Everything stays editable.",
+      "recipes": {
+        "welcome": {
+          "title": "Welcome code",
+          "body": "10% off a shopper’s first order"
+        },
+        "freeShipping": {
+          "title": "Free {ship} over a minimum",
+          "body": "Set it just above your average order"
+        },
+        "seasonal": {
+          "title": "{season} sale",
+          "body": "20% off the whole order, the week before"
+        },
+        "sale": {
+          "title": "Seasonal sale",
+          "body": "20% off the whole order, on dates you choose"
+        },
+        "buy2get1": {
+          "title": "Buy 2, get 1 free",
+          "body": "On a product you choose"
+        },
+        "flash": {
+          "title": "Flash sale",
+          "body": "24 hours, 20% off everything with a filter value"
+        },
+        "vip": {
+          "title": "VIP 15% off",
+          "body": "For a customer group"
+        },
+        "winBack": {
+          "title": "Win back",
+          "body": "A code for one customer, used once"
+        }
+      },
+      "sections": {
+        "what": "What does the shopper get?",
+        "how": "How do they get it?",
+        "must": "What must they buy?",
+        "who": "Who is it for?",
+        "when": "When and how often?",
+        "others": "With other offers"
+      },
+      "kindLabel": "Kind of discount",
+      "percentage": "Percentage",
+      "fixed": "Fixed amount",
+      "percentLabel": "Percentage",
+      "amountLabel": "Amount",
+      "perItemNote": "Comes off each item: 2 of the same item get twice the amount off.",
+      "orderFixedNote": "Never makes an order go below zero: on an order smaller than the discount, the shopper pays nothing for the products.",
+      "multiPercentNote": "Percentages work in every currency you sell in.",
+      "otherCurrencies": "Amount in each currency you sell in",
+      "amountIn": "Amount in {currency}",
+      "otherCurrenciesHelp": "Empty boxes use today’s rate, rounded. Shoppers see the amount in the currency they pay in.",
+      "appliesTo": "Applies to",
+      "targets": {
+        "products": {
+          "title": "Specific products",
+          "sub": "Pick them one by one."
+        },
+        "filter": {
+          "title": "Products tagged…",
+          "sub": "Everything with a filter value, like Fabric: Linen. New matching products are included."
+        },
+        "collection": {
+          "title": "A collection",
+          "sub": "Everything in a collection, like Summer."
+        }
+      },
+      "remove": "Remove {name}",
+      "chooseProducts": "Choose products",
+      "change": "Change",
+      "versionsNote": "Every version of these products, including versions you add later.",
+      "filter": "Filter",
+      "tagged": "Tagged",
+      "chooseValue": "Choose a value",
+      "filterNote": "Products you tag {value} later are included automatically.",
+      "noFilters": "Your catalogue has no filters yet.",
+      "goFilters": "Catalogue › Filters",
+      "collection": "Collection",
+      "chooseCollection": "Choose a collection",
+      "collectionOption": "{name} · {count} products",
+      "collectionNote": "Products you add to the collection later are included automatically.",
+      "leaveOut": "Leave out",
+      "giftCards": "Gift cards",
+      "onSale": "Products already reduced",
+      "tiers": "Give more for bigger orders (steps)",
+      "tierOff": "Discount, step {n}",
+      "tierOver": "{unit} off orders over",
+      "tierMinimum": "Order total, step {n}",
+      "removeTier": "Remove step {n}",
+      "addTier": "Add a step",
+      "tiersNote": "The shopper gets the highest step they reach, not all of them.",
+      "cap": "Cap the discount at",
+      "capLabel": "Cap",
+      "buys": "Customer buys",
+      "buysHow": "Buys how many",
+      "of": "of",
+      "gets": "and gets",
+      "getsHow": "Gets how many",
+      "which": "Which items",
+      "same": "more of the same",
+      "other": "of other products",
+      "at": "at",
+      "atLabel": "Price of the item they get",
+      "free": "Free",
+      "half": "Half price",
+      "percentOff": "A percentage off",
+      "getPercentLabel": "Percentage off",
+      "bxgyNote": "Shoppers put the free item in their cart themselves; we show them “Add 1 more to get it free”. When several items qualify, the cheapest one is free.",
+      "oncePerOrder": "Once per order (otherwise buying {twice} gives {twiceFree} free)",
+      "shipModes": "Free or money off",
+      "shipFree": "Free {ship}",
+      "shipOff": "Money off {ship}",
+      "shipOffLabel": "Off the {ship} charge",
+      "shipNote": "Applies to every {ship} method.",
+      "how": {
+        "code": {
+          "title": "With a {code}",
+          "sub": "Shoppers type it at checkout, like SUMMER20."
+        },
+        "automatic": {
+          "title": "Automatic at checkout",
+          "sub": "Applies by itself when the order qualifies."
+        }
+      },
+      "codeLabel": "Code shoppers type",
+      "generate": "Generate one",
+      "codeHelp": "Letters and numbers. Shoppers can type it in any case.",
+      "codeOk": "✓ {code} looks good. Codes aren’t case-sensitive; we save them in capitals.",
+      "codeChanged": "Shoppers who already have {code} won’t be able to use it once you save.",
+      "singleUse": "Make many single-use codes instead",
+      "batchCount": "How many",
+      "batchPrefix": "Start with",
+      "batchLength": "Length after it",
+      "batchHelp": "Each code works once, for one shopper. Get them as a CSV on the offer’s page once they’re made.",
+      "singleUseNote": "This offer hands out single-use codes. Make more of them on its page.",
+      "automaticNote": "Applies by itself at checkout when the order qualifies. No code needed.",
+      "name": "Name shoppers see",
+      "nameHelp": "Shown in the cart, on receipts and invoices.",
+      "namePreview": "Preview:",
+      "nameWarn": "This sounds internal. Shoppers will see it — use the note below for your team.",
+      "note": "Note for your team",
+      "notePlaceholder": "Only you see this, e.g. “Instagram giveaway, Oct”",
+      "minimum": {
+        "none": {
+          "title": "No minimum",
+          "sub": "Any order qualifies."
+        },
+        "amount": {
+          "title": "Order total at least",
+          "sub": "Compared with the goods in the cart after product discounts."
+        },
+        "these": {
+          "title": "At least a number of these products",
+          "sub": "Counts only the products this offer applies to."
+        },
+        "items": {
+          "title": "At least a number of items in the cart",
+          "sub": "Counts every item in the cart."
+        }
+      },
+      "items": "items",
+      "and": {
+        "amount": "an order of {amount} or more",
+        "items": "{count}+ items",
+        "group": "a customer in the group",
+        "first": "a first order",
+        "customers": "one of the chosen customers",
+        "market": "a shopper in {market}",
+        "product": "a matching product in the cart"
+      },
+      "andLine": "Every condition must be met: {parts}. For “this or that”, make two offers.",
+      "who": {
+        "all": {
+          "title": "Everyone",
+          "sub": "Every shopper."
+        },
+        "groups": {
+          "title": "Customer groups",
+          "sub": "A list you choose, like VIP or Wholesale."
+        },
+        "first": {
+          "title": "First order only",
+          "sub": "Shoppers who haven’t ordered before. They sign in to use it, so we know."
+        },
+        "customers": {
+          "title": "Specific customers",
+          "sub": "Pick people by name or email."
+        },
+        "market": {
+          "title": "Shoppers in one market",
+          "sub": "Only orders shipping to that market’s countries."
+        }
+      },
+      "groupChip": "{name} · {count}",
+      "noGroups": "No groups yet. Create one here.",
+      "newGroupLabel": "New group name",
+      "newGroup": "New group, e.g. Wholesale",
+      "createGroup": "Create",
+      "groupCreated": "Group “{name}” created. Add people to it on the Customers screen.",
+      "anyGroup": "Customers in any of these groups get it.",
+      "goCustomers": "Add people to groups on the Customers screen →",
+      "findCustomer": "Find a customer by name or email",
+      "searchFailed": "We couldn’t search your customers. Try again.",
+      "customersNone": "No customer matches “{query}”.",
+      "market": "Market",
+      "chooseMarket": "Choose a market",
+      "timesIn": "Times in {zone}",
+      "quick": {
+        "weekend": "This weekend",
+        "week": "Next 7 days",
+        "month": "Until end of month"
+      },
+      "starts": "Starts",
+      "startsNow": "As soon as it’s turned on",
+      "onDate": "On a date",
+      "startAt": "Start date and time",
+      "ends": "Ends",
+      "noEnd": "No end date",
+      "endAt": "End date and time",
+      "endHelp": "Ends at {time}, {zone}. Midnight means the end of that day.",
+      "repeat": "Repeat every week",
+      "repeatSub": "like a Friday happy hour",
+      "from": "From",
+      "to": "to",
+      "toLabel": "Until",
+      "repeatNote": "{when}. The start and end dates above still apply.",
+      "total": "Total uses",
+      "unlimited": "Unlimited",
+      "limitTo": "Limit to",
+      "totalLabel": "Total uses",
+      "totalStops": "Stops after {count} uses across your whole store.",
+      "totalHelp": "Across your whole store.",
+      "perCustomer": "Uses per customer",
+      "once": "Once",
+      "twice": "Twice",
+      "three": "3 times",
+      "perCustomerHelp": "Shoppers sign in to use it, so we know who has used it.",
+      "combinesTitle": "Combines with",
+      "combinesHelp": "Tick a kind to let this offer apply in the same cart as offers of that kind. Both offers must allow it. A new offer combines with nothing.",
+      "combines": {
+        "product": "Product discounts",
+        "order": "Order discounts",
+        "shipping": "Free {ship}"
+      },
+      "summary": "Summary",
+      "showDetails": "Show details",
+      "hideDetails": "Hide details",
+      "loud": {
+        "products": "This gives {value} off these products to every shopper, starting now.",
+        "order": "This gives {value} off every order on your store, starting now.",
+        "bxgy": "Every shopper who buys {buy} gets {get} more for less, starting now.",
+        "shipping": "This makes {ship} free on every order, starting now.",
+        "shippingOff": "This takes {amount} off {ship} on every order, starting now."
+      },
+      "warns": {
+        "big": "{percent}% is a big discount. Double-check it isn’t meant to be {tenth}%.",
+        "noMinimum": "{amount} off with no minimum means a {amount} product is free. Add a minimum order total.",
+        "openCode": "No end date, unlimited uses and no per-customer limit: if this code is shared online, anyone can use it forever."
+      },
+      "will": {
+        "scheduled": "Starts {date}",
+        "live": "Live as soon as you save and start it"
+      },
+      "bar": {
+        "live": "Live now:",
+        "liveBody": "changes apply to shoppers as soon as you save. Carts in progress update next time they change.",
+        "dirty": "Unsaved changes.",
+        "new": "New offer.",
+        "newBody": "Nothing reaches shoppers until you save.",
+        "clean": "No changes."
+      },
+      "cancel": "Cancel",
+      "saveOff": "Save as Off",
+      "save": "Save",
+      "schedule": "Schedule",
+      "saveChanges": "Save changes",
+      "saving": "Saving…",
+      "errorsTitle": {
+        "one": "Fix one thing to save:",
+        "other": "Fix {count} things to save:"
+      },
+      "ask": {
+        "title": "Start now?",
+        "titleSchedule": "Schedule it?",
+        "label": "When it starts",
+        "now": "Start now: shoppers get it straight away",
+        "schedule": "Schedule: it starts by itself {date}",
+        "scheduleNeedsDate": "Schedule: set a start date first",
+        "off": "Keep off: turn it on later from Offers",
+        "needsDate": "Set a start date under “When and how often?” first.",
+        "confirm": "Save"
+      },
+      "live": {
+        "title": "Save changes to a live offer?",
+        "body": "Shoppers get the new version straight away. Carts in progress update the next time they change; placed orders don’t change.",
+        "oldCode": "The old code {code} stops working.",
+        "confirm": "Save changes"
+      },
+      "done": {
+        "codeLive": "Your code {code} is live",
+        "codeLiveBody": "Shoppers can use it at checkout now. Share it wherever your customers are.",
+        "live": "Saved",
+        "liveBody": "It’s live: qualifying carts get it at checkout.",
+        "scheduled": "Scheduled",
+        "scheduledBody": "It starts by itself {date} ({zone}). You can change anything until then.",
+        "off": "Saved as Off",
+        "offBody": "Shoppers don’t get it yet. Turn it on from Offers when you’re ready.",
+        "codesMade": {
+          "one": "{count} single-use code is made.",
+          "other": "{count} single-use codes are made."
+        },
+        "codesFailed": "The single-use codes weren’t made: {reason} Make them on the offer’s page.",
+        "see": "See offer",
+        "stay": "Stay here"
+      },
+      "saved": "Saved.",
+      "savedLive": "Saved. Shoppers get the new version now.",
+      "codeTaken": {
+        "deleted": "{code} belonged to a deleted offer ({name}). Deleted offers keep their codes; pick another.",
+        "ended": "{code} was used by “{name}”, which has ended. Codes can’t be reused, even after an offer ends.",
+        "other": "{code} is already used by “{name}” ({status})."
+      },
+      "stale": {
+        "title": "Someone changed this offer since you opened it.",
+        "body": "Saving now would replace their change.",
+        "load": "Load their version",
+        "keep": "Keep mine"
+      },
+      "ended": {
+        "title": "This offer has ended.",
+        "body": "Its end date has passed. Move the end date to run it again.",
+        "extend": "Extend 7 days"
+      },
+      "kept": {
+        "title": "Your unsaved changes are back.",
+        "body": "We kept them on this device when you left.",
+        "discard": "Discard them"
+      },
+      "readOnly": {
+        "title": "Your store is view-only.",
+        "body": "Offers can’t be changed until billing is sorted."
+      },
+      "staff": {
+        "title": "You can’t edit offers",
+        "body": "Staff can see offers but only the owner or a manager can create or change them.",
+        "back": "Back to offers"
+      },
+      "picker": {
+        "title": "Choose products",
+        "search": "Search products",
+        "searching": "Searching…",
+        "failed": "We couldn’t search your products. Try again.",
+        "none": "No product matches “{query}”.",
+        "versions": {
+          "one": "{count} version",
+          "other": "{count} versions"
+        },
+        "done": {
+          "one": "Done · {count} chosen",
+          "other": "Done · {count} chosen"
+        }
       }
-    }
+    },
+    "create": "Create offer",
+    "createPlus": "+ Create offer"
   },
   "sales": {
     "title": "Your sales",

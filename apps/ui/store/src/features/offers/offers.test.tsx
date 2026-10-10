@@ -71,7 +71,9 @@ const show = async (acting: Acting, { readOnly = false, entry = '/offers' } = {}
   const list = createRoute({ getParentRoute: () => app, path: '/offers', validateSearch: z.looseObject({ status: z.enum(['live', 'scheduled', 'off', 'ended']).optional() }), component: OffersPage })
   const one = createRoute({ getParentRoute: () => app, path: '/offers/$offerId', component: OfferPage })
   const billing = createRoute({ getParentRoute: () => app, path: '/billing', component: () => null })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, one, billing])]), history: createMemoryHistory({ initialEntries: [entry] }) })
+  const create = createRoute({ getParentRoute: () => app, path: '/offers/new', validateSearch: z.looseObject({}), component: () => null })
+  const edit = createRoute({ getParentRoute: () => app, path: '/offers/$offerId/edit', component: () => null })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, one, billing, create, edit])]), history: createMemoryHistory({ initialEntries: [entry] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -269,8 +271,14 @@ describe('the Offers list', () => {
     api.loadOfferCounts.mockResolvedValue({ live: 0, scheduled: 0, off: 0, ended: 0 })
     api.loadOffers.mockResolvedValue(page([]))
     await show(owner)
-    expect(screen.getByText(words.firstTime.title)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: words.firstTime.heading })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Buy X, get Y/ }).getAttribute('href')).toBe('/offers/new?type=bxgy')
+    expect(screen.getByRole('link', { name: /Welcome code/ }).getAttribute('href')).toBe('/offers/new?recipe=welcome')
     expect(screen.queryByRole('tablist')).toBeNull()
+    cleanup()
+    await show(staff)
+    expect(screen.getByText(words.firstTime.title)).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /Welcome code/ })).toBeNull()
   })
 
   it('says when no offer matches and clears the filters', async () => {

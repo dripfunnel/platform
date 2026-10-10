@@ -384,6 +384,22 @@ Decided here: a fixed amount and a minimum have one box per currency the store s
 today's reference rate (#337), while a tier's and a cap's amounts are typed in the main currency only and converted the
 same way for the others.
 
+**Built on #325, part 4** (`/offers/new`, `?type=` or `?recipe=` skipping the picker, and `/offers/$offerId/edit`): the
+editor. "What kind of offer?" with the four kinds and the recipes; then one page of numbered sections in §1's order (what
+the shopper gets, how they get it with the name shoppers see and the team's note, what they must buy, who it's for, when
+and how often in the store's time zone with quick picks, and what it combines with), the summary sentence beside it with
+"every order, starting now" said out loud, the status it will have and the calm warnings, and a sticky save bar ("Live
+now" on a live offer). Save on a new offer asks **Start now / Schedule / Keep off** (Schedule only with a start ahead);
+a live offer's change is confirmed, naming a code that stops working; a taken code is said by the code box, by its
+holder's state (H2); someone else's save first offers "Load their version" or "Keep mine"; unsaved work is kept for the
+tab's session and offered back. Single-use codes are made right after the first save. The list gains Create offer (a
+button, and on a phone a floating one), the first-time panel with the four kinds and three recipes, and Edit on each row
+and offer. Decided here: the prototype's "What shoppers see" tab (test cart, storefront, code errors, receipt), its
+worked price examples and its stacking check need the API's dry-run pricing and an overlap answer (facts 7, 20), so they
+are follow-ups; "only the best discount", "one code per order", keeping an old code working, an automatic free gift, a
+fixed price for the item they get, shipping methods and names per language have no API yet and aren't drawn (§7: no dead
+controls). The storefront countdown (#337) has no API field either: an open question on #325.
+
 ## 9. Abandoned carts (`Carts`)
 
 Carts tab: checkouts left, reminders sent, recovered and recovered sales for the last 14 days, and
@@ -1194,6 +1210,8 @@ and bearer tokens included); the rows name the cases easiest to miss.
   the preview (decided 2026-10-05 on #337).
 - ~~Apps: embedded pages or links only, and a public marketplace or private apps first
   (PLATFORM-PROMPT §10) — SUI 1 draws the first answer.~~ Private apps, as links (decided 2026-10-05 on #337).
+- **The storefront countdown per offer** (#325): decided optional per offer (#337), but the Offer API has no field for it,
+  so the editor draws no switch. It needs the field on `OfferInput` and `Offer`, and the Shop API giving it to the storefront.
 - **Cash on delivery through a courier's label** (#311): labels are booked prepaid for now, since the courier would remit
   the cash it collects to the partner's own account, and nothing settles it on to the store. Collect through the label, and
   how the partner pays it on?

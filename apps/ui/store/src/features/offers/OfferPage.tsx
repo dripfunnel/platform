@@ -160,6 +160,9 @@ export const OfferPage = () => {
         </div>
         {acts.length > 0 && (
           <div className="df-offer-acts">
+            <Link className="df-button df-button--primary" to="/offers/$offerId/edit" params={{ offerId: offer.id }} search={(prev) => harnessSearch(prev)}>
+              {words.menu.edit}
+            </Link>
             {acts.map((act) => (
               <button key={act} type="button" className={act === 'delete' ? 'df-button df-offer-delete' : 'df-button'} disabled={actions.busy} onClick={() => {
                   setFailure(null)
