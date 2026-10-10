@@ -154,6 +154,14 @@ describe('money in other currencies', () => {
     expect(inputOf(drawn, india, true).conditions).toEqual([{ operation: 'contains_products', minimum: 2, productIds: ['p9'] }])
   })
 
+  it('keeps the collections and filter values a buy X get Y names, which the form doesn’t draw', () => {
+    const t = (x: Partial<OfferAction['targets'] & object>) => ({ productIds: [], collectionIds: [], filterValueIds: [], ...x })
+    const bxgy: Offer = { ...base, action: action({ operation: 'buy_x_get_y', percent: 100, buy: { quantity: 2, targets: t({ productIds: ['p1'], collectionIds: ['c1'] }) }, get: { quantity: 1, targets: t({ filterValueIds: ['fv1'] }) } }) }
+    const d = draftOf(bxgy, india)
+    expect(errorsOf(d, india)).toEqual({})
+    expect(inputOf(d, india, true).action).toEqual({ operation: 'buy_x_get_y', buy: { quantity: 2, targets: { productIds: ['p1'], collectionIds: ['c1'], filterValueIds: undefined } }, get: { quantity: 1, targets: { productIds: undefined, collectionIds: undefined, filterValueIds: ['fv1'] } }, percent: 100, oncePerOrder: false })
+  })
+
   it('sends an offer’s description back as it came', () => {
     expect(inputOf(draftOf({ ...base, description: 'Thanks for coming back' }, india), india, true).description).toBe('Thanks for coming back')
     expect(inputOf(blankDraft('order', null, ctx(india)), india, true).description).toBeNull()

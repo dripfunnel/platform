@@ -7,6 +7,7 @@ import { loadOffer, loadOfferNames, loadOfferPlace, type Offer } from '../../api
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatList, messages } from '../../messages'
 import { CodeBatches } from './CodeBatches'
+import { flash, takeFlash } from './flash'
 import { actsFor, useOfferActions } from './offerActions'
 import { offerAccessOf } from './offerAccess'
 import { OfferResults } from './OfferResults'
@@ -66,6 +67,11 @@ export const OfferPage = () => {
   const [failure, setFailure] = useState<string | null>(null)
   const latest = useRef(0)
 
+  useEffect(() => {
+    const message = takeFlash()
+    if (message) setToast(message)
+  }, [offerId])
+
   const load = useCallback(() => {
     const mine = ++latest.current
     if (forced === 'loading') return setView({ kind: 'loading' })
@@ -75,6 +81,8 @@ export const OfferPage = () => {
       return setView(found ? { kind: 'ready', offer: found } : { kind: 'missing' })
     }
     if (!access.canRead) return
+    // Another offer (a Duplicate's copy) never shows under this one's address, nor takes its actions, while it loads.
+    setView((current) => (current.kind === 'ready' && current.offer.id === offerId ? current : { kind: 'loading' }))
     void loadOffer(offerId).then(
       (offer) => mine === latest.current && setView(offer ? { kind: 'ready', offer } : { kind: 'missing' }),
       () => mine === latest.current && setView({ kind: 'error' }),
@@ -98,7 +106,8 @@ export const OfferPage = () => {
     timeZone: place.timeZone,
     now: () => new Date(),
     onDone: (message, done) => {
-      setToast(message)
+      if (done.kind === 'deleted' || done.kind === 'duplicated') flash(message)
+      else setToast(message)
       if (done.kind === 'deleted') return void navigate({ to: '/offers', search: (prev) => harnessSearch(prev) })
       if (done.kind === 'duplicated') return void navigate({ to: '/offers/$offerId', params: { offerId: done.id }, search: (prev) => harnessSearch(prev) })
       load()
