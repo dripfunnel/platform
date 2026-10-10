@@ -1,6 +1,7 @@
 import type { StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
 import type { AbandonedCart, CartDetail, CartStatus } from '../../api/carts'
 import { fill, formatCount, locale, messages, plural } from '../../messages'
+import { saysShipping } from '../common/region'
 
 // How Abandoned carts words a cart (designs/Carts.dc.html, FIRST-RELEASE §9): its reminder status and line, where the
 // shopper left, how long ago, and what happened to it. The API decides every status; this puts it into words.
@@ -54,7 +55,7 @@ export const agoText = (iso: string, now: Date): string => {
 
 /** Where the shopper left checkout, in the region's words ("Shipping" in the US, "Delivery" elsewhere). */
 export const stepText = (step: string | null, country: string | null): string =>
-  step === 'pay' ? words.step.pay : step === 'ship' ? (country === 'US' || country === 'CA' ? words.step.shipping : words.step.delivery) : words.step.contact
+  step === 'pay' ? words.step.pay : step === 'ship' ? (saysShipping(country) ? words.step.shipping : words.step.delivery) : words.step.contact
 
 export const skipText = (reason: string | null): string => (reason && reason in words.skip ? words.skip[reason as keyof typeof words.skip] : words.skip.other)
 

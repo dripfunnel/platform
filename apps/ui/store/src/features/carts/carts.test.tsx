@@ -7,7 +7,7 @@ import { z } from 'zod'
 import type { AbandonedCart, CartDetail, CartPage as Page } from '../../api/carts'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
-import { eventsOf, itemsText, statusLine } from './cartView'
+import { eventsOf, itemsText, statusLine, stepText } from './cartView'
 
 // Abandoned carts driven as the Owner, a Manager, Staff and a supplier would (FIRST-RELEASE §9): the tiles and tabs,
 // search and pages, each cart's actions and their refusals, and one cart's page.
@@ -91,6 +91,7 @@ describe('how a cart is worded', () => {
     expect(statusLine(vikram, now, 'merchant')).toBe(words.line.yourself)
     expect(statusLine({ ...vikram, status: 'not_recovered', remindersSent: 3 }, now, 'schedule')).toBe('3 reminders sent')
     expect(itemsText(meera)).toBe('Silk stole + 2 more')
+    expect([stepText('ship', 'US'), stepText('ship', 'IN'), stepText('pay', 'US')]).toEqual([words.step.shipping, words.step.delivery, words.step.pay])
     const detail: CartDetail = {
       cart: { ...rohan, stoppedAt: null },
       lines: [],

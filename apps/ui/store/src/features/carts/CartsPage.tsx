@@ -311,7 +311,7 @@ export const CartsPage = () => {
                       {cart.name ?? words.guest}
                     </Link>
                     <span className="df-carts-sub">{itemsText(cart)}</span>
-                    <span className="df-carts-sub">{[stepText(cart.step, place.country), agoText(cart.abandonedAt, now), statusLine(cart, now, sender)].join(messages.offers.joiner)}</span>
+                    <span className="df-carts-sub">{[stepText(cart.step, place.country), agoText(cart.abandonedAt, now), statusLine(cart, now, sender)].join(words.joiner)}</span>
                     {menu(cart)}
                   </li>
                 ))}

@@ -4976,7 +4976,8 @@
       "codeTaken": {
         "deleted": "{code} belonged to a deleted offer ({name}). Deleted offers keep their codes; pick another.",
         "ended": "{code} was used by “{name}”, which has ended. Codes can’t be reused, even after an offer ends.",
-        "other": "{code} is already used by “{name}” ({status})."
+        "other": "{code} is already used by “{name}” ({status}).",
+        "unknown": "{code} is already used by “{name}”. Pick another."
       },
       "stale": {
         "title": "Someone changed this offer since you opened it.",
@@ -5364,7 +5365,9 @@
       "email": "Email",
       "phone": "Phone",
       "notGiven": "Not given",
-      "sent": "Reminders sent"
+      "sent": "Reminders sent",
+      "shipping": "shipping",
+      "delivery": "delivery"
     },
     "events": {
       "left": "Left checkout at {step}",
@@ -5492,6 +5495,7 @@
       "testSent": "Test sent to {email} — check spam if it isn’t there in a minute.",
       "testTooMany": "Too many tests. Wait a minute and try again.",
       "testSaveFirst": "Save first: a test sends the saved reminder."
-    }
+    },
+    "joiner": " · "
   }
 }
