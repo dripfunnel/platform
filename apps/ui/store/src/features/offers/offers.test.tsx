@@ -284,6 +284,15 @@ describe('the Offers list', () => {
     expect(within(row('Welcome 10% off')).queryByRole('button', { name: /^(Turn off|End now|Duplicate|Delete)/ })).toBeNull()
   })
 
+  it('shows no Actions menu where a row has nothing to offer: Staff on an automatic offer', async () => {
+    api.loadOffers.mockResolvedValue(page([{ ...welcome, id: 'o5', name: 'Free delivery', trigger: 'automatic', code: null }]))
+    await show(staff)
+    expect(within(row('Free delivery')).queryByRole('button', { name: /Actions/ })).toBeNull()
+    cleanup()
+    await show(owner, { readOnly: true })
+    expect(within(row('Free delivery')).queryByRole('button', { name: /Actions/ })).toBeNull()
+  })
+
   it('changes nothing while the store is view-only, and says so', async () => {
     await show(owner, { readOnly: true })
     expect(screen.getByText(words.notes.readOnly)).toBeTruthy()
