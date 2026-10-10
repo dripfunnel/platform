@@ -223,6 +223,17 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', perCustomer: '' }, india)).toEqual({})
   })
 
+  it('won’t leave a currency without an amount when there’s no rate to convert it', () => {
+    const noEur: StoreFacts = { ...multi, perEuro: { USD: 1.1, JPY: 160 } }
+    const order = { ...blankDraft('order', null, ctx(noEur)), code: 'OK1' }
+    const noRate = 'There’s no exchange rate for EUR today, so it can’t be converted: type the amount in each of them.'
+    expect(errorsOf({ ...order, kind: 'fixed', amounts: { USD: '10' } }, noEur)).toEqual({ value: noRate })
+    expect(errorsOf({ ...order, kind: 'fixed', amounts: { USD: '10', EUR: '9' } }, noEur)).toEqual({})
+    expect(errorsOf({ ...order, minimum: 'amount', minAmounts: { USD: '50' } }, noEur)).toEqual({ minimum: noRate })
+    expect(errorsOf({ ...order, capOn: true, cap: '30' }, noEur)).toEqual({ cap: noRate })
+    expect(errorsOf({ ...order, tiers: [{ off: '10', minimum: '50' }, { off: '15', minimum: '100' }] }, noEur)).toEqual({ tiers: noRate })
+  })
+
   it('checks every kind of offer’s own fields, and every currency’s box', () => {
     const order = { ...blankDraft('order', null, ctx(multi)), code: 'OK1' }
     expect(errorsOf({ ...order, kind: 'fixed', amounts: {} }, multi)).toEqual({ value: words.amount })
