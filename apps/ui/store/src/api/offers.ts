@@ -182,6 +182,8 @@ export const deleteOffer = async (id: string): Promise<void> => {
 
 /** The API's limits on one run of single-use codes (src/engine/modules/promotions/service.ts). */
 export const codeBatchLimits = { count: 5000, prefix: 12 } as const
+/** A run's prefix as generateCodes takes it, upper-cased: empty, or a letter or digit then letters, digits, - or _. */
+export const codePrefixPattern = new RegExp(`^([A-Z0-9][A-Z0-9_-]{0,${codeBatchLimits.prefix - 1}})?$`)
 /** The lengths offered after a run's prefix, within the API's 6–16 (the editor's and the page's one list). */
 export const codeLengths = [6, 8, 10] as const
 
