@@ -1,0 +1,8 @@
+.card {
+  padding: 16px;
+}
+
+.list {
+  gap: 8px;
+  div { color: red; }
+}

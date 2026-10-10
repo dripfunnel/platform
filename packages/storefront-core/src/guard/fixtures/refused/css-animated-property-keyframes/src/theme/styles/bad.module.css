@@ -1,0 +1,9 @@
+.card {
+  padding: 16px;
+}
+
+@keyframes pulse {
+  from {
+    height: 0;
+  }
+}

@@ -1,0 +1,7 @@
+.card {
+  padding: 16px;
+}
+
+.grow {
+  transition: var(--what) 1s;
+}

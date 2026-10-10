@@ -1,0 +1,5 @@
+{
+  "rule": "code/prototype-access",
+  "file": "src/theme/components/Bad.tsx",
+  "line": 5
+}

@@ -30,7 +30,7 @@ const noApiImports = (depth) => ({
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/.next/**', '**/.wrangler/**', '**/.turbo/**', '**/*.gen.ts', '**/next-env.d.ts', 'templates/**'],
+    ignores: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/.next/**', '**/.wrangler/**', '**/.turbo/**', '**/*.gen.ts', '**/next-env.d.ts', 'templates/**', 'packages/storefront-core/src/guard/fixtures/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.strict,

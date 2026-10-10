@@ -1,0 +1,68 @@
+{
+  "home": {
+    "title": "Made slowly, worn for years",
+    "lead": "The sale closes in 02:14:59.",
+    "more": "Read our story",
+    "story": "Every piece is cut and sewn in small batches by people we know."
+  },
+  "collection": {
+    "title": "The collection",
+    "lead": "Every piece in this group, in the order you choose."
+  },
+  "product": {
+    "title": "About this piece",
+    "lead": "How it is made and how to care for it."
+  },
+  "search": {
+    "title": "Search",
+    "lead": "Find a piece by name, colour or fabric."
+  },
+  "cart": {
+    "title": "Your bag",
+    "lead": "Review what you picked before you check out."
+  },
+  "checkout": {
+    "title": "Checkout",
+    "lead": "A few details and your order is on its way."
+  },
+  "confirmation": {
+    "title": "Thank you",
+    "lead": "We have your order and will write when it ships."
+  },
+  "access": {
+    "title": "Your account",
+    "lead": "Sign in or create an account to follow your orders."
+  },
+  "account": {
+    "title": "Your account",
+    "lead": "Your details, addresses and orders in one place."
+  },
+  "policy": {
+    "title": "Our policies",
+    "lead": "The terms that apply when you shop with us."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "lead": "The page you asked for has moved or never existed."
+  },
+  "degraded": {
+    "title": "We are taking a short break",
+    "lead": "The shop is closed for now. Please come back soon."
+  },
+  "content": {
+    "title": "From the shop",
+    "lead": "Notes and guides written by the people who run this shop."
+  },
+  "blog": {
+    "title": "Journal",
+    "lead": "Stories about how our pieces are made."
+  },
+  "blogPost": {
+    "title": "From the journal",
+    "lead": "A story about how our pieces are made."
+  },
+  "about": {
+    "title": "Our story",
+    "lead": "We started with one loom and a love of natural fabric."
+  }
+}

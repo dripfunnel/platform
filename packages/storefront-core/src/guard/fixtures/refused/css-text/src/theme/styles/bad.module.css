@@ -1,0 +1,7 @@
+.card {
+  padding: 16px;
+}
+
+.badge::after {
+  content: 'Only 3 left';
+}

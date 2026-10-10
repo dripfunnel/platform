@@ -18,12 +18,12 @@ reference"** below means the first platform's storefront template (a Next.js com
 as customised by us, now removed from the workspace); §11 records what was taken from it.
 
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
-i18n, money, the first required components, SEO and the route contract (#304); everything
-else below is to build.
+i18n, money, the first required components, SEO and the route contract (#304), and the
+validator, `./guard` (#480); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built).
 
 ---
 
@@ -222,12 +222,19 @@ could at worst *display* something wrong, never *charge* it.
 ### 3.4 The validator (`./guard`)
 
 Run on every change, before the change becomes the draft (§6.2), and again on the whole theme
-at publish. It is an **allowlist**: what isn't listed is refused.
+at publish. It is an **allowlist**: what isn't listed is refused. `validateChange(files, context)`
+takes the whole theme as it would be after the change, plus any other path the change writes, and
+the store's languages, content and post paths and brand fields from the platform, so it needs no
+network. Each problem names the file, the line, a rule id and a plain-words message for the repair
+loop (#480).
 
 **Files.** The AI may write only `src/theme/pages/**/*.tsx`, `src/theme/components/**/*.tsx`,
 `src/theme/styles/**/*.module.css`, `content/{locale}/*.json` and `routes.json`. Any other
 path, file type, symlink, or a file over its size cap refuses the **whole change**, never a
-trimmed one. Caps on file count, file size and total theme size.
+trimmed one. Caps on file count, file size and total theme size: 200 files, 100 KB a file and
+2 MB in all *(proposed on #480; change them on review)*. Names are plain ASCII, so no `..`, case
+fold or look-alike letter reaches another file, and two paths a case-insensitive disk would fold
+together are refused.
 
 **Code** (type-aware, using the TypeScript checker):
 - **Imports** only from `react`, `@dripfunnel/storefront-core/theme` (core's public theme
@@ -253,16 +260,72 @@ trimmed one. Caps on file count, file size and total theme size.
   (shop name, tagline, contact) appears only through `useStorefront()`, never as a literal.
 - `'use client'` only in `src/theme/components/interactive/`.
 
-**CSS**: CSS Modules only; every selector starts with a module class; no `:global`, no
+As built on #480 *(decided there, the stricter reading where the list above is silent)*:
+- **Imports**: only named imports from `react`'s hooks, `Fragment`, `Suspense`, `memo`,
+  `forwardRef` and `createContext`, so not `createElement`, `lazy` or a namespace or default import,
+  and not `react/jsx-runtime`. From `motion`, only its components and hooks that act on their own
+  element: not `animate`, `useAnimate` or `useScroll`. No import attributes, side-effect imports or
+  `import defer`. `./theme` is core's theme entry: `useStorefront` and the required components
+  today, with the hooks of §2.1 joining it as they are built.
+- **Globals**: only the language's own `Array`, `Boolean`, `Error`, `Map`, `Number`, `Promise`,
+  `Set`, `String`, `JSON` (`parse`, `stringify`), `Object` (`entries`, `freeze`, `fromEntries`,
+  `hasOwn`, `keys`, `values`), `Math` (every member but `random`) and the timers
+  given a function. `Date`, `Intl` and `Math.random` are refused, so a theme can't sniff its
+  environment or build differently twice (LIVE-SHOP §4 step 3). The browser's names are refused
+  however they're reached: `e.view.document`, an `export { window }`, or any value typed as the
+  window, the document, `location`, `navigator` or storage.
+- **The DOM**: on an element, only `style`, `classList`, focus, measuring, scrolling and event
+  listeners. On its `style`, only `transform`, `opacity`, `filter`, the `translate`, `scale` and
+  `rotate` shorthands, and custom properties (a written `'--name'`) through `setProperty` and
+  `removeProperty`. Theme code never writes `any` or `unknown` and types every parameter, since an
+  element typed `any` would escape these checks. An element (an event's target included) is never cast or handed to a type that
+  isn't an element, the walking names are refused on any value, and a computed key must be written
+  out or typed as a list of names.
+- **JSX**: elements from an allowlist of layout, text, table and SVG shape elements, and attributes
+  from an allowlist on each. No `style` attribute (motion's own `style` only with transform and
+  opacity), no spread on an element, no `popover` or `<dialog>` (the top layer belongs to core's
+  banners), buttons only `type="button"`, and no `df-` class or id or `data-df-*` attribute. motion's
+  `animate`, `initial`, `exit`, `while*`, `variants` and `style` may name only transform, opacity
+  and filter.
+- **Text**: JSX text with a letter, digit or symbol; literals reaching a rendered place through
+  variables, lists, lookups and the theme's own functions; numbers rendered as written; values
+  given to `t()`; a text attribute (`alt`, `title`, `aria-label` and the rest) written out; and a
+  string prop of the theme's own components that isn't declared as a choice (`'warm' | 'cool'`).
+  Words in any string anywhere in the code, any address (`https:`, `//`, `javascript:`, `url(`)
+  and any copied brand field are refused too.
+- **`t()`**: `t('file.key')` reads `content/{language}/file.json`. Its key is written out, `t`
+  isn't passed on as another type, and every key exists in every language the store offers.
+- No `declare`, `namespace`, `import =`, `export =` or `/// <reference>`.
+
+**CSS**: CSS Modules only; every selector starts with a module class, and a `+` or `~` leads only to another
+module class; no `*`, `html` or `body` anywhere (inside `:is()` and `:not()` too); no `:global`, no
 `@import`, no `@font-face`; `url()` only for the store's media ids; no selector naming a core
 class or a `df-` element; `z-index` below core's layer; animation only of `transform`,
-`opacity` and `filter`.
+`opacity` and `filter`. As built on #480 *(decided there)*: `url()` names a media id from the
+store's `mediaIds`, exactly; the z-index cap is 99 (`maxThemeZIndex`, *proposed*); only `@media`,
+`@supports`, `@container` and `@keyframes`; pseudo-classes and pseudo-elements from an allowlist
+(`::part` among them, for sealed components), and functions from an allowlist (no `attr()`,
+`image()` or `src()`); names are read with their escapes decoded, so `:\67lobal` is `:global`;
+nested rules are refused, so every selector is written out and checked; a transition names its
+properties in the same rule (a bare `transition: 0.3s`, or `initial`, `unset` and the other CSS-wide keywords, animate everything; a `transition-duration` is judged with the rule it sits in, not the cascade, so it needs its `transition-property` beside it); `content` and the other text
+properties hold no words and no `var()` that could carry them; `composes` names only the module's own classes.
 
 **Content**: every key the theme's `t()` calls exists in **every language the store offers**
 (the AI writes them all, decided 2026-10-08 on #470; the merchant can correct any); no pattern
-of a price, a scarcity or urgency claim, a rating or a countdown.
+of a price, a scarcity or urgency claim, a rating or a countdown. Each file is strict JSON: an
+object of words grouped at most four deep, no key written twice and none of `__proto__`,
+`constructor` or `prototype`; a file or key one language has, every language has, and none is
+empty. The scan reads text as a shopper would (look-alike letters, accents and invisible
+characters folded away) in English and Hindi, with digits in any script, and also refuses words
+that copy a brand field (a one-word shop name under six letters excepted, so a shop called "Home"
+can still say "Home") *(decided on #480)*.
 
-**Routes**: §3.1's rules.
+**Routes**: §3.1's rules. `routes.json` is core's `themeRoutesSchema` (#480): `routes` names
+the page under `src/theme/pages` for each core route, and `custom` names one for each of the theme's own paths, at most 50, in lower-case
+words joined by hyphens and at most three levels deep. A custom path may not start with a segment
+core uses (`reservedPathSegments`: `products`, `cart`, `account`, `blog`, …) or one of the store's
+language codes, and no word of it may be cart, checkout, pay or price, nor its page the cart's,
+checkout's or confirmation's *(decided on #480)*.
 
 ### 3.5 Sealed components and the runtime walls
 

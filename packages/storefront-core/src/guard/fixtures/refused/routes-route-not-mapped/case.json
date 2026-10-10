@@ -1,0 +1,5 @@
+{
+  "rule": "routes/route-not-mapped",
+  "file": "routes.json",
+  "line": 2
+}
