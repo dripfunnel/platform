@@ -1,0 +1,6 @@
+on: push
+jobs:
+  leak:
+    runs-on: ubuntu-latest
+    steps:
+      - run: env

@@ -19,6 +19,9 @@ export const coreRoutes = [
   'policy',
   'notFound',
   'degraded',
+  'contentPage',
+  'blog',
+  'blogPost',
 ] as const
 
 export type CoreRoute = (typeof coreRoutes)[number]

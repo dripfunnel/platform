@@ -18,12 +18,12 @@ reference"** below means the first platform's storefront template (a Next.js com
 as customised by us, now removed from the workspace); §11 records what was taken from it.
 
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
-i18n, money, the first required components, SEO and the route contract (#304); everything
-else below is to build.
+i18n, money, the first required components, SEO and the route contract (#304), and the
+validator's file, content and routes rules (#480); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built).
 
 ---
 
@@ -222,12 +222,19 @@ could at worst *display* something wrong, never *charge* it.
 ### 3.4 The validator (`./guard`)
 
 Run on every change, before the change becomes the draft (§6.2), and again on the whole theme
-at publish. It is an **allowlist**: what isn't listed is refused.
+at publish. It is an **allowlist**: what isn't listed is refused. `validateChange(files, context)`
+takes the whole theme as it would be after the change, plus any other path the change writes, and
+the store's languages, content and post paths and brand fields from the platform, so it needs no
+network. Each problem names the file, the line, a rule id and a plain-words message for the repair
+loop (#480).
 
 **Files.** The AI may write only `src/theme/pages/**/*.tsx`, `src/theme/components/**/*.tsx`,
 `src/theme/styles/**/*.module.css`, `content/{locale}/*.json` and `routes.json`. Any other
 path, file type, symlink, or a file over its size cap refuses the **whole change**, never a
-trimmed one. Caps on file count, file size and total theme size.
+trimmed one. Caps on file count, file size and total theme size: 200 files, 100 KB a file and
+2 MB in all *(proposed on #480; change them on review)*. Names are plain ASCII, so no `..`, case
+fold or look-alike letter reaches another file, and two paths a case-insensitive disk would fold
+together are refused.
 
 **Code** (type-aware, using the TypeScript checker):
 - **Imports** only from `react`, `@dripfunnel/storefront-core/theme` (core's public theme
@@ -260,9 +267,21 @@ class or a `df-` element; `z-index` below core's layer; animation only of `trans
 
 **Content**: every key the theme's `t()` calls exists in **every language the store offers**
 (the AI writes them all, decided 2026-10-08 on #470; the merchant can correct any); no pattern
-of a price, a scarcity or urgency claim, a rating or a countdown.
+of a price, a scarcity or urgency claim, a rating or a countdown. Each file is strict JSON: an
+object of words grouped at most four deep, no key written twice and none of `__proto__`,
+`constructor` or `prototype`; a file or key one language has, every language has, and none is
+empty. The scan reads text as a shopper would (look-alike letters, accents and invisible
+characters folded away) in English and Hindi, with digits in any script, and also refuses words
+that copy a brand field (a one-word shop name under six letters excepted, so a shop called "Home"
+can still say "Home") *(decided on #480)*.
 
-**Routes**: §3.1's rules.
+**Routes**: §3.1's rules. `routes.json` is core's `themeRoutesSchema` (#480): `routes` names
+the page under `src/theme/pages` for each core route, content pages, the blog and a blog post
+among them, and `custom` names one for each of the theme's own paths, at most 50, in lower-case
+words joined by hyphens and at most three levels deep. A custom path may not start with a segment
+core uses (`reservedPathSegments`: `products`, `cart`, `account`, `blog`, …) or one of the store's
+language codes, and no word of it may be cart, checkout, pay or price, nor its page the cart's,
+checkout's or confirmation's *(decided on #480)*.
 
 ### 3.5 Sealed components and the runtime walls
 

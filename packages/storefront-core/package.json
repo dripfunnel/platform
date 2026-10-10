@@ -8,6 +8,7 @@
   "files": ["dist", "presets"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./guard": { "types": "./dist/guard/index.d.ts", "default": "./dist/guard/index.js" },
     "./testing": { "types": "./dist/testing/index.d.ts", "default": "./dist/testing/index.js" },
     "./tsconfig": "./presets/tsconfig.json",
     "./eslint": "./presets/eslint.js"
@@ -25,6 +26,7 @@
   "dependencies": {
     "@eslint/js": "^10.0.1",
     "globals": "^17.12.0",
+    "typescript": "~6.0.3",
     "typescript-eslint": "^8.70.1",
     "zod": "^4.6.5"
   },

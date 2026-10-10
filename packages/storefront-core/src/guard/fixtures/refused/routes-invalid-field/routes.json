@@ -1,0 +1,32 @@
+{
+  "routes": {
+    "home": "HomePage",
+    "collection": "CollectionPage",
+    "product": "ProductPage",
+    "search": "SearchPage",
+    "cart": "CartPage",
+    "checkout": "CheckoutPage",
+    "orderConfirmation": "OrderConfirmationPage",
+    "signIn": "account/AccessPage",
+    "register": "account/AccessPage",
+    "verify": "account/AccessPage",
+    "forgotPassword": "account/AccessPage",
+    "resetPassword": "account/AccessPage",
+    "account": "account/AccountPage",
+    "accountAddresses": "account/AccountPage",
+    "accountOrders": "account/AccountPage",
+    "accountOrder": "account/AccountPage",
+    "policy": "PolicyPage",
+    "notFound": "NotFoundPage",
+    "degraded": "DegradedPage",
+    "contentPage": "ContentPage",
+    "blog": "BlogPage",
+    "blogPost": "BlogPostPage"
+  },
+  "custom": {
+    "/our-story": "AboutPage"
+  },
+  "scripts": [
+    "https://cdn.example.com/x.js"
+  ]
+}

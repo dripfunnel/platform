@@ -8,6 +8,7 @@ Design: [docs/storefront/ARCHITECTURE.md](../../docs/storefront/ARCHITECTURE.md)
 | Entry | What |
 |---|---|
 | `@dripfunnel/storefront-core` | Shop API client (headers, zod-decoded operations), store settings and context, i18n, money, the required components (price, consent, preview, legal, "Powered by"), SEO, analytics, the route contract, the font allowlist and the contrast check |
+| `@dripfunnel/storefront-core/guard` | The validator the sandbox and the build run on every change and publish: `validateChange(files, context)` (storefront ARCHITECTURE §3.4) |
 | `@dripfunnel/storefront-core/testing` | The contract checks a store repo's CI runs: unmapped routes, missing required components |
 | `@dripfunnel/storefront-core/tsconfig` | TypeScript preset for store repos |
 | `@dripfunnel/storefront-core/eslint` | Lint preset for store repos (theme rules) |
