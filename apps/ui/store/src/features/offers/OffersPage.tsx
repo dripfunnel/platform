@@ -2,10 +2,11 @@ import { EmptyState, ErrorState, LoadingState, MoreActions, SearchField, StatusP
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadOfferCounts, loadOfferNames, loadOfferPlace, loadOffers, offerKinds, offerPageSize, offerTabs, type Offer, type OfferCounts, type OfferKind, type OfferPage, type OfferTab } from '../../api/offers'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { tabKeyHandler } from '../common/tabKeys'
 import { zoneName } from '../orders/orderView'
 import { CodeCheck } from './CodeCheck'
 import { copyText } from './copyText'
@@ -119,14 +120,7 @@ export const OffersPage = () => {
   const goTab = (next: OfferTab) => {
     void navigate({ to: '/offers', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), status: next === 'live' ? undefined : next }), replace: true })
   }
-  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    const at = offerTabs.indexOf(tab)
-    const next = event.key === 'ArrowRight' ? offerTabs[(at + 1) % offerTabs.length] : event.key === 'ArrowLeft' ? offerTabs[(at + offerTabs.length - 1) % offerTabs.length] : event.key === 'Home' ? offerTabs[0] : event.key === 'End' ? offerTabs[offerTabs.length - 1] : undefined
-    if (!next) return
-    event.preventDefault()
-    goTab(next)
-    tabRefs.current[next]?.focus()
-  }
+  const onTabKey = tabKeyHandler(offerTabs, tab, goTab, (next) => tabRefs.current[next]?.focus())
   const filter = (next: { search?: string; kind?: OfferKind | null; trigger?: Offer['trigger'] | null }) => {
     if (next.search !== undefined) setSearch(next.search)
     if (next.kind !== undefined) setKind(next.kind)
