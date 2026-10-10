@@ -23,6 +23,13 @@ describe('dates in the store’s time zone', () => {
     expect(instantOf('not a date', 'UTC')).toBeNull()
   })
 
+  it('refuses a date the calendar hasn’t got rather than rolling it over', () => {
+    for (const bad of ['2026-02-31T10:00', '2026-13-01T10:00', '2026-10-12T25:00', '2026-10-12T10:60']) expect(instantOf(bad, 'Asia/Kolkata')).toBeNull()
+    expect(instantOf('2028-02-29T10:00', 'Asia/Kolkata')).toBe('2028-02-29T04:30:00.000Z')
+    const d = { ...blankDraft('order', null, ctx(india)), code: 'OK1', startsAt: '2026-02-31T10:00' }
+    expect(errorsOf(d, india)).toEqual({ ends: words.date })
+  })
+
   it('moves a time the clocks skip on by the gap, and takes the first of a time they repeat', () => {
     expect(instantOf('2026-03-08T02:30', 'America/New_York')).toBe('2026-03-08T07:30:00.000Z')
     expect(localOf('2026-03-08T07:30:00.000Z', 'America/New_York')).toBe('2026-03-08T03:30')
