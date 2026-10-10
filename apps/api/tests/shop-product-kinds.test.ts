@@ -57,7 +57,9 @@ const shop = async (source: string, cart: string | null = null) => {
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
 const add = async (versionId: string, quantity: number, cart: string | null = null) => {
-  const result = await shop(`mutation { addToCart(versionId: "${versionId}", quantity: ${quantity}) { cartToken cart { needsShipping } } }`, cart)
+  // A gift card goes to someone (part 2).
+  const gift = versionId === v.card ? ', gift: { recipientName: "Meera", recipientEmail: "meera@example.com" }' : ''
+  const result = await shop(`mutation { addToCart(versionId: "${versionId}", quantity: ${quantity}${gift}) { cartToken cart { needsShipping } } }`, cart)
   const change = result.data?.['addToCart'] as { cartToken: string | null; cart: { needsShipping: boolean } } | undefined
   return { token: change?.cartToken ?? cart ?? '', needsShipping: change?.cart.needsShipping, code: result.code }
 }
