@@ -1,8 +1,6 @@
-import type { CodeBatch, Offer, OfferAction, OfferCounts, OfferResults } from '../../api/offers'
-import type { StoreFacts } from './offerDraft'
-import type { FormLists } from './OfferForm'
 import type { CodeBatch, Offer, OfferCounts, OfferResults } from '../../api/offers'
-import { blankAction, blankCondition, noTargets } from './offerDraft'
+import { blankAction, blankCondition, noTargets, type StoreFacts } from './offerDraft'
+import type { FormLists } from './OfferForm'
 
 // Offers' states under ?state= (ui/README.md §6): loading, error, empty, list, noMatch, staff, readOnly, denied, locked.
 // `locked` is the offer page's results on a plan without them.

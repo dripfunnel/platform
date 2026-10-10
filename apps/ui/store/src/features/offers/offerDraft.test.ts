@@ -194,6 +194,16 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', perCustomer: '' }, india)).toEqual({})
   })
 
+  it('stops at the most ids one offer can name', () => {
+    const many = Array.from({ length: 251 }, (_, i) => `p${i}`)
+    const tooMany = 'An offer can name up to 250. Remove some.'
+    const d = { ...blankDraft('products', null, ctx(india)), code: 'OK1' }
+    expect(errorsOf({ ...d, productIds: many.slice(0, 250) }, india)).toEqual({})
+    expect(errorsOf({ ...d, productIds: many }, india)).toEqual({ targets: tooMany })
+    expect(errorsOf({ ...d, who: 'customers', productIds: ['p1'], customerIds: many }, india)).toEqual({ who: tooMany })
+    expect(errorsOf({ ...blankDraft('bxgy', null, ctx(india)), buyIds: many }, india)).toEqual({ buy: tooMany })
+  })
+
   it('checks every kind of offer’s own fields, and every currency’s box', () => {
     const order = { ...blankDraft('order', null, ctx(multi)), code: 'OK1' }
     expect(errorsOf({ ...order, kind: 'fixed', amounts: {} }, multi)).toEqual({ value: words.amount })

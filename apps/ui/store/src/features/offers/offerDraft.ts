@@ -1,5 +1,5 @@
 import { minorOf, moneyDigits, moneyText } from '@dripfunnel/shared/format'
-import type { Offer, OfferAction, OfferCondition, OfferKind, OfferTargets } from '../../api/offers'
+import { offerIdLimit, type Offer, type OfferAction, type OfferCondition, type OfferKind, type OfferTargets } from '../../api/offers'
 import type { ApiMoney } from '../../api/orders'
 import { fill, formatCount, messages } from '../../messages'
 import { kindOf } from './offerView'
@@ -486,7 +486,7 @@ export const inputOf = (d: OfferDraft, facts: StoreFacts, enabled: boolean) => {
 export type Field = 'value' | 'targets' | 'buy' | 'get' | 'code' | 'batch' | 'name' | 'minimum' | 'who' | 'ends' | 'repeat' | 'total' | 'perCustomer' | 'tiers' | 'cap'
 
 /** The API's own limits (src/engine/modules/promotions), so the form says them before the API refuses. */
-export const offerLimits = { prefix: 12, name: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: 5000, tiers: [2, 5] as const } as const
+export const offerLimits = { ids: offerIdLimit, prefix: 12, name: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: 5000, tiers: [2, 5] as const } as const
 
 const amountOk = (text: string, currency: string) => {
   const minor = minorOf(text, currency)
@@ -511,6 +511,7 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   else if (d.type === 'shipping' && d.shipMode === 'off' && !othersOk(d.amounts, facts)) e.value = words.otherAmount
   if (d.type === 'products') {
     if (d.target === 'products' && !d.productIds.length) e.targets = words.products
+    else if (d.productIds.length > offerLimits.ids) e.targets = fill(words.tooMany, { max: String(offerLimits.ids) })
     if (d.target === 'filter' && !d.filterValueIds.length) e.targets = words.filterValue
     if (d.target === 'collection' && !d.collectionIds.length) e.targets = words.collection
   }
@@ -522,7 +523,9 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   }
   if (d.type === 'bxgy') {
     if (!d.buyIds.length && !hasKept(d.buyKept)) e.buy = words.buy
+    else if (d.buyIds.length > offerLimits.ids) e.buy = fill(words.tooMany, { max: String(offerLimits.ids) })
     if (!d.getSame && !d.getIds.length && !hasKept(d.getKept)) e.get = words.get
+    else if (!d.getSame && d.getIds.length > offerLimits.ids) e.get = fill(words.tooMany, { max: String(offerLimits.ids) })
     if (!between(d.buyQuantity, 1, offerLimits.quantity) || !between(d.getQuantity, 1, offerLimits.quantity)) e.value = fill(words.quantity, { max: String(offerLimits.quantity) })
     else if (!between(d.getPercent, 1, 100)) e.value = words.percent
   }
@@ -542,6 +545,7 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   if ((d.minimum === 'items' || d.minimum === 'these') && !between(d.minQuantity, 1, offerLimits.minimum)) e.minimum = fill(words.minimumItems, { max: String(offerLimits.minimum) })
   if (d.who === 'groups' && !d.groupIds.length) e.who = words.groups
   if (d.who === 'customers' && !d.customerIds.length) e.who = words.customers
+  if ((d.who === 'customers' && d.customerIds.length > offerLimits.ids) || (d.who === 'groups' && d.groupIds.length > offerLimits.ids)) e.who = fill(words.tooMany, { max: String(offerLimits.ids) })
   if (d.who === 'market' && !d.countries.length) e.who = words.market
   const starts = d.startsAt ? instantOf(d.startsAt, facts.timeZone) : null
   const ends = d.endsAt ? endInstantOf(d.endsAt, facts.timeZone) : null
