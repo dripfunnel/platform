@@ -49,21 +49,41 @@ type Kind = 'element' | 'motion' | 'theme' | 'component'
 
 const isMotion = (from: string | undefined) => from === 'motion' || from === 'motion/react'
 
+// A tag that holds a string, as `<Tag>` or `<Tags.a>` can, renders that element, so it is judged as one.
+// An untyped tag counts too, unless it comes from a library (motion's types may be absent where the validator runs).
+const holdsTag = (checker: ts.TypeChecker, tag: ts.JsxTagNameExpression) => {
+  const root = ts.isPropertyAccessExpression(tag) ? tag.expression : tag
+  const fromLibrary = ts.isIdentifier(root) && !(importedFrom(checker, root)?.startsWith('.') ?? true)
+  return parts(checker.getTypeAtLocation(tag)).some((t) => (t.flags & ts.TypeFlags.StringLike) !== 0 || (isOpen(t) && !fromLibrary))
+}
+
 const kindOf = (checker: ts.TypeChecker, tag: ts.JsxTagNameExpression): Kind => {
-  if (ts.isPropertyAccessExpression(tag)) return ts.isIdentifier(tag.expression) && isMotion(importedFrom(checker, tag.expression)) ? 'motion' : 'component'
-  if (!ts.isIdentifier(tag) || !/^[A-Z]/.test(tag.text) || parts(checker.getTypeAtLocation(tag)).some((t) => t.flags & ts.TypeFlags.StringLike)) return 'element'
+  if (ts.isPropertyAccessExpression(tag) && ts.isIdentifier(tag.expression) && isMotion(importedFrom(checker, tag.expression))) return 'motion'
+  if (ts.isPropertyAccessExpression(tag)) return holdsTag(checker, tag) ? 'element' : 'component'
+  if (!ts.isIdentifier(tag) || !/^[A-Z]/.test(tag.text) || holdsTag(checker, tag)) return 'element'
   const symbol = checker.getSymbolAtLocation(tag)
   const target = symbol && symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol
   return target?.declarations?.some((d) => inTheme(d.getSourceFile().fileName)) ? 'theme' : 'component'
 }
 
 /** The element a tag renders; a capitalised name holding a tag string must hold exactly one, written out. */
-const tagName = (checker: ts.TypeChecker, tag: ts.JsxTagNameExpression): string => {
-  if (ts.isPropertyAccessExpression(tag)) return tag.name.text
+const tagName = (checker: ts.TypeChecker, tag: ts.JsxTagNameExpression, kind: Kind): string => {
   if (ts.isJsxNamespacedName(tag)) return `${tag.namespace.text}:${tag.name.text}`
-  if (!ts.isIdentifier(tag) || !/^[A-Z]/.test(tag.text)) return tag.getText()
+  if (kind === 'motion' || (ts.isIdentifier(tag) && !/^[A-Z]/.test(tag.text))) return ts.isPropertyAccessExpression(tag) ? tag.name.text : tag.getText()
+  if (kind !== 'element') return tag.getText()
   const held = literalStrings(checker.getTypeAtLocation(tag))
-  return held?.length === 1 && held[0] !== undefined ? held[0] : `${tag.text} (a tag held in a variable)`
+  return held?.length === 1 && held[0] !== undefined ? held[0] : `${tag.getText()} (a tag held in a variable)`
+}
+
+/** Every piece of text written anywhere in an attribute's value: clsx's arguments, a template's parts. */
+const writtenParts = (attr: ts.JsxAttribute): string[] => {
+  const found: string[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) found.push(node.text)
+    ts.forEachChild(node, visit)
+  }
+  if (attr.initializer) visit(attr.initializer)
+  return found
 }
 
 const valueOf = (attr: ts.JsxAttribute) => (attr.initializer && ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : undefined)
@@ -103,7 +123,7 @@ const attributeProblems = (checker: ts.TypeChecker, kind: Kind, tag: string, att
   const found: Found[] = []
   const strings = writtenStrings(checker, attr)
   const value = valueOf(attr)
-  if ((name === 'className' || name === 'id') && strings?.some((s) => s.split(/\s+/).some((token) => token.startsWith('df-')))) {
+  if ((name === 'className' || name === 'id') && [...(strings ?? []), ...writtenParts(attr)].some((s) => s.split(/\s+/).some((token) => token.startsWith('df-')))) {
     found.push({ node: attr, rule: 'jsx/core-marker', message: "df- class names and ids belong to core; use this theme's CSS Module classes." })
   }
   if (textAttributes.has(name) ? strings?.some(isVisible) || (value !== undefined && showsWrittenText(checker, value)) : kind === 'theme' && writesWords(checker, attr, strings)) {
@@ -126,7 +146,7 @@ const attributeProblems = (checker: ts.TypeChecker, kind: Kind, tag: string, att
 
 const openingProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | ts.JsxSelfClosingElement): Found[] => {
   const kind = kindOf(checker, node.tagName)
-  const tag = tagName(checker, node.tagName)
+  const tag = tagName(checker, node.tagName, kind)
   const found = node.attributes.properties.flatMap((attr) => attributeProblems(checker, kind, tag, attr))
   if (kind === 'theme' || kind === 'component' || elements.has(tag)) return found
   const use = instead.get(tag)
