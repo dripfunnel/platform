@@ -320,10 +320,27 @@ describe('an order’s page', () => {
     expect(within(screen.getByRole('dialog')).getByText(words.refused.NOT_CANCELLABLE)).toBeTruthy()
   })
 
+  it('never records a cancel reason nobody picked', async () => {
+    await show(owner, placed)
+    fireEvent.click(button(words.actions.cancel))
+    const dialog = within(screen.getByRole('dialog'))
+    fireEvent.change(dialog.getByRole('combobox', { name: cancelWords.reason }), { target: { value: 'nope' } })
+    fireEvent.click(dialog.getByRole('button', { name: cancelWords.confirm }))
+    await settle()
+    expect(api.cancelOrder).not.toHaveBeenCalled()
+  })
+
   it('offers no cancel once anything has shipped', async () => {
     await show(owner, { ...placed, fulfilmentState: 'partly_fulfilled', parts: [part({ id: 'own', lines: [{ ...shirt, fulfilledQuantity: 1 }, cushion] })] })
     expect(screen.queryByRole('button', { name: words.actions.cancel })).toBeNull()
     expect(button(words.actions.ship)).toBeTruthy()
+  })
+
+  it('links tracking only when it is https, whatever a shipment carries', async () => {
+    const shipment = (id: string, trackingUrl: string) => ({ id, kind: 'manual', supplierId: 'v1', warehouseName: 'Northwind', courierName: 'Delhivery', trackingNumber: `DL-${id}`, trackingUrl, shippedAt: '2026-10-10T08:00:00.000Z', lines: [{ lineId: 'l3', quantity: 1 }] })
+    await show(owner, { ...placed, shipments: [shipment('a', 'javascript:alert(1)'), shipment('b', 'http://track.example/b'), shipment('c', 'https://track.example/c')] })
+    const links = within(screen.getByRole('region', { name: words.shipments.title })).getAllByRole('link', { name: words.shipments.track })
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['https://track.example/c'])
   })
 
   it('adds tracking to a shipment sent without it', async () => {
