@@ -179,6 +179,8 @@ export const shiprocketHook = async (token: string | null | undefined, hook: Cou
   }
   const parsed = hookSchema.safeParse(json)
   const status = parsed.success ? statusOf(parsed.data.current_status) : null
-  if (!parsed.success || !status) return []
-  return [{ providerRef: null, trackingNumber: String(parsed.data.awb).slice(0, 80), status, at: istTime(parsed.data.current_timestamp) ?? hook.receivedAt }]
+  // Without the courier's own time an event can't be ordered, so it is ignored rather than taken as the newest.
+  const at = parsed.success ? istTime(parsed.data.current_timestamp) : null
+  if (!parsed.success || !status || !at) return []
+  return [{ providerRef: null, trackingNumber: String(parsed.data.awb).slice(0, 80), status, at }]
 }
