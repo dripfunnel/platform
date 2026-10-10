@@ -56,7 +56,7 @@ export const planKeyDefs: readonly PlanKeyDef[] = [
   { key: 'powered_by_removal', kind: 'switch', group: 'storefront', enforced: true, monthly: false, choices: [] },
   { key: 'publish_now', kind: 'amount', group: 'storefront', enforced: true, monthly: true, choices: [] },
   { key: 'history_days', kind: 'amount', group: 'storefront', enforced: false, monthly: false, choices: [] },
-  { key: 'cart_reminders', kind: 'choice', group: 'storefront', enforced: false, monthly: false, choices: ['youSend', 'onePerCart', 'automatic'] },
+  { key: 'cart_reminders', kind: 'choice', group: 'storefront', enforced: true, monthly: false, choices: ['youSend', 'onePerCart', 'automatic'] },
   { key: 'blog', kind: 'switch', group: 'storefront', enforced: false, monthly: false, choices: [] },
   { key: 'reports_sales', kind: 'switch', group: 'reports', enforced: true, monthly: false, choices: [] },
   { key: 'reports_export', kind: 'switch', group: 'reports', enforced: true, monthly: false, choices: [] },

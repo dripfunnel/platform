@@ -1027,6 +1027,12 @@ cart_reminder_step  (id, store_id, position, enabled boolean, delay_minutes inte
                     -- the abandoned-cart sequence (Carts); up to three steps; the sent
                     -- reminders are §7.6 cart_reminder; WhatsApp needs the consent channel
                     -- and the provider of THIRD-PARTY-ACCESS §2.8
+                    -- Built on #321 (0120) with quiet_hours and weekly_cap as booleans (the
+                    -- prototype's fixed 9 pm–8 am in the store's time zone, and one cart a week),
+                    -- updated_at and revision; steps are saved in place by position (1–3), so a
+                    -- sent reminder keeps naming its step; discount_bps is 500, 1000, 1500 or
+                    -- 2000. The merchant side writes both under its store's policy, never a
+                    -- supplier or a read-only support session; the engine reads them in system scope
 ```
 
 ### 7.3 Catalogue
@@ -1431,9 +1437,16 @@ view of the two.
                     -- placement only. The guest policies compare access_token_hash with
                     -- current_order_token_hash() directly (a lookup function couldn't see a row
                     -- the same statement inserts), so order_token_matches() isn't built.
-                    -- Not built yet (checked against migration 0074): shipping_method_id and pickup
-                    -- (shipping_option instead), abandoned_at, device, the reminders_* and
-                    -- recovered_* columns (SAPI 15, #321) and search. cancel_reason is one of
+                    -- Built on #321 (0120): abandoned_at (the cart's own last change, to the
+                    -- microsecond, set by the cron 20 minutes after it; a change since makes it
+                    -- abandoned again later), abandoned_amount (what its lines came to then, in its
+                    -- currency: the list's value and the minimum's test), the reminders_stopped_*
+                    -- and recovered_* columns. Decided on #321: placing a live order KEEPS
+                    -- abandoned_at and sets recovered_by_order_id, on itself and on the shopper's
+                    -- other carts left in the last 7 days (their account's, or with the order's
+                    -- email), so the Carts tab still lists a recovered cart and its reminders stop.
+                    -- Not built yet (checked against migration 0120): shipping_method_id and pickup
+                    -- (shipping_option instead), device and search. cancel_reason is one of
                     -- unpaid_transfer | unpaid | shopper | store | out_of_stock (0068, 0069)
 order_line          (id, order_id, store_id, seller_id NULL, version_id, product_id,
                      name, version_name, sku, hs_code, tax_class_key, tax_rate_bps, tax_zone_id NULL,
@@ -1571,6 +1584,13 @@ cart_reminder       (id, store_id, order_id, step_id NULL, channel ('email'|'wha
                     -- reminder clicked or the code used ("order".recovered_by_reminder_id);
                     -- the reminder's code is a promotion_code bound to the cart and
                     -- expiring 48 h after sent_at (§7.7)
+                    -- Built on #321 (0120) with state ('queued'|'sent'|'skipped'), skip_reason,
+                    -- queued_at and link_token_hash (the return and unsubscribe link's token,
+                    -- hashed, set as it is sent; no request role selects it), and without opened_at
+                    -- (no open tracking yet). Each step at most once a cart (a unique index), so two
+                    -- sweeps queue it once; the engine writes it in system scope, the merchant side
+                    -- reads it. An expired cart reminded in the last 30 days is kept until 30 days
+                    -- after, so its unsubscribe link keeps working
 ```
 
 Order events (placed, paid, shipped, return started, refunded, "sent to warehouse by
@@ -1630,8 +1650,10 @@ promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_i
 `trigger` (`automatic` | `code`: a code offer applies only through a code, even before its single-use codes are made),
 `created_by_user_id`, `created_at`, `updated_at` and `revision`; `disabled_reason` and `show_on_product_page` are not built
 (whether offers run while past due and product-page prices are still open, OFFERS §9). `combines_with` holds `product`,
-`order` and `shipping` only. `promotion_code` has no `customer_id` or `order_id` yet (they come with the cart reminders'
-codes, SAPI 15) and no `used_by_customer_id` (the usage row names the shopper); it gains `replaced_at`, set when a live
+`order` and `shipping` only. `promotion_code` gains `customer_id` and `order_id` on #321 (0120): a cart reminder's code
+works on that one cart only (any other cart reads it as `INVALID`), needs no batch, and goes with its cart; its offer is
+the store's hidden `promotion.cart_reminder` one at that percentage, which Offers never lists, counts or changes. It has
+no `used_by_customer_id` (the usage row names the shopper); it gains `replaced_at`, set when a live
 offer's shared code is changed: the old code stops working and stays reserved to the offer. Codes are stored uppercase and
 checked against `^[A-Z0-9][A-Z0-9_-]{2,31}$`; a single-use code always belongs to a batch. A usage row's offer, code, customer and order are each held to its store by composite keys. Request roles never write
 `uses_count`, `used_at` or `promotion_usage`, and never delete an offer (soft only): placement counts uses in system
