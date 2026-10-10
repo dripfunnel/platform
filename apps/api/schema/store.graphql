@@ -552,6 +552,7 @@ type Mutation {
   deleteFacet(id: ID!): Boolean
   deleteGroup(id: ID!): Boolean
   deleteMarket(id: ID!): Boolean
+  deleteOffer(id: ID!): Boolean
   deleteProducts(ids: [ID!]!): Int
   deleteSizeChart(id: ID!): Int
   deleteStoryBlock(id: ID!): Boolean
@@ -561,7 +562,9 @@ type Mutation {
   disconnectCourier(provider: String!): String
   disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
+  duplicateOffer(id: ID!): ID
   duplicateProduct(id: ID!): SavedProduct
+  endOffer(id: ID!): Boolean
   exportCustomers(groupId: ID, search: String): ID
   exportOrders(filter: OrderFilter, search: String): ID
   finishShopifyConnect(key: String!): String
@@ -571,6 +574,7 @@ type Mutation {
   inviteSupplierUser(email: String!, role: String!): ID
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
+  pauseOffer(id: ID!): Boolean
   proposeProduct(input: ProductInput!): SavedProduct
   publishProductStory(productId: ID!, revision: Int!): ProductStory
   receiveReturn(returnId: ID!): Boolean
@@ -584,6 +588,7 @@ type Mutation {
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
+  resumeOffer(id: ID!): Boolean
   resumeSupplier(id: ID!): Int
   revokeInvitation(invitationId: ID!): Boolean
   revokeSupplierInvitation(invitationId: ID!): Boolean
@@ -599,6 +604,7 @@ type Mutation {
   saveLanguages(languages: [String!]!, main: String!): Boolean
   saveMarket(id: ID, input: MarketInput!, revision: Int): Market
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
+  saveOffer(id: ID, input: OfferInput!, revision: Int): SavedOffer
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
   saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
@@ -664,6 +670,172 @@ type MyActivityTarget {
 type Named {
   id: ID
   name: String
+}
+
+type Offer {
+  action: OfferAction
+  code: String
+  combines: OfferCombines
+  conditions: [OfferCondition!]
+  createdAt: String
+  description: String
+  enabled: Boolean
+  endsAt: String
+  id: ID
+  internalName: String
+  name: String
+  perCustomerLimit: Int
+  revision: Int
+  startsAt: String
+  status: String
+  totalUsesLimit: Int
+  trigger: String
+  updatedAt: String
+  usesCount: Int
+}
+
+type OfferAction {
+  amounts: [Money!]
+  buy: OfferBuyGet
+  cap: [Money!]
+  exclude: OfferExclusions
+  get: OfferBuyGet
+  kind: String
+  oncePerOrder: Boolean
+  operation: String
+  percent: Int
+  targets: OfferTargets
+  tiers: [OfferTier!]
+}
+
+input OfferActionInput {
+  amounts: [MoneyInput!]
+  buy: OfferBuyGetInput
+  cap: [MoneyInput!]
+  exclude: OfferExclusionsInput
+  get: OfferBuyGetInput
+  kind: String
+  oncePerOrder: Boolean
+  operation: String!
+  percent: Int
+  targets: OfferTargetsInput
+  tiers: [OfferTierInput!]
+}
+
+type OfferBuyGet {
+  quantity: Int
+  targets: OfferTargets
+}
+
+input OfferBuyGetInput {
+  quantity: Int!
+  targets: OfferTargetsInput
+}
+
+type OfferCombines {
+  order: Boolean
+  product: Boolean
+  shipping: Boolean
+}
+
+input OfferCombinesInput {
+  order: Boolean!
+  product: Boolean!
+  shipping: Boolean!
+}
+
+type OfferCondition {
+  amounts: [Money!]
+  collectionIds: [ID!]
+  conditions: [OfferCondition!]
+  countries: [String!]
+  customerIds: [ID!]
+  days: [Int!]
+  filterValueIds: [ID!]
+  from: String
+  groupIds: [ID!]
+  minimum: Int
+  operation: String
+  productIds: [ID!]
+  to: String
+}
+
+input OfferConditionInput {
+  amounts: [MoneyInput!]
+  collectionIds: [ID!]
+  conditions: [OfferConditionInput!]
+  countries: [String!]
+  customerIds: [ID!]
+  days: [Int!]
+  filterValueIds: [ID!]
+  from: String
+  groupIds: [ID!]
+  minimum: Int
+  operation: String!
+  productIds: [ID!]
+  to: String
+}
+
+type OfferCounts {
+  ended: Int
+  live: Int
+  off: Int
+  scheduled: Int
+}
+
+type OfferExclusions {
+  giftCards: Boolean
+  onSale: Boolean
+}
+
+input OfferExclusionsInput {
+  giftCards: Boolean
+  onSale: Boolean
+}
+
+input OfferInput {
+  action: OfferActionInput!
+  code: String
+  combines: OfferCombinesInput!
+  conditions: [OfferConditionInput!]!
+  description: String
+  enabled: Boolean!
+  endsAt: String
+  internalName: String
+  name: String!
+  perCustomerLimit: Int
+  startsAt: String
+  totalUsesLimit: Int
+  trigger: String!
+}
+
+type OfferPage {
+  nodes: [Offer!]
+  pageInfo: PageInfo
+}
+
+type OfferTargets {
+  collectionIds: [ID!]
+  filterValueIds: [ID!]
+  productIds: [ID!]
+}
+
+input OfferTargetsInput {
+  collectionIds: [ID!]
+  filterValueIds: [ID!]
+  productIds: [ID!]
+}
+
+type OfferTier {
+  amounts: [Money!]
+  minimum: [Money!]
+  percent: Int
+}
+
+input OfferTierInput {
+  amounts: [MoneyInput!]
+  minimum: [MoneyInput!]!
+  percent: Int
 }
 
 type Order {
@@ -1271,6 +1443,9 @@ type Query {
   myStores(after: String, before: String, first: Int): StoreChoices
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   navBadges: StoreNavBadges
+  offer(id: ID!): Offer
+  offerCounts: OfferCounts
+  offers(after: String, before: String, first: Int, kind: String, search: String, status: String, trigger: String): OfferPage
   order(id: ID!): Order
   orderCounts: OrderCounts
   orderExport(id: ID!): OrderExport
@@ -1345,6 +1520,11 @@ type SavedCollection {
   id: ID
   revision: Int
   slug: String
+}
+
+type SavedOffer {
+  id: ID
+  revision: Int
 }
 
 type SavedProduct {

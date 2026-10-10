@@ -23,3 +23,4 @@ export {
   type OfferStatus,
 } from './definition'
 export { priceOffers, type AppliedOffer, type NotApplied, type PricingInput, type PricingLine, type PricingOffer, type PricingResult, type PricingShopper } from './pricing'
+export { createOffersService, offersAudit, type CodeHolder, type OfferFilter, type OfferKind, type OfferPlanKey, type OffersDeps, type OffersPlan, type OffersRefusal, type OffersResult, type OfferStatusFilter, type OfferView } from './service'

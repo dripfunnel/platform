@@ -1,0 +1,244 @@
+import type postgres from 'postgres'
+import type { PageWindow } from '#core/paging'
+import { pgArray, type ScopedSql } from './index'
+
+// Offers (migration 0076; DATA-MODEL §7.7), the merchant side's, read and written in its own store scope. Status is derived
+// here as OFFERS fact 9 orders it, so the tabs, their counts and the list can't disagree.
+
+export type OfferStatusFilter = 'live' | 'scheduled' | 'off' | 'ended'
+export type OfferKind = 'products' | 'order' | 'bxgy' | 'shipping'
+
+export interface StoredRule {
+  operation: string
+  args: Record<string, unknown>
+}
+
+export interface OfferRow {
+  id: string
+  name: string
+  internal_name: string | null
+  description: string | null
+  trigger: 'automatic' | 'code'
+  enabled: boolean
+  starts_at: Date | null
+  ends_at: Date | null
+  total_uses_limit: number | null
+  per_customer_limit: number | null
+  uses_count: number
+  combines_with: { product: boolean; order: boolean; shipping: boolean }
+  created_at: Date
+  updated_at: Date
+  revision: number
+  /** The shared code shoppers type now; null for an automatic offer or one with only single-use codes. */
+  code: string | null
+  conditions: StoredRule[]
+  action: StoredRule | null
+}
+
+const kinds: Record<OfferKind, readonly string[]> = {
+  products: ['products_percentage_discount', 'line_fixed_discount'],
+  order: ['order_percentage_discount', 'order_fixed_discount', 'tiered_discount'],
+  bxgy: ['buy_x_get_y'],
+  shipping: ['free_shipping', 'shipping_fixed_discount'],
+}
+
+/** Fact 9's order: off, then ended or used up (one tab, B1), then scheduled, else live. */
+const statusIs = (tx: ScopedSql, status: OfferStatusFilter, now: Date) => {
+  const ended = tx`((p.ends_at is not null and p.ends_at <= ${now}) or (p.total_uses_limit is not null and p.uses_count >= p.total_uses_limit))`
+  switch (status) {
+    case 'off':
+      return tx`not p.enabled`
+    case 'ended':
+      return tx`p.enabled and ${ended}`
+    case 'scheduled':
+      return tx`p.enabled and not ${ended} and p.starts_at is not null and p.starts_at > ${now}`
+    case 'live':
+      return tx`p.enabled and not ${ended} and (p.starts_at is null or p.starts_at <= ${now})`
+  }
+}
+
+const columns = (tx: ScopedSql) => tx`
+  p.id, p.name, p.internal_name, p.description, p.trigger, p.enabled, p.starts_at, p.ends_at, p.total_uses_limit, p.per_customer_limit,
+  p.uses_count, p.combines_with, p.created_at, p.updated_at, p.revision,
+  (select c.code from promotion_code c where c.promotion_id = p.id and c.batch_id is null and c.replaced_at is null limit 1) as code,
+  coalesce((select json_agg(json_build_object('operation', r.operation, 'args', r.args) order by r.position) from promotion_condition r where r.promotion_id = p.id), '[]'::json) as conditions,
+  (select json_build_object('operation', a.operation, 'args', a.args) from promotion_action a where a.promotion_id = p.id order by a.position limit 1) as action
+`
+
+export interface OfferFilter {
+  status: OfferStatusFilter | null
+  kind: OfferKind | null
+  trigger: 'automatic' | 'code' | null
+  search: string | null
+}
+
+const like = (s: string) => `%${s.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
+
+const matching = (tx: ScopedSql, f: OfferFilter, now: Date) => tx`
+  ${f.status ? statusIs(tx, f.status, now) : tx`true`}
+  and ${f.kind ? tx`exists (select 1 from promotion_action a where a.promotion_id = p.id and a.operation = any (${pgArray(kinds[f.kind])}::text[]))` : tx`true`}
+  and ${f.trigger ? tx`p.trigger = ${f.trigger}` : tx`true`}
+  ${
+    // A shared code by any part of it; a single-use code never, so search can't stand in for the rate-limited checkCode.
+    f.search
+      ? tx`and (p.name ilike ${like(f.search)} or p.internal_name ilike ${like(f.search)}
+          or exists (select 1 from promotion_code c where c.promotion_id = p.id and c.batch_id is null and c.code ilike ${like(f.search)}))`
+      : tx``
+  }
+`
+
+export const selectOffers = (tx: ScopedSql, storeId: string, f: OfferFilter, window: PageWindow, now: Date): Promise<OfferRow[]> => {
+  const backwards = window.before !== null && window.after === null
+  return tx<OfferRow[]>`
+    select ${columns(tx)} from promotion p
+    where p.store_id = ${storeId} and p.deleted_at is null and ${matching(tx, f, now)}
+      and ${window.after ? tx`(p.created_at, p.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
+      and ${window.before ? tx`(p.created_at, p.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
+    order by p.created_at ${backwards ? tx`asc` : tx`desc`}, p.id ${backwards ? tx`asc` : tx`desc`}
+    limit ${window.limit + 1}
+  `
+}
+
+/** The tabs' counts (B1), each the same rule the list filters by. */
+export const countOffers = async (tx: ScopedSql, storeId: string, now: Date): Promise<Record<OfferStatusFilter, number>> => {
+  const [row] = await tx<Record<OfferStatusFilter, number>[]>`
+    select count(*) filter (where ${statusIs(tx, 'live', now)})::int as live, count(*) filter (where ${statusIs(tx, 'scheduled', now)})::int as scheduled,
+      count(*) filter (where ${statusIs(tx, 'off', now)})::int as off, count(*) filter (where ${statusIs(tx, 'ended', now)})::int as ended
+    from promotion p where p.store_id = ${storeId} and p.deleted_at is null
+  `
+  return row ?? { live: 0, scheduled: 0, off: 0, ended: 0 }
+}
+
+export const selectOffer = async (tx: ScopedSql, storeId: string, id: string): Promise<OfferRow | null> =>
+  (await tx<OfferRow[]>`select ${columns(tx)} from promotion p where p.id = ${id} and p.store_id = ${storeId} and p.deleted_at is null`)[0] ?? null
+
+export const lockOffer = async (tx: ScopedSql, storeId: string, id: string): Promise<OfferRow | null> => {
+  const locked = await tx<{ id: string }[]>`select id from promotion where id = ${id} and store_id = ${storeId} and deleted_at is null for update`
+  return locked.length > 0 ? selectOffer(tx, storeId, id) : null
+}
+
+/** Offers that count against the plan's live limit: on, not ended, not used up; scheduled ones too, as they will go live. */
+export const countOnOffers = async (tx: ScopedSql, storeId: string, now: Date): Promise<number> =>
+  (
+    await tx<{ n: number }[]>`
+      select count(*)::int as n from promotion p
+      where p.store_id = ${storeId} and p.deleted_at is null and p.enabled and (p.ends_at is null or p.ends_at > ${now})
+        and (p.total_uses_limit is null or p.uses_count < p.total_uses_limit)
+    `
+  )[0]?.n ?? 0
+
+export interface OfferWrite {
+  name: string
+  internalName: string | null
+  description: string | null
+  trigger: 'automatic' | 'code'
+  enabled: boolean
+  startsAt: Date | null
+  endsAt: Date | null
+  totalUsesLimit: number | null
+  perCustomerLimit: number | null
+  combines: { product: boolean; order: boolean; shipping: boolean }
+}
+
+export const insertOffer = async (tx: ScopedSql, storeId: string, o: OfferWrite, byUserId: string): Promise<string> => {
+  const [row] = await tx<{ id: string }[]>`
+    insert into promotion (store_id, name, internal_name, description, trigger, enabled, starts_at, ends_at, total_uses_limit, per_customer_limit, combines_with, created_by_user_id)
+    values (${storeId}, ${o.name}, ${o.internalName}, ${o.description}, ${o.trigger}, ${o.enabled}, ${o.startsAt}, ${o.endsAt}, ${o.totalUsesLimit}, ${o.perCustomerLimit},
+      ${tx.json(o.combines)}, ${byUserId})
+    returning id
+  `
+  if (!row) throw new Error('promotion: insert returned no row')
+  return row.id
+}
+
+export const updateOffer = async (tx: ScopedSql, id: string, o: OfferWrite, now: Date): Promise<number> => {
+  const [row] = await tx<{ revision: number }[]>`
+    update promotion set name = ${o.name}, internal_name = ${o.internalName}, description = ${o.description}, trigger = ${o.trigger}, enabled = ${o.enabled},
+      starts_at = ${o.startsAt}, ends_at = ${o.endsAt}, total_uses_limit = ${o.totalUsesLimit}, per_customer_limit = ${o.perCustomerLimit},
+      combines_with = ${tx.json(o.combines)}, updated_at = ${now}, revision = revision + 1
+    where id = ${id} returning revision
+  `
+  if (!row) throw new Error('promotion: update found no row')
+  return row.revision
+}
+
+/** The offer's conditions and action become exactly these, in order. */
+export const replaceRules = async (tx: ScopedSql, storeId: string, id: string, conditions: readonly StoredRule[], action: StoredRule): Promise<void> => {
+  await tx`delete from promotion_condition where promotion_id = ${id}`
+  await tx`delete from promotion_action where promotion_id = ${id}`
+  for (const [position, c] of conditions.entries()) {
+    await tx`insert into promotion_condition (promotion_id, store_id, operation, args, position) values (${id}, ${storeId}, ${c.operation}, ${tx.json(c.args as postgres.JSONValue)}, ${position})`
+  }
+  await tx`insert into promotion_action (promotion_id, store_id, operation, args, position) values (${id}, ${storeId}, ${action.operation}, ${tx.json(action.args as postgres.JSONValue)}, 0)`
+}
+
+export const setOfferState = async (tx: ScopedSql, id: string, change: { enabled?: boolean; endNow?: Date; deletedAt?: Date }, now: Date): Promise<number> => {
+  const [row] = await tx<{ revision: number }[]>`
+    update promotion set
+      enabled = ${change.enabled ?? tx`enabled`},
+      ${change.endNow ? tx`starts_at = case when starts_at >= ${change.endNow} then null else starts_at end, ends_at = ${change.endNow},` : tx``}
+      deleted_at = ${change.deletedAt ?? tx`deleted_at`},
+      updated_at = ${now}, revision = revision + 1
+    where id = ${id} returning revision
+  `
+  return row?.revision ?? 0
+}
+
+export interface CodeOwnerRow {
+  code_id: string
+  promotion_id: string
+  name: string
+  replaced: boolean
+  single_use: boolean
+  deleted: boolean
+  enabled: boolean
+  starts_at: Date | null
+  ends_at: Date | null
+  uses_count: number
+  total_uses_limit: number | null
+}
+
+/** Whichever offer holds this code in the store, whatever its case and whether that offer is deleted (H2). */
+export const selectCodeOwner = async (tx: ScopedSql, storeId: string, code: string): Promise<CodeOwnerRow | null> =>
+  (
+    await tx<CodeOwnerRow[]>`
+      select c.id as code_id, p.id as promotion_id, p.name, c.replaced_at is not null as replaced, c.single_use, p.deleted_at is not null as deleted,
+        p.enabled, p.starts_at, p.ends_at, p.uses_count, p.total_uses_limit
+      from promotion_code c join promotion p on p.id = c.promotion_id
+      where c.store_id = ${storeId} and lower(c.code) = lower(${code})
+    `
+  )[0] ?? null
+
+/** The offer's shared code becomes `code` (null: none); the one it replaces stops working and stays this offer's (H5). */
+export const setSharedCode = async (tx: ScopedSql, storeId: string, id: string, code: string | null, now: Date): Promise<void> => {
+  await tx`update promotion_code set replaced_at = ${now} where promotion_id = ${id} and batch_id is null and replaced_at is null and (${code}::text is null or code <> ${code})`
+  if (code === null) return
+  const back = await tx`update promotion_code set replaced_at = null where promotion_id = ${id} and batch_id is null and code = ${code}`
+  if (back.count === 0) await tx`insert into promotion_code (promotion_id, store_id, code) values (${id}, ${storeId}, ${code})`
+}
+
+/** How many of these ids are the store's own live rows of their kind: what an offer may name (facts 5, 12). */
+export const countKnownIds = async (tx: ScopedSql, storeId: string, ids: { products: string[]; collections: string[]; filterValues: string[]; groups: string[]; customers: string[] }): Promise<number> => {
+  const kinds = [
+    ['product', ids.products, tx`deleted_at is null`],
+    ['collection', ids.collections, tx`deleted_at is null`],
+    ['filter_value', ids.filterValues, tx`true`],
+    ['customer_group', ids.groups, tx`deleted_at is null`],
+    ['customer', ids.customers, tx`status <> 'deleted'`],
+  ] as const
+  let known = 0
+  for (const [table, list, live] of kinds) {
+    if (list.length === 0) continue
+    known += (await tx<{ n: number }[]>`select count(*)::int as n from ${tx(table)} where store_id = ${storeId} and id = any (${pgArray(list)}::uuid[]) and ${live}`)[0]?.n ?? 0
+  }
+  return known
+}
+
+/** The currencies the store sells in: its main one and every active other (Settings › Store info). */
+export const selectStoreCurrencies = async (tx: ScopedSql, storeId: string): Promise<string[]> =>
+  (
+    await tx<{ currency: string }[]>`
+      select pricing_currency as currency from store where id = ${storeId} and pricing_currency is not null
+      union select currency from store_currency where store_id = ${storeId} and status = 'active'
+    `
+  ).map((r) => r.currency)
