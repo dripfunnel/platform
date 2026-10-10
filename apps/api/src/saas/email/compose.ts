@@ -394,7 +394,6 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       }
       return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
     }
-<<<<<<< HEAD
     case 'api-keys-creator-gone': {
       const p = parse(t)
       const m = await merchant(tx, p.storeId, row.partnerId)
@@ -402,7 +401,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = en.apiKeysCreatorGone
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(p.creator, p.keys, m.store.name)] } }
-=======
+    }
     case 'cart-reminder': {
       const p = parse(t)
       const r = await selectReminderEmail(tx, p.reminderId)
@@ -433,7 +432,6 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const brand: Brand = { ...look.brand, name: r.store_name, supportEmail: r.contact_email, supportUrl: null }
       const content: EmailContent = { subject: words.subject || defaultReminderStep.subject, heading: w.greeting(r.name?.trim().split(/\s+/)[0] || null), paragraphs, action: { label: w.action, url: `https://${host}/cart/r/${token}` }, note }
       return { send: true, accountSecurity: false, to: [r.to], voice: look.voice, brand, content }
->>>>>>> origin/#321/task/abandoned-carts
     }
     case 'store-restored': {
       const p = parse(t)
