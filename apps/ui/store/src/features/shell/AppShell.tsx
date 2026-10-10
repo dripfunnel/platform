@@ -2,9 +2,9 @@ import { ExportWatcher, exportJob, NavDrawer, SideNav, useNow } from '@dripfunne
 import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { loadCatalogExport } from '../../api/imports'
 import { currentBrand } from '../../brand/current'
 import { messages } from '../../messages'
+import { loadAnyExport } from '../common/listExport'
 import { ImportWatcher } from '../imports/ImportWatcher'
 import { AppHeader } from './AppHeader'
 import { EnvironmentStrip } from './EnvironmentStrip'
@@ -47,7 +47,7 @@ export const AppShell = () => {
         </main>
       </div>
       {acting.permissions.includes('catalog.import') && <ImportWatcher key={seatKey} />}
-      {acting.permissions.includes('catalog.read') && <ExportWatcher load={loadCatalogExport} toast={messages.imports.export.ready} />}
+      {(acting.permissions.includes('catalog.read') || acting.permissions.includes('orders.read')) && <ExportWatcher load={loadAnyExport} toast={messages.imports.export.ready} />}
       <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} label={words.navLabel} closeLabel={words.closeMenu}>
         <SideNav rows={rows} variant="drawer" label={words.navLabel} footer={null} onNavigate={() => setMenuOpen(false)} />
       </NavDrawer>

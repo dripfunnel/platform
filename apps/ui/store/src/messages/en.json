@@ -207,9 +207,6 @@
     "yourProducts": {
       "title": "Your products"
     },
-    "toShip": {
-      "title": "To ship"
-    },
     "sales": {
       "title": "Your sales"
     },
@@ -3024,6 +3021,103 @@
       },
       "ruleOther": "Shown by a rule set elsewhere",
       "ruleKept": "Keep its current rule"
+    }
+  },
+  "orders": {
+    "title": "Orders",
+    "titleSupplier": "To ship",
+    "summary": {
+      "one": "{count} order · {toShip} to ship",
+      "other": "{count} orders · {toShip} to ship"
+    },
+    "summarySupplier": "Orders with your items in them. You see only your lines.",
+    "timesIn": "Times in {zone}",
+    "loading": "Loading orders",
+    "error": {
+      "title": "We couldn’t load your orders",
+      "body": "Your orders are safe. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You can’t see orders",
+      "body": "Ask your store owner if you need them."
+    },
+    "empty": {
+      "title": "No orders yet",
+      "body": "Your first order will appear here. Share your store link to get it."
+    },
+    "emptySupplier": {
+      "title": "Nothing to ship yet",
+      "body": "When a shopper buys one of your products, it appears here for you to pack."
+    },
+    "search": {
+      "label": "Search orders",
+      "placeholder": "Search by order number or name",
+      "placeholderSupplier": "Search by order number"
+    },
+    "chips": {
+      "label": "Show orders",
+      "ALL": "All",
+      "TO_SHIP": "To ship",
+      "PARTLY_SHIPPED": "Partly shipped",
+      "SHIPPED": "Shipped",
+      "CANCELLED_REFUNDED": "Cancelled & refunded",
+      "PAYMENT_PENDING": "Payment pending"
+    },
+    "noResults": {
+      "search": "No orders match “{search}”",
+      "filters": "No orders here",
+      "body": "Try another search or filter.",
+      "clear": "Show all orders"
+    },
+    "pages": {
+      "showing": "Showing {from}–{to}",
+      "previous": "Previous",
+      "next": "Next",
+      "label": "Pages"
+    },
+    "list": {
+      "label": "Orders"
+    },
+    "row": {
+      "items": {
+        "one": "{count} item",
+        "other": "{count} items"
+      },
+      "guest": "Guest",
+      "forStore": "For {store}",
+      "sendToStore": "Send to the store",
+      "toShopper": "Send to the shopper",
+      "test": "Test order"
+    },
+    "status": {
+      "toShip": "To ship",
+      "partly": "Partly shipped",
+      "shipped": "Shipped",
+      "refunded": "Refunded",
+      "cancelled": "Cancelled"
+    },
+    "payment": {
+      "pending": "payment pending",
+      "authorised": "card authorised",
+      "paid": "paid",
+      "partlyRefunded": "partly refunded",
+      "refunded": "refunded"
+    },
+    "export": {
+      "button": "Export",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "{count} line is ready.",
+        "other": "{count} lines are ready."
+      },
+      "truncated": "Only the first {count} lines are in it; narrow the filter to see the rest.",
+      "download": "Download",
+      "file": "orders-{date}.csv",
+      "expires": "The link works until {time}.",
+      "expired": "That export’s link has expired. Export again.",
+      "tooLarge": "That export is too large. Narrow the filter and try again.",
+      "failed": "The export couldn’t be made. Try again."
     }
   }
 }

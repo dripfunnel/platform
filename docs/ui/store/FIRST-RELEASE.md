@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-09 (#520: storefront hosting and builds: R2, one edge Worker, GitHub Actions; previews on `webpreview.store`; #493: Billing is not in the merchant mobile app).
+Last updated: 2026-10-10 (#314: Orders, returns, refunds and Customers in the portal).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -181,8 +181,8 @@ From the prototype's shell (`design.md` §3), which this release keeps:
 - **Built on #291** (`apps/ui/store/src/nav.ts`): the rows above per role and tier, the group
   headings, Billing's trial note, and every row leading to a screen or its placeholder.
   **Built on #298**: Products is a screen (§11), and the shell reads `navBadges` for its badge,
-  the products waiting for approval; a failed count draws no badge. Orders' badge stays 0 until
-  SAPI 11 counts the orders to ship.
+  the products waiting for approval; a failed count draws no badge. **Built on #314**: Orders' (and
+  a supplier's To ship) badge is `navBadges.toShip`.
 
 ### 3.2 Header
 
@@ -285,6 +285,12 @@ check. Every figure is the API's (`home`, §19).
   transfer (the order waits in Payment pending until then): Owner and Manager only
   (`orders.mark_paid`, ACCESS §5.1), audited with the actor. A transfer released
   for staying unpaid is cancelled by the system and logged as such (LOGGING §3).
+- **Built on #314, part 1** (`apps/ui/store/src/features/orders/`, `/orders`): the list with its chips and counts
+  (a supplier's four, its part's), search, pages of 25 and Export as a job the shell follows, each row's number, time,
+  shopper and city (a supplier's "For {store}" and where it sends them), status, total and payment; Staff see no money,
+  as PortalOrders draws it. Decided there: a row says how many items, not their names, since `orders` answers a count;
+  times are the store's zone (`storeInfo.timeZone`; a supplier's UTC), named once above the list rather than on every
+  row; "Copy your store link" waits for the portal to know the shop's address (§4). `?state=` per `orderStates.ts`.
 
 ## 7. Customers (`PortalOrders` › Customers, flows 40, 72)
 

@@ -34,6 +34,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders_.$orderId'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products_.$productId'
 import { Route as AppProductsImportRouteImport } from './routes/_app/products_.import'
 import { Route as AppProductsSizeChartsRouteImport } from './routes/_app/products_.size-charts'
@@ -163,6 +164,11 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppOrdersOrderIdRoute = AppOrdersOrderIdRouteImport.update({
+  id: '/orders_/$orderId',
+  path: '/orders/$orderId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
   id: '/products_/$productId',
   path: '/products/$productId',
@@ -214,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/import': typeof AppProductsImportRoute
   '/products/size-charts': typeof AppProductsSizeChartsRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/orders/$orderId': typeof AppOrdersOrderIdRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/import': typeof AppProductsImportRoute
   '/products/size-charts': typeof AppProductsSizeChartsRoute
@@ -277,6 +285,7 @@ export interface FileRoutesById {
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/orders_/$orderId': typeof AppOrdersOrderIdRoute
   '/_app/products_/$productId': typeof AppProductsProductIdRoute
   '/_app/products_/import': typeof AppProductsImportRoute
   '/_app/products_/size-charts': typeof AppProductsSizeChartsRoute
@@ -309,6 +318,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/orders/$orderId'
     | '/products/$productId'
     | '/products/import'
     | '/products/size-charts'
@@ -339,6 +349,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/orders/$orderId'
     | '/products/$productId'
     | '/products/import'
     | '/products/size-charts'
@@ -371,6 +382,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-up'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/orders_/$orderId'
     | '/_app/products_/$productId'
     | '/_app/products_/import'
     | '/_app/products_/size-charts'
@@ -562,6 +574,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/orders_/$orderId': {
+      id: '/_app/orders_/$orderId'
+      path: '/orders/$orderId'
+      fullPath: '/orders/$orderId'
+      preLoaderRoute: typeof AppOrdersOrderIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/products_/$productId': {
       id: '/_app/products_/$productId'
       path: '/products/$productId'
@@ -616,6 +635,7 @@ interface AppRouteChildren {
   AppStorefrontRoute: typeof AppStorefrontRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
   AppProductsImportRoute: typeof AppProductsImportRoute
   AppProductsSizeChartsRoute: typeof AppProductsSizeChartsRoute
@@ -639,6 +659,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStorefrontRoute: AppStorefrontRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
+  AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
   AppProductsProductIdRoute: AppProductsProductIdRoute,
   AppProductsImportRoute: AppProductsImportRoute,
   AppProductsSizeChartsRoute: AppProductsSizeChartsRoute,

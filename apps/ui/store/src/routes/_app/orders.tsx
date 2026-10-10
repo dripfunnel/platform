@@ -1,4 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ScreenPlaceholder } from '../../features/shell/ScreenPlaceholder'
+import { OrderList } from '../../features/orders/OrderList'
 
-export const Route = createFileRoute('/_app/orders')({ component: () => <ScreenPlaceholder screen="orders" /> })
+export const Route = createFileRoute('/_app/orders')({ component: OrderList })
