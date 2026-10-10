@@ -183,6 +183,8 @@ export const en = {
     action: 'Return to your cart',
     why: (host: string) => `You’re getting this because you started checkout at ${host}.`,
     unsubscribe: (url: string) => `Unsubscribe: ${url}`,
+    testSubject: (subject: string) => `[Test] ${subject}`,
+    test: 'This is a test of your cart reminder, with a sample cart. Its code works at no checkout.',
   },
   money: (locale: string, amount: string, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(toMajor({ amount: BigInt(amount), currency }) as `${number}`),
   date: (at: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(at)} (UTC)`,

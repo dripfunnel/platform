@@ -35,7 +35,9 @@ import { parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localCouriers, localDns, localEmail, localSms } from '#integrations/local/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localSms, localWhatsApp } from '#integrations/local/index'
+import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
+import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
@@ -162,6 +164,11 @@ const localSmsAccounts: PartnerSmsAccounts = {
       : { provider, accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
 }
 
+// Locally (SMS_LOCAL) every partner has a WhatsApp number with both cart templates, which the stand-in prints (#275 sets the real ones).
+const localWhatsAppAccounts: PartnerWhatsAppAccounts = {
+  forPartner: async () => ({ authKey: 'local', integratedNumber: 'local', language: 'en', templates: Object.fromEntries(whatsappMessages.map((m) => [m, m.replace('.', '_')])) }),
+}
+
 // Asked for, the stand-in wins (EMAIL_LOCAL; config refuses it anywhere but localhost), as Shopify's does; else SES
 // where its values are set; else email waits in the outbox.
 const emailFor = (config: Config) => {
@@ -180,7 +187,8 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
-    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey) } : {}),
+    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
+    ...(config.SMS_LOCAL === '1' ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
