@@ -1,5 +1,6 @@
 import type { PageWindow } from '#core/paging'
 import { pgArray, type ScopedSql } from './index'
+import { keysetOrder, keysetWhere } from './keyset'
 
 // Webhook endpoints and their deliveries (DATA-MODEL §7.10, migrations/0151). The merchant side's reads and writes run
 // in its store's scope; the relay's in system scope.
@@ -17,19 +18,11 @@ export interface EndpointRow {
   created_at: Date
 }
 
-const page = (tx: ScopedSql, window: PageWindow, alias: string) => tx`
-  ${window.after ? tx`(${tx(alias)}.created_at, ${tx(alias)}.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
-  and ${window.before ? tx`(${tx(alias)}.created_at, ${tx(alias)}.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}`
-const order = (tx: ScopedSql, window: PageWindow, alias: string) => {
-  const dir = window.before && !window.after ? tx`asc` : tx`desc`
-  return tx`order by ${tx(alias)}.created_at ${dir}, ${tx(alias)}.id ${dir} limit ${window.limit + 1}`
-}
-
 export const selectEndpoints = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<EndpointRow[]> =>
   tx<EndpointRow[]>`
     select e.id, e.url, to_jsonb(e.events) as events, e.status, e.failing_since, e.disabled_at, e.created_at from webhook_endpoint e
-    where e.store_id = ${storeId} and e.deleted_at is null and ${page(tx, window, 'e')}
-    ${order(tx, window, 'e')}
+    where e.store_id = ${storeId} and e.deleted_at is null and ${keysetWhere(tx, window, 'e.created_at', 'e.id')}
+    ${keysetOrder(tx, window, 'e.created_at', 'e.id')}
   `
 
 export const countEndpoints = async (tx: ScopedSql, storeId: string): Promise<number> =>
@@ -83,8 +76,8 @@ export const selectDeliveries = (tx: ScopedSql, storeId: string, endpointId: str
   tx<DeliveryRow[]>`
     select d.id, d.event, d.event_id, d.status, d.attempts, d.response_code, d.error, d.duration_ms, d.created_at, d.last_attempt_at, d.delivered_at, d.replay_of
     from webhook_delivery d
-    where d.store_id = ${storeId} and d.endpoint_id = ${endpointId} and ${page(tx, window, 'd')}
-    ${order(tx, window, 'd')}
+    where d.store_id = ${storeId} and d.endpoint_id = ${endpointId} and ${keysetWhere(tx, window, 'd.created_at', 'd.id')}
+    ${keysetOrder(tx, window, 'd.created_at', 'd.id')}
   `
 
 export interface StoredDelivery {
