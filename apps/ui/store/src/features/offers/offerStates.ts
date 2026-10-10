@@ -60,6 +60,9 @@ export const sampleNames = harness
   ? { collections: new Map<string, string>(), filterValues: new Map([['fv-linen', 'Fabric: Linen'], ['fv-cotton', 'Fabric: Cotton']]), groups: new Map([['g1', 'VIP']]) }
   : null
 
+/** The plan the harness's locked results name, as a PLAN_LIMIT's `unlockedBy` would. */
+export const samplePlan = harness ? 'Growth Pro' : null
+
 export const sampleResults: OfferResults | null = harness
   ? { uses: 38, discountGiven: inr('4120000'), salesWithOffer: inr('22100000'), averageOrder: inr('581500'), byDay: Array.from({ length: 14 }, (_, i) => ({ day: new Date(Date.now() - (13 - i) * day).toISOString().slice(0, 10), uses: [2, 3, 1, 4, 2, 0, 3, 5, 2, 1, 4, 3, 6, 2][i] ?? 0 })) }
   : null

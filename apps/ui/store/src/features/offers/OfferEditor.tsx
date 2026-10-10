@@ -18,7 +18,7 @@ import { offerAccessOf } from './offerAccess'
 import { offerRefusal } from './offerActions'
 import { blankDraft, draftOf, errorsOf, inputOf, localOf, offerOf, recipes, type OfferDraft, type StoreFacts } from './offerDraft'
 import { editorSample, editorStates } from './offerStates'
-import { OfferForm, type FormLists } from './OfferForm'
+import { OfferForm, typedMoney, type FormLists } from './OfferForm'
 import { dateTimeText, regionWords, sentence, statusKeyOf, statusLook, timeLine, zoneName, type OfferNames } from './offerView'
 import { ProductPicker } from './ProductPicker'
 import { TypePicker } from './TypePicker'
@@ -198,9 +198,9 @@ export const OfferEditor = () => {
   const pastEnd = !isNew && shaped.endsAt !== null && new Date(shaped.endsAt) <= now
   const liveCode = wasLive && offer.code ? offer.code : null
 
-  const value = draft.kind === 'percent' ? `${draft.percent || 0}%` : `${draft.amounts[facts.main] || 0} ${facts.main}`
+  const value = draft.kind === 'percent' ? `${draft.percent || 0}%` : typedMoney(draft.amounts[facts.main] ?? '', facts.main)
   const quiet = draft.trigger === 'automatic' && draft.minimum === 'none' && draft.who === 'all' && !draft.startsAt && !draft.endsAt && !draft.totalUses && !draft.repeat
-  const loud = quiet ? fill(draft.type === 'shipping' ? (draft.shipMode === 'off' ? words.loud.shippingOff : words.loud.shipping) : words.loud[draft.type], { value, ship: region.ship, amount: `${draft.amounts[facts.main] || 0} ${facts.main}`, buy: draft.buyQuantity, get: draft.getQuantity }) : null
+  const loud = quiet ? fill(draft.type === 'shipping' ? (draft.shipMode === 'off' ? words.loud.shippingOff : words.loud.shipping) : words.loud[draft.type], { value, ship: region.ship, amount: typedMoney(draft.amounts[facts.main] ?? '', facts.main), buy: draft.buyQuantity, get: draft.getQuantity }) : null
   const said = sentence({ ...shaped, code: shaped.code ?? (draft.trigger === 'code' && !draft.singleUse ? '—' : null) }, region, names, now, facts.timeZone)
   const warns = [
     draft.kind === 'percent' && Number(draft.percent) > 50 && draft.type !== 'bxgy' && draft.type !== 'shipping' ? fill(words.warns.big, { percent: draft.percent, tenth: String(Math.round(Number(draft.percent) / 10)) }) : '',

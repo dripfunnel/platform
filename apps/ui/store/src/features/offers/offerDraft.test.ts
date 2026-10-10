@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Offer, OfferAction } from '../../api/offers'
 import { messages } from '../../messages'
-import { blankDraft, convertedMinor, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, type StoreFacts } from './offerDraft'
+import { blankDraft, seasonCode, convertedMinor, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, type StoreFacts } from './offerDraft'
 
 // The editor's form and the record it saves (OFFERS-DESIGN §3.1): the store's time zone, money per currency, what each
 // kind of offer sends, and what stops it saving.
@@ -47,6 +47,18 @@ describe('a new offer', () => {
     expect(blankDraft('order', 'welcome', ctx(india))).toMatchObject({ code: 'WELCOME10', who: 'first', percent: '10' })
     expect(blankDraft('order', 'seasonal', ctx(india))).toMatchObject({ code: 'DIWALI20', name: 'Diwali 20% off', startsAt: '2026-11-01T00:00', endsAt: '2026-11-08T23:59' })
     expect(blankDraft('order', 'vip', ctx(india))).toMatchObject({ who: 'groups', code: 'VIP15' })
+  })
+
+  it('makes a valid seasonal code from an occasion named in any script', () => {
+    expect(seasonCode('Diwali')).toBe('DIWALI20')
+    expect(seasonCode('Singles’ Day')).toBe('SINGLESDAY20')
+    expect(seasonCode('Noël')).toBe('NOEL20')
+    for (const name of ['春节', 'Рождество', 'दिवाली', '!!!', '']) {
+      const code = seasonCode(name)
+      expect(code).toMatch(/^SALE[A-Z2-9]{4}20$/)
+      expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code }, india)).toEqual({})
+    }
+    expect(blankDraft('order', 'seasonal', { ...ctx(india), season: { name: '春节', on: new Date('2027-02-06T00:00:00.000Z') } }).code).toMatch(/^SALE[A-Z2-9]{4}20$/)
     expect(blankDraft('order', 'winBack', ctx(india))).toMatchObject({ who: 'customers', totalUses: '1' })
     expect(blankDraft('order', 'buy2get1', ctx(india)).type).toBe('bxgy')
   })
@@ -172,7 +184,7 @@ describe('what stops it saving (C5)', () => {
   it('says each problem in plain words, within the API’s own limits', () => {
     const d = blankDraft('products', null, ctx(india))
     expect(errorsOf(d, india)).toEqual({ targets: words.products, code: words.codeMissing })
-    expect(errorsOf({ ...d, percent: '120', code: 'a b', productIds: ['p1'] }, india)).toEqual({ value: words.percent, code: words.codeShape })
+    expect(errorsOf({ ...d, percent: '120', code: 'a b', productIds: ['p1'] }, india)).toEqual({ value: words.percent, code: 'Use 3 to 32 letters, numbers, - or _. No spaces.' })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'SUMMER20', startsAt: '2026-10-12T09:00', endsAt: '2026-10-11T09:00' }, india)).toEqual({ ends: words.endsBefore })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'X1', singleUse: true, batch: { count: '9000', prefix: '', length: '8' } }, india)).toEqual({ batch: 'Make between 1 and 5,000 codes.' })
     expect(errorsOf({ ...d, productIds: ['p1'], code: 'OK1', who: 'groups', repeat: { days: [], from: '17:00', to: '21:00' }, totalUses: '0' }, india)).toEqual({ who: words.groups, repeat: words.repeatDays, total: words.total })
@@ -190,7 +202,7 @@ describe('what stops it saving (C5)', () => {
     expect(errorsOf({ ...order, kind: 'fixed', amounts: { USD: '10', EUR: '' } }, multi)).toEqual({})
     expect(errorsOf({ ...order, minimum: 'amount', minAmounts: { USD: '0' } }, multi)).toEqual({ minimum: words.minimumAmount })
     expect(errorsOf({ ...order, minimum: 'amount', minAmounts: { USD: '50', EUR: '-5' } }, multi)).toEqual({ minimum: words.otherAmount })
-    expect(errorsOf({ ...order, minimum: 'items', minQuantity: '0' }, multi)).toEqual({ minimum: words.minimumItems })
+    expect(errorsOf({ ...order, minimum: 'items', minQuantity: '0' }, multi)).toEqual({ minimum: 'Enter how many items, from 1 to 999.' })
     const ship = blankDraft('shipping', null, ctx(multi))
     expect(errorsOf(ship, multi)).toEqual({})
     expect(errorsOf({ ...ship, shipMode: 'off', amounts: { USD: '' } }, multi)).toEqual({ value: words.amount })
