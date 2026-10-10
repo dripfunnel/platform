@@ -3,7 +3,6 @@
 export {
   classOf,
   codeAnswerOf,
-  combinesWithNothing,
   localTimeIn,
   maxConditions,
   namedIds,
