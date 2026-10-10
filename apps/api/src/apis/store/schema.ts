@@ -21,6 +21,9 @@ import { registerCustomerAccounts } from './customerAccounts'
 import { registerPayments } from './payments'
 import { registerOrders } from './orders'
 import { registerCustomers } from './customers'
+import { registerHome } from './home'
+import { registerReports } from './reports'
+import { registerReportExports } from './reportExports'
 import { registerOffers } from './offers'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
@@ -57,6 +60,9 @@ registerPayments(builder)
 registerOrders(builder)
 registerCustomers(builder)
 registerOffers(builder)
+registerHome(builder)
+registerReports(builder)
+registerReportExports(builder)
 registerListing(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

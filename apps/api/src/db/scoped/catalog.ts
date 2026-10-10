@@ -37,7 +37,7 @@ export interface ProductListRow {
 // A physical product with a tracked version, counted somewhere the caller reads, that can sell at most its
 // threshold (CatList "Low stock", DATA-MODEL §7.4). Null tracking and threshold take the store's defaults,
 // tracked and 5, until Settings stores them (§7.2 track_stock_default, low_stock_threshold_default).
-const lowStock = (tx: ScopedSql, product: string) => tx`(${tx(product)}.product_type = 'physical' and exists (
+export const lowStock = (tx: ScopedSql, product: string) => tx`(${tx(product)}.product_type = 'physical' and exists (
   select 1 from product_version v
   cross join lateral (
     select count(*) as counted, coalesce(sum(l.on_hand - l.reserved), 0) as available, min(l.low_stock_threshold) as threshold

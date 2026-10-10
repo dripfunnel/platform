@@ -756,8 +756,8 @@ lists every view and checks the filter is there.
   supplier** (§7.6); **3 options and 100 versions** per product (§7.3); A+ reusable blocks
   (`story_block`) **ship**; `menu_item` **may** point at pages and URLs; **several** shipping
   methods at once; **one domain per store**, never per market; store custom fields and product
-  video **ship**; offer targets resolve at pricing time, guests are recognised by email or a
-  proven phone, a cancellation before fulfilment gives an offer use back (#337). Still open: whether
+  video **ship**; offer targets resolve at pricing time, a once-per-customer or first-order
+  offer counts a signed-in shopper by account only, never a typed email or number (#337, narrowed on #320), a cancellation before fulfilment gives an offer use back (#337). Still open: whether
   report schedules are designed at all (#183).
 
 ---
@@ -1609,8 +1609,8 @@ promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_i
                     UNIQUE (promotion_id, order_id)
                     -- a placed order's row; cancelling before fulfilment deletes it and lowers
                     -- uses_count in one transaction (fact 8, #337); matched per customer_id
-                    -- (a proven phone resolves to one, ACCESS §2.1), else normalised
-                    -- customer_email; results (part P) aggregate this table
+                    -- only (narrowed on #320: customer_email is whatever the placer typed,
+                    -- kept for results, never counted); results (part P) aggregate this table
 ```
 
 **Built on #320 (SAPI 14), migration 0076**, with these differences from the sketch above: `promotion` gains
@@ -1895,7 +1895,7 @@ catalog_import      (id, store_id, seller_id NULL, source ('csv'|'shopify'), sta
                     -- stock_movement 'import'. The file and plan go when the run ends, the error file
                     -- a day later. A connected import (K7) has connection_id, selection (the picked
                     -- products, null for all) and cursor, and is read into the file before its check
-catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'orders'|'customers'|'offer_codes'), filter jsonb,
+catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'orders'|'customers'|'offer_codes'|'report'), filter jsonb,
                      state ('queued'|'done'|'failed'), rows, truncated, csv text NULL,
                      requested_by_id, requested_by_label, created_at, finished_at, expires_at)
                     -- built on #301 (migration 0058): the store's CSV exports, named apart from
@@ -1903,7 +1903,8 @@ catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'ord
                     -- scope, so a supplier's holds its own rows only; the file is on the row for
                     -- an hour, then purged (LOGGING §6). Orders, customers and the other CSVs the
                     -- prototype downloads add their kinds when their cards build them; 'orders' came
-                    -- with #310 (0073), its filter a chip and a search, a supplier's file its own lines
+                    -- with #310 (0073), its filter a chip and a search, a supplier's file its own lines;
+                    -- 'report' with #322 (0101), its filter the panel or custom report and the range fixed when asked
 signup              §3.3 (built on #290)
 access_request      (id, store_id, by_user_id, kind ('feature'|'area'), what,
                      resolved_at NULL, resolution ('acted'|'dismissed') NULL, resolved_by NULL)

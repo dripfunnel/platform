@@ -26,15 +26,12 @@ export interface CartOffersInput {
   storeId: string
   currency: string
   codes: readonly string[]
+  /** The signed-in shopper; a guest is null, whatever contact they typed. */
   customerId: string | null
-  email: string | null
-  phone: string | null
   country: string | null
   lines: readonly CartOfferLine[]
   shipping: bigint | null
   now: Date
-  /** Placement's check: a guest's typed email counts as who they are only here, never in an answer the cart gives. */
-  enforce?: boolean
 }
 
 export interface CartDiscount {
@@ -59,23 +56,20 @@ const pricingOf = (row: CartOfferRow): PricingOffer | null => {
   return { id: row.id, name: row.name, codeId: row.code_id, createdAt: row.created_at, conditions: conditions as Condition[], action, combines: row.combines_with }
 }
 
+const firstOrderIn = (conditions: readonly Condition[]) => conditions.some((c) => c.operation === 'first_order' || (c.operation === 'any_of' && c.conditions.some((x) => x.operation === 'first_order')))
+
 export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Promise<CartOffers> => {
   const { storeId, now } = input
-  const email = input.email?.trim().toLowerCase() || null
-  // An email anyone can type proves nothing (fact 8): the cart answers for it as for no contact, and placement holds it.
-  const who = { customerId: input.customerId, email: input.enforce ? email : null }
+  const { customerId } = input
   const { rows, uses, shopper, targets } = await withSystemScope(sql, async (tx) => {
     const rows = await selectCartOffers(tx, storeId, input.codes, now)
     return {
       rows,
-      uses: await selectShopperUses(tx, storeId, [...new Set(rows.filter((r) => r.per_customer_limit !== null).map((r) => r.id))], who),
-      shopper: await selectCartShopper(tx, storeId, who),
+      uses: await selectShopperUses(tx, storeId, [...new Set(rows.filter((r) => r.per_customer_limit !== null).map((r) => r.id))], customerId),
+      shopper: await selectCartShopper(tx, storeId, customerId),
       targets: await selectProductTargets(tx, storeId, [...new Set(input.lines.map((l) => l.productId))]),
     }
   })
-  // A guest is known by their email, or by a number only once proven by signing in; a typed number never counts (#337).
-  const known = who.customerId !== null || who.email !== null
-  const phoneOnly = input.customerId === null && email === null && input.phone !== null
   const states = new Map<string, CodeState>()
   const offers: PricingOffer[] = []
   const limits = new Map<string, number | null>()
@@ -88,17 +82,19 @@ export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Pro
       if (answer !== 'WORKS' && row.trigger === 'code') continue
     }
     if ((row.trigger === 'automatic' && status !== 'live') || offers.some((o) => o.id === row.id)) continue
+    const offer = pricingOf(row.trigger === 'code' ? row : { ...row, code_id: null })
+    if (!offer) continue
+    // Once per customer and first order only need to know who the shopper is, which a typed email or number never says,
+    // and an answer that turned on one would tell anyone another shopper's history (ACCESS §2.1).
     const limit = row.per_customer_limit
-    if (limit !== null && known && (uses.get(row.id) ?? 0) >= limit) {
-      if (row.code) states.set(row.code, 'ALREADY_USED')
-      continue
-    }
-    if (limit !== null && (phoneOnly || (input.enforce && !known))) {
+    if ((limit !== null || firstOrderIn(offer.conditions)) && customerId === null) {
       if (row.code) states.set(row.code, 'SIGN_IN_REQUIRED')
       continue
     }
-    const offer = pricingOf(row.trigger === 'code' ? row : { ...row, code_id: null })
-    if (!offer) continue
+    if (limit !== null && (uses.get(row.id) ?? 0) >= limit) {
+      if (row.code) states.set(row.code, 'ALREADY_USED')
+      continue
+    }
     offers.push(offer)
     limits.set(row.id, limit)
   }
@@ -115,8 +111,7 @@ export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Pro
       onSale: l.onSale,
     })),
     shipping: input.shipping,
-    // A guest's first order is taken on trust in the cart and checked at placement.
-    shopper: { customerId: input.customerId, groupIds: shopper.group_ids, firstOrder: known ? !shopper.has_ordered : !input.enforce && !phoneOnly, country: input.country },
+    shopper: { customerId, groupIds: shopper.group_ids, firstOrder: customerId !== null && !shopper.has_ordered, country: input.country },
     local: localTimeIn(now, shopper.time_zone),
     offers,
   })

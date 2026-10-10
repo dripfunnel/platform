@@ -226,11 +226,13 @@ promotions tests before relying on it.
    - Total uses and uses per customer work for codes and for automatic offers. The engine's
      usage counting must survive concurrency (PLATFORM-PROMPT §5.4, §5.9): two shoppers
      placing orders at once can't both take the last use.
-   - "Per customer" only works once the shopper is known. A **guest** is recognised by normalised
-     email, or by phone only once proven by a code (mobile sign-in, ACCESS §2.1); a typed,
-     unproven phone never counts (decided 2026-10-05 on #337). Limits are best-effort for guests. The form's helper
-     text (a `messages/` key) says so: guests are recognised by email, and shoppers who signed
-     in with a mobile code by their number.
+   - "Per customer" and "first order only" work only once the shopper is known, which means **signed in**: by
+     their account, and only by the orders placed while signed in to it. A guest is never counted, by a typed email or a
+     typed number, since any answer turning on what they typed would reveal another shopper's history (ACCESS §2.1);
+     such an offer asks a guest to sign in. Nor do a guest's orders count later against an account with that email,
+     proven or not: whoever placed them typed it, perhaps someone else. Decided on #320's review, narrowing #337's
+     "guests recognised by normalised email, or by a phone proven by a code" (§3.1). The form's helper text (a
+     `messages/` key, with the editor) says so: "Shoppers sign in to use it, so we know who has used it."
    - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).
    - Show usage as "38 of 100 used".
 9. **Status is derived, not stored.** The portal (or the Store API) computes it from
@@ -374,12 +376,12 @@ minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store
 - **Status ignores a repeating offer's windows**: it is Live between them; its time line says when it runs.
 - **A shipping offer applies once a delivery is chosen**, to what that delivery costs.
 - **Amounts are in the store's own tax mode**, so tax is computed afterwards, on what the lines come to after their discounts.
-- **A guest's typed email is checked only at placement.** The cart answers for it as for no contact, so typing someone
-  else's email never tells whether they used an offer or have ordered before; placement counts their uses and orders by
-  it and refuses `OFFER_CHANGED` for an offer they can't have. A signed-in shopper is counted by their account in the
-  cart too.
-- **A guest who has given only a phone number can't use a once-per-customer offer** (`SIGN_IN_REQUIRED`): a typed number
-  never says who they are (fact 8), so they sign in with a code by text first.
+- **Once per customer and first order only need a signed-in shopper** (`SIGN_IN_REQUIRED` for every guest, whatever
+  they typed). A signed-in shopper is counted by their account only, never by orders placed with its email, which
+  anyone could have typed. A typed email is never counted: any answer that turned on one, in the cart or at
+  placement, would tell anyone whether that email had used an offer or ordered (ACCESS §2.1, "never reveal whether an
+  account or email exists"). This narrows fact 8's "guests are recognised by normalised email" (#337): a guest proves
+  the email by signing in with the code it is sent, and their order goes through without the offer if they don't.
 - **A preview's test order takes no use**, so trying an offer on the preview never spends a real limit or code.
 - **A cart holds up to five codes**; a code that can't work whatever is added comes straight back off it, one whose
   conditions aren't met yet stays and applies once they are.

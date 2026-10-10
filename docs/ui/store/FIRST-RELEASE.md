@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#314: Orders, returns, refunds and Customers in the portal).
+Last updated: 2026-10-10 (#322: Home's figures per seat, and Reports).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -259,6 +259,21 @@ doing" (sales yesterday, orders today, average order over 7 days, returning cust
 latest orders. Staff see no money. A new store sees the getting-started checklist and the locale
 check. Every figure is the API's (`home`, §19).
 
+**Built on #322, part 1** (`home`): a day is midnight to midnight in the store's time zone (Settings › Store
+info), sent as UTC instants. A **sale** is a placed order whose money was taken (paid, partly or wholly refunded),
+never a cancelled or test one, counted net of refunds as Customers' "spent" is; money comes **a figure a currency,
+never converted**, the pricing currency first. Orders today and yesterday count the orders that went through, a
+cash-on-delivery or bank-transfer one still to be paid included; returning customers are the shoppers with more than one
+such order (an account, else a guest's email, else its number). "Needs you" answers to ship (and partly shipped, the
+oldest's time), payments to collect (cash or transfer, `orders.mark_paid`), the approval queue while approval is on
+(`approve`), low stock (the count and the first three names), and couriers whose login a test refused
+(`shipping.configure`). A seat without a figure gets null: Staff no sales, average order, returning customers, order
+totals or payments to collect (`reports.read`), a Manager no approval queue or couriers; the checklist (products,
+collections, payments, shipping) only while the store has no order, each item for the seat that can do it.
+**Not built:** team requests, which need `access_request` and a "Send request" (DATA-MODEL §7.10) no card builds yet;
+"products missing details for some countries", which needs a store-wide readiness count; and the checklist's
+storefront item, which waits for SAPI 17. The locale check reads `storeLocale` and `storeInfo`.
+
 ---
 
 ## 6. Orders (`PortalOrders`, DESIGN-BRIEF F, flows 36–41, 70–71)
@@ -348,6 +363,28 @@ a week per shopper, stop on any purchase (always on), an unsubscribe link in eve
 came from (by market), tax collected (by state in the US, by rate in India), suppliers (units,
 never a supplier's own totals shown to another), and the **custom report builder** (rows and
 columns). Every panel exports. Locked below Growth. Owner and Manager.
+
+**Built on #322, part 2** (`report(days, currency)`): the last 7, 30 or 90 of the store's days, today included, against
+as many days before, over Home's sales (§5), in **one currency at a time** (the pricing currency unless another is asked
+for; `currencies` lists every one sold in), never converted. Panels: `takings` (sales, refunds, net, the period
+before's net and orders), `sold` (products by money taken on their lines), `markets` (net by the market bought in),
+`tax` (as charged at checkout: by delivery state for a US store, by line rate otherwise, delivery's tax as a row with no
+rate), `suppliers` (units per owner, the store's own first, never money), and **top offers** (decided on #337: each
+discount line's name as shoppers saw it, its orders, the discount and those orders' net); `sold`, `markets` and `offers`
+answer their top rows (5 by default, up to 50), the tax rows and `suppliers` up to 50 (50 by default),
+the tax total every order's. Locked below Growth by the plan's `reports_sales` and the supplier panel by
+`reports_export` ("Export and supplier report", the pricing page), each refused as `PLAN_LIMIT` with the plan that
+unlocks it; Staff and every supplier are refused.
+
+**Built on #322, part 3** (`exportReport(panel, days, currency, custom)`, `reportExport(id)`, `reportExports`): every
+panel's file as a job, its range and currency fixed when asked, read back only by the asker for an hour; `takings` is
+the orders behind it (total, refunded, net, tax, market), so Reports' "Export all" asks for it. The **custom report
+builder** is the same job with `panel: custom` and the prototype's two answers: a row an order (basic; plus refunds and
+tax; or a row a line sold), a product (every product, units and takings; plus stock left and supplier) or a customer (who
+bought in the range, orders and spend; plus groups and tags). It is a file, as the prototype downloads it, so the
+proposed `customReport` query is not built. Up to 10,000 rows, saying where it was cut. Export needs the plan's
+`reports_sales` and `reports_export`, and the builder `reports_custom` (Business) as well, each refused as `PLAN_LIMIT`; allowed while read-only,
+never for a read-only support session.
 
 ---
 
@@ -638,6 +675,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Shipping's "What the shopper pays" is a choice of one, and a courier connects with a pasted account key | Any of the courier's rate, a flat rate and collection at once (#337); couriers on the partner's accounts, connected without a key (THIRD-PARTY-ACCESS §4) | rule |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |
 | The sandbox's stock-reason values | The list #183 settled is what DATA-MODEL stores | behaviour, decided |
+| Home shows Staff the returning customers, and a Manager the approval queue | Staff get no returning customers and a Manager no approval queue, withheld by the API (§20 SAPI 18, ACCESS §5.1 `reports.read`, `approve`; #322) | rule |
 
 ---
 
@@ -672,7 +710,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | | *Built on #320 (part 2): `offers(status, kind, trigger, search)` (status `live`, `scheduled`, `off` or `ended`, Used up under Ended; kind `products`, `order`, `bxgy` or `shipping`; search by name, team note or any part of a shared code, never a single-use one), `offerCounts` (the tabs), `offer(id)`, `saveOffer(id, revision, input)` (a new offer without `id`; `enabled` and `startsAt` are Start now, Schedule and Keep off; `STALE_REVISION` with the revision, `CODE_TAKEN` with the offer holding it and its status, deleted included, `UNKNOWN_TARGET`, `CURRENCY_NOT_SOLD`, `PLAN_LIMIT` with `offers`, `group_offers` or `live_offers`), `pauseOffer`, `resumeOffer` ("Turn back on", held to the live limit), `endOffer`, `duplicateOffer`, `deleteOffer` (soft). A changed shared code stops working and stays the offer's. Owner and Manager write, Staff read; the live limit counts live and scheduled offers, under the store's lock, so a downgrade keeps them running and blocks one more.* | |
 | | *Part 3: `generateCodes(offerId, count, prefix, length)` (a run of up to 5,000 single-use codes, readable with no 0/O or 1/I, from the Worker's random source, at most 100,000 an offer; `group_offers`; `NOT_A_CODE_OFFER` for an automatic one), `offerCodeBatches(offerId)` (cursor-paged, newest first) with each run's used count; `CODES_EXHAUSTED` when a prefix leaves too few new codes to draw, `exportOfferCodes(batchId)` (`offers.export`, a job read back by its asker with `offerCodesExport(id)`, never by a read-only support session), `checkCode(code)` (the offer, whether the code is single-use or used, and `answer`: `WORKS`, `INVALID`, `EXPIRED` or `USED_UP`, what a shopper meets; null alike for a malformed, a missing and another store's code; 30 a minute per person and store, `OFFER_CODE_RATE_LIMITER`, refused where unbound), `offerResults(id)` (uses, discount given, sales with the offer and the average order per currency, uses per day for 30 days in the store's time zone; `offer_results`).* | |
 | Abandoned carts | `abandonedCarts(filter)`, `cartSummary(range)`, `reminderSettings` | `saveReminderSettings`, `remindNow(cartId, discount)`, `sendTestReminder` |
-| Reports | `report(panel, range)`, `customReport(rows, columns, range)` | `exportReport(panel, range)` (job) |
+| Reports | `report(days, currency)` with its panels, `reportExport(id)`, `reportExports` (built on #322) | `exportReport(panel, days, currency, custom)` (job; `panel: custom` is the custom report builder) |
 | Products | `products(filter, sort)`, `productCounts`, `product(id)`, `productStock(productId)`, `stockHistory(productId, versionId)`, `readiness(productId)`, `catalogExport(id)`, `catalogExports`, `catalogImport(id)`, `catalogImports`, `catalogImportTemplate` | `saveProduct`, `updateProducts(ids, patch)`, `deleteProducts`, `adjustStock(versionId, warehouseId, delta, reason)`, `setStock(entries)`, `setLowStockThreshold`, `approveProduct`, `sendBackProduct(reason)`, `uploadAsset` (signed upload), `writeDescription` (AI, metered), `requestCatalogExport(kind)` (job: products or stock), `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)` (jobs) |
 | Collections | `collections`, `facets` (the one a supplier reaches too, counting its own products only), `menu`, `sizeCharts`, `productCollections` (merchant side) | `saveCollection`, `deleteCollection`, `saveFacet`, `mergeFacetValues`, `saveMenu`, `saveSizeChart`, `deleteSizeChart`, `setProductCollections` (merchant side) |
 | Import | `catalogImport(id)`, `catalogImports`, `catalogImportTemplate`, `shopifyConnection`, `shopifyProducts` | `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)`, `connectShopify`, `finishShopifyConnect`, `disconnectShopify`, `startShopifyImport`. No pause: a run carries on on the server, chunk by chunk |
@@ -749,8 +787,8 @@ code the cart holds and its state: `APPLIED`, `NOT_ELIGIBLE`, `DOESNT_COMBINE`, 
 `USED_UP` or `ALREADY_USED`); tax is on what the lines and delivery come to after them. `applyCode(code)` answers the
 code's state with the cart: one that can't work whatever is added comes straight back off, a code no offer of the store
 holds is `INVALID` like a malformed one, and codes are tried at most 30 a minute per store and address
-(`OFFER_CODE_RATE_LIMITER`); `removeCode(code)`; at most five codes a cart. A guest's typed email is never counted in the cart's answers (another shopper's uses and orders would show through it);
-placing the order checks the offers again with it and refuses `OFFER_CHANGED` for one they can't have. Placing a live order takes each offer's use
+(`OFFER_CODE_RATE_LIMITER`); `removeCode(code)`; at most five codes a cart. A once-per-customer or first-order offer needs a signed-in shopper (`SIGN_IN_REQUIRED` for every guest, whatever email they
+typed, so no answer reveals another shopper's history; OFFERS-DESIGN §3.1). Placing a live order takes each offer's use
 under its row lock (an offer used up or ended meanwhile refuses `OFFER_CHANGED`, and the cart, read again, no longer has
 it), the shopper's own uses under a lock of their own, a single-use code's one use, and records the discount on the
 lines, as a line per offer (`order.discounts`) and in `promotion_usage`; a preview's test order takes no use. A
