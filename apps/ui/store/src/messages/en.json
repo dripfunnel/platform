@@ -1299,7 +1299,8 @@
       "serviceSub": "Arranged after the order",
       "gift_card": "A gift card",
       "gift_cardSub": "Sent by email",
-      "later": "Files, licence keys, service details and gift card amounts come with their own screens; the product saves now."
+      "merchantOnly": "Suppliers sell physical items. Downloads, services and gift cards are the store’s own.",
+      "gone": "No weight, box, shipping or stock for this kind — those boxes are gone"
     },
     "photos": {
       "title": "Photos",
@@ -1750,6 +1751,148 @@
         "other": "That didn’t save. Your text is still here; try again."
       },
       "saveProductFirst": "Save your changes to the product first, then translate it."
+    },
+    "kinds": {
+      "download": {
+        "title": "What the shopper gets",
+        "file": "A file to download",
+        "keys": "A licence key",
+        "upload": "Upload the file",
+        "uploadHint": "PDF, ZIP, MP3, MP4, WebM or an image · up to {size} · stored privately, never on your storefront",
+        "uploading": "Uploading…",
+        "replace": "Replace",
+        "fileMeta": "{type} file · {size}",
+        "types": {
+          "application/pdf": "PDF",
+          "application/zip": "ZIP",
+          "audio/mpeg": "MP3",
+          "video/mp4": "MP4",
+          "video/webm": "WebM",
+          "image": "Image",
+          "other": "A"
+        },
+        "missing": "Upload the file the shopper gets",
+        "limit": "Downloads per order",
+        "days": "Link works for",
+        "dayOptions": {
+          "7": "7 days",
+          "30": "30 days",
+          "365": "1 year"
+        },
+        "rule": "The shopper gets the link as soon as the payment goes through — never before, so a bank transfer waits until you mark it paid.",
+        "refused": {
+          "TOO_LARGE": "That file is too big. Use one under {size}.",
+          "UNSUPPORTED_TYPE": "Use a PDF, ZIP, MP3, MP4, WebM or an image.",
+          "EMPTY": "That file is empty.",
+          "FORBIDDEN": "You can’t add files here.",
+          "READ_ONLY": "Nothing can change in this store right now.",
+          "NOT_CONNECTED": "The file didn’t upload. Check your connection and try again."
+        },
+        "keysLabel": "Add licence keys",
+        "keysPlaceholder": "One key per line",
+        "keysHint": "Saved keys are never shown again, only counted. Each order takes one; when none are left the product shows as sold out.",
+        "keysLeft": {
+          "one": "{count} key left · one is sent per order",
+          "other": "{count} keys left · one is sent per order"
+        },
+        "keysNone": "No keys left: the product shows as sold out until you add more.",
+        "keysLow": "Running low: add more before they run out.",
+        "keysSold": {
+          "one": "{count} sent so far",
+          "other": "{count} sent so far"
+        },
+        "keysTyped": {
+          "one": "{count} new key to add when you save",
+          "other": "{count} new keys to add when you save"
+        },
+        "keysInvalid": "Add up to {max} keys at a time, each up to {length} characters."
+      },
+      "service": {
+        "title": "About the service",
+        "duration": "How long it takes",
+        "location": "Where",
+        "optional": "Optional",
+        "durationPlaceholder": "e.g. 2 hours",
+        "locationPlaceholder": "e.g. Our studio, 12 MI Road",
+        "note": "No booking calendar. After an order, you arrange a time with the shopper. They’re told: “We’ll email you within a working day to arrange a time.” No shipping, weight or stock."
+      },
+      "giftCard": {
+        "title": "Gift card amounts",
+        "option": "Amount",
+        "add": "+ Add an amount",
+        "remove": "Remove {amount}",
+        "keepOne": "Keep at least one amount",
+        "missing": "Add at least one amount",
+        "addTitle": "Add an amount",
+        "addLabel": "Amount in {currency}",
+        "addInvalid": "Enter an amount above zero, like {example}.",
+        "addTaken": "That amount is already there.",
+        "addConfirm": "Add",
+        "expiry": "Cards expire after",
+        "never": "Never",
+        "months": {
+          "12": "1 year",
+          "24": "2 years",
+          "36": "3 years",
+          "60": "5 years",
+          "84": "7 years",
+          "120": "10 years"
+        },
+        "shortest": "{period} (the shortest allowed)",
+        "rule": "At least {period} from the day a card is sent.",
+        "ruleUnknown": "At least 5 years from the day a card is sent in the US, 1 year elsewhere.",
+        "tax": "No tax when a card is bought; tax is charged on what it’s spent on. Sent by email on the date the shopper picks.",
+        "issued": "Cards issued",
+        "issue": "Issue a card",
+        "issueAfterSave": "Save the product to issue cards.",
+        "none": "No cards yet. Cards bought on your storefront and cards you issue show here.",
+        "loading": "Loading cards…",
+        "failed": "The cards didn’t load.",
+        "retry": "Try again",
+        "more": "Show more",
+        "code": "•••• {last4}",
+        "notSent": "Not sent yet",
+        "expires": "Expires {date} UTC",
+        "expired": "Expired {date} UTC",
+        "noExpiry": "Never expires",
+        "status": {
+          "active": "Active",
+          "partUsed": "Part used",
+          "usedUp": "Used up",
+          "expired": "Expired",
+          "unsent": "Not sent yet",
+          "disabled": "Disabled"
+        },
+        "issueTitle": "Issue a gift card",
+        "issueBody": "For store credit or a goodwill gesture. It’s emailed now and logged under your name.",
+        "issueAmount": "Amount",
+        "issueEmail": "Send to (email)",
+        "issueEmailInvalid": "Enter an email like name@example.com.",
+        "issueConfirm": "Issue the card",
+        "issuedToast": "Gift card sent to {email}",
+        "refused": {
+          "INVALID_INPUT": "Enter an email like name@example.com.",
+          "NOT_FOUND": "That amount isn’t here any more. Reload and try again.",
+          "KEY_REUSED": "That request already issued a different card. Open Issue a card again to send another.",
+          "READ_ONLY": "Nothing can change in this store right now.",
+          "FORBIDDEN": "Only the Owner and Managers issue cards.",
+          "other": "The card wasn’t issued. Try again."
+        },
+        "issueTarget": "{name} · {amount}",
+        "issueEmailPlaceholder": "name@example.com"
+      },
+      "refused": {
+        "WRONG_KIND": "That isn’t this kind of product any more. Reload to see it.",
+        "FILE_REFUSED": "That file isn’t here any more. Upload it again.",
+        "EXPIRY_TOO_SHORT": "Gift cards must last at least 5 years in the US and 1 year elsewhere.",
+        "INVALID_INPUT": "Something in what the shopper gets isn’t valid. Check it and save again.",
+        "STALE_REVISION": "Someone else saved this product. Reload to see their changes.",
+        "READ_ONLY": "Nothing can change in this store right now.",
+        "NOT_FOUND": "This product isn’t here any more.",
+        "FORBIDDEN": "You can’t change this product.",
+        "other": "The product saved, but what the shopper gets didn’t. Save again to keep it."
+      },
+      "newFailed": "The product saved, but what the shopper gets didn’t: check it below and save again. Paste any licence keys again."
     }
   },
   "story": {
@@ -2054,8 +2197,7 @@
         "title": "That file can’t be imported"
       },
       "chooseAnother": "Choose another file",
-      "template": "Download the template",
-      "megabytes": "{size} MB"
+      "template": "Download the template"
     },
     "shopify": {
       "title": "Connect your Shopify store",

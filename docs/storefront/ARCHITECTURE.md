@@ -18,12 +18,12 @@ reference"** below means the first platform's storefront template (a Next.js com
 as customised by us, now removed from the workspace); §11 records what was taken from it.
 
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
-i18n, money, the first required components, SEO and the route contract (#304), and the
-validator, `./guard` (#480); everything else below is to build.
+i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
+components with the branded commerce types (#481); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built).
 
 ---
 
@@ -265,8 +265,8 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   `forwardRef` and `createContext`, so not `createElement`, `lazy` or a namespace or default import,
   and not `react/jsx-runtime`. From `motion`, only its components and hooks that act on their own
   element: not `animate`, `useAnimate` or `useScroll`. No import attributes, side-effect imports or
-  `import defer`. `./theme` is core's theme entry: `useStorefront` and the required components
-  today, with the hooks of §2.1 joining it as they are built.
+  `import defer`. `./theme` is core's theme entry: `useStorefront`, the sealed components and the commerce
+  types today, with the hooks of §2.1 joining it as they are built.
 - **Globals**: only the language's own `Array`, `Boolean`, `Error`, `Map`, `Number`, `Promise`,
   `Set`, `String`, `JSON` (`parse`, `stringify`), `Object` (`entries`, `freeze`, `fromEntries`,
   `hasOwn`, `keys`, `values`), `Math` (every member but `random`) and the timers
@@ -287,6 +287,8 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   banners), buttons only `type="button"`, and no `df-` class or id or `data-df-*` attribute. motion's
   `animate`, `initial`, `exit`, `while*`, `variants` and `style` may name only transform, opacity
   and filter.
+- **Commerce types**: a value is never cast to `Money`, `Stock`, `Rating` or `Badge` (#481): they
+  come only from core's hooks.
 - **Text**: JSX text with a letter, digit or symbol; literals reaching a rendered place through
   variables, lists, lookups and the theme's own functions; numbers rendered as written; values
   given to `t()`; a text attribute (`alt`, `title`, `aria-label` and the rest) written out; and a
@@ -329,8 +331,9 @@ checkout's or confirmation's *(decided on #480)*.
 
 ### 3.5 Sealed components and the runtime walls
 
-*Planned (#481)*: until it lands, the required components of #304 are plain DOM a theme styles
-through their class names, and the banners are not yet in the top layer.
+*Built on #481*: everything below, as each bullet's "as built" says. Wiring it into the template's
+route shims (the boundaries, `installTrustedTypes`) and the edge Worker sending the headers are
+their own cards.
 
 - **Sealed components** render in a **closed Shadow DOM**, styled only through the custom
   properties and `::part` names core documents; theme CSS can't reach inside. Each checks its
@@ -338,35 +341,83 @@ through their class names, and the banners are not yet in the top layer.
   below its minimum size) and reports a violation to the platform.
 - **The consent and preview banners** use the browser's **top layer** (`<dialog>` or
   `popover`), which no `z-index` can cover.
-- **CSP**: scripts only from the store's own build and the hosts of the analytics providers
+- **As built on #481** *(decided there)*:
+  - Each is a `<df-sealed>` host whose closed root only core holds. The theme gives the host its
+    `className`; inside, core locks with `!important` what keeps a part seen (an `!important` in a
+    shadow root beats the page's own): display, visibility, opacity, filter, clipping and masks,
+    the parts' position, transform and margins, overflow, and text no smaller than 12 px. Text is
+    sized through `--df-price-size` and `--df-sealed-size`; colour and type through
+    `--df-sealed-font`, `--df-sealed-color`, `--df-sealed-muted`, `--df-sealed-surface`,
+    `--df-sealed-radius`, `--df-preview-surface` and `--df-preview-color`; anything else through
+    `::part`. The page's HTML carries each component's words, for crawlers and the no-JavaScript
+    check, until core renders it in its root.
+  - Parts: the price `amount`, `was`, `tax`; the preview banner `banner`; "Powered by" `line`;
+    legal notices `section`, `title`, `body`; the consent banner `banner`, `title`, `body`,
+    `choice`, `button`; Cookie settings `button`; breadcrumbs `list`, `item`, `link`, `current`.
+    The payment element and the order summary at review are sealed the same way by the checkout
+    card (#313), which brings their data.
+  - The banners are `popover="manual"`, so they take no focus; the preview banner's height is held
+    in the page.
+  - The self-check runs after layout and whenever the component scrolls into view. A failure is
+    checked again a second later, so an entrance animation can finish, and only then reported.
+    Minimum sizes (`minimumSize`): price 24×12 px, preview banner 200×24, "Powered by" 40×12,
+    legal notices 120×24, consent banner 240×80, Cookie settings 24×24, breadcrumbs 40×12; below
+    50% opacity, of the component or its text, counts as transparent. "Covered" is a hit test at
+    its centre, so an overlay a theme makes ignore the pointer (`pointer-events: none`) isn't seen
+    by it; the publish gate's visual checks (§4.2) are the wall there.
+  - Reports go once per page to the Shop API's `reportStorefrontProblem(kind, subject, detail)`
+    (`SEALED`, the component, why), with names only, never the page's address (a studio address
+    holds its session, AI-STUDIO §8).
+  - `./testing` checks presence in a page's HTML (`pageProblems`) and visibility in a rendered
+    page (`visibilityProblems`, without the layout checks where nothing is laid out, as in jsdom).
+- **CSP**: scripts only from the store's own build, the hosts of the analytics providers
   **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
-  consent; `connect-src` only the Shop API, the store's payment providers and those analytics
+  consent, and its payment providers' SDKs (§2.1 `checkout`, *added on #481*); `connect-src` only the Shop API, the store's payment providers and those analytics
   hosts; images from the store's media, the payment providers and those analytics hosts (Meta
   Pixel sends by image request); fonts from the store's build; `form-action` only the store and
   the payment providers; `frame-src` only the payment providers. **Trusted Types** required,
   with the policies `df-core` (core's own script URLs for those analytics hosts), `default`
   (core's narrow fallback, accepting a script URL only on those hosts, for providers that set a
-  plain string such as `fbevents.js`) and `goog#html` (gtag.js and GTM's own); nothing else. A
+  plain string such as `fbevents.js`, or on the build's own origins, which `script-src` allows
+  anyway, for a bundler's chunk loader; *the build's origins decided on #481*) and `goog#html` (gtag.js and GTM's own); nothing else. A
   GTM container's tags run only from the hosts `script-src` lists, so a merchant's extra tags
-  need their host added to the store's analytics settings. The header and the `default` policy
-  are built on #481.
+  need their host added to the store's analytics settings.
+- **As built on #481** *(decided there)*: `storeCsp(store, hashes)` and `studioCsp(studio, hashes)`
+  build the headers from a page's `inlineHashes` (SHA-256 of each inline script and style, never a
+  nonce, so the same build gives the same header); `pageHeaders` gives each HTML file of a build
+  its own header, which the build writes into its manifest for the edge Worker to send unchanged
+  (LIVE-SHOP §4 step 8, §5 step 5). A store's header is `default-src 'none'`, then the sources
+  above, with `frame-ancestors 'none'`, `base-uri 'none'` and `object-src 'none'`; an origin is
+  https with no path. `goog#html` is listed only when the store uses GA4 or GTM. Each provider's
+  hosts are in `platform/csp` (the payment providers' *proposed*, until #313's adapters confirm
+  them). `installTrustedTypes({ analyticsHosts, buildOrigins })` creates `df-core` and `default`
+  once, before any script loads; core's analytics set their script through `df-core`.
 - **The studio frame's CSP is stricter** (decided 2026-10-09, #520; AI-STUDIO §8):
   - **`default-src 'none'`**, so every directive not listed below is closed;
   - `script-src`, `connect-src`, `font-src` and `style-src` are `'self'` only: the frame's own
     origin, which means `/__studio/{session}/`, its `/shop-api` and its WebSocket, with the
-    build's style hashes;
+    build's style hashes (so the studio's page has no inline script);
   - `img-src` and `media-src` are `'self'` and the platform's own media host (product photos and
     core's `<Video>`), never another party's;
   - `form-action`, `frame-src`, `object-src`, `base-uri`, `manifest-src` and `worker-src` are
     `'none'`;
   - no analytics and no payment provider: the studio loads neither, and checkout there shows a
     placeholder (a test checkout is the preview link's, PREVIEW §5 step 6). Links to other hosts
-    open a new tab outside the frame, carrying nothing from it (`noreferrer`);
+    open a new tab outside the frame, carrying nothing from it (`noreferrer`): core's `<Link>`
+    does this for any `http(s)` address when the render mode is `studio` (the store's own links
+    are paths), and renders no link at all for an address that isn't a path or `http(s)` or that
+    holds a backslash, a space or a control character;
   - `frame-ancestors` only the store's portal host.
 
   So nothing in the frame can send a request to another host.
 - **Error boundaries**: core wraps every section; a section that throws falls back to the
   baseline section and is reported. Checkout falls back to the baseline checkout.
+  As built on #481 *(decided there)*: a section is what a route shim renders, the theme's page for
+  the route and its layout's header and footer, each in `SectionBoundary(name, baseline)` with the
+  baseline theme's same part. `CheckoutBoundary(baseline)` switches a shopper whose theme checkout
+  throws to the baseline checkout for the rest of the visit (remembered in `sessionStorage`, read
+  before either checkout renders, so the server's HTML holds neither). Both
+  report through `reportStorefrontProblem` (`SECTION` with the section's name, `CHECKOUT`).
 
 ---
 

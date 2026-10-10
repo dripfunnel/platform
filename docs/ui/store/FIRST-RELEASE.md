@@ -456,10 +456,27 @@ asking, as the API can't make a file without a currency.
   list with quick edit and approval, the editor (choices and versions, photos, stock with history, the
   listing sections, translations, prices in other currencies and per market), A+ content at
   `/products/$productId/story`, and a supplier's Warehouses tab at `/products/warehouses` (#337). Still to
-  come with their own cards: download files, service details and gift card amounts, a fixed price per
-  market, product video upload, and Import and Export (§13). **The API for the first three is built on #323**
-  (SAPI 22, part 1: `productKind`, `saveProductKind`, `addLicenceKeys`, `POST /api/assets?kind=download`;
-  CATALOG-DESIGN T14); a gift card's amounts are its versions.
+  come with their own cards: a fixed price per market, product video upload, and Import and Export (§13).
+- **Built on #328** (SUI 16, on #323's API: CATALOG-DESIGN T14): the other three kinds in the editor, each with its
+  own card under "What are you selling?". A **download** uploads its file privately (`POST /api/assets?kind=download`,
+  up to 30 MB, shown by its type and size) with how often and how long its link works, or keeps a **licence-key pool**:
+  keys pasted are added on save (`addLicenceKeys`) and from then on only counted ("3 keys left", low under five, sold
+  out at none). A **service** keeps an optional length and place. A **gift card** edits its amounts (its versions,
+  in place of the price and choices cards), its expiry (1, 2, 3, 5, 7 or 10 years, or never, none shorter than the
+  API's `shortestMonths`) and lists its **cards issued** (`giftCards`, ten a page with Show more), each by its last
+  four characters only, with **Issue a card** for the Owner and Managers (`issueGiftCard`, one `issueKey` per opening
+  of its dialog, so a retry answers the same card). The product saves first, then its kind's card at the revision
+  that answered (`saveProductKind`), then any keys; when the kind's card fails after the product saved, what was typed
+  stays on the page and the bar says so (a new product's carries to its own page, never its keys). A supplier's
+  kinds are physical only (the API refuses `SUPPLIER_FIELD`); Staff and a read-only store see the cards and the
+  counts with nothing to change.
+  Decided here: a download's file is named by its type and size, as the API keeps no file name; a download without
+  its file can't be saved; a gift card's amounts are **one kind of choice, "Amount"**, a value per amount named as it
+  is shown ("₹500"), and none for a single amount; switching a product to a gift card makes its prices its amounts
+  and drops its other choices (Discard brings them back); the expiry starts from what the API stores (never, for a
+  new card), and until the product is saved as a gift card the hint states both countries' rules, since
+  `shortestMonths` arrives only then; the Issue dialog offers only amounts already saved and asks for an email only;
+  an expiry date is shown in UTC, named.
 
 ## 12. Collections, Filters, Menus, Size charts (`CatCollections`, `CatSizeCharts`)
 
@@ -1096,7 +1113,10 @@ Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer), `
 checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by email or mobile
 code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption** (built on #323: `giftCardBalance`, `applyGiftCard`, CATALOG-DESIGN T14); digital
 downloads after payment; services sold with no booking (§1); marketing consent at
-checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
+checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes; and
+`reportStorefrontProblem(kind, subject, detail)`, where core reports a sealed component a theme hid, a section that threw or a
+checkout that fell back to the baseline (`kind` SEALED, SECTION or CHECKOUT, names only, never the address; storefront
+ARCHITECTURE §3.5; named on #481, built with the Shop API's next card). Catalogue
 queries are edge-cached per store, catalogue version, language, currency and market, the version's move being the purge (§5.5 there).
 
 ---

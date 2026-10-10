@@ -172,7 +172,8 @@ checking, deploying, live, failed, rolled back).
      `storefront-sites` bucket only, limited to a staging folder `stores/{id}/uploads/{build id}/`
      and to 15 minutes**. Nothing is ever staged in the public `storefront-assets` bucket. The
      step uploads the HTML and data files, the hashed JS and CSS, and a **manifest** listing every
-     file with its SHA-256, then tells the API "uploaded".
+     file with its SHA-256 and each HTML file's headers (its CSP, from core's `pageHeaders`:
+     ARCHITECTURE §3.5), then tells the API "uploaded".
    - **On a failure** nothing is uploaded. The API records the report, and the repair, bisect or
      refuse steps of ARCHITECTURE §4.2 step 4 start from it. A repair runs in the studio's
      sandbox (AI-STUDIO), then a new build. The live site stays as it was, and nothing became
