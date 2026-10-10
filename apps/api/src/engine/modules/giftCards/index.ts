@@ -62,7 +62,7 @@ export interface GiftCardDeps {
 export const createGiftCardService = ({ sql, context, actor, activity, facts }: GiftCardDeps) => {
   const { storeId } = context
 
-  /** A gift card product's cards issued, newest first; null when the product isn't the caller's to read. */
+  /** A gift card product's cards issued, newest first; none when the product isn't the caller's to read. */
   const issued = (productId: string, window: PageWindow): Promise<IssuedGiftCardRow[]> =>
     isUuid(productId) ? withScope(sql, context, (tx) => selectIssuedGiftCards(tx, storeId, productId.toLowerCase(), window)) : Promise.resolve([])
 

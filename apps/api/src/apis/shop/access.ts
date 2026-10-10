@@ -62,7 +62,6 @@ export const shopOf = (ctx: ShopContext): { sql: postgres.Sql; shopper: Shopper 
   return { sql: ctx.sql, shopper: ctx.shopper }
 }
 
-/** Test on a preview storefront, live everywhere else (storefront ARCHITECTURE §4.1). */
 /** A guessable code's tries per store and address, on the codes' limiter (FIRST-RELEASE §19); every try refused where it isn't bound. */
 export const limitCodeTries = async (ctx: ShopContext, kind: string, message: string): Promise<void> => {
   const { shopper } = shopOf(ctx)
@@ -72,6 +71,7 @@ export const limitCodeTries = async (ctx: ShopContext, kind: string, message: st
   }
 }
 
+/** Test on a preview storefront, live everywhere else (storefront ARCHITECTURE §4.1). */
 export const paymentModeOf = (shopper: Shopper): PaymentMode => (shopper.preview ? 'test' : 'live')
 
 /** Stripe Tax on the store's connected account, in the storefront's mode; null where it can't be asked. */
