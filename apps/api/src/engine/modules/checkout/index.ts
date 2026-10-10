@@ -30,7 +30,7 @@ import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
 import { ensureGuestCustomer } from '#engine/modules/customers/index'
 import { deliverOrder } from '#engine/modules/deliveries/index'
-import { lockUsableGiftCard, redeemGiftCard } from '#db/scoped/giftCards'
+import { lockUsableGiftCard, redeemGiftCard, setCartGiftCard } from '#db/scoped/giftCards'
 import type { StripeTaxDeps } from '#engine/modules/tax/index'
 import { closeLatestAttempt, settleOrder, type SettleDeps } from './payments'
 import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, providersFor, transferDaysMs, type PaymentKind, type PaymentProvider } from './providers'
@@ -237,6 +237,11 @@ export const createCheckout = (deps: CheckoutDeps) => {
     if (cart.problems.length > 0 || cart.checkoutStep !== 'pay') return { ok: false, reason: 'NOT_READY', problems: cart.problems }
     // A gift card that covers it all is the way it is paid; one that covers part leaves the rest to pay (FIRST-RELEASE §19).
     // A preview never spends a real card (decided on #323).
+    // A card spent or lapsed since the shopper saw it comes off, and the shopper sees the new amount due before paying it.
+    if (cart.giftCardLapsed) {
+      await withSystemScope(sql, (tx) => setCartGiftCard(tx, storeId, cart.id, null, now()))
+      return { ok: false, reason: 'CART_CHANGED' }
+    }
     const gift = cart.giftCard
     const covered = gift !== null && cart.amountDue.amount === 0n
     if ((gift && mode === 'test') || covered !== (provider === giftCardMethod)) return { ok: false, reason: 'METHOD_UNAVAILABLE' }
@@ -288,7 +293,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
           stockReserved: holds,
           now: at,
         })
-        if (gift) await redeemGiftCard(tx, { storeId, giftCardId: gift.id, orderId: cart.id, amount: gift.applied.amount, currency: cart.currency, at })
+        if (gift && !(await redeemGiftCard(tx, { storeId, giftCardId: gift.id, orderId: cart.id, amount: gift.applied.amount, currency: cart.currency, at }))) throw new Refused('CART_CHANGED')
         if (!covered) {
           await insertPayment(tx, {
             ...(card ? { id: card.attemptId } : {}),

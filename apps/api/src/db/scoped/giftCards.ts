@@ -29,11 +29,13 @@ export const lockUsableGiftCard = async (tx: ScopedSql, storeId: string, id: str
 export const setCartGiftCard = async (tx: ScopedSql, storeId: string, orderId: string, giftCardId: string | null, at: Date): Promise<boolean> =>
   (await tx`update "order" set gift_card_id = ${giftCardId}, updated_at = ${at}, revision = revision + 1 where id = ${orderId} and store_id = ${storeId} and state = 'cart'`).count === 1
 
-/** What placement takes from the locked card, once an order. */
-export const redeemGiftCard = async (tx: ScopedSql, r: { storeId: string; giftCardId: string; orderId: string; amount: bigint; currency: string; at: Date }): Promise<void> => {
-  await tx`update gift_card set balance_amount = balance_amount - ${r.amount.toString()}, updated_at = ${r.at} where id = ${r.giftCardId} and balance_amount >= ${r.amount.toString()}`
+/** What placement takes from the locked card, once an order; false, writing nothing, when the card no longer holds it. */
+export const redeemGiftCard = async (tx: ScopedSql, r: { storeId: string; giftCardId: string; orderId: string; amount: bigint; currency: string; at: Date }): Promise<boolean> => {
+  const debited = await tx`update gift_card set balance_amount = balance_amount - ${r.amount.toString()}, updated_at = ${r.at} where id = ${r.giftCardId} and store_id = ${r.storeId} and balance_amount >= ${r.amount.toString()}`
+  if (debited.count !== 1) return false
   await tx`insert into gift_card_movement (gift_card_id, store_id, kind, amount, currency, order_id) values (${r.giftCardId}, ${r.storeId}, 'redeemed', ${r.amount.toString()}, ${r.currency}, ${r.orderId})`
   await tx`update "order" set gift_card_amount = ${r.amount.toString()} where id = ${r.orderId} and store_id = ${r.storeId}`
+  return true
 }
 
 /** Back onto the card an order took it from: a cancellation's whole share, or a refund's part of it. */

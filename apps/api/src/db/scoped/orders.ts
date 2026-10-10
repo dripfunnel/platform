@@ -1,4 +1,5 @@
 import type { CartGift } from './cart'
+import { handedOut } from './deliveries'
 import { restoreGiftCard } from './giftCards'
 import { pgArray, type ScopedSql } from './index'
 import { releaseUses } from './promotions'
@@ -262,9 +263,9 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
             else json_build_object('recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'sendOn', l.gift_send_on) end) order by l.position)
           from order_line l where l.order_id = o.id), '[]'::json) as lines,
         coalesce((select json_agg(json_build_object('id', d.id, 'name', l.name, 'uses_left', d.uses_left, 'expires_at', d.expires_at) order by l.position)
-          from order_download d join order_line l on l.id = d.order_line_id where d.order_id = o.id), '[]'::json) as downloads,
+          from order_download d join order_line l on l.id = d.order_line_id where d.order_id = o.id and ${handedOut(tx)}), '[]'::json) as downloads,
         coalesce((select json_agg(json_build_object('name', l.name, 'key', k.key) order by l.position, k.id)
-          from licence_key k join order_line l on l.id = k.order_line_id where l.order_id = o.id), '[]'::json) as keys,
+          from licence_key k join order_line l on l.id = k.order_line_id where l.order_id = o.id and ${handedOut(tx)}), '[]'::json) as keys,
         coalesce((select json_agg(json_build_object('label', a.label, 'amount', a.amount::text) order by a.label, a.id) from order_adjustment a where a.order_id = o.id and a.kind = 'discount'), '[]'::json) as discounts
       from "order" o where o.id = ${orderId} and o.store_id = ${storeId} and o.state <> 'cart'
     `

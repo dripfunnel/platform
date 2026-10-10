@@ -98,6 +98,8 @@ export interface CartView {
   total: Money
   /** The gift card it holds and what it takes off the total; null when none, or the card can't be spent now. */
   giftCard: (GiftCardView & { applied: Money }) | null
+  /** The cart holds a card that can't be spent now (spent, expired, disabled): placement refuses rather than charge the whole total. */
+  giftCardLapsed: boolean
   /** What is left to pay once the gift card has taken its part. */
   amountDue: Money
   /** What stands between this cart and payment; empty when it can be paid (`readyToPay`). */
@@ -269,6 +271,7 @@ export const createCartService = (deps: CartDeps) => {
       tax,
       total: { amount: total, currency },
       giftCard,
+      giftCardLapsed: row.gift_card_id !== null && giftCard === null,
       amountDue: { amount: total - (giftCard?.applied.amount ?? 0n), currency },
       problems,
     }

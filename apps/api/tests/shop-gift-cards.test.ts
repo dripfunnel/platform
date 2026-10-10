@@ -11,6 +11,7 @@ import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCa
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { redeemGiftCard } from '#db/scoped/giftCards'
 import { releaseUnpaidOrders } from '#engine/modules/checkout/index'
 import { activityLog } from '#saas/activity/index'
 import { prepareEmail } from '#saas/email/index'
@@ -253,6 +254,31 @@ describe('redeeming', () => {
     const both = await Promise.all([place(a, 'gift_card'), place(b, 'gift_card')])
     expect(both.map((r) => r.code ?? 'placed').sort()).toEqual(['CART_CHANGED', 'placed'])
     expect(await cardRow(cardId)).toBe('0')
+  })
+
+  it('refuses to charge the whole total for a card spent since the shopper saw it: the card comes off and the cart changed', async () => {
+    const fresh = String((await issue('owner')).data?.['issueGiftCard'])
+    const number = await send(fresh)
+    const token = await cartOf(2)
+    expect((await apply(token, number)).cart?.amountDue).toEqual({ amount: '0' })
+    await db.sql`update gift_card set balance_amount = 0 where id = ${fresh}`
+    expect((await place(token, 'bank_transfer')).code).toBe('CART_CHANGED')
+    expect((await place(token, 'gift_card')).code).toBe('METHOD_UNAVAILABLE')
+    const seen = (await shop(`{ ${cartFields} }`, token)).data?.['cart'] as CartOut
+    expect(seen).toMatchObject({ amountDue: { amount: '80000' }, giftCard: null })
+    const { orderId } = await place(token, 'bank_transfer')
+    expect(await db.sql`select amount::int, (select gift_card_amount::int from "order" where id = ${orderId}) as gift from payment where order_id = ${orderId}`).toEqual([{ amount: 80000, gift: 0 }])
+  })
+
+  it('debits a card only when it still holds the amount, writing nothing otherwise', async () => {
+    const fresh = String((await issue('owner')).data?.['issueGiftCard'])
+    await send(fresh)
+    const [order] = await db.sql<{ id: string }[]>`select id from "order" where store_id = ${stores.kesari} and state = 'placed' limit 1`
+    const take = (amount: bigint) => withSystemScope(db.sql, (tx) => redeemGiftCard(tx, { storeId: stores.kesari, giftCardId: fresh, orderId: order?.id ?? '', amount, currency: 'INR', at: new Date() }))
+    expect(await take(100001n)).toBe(false)
+    expect(await withSystemScope(db.sql, (tx) => redeemGiftCard(tx, { storeId: stores.surat, giftCardId: fresh, orderId: order?.id ?? '', amount: 1n, currency: 'INR', at: new Date() }))).toBe(false)
+    expect(await cardRow(fresh)).toBe('100000')
+    expect(await db.sql`select kind from gift_card_movement where gift_card_id = ${fresh}`).toEqual([{ kind: 'issued' }])
   })
 
   it('refuses another store’s card and a used-up one with the one refusal, and takes one off', async () => {
