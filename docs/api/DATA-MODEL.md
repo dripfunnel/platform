@@ -1932,7 +1932,9 @@ app                 (id, name, developer, site_url, webhook_url, scopes text[], 
                     -- suspended (0153), so it can see it paused and remove it; app_system reads the rest
 app_grant           built on #330 (0152): also token_hash (unique), installed_at, last_used_at,
                     revoked_by_user_id; one live grant per store and app; the token goes once to the
-                    app's webhook_url through `app.notice`, sealed in the outbox row until sent
+                    app's webhook_url through `app.notice`, sealed in the outbox row until sent;
+                    token_sent_at, or token_failed_at once the relay gives up (0154), so the Owner
+                    sees an install that never reached its app and installs it again
 webhook_endpoint    (id, store_id, url, events text[], secret_sealed, status ('active'|'disabled'
                      |'failing'), failing_since NULL, disabled_at NULL, created_by_user_id, created_at,
                      updated_at, deleted_at NULL)

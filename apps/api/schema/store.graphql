@@ -668,6 +668,7 @@ type InstallableApp {
 
 type InstalledApp {
   appId: ID
+  connection: String
   developer: String
   id: ID
   installedAt: String
