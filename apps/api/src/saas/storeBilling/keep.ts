@@ -81,7 +81,8 @@ export const endTrials = async (sql: postgres.Sql, activity: ActivityLog, now: D
       if (await withSystemScope(sql, (tx) => endTrial(tx, activity, storeId, now))) done.ended += 1
     } catch {
       done.failed += 1
-      await withSystemScope(sql, (tx) => markTrialEndFailed(tx, storeId, now))
+      // Unmarked, it is tried first again next time; the stores behind it still end now.
+      await withSystemScope(sql, (tx) => markTrialEndFailed(tx, storeId, now)).catch(() => undefined)
     }
   }
   return done

@@ -653,6 +653,21 @@ describe('choose what to keep (SAAS §6.2, PortalKeep)', () => {
     expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 1, failed: 0 })
     expect(await storeRow(t.storeB1)).toMatchObject({ status: 'past_due' })
   })
+
+  it('ends the stores behind a failing one even when marking it fails too', async () => {
+    await subscribe(t.storeB1, t.partnerB, plans.otherPartner, 'trial', 500, null)
+    await db.sql`update store_subscription set trial_ends_at = ${periodStart}, trial_end_failed_at = null where store_id = ${t.storeB1}`
+    await db.sql.unsafe(`create function fail_trial_end() returns trigger language plpgsql as $$ begin raise exception 'failing store'; end $$`)
+    await db.sql.unsafe(`create trigger fail_trial_end before update on store_subscription for each row when (new.store_id = '${t.storeB1}') execute function fail_trial_end()`)
+    clock = new Date(periodEnd.getTime() + 60_000)
+    try {
+      expect(await endTrials(db.sql, activityLog, clock)).toEqual({ ended: 1, failed: 1 })
+    } finally {
+      await db.sql.unsafe('drop trigger fail_trial_end on store_subscription; drop function fail_trial_end()')
+    }
+    expect(await storeRow(t.storeA2)).toMatchObject({ status: 'active', plan_id: plans.free })
+    expect(await db.sql`select 1 from store_subscription where store_id = ${t.storeB1} and trial_end_failed_at is not null`).toHaveLength(0)
+  })
 })
 
 describe('closing the store (SAAS §4.2)', () => {
