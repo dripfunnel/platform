@@ -1,3 +1,6 @@
+import type { CustomerAccounts } from '../../api/customerAccounts'
+import type { Gateway } from '../../api/payments'
+import type { ShippingSettings } from '../../api/shipping'
 import type { StoreInfo, StoreLocale } from '../../api/settings'
 import type { Market } from '../../api/markets'
 import type { ProductBasics } from '../../api/productEditor'
@@ -86,6 +89,9 @@ export interface SettingsReads {
   invoice: () => Promise<InvoiceSettings | null>
   markets: () => Promise<Market[]>
   catalogue: () => Promise<ProductBasics>
+  gateways: () => Promise<Gateway[]>
+  shipping: () => Promise<ShippingSettings>
+  customerAccounts: () => Promise<CustomerAccounts>
 }
 
 const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
@@ -128,6 +134,38 @@ const sampleTax: TaxSetupFull | null = harness
     }
   : null
 
+const gateway = (g: Pick<Gateway, 'provider' | 'label' | 'kind'> & Partial<Gateway>): Gateway => ({ live: false, bankDetails: null, connectable: true, connections: [], ...g })
+
+const sampleGateways: Gateway[] = harness
+  ? [
+      gateway({ provider: 'razorpay', label: 'Razorpay', kind: 'gateway', live: true, connections: [{ mode: 'live', live: true, webhookUrl: 'https://hooks.dripfunnel.com/payments/razorpay/3f2a9c' }] }),
+      gateway({ provider: 'cashfree', label: 'Cashfree', kind: 'gateway', connections: [{ mode: 'test', live: true, webhookUrl: null }] }),
+      gateway({ provider: 'phonepe', label: 'PhonePe', kind: 'gateway', connectable: false }),
+      gateway({ provider: 'cod', label: 'Cash on delivery', kind: 'other', live: true, connections: [{ mode: 'live', live: true, webhookUrl: null }] }),
+      gateway({ provider: 'bank_transfer', label: 'Bank transfer', kind: 'other' }),
+    ]
+  : []
+
+const sampleShipping: ShippingSettings = {
+  revision: 3,
+  savedAt: '2026-10-01T09:00:00Z',
+  currency: 'INR',
+  courierRate: true,
+  flatRate: false,
+  flatAmount: '9900',
+  pickup: true,
+  pickupHours: 'Mon–Sat, 10 am – 6 pm',
+  pickupAddress: '14 Johari Bazaar, Jaipur',
+  freeMode: 'over',
+  freeThresholdAmount: '99900',
+  areaMode: 'everywhere',
+  areaFileName: null,
+  areaCount: 0,
+  areaSample: [],
+  labelSizes: ['a6', 'a4'],
+  couriers: [{ provider: 'shiprocket', status: 'pricing', offered: true, pickupMode: 'scheduled', labelSize: 'a6', trackingEmails: true, lastTestedAt: '2026-10-09T08:30:00Z', lastTestResult: 'ok' }],
+}
+
 /** The tabs' reads under ?state=: the samples above. */
 export const sampleReads: SettingsReads = {
   storeInfo: async () => sampleInfo,
@@ -138,6 +176,9 @@ export const sampleReads: SettingsReads = {
   tax: async () => sampleTax,
   invoice: async () => ({ taxPerLine: true, emailWithDispatch: true, footer: null, legalName: 'Kesari Threads Pvt Ltd' }),
   markets: async () => sampleMarkets,
+  gateways: async () => sampleGateways,
+  shipping: async () => sampleShipping,
+  customerAccounts: async () => ({ mode: 'both', customers: 1284, withEmail: 812, withPhone: 686, phoneOnly: 214 }),
   catalogue: async () => ({
     pricingCurrency: 'INR',
     unitSystem: 'metric',

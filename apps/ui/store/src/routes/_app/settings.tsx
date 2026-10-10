@@ -1,9 +1,8 @@
-import { optionalParam } from '@dripfunnel/shared/search'
 import { createFileRoute } from '@tanstack/react-router'
-import { z } from 'zod'
 import { SettingsPage } from '../../features/settings/SettingsPage'
+import { settingsSearch } from '../../features/settings/settingsSearch'
 
 export const Route = createFileRoute('/_app/settings')({
-  validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store', 'people', 'supplier', 'warehouse', 'tax', 'markets', 'catalogue'])) }),
+  validateSearch: settingsSearch,
   component: SettingsPage,
 })

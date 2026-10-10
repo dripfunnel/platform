@@ -1,18 +1,26 @@
 import { DetailTabs, EmptyState, ErrorState, LoadingState, Toast, useScreenState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/detail.css'
 import '@dripfunnel/shared/ui/states.css'
-import { getRouteApi, Link } from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { loadCustomerAccounts } from '../../api/customerAccounts'
 import { loadAllMarkets } from '../../api/markets'
+import { loadGateways } from '../../api/payments'
+import { loadShipping } from '../../api/shipping'
 import { loadProductBasics } from '../../api/productEditor'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
 import { loadInvoiceSettings, loadTax } from '../../api/tax'
 import { loadApproval, loadPeople, loadSuppliers } from '../../api/team'
-import { harnessEnabled } from '../../harness'
+import { harnessEnabled, harnessSearch } from '../../harness'
 import { messages } from '../../messages'
 import '../common/pageTabs.css'
 import { sampleReads, settingsStates, type SettingsReads } from './settingsStates'
 import { StoreInfoTab } from './StoreInfoTab'
+import { CustomerAccountsTab } from './CustomerAccountsTab'
+import { PaymentsTab } from './PaymentsTab'
+import { ShippingTab } from './ShippingTab'
+import { settingsTabs, type SettingsTab } from './settingsSearch'
+import { stripeBackOf, type StripeBack } from './stripeBack'
 import { CatalogueTab } from './CatalogueTab'
 import { MarketsTab } from './MarketsTab'
 import { TaxTab } from './TaxTab'
@@ -24,20 +32,18 @@ const words = messages.settings
 const shellRoute = getRouteApi('/_app')
 const pageRoute = getRouteApi('/_app/settings')
 
-/** The tabs built so far; each card adds its own (FIRST-RELEASE §15). */
-export const settingsTabs = ['store', 'people', 'supplier', 'warehouse', 'tax', 'markets', 'catalogue'] as const
-export type SettingsTab = (typeof settingsTabs)[number]
-
 /** How a tab says something saved: a toast alone, or a toast and its reads again. */
 interface Done {
   toast: (text: string) => void
   reload: (text: string) => void
+  /** Stripe's answer on the way back to Payment setup, until that tab has acted on it. */
+  stripe: { back: StripeBack | null; seen: () => void }
 }
 /** What a tab shows once its reads are in. */
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts }
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: boolean }): Record<SettingsTab, () => Promise<Render>> => ({
@@ -54,6 +60,15 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
   supplier: async () => {
     const [suppliers, approval] = await Promise.all([reads.suppliers(), reads.approval()])
     return (done, canEdit) => <SupplierTab suppliers={suppliers} approval={approval} canEdit={canEdit} onChanged={done.reload} />
+  },
+  payments: async () => {
+    const [gateways, info] = await Promise.all([reads.gateways(), reads.storeInfo()])
+    return (done, canEdit) => <PaymentsTab gateways={gateways} country={info?.country ?? null} canEdit={canEdit} back={done.stripe.back} onBackSeen={done.stripe.seen} onChanged={done.reload} />
+  },
+  // The form keeps its own draft over courier changes and uploads, so only a save's toast reaches the page.
+  shipping: async () => {
+    const [shipping, info] = await Promise.all([reads.shipping(), reads.storeInfo()])
+    return (done, canEdit) => <ShippingTab shipping={shipping} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} />
   },
   // The store's locations, and its suppliers' named, read-only (SetOps "Warehouse").
   warehouse: async () => (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" />,
@@ -72,12 +87,18 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
     const basics = await reads.catalogue()
     return (done, canEdit) => <CatalogueTab basics={basics} planName={seat.planName} owner={seat.owner} canEdit={canEdit} onSaved={done.toast} />
   },
+  customers: async () => {
+    const [accounts, info] = await Promise.all([reads.customerAccounts(), reads.storeInfo()])
+    return (done, canEdit) => <CustomerAccountsTab accounts={accounts} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} />
+  },
 })
 
 /** Settings (PortalSettings, FIRST-RELEASE §15): the Owner's, one tab at a time. ?state= per settingsStates.ts. */
 export const SettingsPage = () => {
   const { acting, state } = shellRoute.useLoaderData()
-  const { tab = 'store' } = pageRoute.useSearch()
+  const { tab = 'store', stripe, key } = pageRoute.useSearch()
+  const navigate = useNavigate()
+  const [stripeBack, setStripeBack] = useState(() => stripeBackOf(stripe, key))
   const forced = useScreenState(settingsStates, harnessEnabled)
   const allowed = forced ? forced !== 'denied' : acting.permissions.includes('settings')
   const readOnly = forced ? forced === 'readOnly' : (state?.readOnly ?? false)
@@ -101,14 +122,20 @@ export const SettingsPage = () => {
     // The two values the loaders read, not the whole seat: a new `acting` object from the shell mustn't reload a tab.
   }, [forced, allowed, tab, planName, owner])
   useEffect(load, [load])
+  // The one-time key leaves the address bar and the history at once; the tab finishes with the copy kept above.
+  useEffect(() => {
+    if (stripe) void navigate({ to: '/settings', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: 'payments' }), replace: true })
+  }, [stripe, navigate, forced])
+  const stripeSeen = useCallback(() => setStripeBack(null), [])
 
-  const done: Done = {
-    toast: setToast,
-    reload: (text) => {
+  const reload = useCallback(
+    (text: string) => {
       setToast(text)
       load()
     },
-  }
+    [load],
+  )
+  const done: Done = { toast: setToast, reload, stripe: { back: stripeBack, seen: stripeSeen } }
 
   const body = () => {
     if (!allowed) return <EmptyState title={words.denied.title} body={words.denied.body} />
@@ -123,7 +150,7 @@ export const SettingsPage = () => {
         <DetailTabs
           label={words.tabs.label}
           tabs={settingsTabs}
-          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue }}
+          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />

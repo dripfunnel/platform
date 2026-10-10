@@ -96,3 +96,29 @@ describe('the confirm dialog with fields of the caller’s own and a failed conf
     expect(onConfirm).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('the confirm dialog waiting on fields of the caller’s own', () => {
+  const Blocked = ({ onConfirm }: { onConfirm: () => void }) => {
+    const [key, setKey] = useState('')
+    return (
+      <ConfirmDialog open title="Connect Razorpay" target="" consequence="Paste the keys." confirmLabel="Connect" cancelLabel="Cancel" blocked={key ? null : 'Paste every key.'} onConfirm={onConfirm} onCancel={() => undefined}>
+        <label>
+          Key id <input value={key} onChange={(event) => setKey(event.target.value)} />
+        </label>
+      </ConfirmDialog>
+    )
+  }
+
+  it('says why confirm waits, and confirms once the fields will do', async () => {
+    const onConfirm = vi.fn()
+    render(<Blocked onConfirm={onConfirm} />)
+    const connect = screen.getByRole('button', { name: 'Connect', hidden: true }) as HTMLButtonElement
+    expect(connect.disabled).toBe(true)
+    expect(document.getElementById(connect.getAttribute('aria-describedby') ?? '')?.textContent).toBe('Paste every key.')
+    fireEvent.change(screen.getByLabelText('Key id'), { target: { value: 'rzp_live_abc123' } })
+    expect(connect.disabled).toBe(false)
+    expect(screen.queryByText('Paste every key.')).toBeNull()
+    await act(async () => fireEvent.click(connect))
+    expect(onConfirm).toHaveBeenCalledOnce()
+  })
+})

@@ -2426,10 +2426,13 @@
       "store": "Store info",
       "people": "People",
       "supplier": "Supplier",
+      "payments": "Payment setup",
+      "shipping": "Shipping",
       "warehouse": "Warehouse",
       "tax": "Tax setup",
       "markets": "Markets",
-      "catalogue": "Catalogue"
+      "catalogue": "Catalogue",
+      "customers": "Customer accounts"
     },
     "title": "Settings",
     "denied": {
@@ -3015,6 +3018,313 @@
       },
       "ruleOther": "Shown by a rule set elsewhere",
       "ruleKept": "Keep its current rule"
+    },
+    "payments": {
+      "gatewaysTitle": "Gateways",
+      "gatewaysSub": "How your shoppers pay you. The card that pays for your plan lives under Billing.",
+      "gatewaysNote": "With more than one live, shoppers pick at checkout. Suggested for {country}.",
+      "otherTitle": "Other ways to get paid",
+      "otherSub": "Orders paid this way stay “Payment pending” until you mark them paid.",
+      "emptyTitle": "No ways to get paid here yet",
+      "emptyBody": "Payment providers are offered to stores in India and the United States. Your store’s country is set when it’s created.",
+      "desc": {
+        "stripe": "Cards, Apple Pay and Google Pay.",
+        "paypal": "PayPal balance and Pay Later.",
+        "razorpay": "Cards, UPI, netbanking and wallets.",
+        "cashfree": "Cards, UPI, netbanking.",
+        "phonepe": "UPI-first, with its own app handoff.",
+        "cod": "Your courier collects. Unpaid until the cash reaches you.",
+        "bank_transfer": "Your account details at checkout. Unpaid until you mark it paid."
+      },
+      "status": {
+        "live": "Live",
+        "test": "Test only",
+        "off": "Not connected",
+        "unavailable": "Not set up here yet"
+      },
+      "notOffered": "Connecting {name} isn’t set up on this platform yet. Ask your platform’s support.",
+      "testOnly": "Test keys only: your preview storefront takes test payments; your live storefront doesn’t offer it yet.",
+      "webhook": "{mode} webhook address, for {name}’s webhook settings:",
+      "modes": {
+        "live": "Live",
+        "test": "Test"
+      },
+      "bankShown": "Shoppers see: {details}",
+      "connect": "Connect",
+      "connectName": "Connect {name}",
+      "connecting": "Opening Stripe…",
+      "changeKeys": "Change keys",
+      "changeKeysName": "Change {name}’s keys",
+      "disconnect": "Disconnect",
+      "disconnectName": "Disconnect {name}",
+      "setUp": "Set up",
+      "setUpName": "Set up {name}",
+      "changeDetails": "Change details",
+      "changeDetailsName": "Change {name}’s details",
+      "turnOff": "Turn off",
+      "turnOffName": "Turn off {name}",
+      "turnOn": "Turn on",
+      "cancel": "Cancel",
+      "stripeTitle": "Connect Stripe",
+      "stripeBody": "You sign in to Stripe and approve {product}. Stripe then brings you back here, and shoppers can pay by card.",
+      "stripeGo": "Continue to Stripe",
+      "stripeFinishing": "Finishing your Stripe connection…",
+      "stripeConnected": "Stripe connected — shoppers can pay by card now",
+      "stripeCancelled": "You didn’t approve the connection on Stripe, so nothing changed. Connect again whenever you’re ready.",
+      "stripeFailed": "Stripe couldn’t connect your account, so nothing changed. Try again.",
+      "stripeBadLink": "Stripe’s address didn’t look right, so we didn’t open it. Try again.",
+      "keysBody": "Paste the keys from your {name} dashboard. The secrets are saved and never shown again.",
+      "keysMode": "Use them for",
+      "keysModes": {
+        "live": "Your live storefront: real payments",
+        "test": "Your preview storefront: test payments"
+      },
+      "keysMissing": "Paste every key to connect.",
+      "fields": {
+        "keyId": "Key id",
+        "keySecret": "Key secret",
+        "webhookSecret": "Webhook secret",
+        "appId": "App id",
+        "secretKey": "Secret key",
+        "clientId": "Client id",
+        "clientSecret": "Client secret",
+        "clientVersion": "Client version",
+        "webhookUsername": "Webhook username",
+        "webhookPassword": "Webhook password",
+        "webhookId": "Webhook id"
+      },
+      "connectedLive": "{name} connected — shoppers can pay with it now",
+      "connectedTest": "{name} test keys saved — your preview storefront takes test payments",
+      "codBody": "Your courier collects the money. Orders stay “Payment pending” until you mark them paid.",
+      "bankBody": "Shoppers see these details at checkout and in their order confirmation.",
+      "bankLabel": "Your bank details",
+      "bankPlaceholderIN": "Account name, account number, IFSC",
+      "bankPlaceholder": "Account name, routing number, account number",
+      "bankMissing": "Type the details shoppers pay to.",
+      "turnedOn": "{name} is on at checkout",
+      "detailsSaved": "{name}: shoppers see the new details",
+      "offBody": "Shoppers stop seeing it at checkout. Orders already paid aren’t affected.",
+      "disconnectBody": "Shoppers stop seeing it at checkout, and its keys are removed. Orders already paid aren’t affected.",
+      "turnedOff": "{name} turned off",
+      "disconnected": "{name} disconnected",
+      "refused": {
+        "METHOD_UNAVAILABLE": "That way to pay isn’t available here. A bank transfer needs your bank details.",
+        "NOT_FOUND": "That is no longer here. Reload to see your ways to pay.",
+        "LAST_METHOD": "You can’t turn off your only way to get paid — shoppers couldn’t buy anything.",
+        "NOT_AVAILABLE": "Connecting this provider isn’t set up here yet.",
+        "EXPIRED": "That link has expired. Connect Stripe again.",
+        "ACCOUNT_IN_USE": "That Stripe account already takes payments for another store. Connect a different Stripe account.",
+        "SUPPORT_SESSION": "A support session can’t connect or disconnect payments. Someone in the store does it from their own account.",
+        "INVALID_KEYS": "Those keys aren’t in the shape this provider gives them. Copy them again from its dashboard, for the mode you chose.",
+        "KEYS_REFUSED": "The provider didn’t accept those keys. Check them in its dashboard and try again.",
+        "PROVIDER_UNAVAILABLE": "We couldn’t reach the provider to check those keys. Try again in a minute.",
+        "READ_ONLY": "This store is read-only.",
+        "other": "That didn’t save. Check your connection and try again."
+      }
+    },
+    "customers": {
+      "title": "Customer accounts",
+      "sub": "How shoppers create an account and sign in on your storefront.",
+      "modesLabel": "How shoppers sign in",
+      "modes": {
+        "email": {
+          "label": "Email and password",
+          "sub": "Shoppers register with an email address and a password."
+        },
+        "mobile": {
+          "label": "Mobile number and a text code",
+          "sub": "Shoppers sign in with a 6-digit code sent by text. No password to forget."
+        },
+        "both": {
+          "label": "Both",
+          "sub": "Shoppers pick. One account can hold an email and a mobile number."
+        }
+      },
+      "bothIndia": " Most shops in India choose this.",
+      "dropsMobile": {
+        "one": "1 customer has only a mobile number. They keep their account and orders, but can’t sign in while your storefront takes email only.",
+        "other": "{count} customers have only a mobile number. They keep their accounts and orders, but can’t sign in while your storefront takes email only."
+      },
+      "seeTitle": "What shoppers see",
+      "see": {
+        "email": "Sign in and Create account ask for an email and a password, with “Forgot password?”.",
+        "mobile": "Sign in asks for a mobile number, then a code. New shoppers are signed up the same way.",
+        "both": "Sign in shows two tabs, Email and Mobile number."
+      },
+      "guests": "Guests can always check out without an account. A guest who later signs in with the same {key} sees their earlier orders{phone}.",
+      "guestKey": {
+        "email": "email",
+        "mobile": "mobile number",
+        "both": "email or mobile number"
+      },
+      "guestPhone": " — a mobile number only once they prove it with a code",
+      "sms": "Codes are sent through {partner}’s text-message account ({service}).",
+      "smsServices": {
+        "IN": "MSG91",
+        "other": "Twilio"
+      },
+      "counts": "{customers} · {email} with email · {phone} with a mobile number",
+      "customersCount": {
+        "one": "1 customer account",
+        "other": "{count} customer accounts"
+      },
+      "save": "Save",
+      "saved": "Saved. Your storefront’s sign-in follows it from now on.",
+      "refused": {
+        "INVALID_INPUT": "Choose email, mobile or both.",
+        "READ_ONLY": "This store is read-only.",
+        "other": "That didn’t save. Check your connection and try again."
+      }
+    },
+    "shipping": {
+      "chargeTitle": "What the shopper pays for delivery",
+      "chargeSub": "Turn on one or more: shoppers pick at checkout.",
+      "courierRate": "The courier’s live rate",
+      "courierRateBy": "Quoted at checkout by {name}, from address and weight.",
+      "courierRateNone": "Connect a courier below first.",
+      "flatRate": "A flat rate",
+      "flatRateSub": "Same charge on every order.",
+      "flatFallback": "Charged only when no courier can quote an order.",
+      "flatLabel": "Flat rate",
+      "pickup": "Nothing — collect in person",
+      "pickupOff": "Your address and hours show at checkout instead.",
+      "pickupOn": "Shown at checkout: {address} · {hours}",
+      "pickupNoAddress": "your address from Store info",
+      "noHours": "no hours set yet",
+      "setHours": "Set hours",
+      "changeHours": "Change hours",
+      "hoursTitle": "When can shoppers collect?",
+      "hoursBody": "Shown at checkout and in the order confirmation.",
+      "hoursLabel": "Days and hours",
+      "hoursPlaceholder": "Mon–Sat, 10 am – 6 pm",
+      "hoursMissing": "Type when you’re open.",
+      "hoursTooLong": "Keep it to {max} characters.",
+      "saveHours": "Save hours",
+      "freeTitle": "When is delivery free?",
+      "free": {
+        "never": "Never — always charge",
+        "always": "Always — you pay for it",
+        "over": "On orders over an amount"
+      },
+      "freeOver": "Orders of {amount} or more ship free.",
+      "thresholdLabel": "Free over",
+      "partnersTitle": "Delivery partners",
+      "partnersSub": "They quote rates, book pickups and send tracking.",
+      "partnersNone": "No delivery partners are offered for your store’s country yet.",
+      "partnersNote": "Fallback order: the pricing partner → the next connected one → your flat rate.",
+      "testAll": "Test all",
+      "testing": "Testing…",
+      "couriers": {
+        "shiprocket": "Shiprocket",
+        "usps": "USPS",
+        "ups": "UPS",
+        "fedex": "FedEx"
+      },
+      "status": {
+        "pricing": "Pricing orders",
+        "standby": "Standby",
+        "failed": "Login rejected",
+        "off": "Not connected"
+      },
+      "descPricing": "Quotes every order at checkout · pickups {pickup} · labels {label}",
+      "descStandby": "Connected, not quoting.",
+      "descFailed": "Its login was rejected at the last test. Orders fall back to the next partner.",
+      "descNotOffered": "This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.",
+      "lastTested": "Last tested {time}",
+      "pickupModes": {
+        "scheduled": "every working day",
+        "on_request": "you book each one"
+      },
+      "labelSizes": {
+        "a6": "A6",
+        "a4": "A4",
+        "4x6": "4 × 6 in",
+        "letter": "Letter"
+      },
+      "connect": "Connect",
+      "connectName": "Connect {name}",
+      "usePricing": "Use for pricing",
+      "usePricingName": "Use {name} for pricing",
+      "manage": "Manage",
+      "manageName": "Manage {name}",
+      "disconnect": "Disconnect",
+      "disconnectName": "Disconnect {name}",
+      "connectedPricing": "{name} connected — it prices orders at checkout",
+      "connectedStandby": "{name} connected, on standby",
+      "nowPricing": "{name} prices orders now — the one before is on standby",
+      "manageBody": "How {name} picks up and labels your parcels.",
+      "pickupsLabel": "Pickups",
+      "pickupChoices": {
+        "scheduled": "Every working day",
+        "on_request": "You book each one from the order"
+      },
+      "labelLabel": "Label size",
+      "trackingLabel": "Tracking emails to shoppers",
+      "trackingChoices": {
+        "on": "On: sent when the courier scans the parcel",
+        "off": "Off"
+      },
+      "save": "Save",
+      "optionsSaved": "{name}: pickups, labels and tracking saved",
+      "disconnectTakesOver": "{next} takes over pricing orders.",
+      "disconnectLast": "No courier is left to quote, so checkout stops offering the courier’s rate.",
+      "disconnectStandby": "It stops being the fallback for pricing.",
+      "disconnected": "{name} disconnected",
+      "disconnectedNext": "{name} disconnected — {next} prices orders now",
+      "testAllOk": "All {count} answered",
+      "testSome": "{bad} of {count} didn’t answer",
+      "testNone": "Connect a courier first: there is nothing to test.",
+      "testResults": {
+        "ok": "{name} — quoted a test parcel to your own address in {seconds} s",
+        "rejected": "{name} — login rejected. Ask your platform’s support to check its account.",
+        "unavailable": "{name} — didn’t answer. Try again in a minute.",
+        "unserved": "{name} — doesn’t deliver to your address."
+      },
+      "areaTitle": "Where you deliver",
+      "everywhere": "Everywhere my couriers reach",
+      "everywhereSub": "In the countries set up in Markets.",
+      "list": "Only {label}s I upload",
+      "listSub": "A shopper outside your area is told at the address step, not at payment.",
+      "listFile": "{file} · {count} codes, e.g. {sample}",
+      "listNone": "No list yet. Upload one to deliver only there.",
+      "upload": "Upload list",
+      "replace": "Replace list",
+      "uploadName": "Upload a {label} list",
+      "postal": {
+        "IN": "PIN code",
+        "US": "ZIP code",
+        "other": "postcode"
+      },
+      "notText": "{file} isn’t a CSV or text file — save it as CSV and try again.",
+      "noCodes": "We couldn’t find any {label}s in {file}.",
+      "tooMany": "{file} has more than {max} codes. Keep it to {max}.",
+      "areaRead": "{count} {label}s read from {file} — checkout uses them now",
+      "areaReadSave": "{count} {label}s read from {file}. Save shipping to deliver only there.",
+      "saveShipping": "Save shipping",
+      "saved": "Shipping saved — checkout uses it now",
+      "missing": {
+        "flat": "Type a flat rate.",
+        "threshold": "Type the amount orders ship free over.",
+        "hours": "Set your collection hours first — shoppers need to know when to come.",
+        "list": "Upload your {label} list, or choose “Everywhere”.",
+        "method": "Choose at least one way for shoppers to get their order.",
+        "courier": "Connect a courier below first.",
+        "amount": "Type an amount like {example}."
+      },
+      "refused": {
+        "INVALID_INPUT": "Something here isn’t valid.",
+        "STALE": "Someone else saved shipping since you opened it. Reload to see their changes.",
+        "NO_METHOD": "Choose at least one way for shoppers to get their order.",
+        "NO_COURIER": "Connect a courier below first.",
+        "NO_ADDRESS": "Add your store’s address and postcode in Store info first: couriers quote from it.",
+        "NO_AREA_LIST": "Upload your postcode list, or choose “Everywhere”.",
+        "TOO_MANY": "That list is longer than a store can have. Upload a shorter one.",
+        "COURIER_NOT_OFFERED": "This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.",
+        "NOT_CONNECTED": "Connect this courier first.",
+        "NOT_FOUND": "That is no longer here. Reload to see your shipping.",
+        "READ_ONLY": "This store is read-only.",
+        "other": "That didn’t save. Check your connection and try again."
+      }
     }
   },
   "orders": {

@@ -36,6 +36,8 @@ export interface ConfirmDialogProps {
   danger?: boolean
   // Fields of the caller's own, kept by the caller, shown above the reason (a partner's contract).
   children?: ReactNode
+  // Why those fields won't do yet, or null once they will: confirm waits for them as it does for `input`.
+  blocked?: string | null
   // Why the last confirm failed, cleared by the caller as it confirms again: the dialog stays open with what was entered.
   error?: string | null
   onConfirm: (reason: string | null, value: string | null, choices: Readonly<Record<string, string>>) => void
@@ -56,6 +58,7 @@ export const ConfirmDialog = ({
   choices = [],
   danger = false,
   children,
+  blocked = null,
   error = null,
   onConfirm,
   onCancel,
@@ -72,6 +75,7 @@ export const ConfirmDialog = ({
   const inputId = useId()
   const inputErrorId = useId()
   const choicesId = useId()
+  const blockedId = useId()
   const [reasonText, setReasonText] = useState('')
   const [typedText, setTypedText] = useState('')
   const [confirmed, setConfirmed] = useState(false)
@@ -84,8 +88,8 @@ export const ConfirmDialog = ({
   const shown = choices.filter((choice) => choice.when?.(picks) ?? true)
   const choiceErrors = shown.map((choice) => choice.error(picks[choice.key] ?? '', picks))
   const failingChoice = choiceErrors.findIndex((error) => error !== null)
-  const canConfirm = !confirmed && !reasonMissing && !typedMismatch && inputError === null && failingChoice === -1
-  const blockedBy = reasonMissing ? hintId : typedMismatch ? typedHintId : inputError !== null ? inputErrorId : failingChoice >= 0 ? `${choicesId}-${failingChoice}-error` : undefined
+  const canConfirm = !confirmed && blocked === null && !reasonMissing && !typedMismatch && inputError === null && failingChoice === -1
+  const blockedBy = blocked !== null ? blockedId : reasonMissing ? hintId : typedMismatch ? typedHintId : inputError !== null ? inputErrorId : failingChoice >= 0 ? `${choicesId}-${failingChoice}-error` : undefined
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -135,6 +139,11 @@ export const ConfirmDialog = ({
         )}
       </div>
       {children}
+      {blocked !== null && (
+        <p id={blockedId} className="df-field-hint">
+          {blocked}
+        </p>
+      )}
       {reason && (
         <div className="df-field">
           <label htmlFor={reasonId}>{reason.label}</label>

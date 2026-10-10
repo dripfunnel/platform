@@ -57,3 +57,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* One card a line, as SetAccess and SetOps list their choices. */
+.df-radio-cards--stack {
+  grid-template-columns: minmax(0, 1fr);
+}
