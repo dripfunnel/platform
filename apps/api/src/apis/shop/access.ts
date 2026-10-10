@@ -34,6 +34,8 @@ export interface ShopContext extends Record<string, unknown> {
   sessionToken?: string | null
   /** The new-cart limiter (CART_RATE_LIMITER) by key; the Worker refuses to serve without it. */
   allowNewCart: (key: string) => Promise<boolean>
+  /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key, so codes can't be guessed; refuses every code where it isn't bound. */
+  allowCodeAttempt?: (key: string) => Promise<boolean>
   now: () => Date
 }
 
