@@ -511,7 +511,7 @@ export const inputOf = (d: OfferDraft, facts: StoreFacts, enabled: boolean) => {
 export type Field = 'value' | 'targets' | 'buy' | 'get' | 'code' | 'batch' | 'name' | 'minimum' | 'who' | 'ends' | 'repeat' | 'total' | 'perCustomer' | 'tiers' | 'cap'
 
 /** The API's own limits (src/engine/modules/promotions), so the form says them before the API refuses. */
-export const offerLimits = { ids: offerIdLimit, prefix: 12, name: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: 5000, tiers: [2, 5] as const } as const
+export const offerLimits = { ids: offerIdLimit, prefix: 12, codeLength: [6, 16] as const, name: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: 5000, tiers: [2, 5] as const } as const
 
 const amountOk = (text: string, currency: string) => {
   const minor = minorOf(text, currency)
@@ -522,6 +522,8 @@ const othersOk = (typed: Amounts, facts: StoreFacts) => facts.others.every((c) =
 /** Currencies an empty box can't be filled in at save: there's no reference rate for them (or the main one) today. */
 const unrated = (typed: Amounts, facts: StoreFacts): string[] => facts.others.filter((c) => !(typed[c] ?? '').trim() && convertedMinor(1, facts, c) === null)
 const noRate = (currencies: readonly string[]) => fill(words.noRate, { currencies: currencies.join(', ') })
+const tooMany = () => fill(words.tooMany, { max: String(offerLimits.ids) })
+
 const between = (text: string, low: number, high: number) => {
   const n = whole(text)
   return n !== null && n >= low && n <= high
@@ -541,9 +543,9 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   else if (d.type === 'shipping' && d.shipMode === 'off' && unrated(d.amounts, facts).length) e.value = noRate(unrated(d.amounts, facts))
   if (d.type === 'products') {
     if (d.target === 'products' && !d.productIds.length) e.targets = words.products
-    else if (d.productIds.length > offerLimits.ids) e.targets = fill(words.tooMany, { max: String(offerLimits.ids) })
     if (d.target === 'filter' && !d.filterValueIds.length) e.targets = words.filterValue
     if (d.target === 'collection' && !d.collectionIds.length) e.targets = words.collection
+    if ({ products: d.productIds, filter: d.filterValueIds, collection: d.collectionIds }[d.target].length > offerLimits.ids) e.targets = tooMany()
   }
   if (d.capOn && d.kind === 'percent' && !d.tiers.length && !amountOk(d.cap, main)) e.cap = words.amount
   // A cap's and a step's other currencies are always converted (they have no boxes), so a missing rate stops them too.
@@ -556,9 +558,9 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   }
   if (d.type === 'bxgy') {
     if (!d.buyIds.length && !hasKept(d.buyKept)) e.buy = words.buy
-    else if (d.buyIds.length > offerLimits.ids) e.buy = fill(words.tooMany, { max: String(offerLimits.ids) })
+    else if (d.buyIds.length > offerLimits.ids) e.buy = tooMany()
     if (!d.getSame && !d.getIds.length && !hasKept(d.getKept)) e.get = words.get
-    else if (!d.getSame && d.getIds.length > offerLimits.ids) e.get = fill(words.tooMany, { max: String(offerLimits.ids) })
+    else if (!d.getSame && d.getIds.length > offerLimits.ids) e.get = tooMany()
     if (!between(d.buyQuantity, 1, offerLimits.quantity) || !between(d.getQuantity, 1, offerLimits.quantity)) e.value = fill(words.quantity, { max: String(offerLimits.quantity) })
     else if (!between(d.getPercent, 1, 100)) e.value = words.percent
   }
@@ -570,6 +572,7 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   if (d.trigger === 'code' && d.singleUse) {
     if (!between(d.batch.count, 1, offerLimits.batch)) e.batch = fill(words.batchCount, { max: formatCount(offerLimits.batch) })
     else if (!/^([A-Z0-9][A-Z0-9_-]{0,11})?$/.test(d.batch.prefix.trim().toUpperCase())) e.batch = fill(words.batchPrefix, { max: String(offerLimits.prefix) })
+    else if (!between(d.batch.length, ...offerLimits.codeLength)) e.batch = fill(words.batchLength, { low: String(offerLimits.codeLength[0]), high: String(offerLimits.codeLength[1]) })
   }
   if (!d.name.trim()) e.name = words.name
   else if (d.name.trim().length > offerLimits.name) e.name = fill(words.nameLong, { max: String(offerLimits.name) })
@@ -579,7 +582,7 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   if ((d.minimum === 'items' || d.minimum === 'these') && !between(d.minQuantity, 1, offerLimits.minimum)) e.minimum = fill(words.minimumItems, { max: String(offerLimits.minimum) })
   if (d.who === 'groups' && !d.groupIds.length) e.who = words.groups
   if (d.who === 'customers' && !d.customerIds.length) e.who = words.customers
-  if ((d.who === 'customers' && d.customerIds.length > offerLimits.ids) || (d.who === 'groups' && d.groupIds.length > offerLimits.ids)) e.who = fill(words.tooMany, { max: String(offerLimits.ids) })
+  if ((d.who === 'customers' && d.customerIds.length > offerLimits.ids) || (d.who === 'groups' && d.groupIds.length > offerLimits.ids)) e.who = tooMany()
   if (d.who === 'market' && !d.countries.length) e.who = words.market
   const starts = d.startsAt ? instantOf(d.startsAt, facts.timeZone) : null
   const ends = d.endsAt ? endInstantOf(d.endsAt, facts.timeZone) : null

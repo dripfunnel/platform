@@ -4640,7 +4640,8 @@
         "perCustomer": "Uses per customer must be a whole number from 1 to {max}, or Unlimited.",
         "otherAmount": "Give each other currency an amount above zero, or leave its box empty to convert at today’s rate.",
         "tooMany": "An offer can name up to {max}. Remove some.",
-        "noRate": "There’s no exchange rate for {currencies} today, so it can’t be converted: type the amount in each of them."
+        "noRate": "There’s no exchange rate for {currencies} today, so it can’t be converted: type the amount in each of them.",
+        "batchLength": "Make the codes {low} to {high} characters long."
       },
       "crumbNew": "New offer",
       "loading": "Loading the offer",
