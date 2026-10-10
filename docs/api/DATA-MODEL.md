@@ -1492,8 +1492,13 @@ fulfilment          (id, order_part_id, order_id, store_id, seller_id NULL, kind
                     -- stock_movement 'order'
 fulfilment_line     (fulfilment_id, order_line_id, store_id, seller_id NULL, quantity)
                     -- seller_id as the fulfilment's
-                    -- Built on #310 (migration 0071) without 'booked', booked_at and courier_account_id,
-                    -- which come with booking a label (#311). The engine writes both tables in system
+                    -- Built on #310 (migration 0071); #311 (0130) added 'booked' with courier_provider (the
+                    -- store_courier it went through, in place of courier_account_id), provider_ref (the
+                    -- courier's own id, unique per courier), booked_at and the pickup (pickup_requested_at,
+                    -- pickup_ref, pickup_date). A booked label's tracking is the courier's, so addTracking
+                    -- refuses it. 0131 added tracking_status and tracking_status_at (the courier's time,
+                    -- which a later hook must pass) and sets delivered_at on the first 'delivered'. The
+                    -- engine writes both tables in system
                     -- scope; the merchant side reads every row, a supplier its own. A part is shipped once
                     -- every line has gone, partly_shipped once some has, sent_to_store once a to-store part
                     -- has handed all of it over and none has gone on; the order's fulfilment_state follows
@@ -1576,6 +1581,9 @@ order_document      (id, order_id, store_id, seller_id NULL, kind ('invoice'|'pa
                     -- is set only on a label or return_label a supplier printed for its own
                     -- part, so a supplier reads exactly those; invoices, packing slips and the
                     -- GST copy have seller_id null and are the merchant's alone
+                    -- Built on #311 (0130) for kind 'label' only, without number and return_id, which
+                    -- come with their kinds; its asset is kind 'document' with the same owner; written
+                    -- by the engine in system scope, read at GET /api/documents/{id} (orders.read)
 
 cart_reminder       (id, store_id, order_id, step_id NULL, channel ('email'|'whatsapp'), sent_at,
                      sent_by_user_id NULL, promotion_code_id NULL, opened_at NULL, clicked_at NULL)

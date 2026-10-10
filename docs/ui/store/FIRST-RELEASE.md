@@ -901,7 +901,34 @@ with an `order` movement, and what the order held is given back; a tracked versi
 (`NOT_ENOUGH_STOCK`). A cancelled, test, still-unpaid card or fully refunded order never ships (`NOT_SHIPPABLE`); a pickup order's is a
 `pickup` handed over, refused with a courier or tracking (`INVALID_INPUT`). The store shipping a transfer before it's paid lets its due date go, so the 3-day sweep leaves it; a supplier's shipment doesn't. `order`
 answers its `shipments` (a supplier's own only, so the store's onward tracking stays the store's) and each line's
-`sentToStoreQuantity`. A tracking address is https only. Booking a label through a courier is #311's.
+`sentToStoreQuantity`. A tracking address is https only.
+**Built on #311 (SAPI 12), part 1, labels and pickups:** `bookLabel(orderId, warehouseId, lines, courier)` and
+`requestPickup(shipmentId)` (`orders.fulfil`, as `shipItems`): one part's lines, as one parcel, from one of the caller's
+locations to the shopper, its label bought through the store's connected courier on its partner's account (THIRD-PARTY-ACCESS
+§4) at that courier's cheapest service. The courier is asked inside the shipment's transaction, as a refund asks its
+provider: a parcel it won't take (`UNSERVED`), a refused account (`COURIER_REJECTED`) or no answer (`COURIER_UNAVAILABLE`)
+writes nothing, and two bookings of the same units book one label (`TOO_MANY` for the second). A courier the store hasn't
+connected, its partner doesn't hold or the store's country doesn't use is `NOT_CONNECTED`; a location or shopper address
+that isn't whole is `NO_ADDRESS` (the store's own locations leave from Store info's address when they have none). The
+shipment is `booked`, with the courier's tracking number and link, and the shopper hears of it as of any shipment; its
+label is kept as the order's document, read at `GET /api/documents/{id}` (`orders.read`; a supplier only its own).
+With scheduled pickups the courier is asked to collect with the label (Shiprocket; a US carrier's daily pickup is the
+merchant's own arrangement); on request, `requestPickup` asks once (`PICKUP_ASKED`), only for a label booked here
+(`NOT_BOOKED`). `order` answers each shipment's `courier`, `labelDocumentId`, `pickupRequestedAt`, `pickupDate` and
+`pickupReference`. Decided there: a label is one part's (`ONE_PART`), so a refusal never leaves one parcel bought for
+another; a to-store supplier's hand-off is entered by hand; a to-shopper supplier books only on the store's account
+(`OWN_LABELS` with `label_account = own`, since DripFunnel holds only the partner's); labels are booked prepaid, since cash
+a courier collects would be remitted to the partner's account (asked as an open question, §21); a label's tracking can't be
+corrected by hand; Shiprocket's parcel goes as a 10 cm box, since an order line carries no dimensions.
+**Part 2, tracking sync:** each partner account's courier posts to `hooks.<host>/couriers/{shiprocket|easypost}/{partnerId}`
+(Shiprocket with its webhook token as `x-api-key`, EasyPost signing the body with its webhook secret); a hook not proved
+with the partner's secret is refused (400) whatever the reason, and one is applied only to that partner's booked parcels.
+A parcel's status (`in_transit`, `out_for_delivery`, `delivered`, `exception`, `returned`, `cancelled`) moves only forward
+in the courier's time, so a hook sent twice or late changes nothing; the first `delivered` sets `deliveredAt`, logs
+`order.delivered` (the store's and, on a supplier's parcel, its own) and tells the shopper once (`order.delivered`: an
+email of what arrived, and a text with the tracking link), unless the store switched that courier's tracking emails off.
+`order` answers each shipment's `trackingStatus` and `deliveredAt`. Decided there: no polling, since both couriers
+resend a hook they couldn't deliver; statuses before the courier has the parcel are ignored.
 **Part 3, returns and refunds:** `startReturn(orderId, lines, reason, note)`, `receiveReturn(returnId)` and
 `cancelReturn(returnId)` (the store's, `orders.refund`: shipped units only, each back to its owner's location by its part's
 mode; cancelled only while on its way back), and `refund(orderId, returnId, lines: [{ lineId, quantity, amount }], extra,
@@ -944,7 +971,7 @@ email, from the store's name in its partner's look with the store's contact, and
 (`order.confirmed`, `order.shipped` with the courier and the tracking link, which waits until both exist). A test order, a
 cancelled one and a correction of tracking tell nobody. The engine queues an `order.notify` row of ids only; its deliverer
 reads the order when it runs and queues the email and the text, each once. The password email is #308's shopper code (a
-forgotten password signs in by code and sets a new one). `order.delivered` waits for tracking sync (#311).
+forgotten password signs in by code and sets a new one). `order.delivered` comes with tracking sync (#311 part 2).
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:
@@ -1099,3 +1126,6 @@ and bearer tokens included); the rows name the cases easiest to miss.
   the preview (decided 2026-10-05 on #337).
 - ~~Apps: embedded pages or links only, and a public marketplace or private apps first
   (PLATFORM-PROMPT §10) — SUI 1 draws the first answer.~~ Private apps, as links (decided 2026-10-05 on #337).
+- **Cash on delivery through a courier's label** (#311): labels are booked prepaid for now, since the courier would remit
+  the cash it collects to the partner's own account, and nothing settles it on to the store. Collect through the label, and
+  how the partner pays it on?

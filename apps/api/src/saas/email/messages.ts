@@ -175,6 +175,13 @@ export const en = {
     tracking: (tracking: string) => `Tracking number ${tracking}.`,
     action: 'Track your parcel',
   },
+  orderDelivered: {
+    subject: (store: string, order: string) => `Your ${store} order ${order} was delivered`,
+    heading: 'It’s arrived',
+    intro: (order: string) => `The courier delivered these items from order ${order}:`,
+    line: (quantity: number, item: string) => `${quantity} × ${item}`,
+    help: 'Something not right? Reply to this email.',
+  },
   // The store's own subject and message come first; these are the parts added for it (Carts' preview).
   cartReminder: {
     greeting: (name: string | null) => (name ? `Hi ${name},` : 'Hi,'),

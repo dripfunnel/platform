@@ -362,6 +362,15 @@ on #184; **EasyPost** (decided 2026-10-05 on #337)), and India uses **Shiprocket
 carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
 region.
 
+**Built on #311** (part 1): each adapter books a label at its courier's cheapest service and asks a pickup (Shiprocket's
+adhoc order, courier, label and pickup, its pickup address registered once per location; EasyPost's shipment bought, and a
+pickup bought from its rates), each call with a timeout and only reads retried; a label file is taken only from the
+courier's file store over https. Locally the stand-in books too. Part 2: tracking arrives on each account's hook,
+`hooks.<host>/couriers/shiprocket/{partnerId}` (the partner sets a token on its Shiprocket webhook, sent as `x-api-key`)
+and `hooks.<host>/couriers/easypost/{partnerId}` (an EasyPost webhook with a secret, which signs each event); there is no
+polling. Still missing on dev: each partner's Shiprocket API user and webhook token, and EasyPost key and webhook secret
+(#275 stores them with the account).
+
 **Built on #305**: the adapters (`integrations/couriers/`: Shiprocket's serviceability rates after a login per quote,
 since the Worker keeps nothing between requests; EasyPost's shipment rates, one carrier's at a time) and a store's choice
 of couriers, which it connects only where its partner has the account. Until #275 reads partners' accounts none has one,

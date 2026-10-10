@@ -707,6 +707,7 @@ type Mutation {
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   approveProduct(id: ID!): Boolean
+  bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
   changeEmail(email: String!, password: String!): Boolean
@@ -763,6 +764,7 @@ type Mutation {
   removeSupplierUser(membershipId: ID!): Boolean
   replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
+  requestPickup(shipmentId: ID!): Boolean
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
   resumeOffer(id: ID!): Boolean
@@ -1248,13 +1250,20 @@ type OrderReturnLine {
 }
 
 type OrderShipment {
+  courier: String
   courierName: String
+  deliveredAt: String
   id: ID
   kind: String
+  labelDocumentId: ID
   lines: [OrderShipmentLine!]
+  pickupDate: String
+  pickupReference: String
+  pickupRequestedAt: String
   shippedAt: String
   supplierId: ID
   trackingNumber: String
+  trackingStatus: String
   trackingUrl: String
   warehouseId: ID
   warehouseName: String

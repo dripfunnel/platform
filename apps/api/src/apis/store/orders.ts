@@ -59,6 +59,15 @@ const shipWords: Record<FulfilmentRefusal, string> = {
   NOT_ENOUGH_STOCK: 'That location hasn’t that many. Change the stock or pick another location.',
   NO_STORE_LOCATION: 'The store has no location to send these to yet.',
   READ_ONLY: 'A read-only support session can’t change this store.',
+  NOT_CONNECTED: 'This courier isn’t connected for the store. Connect it in Settings › Shipping, or enter tracking by hand.',
+  OWN_LABELS: 'The store has you buy your own labels. Ship these and enter the tracking by hand.',
+  ONE_PART: 'A label is one parcel: book the items each of you packs separately.',
+  NO_ADDRESS: 'The label needs the full address of that location and of the shopper.',
+  UNSERVED: 'The courier won’t take this parcel. Check the addresses, the shopper’s number and the weight, or ship it by hand.',
+  COURIER_REJECTED: 'The courier refused your platform’s account. Ask your platform’s support to check it. Nothing was booked.',
+  COURIER_UNAVAILABLE: 'The courier didn’t answer. Nothing was booked; try again.',
+  NOT_BOOKED: 'Only a label booked here can have a pickup asked for.',
+  PICKUP_ASKED: 'A pickup is already asked for this parcel.',
 }
 
 const shipped = <T>(result: FulfilmentResult<T>): T => {
@@ -126,6 +135,13 @@ export const registerOrders = (builder: StoreBuilder) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
     return createFulfilmentService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+  }
+  // Booking and pickups go through the store's partner's couriers (THIRD-PARTY-ACCESS §4).
+  const labels = async (ctx: StoreContext) => {
+    if (!ctx.sql) throw forbidden()
+    const caller = actingCaller(ctx)
+    const couriers = ctx.couriers ? await ctx.couriers.forPartner(caller.person.partnerId) : null
+    return createFulfilmentService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now, couriers, files: ctx.files ?? null })
   }
   const money = (amount: string | null, currency: string) => (amount === null ? null : { amount, currency })
 
@@ -204,7 +220,7 @@ export const registerOrders = (builder: StoreBuilder) => {
   const Shipment = builder.objectRef<FulfilmentRow>('OrderShipment').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
-      // manual, pickup, or sent_to_store (a supplier's hand-off to the store).
+      // booked (a label through the store's courier), manual, pickup, or sent_to_store (a supplier's hand-off to the store).
       kind: t.exposeString('kind'),
       supplierId: t.exposeID('seller_id', { nullable: true }),
       warehouseId: t.exposeID('warehouse_id'),
@@ -213,6 +229,15 @@ export const registerOrders = (builder: StoreBuilder) => {
       trackingNumber: t.exposeString('tracking_number', { nullable: true }),
       trackingUrl: t.exposeString('tracking_url', { nullable: true }),
       shippedAt: t.string({ resolve: (f) => new Date(f.shipped_at).toISOString() }),
+      // A booked label's courier (shiprocket, usps, ups or fedex) and its file, read at /api/documents/{id}.
+      courier: t.exposeString('courier_provider', { nullable: true }),
+      labelDocumentId: t.exposeID('label_document_id', { nullable: true }),
+      pickupRequestedAt: t.string({ nullable: true, resolve: (f) => (f.pickup_requested_at ? new Date(f.pickup_requested_at).toISOString() : null) }),
+      pickupDate: t.exposeString('pickup_date', { nullable: true }),
+      pickupReference: t.exposeString('pickup_ref', { nullable: true }),
+      // A booked parcel's latest status from its courier: in_transit, out_for_delivery, delivered, exception, returned or cancelled.
+      trackingStatus: t.exposeString('tracking_status', { nullable: true }),
+      deliveredAt: t.string({ nullable: true, resolve: (f) => (f.delivered_at ? new Date(f.delivered_at).toISOString() : null) }),
       lines: t.field({ type: [ShipmentLine], resolve: (f) => f.lines }),
     }),
   })
@@ -471,6 +496,25 @@ export const registerOrders = (builder: StoreBuilder) => {
             trackingUrl: args.trackingUrl ?? null,
           }),
         ),
+    }),
+    // One part's lines in one parcel, its label bought through the store's courier; answers the shipment.
+    bookLabel: t.id({
+      args: { orderId: t.arg.id({ required: true }), warehouseId: t.arg.id({ required: true }), lines: t.arg({ type: [ShipLine], required: true }), courier: t.arg.string({ required: true }) },
+      extensions: { access: { ...fulfil, audit: fulfilmentAudit.shipped } },
+      resolve: async (_, args, ctx) =>
+        shipped(
+          await (await labels(ctx)).bookLabel({
+            orderId: String(args.orderId).toLowerCase(),
+            warehouseId: String(args.warehouseId).toLowerCase(),
+            lines: args.lines.map((l) => ({ lineId: String(l.lineId), quantity: l.quantity })),
+            courier: args.courier,
+          }),
+        ),
+    }),
+    requestPickup: t.boolean({
+      args: { shipmentId: t.arg.id({ required: true }) },
+      extensions: { access: { ...fulfil, audit: fulfilmentAudit.pickupRequested } },
+      resolve: async (_, args, ctx) => shipped(await (await labels(ctx)).requestPickup(String(args.shipmentId).toLowerCase())),
     }),
     addTracking: t.boolean({
       args: { shipmentId: t.arg.id({ required: true }), courierName: t.arg.string(), trackingNumber: t.arg.string({ required: true }), trackingUrl: t.arg.string() },

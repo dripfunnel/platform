@@ -76,6 +76,7 @@ const payloads = {
   'store-restored': z.object({ storeId: id }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
+  'order-delivered': z.object({ orderId: id, fulfilmentId: id }),
   'cart-reminder': z.object({
     reminderId: id,
     currency: z.string().regex(/^[A-Z]{3}$/),
@@ -356,7 +357,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
     }
     case 'order-confirmed':
-    case 'order-shipped': {
+    case 'order-shipped':
+    case 'order-delivered': {
       const p = parse(t)
       const fulfilmentId = 'fulfilmentId' in p ? p.fulfilmentId : null
       const o = await selectOrderEmail(tx, p.orderId, fulfilmentId)
@@ -383,6 +385,11 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       }
       const shipment = fulfilmentId ? await selectShipmentToTell(tx, fulfilmentId) : null
       if (!shipment || shipment.order_id !== p.orderId) return { send: false, reason: 'tenant_mismatch' }
+      if (t === 'order-delivered') {
+        const d = en.orderDelivered
+        const content: EmailContent = { subject: d.subject(o.store_name, o.number), heading: d.heading, paragraphs: [d.intro(o.number), ...o.lines.map((l) => d.line(l.quantity, item(l))), d.help] }
+        return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
+      }
       const w = en.orderShipped
       const tracking = shipment.tracking_number ? [shipment.courier_name ? w.courier(shipment.courier_name, shipment.tracking_number) : w.tracking(shipment.tracking_number)] : []
       const content: EmailContent = {

@@ -13,6 +13,7 @@ import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
+import { handleDocument, isDocumentsPath } from '#apis/store/documents'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema, type StoreContext } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
@@ -78,6 +79,7 @@ import { stripeConnect } from '#integrations/stripe/connect'
 import { stripePayments, type StripeKeys } from '#integrations/stripe/payments'
 import { stripeTax } from '#integrations/stripe/tax'
 import { handleStripeConnectCallback, stripeConnectCallbackPath } from '#hooks/stripeConnect'
+import { courierHookOf, handleCourierHook } from '#hooks/couriers'
 import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
 import { keyedGateways } from '#integrations/payments/index'
 import { deleteExpiredCarts } from '#db/scoped/cart'
@@ -415,9 +417,10 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
+    if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
   })
 }
@@ -453,6 +456,14 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
     const allow = async (key: string) => (await limiter.limit({ key })).success
     return withConnection(config.HYPERDRIVE, ctx, (sql) => handlePaymentHook(request, paymentHook, { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, allow))
+  }
+  const courierHook = courierHookOf(url.pathname)
+  if (courierHook) {
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    const limiter = env.SHOP_RATE_LIMITER
+    if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+    const couriers = config.COURIERS_LOCAL === '1' ? localCouriers() : null
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers, now: () => new Date() }, async (key) => (await limiter.limit({ key })).success))
   }
   if (url.pathname === stripeConnectCallbackPath) {
     const connect = payments.stripeConnect
