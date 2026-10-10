@@ -373,6 +373,7 @@ minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store
   store, before tax otherwise: fact 11's default), after the product stage's discounts for an order or shipping offer.
 - **Status ignores a repeating offer's windows**: it is Live between them; its time line says when it runs.
 - **A shipping offer applies once a delivery is chosen**, to what that delivery costs.
+- **Amounts are in the store's own tax mode**, so tax is computed afterwards, on what the lines come to after their discounts.
 
 ---
 

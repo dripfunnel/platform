@@ -1,10 +1,7 @@
 import { allocate, applyBps } from '#core/money'
 import { classOf, inWindow, type Action, type Amounts, type Combines, type Condition, type LeafCondition, type LocalTime, type OfferClass, type Targets } from './definition'
 
-// Pricing a cart's offers (OFFERS-DESIGN §3 facts 4–11, PLATFORM-PROMPT §5.4): pure, so the same cart always prices the
-// same way. Stages run in the fixed order product, order, shipping (#337); inside a stage the offers that hold go biggest
-// first, each skipped when it and one already taken don't combine (fact 7). Amounts are the store's own tax mode, so tax
-// is computed after, on what the lines come to.
+// Pricing a cart's offers, pure: the stage order, ranking and combining are OFFERS-DESIGN §3.1 (facts 4–11, PLATFORM-PROMPT §5.4).
 
 export interface PricingLine {
   id: string

@@ -2,7 +2,6 @@
 
 export {
   classOf,
-  combinesWithNothing,
   localTimeIn,
   maxConditions,
   namedIds,

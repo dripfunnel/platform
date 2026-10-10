@@ -9,7 +9,6 @@ import { isCurrency, parseMinor } from '#core/money'
 
 export const maxTargetIds = 250
 export const maxConditions = 20
-export const maxCodeLength = 32
 
 const uuid = z
   .string()
@@ -110,7 +109,6 @@ export type ActionOperation = Action['operation']
 
 export const combinesSchema = z.object({ product: z.boolean(), order: z.boolean(), shipping: z.boolean() }).strict()
 export type Combines = z.output<typeof combinesSchema>
-export const combinesWithNothing: Combines = { product: false, order: false, shipping: false }
 
 export type OfferClass = keyof Combines
 
