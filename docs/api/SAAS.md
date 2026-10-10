@@ -329,7 +329,8 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   **Planned** when its feature isn't built: the value is stored and the console tags the row,
   and nothing checks it until the feature ships. Enforced today: the original 13 and badges,
   FAQs and related products, product video, spreadsheet import and Shopify import, and since #320 `live_offers`, `group_offers` (customer-group and chosen-customer offers,
-  tiers, single-use codes) and `offer_results`; a version
+  tiers, single-use codes) and `offer_results`; since #321 `cart_reminders` (decided there: `youSend` sends by hand only,
+  one a cart; `onePerCart` sends the first reminder automatically; `automatic` sends all three, with codes and WhatsApp); a version
   written before the five catalogue rows existed starts with them on, and one written before `live_offers` with it
   unlimited, so no store loses a section or an offer.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner

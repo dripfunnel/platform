@@ -91,7 +91,7 @@ export const selectOffers = (tx: ScopedSql, storeId: string, f: OfferFilter, win
   const backwards = window.before !== null && window.after === null
   return tx<OfferRow[]>`
     select ${columns(tx)} from promotion p
-    where p.store_id = ${storeId} and p.deleted_at is null and ${matching(tx, f, now)}
+    where p.store_id = ${storeId} and p.deleted_at is null and not p.cart_reminder and ${matching(tx, f, now)}
       and ${window.after ? tx`(p.created_at, p.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
       and ${window.before ? tx`(p.created_at, p.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
     order by p.created_at ${backwards ? tx`asc` : tx`desc`}, p.id ${backwards ? tx`asc` : tx`desc`}
@@ -104,7 +104,7 @@ export const countOffers = async (tx: ScopedSql, storeId: string, now: Date): Pr
   const [row] = await tx<Record<OfferStatusFilter, number>[]>`
     select count(*) filter (where ${statusIs(tx, 'live', now)})::int as live, count(*) filter (where ${statusIs(tx, 'scheduled', now)})::int as scheduled,
       count(*) filter (where ${statusIs(tx, 'off', now)})::int as off, count(*) filter (where ${statusIs(tx, 'ended', now)})::int as ended
-    from promotion p where p.store_id = ${storeId} and p.deleted_at is null
+    from promotion p where p.store_id = ${storeId} and p.deleted_at is null and not p.cart_reminder
   `
   return row ?? { live: 0, scheduled: 0, off: 0, ended: 0 }
 }
@@ -112,8 +112,9 @@ export const countOffers = async (tx: ScopedSql, storeId: string, now: Date): Pr
 export const selectOffer = async (tx: ScopedSql, storeId: string, id: string): Promise<OfferRow | null> =>
   (await tx<OfferRow[]>`select ${columns(tx)} from promotion p where p.id = ${id} and p.store_id = ${storeId} and p.deleted_at is null`)[0] ?? null
 
+// The reminders' own offers (cartReminders.ts) are listed, counted and changed only by their settings, never here.
 export const lockOffer = async (tx: ScopedSql, storeId: string, id: string): Promise<OfferRow | null> => {
-  const locked = await tx<{ id: string }[]>`select id from promotion where id = ${id} and store_id = ${storeId} and deleted_at is null for update`
+  const locked = await tx<{ id: string }[]>`select id from promotion where id = ${id} and store_id = ${storeId} and deleted_at is null and not cart_reminder for update`
   return locked.length > 0 ? selectOffer(tx, storeId, id) : null
 }
 
@@ -122,7 +123,7 @@ export const countOnOffers = async (tx: ScopedSql, storeId: string, now: Date): 
   (
     await tx<{ n: number }[]>`
       select count(*)::int as n from promotion p
-      where p.store_id = ${storeId} and p.deleted_at is null and p.enabled and (p.ends_at is null or p.ends_at > ${now})
+      where p.store_id = ${storeId} and p.deleted_at is null and not p.cart_reminder and p.enabled and (p.ends_at is null or p.ends_at > ${now})
         and (p.total_uses_limit is null or p.uses_count < p.total_uses_limit)
     `
   )[0]?.n ?? 0
@@ -373,6 +374,8 @@ export interface CartOfferRow {
   used_at: Date | null
   expires_at: Date | null
   replaced: boolean
+  /** The one cart a reminder's code works on; null for every other code (migration 0120). */
+  code_order_id: string | null
 }
 
 /** Every automatic offer on now, and the offer behind each code the cart holds, whatever state it is in. */
@@ -382,7 +385,8 @@ export const selectCartOffers = (tx: ScopedSql, storeId: string, codes: readonly
       p.deleted_at is not null as deleted,
       coalesce((select json_agg(json_build_object('operation', r.operation, 'args', r.args) order by r.position) from promotion_condition r where r.promotion_id = p.id), '[]'::json) as conditions,
       (select json_build_object('operation', a.operation, 'args', a.args) from promotion_action a where a.promotion_id = p.id order by a.position limit 1) as action,
-      c.id as code_id, c.code, coalesce(c.single_use, false) as single_use, c.used_at, c.expires_at, coalesce(c.replaced_at is not null, false) as replaced
+      c.id as code_id, c.code, coalesce(c.single_use, false) as single_use, c.used_at, c.expires_at, coalesce(c.replaced_at is not null, false) as replaced,
+      c.order_id as code_order_id
     from promotion p
     left join promotion_code c on c.promotion_id = p.id and c.store_id = p.store_id and lower(c.code) = any (${pgArray(codes.map((x) => x.toLowerCase()))}::text[])
     where p.store_id = ${storeId}
@@ -474,5 +478,42 @@ export const releaseUses = async (tx: ScopedSql, storeId: string, orderId: strin
   for (const u of [...gone].sort((a, b) => a.promotion_id.localeCompare(b.promotion_id))) {
     await tx`update promotion set uses_count = greatest(uses_count - 1, 0) where id = ${u.promotion_id} and store_id = ${storeId}`
     if (u.promotion_code_id) await tx`update promotion_code set used_at = null where id = ${u.promotion_code_id} and store_id = ${storeId} and single_use`
+  }
+}
+
+// A cart reminder's own code (SAPI 15, migration 0120), written in system scope by the reminders' job.
+
+/** The store's hidden offer behind its reminders' codes at this percentage, made the first time it is needed. */
+export const reminderOfferFor = async (tx: ScopedSql, storeId: string, percent: number, name: string): Promise<string> => {
+  const [found] = await tx<{ id: string }[]>`
+    select p.id from promotion p join promotion_action a on a.promotion_id = p.id
+    where p.store_id = ${storeId} and p.cart_reminder and p.deleted_at is null and a.operation = 'order_percentage_discount' and (a.args ->> 'percent')::int = ${percent}
+    order by p.created_at limit 1
+  `
+  if (found) return found.id
+  // Combines with product and delivery offers, never another order discount (Carts: "doesn't combine with other codes").
+  const [made] = await tx<{ id: string }[]>`
+    insert into promotion (store_id, name, internal_name, trigger, enabled, combines_with, cart_reminder)
+    values (${storeId}, ${name}, ${'Abandoned-cart reminders'}, 'code', true, ${tx.json({ product: true, order: false, shipping: true })}, true)
+    returning id
+  `
+  if (!made) throw new Error('cart reminder: offer insert returned no row')
+  await tx`insert into promotion_action (promotion_id, store_id, operation, args, position) values (${made.id}, ${storeId}, 'order_percentage_discount', ${tx.json({ percent, cap: null })}, 0)`
+  return made.id
+}
+
+/** A single-use code bound to one cart and its shopper; null when the code is taken (the caller draws another). */
+export const insertBoundCode = async (tx: ScopedSql, c: { storeId: string; promotionId: string; code: string; orderId: string; customerId: string | null; expiresAt: Date }): Promise<string | null> => {
+  try {
+    return await tx.savepoint(async (sp) => {
+      const [row] = await sp<{ id: string }[]>`
+        insert into promotion_code (promotion_id, store_id, code, single_use, expires_at, order_id, customer_id)
+        values (${c.promotionId}, ${c.storeId}, ${c.code}, true, ${c.expiresAt}, ${c.orderId}, ${c.customerId}) returning id
+      `
+      return row?.id ?? null
+    })
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') return null
+    throw error
   }
 }

@@ -22,6 +22,7 @@ import {
   type SnapshotLine,
 } from '#db/scoped/orders'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
+import { recoverCarts } from '#engine/modules/cartReminders/index'
 import { claimCode, claimUse, insertUsage, selectShopperUses } from '#db/scoped/promotions'
 import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
@@ -282,6 +283,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
         })
         // Everyone who has bought is a customer (FIRST-RELEASE §7): a guest's row is made here, never linked to the order.
         if (!customerId && mode === 'live') await ensureGuestCustomer(tx, { storeId, email: cart.email, phone: cart.phone, name: cart.shippingAddress?.name ?? null, now: at })
+        // Its shopper's carts left this week are recovered by it, and their reminders stop (FIRST-RELEASE §9); a preview's test order isn't a sale.
+        if (mode === 'live') await recoverCarts(tx, { storeId, orderId: cart.id, customerId, email: cart.email, now: at })
         await activity.record(tx, placedEntry(cart.id, number))
         // Cash on delivery and a transfer go through as placed; a card's on payment (payments.ts).
         if (holds) await queueOrderUpdate(tx, storeId, { event: 'confirmed', orderId: cart.id }, `confirmed:${cart.id}`)

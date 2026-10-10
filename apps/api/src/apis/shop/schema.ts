@@ -4,6 +4,7 @@ import { createShopBuilder } from './builder'
 import { registerCatalog } from './catalog'
 import { registerProducts } from './products'
 import { registerCart } from './cart'
+import { registerReminderLinks } from './reminders'
 import { registerAccounts } from './accounts'
 import { registerCheckout } from './checkout'
 
@@ -16,7 +17,8 @@ shop.builder.queryFields((t) => ({
 registerCatalog(shop)
 registerProducts(shop)
 shop.builder.mutationType({})
-registerCart(shop)
+const { Cart } = registerCart(shop)
+registerReminderLinks(shop, Cart)
 registerAccounts(shop)
 registerCheckout(shop)
 
