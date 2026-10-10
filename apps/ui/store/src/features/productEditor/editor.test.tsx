@@ -636,15 +636,10 @@ describe('the product editor', () => {
 })
 
 const kinds = messages.editor.kinds
-const version = (id: string, choices: string[], amount: string) => ({ id, choices, name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount, compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: null, continueSelling: null })
-const kindView = (over: Record<string, unknown>) => ({ productId: 'p1', productType: 'digital', revision: 2, download: null, service: null, giftCard: null, ...over })
+const kindView = (over: Record<string, unknown>) => ({ productId: 'p1', productType: 'digital', revision: 2, download: null, service: null, ...over })
 const pool = (left: number) => ({ mode: 'keys', file: null, limit: 5, days: 30, keysLeft: left, keysSold: 4 })
-const giftCard = (p: Partial<EditorProduct> = {}) =>
-  cushion({ productType: 'gift_card', options: [{ id: 'o1', name: 'Amount', values: [{ id: 'va', name: '₹500' }, { id: 'vb', name: '₹1,000' }] }], versions: [version('ver-a', ['₹500'], '50000'), version('ver-b', ['₹1,000'], '100000')], ...p })
-const issued = (id: string, last4: string | null) => ({ id, last4, recipientName: 'Meera Iyer', recipientEmail: 'meera@example.com', amount: { amount: '50000', currency: 'INR' }, balance: { amount: '50000', currency: 'INR' }, sendOn: null, sentAt: '2026-08-14T08:00:00Z', expiresAt: '2027-08-14T08:00:00Z', source: 'issued', status: 'active' })
 const labelled = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement
 const saveButton = () => screen.getAllByRole('button', { name: words.save })[0] as HTMLElement
-const dialog = () => document.querySelector('dialog') as HTMLElement
 const deferred = <T,>() => {
   let resolve: (value: T) => void = () => undefined
   const promise = new Promise<T>((r) => (resolve = r))
@@ -683,7 +678,7 @@ describe('downloads, services and gift cards in the editor', () => {
     const first = deferred<unknown>()
     kindApi.loadProductKind.mockResolvedValue(kindView({ download: { mode: 'file', file: null, limit: 5, days: 30, keysLeft: 0, keysSold: 0 } }))
     api.loadProduct.mockResolvedValue(cushion({ productType: 'digital' }))
-    kindApi.uploadDownload.mockReturnValueOnce(first.promise).mockResolvedValueOnce({ ok: false, code: 'TOO_LARGE' }).mockResolvedValueOnce({ ok: true, file: { id: 'f2', mime: 'application/zip', bytes: 1024 * 1024 } })
+    kindApi.uploadDownload.mockReturnValueOnce(first.promise).mockResolvedValueOnce({ ok: false, code: 'TOO_LARGE' }).mockResolvedValueOnce({ ok: false, code: 'READ_ONLY' }).mockResolvedValueOnce({ ok: true, file: { id: 'f2', mime: 'application/zip', bytes: 1024 * 1024 } })
     await show(owner)
     const input = () => document.querySelector('input[accept^="application/pdf"]') as HTMLInputElement
     const file = new File(['x'], 'a.zip', { type: 'application/zip' })
@@ -691,6 +686,10 @@ describe('downloads, services and gift cards in the editor', () => {
     fireEvent.change(input(), { target: { files: [file] } })
     await settle()
     expect(screen.getByText('That file is too big. Use one under 30 MB.')).toBeTruthy()
+    fireEvent.change(input(), { target: { files: [file] } })
+    await settle()
+    expect(screen.getByText(kinds.download.refused.READ_ONLY)).toBeTruthy()
+    expect(screen.queryByText('That file is too big. Use one under 30 MB.')).toBeNull()
     fireEvent.change(input(), { target: { files: [file] } })
     await settle()
     first.resolve({ ok: true, file: { id: 'f1', mime: 'application/pdf', bytes: 1024 } })
@@ -744,128 +743,17 @@ describe('downloads, services and gift cards in the editor', () => {
     expect(screen.queryByRole('region', { name: words.bar.unsaved })).toBeNull()
   })
 
-  it('makes a gift card’s amounts its versions, with no expiry shorter than its country allows', async () => {
-    api.loadProduct.mockResolvedValue(giftCard())
-    kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'gift_card', giftCard: { expiryMonths: 60, shortestMonths: 60 } }))
-    kindApi.loadGiftCards.mockResolvedValue({ rows: [], next: null })
-    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
-    kindApi.saveProductKind.mockResolvedValue(kindView({ productType: 'gift_card', revision: 4, giftCard: { expiryMonths: null, shortestMonths: 60 } }))
-    await show(owner)
-    expect(screen.queryByText(words.price.title)).toBeNull()
-    expect(screen.queryByRole('button', { name: words.choices.add })).toBeNull()
-    const expiry = screen.getByLabelText(kinds.giftCard.expiry) as HTMLSelectElement
-    expect([...expiry.options].map((o) => o.text)).toEqual(['5 years (the shortest allowed)', '7 years', '10 years', kinds.giftCard.never])
-    fireEvent.click(screen.getByRole('button', { name: kinds.giftCard.add }))
-    fireEvent.change(within(dialog()).getByLabelText('Amount in INR'), { target: { value: '1000' } })
-    expect(within(dialog()).getByText(kinds.giftCard.addTaken)).toBeTruthy()
-    fireEvent.change(within(dialog()).getByLabelText('Amount in INR'), { target: { value: '2000' } })
-    fireEvent.click(within(dialog()).getByRole('button', { name: kinds.giftCard.addConfirm }))
-    fireEvent.click(screen.getByRole('button', { name: 'Remove ₹500' }))
-    fireEvent.change(expiry, { target: { value: 'never' } })
-    fireEvent.click(saveButton())
-    await settle()
-    const input = api.saveProduct.mock.calls[0]?.[2] as { productType: string; options: unknown; versions: { id?: string; choices: string[]; prices: unknown }[] }
-    expect(input.productType).toBe('gift_card')
-    expect(input.options).toEqual([{ id: 'o1', name: 'Amount', values: [{ id: 'vb', name: '₹1,000' }, { name: '₹2,000' }] }])
-    expect(input.versions.map((v) => [v.id, v.choices, v.prices])).toEqual([
-      ['ver-b', ['₹1,000'], [{ currency: 'INR', amount: '100000' }]],
-      [undefined, ['₹2,000'], [{ currency: 'INR', amount: '200000' }]],
-    ])
-    expect(kindApi.saveProductKind).toHaveBeenCalledWith('p1', 3, { giftCard: { expiryMonths: null } })
-  })
-
-  it('turns a product’s price into a gift card’s one amount, and keeps at least one', async () => {
-    await show(owner)
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(words.kind.gift_card) }))
-    expect(screen.getByText('₹1,299')).toBeTruthy()
-    expect(screen.queryByText(words.price.title)).toBeNull()
-    expect(screen.getByText(kinds.giftCard.ruleUnknown)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove ₹1,299' }))
-    expect(screen.getByText(kinds.giftCard.keepOne)).toBeTruthy()
-    expect(screen.getByText('₹1,299')).toBeTruthy()
-  })
-
-  it('lists a gift card’s cards by their last four only, and issues one card per request however often it is sent', async () => {
-    api.loadProduct.mockResolvedValue(giftCard())
-    kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'gift_card', giftCard: { expiryMonths: 12, shortestMonths: 12 } }))
-    kindApi.loadGiftCards.mockResolvedValue({ rows: [issued('g1', '91MX'), issued('g2', null)], next: null })
-    kindApi.issueGiftCard.mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'offline')).mockResolvedValueOnce('g3')
-    await show(owner)
-    expect(screen.getByText('•••• 91MX')).toBeTruthy()
-    expect(screen.getByText(kinds.giftCard.notSent)).toBeTruthy()
-    expect(screen.getAllByText('Expires Aug 14, 2027 UTC')).toHaveLength(2)
-    fireEvent.click(screen.getByRole('button', { name: kinds.giftCard.issue }))
-    fireEvent.change(within(dialog()).getByLabelText(kinds.giftCard.issueAmount), { target: { value: 'ver-b' } })
-    fireEvent.change(within(dialog()).getByLabelText(kinds.giftCard.issueEmail), { target: { value: 'not-an-email' } })
-    expect(within(dialog()).getByText(kinds.giftCard.issueEmailInvalid)).toBeTruthy()
-    fireEvent.change(within(dialog()).getByLabelText(kinds.giftCard.issueEmail), { target: { value: 'rohan@example.com' } })
-    fireEvent.click(within(dialog()).getByRole('button', { name: kinds.giftCard.issueConfirm }))
-    await settle()
-    expect(within(dialog()).getByText(kinds.giftCard.refused.other)).toBeTruthy()
-    fireEvent.click(within(dialog()).getByRole('button', { name: kinds.giftCard.issueConfirm }))
-    await settle()
-    const [first, second] = kindApi.issueGiftCard.mock.calls.map((c) => c[0] as { issueKey: string })
-    expect(first).toEqual({ productId: 'p1', versionId: 'ver-b', recipientEmail: 'rohan@example.com', issueKey: expect.stringMatching(/^[0-9a-f-]{36}$/) })
-    expect(second?.issueKey).toBe(first?.issueKey)
-    expect(screen.getByText('Gift card sent to rohan@example.com')).toBeTruthy()
-    expect(kindApi.loadGiftCards).toHaveBeenCalledTimes(2)
-  })
-
-  it('names the API’s refusal of a card in its own dialog, and shows the next page under the first', async () => {
-    api.loadProduct.mockResolvedValue(giftCard({ options: [], versions: [version('ver-a', [], '50000')] }))
-    kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'gift_card', giftCard: { expiryMonths: null, shortestMonths: 12 } }))
-    kindApi.loadGiftCards.mockResolvedValueOnce({ rows: [issued('g1', 'AAAA')], next: 'c1' }).mockResolvedValueOnce({ rows: [issued('g2', 'BBBB')], next: null })
-    kindApi.issueGiftCard.mockRejectedValue(new ApiError('KEY_REUSED', 'reused'))
-    await show(owner)
-    fireEvent.click(screen.getByRole('button', { name: kinds.giftCard.more }))
-    await settle()
-    expect(screen.getByText('•••• AAAA')).toBeTruthy()
-    expect(screen.getByText('•••• BBBB')).toBeTruthy()
-    expect(kindApi.loadGiftCards).toHaveBeenLastCalledWith('p1', 'c1')
-    fireEvent.click(screen.getByRole('button', { name: kinds.giftCard.issue }))
-    expect(within(dialog()).queryByLabelText(kinds.giftCard.issueAmount)).toBeNull()
-    fireEvent.change(within(dialog()).getByLabelText(kinds.giftCard.issueEmail), { target: { value: 'a@example.com' } })
-    fireEvent.click(within(dialog()).getByRole('button', { name: kinds.giftCard.issueConfirm }))
-    await settle()
-    expect(within(dialog()).getByText(kinds.giftCard.refused.KEY_REUSED)).toBeTruthy()
-    expect(screen.queryByRole('region', { name: words.bar.failed })).toBeNull()
-  })
-
-  it('drops a page of cards that answers after the list was read again', async () => {
-    const late = deferred<unknown>()
-    api.loadProduct.mockResolvedValue(giftCard())
-    kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'gift_card', giftCard: { expiryMonths: null, shortestMonths: 12 } }))
-    kindApi.loadGiftCards.mockResolvedValueOnce({ rows: [issued('g1', 'AAAA')], next: 'c1' }).mockReturnValueOnce(late.promise).mockResolvedValueOnce({ rows: [issued('g3', 'CCCC')], next: null })
-    kindApi.issueGiftCard.mockResolvedValue('g3')
-    await show(owner)
-    fireEvent.click(screen.getByRole('button', { name: kinds.giftCard.more }))
-    fireEvent.click(screen.getByRole('button', { name: kinds.giftCard.issue }))
-    fireEvent.change(within(dialog()).getByLabelText(kinds.giftCard.issueEmail), { target: { value: 'a@example.com' } })
-    fireEvent.click(within(dialog()).getByRole('button', { name: kinds.giftCard.issueConfirm }))
-    await settle()
-    late.resolve({ rows: [issued('g2', 'BBBB')], next: null })
-    await settle()
-    expect(screen.getByText('•••• CCCC')).toBeTruthy()
-    expect(screen.queryByText('•••• BBBB')).toBeNull()
-  })
-
-  it('shows Staff the cards issued with no way to issue one or change the kind; a read-only store adds no keys', async () => {
-    api.loadProduct.mockResolvedValue(giftCard())
-    kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'gift_card', giftCard: { expiryMonths: 12, shortestMonths: 12 } }))
-    kindApi.loadGiftCards.mockResolvedValue({ rows: [issued('g1', '91MX')], next: null })
-    await show(staff)
-    expect(screen.getByText('•••• 91MX')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: kinds.giftCard.issue })).toBeNull()
-    expect(screen.queryByRole('button', { name: kinds.giftCard.add })).toBeNull()
-    expect((screen.getByRole('radio', { name: new RegExp(words.kind.physical) }) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByLabelText(kinds.giftCard.expiry) as HTMLSelectElement).disabled).toBe(true)
-    cleanup()
+  it('shows Staff and a read-only store a key pool’s count with no way to add keys or change the kind', async () => {
     api.loadProduct.mockResolvedValue(cushion({ productType: 'digital' }))
     kindApi.loadProductKind.mockResolvedValue(kindView({ download: pool(40) }))
-    await show(owner, '/products/p1', true)
-    expect(screen.getByText(/40 keys left/)).toBeTruthy()
-    expect(screen.queryByLabelText(kinds.download.keysLabel)).toBeNull()
-    expect((screen.getByRole('radio', { name: kinds.download.file }) as HTMLButtonElement).disabled).toBe(true)
+    for (const [seat, readOnly] of [[staff, false], [owner, true]] as const) {
+      await show(seat, '/products/p1', readOnly)
+      expect(screen.getByText(/40 keys left/)).toBeTruthy()
+      expect(screen.queryByLabelText(kinds.download.keysLabel)).toBeNull()
+      expect((screen.getByRole('radio', { name: kinds.download.file }) as HTMLButtonElement).disabled).toBe(true)
+      expect((screen.getByRole('radio', { name: new RegExp(words.kind.physical) }) as HTMLButtonElement).disabled).toBe(true)
+      cleanup()
+    }
   })
 
   it('keeps a supplier to physical items, and never reads a kind for it', async () => {
@@ -877,21 +765,6 @@ describe('downloads, services and gift cards in the editor', () => {
     api.loadProduct.mockResolvedValue(cushion({ supplier: { id: 'v1', name: 'Northwind Textiles' }, readiness: null }))
     await show(supplier)
     expect(kindApi.loadProductKind).not.toHaveBeenCalled()
-  })
-
-  it('keeps what the shopper gets on the page when it is refused after the product saved', async () => {
-    api.loadProduct.mockResolvedValue(giftCard())
-    kindApi.loadProductKind.mockResolvedValue(kindView({ productType: 'gift_card', giftCard: { expiryMonths: 60, shortestMonths: 60 } }))
-    kindApi.loadGiftCards.mockResolvedValue({ rows: [], next: null })
-    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
-    kindApi.saveProductKind.mockRejectedValue(new ApiError('EXPIRY_TOO_SHORT', 'short'))
-    await show(owner)
-    fireEvent.change(screen.getByLabelText(kinds.giftCard.expiry), { target: { value: '84' } })
-    fireEvent.click(saveButton())
-    await settle()
-    expect(api.saveProduct).toHaveBeenCalled()
-    expect(within(screen.getByRole('region', { name: words.bar.failed })).getByText(kinds.refused.EXPIRY_TOO_SHORT)).toBeTruthy()
-    expect((screen.getByLabelText(kinds.giftCard.expiry) as HTMLSelectElement).value).toBe('84')
   })
 
   it('carries a new product’s details that didn’t save to its page, never its licence keys', async () => {

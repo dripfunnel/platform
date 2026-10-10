@@ -1,15 +1,13 @@
 import type { EditorProduct, TaxSetup } from '../../api/productEditor'
-import type { IssuedGiftCard, ProductKindView } from '../../api/productKinds'
+import type { ProductKindView } from '../../api/productKinds'
 import type { StockLevel, Warehouse } from '../../api/stock'
-import type { CardList } from './GiftCardsIssued'
 import type { EditorExtras } from './ListingSections'
 
 // The editor's states under ?state= (ui/README.md §6): loading, error, notFound, new, product (with choices),
 // simple (no choices), theirs (a supplier's product, as the merchant sees it), supplier, stockOnly, sentBack,
-// staff, readOnly; the other kinds (#328): download, downloadEmpty (no file yet), keys, keysEmpty, service, giftCard,
-// giftCardEmpty, giftCardLoading and giftCardError (its cards issued), kindsStaff (a gift card, Staff), kindsReadOnly (a
-// key pool, read-only store) and kindsSupplier (a supplier's new product: physical only).
-export const editorStates = ['loading', 'error', 'notFound', 'new', 'product', 'simple', 'theirs', 'supplier', 'stockOnly', 'sentBack', 'staff', 'readOnly', 'download', 'downloadEmpty', 'keys', 'keysEmpty', 'service', 'giftCard', 'giftCardEmpty', 'giftCardLoading', 'giftCardError', 'kindsStaff', 'kindsReadOnly', 'kindsSupplier'] as const
+// staff, readOnly; the other kinds (#328): download, downloadEmpty (no file yet), keys, keysEmpty, service, kindsStaff
+// (a key pool, Staff), kindsReadOnly (a key pool, read-only store) and kindsSupplier (a supplier's new product: physical only).
+export const editorStates = ['loading', 'error', 'notFound', 'new', 'product', 'simple', 'theirs', 'supplier', 'stockOnly', 'sentBack', 'staff', 'readOnly', 'download', 'downloadEmpty', 'keys', 'keysEmpty', 'service', 'kindsStaff', 'kindsReadOnly', 'kindsSupplier'] as const
 
 export type EditorState = (typeof editorStates)[number]
 
@@ -24,7 +22,6 @@ export interface EditorSample {
   levels: Map<string, StockLevel[]>
   extras: EditorExtras
   kind: ProductKindView | null
-  cards: CardList | null
 }
 
 const inr = (amount: string, compareAtAmount: string | null = null) => ({ currency: 'INR', amount, compareAtAmount })
@@ -132,44 +129,15 @@ const merchantExtras: EditorExtras = {
 }
 const supplierExtras: EditorExtras = { languages: merchantExtras.languages, currencies: [], converted: new Map(), choices: { ...merchantExtras.choices, collections: null }, badges: null, memberships: [] }
 
-const kindOf = (productId: string, productType: string, over: Partial<ProductKindView>): ProductKindView => ({ productId, productType, revision: 3, download: null, service: null, giftCard: null, ...over })
+const kindOf = (productId: string, productType: string, over: Partial<ProductKindView>): ProductKindView => ({ productId, productType, revision: 3, download: null, service: null, ...over })
 const pool = (left: number) => ({ mode: 'keys' as const, file: null, limit: 5, days: 30, keysLeft: left, keysSold: 12 })
-const card = (id: string, last4: string | null, to: string, balance: string, expiresAt: string | null, sentAt: string | null = '2026-08-14T08:00:00Z'): IssuedGiftCard => ({
-  id,
-  last4,
-  recipientName: to,
-  recipientEmail: `${to.split(' ')[0]?.toLowerCase() ?? 'card'}@example.com`,
-  amount: { amount: '100000', currency: 'INR' },
-  balance: { amount: balance, currency: 'INR' },
-  sendOn: null,
-  sentAt,
-  expiresAt,
-  source: 'issued',
-  status: 'active',
-})
-const cards: CardList = {
-  kind: 'ready',
-  rows: [card('g1', '91MX', 'Meera Iyer', '100000', '2027-08-14T08:00:00Z'), card('g2', '4QK2', 'Rohan Mehta', '25000', '2027-01-02T08:00:00Z'), card('g3', 'Z7PD', 'Kabir Singh', '0', '2026-03-09T08:00:00Z'), card('g4', null, 'Anya Rao', '100000', null, null)],
-  next: 'more',
-  more: 'idle',
-}
-
 export const editorSample = (state: EditorState | null): EditorSample | null => {
   if (!shirt || !state || state === 'loading' || state === 'error') return null
-  const base: EditorSample = { product: shirt, currency: 'INR', tax, seat: owner, readOnly: false, approvalRequired: true, warehouses, levels, extras: merchantExtras, kind: null, cards: null }
+  const base: EditorSample = { product: shirt, currency: 'INR', tax, seat: owner, readOnly: false, approvalRequired: true, warehouses, levels, extras: merchantExtras, kind: null }
   const single = (id: string, name: string, productType: string, amount: string) => ({ ...shirt, id, name, productType, options: [], versions: [{ ...version(`${id}-v`, [], amount), weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, trackStock: null, continueSelling: null }] })
   const download = single('p-patterns', 'Sanganeri pattern pack', 'digital', '49900')
   const keys = single('p-fonts', 'Devanagari font licence', 'digital', '99900')
   const service = single('p-fitting', 'Tailoring and fitting', 'service', '150000')
-  const giftCard: EditorProduct = {
-    ...shirt,
-    id: 'p-gift',
-    name: 'Kesari gift card',
-    productType: 'gift_card',
-    options: [{ id: 'o-amount', name: 'Amount', values: ['₹500', '₹1,000', '₹2,000'].map((name, i) => ({ id: `v-a${i}`, name })) }],
-    versions: [['₹500', '50000'], ['₹1,000', '100000'], ['₹2,000', '200000']].map(([name = '', amount = ''], i) => ({ ...version(`ver-g${i}`, [name], amount), weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, cost: null, trackStock: null, continueSelling: null })),
-  }
-  const giftKind = kindOf('p-gift', 'gift_card', { giftCard: { expiryMonths: 12, shortestMonths: 12 } })
   const simple: EditorProduct = { ...shirt, id: 'p-cushion', name: 'Block-print Cushion Cover', options: [], versions: [{ ...version('ver-c', [], '129900'), prices: [inr('129900', '159900')] }] }
   switch (state) {
     case 'notFound':
@@ -202,16 +170,8 @@ export const editorSample = (state: EditorState | null): EditorSample | null => 
       return { ...base, readOnly: true, product: keys, kind: kindOf(keys.id, 'digital', { download: pool(40) }) }
     case 'service':
       return { ...base, product: service, kind: kindOf(service.id, 'service', { service: { duration: '2 hours', location: 'Our Jaipur studio, MI Road' } }) }
-    case 'giftCard':
-      return { ...base, product: giftCard, kind: giftKind, cards }
-    case 'giftCardEmpty':
-      return { ...base, product: giftCard, kind: giftKind, cards: { kind: 'ready', rows: [], next: null, more: 'idle' } }
-    case 'giftCardLoading':
-      return { ...base, product: giftCard, kind: giftKind, cards: { kind: 'loading' } }
-    case 'giftCardError':
-      return { ...base, product: giftCard, kind: giftKind, cards: { kind: 'failed' } }
     case 'kindsStaff':
-      return { ...base, seat: { permissions: ['catalog.read', 'stock.read'], seller: null }, product: giftCard, kind: giftKind, cards }
+      return { ...base, seat: { permissions: ['catalog.read', 'stock.read'], seller: null }, product: keys, kind: kindOf(keys.id, 'digital', { download: pool(40) }) }
     case 'kindsSupplier':
       return { ...base, extras: supplierExtras, tax: null, seat: { permissions: ['catalog.read', 'catalog.write', 'stock.write'], seller: northwind }, product: null }
     default:

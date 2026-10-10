@@ -1167,10 +1167,6 @@
   gap: 10px;
 }
 
-.df-editor-narrow {
-  max-width: 360px;
-}
-
 .df-editor-field .df-editor-keys {
   font-family: var(--df-font-mono);
   font-size: 13px;
@@ -1196,76 +1192,8 @@
   font-size: 13px;
 }
 
-.df-editor-chip--add {
-  border-style: dashed;
-  background: none;
-}
-
-.df-editor-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--df-color-border);
-}
-
-.df-editor-cards > .df-editor-link {
-  align-self: flex-start;
-  padding: 0;
-}
-
-.df-editor-cards-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 14px;
-}
-
-.df-editor-card-rows {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.df-editor-card-row {
-  display: grid;
-  grid-template-columns: 1.2fr 1.6fr 1fr 1.4fr auto;
-  align-items: center;
-  gap: 4px 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--df-color-border);
-  font-size: 13px;
-}
-
-.df-editor-card-code {
-  font-family: var(--df-font-mono);
-}
-
-.df-editor-card-status {
-  justify-self: start;
-  padding: 1px 8px;
-  border-radius: 10px;
-  background: var(--df-color-neutral-surface);
-  color: var(--df-color-muted);
-  font-size: 12px;
-}
-
-.df-editor-card-status--active {
-  background: var(--df-color-success-surface);
-  color: var(--df-color-success);
-}
-
-.df-editor-card-status--partUsed,
-.df-editor-card-status--unsent {
-  background: var(--df-color-info-surface);
-  color: var(--df-color-info);
-}
-
 @media (max-width: 639px) {
-  .df-editor-two,
-  .df-editor-card-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .df-editor-two {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
