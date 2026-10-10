@@ -56,7 +56,9 @@ export const ActivityLog = ({ title, heading: Heading, search, onSearch, read, c
   const [open, setOpen] = useState<string | null>(null)
   const latest = useRef(0)
   const job = useListExport('activity')
-  const filter = useMemo(() => filterOf(search), [search])
+  // Keyed on the values, so a parent's new search object with the same filter never reads again.
+  const { who, what, q } = search
+  const filter = useMemo(() => filterOf({ who, what, q }), [who, what, q])
 
   const load = useCallback(() => {
     const ask = ++latest.current
@@ -79,29 +81,29 @@ export const ActivityLog = ({ title, heading: Heading, search, onSearch, read, c
   }
 
   // Typing settles before it searches; the field keeps what is typed meanwhile.
-  useEffect(() => setTyped(search.q ?? ''), [search.q])
+  useEffect(() => setTyped(q ?? ''), [q])
   useEffect(() => {
-    if (typed.trim() === (search.q ?? '')) return
-    const timer = setTimeout(() => onSearch({ ...search, q: typed.trim() || undefined }), typingMs)
+    if (typed.trim() === (q ?? '')) return
+    const timer = setTimeout(() => onSearch({ who, what, q: typed.trim() || undefined }), typingMs)
     return () => clearTimeout(timer)
-  }, [typed, search, onSearch])
+  }, [typed, who, what, q, onSearch])
 
   const pickPerson = (entry: ActivityEntry) => {
     const person = personOf(entry)
-    if (person) onSearch({ ...search, who: `${person.kind}:${person.id}`, whoName: actorOf(entry) })
+    if (person) onSearch({ ...search, who: `${person.kind}:${person.id}` })
   }
 
-  // The person list offers who appears in what's loaded, and whoever is picked.
+  // The person list offers who appears in what's loaded, and whoever is picked; a name never rides in the address.
   const people = useMemo(() => {
     const seen = new Map<string, { name: string; label: string }>()
-    if (search.who) seen.set(search.who, { name: search.whoName ?? search.who, label: search.whoName ?? search.who })
     if (view.kind === 'ready')
       for (const entry of view.entries) {
         const person = personOf(entry)
         if (person) seen.set(`${person.kind}:${person.id}`, { name: actorOf(entry), label: `${actorOf(entry)} · ${kindOf(entry.actor.kind)}` })
       }
+    if (who && !seen.has(who)) seen.set(who, { name: words.thisPerson, label: words.thisPerson })
     return [...seen]
-  }, [view, search.who, search.whoName])
+  }, [view, who])
 
   const row = (entry: ActivityEntry) => {
     const actor = actorOf(entry)
@@ -203,7 +205,7 @@ export const ActivityLog = ({ title, heading: Heading, search, onSearch, read, c
             value={search.who ?? ''}
             onChange={(event) => {
               const who = event.target.value
-              onSearch({ ...search, who: who || undefined, whoName: who ? people.find(([key]) => key === who)?.[1].name : undefined })
+              onSearch({ ...search, who: who || undefined })
             }}
           >
             <option value="">{words.everyone}</option>
@@ -232,8 +234,8 @@ export const ActivityLog = ({ title, heading: Heading, search, onSearch, read, c
       </div>
       {search.who && (
         <p className="df-set-note df-act-person">
-          <span>{fill(words.showing, { name: search.whoName ?? search.who })}</span>
-          <button type="button" className="df-set-link" onClick={() => onSearch({ ...search, who: undefined, whoName: undefined })}>
+          <span>{fill(words.showing, { name: people.find(([key]) => key === who)?.[1].name ?? words.thisPerson })}</span>
+          <button type="button" className="df-set-link" onClick={() => onSearch({ ...search, who: undefined })}>
             {words.clearPerson}
           </button>
         </p>

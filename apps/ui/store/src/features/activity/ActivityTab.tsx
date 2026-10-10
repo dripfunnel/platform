@@ -1,5 +1,5 @@
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { ActivityFilter, ActivityPage } from '../../api/activity'
 import { harnessSearch } from '../../harness'
 import { messages } from '../../messages'
@@ -18,11 +18,12 @@ export interface ActivityTabProps {
 
 /** Settings › Activity log: the Owner's view of the store's log, its filter kept in the address beside `?tab=`. */
 export const ActivityTab = ({ read, canExport, forced }: ActivityTabProps) => {
-  const { who, whoName, what, q } = settingsRoute.useSearch()
+  const { who, what, q } = settingsRoute.useSearch()
+  const search = useMemo(() => ({ who, what, q }), [who, what, q])
   const navigate = useNavigate()
   const onSearch = useCallback(
     (next: ActivitySearch) => void navigate({ to: '/settings', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: 'activity', ...next }), replace: true }),
     [navigate, forced],
   )
-  return <ActivityLog title={messages.activity.title} heading="h2" search={{ who, whoName, what, q }} onSearch={onSearch} read={read} canExport={canExport} sample={forced !== null} />
+  return <ActivityLog title={messages.activity.title} heading="h2" search={search} onSearch={onSearch} read={read} canExport={canExport} sample={forced !== null} />
 }

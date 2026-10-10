@@ -110,7 +110,8 @@ describe('Store activity, for a Manager', () => {
     expect((screen.getByRole('link', { name: 'Open Organic Tee' }) as HTMLAnchorElement).getAttribute('href')).toBe('/products/prod-1')
     fireEvent.click(screen.getByRole('button', { name: 'Everything by Ravi' }))
     await settle()
-    expect(router.state.location.search).toMatchObject({ who: 'support_session:ss1', whoName: 'Ravi Kumar' })
+    expect(router.state.location.search).toMatchObject({ who: 'support_session:ss1' })
+    expect(router.state.location.search).not.toHaveProperty('whoName')
     expect(api.loadActivity).toHaveBeenLastCalledWith({ person: { kind: 'support_session', id: 'ss1' }, what: null, search: '' }, null)
     expect(screen.getByText('Showing everything by Ravi Kumar in this store.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: w.clearPerson }))
@@ -171,6 +172,25 @@ describe('Store activity, for a Manager', () => {
 })
 
 describe('the Owner', () => {
+  it('keeps the pages it loaded when Settings draws again for something else', async () => {
+    api.loadActivity.mockResolvedValueOnce(page([entries[0] as ActivityEntry], 'c1')).mockResolvedValueOnce(page([entries[1] as ActivityEntry]))
+    const router = await show(owner, '/settings?tab=activity')
+    fireEvent.click(screen.getByRole('button', { name: w.more }))
+    await settle()
+    // An address change that isn't the filter draws the tab again; the log isn't read again.
+    await act(async () => router.navigate({ to: '/settings', search: { tab: 'activity', note: 'x' } as never }))
+    await settle()
+    expect(api.loadActivity).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('Priya Shah')).toBeTruthy()
+  })
+
+  it('names a picked person from the entries, never from the address', async () => {
+    api.loadActivity.mockResolvedValue(page([]))
+    await show(owner, '/settings?tab=activity&who=person:p-x&whoName=Anyone%20At%20All')
+    expect(screen.queryByText(/Anyone At All/)).toBeNull()
+    expect(screen.getByText(`Showing everything by ${w.thisPerson} in this store.`)).toBeTruthy()
+  })
+
   it('reads the log as a Settings tab and exports it as filtered', async () => {
     await show(owner, '/settings?tab=activity&what=team')
     expect(screen.getByRole('heading', { level: 2, name: w.title })).toBeTruthy()

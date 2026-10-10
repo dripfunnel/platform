@@ -5135,6 +5135,7 @@
       "failed": "The export couldn’t be made. Try again."
     },
     "noneBody": "Try another person, another kind of change or a shorter search.",
-    "emptyBody": "What your team, suppliers, apps, support and shoppers do here shows up as it happens."
+    "emptyBody": "What your team, suppliers, apps, support and shoppers do here shows up as it happens.",
+    "thisPerson": "this person"
   }
 }
