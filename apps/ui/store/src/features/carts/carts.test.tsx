@@ -14,9 +14,9 @@ import { eventsOf, itemsText, statusLine } from './cartView'
 
 const words = messages.carts
 
-const api = vi.hoisted(() => ({ loadCarts: vi.fn(), loadCartCounts: vi.fn(), loadCartSummary: vi.fn(), loadCart: vi.fn(), loadReminderSending: vi.fn(), remindNow: vi.fn(), stopReminders: vi.fn(), resumeReminders: vi.fn() }))
+const api = vi.hoisted(() => ({ loadCarts: vi.fn(), loadCartCounts: vi.fn(), loadCartSummary: vi.fn(), loadCart: vi.fn(), loadReminderSending: vi.fn(), remindNow: vi.fn(), stopReminders: vi.fn(), resumeReminders: vi.fn(), loadReminderSettings: vi.fn(), saveReminderSettings: vi.fn(), sendTestReminder: vi.fn() }))
 vi.mock('../../api/carts', async (actual) => ({ ...(await actual<typeof import('../../api/carts')>()), ...api }))
-const offersApi = vi.hoisted(() => ({ loadOfferPlace: vi.fn() }))
+const offersApi = vi.hoisted(() => ({ loadOfferPlace: vi.fn(), loadOfferFacts: vi.fn() }))
 vi.mock('../../api/offers', async (actual) => ({ ...(await actual<typeof import('../../api/offers')>()), ...offersApi }))
 
 const { CartsPage } = await import('./CartsPage')
@@ -31,6 +31,12 @@ const page = (rows: AbandonedCart[], next: string | null = null): Page => ({ row
 const summary = { days: 14, abandoned: 7, leftBehind: [{ amount: '1544500', currency: 'INR' }], remindersSent: 5, reachable: 4, recovered: 1, recoveredSales: [{ amount: '358000', currency: 'INR' }], recoveredWithCode: 1 }
 const planLimit = new ApiError('PLAN_LIMIT', 'no', { key: 'cart_reminders', limit: 0, unlockedBy: { id: 'p', name: 'Growth Pro' } })
 
+const steps = [
+  { position: 1, enabled: true, delayMinutes: 60, channel: 'email' as const, subject: 'You left something', body: 'We saved your cart.', discountPercent: null },
+  { position: 2, enabled: true, delayMinutes: 1440, channel: 'email' as const, subject: 'Still thinking?', body: 'A little something.', discountPercent: 10 },
+  { position: 3, enabled: false, delayMinutes: 4320, channel: 'email' as const, subject: 'Last call', body: 'Still here.', discountPercent: null },
+]
+const settings = { enabled: true, minimum: null, skipOutOfStock: true, quietHours: true, weeklyCap: true, steps, revision: 3, level: 'automatic' as const }
 const owner: Acting = { store: { id: 's1', name: 'Kesari Threads' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['carts.read', 'carts.write', 'billing'] }
 const manager: Acting = { ...owner, role: 'manager', permissions: ['carts.read', 'carts.write'] }
 const staff: Acting = { ...owner, role: 'staff', permissions: ['carts.read'] }
@@ -38,8 +44,8 @@ const supplier: Acting = { ...owner, role: 'supplier-member', tier: 'vendor-orde
 
 const show = async (acting: Acting, { readOnly = false, entry = '/carts' } = {}) => {
   const root = createRootRoute({ component: Outlet })
-  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
-  const list = createRoute({ getParentRoute: () => app, path: '/carts', validateSearch: z.looseObject({ status: z.enum(['open', 'recovered', 'lost']).optional() }), component: CartsPage })
+  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly }, me: { id: 'u1', name: 'Farhan Ali', email: 'farhan@kesari.in', acting } }), component: Outlet })
+  const list = createRoute({ getParentRoute: () => app, path: '/carts', validateSearch: z.looseObject({ status: z.enum(['open', 'recovered', 'lost']).optional(), pane: z.enum(['reminders']).optional() }), component: CartsPage })
   const one = createRoute({ getParentRoute: () => app, path: '/carts/$cartId', component: CartPage })
   const order = createRoute({ getParentRoute: () => app, path: '/orders/$orderId', component: () => null })
   const customers = createRoute({ getParentRoute: () => app, path: '/customers', validateSearch: z.looseObject({}), component: () => null })
@@ -66,6 +72,10 @@ beforeEach(() => {
   api.stopReminders.mockResolvedValue(undefined)
   api.resumeReminders.mockResolvedValue(undefined)
   offersApi.loadOfferPlace.mockResolvedValue({ timeZone: 'Asia/Kolkata', country: 'IN' })
+  offersApi.loadOfferFacts.mockResolvedValue({ timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR', others: [], perEuro: {} })
+  api.loadReminderSettings.mockResolvedValue(settings)
+  api.saveReminderSettings.mockResolvedValue(4)
+  api.sendTestReminder.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -230,5 +240,84 @@ describe('one cart’s page', () => {
     api.loadCart.mockResolvedValue(null)
     await show(owner, { entry: '/carts/nope' })
     expect(screen.getByText(words.missing)).toBeTruthy()
+  })
+})
+
+describe('the Reminders tab', () => {
+  const step = (n: number) => within(screen.getByRole('region', { name: `Reminder ${n}` }))
+  const rw = words.reminders
+
+  it('saves the whole tab at the revision read, the minimum in minor units', async () => {
+    await show(owner, { entry: '/carts?pane=reminders' })
+    expect(screen.queryByText(rw.unsaved)).toBeNull()
+    fireEvent.change(step(2).getByRole('combobox', { name: rw.delay }), { target: { value: '2880' } })
+    fireEvent.change(screen.getByRole('textbox', { name: /Only carts worth at least/ }), { target: { value: '499.50' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Quiet hours/ }))
+    fireEvent.click(screen.getByRole('button', { name: rw.save }))
+    await settle()
+    expect(api.saveReminderSettings).toHaveBeenCalledWith({ enabled: true, minimum: { amount: '49950', currency: 'INR' }, skipOutOfStock: true, quietHours: false, weeklyCap: true, steps: [steps[0], { ...steps[1], delayMinutes: 2880 }, steps[2]] }, 3)
+    expect(screen.getByText(rw.savedTimings)).toBeTruthy()
+    expect(screen.queryByText(rw.unsaved)).toBeNull()
+  })
+
+  it('won’t save a reminder sooner than the one before, or an email with no subject', async () => {
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.change(step(2).getByRole('combobox', { name: rw.delay }), { target: { value: '30' } })
+    expect(step(2).getByText(rw.errors.later)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: rw.save }))
+    expect(api.saveReminderSettings).not.toHaveBeenCalled()
+    fireEvent.change(step(2).getByRole('combobox', { name: rw.delay }), { target: { value: '1440' } })
+    fireEvent.change(step(1).getByRole('textbox', { name: rw.subject }), { target: { value: '  ' } })
+    expect(step(1).getByText(rw.errors.subject)).toBeTruthy()
+  })
+
+  it('says when someone else saved first, and a plan’s refusal in the Owner’s and a Manager’s words', async () => {
+    api.saveReminderSettings.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale'))
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Quiet hours/ }))
+    fireEvent.click(screen.getByRole('button', { name: rw.save }))
+    await settle()
+    expect(screen.getByText(rw.stale)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: rw.reload }))
+    await settle()
+    expect(api.loadReminderSettings).toHaveBeenCalledTimes(2)
+    cleanup()
+    api.saveReminderSettings.mockRejectedValueOnce(planLimit)
+    await show(manager, { entry: '/carts?pane=reminders' })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Quiet hours/ }))
+    fireEvent.click(screen.getByRole('button', { name: rw.save }))
+    await settle()
+    expect(screen.getByText('Your plan sends one reminder per cart, without a code. Ask your store owner to upgrade.')).toBeTruthy()
+  })
+
+  it('sends a test of the reminder shown to the person’s own email only', async () => {
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.click(step(2).getByRole('button', { name: rw.preview }))
+    fireEvent.click(screen.getByRole('button', { name: rw.test }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('farhan@kesari.in')).toBeTruthy()
+    expect(within(dialog).queryByRole('textbox')).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: rw.testSend }))
+    await settle()
+    expect(api.sendTestReminder).toHaveBeenCalledWith(2)
+    expect(screen.getByText(/Test sent to farhan@kesari.in/)).toBeTruthy()
+  })
+
+  it('locks follow-ups, codes and WhatsApp below the plan’s automatic, and lets Staff only look', async () => {
+    api.loadReminderSettings.mockResolvedValue({ ...settings, level: 'youSend', enabled: false })
+    await show(owner, { entry: '/carts?pane=reminders' })
+    expect(step(2).getByText(rw.lockedStep)).toBeTruthy()
+    expect(step(1).queryByRole('combobox', { name: rw.discount })).toBeNull()
+    expect(step(1).queryByRole('combobox', { name: rw.sendBy })).toBeNull()
+    expect(screen.getByRole('link', { name: rw.seePlans })).toBeTruthy()
+    cleanup()
+    api.loadReminderSettings.mockResolvedValue(settings)
+    await show(owner, { entry: '/carts?pane=reminders' })
+    expect(step(2).getByRole('combobox', { name: rw.sendBy })).toBeTruthy()
+    cleanup()
+    await show(staff, { entry: '/carts?pane=reminders' })
+    expect(step(1).getByRole('combobox', { name: rw.delay })).toHaveProperty('disabled', true)
+    expect(screen.queryByRole('button', { name: rw.test })).toBeNull()
+    expect(screen.queryByRole('button', { name: rw.save })).toBeNull()
   })
 })

@@ -424,3 +424,295 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+.df-carts-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.df-carts-panes {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-carts-panes button {
+  border: 0;
+  cursor: pointer;
+  padding: 10px 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.df-carts-panes button[aria-pressed='true'] {
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+}
+
+.df-carts-setup {
+  align-self: flex-start;
+}
+
+.df-carts-error {
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-reminders {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .df-reminders {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.df-reminders-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.df-reminders-span {
+  grid-column: 1 / -1;
+}
+
+.df-reminders-auto,
+.df-reminders-step-head {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+}
+
+.df-reminders-auto > .df-carts-cell,
+.df-reminders-step-head > .df-carts-cell {
+  flex: 1;
+}
+
+.df-reminders-step[data-shown] {
+  border-color: var(--df-color-focus);
+}
+
+.df-reminders-n {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+  font-weight: 800;
+}
+
+.df-reminders-switch {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--df-color-neutral-border);
+  cursor: pointer;
+}
+
+.df-reminders-switch[aria-checked='true'] {
+  background: var(--df-color-success);
+}
+
+.df-reminders-switch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--df-color-surface);
+  transition: transform 0.15s;
+}
+
+.df-reminders-switch[aria-checked='true'] span {
+  transform: translateX(20px);
+}
+
+.df-reminders-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.df-reminders-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.df-reminders-fields label,
+.df-reminders-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-reminders-fields input,
+.df-reminders-fields select,
+.df-reminders-fields textarea,
+.df-reminders-inline input {
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-weight: 400;
+}
+
+.df-reminders-wide input,
+.df-reminders-wide textarea {
+  width: 100%;
+}
+
+.df-reminders-affixed {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.df-reminders-affixed input {
+  width: 140px;
+}
+
+.df-reminders [aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-reminders-rule {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+}
+
+.df-reminders-preview {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-reminders-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.df-reminders-mail,
+.df-reminders-wa {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--df-color-page);
+  font-size: 14px;
+}
+
+.df-reminders-mail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-reminders-mail-head strong {
+  color: var(--df-color-text);
+  font-size: 14px;
+}
+
+.df-reminders-mail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.df-reminders-lines {
+  padding: 12px;
+  border: 1px dashed var(--df-color-field-border);
+  border-radius: 8px;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-reminders-code {
+  padding: 10px 12px;
+  border: 1px dashed var(--df-color-brand);
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.df-reminders-cta {
+  align-self: flex-start;
+  padding: 10px 16px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+  font-weight: 700;
+}
+
+.df-reminders-wa p {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--df-color-success-surface);
+}
+
+.df-reminders-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
+}
+
+.df-reminders-bar-actions {
+  display: flex;
+  gap: 8px;
+}

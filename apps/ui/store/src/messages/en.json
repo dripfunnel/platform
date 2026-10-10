@@ -5227,7 +5227,8 @@
           "title": "You see who came back",
           "body": "Recovered carts show the order and how much it brought in."
         }
-      ]
+      ],
+      "setUp": "Set up reminders"
     },
     "tiles": {
       "abandoned": "Abandoned checkouts",
@@ -5377,6 +5378,115 @@
       "stoppedNote": "Reminders stopped by {by} — {note}",
       "paid": "Paid · order {number}",
       "paidCode": "Paid · order {number} with a reminder code"
+    },
+    "panes": {
+      "label": "Abandoned carts",
+      "carts": "Carts",
+      "reminders": "Reminders"
+    },
+    "reminders": {
+      "loading": "Loading your reminders",
+      "error": "We couldn’t load your reminders",
+      "auto": "Send reminders automatically",
+      "autoOn": "Up to 3 reminders per cart, sent on the schedule below.",
+      "autoOne": "One reminder per cart, sent on the schedule below. A bigger plan sends up to 3.",
+      "autoOff": "Off — carts wait for you to remind them.",
+      "autoYouSend": "On your plan you remind shoppers yourself, one reminder per cart. A bigger plan sends them for you.",
+      "seePlans": "See plans",
+      "askOwner": "Ask your store owner to upgrade.",
+      "step": "Reminder {n}",
+      "stepOn": "Reminder {n} on",
+      "stepOff": "Off",
+      "lockedStep": "Automatic follow-ups are on a bigger plan",
+      "byHand": "Used when you send a reminder yourself",
+      "after": "{delay} after they leave",
+      "percentOff": "{percent}% off",
+      "preview": "Preview",
+      "delay": "Send after they leave",
+      "sendBy": "Send by",
+      "email": "Email",
+      "whatsapp": "WhatsApp",
+      "discount": "Discount",
+      "noDiscount": "No discount",
+      "subject": "Subject line",
+      "message": "Message",
+      "messageHelp": "The shopper’s name, cart items and a button back to their cart are added for you.",
+      "codeNote": "Each shopper gets their own code: {percent}% off this cart, one use, expires 48 hours after sending. It doesn’t combine with other codes; automatic offers still apply.",
+      "delays": {
+        "30": "30 minutes",
+        "60": "1 hour",
+        "240": "4 hours",
+        "600": "10 hours",
+        "1440": "1 day",
+        "2880": "2 days",
+        "4320": "3 days"
+      },
+      "who": "Who gets reminded",
+      "minimum": "Only carts worth at least",
+      "rules": {
+        "skipOutOfStock": {
+          "title": "Skip carts where everything is out of stock",
+          "body": "If only some items are out, the reminder leaves those out."
+        },
+        "quietHours": {
+          "title": "Quiet hours",
+          "body": "Hold reminders between 9 pm and 8 am in your store’s time. They go out at 8 am."
+        },
+        "weeklyCap": {
+          "title": "Once a week per shopper",
+          "body": "Don’t remind the same shopper about more than one cart in 7 days."
+        },
+        "stop": {
+          "title": "Stop as soon as they buy",
+          "body": "Reminders stop the moment the shopper places any order. Always on."
+        }
+      },
+      "consent": {
+        "us": {
+          "title": "Unsubscribe link in every email.",
+          "body": "Shoppers who unsubscribe are never reminded again."
+        },
+        "eu": {
+          "title": "EU rules:",
+          "body": "only shoppers who agreed to emails at checkout get reminders. This can’t be turned off. Every email has an unsubscribe link."
+        },
+        "india": {
+          "title": "WhatsApp needs opt-in:",
+          "body": "only signed-in shoppers who agreed to WhatsApp get WhatsApp reminders; others get email. Every email has an unsubscribe link."
+        }
+      },
+      "previewLabel": "Preview",
+      "previewOf": "Preview · Reminder {n} · {channel}",
+      "test": "Send me a test",
+      "from": "From: {store}",
+      "noSubject": "(no subject)",
+      "hi": "Hi {first name},",
+      "lines": "Their cart’s items, with photos and prices",
+      "code": "A single-use code for {percent}% off their cart, for 48 hours",
+      "cta": "Return to your cart",
+      "foot": "You’re getting this because you started checkout at {store}. Unsubscribe",
+      "waFrom": "{store} · Business account",
+      "waStop": "Reply STOP to opt out",
+      "errors": {
+        "later": "Must go later than the reminder before it.",
+        "subject": "Add a subject line.",
+        "long": "Keep the subject to {subject} characters and the message to {body}.",
+        "minimum": "Enter a cart value above zero, or leave it empty for every cart."
+      },
+      "unsaved": "Unsaved changes to your reminders",
+      "discard": "Discard",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved.",
+      "savedTimings": "Saved. Carts waiting for a reminder follow the new timings.",
+      "stale": "Someone else saved your reminders. Reload to see their changes.",
+      "reload": "Reload",
+      "testTitle": "Send a test of reminder {n}",
+      "testBody": "It goes to your own email, with a sample cart and a code that doesn’t work at checkout. It doesn’t count in your results.",
+      "testSend": "Send test",
+      "cancel": "Cancel",
+      "testSent": "Test sent to {email} — check spam if it isn’t there in a minute.",
+      "testTooMany": "Too many tests. Wait a minute and try again."
     }
   }
 }

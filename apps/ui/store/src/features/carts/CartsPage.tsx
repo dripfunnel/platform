@@ -9,8 +9,9 @@ import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatList, messages, plural } from '../../messages'
 import { moneyText } from '../orders/orderView'
 import { useCartActions } from './cartActions'
-import { cartSample, cartStates } from './cartStates'
+import { cartSample, cartStates, sampleSettings } from './cartStates'
 import { agoText, cartAccessOf, canRemind, pillOf, itemsText, statusLine, stepText, type Sender } from './cartView'
+import { RemindersPane } from './RemindersPane'
 import './carts.css'
 
 const words = messages.carts
@@ -24,8 +25,8 @@ const money = (list: readonly { amount: string; currency: string }[]) => (list.l
 
 /** Abandoned carts (designs/Carts.dc.html, FIRST-RELEASE §9): the last 14 days, carts by where they stand, and each cart's actions. */
 export const CartsPage = () => {
-  const { acting, state } = shellRoute.useLoaderData()
-  const { status } = pageRoute.useSearch()
+  const { acting, state, me } = shellRoute.useLoaderData()
+  const { status, pane } = pageRoute.useSearch()
   const navigate = useNavigate()
   const forced = useScreenState(cartStates, harnessEnabled)
   const sample = useMemo(() => cartSample(forced), [forced])
@@ -157,8 +158,17 @@ export const CartsPage = () => {
   return (
     <div className="df-carts">
       <div className="df-carts-head">
-        <h1 className="df-page-title">{words.title}</h1>
-        <p className="df-page-lede">{words.lede}</p>
+        <div>
+          <h1 className="df-page-title">{words.title}</h1>
+          <p className="df-page-lede">{words.lede}</p>
+        </div>
+        <nav className="df-carts-panes" aria-label={words.panes.label}>
+          {(['carts', 'reminders'] as const).map((p) => (
+            <button key={p} type="button" aria-pressed={(pane ?? 'carts') === p} onClick={() => void navigate({ to: '/carts', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), pane: p === 'reminders' ? 'reminders' : undefined }) })}>
+              {words.panes[p]}
+            </button>
+          ))}
+        </nav>
       </div>
 
       {access.readOnly && <p className="df-carts-note df-carts-note--warning" role="status"><strong>{words.notes.readOnlyTitle}</strong> {words.notes.readOnly}</p>}
@@ -167,7 +177,9 @@ export const CartsPage = () => {
       {access.canEdit && sending && sending.level !== 'youSend' && !sending.enabled && <p className="df-carts-note df-carts-note--warning" role="status"><strong>{words.notes.offTitle}</strong> {words.notes.off}</p>}
       {failure && <p className="df-carts-note df-carts-note--danger" role="alert">{failure}</p>}
 
-      {none ? (
+      {pane === 'reminders' ? (
+        <RemindersPane access={access} sample={sampleSettings(forced)} storeName={acting.store.name} email={me.email} />
+      ) : none ? (
         <section className="df-carts-first" aria-labelledby="df-carts-first">
           <h2 id="df-carts-first">{words.first.title}</h2>
           <p className="df-carts-sub">{fill(words.first.body, { then: sender === 'schedule' ? words.first.auto : words.first.manual })}</p>
@@ -180,6 +192,11 @@ export const CartsPage = () => {
               </li>
             ))}
           </ol>
+          {access.canEdit && (
+            <Link className="df-button df-button--primary df-carts-setup" to="/carts" search={(prev) => ({ ...harnessSearch(prev, forced ?? undefined), pane: 'reminders' })}>
+              {words.first.setUp}
+            </Link>
+          )}
         </section>
       ) : (
         <>

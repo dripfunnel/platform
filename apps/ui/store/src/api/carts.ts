@@ -130,3 +130,43 @@ export const maxStopNote = 200
 /** Whether reminders go by themselves, and what the plan lets the store send: youSend, onePerCart or automatic (Pricing). */
 export const loadReminderSending = async (): Promise<{ enabled: boolean; level: string } | null> =>
   (await query('{ reminderSettings { enabled level } }', z.object({ reminderSettings: z.object({ enabled: z.boolean(), level: z.string() }).nullable() }))).reminderSettings
+
+const stepSchema = z.object({ position: z.number().int(), enabled: z.boolean(), delayMinutes: z.number().int(), channel: z.enum(['email', 'whatsapp']), subject: z.string(), body: z.string(), discountPercent: z.number().int().nullable() })
+export type ReminderStep = z.infer<typeof stepSchema>
+const settingsSchema = z.object({
+  enabled: z.boolean(),
+  minimum: moneySchema.nullable(),
+  skipOutOfStock: z.boolean(),
+  quietHours: z.boolean(),
+  weeklyCap: z.boolean(),
+  steps: z.array(stepSchema),
+  // Null until the store saves its own; the next save sends it back.
+  revision: z.number().int().nullable(),
+  level: z.enum(['youSend', 'onePerCart', 'automatic']),
+})
+export type ReminderSettings = z.infer<typeof settingsSchema>
+
+/** The Reminders tab: the three steps and who gets reminded, at the revision read (null before the first save). */
+export const loadReminderSettings = async (): Promise<ReminderSettings | null> =>
+  (
+    await query(
+      '{ reminderSettings { enabled minimum { amount currency } skipOutOfStock quietHours weeklyCap steps { position enabled delayMinutes channel subject body discountPercent } revision level } }',
+      z.object({ reminderSettings: settingsSchema.nullable() }),
+    )
+  ).reminderSettings
+
+/** The minutes after leaving a step may wait (src/engine/modules/cartReminders/rules.ts). */
+export const reminderDelays = [30, 60, 240, 600, 1440, 2880, 4320] as const
+/** The API's longest subject and message. */
+export const reminderText = { subject: 120, body: 500 } as const
+
+export type ReminderSettingsInput = Omit<ReminderSettings, 'revision' | 'level'>
+
+/** Saves the whole tab at the revision it was read at; answers the new revision. */
+export const saveReminderSettings = async (input: ReminderSettingsInput, revision: number | null): Promise<number> =>
+  (await query('mutation S($input: ReminderSettingsInput!, $revision: Int) { saveReminderSettings(input: $input, revision: $revision) }', z.object({ saveReminderSettings: z.number().int() }), { input, revision })).saveReminderSettings
+
+/** "Send me a test" of one step, to the person's own email only (#321). */
+export const sendTestReminder = async (position: number): Promise<void> => {
+  await query('mutation T($p: Int!) { sendTestReminder(position: $p) }', z.object({ sendTestReminder: z.boolean() }), { p: position })
+}

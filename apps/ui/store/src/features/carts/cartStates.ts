@@ -1,4 +1,4 @@
-import type { AbandonedCart, CartCounts, CartDetail, CartSummary } from '../../api/carts'
+import type { AbandonedCart, CartCounts, CartDetail, CartSummary, ReminderSettings } from '../../api/carts'
 
 // Abandoned carts' states under ?state= (ui/README.md §6): loading, error, empty, list, noMatch, staff, readOnly,
 // denied, and youSend (a plan where the merchant sends reminders).
@@ -60,3 +60,22 @@ export const sampleDetail = (id: string): CartDetail | null => {
     reminders: cart.remindersSent ? [{ id: 'r1', position: 1, channel: 'email', state: 'sent', skipReason: null, sentBy: null, code: null, queuedAt: ago(121), sentAt: ago(120), clickedAt: ago(100) }] : [],
   }
 }
+
+/** The Reminders tab as a new store on the plan's automatic has it, or on "you send" for ?state=youSend. */
+export const sampleSettings = (state: CartState | null): ReminderSettings | null =>
+  harness && state && state !== 'loading' && state !== 'error' && state !== 'denied'
+    ? {
+        enabled: state !== 'youSend',
+        minimum: { amount: '200000', currency: 'INR' },
+        skipOutOfStock: true,
+        quietHours: true,
+        weeklyCap: true,
+        revision: null,
+        level: state === 'youSend' ? 'youSend' : 'automatic',
+        steps: [
+          { position: 1, enabled: true, delayMinutes: 60, channel: 'email', subject: 'You left something in your cart', body: 'We saved your cart. Pick up right where you left off.', discountPercent: null },
+          { position: 2, enabled: true, delayMinutes: 1440, channel: 'whatsapp', subject: 'Still thinking it over?', body: 'Here’s a little something to help you decide.', discountPercent: 10 },
+          { position: 3, enabled: true, delayMinutes: 4320, channel: 'email', subject: 'Your cart won’t be saved much longer', body: 'Popular items sell out. Your cart is still here if you want it.', discountPercent: null },
+        ],
+      }
+    : null

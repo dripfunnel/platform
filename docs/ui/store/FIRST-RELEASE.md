@@ -443,6 +443,15 @@ out of stock, what happened (left, each reminder and its click, a stop, the orde
 and the customer. Decided here: no bulk selection and no "Copy cart link" (the API gives neither a bulk action nor a
 cart's link), each a follow-up.
 
+**Built on #325, part 6** (`/carts?pane=reminders`): the Reminders tab. "Send reminders automatically" (the plan's
+`youSend` names the plan that sends them, to the Owner); three reminders, each with its delay, channel (WhatsApp only in
+an Indian store on `automatic`), discount (5–20%, on `automatic`), subject and message, steps 2–3 locked below
+`automatic`; who gets reminded (a minimum cart value in the store's currency, skip out of stock, quiet hours, once a week,
+and "stop as soon as they buy", always on) with the region's consent note; a preview of the chosen reminder by email or
+WhatsApp; "Send me a test" to the person's own email only (#321); and one save at the revision read, a later step having
+to go later and an email needing a subject. Decided here: the preview shows where the shopper's name and cart go rather
+than a sample shopper's, since the portal invents no data.
+
 ## 10. Reports (`PortalReports`)
 
 7, 30 or 90 days against the period before: takings (sales, refunds, net), what sold, where it
