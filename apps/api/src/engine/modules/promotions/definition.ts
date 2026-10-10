@@ -254,3 +254,17 @@ export const localTimeIn = (now: Date, timeZone: string): LocalTime => {
 }
 
 export const inWindow = (r: Extract<LeafCondition, { operation: 'recurrence' }>, at: LocalTime): boolean => r.days.includes(at.day) && at.minutes >= minutesOf(r.from) && at.minutes < minutesOf(r.to)
+
+/** What a shopper typing this code meets (OFFERS O3): the shop's answer and the portal's "Check a code" share it. */
+export type CodeAnswer = 'WORKS' | 'INVALID' | 'EXPIRED' | 'USED_UP'
+
+export const codeAnswerOf = (
+  code: { deleted: boolean; replaced: boolean; single_use: boolean; used_at: Date | null; expires_at: Date | null },
+  status: OfferStatus,
+  now: Date,
+): CodeAnswer => {
+  if (code.deleted || code.replaced || status === 'off' || status === 'scheduled') return 'INVALID'
+  if (status === 'ended' || (code.expires_at !== null && code.expires_at <= now)) return 'EXPIRED'
+  if (status === 'used_up' || (code.single_use && code.used_at !== null)) return 'USED_UP'
+  return 'WORKS'
+}

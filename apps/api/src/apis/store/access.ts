@@ -30,6 +30,8 @@ export interface StoreContext extends Record<string, unknown> {
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null
   codeCheck?: CodeCheck
+  /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */
+  allowCodeCheck?: (key: string) => Promise<boolean>
   now: () => Date
 }
 

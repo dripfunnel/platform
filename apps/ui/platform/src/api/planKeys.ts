@@ -33,7 +33,7 @@ export const planKeyDefs: readonly PlanKeyDef[] = [
   { key: 'offers', kind: 'switch', group: 'payments', enforced: true, monthly: false, choices: [] },
   { key: 'live_offers', kind: 'amount', group: 'payments', enforced: true, monthly: false, choices: [] },
   { key: 'group_offers', kind: 'switch', group: 'payments', enforced: true, monthly: false, choices: [] },
-  { key: 'offer_results', kind: 'switch', group: 'payments', enforced: false, monthly: false, choices: [] },
+  { key: 'offer_results', kind: 'switch', group: 'payments', enforced: true, monthly: false, choices: [] },
   { key: 'staff', kind: 'amount', group: 'team', enforced: true, monthly: false, choices: [] },
   { key: 'manager_role', kind: 'switch', group: 'team', enforced: false, monthly: false, choices: [] },
   { key: 'suppliers_enabled', kind: 'switch', group: 'team', enforced: true, monthly: false, choices: [] },

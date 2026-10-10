@@ -566,9 +566,11 @@ type Mutation {
   duplicateProduct(id: ID!): SavedProduct
   endOffer(id: ID!): Boolean
   exportCustomers(groupId: ID, search: String): ID
+  exportOfferCodes(batchId: ID!): ID
   exportOrders(filter: OrderFilter, search: String): ID
   finishShopifyConnect(key: String!): String
   finishStripeConnect(key: String!): Boolean
+  generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
@@ -732,6 +734,34 @@ input OfferBuyGetInput {
   targets: OfferTargetsInput
 }
 
+type OfferCodeBatch {
+  count: Int
+  createdAt: String
+  id: ID
+  length: Int
+  prefix: String
+  used: Int
+}
+
+type OfferCodeCheck {
+  answer: String
+  code: String
+  deleted: Boolean
+  expiresAt: String
+  offer: Offer
+  singleUse: Boolean
+  usedAt: String
+}
+
+type OfferCodesExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+}
+
 type OfferCombines {
   order: Boolean
   product: Boolean
@@ -783,6 +813,11 @@ type OfferCounts {
   scheduled: Int
 }
 
+type OfferDay {
+  day: String
+  uses: Int
+}
+
 type OfferExclusions {
   giftCards: Boolean
   onSale: Boolean
@@ -812,6 +847,14 @@ input OfferInput {
 type OfferPage {
   nodes: [Offer!]
   pageInfo: PageInfo
+}
+
+type OfferResults {
+  averageOrder: [Money!]
+  byDay: [OfferDay!]
+  discountGiven: [Money!]
+  salesWithOffer: [Money!]
+  uses: Int
 }
 
 type OfferTargets {
@@ -1418,6 +1461,7 @@ type Query {
   catalogImports: [CatalogImport!]
   catalogueSettings: CatalogueSettings
   catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
+  checkCode(code: String!): OfferCodeCheck
   collection(id: ID!): Collection
   collectionPreview(inheritParent: Boolean, match: String, parentId: ID, rules: [CollectionRuleInput!]!): CollectionPreview
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
@@ -1444,7 +1488,10 @@ type Query {
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   navBadges: StoreNavBadges
   offer(id: ID!): Offer
+  offerCodeBatches(offerId: ID!): [OfferCodeBatch!]
+  offerCodesExport(id: ID!): OfferCodesExport
   offerCounts: OfferCounts
+  offerResults(id: ID!): OfferResults
   offers(after: String, before: String, first: Int, kind: String, search: String, status: String, trigger: String): OfferPage
   order(id: ID!): Order
   orderCounts: OrderCounts

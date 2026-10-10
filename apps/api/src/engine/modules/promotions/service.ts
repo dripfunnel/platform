@@ -5,30 +5,37 @@ import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import {
+  countCodes,
   countKnownIds,
   countOffers,
   countOnOffers,
+  insertCodeBatch,
   insertOffer,
+  insertSingleUseCodes,
   lockOffer,
   replaceRules,
+  selectCodeBatches,
+  selectCodeCheck,
   selectCodeOwner,
   selectOffer,
+  selectOfferResults,
   selectOffers,
   selectStoreCurrencies,
   setOfferState,
   setSharedCode,
   updateOffer,
+  type CodeBatchRow,
   type OfferFilter,
   type OfferRow,
   type OfferStatusFilter,
   type OfferWrite,
 } from '#db/scoped/promotions'
-import { namedIds, needsGroupOffers, offerSchema, parseAction, parseCondition, statusOf, toStored, type Action, type Condition, type OfferDefinition, type OfferInput, type OfferStatus } from './definition'
+import { codeAnswerOf, namedIds, needsGroupOffers, normaliseCode, offerSchema, parseAction, parseCondition, statusOf, toStored, type Action, type Condition, type OfferDefinition, type CodeAnswer, type OfferInput, type OfferStatus } from './definition'
 
 // Offers on the merchant side (FIRST-RELEASE §8; OFFERS-DESIGN parts B–N): in the caller's own store scope, so row security
 // keeps every other store and every supplier out. Plan gates are checked here, at the write (SAAS §6.2).
 
-export type { OfferFilter, OfferKind, OfferStatusFilter } from '#db/scoped/promotions'
+export type { CodeBatchRow, OfferFilter, OfferKind, OfferStatusFilter } from '#db/scoped/promotions'
 
 export const offersAudit = {
   created: 'offer.created',
@@ -38,11 +45,45 @@ export const offersAudit = {
   ended: 'offer.ended',
   duplicated: 'offer.duplicated',
   deleted: 'offer.deleted',
+  codesGenerated: 'offer.codes_generated',
 } as const
 
-export type OfferPlanKey = 'offers' | 'group_offers' | 'live_offers'
+/** A run of single-use codes (H4); an offer holds at most `maxCodesPerOffer` of them. */
+export const maxBatchSize = 5000
+export const maxCodesPerOffer = 100_000
+const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
-export type OffersRefusal = 'INVALID_INPUT' | 'NOT_FOUND' | 'READ_ONLY' | 'STALE_REVISION' | 'CODE_TAKEN' | 'UNKNOWN_TARGET' | 'CURRENCY_NOT_SOLD' | 'PLAN_LIMIT'
+/** Readable codes, no 0/O or 1/I (H1), from the platform's random source: a single-use code is a bearer of money off. */
+export const randomCodes = (prefix: string, length: number, count: number): string[] => {
+  const bytes = crypto.getRandomValues(new Uint8Array(length * count))
+  return Array.from({ length: count }, (_, i) => prefix + Array.from(bytes.subarray(i * length, (i + 1) * length), (b) => codeAlphabet[b & 31] ?? 'A').join(''))
+}
+
+export interface CodeCheck {
+  code: string
+  offer: OfferView | null
+  deleted: boolean
+  singleUse: boolean
+  usedAt: Date | null
+  expiresAt: Date | null
+  /** What a shopper typing it meets. */
+  answer: CodeAnswer
+}
+
+export interface OfferResults {
+  uses: number
+  given: { amount: bigint; currency: string }[]
+  sales: { amount: bigint; currency: string }[]
+  averageOrder: { amount: bigint; currency: string }[]
+  byDay: { day: string; uses: number }[]
+}
+
+/** The chart's window (P1): the last 30 days, by day in the store's time zone. */
+export const resultsDays = 30
+
+export type OfferPlanKey = 'offers' | 'group_offers' | 'live_offers' | 'offer_results'
+
+export type OffersRefusal = 'INVALID_INPUT' | 'NOT_FOUND' | 'READ_ONLY' | 'STALE_REVISION' | 'CODE_TAKEN' | 'UNKNOWN_TARGET' | 'CURRENCY_NOT_SOLD' | 'PLAN_LIMIT' | 'NOT_A_CODE_OFFER' | 'TOO_MANY'
 
 /** Who holds a code already, so the editor can say which offer and in which state (H2). */
 export interface CodeHolder {
@@ -68,7 +109,7 @@ class Refused extends Error {
 
 export interface OffersPlan {
   /** Whether the store's plan switches this on (saas/entitlements). */
-  allows: (key: 'offers' | 'group_offers') => Promise<boolean>
+  allows: (key: 'offers' | 'group_offers' | 'offer_results') => Promise<boolean>
   /** The live-offer limit, read before the locked count. */
   liveAllowance: () => Promise<number>
 }
@@ -147,7 +188,7 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
     if (!found) throw new Refused({ ok: false, reason: 'NOT_FOUND' })
     return found
   }
-  const requireSwitch = async (key: 'offers' | 'group_offers') => {
+  const requireSwitch = async (key: 'offers' | 'group_offers' | 'offer_results') => {
     if (!(await plan.allows(key))) throw new Refused({ ok: false, reason: 'PLAN_LIMIT', key, wanted: null })
   }
   /** Counted under the store's lock after the write, so two saves can't both take the last live place (AGENTS.md "Reliability"). */
@@ -282,5 +323,71 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
       return true as const
     })
 
-  return { list, tabCounts, detail, save, pause: (id: string) => turn(id, false), resume: (id: string) => turn(id, true), end, duplicate, remove }
+  const batches = (id: string): Promise<CodeBatchRow[]> => (isUuid(id) ? read((tx) => selectCodeBatches(tx, storeId, id.toLowerCase()), []) : Promise.resolve([]))
+
+  /** "Make 500 single-use codes" (H4): a run under the offer, unique in the store whatever their case; the plan's group switch. */
+  const generateCodes = (id: string, input: { count: number; prefix: string | null; length: number | null }): Promise<OffersResult<CodeBatchRow>> =>
+    write(async (tx) => {
+      const prefix = (input.prefix ?? '').trim().toUpperCase()
+      const length = input.length ?? 8
+      if (!Number.isInteger(input.count) || input.count < 1 || input.count > maxBatchSize || !Number.isInteger(length) || length < 6 || length > 16) throw new Refused({ ok: false, reason: 'INVALID_INPUT' })
+      if (!/^([A-Z0-9][A-Z0-9_-]{0,11})?$/.test(prefix) || prefix.length + length > 32) throw new Refused({ ok: false, reason: 'INVALID_INPUT' })
+      const found = await locked(tx, id.toLowerCase())
+      if (found.trigger !== 'code') throw new Refused({ ok: false, reason: 'NOT_A_CODE_OFFER' })
+      await requireSwitch('group_offers')
+      if ((await countCodes(tx, found.id)) + input.count > maxCodesPerOffer) throw new Refused({ ok: false, reason: 'TOO_MANY' })
+      const batchId = await insertCodeBatch(tx, storeId, found.id, { prefix, length, count: input.count })
+      let made = 0
+      // A clash with a code the store holds is skipped and made again; with 32^6 or more per prefix it rarely is.
+      for (let attempt = 0; made < input.count && attempt < 5; attempt += 1) made += await insertSingleUseCodes(tx, storeId, found.id, batchId, randomCodes(prefix, length, input.count - made))
+      if (made < input.count) throw new Refused({ ok: false, reason: 'TOO_MANY' })
+      await activity.record(tx, entry(offersAudit.codesGenerated, found, [{ field: 'codes', before: null, after: String(made) }]))
+      const batch = (await selectCodeBatches(tx, storeId, found.id)).find((b) => b.id === batchId)
+      if (!batch) throw new Error('promotion_code_batch: written and not read back')
+      return batch
+    })
+
+  /** "Check a code a customer gives you": null alike for a code that is malformed and one the store doesn't hold. */
+  const checkCode = async (raw: string): Promise<CodeCheck | null> => {
+    const code = normaliseCode(raw)
+    if (!code || supplier) return null
+    return withScope(sql, context, async (tx) => {
+      const found = await selectCodeCheck(tx, storeId, code)
+      if (!found) return null
+      const row = found.deleted ? null : await selectOffer(tx, storeId, found.promotion_id)
+      const offer = row ? viewOf(row, now()) : null
+      return {
+        code: found.code,
+        offer,
+        deleted: found.deleted,
+        singleUse: found.single_use,
+        usedAt: found.used_at,
+        expiresAt: found.expires_at,
+        answer: codeAnswerOf({ ...found, deleted: found.deleted || !offer }, offer?.status ?? 'off', now()),
+      }
+    })
+  }
+
+  /** P1's tiles and chart, behind the plan's offer results switch. */
+  const results = async (id: string): Promise<OffersResult<OfferResults>> => {
+    if (supplier || !isUuid(id)) return { ok: false, reason: 'NOT_FOUND' }
+    if (!(await plan.allows('offer_results'))) return { ok: false, reason: 'PLAN_LIMIT', key: 'offer_results', wanted: null }
+    return withScope(sql, context, async (tx): Promise<OffersResult<OfferResults>> => {
+      if (!(await selectOffer(tx, storeId, id.toLowerCase()))) return { ok: false, reason: 'NOT_FOUND' }
+      const r = await selectOfferResults(tx, storeId, id.toLowerCase(), new Date(now().getTime() - resultsDays * 86_400_000))
+      const half = (n: bigint, d: bigint) => (n * 2n + d) / (d * 2n)
+      return {
+        ok: true,
+        value: {
+          uses: r.uses,
+          given: r.given.map((g) => ({ amount: BigInt(g.amount), currency: g.currency })),
+          sales: r.sales.map((g) => ({ amount: BigInt(g.amount), currency: g.currency })),
+          averageOrder: r.sales.map((g) => ({ amount: half(BigInt(g.amount), BigInt(Math.max(g.orders, 1))), currency: g.currency })),
+          byDay: r.by_day,
+        },
+      }
+    })
+  }
+
+  return { list, tabCounts, detail, batches, generateCodes, checkCode, results, save, pause: (id: string) => turn(id, false), resume: (id: string) => turn(id, true), end, duplicate, remove }
 }

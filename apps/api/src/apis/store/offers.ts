@@ -1,7 +1,9 @@
 import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
-import { createOffersService, offersAudit, type Action, type Condition, type OfferInput, type OfferKind, type OffersRefusal, type OffersResult, type OfferStatusFilter, type OfferView } from '#engine/modules/promotions/index'
+import { catalogExportKind } from '#engine/modules/catalog/index'
+import { createOfferCodesExport, createOffersService, offerCodesExportAudit, offersAudit, type Action, type CodeBatchRow, type CodeCheck, type OfferCodesExportDto, type OfferResults, type Condition, type OfferInput, type OfferKind, type OffersRefusal, type OffersResult, type OfferStatusFilter, type OfferView } from '#engine/modules/promotions/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
+import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyInputType, moneyType, pageInfoType, type Money, type StoreBuilder } from './builder'
@@ -19,6 +21,8 @@ const words: Record<OffersRefusal, string> = {
   UNKNOWN_TARGET: 'Something this offer names isn’t in your store any more.',
   CURRENCY_NOT_SOLD: 'Give amounts only in the currencies your store sells in.',
   PLAN_LIMIT: 'Your plan doesn’t include this.',
+  NOT_A_CODE_OFFER: 'Single-use codes are for an offer shoppers get with a code.',
+  TOO_MANY: 'That’s more codes than one offer can hold.',
 }
 
 const statuses: readonly OfferStatusFilter[] = ['live', 'scheduled', 'off', 'ended']
@@ -106,6 +110,20 @@ export const registerOffers = (builder: StoreBuilder) => {
         liveAllowance: () => allowanceFor(sql, caller.context, 'live_offers', ctx.now()),
       },
       now: ctx.now,
+    })
+  }
+
+  const exportsOf = (ctx: StoreContext) => {
+    if (!ctx.sql) throw forbidden()
+    const caller = actingCaller(ctx)
+    return createOfferCodesExport({
+      sql: ctx.sql,
+      context: caller.context,
+      actor: { id: caller.person.id, label: caller.person.name || caller.person.email, partnerId: caller.person.partnerId },
+      activity: ctx.activity,
+      facts: ctx.facts,
+      now: ctx.now,
+      queue: (tx, payload) => queueSideEffect(tx, { kind: catalogExportKind, idempotencyKey: payload.jobId, payload, partnerId: payload.partnerId, storeId: payload.storeId }),
     })
   }
 
@@ -209,6 +227,53 @@ export const registerOffers = (builder: StoreBuilder) => {
   const Counts = builder.objectRef<Record<OfferStatusFilter, number>>('OfferCounts').implement({
     fields: (t) => ({ live: t.exposeInt('live'), scheduled: t.exposeInt('scheduled'), off: t.exposeInt('off'), ended: t.exposeInt('ended') }),
   })
+  const Batch = builder.objectRef<CodeBatchRow>('OfferCodeBatch').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      prefix: t.exposeString('prefix'),
+      length: t.exposeInt('length'),
+      count: t.exposeInt('count'),
+      used: t.exposeInt('used'),
+      createdAt: t.string({ resolve: (b) => new Date(b.created_at).toISOString() }),
+    }),
+  })
+  const Check = builder.objectRef<CodeCheck>('OfferCodeCheck').implement({
+    fields: (t) => ({
+      code: t.exposeString('code'),
+      // Null once the offer is deleted.
+      offer: t.field({ type: Offer, nullable: true, resolve: (c) => c.offer }),
+      deleted: t.exposeBoolean('deleted'),
+      singleUse: t.exposeBoolean('singleUse'),
+      usedAt: t.string({ nullable: true, resolve: (c) => at(c.usedAt) }),
+      expiresAt: t.string({ nullable: true, resolve: (c) => at(c.expiresAt) }),
+      // WORKS, INVALID, EXPIRED or USED_UP: what a shopper typing it meets (O3).
+      answer: t.exposeString('answer'),
+    }),
+  })
+  const money = (list: { amount: bigint; currency: string }[]): Money[] => list.map((m) => ({ amount: m.amount.toString(), currency: m.currency }))
+  const Day = builder.objectRef<{ day: string; uses: number }>('OfferDay').implement({ fields: (t) => ({ day: t.exposeString('day'), uses: t.exposeInt('uses') }) })
+  const Results = builder.objectRef<OfferResults>('OfferResults').implement({
+    fields: (t) => ({
+      // Each a placed order; a cancellation before fulfilment gives its use back.
+      uses: t.exposeInt('uses'),
+      discountGiven: t.field({ type: [MoneyType], resolve: (r) => money(r.given) }),
+      salesWithOffer: t.field({ type: [MoneyType], resolve: (r) => money(r.sales) }),
+      averageOrder: t.field({ type: [MoneyType], resolve: (r) => money(r.averageOrder) }),
+      // The last 30 days that had a use, by day in the store's time zone.
+      byDay: t.field({ type: [Day], resolve: (r) => r.byDay }),
+    }),
+  })
+  const CodesExport = builder.objectRef<OfferCodesExportDto>('OfferCodesExport').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // queued, done, failed or expired
+      state: t.exposeString('state'),
+      rows: t.exposeInt('rows', { nullable: true }),
+      csv: t.exposeString('csv', { nullable: true }),
+      requestedAt: t.string({ resolve: (e) => e.requestedAt.toISOString() }),
+      expiresAt: t.string({ nullable: true, resolve: (e) => at(e.expiresAt) }),
+    }),
+  })
   const Saved = builder.objectRef<{ id: string; revision: number }>('SavedOffer').implement({ fields: (t) => ({ id: t.exposeID('id'), revision: t.exposeInt('revision') }) })
 
   const TargetsInput = builder.inputType('OfferTargetsInput', { fields: (t) => ({ productIds: t.idList(), collectionIds: t.idList(), filterValueIds: t.idList() }) })
@@ -295,6 +360,28 @@ export const registerOffers = (builder: StoreBuilder) => {
     // The tabs' counts (B1): Used up counts as Ended.
     offerCounts: t.field({ type: Counts, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).tabCounts() }),
     offer: t.field({ type: Offer, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, args, ctx) => service(ctx).detail(String(args.id)) }),
+    offerCodeBatches: t.field({ type: [Batch], args: { offerId: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, args, ctx) => service(ctx).batches(String(args.offerId)) }),
+    // "Check a code a customer gives you": one answer, null, for a code that's malformed and one the store doesn't hold.
+    checkCode: t.field({
+      type: Check,
+      nullable: true,
+      args: { code: t.arg.string({ required: true }) },
+      extensions: { access: read },
+      resolve: async (_, args, ctx) => {
+        const caller = actingCaller(ctx)
+        const allowed = ctx.allowCodeCheck ? await ctx.allowCodeCheck(`offer-code:${caller.context.storeId}:${caller.person.id}`) : false
+        if (!allowed) throw new GraphQLError('Too many checks. Wait a minute and try again.', { extensions: { code: 'RATE_LIMITED' } })
+        return service(ctx).checkCode(args.code)
+      },
+    }),
+    offerResults: t.field({ type: Results, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: async (_, args, ctx) => answered(ctx, await service(ctx).results(String(args.id))) }),
+    offerCodesExport: t.field({
+      type: CodesExport,
+      nullable: true,
+      args: { id: t.arg.id({ required: true }) },
+      extensions: { access: { ...read, permission: 'offers.export' } },
+      resolve: (_, args, ctx) => exportsOf(ctx).read(String(args.id)),
+    }),
   }))
 
   builder.mutationFields((t) => ({
@@ -337,6 +424,25 @@ export const registerOffers = (builder: StoreBuilder) => {
     resumeOffer: t.boolean({ args: { id: t.arg.id({ required: true }) }, extensions: { access: write(offersAudit.resumed) }, resolve: async (_, args, ctx) => answered(ctx, await service(ctx).resume(String(args.id))) }),
     endOffer: t.boolean({ args: { id: t.arg.id({ required: true }) }, extensions: { access: write(offersAudit.ended) }, resolve: async (_, args, ctx) => answered(ctx, await service(ctx).end(String(args.id))) }),
     duplicateOffer: t.id({ args: { id: t.arg.id({ required: true }) }, extensions: { access: write(offersAudit.duplicated) }, resolve: async (_, args, ctx) => answered(ctx, await service(ctx).duplicate(String(args.id))) }),
+    generateCodes: t.field({
+      type: Batch,
+      args: { offerId: t.arg.id({ required: true }), count: t.arg.int({ required: true }), prefix: t.arg.string(), length: t.arg.int() },
+      extensions: { access: write(offersAudit.codesGenerated) },
+      resolve: async (_, args, ctx) => answered(ctx, await service(ctx).generateCodes(String(args.offerId), { count: args.count, prefix: args.prefix ?? null, length: args.length ?? null })),
+    }),
+    // A job: the file is read back with offerCodesExport(id). An export is a read, so a read-only store allows it.
+    exportOfferCodes: t.id({
+      args: { batchId: t.arg.id({ required: true }) },
+      extensions: { access: { ...read, permission: 'offers.export', whileReadOnly: true, audit: offerCodesExportAudit } },
+      resolve: async (_, args, ctx) => {
+        // A read-only support session reads the store's screens, never takes its codes away (ACCESS §8).
+        const { caller } = actingCaller(ctx).context
+        if (caller.kind === 'support' && caller.access === 'read') throw forbidden()
+        const result = await exportsOf(ctx).request(String(args.batchId))
+        if (!result.ok) throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
+        return result.jobId
+      },
+    }),
     deleteOffer: t.boolean({ args: { id: t.arg.id({ required: true }) }, extensions: { access: write(offersAudit.deleted) }, resolve: async (_, args, ctx) => answered(ctx, await service(ctx).remove(String(args.id))) }),
   }))
 }

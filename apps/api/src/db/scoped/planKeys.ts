@@ -39,7 +39,7 @@ export const planKeyDefs = [
   sw('offers', 'payments', true),
   amount('live_offers', 'payments', true),
   sw('group_offers', 'payments', true),
-  sw('offer_results', 'payments'),
+  sw('offer_results', 'payments', true),
   amount('staff', 'team', true),
   sw('manager_role', 'team'),
   sw('suppliers_enabled', 'team', true),

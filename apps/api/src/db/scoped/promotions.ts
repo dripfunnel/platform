@@ -242,3 +242,96 @@ export const selectStoreCurrencies = async (tx: ScopedSql, storeId: string): Pro
       union select currency from store_currency where store_id = ${storeId} and status = 'active'
     `
   ).map((r) => r.currency)
+
+export interface CodeBatchRow {
+  id: string
+  prefix: string
+  length: number
+  count: number
+  used: number
+  created_at: Date
+}
+
+/** An offer's runs of single-use codes, each with how many are used (H4). */
+export const selectCodeBatches = (tx: ScopedSql, storeId: string, promotionId: string): Promise<CodeBatchRow[]> =>
+  tx<CodeBatchRow[]>`
+    select b.id, b.prefix, b.length, b.count, b.created_at,
+      (select count(*)::int from promotion_code c where c.batch_id = b.id and c.used_at is not null) as used
+    from promotion_code_batch b where b.store_id = ${storeId} and b.promotion_id = ${promotionId} order by b.created_at, b.id
+  `
+
+export const countCodes = async (tx: ScopedSql, promotionId: string): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from promotion_code where promotion_id = ${promotionId} and batch_id is not null`)[0]?.n ?? 0
+
+export const insertCodeBatch = async (tx: ScopedSql, storeId: string, promotionId: string, b: { prefix: string; length: number; count: number }): Promise<string> => {
+  const [row] = await tx<{ id: string }[]>`
+    insert into promotion_code_batch (promotion_id, store_id, prefix, length, count) values (${promotionId}, ${storeId}, ${b.prefix}, ${b.length}, ${b.count}) returning id
+  `
+  if (!row) throw new Error('promotion_code_batch: insert returned no row')
+  return row.id
+}
+
+/** Single-use codes, skipping any the store already holds in any case; how many went in. */
+export const insertSingleUseCodes = async (tx: ScopedSql, storeId: string, promotionId: string, batchId: string, codes: readonly string[]): Promise<number> =>
+  (
+    await tx`
+      insert into promotion_code (promotion_id, store_id, batch_id, code, single_use)
+      select ${promotionId}, ${storeId}, ${batchId}, c, true from unnest(${pgArray(codes)}::text[]) c
+      on conflict (store_id, lower(code)) do nothing
+    `
+  ).count
+
+export const selectBatchCodes = (tx: ScopedSql, storeId: string, batchId: string): Promise<{ code: string; used_at: Date | null }[]> =>
+  tx<{ code: string; used_at: Date | null }[]>`select code, used_at from promotion_code where store_id = ${storeId} and batch_id = ${batchId} order by code`
+
+export const selectBatch = async (tx: ScopedSql, storeId: string, batchId: string): Promise<{ id: string; promotion_id: string; name: string } | null> =>
+  (
+    await tx<{ id: string; promotion_id: string; name: string }[]>`
+      select b.id, b.promotion_id, p.name from promotion_code_batch b join promotion p on p.id = b.promotion_id
+      where b.id = ${batchId} and b.store_id = ${storeId} and p.deleted_at is null
+    `
+  )[0] ?? null
+
+export interface CodeCheckRow {
+  code: string
+  promotion_id: string
+  single_use: boolean
+  used_at: Date | null
+  expires_at: Date | null
+  replaced: boolean
+  deleted: boolean
+}
+
+/** The code in this store whatever its case, with what a shopper would meet; null when the store has none. */
+export const selectCodeCheck = async (tx: ScopedSql, storeId: string, code: string): Promise<CodeCheckRow | null> =>
+  (
+    await tx<CodeCheckRow[]>`
+      select c.code, c.promotion_id, c.single_use, c.used_at, c.expires_at, c.replaced_at is not null as replaced, p.deleted_at is not null as deleted
+      from promotion_code c join promotion p on p.id = c.promotion_id
+      where c.store_id = ${storeId} and lower(c.code) = lower(${code})
+    `
+  )[0] ?? null
+
+export interface OfferResultsRow {
+  uses: number
+  given: { amount: string; currency: string }[]
+  sales: { amount: string; currency: string; orders: number }[]
+  by_day: { day: string; uses: number }[]
+}
+
+/** What an offer did (P1), from its placed orders' usage rows: by currency, and by day in the store's time zone. */
+export const selectOfferResults = async (tx: ScopedSql, storeId: string, promotionId: string, since: Date): Promise<OfferResultsRow> => {
+  const [row] = await tx<OfferResultsRow[]>`
+    with u as (
+      select u.discount_amount, u.currency, u.created_at, o.total_amount
+      from promotion_usage u join "order" o on o.id = u.order_id
+      where u.store_id = ${storeId} and u.promotion_id = ${promotionId}
+    ), tz as (select coalesce(time_zone, 'UTC') as zone from store where id = ${storeId})
+    select (select count(*)::int from u) as uses,
+      coalesce((select json_agg(json_build_object('amount', s::text, 'currency', currency) order by currency) from (select currency, sum(discount_amount) as s from u group by currency) g), '[]'::json) as given,
+      coalesce((select json_agg(json_build_object('amount', s::text, 'currency', currency, 'orders', n) order by currency) from (select currency, sum(total_amount) as s, count(*)::int as n from u group by currency) g), '[]'::json) as sales,
+      coalesce((select json_agg(json_build_object('day', day, 'uses', n) order by day) from (
+        select to_char((u.created_at at time zone (select zone from tz))::date, 'YYYY-MM-DD') as day, count(*)::int as n from u where u.created_at >= ${since} group by 1) d), '[]'::json) as by_day
+  `
+  return row ?? { uses: 0, given: [], sales: [], by_day: [] }
+}
