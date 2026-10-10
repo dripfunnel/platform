@@ -339,6 +339,9 @@ describe('isolation (ACCESS.md §11)', () => {
     expect((await gql(q.taxSetup, { support: cookie, store: t.storeA2 })).code).toBe('FORBIDDEN')
     const [crossing] = await db.sql<{ actor_kind: string; visibility: string }[]>`select actor_kind, visibility from activity_log where action = 'store.crossing_refused' and actor_kind = 'support_session'`
     expect(crossing).toEqual({ actor_kind: 'support_session', visibility: 'staff' })
+    // Capped at five a minute, as a person's crossings are.
+    for (let i = 0; i < 7; i += 1) expect((await gql(q.taxSetup, { support: cookie, store: t.storeA2 })).code).toBe('FORBIDDEN')
+    expect(await db.sql`select 1 from activity_log where action = 'store.crossing_refused' and actor_kind = 'support_session'`).toHaveLength(5)
     expect((await gql(q.taxSetup, { support: cookie, partnerId: t.partnerB })).code).toBe('UNAUTHENTICATED')
 
     await opened('supplier', agents.sam, 'tok-iso-supplier')

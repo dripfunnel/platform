@@ -90,7 +90,7 @@ const crossingsPerMinute = 5
 // ACCESS.md §4: naming a store the session doesn't hold is an attempted tenant crossing, logged
 // with the store asked for, the stores held and the person.
 export const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string, activity: ActivityLog, facts: RequestFacts, now: Date) => {
-  if ((await crossingsLoggedSince(tx, person.id, new Date(now.getTime() - 60_000), crossingsPerMinute)) >= crossingsPerMinute) return
+  if ((await crossingsLoggedSince(tx, { kind: 'person', id: person.id }, new Date(now.getTime() - 60_000), crossingsPerMinute)) >= crossingsPerMinute) return
   const target = asked.slice(0, 64)
   const held = await selectHeldStoreIds(tx, person.id, person.partnerId, heldInLabel + 1)
   const listed = held.slice(0, heldInLabel).join(', ') + (held.length > heldInLabel ? ' and more' : '')
@@ -156,7 +156,9 @@ export const resolveStoreStanding = async (
     if (support?.support) {
       const asked = request.headers.get(storeHeader)
       if (!asked || asked === support.store.id) return { kind: 'acting', person: support.person, caller: support }
-      await activity.record(tx, supportCrossing(support.support, partnerId, asked, facts, now))
+      // Capped as a person's are, so a looping tab writes a few a minute at most.
+      const logged = await crossingsLoggedSince(tx, { kind: 'support_session', id: support.support.sessionId }, new Date(now.getTime() - 60_000), crossingsPerMinute)
+      if (logged < crossingsPerMinute) await activity.record(tx, supportCrossing(support.support, partnerId, asked, facts, now))
       return { kind: 'crossing', person: support.person }
     }
     if (!sessionId) return { kind: 'signed-out' }
