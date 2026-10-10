@@ -468,9 +468,6 @@
     "storefront": {
       "title": "Storefront"
     },
-    "billing": {
-      "title": "Billing"
-    },
     "yourProducts": {
       "title": "Your products"
     },
@@ -4316,6 +4313,392 @@
       "READ_ONLY": "This store isn’t taking changes right now. Try again later.",
       "FORBIDDEN": "Only a Supplier admin can change your team.",
       "other": "That didn’t go through. Try again."
+    }
+  },
+  "billing": {
+    "title": "Billing",
+    "payLine": "What you pay {partner} for your shop. Nobody takes a fee on your orders.",
+    "collected": {
+      "dripfunnel": "DripFunnel collects it on {partner}’s behalf.",
+      "partner": "{partner} bills you directly, so plan changes go through them."
+    },
+    "asOf": "Payment status as of {time}. It can be a few minutes behind.",
+    "loading": "Loading your plan",
+    "error": {
+      "title": "We couldn’t load your plan",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "Billing is the store owner’s",
+      "body": "Only the owner sees the plan, the invoices and the card. Ask them if you need something changed."
+    },
+    "noPlan": {
+      "title": "Your store has no plan yet",
+      "body": "It gets one as soon as it’s set up. Come back in a minute."
+    },
+    "readOnly": "View only: nothing on this page can change right now.",
+    "period": {
+      "label": "Billing period",
+      "MONTH": "Monthly",
+      "YEAR": "Yearly"
+    },
+    "banners": {
+      "scheduled": {
+        "title": "You move to {plan} on {date}.",
+        "body": "Until then nothing changes. After that, anything over its limits is paused — never deleted.",
+        "action": "Choose what to keep"
+      },
+      "closing": {
+        "title": "Your shop closes on {date}.",
+        "body": "Until then it keeps selling and the portal is view-only. Everything is kept for 90 days, then deleted — download your data any time.",
+        "action": "Download my data"
+      }
+    },
+    "plans": {
+      "label": "Plans",
+      "none": "{partner} has no plans on offer in your currency yet.",
+      "yours": "Your plan",
+      "from": "From {date}",
+      "trial": "Your trial",
+      "per": {
+        "MONTH": "/month",
+        "YEAR": "/year"
+      },
+      "billed": {
+        "MONTH": "Billed monthly",
+        "YEAR": "Billed yearly"
+      },
+      "notOffered": {
+        "MONTH": "Not offered monthly",
+        "YEAR": "Not offered yearly"
+      },
+      "free": "Free",
+      "choose": "Choose {plan}",
+      "upgrade": "Upgrade",
+      "later": "Switch at period end",
+      "switchTo": {
+        "MONTH": "Switch to monthly",
+        "YEAR": "Switch to yearly"
+      },
+      "keep": "Keep {plan}",
+      "points": {
+        "products": {
+          "one": "{count} product",
+          "other": "{count} products"
+        },
+        "productsUnlimited": "Unlimited products",
+        "staff": {
+          "one": "{count} staff account",
+          "other": "{count} staff accounts"
+        },
+        "staffNone": "Owner only",
+        "staffUnlimited": "Unlimited staff",
+        "markets": {
+          "one": "{count} market",
+          "other": "{count} markets"
+        },
+        "marketsUnlimited": "Unlimited markets",
+        "bandwidth": "{count} GB bandwidth",
+        "bandwidthUnlimited": "Unlimited bandwidth"
+      },
+      "keepLink": "Or choose what to keep on {plan}"
+    },
+    "includes": {
+      "show": "What each plan includes",
+      "hide": "Hide what each plan includes",
+      "caption": "What each plan includes",
+      "setting": "Setting",
+      "unlimited": "Unlimited",
+      "on": "Included",
+      "off": "Not included",
+      "monthly": "{count} a month",
+      "rows": {
+        "products": "Products",
+        "photos_per_product": "Photos per product",
+        "versions_per_product": "Versions per product",
+        "collections": "Collections",
+        "size_charts": "Size charts",
+        "badges": "Badges",
+        "faqs_related": "FAQs and related products",
+        "aplus": "A+ content",
+        "product_video": "Product video",
+        "import_spreadsheet": "Import from a spreadsheet",
+        "import_shopify": "Bring products from Shopify",
+        "ai_mode": "AI for descriptions and translations",
+        "ai_prompts": "AI design prompts",
+        "payment_gateways": "Payment gateways",
+        "offers": "Discount codes and offers",
+        "live_offers": "Live offers at once",
+        "group_offers": "Customer-group offers, tiers, single-use codes",
+        "offer_results": "Offer results",
+        "staff": "Staff accounts",
+        "manager_role": "Manager role",
+        "suppliers_enabled": "Suppliers",
+        "suppliers": "Suppliers allowed",
+        "supplier_approval": "Approve supplier products",
+        "supplier_packing": "Suppliers pack their own orders",
+        "markets": "Markets",
+        "currencies": "Currencies",
+        "languages": "Languages",
+        "price_adjustment": "Price adjustment per market",
+        "fixed_market_prices": "Fixed prices per market",
+        "market_domains": "Own domain per market",
+        "duties_taxes": "Duties and import taxes at checkout",
+        "stock_locations": "Stock locations",
+        "couriers": "Couriers you can connect",
+        "courier_rates": "Live courier rates at checkout",
+        "bandwidth_gb": "Monthly bandwidth (GB)",
+        "extra_bandwidth": "Buy extra bandwidth",
+        "custom_domain": "Your own domain",
+        "powered_by_removal": "Remove “Powered by”",
+        "publish_now": "“Publish now” presses",
+        "history_days": "Version history (days)",
+        "cart_reminders": "Abandoned-cart reminders",
+        "blog": "Blog",
+        "reports_sales": "Takings, what sold, markets, tax",
+        "reports_export": "Export and supplier report",
+        "reports_custom": "Custom reports",
+        "support_level": "Support",
+        "uptime_guarantee": "Uptime guarantee",
+        "white_label": "White-label",
+        "many_stores": "Many stores, one account",
+        "sso_api": "SSO and full API",
+        "onboarding": "Migration and onboarding"
+      },
+      "choices": {
+        "ai_mode": [
+          "Your own AI key",
+          "Included",
+          "Monthly allowance"
+        ],
+        "cart_reminders": [
+          "You send",
+          "One per cart",
+          "Automatic"
+        ],
+        "support_level": [
+          "Help centre",
+          "Email",
+          "Chat",
+          "Priority chat and phone",
+          "Named manager"
+        ]
+      }
+    },
+    "usage": {
+      "title": "This month’s usage",
+      "none": "Nothing is counted yet.",
+      "rows": {
+        "products": "Products",
+        "staff": "Staff accounts",
+        "suppliers": "Suppliers",
+        "ai_prompts": "AI design prompts",
+        "publish_now": "“Publish now” presses"
+      },
+      "of": "{used} of {limit}",
+      "noLimit": "{used} · no limit",
+      "nearly": "Nearly full",
+      "full": "At your limit — your shop stays online",
+      "resets": "Resets {date}"
+    },
+    "card": {
+      "title": "Card that pays for your plan",
+      "none": "No card yet",
+      "on": "{brand} ending {last4}",
+      "expires": "{card} · expires {date}",
+      "note": "Never used for your shoppers’ payments. Not needed during the trial."
+    },
+    "details": {
+      "title": "On your invoices",
+      "edit": "Edit",
+      "editLabel": "Edit the details on your invoices",
+      "none": "Not added yet",
+      "taxId": {
+        "gstin": "GSTIN",
+        "vat": "VAT number",
+        "other": "Tax number"
+      },
+      "taxIdLine": "{label}: {value}",
+      "notes": {
+        "gstin": "Add your GSTIN to claim input tax credit on the fee.",
+        "vat": "With a valid VAT number, invoices are reverse-charge where it applies.",
+        "other": "Shown on every invoice you get."
+      },
+      "form": {
+        "title": "Details on your invoices",
+        "body": "New invoices use these. Invoices already sent keep the details they were sent with.",
+        "legalName": "Company name",
+        "email": "Send invoices to",
+        "line1": "Address",
+        "line2": "Address line 2",
+        "city": "City",
+        "region": "State or region",
+        "postal": "Postal code",
+        "country": "Country",
+        "countryHint": "Two letters, like IN",
+        "taxIdHint": "Optional",
+        "missing": "Fill in the company name, email, address, city, postal code and country.",
+        "badEmail": "Enter an email like name@example.com.",
+        "badCountry": "Type the country as two letters, like IN or DE.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saved": "Saved — the next invoice uses these details."
+      }
+    },
+    "invoices": {
+      "title": "Invoices",
+      "exportAll": "Export all",
+      "exporting": "Exporting…",
+      "none": "No invoices yet.",
+      "noneTrial": "No invoices yet — the trial is free.",
+      "status": {
+        "paid": "Paid",
+        "open": "Due",
+        "void": "Void",
+        "refunded": "Refunded"
+      },
+      "proration": "Plan change",
+      "pdf": "PDF",
+      "pdfLabel": "PDF of invoice {number}",
+      "pdfBlocked": "Your browser blocked the new tab. Allow pop-ups for this site and try again.",
+      "more": "Show more",
+      "file": "invoices.csv",
+      "columns": [
+        "Invoice",
+        "Date",
+        "Description",
+        "Amount",
+        "Tax",
+        "Currency",
+        "Status"
+      ]
+    },
+    "change": {
+      "title": "Switch to {plan}",
+      "titleKeep": "Keep {plan}?",
+      "target": "{plan} · {price}",
+      "loading": "Working out what it costs…",
+      "when": "When",
+      "whenNow": "Now",
+      "whenLater": "At the end of this period",
+      "start": "It starts today. Charged today: {today}, then {price} {per}.",
+      "now": "Today: {today} — {charge} for the rest of this period on {plan}, less {credit} unused on {current}. From {from}, {price} {per}.",
+      "later": "Nothing changes until {from}. Then you move to {plan} at {price} {per}, and anything over its limits is paused — never deleted.",
+      "keep": "Your move to {next} is called off. You stay on {plan}.",
+      "per": {
+        "MONTH": "a month",
+        "YEAR": "a year"
+      },
+      "tax": "Tax is added where it applies.",
+      "noCard": "You’ll need the card that pays for your plan first.",
+      "confirm": "Switch to {plan}",
+      "confirmKeep": "Keep {plan}",
+      "cancel": "Cancel",
+      "done": "You’re on {plan}.",
+      "scheduled": "You’ll move to {plan} on {date}.",
+      "kept": "You stay on {plan}."
+    },
+    "refused": {
+      "NOT_CONNECTED": "Billing isn’t set up yet. Try again later.",
+      "PROVIDER_UNAVAILABLE": "We couldn’t reach our payment provider. Nothing was charged; try again in a minute.",
+      "CARD_REFUSED": "That card was refused. Try another card.",
+      "PAYMENT_FAILED": "The payment didn’t go through, so your plan stays as it is. Check your card and try again.",
+      "BILLED_BY_PARTNER": "Your provider bills you directly. Ask them to change your plan.",
+      "NO_SUBSCRIPTION": "Your store has no plan yet.",
+      "SAME_PLAN": "You’re already on this plan.",
+      "PLAN_NOT_LIVE": "That plan isn’t offered any more.",
+      "NOT_PRICED": "That plan has no price in your currency for that period.",
+      "AT_PERIOD_END_ONLY": "A smaller plan or a shorter period starts when this period ends.",
+      "NO_CARD": "Add the card that pays for your plan first.",
+      "CHANGE_IN_PROGRESS": "Another change to your plan is going through. Try again in a minute.",
+      "CANCELLED": "Your store is closing, so its plan can’t change.",
+      "NO_PDF": "That invoice’s PDF isn’t available.",
+      "NOT_FOUND": "That is no longer here.",
+      "INVALID_INPUT": "Something here isn’t valid. Check the details and try again.",
+      "READ_ONLY": "Your store is view-only right now, so this can’t change.",
+      "FORBIDDEN": "Only the store owner can change billing.",
+      "other": "That didn’t go through. Try again.",
+      "NOTHING_TO_KEEP": "Your plan holds all your products, so there’s nothing to choose.",
+      "TOO_MANY": "That’s more products than the plan keeps. Untick some first."
+    },
+    "close": {
+      "open": "Close my store…",
+      "title": "Close your store?",
+      "paid": "Your shop keeps selling until {date}, then goes offline. The portal becomes view-only now.",
+      "now": "Your shop goes offline now, and the portal becomes view-only.",
+      "kept": "Products, orders and customers are kept for 90 days, then deleted.",
+      "download": "You can download them until then.",
+      "free": "Or move to {plan} instead and keep selling {count}.",
+      "next": "What would you like to do?",
+      "choices": {
+        "export": "Download my data first",
+        "free": "Move to {plan} instead",
+        "close": "Close my store"
+      },
+      "confirm": "Continue",
+      "cancel": "Keep my store",
+      "closed": "Your store is closing. It sells until {date}."
+    },
+    "data": {
+      "title": "Your data",
+      "preparing": "Preparing your products, orders and customers…",
+      "kinds": {
+        "products": "Products",
+        "orders": "Orders",
+        "customers": "Customers"
+      },
+      "rows": {
+        "one": "{count} row",
+        "other": "{count} rows"
+      },
+      "truncated": "{count} rows — the file stops there",
+      "waiting": "Preparing…",
+      "failed": "Couldn’t be prepared. Try again.",
+      "expired": "The link expired. Download again.",
+      "download": "Download",
+      "again": "Download again",
+      "file": "store-{kind}.csv"
+    }
+  },
+  "keep": {
+    "title": "Choose what to keep on {plan}",
+    "from": "From {date} you’re on {plan}, which keeps {limit}. Pick which stay on sale — or choose a plan and keep everything.",
+    "now": "You’re on {plan}, which keeps {limit}. Swap what stays on sale any time.",
+    "products": {
+      "one": "{count} product",
+      "other": "{count} products"
+    },
+    "plans": "Choose a plan instead — keep everything",
+    "listTitle": "Products · {kept} of {limit} stay on sale",
+    "listNote": "Products with orders waiting to ship always stay. Any room left goes to your best sellers.",
+    "waiting": "Has an order waiting to ship — always stays",
+    "supplier": "From {supplier}",
+    "stays": "Stays on sale",
+    "paused": "Paused",
+    "full": "{plan} keeps {limit} — untick one first.",
+    "more": "Show more",
+    "note": "Nothing is deleted. Paused products are hidden from shoppers and kept as they are. Choose a bigger plan any time and they come back exactly as they were.",
+    "back": "Back",
+    "saveFrom": "Keep these from {date}",
+    "save": "Save what’s kept",
+    "saved": "Saved — {kept} stay on sale.",
+    "savedFrom": "Saved — from {date}, {kept} stay on sale.",
+    "readOnly": "View only: what’s kept can’t change right now.",
+    "loading": "Loading your products",
+    "error": {
+      "title": "We couldn’t load your products",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "nothing": {
+      "title": "Nothing to choose",
+      "body": "Your plan holds all your products, so everything stays on sale.",
+      "action": "Back to Billing"
+    },
+    "denied": {
+      "title": "Billing is the store owner’s",
+      "body": "Only the owner chooses what stays on sale on a smaller plan."
     }
   }
 }
