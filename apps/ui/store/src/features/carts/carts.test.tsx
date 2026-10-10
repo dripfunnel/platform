@@ -79,6 +79,7 @@ describe('how a cart is worded', () => {
     expect(statusLine(rohan, now, 'schedule')).toBe('Paid · order KT-2848 · with a reminder code')
     expect(statusLine({ ...vikram, status: 'skipped', skipReason: 'under_minimum' }, now, 'schedule')).toBe(words.skip.under_minimum)
     expect(statusLine(vikram, now, 'merchant')).toBe(words.line.yourself)
+    expect(statusLine(vikram, now, 'unknown')).toBe(words.line.waiting)
     expect(statusLine({ ...vikram, status: 'not_recovered', remindersSent: 3 }, now, 'schedule')).toBe('3 reminders sent')
     expect(itemsText(meera)).toBe('Silk stole + 2 more')
     expect([stepText('ship', 'US'), stepText('ship', 'IN'), stepText('pay', 'US')]).toEqual([words.step.shipping, words.step.delivery, words.step.pay])
@@ -182,6 +183,13 @@ describe('the Abandoned carts list', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.act.stop }))
     await settle()
     expect(api.stopReminders).not.toHaveBeenCalled()
+  })
+
+  it('claims nothing about who sends while the reminder settings are unread', async () => {
+    api.loadReminderSending.mockRejectedValue(new Error('down'))
+    await show(owner)
+    expect(within(row('Vikram Shah')).getByText(words.line.waiting)).toBeTruthy()
+    expect(within(row('Vikram Shah')).queryByText(words.line.yourself)).toBeNull()
   })
 
   it('sends a reminder with a code on the plan’s automatic, and says what was sent', async () => {

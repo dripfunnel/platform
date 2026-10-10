@@ -11,7 +11,7 @@ import { saysShipping } from '../common/region'
 import { moneyText } from '../orders/orderView'
 import { useCartActions } from './cartActions'
 import { cartStates, sampleDetail } from './cartStates'
-import { agoText, cartAccessOf, canRemind, pillOf, eventsOf, statusLine, stepText, type Sender } from './cartView'
+import { agoText, cartAccessOf, canRemind, pillOf, eventsOf, statusLine, stepText, senderOf } from './cartView'
 import './carts.css'
 
 const words = messages.carts
@@ -60,7 +60,7 @@ export const CartPage = () => {
     void loadReminderSending().then(setSending, () => setSending(null))
   }, [forced, access.canRead])
 
-  const sender: Sender = access.readOnly ? 'paused' : !sending || !sending.enabled || sending.level === 'youSend' ? 'merchant' : 'schedule'
+  const sender = senderOf(access.readOnly, sending)
   const actions = useCartActions({
     sample: Boolean(forced),
     canUpgrade: access.canUpgrade,

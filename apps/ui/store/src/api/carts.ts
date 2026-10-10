@@ -108,9 +108,6 @@ export const loadCart = async (id: string): Promise<CartDetail | null> =>
     )
   ).abandonedCart
 
-/** A single-use code's sizes a reminder sent by hand may carry (src/engine/modules/cartReminders/rules.ts). */
-export const reminderPercents = [5, 10, 15, 20] as const
-
 /** "Send reminder now": by email at once, even in quiet hours, with a single-use code if asked. */
 export const remindNow = async (cartId: string, discountPercent: number | null): Promise<void> => {
   await query('mutation R($id: ID!, $p: Int) { remindNow(cartId: $id, discountPercent: $p) }', z.object({ remindNow: z.string() }), { id: cartId, p: discountPercent })

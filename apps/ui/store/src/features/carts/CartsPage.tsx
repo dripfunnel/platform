@@ -10,7 +10,7 @@ import { fill, formatCount, formatList, messages, plural } from '../../messages'
 import { moneyText } from '../orders/orderView'
 import { useCartActions } from './cartActions'
 import { cartSample, cartStates } from './cartStates'
-import { agoText, cartAccessOf, canRemind, pillOf, itemsText, statusLine, stepText, type Sender } from './cartView'
+import { agoText, cartAccessOf, canRemind, pillOf, itemsText, statusLine, stepText, senderOf } from './cartView'
 import './carts.css'
 
 const words = messages.carts
@@ -83,7 +83,7 @@ export const CartsPage = () => {
   }, [forced, sample, access.canRead])
   useEffect(loadMeta, [loadMeta])
 
-  const sender: Sender = access.readOnly ? 'paused' : !sending || !sending.enabled || sending.level === 'youSend' ? 'merchant' : 'schedule'
+  const sender = senderOf(access.readOnly, sending)
   const actions = useCartActions({
     sample: Boolean(sample),
     canUpgrade: access.canUpgrade,

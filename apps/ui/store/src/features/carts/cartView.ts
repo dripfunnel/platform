@@ -60,7 +60,11 @@ export const stepText = (step: string | null, country: string | null): string =>
 export const skipText = (reason: string | null): string => (reason && reason in words.skip ? words.skip[reason as keyof typeof words.skip] : words.skip.other)
 
 /** What sends next while a cart waits: the merchant, or the schedule (Reminders tab). */
-export type Sender = 'merchant' | 'schedule' | 'paused'
+export type Sender = 'merchant' | 'schedule' | 'paused' | 'unknown'
+
+/** Who sends a waiting cart's next reminder, from the Reminders tab's switch and the plan; unknown until that's read. */
+export const senderOf = (readOnly: boolean, sending: { enabled: boolean; level: string } | null): Sender =>
+  readOnly ? 'paused' : !sending ? 'unknown' : !sending.enabled || sending.level === 'youSend' ? 'merchant' : 'schedule'
 
 /** The line under a cart's status: who stopped it, why it was skipped, when it was last reminded, … */
 export const statusLine = (cart: AbandonedCart, now: Date, sender: Sender): string => {
@@ -80,7 +84,7 @@ export const statusLine = (cart: AbandonedCart, now: Date, sender: Sender): stri
     case 'reminded':
       return cart.lastSentAt ? fill(words.line.reminded, { ago: agoText(cart.lastSentAt, now) }) : words.status.reminded
     case 'waiting':
-      return sender === 'paused' ? words.line.paused : sender === 'merchant' ? words.line.yourself : words.line.scheduled
+      return sender === 'paused' ? words.line.paused : sender === 'merchant' ? words.line.yourself : sender === 'schedule' ? words.line.scheduled : words.line.waiting
   }
 }
 
