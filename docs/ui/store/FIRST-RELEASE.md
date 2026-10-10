@@ -651,6 +651,12 @@ in the card. "Upload list" reads a CSV or text file in the browser, keeps only c
 sends them at once (`replaceDeliveryArea`). A courier change or an upload reads the settings back without losing what is
 typed: an edited field stays, the rest follows the server (a last courier going switches its rate off there).
 
+**API side of Developers, #330 part 1** (SUI 14 draws it): `apiKeys` (name, prefix, scopes, supplier, who made it and whether
+they're still an Owner, expiry, last used, until when a rotated-from secret works), `apiKeyChoices` (the scopes a key may hold,
+the lifetimes 30, 90 and 365 days or never, the 50-key cap and the calls a minute and month), `createApiKey` and `rotateApiKey`
+(each answering the secret once) and `revokeApiKey`. The prototype's "Change products", "Change stock" and "Update orders" aren't
+offered yet: a key reads the catalogue, stock, orders and customers only (ACCESS §5.6, decided on #330).
+
 ## 16. Billing (`PortalBilling`, Owner only)
 
 *Billing is not in the merchant mobile app, and the app's Close my store is in Settings › Store

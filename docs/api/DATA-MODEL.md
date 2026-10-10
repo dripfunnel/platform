@@ -510,6 +510,11 @@ or without the calling code, never on a part of it (decided on #42).
 ```
 api_key    (id, store_id, seller_id NULL, name, prefix, secret_hash, scopes, created_by_user_id,
             expires_at NULL, last_used_at, revoked_at NULL)
+           -- built on #330 (migration 0150): also created_at, revoked_by_user_id, rotated_from_id (unique: one successor)
+           -- and superseded_at (a rotated key's old secret, its expiry brought forward a day); prefix is `dfk_` and 8
+           -- characters; the merchant side reads every column but secret_hash, app_system resolves and stamps last_used_at
+api_usage  (store_id PK, minute_start, minute_used, month_start, month_used)
+           -- #330: the store's key calls this minute and month, one row a store, counted by app_system as each resolves
 app_grant  (id, store_id, app_id, scopes, installed_by_user_id, revoked_at NULL)
 support_session (id, partner_id, store_id, membership_id, partner_user_id, reason, ticket NULL,
                  started_at, expires_at, ended_at NULL, ended_by_partner_user_id NULL,

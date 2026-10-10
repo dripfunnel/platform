@@ -446,4 +446,5 @@ Carried from PLATFORM-PROMPT §10 where they decide API shape:
 - Is the Platform API GraphQL like the others? *(Today all four are GraphQL; confirm.)*
 - How a support session opened from the partner console reaches the merchant's portal host
   (§2.1). Staff never open one (ACCESS §8); they impersonate.
-- Which of API keys, webhooks and apps ship first; API rate limits and quotas per plan.
+- ~~Which of API keys, webhooks and apps ship first; API rate limits and quotas per plan.~~ All three in the first
+  release, limits per plan and per store (decided on #337); keys are built on #330 (ACCESS §5.6).
