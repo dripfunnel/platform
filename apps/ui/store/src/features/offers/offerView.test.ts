@@ -18,6 +18,7 @@ const offer = (o: Partial<Offer>): Offer => ({
   id: 'o1',
   name: 'Welcome 10% off',
   internalName: null,
+  description: null,
   trigger: 'code',
   code: 'WELCOME10',
   status: 'live',

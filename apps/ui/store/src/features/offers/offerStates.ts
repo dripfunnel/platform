@@ -17,7 +17,7 @@ const noTargets = { productIds: [], collectionIds: [], filterValueIds: [] }
 const action = (a: Partial<OfferAction> & Pick<OfferAction, 'operation'>): OfferAction => ({ percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], ...a })
 const leaf = { amounts: [], minimum: null, productIds: [], collectionIds: [], filterValueIds: [], groupIds: [], customerIds: [], countries: [], days: [], from: null, to: null, conditions: [] }
 const none = { product: false, order: false, shipping: false }
-const base = { internalName: null, code: null, enabled: true, startsAt: null, endsAt: null, totalUsesLimit: null, perCustomerLimit: null, usesCount: 0, combines: none, conditions: [], revision: 1 }
+const base = { internalName: null, description: null, code: null, enabled: true, startsAt: null, endsAt: null, totalUsesLimit: null, perCustomerLimit: null, usesCount: 0, combines: none, conditions: [], revision: 1 }
 
 const offers: Offer[] = harness
   ? [

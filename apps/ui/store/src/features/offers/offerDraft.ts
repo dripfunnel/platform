@@ -60,6 +60,8 @@ export interface OfferDraft {
   combines: Offer['combines']
   /** Conditions this form doesn't draw (the API's "any of"), saved back as they came. */
   kept: OfferCondition[]
+  /** The offer's description, which this form doesn't draw, saved back as it came. */
+  description: string | null
 }
 
 /** What the form needs to know of the store: its time zone, its currencies (the main one first) and their rates. */
@@ -88,7 +90,10 @@ export const localOf = (iso: string, timeZone: string): string => {
   return `${p.y}-${pad(p.mo)}-${pad(p.d)}T${pad(p.h)}:${pad(p.mi)}`
 }
 
-/** The store's wall-clock time as an instant, DST included; null when it isn't one. */
+/**
+ * The store's wall-clock time as an instant. A time the clocks skip (spring forward) moves on by the gap; a time they
+ * repeat (fall back) is its first occurrence.
+ */
 export const instantOf = (local: string, timeZone: string): string | null => {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local)
   if (!m) return null
@@ -97,8 +102,10 @@ export const instantOf = (local: string, timeZone: string): string | null => {
     const p = partsIn(t, timeZone)
     return Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi) - t
   }
-  const first = wall - offset(wall)
-  return new Date(wall - offset(first)).toISOString()
+  const before = wall - offset(wall - 86_400_000)
+  const after = wall - offset(wall + 86_400_000)
+  const fits = [Math.min(before, after), Math.max(before, after)].find((t) => localOf(new Date(t).toISOString(), timeZone) === local)
+  return new Date(fits ?? before).toISOString()
 }
 
 /** "Ends at midnight" is the last second of that day (fact 9). */
@@ -110,13 +117,25 @@ export const endInstantOf = (local: string, timeZone: string): string | null => 
 
 const majorOf = (minor: string, currency: string) => moneyText({ amount: Number(minor), currency })
 
-/** The main currency's typed amount in another, at today's reference rate, rounded to its minor units (#337). */
+// Rates are units per euro to six places, as integers; money is converted once, on integer minor units.
+const rateScale = 1_000_000n
+const scaledRate = (rate: number | undefined): bigint | null => (rate && rate > 0 ? BigInt(Math.round(rate * Number(rateScale))) : null)
+
+/** Main-currency minor units in another currency's minor units at today's reference rate, half up (#337). */
+export const convertedMinor = (minor: number, facts: StoreFacts, currency: string): number | null => {
+  const from = scaledRate(facts.perEuro[facts.main])
+  const to = scaledRate(facts.perEuro[currency])
+  if (from === null || to === null || !Number.isInteger(minor) || minor < 0) return null
+  const num = BigInt(minor) * 10n ** BigInt(moneyDigits(currency)) * to
+  const den = from * 10n ** BigInt(moneyDigits(facts.main))
+  return Number((2n * num + den) / (2n * den))
+}
+
+/** The main currency's typed amount as another's box would hold it, converted. */
 export const convertedText = (text: string, facts: StoreFacts, currency: string): string | null => {
   const minor = minorOf(text, facts.main)
-  const from = facts.perEuro[facts.main]
-  const to = facts.perEuro[currency]
-  if (typeof minor !== 'number' || !from || !to) return null
-  return (((minor / 10 ** moneyDigits(facts.main)) * to) / from).toFixed(moneyDigits(currency))
+  const converted = typeof minor === 'number' ? convertedMinor(minor, facts, currency) : null
+  return converted === null ? null : moneyText({ amount: converted, currency })
 }
 
 /** One amount per currency the store sells in: typed ones as typed, the rest converted from the main one. */
@@ -127,8 +146,7 @@ const amountsOf = (typed: Amounts, facts: StoreFacts): ApiMoney[] => {
     { currency: facts.main, amount: String(main) },
     ...facts.others.flatMap((c) => {
       const own = (typed[c] ?? '').trim()
-      const text = own || convertedText(typed[facts.main] ?? '', facts, c)
-      const minor = text === null ? null : minorOf(text, c)
+      const minor = own ? minorOf(own, c) : convertedMinor(main, facts, c)
       return typeof minor === 'number' ? [{ currency: c, amount: String(minor) }] : []
     }),
   ]
@@ -181,6 +199,7 @@ const blank = (type: OfferKind): OfferDraft => ({
   // A new offer combines with nothing; the merchant opts in (#337).
   combines: { product: false, order: false, shipping: false },
   kept: [],
+  description: null,
 })
 
 export const recipes = ['welcome', 'freeShipping', 'seasonal', 'buy2get1', 'flash', 'vip', 'winBack'] as const
@@ -250,6 +269,7 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
     totalUses: offer.totalUsesLimit ? String(offer.totalUsesLimit) : '',
     perCustomer: offer.perCustomerLimit ? String(offer.perCustomerLimit) : '',
     combines: offer.combines,
+    description: offer.description,
   }
   const fixed = { kind: 'fixed' as const, amounts: typedOf(a.amounts) }
   const percent = { kind: 'percent' as const, percent: String(a.percent ?? ''), capOn: a.cap.length > 0, cap: mainOf(a.cap, facts) }
@@ -415,7 +435,7 @@ const actionInput = (a: OfferAction): Record<string, unknown> => {
 /** The `OfferInput` Save sends, on or off as the merchant chose (Start now / Schedule / Keep off, #337). */
 export const inputOf = (d: OfferDraft, facts: StoreFacts, enabled: boolean) => {
   const o = offerOf(d, facts)
-  return { ...o, description: null, enabled, conditions: o.conditions.map(conditionInput), action: actionInput(o.action) }
+  return { ...o, description: d.description, enabled, conditions: o.conditions.map(conditionInput), action: actionInput(o.action) }
 }
 
 
@@ -428,6 +448,8 @@ const amountOk = (text: string, currency: string) => {
   const minor = minorOf(text, currency)
   return typeof minor === 'number' && minor > 0
 }
+/** Every other currency's box is empty (converted at save) or a positive amount, never dropped or zero. */
+const othersOk = (typed: Amounts, facts: StoreFacts) => facts.others.every((c) => !(typed[c] ?? '').trim() || amountOk(typed[c] ?? '', c))
 const between = (text: string, low: number, high: number) => {
   const n = whole(text)
   return n !== null && n >= low && n <= high
@@ -439,8 +461,10 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   if ((d.type === 'products' || d.type === 'order') && !d.tiers.length) {
     if (d.kind === 'percent' && !between(d.percent, 1, 100)) e.value = words.percent
     if (d.kind === 'fixed' && !amountOk(d.amounts[main] ?? '', main)) e.value = words.amount
+    else if (d.kind === 'fixed' && !othersOk(d.amounts, facts)) e.value = words.otherAmount
   }
   if (d.type === 'shipping' && d.shipMode === 'off' && !amountOk(d.amounts[main] ?? '', main)) e.value = words.amount
+  else if (d.type === 'shipping' && d.shipMode === 'off' && !othersOk(d.amounts, facts)) e.value = words.otherAmount
   if (d.type === 'products') {
     if (d.target === 'products' && !d.productIds.length) e.targets = words.products
     if (d.target === 'filter' && !d.filterValueIds.length) e.targets = words.filterValue
@@ -470,6 +494,7 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   if (!d.name.trim()) e.name = words.name
   else if (d.name.trim().length > offerLimits.name) e.name = fill(words.nameLong, { max: String(offerLimits.name) })
   if (d.minimum === 'amount' && !amountOk(d.minAmounts[main] ?? '', main)) e.minimum = words.minimumAmount
+  else if (d.minimum === 'amount' && !othersOk(d.minAmounts, facts)) e.minimum = words.otherAmount
   if ((d.minimum === 'items' || d.minimum === 'these') && !between(d.minQuantity, 1, offerLimits.minimum)) e.minimum = words.minimumItems
   if (d.who === 'groups' && !d.groupIds.length) e.who = words.groups
   if (d.who === 'customers' && !d.customerIds.length) e.who = words.customers
