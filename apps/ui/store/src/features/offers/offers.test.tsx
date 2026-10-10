@@ -126,6 +126,19 @@ describe('the Offers list', () => {
     expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'off', kind: 'bxgy', trigger: 'automatic', search: '' }, {})
   })
 
+  it('shows loading, never the last tab’s rows and actions, while another tab is read', async () => {
+    let answerOff: (p: Page) => void = () => undefined
+    api.loadOffers.mockImplementation(({ tab }: { tab: string }) => (tab === 'off' ? new Promise<Page>((resolve) => (answerOff = resolve)) : Promise.resolve(page([welcome]))))
+    await show(owner)
+    fireEvent.click(screen.getByRole('tab', { name: 'Off 1' }))
+    await settle()
+    expect(screen.queryByText('Welcome 10% off')).toBeNull()
+    expect(screen.getByText(words.loading)).toBeTruthy()
+    answerOff(page([paused]))
+    await settle()
+    expect(row('Socks deal')).toBeTruthy()
+  })
+
   it('pages 25 at a time: Next asks after, Previous asks before, and says which rows it shows', async () => {
     const many = Array.from({ length: 25 }, (_, i) => ({ ...welcome, id: `o${i}`, name: `Offer ${i}` }))
     api.loadOffers.mockImplementation((_: unknown, cursor: { after?: string; before?: string }) => Promise.resolve(cursor.after ? { rows: [paused], next: null, previous: 'c26' } : { rows: many, next: 'c25', previous: null }))
@@ -247,6 +260,22 @@ describe('the Offers list', () => {
     expect(screen.getByText(words.act.duplicated)).toBeTruthy()
   })
 
+  it('copies a code, and says so where the browser gives no clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    await show(owner)
+    openMenu('Welcome 10% off')
+    fireEvent.click(menuItem('Welcome 10% off', /^Copy code/))
+    await settle()
+    expect(writeText).toHaveBeenCalledWith('WELCOME10')
+    expect(screen.getByText('WELCOME10 copied.')).toBeTruthy()
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    openMenu('Welcome 10% off')
+    fireEvent.click(menuItem('Welcome 10% off', /^Copy code/))
+    await settle()
+    expect(screen.getByText(words.copyFailed)).toBeTruthy()
+  })
+
   it('lets Staff read offers and check codes, with no action that changes one', async () => {
     await show(staff)
     expect(screen.getByText(words.notes.staff)).toBeTruthy()
@@ -366,6 +395,26 @@ describe('one offer’s page', () => {
     await settle()
     expect(screen.getByRole('heading', { level: 1, name: 'Copy of Welcome 10% off' })).toBeTruthy()
     expect(screen.getByText(words.act.duplicated)).toBeTruthy()
+  })
+
+  it('shows a seat without offers.read “not found”, reading nothing and naming no offer', async () => {
+    await show(supplier, { entry: '/offers/o1' })
+    expect(screen.getByText(words.denied.title)).toBeTruthy()
+    expect(screen.getByText(words.denied.body)).toBeTruthy()
+    expect(screen.queryByText('Welcome 10% off')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
+    expect(api.loadOffer).not.toHaveBeenCalled()
+    expect(api.loadOfferResults).not.toHaveBeenCalled()
+    expect(api.loadCodeBatches).not.toHaveBeenCalled()
+    expect(api.loadOfferNames).not.toHaveBeenCalled()
+  })
+
+  it('says a code couldn’t be copied where the browser gives no clipboard', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    await show(owner, { entry: '/offers/o1' })
+    fireEvent.click(screen.getByRole('button', { name: words.menu.copy }))
+    await settle()
+    expect(screen.getByText(words.copyFailed)).toBeTruthy()
   })
 
   it('shows an offer that isn’t the store’s as not found, and Staff no actions', async () => {
