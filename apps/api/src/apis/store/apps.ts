@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { pageOf } from '#core/paging'
+import { pageOf, type Page } from '#core/paging'
 import type { AppRow, GrantRow } from '#db/scoped/apps'
 import { appAudit, createStoreAppsService, type AppRefusal, type AppResult } from '#saas/apps/index'
 import { forbidden } from '../graphql/scope'
@@ -55,7 +55,7 @@ export const registerApps = (builder: StoreBuilder) => {
       connection: t.string({ resolve: (g) => (g.token_sent_at ? 'sent' : g.token_failed_at ? 'failed' : 'waiting') }),
     }),
   })
-  const InstalledPage = builder.objectRef<{ nodes: GrantRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('InstalledAppPage').implement({
+  const InstalledPage = builder.objectRef<Page<GrantRow>>('InstalledAppPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [Installed], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
 
