@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import { accountKindOf, bookingDeadlineMs, courierProviders, couriersFor, type BookedLabel, type CourierProvider, type PartnerCouriers } from '#core/couriers'
+import { accountKindOf, bookingDeadlineMs, CourierBoughtUnfinished, courierProviders, couriersFor, type BookedLabel, type CourierProvider, type PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import { logEvent } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
@@ -220,6 +220,9 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
    * §6). The courier is asked inside the shipment's transaction, as refunds ask their provider: a refusal or no answer
    * writes nothing, and a second booking of the same units waits on the order's lock and finds them gone.
    */
+  // Bought at the courier but not kept here: its id, so support can cancel it there (LOGGING §9: an id, no person).
+  const unkept = (provider: CourierProvider, ref: string, event = 'label_not_kept') => logEvent({ event, api: 'store', storeId, code: `${provider}:${ref}` })
+
   const bookLabel = async (input: BookInput): Promise<FulfilmentResult<string>> => {
     if (readOnly) return { ok: false, reason: 'READ_ONLY' }
     const ids = input.lines.map((l) => l.lineId.toLowerCase())
@@ -250,6 +253,7 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
         try {
           booked = await couriers.gateway.book(provider, { reference: id, from, to, ...parcel, value: { amount, currency: orderRow.currency }, labelSize: place.courier.label_size, pickup: place.courier.pickup_mode }, AbortSignal.timeout(bookingDeadlineMs))
         } catch (error) {
+          if (error instanceof CourierBoughtUnfinished) unkept(provider, error.providerRef)
           const failure = courierFailureOf(error)
           if (failure) throw new Refused(failure)
           throw error
@@ -274,9 +278,8 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
       })
     } catch (error) {
       if (error instanceof Refused) return { ok: false, reason: error.reason }
-      // Bought at the courier but not kept here: its id, so support can cancel it there (LOGGING §9: an id, no person).
       const lost = booked as BookedLabel | null
-      if (lost) logEvent({ event: 'label_not_kept', api: 'store', storeId, code: `${provider}:${lost.providerRef}` })
+      if (lost) unkept(provider, lost.providerRef)
       throw error
     }
   }
@@ -285,29 +288,37 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
   const requestPickup = async (fulfilmentId: string): Promise<FulfilmentResult<true>> => {
     if (readOnly) return { ok: false, reason: 'READ_ONLY' }
     if (!isUuid(fulfilmentId)) return { ok: false, reason: 'INVALID_INPUT' }
-    return withSystemScope(sql, async (tx): Promise<FulfilmentResult<true>> => {
-      const found = await lockShipmentToCollect(tx, storeId, sellerId, fulfilmentId)
-      if (!found) return { ok: false, reason: 'NOT_FOUND' }
-      const provider = found.courier_provider
-      if (found.kind !== 'booked' || !provider || !found.provider_ref) return { ok: false, reason: 'NOT_BOOKED' }
-      if (found.pickup_requested_at) return { ok: false, reason: 'PICKUP_ASKED' }
-      const place = await selectBookingPlace(tx, storeId, found.warehouse_id, provider, sellerId)
-      // As for booking: a courier the store has switched off is asked for nothing, a pickup costing money at some.
-      if (!place?.courier || !couriers || !couriers.accounts.has(accountKindOf(provider))) return { ok: false, reason: 'NOT_CONNECTED' }
-      const from = fromAddressOf(place, found.warehouse_id)
-      if (!from) return { ok: false, reason: 'NO_ADDRESS' }
-      let pickup: { ref: string | null; date: string | null }
-      try {
-        pickup = await couriers.gateway.pickup(provider, { providerRef: found.provider_ref, from }, AbortSignal.timeout(bookingDeadlineMs))
-      } catch (error) {
-        const failure = courierFailureOf(error)
-        if (failure) return { ok: false, reason: failure }
-        throw error
-      }
-      await setPickup(tx, found.id, pickup, now())
-      await record(tx, fulfilmentAudit.pickupRequested, { id: found.order_id, number: found.number }, sellerId, null)
-      return { ok: true, value: true }
-    })
+    let asked: { provider: CourierProvider; ref: string } | null = null
+    try {
+      return await withSystemScope(sql, async (tx): Promise<FulfilmentResult<true>> => {
+        const found = await lockShipmentToCollect(tx, storeId, sellerId, fulfilmentId)
+        if (!found) return { ok: false, reason: 'NOT_FOUND' }
+        const provider = found.courier_provider
+        if (found.kind !== 'booked' || !provider || !found.provider_ref) return { ok: false, reason: 'NOT_BOOKED' }
+        if (found.pickup_requested_at) return { ok: false, reason: 'PICKUP_ASKED' }
+        const place = await selectBookingPlace(tx, storeId, found.warehouse_id, provider, sellerId)
+        // As for booking: a courier the store has switched off is asked for nothing, a pickup costing money at some.
+        if (!place?.courier || !couriers || !couriers.accounts.has(accountKindOf(provider))) return { ok: false, reason: 'NOT_CONNECTED' }
+        const from = fromAddressOf(place, found.warehouse_id)
+        if (!from) return { ok: false, reason: 'NO_ADDRESS' }
+        let pickup: { ref: string | null; date: string | null }
+        try {
+          pickup = await couriers.gateway.pickup(provider, { providerRef: found.provider_ref, from }, AbortSignal.timeout(bookingDeadlineMs))
+        } catch (error) {
+          const failure = courierFailureOf(error)
+          if (failure) return { ok: false, reason: failure }
+          throw error
+        }
+        asked = { provider, ref: pickup.ref ?? found.provider_ref }
+        await setPickup(tx, found.id, pickup, now())
+        await record(tx, fulfilmentAudit.pickupRequested, { id: found.order_id, number: found.number }, sellerId, null)
+        return { ok: true, value: true }
+      })
+    } catch (error) {
+      const lost = asked as { provider: CourierProvider; ref: string } | null
+      if (lost) unkept(lost.provider, lost.ref, 'pickup_not_kept')
+      throw error
+    }
   }
 
   // A shipment's tracking, added or corrected by whoever sent it; a pickup has none.
