@@ -55,7 +55,7 @@ const merchant = async (source: string, who: Who, variables: Record<string, unkn
   const standing = as.support && resolved.kind === 'acting'
     ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
     : resolved
-  const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => new Date() }
+  const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, allowCodeCheck: async () => true, now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, extensions: result.errors?.[0]?.extensions }
 }
@@ -150,6 +150,7 @@ beforeAll(async () => {
     return row?.id ?? ''
   }
   plans.pro = await plan('Growth Pro', 2)
+  await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${plans.pro}, ${t.partnerA}, 1, 'offer_results', true)`
   plans.starter = await plan('Growth', 1)
   plans.free = await plan('Free', 0)
   await subscribe(store, plans.pro)
@@ -467,9 +468,16 @@ describe('a reminder’s code (DATA-MODEL §7.7)', () => {
     expect(r.data?.['applyCode']).toEqual({ state: 'INVALID' })
   })
 
-  it('never shows in the Offers list or counts against its limit', async () => {
+  it('never shows in Offers: not listed, counted, opened, checked, measured or changed', async () => {
     const r = await merchant('{ offers { nodes { name } } offerCounts { live } }', 'owner')
     expect(r.data).toEqual({ offers: { nodes: [] }, offerCounts: { live: 0 } })
+    const [hidden] = await db.sql<{ id: string }[]>`select id from promotion where store_id = ${store} and cart_reminder`
+    const id = hidden?.id ?? ''
+    expect((await merchant(`{ offer(id: "${id}") { id } }`, 'owner')).data?.['offer']).toBeNull()
+    // A reminder's code reads as one the store doesn't hold: the same answer as a code nobody made.
+    expect((await merchant(`{ checkCode(code: "${code}") { answer } }`, 'owner')).data?.['checkCode']).toBeNull()
+    expect((await merchant(`{ offerResults(id: "${id}") { uses } }`, 'owner')).code).toBe('NOT_FOUND')
+    expect((await merchant(`mutation { pauseOffer(id: "${id}") }`, 'owner')).code).toBe('NOT_FOUND')
   })
 
   it('recovers the cart when it is placed, crediting the reminder, and its reminders stop', async () => {
