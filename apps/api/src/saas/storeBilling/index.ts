@@ -12,8 +12,10 @@ import { countLiveSuppliers } from '#db/scoped/suppliers'
 import { selectCurrentVersions } from '#db/scoped/partnerPlans'
 import { planKeyDefs, UNLIMITED } from '#db/scoped/planKeys'
 import { selectStoreAccount } from '#db/scoped/storeAccount'
+import { selectStoreForUpdate } from '#db/scoped/stores'
 import {
   applyPlan,
+  bumpBillingRevision,
   claimBilling,
   clearScheduledChange,
   releaseBilling,
@@ -31,6 +33,7 @@ import {
   type CataloguePlanRow,
 } from '#db/scoped/storeBilling'
 import { StripeRefused, StripeUnavailable, type StoreBillingStripe, type StripeApi, type StripeSubscription } from '#integrations/stripe/index'
+import { transitionStore } from '#saas/stores/index'
 import { addInterval, offeredWays, quoteChange, type CurrentPlan, type Interval, type When } from './quote'
 
 export { addInterval, offeredWays, quoteChange } from './quote'
@@ -246,13 +249,13 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
     throw error
   }
 
-  /** Runs `work` holding the store's billing claim, so a second tab or a retry waits its turn instead of charging again. */
-  const claimed = async <T>(work: (claim: string) => Promise<StoreBillingResult<T>>): Promise<StoreBillingResult<T>> => {
+  /** Runs `work` holding the store's billing claim, so a second tab waits its turn instead of charging again. */
+  const claimed = async <T>(work: () => Promise<StoreBillingResult<T>>): Promise<StoreBillingResult<T>> => {
     const at = now()
     const claim = await system((tx) => claimBilling(tx, storeId, at, new Date(at.getTime() + claimMs)))
     if (!claim) return refused('CHANGE_IN_PROGRESS')
     try {
-      return await work(claim)
+      return await work()
     } finally {
       await system((tx) => releaseBilling(tx, storeId, claim))
     }
@@ -348,10 +351,12 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
   }
 
   const changePlan = async (raw: unknown): Promise<StoreBillingResult<BillingSubscriptionDto>> =>
-    claimed(async (claim) => {
+    claimed(async () => {
       const p = await planned(raw)
       if (!p.ok) return p
       const { sub, plan, amount, interval, when } = p.value
+      // The same change from the same recorded state is the same request to Stripe, however often it is retried.
+      const key = (kind: string) => `${kind}:${storeId}:${sub.billing_revision}:${plan.id}:${plan.version}:${interval}`
       const move = { planId: plan.id, planVersion: plan.version, interval, amount }
       const changes = [
         { field: 'plan', before: sub.plan_id, after: plan.id },
@@ -372,7 +377,7 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
           const price = { product: await stripe.ensurePlanProduct({ id: plan.id, name: plan.name }), currency: sub.currency, amount, interval }
           if (!paidOf(sub) || !sub.stripe_subscription_id) {
             const customer = await customerOf(stripe, sub)
-            const made = await stripe.createSubscription({ customer, price, metadata: metadataOf(plan, interval) }, `plan-start:${claim}`)
+            const made = await stripe.createSubscription({ customer, price, metadata: metadataOf(plan, interval) }, key('plan-start'))
             const period = periodOf(made)
             applied = { subscriptionId: made.id, periodStart: period?.periodStart ?? at, periodEnd: period?.periodEnd ?? addInterval(at, interval) }
           } else {
@@ -382,20 +387,25 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
             if (keeps) {
               // Nothing more on Stripe: the release was the change.
             } else if (when === 'now') {
-              const changed = await stripe.changeSubscription(current, { price, metadata: metadataOf(plan, interval) }, `plan-change:${claim}`)
+              const changed = await stripe.changeSubscription(current, { price, metadata: metadataOf(plan, interval) }, key('plan-change'))
               const period = periodOf(changed)
               applied = { subscriptionId: changed.id, periodStart: period?.periodStart ?? sub.period_start, periodEnd: period?.periodEnd ?? sub.period_end }
             } else {
-              await stripe.scheduleChange(current, { price, metadata: metadataOf(plan, interval) }, `plan-schedule:${claim}`)
+              await stripe.scheduleChange(current, { price, metadata: metadataOf(plan, interval) }, key('plan-schedule'))
             }
           }
         } catch (error) {
+          if (error instanceof StripeRefused) await system((tx) => bumpBillingRevision(tx, storeId))
           return providerRefusal(error, 'PAYMENT_FAILED')
         }
       }
       await system(async (tx) => {
-        if (applied) await applyPlan(tx, storeId, { ...move, ...applied })
-        else if (keeps) await clearScheduledChange(tx, storeId)
+        if (applied) {
+          await applyPlan(tx, storeId, { ...move, ...applied, activate: !paidOf(sub) })
+          // Out of the trial the store is active too (SAAS §4.2: Active is a paid subscription, or a free plan).
+          const store = paidOf(sub) ? null : await selectStoreForUpdate(tx, storeId)
+          if (store?.status === 'trial') await transitionStore(tx, store, { to: 'active' }, at)
+        } else if (keeps) await clearScheduledChange(tx, storeId)
         else await scheduleChange(tx, storeId, { ...move, at: sub.period_end })
         await activity.record(tx, entry(applied ? storeBillingAudit.changePlan : keeps ? storeBillingAudit.cancelChange : storeBillingAudit.scheduleChange, changes))
       })
