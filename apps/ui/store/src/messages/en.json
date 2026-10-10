@@ -4583,7 +4583,9 @@
       "prefixError": "Start with up to {max} letters, numbers, - or _.",
       "more": "Show more runs",
       "loadingMore": "Loading more runs…",
-      "moreFailed": "We couldn’t load more runs. Try again."
+      "moreFailed": "We couldn’t load more runs. Try again.",
+      "sampleChars": "K7QX2M9P4RT8WZ3N5H6J",
+      "sampleJoiner": " · "
     },
     "editor": {
       "recipeNames": {
@@ -4633,7 +4635,8 @@
         "otherAmount": "Give each other currency an amount above zero, or leave its box empty to convert at today’s rate."
       }
     },
-    "timesIn": "Times in {zone}"
+    "timesIn": "Times in {zone}",
+    "countsFailed": "We couldn’t count the offers on each tab."
   },
   "sales": {
     "title": "Your sales",

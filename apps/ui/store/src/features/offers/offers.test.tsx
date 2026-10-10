@@ -188,6 +188,27 @@ describe('the Offers list', () => {
     expect(row('Welcome 10% off')).toBeTruthy()
   })
 
+  it('says when the tab counts can’t be read, and reads them again on Try again', async () => {
+    api.loadOfferCounts.mockRejectedValueOnce(new Error('down')).mockResolvedValue(counts)
+    await show(owner)
+    expect(screen.getByText(words.countsFailed)).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Live' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
+    await settle()
+    expect(screen.queryByText(words.countsFailed)).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Live 1' })).toBeTruthy()
+  })
+
+  it('reads once typing in the search pauses, not on every key', async () => {
+    await show(owner)
+    api.loadOffers.mockClear()
+    const box = screen.getByRole('searchbox', { name: words.search.label })
+    for (const typed of ['w', 'we', 'wel', 'welc', 'welco']) fireEvent.change(box, { target: { value: typed } })
+    await settle(350)
+    expect(api.loadOffers).toHaveBeenCalledTimes(1)
+    expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'live', kind: null, trigger: null, search: 'welco' }, {})
+  })
+
   it('moves between tabs with the arrow keys, Home and End, keeping one tab stop', async () => {
     await show(owner)
     const live = screen.getByRole('tab', { name: 'Live 1' })
@@ -249,6 +270,19 @@ describe('the Offers list', () => {
     fireEvent.click(menuItem('Socks deal', /^Turn on/))
     await settle()
     expect(screen.getByRole('alert').textContent).toBe('Your plan allows 3 live offers. Ask your store owner to upgrade.')
+  })
+
+  it('makes one copy however often Duplicate is clicked while the first is on its way', async () => {
+    let answer: (id: string) => void = () => undefined
+    api.duplicateOffer.mockImplementation(() => new Promise<string>((resolve) => (answer = resolve)))
+    await show(owner)
+    openMenu('Welcome 10% off')
+    fireEvent.click(menuItem('Welcome 10% off', /^Duplicate/))
+    openMenu('Welcome 10% off')
+    fireEvent.click(menuItem('Welcome 10% off', /^Duplicate/))
+    answer('o9')
+    await settle()
+    expect(api.duplicateOffer).toHaveBeenCalledTimes(1)
   })
 
   it('ends and deletes only after restating the consequence, naming a code that stays reserved', async () => {
