@@ -33,6 +33,8 @@ export interface CartOffersInput {
   lines: readonly CartOfferLine[]
   shipping: bigint | null
   now: Date
+  /** Placement's check: a guest's typed email counts as who they are only here, never in an answer the cart gives. */
+  enforce?: boolean
 }
 
 export interface CartDiscount {
@@ -60,7 +62,8 @@ const pricingOf = (row: CartOfferRow): PricingOffer | null => {
 export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Promise<CartOffers> => {
   const { storeId, now } = input
   const email = input.email?.trim().toLowerCase() || null
-  const who = { customerId: input.customerId, email }
+  // An email anyone can type proves nothing (fact 8): the cart answers for it as for no contact, and placement holds it.
+  const who = { customerId: input.customerId, email: input.enforce ? email : null }
   const { rows, uses, shopper, targets } = await withSystemScope(sql, async (tx) => {
     const rows = await selectCartOffers(tx, storeId, input.codes, now)
     return {
@@ -71,8 +74,8 @@ export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Pro
     }
   })
   // A guest is known by their email, or by a number only once proven by signing in; a typed number never counts (#337).
-  const known = input.customerId !== null || email !== null
-  const unknownContact = !known && input.phone !== null
+  const known = who.customerId !== null || who.email !== null
+  const phoneOnly = input.customerId === null && email === null && input.phone !== null
   const states = new Map<string, CodeState>()
   const offers: PricingOffer[] = []
   const limits = new Map<string, number | null>()
@@ -90,11 +93,11 @@ export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Pro
       if (row.code) states.set(row.code, 'ALREADY_USED')
       continue
     }
-    if (limit !== null && unknownContact) {
+    if (limit !== null && (phoneOnly || (input.enforce && !known))) {
       if (row.code) states.set(row.code, 'SIGN_IN_REQUIRED')
       continue
     }
-    const offer = pricingOf(row)
+    const offer = pricingOf(row.trigger === 'code' ? row : { ...row, code_id: null })
     if (!offer) continue
     offers.push(offer)
     limits.set(row.id, limit)
@@ -112,7 +115,8 @@ export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Pro
       onSale: l.onSale,
     })),
     shipping: input.shipping,
-    shopper: { customerId: input.customerId, groupIds: shopper.group_ids, firstOrder: known && !shopper.has_ordered, country: input.country },
+    // A guest's first order is taken on trust in the cart and checked at placement.
+    shopper: { customerId: input.customerId, groupIds: shopper.group_ids, firstOrder: known ? !shopper.has_ordered : !input.enforce && !phoneOnly, country: input.country },
     local: localTimeIn(now, shopper.time_zone),
     offers,
   })

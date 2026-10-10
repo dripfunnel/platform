@@ -235,26 +235,24 @@ describe('placing an order with an offer (OFFERS fact 8, 13)', () => {
     expect(seen).toEqual({ discount: { amount: '20000' }, discounts: [{ name: 'Summer 20% off', amount: { amount: '20000' } }], total: { amount: '85000' } })
   })
 
-  it('holds a per-customer limit for a guest by email, and won’t take a typed number as who they are (#337)', async () => {
+  it('answers for a typed email as for no contact, holds the limit for it at placement, and won’t take a typed number at all (#337)', async () => {
     await db.sql`update promotion set per_customer_limit = 1 where id = ${placeOffer}`
-    const again = await add(kurta, 1)
-    await shop('mutation { setCartContact(email: "ASHA@example.com") { cart { id } } }', again)
-    expect((await apply(again, 'PLACE20')).state).toBe('ALREADY_USED')
+    // Asha used it: a stranger typing her email learns nothing from the cart, and can't place the order with it.
+    const again = await ready(1, { email: 'ASHA@example.com', code: 'PLACE20' })
+    expect((await cartOf(again)).codes).toEqual([{ code: 'PLACE20', state: 'APPLIED' }])
+    expect((await place(again)).code).toBe('OFFER_CHANGED')
     const phoneOnly = await add(kurta, 1)
     await shop('mutation { setCartContact(phone: "+919800000009") { cart { id } } }', phoneOnly)
     expect((await apply(phoneOnly, 'PLACE20')).state).toBe('SIGN_IN_REQUIRED')
-    const someoneElse = await add(kurta, 1)
-    await shop('mutation { setCartContact(email: "ravi@example.com") { cart { id } } }', someoneElse)
-    expect((await apply(someoneElse, 'PLACE20')).state).toBe('APPLIED')
   })
 
   it('gives the use back when the order is cancelled before fulfilment', async () => {
     expect((await merchant(`mutation { cancelOrder(orderId: "${order}", reason: shopper) }`)).data?.['cancelOrder']).toBe(true)
     expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 0 }])
     expect(await db.sql`select 1 from promotion_usage where order_id = ${order}`).toHaveLength(0)
-    const back = await add(kurta, 1)
-    await shop('mutation { setCartContact(email: "asha@example.com") { cart { id } } }', back)
-    expect((await apply(back, 'PLACE20')).state).toBe('APPLIED')
+    const back = await ready(1, { code: 'PLACE20' })
+    expect((await place(back)).code).toBeUndefined()
+    expect(await db.sql`select uses_count from promotion where id = ${placeOffer}`).toEqual([{ uses_count: 1 }])
   })
 
   it('takes a single-use code once, and gives it back with a cancelled order', async () => {
@@ -318,10 +316,24 @@ describe('each store’s own offers (ACCESS §11)', () => {
       insert into "order" (store_id, state, payment_state, currency, number, placed_at, subtotal_amount, shipping_amount, total_amount, payment_method, email)
       values (${other}, 'placed', 'paid', 'INR', 'S-1', now(), 100000, 0, 100000, 'cod', 'meera@example.com') returning id`
     await db.sql`insert into promotion_usage (promotion_id, store_id, order_id, customer_email, discount_amount, currency) values (${theirs}, ${other}, ${o?.id ?? ''}, 'meera@example.com', 10000, 'INR')`
-    const token = await add(kurta, 1)
-    await shop('mutation { setCartContact(email: "meera@example.com") { cart { id } } }', token)
-    expect((await apply(token, 'WELCOME')).state).toBe('APPLIED')
+    // Meera ordered and used their code in Surat: a first order here all the same.
+    const token = await ready(1, { email: 'meera@example.com', code: 'WELCOME' })
+    expect((await cartOf(token)).discounts.map((d) => d.name)).toEqual(['Welcome'])
+    expect((await place(token)).code).toBeUndefined()
+    // Her second here is not, which placement finds whatever the cart said.
+    const second = await ready(1, { email: 'meera@example.com', code: 'WELCOME' })
+    expect((await cartOf(second)).codes).toEqual([{ code: 'WELCOME', state: 'APPLIED' }])
+    expect((await place(second)).code).toBe('OFFER_CHANGED')
     expect(welcome).not.toBe(theirs)
+  })
+
+  it('takes an automatic offer’s old code as no code at all, while the offer itself still applies (fact 6)', async () => {
+    await off()
+    const auto = await offer({ name: 'Auto 5%', action: { operation: 'order_percentage_discount', percent: 5 } })
+    await db.sql`insert into promotion_code (promotion_id, store_id, code) values (${auto}, ${store}, 'WASACODE')`
+    const token = await add(kurta, 1)
+    const r = await apply(token, 'WASACODE')
+    expect([r.state, r.cart.codes, r.cart.discounts]).toEqual(['INVALID', [], [{ name: 'Auto 5%', code: null, amount: { amount: '5000' } }]])
   })
 })
 

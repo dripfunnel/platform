@@ -749,7 +749,8 @@ code the cart holds and its state: `APPLIED`, `NOT_ELIGIBLE`, `DOESNT_COMBINE`, 
 `USED_UP` or `ALREADY_USED`); tax is on what the lines and delivery come to after them. `applyCode(code)` answers the
 code's state with the cart: one that can't work whatever is added comes straight back off, a code no offer of the store
 holds is `INVALID` like a malformed one, and codes are tried at most 30 a minute per store and address
-(`OFFER_CODE_RATE_LIMITER`); `removeCode(code)`; at most five codes a cart. Placing a live order takes each offer's use
+(`OFFER_CODE_RATE_LIMITER`); `removeCode(code)`; at most five codes a cart. A guest's typed email is never counted in the cart's answers (another shopper's uses and orders would show through it);
+placing the order checks the offers again with it and refuses `OFFER_CHANGED` for one they can't have. Placing a live order takes each offer's use
 under its row lock (an offer used up or ended meanwhile refuses `OFFER_CHANGED`, and the cart, read again, no longer has
 it), the shopper's own uses under a lock of their own, a single-use code's one use, and records the discount on the
 lines, as a line per offer (`order.discounts`) and in `promotion_usage`; a preview's test order takes no use. A
