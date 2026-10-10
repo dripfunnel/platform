@@ -40,10 +40,12 @@ export const OffersPage = () => {
   const [kind, setKind] = useState<OfferKind | null>(null)
   const [trigger, setTrigger] = useState<Offer['trigger'] | null>(null)
   const [paging, setPaging] = useState<Paging>({ tab, cursor: {}, index: 0 })
-  const [list, setList] = useState<List>({ kind: 'loading' })
+  const [listRead, setList] = useState<List>({ kind: 'loading' })
   const [counts, setCounts] = useState<Counts>({ kind: 'loading' })
   const [names, setNames] = useState<OfferNames>(noNames)
-  const [place, setPlace] = useState<{ timeZone: string; country: string | null }>({ timeZone: 'UTC', country: null })
+  // Every time on the list is the store's, so rows wait for its zone, and a failed read is the list's error (fact 9).
+  const [place, setPlace] = useState<{ timeZone: string; country: string | null } | null>(null)
+  const [placeFailed, setPlaceFailed] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const latest = useRef(0)
@@ -82,21 +84,25 @@ export const OffersPage = () => {
   }, [forced, sample, access.canRead])
   useEffect(loadCounts, [loadCounts])
 
-  // Names and the store's place only word the rows; when they fail the rows count instead and dates stay in UTC, named.
-  useEffect(() => {
-    if (forced) {
-      setPlace({ timeZone: 'Asia/Kolkata', country: 'IN' })
-      return setNames(sampleNames ?? noNames)
-    }
+  const loadPlace = useCallback(() => {
+    if (forced) return setPlace({ timeZone: 'Asia/Kolkata', country: 'IN' })
     if (!access.canRead) return
-    void loadOfferPlace().then(setPlace, () => undefined)
+    setPlaceFailed(false)
+    void loadOfferPlace().then(setPlace, () => setPlaceFailed(true))
+  }, [forced, access.canRead])
+  useEffect(loadPlace, [loadPlace])
+
+  // Names only word the rows; when they fail the rows count instead.
+  useEffect(() => {
+    if (forced) return setNames(sampleNames ?? noNames)
+    if (!access.canRead) return
     void loadOfferNames().then(setNames, () => undefined)
   }, [forced, access.canRead])
 
   const actions = useOfferActions({
     sample: Boolean(sample),
     canUpgrade: access.canUpgrade,
-    timeZone: place.timeZone,
+    timeZone: place?.timeZone ?? 'UTC',
     now: () => new Date(),
     onDone: (message) => {
       setToast(message)
@@ -133,7 +139,9 @@ export const OffersPage = () => {
       </div>
     )
 
-  const region = regionWords(place.country)
+  const region = regionWords(place?.country ?? null)
+  const list: List = listRead.kind === 'ready' && !place ? (placeFailed ? { kind: 'error' } : { kind: 'loading' }) : listRead
+  const timeZone = place?.timeZone ?? 'UTC'
   const now = new Date()
   const total = counts.kind === 'ready' ? counts.counts.live + counts.counts.scheduled + counts.counts.off + counts.counts.ended : null
   const filtered = search !== '' || kind !== null || trigger !== null
@@ -192,7 +200,7 @@ export const OffersPage = () => {
         <EmptyState title={words.firstTime.title} body={fill(words.firstTime.body, { ship: region.ship })} />
       ) : (
         <>
-          <CodeCheck sample={sample ? [...sample.live, ...sample.scheduled, ...sample.off, ...sample.ended] : null} timeZone={place.timeZone} />
+          {place && <CodeCheck sample={sample ? [...sample.live, ...sample.scheduled, ...sample.off, ...sample.ended] : null} timeZone={place.timeZone} />}
 
           <div className="df-offers-tabs" role="tablist" aria-label={words.tabs.label} onKeyDown={onTabKey}>
             {offerTabs.map((t) => (
@@ -234,7 +242,10 @@ export const OffersPage = () => {
             </div>
 
             {list.kind === 'loading' && <LoadingState label={words.loading} />}
-            {list.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}
+            {list.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: () => {
+                  load()
+                  loadPlace()
+                } }} />}
             {list.kind === 'ready' && rows.length === 0 && (
               <div className="df-offers-empty">
                 <strong>{empty ? empty.title : words.noMatch.title}</strong>
@@ -270,7 +281,7 @@ export const OffersPage = () => {
                       <span role="cell">{offer.code ? <code className="df-offers-code">{offer.code}</code> : <span className="df-offers-sub">{offer.trigger === 'code' ? words.row.singleUse : words.row.automatic}</span>}</span>
                       <span role="cell" className="df-offers-cell">
                         <StatusPill tone={statusLook[key].tone} icon={statusLook[key].icon} label={words.status[key]} />
-                        <span className="df-offers-sub">{timeLine(offer, now, place.timeZone)}</span>
+                        <span className="df-offers-sub">{timeLine(offer, now, timeZone)}</span>
                       </span>
                       <span role="cell" className="df-offers-cell df-offers-uses">
                         {usesOf(offer)}
@@ -295,7 +306,7 @@ export const OffersPage = () => {
                     <li key={offer.id} className="df-offers-card">
                       <span className="df-offers-card-top">
                         <StatusPill tone={statusLook[key].tone} icon={statusLook[key].icon} label={words.status[key]} />
-                        <span className="df-offers-sub">{timeLine(offer, now, place.timeZone)}</span>
+                        <span className="df-offers-sub">{timeLine(offer, now, timeZone)}</span>
                       </span>
                       <strong className="df-offers-name">{offer.name}</strong>
                       <span className="df-offers-sub">{whatText(offer, region, names)}</span>

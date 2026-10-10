@@ -152,6 +152,25 @@ describe('the Offers list', () => {
     expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'off', kind: null, trigger: 'code', search: '' }, {})
   })
 
+  it('waits for the store’s time zone before showing times, and says so when it can’t be read', async () => {
+    let answerPlace: (p: { timeZone: string; country: string }) => void = () => undefined
+    api.loadOfferPlace.mockImplementation(() => new Promise((resolve) => (answerPlace = resolve)))
+    await show(owner)
+    expect(screen.queryByText('Welcome 10% off')).toBeNull()
+    expect(screen.getByText(words.loading)).toBeTruthy()
+    answerPlace({ timeZone: 'Asia/Kolkata', country: 'IN' })
+    await settle()
+    expect(row('Welcome 10% off')).toBeTruthy()
+    cleanup()
+    api.loadOfferPlace.mockRejectedValueOnce(new Error('down')).mockResolvedValue({ timeZone: 'Asia/Kolkata', country: 'IN' })
+    await show(owner)
+    expect(screen.getByText(words.error.title)).toBeTruthy()
+    expect(screen.queryByText('Welcome 10% off')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
+    await settle()
+    expect(row('Welcome 10% off')).toBeTruthy()
+  })
+
   it('moves between tabs with the arrow keys, Home and End, keeping one tab stop', async () => {
     await show(owner)
     const live = screen.getByRole('tab', { name: 'Live 1' })

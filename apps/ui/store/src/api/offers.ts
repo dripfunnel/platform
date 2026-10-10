@@ -149,9 +149,11 @@ export const deleteOffer = async (id: string): Promise<void> => {
 
 
 /** Where the store is: its time zone (dates, fact 9) and country (the region's words, T5). */
+/** Refused when the store has no info yet, so no screen guesses a zone it would then name as the store's. */
 export const loadOfferPlace = async (): Promise<{ timeZone: string; country: string | null }> => {
   const { storeInfo } = await query('{ storeInfo { timeZone country } }', z.object({ storeInfo: z.object({ timeZone: z.string(), country: z.string().nullable() }).nullable() }))
-  return { timeZone: storeInfo?.timeZone ?? 'UTC', country: storeInfo?.country ?? null }
+  if (!storeInfo) throw new Error('The store has no time zone yet.')
+  return storeInfo
 }
 
 /** The names an offer's ids stand for: collections, filter values and customer groups, each the store's whole list. */
