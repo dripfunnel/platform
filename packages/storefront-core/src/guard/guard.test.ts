@@ -160,3 +160,11 @@ describe('the rule list', () => {
     expect(ruleIds.filter((r) => !covered.has(r))).toEqual([])
   })
 })
+
+describe('validateChange: messages that point the author at the fix', () => {
+  it('sends a style attribute on an element to the CSS Modules', () => {
+    const style = readTree(`${fixtures}refused/jsx-attribute-not-allowed-style`)
+    const found = validateChange(changed(style), context).problems.find((p) => p.rule === 'jsx/attribute-not-allowed')
+    expect(found?.message).toContain('CSS Modules')
+  })
+})

@@ -130,10 +130,10 @@ const attributeProblems = (checker: ts.TypeChecker, kind: Kind, tag: string, att
     found.push({ node: attr, rule: 'jsx/text-literal', message: textMessage })
   }
   if (kind === 'theme' || kind === 'component') return found
+  if (name === 'style' && kind === 'element') return [...found, { node: attr, rule: 'jsx/attribute-not-allowed', message: "Style elements through this theme's CSS Modules, never a style attribute." }]
   const allowed = attributes.has(name) || /^aria-[a-z]+$/.test(name) || /^data-[a-z][a-z0-9-]*$/.test(name) || (kind === 'motion' && motionProps.has(name))
   if (!allowed) return [...found, { node: attr, rule: 'jsx/attribute-not-allowed', message: `"${name}" isn't an allowed attribute on <${tag}>.` }]
   if (name === 'type' && (tag !== 'button' || strings?.length !== 1 || strings[0] !== 'button')) found.push({ node: attr, rule: 'jsx/attribute-not-allowed', message: 'A theme button is always type="button"; forms come from core.' })
-  if (name === 'style' && kind === 'element') found.push({ node: attr, rule: 'jsx/attribute-not-allowed', message: "Style elements through this theme's CSS Modules, never a style attribute." })
   if (kind === 'motion' && animationProps.has(name) && value) {
     const bad = animated(checker, value, checker.getTypeAtLocation(value), name === 'style' ? styleKeys : animatable, name === 'variants')
     if (bad.length) found.push({ node: attr, rule: 'jsx/animated-property', message: `Animate only transform, opacity and filter (x, y, scale, rotate, opacity, filter), not ${[...new Set(bad)].join(', ')}.` })
