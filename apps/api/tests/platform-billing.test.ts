@@ -49,6 +49,7 @@ const stripe: StripeApi = {
   subscription: async () => {
     throw new StripeRefused('resource_missing')
   },
+  invoiceLines: async () => [],
 }
 
 const callerOf = (partnerId: string, role: PartnerRole, staff: PartnerCaller['staff'] = null): PartnerCaller => ({
