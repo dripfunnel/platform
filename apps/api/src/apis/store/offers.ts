@@ -23,6 +23,7 @@ const words: Record<OffersRefusal, string> = {
   PLAN_LIMIT: 'Your plan doesn’t include this.',
   NOT_A_CODE_OFFER: 'Single-use codes are for an offer shoppers get with a code.',
   TOO_MANY: 'That’s more codes than one offer can hold.',
+  CODES_EXHAUSTED: 'We couldn’t make that many new codes with this prefix. Try longer codes or another prefix.',
 }
 
 const statuses: readonly OfferStatusFilter[] = ['live', 'scheduled', 'off', 'ended']
@@ -237,6 +238,9 @@ export const registerOffers = (builder: StoreBuilder) => {
       createdAt: t.string({ resolve: (b) => new Date(b.created_at).toISOString() }),
     }),
   })
+  const BatchPage = builder.objectRef<{ nodes: CodeBatchRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('OfferCodeBatchPage').implement({
+    fields: (t) => ({ nodes: t.field({ type: [Batch], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
+  })
   const Check = builder.objectRef<CodeCheck>('OfferCodeCheck').implement({
     fields: (t) => ({
       code: t.exposeString('code'),
@@ -360,7 +364,15 @@ export const registerOffers = (builder: StoreBuilder) => {
     // The tabs' counts (B1): Used up counts as Ended.
     offerCounts: t.field({ type: Counts, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).tabCounts() }),
     offer: t.field({ type: Offer, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, args, ctx) => service(ctx).detail(String(args.id)) }),
-    offerCodeBatches: t.field({ type: [Batch], args: { offerId: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, args, ctx) => service(ctx).batches(String(args.offerId)) }),
+    offerCodeBatches: t.field({
+      type: BatchPage,
+      args: { offerId: t.arg.id({ required: true }), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
+      extensions: { access: read },
+      resolve: async (_, args, ctx) => {
+        const window = storePage(args)
+        return pageOf(await service(ctx).batches(String(args.offerId), window), window, (b) => ({ occurredAt: new Date(b.created_at), id: b.id }))
+      },
+    }),
     // "Check a code a customer gives you": one answer, null, for a code that's malformed and one the store doesn't hold.
     checkCode: t.field({
       type: Check,

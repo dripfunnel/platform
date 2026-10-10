@@ -1616,7 +1616,7 @@ promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_i
 `order` and `shipping` only. `promotion_code` has no `customer_id` or `order_id` yet (they come with the cart reminders'
 codes, SAPI 15) and no `used_by_customer_id` (the usage row names the shopper); it gains `replaced_at`, set when a live
 offer's shared code is changed: the old code stops working and stays reserved to the offer. Codes are stored uppercase and
-checked against `^[A-Z0-9][A-Z0-9_-]{2,31}$`; a single-use code always belongs to a batch. Request roles never write
+checked against `^[A-Z0-9][A-Z0-9_-]{2,31}$`; a single-use code always belongs to a batch. A usage row's offer, code, customer and order are each held to its store by composite keys. Request roles never write
 `uses_count`, `used_at` or `promotion_usage`, and never delete an offer (soft only): placement counts uses in system
 scope. The operation keys are the migration's check lists (OFFERS-DESIGN §3.1 has the arguments).
 

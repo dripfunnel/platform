@@ -103,7 +103,7 @@ describe('single-use codes (H4)', () => {
     const codes = await db.sql<{ code: string; single_use: boolean }[]>`select code, single_use from promotion_code where batch_id = ${batch}`
     expect(codes).toHaveLength(50)
     expect(codes.every((c) => /^IG-[A-HJ-NP-Z2-9]{8}$/.test(c.code) && c.single_use)).toBe(true)
-    expect((await gql(`{ offerCodeBatches(offerId: "${insta}") { id count used } }`, 'staff')).data?.['offerCodeBatches']).toEqual([{ id: batch, count: 50, used: 0 }])
+    expect((await gql(`{ offerCodeBatches(offerId: "${insta}") { nodes { id count used } } }`, 'staff')).data?.['offerCodeBatches']).toEqual({ nodes: [{ id: batch, count: 50, used: 0 }] })
     const [entry] = await db.sql<{ changes: unknown }[]>`select changes from activity_log where action = 'offer.codes_generated'`
     expect(entry?.changes).toEqual([expect.objectContaining({ field: 'codes', after: '50' })])
   })
@@ -132,6 +132,29 @@ describe('single-use codes (H4)', () => {
       await subscribe(t.storeA1, plans.full)
     }
   })
+
+  it('lists runs a page at a time, newest first, and none of another store’s or to a supplier', async () => {
+    const paged = await offer(t.storeA1)
+    const ids: string[] = []
+    for (let i = 0; i < 3; i += 1) ids.push(((await generate(paged, ', count: 1')).data?.['generateCodes'] as { id: string }).id)
+    type Page = { nodes: { id: string }[]; pageInfo: { endCursor: string; hasNextPage: boolean } }
+    const page = async (args: string, who: Who = 'owner') => (await gql(`{ offerCodeBatches(offerId: "${paged}"${args}) { nodes { id } pageInfo { endCursor hasNextPage } } }`, who))
+    const first = page(', first: 2')
+    const one = (await first).data?.['offerCodeBatches'] as Page
+    expect([one.nodes.map((n) => n.id), one.pageInfo.hasNextPage]).toEqual([[ids[2], ids[1]], true])
+    const two = (await page(`, first: 2, after: "${one.pageInfo.endCursor}"`)).data?.['offerCodeBatches'] as Page
+    expect([two.nodes.map((n) => n.id), two.pageInfo.hasNextPage]).toEqual([[ids[0]], false])
+    expect(((await page('', 'other')).data?.['offerCodeBatches'] as Page).nodes).toEqual([])
+    expect((await page('', 'supplier')).code).toBe('FORBIDDEN')
+  })
+
+  it('holds an offer to 100,000 codes, and says so', async () => {
+    const full = await offer(t.storeA1)
+    const [b] = await db.sql<{ id: string }[]>`insert into promotion_code_batch (promotion_id, store_id, prefix, length, count) values (${full}, ${t.storeA1}, 'FULL', 6, 5000) returning id`
+    await db.sql`insert into promotion_code (promotion_id, store_id, batch_id, code, single_use) select ${full}, ${t.storeA1}, ${b?.id ?? ''}, 'FULL' || lpad(g::text, 6, '0'), true from generate_series(1, 99998) g`
+    expect((await generate(full, ', count: 3')).code).toBe('TOO_MANY')
+    expect((await generate(full, ', count: 2')).code).toBeUndefined()
+  }, 60_000)
 
   it('exports a run as a file for the Owner and Manager, read back only by whoever asked (decided 2026-10-05)', async () => {
     await db.sql`update promotion_code set used_at = '2026-10-09T10:00:00Z' where code = 'IG-FRESHONE'`

@@ -302,6 +302,8 @@ describe('plan gates (OFFERS U1–U3)', () => {
     const plain = await create({ code: 'OFFPLAIN', enabled: false })
     const vip = await create({ code: 'OFFVIP', enabled: false, conditions: [{ operation: 'customer_group', groupIds: [group] }] })
     const live = await create({ code: 'LIVEVIP', conditions: [{ operation: 'customer_group', groupIds: [group] }] })
+    const ended = await create({ code: 'ENDEDVIP', startsAt: '2026-01-01T00:00:00Z', endsAt: '2026-02-01T00:00:00Z', conditions: [{ operation: 'customer_group', groupIds: [group] }] })
+    const endedPlain = await create({ code: 'ENDEDPLAIN', startsAt: '2026-01-01T00:00:00Z', endsAt: '2026-02-01T00:00:00Z' })
     const on = async (id: string, by: 'save' | 'resume') => {
       if (by === 'resume') return gql(`mutation { resumeOffer(id: "${id}") }`, 'owner')
       const o = await offer(id)
@@ -311,6 +313,9 @@ describe('plan gates (OFFERS U1–U3)', () => {
     await subscribe(t.storeA1, plans.none)
     try {
       for (const by of ['save', 'resume'] as const) expect({ by, key: (await on(plain.id, by)).extensions?.['key'] }).toEqual({ by, key: 'offers' })
+      const p = await offer(endedPlain.id)
+      const extended = await gql(save, 'owner', { id: endedPlain.id, revision: p?.['revision'], input: offerInput({ code: 'ENDEDPLAIN', startsAt: '2026-01-01T00:00:00Z', endsAt: '2099-01-01T00:00:00Z' }) })
+      expect(extended.extensions?.['key']).toBe('offers')
     } finally {
       await subscribe(t.storeA1, plans.full)
     }
@@ -318,6 +323,10 @@ describe('plan gates (OFFERS U1–U3)', () => {
     try {
       await db.sql`update promotion set enabled = false where store_id = ${t.storeA1} and id <> ${live.id}`
       for (const by of ['save', 'resume'] as const) expect({ by, key: (await on(vip.id, by)).extensions?.['key'] }).toEqual({ by, key: 'group_offers' })
+      // An ended one brought back by a later end date is turned on too.
+      const e = await offer(ended.id)
+      const revived = await gql(save, 'owner', { id: ended.id, revision: e?.['revision'], input: offerInput({ code: 'ENDEDVIP', startsAt: '2026-01-01T00:00:00Z', endsAt: '2099-01-01T00:00:00Z', conditions: [{ operation: 'customer_group', groupIds: [group] }] }) })
+      expect([revived.code, revived.extensions?.['key']]).toEqual(['PLAN_LIMIT', 'group_offers'])
       // A group offer already live keeps running and can still be edited after the downgrade.
       const o = await offer(live.id)
       expect((await gql(save, 'owner', { id: live.id, revision: o?.['revision'], input: offerInput({ name: 'VIP, renamed', code: 'LIVEVIP', conditions: [{ operation: 'customer_group', groupIds: [group] }] }) })).code).toBeUndefined()

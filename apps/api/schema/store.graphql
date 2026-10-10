@@ -743,6 +743,11 @@ type OfferCodeBatch {
   used: Int
 }
 
+type OfferCodeBatchPage {
+  nodes: [OfferCodeBatch!]
+  pageInfo: PageInfo
+}
+
 type OfferCodeCheck {
   answer: String
   code: String
@@ -1488,7 +1493,7 @@ type Query {
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   navBadges: StoreNavBadges
   offer(id: ID!): Offer
-  offerCodeBatches(offerId: ID!): [OfferCodeBatch!]
+  offerCodeBatches(after: String, before: String, first: Int, offerId: ID!): OfferCodeBatchPage
   offerCodesExport(id: ID!): OfferCodesExport
   offerCounts: OfferCounts
   offerResults(id: ID!): OfferResults

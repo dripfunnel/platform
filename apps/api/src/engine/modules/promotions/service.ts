@@ -14,6 +14,7 @@ import {
   insertSingleUseCodes,
   lockOffer,
   replaceRules,
+  selectCodeBatch,
   selectCodeBatches,
   selectCodeCheck,
   selectCodeOwner,
@@ -83,7 +84,7 @@ export const resultsDays = 30
 
 export type OfferPlanKey = 'offers' | 'group_offers' | 'live_offers' | 'offer_results'
 
-export type OffersRefusal = 'INVALID_INPUT' | 'NOT_FOUND' | 'READ_ONLY' | 'STALE_REVISION' | 'CODE_TAKEN' | 'UNKNOWN_TARGET' | 'CURRENCY_NOT_SOLD' | 'PLAN_LIMIT' | 'NOT_A_CODE_OFFER' | 'TOO_MANY'
+export type OffersRefusal = 'INVALID_INPUT' | 'NOT_FOUND' | 'READ_ONLY' | 'STALE_REVISION' | 'CODE_TAKEN' | 'UNKNOWN_TARGET' | 'CURRENCY_NOT_SOLD' | 'PLAN_LIMIT' | 'NOT_A_CODE_OFFER' | 'TOO_MANY' | 'CODES_EXHAUSTED'
 
 /** Who holds a code already, so the editor can say which offer and in which state (H2). */
 export interface CodeHolder {
@@ -247,7 +248,8 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
       const before = id ? await locked(tx, id.toLowerCase()) : null
       if (before && before.revision !== revision) throw new Refused({ ok: false, reason: 'STALE_REVISION', revision: before.revision })
       // Creating one, or turning one on, needs the plan's switches; an offer already on keeps running after a downgrade (#337).
-      const turnsOn = d.enabled && !before?.enabled
+      // On again counts as turning on: an end date moved on, or a use limit raised, brings an ended offer back (L4).
+      const turnsOn = counts({ enabled: d.enabled, ends_at: d.endsAt, uses_count: before?.uses_count ?? 0, total_uses_limit: d.totalUsesLimit }, now()) && !(before && counts(before, now()))
       if (!before || turnsOn) await requireSwitch('offers')
       if (needsGroupOffers(d) && (!before || turnsOn || !needsGroupOffers(viewOf(before, now())))) await requireSwitch('group_offers')
       const sold = await selectStoreCurrencies(tx, storeId)
@@ -326,7 +328,7 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
       return true as const
     })
 
-  const batches = (id: string): Promise<CodeBatchRow[]> => (isUuid(id) ? read((tx) => selectCodeBatches(tx, storeId, id.toLowerCase()), []) : Promise.resolve([]))
+  const batches = (id: string, window: PageWindow): Promise<CodeBatchRow[]> => (isUuid(id) ? read((tx) => selectCodeBatches(tx, storeId, id.toLowerCase(), window), []) : Promise.resolve([]))
 
   /** "Make 500 single-use codes" (H4): a run under the offer, unique in the store whatever their case; the plan's group switch. */
   const generateCodes = (id: string, input: { count: number; prefix: string | null; length: number | null }): Promise<OffersResult<CodeBatchRow>> =>
@@ -343,9 +345,9 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
       let made = 0
       // A clash with a code the store holds is skipped and made again; with 32^6 or more per prefix it rarely is.
       for (let attempt = 0; made < input.count && attempt < 5; attempt += 1) made += await insertSingleUseCodes(tx, storeId, found.id, batchId, randomCodes(prefix, length, input.count - made))
-      if (made < input.count) throw new Refused({ ok: false, reason: 'TOO_MANY' })
+      if (made < input.count) throw new Refused({ ok: false, reason: 'CODES_EXHAUSTED' })
       await activity.record(tx, entry(offersAudit.codesGenerated, found, [{ field: 'codes', before: null, after: String(made) }]))
-      const batch = (await selectCodeBatches(tx, storeId, found.id)).find((b) => b.id === batchId)
+      const batch = await selectCodeBatch(tx, storeId, batchId)
       if (!batch) throw new Error('promotion_code_batch: written and not read back')
       return batch
     })
