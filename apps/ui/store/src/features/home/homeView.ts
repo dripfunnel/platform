@@ -73,12 +73,17 @@ export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null): 
   return items
 }
 
+export interface Delta {
+  text: string
+  tone: 'up' | 'down' | 'muted'
+}
+
+/** Each figure with its own change (one a currency), then the card's note. */
 export interface NumberCard {
   key: 'sales' | 'orders' | 'average' | 'returning'
   label: string
-  values: string[]
-  delta: string
-  tone: 'up' | 'down' | 'muted'
+  figures: { value: string; delta: Delta | null }[]
+  note: string | null
 }
 
 const pctChange = (now: ApiMoney, before: ApiMoney): number | null => {
@@ -91,23 +96,21 @@ export const numbersOf = (home: StoreHome): NumberCard[] => {
   const n = words.numbers
   const cards: NumberCard[] = []
   const sales = home.sales
+  const nothing = [{ value: n.none, delta: null }]
   if (sales) {
-    const first = sales[0]
-    const pct = first ? pctChange(first.yesterday, first.dayBefore) : null
-    cards.push({
-      key: 'sales',
-      label: n.salesYesterday,
-      values: sales.length > 0 ? sales.map((s) => moneyText(s.yesterday)) : [n.none],
-      delta: pct === null ? n.nothingBefore : fill(pct >= 0 ? n.up : n.down, { pct: formatCount(Math.abs(pct)) }),
-      tone: pct === null ? 'muted' : pct >= 0 ? 'up' : 'down',
+    const figures = sales.map((s) => {
+      const pct = pctChange(s.yesterday, s.dayBefore)
+      const delta: Delta = pct === null ? { text: n.nothingBefore, tone: 'muted' } : { text: fill(pct >= 0 ? n.up : n.down, { pct: formatCount(Math.abs(pct)) }), tone: pct >= 0 ? 'up' : 'down' }
+      return { value: moneyText(s.yesterday), delta }
     })
+    cards.push({ key: 'sales', label: n.salesYesterday, figures: figures.length > 0 ? figures : nothing, note: null })
   }
-  cards.push({ key: 'orders', label: n.ordersToday, values: [formatCount(home.ordersToday)], delta: fill(n.ordersYesterday, { count: formatCount(home.ordersYesterday) }), tone: 'muted' })
+  cards.push({ key: 'orders', label: n.ordersToday, figures: [{ value: formatCount(home.ordersToday), delta: null }], note: fill(n.ordersYesterday, { count: formatCount(home.ordersYesterday) }) })
   if (sales) {
-    const averages = sales.flatMap((s) => (s.averageWeek ? [moneyText(s.averageWeek)] : []))
-    cards.push({ key: 'average', label: n.average, values: averages.length > 0 ? averages : [n.none], delta: n.averageNote, tone: 'muted' })
+    const averages = sales.flatMap((s) => (s.averageWeek ? [{ value: moneyText(s.averageWeek), delta: null }] : []))
+    cards.push({ key: 'average', label: n.average, figures: averages.length > 0 ? averages : nothing, note: n.averageNote })
   }
-  if (home.returningCustomers !== null) cards.push({ key: 'returning', label: n.returning, values: [formatCount(home.returningCustomers)], delta: n.returningNote, tone: 'muted' })
+  if (home.returningCustomers !== null) cards.push({ key: 'returning', label: n.returning, figures: [{ value: formatCount(home.returningCustomers), delta: null }], note: n.returningNote })
   return cards
 }
 

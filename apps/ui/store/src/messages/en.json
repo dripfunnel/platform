@@ -76,6 +76,7 @@
         "cta": "Set up"
       },
       "done": "Done",
+      "mark": "✓",
       "doneSuffix": "(done)",
       "ownerNote": "Payments, shipping and your country settings are set by the store owner — they’re not on your list.",
       "footer": "This list disappears once your first order arrives."
@@ -102,6 +103,7 @@
     "latest": {
       "title": "Latest orders",
       "all": "All orders →",
+      "test": " · {test}",
       "label": "Latest orders"
     },
     "loading": "Loading your shop",

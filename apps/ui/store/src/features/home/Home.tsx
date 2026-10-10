@@ -237,7 +237,7 @@ const Checklist = ({ items, owner }: { items: SetupItem[]; owner: boolean }) => 
           const body = (
             <>
               <span className="df-home-step-mark" aria-hidden="true">
-                {item.done ? '✓' : ''}
+                {item.done ? s.mark : ''}
               </span>
               <span className="df-home-step-text">
                 <span className="df-home-step-label">
@@ -278,12 +278,13 @@ const Checklist = ({ items, owner }: { items: SetupItem[]; owner: boolean }) => 
 const NumberBody = ({ card }: { card: NumberCard }) => (
   <>
     <span className="df-home-number-label">{card.label}</span>
-    {card.values.map((value) => (
-      <span key={value} className="df-home-number-value">
-        {value}
+    {card.figures.map((figure) => (
+      <span key={figure.value} className="df-home-number-figure">
+        <span className="df-home-number-value">{figure.value}</span>
+        {figure.delta && <span className={`df-home-number-delta df-home-number-delta--${figure.delta.tone}`}>{figure.delta.text}</span>}
       </span>
     ))}
-    <span className={`df-home-number-delta df-home-number-delta--${card.tone}`}>{card.delta}</span>
+    {card.note && <span className="df-home-number-delta df-home-number-delta--muted">{card.note}</span>}
   </>
 )
 
@@ -331,7 +332,7 @@ const LatestOrders = ({ orders }: { orders: HomeOrder[] }) => {
                 <span className="df-home-mono">{order.number}</span>
                 <span className="df-home-order-who">
                   {order.customerName ?? o.row.guest}
-                  {order.test && <span className="df-home-order-test"> · {o.row.test}</span>}
+                  {order.test && <span className="df-home-order-test">{fill(words.latest.test, { test: o.row.test })}</span>}
                 </span>
                 <span className={`df-home-order-status df-home-order-status--${statusTone[status]}`}>{o.status[status]}</span>
                 <span className="df-home-order-total">{order.total ? moneyText(order.total) : fill(plural(o.row.items, order.items), { count: formatCount(order.items) })}</span>
