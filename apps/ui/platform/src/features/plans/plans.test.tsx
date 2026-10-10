@@ -130,7 +130,7 @@ describe('the plan editor', () => {
       <PlanEditor me={owner} editor={fresh} draft={{ ...blank, name: 'Scale' }} original={blank} quoted={[]} forced={null} busy={false} onDraft={noop} onSave={noop} onDiscard={noop} onMakeLive={noop} onRetire={noop} onReload={noop} />,
       '/plans/new',
     )
-    expect(textOf(html)).toContain('Enter a value for Products, AI design prompts, Staff seats, Suppliers allowed, Currencies, Languages, “Publish now” presses.')
+    expect(textOf(html)).toContain('Enter a value for Products, AI design prompts, Live offers at once, Staff seats, Suppliers allowed, Currencies, Languages, “Publish now” presses.')
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save changes<\/button>/)
     expect(inputOf({ ...blank, name: 'Scale' })).toBeNull()
   })

@@ -23,6 +23,7 @@ import { registerOrders } from './orders'
 import { registerCustomers } from './customers'
 import { registerHome } from './home'
 import { registerReports } from './reports'
+import { registerOffers } from './offers'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
@@ -57,6 +58,7 @@ registerCustomerAccounts(builder)
 registerPayments(builder)
 registerOrders(builder)
 registerCustomers(builder)
+registerOffers(builder)
 registerHome(builder)
 registerReports(builder)
 registerListing(builder)
