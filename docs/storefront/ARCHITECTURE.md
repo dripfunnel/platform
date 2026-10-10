@@ -303,7 +303,7 @@ store's `mediaIds`, exactly; the z-index cap is 99 (`maxThemeZIndex`, *proposed*
 `image()` or `src()`); names are read with their escapes decoded, so `:\67lobal` is `:global`;
 nested rules are refused, so every selector is written out and checked; a transition names its
 properties (a bare `transition: 0.3s` animates everything); `content` and the other text
-properties hold no words; `composes` names only the module's own classes.
+properties hold no words and no `var()` that could carry them; `composes` names only the module's own classes.
 
 **Content**: every key the theme's `t()` calls exists in **every language the store offers**
 (the AI writes them all, decided 2026-10-08 on #470; the merchant can correct any); no pattern

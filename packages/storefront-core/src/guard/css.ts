@@ -69,7 +69,8 @@ const declarationProblem = (decl: Declaration, inKeyframes: boolean, siblings: r
     const fine = only?.type === 'Identifier' ? plain(only.name) === 'auto' : only?.type === 'Number' && /^-?\d+$/.test(only.value) && Number(only.value) <= maxThemeZIndex
     if (!fine) return ['css/z-index', `z-index must be a whole number no higher than ${maxThemeZIndex}, so core's parts stay on top.`]
   }
-  if (textProperties.has(property) && find(decl.value, (n) => n.type === 'String' && n.value !== '') !== null) {
+  const words = (n: CssNode) => (n.type === 'String' && n.value !== '') || (n.type === 'Function' && plain(n.name) === 'var')
+  if (textProperties.has(property) && find(decl.value, words) !== null) {
     return ['css/text', `CSS ${property} may not hold words; shoppers' words come from content/{language}/*.json.`]
   }
   if (property === 'composes' && find(decl.value, (n) => n.type === 'Identifier' && plain(n.name) === 'from') !== null) {
