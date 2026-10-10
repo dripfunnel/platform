@@ -1,3 +1,4 @@
+import { minorOf } from '@dripfunnel/shared/format'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { CollectionSummary } from '../../api/collections'
@@ -9,6 +10,7 @@ import '../common/chips.css'
 import { RadioCards } from '../common/RadioCards'
 import { convertedText, generateCode, localOf, type Amounts, type Field, type Minimum, type OfferDraft, type StoreFacts, type Target, type Who } from './offerDraft'
 import { countryName, repeatText, weekdayName, zoneName, type RegionWords } from './offerView'
+import { moneyText } from '../orders/orderView'
 
 // The editor's five questions and "With other offers" (designs/OfferEditor.dc.html, Set up; OFFERS-DESIGN C–M), one
 // page, in §1's order. Only what the API can save is drawn (§7: no dead controls).
@@ -38,6 +40,12 @@ export interface FormProps {
   liveCode: string | null
   isNew: boolean
   disabled: boolean
+}
+
+/** A typed amount as money, formatted with Intl like every other figure (zero while nothing valid is typed). */
+export const typedMoney = (text: string, currency: string): string => {
+  const minor = minorOf(text, currency)
+  return moneyText({ amount: String(typeof minor === 'number' ? minor : 0), currency })
 }
 
 const Section = ({ n, title, aside, children }: { n?: number; title: string; aside?: ReactNode; children: ReactNode }) => {
@@ -155,7 +163,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
   const marketOf = markets.find((m) => m.countries.length === d.countries.length && m.countries.every((c) => d.countries.includes(c)))
 
   const andParts = [
-    d.minimum === 'amount' && d.minAmounts[facts.main] ? fill(words.and.amount, { amount: `${d.minAmounts[facts.main]} ${facts.main}` }) : '',
+    d.minimum === 'amount' && d.minAmounts[facts.main] ? fill(words.and.amount, { amount: typedMoney(d.minAmounts[facts.main] ?? '', facts.main) }) : '',
     (d.minimum === 'items' || d.minimum === 'these') && d.minQuantity ? fill(words.and.items, { count: d.minQuantity }) : '',
     d.who === 'groups' ? words.and.group : d.who === 'first' ? words.and.first : d.who === 'customers' ? words.and.customers : d.who === 'market' ? fill(words.and.market, { market: marketOf?.name ?? formatList(d.countries.map(countryName)) }) : '',
     d.type === 'products' ? words.and.product : '',

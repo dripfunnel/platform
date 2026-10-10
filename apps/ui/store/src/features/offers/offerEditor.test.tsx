@@ -150,6 +150,15 @@ describe('a new offer', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('words money in the warnings as the sentence does, formatted for the currency', async () => {
+    await show(owner, '/offers/new?type=order')
+    fireEvent.click(screen.getByRole('radio', { name: words.fixed }))
+    fireEvent.change(screen.getByRole('textbox', { name: /^Amount/ }), { target: { value: '100' } })
+    expect(screen.getByText('₹100.00 off with no minimum means a ₹100.00 product is free. Add a minimum order total.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: /Automatic at checkout/ }))
+    expect(screen.getByText('This gives ₹100.00 off every order on your store, starting now.')).toBeTruthy()
+  })
+
   it('makes the single-use codes after saving, and names the plan when the API refuses', async () => {
     api.generateCodes.mockResolvedValue({ id: 'b1', prefix: 'INSTA-', length: 8, count: 200, used: 0, createdAt: '' })
     await show(owner, '/offers/new?type=order')
