@@ -2,11 +2,12 @@ import { EmptyState, ErrorState, LoadingState, MoreActions, SearchField, StatusP
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { cartPageSize, cartTabs, loadCartCounts, loadCarts, loadCartSummary, loadReminderSending, type AbandonedCart, type CartCounts, type CartPage, type CartSummary, type CartTab } from '../../api/carts'
 import { loadOfferPlace } from '../../api/offers'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatList, messages, plural } from '../../messages'
+import { tabKeyHandler } from '../common/tabKeys'
 import { moneyText } from '../orders/orderView'
 import { useCartActions } from './cartActions'
 import { cartSample, cartStates } from './cartStates'
@@ -100,14 +101,7 @@ export const CartsPage = () => {
   const tabsId = useId()
   const tabRefs = useRef<Partial<Record<CartTab, HTMLButtonElement | null>>>({})
   const goTab = (next: CartTab) => void navigate({ to: '/carts', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), status: next === 'open' ? undefined : next }), replace: true })
-  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    const at = cartTabs.indexOf(tab)
-    const next = event.key === 'ArrowRight' ? cartTabs[(at + 1) % cartTabs.length] : event.key === 'ArrowLeft' ? cartTabs[(at + cartTabs.length - 1) % cartTabs.length] : event.key === 'Home' ? cartTabs[0] : event.key === 'End' ? cartTabs[cartTabs.length - 1] : undefined
-    if (!next) return
-    event.preventDefault()
-    goTab(next)
-    tabRefs.current[next]?.focus()
-  }
+  const onTabKey = tabKeyHandler(cartTabs, tab, goTab, (next) => tabRefs.current[next]?.focus())
 
   if (!access.canRead)
     return (
