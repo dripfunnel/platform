@@ -1,7 +1,0 @@
-<!doctype html><body style="margin:0"><iframe id="f" style="width:100vw;height:100vh;border:0"></iframe>
-<script>
-localStorage.setItem('df-store-theme','light')
-const q=new URLSearchParams(location.search);const f=document.getElementById('f');f.src=q.get('u')
-const steps=(q.get('c')||'').split('|').filter(Boolean)
-f.onload=()=>{let i=0;const next=()=>{if(i>=steps.length)return;const d=f.contentDocument;const t=steps[i++];const b=[...d.querySelectorAll('button,[role=button]')].find(e=>(e.getAttribute('aria-label')||e.textContent).trim()===t);if(b)b.click();setTimeout(next,600)};setTimeout(next,2000)}
-</script>
