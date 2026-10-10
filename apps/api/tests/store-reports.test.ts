@@ -4,7 +4,9 @@ import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
-import { withSystemScope } from '#db/scoped/index'
+import { selectCatalogExport } from '#db/scoped/catalogExports'
+import { withScope, withSystemScope } from '#db/scoped/index'
+import { buildReportExport } from '#engine/modules/reports/index'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -19,7 +21,7 @@ let db: TestDatabase
 let t: Tenants
 type Who = 'owner' | 'manager' | 'staff' | 'supplier' | 'other'
 const cookies = {} as Record<Who, string>
-const plans = { full: '', sales: '', none: '', business: '', customOnly: '' }
+const plans = { full: '', sales: '', none: '', business: '', customOnly: '', noExport: '' }
 const products = { kurta: '', scarf: '' }
 let india = ''
 let usa = ''
@@ -96,6 +98,7 @@ beforeAll(async () => {
   // Unpriced plans unlock by name (entitlements.ts), so this one sorts after Growth and Pro.
   plans.business = await plan('Scale', ['reports_sales', 'reports_export', 'reports_custom'])
   plans.customOnly = await plan('Zed', ['reports_custom'])
+  plans.noExport = await plan('Zen', ['reports_sales', 'reports_custom'])
   await subscribe(t.storeA1, t.partnerA, plans.full, 'INR')
   await subscribe(t.storeA2, t.partnerA, plans.full, 'USD')
 
@@ -306,6 +309,8 @@ describe('exports and the custom report builder', () => {
     // A partner's plan can carry the builder alone: it is still an export of the sales Reports lock.
     await subscribe(t.storeA1, t.partnerA, plans.customOnly, 'INR')
     expect((await ask('owner', 'panel: custom, days: 7, custom: { rows: "orders", columns: "basic" }')).errors?.[0]?.extensions).toMatchObject({ code: 'PLAN_LIMIT', key: 'reports_sales' })
+    await subscribe(t.storeA1, t.partnerA, plans.noExport, 'INR')
+    expect((await ask('owner', 'panel: custom, days: 7, custom: { rows: "customers", columns: "basic" }')).errors?.[0]?.extensions).toMatchObject({ code: 'PLAN_LIMIT', key: 'reports_export' })
     await subscribe(t.storeA1, t.partnerA, plans.business, 'INR')
     try {
       expect(await file('owner', 'panel: custom, days: 7, custom: { rows: "orders", columns: "basic" }')).toEqual(['order,placed at (UTC),customer,total,currency', 'R-1,2026-10-05T10:00:00.000Z,Buyer,100.00,INR', 'R-2,2026-10-09T20:00:00.000Z,Buyer,50.00,INR'])
@@ -327,6 +332,20 @@ describe('exports and the custom report builder', () => {
     } finally {
       await subscribe(t.storeA1, t.partnerA, plans.full, 'INR')
     }
+  })
+
+  it('cuts a file at its cap, saying where, and counts only the rows kept', async () => {
+    const id = String((await ask('owner', 'panel: sold, days: 7')).data?.['exportReport'])
+    const merchant = { caller: { kind: 'person' as const, userId: crypto.randomUUID(), sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const build = (max: number) => withScope(db.sql, merchant, async (tx) => {
+      const job = await selectCatalogExport(tx, t.storeA1, id)
+      if (!job) throw new Error('no job')
+      return buildReportExport(tx, job, max)
+    })
+    const cut = await build(1)
+    expect([cut.rows, cut.truncated, cut.csv.split('\n')]).toEqual([1, true, ['product,units,takings,currency', 'Kurta,3,110.00,INR', 'Cut at 1 rows: pick a shorter range for the rest.']])
+    const whole = await build(2)
+    expect([whole.rows, whole.truncated, whole.csv.split('\n').at(-1)]).toEqual([2, false, 'Scarf,1,40.00,INR'])
   })
 
   it('refuses Staff, suppliers, a plan without export and a read-only support session; allows a past-due store', async () => {
