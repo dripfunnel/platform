@@ -291,8 +291,9 @@ export const createFulfilmentService = ({ sql, context, actor, activity, facts, 
       const provider = found.courier_provider
       if (found.kind !== 'booked' || !provider || !found.provider_ref) return { ok: false, reason: 'NOT_BOOKED' }
       if (found.pickup_requested_at) return { ok: false, reason: 'PICKUP_ASKED' }
-      if (!couriers || !couriers.accounts.has(accountKindOf(provider))) return { ok: false, reason: 'NOT_CONNECTED' }
       const place = await selectBookingPlace(tx, storeId, found.warehouse_id, provider, sellerId)
+      // As for booking: a courier the store has switched off is asked for nothing, a pickup costing money at some.
+      if (!place?.courier || !couriers || !couriers.accounts.has(accountKindOf(provider))) return { ok: false, reason: 'NOT_CONNECTED' }
       const from = place ? fromAddressOf(place, found.warehouse_id) : null
       if (!from) return { ok: false, reason: 'NO_ADDRESS' }
       let pickup: { ref: string | null; date: string | null }
