@@ -1,6 +1,7 @@
 import { identityChanged } from '@dripfunnel/shared/ui'
 import { z } from 'zod'
 import { rememberActing } from '../acting'
+import { forgetDrafts } from '../drafts'
 import { merchantRoles, supplierTiers, type NavBadgeSource, type Seat } from '../nav'
 import { allPages } from './allPages'
 import { query } from './client'
@@ -100,6 +101,7 @@ export const openStore = async (choice: Pick<StoreChoice, 'store' | 'seller'>): 
  */
 export const signOut = (): void => {
   rememberActing(null)
+  forgetDrafts()
   identityChanged()
   const form = document.createElement('form')
   form.method = 'post'

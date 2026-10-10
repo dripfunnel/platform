@@ -42,6 +42,9 @@ export interface OfferDraft {
   buyQuantity: string
   getQuantity: string
   buyIds: string[]
+  /** Collections and filter values a buy X get Y names besides products, which the form doesn't draw: kept as they came. */
+  buyKept: Omit<OfferTargets, 'productIds'>
+  getKept: Omit<OfferTargets, 'productIds'>
   getSame: boolean
   getIds: string[]
   getPercent: string
@@ -188,6 +191,8 @@ const blank = (type: OfferKind): OfferDraft => ({
   buyQuantity: '2',
   getQuantity: '1',
   buyIds: [],
+  buyKept: { collectionIds: [], filterValueIds: [] },
+  getKept: { collectionIds: [], filterValueIds: [] },
   getSame: true,
   getIds: [],
   getPercent: '100',
@@ -270,6 +275,9 @@ const targetOf = (t: OfferTargets | null): Pick<OfferDraft, 'target' | 'productI
   return { target: x.collectionIds.length ? 'collection' : x.filterValueIds.length ? 'filter' : 'products', productIds: x.productIds, filterValueIds: x.filterValueIds, collectionIds: x.collectionIds }
 }
 
+const keptTargets = (t: OfferTargets | null): Omit<OfferTargets, 'productIds'> => ({ collectionIds: t?.collectionIds ?? [], filterValueIds: t?.filterValueIds ?? [] })
+const hasKept = (k: Omit<OfferTargets, 'productIds'>) => k.collectionIds.length + k.filterValueIds.length > 0
+
 /** A "buys at least N of these" the form can draw: on a products offer, naming exactly what the offer discounts. */
 const theseOf = (d: OfferDraft, c: OfferCondition): boolean => {
   const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x))
@@ -318,7 +326,7 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
       Object.assign(d, { kind: a.kind === 'fixed' ? 'fixed' : 'percent', tiers: a.tiers.map((t) => ({ off: a.kind === 'fixed' ? mainOf(t.amounts, facts) : String(t.percent ?? ''), minimum: mainOf(t.minimum, facts), savedOff: t.amounts, savedMinimum: t.minimum })) })
       break
     case 'buy_x_get_y':
-      Object.assign(d, { buyQuantity: String(a.buy?.quantity ?? 1), buyIds: a.buy?.targets?.productIds ?? [], getQuantity: String(a.get?.quantity ?? 1), getSame: !a.get?.targets, getIds: a.get?.targets?.productIds ?? [], getPercent: String(a.percent ?? 100), oncePerOrder: a.oncePerOrder })
+      Object.assign(d, { buyQuantity: String(a.buy?.quantity ?? 1), buyIds: a.buy?.targets?.productIds ?? [], buyKept: keptTargets(a.buy?.targets ?? null), getQuantity: String(a.get?.quantity ?? 1), getSame: !a.get?.targets, getIds: a.get?.targets?.productIds ?? [], getKept: keptTargets(a.get?.targets ?? null), getPercent: String(a.percent ?? 100), oncePerOrder: a.oncePerOrder })
       break
   }
   for (const c of offer.conditions) {
@@ -360,8 +368,8 @@ const actionOf = (d: OfferDraft, facts: StoreFacts): OfferAction => {
     case 'bxgy':
       return action({
         operation: 'buy_x_get_y',
-        buy: { quantity: whole(d.buyQuantity) ?? 1, targets: { ...noTargets, productIds: d.buyIds } },
-        get: { quantity: whole(d.getQuantity) ?? 1, targets: d.getSame ? null : { ...noTargets, productIds: d.getIds } },
+        buy: { quantity: whole(d.buyQuantity) ?? 1, targets: { ...d.buyKept, productIds: d.buyIds } },
+        get: { quantity: whole(d.getQuantity) ?? 1, targets: d.getSame ? null : { ...d.getKept, productIds: d.getIds } },
         percent: whole(d.getPercent),
         oncePerOrder: d.oncePerOrder,
       })
@@ -503,8 +511,8 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
     else if (d.tiers.some((t) => !amountOk(t.minimum, main) || (d.kind === 'percent' ? !between(t.off, 1, 100) : !amountOk(t.off, main)))) e.tiers = words.tiers
   }
   if (d.type === 'bxgy') {
-    if (!d.buyIds.length) e.buy = words.buy
-    if (!d.getSame && !d.getIds.length) e.get = words.get
+    if (!d.buyIds.length && !hasKept(d.buyKept)) e.buy = words.buy
+    if (!d.getSame && !d.getIds.length && !hasKept(d.getKept)) e.get = words.get
     if (!between(d.buyQuantity, 1, offerLimits.quantity) || !between(d.getQuantity, 1, offerLimits.quantity)) e.value = fill(words.quantity, { max: String(offerLimits.quantity) })
     else if (!between(d.getPercent, 1, 100)) e.value = words.percent
   }

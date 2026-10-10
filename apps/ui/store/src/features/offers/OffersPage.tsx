@@ -8,6 +8,7 @@ import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { CodeCheck } from './CodeCheck'
 import { FirstTime } from './FirstTime'
+import { flash, takeFlash } from './flash'
 import { actsFor, useOfferActions, type OfferAct } from './offerActions'
 import { offerAccessOf } from './offerAccess'
 import { offerSample, offerStates, sampleNames } from './offerStates'
@@ -44,7 +45,7 @@ export const OffersPage = () => {
   const [counts, setCounts] = useState<Counts>({ kind: 'loading' })
   const [names, setNames] = useState<OfferNames>(noNames)
   const [place, setPlace] = useState<{ timeZone: string; country: string | null }>({ timeZone: 'UTC', country: null })
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(() => takeFlash())
   const [failure, setFailure] = useState<string | null>(null)
   const latest = useRef(0)
 
@@ -98,8 +99,11 @@ export const OffersPage = () => {
     timeZone: place.timeZone,
     now: () => new Date(),
     onDone: (message, done) => {
+      if (done.kind === 'duplicated') {
+        flash(message)
+        return void navigate({ to: '/offers/$offerId', params: { offerId: done.id }, search: (prev) => harnessSearch(prev) })
+      }
       setToast(message)
-      if (done.kind === 'duplicated') return void navigate({ to: '/offers/$offerId', params: { offerId: done.id }, search: (prev) => harnessSearch(prev) })
       load()
       loadCounts()
     },
