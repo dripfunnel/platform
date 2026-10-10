@@ -432,6 +432,17 @@ email to the person's own address only, never one typed in, so a store can't ema
 field is prefilled with it); "Send reminder now" below `automatic` gives one reminder a cart and no code, checked under the
 cart's lock.
 
+**Built on #325, part 5** (`apps/ui/store/src/features/carts/`, `/carts`, `?status=` picks the tab, and
+`/carts/$cartId`): the Carts tab. The last 14 days' tiles (`cartSummary`); In progress, Recovered and Not recovered with
+their counts; search by name, email or product; each cart's shopper, items, value, where they left and how long ago, and
+its reminder status with its line (who stopped it and why, why it was skipped, when it was last reminded, or "Reminder
+due" while the schedule sends and "Not contacted" while the merchant does). Send reminder now (with a 10% single-use code
+on the plan's `automatic`), Stop reminders with the team's note, and Resume reminders, each refusal kept in its own
+dialog; Staff read only; a supplier meets "not found". A cart's page shows its lines as they would be bought now, what's
+out of stock, what happened (left, each reminder and its click, a stop, the order), the shopper, and links to the order
+and the customer. Decided here: no bulk selection and no "Copy cart link" (the API gives neither a bulk action nor a
+cart's link), each a follow-up.
+
 ## 10. Reports (`PortalReports`)
 
 7, 30 or 90 days against the period before: takings (sales, refunds, net), what sold, where it

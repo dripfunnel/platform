@@ -5126,5 +5126,254 @@
       "FORBIDDEN": "Only a Supplier admin can change your team.",
       "other": "That didn’t go through. Try again."
     }
+  },
+  "carts": {
+    "title": "Abandoned carts",
+    "lede": "Shoppers who started checkout but didn’t pay. Remind them, and see who came back.",
+    "loading": "Loading carts",
+    "loadingCart": "Loading this cart",
+    "crumbs": "Breadcrumb",
+    "cart": "Cart",
+    "guest": "Guest shopper",
+    "someone": "Someone",
+    "noEmail": "No email given",
+    "noItems": "—",
+    "missing": "This cart isn’t here. It may have expired.",
+    "items": {
+      "one": "{first} + {count} more",
+      "other": "{first} + {count} more"
+    },
+    "denied": {
+      "title": "Page not found",
+      "body": "This page doesn’t exist or you don’t have access to it."
+    },
+    "error": {
+      "title": "We couldn’t load your carts",
+      "titleCart": "We couldn’t load this cart",
+      "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "status": {
+      "recovered": "Recovered",
+      "stopped": "Stopped",
+      "no_contact": "Can’t contact",
+      "opted_out": "Won’t remind",
+      "skipped": "Skipped",
+      "not_recovered": "Not recovered",
+      "reminded": "Reminded",
+      "waiting": "Not contacted",
+      "due": "Reminder due"
+    },
+    "step": {
+      "contact": "Contact details",
+      "shipping": "Shipping",
+      "delivery": "Delivery",
+      "pay": "Payment"
+    },
+    "skip": {
+      "out_of_stock": "Everything in it is out of stock",
+      "under_minimum": "Under your minimum cart value",
+      "weekly_cap": "Reminded about another cart this week",
+      "undeliverable": "Their email address doesn’t take mail",
+      "opted_out": "They don’t want your emails",
+      "no_contact": "No email to send to",
+      "paused": "Reminders were paused",
+      "other": "No reminder was sent"
+    },
+    "line": {
+      "recovered": "Paid · order {number}",
+      "recoveredCode": "Paid · order {number} · with a reminder code",
+      "stopped": "By {by}",
+      "stoppedNote": "By {by} · {note}",
+      "noContact": "Left before giving an email",
+      "optedOut": "They don’t want your emails",
+      "notRecovered": {
+        "one": "{count} reminder sent",
+        "other": "{count} reminders sent"
+      },
+      "reminded": "Last sent {ago}",
+      "paused": "Reminders paused",
+      "yourself": "Send a reminder yourself",
+      "scheduled": "Goes by itself on your schedule"
+    },
+    "notes": {
+      "readOnlyTitle": "Reminders are paused.",
+      "readOnly": "Your store is view-only until billing is sorted. Carts are still saved.",
+      "staffTitle": "View only.",
+      "staff": "You can see carts. Only the owner or a manager can send reminders.",
+      "youSendTitle": "You send reminders yourself on your plan.",
+      "youSend": "One reminder per cart, without a code. A bigger plan sends up to 3 for you, with an optional single-use discount.",
+      "offTitle": "Automatic reminders are off.",
+      "off": "New carts wait for you to remind them."
+    },
+    "first": {
+      "title": "No abandoned carts yet",
+      "body": "When a shopper gives their email at checkout and leaves without paying, their cart shows up here. {then}",
+      "auto": "Reminders go out on their schedule.",
+      "manual": "You can remind each shopper yourself.",
+      "how": [
+        {
+          "title": "A shopper leaves checkout",
+          "body": "After giving their email, before paying."
+        },
+        {
+          "title": "They get a reminder",
+          "body": "With their cart, a button back to it and, if you like, a one-time discount."
+        },
+        {
+          "title": "You see who came back",
+          "body": "Recovered carts show the order and how much it brought in."
+        }
+      ]
+    },
+    "tiles": {
+      "abandoned": "Abandoned checkouts",
+      "leftBehind": "{amount} left behind",
+      "sent": "Reminders sent",
+      "reachable": {
+        "one": "{count} shopper reachable",
+        "other": "{count} shoppers reachable"
+      },
+      "recovered": "Recovered",
+      "pct": "{pct}% of reachable carts",
+      "sales": "Recovered sales",
+      "withCode": {
+        "one": "{count} used a reminder code",
+        "other": "{count} used a reminder code"
+      },
+      "note": "Last {days} days · Recovered means the shopper paid within 7 days of leaving."
+    },
+    "tabs": {
+      "label": "Carts by where they stand",
+      "open": "In progress",
+      "recovered": "Recovered",
+      "lost": "Not recovered"
+    },
+    "search": {
+      "label": "Search carts",
+      "placeholder": "Search by name, email or product"
+    },
+    "table": {
+      "label": "{tab} carts",
+      "shopper": "Shopper",
+      "cart": "Cart",
+      "value": "Value",
+      "left": "Left at",
+      "reminders": "Reminders"
+    },
+    "row": {
+      "actions": "Actions"
+    },
+    "empty": {
+      "open": {
+        "title": "Nothing in progress",
+        "body": "Every cart has either come back or finished its reminders."
+      },
+      "recovered": {
+        "title": "No recovered carts yet",
+        "body": "When a reminded shopper pays, their cart moves here with the order number."
+      },
+      "lost": {
+        "title": "Nothing here",
+        "body": "Carts that finish their reminders without buying, or that can’t be reminded, land here."
+      }
+    },
+    "noMatch": {
+      "title": "No carts match",
+      "body": "Try another name, email or product."
+    },
+    "pages": {
+      "label": "Pages of carts",
+      "showing": "Showing {from}–{to}",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "menu": {
+      "view": "View cart",
+      "send": "Send reminder now",
+      "stop": "Stop reminders",
+      "resume": "Resume reminders",
+      "order": "View order {number}"
+    },
+    "menuSub": {
+      "view": "Items, shopper and what happened",
+      "stop": "For this cart only",
+      "resume": "Pick up the schedule again",
+      "order": "The order they placed"
+    },
+    "act": {
+      "cancel": "Cancel",
+      "working": "Sending…",
+      "sendTitle": "Remind {name} now?",
+      "sendBody": "Sends to {email} right away, even in quiet hours.",
+      "sendNext": "The next automatic reminder still goes as planned.",
+      "codeLabel": "Discount",
+      "noCode": "Reminder, no discount",
+      "tenOff": "10% off with a single-use code (one use, 48 hours)",
+      "send": "Send reminder",
+      "sent": "Reminder sent to {email}.",
+      "sentCode": "Reminder sent to {email} with a 10% code.",
+      "stopTitle": "Stop reminders for {name}?",
+      "stopBody": "No more reminders go out for this cart.",
+      "noteLabel": "Note for your team (optional)",
+      "notePlaceholder": "e.g. Called us, ordering by phone",
+      "noteLong": "Keep the note to {max} characters.",
+      "stop": "Stop reminders",
+      "stopped": "Reminders stopped for {name}.",
+      "resumed": "Reminders back on for {name}."
+    },
+    "refused": {
+      "other": "That didn’t work. Nothing was changed. Try again in a moment.",
+      "CANT_REMIND": "This cart can’t be reminded: it was bought, its reminders are stopped, it has no email, or it has expired.",
+      "NOT_FOUND": "That cart isn’t here any more.",
+      "READ_ONLY": "Your store is view-only, so reminders can’t be sent.",
+      "FORBIDDEN": "Only the owner or a manager can send reminders.",
+      "INVALID_INPUT": "Something here isn’t valid. Check it and try again.",
+      "PLAN_LIMIT": "Your plan sends one reminder per cart, without a code.",
+      "unlock": "{plan} sends more. See plans in Billing.",
+      "askOwner": "Ask your store owner to upgrade."
+    },
+    "stock": {
+      "out": "Out of stock now",
+      "few": "Only {count} left",
+      "in": "In stock"
+    },
+    "page": {
+      "left": "{line} · Left at {step}, {ago}",
+      "customer": "View customer",
+      "allGone": "Everything in this cart is out of stock now, so no reminders go out. Restock to send one.",
+      "someGone": {
+        "one": "{names} is out of stock now. Reminders leave it out.",
+        "other": "{names} are out of stock now. Reminders leave them out."
+      },
+      "item": "An item",
+      "inCart": "In the cart",
+      "qty": "Qty {count} · {stock}",
+      "value": "Cart value",
+      "valueNote": "Before {ship} and tax, as the cart would be bought now.",
+      "happened": "What happened",
+      "shopper": "Shopper",
+      "email": "Email",
+      "phone": "Phone",
+      "notGiven": "Not given",
+      "sent": "Reminders sent"
+    },
+    "events": {
+      "left": "Left checkout at {step}",
+      "byHand": "A reminder",
+      "numbered": "Reminder {n}",
+      "email": "email",
+      "whatsapp": "WhatsApp",
+      "sent": "{which} sent by {channel}",
+      "by": " (by {name})",
+      "code": " · code {code}",
+      "skipped": "{which} not sent: {reason}",
+      "queued": "{which} on its way",
+      "clicked": "Came back to the cart",
+      "stopped": "Reminders stopped by {by}",
+      "stoppedNote": "Reminders stopped by {by} — {note}",
+      "paid": "Paid · order {number}",
+      "paidCode": "Paid · order {number} with a reminder code"
+    }
   }
 }

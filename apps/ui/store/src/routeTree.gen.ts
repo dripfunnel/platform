@@ -34,6 +34,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppCartsCartIdRouteImport } from './routes/_app/carts_.$cartId'
 import { Route as AppOffersOfferIdRouteImport } from './routes/_app/offers_.$offerId'
 import { Route as AppOffersNewRouteImport } from './routes/_app/offers_.new'
 import { Route as AppOrdersOrderIdRouteImport } from './routes/_app/orders_.$orderId'
@@ -168,6 +169,11 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppCartsCartIdRoute = AppCartsCartIdRouteImport.update({
+  id: '/carts_/$cartId',
+  path: '/carts/$cartId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppOffersOfferIdRoute = AppOffersOfferIdRouteImport.update({
   id: '/offers_/$offerId',
   path: '/offers/$offerId',
@@ -244,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/carts/$cartId': typeof AppCartsCartIdRoute
   '/offers/$offerId': typeof AppOffersOfferIdRoute
   '/offers/new': typeof AppOffersNewRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -279,6 +286,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/carts/$cartId': typeof AppCartsCartIdRoute
   '/offers/$offerId': typeof AppOffersOfferIdRoute
   '/offers/new': typeof AppOffersNewRoute
   '/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/carts_/$cartId': typeof AppCartsCartIdRoute
   '/_app/offers_/$offerId': typeof AppOffersOfferIdRoute
   '/_app/offers_/new': typeof AppOffersNewRoute
   '/_app/orders_/$orderId': typeof AppOrdersOrderIdRoute
@@ -354,6 +363,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/carts/$cartId'
     | '/offers/$offerId'
     | '/offers/new'
     | '/orders/$orderId'
@@ -389,6 +399,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/carts/$cartId'
     | '/offers/$offerId'
     | '/offers/new'
     | '/orders/$orderId'
@@ -426,6 +437,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-up'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/carts_/$cartId'
     | '/_app/offers_/$offerId'
     | '/_app/offers_/new'
     | '/_app/orders_/$orderId'
@@ -622,6 +634,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/carts_/$cartId': {
+      id: '/_app/carts_/$cartId'
+      path: '/carts/$cartId'
+      fullPath: '/carts/$cartId'
+      preLoaderRoute: typeof AppCartsCartIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/offers_/$offerId': {
       id: '/_app/offers_/$offerId'
       path: '/offers/$offerId'
@@ -711,6 +730,7 @@ interface AppRouteChildren {
   AppStorefrontRoute: typeof AppStorefrontRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppCartsCartIdRoute: typeof AppCartsCartIdRoute
   AppOffersOfferIdRoute: typeof AppOffersOfferIdRoute
   AppOffersNewRoute: typeof AppOffersNewRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
@@ -739,6 +759,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStorefrontRoute: AppStorefrontRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
+  AppCartsCartIdRoute: AppCartsCartIdRoute,
   AppOffersOfferIdRoute: AppOffersOfferIdRoute,
   AppOffersNewRoute: AppOffersNewRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
