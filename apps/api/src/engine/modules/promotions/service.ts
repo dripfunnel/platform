@@ -50,12 +50,12 @@ export const offersAudit = {
 } as const
 
 /** A run of single-use codes (H4); an offer holds at most `maxCodesPerOffer` of them. */
-export const maxBatchSize = 5000
-export const maxCodesPerOffer = 100_000
+const maxBatchSize = 5000
+const maxCodesPerOffer = 100_000
 const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 /** Readable codes, no 0/O or 1/I (H1), from the platform's random source: a single-use code is a bearer of money off. */
-export const randomCodes = (prefix: string, length: number, count: number): string[] => {
+const randomCodes = (prefix: string, length: number, count: number): string[] => {
   const bytes = crypto.getRandomValues(new Uint8Array(length * count))
   return Array.from({ length: count }, (_, i) => prefix + Array.from(bytes.subarray(i * length, (i + 1) * length), (b) => codeAlphabet[b & 31] ?? 'A').join(''))
 }
@@ -80,7 +80,7 @@ export interface OfferResults {
 }
 
 /** The chart's window (P1): the last 30 days, by day in the store's time zone. */
-export const resultsDays = 30
+const resultsDays = 30
 
 export type OfferPlanKey = 'offers' | 'group_offers' | 'live_offers' | 'offer_results'
 
