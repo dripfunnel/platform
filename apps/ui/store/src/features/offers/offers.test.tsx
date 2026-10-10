@@ -407,6 +407,25 @@ describe('one offer’s page', () => {
     expect(screen.getByText(words.act.duplicated)).toBeTruthy()
   })
 
+  it('waits for the store’s time zone before showing any date, and offers a retry when it can’t be read', async () => {
+    let answerPlace: (p: { timeZone: string; country: string }) => void = () => undefined
+    api.loadOfferPlace.mockImplementation(() => new Promise((resolve) => (answerPlace = resolve)))
+    await show(owner, { entry: '/offers/o1' })
+    expect(screen.queryByRole('heading', { level: 1, name: 'Welcome 10% off' })).toBeNull()
+    expect(screen.getByText(words.page.loading)).toBeTruthy()
+    answerPlace({ timeZone: 'Asia/Kolkata', country: 'IN' })
+    await settle()
+    expect(screen.getByText('No end date · India Standard Time')).toBeTruthy()
+    cleanup()
+    api.loadOfferPlace.mockRejectedValueOnce(new Error('down')).mockResolvedValue({ timeZone: 'Asia/Kolkata', country: 'IN' })
+    await show(owner, { entry: '/offers/o1' })
+    expect(screen.getByText(words.error.title)).toBeTruthy()
+    expect(screen.queryByText(/Coordinated Universal Time/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
+    await settle()
+    expect(screen.getByText('No end date · India Standard Time')).toBeTruthy()
+  })
+
   it('shows a seat without offers.read “not found”, reading nothing and naming no offer', async () => {
     await show(supplier, { entry: '/offers/o1' })
     expect(screen.getByText(words.denied.title)).toBeTruthy()
