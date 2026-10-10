@@ -1,3 +1,4 @@
+import type { ActivityFilter, ActivityPage } from '../../api/activity'
 import type { InstalledApp } from '../../api/apps'
 import type { CustomerAccounts } from '../../api/customerAccounts'
 import type { ApiKey, ApiKeyChoices, WebhookDelivery, WebhookEndpoint } from '../../api/developers'
@@ -5,6 +6,7 @@ import type { Gateway } from '../../api/payments'
 import type { ShippingSettings } from '../../api/shipping'
 import type { StoreInfo, StoreLocale } from '../../api/settings'
 import type { SupportAccess } from '../../api/support'
+import { sampleRead } from '../activity/activitySample'
 import type { Market } from '../../api/markets'
 import type { ProductBasics } from '../../api/productEditor'
 import type { InvoiceSettings, TaxSetupFull } from '../../api/tax'
@@ -102,6 +104,7 @@ export interface SettingsReads {
   deliveries: (endpointId: string) => Promise<WebhookDelivery[]>
   apps: () => Promise<InstalledApp[]>
   supportAccess: (after: string | null) => Promise<SupportAccess>
+  activity: (filter: ActivityFilter, after: string | null) => Promise<ActivityPage>
 }
 
 const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
@@ -259,6 +262,7 @@ export const sampleReads: SettingsReads = {
   deliveries: async (endpointId) => sampleDeliveries(endpointId),
   apps: async () => sampleApps,
   supportAccess: async () => sampleSupport,
+  activity: sampleRead,
   catalogue: async () => ({
     pricingCurrency: 'INR',
     unitSystem: 'metric',
