@@ -230,6 +230,27 @@ describe('the list (B1–B4)', () => {
   })
 })
 
+describe('paging the list (FIRST-RELEASE §19)', () => {
+  it('pages by cursor both ways without overlap or gaps, with any filter, at most 50 a page', async () => {
+    await db.sql`insert into promotion (store_id, name, trigger, enabled, created_at) select ${t.storeA2}, 'Filler ' || g, 'automatic', false, now() - g * interval '1 minute' from generate_series(1, 55) g`
+    await db.sql`insert into promotion_action (promotion_id, store_id, operation, args, position) select id, store_id, 'free_shipping', '{}', 0 from promotion where store_id = ${t.storeA2} and name like 'Filler %'`
+    type Page = { nodes: { id: string }[]; pageInfo: { startCursor: string; endCursor: string; hasNextPage: boolean; hasPreviousPage: boolean } }
+    const page = async (args: string) => (await gql(`{ offers${args} { nodes { id } pageInfo { startCursor endCursor hasNextPage hasPreviousPage } } }`, 'other')).data?.['offers'] as Page
+    const all = await page('(status: "off", first: 1000)')
+    expect(all.nodes).toHaveLength(50)
+    expect(all.pageInfo.hasNextPage).toBe(true)
+    const first = await page('(status: "off", first: 2)')
+    const second = await page(`(status: "off", first: 2, after: "${first.pageInfo.endCursor}")`)
+    expect([first.pageInfo.hasPreviousPage, first.pageInfo.hasNextPage, second.pageInfo.hasPreviousPage]).toEqual([false, true, true])
+    expect([...first.nodes, ...second.nodes].map((n) => n.id)).toEqual(all.nodes.slice(0, 4).map((n) => n.id))
+    const back = await page(`(status: "off", first: 2, before: "${second.pageInfo.startCursor}")`)
+    expect(back.nodes.map((n) => n.id)).toEqual(first.nodes.map((n) => n.id))
+    expect(back.pageInfo.hasPreviousPage).toBe(false)
+    expect((await gql('{ offers(first: 2, after: "not-a-cursor") { nodes { id } } }', 'other')).code).toBe('INVALID_CURSOR')
+    await db.sql`update promotion set deleted_at = now() where store_id = ${t.storeA2} and name like 'Filler %'`
+  })
+})
+
 describe('turning off, ending, duplicating and deleting (N2–N5)', () => {
   it('pauses and resumes, ends now, copies as Off with no code, and deletes softly', async () => {
     const o = await create({ code: 'FLASH50', action: { operation: 'products_percentage_discount', percent: 50, targets: { productIds: [product] } } })
@@ -275,6 +296,34 @@ describe('plan gates (OFFERS U1–U3)', () => {
       await subscribe(t.storeA1, plans.full)
     }
     expect((await create({ code: 'VIP15', conditions: [{ operation: 'customer_group', groupIds: [group] }] })).code).toBeUndefined()
+  })
+
+  it('holds turning an Off offer on to the same switches, by saveOffer or resumeOffer', async () => {
+    const plain = await create({ code: 'OFFPLAIN', enabled: false })
+    const vip = await create({ code: 'OFFVIP', enabled: false, conditions: [{ operation: 'customer_group', groupIds: [group] }] })
+    const live = await create({ code: 'LIVEVIP', conditions: [{ operation: 'customer_group', groupIds: [group] }] })
+    const on = async (id: string, by: 'save' | 'resume') => {
+      if (by === 'resume') return gql(`mutation { resumeOffer(id: "${id}") }`, 'owner')
+      const o = await offer(id)
+      const conditions = id === plain.id ? [] : [{ operation: 'customer_group', groupIds: [group] }]
+      return gql(save, 'owner', { id, revision: o?.['revision'], input: offerInput({ code: o?.['code'], enabled: true, conditions }) })
+    }
+    await subscribe(t.storeA1, plans.none)
+    try {
+      for (const by of ['save', 'resume'] as const) expect({ by, key: (await on(plain.id, by)).extensions?.['key'] }).toEqual({ by, key: 'offers' })
+    } finally {
+      await subscribe(t.storeA1, plans.full)
+    }
+    await subscribe(t.storeA1, plans.small)
+    try {
+      await db.sql`update promotion set enabled = false where store_id = ${t.storeA1} and id <> ${live.id}`
+      for (const by of ['save', 'resume'] as const) expect({ by, key: (await on(vip.id, by)).extensions?.['key'] }).toEqual({ by, key: 'group_offers' })
+      // A group offer already live keeps running and can still be edited after the downgrade.
+      const o = await offer(live.id)
+      expect((await gql(save, 'owner', { id: live.id, revision: o?.['revision'], input: offerInput({ name: 'VIP, renamed', code: 'LIVEVIP', conditions: [{ operation: 'customer_group', groupIds: [group] }] }) })).code).toBeUndefined()
+    } finally {
+      await subscribe(t.storeA1, plans.full)
+    }
   })
 
   it('counts live and scheduled offers against the limit; a downgrade keeps them running and blocks more (#337)', async () => {

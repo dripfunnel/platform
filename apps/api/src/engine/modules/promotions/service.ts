@@ -205,8 +205,10 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
     return write(async (tx) => {
       const before = id ? await locked(tx, id.toLowerCase()) : null
       if (before && before.revision !== revision) throw new Refused({ ok: false, reason: 'STALE_REVISION', revision: before.revision })
-      if (!before) await requireSwitch('offers')
-      if (needsGroupOffers(d) && !(before && needsGroupOffers(viewOf(before, now())))) await requireSwitch('group_offers')
+      // Creating one, or turning one on, needs the plan's switches; an offer already on keeps running after a downgrade (#337).
+      const turnsOn = d.enabled && !before?.enabled
+      if (!before || turnsOn) await requireSwitch('offers')
+      if (needsGroupOffers(d) && (!before || turnsOn || !needsGroupOffers(viewOf(before, now())))) await requireSwitch('group_offers')
       const sold = await selectStoreCurrencies(tx, storeId)
       if (!amountCurrencies(d).every((c) => sold.includes(c))) throw new Refused({ ok: false, reason: 'CURRENCY_NOT_SOLD' })
       const named = namedIds(d)
@@ -237,6 +239,7 @@ export const createOffersService = ({ sql, context, actor, activity, facts, plan
       const found = await locked(tx, id.toLowerCase())
       if (found.enabled === on) return true as const
       if (on) await requireSwitch('offers')
+      if (on && needsGroupOffers(viewOf(found, now()))) await requireSwitch('group_offers')
       await setOfferState(tx, found.id, { enabled: on }, now())
       if (on && counts({ ...found, enabled: true }, now())) await holdLiveLimit(tx, allowance)
       await activity.record(tx, entry(on ? offersAudit.resumed : offersAudit.paused, found, [{ field: 'enabled', before: String(found.enabled), after: String(on) }]))
