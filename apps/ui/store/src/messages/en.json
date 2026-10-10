@@ -4628,7 +4628,8 @@
         "repeatDays": "Pick at least one day for the repeat.",
         "repeatTimes": "The repeat must end after it starts.",
         "total": "Enter 1 or more, or choose Unlimited.",
-        "perCustomer": "Uses per customer must be a whole number from 1 to {max}, or Unlimited."
+        "perCustomer": "Uses per customer must be a whole number from 1 to {max}, or Unlimited.",
+        "otherAmount": "Give each other currency an amount above zero, or leave its box empty to convert at today’s rate."
       }
     }
   },

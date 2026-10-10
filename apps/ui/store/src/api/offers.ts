@@ -49,6 +49,7 @@ const offerSchema = z.object({
   id: z.string(),
   name: z.string(),
   internalName: z.string().nullable(),
+  description: z.string().nullable(),
   trigger: z.enum(['automatic', 'code']),
   code: z.string().nullable(),
   // live, scheduled, off, ended or used_up: derived by the API (OFFERS fact 9).
@@ -67,7 +68,7 @@ const offerSchema = z.object({
 export type Offer = z.infer<typeof offerSchema>
 export type OfferStatus = Offer['status']
 
-const offerFields = `id name internalName trigger code status enabled startsAt endsAt totalUsesLimit perCustomerLimit usesCount revision
+const offerFields = `id name internalName description trigger code status enabled startsAt endsAt totalUsesLimit perCustomerLimit usesCount revision
   combines { product order shipping }
   conditions { ${leafFields} conditions { ${leafFields} } }
   action { operation percent amounts { amount currency } cap { amount currency } ${targetFields} exclude { giftCards onSale }

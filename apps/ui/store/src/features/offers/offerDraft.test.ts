@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Offer, OfferAction } from '../../api/offers'
 import { messages } from '../../messages'
-import { blankDraft, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, type StoreFacts } from './offerDraft'
+import { blankDraft, convertedMinor, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, type StoreFacts } from './offerDraft'
 
 // The editor's form and the record it saves (OFFERS-DESIGN §3.1): the store's time zone, money per currency, what each
 // kind of offer sends, and what stops it saving.
@@ -11,6 +11,7 @@ const india: StoreFacts = { timeZone: 'Asia/Kolkata', country: 'IN', main: 'INR'
 const multi: StoreFacts = { timeZone: 'America/New_York', country: 'US', main: 'USD', others: ['EUR', 'JPY'], perEuro: { USD: 1.1, EUR: 1, JPY: 160 } }
 const ctx = (facts: StoreFacts) => ({ facts, now: new Date('2026-10-10T06:30:00.000Z'), ship: 'delivery', season: { name: 'Diwali', on: new Date('2026-11-08T00:00:00.000Z') } })
 const action = (a: Partial<OfferAction> & Pick<OfferAction, 'operation'>): OfferAction => ({ percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], ...a })
+const base: Offer = { id: 'o1', name: 'Offer', internalName: null, description: null, trigger: 'automatic', code: null, status: 'off', enabled: false, startsAt: null, endsAt: null, totalUsesLimit: null, perCustomerLimit: null, usesCount: 0, combines: { product: false, order: false, shipping: false }, conditions: [], action: { percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], operation: 'free_shipping' }, revision: 1 }
 const leaf = { amounts: [], minimum: null, productIds: [], collectionIds: [], filterValueIds: [], groupIds: [], customerIds: [], countries: [], days: [], from: null, to: null, conditions: [] }
 
 describe('dates in the store’s time zone', () => {
@@ -20,6 +21,13 @@ describe('dates in the store’s time zone', () => {
     expect(instantOf('2026-07-01T09:00', 'America/New_York')).toBe('2026-07-01T13:00:00.000Z')
     expect(instantOf('2026-12-01T09:00', 'America/New_York')).toBe('2026-12-01T14:00:00.000Z')
     expect(instantOf('not a date', 'UTC')).toBeNull()
+  })
+
+  it('moves a time the clocks skip on by the gap, and takes the first of a time they repeat', () => {
+    expect(instantOf('2026-03-08T02:30', 'America/New_York')).toBe('2026-03-08T07:30:00.000Z')
+    expect(localOf('2026-03-08T07:30:00.000Z', 'America/New_York')).toBe('2026-03-08T03:30')
+    expect(instantOf('2026-11-01T01:30', 'America/New_York')).toBe('2026-11-01T05:30:00.000Z')
+    expect(instantOf('2026-11-01T02:30', 'America/New_York')).toBe('2026-11-01T07:30:00.000Z')
   })
 
   it('ends a day ending at 23:59 at its last second (fact 9)', () => {
@@ -70,6 +78,7 @@ describe('what Save sends', () => {
       id: 'o1',
       name: 'VIP 15% off',
       internalName: 'Q4',
+      description: 'Our thank-you to regulars',
       trigger: 'code',
       code: 'VIP15',
       status: 'live',
@@ -95,6 +104,36 @@ describe('what Save sends', () => {
   })
 })
 
+describe('money in other currencies', () => {
+  it('converts on integer minor units, rounding a half up once', () => {
+    const halves: StoreFacts = { ...multi, main: 'USD', others: ['EUR'], perEuro: { USD: 2, EUR: 1 } }
+    expect(convertedMinor(3, halves, 'EUR')).toBe(2)
+    expect(convertedMinor(1, halves, 'EUR')).toBe(1)
+    expect(convertedMinor(2, halves, 'EUR')).toBe(1)
+    expect(convertedText('0.03', halves, 'EUR')).toBe('0.02')
+    expect(convertedMinor(500, multi, 'JPY')).toBe(727)
+    expect(convertedMinor(500, { ...multi, perEuro: { USD: 1.1 } }, 'EUR')).toBeNull()
+  })
+
+  it('reads a fixed and a tiered offer back to the same input', () => {
+    const fixed: Offer = { ...base, action: action({ operation: 'order_fixed_discount', amounts: [{ currency: 'USD', amount: '1000' }, { currency: 'EUR', amount: '900' }, { currency: 'JPY', amount: '1500' }] }), conditions: [{ ...leaf, operation: 'minimum_order_amount', amounts: [{ currency: 'USD', amount: '5000' }, { currency: 'EUR', amount: '4500' }, { currency: 'JPY', amount: '7500' }] }] }
+    const d = draftOf(fixed, multi)
+    expect(d).toMatchObject({ kind: 'fixed', amounts: { USD: '10.00', EUR: '9.00', JPY: '1500' }, minimum: 'amount', minAmounts: { USD: '50.00', EUR: '45.00', JPY: '7500' } })
+    const back = inputOf(d, multi, true)
+    expect(back.action).toEqual({ operation: 'order_fixed_discount', amounts: fixed.action.amounts })
+    expect(back.conditions).toEqual([{ operation: 'minimum_order_amount', amounts: fixed.conditions[0]?.amounts }])
+    const tiered: Offer = { ...base, action: action({ operation: 'tiered_discount', kind: 'fixed', tiers: [{ minimum: [{ currency: 'INR', amount: '50000' }], percent: null, amounts: [{ currency: 'INR', amount: '5000' }] }, { minimum: [{ currency: 'INR', amount: '100000' }], percent: null, amounts: [{ currency: 'INR', amount: '15000' }] }] }) }
+    const t = draftOf(tiered, india)
+    expect(t).toMatchObject({ type: 'order', kind: 'fixed', tiers: [{ off: '50.00', minimum: '500.00' }, { off: '150.00', minimum: '1000.00' }] })
+    expect(inputOf(t, india, true).action).toEqual({ operation: 'tiered_discount', kind: 'fixed', tiers: [{ minimum: [{ currency: 'INR', amount: '50000' }], amounts: [{ currency: 'INR', amount: '5000' }] }, { minimum: [{ currency: 'INR', amount: '100000' }], amounts: [{ currency: 'INR', amount: '15000' }] }] })
+  })
+
+  it('sends an offer’s description back as it came', () => {
+    expect(inputOf(draftOf({ ...base, description: 'Thanks for coming back' }, india), india, true).description).toBe('Thanks for coming back')
+    expect(inputOf(blankDraft('order', null, ctx(india)), india, true).description).toBeNull()
+  })
+})
+
 describe('what stops it saving (C5)', () => {
   it('says each problem in plain words, within the API’s own limits', () => {
     const d = blankDraft('products', null, ctx(india))
@@ -107,5 +146,25 @@ describe('what stops it saving (C5)', () => {
     const perCustomer = 'Uses per customer must be a whole number from 1 to 1,000, or Unlimited.'
     for (const typed of ['abc', '1.5', '-1', '0', '5000']) expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', perCustomer: typed }, india)).toEqual({ perCustomer })
     expect(errorsOf({ ...blankDraft('order', null, ctx(india)), code: 'OK1', perCustomer: '' }, india)).toEqual({})
+  })
+
+  it('checks every kind of offer’s own fields, and every currency’s box', () => {
+    const order = { ...blankDraft('order', null, ctx(multi)), code: 'OK1' }
+    expect(errorsOf({ ...order, kind: 'fixed', amounts: {} }, multi)).toEqual({ value: words.amount })
+    expect(errorsOf({ ...order, kind: 'fixed', amounts: { USD: '10', EUR: 'abc' } }, multi)).toEqual({ value: words.otherAmount })
+    expect(errorsOf({ ...order, kind: 'fixed', amounts: { USD: '10', JPY: '0' } }, multi)).toEqual({ value: words.otherAmount })
+    expect(errorsOf({ ...order, kind: 'fixed', amounts: { USD: '10', EUR: '' } }, multi)).toEqual({})
+    expect(errorsOf({ ...order, minimum: 'amount', minAmounts: { USD: '0' } }, multi)).toEqual({ minimum: words.minimumAmount })
+    expect(errorsOf({ ...order, minimum: 'amount', minAmounts: { USD: '50', EUR: '-5' } }, multi)).toEqual({ minimum: words.otherAmount })
+    expect(errorsOf({ ...order, minimum: 'items', minQuantity: '0' }, multi)).toEqual({ minimum: words.minimumItems })
+    const ship = blankDraft('shipping', null, ctx(multi))
+    expect(errorsOf(ship, multi)).toEqual({})
+    expect(errorsOf({ ...ship, shipMode: 'off', amounts: { USD: '' } }, multi)).toEqual({ value: words.amount })
+    expect(errorsOf({ ...ship, shipMode: 'off', amounts: { USD: '5', EUR: 'x' } }, multi)).toEqual({ value: words.otherAmount })
+    const bxgy = blankDraft('bxgy', null, ctx(multi))
+    expect(errorsOf(bxgy, multi)).toEqual({ buy: words.buy })
+    expect(errorsOf({ ...bxgy, buyIds: ['p1'], getSame: false }, multi)).toEqual({ get: words.get })
+    expect(errorsOf({ ...bxgy, buyIds: ['p1'], buyQuantity: '100' }, multi)).toEqual({ value: 'Use whole numbers from 1 to 99.' })
+    expect(errorsOf({ ...bxgy, buyIds: ['p1'], getPercent: '0' }, multi)).toEqual({ value: words.percent })
   })
 })
