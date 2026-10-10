@@ -1,7 +1,7 @@
 import { isCountry } from '#core/countries'
 import { isE164 } from '#core/sms'
 import type { Money } from '#core/money'
-import type { CartAddress } from '#db/scoped/cart'
+import type { CartAddress, CartGift } from '#db/scoped/cart'
 
 // The pure rules of a cart (PLATFORM-PROMPT §5.4 Cart and checkout): what an address and a contact must hold, what each
 // line may be bought as, and what stands between the cart and payment.
@@ -50,6 +50,32 @@ export const cleanContact = (input: { email?: string | null | undefined; phone?:
   const p = input.phone?.trim().replaceAll(/[\s-]/g, '') || null
   if ((e !== null && (e.length > 254 || !email.test(e))) || (p !== null && !isE164(p))) return null
   return { email: e, phone: p }
+}
+
+export interface GiftInput {
+  recipientName: string
+  recipientEmail: string
+  message?: string | null | undefined
+  sendOn?: string | null | undefined
+}
+
+/** How far ahead a gift card may be sent (DF Storefront Prototype's "Send on"). */
+export const giftSendAheadDays = 365
+
+/** A gift card's recipient and day: a name, an email, a message of up to 200, today or a day within a year; null when not. */
+export const cleanGift = (input: GiftInput, today: Date): CartGift | null => {
+  const name = input.recipientName.trim()
+  const contact = cleanContact({ email: input.recipientEmail })
+  const message = input.message?.trim() || null
+  const sendOn = input.sendOn?.trim() || null
+  if (name === '' || name.length > 120 || !contact?.email || (message?.length ?? 0) > 200) return null
+  if (sendOn !== null) {
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(sendOn) ? Date.parse(`${sendOn}T00:00:00Z`) : Number.NaN
+    // A day either side of UTC's today, as the shopper's own today may be.
+    const start = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) - 86_400_000
+    if (!Number.isFinite(day) || day < start || day > start + (giftSendAheadDays + 2) * 86_400_000) return null
+  }
+  return { recipientName: name, recipientEmail: contact.email, message, sendOn }
 }
 
 export type LineProblem = 'unavailable' | 'not_sold_here' | 'not_priced' | 'short'

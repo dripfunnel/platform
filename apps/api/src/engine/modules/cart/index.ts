@@ -5,7 +5,7 @@ import type { PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
+import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartGift, setCartLine, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
 import type { FeatureKey } from '#db/scoped/catalogListing'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
@@ -13,11 +13,11 @@ import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type Cart
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
-import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type PricedLine } from './rules'
+import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, cleanGift, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type GiftInput, type PricedLine } from './rules'
 
-export type { AddressInput, CheckoutProblem, LineProblem } from './rules'
+export type { AddressInput, CheckoutProblem, GiftInput, LineProblem } from './rules'
 export { cleanAddress, cleanContact } from './rules'
-export type { CartAddress } from '#db/scoped/cart'
+export type { CartAddress, CartGift } from '#db/scoped/cart'
 
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
 // engine prices it on every read, so nothing a storefront sends is ever a price (§5.5). Payment and placement are SAPI 10's.
@@ -56,6 +56,8 @@ export interface CartLineView extends PricedLine {
   item: CartItem | null
   /** What the offers take off this line; null when it isn't priced. */
   discount: Money | null
+  /** A gift card's recipient and day; null on every other line. */
+  gift: CartGift | null
 }
 
 export interface CartView {
@@ -149,7 +151,7 @@ export const createCartService = (deps: CartDeps) => {
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
-      return { ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }), item, discount: null }
+      return { ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }), item, discount: null, gift: l.gift }
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
     const priced = lines.filter((l): l is CartLineView & { lineTotal: Money } => l.lineTotal !== null)
@@ -269,10 +271,15 @@ export const createCartService = (deps: CartDeps) => {
    * "Add to cart": the shopper's cart, or a new one: a signed-in shopper's on its account, a guest's behind a new token
    * handed back once. Only a version shoppers can see is added.
    */
-  const add = async (versionId: string, quantity: number): Promise<CartResult<CartChange>> => {
+  const add = async (versionId: string, quantity: number, giftInput: GiftInput | null = null): Promise<CartResult<CartChange>> => {
     const id = versionId.toLowerCase()
     if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity) return { ok: false, reason: 'INVALID_INPUT' }
-    if (!(await catalog(deps.context).cartItems([id])).has(id)) return { ok: false, reason: 'UNAVAILABLE' }
+    const item = (await catalog(deps.context).cartItems([id])).get(id)
+    if (!item) return { ok: false, reason: 'UNAVAILABLE' }
+    // A gift card is one card a line, for the recipient chosen last; nothing else takes a recipient (decided on #323).
+    const isGiftCard = item.product.productType === 'gift_card'
+    const gift = giftInput ? cleanGift(giftInput, now()) : null
+    if (isGiftCard !== (gift !== null) || (isGiftCard && quantity !== 1)) return { ok: false, reason: 'INVALID_INPUT' }
     let context = deps.context
     let token: string | null = null
     const existing = await withScope(sql, context, (tx) => selectCart(tx, storeId, now()))
@@ -292,7 +299,8 @@ export const createCartService = (deps: CartDeps) => {
         }
         const held = found.lines.find((l) => l.version_id === id)?.quantity ?? 0
         if (!held && found.lines.length >= maxCartLines) throw new Refused('TOO_MANY_LINES')
-        await setCartLine(tx, storeId, found.id, id, Math.min(held + quantity, maxQuantity))
+        await setCartLine(tx, storeId, found.id, id, gift ? 1 : Math.min(held + quantity, maxQuantity))
+        if (gift) await setCartGift(tx, found.id, id, gift)
         await write(tx, found, {})
         return selectCart(tx, storeId, now())
       })
@@ -308,7 +316,8 @@ export const createCartService = (deps: CartDeps) => {
   const setQuantity = (versionId: string, quantity: number) =>
     change(async (tx, row) => {
       const id = versionId.toLowerCase()
-      if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 0 || quantity > maxQuantity || !row.lines.some((l) => l.version_id === id)) throw new Refused('INVALID_INPUT')
+      const line = row.lines.find((l) => l.version_id === id)
+      if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 0 || quantity > (line?.gift ? 1 : maxQuantity) || !line) throw new Refused('INVALID_INPUT')
       await setCartLine(tx, storeId, row.id, id, quantity)
       await write(tx, row, {})
     })

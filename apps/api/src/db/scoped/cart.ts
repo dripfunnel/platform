@@ -15,6 +15,15 @@ export interface CartAddress {
   phone: string | null
 }
 
+/** Who a gift card line goes to and when (migration 0111); null on every other line. */
+export interface CartGift {
+  recipientName: string
+  recipientEmail: string
+  message: string | null
+  /** YYYY-MM-DD, or null to send once paid. */
+  sendOn: string | null
+}
+
 export interface CartRow {
   id: string
   customer_id: string | null
@@ -30,7 +39,7 @@ export interface CartRow {
   revision: number
   /** The codes the shopper typed, as typed after normalising; the engine decides what each does (OFFERS fact 6). */
   promotion_codes: string[]
-  lines: { version_id: string; quantity: number }[]
+  lines: { version_id: string; quantity: number; gift: CartGift | null }[]
 }
 
 /** The shopper's open cart: the guest token's when one was presented, else the account's latest. */
@@ -39,7 +48,8 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
     await tx<CartRow[]>`
       select o.id, o.customer_id, o.email, o.phone, o.currency, o.market_id, o.shipping_address, o.billing_address, o.shipping_option,
         o.shopper_note, o.checkout_step, o.revision, to_json(o.promotion_codes) as promotion_codes,
-        coalesce((select json_agg(json_build_object('version_id', l.version_id, 'quantity', l.quantity) order by l.added_at, l.version_id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
+        coalesce((select json_agg(json_build_object('version_id', l.version_id, 'quantity', l.quantity, 'gift', case when l.gift_recipient_email is null then null else json_build_object(
+          'recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'message', l.gift_message, 'sendOn', l.gift_send_on) end) order by l.added_at, l.version_id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
       from "order" o
       where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
       order by (o.customer_id is null) desc, o.updated_at desc
@@ -75,6 +85,14 @@ export const setCartLine = async (tx: ScopedSql, storeId: string, orderId: strin
   await tx`
     insert into cart_line (order_id, store_id, version_id, quantity) values (${orderId}, ${storeId}, ${versionId}, ${quantity})
     on conflict (order_id, version_id) do update set quantity = excluded.quantity
+  `
+}
+
+/** A gift card line's recipient and day, as the shopper chose them last. */
+export const setCartGift = async (tx: ScopedSql, orderId: string, versionId: string, g: CartGift): Promise<void> => {
+  await tx`
+    update cart_line set gift_recipient_name = ${g.recipientName}, gift_recipient_email = ${g.recipientEmail}, gift_message = ${g.message}, gift_send_on = ${g.sendOn}::date
+    where order_id = ${orderId} and version_id = ${versionId}
   `
 }
 

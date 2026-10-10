@@ -1,3 +1,4 @@
+import type { CartGift } from './cart'
 import { pgArray, type ScopedSql } from './index'
 import { releaseUses } from './promotions'
 
@@ -76,6 +77,8 @@ export interface SnapshotLine {
   lineTotalAmount: bigint
   weightGrams: number | null
   reservedWarehouseId: string | null
+  /** A gift card's recipient and day, as the cart held them (migration 0111). */
+  gift: CartGift | null
 }
 
 export interface OrderSnapshot {
@@ -103,9 +106,11 @@ export const writeSnapshot = async (tx: ScopedSql, storeId: string, s: OrderSnap
   for (const [position, l] of s.lines.entries()) {
     await tx`
       insert into order_line (order_id, store_id, seller_id, version_id, product_id, name, version_name, sku, hs_code, tax_class_id, tax_rate_bps,
-        quantity, unit_amount, discount_amount, tax_amount, line_total_amount, weight_grams, reserved_warehouse_id, position)
+        quantity, unit_amount, discount_amount, tax_amount, line_total_amount, weight_grams, reserved_warehouse_id, position,
+        gift_recipient_name, gift_recipient_email, gift_message, gift_send_on)
       values (${s.orderId}, ${storeId}, ${l.sellerId}, ${l.versionId}, ${l.productId}, ${l.name}, ${l.versionName}, ${l.sku}, ${l.hsCode}, ${l.taxClassId}, ${l.taxRateBps},
-        ${l.quantity}, ${l.unitAmount.toString()}, ${l.discountAmount.toString()}, ${l.taxAmount.toString()}, ${l.lineTotalAmount.toString()}, ${l.weightGrams}, ${l.reservedWarehouseId}, ${position})
+        ${l.quantity}, ${l.unitAmount.toString()}, ${l.discountAmount.toString()}, ${l.taxAmount.toString()}, ${l.lineTotalAmount.toString()}, ${l.weightGrams}, ${l.reservedWarehouseId}, ${position},
+        ${l.gift?.recipientName ?? null}, ${l.gift?.recipientEmail ?? null}, ${l.gift?.message ?? null}, ${l.gift?.sendOn ?? null}::date)
     `
   }
   for (const p of s.parts) {
@@ -227,7 +232,10 @@ export interface ShopOrderRow {
   shipping_option: 'courier' | 'flat' | 'pickup' | null
   placed_at: Date
   payment_due_by: Date | null
-  lines: { name: string; version_name: string | null; quantity: number; unit_amount: string; line_total_amount: string }[]
+  lines: { name: string; version_name: string | null; quantity: number; unit_amount: string; line_total_amount: string; gift: { recipientName: string; recipientEmail: string; sendOn: string | null } | null }[]
+  /** Each paid download's grant, and each key the order took (migration 0111): none before payment. */
+  downloads: { id: string; name: string; uses_left: number; expires_at: string }[]
+  keys: { name: string; key: string }[]
   /** The discount lines, named as the shopper saw them (OFFERS fact 13). */
   discounts: { label: string | null; amount: string }[]
 }
@@ -240,7 +248,13 @@ export const selectShopOrder = async (tx: ScopedSql, storeId: string, orderId: s
         o.discount_amount::text as discount_amount, o.shipping_amount::text as shipping_amount, o.tax_amount::text as tax_amount, o.total_amount::text as total_amount, o.tax_inclusive,
         o.shipping_method_label, o.shipping_option, o.placed_at, o.payment_due_by,
         coalesce((select json_agg(json_build_object('name', l.name, 'version_name', l.version_name, 'quantity', l.quantity,
-          'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text) order by l.position) from order_line l where l.order_id = o.id), '[]'::json) as lines,
+          'unit_amount', l.unit_amount::text, 'line_total_amount', l.line_total_amount::text, 'gift', case when l.gift_recipient_email is null then null
+            else json_build_object('recipientName', l.gift_recipient_name, 'recipientEmail', l.gift_recipient_email, 'sendOn', l.gift_send_on) end) order by l.position)
+          from order_line l where l.order_id = o.id), '[]'::json) as lines,
+        coalesce((select json_agg(json_build_object('id', d.id, 'name', l.name, 'uses_left', d.uses_left, 'expires_at', d.expires_at) order by l.position)
+          from order_download d join order_line l on l.id = d.order_line_id where d.order_id = o.id), '[]'::json) as downloads,
+        coalesce((select json_agg(json_build_object('name', l.name, 'key', k.key) order by l.position, k.id)
+          from licence_key k join order_line l on l.id = k.order_line_id where l.order_id = o.id), '[]'::json) as keys,
         coalesce((select json_agg(json_build_object('label', a.label, 'amount', a.amount::text) order by a.label, a.id) from order_adjustment a where a.order_id = o.id and a.kind = 'discount'), '[]'::json) as discounts
       from "order" o where o.id = ${orderId} and o.store_id = ${storeId} and o.state <> 'cart'
     `

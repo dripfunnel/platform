@@ -27,6 +27,7 @@ import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
 import { cartOffers } from '#engine/modules/promotions/index'
 import { ensureGuestCustomer } from '#engine/modules/customers/index'
+import { deliverOrder } from '#engine/modules/deliveries/index'
 import type { StripeTaxDeps } from '#engine/modules/tax/index'
 import { closeLatestAttempt, settleOrder, type SettleDeps } from './payments'
 import { cardPaymentMs, isManual, kindOf, openAccount, paymentProviders, providersFor, transferDaysMs, type PaymentKind, type PaymentProvider } from './providers'
@@ -194,6 +195,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
         lineTotalAmount: l.lineTotal.amount - (l.discount?.amount ?? 0n),
         weightGrams: v.weight_grams,
         reservedWarehouseId,
+        gift: l.gift,
       })
     }
     return lines
@@ -368,6 +370,7 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
     if (!order) return { ok: false, reason: 'NOT_FOUND' }
     if (order.state !== 'placed' || order.payment_state !== 'pending' || !(order.payment_method && isManual(order.payment_method))) return { ok: false, reason: 'NOT_PENDING' }
     await recordPaid(tx, deps.context.storeId, orderId, deps.now())
+    await deliverOrder(tx, deps.activity, deps.context.storeId, orderId, deps.now())
     await deps.activity.record(tx, {
       category: 'write',
       action: checkoutAudit.markedPaid,

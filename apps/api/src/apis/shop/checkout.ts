@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import type { PaymentStart } from '#core/payments'
 import { checkoutAudit, createCheckout, type CheckoutResult, type PaymentOption, type PlacedOrder, type ShopOrderRow } from '#engine/modules/checkout/index'
+import { downloadUrl } from '#engine/modules/deliveries/index'
 import { paymentModeOf, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 
@@ -91,9 +92,24 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       payment: t.field({ type: Start, nullable: true, resolve: (p) => p.payment }),
     }),
   })
+  const OrderGift = builder.objectRef<NonNullable<ShopOrderRow['lines'][number]['gift']>>('ShopOrderGift').implement({
+    fields: (t) => ({ recipientName: t.exposeString('recipientName'), recipientEmail: t.exposeString('recipientEmail'), sendOn: t.exposeString('sendOn', { nullable: true }) }),
+  })
+  type Download = ShopOrderRow['downloads'][number] & { url: string | null }
+  const DownloadType = builder.objectRef<Download>('ShopOrderDownload').implement({
+    fields: (t) => ({
+      name: t.exposeString('name'),
+      // Signed for this shop; null where links can't be signed here.
+      url: t.exposeString('url', { nullable: true }),
+      usesLeft: t.exposeInt('uses_left'),
+      expiresAt: t.string({ resolve: (d) => new Date(d.expires_at).toISOString() }),
+    }),
+  })
+  const Key = builder.objectRef<ShopOrderRow['keys'][number]>('ShopOrderLicenceKey').implement({ fields: (t) => ({ name: t.exposeString('name'), key: t.exposeString('key') }) })
   const Line = builder.objectRef<ShopOrderRow['lines'][number] & { currency: string }>('ShopOrderLine').implement({
     fields: (t) => ({
       name: t.exposeString('name'),
+      gift: t.field({ type: OrderGift, nullable: true, resolve: (l) => l.gift }),
       versionName: t.exposeString('version_name', { nullable: true }),
       quantity: t.exposeInt('quantity'),
       unitPrice: t.field({ type: money, resolve: (l) => ({ amount: BigInt(l.unit_amount), currency: l.currency }) }),
@@ -126,6 +142,17 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       tax: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.tax_amount), currency: o.currency }) }),
       pricesIncludeTax: t.exposeBoolean('tax_inclusive'),
       total: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.total_amount), currency: o.currency }) }),
+      // A paid order's downloads and the keys it took (CATALOG T14); none before payment.
+      downloads: t.field({
+        type: [DownloadType],
+        resolve: async (o, _, ctx) => {
+          const signer = ctx.downloadLinks ?? null
+          const host = new URL(ctx.origin).host
+          const storeId = ctx.shopper?.context.storeId ?? ''
+          return Promise.all(o.downloads.map(async (d) => ({ ...d, url: signer ? await downloadUrl(signer, host, storeId, d.id) : null })))
+        },
+      }),
+      licenceKeys: t.field({ type: [Key], resolve: (o) => o.keys }),
     }),
   })
 

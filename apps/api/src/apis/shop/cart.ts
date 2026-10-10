@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { createCartService, type CartAddress, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView } from '#engine/modules/cart/index'
+import { createCartService, type CartAddress, type CartGift, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView } from '#engine/modules/cart/index'
 import type { DeliveryOption } from '#engine/modules/shipping/index'
 import { shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
@@ -45,9 +45,23 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       phone: t.exposeString('phone', { nullable: true }),
     }),
   })
+  const Gift = builder.objectRef<CartGift>('ShopGiftCardRecipient').implement({
+    fields: (t) => ({
+      recipientName: t.exposeString('recipientName'),
+      recipientEmail: t.exposeString('recipientEmail'),
+      message: t.exposeString('message', { nullable: true }),
+      // YYYY-MM-DD; null sends it once paid.
+      sendOn: t.exposeString('sendOn', { nullable: true }),
+    }),
+  })
+  const GiftInput = builder.inputType('ShopGiftCardInput', {
+    fields: (t) => ({ recipientName: t.string({ required: true }), recipientEmail: t.string({ required: true }), message: t.string(), sendOn: t.string() }),
+  })
   const Line = builder.objectRef<CartLineView>('ShopCartLine').implement({
     fields: (t) => ({
       versionId: t.exposeID('versionId'),
+      // A gift card's recipient and day; null on every other line.
+      gift: t.field({ type: Gift, nullable: true, resolve: (l) => l.gift }),
       quantity: t.exposeInt('quantity'),
       productName: t.string({ nullable: true, resolve: (l) => l.item?.product.name ?? null }),
       productSlug: t.string({ nullable: true, resolve: (l) => l.item?.product.slug ?? null }),
@@ -167,9 +181,13 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
   builder.mutationFields((t) => ({
     addToCart: t.field({
       type: Change,
-      args: { versionId: t.arg.id({ required: true }), quantity: t.arg.int({ required: true }) },
+      // A gift card takes `gift` and a quantity of 1, one card a line; nothing else takes `gift`.
+      args: { versionId: t.arg.id({ required: true }), quantity: t.arg.int({ required: true }), gift: t.arg({ type: GiftInput }) },
       extensions: { access: write },
-      resolve: async (_, args, ctx) => answered(await (await cartOf(ctx)).add(String(args.versionId), args.quantity)),
+      resolve: async (_, args, ctx) => {
+        if (args.gift) bounded(args.gift.recipientName, args.gift.recipientEmail, args.gift.message, args.gift.sendOn)
+        return answered(await (await cartOf(ctx)).add(String(args.versionId), args.quantity, args.gift ?? null))
+      },
     }),
     setCartQuantity: t.field({
       type: Change,

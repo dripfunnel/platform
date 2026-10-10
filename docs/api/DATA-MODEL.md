@@ -1488,6 +1488,24 @@ fulfilment_line     (fulfilment_id, order_line_id, store_id, seller_id NULL, qua
                     -- What a to-store supplier handed over is the sum of its 'sent_to_store' lines, so
                     -- the store ships on at most that, and a cancellation releases only what hasn't left
 
+order_download      (id, order_id, order_line_id UNIQUE, store_id, asset_id, uses_left, expires_at)
+                    -- a paid download's grant (built on #323, 0111): its uses and days from the
+                    -- product at payment; the link is the grant's id signed under CREDENTIALS_KEK
+                    -- (auth/signedLink.ts), never stored, and the Worker streams the file from R2.
+                    -- Merchant side reads; a shopper through its order; written in system scope only
+gift_card           (id, store_id, code_hash NULL, code_last4 NULL, currency, initial_amount,
+                     balance_amount, expiry_months NULL, expires_at NULL, recipient_name, recipient_email,
+                     message, send_on, sent_at, order_line_id NULL UNIQUE, issued_by NULL, status
+                     ('active'|'disabled'))
+gift_card_movement  (id, gift_card_id, store_id, kind ('issued'|'redeemed'|'restored'), amount, currency,
+                     order_id NULL)  UNIQUE (gift_card_id, kind, order_id)
+                    -- built on #323 (0111): a paid gift card line issues one card, worth the line's
+                    -- price before offers; its code is minted as its email is composed, on the
+                    -- morning of send_on in the store's time zone, kept only as a hash salted with
+                    -- the store, and its expiry counts from sending. Inside the store, system scope
+                    -- only (part 3 adds the merchant's read and the shopper's redemption).
+                    -- cart_line and order_line hold the recipient (gift_recipient_name, _email,
+                    -- gift_message, gift_send_on); a gift card line is one card (#323)
 payment             (id, order_id, store_id, provider, provider_account_id, provider_ref, kind
                      ('card'|'wallet'|'upi'|'cod'|'bank_transfer'|'other'), state ('pending'|'authorised'
                      |'captured'|'failed'|'refunded'|'mismatch'), amount, currency, captured_at)
@@ -2013,7 +2031,9 @@ decide which columns and which tables each caller kind may select at all**. `app
   shop read branch is above), `access_request`, `webhook_endpoint`, `webhook_delivery`,
   `external_connection`, `api_key`, `app_grant`, `invitation` (§3.3), `cart_reminder`,
   `cart_reminder_flow`, `cart_reminder_step`, `store_ai_account`, `store_billing_details`,
-  `licence_key` (merchant side only: `insert` and a count, never `select` on `key`; #323),
+  `licence_key` (merchant side only: `insert` and a count, never `select` on `key`; its **shop
+  branch** is the keys its own order took, through `order_line`'s; #323), `order_download` (shop
+  branch through its order), `gift_card`, `gift_card_movement` (system scope only so far; #323),
   and every settings table in §7.2 not named in the next class. `"order"` alone also has
   the **shop branch** (built on #308, migration 0066) `customer_id = app.customer_id OR (customer_id IS NULL AND
   access_token_hash = current_order_token_hash())`, where `current_order_token_hash()` is an `app_definer` function

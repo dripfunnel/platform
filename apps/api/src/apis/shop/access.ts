@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import type { SecretBox } from '#auth/secretBox'
+import type { LinkSigner } from '#auth/signedLink'
 import type { PaymentMode } from '#core/payments'
 import { withSystemScope } from '#db/scoped/index'
 import { selectStripeAccountId } from '#db/scoped/payments'
@@ -32,6 +33,8 @@ export interface ShopContext extends Record<string, unknown> {
   codeCheck?: CodeCheck
   /** The session token this request presents (X-Shop-Session), for signing out. */
   sessionToken?: string | null
+  /** Signs and checks a paid order's download links; null where CREDENTIALS_KEK isn't set. */
+  downloadLinks?: LinkSigner | null
   /** The new-cart limiter (CART_RATE_LIMITER) by key; the Worker refuses to serve without it. */
   allowNewCart: (key: string) => Promise<boolean>
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key, so codes can't be guessed; refuses every code where it isn't bound. */

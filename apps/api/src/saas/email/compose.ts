@@ -7,7 +7,11 @@ import { hashShopperCode } from '#auth/shopperAuth'
 import { newSmsCode, smsCodeMs } from '#auth/storeCodes'
 import { selectCodeForEmail, setCodeHash } from '#db/scoped/shopper'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
+import { formatGiftCardCode, hashGiftCardCode, newGiftCardCode } from '#auth/giftCardCodes'
+import type { LinkSigner } from '#auth/signedLink'
 import { selectBranding } from '#db/scoped/branding'
+import { markGiftCardSent, selectDownloadsEmail, selectGiftCardStore, selectShopHost } from '#db/scoped/deliveries'
+import { downloadUrl } from '#engine/modules/deliveries/index'
 import type { ScopedSql } from '#db/scoped/index'
 import { selectOrderEmail, selectShipmentToTell, type OrderEmailRow } from '#db/scoped/orderUpdates'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
@@ -27,6 +31,8 @@ import type { Brand, EmailContent } from './render'
 export interface EmailHosts {
   adminHost: string
   platformHost: string
+  /** Signs a paid order's download links (auth/signedLink.ts); null where CREDENTIALS_KEK isn't set. */
+  downloadLinks?: LinkSigner | null
 }
 
 /** Who the email speaks for: DripFunnel to its partners and staff, a partner to its merchants (SAAS §3.6). */
@@ -73,6 +79,8 @@ const payloads = {
   'store-restored': z.object({ storeId: id }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
+  'order-downloads': z.object({ orderId: id }),
+  'gift-card': z.object({ giftCardId: id }),
 } as const
 export type Template = keyof typeof payloads
 
@@ -346,6 +354,47 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const contact = m.brand.supportEmail ?? m.brand.supportUrl
       const paragraphs = [w.body(m.store.name), w.reason(p.reason), ...(contact ? [w.contact(contact)] : [])]
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
+    }
+    case 'order-downloads': {
+      const p = parse(t)
+      const o = await selectDownloadsEmail(tx, p.orderId)
+      if (!o || (o.downloads.length === 0 && o.keys.length === 0)) return { send: false, reason: 'link_closed' }
+      if (o.partner_id !== row.partnerId || o.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      if (!o.email) return { send: false, reason: 'no_recipient' }
+      const look = await partnerBrand(tx, o.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const host = await selectShopHost(tx, o.store_id)
+      // A link needs the shop's address and the signing key; until both exist the email waits rather than going out bare.
+      if (o.downloads.length > 0 && (!host || !hosts.downloadLinks)) throw new NotYet('no_download_host', 60 * 60 * 1000)
+      const signer = hosts.downloadLinks ?? null
+      const w = en.orderDownloads
+      const links = host && signer ? await Promise.all(o.downloads.map(async (d) => w.link(d.name, await downloadUrl(signer, host, o.store_id, d.id)))) : []
+      const first = o.downloads[0]
+      const paragraphs = [w.intro(o.number), ...links, ...(first ? [w.rule(first.uses_left, en.date(new Date(first.expires_at)))] : []), ...o.keys.map((k) => w.key(k.name, k.key))]
+      return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand: { ...look.brand, name: o.store_name, supportUrl: null }, content: { subject: w.subject(o.store_name, o.number), heading: w.heading, paragraphs, note: w.note } }
+    }
+    case 'gift-card': {
+      const p = parse(t)
+      const storeId = await selectGiftCardStore(tx, p.giftCardId)
+      if (!storeId) return { send: false, reason: 'link_closed' }
+      if (storeId !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      const code = newGiftCardCode()
+      const card = await markGiftCardSent(tx, p.giftCardId, { hash: await hashGiftCardCode(storeId, code), last4: code.slice(-4) }, now)
+      if (!card) return { send: false, reason: 'link_closed' }
+      if (card.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, card.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const host = await selectShopHost(tx, card.store_id)
+      const w = en.giftCard
+      const paragraphs = [
+        ...(card.recipient_name ? [w.hello(card.recipient_name)] : []),
+        ...(card.message ? [w.message(card.message)] : []),
+        w.code(formatGiftCardCode(code)),
+        card.expires_at ? w.until(en.date(new Date(card.expires_at))) : w.never,
+        w.use(card.store_name),
+      ]
+      const content: EmailContent = { subject: w.subject(card.store_name), heading: w.heading(en.money(card.locale, card.balance_amount, card.currency)), paragraphs, ...(host ? { action: { label: w.action, url: `https://${host}` } } : {}) }
+      return { send: true, accountSecurity: false, to: [card.recipient_email], voice: look.voice, brand: { ...look.brand, name: card.store_name, supportUrl: null }, content }
     }
     case 'order-confirmed':
     case 'order-shipped': {
