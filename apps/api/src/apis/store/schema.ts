@@ -31,6 +31,7 @@ import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
 import { registerSupport } from './support'
+import { registerActivity } from './activity'
 import { registerDevelopers } from './developers'
 import { registerBilling } from './billing'
 
@@ -72,6 +73,7 @@ registerReports(builder)
 registerReportExports(builder)
 registerListing(builder)
 registerSupport(builder)
+registerActivity(builder)
 registerDevelopers(builder)
 registerBilling(builder)
 

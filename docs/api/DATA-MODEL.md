@@ -1952,7 +1952,7 @@ catalog_import      (id, store_id, seller_id NULL, source ('csv'|'shopify'), sta
                     -- stock_movement 'import'. The file and plan go when the run ends, the error file
                     -- a day later. A connected import (K7) has connection_id, selection (the picked
                     -- products, null for all) and cursor, and is read into the file before its check
-catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'orders'|'customers'|'offer_codes'|'report'), filter jsonb,
+catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'orders'|'customers'|'offer_codes'|'report'|'activity'), filter jsonb,
                      state ('queued'|'done'|'failed'), rows, truncated, csv text NULL,
                      requested_by_id, requested_by_label, created_at, finished_at, expires_at)
                     -- built on #301 (migration 0058): the store's CSV exports, named apart from
@@ -1962,6 +1962,7 @@ catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'ord
                     -- prototype downloads add their kinds when their cards build them; 'orders' came
                     -- with #310 (0073), its filter a chip and a search, a supplier's file its own lines;
                     -- 'report' with #322 (0101), its filter the panel or custom report and the range fixed when asked
+                    -- 'activity' with #331 (0161): the store's Activity log, its filter the screen's, built in the Owner's scope
 signup              §3.3 (built on #290)
 access_request      (id, store_id, by_user_id, kind ('feature'|'area'), what,
                      resolved_at NULL, resolution ('acted'|'dismissed') NULL, resolved_by NULL)

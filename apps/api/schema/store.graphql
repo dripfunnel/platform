@@ -780,6 +780,7 @@ type Mutation {
   duplicateOffer(id: ID!): ID
   duplicateProduct(id: ID!): SavedProduct
   endOffer(id: ID!): Boolean
+  exportActivity(filter: StoreActivityFilter): ID
   exportCustomers(groupId: ID, search: String): ID
   exportOfferCodes(batchId: ID!): ID
   exportOrders(filter: OrderFilter, search: String): ID
@@ -1711,6 +1712,8 @@ type Provisioning {
 }
 
 type Query {
+  activityExport(id: ID!): StoreActivityExport
+  activityLog(after: String, before: String, filter: StoreActivityFilter, first: Int): StoreActivityPage
   apiKeyChoices: ApiKeyChoices
   apiKeys(after: String, before: String, first: Int): ApiKeyPage
   billingDetails: BillingDetails
@@ -2199,6 +2202,76 @@ type StockVersion {
 type StockVersionPage {
   nodes: [StockVersion!]
   pageInfo: PageInfo
+}
+
+type StoreActivityActor {
+  id: String
+  kind: String
+  label: String
+}
+
+type StoreActivityAgent {
+  id: String
+  kind: String
+  label: String
+}
+
+type StoreActivityChange {
+  after: String
+  before: String
+  field: String
+}
+
+type StoreActivityEntry {
+  action: String
+  actor: StoreActivityActor
+  at: String
+  category: String
+  changes: [StoreActivityChange!]
+  customerId: String
+  id: ID
+  onBehalfOf: StoreActivityAgent
+  reason: String
+  result: String
+  sellerId: String
+  target: StoreActivityTarget
+  through: StoreActivityThrough
+}
+
+type StoreActivityExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+input StoreActivityFilter {
+  from: String
+  personId: String
+  personKind: String
+  result: String
+  search: String
+  to: String
+  what: String
+}
+
+type StoreActivityPage {
+  items: [StoreActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type StoreActivityTarget {
+  id: String
+  label: String
+  type: String
+}
+
+type StoreActivityThrough {
+  id: String
+  kind: String
 }
 
 type StoreAddress {

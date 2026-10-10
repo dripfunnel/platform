@@ -1,6 +1,7 @@
 import type { Keyset } from '#core/cursor'
-import type { ActivityResult, ActivityRow, ActorKind, NewActivityRow } from '../schema/activity'
-import { pageLimit, type ScopedSql } from './index'
+import type { ActivityCategory, ActivityResult, ActivityRow, ActorKind, NewActivityRow } from '../schema/activity'
+import { pageLimit, pgArray, type ScopedSql } from './index'
+import { likePattern } from './stores'
 
 export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promise<string> => {
   const rows = await tx<{ id: string }[]>`
@@ -70,6 +71,11 @@ export interface ActivityQuery {
   accessRef?: string | undefined
   /** One person's timeline: what they did, and what was done in their name (LOGGING §6). */
   person?: { kind: ActorKind; id: string } | undefined
+  category?: ActivityCategory | undefined
+  /** Action families: the code's first part (`product` of `product.updated`). */
+  families?: readonly string[] | undefined
+  /** LOGGING §7's search box, over the actor's, agent's and target's labels. */
+  search?: string | undefined
 }
 
 export const activityLevels = ['admin', 'partner', 'store', 'storefront', 'system', 'security'] as const
@@ -134,6 +140,9 @@ export const selectActivity = async (tx: ScopedSql, query: ActivityQuery, page: 
       ${query.level !== undefined && query.level !== 'security' && query.level !== 'system' ? tx`and api = ${apiOfLevel[query.level]} and category not in ('security', 'system')` : tx``}
       ${query.ip !== undefined ? tx`and ip = ${query.ip}` : tx``}
       ${query.accessRef !== undefined ? tx`and access_ref = ${query.accessRef}` : tx``}
+      ${query.category !== undefined ? tx`and category = ${query.category}` : tx``}
+      ${query.families !== undefined ? tx`and split_part(action, '.', 1) = any (${pgArray([...query.families])}::text[])` : tx``}
+      ${query.search !== undefined ? tx`and (actor_label ilike ${likePattern(query.search)} or on_behalf_of_label ilike ${likePattern(query.search)} or target_label ilike ${likePattern(query.search)})` : tx``}
       ${
         query.person !== undefined
           ? tx`and ((actor_kind = ${query.person.kind} and actor_id = ${query.person.id}) or (on_behalf_of_kind = ${query.person.kind} and on_behalf_of_id = ${query.person.id}))`

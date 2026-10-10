@@ -223,6 +223,12 @@ every other tenant read.
   §7.10) built the same way in the asker's scope, so a supplier's holds its own rows; it caps at
   10,000 rows, its CSV is readable by the asker for 1 hour, and the request is logged as
   `catalog.exported` with any search text replaced by `searched`.
+  **A store's Activity log** (built on #331) is read by the Owner and the Manager (`activity.read`),
+  through the log's own policy, and exported by the Owner alone (`activity.export`, never a support
+  session) as a `catalog_export` of kind `activity`: built in the Owner's scope, capped at 10,000
+  entries (its last line says when it was cut), with the partner export's columns and no IP or user
+  agent, readable by the asker for 1 hour, and logged as `activity.exported` with the search text
+  replaced by `searched`.
 
 ---
 
@@ -253,7 +259,9 @@ The same log screen in all three portals, fed by each app's API. The component l
 `(target_type, target_id)` and `(action)` followed by `(occurred_at desc, id desc)`, plus
 `(occurred_at desc, id desc)` alone for the unfiltered page. The keyset cursor is the pair
 `(occurred_at, id)`, opaque to the client, and every page also bounds `occurred_at` so the
-planner prunes partitions. Trigram indexes on `actor_label` and `target_label` for the search
+planner prunes partitions. The search box (built on #331, for the store's log) is a plain `ilike` over
+`actor_label`, `on_behalf_of_label` and `target_label` within the store's own rows, and the store's
+"What" filters by an action's family (`product` of `product.updated`). Trigram indexes on `actor_label` and `target_label` for the search
 box *(decide)*. Row-level security per §6, not only on `store_id`: a partner reads entries with
 `visibility = partner` in its partner; a store reads `store` and `self` entries in its store and
 the `partner` ones that name it (account-level events: plan, trial, suspension, provisioning);
