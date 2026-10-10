@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports).
+Last updated: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -355,6 +355,14 @@ discount given, the stacking warning, "Check a code a customer gives you"; the g
 (type → reward → trigger → requirement → audience → schedule → stacking) and its recipes; codes,
 bulk single-use codes and QR downloads; pause, end, duplicate, delete. Staff see the list
 read-only. Plan gates as OFFERS-DESIGN U and the Pricing page draw them.
+
+**Built on #325, part 1** (`apps/ui/store/src/features/offers/`, `/offers`, `?status=` picks the tab): the list with its
+four tabs and counts, search, the type and "how shoppers get it" filters, "Check a code a customer gives you" (the API's
+answer as the shopper meets it), each row's name, what it gives, code or Automatic, status with its time line in the
+store's time zone, and uses ("38 / 100" with a meter); row actions Turn off, Turn on, End now, Duplicate, Delete and Copy
+code, each confirmation restating its consequence; Staff read and check codes only. Decided here: the list has no
+"Discount given" column (`offers` carries uses only; the figure is on the offer's page), no bulk selection (no bulk API)
+and no "Stacks with" marker (the stacking check needs an API), each a follow-up.
 
 ## 9. Abandoned carts (`Carts`)
 

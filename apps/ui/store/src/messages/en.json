@@ -4211,6 +4211,286 @@
       "deleted": "{name} deleted"
     }
   },
+  "offers": {
+    "title": "Offers",
+    "lede": "Discounts on your store: money off, something free, or free {ship}.",
+    "joiner": " · ",
+    "loading": "Loading offers",
+    "region": {
+      "shipping": "shipping",
+      "delivery": "delivery",
+      "coupon": "coupon code",
+      "voucher": "voucher code"
+    },
+    "kinds": {
+      "products": "Money off products",
+      "order": "Money off the order",
+      "bxgy": "Buy X, get Y",
+      "shipping": "Free {ship}"
+    },
+    "status": {
+      "live": "Live",
+      "ending": "Ending soon",
+      "scheduled": "Scheduled",
+      "off": "Off",
+      "ended": "Ended",
+      "used_up": "Used up"
+    },
+    "time": {
+      "ends": "Ends {date}",
+      "startedNoEnd": "Started {day} · no end date",
+      "noEnd": "No end date",
+      "endsIn": "Ends in {hours} h · {date}",
+      "scheduled": "Starts when its window opens",
+      "startsIn": {
+        "one": "Starts in {count} day · {date}",
+        "other": "Starts in {count} days · {date}"
+      },
+      "offPassed": "Off · end date passed {day}",
+      "off": "Turned off",
+      "ended": "Ended {day}",
+      "usedUp": "{used} of {total} used"
+    },
+    "repeat": "Repeats {days}, {from}–{to}",
+    "everyDay": "every day",
+    "what": {
+      "chosenProducts": "products you choose",
+      "products": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "collections": {
+        "one": "{count} collection",
+        "other": "{count} collections"
+      },
+      "filterValues": {
+        "one": "{count} filter value",
+        "other": "{count} filter values"
+      },
+      "over": "over {amount}",
+      "aGroup": "a customer group",
+      "percentOff": "{percent}% off",
+      "eachOff": "{amount} off each item",
+      "orderPercent": "{percent}% off the order",
+      "orderAmount": "{amount} off the order",
+      "tiered": "Bigger orders get more off",
+      "bxgyFree": "Buy {buy}, get {get} free",
+      "bxgyHalf": "Buy {buy}, get {get} half price",
+      "bxgyPercent": "Buy {buy}, get {get} at {percent}% off",
+      "shipAmount": "{amount} off {ship}",
+      "shipFree": "Free {ship}"
+    },
+    "sentence": {
+      "giftCards": "gift cards",
+      "onSale": "items already reduced",
+      "percentOff": "{percent}% off {targets}",
+      "eachOff": "{amount} off each item of {targets}",
+      "orderPercent": "{percent}% off the whole order",
+      "orderAmount": "{amount} off the whole order",
+      "tier": "{off} off orders over {minimum}",
+      "bxgyFree": "Buy {buy} of {buyTargets}, get {get} of {getTargets} free",
+      "bxgyHalf": "Buy {buy} of {buyTargets}, get {get} of {getTargets} half price",
+      "bxgyPercent": "Buy {buy} of {buyTargets}, get {get} of {getTargets} at {percent}% off",
+      "more": "the same",
+      "oncePerOrder": " (once per order)",
+      "shipAmount": "{amount} off {ship}",
+      "shipFree": "Free {ship}",
+      "except": "except {list}",
+      "cap": "up to {amount}",
+      "automatic": "automatic at checkout",
+      "code": "code {code}",
+      "singleUse": "single-use codes",
+      "minimumAmount": "orders of {amount} or more",
+      "minimumItems": "with {count}+ items in the cart",
+      "minimumThese": "when buying {count} or more of these",
+      "groups": "for {names} customers",
+      "firstOrder": "first order only",
+      "customers": {
+        "one": "for {count} chosen customer",
+        "other": "for {count} chosen customers"
+      },
+      "countries": "for shoppers shipping to {countries}",
+      "starts": "starts {day}",
+      "ends": "ends {day}",
+      "noEnd": "no end date",
+      "oncePerCustomer": "once per customer",
+      "timesPerCustomer": "{count} times per customer",
+      "firstUses": "first {count} uses",
+      "kinds": {
+        "product": "product",
+        "order": "order"
+      },
+      "combinesNothing": "doesn’t combine with other offers",
+      "combinesNot": "doesn’t combine with other {kinds} offers"
+    },
+    "notes": {
+      "readOnlyTitle": "Your store is view-only.",
+      "readOnly": "Offers can’t be changed until billing is sorted.",
+      "staffTitle": "View only.",
+      "staff": "You can see offers and check a code a customer gives you. Only the owner or a manager can change them."
+    },
+    "firstTime": {
+      "title": "No offers yet",
+      "body": "An offer takes money off, gives something free or makes {ship} free. It can apply by itself at checkout, or when a shopper types a code."
+    },
+    "denied": {
+      "title": "Page not found",
+      "body": "This page doesn’t exist or you don’t have access to it."
+    },
+    "error": {
+      "title": "We couldn’t load your offers",
+      "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "tabs": {
+      "label": "Offers by status",
+      "live": "Live",
+      "scheduled": "Scheduled",
+      "off": "Off",
+      "ended": "Ended"
+    },
+    "search": {
+      "label": "Search offers",
+      "placeholder": "Search by name or code"
+    },
+    "filters": {
+      "type": "Offer type",
+      "allTypes": "All types",
+      "how": "How shoppers get it",
+      "allHow": "Automatic and codes",
+      "automatic": "Automatic only",
+      "code": "Codes only"
+    },
+    "table": {
+      "label": "{tab} offers",
+      "offer": "Offer",
+      "code": "Code",
+      "status": "Status",
+      "uses": "Uses"
+    },
+    "row": {
+      "actions": "Actions",
+      "automatic": "Automatic",
+      "singleUse": "Single-use codes",
+      "uses": {
+        "one": "{count} use",
+        "other": "{count} uses"
+      },
+      "usesOf": "{used} / {total}"
+    },
+    "empty": {
+      "live": {
+        "title": "No live offers",
+        "body": "Nothing is being discounted right now. Turn on an offer from the Off tab."
+      },
+      "scheduled": {
+        "title": "No scheduled offers",
+        "body": "Plan your next sale ahead: set the dates now, and it starts by itself."
+      },
+      "off": {
+        "title": "Nothing is switched off",
+        "body": "Offers you pause appear here, ready to turn back on."
+      },
+      "ended": {
+        "title": "No ended offers yet",
+        "body": "Past offers stay here with their results, so you can rerun them."
+      }
+    },
+    "noMatch": {
+      "title": "No offers match",
+      "body": "Try another name or code, or clear the filters.",
+      "clear": "Clear filters"
+    },
+    "pages": {
+      "label": "Pages of offers",
+      "showing": "Showing {from}–{to}",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "menu": {
+      "copy": "Copy code",
+      "off": "Turn off",
+      "on": "Turn on",
+      "end": "End now",
+      "duplicate": "Duplicate",
+      "delete": "Delete"
+    },
+    "menuSub": {
+      "off": "Pause it without deleting anything",
+      "on": "Start giving it again",
+      "end": "Sets the end date to now",
+      "duplicate": "Off, with no code — the way to rerun a sale",
+      "delete": "Removes it from your list"
+    },
+    "copied": "{code} copied.",
+    "copyFailed": "Couldn’t copy on this device. Select the code and copy it.",
+    "act": {
+      "cancel": "Cancel",
+      "working": "Saving…",
+      "offTitle": "Turn off {name}?",
+      "off": "Turn off",
+      "offBody": "Shoppers who have it in their cart lose the discount the next time their cart changes. Orders already placed keep it. You can turn it back on at any time.",
+      "offDone": "{name} is off.",
+      "onNow": "{name} is on. Shoppers get it now.",
+      "onLater": "{name} is on. It starts {date}.",
+      "endTitle": "End {name} now?",
+      "end": "End now",
+      "endBody": "This sets its end date to now ({date}, {zone}). Carts lose it the next time they change; placed orders keep it. Off is a pause you can undo; ending is meant to be final. To run it again later, duplicate it.",
+      "endDone": "{name} has ended.",
+      "duplicated": "Copy made. It’s off, with no code or dates yet.",
+      "deleteTitle": "Delete {name}?",
+      "delete": "Delete",
+      "deleteBody": "We suggest ending it instead: it stays in your list with its results. Deleting removes it from your list. Orders already placed keep their discount.",
+      "deleteBodyEnded": "Deleting removes it from your list. Orders already placed keep their discount.",
+      "deleteCode": "The code {code} stays reserved, so it can’t be reused.",
+      "deleteDone": "{name} deleted."
+    },
+    "refused": {
+      "other": "That didn’t work. Nothing was changed. Try again in a moment.",
+      "NOT_FOUND": "That offer isn’t here any more. It may have been deleted.",
+      "READ_ONLY": "Your store is view-only, so offers can’t be changed.",
+      "FORBIDDEN": "Only the owner or a manager can change offers.",
+      "STALE_REVISION": "Someone changed this offer since you opened it. Reload to see their changes.",
+      "CODE_TAKEN": "Another offer already uses that code.",
+      "UNKNOWN_TARGET": "Something this offer names isn’t in your store any more.",
+      "CURRENCY_NOT_SOLD": "Give amounts only in the currencies your store sells in.",
+      "NOT_A_CODE_OFFER": "Single-use codes are for an offer shoppers get with a code.",
+      "TOO_MANY": "That’s more codes than one offer can hold.",
+      "CODES_EXHAUSTED": "We couldn’t make that many new codes with this start. Try longer codes or another start.",
+      "INVALID_INPUT": "Something here isn’t valid. Check it and try again.",
+      "PLAN_LIMIT": "Your plan doesn’t include this.",
+      "liveLimit": "Your plan allows {count} live offers.",
+      "unlock": "{plan} has more. See plans in Billing.",
+      "askOwner": "Ask your store owner to upgrade."
+    },
+    "check": {
+      "label": "Check a code a customer gives you",
+      "placeholder": "e.g. summer20",
+      "looking": "Checking…",
+      "failed": "We couldn’t check that code. Try again in a moment.",
+      "tooMany": "Too many checks. Wait a minute and try again.",
+      "unknown": "{code} isn’t one of your codes.",
+      "unknownBody": "Check the spelling. Codes aren’t case-sensitive: summer20 and SUMMER20 are the same.",
+      "deleted": "{code} was deleted.",
+      "deletedBody": "It no longer works. Shoppers see “This code isn’t valid”.",
+      "works": "{code} works now.",
+      "ends": "Ends {date}.",
+      "singleUse": "It’s a single-use code: it works once, for one shopper.",
+      "oncePerShopper": "Each shopper can use it once.",
+      "someCustomers": "Only for some customers.",
+      "firstOrder": "Only on a shopper’s first order.",
+      "minimum": "Needs an order of {amount} or more.",
+      "notYet": "{code} doesn’t work yet.",
+      "notYetBody": "{name}. Starts {date}. Shoppers see “This code isn’t valid”.",
+      "off": "{code} is turned off.",
+      "offBody": "{name}. Shoppers see “This code isn’t valid”.",
+      "expired": "{code} has expired.",
+      "expiredBody": "{name}. Ended {day}. Shoppers see “This code has expired”.",
+      "usedUp": "{code} is used up.",
+      "usedUpBody": "{name}. All {total} uses are gone. Shoppers see “This code can’t be used any more”.",
+      "usedOnce": "{name}. This single-use code was used {date}."
+    }
+  },
   "sales": {
     "title": "Your sales",
     "sub": "Lines with {supplier}’s products in {store}.",

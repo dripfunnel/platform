@@ -1,0 +1,382 @@
+/* Offers (designs/Offers.dc.html): the list with its code check, tabs and rows. */
+.df-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 1180px;
+}
+
+.df-offers-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-offers-head .df-page-title {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.df-offers-head .df-page-lede {
+  margin-top: var(--df-space-1);
+  font-size: 14px;
+}
+
+.df-offers-sub {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-offers-note {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.df-offers-note--info {
+  border-color: var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-offers-note--warning {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-offers-note--danger {
+  border-color: var(--df-color-danger-border);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}
+
+.df-offers-error {
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-offers-good {
+  margin: 0;
+  color: var(--df-color-success);
+  font-size: 13px;
+}
+
+/* "Check a code a customer gives you" */
+.df-offers-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-offers-check-field {
+  display: flex;
+  flex: 1 1 260px;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.df-offers-check-field input {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-mono);
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.df-offers-check-answer {
+  flex: 2 1 320px;
+}
+
+.df-offers-check-answer:empty {
+  display: none;
+}
+
+.df-offers-check-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid;
+  border-radius: var(--df-radius);
+  font-size: 13px;
+}
+
+.df-offers-check-result a {
+  align-self: flex-start;
+  color: var(--df-color-link);
+  font-family: var(--df-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.df-offers-check-result--success {
+  border-color: var(--df-color-success-border);
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-offers-check-result--info {
+  border-color: var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-offers-check-result--warning {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-offers-check-result--neutral {
+  border-color: var(--df-color-neutral-border);
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-neutral);
+}
+
+.df-offers-check-result--danger {
+  border-color: var(--df-color-danger-border);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}
+
+/* Tabs with their counts */
+.df-offers-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-offers-tabs button {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-offers-tabs button[aria-selected='true'] {
+  border-bottom-color: var(--df-color-brand);
+  color: var(--df-color-heading);
+}
+
+.df-offers-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text);
+  font-size: 12px;
+}
+
+.df-offers-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.df-offers-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.df-offers-toolbar .df-list-search {
+  flex: 1 1 220px;
+  max-width: 340px;
+}
+
+/* The rows: a grid as the prototype draws it, a table to assistive technology. */
+.df-offers-table {
+  overflow-x: auto;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-offers-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) 140px minmax(0, 1.4fr) 120px 110px;
+  gap: 12px;
+  align-items: center;
+  min-width: 820px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-offers-row:last-child {
+  border-bottom: 0;
+}
+
+.df-offers-row--head {
+  padding: 10px 16px;
+  background: var(--df-color-page);
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-offers-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.df-offers-cell .df-pill {
+  align-self: flex-start;
+}
+
+.df-offers-cell .df-offers-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.df-offers-name {
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.df-offers-code {
+  padding: 3px 7px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 5px;
+  background: var(--df-color-neutral-surface);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-offers-uses {
+  gap: 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-offers-meter {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--df-color-neutral-surface);
+}
+
+.df-offers-meter span {
+  display: block;
+  height: 100%;
+  background: var(--df-color-heading);
+}
+
+.df-offers-meter span[data-full] {
+  background: var(--df-color-warning);
+}
+
+.df-offers-menu-sub {
+  display: block;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.df-offers-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-offers-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-offers-card-top,
+.df-offers-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.df-offers-card .df-more > .df-button {
+  width: 100%;
+  min-height: 44px;
+}
+
+.df-offers-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  padding: 36px 20px;
+  border: 1px dashed var(--df-color-field-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  text-align: center;
+}
+
+.df-offers-empty strong {
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+}
+
+.df-offers-empty span {
+  max-width: 420px;
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-offers-pager {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-offers-pager > span:last-child {
+  display: flex;
+  gap: 8px;
+}
