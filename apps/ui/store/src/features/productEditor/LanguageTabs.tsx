@@ -1,5 +1,6 @@
-import { useId, useRef, type KeyboardEvent } from 'react'
+import { useId, useRef } from 'react'
 import { fill, messages, plural } from '../../messages'
+import { tabKeyHandler } from '../common/tabKeys'
 import { languageName } from './TranslationView'
 
 const words = messages.editor.translate
@@ -25,15 +26,7 @@ export const LanguageTabs = ({ main, others, selected, todo, locked, panelId, on
   const codes = [null, ...others]
   const open = codes.filter((code) => !locked || code === selected)
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    const at = open.indexOf(selected)
-    const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: open.length - 1 }[event.key]
-    if (next === undefined) return
-    event.preventDefault()
-    const code = open[(next + open.length) % open.length] ?? null
-    onSelect(code)
-    tabs.current.get(code)?.focus()
-  }
+  const onKeyDown = tabKeyHandler(open, selected, onSelect, (code) => tabs.current.get(code)?.focus())
 
   return (
     <div className="df-editor-languages">
