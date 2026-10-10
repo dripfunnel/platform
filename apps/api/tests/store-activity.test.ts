@@ -158,6 +158,15 @@ describe('the export', () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await gql(q.export, { person: who }, { f: {} })).code).toBe('FORBIDDEN')
   })
 
+  it('refuses a range that ends before it starts, and neither queues nor logs it', async () => {
+    const backwards = { from: '2026-05-02', to: '2026-05-01' }
+    expect((await gql(q.log, { person: 'owner' }, { f: backwards })).code).toBe('INVALID_INPUT')
+    const before = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'activity.exported'`
+    expect((await gql(q.export, { person: 'owner' }, { f: backwards })).code).toBe('INVALID_INPUT')
+    const after = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'activity.exported'`
+    expect(after[0]?.n).toBe(before[0]?.n)
+  })
+
   it('builds the filtered view in the Owner’s scope, logs the ask without the search text, and reads back only to its asker', async () => {
     const asked = await gql<{ exportActivity: string }>(q.export, { person: 'owner' }, { f: { search: 'Olivia' } })
     const id = asked.data?.exportActivity ?? ''
