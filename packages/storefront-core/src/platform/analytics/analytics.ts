@@ -1,15 +1,15 @@
 import type { ConsentChoice } from '../consent/consent'
-import { toDecimal, type ShopMoney } from '../pricing/money'
+import { toDecimal, type Money } from '../../pricing/money'
 
 // Commerce events to the providers the store set up, each only after the shopper agreed to its
 // kind (storefront ARCHITECTURE §2.1: GA4, Meta Pixel and Google Tag Manager, decided on #337).
 
 /** `value` is the Shop API's money (minor units with its currency); the adapters convert it. */
 export type CommerceEvent =
-  | { name: 'view_item'; itemId: string; value: ShopMoney }
-  | { name: 'add_to_cart'; itemId: string; quantity: number; value: ShopMoney }
-  | { name: 'begin_checkout'; value: ShopMoney }
-  | { name: 'purchase'; orderId: string; value: ShopMoney }
+  | { name: 'view_item'; itemId: string; value: Money }
+  | { name: 'add_to_cart'; itemId: string; quantity: number; value: Money }
+  | { name: 'begin_checkout'; value: Money }
+  | { name: 'purchase'; orderId: string; value: Money }
 
 type ConsentKind = 'analytics' | 'marketing'
 type Consent = Record<ConsentKind, boolean>

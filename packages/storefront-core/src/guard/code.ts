@@ -296,6 +296,10 @@ const losesElement = (w: Walk, expr: ts.Expression): boolean => {
   return target !== undefined && kindOfValue(w, target) !== kind
 }
 
+// The unique symbol that brands Money, Stock, Rating and Badge (pricing/brand.ts), wherever core's types are read from.
+const isBranded = (type: ts.Type): boolean =>
+  parts(type).some((t) => t.getProperties().some((p) => p.declarations?.some((d) => /\/pricing\/brand\.(?:d\.)?ts$/.test(d.getSourceFile().fileName))))
+
 const checkCall = (w: Walk, call: ts.CallExpression) => {
   if (call.expression.kind === ts.SyntaxKind.ImportKeyword) return w.report(call, 'code/dynamic-import', 'A theme may not load code with import(); import from the allowed modules at the top of the file.')
   const callee = call.expression
@@ -421,6 +425,9 @@ const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
   }
   if (ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword) w.report(node, 'code/script-url', "A theme may not read import.meta; core's chunk loader alone handles script addresses.")
   if (ts.isExpression(node) && losesElement(w, node)) w.report(node, 'code/dom-walking', "An element goes only where an element is expected; cast or handed to another type, what's reached through it would go unchecked.")
+  if (isAssertion(node) && !ts.isSatisfiesExpression(node) && isBranded(w.checker.getTypeAtLocation(node))) {
+    w.report(node, 'code/core-type-cast', "Money, stock, ratings and badges come only from core's hooks; a theme never casts a value to one.")
+  }
   if (ts.isExpression(node) && losesTranslate(w, node)) w.report(node, 'code/t-key-not-literal', "Call t() as core gives it, without passing it on as another type, so every key it's called with can be checked.")
   const assigned = assignedPattern(node)
   if (assigned) {

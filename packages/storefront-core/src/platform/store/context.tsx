@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
+import { setProblemReporter, shopProblemReporter } from '../../sealed/report'
 import type { ShopClient } from '../api/client'
 import { createI18n, type Translate } from '../i18n/i18n'
 import type { ShopStoreSettings } from './store'
@@ -19,9 +20,14 @@ export type Storefront = {
 
 const StorefrontContext = createContext<Storefront | null>(null)
 
-export const StorefrontProvider = ({ value, children }: { value: Omit<Storefront, 't'> & { t?: Translate }; children: ReactNode }) => (
-  <StorefrontContext.Provider value={{ ...value, t: value.t ?? createI18n(value.locale).t }}>{children}</StorefrontContext.Provider>
-)
+/** Gives the page its store, and sends what core's walls catch to the Shop API (ARCHITECTURE §3.5). */
+export const StorefrontProvider = ({ value, children }: { value: Omit<Storefront, 't'> & { t?: Translate }; children: ReactNode }) => {
+  useEffect(() => {
+    setProblemReporter(shopProblemReporter(value.client))
+    return () => setProblemReporter(null)
+  }, [value.client])
+  return <StorefrontContext.Provider value={{ ...value, t: value.t ?? createI18n(value.locale).t }}>{children}</StorefrontContext.Provider>
+}
 
 export const useStorefront = (): Storefront => {
   const value = useContext(StorefrontContext)
