@@ -24,7 +24,8 @@ import {
 } from '#db/scoped/people'
 import { allowanceFor, planLimitFor, type PlanLimit } from '#saas/entitlements/index'
 import { queueSideEffect } from '#saas/outbox/index'
-import { countKeysMadeBy } from '#db/scoped/apiKeys'
+import { selectKeysMadeBy } from '#db/scoped/apiKeys'
+import { hashSessionId } from '#auth/session'
 import { isUuid } from '#core/ids'
 
 // Settings › People (ACCESS.md §6, SetTeam): the store's merchant side. Every write takes the store's
@@ -98,10 +99,12 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
   }
 
   // Only an Owner makes keys; theirs keep working when they go, and the Owners left are told (decided on #337).
-  const tellOwnersOfKeys = async (tx: ScopedSql, member: { id: string; user_id: string; label: string }) => {
-    const keys = await countKeysMadeBy(tx, storeId, member.user_id, now())
-    if (keys === 0) return
-    await queueSideEffect(tx, { kind: 'email', idempotencyKey: `api-keys-creator-gone:${member.id}:${now().getTime()}`, payload: { template: 'api-keys-creator-gone', storeId, creator: member.label, keys }, partnerId: caller.person.partnerId, storeId })
+  // Once per person and set of keys: told about the same keys before, the Owners aren't told again.
+  const tellOwnersOfKeys = async (tx: ScopedSql, member: { id: string; user_id: string }) => {
+    const keys = await selectKeysMadeBy(tx, storeId, member.user_id, now())
+    if (keys.length === 0) return
+    const digest = await hashSessionId(keys.join(','))
+    await queueSideEffect(tx, { kind: 'email', idempotencyKey: `api-keys-creator-gone:${member.id}:${digest}`, payload: { template: 'api-keys-creator-gone', storeId, creatorId: member.user_id, keys: keys.length }, partnerId: caller.person.partnerId, storeId })
   }
 
   const seatsFor = (tx: ScopedSql, exceptInvitationId: string | null) => countStaffSeats(tx, storeId, exceptInvitationId)

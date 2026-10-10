@@ -1928,7 +1928,8 @@ app                 (id, name, developer, site_url, webhook_url, scopes text[], 
                     -- platform-scoped registry the grants point at (PLATFORM-PROMPT §5.5,
                     -- DESIGN-BRIEF flow 77); Admin API only. Built on #330 (migration 0152): staff
                     -- with apps.manage register, the secret shown once; a store reads a live app's
-                    -- name, developer, site and scopes; app_system reads the rest
+                    -- name, developer, site and scopes, and one it holds a live grant of while it's
+                    -- suspended (0153), so it can see it paused and remove it; app_system reads the rest
 app_grant           built on #330 (0152): also token_hash (unique), installed_at, last_used_at,
                     revoked_by_user_id; one live grant per store and app; the token goes once to the
                     app's webhook_url through `app.notice`, sealed in the outbox row until sent

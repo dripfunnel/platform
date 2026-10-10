@@ -138,5 +138,9 @@ export const touchApiKey = async (tx: ScopedSql, id: string, now: Date): Promise
 }
 
 /** The live keys a person made here, for telling the Owners when that person leaves or stops being an Owner. */
-export const countKeysMadeBy = async (tx: ScopedSql, storeId: string, userId: string, now: Date): Promise<number> =>
-  (await tx<{ n: number }[]>`select count(*)::int as n from api_key k where k.store_id = ${storeId} and k.created_by_user_id = ${userId} and ${live(tx, now)}`)[0]?.n ?? 0
+export const selectKeysMadeBy = async (tx: ScopedSql, storeId: string, userId: string, now: Date): Promise<string[]> =>
+  (await tx<{ id: string }[]>`select k.id from api_key k where k.store_id = ${storeId} and k.created_by_user_id = ${userId} and ${live(tx, now)} order by k.id`).map((r) => r.id)
+
+/** The name the Owners' email gives the person who made the keys, read when it's sent rather than kept in the outbox. */
+export const selectKeyCreatorName = async (tx: ScopedSql, userId: string, partnerId: string): Promise<string | null> =>
+  (await tx<{ label: string }[]>`select coalesce(nullif(name, ''), email) as label from "user" where id = ${userId} and partner_id = ${partnerId}`)[0]?.label ?? null
