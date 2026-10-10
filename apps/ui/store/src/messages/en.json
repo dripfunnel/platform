@@ -4447,7 +4447,8 @@
       "usedUpBody": "{name}. All {total} uses are gone. Shoppers see “This code can’t be used any more”.",
       "usedOnce": "{name}. This single-use code was used {date}."
     },
-    "timesIn": "Times in {zone}"
+    "timesIn": "Times in {zone}",
+    "countsFailed": "We couldn’t count the offers on each tab."
   },
   "sales": {
     "title": "Your sales",
