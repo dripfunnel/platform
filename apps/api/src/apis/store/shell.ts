@@ -6,6 +6,9 @@ import { pageOf } from '#core/paging'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { selectPortalBrand } from '#db/scoped/portalBrand'
 import { selectMyMemberships, selectOpenSupportSession, selectStoreState, type MembershipChoiceRow } from '#db/scoped/storeShell'
+import { selectOpenStoreSupportSession, type StoreSupportRow } from '#db/scoped/storeSupport'
+import { writeRequestOf } from '#saas/storeSupport/index'
+import type { SupportSeat } from '#auth/storeSupport'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, readOnlyFor, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
@@ -56,8 +59,50 @@ const choiceOf = (row: MembershipChoiceRow): Choice | null => {
 const roleName = (role: StoreRole) => role.role
 const tierOf = (role: StoreRole) => (role.side === 'supplier' ? role.tier : null)
 
+interface Banner {
+  partnerName: string
+  agentFirstName: string
+  endsAt: string
+  /** The merchant side's only: what Allow / Deny answers (ACCESS.md §8). */
+  sessionId: string | null
+  access: string | null
+  allowedBy: string | null
+  writeRequest: { note: string; requestedAt: string; state: string } | null
+}
+
 /** What the support banner shows (0036): the partner, the agent's first name and when the session ends. */
-const bannerOf = (s: { partner_name: string; agent_name: string; expires_at: Date }) => ({ partnerName: s.partner_name, agentFirstName: s.agent_name.split(' ')[0] ?? s.agent_name, endsAt: s.expires_at.toISOString() })
+const bannerOf = (s: { partner_name: string; agent_name: string; expires_at: Date }): Banner => ({
+  partnerName: s.partner_name,
+  agentFirstName: s.agent_name.split(' ')[0] ?? s.agent_name,
+  endsAt: s.expires_at.toISOString(),
+  sessionId: null,
+  access: null,
+  allowedBy: null,
+  writeRequest: null,
+})
+
+/** A support caller's own session, from its seat: no read of the store's other sessions. */
+const ownBannerOf = (seat: SupportSeat): Banner => ({
+  partnerName: seat.partnerName,
+  agentFirstName: seat.agent.name.split(' ')[0] ?? seat.agent.name,
+  endsAt: seat.expiresAt.toISOString(),
+  sessionId: seat.sessionId,
+  access: seat.access,
+  allowedBy: null,
+  writeRequest: seat.writeRequest && { ...seat.writeRequest, requestedAt: seat.writeRequest.requestedAt.toISOString() },
+})
+
+/** The merchant side's banner (0160), with the agent's request for writes to Allow or Deny. */
+const merchantBannerOf = (s: StoreSupportRow): Banner => {
+  const asked = writeRequestOf(s)
+  return {
+    ...bannerOf(s),
+    sessionId: s.id,
+    access: s.access,
+    allowedBy: s.access === 'write' ? s.write_decided_by_name : null,
+    writeRequest: asked && { ...asked, requestedAt: asked.requestedAt.toISOString() },
+  }
+}
 
 export const registerShell = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
@@ -144,11 +189,24 @@ export const registerShell = (builder: StoreBuilder) => {
     trialEndsAt: string | null
     pastDueSince: string | null
     provisioning: { state: string; step: string } | null
-    support: { partnerName: string; agentFirstName: string; endsAt: string } | null
+    support: Banner | null
   }
   const Provisioning = builder.objectRef<NonNullable<StateShape['provisioning']>>('Provisioning').implement({ fields: (t) => ({ state: t.exposeString('state'), step: t.exposeString('step') }) })
-  const Support = builder.objectRef<NonNullable<StateShape['support']>>('SupportBanner').implement({
-    fields: (t) => ({ partnerName: t.exposeString('partnerName'), agentFirstName: t.exposeString('agentFirstName'), endsAt: t.exposeString('endsAt') }),
+  const WriteRequest = builder.objectRef<NonNullable<Banner['writeRequest']>>('SupportWriteRequest').implement({
+    // pending, allowed or denied
+    fields: (t) => ({ note: t.exposeString('note'), requestedAt: t.exposeString('requestedAt'), state: t.exposeString('state') }),
+  })
+  const Support = builder.objectRef<Banner>('SupportBanner').implement({
+    fields: (t) => ({
+      partnerName: t.exposeString('partnerName'),
+      agentFirstName: t.exposeString('agentFirstName'),
+      endsAt: t.exposeString('endsAt'),
+      sessionId: t.exposeID('sessionId', { nullable: true }),
+      // read or write
+      access: t.exposeString('access', { nullable: true }),
+      allowedBy: t.exposeString('allowedBy', { nullable: true }),
+      writeRequest: t.field({ type: WriteRequest, nullable: true, resolve: (b) => b.writeRequest }),
+    }),
   })
   const StateType = builder.objectRef<StateShape>('StoreState').implement({
     fields: (t) => ({
@@ -228,13 +286,15 @@ export const registerShell = (builder: StoreBuilder) => {
         const sql = sqlOf(ctx)
         // A supplier hears whether the store is read-only and who from support is in it (§19 "masked"), so it
         // reads nothing of the store row: the support banner comes from its definer function (0036).
+        // A support session hears only of itself, never of another agent in the store (ACCESS.md §8).
+        const own = caller.support ? ownBannerOf(caller.support) : null
         if (caller.role.side !== 'merchant') {
-          const open = await withScope(sql, caller.context, (tx) => selectOpenSupportSession(tx, ctx.now()))
-          return { readOnly: readOnlyFor(caller.role.side, caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: open ? bannerOf(open) : null }
+          const open = own ? null : await withScope(sql, caller.context, (tx) => selectOpenSupportSession(tx, ctx.now()))
+          return { readOnly: readOnlyFor(caller.role.side, caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: own ?? (open ? bannerOf(open) : null) }
         }
         const { row, support } = await withScope(sql, caller.context, async (tx) => ({
           row: await selectStoreState(tx, caller.store.id),
-          support: await selectOpenSupportSession(tx, ctx.now()),
+          support: own ? null : await selectOpenStoreSupportSession(tx, ctx.now()),
         }))
         const status = row?.status ?? caller.store.status
         return {
@@ -243,7 +303,7 @@ export const registerShell = (builder: StoreBuilder) => {
           trialEndsAt: row?.trial_ends_at ? row.trial_ends_at.toISOString() : null,
           pastDueSince: row?.past_due_since ? row.past_due_since.toISOString() : null,
           provisioning: row?.job_state && row.job_step && row.job_state !== 'done' ? { state: row.job_state, step: row.job_step } : null,
-          support: support ? bannerOf(support) : null,
+          support: own ?? (support ? merchantBannerOf(support) : null),
         }
       },
     }),

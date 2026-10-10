@@ -193,14 +193,16 @@ describe('Sessions', () => {
     expect(textOf(cut)).toContain(words.showMore)
   })
 
-  it('shows the history: ended by whom, or expired, and never links a ticket that isn’t https', async () => {
+  it('shows the history: ended by whom, by the store, or expired, and never links a ticket that isn’t https', async () => {
     const ended = session({ id: 'h1', endedAt: '2026-10-04T10:20:00.000Z', endedBy: 'colleague', endedByName: 'Maya Chen', ticket: 'javascript:alert(1)' })
     const expired = session({ id: 'h2', endedAt: '2026-10-04T10:30:00.000Z', endedBy: 'expired' })
-    const html = await render(<SessionsTab open={[]} history={[ended, expired]} openMore={more} onOpenMore={noop} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+    const byStore = session({ id: 'h3', endedAt: '2026-10-04T10:40:00.000Z', endedBy: 'store' })
+    const html = await render(<SessionsTab open={[]} history={[ended, expired, byStore]} openMore={more} onOpenMore={noop} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
     const text = textOf(html)
     expect(text).toContain(words.noOpen)
     expect(text).toContain('Ended by Maya Chen')
     expect(text).toContain(words.endedBy.expired)
+    expect(text).toContain(words.endedBy.store)
     expect(html).not.toContain('href="javascript')
   })
 })

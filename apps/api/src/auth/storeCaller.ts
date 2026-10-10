@@ -3,11 +3,13 @@ import { logEvent } from '#core/log'
 import type { Subscription, TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { crossingsLoggedSince, selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
-import type { ActivityLog, RequestFacts } from './activity'
+import type { ActivityEntry, ActivityLog, RequestFacts } from './activity'
+import { readCookie } from './cookie'
 import { sendsStoreCookie, storeSessionId } from './storeCredential'
 import { hashSessionId } from './session'
 import { readUserSession } from './storeSession'
-import { isMerchantRole, isSupplierRole, isSupplierTier, type StoreRole } from './storePermissions'
+import { storeRoleOf, type StoreRole } from './storePermissions'
+import { resolveSupportCaller, supportActor, supportCookieName, type SupportSeat } from './storeSupport'
 import { isUuid } from '#core/ids'
 import { machineCredentialOf } from './apiKeys'
 import { planApiLimits, resolveMachine, type MachineCaller } from './machineCaller'
@@ -35,6 +37,8 @@ export interface StoreCaller {
   /** Null for the merchant side. */
   seller: { id: string; name: string } | null
   plan: { id: string; name: string } | null
+  /** Set for a partner support session acting as this seat's user (ACCESS.md §8). */
+  support?: SupportSeat
 }
 
 /**
@@ -59,14 +63,8 @@ export const standingPerson = (standing: StoreStanding): StorePerson | null => (
 export const resolvePortalPartner = async (sql: postgres.Sql, host: string): Promise<string | null> =>
   withSystemScope(sql, (tx) => selectPortalPartner(tx, host))
 
-const roleOf = (row: MembershipRow): StoreRole | null => {
-  if (row.seller_id === null) return isMerchantRole(row.role_key) ? { side: 'merchant', role: row.role_key } : null
-  if (!isSupplierRole(row.role_key) || row.access_level === null || !isSupplierTier(row.access_level)) return null
-  return { side: 'supplier', role: row.role_key, tier: row.access_level }
-}
-
 const callerOf = (person: StorePerson, sessionHash: string, row: MembershipRow): StoreCaller | null => {
-  const role = roleOf(row)
+  const role = storeRoleOf(row)
   if (!role) return null
   return {
     person,
@@ -92,7 +90,7 @@ const crossingsPerMinute = 5
 // ACCESS.md §4: naming a store the session doesn't hold is an attempted tenant crossing, logged
 // with the store asked for, the stores held and the person.
 export const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string, activity: ActivityLog, facts: RequestFacts, now: Date) => {
-  if ((await crossingsLoggedSince(tx, person.id, new Date(now.getTime() - 60_000), crossingsPerMinute)) >= crossingsPerMinute) return
+  if ((await crossingsLoggedSince(tx, { kind: 'person', id: person.id }, new Date(now.getTime() - 60_000), crossingsPerMinute)) >= crossingsPerMinute) return
   const target = asked.slice(0, 64)
   const held = await selectHeldStoreIds(tx, person.id, person.partnerId, heldInLabel + 1)
   const listed = held.slice(0, heldInLabel).join(', ') + (held.length > heldInLabel ? ' and more' : '')
@@ -113,6 +111,21 @@ export const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: 
     ...facts,
   })
 }
+
+// A support session is bound to one store: naming another is a crossing too (ACCESS.md §4, §8).
+const supportCrossing = (seat: SupportSeat, partnerId: string, asked: string, facts: RequestFacts, now: Date): ActivityEntry => ({
+  occurredAt: now,
+  category: 'security',
+  action: 'store.crossing_refused',
+  result: 'denied',
+  ...supportActor(seat),
+  partnerId,
+  target: { type: 'store', id: asked.slice(0, 64), label: 'outside the support session' },
+  reason: 'store_not_held',
+  api: 'store',
+  visibility: 'staff',
+  ...facts,
+})
 
 /**
  * Who is asking on this partner's portal host, and in which store (ACCESS.md §3, §4). Resolved
@@ -135,8 +148,20 @@ export const resolveStoreStanding = async (
     return resolved === null ? { kind: 'signed-out' } : 'retryAfterSeconds' in resolved ? { kind: 'limited', retryAfterSeconds: resolved.retryAfterSeconds } : { kind: 'machine', caller: resolved }
   }
   const sessionId = storeSessionId(request)
-  if (!sessionId) return { kind: 'signed-out' }
+  const supportCookie = readCookie(request.headers.get('cookie'), supportCookieName)
+  if (!sessionId && !supportCookie) return { kind: 'signed-out' }
   return withSystemScope(sql, async (tx) => {
+    // A support session on this host first, as a staff session is on the partner console's (#243).
+    const support = supportCookie ? await resolveSupportCaller(tx, partnerId, supportCookie, now, activity, facts) : null
+    if (support?.support) {
+      const asked = request.headers.get(storeHeader)
+      if (!asked || asked === support.store.id) return { kind: 'acting', person: support.person, caller: support }
+      // Capped as a person's are, so a looping tab writes a few a minute at most.
+      const logged = await crossingsLoggedSince(tx, { kind: 'support_session', id: support.support.sessionId }, new Date(now.getTime() - 60_000), crossingsPerMinute)
+      if (logged < crossingsPerMinute) await activity.record(tx, supportCrossing(support.support, partnerId, asked, facts, now))
+      return { kind: 'crossing', person: support.person }
+    }
+    if (!sessionId) return { kind: 'signed-out' }
     const session = await readUserSession(tx, sessionId, partnerId, now)
     const row = session ? await selectStorePerson(tx, session.userId, partnerId) : null
     if (!row) return { kind: 'signed-out' }

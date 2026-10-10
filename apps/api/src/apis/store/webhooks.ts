@@ -106,7 +106,7 @@ export const registerWebhooks = (builder: StoreBuilder) => {
     saveWebhook: t.field({
       type: Saved,
       args: { id: t.arg.id(), url: t.arg.string({ required: true }), events: t.arg.stringList({ required: true }) },
-      extensions: { access: { ...access, audit: webhookAudit.saved } },
+      extensions: { access: { ...access, audit: webhookAudit.saved, blockedFor: ['support'] } },
       resolve: async (_, args, ctx) => answered(await service(ctx).save(args.id ? String(args.id) : null, args.url, args.events)),
     }),
     removeWebhook: t.field({

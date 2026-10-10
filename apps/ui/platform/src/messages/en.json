@@ -2645,6 +2645,7 @@
     "endedBy": {
       "agent": "Ended by {name}",
       "colleague": "Ended by {name}",
+      "store": "Ended by the store",
       "expired": "Expired"
     },
     "returnToTab": "Return to tab",

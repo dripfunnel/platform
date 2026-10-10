@@ -82,7 +82,7 @@ export const registerApps = (builder: StoreBuilder) => {
     installApp: t.field({
       type: 'ID',
       args: { appId: t.arg.id({ required: true }), scopes: t.arg.stringList({ required: true }) },
-      extensions: { access: { ...access, audit: appAudit.installed } },
+      extensions: { access: { ...access, audit: appAudit.installed, blockedFor: ['support'] } },
       resolve: async (_, args, ctx) => answered(await service(ctx).install(String(args.appId), args.scopes)),
     }),
     uninstallApp: t.field({

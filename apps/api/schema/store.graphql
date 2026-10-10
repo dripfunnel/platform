@@ -845,6 +845,7 @@ type Mutation {
   addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
   addTracking(courierName: String, shipmentId: ID!, trackingNumber: String!, trackingUrl: String): Boolean
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
+  allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
@@ -874,12 +875,14 @@ type Mutation {
   deleteTaxClass(id: ID!): Boolean
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
+  denySupportWrite(sessionId: ID!): Boolean
   disconnectCourier(provider: String!): String
   disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
   duplicateOffer(id: ID!): ID
   duplicateProduct(id: ID!): SavedProduct
   endOffer(id: ID!): Boolean
+  exportActivity(filter: StoreActivityFilter): ID
   exportCustomers(groupId: ID, search: String): ID
   exportOfferCodes(batchId: ID!): ID
   exportOrders(filter: OrderFilter, search: String): ID
@@ -909,6 +912,7 @@ type Mutation {
   replayDelivery(id: ID!): ID
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
   requestPickup(shipmentId: ID!): Boolean
+  requestSupportWrite(note: String!): Boolean
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
   resumeCartReminders(cartId: ID!): Boolean
@@ -964,6 +968,7 @@ type Mutation {
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
+  setSupportAccess(allowed: Boolean!): SupportAccessSet
   setTheme(theme: String!): Profile
   shipItems(courierName: String, lines: [ShipLineInput!]!, orderId: ID!, trackingNumber: String, trackingUrl: String, warehouseId: ID!): [ID!]
   signOutOtherSessions: Int
@@ -1830,6 +1835,8 @@ type Query {
   abandonedCart(id: ID!): AbandonedCartDetail
   abandonedCartCounts: AbandonedCartCounts
   abandonedCarts(after: String, before: String, first: Int, search: String, tab: String!): AbandonedCartPage
+  activityExport(id: ID!): StoreActivityExport
+  activityLog(after: String, before: String, filter: StoreActivityFilter, first: Int): StoreActivityPage
   apiKeyChoices: ApiKeyChoices
   apiKeys(after: String, before: String, first: Int): ApiKeyPage
   apps(after: String, before: String, first: Int): InstalledAppPage
@@ -1919,6 +1926,7 @@ type Query {
   supplierCounts: SupplierCounts
   supplierLedger(after: String, before: String, first: Int, supplierId: ID): SupplierLedger
   suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
+  supportAccess(after: String, before: String, first: Int): SupportAccess
   taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
   taxSetup: TaxSetup
   translationProgress(language: String!): TranslationProgress
@@ -2330,6 +2338,76 @@ type StockVersionPage {
   pageInfo: PageInfo
 }
 
+type StoreActivityActor {
+  id: String
+  kind: String
+  label: String
+}
+
+type StoreActivityAgent {
+  id: String
+  kind: String
+  label: String
+}
+
+type StoreActivityChange {
+  after: String
+  before: String
+  field: String
+}
+
+type StoreActivityEntry {
+  action: String
+  actor: StoreActivityActor
+  at: String
+  category: String
+  changes: [StoreActivityChange!]
+  customerId: String
+  id: ID
+  onBehalfOf: StoreActivityAgent
+  reason: String
+  result: String
+  sellerId: String
+  target: StoreActivityTarget
+  through: StoreActivityThrough
+}
+
+type StoreActivityExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+input StoreActivityFilter {
+  from: String
+  personId: String
+  personKind: String
+  result: String
+  search: String
+  to: String
+  what: String
+}
+
+type StoreActivityPage {
+  items: [StoreActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type StoreActivityTarget {
+  id: String
+  label: String
+  type: String
+}
+
+type StoreActivityThrough {
+  id: String
+  kind: String
+}
+
 type StoreAddress {
   city: String
   postal: String
@@ -2501,6 +2579,28 @@ type StoreState {
   status: String
   support: SupportBanner
   trialEndsAt: String
+}
+
+type StoreSupportSession {
+  access: String
+  actingAs: SupportActingAs
+  agentName: String
+  allowedBy: String
+  endedAt: String
+  endedBy: String
+  endedByName: String
+  expiresAt: String
+  id: ID
+  partnerName: String
+  reason: String
+  startedAt: String
+  ticket: String
+  writeRequest: SupportSessionWriteRequest
+}
+
+type StoreSupportSessions {
+  nodes: [StoreSupportSession!]
+  pageInfo: PageInfo
 }
 
 type StoryBlock {
@@ -2676,10 +2776,42 @@ type SupplierTeamPerson {
   you: Boolean
 }
 
+type SupportAccess {
+  allowed: Boolean
+  sessions: StoreSupportSessions
+}
+
+type SupportAccessSet {
+  allowed: Boolean
+  ended: Int
+}
+
+type SupportActingAs {
+  name: String
+  role: String
+  supplier: String
+}
+
 type SupportBanner {
+  access: String
   agentFirstName: String
+  allowedBy: String
   endsAt: String
   partnerName: String
+  sessionId: ID
+  writeRequest: SupportWriteRequest
+}
+
+type SupportSessionWriteRequest {
+  note: String
+  requestedAt: String
+  state: String
+}
+
+type SupportWriteRequest {
+  note: String
+  requestedAt: String
+  state: String
 }
 
 type TaxClass {

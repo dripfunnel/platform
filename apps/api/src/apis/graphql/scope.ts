@@ -27,15 +27,18 @@ export interface Access<Args = Record<string, unknown>> {
   audit?: string
   /** Why a mutation writes no entry: only a rule LOGGING itself states (§5). */
   unlogged?: UnloggedRule
-  /** The staff sessions refused this field whatever their role (ACCESS.md §8.1, §8.2, §8.3). */
-  blockedFor?: readonly StaffSessionKind[]
+  /** The sessions refused this field whatever their role (ACCESS.md §8 "Never", §8.1, §8.2, §8.3). */
+  blockedFor?: readonly BlockedSessionKind[]
   /** A mutation that still works while the store is read-only: paying, signing out (FIRST-RELEASE §19). */
   whileReadOnly?: boolean
+  /** A support session's own field (asking for writes): only a support caller, even a read-only one, reaches it (ACCESS.md §8). */
+  supportOwn?: boolean
   /** API keys may call it too, within their scopes (ACCESS.md §5.6); every other field refuses them. */
   machine?: true
 }
 
 export type StaffSessionKind = 'impersonation' | 'setup'
+export type BlockedSessionKind = StaffSessionKind | 'support'
 
 /** The writes LOGGING.md §3 leaves out of the activity log, each by the rule that says so. */
 export type UnloggedRule = 'cart' | 'payment_return'
@@ -59,6 +62,9 @@ export const accessErrorCode = {
   supplierRequired: 'SUPPLIER_REQUIRED',
   storeSuspended: 'STORE_SUSPENDED',
   readOnly: 'READ_ONLY',
+  // A partner support session: every write before the store allows it, and ACCESS.md §8's "never" list after.
+  supportReadOnly: 'SUPPORT_READ_ONLY',
+  blockedForSupport: 'BLOCKED_FOR_SUPPORT',
 } as const
 
 // One message per code, whatever the target: the refusal must not say whether it exists.
@@ -83,7 +89,7 @@ export interface AccessPolicy<Context> {
   /** The permissions a `machine` field may declare; an API without machine callers leaves it out, and any `machine` field fails the build. */
   machinePermissions?: readonly string[]
   /** Throws `unauthenticated()` or `forbidden()`. Never called for `public` fields. */
-  authorize: (access: Access, context: Context, args: Record<string, unknown>, operation: 'query' | 'mutation' | 'subscription') => Promise<void>
+  authorize: (access: Access, context: Context, args: Record<string, unknown>, operation: 'query' | 'mutation' | 'subscription', field: { name: string; root: boolean }) => Promise<void>
 }
 
 class AccessDeclarationError extends Error {}
@@ -119,10 +125,11 @@ const checkDeclaration = <Context>(
 // The schema's own field objects are rewrapped, so nothing executes the undeclared resolver.
 const guard = <Context>(field: GraphQLField<unknown, Context>, access: Access, policy: AccessPolicy<Context>, onRefusal: 'throw' | 'null') => {
   const resolve = field.resolve ?? defaultFieldResolver
+  const root = onRefusal === 'throw'
   field.resolve = async (source, args, context, info) => {
     if (access.scope !== 'public') {
       try {
-        await policy.authorize(access, context, args, info.operation.operation)
+        await policy.authorize(access, context, args, info.operation.operation, { name: field.name, root })
       } catch (error) {
         if (onRefusal === 'null' && isRefusal(error)) return null
         throw error
