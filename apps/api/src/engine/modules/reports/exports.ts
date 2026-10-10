@@ -111,12 +111,12 @@ const sheetOf = async (tx: ScopedSql, f: ReportExportFilter, w: ReportWindow, li
     case 'markets':
       return { header: ['market', 'orders', 'takings', 'currency'], rows: (await selectByMarket(tx, w, limit)).map((r) => [r.name, r.orders, amount(r.amount, c), c]) }
     case 'tax': {
-      const tax = await selectTax(tx, w, f.taxBy)
+      const tax = await selectTax(tx, w, f.taxBy, limit)
       const key = (k: string | null) => (k === null ? null : f.taxBy === 'rate' ? `${Number(k) / 100}%` : k)
       return { header: [f.taxBy, 'orders', 'tax', 'currency'], rows: tax.rows.map((r) => [key(r.key), r.orders, amount(r.amount, c), c]) }
     }
     case 'suppliers':
-      return { header: ['supplier', 'units sold'], rows: (await selectSupplierUnits(tx, w)).map((r) => [r.name ?? 'Your own products', r.units]) }
+      return { header: ['supplier', 'units sold'], rows: (await selectSupplierUnits(tx, w, limit)).map((r) => [r.name ?? 'Your own products', r.units]) }
     case 'offers':
       return { header: ['offer', 'orders', 'discount', 'takings', 'currency'], rows: (await selectTopOffers(tx, w, limit)).map((r) => [r.label, r.orders, amount(r.discount, c), amount(r.amount, c), c]) }
     case 'custom':
@@ -149,7 +149,8 @@ export const createReportExportService = ({ sql, context, actor, activity, facts
   const { storeId } = context
   const inScope = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, context, work)
 
-  const request = async (ask: { panel: ReportPanel; days: number; currency: string | null; custom: CustomReport | null }): Promise<{ ok: true; jobId: string } | { ok: false; reason: 'INVALID_INPUT' }> => {
+  /** `custom` is the builder's two answers, checked here like the rest. */
+  const request = async (ask: { panel: ReportPanel; days: number; currency: string | null; custom: { rows: string; columns: string } | null }): Promise<{ ok: true; jobId: string } | { ok: false; reason: 'INVALID_INPUT' }> => {
     const opened = await createReportsService({ sql, context, now }).open(ask.days, ask.currency)
     if (!opened.ok || opened.value.currency === null || !jobPayloadOf(context, storeId)) return { ok: false, reason: 'INVALID_INPUT' }
     const r = opened.value

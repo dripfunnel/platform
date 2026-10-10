@@ -2,4 +2,4 @@
 -- read back by id, built after commit in the asker's own scope.
 
 alter table catalog_export drop constraint catalog_export_kind_check;
-alter table catalog_export add constraint catalog_export_kind_check check (kind in ('products', 'stock', 'orders', 'customers', 'report'));
+alter table catalog_export add constraint catalog_export_kind_check check (kind in ('products', 'stock', 'orders', 'customers', 'offer_codes', 'report'));

@@ -226,11 +226,12 @@ promotions tests before relying on it.
    - Total uses and uses per customer work for codes and for automatic offers. The engine's
      usage counting must survive concurrency (PLATFORM-PROMPT §5.4, §5.9): two shoppers
      placing orders at once can't both take the last use.
-   - "Per customer" only works once the shopper is known. A **guest** is recognised by normalised
-     email, or by phone only once proven by a code (mobile sign-in, ACCESS §2.1); a typed,
-     unproven phone never counts (decided 2026-10-05 on #337). Limits are best-effort for guests. The form's helper
-     text (a `messages/` key) says so: guests are recognised by email, and shoppers who signed
-     in with a mobile code by their number.
+   - "Per customer" and "first order only" work only once the shopper is known, which means **signed in**: by
+     their account, and by its email once proven (which also counts the guest orders placed with it). A guest is never
+     counted, by a typed email or a typed number, since any answer turning on what they typed would reveal another
+     shopper's history (ACCESS §2.1); such an offer asks a guest to sign in. Decided on #320's review, narrowing #337's
+     "guests recognised by normalised email, or by a phone proven by a code" (§3.1). The form's helper text (a
+     `messages/` key, with the editor) says so: "Shoppers sign in to use it, so we know who has used it."
    - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).
    - Show usage as "38 of 100 used".
 9. **Status is derived, not stored.** The portal (or the Store API) computes it from
@@ -339,6 +340,53 @@ promotions tests before relying on it.
     saved offer and return lines, discounts, tax, shipping and total. It must not count a
     use, reserve stock or create an order. Engine requirement, `(release: decide)`. It powers
     "Try this offer" (part O).
+
+### 3.1 What the engine built (#320, SAPI 14)
+
+`apps/api/src/engine/modules/promotions` (`definition.ts` holds every argument, `pricing.ts` the pricing). Amounts are
+minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store's own.
+
+| Kind | Key | Arguments |
+|---|---|---|
+| Condition | `minimum_order_amount` | `amounts` |
+| | `minimum_quantity` | `minimum` (units in the whole cart) |
+| | `contains_products`, `contains_collection`, `at_least_n_with_filter_values` | `minimum`, and `productIds`, `collectionIds` or `filterValueIds` |
+| | `customer_group`, `specific_customers` | `groupIds` (any of), `customerIds` |
+| | `first_order` · `shipping_country` | none · `countries` |
+| | `recurrence` | `days` (0 is Sunday), `from`, `to` (`HH:MM`, the store's time zone) |
+| | `any_of` | `conditions`: two to ten of the above (the engine's OR) |
+| Action | `order_percentage_discount` · `order_fixed_discount` | `percent` (1–100) and an optional `cap` · `amounts` |
+| | `products_percentage_discount` · `line_fixed_discount` (per unit) | `percent` and optional `cap` · `amounts`; both `targets` and `exclude` (`giftCards`, `onSale`) |
+| | `free_shipping` · `shipping_fixed_discount` | none · `amounts` |
+| | `buy_x_get_y` | `buy` and `get` (`quantity`, `targets`; `get.targets` null is "the same"), `percent` off (100 is free), `oncePerOrder` |
+| | `tiered_discount` | `kind` (`percent` or `fixed`), two to five `tiers` (`minimum`, then `percent` or `amounts`) |
+
+**Decided here** (#320), where the facts above left the engine a choice:
+- **One action per offer.** The four types of §5 are one action each; the tables hold more for later.
+- **Targets are one argument** (products, collections and filter values, any of them) on the two product actions,
+  rather than separate `filter_value_discount` and `collection_discount` keys; `buy_x_get_y` is an action only.
+- **Inside a stage the biggest discount goes first** (as each would price alone, then the oldest offer, then by id), and
+  an offer is skipped when it and one already taken don't combine both ways. So the same cart always prices the same way,
+  and two offers that don't combine give the shopper the better one.
+- **An amount not set in the cart's currency means the offer doesn't apply in it** (a fixed amount, a minimum, a cap or a
+  tier), never a conversion at pricing time (fact 10).
+- **The minimum compares with the goods as priced in the store's own tax setting** (including tax in a tax-inclusive
+  store, before tax otherwise: fact 11's default), after the product stage's discounts for an order or shipping offer.
+- **Status ignores a repeating offer's windows**: it is Live between them; its time line says when it runs.
+- **A shipping offer applies once a delivery is chosen**, to what that delivery costs.
+- **Amounts are in the store's own tax mode**, so tax is computed afterwards, on what the lines come to after their discounts.
+- **Once per customer and first order only need a signed-in shopper** (`SIGN_IN_REQUIRED` for every guest, whatever
+  they typed). A signed-in shopper is counted by their account and by its email once proven, which also counts the guest
+  orders they placed with it. A typed email is never counted: any answer that turned on one, in the cart or at
+  placement, would tell anyone whether that email had used an offer or ordered (ACCESS §2.1, "never reveal whether an
+  account or email exists"). This narrows fact 8's "guests are recognised by normalised email" (#337): a guest proves
+  the email by signing in with the code it is sent, and their order goes through without the offer if they don't.
+- **A preview's test order takes no use**, so trying an offer on the preview never spends a real limit or code.
+- **A cart holds up to five codes**; a code that can't work whatever is added comes straight back off it, one whose
+  conditions aren't met yet stays and applies once they are.
+- **Used up or ended while the order is being placed** (the last use taken by another order under the same lock):
+  placement refuses `OFFER_CHANGED` and the shopper sees the cart again without it. Placement prices the cart afresh, as
+  it does a price change, so an offer turned off before "Pay" is simply not on the order.
 
 ---
 

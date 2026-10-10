@@ -5,20 +5,25 @@ import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
+import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
+import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
-// Card #322 (SAPI 18), part 2: Reports' panels (FIRST-RELEASE §10): takings, what sold, markets, tax, suppliers and
-// offers over the store's own days, Owner and Manager only, behind the plan (ACCESS §5.1 `reports.read`, §11).
+// Card #322 (SAPI 18), parts 2 and 3: Reports' panels (FIRST-RELEASE §10), takings, what sold, markets, tax, suppliers and
+// offers over the store's own days, their exports and the custom report builder; Owner and Manager only, behind the plan
+// (ACCESS §5.1 `reports.read`, §11).
 
 let db: TestDatabase
 let t: Tenants
 type Who = 'owner' | 'manager' | 'staff' | 'supplier' | 'other'
 const cookies = {} as Record<Who, string>
-const plans = { full: '', sales: '', none: '' }
+const plans = { full: '', sales: '', none: '', business: '' }
 const products = { kurta: '', scarf: '' }
 let india = ''
+let usa = ''
+let delta = ''
 // 11:30 in Kolkata on 10 October: the last 7 days began at midnight there on the 4th (18:30 UTC on the 3rd).
 const now = new Date('2026-10-10T06:00:00Z')
 
@@ -88,6 +93,8 @@ beforeAll(async () => {
   plans.full = await plan('Pro', ['reports_sales', 'reports_export'])
   plans.sales = await plan('Growth', ['reports_sales'])
   plans.none = await plan('Starter', [])
+  // Unpriced plans unlock by name (entitlements.ts), so this one sorts after Growth and Pro.
+  plans.business = await plan('Scale', ['reports_sales', 'reports_export', 'reports_custom'])
   await subscribe(t.storeA1, t.partnerA, plans.full, 'INR')
   await subscribe(t.storeA2, t.partnerA, plans.full, 'USD')
 
@@ -111,6 +118,10 @@ beforeAll(async () => {
   products.kurta = await product(t.storeA1, 'Kurta')
   products.scarf = await product(t.storeA1, 'Scarf', t.sellerA1First)
   const tee = await product(t.storeA2, 'Tee')
+  // Store A2 has its own supplier, market and offer, so a leak in either direction would show.
+  delta = (await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${t.storeA2}, 'Delta Goods', 'vendor-catalogue', 'active') returning id`)[0]?.id ?? ''
+  const cap = await product(t.storeA2, 'Cap', delta)
+  usa = (await db.sql<{ id: string }[]>`update market set name = 'United States' where store_id = ${t.storeA2} and is_primary returning id`)[0]?.id ?? ''
   // Every store starts with its Home market (migration 0051).
   india = (await db.sql<{ id: string }[]>`update market set name = 'India' where store_id = ${t.storeA1} and is_primary returning id`)[0]?.id ?? ''
 
@@ -129,8 +140,13 @@ beforeAll(async () => {
   await order(t.storeA1, 'R-5', '2026-10-06T11:00:00Z', { total: 3000, paid: false, method: 'cod' })
   await order(t.storeA1, 'R-6', '2026-10-06T12:00:00Z', { total: 7000, test: true })
   await order(t.storeA1, 'R-7', '2026-10-07T10:00:00Z', { total: 2000, currency: 'USD' })
-  await order(t.storeA2, 'S-1', '2026-10-07T10:00:00Z', { total: 8000, tax: 600, currency: 'USD', region: 'ny', lines: [{ product: tee, name: 'Tee', quantity: 4, total: 8000 }] })
-  await order(t.storeA2, 'S-2', '2026-10-08T10:00:00Z', { total: 3000, tax: 300, currency: 'USD', region: 'CA', lines: [{ product: tee, name: 'Tee', quantity: 1, total: 3000 }] })
+  await order(t.storeA2, 'S-1', '2026-10-07T10:00:00Z', { total: 8000, tax: 600, currency: 'USD', region: 'ny', market: usa, lines: [{ product: tee, name: 'Tee', quantity: 4, total: 8000 }] })
+  await order(t.storeA2, 'S-2', '2026-10-08T10:00:00Z', {
+    total: 3000, tax: 300, currency: 'USD', region: 'CA', discounts: [['SUMMER', 400]],
+    lines: [{ product: tee, name: 'Tee', quantity: 1, total: 1500 }, { product: cap, seller: delta, name: 'Cap', quantity: 2, total: 1500 }],
+  })
+  // 55 offers on one euro order, for the panels' page size.
+  await order(t.storeA2, 'S-3', '2026-10-08T11:00:00Z', { total: 9000, currency: 'EUR', lines: [{ product: tee, name: 'Tee', quantity: 1, total: 9000 }], discounts: Array.from({ length: 55 }, (_, i): [string, number] => [`OFFER${String(i).padStart(2, '0')}`, 100 + i]) })
 }, 60_000)
 
 afterAll(async () => {
@@ -182,11 +198,33 @@ describe('the panels', () => {
   it('goes by state for a US store, and counts nothing of another store', async () => {
     expect((await report('other', 'days: 7', 'currency currencies takings { orders sales { amount } } tax { by total { amount } rows { key amount { amount } } } sold { name units }')).data?.['report']).toEqual({
       currency: 'USD',
-      currencies: ['USD'],
+      currencies: ['EUR', 'USD'],
       takings: { orders: 2, sales: { amount: '11000' } },
       tax: { by: 'state', total: { amount: '900' }, rows: [{ key: 'NY', amount: { amount: '600' } }, { key: 'CA', amount: { amount: '300' } }] },
-      sold: [{ name: 'Tee', units: 5 }],
+      sold: [{ name: 'Tee', units: 5 }, { name: 'Cap', units: 2 }],
     })
+  })
+
+  it('keeps each store’s markets, offers and suppliers its own, both ways (ACCESS §11)', async () => {
+    const fields = 'markets { marketId name } offers { name } suppliers { supplierId name units }'
+    expect((await report('owner', 'days: 7', fields)).data?.['report']).toEqual({
+      markets: [{ marketId: india, name: 'India' }, { marketId: null, name: null }],
+      offers: [{ name: 'DIWALI10' }, { name: 'FREESHIP' }],
+      suppliers: [{ supplierId: null, name: null, units: 3 }, { supplierId: t.sellerA1First, name: 'Anand Textiles', units: 1 }],
+    })
+    expect((await report('other', 'days: 7', fields)).data?.['report']).toEqual({
+      markets: [{ marketId: usa, name: 'United States' }, { marketId: null, name: null }],
+      offers: [{ name: 'SUMMER' }],
+      suppliers: [{ supplierId: null, name: null, units: 5 }, { supplierId: delta, name: 'Delta Goods', units: 2 }],
+    })
+  })
+
+  it('answers 5 of a ranked panel’s rows by default and never more than 50', async () => {
+    const offers = async (args: string) => ((await report('other', 'days: 7, currency: "EUR"', `offers${args} { name }`)).data?.['report'] as { offers: { name: string }[] }).offers
+    expect((await offers('')).map((o) => o.name)).toEqual(['OFFER54', 'OFFER53', 'OFFER52', 'OFFER51', 'OFFER50'])
+    expect(await offers('(first: 500)')).toHaveLength(50)
+    expect(await offers('(first: 0)')).toHaveLength(1)
+    expect((await report('other', 'days: 7, currency: "EUR"', 'tax(first: 500) { rows { key } } suppliers(first: 500) { units }')).data?.['report']).toEqual({ tax: { rows: [] }, suppliers: [{ units: 1 }] })
   })
 })
 
@@ -219,6 +257,85 @@ describe('who may read them (ACCESS §5.1, §11)', () => {
     await db.sql`update store set status = 'past_due' where id = ${t.storeA1}`
     try {
       expect((await report('manager', 'days: 7', 'takings { orders }')).data?.['report']).toEqual({ takings: { orders: 2 } })
+    } finally {
+      await db.sql`update store set status = 'active' where id = ${t.storeA1}`
+    }
+  })
+})
+
+describe('exports and the custom report builder', () => {
+  const relay = () => relayDue(db.sql, { 'export.catalog': catalogExportDeliverer(db.sql) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+  const ask = async (who: Who, args: string, as: { support?: 'read' } = {}) => gql(`mutation { exportReport(${args}) }`, who, as)
+  const file = async (who: Who, args: string) => {
+    const asked = await ask(who, args)
+    expect(asked.errors, args).toBeUndefined()
+    await relay()
+    const read = (await gql(`{ reportExport(id: "${String(asked.data?.['exportReport'])}") { state rows csv } }`, who)).data?.['reportExport'] as { state: string; rows: number; csv: string }
+    expect(read.state, args).toBe('done')
+    return read.csv.split('\n')
+  }
+
+  it('gives each panel’s file over the range shown, read back only by the asker', async () => {
+    expect(await file('owner', 'panel: takings, days: 7')).toEqual([
+      'order,placed at (UTC),customer,market,total,refunded,net,tax,currency',
+      'R-1,2026-10-05T10:00:00.000Z,Buyer,India,100.00,10.00,90.00,10.00,INR',
+      'R-2,2026-10-09T20:00:00.000Z,Buyer,,50.00,0.00,50.00,0.00,INR',
+    ])
+    expect(await file('manager', 'panel: sold, days: 7')).toEqual(['product,units,takings,currency', 'Kurta,3,110.00,INR', 'Scarf,1,40.00,INR'])
+    expect(await file('owner', 'panel: markets, days: 7')).toEqual(['market,orders,takings,currency', 'India,1,90.00,INR', ',1,50.00,INR'])
+    expect(await file('owner', 'panel: tax, days: 7')).toEqual(['rate,orders,tax,currency', '12%,1,6.00,INR', '5%,1,2.00,INR', ',1,2.00,INR'])
+    expect(await file('owner', 'panel: suppliers, days: 7')).toEqual(['supplier,units sold', 'Your own products,3', 'Anand Textiles,1'])
+    expect(await file('owner', 'panel: offers, days: 7')).toEqual(['offer,orders,discount,takings,currency', 'DIWALI10,2,8.00,140.00,INR', 'FREESHIP,1,2.00,50.00,INR'])
+    expect(await file('other', 'panel: tax, days: 7')).toEqual(['state,orders,tax,currency', 'NY,1,6.00,USD', 'CA,1,3.00,USD'])
+    const mine = String((await ask('owner', 'panel: sold, days: 30')).data?.['exportReport'])
+    for (const who of ['manager', 'other'] as const) expect((await gql(`{ reportExport(id: "${mine}") { id } }`, who)).data?.['reportExport'], who).toBeNull()
+    // The store's other exports never read a report's job.
+    expect((await gql(`{ catalogExport(id: "${mine}") { id } }`, 'owner')).data?.['catalogExport']).toBeNull()
+    expect(((await gql('{ reportExports { id } }', 'owner')).data?.['reportExports'] as { id: string }[]).map((e) => e.id)).toContain(mine)
+    const logged = await db.sql<{ changes: unknown }[]>`select changes from activity_log where action = 'report.exported' and target_id = ${mine}`
+    expect(logged[0]?.changes).toEqual([{ field: 'report', before: null, after: '{"panel":"sold","days":30,"currency":"INR","custom":null}', redacted: false }])
+  })
+
+  it('builds a custom report a row an order, a line, a product or a customer, on Business', async () => {
+    expect((await ask('owner', 'panel: custom, days: 7, custom: { rows: "orders", columns: "basic" }')).errors?.[0]?.extensions).toMatchObject({ code: 'PLAN_LIMIT', key: 'reports_custom', unlockedBy: { id: plans.business } })
+    await subscribe(t.storeA1, t.partnerA, plans.business, 'INR')
+    try {
+      expect(await file('owner', 'panel: custom, days: 7, custom: { rows: "orders", columns: "basic" }')).toEqual(['order,placed at (UTC),customer,total,currency', 'R-1,2026-10-05T10:00:00.000Z,Buyer,100.00,INR', 'R-2,2026-10-09T20:00:00.000Z,Buyer,50.00,INR'])
+      expect((await file('owner', 'panel: custom, days: 7, custom: { rows: "orders", columns: "lines" }'))).toEqual([
+        'order,placed at (UTC),item,option,sku,quantity,unit price,line total,supplier,currency',
+        'R-1,2026-10-05T10:00:00.000Z,Kurta,,,2,30.00,60.00,,INR',
+        'R-1,2026-10-05T10:00:00.000Z,Scarf,,,1,40.00,40.00,Anand Textiles,INR',
+        'R-2,2026-10-09T20:00:00.000Z,Kurta,,,1,50.00,50.00,,INR',
+      ])
+      expect(await file('owner', 'panel: custom, days: 7, custom: { rows: "products", columns: "stock" }')).toEqual(['product,units,takings,currency,stock left,supplier', 'Kurta,3,110.00,INR,0,', 'Scarf,1,40.00,INR,0,Anand Textiles'])
+      await db.sql`update customer set name = 'Priya Shah', tags = '{VIP}' where id = ${t.customerA1}`
+      await db.sql`update "order" set customer_id = ${t.customerA1} where store_id = ${t.storeA1} and number = 'R-1'`
+      const [group] = await db.sql<{ id: string }[]>`insert into customer_group (store_id, name) values (${t.storeA1}, 'Trade') returning id`
+      await db.sql`insert into customer_group_member (group_id, customer_id, store_id) values (${group?.id ?? ''}, ${t.customerA1}, ${t.storeA1})`
+      expect(await file('owner', 'panel: custom, days: 7, custom: { rows: "customers", columns: "groups" }')).toEqual(['name,email,orders,spent,currency,groups,tags', 'Priya Shah,priya@example.com,1,90.00,INR,Trade,VIP'])
+      for (const custom of ['{ rows: "orders", columns: "stock" }', '{ rows: "shops", columns: "basic" }']) expect((await ask('owner', `panel: custom, days: 7, custom: ${custom}`)).code, custom).toBe('INVALID_INPUT')
+      expect((await ask('owner', 'panel: custom, days: 7')).code).toBe('INVALID_INPUT')
+      expect((await ask('owner', 'panel: sold, days: 7, custom: { rows: "orders", columns: "basic" }')).code).toBe('INVALID_INPUT')
+    } finally {
+      await subscribe(t.storeA1, t.partnerA, plans.full, 'INR')
+    }
+  })
+
+  it('refuses Staff, suppliers, a plan without export and a read-only support session; allows a past-due store', async () => {
+    for (const who of ['staff', 'supplier'] as const) {
+      expect((await ask(who, 'panel: sold, days: 7')).code, who).toBe('FORBIDDEN')
+      expect((await gql('{ reportExports { id } }', who)).code, who).toBe('FORBIDDEN')
+    }
+    expect((await ask('owner', 'panel: sold, days: 7', { support: 'read' })).code).toBe('FORBIDDEN')
+    await subscribe(t.storeA1, t.partnerA, plans.sales, 'INR')
+    try {
+      expect((await ask('owner', 'panel: sold, days: 7')).errors?.[0]?.extensions).toMatchObject({ code: 'PLAN_LIMIT', key: 'reports_export' })
+    } finally {
+      await subscribe(t.storeA1, t.partnerA, plans.full, 'INR')
+    }
+    await db.sql`update store set status = 'past_due' where id = ${t.storeA1}`
+    try {
+      expect((await ask('manager', 'panel: sold, days: 7')).errors).toBeUndefined()
     } finally {
       await db.sql`update store set status = 'active' where id = ${t.storeA1}`
     }
