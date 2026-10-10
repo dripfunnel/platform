@@ -594,6 +594,7 @@ SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call,
 | `activity.export` | ✓ | | | | ✓ | |
 | `staff.manage` | ✓ | | | | | |
 | `partners.assign` (assign and unassign a Partner manager, #60) | ✓ | | | | | |
+| `apps.manage`: register, list, suspend and restore private apps (#330; no console screen yet) | ✓ | | | | | |
 
 | Decision (#14) | Rejected | Why |
 |---|---|---|
@@ -670,7 +671,7 @@ test (§11.2).
 - **App grants** are per store, with the scopes the merchant approved at install, revocable on
   uninstall; the app runs out of process and reaches the Store API like any other caller.
 - Creating, rotating and revoking keys, and installing and uninstalling apps, are audited.
-- **Webhook and key rules as drawn** (`SetDev`, #286; *proposed* for SAPI 20 to confirm): a rotated key's old secret keeps working for **24 hours**; an endpoint failing for **3 days** is disabled automatically and the Owner told; events for a disabled endpoint are kept **7 days** for replay.
+- **Webhook and key rules as drawn** (`SetDev`, #286; confirmed and built on #330): a rotated key's old secret keeps working for **24 hours**; an endpoint failing for **3 days** is disabled automatically and the Owner told; events for a disabled endpoint are kept **7 days** for replay.
 - **Built on #330 part 1** (API keys; `auth/apiKeys.ts`, `auth/machineCaller.ts`, `saas/apiKeys`, migration 0150): a key is
   `dfk_` and 48 random characters, sent as `Authorization: Bearer`; only its SHA-256 and its first 12 characters (the prefix)
   are kept, and the secret is in the answer to `createApiKey` or `rotateApiKey` alone. It is resolved in `system` scope on every
@@ -686,6 +687,21 @@ test (§11.2).
   email (`api-keys-creator-gone`). **Calls are counted per store** (decided on #337): 60 a minute and 100,000 a month until the
   plan sets its own (SAPI 19's entitlements); past either, the request answers HTTP 429 with `Retry-After`, and every address is
   held to 1,200 key requests a minute before any key is looked up (`API_RATE_LIMITER`).
+- **Built on #330 part 2** (webhooks and apps; `saas/webhooks`, `saas/apps`, `jobs/queues/deliverers/webhooks.ts` and
+  `appNotice.ts`, migrations 0151 and 0152). **Webhooks**: the Owner's `saveWebhook` (https only, its address resolved and
+  refused when any answer is private, loopback, link-local or metadata, as `integrations/http/publicFetch.ts` checks), with the
+  signing secret (`whsec_`) answered once and kept sealed; `removeWebhook`, `turnOnWebhook` and `replayDelivery`. The engine queues
+  `order.placed`, `order.paid`, `order.shipped`, `order.refunded`, `product.updated` and `stock.changed` in the transaction that made
+  them, only when an endpoint takes the event and never for a preview's test order; `webhook.event` makes one delivery per endpoint,
+  and `webhook.deliver` sends it with `DripFunnel-Signature: t=<seconds>,v1=<HMAC-SHA256 of "t.body">`, the address checked again
+  first, a 5-second timeout and no redirect followed, retried by the relay's backoff up to its limit. **Decided here**: a body holds
+  ids only (`{ id, type, createdAt, store, data: { object, id, number? } }`), so neither the outbox nor the delivery log holds a
+  shopper's details; the receiver reads the rest with a key. **Apps**: staff with `apps.manage` register one (name, developer, site,
+  webhook address, scopes from `machineScopes`, its signing secret answered once); the Owner sees `installableApp`, and
+  `installApp` takes the scopes shown back, refusing `SCOPES_CHANGED` when they moved; the grant's token (`dfa_`) goes once to the
+  app's address, signed with its secret, with the Store API's address; it calls the Store API store-wide within its scopes, and
+  stops when uninstalled, or while DripFunnel has the app suspended. Opening the app is a link to its site; nothing of it runs
+  in the portal (decided on #337).
 
 ---
 
@@ -997,7 +1013,8 @@ codes still allow a session.
   own. After it, the "never" list still refuses with `BLOCKED_FOR_SUPPORT`, by permission
   (`invite`, `manage-vendors`, `supplier.team`, `payments.configure`, `billing`,
   `support.allow_write`, `activity.export`) and by `blockedFor: ['support']` on a field
-  (`setSupportAccess`, `createApiKey`, `rotateApiKey`).
+  (`setSupportAccess`, `createApiKey`, `rotateApiKey`, `installApp`, and `saveWebhook`, which would send
+  the store's events to an address the agent chose).
 - **Elevation.** The agent asks with a note (`requestSupportWrite`, one open request at a time,
   again after a Deny). The banner (`storeState.support`) shows it to the merchant side, and an
   Owner or Manager answers with `allowSupportWrite` or `denySupportWrite`. The answer locks the

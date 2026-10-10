@@ -11,7 +11,7 @@ import { GiveUp, type Deliverer } from '../outbox-relay'
 
 const update = z.discriminatedUnion('event', [
   z.object({ event: z.literal('confirmed'), orderId: z.uuid() }).strict(),
-  z.object({ event: z.literal('shipped'), orderId: z.uuid(), fulfilmentId: z.uuid() }).strict(),
+  z.object({ event: z.enum(['shipped', 'delivered']), orderId: z.uuid(), fulfilmentId: z.uuid() }).strict(),
 ])
 
 /** The sender's name in a text (THIRD-PARTY-ACCESS §2.8 {1}): the store's, cut to what a template takes. */
@@ -27,11 +27,11 @@ export const orderNotifyDeliverer = (sql: postgres.Sql, now: () => Date = () => 
       const order = await selectOrderToTell(tx, u.orderId)
       // Gone, another partner's, cancelled since or a test: nobody is told.
       if (!order || order.partner_id !== partnerId || order.store_id !== effect.storeId || order.state === 'cancelled' || order.test) return
-      const shipment = u.event === 'shipped' ? await selectShipmentToTell(tx, u.fulfilmentId) : null
-      if (u.event === 'shipped' && shipment?.order_id !== order.id) return
-      const key = u.event === 'confirmed' ? `confirmed:${order.id}` : `${shipment?.tracking_number ? 'tracked' : 'shipped'}:${u.fulfilmentId}`
+      const shipment = u.event === 'confirmed' ? null : await selectShipmentToTell(tx, u.fulfilmentId)
+      if (u.event !== 'confirmed' && shipment?.order_id !== order.id) return
+      const key = u.event === 'confirmed' ? `confirmed:${order.id}` : u.event === 'delivered' ? `delivered:${u.fulfilmentId}` : `${shipment?.tracking_number ? 'tracked' : 'shipped'}:${u.fulfilmentId}`
       if (order.email) {
-        const payload = u.event === 'confirmed' ? { template: 'order-confirmed', orderId: order.id } : { template: 'order-shipped', orderId: order.id, fulfilmentId: u.fulfilmentId }
+        const payload = u.event === 'confirmed' ? { template: 'order-confirmed', orderId: order.id } : { template: u.event === 'delivered' ? 'order-delivered' : 'order-shipped', orderId: order.id, fulfilmentId: u.fulfilmentId }
         await queueSideEffect(tx, { kind: 'email', idempotencyKey: key, payload, partnerId, storeId: order.store_id })
       }
       if (!order.phone) return
@@ -39,6 +39,11 @@ export const orderNotifyDeliverer = (sql: postgres.Sql, now: () => Date = () => 
       const brand = senderName(order.store_name)
       if (u.event === 'confirmed') {
         await queueSms(tx, { partnerId, storeId: order.store_id, idempotencyKey: key, payload: { message: 'order.confirmed', to: order.phone, brand, vars: { order: order.number }, expiresAt } })
+        return
+      }
+      // The registered "Need help?" link is the parcel's tracking page, the one link a delivered order has (#311).
+      if (u.event === 'delivered') {
+        if (shipment?.tracking_url) await queueSms(tx, { partnerId, storeId: order.store_id, idempotencyKey: key, payload: { message: 'order.delivered', to: order.phone, brand, vars: { order: order.number, link: shipment.tracking_url }, expiresAt } })
         return
       }
       // The registered text names the courier and a link to track it; without both it waits for tracking (addTracking).

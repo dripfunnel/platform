@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
 import type { SecretBox } from '#auth/secretBox'
-import type { ShopConnect } from '#engine/modules/catalog/index'
+import type { AssetStore, ShopConnect } from '#engine/modules/catalog/index'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { CodeCheck } from '#auth/codeCheck'
 import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
@@ -12,6 +12,7 @@ import { withScope } from '#db/scoped/index'
 import { machineScopes } from '#auth/apiKeys'
 import type { MachineCaller } from '#auth/machineCaller'
 import type { TenantContext } from '#core/tenancy'
+import type { DnsLookup } from '#integrations/dns/doh'
 import { accessErrorCode, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
 import type { CourierDirectory } from '#core/couriers'
 import type { PaymentWiring } from '#engine/modules/checkout/index'
@@ -36,9 +37,13 @@ export interface StoreContext extends Record<string, unknown> {
   couriers?: CourierDirectory | null
   /** DripFunnel's own Stripe account, which bills the store's plan (SAAS §7.2); null where its keys aren't set. */
   billing?: (StripeApi & StoreBillingStripe) | null
+  /** The Worker's `ASSETS` bucket, where a booked label's file is kept; null where it isn't bound. */
+  files?: AssetStore | null
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null
   codeCheck?: CodeCheck
+  /** DNS for checking a merchant's webhook address (SSRF, AGENTS.md "Security"); null where none can be asked. */
+  lookup?: DnsLookup | null
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */
   allowCodeCheck?: (key: string) => Promise<boolean>
   now: () => Date
@@ -152,7 +157,7 @@ export interface TenantCaller {
   context: TenantContext
   store: { id: string; name: string }
   seller: { id: string; name: string } | null
-  actor: { kind: 'person' | 'api_key'; id: string; label: string | null; partnerId: string }
+  actor: { kind: 'person' | 'api_key' | 'app_grant'; id: string; label: string | null; partnerId: string }
 }
 
 /** The caller of a field open to keys (`machine`): a person or a key alike. */

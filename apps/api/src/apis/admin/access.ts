@@ -9,6 +9,7 @@ import type { ProvisioningService } from '#saas/provisioning/index'
 import type { StaffSessionsService } from '#saas/staffSessions/index'
 import type { CustomersService } from '#saas/customers/index'
 import type { StaffMembersService } from '#saas/staffMembers/index'
+import type { AppRegistryService } from '#saas/apps/index'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface AdminContext extends Record<string, unknown> {
@@ -23,6 +24,8 @@ export interface AdminContext extends Record<string, unknown> {
   customers: CustomersService | null
   staffMembers: StaffMembersService | null
   dashboard: DashboardService | null
+  /** The private-app registry (`apps.manage`); null when signed out, or where it can't seal a secret. */
+  apps?: AppRegistryService | null
 }
 
 /** ACCESS.md §5.4: the role's permission, then a Partner manager's assignment to the target. */

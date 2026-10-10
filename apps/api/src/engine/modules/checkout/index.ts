@@ -22,6 +22,7 @@ import {
   type SnapshotLine,
 } from '#db/scoped/orders'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
+import { queueStoreEvent } from '#db/scoped/storeEvents'
 import { recoverCarts } from '#engine/modules/cartReminders/index'
 import { claimCode, claimUse, insertUsage, selectShopperUses } from '#db/scoped/promotions'
 import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
@@ -286,6 +287,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
         // Its shopper's carts left this week are recovered by it, and their reminders stop (FIRST-RELEASE §9); a preview's test order isn't a sale.
         if (mode === 'live') await recoverCarts(tx, { storeId, orderId: cart.id, customerId, email: cart.email, now: at })
         await activity.record(tx, placedEntry(cart.id, number))
+        if (mode === 'live') await queueStoreEvent(tx, storeId, 'order.placed', { object: 'order', id: cart.id, number }, cart.id, at)
         // Cash on delivery and a transfer go through as placed; a card's on payment (payments.ts).
         if (holds) await queueOrderUpdate(tx, storeId, { event: 'confirmed', orderId: cart.id }, `confirmed:${cart.id}`)
         return { ok: true as const, value: { orderId: cart.id, number, total: cart.total, provider: option.provider, instructions: option.instructions, payment: card?.started ?? null } }
@@ -365,6 +367,7 @@ export const markPaid = (deps: { sql: postgres.Sql; context: TenantContext; acto
     if (!order) return { ok: false, reason: 'NOT_FOUND' }
     if (order.state !== 'placed' || order.payment_state !== 'pending' || !(order.payment_method && isManual(order.payment_method))) return { ok: false, reason: 'NOT_PENDING' }
     await recordPaid(tx, deps.context.storeId, orderId, deps.now())
+    await queueStoreEvent(tx, deps.context.storeId, 'order.paid', { object: 'order', id: orderId, number: order.number }, orderId, deps.now())
     await deps.activity.record(tx, {
       category: 'write',
       action: checkoutAudit.markedPaid,

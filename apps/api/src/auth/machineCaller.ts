@@ -1,18 +1,19 @@
 import type postgres from 'postgres'
 import type { Subscription, TenantContext } from '#core/tenancy'
 import { selectPresentedKey, touchApiKey } from '#db/scoped/apiKeys'
+import { selectPresentedGrant, touchGrant } from '#db/scoped/apps'
 import { countApiCall } from '#db/scoped/apiUsage'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { effectiveScopes, hashApiKey, isApiKeyShape } from './apiKeys'
+import { effectiveScopes, hashApiKey, isApiKeyShape, isAppTokenShape, type MachineCredential } from './apiKeys'
 import { isSupplierTier, type StorePermission, type SupplierTier } from './storePermissions'
 
-// API keys on the Store API (ACCESS.md §3, §5.6). Resolved in system scope like a session, on every request, so a
+// API keys and app grants on the Store API (ACCESS.md §3, §5.6). Resolved in system scope like a session, on every request, so a
 // revocation, an expiry or a supplier's narrowed tier applies to the next one.
 
 export interface MachineActor {
-  kind: 'api_key'
+  kind: 'api_key' | 'app_grant'
   id: string
-  /** The key's name at the time, for the activity log (LOGGING.md §4). */
+  /** The key's or app's name at the time, for the activity log (LOGGING.md §4). */
   label: string
   partnerId: string
 }
@@ -87,3 +88,32 @@ export const resolveApiKey = async (sql: postgres.Sql, secret: string, partnerId
     }
   })
 }
+
+/** An app's grant token: always store-wide (decided on #337), with the scopes the Owner consented to at install. */
+export const resolveAppGrant = async (sql: postgres.Sql, token: string, partnerId: string, now: Date, limitsOf: ApiLimitsOf): Promise<MachineCaller | CallsLimited | null> => {
+  if (!isAppTokenShape(token)) return null
+  const hash = await hashApiKey(token)
+  return withSystemScope(sql, async (tx) => {
+    const grant = await selectPresentedGrant(tx, hash, partnerId)
+    if (!grant) return null
+    const limited = await overLimit(tx, grant.store_id, now, limitsOf)
+    if (limited) return limited
+    await touchGrant(tx, grant.id, now)
+    return {
+      actor: { kind: 'app_grant', id: grant.id, label: grant.app_name, partnerId: grant.partner_id },
+      store: { id: grant.store_id, name: grant.store_name, status: grant.store_status },
+      seller: null,
+      scopes: effectiveScopes(grant.scopes, null),
+      context: {
+        caller: { kind: 'app', grantId: grant.id, appId: grant.app_id },
+        partnerId: grant.partner_id,
+        storeId: grant.store_id,
+        sellerScope: { kind: 'all' },
+        subscription: grant.store_status,
+      },
+    }
+  })
+}
+
+export const resolveMachine = (sql: postgres.Sql, credential: MachineCredential, partnerId: string, now: Date, limitsOf: ApiLimitsOf) =>
+  credential.kind === 'api_key' ? resolveApiKey(sql, credential.secret, partnerId, now, limitsOf) : resolveAppGrant(sql, credential.secret, partnerId, now, limitsOf)

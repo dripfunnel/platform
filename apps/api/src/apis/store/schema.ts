@@ -32,6 +32,8 @@ import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
 import { registerSupport } from './support'
 import { registerDevelopers } from './developers'
+import { registerWebhooks } from './webhooks'
+import { registerApps } from './apps'
 import { registerBilling } from './billing'
 
 export type { StoreContext } from './access'
@@ -73,6 +75,8 @@ registerReportExports(builder)
 registerListing(builder)
 registerSupport(builder)
 registerDevelopers(builder)
+registerWebhooks(builder)
+registerApps(builder)
 registerBilling(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

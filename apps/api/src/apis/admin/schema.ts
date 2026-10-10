@@ -10,6 +10,7 @@ import './provisioning'
 import './staffSessions'
 import './customers'
 import './staff'
+import './apps'
 
 export type { AdminContext } from './access'
 
