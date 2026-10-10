@@ -3,7 +3,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
-import { queueStoreEvent } from '#db/scoped/storeEvents'
+import { queueStoreEvent, queueStoreEvents } from '#db/scoped/storeEvents'
 import {
   changeStock,
   countWarehouses,
@@ -203,7 +203,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
       const wanted = entries.map((e) => ({ versionId: e.versionId.toLowerCase(), warehouseId: e.warehouseId.toLowerCase(), target: whole(e.quantity, 0) }))
       const done = await setStockTargets(tx, wanted)
       await activity.recordAll(tx, done.filter((d) => d.change !== 0).map((d) => moved(d.version_id, d.warehouse_id, 'typed', d.change, d.quantity)))
-      for (const version of new Set(done.filter((d) => d.change !== 0).map((d) => d.version_id))) await queueStoreEvent(tx, storeId, 'stock.changed', { object: 'product_version', id: version }, crypto.randomUUID(), now())
+      await queueStoreEvents(tx, storeId, 'stock.changed', [...new Set(done.filter((d) => d.change !== 0).map((d) => d.version_id))].map((id) => ({ object: 'product_version' as const, id })), now())
       const byKey = new Map(done.map((d) => [`${d.version_id}:${d.warehouse_id}`, d.quantity]))
       // Answered in the order sent, whatever order the database applied them in.
       return wanted.map((e) => ({ versionId: e.versionId, warehouseId: e.warehouseId, quantity: byKey.get(`${e.versionId}:${e.warehouseId}`) ?? 0 }))

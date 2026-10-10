@@ -1,14 +1,14 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { SecretBox } from '#auth/secretBox'
-import { selectAppNotice } from '#db/scoped/apps'
+import { markGrantToken, selectAppNotice } from '#db/scoped/apps'
 import { withSystemScope } from '#db/scoped/index'
 import { selectLivePortalHost } from '#db/scoped/partners'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { postPublic } from '#integrations/http/publicPost'
 import { NotYet } from '#saas/outbox/index'
 import { signWebhook } from '#saas/webhooks/index'
-import { GiveUp, type Deliverer } from '../outbox-relay'
+import { defaultRelayOptions, GiveUp, type Deliverer } from '../outbox-relay'
 import { webhookTimeoutMs } from './webhooks'
 
 // `app.notice` (#330): an app hears of its install, with the grant's token, and of its uninstall, at its own address,
@@ -42,8 +42,13 @@ export const appNoticeDeliverer = (sql: postgres.Sql, deps: AppNoticeDeps): Deli
     if (!found.host) throw new NotYet('no_portal_host', 60 * 60 * 1000)
     const secret = deps.secrets ? await deps.secrets.open(found.app.secret_sealed) : null
     const token = n.notice === 'installed' && deps.secrets ? await deps.secrets.open(n.tokenSealed) : null
-    if (!secret || (n.notice === 'installed' && !token)) throw new GiveUp('no_signing_key')
     const at = (deps.now ?? (() => new Date()))()
+    // The token goes with the row when it's given up, so the grant says it never arrived and the Owner can install again.
+    const failed = async (error: Error) => {
+      if (n.notice === 'installed' && (error instanceof GiveUp || effect.attempt >= defaultRelayOptions.maxAttempts)) await withSystemScope(sql, (tx) => markGrantToken(tx, n.grantId, 'failed', at))
+      throw error
+    }
+    if (!secret || (n.notice === 'installed' && !token)) return failed(new GiveUp('no_signing_key'))
     const body = JSON.stringify({
       type: `app.${n.notice}`,
       createdAt: at.toISOString(),
@@ -53,8 +58,9 @@ export const appNoticeDeliverer = (sql: postgres.Sql, deps: AppNoticeDeps): Deli
     })
     const headers = { 'content-type': 'application/json', 'user-agent': 'DripFunnel-Webhooks/1', 'dripfunnel-event': `app.${n.notice}`, 'dripfunnel-delivery': effect.id, 'dripfunnel-signature': await signWebhook(secret, body, at) }
     const sent = await postPublic(found.app.webhook_url, body, headers, { lookup: deps.lookup, timeoutMs: webhookTimeoutMs, ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}) })
-    if (!sent.ok) throw new Error(sent.code.toLowerCase())
-    if (sent.status < 200 || sent.status >= 300) throw new Error('status')
+    if (!sent.ok) return failed(new Error(sent.code.toLowerCase()))
+    if (sent.status < 200 || sent.status >= 300) return failed(new Error('status'))
+    if (n.notice === 'installed') await withSystemScope(sql, (tx) => markGrantToken(tx, n.grantId, 'sent', at))
   },
   // The sealed token goes with the delivery, whatever its outcome.
   redact: (payload) => {

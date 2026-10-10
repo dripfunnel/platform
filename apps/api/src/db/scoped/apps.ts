@@ -62,12 +62,14 @@ export interface GrantRow {
   installed_by_name: string | null
   installed_at: Date
   last_used_at: Date | null
+  token_sent_at: Date | null
+  token_failed_at: Date | null
 }
 
 export const selectGrants = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<GrantRow[]> =>
   tx<GrantRow[]>`
     select g.id, g.app_id, a.name as app_name, a.developer, a.site_url, a.status as app_status, to_jsonb(g.scopes) as scopes, u.name as installed_by_name,
-      g.installed_at, g.last_used_at
+      g.installed_at, g.last_used_at, g.token_sent_at, g.token_failed_at
     from app_grant g join app a on a.id = g.app_id left join "user" u on u.id = g.installed_by_user_id
     where g.store_id = ${storeId} and g.revoked_at is null
       and ${window.after ? tx`(g.installed_at, g.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
@@ -125,6 +127,11 @@ export const selectPresentedGrant = async (tx: ScopedSql, hash: string, partnerI
 
 export const touchGrant = async (tx: ScopedSql, id: string, now: Date): Promise<void> => {
   await tx`update app_grant set last_used_at = ${now} where id = ${id} and (last_used_at is null or last_used_at < ${new Date(now.getTime() - 60_000)})`
+}
+
+/** The install notice's outcome on the grant: sent, or given up after the relay's last attempt. */
+export const markGrantToken = async (tx: ScopedSql, grantId: string, outcome: 'sent' | 'failed', now: Date): Promise<void> => {
+  await (outcome === 'sent' ? tx`update app_grant set token_sent_at = ${now}, token_failed_at = null where id = ${grantId}` : tx`update app_grant set token_failed_at = ${now} where id = ${grantId} and token_sent_at is null`)
 }
 
 export interface AppNoticeRow {

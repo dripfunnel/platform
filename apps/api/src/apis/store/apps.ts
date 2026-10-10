@@ -51,6 +51,8 @@ export const registerApps = (builder: StoreBuilder) => {
       installedByName: t.exposeString('installed_by_name', { nullable: true }),
       installedAt: t.string({ resolve: (g) => g.installed_at.toISOString() }),
       lastUsedAt: t.string({ nullable: true, resolve: (g) => g.last_used_at?.toISOString() ?? null }),
+      // waiting | sent | failed: whether the app was told its token. Failed, the Owner removes it and installs again.
+      connection: t.string({ resolve: (g) => (g.token_sent_at ? 'sent' : g.token_failed_at ? 'failed' : 'waiting') }),
     }),
   })
   const InstalledPage = builder.objectRef<{ nodes: GrantRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('InstalledAppPage').implement({
