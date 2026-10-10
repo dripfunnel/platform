@@ -8,6 +8,7 @@
   "files": ["dist", "presets"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./theme": { "types": "./dist/theme/index.d.ts", "default": "./dist/theme/index.js" },
     "./guard": { "types": "./dist/guard/index.d.ts", "default": "./dist/guard/index.js" },
     "./testing": { "types": "./dist/testing/index.d.ts", "default": "./dist/testing/index.js" },
     "./tsconfig": "./presets/tsconfig.json",

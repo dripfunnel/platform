@@ -1,5 +1,6 @@
+import { checkCode } from './code.js'
 import { checkContent } from './content.js'
-import { checkFiles } from './files.js'
+import { checkFiles, codePath } from './files.js'
 import { checkRoutes } from './routes.js'
 import { guardContextSchema, themeFileSchema, type GuardContext, type GuardResult, type Problem, type ThemeFile } from './rules.js'
 
@@ -16,6 +17,8 @@ export const validateChange = (files: readonly ThemeFile[], context: GuardContex
   const input = themeFileSchema.array().parse(files)
   const store = guardContextSchema.parse(context)
   const checked = checkFiles(input, store)
-  const problems = [...checked.problems, ...checkContent(checked.files, store), ...checkRoutes(checked.files, store)].sort(byPlace)
+  const code = new Map([...checked.files].filter(([path]) => codePath.test(path)))
+  const { problems: codeProblems, keys } = checkCode(code, new Set(checked.files.keys()), store)
+  const problems = [...checked.problems, ...codeProblems, ...checkContent(checked.files, keys, store), ...checkRoutes(checked.files, store)].sort(byPlace)
   return { ok: problems.length === 0, problems }
 }

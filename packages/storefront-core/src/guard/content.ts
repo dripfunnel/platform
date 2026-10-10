@@ -1,5 +1,7 @@
+import { en } from '../platform/i18n/messages.js'
 import { brandCopied } from './brand.js'
 import { claimsIn } from './claims.js'
+import type { KeyUse } from './code.js'
 import { contentPath } from './files.js'
 import { readJson } from './json.js'
 import { problem, type GuardContext, type Problem } from './rules.js'
@@ -47,7 +49,7 @@ const nearestLine = (read: Words, key: string): number => {
 }
 
 /** The content rules of ARCHITECTURE §3.4: every key in every language the store offers, and no invented claim or copied brand field. */
-export const checkContent = (files: ReadonlyMap<string, string>, context: GuardContext): Problem[] => {
+export const checkContent = (files: ReadonlyMap<string, string>, keys: readonly KeyUse[], context: GuardContext): Problem[] => {
   const problems: Problem[] = []
   const copied = brandCopied(context.brand)
   const byName = new Map<string, Map<string, Words>>()
@@ -81,6 +83,16 @@ export const checkContent = (files: ReadonlyMap<string, string>, context: GuardC
         if (read.words && !read.words.has(key)) problems.push(problem(path, nearestLine(read, key), 'content/missing-key', `"${key}" is missing, though content/${other}/${name}.json has it; write it in ${locale} too.`))
       }
     }
+  }
+  for (const use of keys) {
+    if (Object.hasOwn(en, use.key)) continue
+    const [name = '', ...rest] = use.key.split('.')
+    const key = rest.join('.')
+    const lacking = context.locales.filter((locale) => {
+      const words = byName.get(name)?.get(locale)?.words
+      return words !== null && !words?.has(key)
+    })
+    if (lacking.length > 0) problems.push(problem(use.file, use.line, 'content/missing-key', `t('${use.key}') has no words in ${lacking.join(', ')}: add "${key || use.key}" to content/{language}/${name}.json.`))
   }
   return problems
 }

@@ -31,7 +31,8 @@ const changed = (overlay: readonly ThemeFile[], remove: readonly string[] = []):
   return [...baseline.filter((f) => !replaced.has(f.path)), ...overlay]
 }
 
-type Case = { name: string; rule: RuleId; file: string | null; line: number | null; files: ThemeFile[]; remove?: string[] }
+/** One refused change: the rule that must refuse it at its file and line, and any other rule the same code breaks. */
+type Case = { name: string; rule: RuleId; file: string | null; line: number | null; files: ThemeFile[]; remove?: string[]; also?: RuleId[] }
 
 const corpus: Case[] = ts.sys.getDirectories(`${fixtures}refused`).map((name) => {
   const dir = `${fixtures}refused/${name}`
@@ -48,16 +49,25 @@ describe('validateChange: the baseline theme', () => {
 })
 
 describe('validateChange: the refused corpus, one case per rule (fixtures/refused)', () => {
-  it.each(corpus)('$name is refused whole, by $rule at $file:$line', ({ files, remove, rule, file, line }) => {
+  it.each(corpus)('$name is refused whole, by $rule at $file:$line', ({ files, remove, rule, file, line, also = [] }) => {
     const result = validateChange(changed(files, remove), context)
     expect(result.ok).toBe(false)
     expect(result.problems.map(at)).toContainEqual({ file, line, rule })
-    expect(new Set(result.problems.map((p) => p.rule))).toEqual(new Set([rule]))
+    expect(new Set(result.problems.map((p) => p.rule))).toEqual(new Set([rule, ...also]))
     for (const p of result.problems) expect(p.message.length).toBeGreaterThan(20)
   })
 })
 
+const accepted = ts.sys.getDirectories(`${fixtures}allowed`).map((name) => ({ name, files: readTree(`${fixtures}allowed/${name}`) }))
+
+describe('validateChange: the accepted corpus, honest code each rule must let through (fixtures/allowed)', () => {
+  it.each(accepted)('$name passes', ({ files }) => {
+    expect(validateChange(changed(files), context).problems).toEqual([])
+  })
+})
+
 const page = (path: string, content = 'export const X = () => null\n'): ThemeFile => ({ path, content })
+const padded = (path: string, bytes: number): ThemeFile => page(path, `//${'x'.repeat(bytes - 2)}`)
 
 /** Cases a file on disk can't hold: names the disk refuses, links, and sizes too big to keep in the repo. */
 const generated: [name: string, files: ThemeFile[], rule: RuleId, file: string | null][] = [
@@ -68,11 +78,11 @@ const generated: [name: string, files: ThemeFile[], rule: RuleId, file: string |
   ['a file in the locked route shims', [page('src/app/page.tsx')], 'files/path-not-allowed', 'src/app/page.tsx'],
   ['a link', [{ ...page('src/theme/pages/AboutPage.tsx'), symlink: true }], 'files/symlink', 'src/theme/pages/AboutPage.tsx'],
   ['two names one disk folds together', [page('src/theme/pages/Extra.tsx'), page('src/theme/pages/extra.tsx')], 'files/duplicate-path', 'src/theme/pages/extra.tsx'],
-  ['a file over its cap', [page('src/theme/pages/Big.tsx', 'x'.repeat(maxFileBytes + 1))], 'files/file-too-large', 'src/theme/pages/Big.tsx'],
+  ['a file over its cap', [padded('src/theme/pages/Big.tsx', maxFileBytes + 1)], 'files/file-too-large', 'src/theme/pages/Big.tsx'],
   ['too many files', Array.from({ length: maxFiles - baseline.length + 1 }, (_, i) => page(`src/theme/components/C${i}.tsx`)), 'files/too-many-files', null],
   [
     'a theme over its total cap',
-    Array.from({ length: Math.ceil(maxThemeBytes / maxFileBytes) + 1 }, (_, i) => page(`src/theme/components/C${i}.tsx`, 'x'.repeat(maxFileBytes))),
+    Array.from({ length: Math.ceil(maxThemeBytes / maxFileBytes) + 1 }, (_, i) => padded(`src/theme/components/C${i}.tsx`, maxFileBytes)),
     'files/theme-too-large',
     null,
   ],
@@ -87,7 +97,7 @@ describe('validateChange: the file rules for what a fixture on disk cannot hold'
 
   it('accepts a file exactly at its cap and a theme of exactly the most files', () => {
     const full = Array.from({ length: maxFiles - baseline.length - 1 }, (_, i) => page(`src/theme/components/C${i}.tsx`))
-    expect(validateChange(changed([...full, page('src/theme/components/Big.tsx', 'x'.repeat(maxFileBytes))]), context).ok).toBe(true)
+    expect(validateChange(changed([...full, padded('src/theme/components/Big.tsx', maxFileBytes)]), context).ok).toBe(true)
   })
 })
 

@@ -1,0 +1,5 @@
+{
+  "rule": "code/motion-outside-interactive",
+  "file": "src/theme/components/Fade.tsx",
+  "line": 1
+}
