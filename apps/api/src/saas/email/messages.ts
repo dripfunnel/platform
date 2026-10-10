@@ -156,6 +156,12 @@ export const en = {
     heading: 'Your store is restored',
     body: (store: string) => `${store} is restored. The storefront is live again and the portal works as before.`,
   },
+  webhookDisabled: {
+    subject: (store: string) => `A webhook for ${store} is turned off`,
+    heading: 'We turned off a webhook',
+    body: (host: string, store: string) =>
+      `Deliveries to ${host} for ${store} have failed for 3 days, so we turned it off. Nothing was lost: its events wait 7 days. Fix the server, then turn it back on in Settings › Developers to send them.`,
+  },
   apiKeysCreatorGone: {
     subject: (store: string) => `API keys in ${store} need a look`,
     heading: 'API keys made by someone who has left',

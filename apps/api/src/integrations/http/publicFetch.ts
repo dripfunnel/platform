@@ -37,7 +37,8 @@ export const isPrivateIpv6 = (ip: string): boolean => {
   return !/^[23][0-9a-f]{0,3}:/.test(v) || v.startsWith('2001:db8') || v.startsWith('2002:') || /^2001:0{0,4}:/.test(v)
 }
 
-const checkedUrl = async (raw: string, lookup: DnsLookup, signal: AbortSignal): Promise<URL | PublicFetchRefusal> => {
+/** The URL when it is public https on 443 whose name resolves only to public addresses; otherwise why not. */
+export const checkedUrl = async (raw: string, lookup: DnsLookup, signal: AbortSignal): Promise<URL | PublicFetchRefusal> => {
   let url: URL
   try {
     url = new URL(raw)
