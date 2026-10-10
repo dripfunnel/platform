@@ -276,8 +276,7 @@ that copy a brand field (a one-word shop name under six letters excepted, so a s
 can still say "Home") *(decided on #480)*.
 
 **Routes**: §3.1's rules. `routes.json` is core's `themeRoutesSchema` (#480): `routes` names
-the page under `src/theme/pages` for each core route, content pages, the blog and a blog post
-among them, and `custom` names one for each of the theme's own paths, at most 50, in lower-case
+the page under `src/theme/pages` for each core route, and `custom` names one for each of the theme's own paths, at most 50, in lower-case
 words joined by hyphens and at most three levels deep. A custom path may not start with a segment
 core uses (`reservedPathSegments`: `products`, `cart`, `account`, `blog`, …) or one of the store's
 language codes, and no word of it may be cart, checkout, pay or price, nor its page the cart's,
