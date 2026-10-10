@@ -3593,7 +3593,7 @@
     },
     "developers": {
       "title": "Developers",
-      "sub": "Keys for software that works with your store.",
+      "sub": "Keys and webhooks for software that works with your store.",
       "copy": "Copy",
       "copied": "Copied",
       "copyFailed": "Couldn’t copy. Select the text and copy it yourself.",
@@ -3664,6 +3664,76 @@
           "other": "That didn’t work. Try again."
         },
         "stale": "Your keys didn’t load again. Reload the page to see them as they are."
+      },
+      "hooks": {
+        "title": "Webhooks",
+        "sub": "We send an event to your server when something happens in your store.",
+        "add": "Add endpoint",
+        "empty": "No endpoints. Add one when a developer gives you an address.",
+        "url": "Endpoint URL",
+        "urlPlaceholder": "https://api.yoursite.com/dripfunnel",
+        "events": "Events",
+        "notHttps": "Use an address that starts with https://",
+        "eventsMissing": "Pick at least one event.",
+        "secretTitle": "Copy the signing secret now",
+        "secretWarn": "We don’t show it again. Your server uses it to check each event came from us.",
+        "added": "Endpoint added",
+        "status": {
+          "active": "Working",
+          "failing": "Failing",
+          "disabled": "Turned off"
+        },
+        "failingSince": "Failing since {time}. After 3 days of failures we turn it off.",
+        "disabled": "Turned off {time} after 3 days of failed deliveries. Nothing was lost: events wait for 7 days.",
+        "turnOn": "Turn back on",
+        "turnedOn": {
+          "one": "Turned back on. 1 waiting event is being sent.",
+          "other": "Turned back on. {count} waiting events are being sent."
+        },
+        "showLog": "Recent deliveries",
+        "hideLog": "Hide recent deliveries",
+        "logLoading": "Loading deliveries",
+        "logFailed": "The deliveries didn’t load. Try again.",
+        "logEmpty": "Nothing sent yet.",
+        "logLabel": "Recent deliveries to {url}",
+        "duration": {
+          "ms": "{count} ms",
+          "s": "{count} s"
+        },
+        "outcome": {
+          "pending": "Sending",
+          "held": "Waiting",
+          "timeout": "Timed out",
+          "private_address": "Private address",
+          "bad_url": "Bad address",
+          "unavailable": "Couldn’t reach",
+          "endpoint_removed": "Endpoint removed",
+          "no_signing_key": "Not signed",
+          "failed": "Failed"
+        },
+        "replay": "Send again",
+        "replayName": "Send {event} again",
+        "replayed": "Sent again: {event}",
+        "remove": "Remove",
+        "removeName": "Remove {url}",
+        "removeBody": "We stop sending events to it straight away, and its waiting events are dropped.",
+        "removeGo": "Remove endpoint",
+        "removed": "Endpoint removed",
+        "refused": {
+          "INVALID_INPUT": "Pick at least one event.",
+          "BAD_URL": "Use an address that starts with https:// and that the internet can find.",
+          "PRIVATE_ADDRESS": "That address points inside a private network. Use one the internet can reach.",
+          "NOT_FOUND": "That endpoint or delivery is no longer here.",
+          "TOO_MANY_ENDPOINTS": "Your store has as many endpoints as it can hold. Remove one first.",
+          "UNAVAILABLE": "We couldn’t check that address just now. Try again.",
+          "ENDPOINT_OFF": "This endpoint is turned off. Turn it back on to send its events.",
+          "TOO_OLD": "Events can be sent again for 7 days.",
+          "SUPPORT_READ_ONLY": "Support can’t change your webhooks.",
+          "BLOCKED_FOR_SUPPORT": "Support can’t change your webhooks.",
+          "other": "That didn’t work. Try again."
+        },
+        "turnedOnNone": "Turned back on. No events were waiting.",
+        "stale": "Your endpoints didn’t load again. Reload the page to see them as they are."
       }
     }
   },

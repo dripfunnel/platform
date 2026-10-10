@@ -691,6 +691,13 @@ card with Copy, until "I've stored it", and never read back. Rotate and Revoke e
 itself again after each write rather than the whole tab, so a secret on screen survives it; a refusal stays in the form or on the
 card it came from. **Not drawn yet**: the prototype's storefront key and "Websites allowed to use it", which the Store API doesn't
 read or change (an open question on #333); the 50-key cap is the API's to refuse (`TOO_MANY_KEYS`), not counted in the browser.
+**Part 2, Developers › Webhooks**: each endpoint with its address, its events and its state (working, failing since when, or turned
+off with "Turn back on", which says how many waiting events it sends). "Add endpoint" takes an https address and at least one of
+`webhookEvents`; the API refuses a private or unreachable one, said in the form, and the signing secret is shown once like a key's.
+"Recent deliveries" opens one endpoint's latest ten (when, event, the server's code or what stopped it, how long it took) with
+"Send again" (`replayDelivery`); only the newest opening lands. **Decided here**: an endpoint can be removed, after saying its
+waiting events are dropped, though SetDev draws no Remove, because `removeWebhook` exists and a store holds at most ten; editing
+an endpoint's address or events waits for a drawing.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 

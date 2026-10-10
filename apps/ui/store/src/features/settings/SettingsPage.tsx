@@ -4,7 +4,7 @@ import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { loadCustomerAccounts } from '../../api/customerAccounts'
-import { loadApiKeyChoices, loadApiKeys } from '../../api/developers'
+import { loadApiKeyChoices, loadApiKeys, loadDeliveries, loadWebhookEvents, loadWebhooks } from '../../api/developers'
 import { loadAllMarkets } from '../../api/markets'
 import { loadGateways } from '../../api/payments'
 import { loadShipping } from '../../api/shipping'
@@ -45,7 +45,7 @@ interface Done {
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts, apiKeys: loadApiKeys, apiKeyChoices: loadApiKeyChoices, webhooks: loadWebhooks, webhookEvents: loadWebhookEvents, deliveries: loadDeliveries }
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: boolean }): Record<SettingsTab, () => Promise<Render>> => ({
@@ -93,11 +93,11 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
     const [accounts, info] = await Promise.all([reads.customerAccounts(), reads.storeInfo()])
     return (done, canEdit) => <CustomerAccountsTab accounts={accounts} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} />
   },
-  // The list reads itself again after a write, so a secret shown once survives it.
+  // Each list reads itself again after a write, so a secret shown once survives it.
   developers: async () => {
-    const [keys, choices, suppliers] = await Promise.all([reads.apiKeys(), reads.apiKeyChoices(), reads.suppliers()])
-    const data = { keys, choices, suppliers: suppliers.filter((s) => s.status === 'active').map(({ id, name }) => ({ id, name })) }
-    const again = { keys: reads.apiKeys }
+    const [keys, choices, suppliers, hooks, events] = await Promise.all([reads.apiKeys(), reads.apiKeyChoices(), reads.suppliers(), reads.webhooks(), reads.webhookEvents()])
+    const data = { keys, choices, suppliers: suppliers.filter((s) => s.status === 'active').map(({ id, name }) => ({ id, name })), hooks, events }
+    const again = { keys: reads.apiKeys, hooks: reads.webhooks, deliveries: reads.deliveries }
     return (done, canEdit) => <DevelopersTab data={data} reads={again} canEdit={canEdit} onToast={done.toast} />
   },
 })
