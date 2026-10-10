@@ -54,7 +54,7 @@ export const registerWebhooks = (builder: StoreBuilder) => {
       status: t.exposeString('status'),
       attempts: t.exposeInt('attempts'),
       responseCode: t.exposeInt('response_code', { nullable: true }),
-      // A code, never the endpoint's own words: status, timeout, private_address, bad_url, unavailable, endpoint_removed.
+      // A code, never the endpoint's own words: status, timeout, private_address, bad_url, unavailable, endpoint_removed, no_signing_key.
       error: t.exposeString('error', { nullable: true }),
       durationMs: t.exposeInt('duration_ms', { nullable: true }),
       createdAt: t.string({ resolve: (d) => d.created_at.toISOString() }),
@@ -115,7 +115,7 @@ export const registerWebhooks = (builder: StoreBuilder) => {
       extensions: { access: { ...access, audit: webhookAudit.removed } },
       resolve: async (_, args, ctx) => answered(await service(ctx).remove(String(args.id))),
     }),
-    // Answers how many waiting events it sends.
+    // Answers how many waiting events it will send; a job queues them (webhook.release).
     turnOnWebhook: t.field({
       type: 'Int',
       args: { id: t.arg.id({ required: true }) },

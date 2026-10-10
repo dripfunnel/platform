@@ -5,7 +5,6 @@ import type { StoreCaller } from '#auth/storeCaller'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
-import { insertOutboxMany } from '#db/scoped/outbox'
 import { isStoreEvent } from '#db/scoped/storeEvents'
 import {
   countEndpoints,
@@ -13,7 +12,7 @@ import {
   insertEndpoint,
   lockEndpoint,
   markEndpointWorking,
-  releaseHeld,
+  countHeld,
   removeEndpoint,
   selectDeliveries,
   selectEndpoints,
@@ -35,6 +34,7 @@ export const webhookAudit = {
 } as const
 
 export const webhookDeliveryKind = 'webhook.deliver'
+export const webhookReleaseKind = 'webhook.release'
 
 /** Endpoints a store may have at once. */
 export const maxEndpoints = 10
@@ -109,8 +109,8 @@ export const createWebhooksService = ({ sql, caller, activity, facts, secrets, l
     ...facts,
   })
 
-  const deliveryEffect = (deliveryId: string, key: string) =>
-    ({ kind: webhookDeliveryKind, idempotencyKey: key, payload: { deliveryId }, partnerId: caller.context.partnerId, storeId })
+  const queueDelivery = (tx: ScopedSql, deliveryId: string, key: string) =>
+    queueSideEffect(tx, { kind: webhookDeliveryKind, idempotencyKey: key, payload: { deliveryId }, partnerId: caller.context.partnerId, storeId })
 
   const list = (window: PageWindow) => inStore((tx) => selectEndpoints(tx, storeId, window))
 
@@ -180,10 +180,12 @@ export const createWebhooksService = ({ sql, caller, activity, facts, secrets, l
       const old = await lockEndpoint(tx, storeId, id)
       if (!old) return { ok: false, reason: 'NOT_FOUND' } as const
       await markEndpointWorking(tx, id, at)
-      const released = await releaseHeld(tx, id, new Date(at.getTime() - replayWindowMs))
-      await insertOutboxMany(tx, released.map((deliveryId) => deliveryEffect(deliveryId, `${deliveryId}:on:${at.getTime()}`)))
+      const since = new Date(at.getTime() - replayWindowMs)
+      const waiting = await countHeld(tx, id, since)
+      // The job releases them in batches, so a long-off endpoint's week never rides on this request (AGENTS.md: Queues).
+      if (waiting > 0) await queueSideEffect(tx, { kind: webhookReleaseKind, idempotencyKey: `${id}:${since.getTime()}:0`, payload: { endpointId: id, since: since.toISOString(), pass: 0 }, partnerId: caller.context.partnerId, storeId })
       await activity.record(tx, entry(webhookAudit.turnedOn, old, [], old.status))
-      return { ok: true, value: released.length } as const
+      return { ok: true, value: waiting } as const
     })
   }
 
@@ -207,7 +209,7 @@ export const createWebhooksService = ({ sql, caller, activity, facts, secrets, l
       if (!endpoint) return { ok: false, reason: 'NOT_FOUND' } as const
       if (endpoint.status === 'disabled') return { ok: false, reason: 'ENDPOINT_OFF' } as const
       await insertDelivery(tx, { id: newId, endpointId: endpoint.id, storeId, event: found.d.event, eventId: found.d.event_id, body: found.d.body, status: 'pending', replayOf: found.d.id, now: at })
-      await queueSideEffect(tx, deliveryEffect(newId, newId))
+      await queueDelivery(tx, newId, newId)
       await activity.record(tx, entry(webhookAudit.replayed, endpoint, [], found.d.event))
       return { ok: true, value: newId } as const
     })

@@ -104,9 +104,24 @@ export const insertDelivery = async (
     `
   ).count > 0
 
-/** The held deliveries still within the replay window, made pending again for an endpoint turned back on. */
-export const releaseHeld = async (tx: ScopedSql, endpointId: string, since: Date): Promise<string[]> =>
-  (await tx<{ id: string }[]>`update webhook_delivery set status = 'pending' where endpoint_id = ${endpointId} and status = 'held' and created_at >= ${since} returning id`).map((r) => r.id)
+/** How many held deliveries are still within the replay window, for an endpoint being turned back on. */
+export const countHeld = async (tx: ScopedSql, endpointId: string, since: Date): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from webhook_delivery where endpoint_id = ${endpointId} and status = 'held' and created_at >= ${since}`)[0]?.n ?? 0
+
+/** Up to `limit` of those made pending again, oldest first, while the endpoint is live and on (system scope). */
+export const releaseHeld = async (tx: ScopedSql, storeId: string, endpointId: string, since: Date, limit: number): Promise<string[]> =>
+  (
+    await tx<{ id: string }[]>`
+      update webhook_delivery set status = 'pending'
+      where id in (
+        select d.id from webhook_delivery d join webhook_endpoint e on e.id = d.endpoint_id
+        where d.endpoint_id = ${endpointId} and d.store_id = ${storeId} and d.status = 'held' and d.created_at >= ${since}
+          and e.deleted_at is null and e.status <> 'disabled'
+        order by d.created_at limit ${limit} for update of d skip locked
+      )
+      returning id
+    `
+  ).map((r) => r.id)
 
 // The relay's reads and writes (system scope).
 
