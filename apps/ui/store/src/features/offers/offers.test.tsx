@@ -113,6 +113,7 @@ describe('the Offers list', () => {
     expect(screen.getByRole('tab', { name: 'Live 1' }).getAttribute('aria-selected')).toBe('true')
     expect(within(row('Welcome 10% off')).getByText('10% off the order')).toBeTruthy()
     expect(within(row('Welcome 10% off')).getByText('38 / 100')).toBeTruthy()
+    expect(screen.getByText('Times in India Standard Time')).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: 'Off 1' }))
     await settle()
     expect(router.state.location.search).toMatchObject({ status: 'off' })
