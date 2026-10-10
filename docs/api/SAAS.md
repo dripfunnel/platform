@@ -328,8 +328,8 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   (2147483647). A row is **enforced** when the server checks it where the write happens, or
   **Planned** when its feature isn't built: the value is stored and the console tags the row,
   and nothing checks it until the feature ships. Enforced today: the original 13 and badges,
-  FAQs and related products, product video, spreadsheet import and Shopify import, and since #320 `live_offers` and `group_offers` (customer-group and chosen-customer offers,
-  tiers, single-use codes); `offer_results` is Planned until its query is built; a version
+  FAQs and related products, product video, spreadsheet import and Shopify import, and since #320 `live_offers` and `group_offers` (customer-group and chosen-customer offers
+  and tiers; single-use codes with their part); `offer_results` is Planned until its query is built; a version
   written before the five catalogue rows existed starts with them on, and one written before `live_offers` with it
   unlimited, so no store loses a section or an offer.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
