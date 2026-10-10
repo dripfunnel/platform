@@ -276,7 +276,9 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   window, the document, `location`, `navigator` or storage.
 - **The DOM**: on an element, only `style`, `classList`, focus, measuring, scrolling and event
   listeners. On its `style`, only `transform`, `opacity`, `filter`, the `translate`, `scale` and
-  `rotate` shorthands, and custom properties through `setProperty` and `removeProperty`. An element (an event's target included) is never cast or handed to a type that
+  `rotate` shorthands, and custom properties (a written `'--name'`) through `setProperty` and
+  `removeProperty`. Theme code never writes `any` or `unknown` and types every parameter, since an
+  element typed `any` would escape these checks. An element (an event's target included) is never cast or handed to a type that
   isn't an element, the walking names are refused on any value, and a computed key must be written
   out or typed as a list of names.
 - **JSX**: elements from an allowlist of layout, text, table and SVG shape elements, and attributes
