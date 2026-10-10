@@ -11,9 +11,12 @@ import { linkSigner } from '#auth/signedLink'
 import { resolveStoreStanding, storeHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
+import { suppressAll } from '#db/scoped/emailSuppression'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { applyOutcome } from '#engine/modules/checkout/index'
 import { deliverOrder } from '#engine/modules/deliveries/index'
+import { SesUnavailable, type OutgoingEmail, type SesApi } from '#integrations/ses/index'
+import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { activityLog } from '#saas/activity/index'
 import { prepareEmail } from '#saas/email/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -209,6 +212,48 @@ describe('delivery', () => {
     expect(links.to).toEqual(['asha@example.com'])
     expect(links.content.paragraphs.some((p) => p.startsWith(`pattern-pack: https://${host}/shop-api/downloads/`))).toBe(true)
     expect(links.content.paragraphs).toContain('font-licence, your licence key: KEY-ONE')
+  })
+
+  it('keeps a gift card unsent, its code unset, whenever its email is skipped or fails, and sends it once nothing stands in the way', async () => {
+    const [p] = await db.sql<{ product_id: string }[]>`select product_id from product_version where id = ${v.card}`
+    const [made] = await db.sql<{ id: string }[]>`insert into gift_card (store_id, product_id, currency, initial_amount, balance_amount, recipient_email, issued_by)
+      values (${stores.kesari}, ${p?.product_id ?? ''}, 'INR', 5000, 5000, 'blocked@example.com', ${crypto.randomUUID()}) returning id`
+    const id = made?.id ?? ''
+    const unsent = async () => (await db.sql<{ unsent: boolean }[]>`select code_hash is null and sent_at is null as unsent from gift_card where id = ${id}`)[0]?.unsent
+    const payload = { template: 'gift-card', giftCardId: id }
+    // Asked for by another store's or another partner's row: refused before anything is written.
+    expect(await emailFor(payload, stores.surat)).toEqual({ send: false, reason: 'tenant_mismatch' })
+    const hosts = { adminHost: 'admin.example', platformHost: 'platform.example', downloadLinks: signer }
+    expect(await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload, partnerId: t.partnerB, storeId: stores.kesari }, hosts, new Date()))).toEqual({ send: false, reason: 'tenant_mismatch' })
+    expect(await unsent()).toBe(true)
+    // A suppressed recipient, and SES down: the code set while composing is rolled back with the message.
+    const suppressionKey = btoa('k'.repeat(32))
+    await withSystemScope(db.sql, (tx) => suppressAll(tx, suppressionKey, ['blocked@example.com'], 'bounce', new Date()))
+    const sent: OutgoingEmail[] = []
+    let sesUp = true
+    const ses: SesApi = {
+      send: async (email) => {
+        if (!sesUp) throw new SesUnavailable('down')
+        sent.push(email)
+        return { messageId: `m-${sent.length}` }
+      },
+    }
+    const deliver = () =>
+      emailDeliverer(db.sql, ses, { hosts, senderDomain: 'mail.test', suppressionKey }).deliver(
+        { id: crypto.randomUUID(), kind: 'email', idempotencyKey: `gift-card:${id}`, payload, partnerId: t.partnerA, storeId: stores.kesari, attempt: 1 },
+        new AbortController().signal,
+      )
+    await deliver()
+    expect(sent).toEqual([])
+    expect(await unsent()).toBe(true)
+    await db.sql`delete from email_suppression`
+    sesUp = false
+    await expect(deliver()).rejects.toThrow(SesUnavailable)
+    expect(await unsent()).toBe(true)
+    sesUp = true
+    await deliver()
+    expect(sent).toHaveLength(1)
+    expect(await unsent()).toBe(false)
   })
 
   it('logs an order the key pool ran dry for, and gives it the merchant’s next keys', async () => {

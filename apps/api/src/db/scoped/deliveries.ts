@@ -176,9 +176,9 @@ export const markGiftCardSent = async (tx: ScopedSql, id: string, code: { hash: 
     `
   )[0] ?? null
 
-/** The card's store, to hash its code with before anything is written. */
-export const selectGiftCardStore = async (tx: ScopedSql, id: string): Promise<string | null> =>
-  (await tx<{ store_id: string }[]>`select store_id from gift_card where id = ${id}`)[0]?.store_id ?? null
+/** The card's store and partner, checked (and its code hashed with the store) before anything is written. */
+export const selectGiftCardStore = async (tx: ScopedSql, id: string): Promise<{ store_id: string; partner_id: string } | null> =>
+  (await tx<{ store_id: string; partner_id: string }[]>`select g.store_id, s.partner_id from gift_card g join store s on s.id = g.store_id where g.id = ${id}`)[0] ?? null
 
 export interface DownloadToServeRow {
   r2_key: string
