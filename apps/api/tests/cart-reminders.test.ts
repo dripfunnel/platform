@@ -6,6 +6,8 @@ import { storeSchema } from '#apis/store/schema'
 import { resolveShopper } from '#auth/shopCaller'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
+import { hashSessionId } from '#auth/session'
+import { SmsRefused } from '#core/sms'
 import { deleteExpiredCarts } from '#db/scoped/cart'
 import { suppressAll } from '#db/scoped/emailSuppression'
 import { withScope, withSystemScope } from '#db/scoped/index'
@@ -13,6 +15,9 @@ import { markAbandonedCarts, queueDueReminders } from '#engine/modules/cartRemin
 import type { OutgoingEmail, SesApi } from '#integrations/ses/index'
 import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
+import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
+import type { OutgoingWhatsApp, WhatsAppSender } from '#core/whatsapp'
+import type { PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -20,7 +25,8 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 // Card #321 (SAPI 15), part 1: abandoned carts and their reminders (FIRST-RELEASE §9, §19; DATA-MODEL §7.2, §7.6): a cart
 // left in checkout is marked, each step is sent once by email with its link and unsubscribe, the link restores the cart in
-// its own store only, a reminder's code works on its own cart only, and a purchase stops the reminders.
+// its own store only, a reminder's code works on its own cart only, and a purchase stops the reminders. Part 2: WhatsApp in
+// India, and the Carts tab's list, figures, detail, Remind now, stop and resume, and a test, for every seat.
 
 let db: TestDatabase
 let t: Tenants
@@ -31,11 +37,17 @@ let store = ''
 let surat = ''
 let kurta = ''
 let scarf = ''
+let saree = ''
 const plans = { pro: '', starter: '', free: '' }
 type Who = 'owner' | 'manager' | 'staff' | 'supplier' | 'surat'
 const cookies = {} as Record<Who, string>
 let attempts: { allow: boolean; keys: string[] } = { allow: true, keys: [] }
 const sent: OutgoingEmail[] = []
+const texts: OutgoingWhatsApp[] = []
+const whatsappSender: WhatsAppSender = { send: async (m) => (texts.push(m), { providerId: `wa-${texts.length}` }) }
+/** The partners' WhatsApp accounts the relay reads; null as on dev today, where none can be read yet (#275). */
+let whatsappAccounts: PartnerWhatsAppAccounts | null = null
+const anAccount: PartnerWhatsAppAccounts = { forPartner: async () => ({ authKey: 'k', integratedNumber: '919800000000', language: 'en', templates: { 'cart.reminder': 'cart_reminder', 'cart.reminder_code': 'cart_reminder_code' } }) }
 const ses: SesApi = { send: async (email) => (sent.push(email), { messageId: `m-${sent.length}` }) }
 
 const facts = { requestId: 'r', ip: '203.0.113.5', userAgent: null }
@@ -55,7 +67,7 @@ const merchant = async (source: string, who: Who, variables: Record<string, unkn
   const standing = as.support && resolved.kind === 'acting'
     ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
     : resolved
-  const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, allowCodeCheck: async () => true, now: () => new Date() }
+  const contextValue: StoreContext = { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, allowCodeCheck: async () => attempts.allow, now: () => new Date() }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, extensions: result.errors?.[0]?.extensions }
 }
@@ -108,7 +120,11 @@ const relay = async () => {
   const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
   const at = row?.now ?? new Date()
   const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test' }
-  return relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey), email: emailDeliverer(db.sql, ses, { hosts, senderDomain: 'mail.dripfunnel.test', suppressionKey }) }, { ...defaultRelayOptions, now: () => at })
+  return relayDue(db.sql, {
+    'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, whatsappAccounts),
+    email: emailDeliverer(db.sql, ses, { hosts, senderDomain: 'mail.dripfunnel.test', suppressionKey }),
+    whatsapp: whatsappDeliverer(db.sql, whatsappAccounts ?? { forPartner: async () => null }, () => whatsappSender),
+  }, { ...defaultRelayOptions, now: () => at })
 }
 /** Sweeps and delivers until nothing more goes: the cron and the outbox, as the Worker runs them. */
 const run = async () => {
@@ -140,7 +156,7 @@ beforeAll(async () => {
   }
   kurta = await product(store, 'Kurta', 100000)
   scarf = await product(store, 'Scarf', 20000)
-  await product(surat, 'Saree', 300000)
+  saree = await product(surat, 'Saree', 300000)
   await db.sql`insert into store_shipping (store_id, flat_enabled, flat_amount, pickup_enabled, pickup_hours, currency, area_mode, saved_at, revision)
     values (${store}, true, 5000, true, 'Mon–Sat', 'INR', 'everywhere', now(), 1)`
   await db.sql`insert into payment_provider_account (store_id, provider, status) values (${store}, 'cod', 'live')`
@@ -389,7 +405,7 @@ describe('who is not reminded', () => {
     await sweep()
     // 22:30 in Kolkata: held, not counted as an attempt, until 08:00 there, 9½ hours on.
     const night = new Date('2026-10-10T17:00:00Z')
-    await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, () => night) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+    await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, null, () => night) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
     const [row] = await db.sql<{ wait: number; attempts: number; last_error: string }[]>`
       select round(extract(epoch from next_attempt_at - now()) / 3600)::int as wait, attempts, last_error from outbox where kind = 'cart.remind' and payload ->> 'reminderId' = (select id::text from cart_reminder where order_id = ${cart.id})`
     expect(row).toEqual({ wait: 10, attempts: 0, last_error: 'quiet_hours' })
@@ -568,5 +584,220 @@ describe('isolation (ACCESS §11.1)', () => {
     const written = await withScope(db.sql, person(surat), (tx) => tx`update cart_reminder_flow set enabled = false where store_id = ${store}`)
     expect(written.count).toBe(0)
     await expect(withScope(db.sql, person(surat), (tx) => tx`insert into cart_reminder_flow (store_id, enabled) values (${t.storeB1}, true)`)).rejects.toThrow(/row-level security/)
+  })
+})
+
+describe('WhatsApp in India (#337)', () => {
+  let member = ''
+  let session = ''
+  const signedIn = async (source: string, cart: string | null = null) => {
+    const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: { 'x-shop-session': session, ...(cart ? { 'x-shop-cart': cart } : {}) } }), host)
+    if (found.kind !== 'found') throw new Error('no store')
+    const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, now: () => new Date() }
+    return graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
+  }
+  /** A signed-in shopper's cart, left in checkout 45 minutes ago. */
+  const memberCart = async () => {
+    const r = await signedIn(`mutation { addToCart(versionId: "${kurta}", quantity: 2) { cart { id } } }`)
+    const id = (r.data?.['addToCart'] as { cart: { id: string } }).cart.id
+    await signedIn('mutation { setCartContact(email: "member.wa@example.com") { cart { id } } }')
+    await db.sql`update "order" set updated_at = now() - interval '45 minutes' where id = ${id}`
+    return id
+  }
+  const whatsappFlow = async (discount?: number) => {
+    await db.sql`delete from "order" where customer_id = ${member} and state = 'cart'`
+    await flow(store, { steps: [{ position: 1, discount: discount ?? null }] })
+    await db.sql`update cart_reminder_step set channel = 'whatsapp' where store_id = ${store}`
+  }
+  beforeAll(async () => {
+    const [c] = await db.sql<{ id: string }[]>`insert into customer (store_id, email, phone, status, consent_state, consent_channels) values (${store}, 'member.wa@example.com', '+919811122233', 'active', 'opted_in', '{email,whatsapp}') returning id`
+    member = c?.id ?? ''
+    session = 'a'.repeat(64)
+    await db.sql`insert into customer_session (id_hash, store_id, customer_id, created_at, last_seen_at, expires_at) values (${await hashSessionId(session)}, ${store}, ${member}, now(), now(), now() + interval '1 day')`
+  })
+
+  it('sends a step set to WhatsApp to a signed-in shopper who agreed, at their own number, with its link and code', async () => {
+    whatsappAccounts = anAccount
+    await whatsappFlow(10)
+    const cart = await memberCart()
+    await run()
+    whatsappAccounts = null
+    const text = texts.at(-1)
+    expect([text?.to, text?.template, text?.vars[0], text?.vars[1], text?.vars[3]]).toEqual(['+919811122233', 'cart_reminder_code', 'Jaipur', '2 items', '10'])
+    expect(text?.vars[4]).toMatch(new RegExp(`^https://${host}/cart/r/[0-9a-f]{64}$`))
+    expect(await reminders(cart)).toMatchObject([{ state: 'sent', channel: 'whatsapp' }])
+    expect(mailTo('member.wa@example.com')).toEqual([])
+  })
+
+  it('emails instead where the partner has no WhatsApp account yet, or the shopper is a guest', async () => {
+    await whatsappFlow()
+    const cart = await memberCart()
+    const guest = await left('guest.wa@example.com', 45)
+    whatsappAccounts = anAccount
+    await run()
+    whatsappAccounts = null
+    expect([(await reminders(guest.id))[0]?.channel, (await reminders(cart))[0]?.channel]).toEqual(['email', 'whatsapp'])
+    await whatsappFlow()
+    const noAccount = await memberCart()
+    await run()
+    expect((await reminders(noAccount))[0]?.channel).toBe('email')
+  })
+
+  it('marks a WhatsApp reminder the provider refuses for good as undeliverable, and gives it up', async () => {
+    await whatsappFlow()
+    const cart = await memberCart()
+    const refusing: WhatsAppSender = { send: async () => { throw new SmsRefused('msg91_wa_131026') } }
+    await sweep()
+    const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
+    const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
+    await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
+    await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => refusing) }, opts)
+    expect(await reminders(cart)).toMatchObject([{ state: 'skipped', skip_reason: 'undeliverable' }])
+  })
+})
+
+describe('the Carts tab (abandonedCarts, abandonedCartCounts, abandonedCart, cartSummary)', () => {
+  let open = { id: '', token: '' }
+  let suratCart = { id: '', token: '' }
+  const list = async (tab: string, who: Who = 'owner', search?: string) =>
+    (await merchant(`{ abandonedCarts(tab: "${tab}"${search ? `, search: "${search}"` : ''}, first: 50) { nodes { id email status value { amount currency } firstItem remindersSent } } }`, who)).data?.['abandonedCarts'] as { nodes: { id: string; email: string; status: string; value: { amount: string } | null; remindersSent: number }[] } | null
+  beforeAll(async () => {
+    await flow(store, { enabled: false })
+    open = await left('tab.open@example.com', 45)
+    suratCart = await left('tab.surat@example.com', 45, { on: otherHost, version: saree })
+    await sweep()
+  })
+
+  it('lists a store’s abandoned carts in their tab with their value and status, and finds one by email or product', async () => {
+    const mine = await list('open')
+    expect(mine?.nodes.find((c) => c.id === open.id)).toMatchObject({ email: 'tab.open@example.com', status: 'waiting', value: { amount: '100000' }, remindersSent: 0 })
+    expect((await list('open', 'owner', 'tab.open'))?.nodes.map((c) => c.id)).toEqual([open.id])
+    expect((await list('open', 'owner', 'Kurta'))?.nodes.length).toBeGreaterThan(1)
+    expect((await list('recovered'))?.nodes.every((c) => c.status === 'recovered')).toBe(true)
+    expect((await merchant('{ abandonedCarts(tab: "everything") { nodes { id } } }', 'owner')).code).toBe('INVALID_INPUT')
+  })
+
+  it('shows a store nothing of another store’s carts, counts and figures included (ACCESS §11.1)', async () => {
+    const all = async (who: Who) => [...((await list('open', who))?.nodes ?? []), ...((await list('lost', who))?.nodes ?? []), ...((await list('recovered', who))?.nodes ?? [])].map((c) => c.id)
+    expect(await all('owner')).not.toContain(suratCart.id)
+    expect(await all('surat')).toEqual([suratCart.id])
+    expect((await merchant(`{ abandonedCart(id: "${suratCart.id}") { cart { id } } }`, 'owner')).data?.['abandonedCart']).toBeNull()
+    expect((await merchant('{ abandonedCartCounts { open recovered lost } }', 'surat')).data?.['abandonedCartCounts']).toEqual({ open: 1, recovered: 0, lost: 0 })
+    expect((await merchant('{ cartSummary { abandoned leftBehind { amount } } }', 'surat')).data?.['cartSummary']).toEqual({ abandoned: 1, leftBehind: [{ amount: '300000' }] })
+  })
+
+  it('lets Staff read and refuses every supplier (ACCESS §5.1)', async () => {
+    expect((await list('open', 'staff'))?.nodes.map((c) => c.id)).toContain(open.id)
+    for (const source of ['{ abandonedCarts(tab: "open") { nodes { id } } }', '{ abandonedCartCounts { open } }', `{ abandonedCart(id: "${open.id}") { cart { id } } }`, '{ cartSummary { abandoned } }']) {
+      expect((await merchant(source, 'supplier')).code).toBe('FORBIDDEN')
+    }
+  })
+
+  it('opens one cart with its lines as they would be bought now and what happened to it', async () => {
+    const d = (await merchant(`{ abandonedCart(id: "${open.id}") { cart { id status } lines { name quantity outOfStock lineTotal { amount } } reminders { state } } }`, 'staff')).data?.['abandonedCart']
+    expect(d).toEqual({ cart: { id: open.id, status: 'waiting' }, lines: [{ name: 'Kurta', quantity: 1, outOfStock: false, lineTotal: { amount: '100000' } }], reminders: [] })
+  })
+
+  it('sums the window’s carts, reminders and recoveries, a recovery counted once it is paid', async () => {
+    const summary = async () => (await merchant('{ cartSummary(days: 14) { days abandoned remindersSent recovered recoveredWithCode recoveredSales { amount currency } } }', 'owner')).data?.['cartSummary'] as Record<string, unknown>
+    // One cart reminded with a code and bought with it (₹950), one without (₹1,050): cash on delivery, not paid yet.
+    await flow(store, { steps: [{ position: 1, discount: 10 }] })
+    const coded = await left('sum.coded@example.com', 45)
+    const plain = await left('sum.plain@example.com', 45)
+    await run()
+    const back = await shop(`mutation { restoreCart(token: "${linkOf(mailTo('sum.coded@example.com')[0], 'cart/r')?.[2] ?? ''}") { cartToken } }`)
+    const codedToken = (back.data?.['restoreCart'] as { cartToken: string }).cartToken
+    for (const token of [codedToken, plain.token]) {
+      await shop('mutation { setShippingAddress(address: { name: "S", line1: "1 Road", city: "Pune", country: "IN" }) { cart { id } } }', token)
+      await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
+      await shop('mutation { checkout { id } }', token)
+      await shop('mutation { placeOrder(provider: "cod") { orderId } }', token)
+    }
+    const before = await summary()
+    expect(before['days']).toBe(14)
+    // Every cart waiting in the store got its first reminder in that run, these two among them.
+    expect([Number(before['abandoned']) > 10, Number(before['remindersSent']) >= 2, before['recovered'], before['recoveredSales']]).toEqual([true, true, 0, []])
+    await db.sql`update "order" set payment_state = 'paid' where id in (${coded.id}, ${plain.id})`
+    expect(await summary()).toMatchObject({ recovered: 2, recoveredWithCode: 1, recoveredSales: [{ amount: '200000', currency: 'INR' }] })
+    expect((await merchant('{ cartSummary(days: 91) { days } }', 'owner')).code).toBe('INVALID_INPUT')
+  })
+})
+
+describe('Remind now, stop and resume, and a test (remindNow, stopCartReminders, resumeCartReminders, sendTestReminder)', () => {
+  const remind = (id: string, who: Who = 'owner', percent?: number, as: { support?: 'read' } = {}) =>
+    merchant(`mutation { remindNow(cartId: "${id}"${percent ? `, discountPercent: ${percent}` : ''}) }`, who, {}, as)
+
+  it('sends one at once by email, even in quiet hours and with reminders off, recorded with its sender', async () => {
+    await flow(store, { enabled: false, quiet: true })
+    const cart = await left('byhand@example.com', 45)
+    await sweep()
+    expect((await remind(cart.id)).data?.['remindNow']).toEqual(expect.any(String))
+    for (let i = 0; i < 3; i++) await relay()
+    expect(mailTo('byhand@example.com').map((e) => e.subject)).toEqual(['Reminder 1'])
+    const shown = (await merchant(`{ abandonedCart(id: "${cart.id}") { reminders { position state sentBy } } }`, 'owner')).data?.['abandonedCart'] as { reminders: unknown[] }
+    expect(shown.reminders).toEqual([{ position: null, state: 'sent', sentBy: 'owner' }])
+    const [entry] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'cart.reminder_sent' and target_id = ${cart.id}::text`
+    expect(entry?.n).toBe(1)
+  })
+
+  it('gives one reminder a cart and no code below Growth Pro, however fast it is pressed', async () => {
+    await subscribe(store, plans.starter)
+    const cart = await left('starter@example.com', 45)
+    await sweep()
+    expect((await remind(cart.id, 'owner', 10)).code).toBe('PLAN_LIMIT')
+    const both = await Promise.all([remind(cart.id), remind(cart.id, 'manager')])
+    expect(both.map((r) => r.code ?? 'ok').sort()).toEqual(['PLAN_LIMIT', 'ok'])
+    await subscribe(store, plans.pro)
+    expect((await remind(cart.id, 'owner', 10)).data?.['remindNow']).toEqual(expect.any(String))
+    for (let i = 0; i < 3; i++) await relay()
+    expect(mailTo('starter@example.com').map((e) => /Use BACK-[A-Z0-9]{6} for 10% off/.test(e.text)).sort()).toEqual([false, true])
+  })
+
+  it('refuses a cart it can’t remind, another store’s cart, Staff, a supplier and a read-only support session', async () => {
+    const cart = await left('refused@example.com', 45)
+    await sweep()
+    expect((await remind(cart.id, 'owner', 12)).code).toBe('INVALID_INPUT')
+    expect((await remind(cart.id, 'staff')).code).toBe('FORBIDDEN')
+    expect((await remind(cart.id, 'supplier')).code).toBe('FORBIDDEN')
+    expect((await remind(cart.id, 'owner', undefined, { support: 'read' })).code).toBe('READ_ONLY')
+    expect((await remind(cart.id, 'surat')).code).toBe('NOT_FOUND')
+    const phoneOnly = await left(null, 45)
+    await sweep()
+    expect((await remind(phoneOnly.id)).code).toBe('CANT_REMIND')
+  })
+
+  it('stops a cart’s reminders with the team’s note, which no sweep then sends, and resumes them', async () => {
+    await flow(store)
+    const cart = await left('pause.me@example.com', 10)
+    await db.sql`update "order" set updated_at = now() - interval '25 minutes' where id = ${cart.id}`
+    await markAbandonedCarts({ ...jobs, sql: db.sql }, 100)
+    expect((await merchant(`mutation { stopCartReminders(cartId: "${cart.id}", note: "Ordering by phone") }`, 'manager')).data?.['stopCartReminders']).toBe(true)
+    expect((await merchant(`mutation { stopCartReminders(cartId: "${cart.id}") }`, 'owner')).data?.['stopCartReminders']).toBe(true)
+    await db.sql`update "order" set abandoned_at = abandoned_at - interval '1 hour', updated_at = updated_at - interval '1 hour' where id = ${cart.id}`
+    await run()
+    expect(await reminders(cart.id)).toEqual([])
+    const shown = (await merchant(`{ abandonedCart(id: "${cart.id}") { cart { status stoppedBy stoppedNote } } }`, 'owner')).data?.['abandonedCart'] as { cart: unknown }
+    expect(shown.cart).toEqual({ status: 'stopped', stoppedBy: 'manager', stoppedNote: 'Ordering by phone' })
+    expect((await remind(cart.id)).code).toBe('CANT_REMIND')
+    expect((await merchant(`mutation { stopCartReminders(cartId: "${cart.id}", note: "${'x'.repeat(201)}") }`, 'owner')).code).toBe('INVALID_INPUT')
+    expect((await merchant(`mutation { resumeCartReminders(cartId: "${cart.id}") }`, 'staff')).code).toBe('FORBIDDEN')
+    expect((await merchant(`mutation { resumeCartReminders(cartId: "${cart.id}") }`, 'surat')).code).toBe('NOT_FOUND')
+    expect((await merchant(`mutation { resumeCartReminders(cartId: "${cart.id}") }`, 'owner')).data?.['resumeCartReminders']).toBe(true)
+    await run()
+    expect((await reminders(cart.id)).map((r) => r.state)).toEqual(['sent'])
+    const [entries] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action in ('cart.reminders_stopped', 'cart.reminders_resumed') and target_id = ${cart.id}::text and reason is null`
+    expect(entries?.n).toBe(2)
+  })
+
+  it('sends a test of a step to the person’s own address only, limited, and never Staff', async () => {
+    expect((await merchant('mutation { sendTestReminder(position: 2) }', 'manager')).data?.['sendTestReminder']).toBe(true)
+    for (let i = 0; i < 2; i++) await relay()
+    const test = mailTo('manager@jaipur.example')[0]
+    // Only step 1 is saved, so step 2 tests with the tab's starting words.
+    expect([test?.subject, test?.text.includes('works at no checkout')]).toEqual(['[Test] Still thinking it over?', true])
+    expect((await merchant('mutation { sendTestReminder(position: 4) }', 'owner')).code).toBe('INVALID_INPUT')
+    expect((await merchant('mutation { sendTestReminder(position: 1) }', 'staff')).code).toBe('FORBIDDEN')
+    attempts.allow = false
+    expect((await merchant('mutation { sendTestReminder(position: 1) }', 'owner')).code).toBe('RATE_LIMITED')
   })
 })

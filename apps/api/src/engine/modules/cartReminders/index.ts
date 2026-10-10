@@ -3,9 +3,11 @@
 import { defaultSteps } from './rules'
 
 export { cartRemindKind, decideReminder, markAbandonedCarts, queueDueReminders, recoverCarts, type ReminderDecision } from './jobs'
+export { cartsAudit, createCartsService, maxStopNote, summaryDays, type AbandonedCartDetail, type AbandonedCartView, type CartStatus, type CartsRefusal, type CartsResult } from './carts'
 export { restoreCart, unsubscribe, type LinkResult, type Restored } from './links'
 export { cartRemindersAudit, createCartRemindersService, type ReminderSettingsView, type RemindersRefusal, type RemindersResult } from './service'
 export { reminderDelays, reminderPercents, reminderWindowMs, type ReminderLevel, type ReminderSettingsInput, type ReminderStepView } from './rules'
 
 /** The words a reminder sent before the store saved its own goes out with (the Reminders tab's first step). */
 export const defaultReminderStep = defaultSteps[0] ?? { subject: '', body: '' }
+export const defaultReminderSteps = defaultSteps
