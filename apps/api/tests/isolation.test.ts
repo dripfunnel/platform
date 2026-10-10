@@ -347,6 +347,7 @@ describe('the backstop itself', () => {
       'filter', 'filter_value', 'product_filter_value', 'collection', 'collection_rule', 'collection_product', 'menu', 'menu_item',
       'store_feature', 'badge', 'size_chart', 'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag', 'product_compliance', 'product_market_rule',
       'product_story', 'story_block', 'warehouse', 'stock_level', 'stock_movement', 'licence_key', 'api_key', 'api_usage',
+      'store_billing_details', 'invoice', 'invoice_line',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
