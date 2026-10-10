@@ -111,11 +111,11 @@ export const OfferEditor = () => {
         const fresh = offer ? draftOf(offer, facts) : asked.type || asked.recipe ? blankDraft(asked.type ?? 'order', asked.recipe ?? null, { facts, now: new Date(), ship: regionWords(facts.country).ship, season }) : null
         const kept = keptDraft(storeId, offerId, offer?.revision ?? null, blankDraft('order', null, { facts, now: new Date(), ship: '', season: null }))
         const d = kept ?? fresh
-        const [names, people] = await Promise.all([
-          loadProductNames([...new Set([...(d?.productIds ?? []), ...(d?.buyIds ?? []), ...(d?.getIds ?? [])])]).catch(() => new Map<string, string>()),
-          loadCustomerNames(d?.customerIds ?? []).catch(() => new Map<string, string>()),
-        ])
+        const named = await Promise.all([loadProductNames([...new Set([...(d?.productIds ?? []), ...(d?.buyIds ?? []), ...(d?.getIds ?? [])])]), loadCustomerNames(d?.customerIds ?? [])]).catch(() => null)
         if (!live) return
+        // Unnamed chips could be saved over unseen, so names that can't be read are the editor's error.
+        if (!named) return setLoaded({ kind: 'error' })
+        const [names, people] = named
         setProductNames(names)
         setCustomerNames(people)
         setDraft(d)

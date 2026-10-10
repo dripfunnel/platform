@@ -438,7 +438,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
             <label className="df-offer-inline">
               <span>{words.codeLabel}</span>
               <span className="df-offer-row">
-                <input className="df-offer-code-input" aria-label={words.codeLabel} value={d.code} readOnly={disabled} placeholder={words.codePlaceholder} autoCapitalize="characters" spellCheck={false} maxLength={32} aria-invalid={hasCodeError || undefined} onChange={(ev) => set({ code: ev.target.value.toUpperCase().replace(/\s/g, '') })} />
+                <input className="df-offer-code-input" aria-label={words.codeLabel} value={d.code} readOnly={disabled} placeholder={words.codePlaceholder} autoCapitalize="characters" spellCheck={false} maxLength={offerLimits.code[1]} aria-invalid={hasCodeError || undefined} onChange={(ev) => set({ code: ev.target.value.toUpperCase().replace(/\s/g, '') })} />
                 {!disabled && (
                   <button type="button" className="df-button" onClick={() => set({ code: generateCode() })}>
                     {words.generate}
@@ -465,7 +465,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
                   </label>
                   <label className="df-offer-inline">
                     <span>{words.batchPrefix}</span>
-                    <input className="df-offer-small" value={d.batch.prefix} maxLength={12} readOnly={disabled} onChange={(ev) => set({ batch: { ...d.batch, prefix: ev.target.value.toUpperCase().replace(/\s/g, '') } })} />
+                    <input className="df-offer-small" value={d.batch.prefix} maxLength={offerLimits.prefix} readOnly={disabled} onChange={(ev) => set({ batch: { ...d.batch, prefix: ev.target.value.toUpperCase().replace(/\s/g, '') } })} />
                   </label>
                   <label className="df-offer-inline">
                     <span>{words.batchLength}</span>
@@ -489,7 +489,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
 
         <label className="df-offer-inline df-offer-wide">
           <span>{words.name}</span>
-          <input value={d.name} readOnly={disabled} maxLength={120} aria-invalid={Boolean(e.name) || undefined} onChange={(ev) => set({ name: ev.target.value })} />
+          <input value={d.name} readOnly={disabled} maxLength={offerLimits.name} aria-invalid={Boolean(e.name) || undefined} onChange={(ev) => set({ name: ev.target.value })} />
         </label>
         <Problem text={e.name} />
         <span className="df-offers-sub">
@@ -498,8 +498,9 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
         {/test|do not use|don.t use|experiment|internal|tmp/i.test(d.name) && <p className="df-offers-note df-offers-note--warning">{words.nameWarn}</p>}
         <label className="df-offer-inline df-offer-wide">
           <span>{words.note}</span>
-          <input value={d.note} readOnly={disabled} maxLength={120} placeholder={words.notePlaceholder} onChange={(ev) => set({ note: ev.target.value })} />
+          <input value={d.note} readOnly={disabled} maxLength={offerLimits.note} placeholder={words.notePlaceholder} aria-invalid={Boolean(e.note) || undefined} onChange={(ev) => set({ note: ev.target.value })} />
         </label>
+        <Problem text={e.note} />
       </Section>
 
       <Section n={3} title={words.sections.must}>

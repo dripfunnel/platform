@@ -2,9 +2,9 @@ import type { KeyboardEvent } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { tabKeyHandler } from './tabKeys'
 
-const press = (key: string, current: string) => {
+const press = (key: string, current: string, held: Partial<Record<'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey', boolean>> = {}) => {
   const choose = vi.fn()
-  const event = { key, preventDefault: vi.fn() } as unknown as KeyboardEvent
+  const event = { key, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...held, preventDefault: vi.fn() } as unknown as KeyboardEvent
   tabKeyHandler(['a', 'b', 'c'], current, choose, () => undefined)(event)
   return choose.mock.calls[0]?.[0]
 }
@@ -20,5 +20,12 @@ describe('tab keys', () => {
 
   it('leaves every other key alone', () => {
     expect(press('Enter', 'a')).toBeUndefined()
+  })
+
+  it('leaves a key with a modifier to the browser: Alt+Left is Back, Ctrl+End scrolls', () => {
+    expect(press('ArrowLeft', 'b', { altKey: true })).toBeUndefined()
+    expect(press('End', 'a', { ctrlKey: true })).toBeUndefined()
+    expect(press('Home', 'c', { metaKey: true })).toBeUndefined()
+    expect(press('ArrowRight', 'a', { shiftKey: true })).toBeUndefined()
   })
 })
