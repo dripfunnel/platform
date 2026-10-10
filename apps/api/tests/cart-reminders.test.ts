@@ -683,6 +683,26 @@ describe('WhatsApp in India (#337)', () => {
     }
   })
 
+  it('asks again as it goes: a shopper who stops while the message waits for a retry gets neither the WhatsApp nor the email', async () => {
+    for (const channel of ['whatsapp', 'email'] as const) {
+      await whatsappFlow()
+      if (channel === 'email') await db.sql`update cart_reminder_step set channel = 'email' where store_id = ${store}`
+      const cart = await memberCart()
+      await sweep()
+      const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
+      const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
+      await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
+      expect((await reminders(cart))[0]?.channel).toBe(channel)
+      // The first try failed (MSG91 or SES down) and the shopper unsubscribed before the retry.
+      await db.sql`update customer set consent_state = 'stopped' where id = ${member}`
+      const before = [texts.length, mailTo('member.wa@example.com').length]
+      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => whatsappSender, suppressionKey) }, opts)
+      for (let i = 0; i < 2; i++) await relay()
+      await db.sql`update customer set consent_state = 'opted_in' where id = ${member}`
+      expect([channel, await reminders(cart), texts.length - (before[0] ?? 0), mailTo('member.wa@example.com').length - (before[1] ?? 0)]).toMatchObject([channel, [{ state: 'skipped', skip_reason: 'opted_out' }], 0, 0])
+    }
+  })
+
   it('emails anyone else: no WhatsApp consent, not opted in, a number outside India, a store outside India, below Growth Pro, or by hand', async () => {
     const cases: [string, () => Promise<unknown>, () => Promise<unknown>][] = [
       ['no whatsapp consent', () => db.sql`update customer set consent_channels = '{email}' where id = ${member}`, () => db.sql`update customer set consent_channels = '{email,whatsapp}' where id = ${member}`],

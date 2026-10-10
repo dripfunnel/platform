@@ -20,7 +20,7 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
 import { cartLinesNow, type CartLineNow } from '#engine/modules/cart/index'
 import { issueReminderCode, localTimeIn } from '#engine/modules/promotions/index'
-import { idleMs, mayEmail, quietWaitMs, reminderWindowMs, skipReasonOf, weeklyCapMs } from './rules'
+import { idleMs, mayEmail, mayWhatsApp, quietWaitMs, reminderWindowMs, skipReasonOf, weeklyCapMs } from './rules'
 
 // The engine's side of abandoned carts (FIRST-RELEASE §9), run from the cron and the outbox in system scope: a cart left in
 // checkout is marked, each step that falls due is queued once, and each queued reminder is decided when it is delivered.
@@ -100,7 +100,7 @@ export const decideReminder = async ({ sql, now, suppressionKey, whatsappReady }
     const percent = bps && r.level >= 2 ? bps / 100 : null
     // WhatsApp in India, to a signed-in shopper's own number who agreed to it (#337; Carts "WhatsApp needs opt-in"),
     // through the partner's account; anyone else gets the email.
-    const number = r.cart.customer_id !== null && consent?.consent_state === 'opted_in' && consent.consent_channels.includes('whatsapp') && consent.phone?.startsWith('+91') ? consent.phone : null
+    const number = r.cart.customer_id !== null && mayWhatsApp(consent) && consent?.phone?.startsWith('+91') ? consent.phone : null
     const wantsWhatsApp = !r.by_hand && r.step?.channel === 'whatsapp' && r.level >= 2 && r.store_country === 'IN' && number !== null
     const channel: ReminderChannel = wantsWhatsApp && whatsappReady && (await whatsappReady(tx, r.partner_id, percent ? 'cart.reminder_code' : 'cart.reminder')) ? 'whatsapp' : 'email'
     const email = channel === 'email' ? r.cart.email : null
