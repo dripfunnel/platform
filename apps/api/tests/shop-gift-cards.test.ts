@@ -183,6 +183,20 @@ describe('redeeming', () => {
     expect(await db.sql`select payload ->> 'event' as event from outbox where kind = 'order.notify' and payload ->> 'orderId' = ${orderId}`).toEqual([{ event: 'confirmed' }])
   })
 
+  it('tells the store’s webhooks a card-paid order was paid, and refunded onto the card with no payment to refund', async () => {
+    const [owner] = await db.sql<{ id: string }[]>`select id from "user" where email = 'owner@kesari.example'`
+    await db.sql`insert into webhook_endpoint (store_id, url, events, secret_sealed, created_by_user_id) values (${stores.kesari}, 'https://hooks.kesari.example/in', '{order.paid,order.refunded}', 'sealed', ${owner?.id ?? ''})`
+    const before = await cardRow(cardId)
+    const token = await cartOf(1)
+    await apply(token, code)
+    const { orderId } = await place(token, 'gift_card')
+    expect((await merchant(`mutation { cancelOrder(orderId: "${orderId}", reason: store) }`, 'owner')).data?.['cancelOrder']).toBe(true)
+    expect(await cardRow(cardId)).toBe(before)
+    const events = await db.sql<{ event: string }[]>`select payload ->> 'event' as event from outbox where kind = 'webhook.event' and payload -> 'data' ->> 'id' = ${orderId} `
+    expect(events.map((e) => e.event).sort()).toEqual(['order.paid', 'order.refunded'])
+    await db.sql`delete from webhook_endpoint where store_id = ${stores.kesari}`
+  })
+
   it('pays part, leaves the rest to pay, and gives the card back whole when the order is let go unpaid', async () => {
     const token = await cartOf(2)
     expect((await apply(token, code)).cart).toMatchObject({ total: { amount: '80000' }, amountDue: { amount: '20000' }, giftCard: { applied: { amount: '60000' } } })
@@ -222,6 +236,7 @@ describe('redeeming', () => {
       await tx`update gift_card set balance_amount = 0 where id = ${cardId}`
     })
     await isLocked
+    const redeemedBefore = await db.sql`select count(*)::int as n from gift_card_movement where gift_card_id = ${cardId} and kind = 'redeemed'`
     const placing = place(token, 'gift_card')
     const waited = await Promise.race([placing.then(() => 'finished'), new Promise((resolve) => setTimeout(() => resolve('waiting'), 300))])
     expect(waited).toBe('waiting')
@@ -229,7 +244,7 @@ describe('redeeming', () => {
     await other
     expect((await placing).code).toBe('CART_CHANGED')
     expect(await cardRow(cardId)).toBe('0')
-    expect(await db.sql`select count(*)::int as n from gift_card_movement where gift_card_id = ${cardId} and kind = 'redeemed'`).toEqual([{ n: 3 }])
+    expect(await db.sql`select count(*)::int as n from gift_card_movement where gift_card_id = ${cardId} and kind = 'redeemed'`).toEqual(redeemedBefore)
     // Two placements at once on a card that covers one: one is placed, the other told the cart changed.
     await db.sql`update gift_card set balance_amount = 40000 where id = ${cardId}`
     const [a, b] = [await cartOf(1), await cartOf(1)]
