@@ -33,6 +33,8 @@ const plans = { free: '', starter: '', growth: '', business: '', otherPartner: '
 const s = (n: number) => Math.floor(n / 1000)
 const subs = new Map<string, StripeSubscription>()
 const invoices = new Map<string, StripeInvoice>()
+// The full list of an invoice's lines, where Stripe embedded only its first page.
+const allLines = new Map<string, NonNullable<StripeInvoice['lines']>['data']>()
 const keys = new Map<string, unknown>()
 const calls: string[] = []
 let declineNext = false
@@ -67,6 +69,7 @@ const stripe: StripeApi & StoreBillingStripe = {
   charge: missing,
   refunds: async () => [],
   invoice: async (id) => invoices.get(id) ?? missing(),
+  invoiceLines: async (id) => allLines.get(id) ?? missing(),
   payout: missing,
   account: missing,
   subscription: async (id) => subs.get(id) ?? missing(),
@@ -151,6 +154,7 @@ const subscribe = async (storeId: string, partnerId: string, planId: string, sta
 const reset = async () => {
   subs.clear()
   invoices.clear()
+  allLines.clear()
   keys.clear()
   calls.length = 0
   declineNext = false
@@ -419,7 +423,11 @@ describe('changing a paid plan', () => {
     // Scheduled again, and the period ends: Stripe's phase names the plan, which the webhook applies.
     await change('owner', plans.starter, 'PERIOD_END')
     subs.set('sub_a1', subscriptionOf('sub_a1', 'cus_a1', 1000, { store_id: t.storeA1, plan_id: plans.starter, plan_version: '1', interval: 'month' }))
+    const byStripe = async () => (await entries(t.storeA1, 'billing.plan_changed')).filter((e) => e.actor_kind === 'provider')
+    expect(await byStripe()).toEqual([])
     expect(await event('evt_sched', 'customer.subscription.updated', 'sub_a1')).toBe('handled')
+    // The move itself is in the log, by Stripe as provider.
+    expect(await byStripe()).toEqual([{ actor_kind: 'provider', reason: 'scheduled' }])
     expect((await gql(q.subscription, 'owner')).data?.['subscription']).toMatchObject({ plan: { name: 'Starter' }, price: { amount: '1000' }, scheduled: null })
   })
 
@@ -506,6 +514,14 @@ describe('invoices and the details on them', () => {
     expect(page.nodes).toHaveLength(1)
     expect(page.nodes[0]).toMatchObject({ kind: 'proration', status: 'paid', amount: { amount: '1000', currency: 'USD' }, lines: [{ amount: { amount: '2000', currency: 'USD' }, kind: 'proration_charge' }, { amount: { amount: '-1000', currency: 'USD' }, kind: 'proration_credit' }] })
     expect((await gql(q.download, 'owner', { id: page.nodes[0]?.id })).data?.['downloadInvoice']).toBe('https://pay.stripe.com/invoice/acct_1/pdf')
+  })
+
+  it('keeps every line of an invoice whose list Stripe embedded only in part', async () => {
+    const line = (n: number) => ({ id: `il_${n}`, description: `Line ${n}`, amount: 500, proration: false, period: null })
+    invoices.set('in_long', invoiceOf('in_long', { amount_paid: 1500, amount_due: 1500, billing_reason: 'subscription_cycle', lines: { data: [line(1)], has_more: true } }))
+    allLines.set('in_long', [line(1), line(2), line(3)])
+    expect(await event('evt_long', 'invoice.paid', 'in_long', 'invoice')).toBe('handled')
+    expect((await db.sql<{ n: string }[]>`select sum(l.amount)::text as n from invoice_line l join invoice i on i.id = l.invoice_id where i.stripe_invoice_id = 'in_long'`)[0]?.n).toBe('1500')
   })
 
   it('saves the details with a valid tax number, and an issued invoice keeps the details it was issued with', async () => {

@@ -52,6 +52,16 @@ const refundPage = z.object({ data: z.array(refundSchema.loose()), has_more: z.b
 // 100 a page; a charge with more refunds than this is not one we would pay out on.
 export const refundPagesMax = 10
 
+const invoiceLineSchema = z.object({
+  id: z.string().nullish(),
+  description: z.string().nullish(),
+  amount: z.number().int().nullish(),
+  proration: z.boolean().nullish(),
+  period: z.object({ start: z.number().int(), end: z.number().int() }).nullish(),
+})
+export type StripeInvoiceLine = z.infer<typeof invoiceLineSchema>
+const invoiceLinePage = z.object({ data: z.array(invoiceLineSchema.loose()), has_more: z.boolean() })
+
 export const invoiceSchema = z.object({
   id: stripeId('in'),
   number: z.string().nullish(),
@@ -72,18 +82,8 @@ export const invoiceSchema = z.object({
   metadata,
   subscription_details: z.object({ metadata }).nullish(),
   tax: z.number().int().nonnegative().nullish(),
-  lines: z
-    .object({
-      data: z.array(
-        z.object({
-          description: z.string().nullish(),
-          amount: z.number().int().nullish(),
-          proration: z.boolean().nullish(),
-          period: z.object({ start: z.number().int(), end: z.number().int() }).nullish(),
-        }),
-      ),
-    })
-    .nullish(),
+  // Stripe embeds the first page of lines only; `has_more` says to read the rest (invoiceLines).
+  lines: z.object({ data: z.array(invoiceLineSchema), has_more: z.boolean().nullish() }).nullish(),
   charge: chargeSchema.or(z.string()).nullish(),
 })
 export type StripeInvoice = z.infer<typeof invoiceSchema>
@@ -182,6 +182,8 @@ export interface StripeApi {
   /** Every refund of a charge, through Stripe's paged list (an expanded list stops at 10). */
   refunds: (chargeId: string) => Promise<StripeRefund[]>
   invoice: (invoiceId: string) => Promise<StripeInvoice>
+  /** Every line of an invoice, through Stripe's paged list. */
+  invoiceLines: (invoiceId: string) => Promise<StripeInvoiceLine[]>
   payout: (accountId: string, payoutId: string) => Promise<StripePayout>
   account: (accountId: string) => Promise<StripeAccount>
   subscription: (subscriptionId: string) => Promise<StripeSubscription>
@@ -221,6 +223,19 @@ export const stripeClient = ({ secretKey, fetchImpl = fetch }: { secretKey: stri
       throw new StripeUnavailable('more refunds than we read')
     },
     invoice: (invoiceId) => call(invoiceSchema.loose(), 'GET', `/invoices/${encodeURIComponent(invoiceId)}?expand[]=charge&expand[]=charge.transfer`),
+    invoiceLines: async (invoiceId) => {
+      const all: StripeInvoiceLine[] = []
+      let after: string | undefined
+      for (let page = 0; page < refundPagesMax; page++) {
+        const query = new URLSearchParams({ limit: '100', ...(after ? { starting_after: after } : {}) })
+        const { data, has_more } = await call(invoiceLinePage, 'GET', `/invoices/${encodeURIComponent(invoiceId)}/lines?${query}`)
+        all.push(...data)
+        if (!has_more) return all
+        after = data.at(-1)?.id ?? undefined
+        if (!after) throw new StripeUnavailable('a page of invoice lines with no id to go on from')
+      }
+      throw new StripeUnavailable('more invoice lines than we read')
+    },
     payout: (accountId, payoutId) => call(payoutSchema.loose(), 'GET', `/payouts/${encodeURIComponent(payoutId)}?expand[]=destination`, { account: accountId }),
     account: (accountId) => call(accountSchema.loose(), 'GET', `/accounts/${encodeURIComponent(accountId)}`),
     subscription: (subscriptionId) => call(subscriptionSchema.loose(), 'GET', `/subscriptions/${encodeURIComponent(subscriptionId)}`),
