@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // Which query reads an export back: its own kind's, or, for a job this tab didn't start, whichever kind answers.
 
-const readers = vi.hoisted(() => ({ loadCatalogExport: vi.fn(), loadOrderExport: vi.fn(), loadCustomerExport: vi.fn() }))
+const readers = vi.hoisted(() => ({ loadCatalogExport: vi.fn(), loadOrderExport: vi.fn(), loadCustomerExport: vi.fn(), loadReportExport: vi.fn() }))
 vi.mock('../../api/imports', () => ({ loadCatalogExport: readers.loadCatalogExport }))
 vi.mock('../../api/orders', () => ({ loadOrderExport: readers.loadOrderExport }))
 vi.mock('../../api/customers', () => ({ loadCustomerExport: readers.loadCustomerExport }))
+vi.mock('../../api/reports', () => ({ loadReportExport: readers.loadReportExport }))
 
 const { loadAnyExport, startListExport } = await import('./listExport')
 
@@ -30,7 +31,8 @@ describe('loadAnyExport', () => {
     expect(readers.loadCatalogExport).not.toHaveBeenCalled()
     readers.loadOrderExport.mockResolvedValue(null)
     readers.loadCustomerExport.mockResolvedValue(null)
+    readers.loadReportExport.mockResolvedValue(null)
     expect(await loadAnyExport('gone')).toBeNull()
-    expect(readers.loadCustomerExport).toHaveBeenCalledWith('gone')
+    expect(readers.loadReportExport).toHaveBeenCalledWith('gone')
   })
 })

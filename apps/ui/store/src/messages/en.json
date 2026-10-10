@@ -117,6 +117,162 @@
     },
     "readOnly": "Your store is view-only until the bill is paid. You can look around; saving works again once it’s paid."
   },
+  "reports": {
+    "title": "Reports",
+    "rangeLine": "Last {days} days, compared with the {days} days before · {orders}",
+    "orders": {
+      "one": "{count} order",
+      "other": "{count} orders"
+    },
+    "range": {
+      "label": "Date range",
+      "days": "{days} days"
+    },
+    "currency": {
+      "label": "Currency"
+    },
+    "exportAll": "Export all",
+    "exportPanel": "Export",
+    "thin": {
+      "title": "Not much to show yet.",
+      "some": "Reports get useful after a week or two of orders.",
+      "none": "Your first orders will show up here."
+    },
+    "none": "No sales in the last {days} days — try a longer range.",
+    "noneLongest": "No sales in the last {days} days.",
+    "nothingToExport": "Nothing to export — no orders in the last {days} days.",
+    "takings": {
+      "title": "How much you took",
+      "up": "▲ {pct}% vs the previous {days} days",
+      "down": "▼ {pct}% vs the previous {days} days",
+      "nothingBefore": "Nothing to compare with yet",
+      "sales": "Sales",
+      "refunds": "Refunds",
+      "refunded": "−{amount}",
+      "net": "Takings (matches your bank)",
+      "note": "Net of refunds, so it matches what reaches your bank."
+    },
+    "sold": {
+      "title": "What sold",
+      "row": "{name} · {units} sold",
+      "note": "By money taken, in this date range."
+    },
+    "markets": {
+      "title": "Where it came from",
+      "outside": "Outside your markets",
+      "note": "By the market each shopper bought in. Visitor sources need analytics — not shown."
+    },
+    "tax": {
+      "titleState": "Sales tax collected",
+      "titleGst": "GST you owe",
+      "titleRate": "Tax you owe",
+      "byState": "By state",
+      "stateNote": "Calculated at checkout per state — see the export",
+      "forShoppers": "For shoppers in {country}",
+      "delivery": "On delivery",
+      "noState": "No state given",
+      "note": "We work it out — your accountant files it."
+    },
+    "suppliers": {
+      "title": "Suppliers",
+      "own": "Your own products",
+      "units": {
+        "one": "{count} unit",
+        "other": "{count} units"
+      },
+      "note": "Units sold per supplier. Suppliers never see your totals.",
+      "locked": "Export and the supplier report are on {plan}."
+    },
+    "offers": {
+      "title": "Top offers",
+      "row": "{name} · {orders}",
+      "off": "{discount} off",
+      "none": "No offer was used in the last {days} days.",
+      "note": "Sales with each offer, after the discount it gave."
+    },
+    "custom": {
+      "title": "Custom reports",
+      "row": "Build your own from any field",
+      "open": "Open",
+      "note": "Pick the rows and the columns.",
+      "lockedNote": "On {plan}.",
+      "rowsTag": "Custom report · 1 of 2",
+      "rowsTitle": "What should each row be?",
+      "rowsBody": "Uses the dates picked above. You get a CSV you can open in any spreadsheet.",
+      "rowsLabel": "Each row is",
+      "next": "Next",
+      "rows": {
+        "orders": "An order",
+        "products": "A product",
+        "customers": "A customer"
+      },
+      "columnsTag": "Custom report · 2 of 2",
+      "columnsTitle": "Which columns?",
+      "columnsBody": "Uses the last {days} days, in {currency}.",
+      "columnsLabel": "Columns",
+      "make": "Make report",
+      "cancel": "Cancel",
+      "columns": {
+        "orders": {
+          "basic": "Order, date, customer, total",
+          "tax": "… plus tax and refunds",
+          "lines": "One row per item sold"
+        },
+        "products": {
+          "basic": "Product, units, takings",
+          "stock": "… plus stock left and supplier"
+        },
+        "customers": {
+          "basic": "Name, email, orders, spent",
+          "groups": "… plus groups and tags"
+        }
+      }
+    },
+    "locked": {
+      "rangeLine": "Takings, what sold, markets and tax — on {plan} and up",
+      "body": "Reports are on {plan}. Your Home page still shows today’s numbers.",
+      "title": "Unlock reports",
+      "delta": "See prices in Billing",
+      "note": "Everything you’ve sold so far is already counted — it appears the moment you upgrade.",
+      "seePlans": "See plans",
+      "askOwner": "Ask your store owner to upgrade.",
+      "somePlan": "a bigger plan"
+    },
+    "planLimit": "That’s on {plan}.",
+    "planLimitOwner": "That’s on {plan}. See plans in Billing.",
+    "refused": {
+      "FORBIDDEN": "This session can look at reports but not take their data away.",
+      "INVALID_INPUT": "That report can’t be made for these dates.",
+      "NOT_CONNECTED": "We couldn’t reach the store service. Try again."
+    },
+    "failed": "The export couldn’t be started. Try again.",
+    "export": {
+      "preparing": "Preparing your report…",
+      "ready": {
+        "one": "{count} row is ready.",
+        "other": "{count} rows are ready."
+      },
+      "truncated": "Only the first {count} rows are in it; pick a shorter range to see the rest.",
+      "download": "Download",
+      "file": "report-{date}.csv",
+      "expires": "The link works until {time}.",
+      "expired": "That report’s link has expired. Export again.",
+      "tooLarge": "That report is too large. Pick a shorter range and try again.",
+      "failed": "The report couldn’t be made. Try again."
+    },
+    "loading": "Loading reports",
+    "error": {
+      "title": "Reports didn’t load",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You don’t have access to Reports",
+      "staff": "Staff can’t open Reports. Ask your store owner if you need something from them.",
+      "supplier": "Suppliers can’t open Reports. Your sales are in Your sales."
+    },
+    "readOnly": "Your store is view-only until the bill is paid. Reports and their exports still work."
+  },
   "signIn": {
     "title": "Sign in"
   },
