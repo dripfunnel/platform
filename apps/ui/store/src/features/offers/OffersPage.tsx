@@ -1,7 +1,7 @@
 import { EmptyState, ErrorState, LoadingState, MoreActions, SearchField, StatusPill, Toast, usePhone, useScreenState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
-import { getRouteApi, useNavigate } from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { loadOfferCounts, loadOfferNames, loadOfferPlace, loadOffers, offerKinds, offerPageSize, offerTabs, type Offer, type OfferCounts, type OfferKind, type OfferPage, type OfferTab } from '../../api/offers'
 import { harnessEnabled, harnessSearch } from '../../harness'
@@ -91,8 +91,9 @@ export const OffersPage = () => {
     canUpgrade: access.canUpgrade,
     timeZone: place.timeZone,
     now: () => new Date(),
-    onDone: (message) => {
+    onDone: (message, done) => {
       setToast(message)
+      if (done.kind === 'duplicated') return void navigate({ to: '/offers/$offerId', params: { offerId: done.id }, search: (prev) => harnessSearch(prev) })
       load()
       loadCounts()
     },
@@ -151,6 +152,10 @@ export const OffersPage = () => {
       <MoreActions label={words.row.actions}>
         {(close) => (
           <>
+            <Link className="df-button" to="/offers/$offerId" params={{ offerId: offer.id }} search={(prev) => harnessSearch(prev, forced ?? undefined)} onClick={close}>
+              {access.canEdit ? words.menu.results : words.menu.view}
+              <span className="df-offers-menu-sub">{access.canEdit ? words.menuSub.results : words.menuSub.view}</span>
+            </Link>
             {offer.code && (
               <button type="button" className="df-button" onClick={() => {
                   close()
@@ -260,7 +265,9 @@ export const OffersPage = () => {
                   return (
                     <div key={offer.id} className="df-offers-row" role="row">
                       <span role="cell" className="df-offers-cell">
-                        <strong className="df-offers-name">{offer.name}</strong>
+                        <Link className="df-offers-name" to="/offers/$offerId" params={{ offerId: offer.id }} search={(prev) => harnessSearch(prev, forced ?? undefined)}>
+                          {offer.name}
+                        </Link>
                         <span className="df-offers-sub">{whatText(offer, region, names)}</span>
                       </span>
                       <span role="cell">{offer.code ? <code className="df-offers-code">{offer.code}</code> : <span className="df-offers-sub">{offer.trigger === 'code' ? words.row.singleUse : words.row.automatic}</span>}</span>
@@ -293,7 +300,9 @@ export const OffersPage = () => {
                         <StatusPill tone={statusLook[key].tone} icon={statusLook[key].icon} label={words.status[key]} />
                         <span className="df-offers-sub">{timeLine(offer, now, place.timeZone)}</span>
                       </span>
-                      <strong className="df-offers-name">{offer.name}</strong>
+                      <Link className="df-offers-name" to="/offers/$offerId" params={{ offerId: offer.id }} search={(prev) => harnessSearch(prev, forced ?? undefined)}>
+                        {offer.name}
+                      </Link>
                       <span className="df-offers-sub">{whatText(offer, region, names)}</span>
                       <span className="df-offers-card-foot">
                         <code className="df-offers-code">{offer.code ?? (offer.trigger === 'code' ? words.row.singleUse : words.row.automatic)}</code>

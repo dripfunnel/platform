@@ -9,24 +9,31 @@ import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
 
 // Offers driven as the Owner, a Manager, Staff and a supplier would (FIRST-RELEASE §8, OFFERS-DESIGN §4): the tabs,
-// search and filters, "Check a code", and each row action and its refusals.
+// search and filters, "Check a code", each row action and its refusals, and one offer's page with results and codes.
 
 const words = messages.offers
 
 const api = vi.hoisted(() => ({
   loadOffers: vi.fn(),
   loadOfferCounts: vi.fn(),
+  loadOffer: vi.fn(),
+  loadOfferResults: vi.fn(),
+  loadCodeBatches: vi.fn(),
   checkCode: vi.fn(),
   setOfferOn: vi.fn(),
   endOffer: vi.fn(),
   duplicateOffer: vi.fn(),
   deleteOffer: vi.fn(),
+  generateCodes: vi.fn(),
+  requestCodesExport: vi.fn(),
+  loadCodesExport: vi.fn(),
   loadOfferPlace: vi.fn(),
   loadOfferNames: vi.fn(),
 }))
 vi.mock('../../api/offers', async (actual) => ({ ...(await actual<typeof import('../../api/offers')>()), ...api }))
 
 const { OffersPage } = await import('./OffersPage')
+const { OfferPage } = await import('./OfferPage')
 
 const action = (a: Partial<OfferAction> & Pick<OfferAction, 'operation'>): OfferAction => ({ percent: null, amounts: [], cap: [], targets: null, exclude: null, buy: null, get: null, oncePerOrder: false, kind: null, tiers: [], ...a })
 const welcome: Offer = {
@@ -48,6 +55,7 @@ const welcome: Offer = {
   revision: 3,
 }
 const paused: Offer = { ...welcome, id: 'o2', name: 'Socks deal', code: null, trigger: 'automatic', status: 'off', enabled: false, totalUsesLimit: null }
+const single: Offer = { ...welcome, id: 'o3', name: 'Influencer 15%', code: null }
 const page = (rows: Offer[]): Page => ({ rows, next: null, previous: null })
 const counts = { live: 1, scheduled: 0, off: 1, ended: 0 }
 const planLimit = (name: string) => new ApiError('PLAN_LIMIT', 'Your plan doesn’t include this.', { key: 'live_offers', limit: 3, unlockedBy: { id: 'p', name } })
@@ -61,7 +69,9 @@ const show = async (acting: Acting, { readOnly = false, entry = '/offers' } = {}
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
   const list = createRoute({ getParentRoute: () => app, path: '/offers', validateSearch: z.looseObject({ status: z.enum(['live', 'scheduled', 'off', 'ended']).optional() }), component: OffersPage })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list])]), history: createMemoryHistory({ initialEntries: [entry] }) })
+  const one = createRoute({ getParentRoute: () => app, path: '/offers/$offerId', component: OfferPage })
+  const billing = createRoute({ getParentRoute: () => app, path: '/billing', component: () => null })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, one, billing])]), history: createMemoryHistory({ initialEntries: [entry] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -70,7 +80,7 @@ const show = async (acting: Acting, { readOnly = false, entry = '/offers' } = {}
 }
 
 const settle = (ms = 0) => act(async () => new Promise((resolve) => setTimeout(resolve, ms)))
-const row = (name: string) => screen.getByText(name, { selector: '.df-offers-name' }).closest('[role="row"]') as HTMLElement
+const row = (name: string) => screen.getByRole('link', { name }).closest('[role="row"]') as HTMLElement
 const openMenu = (name: string) => fireEvent.click(within(row(name)).getByRole('button', { name: /Actions/ }))
 const menuItem = (name: string, item: RegExp) => within(row(name)).getByRole('button', { name: item })
 
@@ -79,6 +89,9 @@ beforeEach(() => {
   api.loadOfferCounts.mockResolvedValue(counts)
   api.loadOfferPlace.mockResolvedValue({ timeZone: 'Asia/Kolkata', country: 'IN' })
   api.loadOfferNames.mockResolvedValue({ collections: new Map(), filterValues: new Map(), groups: new Map() })
+  api.loadOffer.mockImplementation((id: string) => Promise.resolve([welcome, paused, single].find((o) => o.id === id) ?? null))
+  api.loadOfferResults.mockResolvedValue({ uses: 38, discountGiven: [{ amount: '41200', currency: 'INR' }], salesWithOffer: [], averageOrder: [], byDay: [] })
+  api.loadCodeBatches.mockResolvedValue([{ id: 'b1', prefix: 'INSTA-', length: 8, count: 500, used: 37, createdAt: '2026-10-01T00:00:00.000Z' }])
   api.setOfferOn.mockResolvedValue(undefined)
   api.endOffer.mockResolvedValue(undefined)
   api.deleteOffer.mockResolvedValue(undefined)
@@ -88,6 +101,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+  vi.useRealTimers()
+  sessionStorage.clear()
 })
 
 describe('the Offers list', () => {
@@ -128,8 +143,8 @@ describe('the Offers list', () => {
     await settle()
     answerLive(page([welcome]))
     await settle()
-    expect(row('Socks deal')).toBeTruthy()
-    expect(screen.queryByText('Welcome 10% off')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Socks deal' })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Welcome 10% off' })).toBeNull()
   })
 
   it('turns an offer off after saying what happens to carts, and keeps a refusal in its dialog only', async () => {
@@ -187,19 +202,20 @@ describe('the Offers list', () => {
     expect(api.deleteOffer).toHaveBeenCalledWith('o1')
   })
 
-  it('makes a copy that is off, and says so', async () => {
-    await show(owner)
+  it('opens the copy a Duplicate makes', async () => {
+    const router = await show(owner)
     openMenu('Welcome 10% off')
     fireEvent.click(menuItem('Welcome 10% off', /^Duplicate/))
     await settle()
     expect(api.duplicateOffer).toHaveBeenCalledWith('o1')
-    expect(screen.getByText(words.act.duplicated)).toBeTruthy()
+    expect(router.state.location.pathname).toBe('/offers/o9')
   })
 
   it('lets Staff read offers and check codes, with no action that changes one', async () => {
     await show(staff)
     expect(screen.getByText(words.notes.staff)).toBeTruthy()
     openMenu('Welcome 10% off')
+    expect(within(row('Welcome 10% off')).getByRole('link', { name: /^View/ })).toBeTruthy()
     expect(menuItem('Welcome 10% off', /^Copy code/)).toBeTruthy()
     expect(within(row('Welcome 10% off')).queryByRole('button', { name: /^(Turn off|End now|Duplicate|Delete)/ })).toBeNull()
   })
@@ -261,5 +277,79 @@ describe('Check a code', () => {
     fireEvent.change(screen.getByRole('textbox', { name: words.check.label }), { target: { value: 'abc' } })
     await settle(450)
     expect(screen.getByText(words.check.tooMany)).toBeTruthy()
+  })
+})
+
+describe('one offer’s page', () => {
+  it('words the offer and its details, with the store’s time zone named', async () => {
+    await show(owner, { entry: '/offers/o1' })
+    expect(screen.getByRole('heading', { level: 1, name: 'Welcome 10% off' })).toBeTruthy()
+    expect(screen.getByText(/10% off the whole order · code WELCOME10/)).toBeTruthy()
+    expect(screen.getByText('No end date · India Standard Time')).toBeTruthy()
+    expect(screen.getByText('Instagram, Oct')).toBeTruthy()
+    expect(screen.getByText('₹412.00')).toBeTruthy()
+    expect(screen.getByText('38 of 100')).toBeTruthy()
+  })
+
+  it('shows results on a plan without them as locked: plans for the Owner, “ask” for a Manager', async () => {
+    api.loadOfferResults.mockRejectedValue(new ApiError('PLAN_LIMIT', 'no', { key: 'offer_results', limit: null, unlockedBy: { id: 'p', name: 'Growth Pro' } }))
+    await show(owner, { entry: '/offers/o1' })
+    expect(screen.getByText('Results are on Growth Pro')).toBeTruthy()
+    expect(screen.getByRole('link', { name: words.results.seePlans }).getAttribute('href')).toBe('/billing')
+    cleanup()
+    await show(manager, { entry: '/offers/o1' })
+    expect(screen.queryByRole('link', { name: words.results.seePlans })).toBeNull()
+    expect(screen.getByText(words.results.askOwner)).toBeTruthy()
+  })
+
+  it('goes back to the list once the offer is deleted', async () => {
+    const router = await show(owner, { entry: '/offers/o1' })
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.act.delete }))
+    await settle()
+    expect(router.state.location.pathname).toBe('/offers')
+  })
+
+  it('shows an offer that isn’t the store’s as not found, and Staff no actions', async () => {
+    await show(owner, { entry: '/offers/nope' })
+    expect(screen.getByText(words.page.missing)).toBeTruthy()
+    cleanup()
+    await show(staff, { entry: '/offers/o1' })
+    expect(screen.queryByRole('button', { name: 'Turn off' })).toBeNull()
+    expect(screen.getByRole('button', { name: words.menu.copy })).toBeTruthy()
+  })
+
+  it('makes single-use codes within the API’s limits and fetches a run’s file', async () => {
+    api.generateCodes.mockResolvedValue({ id: 'b2', prefix: 'VIP-', length: 8, count: 200, used: 0, createdAt: '2026-10-10T00:00:00.000Z' })
+    api.requestCodesExport.mockResolvedValue('x1')
+    api.loadCodesExport.mockResolvedValueOnce({ id: 'x1', state: 'queued', rows: null, csv: null }).mockResolvedValueOnce({ id: 'x1', state: 'done', rows: 500, csv: 'Code\nINSTA-AAAA' })
+    URL.createObjectURL = vi.fn(() => 'blob:codes')
+    URL.revokeObjectURL = vi.fn()
+    await show(owner, { entry: '/offers/o3' })
+    expect(screen.getByText('500 codes · 37 used · 463 unused · start with INSTA-')).toBeTruthy()
+    const count = screen.getByRole('textbox', { name: words.codes.count })
+    fireEvent.change(count, { target: { value: '9000' } })
+    fireEvent.click(screen.getByRole('button', { name: words.codes.make }))
+    expect(screen.getByText('Make between 1 and 5,000 codes at a time.')).toBeTruthy()
+    expect(api.generateCodes).not.toHaveBeenCalled()
+    fireEvent.change(count, { target: { value: '200' } })
+    fireEvent.change(screen.getByRole('textbox', { name: words.codes.prefix }), { target: { value: 'vip-' } })
+    fireEvent.click(screen.getByRole('button', { name: words.codes.make }))
+    await settle()
+    expect(api.generateCodes).toHaveBeenCalledWith('o3', { count: 200, prefix: 'VIP-', length: 8 })
+    expect(screen.getByText('200 codes made.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.codes.makeFile }))
+    await settle()
+    expect(sessionStorage.getItem('df-offer-codes:b1')).toBe('x1')
+    await settle(1600)
+    expect(screen.getByRole('link', { name: 'Download 500 codes (CSV)' }).getAttribute('href')).toBe('blob:codes')
+    expect(sessionStorage.getItem('df-offer-codes:b1')).toBeNull()
+  })
+
+  it('never offers a codes file to a seat without offers.export', async () => {
+    await show(staff, { entry: '/offers/o3' })
+    expect(screen.getByText('500 codes · 37 used · 463 unused · start with INSTA-')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.codes.makeFile })).toBeNull()
+    expect(screen.queryByRole('button', { name: words.codes.make })).toBeNull()
   })
 })

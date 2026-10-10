@@ -4408,6 +4408,8 @@
       "next": "Next"
     },
     "menu": {
+      "results": "View results",
+      "view": "View",
       "copy": "Copy code",
       "off": "Turn off",
       "on": "Turn on",
@@ -4416,6 +4418,8 @@
       "delete": "Delete"
     },
     "menuSub": {
+      "results": "Uses, discount given, sales",
+      "view": "See how it works",
       "off": "Pause it without deleting anything",
       "on": "Start giving it again",
       "end": "Sets the end date to now",
@@ -4488,7 +4492,94 @@
       "expiredBody": "{name}. Ended {day}. Shoppers see “This code has expired”.",
       "usedUp": "{code} is used up.",
       "usedUpBody": "{name}. All {total} uses are gone. Shoppers see “This code can’t be used any more”.",
-      "usedOnce": "{name}. This single-use code was used {date}."
+      "usedOnce": "{name}. This single-use code was used {date}.",
+      "open": "Open offer →"
+    },
+    "page": {
+      "crumbs": "Breadcrumb",
+      "offer": "Offer",
+      "loading": "Loading this offer",
+      "missing": "This offer isn’t here. It may have been deleted.",
+      "share": "Share the code",
+      "detailsTitle": "Details",
+      "who": {
+        "everyone": "Everyone",
+        "groups": "{names} customers",
+        "firstOrder": "First order only",
+        "customers": "{count} chosen customers",
+        "countries": "Shoppers shipping to {countries}"
+      },
+      "details": {
+        "type": "Type",
+        "how": "How shoppers get it",
+        "automatic": "Automatic at checkout",
+        "withCode": "With a {code}",
+        "name": "Name shoppers see",
+        "note": "Note for your team",
+        "who": "Who it’s for",
+        "starts": "Starts",
+        "whenOn": "When turned on",
+        "ends": "Ends",
+        "noEnd": "No end date",
+        "total": "Total uses",
+        "perCustomer": "Uses per customer",
+        "unlimited": "Unlimited",
+        "combines": "Combines with",
+        "combinesWith": "Other {kinds} offers",
+        "combinesNothing": "No other offers"
+      }
+    },
+    "results": {
+      "title": "Results",
+      "range": "Last {days} days",
+      "loading": "Loading results",
+      "error": "We couldn’t load the results",
+      "locked": "Results are on {plan}",
+      "somePlan": "a bigger plan",
+      "lockedBody": "See uses, discount given and sales for every offer. This offer still counts its uses.",
+      "seePlans": "See plans",
+      "askOwner": "Ask your store owner to upgrade.",
+      "uses": "Uses",
+      "usesOf": "{used} of {total}",
+      "given": "Discount given",
+      "sales": "Sales with this offer",
+      "average": "Average order",
+      "chart": "Uses per day",
+      "bar": {
+        "one": "{day}: {count} use",
+        "other": "{day}: {count} uses"
+      },
+      "today": "Today",
+      "note": "Sales with this offer are orders that used it. We don’t estimate sales the offer caused."
+    },
+    "codes": {
+      "title": "Single-use codes",
+      "loading": "Loading codes",
+      "error": "We couldn’t load the codes",
+      "none": "No single-use codes yet. Make a run below: each code works once, for one shopper.",
+      "batch": "{count} codes · {used} used · {unused} unused · start with {prefix}",
+      "noPrefix": "no prefix",
+      "makeFile": "Get the codes (CSV)",
+      "preparing": "Preparing the file…",
+      "download": {
+        "one": "Download {count} code (CSV)",
+        "other": "Download {count} codes (CSV)"
+      },
+      "fileFailed": "We couldn’t make the file. Try again.",
+      "expired": "That file has expired. Ask for it again.",
+      "count": "How many",
+      "prefix": "Start with",
+      "length": "Length after it",
+      "sample": "Like: {codes} …",
+      "help": "Each code works once, for one shopper. Get them as a CSV once they’re made.",
+      "make": "Make codes",
+      "making": "Making codes…",
+      "made": {
+        "one": "{count} code made.",
+        "other": "{count} codes made."
+      },
+      "countError": "Make between 1 and {max} codes at a time.",
+      "prefixError": "Start with up to {max} letters, numbers, - or _."
     }
   },
   "sales": {

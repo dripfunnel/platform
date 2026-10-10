@@ -1,4 +1,4 @@
-/* Offers (designs/Offers.dc.html): the list with its code check, tabs and rows. */
+/* Offers (designs/Offers.dc.html): the list with its code check, tabs and rows, and one offer's page. */
 .df-offers {
   display: flex;
   flex-direction: column;
@@ -270,6 +270,10 @@
   text-decoration: none;
 }
 
+.df-offers-name:hover {
+  text-decoration: underline;
+}
+
 .df-offers-code {
   padding: 3px 7px;
   border: 1px solid var(--df-color-border);
@@ -379,4 +383,272 @@
 .df-offers-pager > span:last-child {
   display: flex;
   gap: 8px;
+}
+
+/* One offer */
+.df-offer-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.df-offer-title {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  max-width: 720px;
+}
+
+.df-offer-title-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.df-offer-title-line .df-page-title {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.df-offer-sentence {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+  background: var(--df-color-page);
+  font-size: 15px;
+}
+
+.df-offer-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.df-offer-acts .df-button {
+  min-height: 40px;
+  font-size: 13px;
+}
+
+.df-offer-delete {
+  border-color: var(--df-color-danger-border);
+  color: var(--df-color-danger);
+}
+
+.df-offer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.df-offer-column {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.df-offer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-offer-card h2 {
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-offer-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.df-offer-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.df-offer-tiles div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+}
+
+.df-offer-tiles dt {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-offer-tiles dd {
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 19px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-offer-bars {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 80px;
+  margin: 0;
+  padding: 8px 0 0;
+  border-bottom: 1px solid var(--df-color-border);
+  list-style: none;
+}
+
+.df-offer-bars li {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  height: 100%;
+}
+
+.df-offer-bars li > span:first-child {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--df-color-info-border);
+}
+
+.df-offer-bars li[data-today] > span:first-child {
+  background: var(--df-color-brand);
+}
+
+.df-offer-bars-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -6px;
+  color: var(--df-color-muted);
+  font-size: 11px;
+}
+
+.df-offer-locked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 16px;
+  border: 1px dashed var(--df-color-field-border);
+  border-radius: 10px;
+  background: var(--df-color-page);
+  font-size: 13px;
+}
+
+.df-offer-big-code {
+  font-family: var(--df-font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.df-offer-facts {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.df-offer-facts div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.5fr);
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 13px;
+}
+
+.df-offer-facts dt {
+  color: var(--df-color-muted);
+}
+
+.df-offer-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.df-offer-batches {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-offer-batches li,
+.df-offer-batch-file {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.df-offer-make {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding-top: 12px;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-offer-make-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.df-offer-make-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-offer-make-fields input,
+.df-offer-make-fields select {
+  width: 120px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-size: 14px;
+}
+
+.df-offer-make-fields input[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-offers .df-breadcrumb a {
+  color: var(--df-color-link);
+  text-decoration: none;
+}
+
+.df-offer-make p {
+  margin: 0;
 }

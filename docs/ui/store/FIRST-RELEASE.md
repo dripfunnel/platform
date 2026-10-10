@@ -364,6 +364,17 @@ code, each confirmation restating its consequence; Staff read and check codes on
 "Discount given" column (`offers` carries uses only; the figure is on the offer's page), no bulk selection (no bulk API)
 and no "Stacks with" marker (the stacking check needs an API), each a follow-up.
 
+**Built on #325, part 2** (`/offers/$offerId`): one offer's page, each row's name and "View results" opening it. Its
+sentence and status with the store's time zone named; results (uses, discount given, sales with it and the average order,
+each per currency, and uses by day for the API's last 30 days, today being the store's), locked with the plan that unlocks
+them for the Owner and "Ask your store owner to upgrade" for a Manager; a shared code with Copy code; for a code offer
+without one, its runs of single-use codes with each run's used and unused, the run's file (a job followed until made, its
+id kept for the tab's session so a reload doesn't lose it; Owner and Manager, `offers.export`) and making another run within
+the API's limits; and its details (type, how shoppers get it, the name shoppers see, the team's note, who it's for,
+dates in the store's time zone, limits and what it combines with). Decided here: no "See orders with this offer" (Orders
+has no offer filter), "Export uses", change history, QR or "Copy link" (the storefront reads no `?code=` and the Store API
+gives no shop address), each a follow-up.
+
 ## 9. Abandoned carts (`Carts`)
 
 Carts tab: checkouts left, reminders sent, recovered and recovered sales for the last 14 days, and

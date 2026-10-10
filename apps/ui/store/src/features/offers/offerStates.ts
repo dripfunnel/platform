@@ -1,7 +1,8 @@
-import type { Offer, OfferAction, OfferCounts } from '../../api/offers'
+import type { CodeBatch, Offer, OfferAction, OfferCounts, OfferResults } from '../../api/offers'
 
-// Offers' states under ?state= (ui/README.md §6): loading, error, empty, list, noMatch, staff, readOnly, denied.
-export const offerStates = ['loading', 'error', 'empty', 'list', 'noMatch', 'staff', 'readOnly', 'denied'] as const
+// Offers' states under ?state= (ui/README.md §6): loading, error, empty, list, noMatch, staff, readOnly, denied, locked.
+// `locked` is the offer page's results on a plan without them.
+export const offerStates = ['loading', 'error', 'empty', 'list', 'noMatch', 'staff', 'readOnly', 'denied', 'locked'] as const
 export type OfferState = (typeof offerStates)[number]
 
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
@@ -56,3 +57,9 @@ export const offerSample = (state: OfferState | null): OfferSample | null => {
 export const sampleNames = harness
   ? { collections: new Map<string, string>(), filterValues: new Map([['fv-linen', 'Fabric: Linen'], ['fv-cotton', 'Fabric: Cotton']]), groups: new Map([['g1', 'VIP']]) }
   : null
+
+export const sampleResults: OfferResults | null = harness
+  ? { uses: 38, discountGiven: inr('4120000'), salesWithOffer: inr('22100000'), averageOrder: inr('581500'), byDay: Array.from({ length: 14 }, (_, i) => ({ day: new Date(Date.now() - (13 - i) * day).toISOString().slice(0, 10), uses: [2, 3, 1, 4, 2, 0, 3, 5, 2, 1, 4, 3, 6, 2][i] ?? 0 })) }
+  : null
+
+export const sampleBatches: CodeBatch[] = harness ? [{ id: 'b1', prefix: 'INSTA-', length: 8, count: 500, used: 37, createdAt: at(-5) }] : []

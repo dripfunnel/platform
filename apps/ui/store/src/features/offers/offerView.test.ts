@@ -4,6 +4,7 @@ import { messages } from '../../messages'
 import { actsFor } from './offerActions'
 import { checkWords } from './CodeCheck'
 import { kindOf, regionWords, sentence, statusKeyOf, timeLine, whatText, type OfferNames } from './offerView'
+import { usesByDay } from './OfferResults'
 
 // How an offer is worded (OFFERS-DESIGN §3 fact 9, B2, §1): status, time line, the row's words and the sentence.
 
@@ -100,5 +101,15 @@ describe('Check a code', () => {
     const used = checkWords('X', { code: 'INSTA-K7QX', offer: offer({ code: null }), deleted: false, singleUse: true, usedAt: '2026-10-09T05:00:00.000Z', expiresAt: null, answer: 'USED_UP' }, zone, now)
     expect(used.body).toBe('Welcome 10% off. This single-use code was used Fri, Oct 9, 10:30.')
     expect(checkWords('X', { code: 'DIWALI15', offer: offer({ status: 'scheduled', startsAt: '2026-10-13T03:30:00.000Z' }), deleted: false, singleUse: false, usedAt: null, expiresAt: null, answer: 'INVALID' }, zone, now).title).toBe('DIWALI15 doesn’t work yet.')
+  })
+})
+
+describe('the results chart', () => {
+  it('lays the API’s days on the last 30 days of the store’s calendar, ending today there', () => {
+    const days = usesByDay([{ day: '2026-10-10', uses: 4 }, { day: '2026-09-20', uses: 2 }], zone, new Date('2026-10-09T20:00:00.000Z'))
+    expect(days).toHaveLength(30)
+    expect(days.at(-1)).toEqual({ day: '2026-10-10', uses: 4 })
+    expect(days[0]?.day).toBe('2026-09-11')
+    expect(days.filter((d) => d.uses > 0)).toEqual([{ day: '2026-09-20', uses: 2 }, { day: '2026-10-10', uses: 4 }])
   })
 })

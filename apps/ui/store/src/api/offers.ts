@@ -112,6 +112,36 @@ export type OfferCounts = z.infer<typeof countsSchema>
 /** The tabs' counts: Used up counts as Ended (B1). */
 export const loadOfferCounts = async (): Promise<OfferCounts> => (await query('{ offerCounts { live scheduled off ended } }', z.object({ offerCounts: countsSchema }))).offerCounts
 
+export const loadOffer = async (id: string): Promise<Offer | null> =>
+  (await query(`query O($id: ID!) { offer(id: $id) { ${offerFields} } }`, z.object({ offer: offerSchema.nullable() }), { id })).offer
+
+const resultsSchema = z.object({
+  uses: z.number().int(),
+  discountGiven: z.array(moneySchema),
+  salesWithOffer: z.array(moneySchema),
+  averageOrder: z.array(moneySchema),
+  // The last 30 days that had a use, by day in the store's time zone.
+  byDay: z.array(z.object({ day: z.string(), uses: z.number().int() })),
+})
+export type OfferResults = z.infer<typeof resultsSchema>
+
+/** Refused PLAN_LIMIT, naming the plan, when results aren't on the store's plan. */
+export const loadOfferResults = async (id: string): Promise<OfferResults> =>
+  (await query('query R($id: ID!) { offerResults(id: $id) { uses discountGiven { amount currency } salesWithOffer { amount currency } averageOrder { amount currency } byDay { day uses } } }', z.object({ offerResults: resultsSchema }), { id })).offerResults
+
+const batchSchema = z.object({ id: z.string(), prefix: z.string(), length: z.number().int(), count: z.number().int(), used: z.number().int(), createdAt: z.string() })
+export type CodeBatch = z.infer<typeof batchSchema>
+
+/** An offer's runs of single-use codes, newest first; an offer has a handful, so the first 50 are all of them. */
+export const loadCodeBatches = async (offerId: string): Promise<CodeBatch[]> =>
+  (
+    await query(
+      'query B($id: ID!) { offerCodeBatches(offerId: $id, first: 50) { nodes { id prefix length count used createdAt } } }',
+      z.object({ offerCodeBatches: z.object({ nodes: z.array(batchSchema) }) }),
+      { id: offerId },
+    )
+  ).offerCodeBatches.nodes
+
 const checkSchema = z.object({
   code: z.string(),
   offer: offerSchema.nullable(),
@@ -147,6 +177,26 @@ export const deleteOffer = async (id: string): Promise<void> => {
   await query('mutation D($id: ID!) { deleteOffer(id: $id) }', z.object({ deleteOffer: z.boolean() }), { id })
 }
 
+/** The API's limits on one run of single-use codes (src/engine/modules/promotions/service.ts). */
+export const codeBatchLimits = { count: 5000, minLength: 6, maxLength: 16, prefix: 12 } as const
+
+export const generateCodes = async (offerId: string, run: { count: number; prefix: string; length: number }): Promise<CodeBatch> =>
+  (
+    await query(
+      'mutation G($id: ID!, $count: Int!, $prefix: String, $length: Int) { generateCodes(offerId: $id, count: $count, prefix: $prefix, length: $length) { id prefix length count used createdAt } }',
+      z.object({ generateCodes: batchSchema }),
+      { id: offerId, count: run.count, prefix: run.prefix || null, length: run.length },
+    )
+  ).generateCodes
+
+/** A run's codes as a file: a job, read back with `loadCodesExport`. */
+export const requestCodesExport = async (batchId: string): Promise<string> => (await query('mutation X($id: ID!) { exportOfferCodes(batchId: $id) }', z.object({ exportOfferCodes: z.string() }), { id: batchId })).exportOfferCodes
+
+const codesExportSchema = z.object({ id: z.string(), state: z.enum(['queued', 'done', 'failed', 'expired']), rows: z.number().int().nullable(), csv: z.string().nullable() })
+export type CodesExport = z.infer<typeof codesExportSchema>
+
+export const loadCodesExport = async (id: string): Promise<CodesExport | null> =>
+  (await query('query X($id: ID!) { offerCodesExport(id: $id) { id state rows csv } }', z.object({ offerCodesExport: codesExportSchema.nullable() }), { id })).offerCodesExport
 
 /** Where the store is: its time zone (dates, fact 9) and country (the region's words, T5). */
 export const loadOfferPlace = async (): Promise<{ timeZone: string; country: string | null }> => {

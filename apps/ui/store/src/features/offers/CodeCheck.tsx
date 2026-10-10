@@ -1,6 +1,8 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
+import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { checkCode, type CodeCheck as Check, type Offer } from '../../api/offers'
+import { harnessSearch } from '../../harness'
 import { fill, formatCount, formatList, messages } from '../../messages'
 import { moneyText } from '../orders/orderView'
 import { dateTimeText, dayText } from './offerView'
@@ -78,6 +80,7 @@ export const CodeCheck = ({ sample, timeZone }: { sample: readonly Offer[] | nul
   }, [code, sample])
 
   const answer = result.kind === 'answered' ? checkWords(result.code, result.check, timeZone, new Date()) : null
+  const offerId = result.kind === 'answered' && result.check && !result.check.deleted ? (result.check.offer?.id ?? null) : null
   return (
     <section className="df-offers-check" aria-labelledby={id}>
       <label className="df-offers-check-field">
@@ -91,6 +94,11 @@ export const CodeCheck = ({ sample, timeZone }: { sample: readonly Offer[] | nul
           <div className={`df-offers-check-result df-offers-check-result--${answer.tone}`}>
             <strong>{answer.title}</strong>
             <span>{answer.body}</span>
+            {offerId && (
+              <Link to="/offers/$offerId" params={{ offerId }} search={(prev) => harnessSearch(prev)}>
+                {words.open}
+              </Link>
+            )}
           </div>
         )}
       </div>
