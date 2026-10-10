@@ -148,6 +148,9 @@ const openingProblems = (checker: ts.TypeChecker, node: ts.JsxOpeningElement | t
   const kind = kindOf(checker, node.tagName)
   const tag = tagName(checker, node.tagName, kind)
   const found = node.attributes.properties.flatMap((attr) => attributeProblems(checker, kind, tag, attr))
+  const typed = node.attributes.properties.some((a) => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'type')
+  // A button with no type submits the form around it, and core's forms are the only forms (§3.4).
+  if ((kind === 'element' || kind === 'motion') && tag === 'button' && !typed) found.push({ node, rule: 'jsx/attribute-not-allowed', message: 'Write type="button" on every theme button; without it a button submits the form it sits in, and forms come from core.' })
   if (kind === 'theme' || kind === 'component' || elements.has(tag)) return found
   const use = instead.get(tag)
   return [{ node, rule: 'jsx/element-not-allowed', message: use ? `<${tag}> isn't allowed in a theme; use ${use}.` : `<${tag}> isn't allowed in a theme.` }, ...found]
