@@ -5364,7 +5364,9 @@
       "email": "Email",
       "phone": "Phone",
       "notGiven": "Not given",
-      "sent": "Reminders sent"
+      "sent": "Reminders sent",
+      "shipping": "shipping",
+      "delivery": "delivery"
     },
     "events": {
       "left": "Left checkout at {step}",
@@ -5382,6 +5384,7 @@
       "stoppedNote": "Reminders stopped by {by} — {note}",
       "paid": "Paid · order {number}",
       "paidCode": "Paid · order {number} with a reminder code"
-    }
+    },
+    "joiner": " · "
   }
 }

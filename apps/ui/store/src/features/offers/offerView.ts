@@ -2,6 +2,7 @@ import type { StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
 import type { ApiMoney } from '../../api/orders'
 import type { Offer, OfferAction, OfferCondition, OfferKind, OfferTargets } from '../../api/offers'
 import { fill, formatCount, formatList, locale, messages, plural } from '../../messages'
+import { saysShipping } from '../common/region'
 import { moneyText } from '../orders/orderView'
 
 // How Offers words an offer (OFFERS-DESIGN §2, §3 fact 9, B2): its type, status and time line, and the one-sentence
@@ -30,7 +31,7 @@ export interface RegionWords {
   code: string
 }
 export const regionWords = (country: string | null): RegionWords => ({
-  ship: country === 'US' || country === 'CA' ? words.region.shipping : words.region.delivery,
+  ship: saysShipping(country) ? words.region.shipping : words.region.delivery,
   code: country === 'US' || country === 'IN' || country === null ? words.region.coupon : words.region.voucher,
 })
 

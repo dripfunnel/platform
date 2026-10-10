@@ -7,7 +7,7 @@ import { loadCart, loadReminderSending, type CartDetail } from '../../api/carts'
 import { loadOfferPlace } from '../../api/offers'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatList, messages, plural } from '../../messages'
-import { regionWords } from '../offers/offerView'
+import { saysShipping } from '../common/region'
 import { moneyText } from '../orders/orderView'
 import { useCartActions } from './cartActions'
 import { cartStates, sampleDetail } from './cartStates'
@@ -163,7 +163,7 @@ export const CartPage = () => {
               <span>{words.page.value}</span>
               <strong>{cart.value ? moneyText(cart.value) : '—'}</strong>
             </div>
-            <span className="df-carts-sub">{fill(words.page.valueNote, { ship: regionWords(country).ship })}</span>
+            <span className="df-carts-sub">{fill(words.page.valueNote, { ship: saysShipping(country) ? words.page.shipping : words.page.delivery })}</span>
           </section>
           <section className="df-cart-card" aria-labelledby="df-cart-events">
             <h2 id="df-cart-events">{words.page.happened}</h2>
