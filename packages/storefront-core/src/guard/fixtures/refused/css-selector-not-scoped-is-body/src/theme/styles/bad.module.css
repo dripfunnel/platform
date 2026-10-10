@@ -1,0 +1,7 @@
+.card {
+  padding: 16px;
+}
+
+.card:is(body, html) {
+  color: red;
+}

@@ -80,6 +80,15 @@ const declarationProblem = (decl: Declaration, inKeyframes: boolean, siblings: r
   return undefined
 }
 
+// The universal selector and the page's own elements could pick out core's parts, inside :is() and :not() too.
+const pageWide = new Set(['*', 'html', 'body'])
+
+/** Whether a + or ~ leads to something other than a class of this module, such as `.a ~ *` or `.a + body`. */
+const leavesModule = (selector: Selector) => {
+  const items = selector.children.toArray()
+  return items.some((n, i) => n.type === 'Combinator' && (n.name === '+' || n.name === '~') && items[i + 1]?.type !== 'ClassSelector')
+}
+
 const startsWithClass = (selector: Selector) => selector.children.first?.type === 'ClassSelector'
 
 /** The CSS Module rules of ARCHITECTURE §3.4 for one file. */
@@ -112,6 +121,7 @@ export const checkCss = (file: string, text: string, context: GuardContext): Pro
         break
       case 'Selector':
         if (!inKeyframes && this.function === null && !startsWithClass(node)) report(node, 'css/selector-not-scoped', 'Every selector must start with a class of this CSS Module, such as .card h2.')
+        if (!inKeyframes && leavesModule(node)) report(node, 'css/selector-not-scoped', 'A + or ~ must lead to another class of this CSS Module, such as .item + .item; a sibling outside the module could be one of core\'s parts.')
         break
       case 'PseudoClassSelector': {
         const name = plain(node.name)
@@ -137,6 +147,9 @@ export const checkCss = (file: string, text: string, context: GuardContext): Pro
         break
       }
       default:
+        if (node.type === 'TypeSelector' && pageWide.has(localName(plain(node.name)))) {
+          report(node, 'css/selector-not-scoped', `"${node.name}" reaches outside this module; select only this module's classes and the elements inside them.`)
+        }
         if (namesCore(node)) report(node, 'css/core-selector', "Theme CSS may not name core's classes or df- elements, or select by class or id attribute; style core's parts through their documented properties and ::part.")
     }
   })

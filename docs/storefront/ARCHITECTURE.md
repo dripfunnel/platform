@@ -297,7 +297,8 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   isn't passed on as another type, and every key exists in every language the store offers.
 - No `declare`, `namespace`, `import =`, `export =` or `/// <reference>`.
 
-**CSS**: CSS Modules only; every selector starts with a module class; no `:global`, no
+**CSS**: CSS Modules only; every selector starts with a module class, and a `+` or `~` leads only to another
+module class; no `*`, `html` or `body` anywhere (inside `:is()` and `:not()` too); no `:global`, no
 `@import`, no `@font-face`; `url()` only for the store's media ids; no selector naming a core
 class or a `df-` element; `z-index` below core's layer; animation only of `transform`,
 `opacity` and `filter`. As built on #480 *(decided there)*: `url()` names a media id from the
