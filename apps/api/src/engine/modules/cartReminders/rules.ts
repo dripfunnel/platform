@@ -50,6 +50,10 @@ export const mayEmail = (storeCountry: string | null, consent: { consent_state: 
   return true
 }
 
+/** Whether the shopper agreed to WhatsApp (Carts: "WhatsApp needs opt-in"); checked when it is chosen and again as it goes. */
+export const mayWhatsApp = (consent: { consent_state: string; consent_channels: readonly string[] } | null): boolean =>
+  consent?.consent_state === 'opted_in' && consent.consent_channels.includes('whatsapp')
+
 export interface DecisionFacts {
   byHand: boolean
   storeSending: boolean
