@@ -177,13 +177,14 @@ export const OrderPage = () => {
   if (access.canShip && canShipNow(order, access.supplier) && Object.keys(left).length > 0)
     actions.push({ key: 'ship', label: picks ? words.actions.choosing : words.actions.ship, tone: 'primary', disabled: ro, onClick: () => openShip(order) })
   const awaitingHand = !access.supplier && order.state === 'placed' && order.paymentState === 'pending' && paidByHand(order.paymentMethod)
-  if (awaitingHand && access.money) actions.push({ key: 'markPaid', label: words.actions.markPaid, tone: 'warning', disabled: ro || !access.canMarkPaid, onClick: () => setDialog('markPaid') })
+  // Shown disabled to a seat that can’t, with who can (FIRST-RELEASE §3.1).
+  if (awaitingHand) actions.push({ key: 'markPaid', label: words.actions.markPaid, tone: 'warning', disabled: ro || !access.canMarkPaid, onClick: () => setDialog('markPaid') })
   if (access.canCancel && order.state === 'placed' && order.paymentState !== 'refunded' && nothingSent(order))
     actions.push({ key: 'cancel', label: words.actions.cancel, tone: 'plain', disabled: ro, onClick: () => setDialog('cancel') })
 
   const notes: string[] = []
   if (ro) notes.push(words.readOnly)
-  else if (!access.supplier && !access.canMarkPaid && awaitingHand && access.money) notes.push(words.staffOnly)
+  else if (!access.canMarkPaid && awaitingHand) notes.push(words.staffOnly)
 
   const dialogProps = (): ConfirmDialogProps | null => {
     const shared = { open: true, target: fill(words.note.target, { number: order.number }), error: dialogError, onCancel: () => setDialog(null) }

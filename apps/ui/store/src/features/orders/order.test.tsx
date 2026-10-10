@@ -240,11 +240,10 @@ describe('an order’s page', () => {
 
   it('shows staff Mark as paid disabled with who can, and never a card order’s', async () => {
     await show(staff, { ...placed, paymentState: 'pending', paymentMethod: 'cod' })
-    expect(screen.queryByRole('button', { name: words.actions.markPaid })).toBeNull()
-    cleanup()
-    await show({ ...staff, role: 'manager' }, { ...placed, paymentState: 'pending', paymentMethod: 'cod' })
     expect((button(words.actions.markPaid) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText(words.staffOnly)).toBeTruthy()
+    // Staff see no money, so no Payment card either.
+    expect(screen.queryByRole('region', { name: words.totals.title })).toBeNull()
     cleanup()
     await show(owner, { ...placed, paymentState: 'pending', paymentMethod: 'stripe' })
     expect(screen.queryByRole('button', { name: words.actions.markPaid })).toBeNull()
