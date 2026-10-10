@@ -388,6 +388,42 @@ input FacetValueInput {
   name: String!
 }
 
+type HomeLowStock {
+  count: Int
+  names: [String!]
+}
+
+type HomeOrder {
+  customerName: String
+  fulfilmentState: String
+  id: ID
+  items: Int
+  number: String
+  paymentState: String
+  placedAt: String
+  state: String
+  test: Boolean
+  total: Money
+}
+
+type HomePaymentsToCollect {
+  count: Int
+  firstOrderId: ID
+}
+
+type HomeSales {
+  averageWeek: Money
+  dayBefore: Money
+  yesterday: Money
+}
+
+type HomeSetup {
+  collections: Boolean
+  payments: Boolean
+  products: Boolean
+  shipping: Boolean
+}
+
 input InviteSupplierInput {
   accessLevel: String!
   email: String!
@@ -1260,6 +1296,7 @@ type Query {
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
   health: String
+  home: StoreHome
   invoiceSettings: InvoiceSettings
   market(id: ID!): Market
   markets(after: String, before: String, first: Int): MarketPage
@@ -1614,6 +1651,24 @@ input StoreCurrencyInput {
   code: String!
   mode: String!
   rounding: String
+}
+
+type StoreHome {
+  awaitingApproval: Int
+  hasOrders: Boolean
+  latestOrders: [HomeOrder!]
+  lowStock: HomeLowStock
+  oldestToShipAt: String
+  ordersToday: Int
+  ordersYesterday: Int
+  partlyShipped: Int
+  paymentsToCollect: HomePaymentsToCollect
+  rejectedCouriers: [String!]
+  returningCustomers: Int
+  sales: [HomeSales!]
+  setup: HomeSetup
+  timeZone: String
+  toShip: Int
 }
 
 type StoreInfo {

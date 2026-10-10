@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#314: Orders, returns, refunds and Customers in the portal).
+Last updated: 2026-10-10 (#322: Home's figures per seat).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -258,6 +258,21 @@ on stock, team requests for the Owner — each linking to its filtered list; the
 doing" (sales yesterday, orders today, average order over 7 days, returning customers) and the
 latest orders. Staff see no money. A new store sees the getting-started checklist and the locale
 check. Every figure is the API's (`home`, §19).
+
+**Built on #322, part 1** (`home`): a day is midnight to midnight in the store's time zone (Settings › Store
+info), sent as UTC instants. A **sale** is a placed order whose money was taken (paid, partly or wholly refunded),
+never a cancelled or test one, counted net of refunds as Customers' "spent" is; money comes **a figure a currency,
+never converted**, the pricing currency first. Orders today and yesterday count the orders that went through, a
+cash-on-delivery or bank-transfer one still to be paid included; returning customers are the shoppers with more than one
+such order (an account, else a guest's email, else its number). "Needs you" answers to ship (and partly shipped, the
+oldest's time), payments to collect (cash or transfer, `orders.mark_paid`), the approval queue while approval is on
+(`approve`), low stock (the count and the first three names), and couriers whose login a test refused
+(`shipping.configure`). A seat without a figure gets null: Staff no sales, average order, returning customers, order
+totals or payments to collect (`reports.read`), a Manager no approval queue or couriers; the checklist (products,
+collections, payments, shipping) only while the store has no order, each item for the seat that can do it.
+**Not built:** team requests, which need `access_request` and a "Send request" (DATA-MODEL §7.10) no card builds yet;
+"products missing details for some countries", which needs a store-wide readiness count; and the checklist's
+storefront item, which waits for SAPI 17. The locale check reads `storeLocale` and `storeInfo`.
 
 ---
 
@@ -638,6 +653,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Shipping's "What the shopper pays" is a choice of one, and a courier connects with a pasted account key | Any of the courier's rate, a flat rate and collection at once (#337); couriers on the partner's accounts, connected without a key (THIRD-PARTY-ACCESS §4) | rule |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |
 | The sandbox's stock-reason values | The list #183 settled is what DATA-MODEL stores | behaviour, decided |
+| Home shows Staff the returning customers, and a Manager the approval queue | Staff get no returning customers and a Manager no approval queue, withheld by the API (§20 SAPI 18, ACCESS §5.1 `reports.read`, `approve`; #322) | rule |
 
 ---
 
