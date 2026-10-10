@@ -4622,6 +4622,7 @@
         "batchLength": "Make the codes {low} to {high} characters long.",
         "name": "Add the name shoppers see.",
         "nameLong": "Keep the name to {max} characters.",
+        "noteLong": "Keep the internal note to {max} characters.",
         "minimumAmount": "Enter an order total above zero.",
         "minimumItems": "Enter how many items, from 1 to {max}.",
         "groups": "Choose at least one customer group.",

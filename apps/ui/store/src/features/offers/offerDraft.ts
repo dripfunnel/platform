@@ -1,5 +1,5 @@
 import { minorOf, moneyDigits, moneyText } from '@dripfunnel/shared/format'
-import type { Offer, OfferAction, OfferCondition, OfferKind, OfferTargets } from '../../api/offers'
+import { codeBatchLimits, codePrefixPattern, type Offer, type OfferAction, type OfferCondition, type OfferKind, type OfferTargets } from '../../api/offers'
 import type { ApiMoney } from '../../api/orders'
 import { fill, formatCount, messages } from '../../messages'
 import { kindOf } from './offerView'
@@ -494,10 +494,11 @@ export const inputOf = (d: OfferDraft, facts: StoreFacts, enabled: boolean) => {
 }
 
 
-export type Field = 'value' | 'targets' | 'buy' | 'get' | 'code' | 'batch' | 'name' | 'minimum' | 'who' | 'ends' | 'repeat' | 'total' | 'perCustomer' | 'tiers' | 'cap'
+export type Field = 'value' | 'targets' | 'buy' | 'get' | 'code' | 'batch' | 'name' | 'note' | 'minimum' | 'who' | 'ends' | 'repeat' | 'total' | 'perCustomer' | 'tiers' | 'cap'
 
 /** The API's own limits (src/engine/modules/promotions), so the form says them before the API refuses. */
-export const offerLimits = { ids: 250, prefix: 12, codeLength: [6, 16] as const, name: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: 5000, tiers: [2, 5] as const } as const
+export const offerLimits = { ids: 250, code: [3, 32] as const, prefix: codeBatchLimits.prefix, codeLength: [6, 16] as const, name: 120, note: 120, quantity: 99, minimum: 999, perCustomer: 1000, total: 100_000_000, batch: codeBatchLimits.count, tiers: [2, 5] as const } as const
+const codePattern = new RegExp(`^[A-Z0-9][A-Z0-9_-]{${offerLimits.code[0] - 1},${offerLimits.code[1] - 1}}$`)
 
 const amountOk = (text: string, currency: string) => {
   const minor = minorOf(text, currency)
@@ -553,15 +554,16 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   if (d.trigger === 'code' && !d.singleUse) {
     const code = d.code.trim().toUpperCase()
     if (!code) e.code = words.codeMissing
-    else if (!/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(code)) e.code = fill(words.codeShape, { min: '3', max: '32' })
+    else if (!codePattern.test(code)) e.code = fill(words.codeShape, { min: String(offerLimits.code[0]), max: String(offerLimits.code[1]) })
   }
   if (d.trigger === 'code' && d.singleUse) {
     if (!between(d.batch.count, 1, offerLimits.batch)) e.batch = fill(words.batchCount, { max: formatCount(offerLimits.batch) })
-    else if (!/^([A-Z0-9][A-Z0-9_-]{0,11})?$/.test(d.batch.prefix.trim().toUpperCase())) e.batch = fill(words.batchPrefix, { max: String(offerLimits.prefix) })
+    else if (!codePrefixPattern.test(d.batch.prefix.trim().toUpperCase())) e.batch = fill(words.batchPrefix, { max: String(offerLimits.prefix) })
     else if (!between(d.batch.length, ...offerLimits.codeLength)) e.batch = fill(words.batchLength, { low: String(offerLimits.codeLength[0]), high: String(offerLimits.codeLength[1]) })
   }
   if (!d.name.trim()) e.name = words.name
   else if (d.name.trim().length > offerLimits.name) e.name = fill(words.nameLong, { max: String(offerLimits.name) })
+  if (d.note.trim().length > offerLimits.note) e.note = fill(words.noteLong, { max: String(offerLimits.note) })
   if (d.minimum === 'amount' && !amountOk(d.minAmounts[main] ?? '', main)) e.minimum = words.minimumAmount
   else if (d.minimum === 'amount' && !othersOk(d.minAmounts, facts)) e.minimum = words.otherAmount
   else if (d.minimum === 'amount' && unrated(d.minAmounts, facts).length) e.minimum = noRate(unrated(d.minAmounts, facts))
