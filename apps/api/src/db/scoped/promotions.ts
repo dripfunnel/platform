@@ -252,13 +252,26 @@ export interface CodeBatchRow {
   created_at: Date
 }
 
-/** An offer's runs of single-use codes, each with how many are used (H4). */
-export const selectCodeBatches = (tx: ScopedSql, storeId: string, promotionId: string): Promise<CodeBatchRow[]> =>
-  tx<CodeBatchRow[]>`
-    select b.id, b.prefix, b.length, b.count, b.created_at,
-      (select count(*)::int from promotion_code c where c.batch_id = b.id and c.used_at is not null) as used
-    from promotion_code_batch b where b.store_id = ${storeId} and b.promotion_id = ${promotionId} order by b.created_at, b.id
+const batchColumns = (tx: ScopedSql) => tx`
+  b.id, b.prefix, b.length, b.count, b.created_at,
+  (select count(*)::int from promotion_code c where c.promotion_id = b.promotion_id and c.batch_id = b.id and c.used_at is not null) as used
+`
+
+/** An offer's runs of single-use codes, newest first, a page at a time, each with how many are used (H4). */
+export const selectCodeBatches = (tx: ScopedSql, storeId: string, promotionId: string, window: PageWindow): Promise<CodeBatchRow[]> => {
+  const backwards = window.before !== null && window.after === null
+  return tx<CodeBatchRow[]>`
+    select ${batchColumns(tx)} from promotion_code_batch b
+    where b.store_id = ${storeId} and b.promotion_id = ${promotionId}
+      and ${window.after ? tx`(b.created_at, b.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
+      and ${window.before ? tx`(b.created_at, b.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
+    order by b.created_at ${backwards ? tx`asc` : tx`desc`}, b.id ${backwards ? tx`asc` : tx`desc`}
+    limit ${window.limit + 1}
   `
+}
+
+export const selectCodeBatch = async (tx: ScopedSql, storeId: string, batchId: string): Promise<CodeBatchRow | null> =>
+  (await tx<CodeBatchRow[]>`select ${batchColumns(tx)} from promotion_code_batch b where b.store_id = ${storeId} and b.id = ${batchId}`)[0] ?? null
 
 export const countCodes = async (tx: ScopedSql, promotionId: string): Promise<number> =>
   (await tx<{ n: number }[]>`select count(*)::int as n from promotion_code where promotion_id = ${promotionId} and batch_id is not null`)[0]?.n ?? 0
