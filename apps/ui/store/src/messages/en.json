@@ -469,9 +469,6 @@
     "storefront": {
       "title": "Storefront"
     },
-    "billing": {
-      "title": "Billing"
-    },
     "yourProducts": {
       "title": "Your products"
     },
@@ -1302,7 +1299,6 @@
       "serviceSub": "Arranged after the order",
       "gift_card": "A gift card",
       "gift_cardSub": "Sent by email",
-      "later": "Files, licence keys, service details and gift card amounts come with their own screens; the product saves now.",
       "merchantOnly": "Suppliers sell physical items. Downloads, services and gift cards are the store’s own.",
       "gone": "No weight, box, shipping or stock for this kind — those boxes are gone"
     },
@@ -2201,8 +2197,7 @@
         "title": "That file can’t be imported"
       },
       "chooseAnother": "Choose another file",
-      "template": "Download the template",
-      "megabytes": "{size} MB"
+      "template": "Download the template"
     },
     "shopify": {
       "title": "Connect your Shopify store",
