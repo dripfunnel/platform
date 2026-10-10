@@ -7,7 +7,7 @@ import { z } from 'zod'
 import type { AbandonedCart, CartDetail, CartPage as Page } from '../../api/carts'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
-import { eventsOf, itemsText, statusLine, stepText } from './cartView'
+import { consentNoteOf, eventsOf, itemsText, statusLine, stepText } from './cartView'
 
 // Abandoned carts driven as the Owner, a Manager, Staff and a supplier would (FIRST-RELEASE §9): the tiles and tabs,
 // search and pages, each cart's actions and their refusals, and one cart's page.
@@ -90,6 +90,7 @@ describe('how a cart is worded', () => {
     expect(statusLine({ ...vikram, status: 'skipped', skipReason: 'under_minimum' }, now, 'schedule')).toBe(words.skip.under_minimum)
     expect(statusLine(vikram, now, 'merchant')).toBe(words.line.yourself)
     expect(statusLine(vikram, now, 'unknown')).toBe(words.line.waiting)
+    expect(['IN', 'DE', 'NO', 'GB', 'BR', 'US', null].map(consentNoteOf)).toEqual(['india', 'optIn', 'optIn', 'unsubscribe', 'unsubscribe', 'unsubscribe', 'unsubscribe'])
     expect(statusLine({ ...vikram, status: 'not_recovered', remindersSent: 3 }, now, 'schedule')).toBe('3 reminders sent')
     expect(itemsText(meera)).toBe('Silk stole + 2 more')
     expect([stepText('ship', 'US'), stepText('ship', 'IN'), stepText('pay', 'US')]).toEqual([words.step.shipping, words.step.delivery, words.step.pay])
@@ -376,6 +377,9 @@ describe('the Reminders tab', () => {
     await show(owner, { entry: '/carts?pane=reminders' })
     fireEvent.change(step(2).getByRole('combobox', { name: rw.delay }), { target: { value: '30' } })
     expect(step(2).getByText(rw.errors.later)).toBeTruthy()
+    const delay = step(2).getByRole('combobox', { name: rw.delay })
+    expect(delay.getAttribute('aria-invalid')).toBe('true')
+    expect(document.getElementById(delay.getAttribute('aria-describedby') ?? '')?.textContent).toBe(rw.errors.later)
     fireEvent.click(screen.getByRole('button', { name: rw.save }))
     expect(api.saveReminderSettings).not.toHaveBeenCalled()
     fireEvent.change(step(2).getByRole('combobox', { name: rw.delay }), { target: { value: '1440' } })
@@ -454,6 +458,28 @@ describe('the Reminders tab', () => {
     fireEvent.click(screen.getByRole('button', { name: words.panes.carts }))
     await settle()
     expect(screen.queryByText(rw.unsaved)).toBeNull()
+  })
+
+  it('sends no test of a reminder the plan doesn’t send, or one that’s off, and says why', async () => {
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.click(step(3).getByRole('button', { name: 'Preview reminder 3' }))
+    expect(screen.getByRole('button', { name: rw.test })).toHaveProperty('disabled', true)
+    expect(screen.getByText(rw.testOff)).toBeTruthy()
+    cleanup()
+    api.loadReminderSettings.mockResolvedValue({ ...settings, level: 'onePerCart' })
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.click(step(2).getByRole('button', { name: 'Preview reminder 2' }))
+    expect(screen.getByRole('button', { name: rw.test })).toHaveProperty('disabled', true)
+    expect(screen.getByText(rw.testLocked)).toBeTruthy()
+    fireEvent.click(step(1).getByRole('button', { name: 'Preview reminder 1' }))
+    expect(screen.getByRole('button', { name: rw.test })).toHaveProperty('disabled', false)
+  })
+
+  it('shows the consent note of the store’s country: opt-in only in the EU and EEA', async () => {
+    offersApi.loadOfferFacts.mockResolvedValue({ timeZone: 'Europe/London', country: 'GB', main: 'GBP', others: [], perEuro: {} })
+    await show(owner, { entry: '/carts?pane=reminders' })
+    expect(screen.getByText(rw.consent.unsubscribe.title)).toBeTruthy()
+    expect(screen.queryByText(rw.consent.optIn.title)).toBeNull()
   })
 
   it('sends a test only of the saved reminder, and says when there have been too many', async () => {

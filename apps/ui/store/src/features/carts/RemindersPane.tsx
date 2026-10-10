@@ -7,7 +7,7 @@ import { loadReminderSettings, reminderDelays, reminderPercents, reminderText, s
 import { loadOfferFacts } from '../../api/offers'
 import { fill, messages } from '../../messages'
 import { cartRefusal } from './cartActions'
-import type { CartAccess } from './cartView'
+import { consentNoteOf, type CartAccess } from './cartView'
 
 // The Reminders tab (designs/Carts.dc.html, Reminders; FIRST-RELEASE §9): up to three reminders, who gets reminded, a
 // preview of the chosen one and "Send me a test", saved as one at the revision read.
@@ -139,7 +139,9 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
 
   const step = form.steps[shown] ?? form.steps[0]
   const code = step && automatic && step.discountPercent ? step.discountPercent : null
-  const consent = country === 'IN' ? words.consent.india : country === 'US' || country === null ? words.consent.us : words.consent.eu
+  const consent = words.consent[consentNoteOf(country)]
+  // A test sends the saved reminder as the plan would, so an unsaved, locked or switched-off one has nothing to send.
+  const testBlock = dirty ? words.testSaveFirst : lockedStep(shown) ? words.testLocked : step && !step.enabled ? words.testOff : null
 
   return (
     <div className="df-reminders">
@@ -167,6 +169,9 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
         {form.steps.map((x, i) => {
           const locked = lockedStep(i)
           const n = String(x.position)
+          const errorId = `df-step-${n}-error`
+          const said = (bad: boolean) => (bad ? { 'aria-invalid': true, 'aria-describedby': errorId } : {})
+          const long = errors[i] !== null && errors[i] !== words.errors.later && errors[i] !== words.errors.subject
           const summary = locked ? words.lockedStep : !x.enabled ? words.stepOff : `${i === 0 && (!form.enabled || level === 'youSend') ? words.byHand : fill(words.after, { delay: delayText(x.delayMinutes) })} · ${channelText(x.channel)}${automatic && x.discountPercent ? ` · ${fill(words.percentOff, { percent: String(x.discountPercent) })}` : ''}`
           return (
             <section key={x.position} className="df-cart-card df-reminders-step" data-shown={shown === i || undefined} aria-labelledby={`df-step-${n}`}>
@@ -192,7 +197,7 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
                   <div className="df-reminders-row">
                     <label>
                       <span>{words.delay}</span>
-                      <select value={x.delayMinutes} disabled={ro} aria-invalid={errors[i] === words.errors.later || undefined} onChange={(e) => setStep(i, { delayMinutes: Number(e.target.value) })}>
+                      <select value={x.delayMinutes} disabled={ro} {...said(errors[i] === words.errors.later)} onChange={(e) => setStep(i, { delayMinutes: Number(e.target.value) })}>
                         {reminderDelays.map((d) => (
                           <option key={d} value={d}>
                             {delayText(d)}
@@ -226,16 +231,20 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
                   {x.channel === 'email' && (
                     <label className="df-reminders-wide">
                       <span>{words.subject}</span>
-                      <input value={x.subject} readOnly={ro} maxLength={reminderText.subject} aria-invalid={errors[i] === words.errors.subject || undefined} onChange={(e) => setStep(i, { subject: e.target.value })} />
+                      <input value={x.subject} readOnly={ro} maxLength={reminderText.subject} {...said(errors[i] === words.errors.subject || (long && x.subject.trim().length > reminderText.subject))} onChange={(e) => setStep(i, { subject: e.target.value })} />
                     </label>
                   )}
                   <label className="df-reminders-wide">
                     <span>{words.message}</span>
-                    <textarea value={x.body} readOnly={ro} rows={2} maxLength={reminderText.body} onChange={(e) => setStep(i, { body: e.target.value })} />
+                    <textarea value={x.body} readOnly={ro} rows={2} maxLength={reminderText.body} {...said(long && x.body.trim().length > reminderText.body)} onChange={(e) => setStep(i, { body: e.target.value })} />
                     <span className="df-carts-sub">{words.messageHelp}</span>
                   </label>
                   {automatic && x.discountPercent && <span className="df-carts-sub">{fill(words.codeNote, { percent: String(x.discountPercent) })}</span>}
-                  {errors[i] && <span className="df-carts-error" role="alert">{errors[i]}</span>}
+                  {errors[i] && (
+                    <span id={errorId} className="df-carts-error" role="alert">
+                      {errors[i]}
+                    </span>
+                  )}
                 </div>
               )}
             </section>
@@ -247,11 +256,15 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
           <label className="df-reminders-inline">
             <span>{words.minimum}</span>
             <span className="df-reminders-affixed">
-              <input value={form.minimum} inputMode="decimal" readOnly={ro} aria-invalid={minimumBad || undefined} onChange={(e) => set({ minimum: e.target.value.replace(/[^\d.]/g, '') })} />
+              <input value={form.minimum} inputMode="decimal" readOnly={ro} aria-invalid={minimumBad || undefined} aria-describedby={minimumBad ? 'df-reminders-minimum-error' : undefined} onChange={(e) => set({ minimum: e.target.value.replace(/[^\d.]/g, '') })} />
               <span>{currency}</span>
             </span>
           </label>
-          {minimumBad && <span className="df-carts-error" role="alert">{words.errors.minimum}</span>}
+          {minimumBad && (
+            <span id="df-reminders-minimum-error" className="df-carts-error" role="alert">
+              {words.errors.minimum}
+            </span>
+          )}
           {(
             [
               ['skipOutOfStock', words.rules.skipOutOfStock],
@@ -285,7 +298,7 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
           <div className="df-reminders-preview-head">
             <span className="df-eyebrow">{fill(words.previewOf, { n: String(step.position), channel: channelText(step.channel) })}</span>
             {!ro && (
-              <button type="button" className="df-button" disabled={dirty} aria-describedby={dirty ? 'df-reminders-test-note' : undefined} onClick={() => {
+              <button type="button" className="df-button" disabled={testBlock !== null} aria-describedby={testBlock ? 'df-reminders-test-note' : undefined} onClick={() => {
                   setTestError(null)
                   setTesting(true)
                 }}>
@@ -293,9 +306,9 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
               </button>
             )}
           </div>
-          {!ro && dirty && (
+          {!ro && testBlock && (
             <span id="df-reminders-test-note" className="df-carts-sub">
-              {words.testSaveFirst}
+              {testBlock}
             </span>
           )}
           {step.channel === 'email' ? (

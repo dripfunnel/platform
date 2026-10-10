@@ -88,6 +88,12 @@ export const statusLine = (cart: AbandonedCart, now: Date, sender: Sender): stri
   }
 }
 
+// Where reminders go only to shoppers who agreed to emails: the EU and EEA, as the API's cartReminders/rules.ts optInCountries.
+const optInCountries: ReadonlySet<string> = new Set(['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'IS', 'LI', 'NO'])
+
+/** Which consent note the Reminders tab shows for the store's country: WhatsApp opt-in in India, opt-in in the EU and EEA, else unsubscribe. */
+export const consentNoteOf = (country: string | null): 'india' | 'optIn' | 'unsubscribe' => (country === 'IN' ? 'india' : country !== null && optInCountries.has(country) ? 'optIn' : 'unsubscribe')
+
 /** Whether a reminder can still go to this cart: not bought, not stopped, and with someone to send it to. */
 export const canRemind = (cart: AbandonedCart): boolean => cart.status === 'waiting' || cart.status === 'reminded'
 

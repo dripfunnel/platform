@@ -5460,11 +5460,11 @@
         }
       },
       "consent": {
-        "us": {
+        "unsubscribe": {
           "title": "Unsubscribe link in every email.",
           "body": "Shoppers who unsubscribe are never reminded again."
         },
-        "eu": {
+        "optIn": {
           "title": "EU rules:",
           "body": "only shoppers who agreed to emails at checkout get reminders. This can’t be turned off. Every email has an unsubscribe link."
         },
@@ -5507,6 +5507,8 @@
       "testSent": "Test sent to {email} — check spam if it isn’t there in a minute.",
       "testTooMany": "Too many tests. Wait a minute and try again.",
       "testSaveFirst": "Save first: a test sends the saved reminder.",
+      "testLocked": "Your plan doesn’t send this reminder, so there’s nothing to test.",
+      "testOff": "This reminder is off. Turn it on and save to send a test.",
       "testSending": "Sending…"
     },
     "joiner": " · "
