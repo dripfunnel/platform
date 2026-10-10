@@ -226,7 +226,7 @@ describe('the blocked lists', () => {
   const moneyDetails = ['setPaymentMethod', 'setPayoutAccount']
 
   it('refuses an impersonation ownership, the team’s sign-in rule, and the user’s own second factor and support access', () => {
-    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, 'setSecondFactorPolicy', 'transferOwnership'].sort())
+    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())
   })
 
   it('refuses a setup session ownership and support access, which need a partner user', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EditorProduct } from '../../api/productEditor'
-import { blankDraft, boxOf, combinationsOf, draftOf, gramsOf, inputOf, isDirty, newVersionCount, priceRange, problemsOf, syncVersions, versionKey, type Draft } from './productDraft'
+import { amountsOf, blankDraft, boxOf, combinationsOf, draftOf, gramsOf, inputOf, isDirty, newVersionCount, priceRange, problemsOf, syncVersions, versionKey, withAmounts, type Draft } from './productDraft'
 
 const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   id: 'p1',
@@ -189,5 +189,29 @@ describe('the editor’s draft (CatEditor)', () => {
     expect(inputOf(d, 'INR', 'merchant').versions[0]?.prices).toEqual([{ currency: 'INR', amount: '249900' }, { currency: 'AED', amount: '10000', compareAtAmount: '15000' }])
     const typed = { ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: '120' } })) }
     expect(inputOf(typed, 'INR', 'merchant').versions[0]?.prices[1]).toEqual({ currency: 'AED', amount: '12000', compareAtAmount: '15000' })
+  })
+})
+
+describe('a gift card’s amounts', () => {
+  const label = (amount: number) => `₹${amount / 100}`
+  const shirt = draftOf(product(), 'INR')
+
+  it('are its versions’ prices, lowest first and once each', () => {
+    expect(amountsOf(shirt, 'INR')).toEqual([249900, 279900])
+    expect(amountsOf({ ...shirt, versions: shirt.versions.map((v) => ({ ...v, price: '100' })) }, 'INR')).toEqual([10000])
+  })
+
+  it('make one kind of choice with a version per amount, keeping the version whose price matches', () => {
+    const made = withAmounts({ ...shirt, options: [] }, [279900, 50000], 'INR', 'Amount', label)
+    expect(made.options).toEqual([{ id: null, name: 'Amount', values: [{ id: null, name: '₹500' }, { id: null, name: '₹2799' }] }])
+    expect(made.versions.map((v) => [v.id, v.choices, v.price])).toEqual([[null, ['₹500'], '500.00'], ['ver-m', ['₹2799'], '2799.00']])
+    expect(problemsOf(named(made, 'Card'), 'INR')).toEqual([])
+  })
+
+  it('make no choice at all for one amount, and an unpriced version for none', () => {
+    expect(withAmounts(shirt, [249900], 'INR', 'Amount', label)).toMatchObject({ options: [], versions: [{ id: 'ver-s', choices: [], price: '2499.00', compareAt: '' }] })
+    const none = withAmounts(shirt, [], 'INR', 'Amount', label)
+    expect(none.versions).toEqual([expect.objectContaining({ id: 'ver-s', choices: [], price: '' })])
+    expect(problemsOf(named(none, 'Card'), 'INR')).toContain('price')
   })
 })

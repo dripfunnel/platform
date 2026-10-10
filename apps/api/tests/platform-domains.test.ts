@@ -11,7 +11,7 @@ import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { localDns } from '#integrations/local/index'
 import { activityLog } from '#saas/activity/index'
-import { emailRecords } from '#saas/domains/index'
+import { edgeTargets, emailRecords } from '#saas/domains/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -22,6 +22,7 @@ let db: TestDatabase
 const now = new Date('2026-10-03T09:00:00Z')
 const ids = { ns: '', kl: '', bz: '', fresh: '', proxied: '', removal: '' }
 const facts = { requestId: 'r', ip: '203.0.113.9', userAgent: 'test' }
+const edgeZone = 'edge.example'
 
 const callerOf = (partnerId: string, role: PartnerRole): PartnerCaller => ({
   role,
@@ -31,7 +32,7 @@ const callerOf = (partnerId: string, role: PartnerRole): PartnerCaller => ({
 })
 
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}, localHosts = false) => {
-  const domains = createPartnerDomainsService({ sql: db.sql, caller, facts, activity: activityLog, edgeZone: 'edge.example', localHosts, now: () => now })
+  const domains = createPartnerDomainsService({ sql: db.sql, caller, facts, activity: activityLog, edgeZone, localHosts, now: () => now })
   const contextValue = { caller, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains }
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   const error = result.errors?.[0]
@@ -213,15 +214,18 @@ describe('removing an address', () => {
         .begin(async (tx) => {
           await tx.unsafe(`set local role ${role}`)
           await tx`select set_config('app.scope', ${scope}, true), set_config('app.partner_id', ${partnerId}, true)`
-          await tx`delete from partner_domain_record where domain_id = ${domainId}`
+          const records = await tx`delete from partner_domain_record where domain_id = ${domainId} returning id`
           const gone = await tx`delete from partner_domain where id = ${domainId} returning id`
-          throw Object.assign(new Error('rollback'), { deleted: gone.length })
+          throw Object.assign(new Error('rollback'), { deleted: { records: records.length, address: gone.length } })
         })
-        .catch((error: { deleted?: number; message: string }) => (error.deleted === undefined ? error.message : error.deleted))
-    expect(await attempt('app_request', 'store', ids.ns)).not.toBe(1)
-    expect(await attempt('app_partner', 'partner', ids.removal)).toBe(0)
-    expect(await attempt('app_partner', 'partner', ids.ns)).toBe(1)
+        .catch((error: { deleted?: { records: number; address: number }; message: string }) => error.deleted ?? error.message)
+    const recordCount = (await db.sql`select 1 from partner_domain_record where domain_id = ${domainId}`).length
+    expect(recordCount).toBeGreaterThan(0)
+    expect(await attempt('app_request', 'store', ids.ns)).toEqual(expect.any(String))
+    expect(await attempt('app_partner', 'partner', ids.removal)).toEqual({ records: 0, address: 0 })
+    expect(await attempt('app_partner', 'partner', ids.ns)).toEqual({ records: recordCount, address: 1 })
     expect(await db.sql`select 1 from partner_domain where id = ${domainId}`).toHaveLength(1)
+    expect(await db.sql`select 1 from partner_domain_record where domain_id = ${domainId}`).toHaveLength(recordCount)
   })
 
   it('refuses a role without domains.write', async () => {
@@ -295,7 +299,7 @@ describe('checking', () => {
     const tokenOf = async (id: string) => (await db.sql<{ expected: string }[]>`select expected from partner_domain_record where domain_id = ${id} and purpose = 'ownership'`)[0]?.expected ?? ''
     const [ours, theirs] = [await tokenOf(mine?.id ?? ''), await tokenOf(claim?.id ?? '')]
     // DNS carries the owner's token, and for this test the squatter's too: the owner verifies first.
-    const lookup = (tokens: string[]): DnsLookup => ({ resolve: async (host) => (host.startsWith('_dripfunnel.') ? tokens : ['portal.edge.dripfunnel.net']) })
+    const lookup = (tokens: string[]): DnsLookup => ({ resolve: async (host) => (host.startsWith('_dripfunnel.') ? tokens : [edgeTargets(edgeZone).portal]) })
     const check = (id: string, tokens: string[]) =>
       domainRecheckDeliverer(db.sql, lookup(tokens), () => now).deliver({ id: crypto.randomUUID(), kind: 'domain.recheck', idempotencyKey: `t:${id}`, payload: { partnerId: id === mine?.id ? ids.fresh : other?.id, domainId: id }, partnerId: null, storeId: null, attempt: 1 }, new AbortController().signal)
     await check(mine?.id ?? '', [ours])
@@ -323,7 +327,7 @@ describe('the portal host and Cloudflare for SaaS', () => {
   const lookupFor = (onResolve?: () => Promise<unknown>): DnsLookup => ({
     resolve: async (host, type) => {
       await onResolve?.()
-      if (!host.startsWith('_dripfunnel.')) return type === 'CNAME' ? ['portal.edge.dripfunnel.net'] : []
+      if (!host.startsWith('_dripfunnel.')) return type === 'CNAME' ? [edgeTargets(edgeZone).portal] : []
       const [token] = await db.sql<{ expected: string }[]>`select expected from partner_domain_record where name = ${host} and purpose = 'ownership' and partner_id = ${ids.proxied}`
       return [token?.expected ?? '']
     },

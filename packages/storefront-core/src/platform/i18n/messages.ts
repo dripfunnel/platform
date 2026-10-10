@@ -18,6 +18,7 @@ export const en = {
   'preview.banner': 'Preview — not your live shop. Orders here are test orders and nobody is charged.',
   'powered.by': 'Powered by {brand}',
   'legal.title': 'Legal information',
+  'breadcrumbs.label': 'Breadcrumb',
 } as const
 
 export type MessageKey = keyof typeof en
