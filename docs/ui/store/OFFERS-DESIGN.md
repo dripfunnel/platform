@@ -227,9 +227,10 @@ promotions tests before relying on it.
      usage counting must survive concurrency (PLATFORM-PROMPT §5.4, §5.9): two shoppers
      placing orders at once can't both take the last use.
    - "Per customer" and "first order only" work only once the shopper is known, which means **signed in**: by
-     their account, and by its email once proven (which also counts the guest orders placed with it). A guest is never
-     counted, by a typed email or a typed number, since any answer turning on what they typed would reveal another
-     shopper's history (ACCESS §2.1); such an offer asks a guest to sign in. Decided on #320's review, narrowing #337's
+     their account, and only by the orders placed while signed in to it. A guest is never counted, by a typed email or a
+     typed number, since any answer turning on what they typed would reveal another shopper's history (ACCESS §2.1);
+     such an offer asks a guest to sign in. Nor do a guest's orders count later against an account with that email,
+     proven or not: whoever placed them typed it, perhaps someone else. Decided on #320's review, narrowing #337's
      "guests recognised by normalised email, or by a phone proven by a code" (§3.1). The form's helper text (a
      `messages/` key, with the editor) says so: "Shoppers sign in to use it, so we know who has used it."
    - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).
@@ -376,8 +377,8 @@ minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store
 - **A shipping offer applies once a delivery is chosen**, to what that delivery costs.
 - **Amounts are in the store's own tax mode**, so tax is computed afterwards, on what the lines come to after their discounts.
 - **Once per customer and first order only need a signed-in shopper** (`SIGN_IN_REQUIRED` for every guest, whatever
-  they typed). A signed-in shopper is counted by their account and by its email once proven, which also counts the guest
-  orders they placed with it. A typed email is never counted: any answer that turned on one, in the cart or at
+  they typed). A signed-in shopper is counted by their account only, never by orders placed with its email, which
+  anyone could have typed. A typed email is never counted: any answer that turned on one, in the cart or at
   placement, would tell anyone whether that email had used an offer or ordered (ACCESS §2.1, "never reveal whether an
   account or email exists"). This narrows fact 8's "guests are recognised by normalised email" (#337): a guest proves
   the email by signing in with the code it is sent, and their order goes through without the offer if they don't.
