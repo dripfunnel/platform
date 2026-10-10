@@ -7,7 +7,7 @@ export const maxThemeZIndex = 99
 const atRules = new Set(['media', 'supports', 'container', 'keyframes'])
 const animated = new Set(['transform', 'opacity', 'filter'])
 const keyframeProperties = new Set([...animated, 'animation-timing-function'])
-const transitionWords = new Set(['ease', 'linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'start', 'end', 'jump-start', 'jump-end', 'jump-none', 'jump-both', 'normal', 'allow-discrete', 'auto', 'none', 'initial', 'inherit', 'unset', 'revert'])
+const transitionWords = new Set(['ease', 'linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'start', 'end', 'jump-start', 'jump-end', 'jump-none', 'jump-both', 'normal', 'allow-discrete', 'auto', 'none'])
 // Properties that put words on the page (ARCHITECTURE §3.4 "No text in code").
 const textProperties = new Set(['content', 'quotes', 'list-style', 'list-style-type', 'text-overflow', 'text-emphasis', 'text-emphasis-style', 'hyphenate-character'])
 const functions = new Set([
@@ -49,6 +49,7 @@ const transitioned = (decl: Declaration, shorthand: boolean): string[] => {
   })
   return lists.flatMap((names) => {
     if (names.includes('none')) return []
+    // initial, unset and the other CSS-wide keywords reset transition-property to all, so they stay named and are refused.
     const named = names.filter((n) => !transitionWords.has(n) && !n.endsWith('()'))
     const worked = names.filter((n) => n === 'var()')
     return [...(shorthand && named.length === 0 && worked.length === 0 ? ['all'] : named), ...worked]

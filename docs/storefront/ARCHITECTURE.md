@@ -303,7 +303,7 @@ store's `mediaIds`, exactly; the z-index cap is 99 (`maxThemeZIndex`, *proposed*
 (`::part` among them, for sealed components), and functions from an allowlist (no `attr()`,
 `image()` or `src()`); names are read with their escapes decoded, so `:\67lobal` is `:global`;
 nested rules are refused, so every selector is written out and checked; a transition names its
-properties (a bare `transition: 0.3s` animates everything); `content` and the other text
+properties in the same rule (a bare `transition: 0.3s`, or `initial`, `unset` and the other CSS-wide keywords, animate everything; a `transition-duration` is judged with the rule it sits in, not the cascade, so it needs its `transition-property` beside it); `content` and the other text
 properties hold no words and no `var()` that could carry them; `composes` names only the module's own classes.
 
 **Content**: every key the theme's `t()` calls exists in **every language the store offers**
