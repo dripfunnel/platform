@@ -374,6 +374,14 @@ minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store
 - **Status ignores a repeating offer's windows**: it is Live between them; its time line says when it runs.
 - **A shipping offer applies once a delivery is chosen**, to what that delivery costs.
 - **Amounts are in the store's own tax mode**, so tax is computed afterwards, on what the lines come to after their discounts.
+- **A guest who has given only a phone number can't use a once-per-customer offer** (`SIGN_IN_REQUIRED`): a typed number
+  never says who they are (fact 8), so they sign in with a code by text first; before any contact is given it applies, and
+  placement checks it again.
+- **A preview's test order takes no use**, so trying an offer on the preview never spends a real limit or code.
+- **A cart holds up to five codes**; a code that can't work whatever is added comes straight back off it, one whose
+  conditions aren't met yet stays and applies once they are.
+- **Used up or ended between pricing and paying**: placement refuses `OFFER_CHANGED` and the shopper sees the cart again
+  without it, never an order at a price they didn't see.
 
 ---
 

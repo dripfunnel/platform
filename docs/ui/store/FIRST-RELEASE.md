@@ -743,6 +743,17 @@ priced; each read prices it now: lines at today's price with what stops one bein
 more than is left), delivery, tax from the store's rates (GST across or within states; Stripe Tax on a US address once
 Stripe is connected, #309), and the total. A change after reaching payment goes back to delivery. Up to 100 lines of up to 999; a cart lives 30
 days from its last change. A guest's new carts are limited per store and address (`CART_RATE_LIMITER`, 20 a minute). The names above replace §19's `updateLine` and `setShipping`.
+**Offers, #320 (SAPI 14) part 4:** each read also prices the store's offers (OFFERS-DESIGN §3.1): `discounts` (each offer
+taken, by the name shoppers see, its code and amount), `discount`, `lines.discount`, `shippingDiscount` and `codes` (each
+code the cart holds and its state: `APPLIED`, `NOT_ELIGIBLE`, `DOESNT_COMBINE`, `SIGN_IN_REQUIRED`, `INVALID`, `EXPIRED`,
+`USED_UP` or `ALREADY_USED`); tax is on what the lines and delivery come to after them. `applyCode(code)` answers the
+code's state with the cart: one that can't work whatever is added comes straight back off, a code no offer of the store
+holds is `INVALID` like a malformed one, and codes are tried at most 30 a minute per store and address
+(`OFFER_CODE_RATE_LIMITER`); `removeCode(code)`; at most five codes a cart. Placing a live order takes each offer's use
+under its row lock (an offer used up or ended meanwhile refuses `OFFER_CHANGED`, and the cart, read again, no longer has
+it), the shopper's own uses under a lock of their own, a single-use code's one use, and records the discount on the
+lines, as a line per offer (`order.discounts`) and in `promotion_usage`; a preview's test order takes no use. A
+cancellation before fulfilment gives every use back; a refund doesn't (#337).
 **Part 2, shopper accounts:** `signInOptions` (Settings › Customer accounts: email, mobile or both, India starting with
 both), `requestSignInCode(channel, to)` (a 6-digit code by text, MSG91 or Twilio, or by email; the same answer whether or not
 the address has an account; 3 per address in 10 minutes, 10 a minute per requester, 50 texts a store in 10 minutes), `verifySignInCode(channel, to, code, name,

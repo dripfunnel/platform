@@ -26,3 +26,4 @@ export {
 export { priceOffers, type AppliedOffer, type NotApplied, type PricingInput, type PricingLine, type PricingOffer, type PricingResult, type PricingShopper } from './pricing'
 export { buildOfferCodesExport, createOfferCodesExport, offerCodesExportAudit, type OfferCodesExportDto } from './exports'
 export { createOffersService, maxBatchSize, maxCodesPerOffer, offersAudit, randomCodes, resultsDays, type CodeBatchRow, type CodeCheck, type CodeHolder, type OfferResults, type OfferFilter, type OfferKind, type OfferPlanKey, type OffersDeps, type OffersPlan, type OffersRefusal, type OffersResult, type OfferStatusFilter, type OfferView } from './service'
+export { cartOffers, deadCodeStates, type CartDiscount, type CartOfferLine, type CartOffers, type CodeState } from './cart'

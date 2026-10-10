@@ -15,6 +15,7 @@ const words: Record<CartRefusal, string> = {
   NO_CART: 'Your cart has expired. Add something to start again.',
   NOT_READY: 'There’s something to finish before you pay.',
   RATE_LIMITED: 'Too many new carts from here. Wait a minute and try again.',
+  TOO_MANY_CODES: 'Your cart already holds five codes. Remove one to add another.',
 }
 
 const answered = <T>(result: CartResult<T>): T => {
@@ -59,7 +60,9 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
         },
       }),
       unitPrice: t.field({ type: Money_, nullable: true, resolve: (l) => l.unitPrice }),
+      // Before any offer; `discount` is what the offers take off it.
       lineTotal: t.field({ type: Money_, nullable: true, resolve: (l) => l.lineTotal }),
+      discount: t.field({ type: Money_, nullable: true, resolve: (l) => l.discount }),
       available: t.exposeInt('available', { nullable: true }),
       // unavailable, not_sold_here, not_priced or short (more than is left); null when it can be bought.
       problem: t.exposeString('problem', { nullable: true }),
@@ -82,6 +85,22 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
   const Tax = builder.objectRef<NonNullable<CartView['tax']>>('ShopCartTax').implement({
     fields: (t) => ({ amount: t.field({ type: Money_, resolve: (x) => x.amount }), pricesIncludeTax: t.exposeBoolean('inclusive') }),
   })
+  const Discount = builder.objectRef<CartView['discounts'][number]>('ShopCartDiscount').implement({
+    fields: (t) => ({
+      // The offer's name shoppers see, as the receipt will show it (OFFERS fact 13).
+      name: t.exposeString('name'),
+      code: t.exposeString('code', { nullable: true }),
+      amount: t.field({ type: Money_, resolve: (d) => d.amount }),
+    }),
+  })
+  const CodeType = builder.objectRef<CartView['codes'][number]>('ShopCartCode').implement({
+    fields: (t) => ({
+      code: t.exposeString('code'),
+      // APPLIED, NOT_ELIGIBLE (not yet: the cart doesn't meet its conditions), DOESNT_COMBINE, SIGN_IN_REQUIRED (it is once per
+      // customer and a number alone doesn't say who), INVALID, EXPIRED, USED_UP or ALREADY_USED.
+      state: t.exposeString('state'),
+    }),
+  })
   const Cart = builder.objectRef<CartView>('ShopCart').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -95,9 +114,13 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       checkoutStep: t.exposeString('checkoutStep', { nullable: true }),
       lines: t.field({ type: [Line], resolve: (c) => c.lines }),
       subtotal: t.field({ type: Money_, resolve: (c) => c.subtotal }),
+      discounts: t.field({ type: [Discount], resolve: (c) => c.discounts }),
+      discount: t.field({ type: Money_, resolve: (c) => c.discount }),
+      codes: t.field({ type: [CodeType], resolve: (c) => c.codes }),
       deliverable: t.exposeBoolean('deliverable', { nullable: true }),
       shippingOptions: t.field({ type: [Option], resolve: (c) => c.shippingOptions }),
       shipping: t.field({ type: Money_, nullable: true, resolve: (c) => c.shipping }),
+      shippingDiscount: t.field({ type: Money_, nullable: true, resolve: (c) => c.shippingDiscount }),
       tax: t.field({ type: Tax, nullable: true, resolve: (c) => c.tax }),
       total: t.field({ type: Money_, resolve: (c) => c.total }),
       // EMPTY, LINE_PROBLEM, NO_CONTACT, NO_ADDRESS, NO_SHIPPING, SHIPPING_UNAVAILABLE, TAX_UNAVAILABLE.
@@ -111,6 +134,9 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       // A new guest cart's token, given once: send it back as X-Shop-Cart.
       cartToken: t.exposeString('token', { nullable: true }),
     }),
+  })
+  const Applied = builder.objectRef<{ state: string; cart: CartView }>('ShopCodeResult').implement({
+    fields: (t) => ({ state: t.exposeString('state'), cart: t.field({ type: Cart, resolve: (r) => r.cart }) }),
   })
   const AddressInput = builder.inputType('ShopAddressInput', {
     fields: (t) => ({
@@ -183,6 +209,31 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       args: { option: t.arg.string({ required: true }) },
       extensions: { access: write },
       resolve: async (_, args, ctx) => answered(await (await cartOf(ctx)).setShippingOption(args.option)),
+    }),
+    // "Discount code or coupon": the code's state, and the cart priced with it; a code that can't work comes back off.
+    applyCode: t.field({
+      type: Applied,
+      args: { code: t.arg.string({ required: true }) },
+      extensions: { access: write },
+      resolve: async (_, args, ctx) => {
+        bounded(args.code)
+        const { shopper } = shopOf(ctx)
+        const { ip } = ctx.facts
+        // Per store and address, so a script can't try codes until one works (FIRST-RELEASE §19).
+        if (ip === null || !ctx.allowCodeAttempt || !(await ctx.allowCodeAttempt(`shop-code:${shopper.context.storeId}:${ip}`))) {
+          throw new GraphQLError('Too many codes tried. Wait a minute and try again.', { extensions: { code: 'RATE_LIMITED' } })
+        }
+        return answered(await (await cartOf(ctx)).applyCode(args.code))
+      },
+    }),
+    removeCode: t.field({
+      type: Change,
+      args: { code: t.arg.string({ required: true }) },
+      extensions: { access: write },
+      resolve: async (_, args, ctx) => {
+        bounded(args.code)
+        return answered(await (await cartOf(ctx)).removeCode(args.code))
+      },
     }),
     // "Continue to payment": refused as NOT_READY with `problems` in its extensions until everything is in place.
     checkout: t.field({ type: Cart, extensions: { access: write }, resolve: async (_, __, ctx) => answered(await (await cartOf(ctx)).checkout()) }),

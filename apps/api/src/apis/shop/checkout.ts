@@ -21,6 +21,7 @@ const words: Record<string, string> = {
   NOT_PENDING: 'This order isn’t waiting for a card payment.',
   PHONE_REQUIRED: 'Add your mobile number to pay this way.',
   CART_CHANGED: 'Your cart changed while you were paying. Check it and pay again.',
+  OFFER_CHANGED: 'An offer in your cart has just ended or been used up. Check your cart and pay again.',
 }
 
 // Where a provider that takes the shopper away (Cashfree, PhonePe) sends them back: the storefront's own order page.
@@ -99,6 +100,9 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       lineTotal: t.field({ type: money, resolve: (l) => ({ amount: BigInt(l.line_total_amount), currency: l.currency }) }),
     }),
   })
+  const Discount = builder.objectRef<ShopOrderRow['discounts'][number] & { currency: string }>('ShopOrderDiscount').implement({
+    fields: (t) => ({ name: t.exposeString('label', { nullable: true }), amount: t.field({ type: money, resolve: (d) => ({ amount: BigInt(d.amount), currency: d.currency }) }) }),
+  })
   const Order = builder.objectRef<ShopOrderRow>('ShopOrder').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -115,6 +119,9 @@ export const registerCheckout = ({ builder, money }: ShopBuilder) => {
       shippingMethod: t.exposeString('shipping_method_label', { nullable: true }),
       lines: t.field({ type: [Line], resolve: (o) => o.lines.map((l) => ({ ...l, currency: o.currency })) }),
       subtotal: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.subtotal_amount), currency: o.currency }) }),
+      // What the offers took off, delivery's included; `discounts` names each as the shopper saw it.
+      discount: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.discount_amount), currency: o.currency }) }),
+      discounts: t.field({ type: [Discount], resolve: (o) => o.discounts.map((d) => ({ ...d, currency: o.currency })) }),
       shipping: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.shipping_amount), currency: o.currency }) }),
       tax: t.field({ type: money, resolve: (o) => ({ amount: BigInt(o.tax_amount), currency: o.currency }) }),
       pricesIncludeTax: t.exposeBoolean('tax_inclusive'),

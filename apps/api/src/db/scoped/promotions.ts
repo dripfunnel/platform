@@ -335,3 +335,128 @@ export const selectOfferResults = async (tx: ScopedSql, storeId: string, promoti
   `
   return row ?? { uses: 0, given: [], sales: [], by_day: [] }
 }
+
+// Pricing a cart and placing it (part 4): read and written in system scope, as the shopper reads no offer (DATA-MODEL §7.11).
+
+export interface CartOfferRow {
+  id: string
+  name: string
+  trigger: 'automatic' | 'code'
+  enabled: boolean
+  starts_at: Date | null
+  ends_at: Date | null
+  uses_count: number
+  total_uses_limit: number | null
+  per_customer_limit: number | null
+  combines_with: { product: boolean; order: boolean; shipping: boolean }
+  created_at: Date
+  deleted: boolean
+  conditions: StoredRule[]
+  action: StoredRule | null
+  /** The code the shopper typed that names this offer, with its own state; null for an automatic offer. */
+  code_id: string | null
+  code: string | null
+  single_use: boolean
+  used_at: Date | null
+  expires_at: Date | null
+  replaced: boolean
+}
+
+/** Every automatic offer on now, and the offer behind each code the cart holds, whatever state it is in. */
+export const selectCartOffers = (tx: ScopedSql, storeId: string, codes: readonly string[], now: Date): Promise<CartOfferRow[]> =>
+  tx<CartOfferRow[]>`
+    select p.id, p.name, p.trigger, p.enabled, p.starts_at, p.ends_at, p.uses_count, p.total_uses_limit, p.per_customer_limit, p.combines_with, p.created_at,
+      p.deleted_at is not null as deleted,
+      coalesce((select json_agg(json_build_object('operation', r.operation, 'args', r.args) order by r.position) from promotion_condition r where r.promotion_id = p.id), '[]'::json) as conditions,
+      (select json_build_object('operation', a.operation, 'args', a.args) from promotion_action a where a.promotion_id = p.id order by a.position limit 1) as action,
+      c.id as code_id, c.code, coalesce(c.single_use, false) as single_use, c.used_at, c.expires_at, coalesce(c.replaced_at is not null, false) as replaced
+    from promotion p
+    left join promotion_code c on c.promotion_id = p.id and c.store_id = p.store_id and lower(c.code) = any (${pgArray(codes.map((x) => x.toLowerCase()))}::text[])
+    where p.store_id = ${storeId}
+      and (c.id is not null
+        or (p.trigger = 'automatic' and p.deleted_at is null and p.enabled and (p.starts_at is null or p.starts_at <= ${now}) and (p.ends_at is null or p.ends_at > ${now})
+          and (p.total_uses_limit is null or p.uses_count < p.total_uses_limit)))
+    order by p.created_at, p.id
+  `
+
+/** How often this shopper has used each offer: by account, or by the email a guest gave (fact 8, #337). */
+export const selectShopperUses = async (tx: ScopedSql, storeId: string, ids: readonly string[], who: { customerId: string | null; email: string | null }): Promise<Map<string, number>> => {
+  if (ids.length === 0 || (who.customerId === null && who.email === null)) return new Map()
+  const rows = await tx<{ promotion_id: string; n: number }[]>`
+    select promotion_id, count(*)::int as n from promotion_usage
+    where store_id = ${storeId} and promotion_id = any (${pgArray(ids)}::uuid[])
+      and (${who.customerId === null ? tx`false` : tx`customer_id = ${who.customerId}`} or ${who.email === null ? tx`false` : tx`customer_email = ${who.email}`})
+    group by promotion_id
+  `
+  return new Map(rows.map((r) => [r.promotion_id, r.n]))
+}
+
+export interface CartShopperRow {
+  time_zone: string
+  group_ids: string[]
+  has_ordered: boolean
+}
+
+/** The facts a cart's conditions read about its shopper: their groups, whether they have ordered before, the store's time zone. */
+export const selectCartShopper = async (tx: ScopedSql, storeId: string, who: { customerId: string | null; email: string | null }): Promise<CartShopperRow> => {
+  const [row] = await tx<CartShopperRow[]>`
+    select s.time_zone,
+      to_json(array(select m.group_id from customer_group_member m join customer_group g on g.id = m.group_id and g.deleted_at is null
+        where m.store_id = s.id and m.customer_id = ${who.customerId})) as group_ids,
+      exists (select 1 from "order" o where o.store_id = s.id and o.state = 'placed'
+        and (${who.customerId === null ? tx`false` : tx`o.customer_id = ${who.customerId}`} or ${who.email === null ? tx`false` : tx`lower(o.email) = ${who.email}`})) as has_ordered
+    from store s where s.id = ${storeId}
+  `
+  return row ?? { time_zone: 'UTC', group_ids: [], has_ordered: false }
+}
+
+/** Each product's collections and filter values, so targets resolve when the cart is priced (fact 5, #337). */
+export const selectProductTargets = async (tx: ScopedSql, storeId: string, productIds: readonly string[]): Promise<Map<string, { collections: string[]; filterValues: string[] }>> => {
+  if (productIds.length === 0) return new Map()
+  const rows = await tx<{ id: string; collections: string[]; filter_values: string[] }[]>`
+    select p.id,
+      to_json(array(select cp.collection_id from collection_product cp join collection c on c.id = cp.collection_id and c.deleted_at is null where cp.product_id = p.id)) as collections,
+      to_json(array(select f.filter_value_id from product_filter_value f where f.product_id = p.id)) as filter_values
+    from product p where p.store_id = ${storeId} and p.id = any (${pgArray(productIds)}::uuid[])
+  `
+  return new Map(rows.map((r) => [r.id, { collections: r.collections, filterValues: r.filter_values }]))
+}
+
+/**
+ * One use of the offer for an order being placed, if it still has one: the row's lock and the re-checked condition make a
+ * second order racing for the last use wait for the first and then find none (fact 8; PLATFORM-PROMPT §5.9).
+ */
+export const claimUse = async (tx: ScopedSql, storeId: string, promotionId: string, now: Date): Promise<boolean> =>
+  (
+    await tx`
+      update promotion set uses_count = uses_count + 1
+      where id = ${promotionId} and store_id = ${storeId} and deleted_at is null and enabled
+        and (starts_at is null or starts_at <= ${now}) and (ends_at is null or ends_at > ${now})
+        and (total_uses_limit is null or uses_count < total_uses_limit)
+    `
+  ).count > 0
+
+/** The code the order was priced with: a single-use one is taken, false when another order took it first; a shared one is left as it is. */
+export const claimCode = async (tx: ScopedSql, codeId: string, now: Date): Promise<boolean> =>
+  (await tx`update promotion_code set used_at = case when single_use then ${now} else used_at end where id = ${codeId} and (not single_use or used_at is null)`).count > 0
+
+export const insertUsage = async (
+  tx: ScopedSql,
+  u: { promotionId: string; codeId: string | null; storeId: string; orderId: string; customerId: string | null; email: string | null; amount: bigint; currency: string },
+): Promise<void> => {
+  await tx`
+    insert into promotion_usage (promotion_id, promotion_code_id, store_id, order_id, customer_id, customer_email, discount_amount, currency)
+    values (${u.promotionId}, ${u.codeId}, ${u.storeId}, ${u.orderId}, ${u.customerId}, ${u.email}, ${u.amount.toString()}, ${u.currency})
+  `
+}
+
+/** A cancellation before fulfilment gives each use back, a single-use code with it (#337); a refund never calls this. */
+export const releaseUses = async (tx: ScopedSql, storeId: string, orderId: string): Promise<void> => {
+  const gone = await tx<{ promotion_id: string; promotion_code_id: string | null }[]>`
+    delete from promotion_usage where store_id = ${storeId} and order_id = ${orderId} returning promotion_id, promotion_code_id
+  `
+  for (const u of [...gone].sort((a, b) => a.promotion_id.localeCompare(b.promotion_id))) {
+    await tx`update promotion set uses_count = greatest(uses_count - 1, 0) where id = ${u.promotion_id}`
+    if (u.promotion_code_id) await tx`update promotion_code set used_at = null where id = ${u.promotion_code_id} and single_use`
+  }
+}

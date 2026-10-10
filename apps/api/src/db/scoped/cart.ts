@@ -28,6 +28,8 @@ export interface CartRow {
   shopper_note: string | null
   checkout_step: 'contact' | 'ship' | 'pay' | null
   revision: number
+  /** The codes the shopper typed, as typed after normalising; the engine decides what each does (OFFERS fact 6). */
+  promotion_codes: string[]
   lines: { version_id: string; quantity: number }[]
 }
 
@@ -36,7 +38,7 @@ export const selectCart = async (tx: ScopedSql, storeId: string, now: Date): Pro
   (
     await tx<CartRow[]>`
       select o.id, o.customer_id, o.email, o.phone, o.currency, o.market_id, o.shipping_address, o.billing_address, o.shipping_option,
-        o.shopper_note, o.checkout_step, o.revision,
+        o.shopper_note, o.checkout_step, o.revision, to_json(o.promotion_codes) as promotion_codes,
         coalesce((select json_agg(json_build_object('version_id', l.version_id, 'quantity', l.quantity) order by l.added_at, l.version_id) from cart_line l where l.order_id = o.id), '[]'::json) as lines
       from "order" o
       where o.store_id = ${storeId} and o.state = 'cart' and (o.cart_expires_at is null or o.cart_expires_at > ${now})
@@ -80,6 +82,7 @@ export interface CartPatch {
   shippingOption?: 'courier' | 'flat' | 'pickup' | null
   checkoutStep?: 'contact' | 'ship' | 'pay' | null
   customerId?: string
+  promotionCodes?: readonly string[]
 }
 
 /** Writes what changed, moves the revision and the expiry on; false when the cart is no longer the shopper's. */
@@ -96,6 +99,7 @@ export const updateCart = async (tx: ScopedSql, id: string, patch: CartPatch, c:
         shipping_option = ${has('shippingOption') ? (patch.shippingOption ?? null) : tx`shipping_option`},
         checkout_step = ${has('checkoutStep') ? (patch.checkoutStep ?? null) : tx`checkout_step`},
         customer_id = ${patch.customerId ?? tx`customer_id`},
+        promotion_codes = ${patch.promotionCodes ? tx`${pgArray(patch.promotionCodes)}::text[]` : tx`promotion_codes`},
         currency = ${c.currency}, market_id = ${c.marketId}, language = ${c.language},
         cart_expires_at = ${c.expiresAt}, updated_at = ${c.now}, revision = revision + 1
       where id = ${id} and state = 'cart'

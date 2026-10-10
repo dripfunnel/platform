@@ -6,7 +6,7 @@ import { logEvent } from '#core/log'
 import type { Money } from '#core/money'
 import { isCardProvider, PaymentNeedsPhone, PaymentRefused, PaymentUnavailable, type CardProvider, type OAuthConnect, type PaymentGateways, type PaymentMode, type PaymentStart } from '#core/payments'
 import type { TenantContext } from '#core/tenancy'
-import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
+import { serialise, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   insertPayment,
   lockCart,
@@ -22,6 +22,7 @@ import {
   type SnapshotLine,
 } from '#db/scoped/orders'
 import { queueOrderUpdate } from '#db/scoped/orderUpdates'
+import { claimCode, claimUse, insertUsage, selectShopperUses } from '#db/scoped/promotions'
 import { failPendingPayments, selectGatewayAccount, selectLatestPayment } from '#db/scoped/payments'
 import { createCartService, type CartDeps, type CartView, type CheckoutProblem } from '#engine/modules/cart/index'
 import { ensureGuestCustomer } from '#engine/modules/customers/index'
@@ -48,7 +49,7 @@ export interface PaymentWiring {
 
 export const checkoutAudit = { placed: 'order.placed', retried: 'order.payment_retried', markedPaid: 'order.marked_paid', cancelled: 'order.cancelled' } as const
 
-export type CheckoutRefusal = 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PHONE_REQUIRED' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'PAYMENT_MISMATCH' | 'PAYMENT_PENDING' | 'MODE_MISMATCH' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
+export type CheckoutRefusal = 'OFFER_CHANGED' | 'NOT_READY' | 'METHOD_UNAVAILABLE' | 'PHONE_REQUIRED' | 'PAYMENT_UNAVAILABLE' | 'ALREADY_PLACED' | 'ALREADY_PAID' | 'PAYMENT_MISMATCH' | 'PAYMENT_PENDING' | 'MODE_MISMATCH' | 'CART_CHANGED' | 'READ_ONLY' | 'OUT_OF_STOCK' | 'NOT_FOUND' | 'NOT_PENDING'
 export type CheckoutResult<T> = { ok: true; value: T } | { ok: false; reason: CheckoutRefusal; problems?: CheckoutProblem[] }
 
 class Refused extends Error {
@@ -187,13 +188,35 @@ export const createCheckout = (deps: CheckoutDeps) => {
         taxRateBps: tax?.rateBps ?? null,
         quantity: l.quantity,
         unitAmount: l.unitPrice.amount,
+        discountAmount: l.discount?.amount ?? 0n,
         taxAmount: tax?.amount ?? 0n,
-        lineTotalAmount: l.lineTotal.amount,
+        lineTotalAmount: l.lineTotal.amount - (l.discount?.amount ?? 0n),
         weightGrams: v.weight_grams,
         reservedWarehouseId,
       })
     }
     return lines
+  }
+
+  /**
+   * Each offer the cart was priced with takes one use, under the offer's row lock, and a single-use code its one; the
+   * shopper's own uses are counted under a lock of their own (OFFERS fact 8). In offer order, so two orders never wait on each other.
+   */
+  const claimOffers = async (tx: ScopedSql, cart: CartView) => {
+    const at = now()
+    const email = cart.email?.trim().toLowerCase() || null
+    for (const d of [...cart.discounts].sort((a, b) => a.offerId.localeCompare(b.offerId))) {
+      if (!(await claimUse(tx, storeId, d.offerId, at))) throw new Refused('OFFER_CHANGED')
+      if (d.perCustomerLimit !== null) {
+        const key = customerId ?? email
+        if (key === null) throw new Refused('OFFER_CHANGED')
+        await serialise(tx, `promotion-use:${d.offerId}:${key}`)
+        const used = (await selectShopperUses(tx, storeId, [d.offerId], { customerId, email })).get(d.offerId) ?? 0
+        if (used >= d.perCustomerLimit) throw new Refused('OFFER_CHANGED')
+      }
+      if (d.codeId && !(await claimCode(tx, d.codeId, at))) throw new Refused('OFFER_CHANGED')
+      await insertUsage(tx, { promotionId: d.offerId, codeId: d.codeId, storeId, orderId: cart.id, customerId, email, amount: d.amount.amount, currency: cart.currency })
+    }
   }
 
   /** "Pay" (FIRST-RELEASE §19): a card payment is started before placing, so no order exists that couldn't be paid. */
@@ -221,6 +244,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
         // Changed in another tab since it was priced: the shopper sees the new cart before paying for it.
         if (locked.revision !== cart.revision) throw new Refused('CART_CHANGED')
         const holds = isManual(option.provider) && mode === 'live'
+        // A preview's test order takes no real use (storefront PREVIEW); a live one takes each, or the shopper sees the cart again.
+        if (mode === 'live') await claimOffers(tx, cart)
         const lines = await snapshotLines(tx, cart, holds)
         const parts = [...new Map(lines.map((l) => [l.sellerId ?? 'store', l.sellerId])).values()]
         const modes = new Map((await selectSnapshotVersions(tx, storeId, lines.map((l) => l.versionId))).map((v) => [v.seller_id ?? 'store', v.shipping_mode]))
@@ -234,6 +259,8 @@ export const createCheckout = (deps: CheckoutDeps) => {
           parts: parts.map((sellerId) => ({ sellerId, shippingMode: sellerId ? (modes.get(sellerId) ?? 'to-store') : 'store' })),
           shipping: cart.shipping ? { amount: cart.shipping.amount, label: shippingLabel(cart) } : null,
           tax: { amount: cart.tax?.amount.amount ?? 0n, inclusive: cart.tax?.inclusive ?? false },
+          discounts: cart.discounts.map((d) => ({ promotionId: d.offerId, codeId: d.codeId, label: d.name, amount: d.amount.amount })),
+          discount: cart.discount.amount,
           subtotal: cart.subtotal.amount,
           total: cart.total.amount,
           paymentMethod: option.provider,

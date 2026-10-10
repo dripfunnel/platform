@@ -1433,8 +1433,9 @@ order_adjustment    (id, order_id, order_line_id NULL, store_id, kind ('discount
                     -- discounts as adjustments carrying the shopper-facing name (OFFERS fact 13);
                     -- order-level discounts spread across lines by the engine (fact 11);
                     -- amount in "order".currency (§7.1). Built (0068) with label NULL and without
-                    -- promotion_id, promotion_code_id and tax_zone_id, which come with Offers
-                    -- (SAPI 14, #320)
+                    -- promotion_id, promotion_code_id and tax_zone_id; #320 (0078) added the
+                    -- first two, set only on a discount line, one line per offer taken; the
+                    -- shopper reads the label and amount, never the ids
 order_part          (id, order_id, store_id, seller_id NULL, shipping_mode ('store'|'to-store'
                      |'to-shopper'), state ('to_ship'|'sent_to_store'|'partly_shipped'|'shipped'
                      |'delivered'|'cancelled'))
