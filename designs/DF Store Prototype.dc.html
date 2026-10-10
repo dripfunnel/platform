@@ -59,6 +59,10 @@ a:hover{color:#00519F;}
       <select value="{{ st.scn }}" onChange="{{ on.scn }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
         <option value="normal">Normal</option><option value="slow">Page is slow to load</option><option value="loadErr">Page won’t load</option><option value="notFound">Broken or old link</option><option value="expired">Session expired</option><option value="removed">Removed from this store</option><option value="invite">Invitation link (staff)</option><option value="inviteBad">Invitation expired</option>
       </select></label>
+    <sc-if value="{{ sfCtl }}" hint-placeholder-val="{{ false }}"><label style="display:flex;align-items:center;gap:6px;">Storefront
+      <select value="{{ st.sfState }}" onChange="{{ on.sfState }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
+        <sc-for list="{{ sfStates }}" as="o" hint-placeholder-count="3"><option value="{{ o.k }}">{{ o.l }}</option></sc-for>
+      </select></label></sc-if>
     <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="7">
       <button onClick="{{ t.onClick }}" style="height:28px;padding:0 10px;border-radius:14px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-size:12px;cursor:pointer;">{{ t.label }}</button>
     </sc-for>
@@ -280,6 +284,7 @@ class Component extends DCLogic {
     try { const sn = sessionStorage.getItem('df-store-snap'); if (sn) { sessionStorage.removeItem('df-store-snap'); this.state = { ...this.state, ...JSON.parse(sn), modal: null, toast: null }; } } catch (e) {}
     ['role', 'plan', 'device', 'screen', 'settingsTab', 'support', 'editId', 'auth', 'authView'].forEach(k => { if (q.get(k)) this.state[k] = q.get(k); });
     if (q.get('screen')) this.state.loading = false;
+    if (q.get('state')) { this.state.sfState = q.get('state'); this.state.sfNonce = 1; }
     const imp = (() => { try { const m = location.href.match(/[?&]imp=([^&#]+)/); return m ? JSON.parse(localStorage.getItem('df-imp-bus-v1') || '{}')[decodeURIComponent(m[1])] : null; } catch (e) { return null; } })();
     if (imp && imp.open) { const RM = { Owner:'owner', Manager:'manager', Staff:'staff', 'Supplier admin':'vendor', 'Supplier member':'vendorStock' }; const role = imp.kind === 'support' ? 'owner' : RM[imp.role] || 'staff', vend = role === 'vendor' || role === 'vendorStock'; Object.assign(this.state, { role, impS: imp, ...(vend ? { plan: 'business', screen: 'products' } : {}) }); }
   }
@@ -795,6 +800,8 @@ class Component extends DCLogic {
     };
 
     return {
+      sfCtl: s.screen === 'storefront' && c.isOwner,
+      sfStates: [['', 'As you go'], ['opening', 'Studio · opening'], ['queued', 'Studio · queued'], ['finishing', 'Studio · another tab is changing'], ['checking', 'Studio · checking a change'], ['ended', 'Studio · session ended'], ['attach', 'Studio · image and website in chat'], ['edit-text', 'Studio · Edit text'], ['pages', 'Studio · page picker'], ['preview-menu', 'Studio · Open preview menu'], ['end-links', 'Studio · End all preview links?'], ['links-ended', 'Studio · preview links ended'], ['pub-checking', 'Publish · checking your site'], ['pub-refused', 'Publish · refused, one change to blame'], ['pub-refused-all', 'Publish · refused'], ['rolled-back', 'Publish · rolled back']].map(([k, l]) => ({ k, l })),
       st: s, R, app, nav, toggles, banners: studioOn ? [] : banners, sup, modal, modalVal: s.modalVal, hasModal: !!m, toast: s.toast || {}, hasToast: !!s.toast,
       roleLabel: { owner: 'Owner', manager: 'Manager', staff: 'Staff', vendor: 'Supplier · Northwind', vendorStock: 'Supplier · stock only' }[s.role],
       user: (() => { const me = s.profiles[c.isVendor ? 'vendor' : s.role] || {}; const ini = (me.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); return { initials: ini, name: me.name, sub: c.isVendor ? 'Northwind Textiles' : { owner: 'Owner', manager: 'Manager', staff: 'Staff' }[s.role] }; })(),
@@ -820,6 +827,7 @@ class Component extends DCLogic {
         supEnd: () => this.modal({ title: 'End the support session?', body: supName + ' is sent out of your store now. They can open a new session later with a new reason.', confirm: 'End session', danger: true, onConfirm: () => { this.setState({ support: 'none' }); this.toast('Support session ended'); } }),
         userMenu: () => this.modal({ title: ({ owner: 'Farhan Ali', manager: 'Priya Shah', staff: 'Tom Okafor' }[s.role] || 'Nadia Tran'), body: 'One account across every store you belong to.', choices: [{ label: 'My profile', sub: 'Name, password, two-step sign-in', value: 'profile' }, ...(s.role === 'manager' ? [{ label: 'Store activity', sub: 'Who did what in this store', value: 'activity' }] : []), { label: 'Switch store', sub: 'Pick another store', value: 'switch' }, { label: 'Sign out', sub: 'Signs you out of every store on this device', value: 'out' }], confirm: 'Go', onConfirm: v => { if (v === 'out') { this.setState({ auth: 'login', navOpen: false }); } else if (v === 'switch') { setTimeout(() => this.renderVals().on.switchStore(), 50); } else this.go(v === 'activity' ? 'activity' : 'profile'); } }),
         reset: () => { this.setState(this.fresh(s.region, s.dataset, { device: s.device })); this.toast('Data reset'); },
+        sfState: e => this.setState({ sfState: e.target.value, sfNonce: (s.sfNonce || 0) + 1, sfStudio: false }),
         scn: e => { const v = e.target.value; clearTimeout(this._lt);
           if (v === 'expired' || v === 'removed') { this.setState({ scn: 'normal', auth: 'login', authNote: v, navOpen: false, modal: null, authNonce: s.authNonce + 1 }); return; }
           if (v === 'invite' || v === 'inviteBad') { this.setState({ scn: 'normal', auth: v, authNote: null, navOpen: false, modal: null, authNonce: s.authNonce + 1 }); return; }

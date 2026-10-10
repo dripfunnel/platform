@@ -204,6 +204,13 @@
     </div>
   </sc-if>
 
+  <sc-if value="{{ isOther }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:{{ D.py }} {{ D.px }};display:flex;flex-direction:column;gap:24px;">
+      <div style="display:flex;flex-direction:column;gap:10px;"><h1 style="margin:0;font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};letter-spacing:{{ T.ls }};font-size:{{ D.h2 }};line-height:1.1;">{{ other.title }}</h1><sc-if value="{{ other.body }}" hint-placeholder-val="{{ true }}"><p style="margin:0;color:{{ T.muted }};font-size:{{ D.lead }};max-width:56ch;">{{ other.body }}</p></sc-if></div>
+      <sc-if value="{{ other.grid }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:{{ other.cols }};gap:{{ D.gridGap }};"><sc-for list="{{ other.items }}" as="p" hint-placeholder-count="4"><div onClick="{{ p.open }}" style="display:flex;flex-direction:column;gap:10px;cursor:pointer;min-width:0;"><div style="aspect-ratio:3/4;border-radius:{{ T.rImg }};background:{{ p.img }};display:flex;align-items:center;justify-content:center;font-size:12px;color:{{ T.muted }};">{{ p.noPhoto }}</div><div style="display:flex;flex-direction:column;gap:2px;min-width:0;"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</span><span style="font-size:14px;color:{{ T.muted }};">{{ p.price }}</span></div></div></sc-for></div></sc-if>
+    </div>
+  </sc-if>
+
   <div style="background:{{ F.bg }};color:{{ F.fg }};padding:{{ D.pySm }} {{ D.px }};display:flex;flex-direction:column;gap:18px;outline:{{ F.ol }};outline-offset:-3px;">
     <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;">
       <div style="display:flex;flex-direction:column;gap:6px;max-width:320px;"><span style="font-family:{{ T.head }};font-weight:{{ T.hw }};text-transform:{{ T.case }};font-size:18px;">{{ store }}</span><sc-if value="{{ F.text }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;opacity:0.8;">{{ F.text }}</span></sc-if></div>
@@ -264,7 +271,8 @@ class Component extends DCLogic {
     const cart = this.state.cart.map((c, k) => { const q = prods[c.j] || prods[0]; return { name: q.name, price: q.price, img: img(q.hue), size: c.size, remove: () => this.setState(st => ({ cart: st.cart.filter((_, z) => z !== k) })) }; });
     const sub = this.state.cart.reduce((a, c) => a + (+((prods[c.j] || {}).n) || 0), 0);
     return {
-      ok: true, T, D, store, pe: p.inert ? 'none' : 'auto', isHome: page === 'home', isAbout: page === 'about', isContact: page === 'contact', isProduct: page === 'product', isCart: page === 'cart',
+      ok: true, T, D, store, pe: p.inert ? 'none' : 'auto', isHome: page === 'home', isAbout: page === 'about', isContact: page === 'contact', isProduct: page === 'product', isCart: page === 'cart', isOther: !['home', 'about', 'contact', 'product', 'cart'].includes(page) && !!p.other,
+      other: p.other ? { title: p.other.title, body: p.other.body || '', grid: !!p.other.grid, cols: `repeat(${Math.min(4, D.maxCols)},minmax(0,1fr))`, items: prods.slice(0, 8).map((pr, j) => ({ name: pr.name, price: pr.price, img: img(pr.hue), noPhoto: pr.hue == null ? 'No photo' : '', open: () => go('product', j) })) } : {},
       A: { ...(s.announce || {}), ol: ol('announce') }, H, secs, pagesOl: ol('pages'),
       F: { bg: ft[0], fg: ft[1], text: f.text, ol: ol('footer'), links: (f.links || []).map(x => ({ t: x })), copy: '© ' + new Date().getFullYear() + ' ' + store + (p.powered ? ' · Powered by DripFunnel' : '') },
       about: { headline: ab.headline, paras: String(ab.body || '').split(/\n\s*\n/).filter(Boolean).map(x => ({ t: x })), img: img(prods[1 % prods.length].hue) },

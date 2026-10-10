@@ -513,19 +513,25 @@ through. Your site stays live."), as is a support session.
   new link from here." with **End links** and **Cancel**. It moves the store's revocation
   number, is recorded as `storefront.preview_links_ended`, and shows "Preview links ended"
   (storefront PREVIEW §5, §8; decided 2026-10-09, #520).
-  **Not drawn** (the prototype card adds them; storefront ARCHITECTURE §6): "End all preview
-  links" and its confirmation; "Opening your
-  studio…" while the sandbox starts; "You're next — about N seconds" while studios queue;
-  "Finishing your previous change…" when another tab is changing the store; "Checking your
-  change…" while the change is checked and repaired.
+  **Drawn on #487** (`PortalStorefront`, `?state=` keys in designs/design.md §2; storefront
+  ARCHITECTURE §6): "End all preview links" (`preview-menu`), its confirmation (`end-links`) and
+  "Preview links ended" (`links-ended`); "Opening your studio…" over the current preview while
+  the sandbox starts (`opening`); "You're next — about N seconds" while studios queue
+  (`queued`); "Finishing your previous change…" when another tab is changing the store
+  (`finishing`); "Checking your change…" while the change is checked and repaired
+  (`checking`); "Your studio session ended. Reopen the studio to keep designing." with
+  **Reopen** (`ended`); a pasted or uploaded image and a website address in the chat
+  (`attach`); **Edit text** in every language (`edit-text`); the page picker listing every
+  page (`pages`).
 - **Publish** asks "Publish version N? We check your whole site first, then it goes live on
   {host} in a few minutes and uses about N build minutes. You can go back to version N−1 any
   time, for free.", shows "Building your site…", "Checking your site…", then "Checking it went
-  live…", and ends with "Version N is live — we checked your site and it changed". **Not drawn**:
-  a refused publish says what failed in plain words and that the live site is unchanged, and
-  offers **Publish everything before this change** when one change is to blame; a publish rolled
-  back after going live says so ("We put version N−1 back: your new version broke the checkout
-  on phones. We're fixing it."); neither uses a "Publish now" press.
+  live…", and ends with "Version N is live — we checked your site and it changed". **Drawn on
+  #487**, with "Checking your site…" (`pub-checking`): a refused publish says what failed in plain words and that the live site is unchanged, and
+  offers **Publish everything before this change** when one change is to blame (`pub-refused`;
+  `pub-refused-all` when none is); a publish rolled back after going live says so ("We put
+  version N−1 back: your new version broke the checkout on phones. We're fixing it.",
+  `rolled-back`); neither uses a "Publish now" press.
 - **Overview, Design tab**: "{host} · version N is live · {template} template", **View live site
   ↗**, **Change template**, **Open studio** or **Continue in studio**; the "Unpublished changes"
   notice with Discard and Continue in studio; the **catalogue Publish now bar** (not drawn;
