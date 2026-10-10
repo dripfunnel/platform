@@ -187,6 +187,36 @@ describe('who may do what (ACCESS §5.1, §11)', () => {
     expect((await gql(`mutation { pauseOffer(id: "${theirs.nodes[0]?.id ?? ''}") }`, 'owner')).code).toBe('NOT_FOUND')
   })
 
+  it('lets no write reach another store’s offer, whatever its id and revision', async () => {
+    const theirs = await create({ name: 'Surat only', code: 'SURATONLY', enabled: false }, 'other')
+    const before = await offer(theirs.id, 'other')
+    expect((await gql(save, 'owner', { id: theirs.id, revision: before?.['revision'], input: offerInput({ name: 'Taken over', code: 'SURATONLY', enabled: false }) })).code).toBe('NOT_FOUND')
+    for (const m of ['resumeOffer', 'endOffer', 'duplicateOffer']) expect({ m, code: (await gql(`mutation { ${m}(id: "${theirs.id}") }`, 'owner')).code }).toEqual({ m, code: 'NOT_FOUND' })
+    expect(await offer(theirs.id, 'other')).toEqual(before)
+    expect(await db.sql`select count(*)::int as n from promotion where name like 'Copy of Surat%'`).toEqual([{ n: 0 }])
+  })
+
+  it('finds and counts nothing of another store’s offers by name or code', async () => {
+    const counts = (await gql('{ offerCounts { live scheduled off ended } }', 'owner')).data?.['offerCounts']
+    for (const search of ['Surat', 'SURATONLY']) expect(((await gql(`{ offers(search: "${search}") { nodes { id } } }`, 'owner')).data?.['offers'] as { nodes: unknown[] }).nodes).toEqual([])
+    await create({ name: 'Surat two', code: 'SURATTWO', enabled: false }, 'other')
+    expect((await gql('{ offerCounts { live scheduled off ended } }', 'owner')).data?.['offerCounts']).toEqual(counts)
+  })
+
+  it('names nothing of another store: its groups, customers, collections and filter values are unknown here', async () => {
+    const [g] = await db.sql<{ id: string }[]>`insert into customer_group (store_id, name) values (${t.storeA2}, 'Their VIP') returning id`
+    const [c] = await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind) values (${t.storeA2}, 'Their summer', 'their-summer', 'manual') returning id`
+    const [f] = await db.sql<{ id: string }[]>`insert into filter (store_id, name, position) values (${t.storeA2}, 'Fabric', 0) returning id`
+    const [v] = await db.sql<{ id: string }[]>`insert into filter_value (filter_id, store_id, name, position) values (${f?.id ?? ''}, ${t.storeA2}, 'Linen', 0) returning id`
+    const tries = [
+      { conditions: [{ operation: 'customer_group', groupIds: [g?.id] }] },
+      { conditions: [{ operation: 'specific_customers', customerIds: [t.customerA2] }] },
+      { action: { operation: 'products_percentage_discount', percent: 10, targets: { collectionIds: [c?.id] } } },
+      { action: { operation: 'products_percentage_discount', percent: 10, targets: { filterValueIds: [v?.id] } } },
+    ]
+    for (const [i, o] of tries.entries()) expect({ i, code: (await create({ code: `THEIRS${i}`, ...o })).code }).toEqual({ i, code: 'UNKNOWN_TARGET' })
+  })
+
   it('lets a read-only support session read and change nothing (ACCESS §8)', async () => {
     expect((await gql('{ offerCounts { live } }', 'owner', {}, { support: 'read' })).code).toBeUndefined()
     expect((await gql(save, 'owner', { input: offerInput({ code: 'SUPPORT' }) }, { support: 'read' })).code).toBe('READ_ONLY')
