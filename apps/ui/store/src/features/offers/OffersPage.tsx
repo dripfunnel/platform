@@ -7,6 +7,7 @@ import { loadOfferCounts, loadOfferNames, loadOfferPlace, loadOffers, offerKinds
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { CodeCheck } from './CodeCheck'
+import { copyText } from './copyText'
 import { actsFor, useOfferActions, type OfferAct } from './offerActions'
 import { offerAccessOf } from './offerAccess'
 import { offerSample, offerStates, sampleNames } from './offerStates'
@@ -157,7 +158,7 @@ export const OffersPage = () => {
             {offer.code && (
               <button type="button" className="df-button" onClick={() => {
                   close()
-                  void navigator.clipboard?.writeText(offer.code ?? '').then(() => setToast(fill(words.copied, { code: offer.code ?? '' })), () => setToast(words.copyFailed))
+                  void copyText(offer.code ?? '').then((ok) => setToast(ok ? fill(words.copied, { code: offer.code ?? '' }) : words.copyFailed))
                 }}>
                 {words.menu.copy}
                 <span className="df-offers-menu-sub">{offer.code}</span>
