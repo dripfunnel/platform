@@ -129,14 +129,13 @@ export const decideReminder = async ({ sql, now, suppressionKey, whatsappReady }
     if (wait > 0) return { kind: 'wait', ms: wait }
     const code = percent ? await issueReminderCode(tx, { storeId: r.store_id, percent, name: codeOfferName(percent), orderId: r.cart.id, customerId: r.cart.customer_id, now: at }) : null
     await setReminderChannel(tx, r.id, channel, code?.id ?? null)
-    if (channel === 'whatsapp') {
-      await insertOutbox(tx, { kind: 'whatsapp', idempotencyKey: `cart-reminder:${r.id}`, payload: { reminderId: r.id }, partnerId: r.partner_id, storeId: r.store_id })
-      return { kind: 'queued', channel }
-    }
     // Only what can be bought now goes in it: a line gone out of stock is left out (Carts).
     const shown = lines.filter((l) => !l.outOfStock && l.name !== null).map((l) => ({ name: l.versionName ? `${l.name}, ${l.versionName}` : (l.name ?? ''), quantity: l.quantity, amount: l.lineTotal?.amount.toString() ?? null }))
-    await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', reminderId: r.id, currency: r.cart.currency, lines: shown }, partnerId: r.partner_id, storeId: r.store_id })
-    return { kind: 'queued', channel: 'email' }
+    const message = { reminderId: r.id, currency: r.cart.currency, lines: shown }
+    // A WhatsApp row carries its email too, which it falls back to if it can't go after all (deliverers/whatsapp.ts).
+    if (channel === 'whatsapp') await insertOutbox(tx, { kind: 'whatsapp', idempotencyKey: `cart-reminder:${r.id}`, payload: { ...message }, partnerId: r.partner_id, storeId: r.store_id })
+    else await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', ...message }, partnerId: r.partner_id, storeId: r.store_id })
+    return { kind: 'queued', channel }
   })
 }
 

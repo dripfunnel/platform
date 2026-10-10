@@ -1,7 +1,9 @@
+import { z } from 'zod'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { isE164 } from '#core/sms'
 import type { OutgoingWhatsApp } from '#core/whatsapp'
-import { markReminderSent, selectReminderToSend, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
+import { markReminderSent, selectReminderToSend, selectShopHost, skipReminder, switchReminderToEmail } from '#db/scoped/cartReminders'
+import { insertOutbox } from '#db/scoped/outbox'
 import type { ScopedSql } from '#db/scoped/index'
 
 // What the platform sends by WhatsApp (THIRD-PARTY-ACCESS §2.8, decided on #337): abandoned-cart reminders, for stores in
@@ -32,6 +34,23 @@ export interface PartnerWhatsAppAccounts {
 }
 
 export type PreparedWhatsApp = { send: true; message: OutgoingWhatsApp } | { send: false; reason: 'link_closed' | 'tenant_mismatch' | 'no_recipient' | 'no_template' | 'no_shop_host' }
+
+/** The `whatsapp` outbox row: the reminder, and the email it becomes if WhatsApp can't take it (cartReminders jobs.ts). */
+export const whatsappPayloadSchema = z
+  .object({
+    reminderId: z.uuid(),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    lines: z.array(z.object({ name: z.string().max(400), quantity: z.number().int().min(1).max(999), amount: z.string().regex(/^\d{1,18}$/).nullable() }).strict()).max(100),
+  })
+  .strict()
+export type WhatsAppPayload = z.infer<typeof whatsappPayloadSchema>
+
+/** WhatsApp can't take it after all (no account, template or number now): the shopper gets the email instead, once. */
+export const fallBackToEmail = async (tx: ScopedSql, payload: WhatsAppPayload, row: { partnerId: string; storeId: string | null }): Promise<boolean> => {
+  if (!(await switchReminderToEmail(tx, payload.reminderId))) return false
+  await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${payload.reminderId}`, payload: { template: 'cart-reminder', ...payload }, partnerId: row.partnerId, storeId: row.storeId })
+  return true
+}
 
 const itemsIn = (n: number) => (n === 1 ? '1 item' : `${n} items`)
 

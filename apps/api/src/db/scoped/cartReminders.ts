@@ -276,6 +276,10 @@ export const skipReminder = async (tx: ScopedSql, id: string, reason: SkipReason
   await tx`update cart_reminder set state = 'skipped', skip_reason = ${reason} where id = ${id} and state = 'queued'`
 }
 
+/** A WhatsApp reminder that can't go after all goes by email instead, once; false when it was decided otherwise since. */
+export const switchReminderToEmail = async (tx: ScopedSql, id: string): Promise<boolean> =>
+  (await tx`update cart_reminder set channel = 'email' where id = ${id} and state = 'queued' and channel = 'whatsapp'`).count > 0
+
 export const setReminderChannel = async (tx: ScopedSql, id: string, channel: ReminderChannel, codeId: string | null): Promise<void> => {
   await tx`update cart_reminder set channel = ${channel}, promotion_code_id = ${codeId} where id = ${id} and state = 'queued'`
 }

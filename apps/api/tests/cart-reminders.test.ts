@@ -643,6 +643,48 @@ describe('WhatsApp in India (#337)', () => {
     expect((await reminders(noAccount))[0]?.channel).toBe('email')
   })
 
+  it('sends the email instead when the account or its template is gone by the time it goes', async () => {
+    for (const gone of [{ forPartner: async () => null }, { forPartner: async () => ({ authKey: 'k', integratedNumber: '1', language: 'en', templates: {} }) }] as PartnerWhatsAppAccounts[]) {
+      await whatsappFlow()
+      const cart = await memberCart()
+      await sweep()
+      const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
+      const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
+      await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
+      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, gone, () => whatsappSender) }, opts)
+      const mailed = mailTo('member.wa@example.com').length
+      for (let i = 0; i < 2; i++) await relay()
+      expect([await reminders(cart), mailTo('member.wa@example.com').length - mailed]).toMatchObject([[{ state: 'sent', channel: 'email' }], 1])
+    }
+  })
+
+  it('emails anyone else: no WhatsApp consent, not opted in, a number outside India, a store outside India, below Growth Pro, or by hand', async () => {
+    const cases: [string, () => Promise<unknown>, () => Promise<unknown>][] = [
+      ['no whatsapp consent', () => db.sql`update customer set consent_channels = '{email}' where id = ${member}`, () => db.sql`update customer set consent_channels = '{email,whatsapp}' where id = ${member}`],
+      ['not opted in', () => db.sql`update customer set consent_state = 'not_asked' where id = ${member}`, () => db.sql`update customer set consent_state = 'opted_in' where id = ${member}`],
+      ['a US number', () => db.sql`update customer set phone = '+12025550143' where id = ${member}`, () => db.sql`update customer set phone = '+919811122233' where id = ${member}`],
+      ['a store outside India', () => db.sql`update store set country = 'US' where id = ${store}`, () => db.sql`update store set country = 'IN' where id = ${store}`],
+      ['below Growth Pro', () => subscribe(store, plans.starter), () => subscribe(store, plans.pro)],
+    ]
+    whatsappAccounts = anAccount
+    for (const [label, set, reset] of cases) {
+      await whatsappFlow()
+      await set()
+      const cart = await memberCart()
+      await run()
+      await reset()
+      expect([label, (await reminders(cart))[0]?.channel]).toEqual([label, 'email'])
+    }
+    await whatsappFlow()
+    await db.sql`update cart_reminder_flow set enabled = false where store_id = ${store}`
+    const byHand = await memberCart()
+    await markAbandonedCarts({ ...jobs, sql: db.sql }, 100)
+    expect((await merchant(`mutation { remindNow(cartId: "${byHand}") }`, 'owner')).data?.['remindNow']).toEqual(expect.any(String))
+    for (let i = 0; i < 3; i++) await relay()
+    whatsappAccounts = null
+    expect((await reminders(byHand))[0]?.channel).toBe('email')
+  })
+
   it('marks a WhatsApp reminder the provider refuses for good as undeliverable, and gives it up', async () => {
     await whatsappFlow()
     const cart = await memberCart()

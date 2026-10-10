@@ -1,23 +1,20 @@
 import type postgres from 'postgres'
-import { z } from 'zod'
 import { logEvent } from '#core/log'
 import { SmsRefused } from '#core/sms'
 import type { WhatsAppSender } from '#core/whatsapp'
 import { skipReminder } from '#db/scoped/cartReminders'
 import { withSystemScope } from '#db/scoped/index'
 import type { Msg91WhatsAppCredentials } from '#integrations/msg91/index'
-import { prepareWhatsAppReminder, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
+import { fallBackToEmail, prepareWhatsAppReminder, whatsappPayloadSchema, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
 import { GiveUp, type Deliverer } from '../outbox-relay'
 
 // `whatsapp` (#321; THIRD-PARTY-ACCESS §2.8): a cart reminder by the partner's WhatsApp Business number through MSG91. MSG91
 // takes no idempotency key, so a crash after it accepts and before the row is marked can send twice, as a text can.
 
-const payload = z.object({ reminderId: z.uuid() }).strict()
-
 export const whatsappDeliverer = (sql: postgres.Sql, accounts: PartnerWhatsAppAccounts, sender: (credentials: Msg91WhatsAppCredentials) => WhatsAppSender, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect, signal) => {
     const log = (event: string, code: string) => logEvent({ event, api: 'system', partnerId: effect.partnerId, storeId: effect.storeId, code })
-    const parsed = payload.safeParse(effect.payload)
+    const parsed = whatsappPayloadSchema.safeParse(effect.payload)
     const partnerId = effect.partnerId
     if (!parsed.success || !partnerId) {
       log('whatsapp_skipped', 'bad_payload')
@@ -27,10 +24,14 @@ export const whatsappDeliverer = (sql: postgres.Sql, accounts: PartnerWhatsAppAc
     try {
       await withSystemScope(sql, async (tx) => {
         const account = await accounts.forPartner(tx, partnerId)
-        // Decided for WhatsApp while the account was there (cart.remind); gone since, the reminder is left unsent.
-        if (!account) return log('whatsapp_skipped', 'no_account')
-        const prepared = await prepareWhatsAppReminder(tx, reminderId, { partnerId, storeId: effect.storeId }, account, now())
-        if (!prepared.send) return log('whatsapp_skipped', prepared.reason)
+        // Decided for WhatsApp while it could go (cart.remind); its account, template or number gone since, it goes by email.
+        const prepared = account ? await prepareWhatsAppReminder(tx, reminderId, { partnerId, storeId: effect.storeId }, account, now()) : null
+        if (!account || !prepared?.send) {
+          const reason = prepared && !prepared.send ? prepared.reason : 'no_account'
+          const fallsBack = reason === 'no_account' || reason === 'no_template' || reason === 'no_recipient'
+          if (fallsBack && (await fallBackToEmail(tx, parsed.data, { partnerId, storeId: effect.storeId }))) return log('whatsapp_by_email', reason)
+          return log('whatsapp_skipped', reason)
+        }
         await sender({ authKey: account.authKey, integratedNumber: account.integratedNumber }).send(prepared.message, signal)
         log('whatsapp_sent', 'msg91')
       })
