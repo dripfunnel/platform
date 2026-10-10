@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
 import type { SecretBox } from '#auth/secretBox'
-import type { ShopConnect } from '#engine/modules/catalog/index'
+import type { AssetStore, ShopConnect } from '#engine/modules/catalog/index'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { CodeCheck } from '#auth/codeCheck'
 import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
@@ -27,6 +27,8 @@ export interface StoreContext extends Record<string, unknown> {
   shopify?: ShopConnect | null
   /** The partners' couriers (THIRD-PARTY-ACCESS §4), or null where none can be reached yet (#275). */
   couriers?: CourierDirectory | null
+  /** The Worker's `ASSETS` bucket, where a booked label's file is kept; null where it isn't bound. */
+  files?: AssetStore | null
   /** The card adapters and Connect Stripe (SAPI 10); null where none is set up. */
   payments?: PaymentWiring | null
   codeCheck?: CodeCheck

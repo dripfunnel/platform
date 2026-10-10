@@ -1,3 +1,4 @@
+import type { CourierProvider } from '#core/couriers'
 import { pgArray, type ScopedSql } from './index'
 
 // Shipping an order's lines (migration 0071; DATA-MODEL §7.6, §7.4), in system scope: the engine has named the store and
@@ -120,14 +121,25 @@ export const shipOut = async (tx: ScopedSql, s: { storeId: string; warehouseId: 
   return true
 }
 
+/** What a label booked through the store's courier adds to its shipment (migration 0130). */
+export interface Booking {
+  id: string
+  provider: CourierProvider
+  providerRef: string
+  pickup: { ref: string | null; date: string | null } | null
+}
+
 export const insertFulfilment = async (
   tx: ScopedSql,
-  f: { storeId: string; orderId: string; partId: string; sellerId: string | null; kind: 'manual' | 'sent_to_store' | 'pickup'; warehouseId: string; courierName: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: Date; createdBy: string },
+  f: { storeId: string; orderId: string; partId: string; sellerId: string | null; kind: 'booked' | 'manual' | 'sent_to_store' | 'pickup'; warehouseId: string; courierName: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: Date; createdBy: string; booking?: Booking },
   lines: readonly { lineId: string; quantity: number }[],
 ): Promise<string> => {
+  const b = f.booking
   const [row] = await tx<{ id: string }[]>`
-    insert into fulfilment (order_part_id, order_id, store_id, seller_id, kind, warehouse_id, courier_name, tracking_number, tracking_url, shipped_at, created_by)
-    values (${f.partId}, ${f.orderId}, ${f.storeId}, ${f.sellerId}, ${f.kind}, ${f.warehouseId}, ${f.courierName}, ${f.trackingNumber}, ${f.trackingUrl}, ${f.shippedAt}, ${f.createdBy})
+    insert into fulfilment (id, order_part_id, order_id, store_id, seller_id, kind, warehouse_id, courier_name, tracking_number, tracking_url, shipped_at, created_by,
+      courier_provider, provider_ref, booked_at, pickup_requested_at, pickup_ref, pickup_date)
+    values (${b?.id ?? crypto.randomUUID()}, ${f.partId}, ${f.orderId}, ${f.storeId}, ${f.sellerId}, ${f.kind}, ${f.warehouseId}, ${f.courierName}, ${f.trackingNumber}, ${f.trackingUrl}, ${f.shippedAt}, ${f.createdBy},
+      ${b?.provider ?? null}, ${b?.providerRef ?? null}, ${b ? f.shippedAt : null}, ${b?.pickup ? f.shippedAt : null}, ${b?.pickup?.ref ?? null}, ${b?.pickup?.date ?? null})
     returning id
   `
   const id = row?.id ?? ''
@@ -173,6 +185,13 @@ export interface FulfilmentRow {
   tracking_number: string | null
   tracking_url: string | null
   shipped_at: Date
+  courier_provider: CourierProvider | null
+  booked_at: Date | null
+  pickup_requested_at: Date | null
+  pickup_ref: string | null
+  pickup_date: string | null
+  /** The printed label's document, which the caller's scope reads only when it is its own (migration 0130). */
+  label_document_id: string | null
   lines: { line_id: string; quantity: number }[]
 }
 
@@ -180,6 +199,8 @@ export interface FulfilmentRow {
 export const selectFulfilments = (tx: ScopedSql, orderId: string): Promise<FulfilmentRow[]> =>
   tx<FulfilmentRow[]>`
     select f.id, f.seller_id, f.kind, f.warehouse_id, w.name as warehouse_name, f.courier_name, f.tracking_number, f.tracking_url, f.shipped_at,
+      f.courier_provider, f.booked_at, f.pickup_requested_at, f.pickup_ref, to_char(f.pickup_date, 'YYYY-MM-DD') as pickup_date,
+      (select d.id from order_document d where d.fulfilment_id = f.id and d.kind = 'label') as label_document_id,
       coalesce((select json_agg(json_build_object('line_id', fl.order_line_id, 'quantity', fl.quantity)) from fulfilment_line fl where fl.fulfilment_id = f.id), '[]'::json) as lines
     from fulfilment f join warehouse w on w.id = f.warehouse_id
     where f.order_id = ${orderId}

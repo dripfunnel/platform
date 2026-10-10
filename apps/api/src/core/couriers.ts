@@ -29,9 +29,60 @@ export interface CourierRate {
   maxDays: number | null
 }
 
+export interface LabelAddress {
+  name: string
+  line1: string
+  line2: string | null
+  city: string
+  region: string | null
+  postal: string
+  country: string
+  phone: string | null
+  email: string | null
+}
+
+export type LabelSize = 'a6' | 'a4' | '4x6' | 'letter'
+export type PickupMode = 'scheduled' | 'on_request'
+
+export interface LabelRequest {
+  /** Our shipment's id: the courier's reference for it, so the same shipment is never two parcels there. */
+  reference: string
+  /** The location it leaves from; `locationId` names it at a courier that keeps pickup addresses (Shiprocket). */
+  from: LabelAddress & { locationId: string }
+  to: LabelAddress
+  weightGrams: number
+  items: readonly { name: string; sku: string | null; quantity: number; unitAmount: bigint; hsCode: string | null }[]
+  value: Money
+  labelSize: LabelSize
+  /** `scheduled`: the courier collects every working day, so booking asks for this parcel's pickup at once. */
+  pickup: PickupMode
+}
+
+export interface PickupBooked {
+  ref: string | null
+  /** The day the courier says it comes (YYYY-MM-DD), when it says. */
+  date: string | null
+}
+
+export interface BookedLabel {
+  /** The courier's own id for the shipment, which its tracking and pickups name. */
+  providerRef: string
+  trackingNumber: string
+  trackingUrl: string | null
+  /** The carrier and service as the shopper sees them, e.g. "Delhivery Surface" or "USPS Priority". */
+  courierName: string
+  label: { bytes: Uint8Array<ArrayBuffer>; mime: 'application/pdf' | 'image/png' }
+  /** Asked for with the label when pickups are scheduled; null otherwise. */
+  pickup: PickupBooked | null
+}
+
 export interface CourierGateway {
   /** The cheapest rate this courier offers for the parcel; null when it serves no such route. */
   quote: (provider: CourierProvider, parcel: Parcel, signal?: AbortSignal) => Promise<CourierRate | null>
+  /** Buys the cheapest service's label; null when the courier won't take the parcel (route, address or weight). */
+  book: (provider: CourierProvider, request: LabelRequest, signal?: AbortSignal) => Promise<BookedLabel | null>
+  /** Asks the courier to collect a booked parcel from where it left. */
+  pickup: (provider: CourierProvider, shipment: { providerRef: string; from: LabelAddress }, signal?: AbortSignal) => Promise<PickupBooked>
 }
 
 /** The courier's login or key was refused: the partner's account needs fixing, not the parcel. */
@@ -45,6 +96,10 @@ export class CourierUnavailable extends Error {
 }
 
 export const courierTimeoutMs = 6_000
+/** A whole booking's calls together, which run inside the shipment's transaction (FIRST-RELEASE §19 `bookLabel`). */
+export const bookingDeadlineMs = 20_000
+/** A label file's cap: a courier's PDF is tens of kilobytes. */
+export const maxLabelBytes = 2 * 1024 * 1024
 
 /** A partner's couriers: which accounts it has connected, and a gateway quoting through them (#275 stores them). */
 export interface PartnerCouriers {
