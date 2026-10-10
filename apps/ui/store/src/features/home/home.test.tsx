@@ -104,11 +104,18 @@ describe('what Home works out', () => {
   it('leaves out what the API withheld, and never invents a change from nothing', () => {
     expect(tasksOf(forStaff).map((t) => t.kind)).toEqual(['toShip', 'lowStock'])
     expect(numbersOf(forStaff).map((n) => n.key)).toEqual(['orders'])
-    expect(numbersOf(busy)[0]).toMatchObject({ values: ['₹21,840.00'], delta: '▲ 12% vs the day before', tone: 'up' })
-    expect(numbersOf({ ...busy, sales: [{ yesterday: inr('100'), dayBefore: inr('200'), averageWeek: null }] })[0]).toMatchObject({ delta: '▼ 50% vs the day before', tone: 'down' })
-    const none = numbersOf({ ...busy, sales: [{ yesterday: inr('100'), dayBefore: inr('0'), averageWeek: null }, { yesterday: { amount: '500', currency: 'USD' }, dayBefore: { amount: '0', currency: 'USD' }, averageWeek: null }] })
-    expect(none[0]).toMatchObject({ values: ['₹1.00', '$5.00'], delta: words.numbers.nothingBefore })
-    expect(none[2]?.values).toEqual([words.numbers.none])
+    expect(numbersOf(busy)[0]?.figures).toEqual([{ value: '₹21,840.00', delta: { text: '▲ 12% vs the day before', tone: 'up' } }])
+    expect(numbersOf({ ...busy, sales: [{ yesterday: inr('100'), dayBefore: inr('200'), averageWeek: null }] })[0]?.figures[0]?.delta).toEqual({ text: '▼ 50% vs the day before', tone: 'down' })
+    // Each currency has its own change: a rise in one never reads as true of the other.
+    const usd = (amount: string) => ({ amount, currency: 'USD' })
+    const two = numbersOf({ ...busy, sales: [{ yesterday: inr('10000'), dayBefore: inr('8000'), averageWeek: null }, { yesterday: usd('500'), dayBefore: usd('1000'), averageWeek: null }] })
+    expect(two[0]?.figures).toEqual([
+      { value: '₹100.00', delta: { text: '▲ 25% vs the day before', tone: 'up' } },
+      { value: '$5.00', delta: { text: '▼ 50% vs the day before', tone: 'down' } },
+    ])
+    const none = numbersOf({ ...busy, sales: [{ yesterday: inr('100'), dayBefore: inr('0'), averageWeek: null }] })
+    expect(none[0]?.figures[0]?.delta?.text).toBe(words.numbers.nothingBefore)
+    expect(none[2]?.figures).toEqual([{ value: words.numbers.none, delta: null }])
   })
 })
 

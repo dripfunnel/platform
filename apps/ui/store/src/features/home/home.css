@@ -284,6 +284,12 @@ a.df-home-number:hover {
   border-color: var(--df-color-info-border);
 }
 
+.df-home-number-figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-1);
+}
+
 .df-home-number-label {
   color: var(--df-color-muted);
   font-size: 13px;
