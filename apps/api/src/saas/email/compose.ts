@@ -387,7 +387,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!shipment || shipment.order_id !== p.orderId) return { send: false, reason: 'tenant_mismatch' }
       if (t === 'order-delivered') {
         const d = en.orderDelivered
-        const content: EmailContent = { subject: d.subject(o.store_name, o.number), heading: d.heading, paragraphs: [d.intro(o.number), ...o.lines.map((l) => d.line(l.quantity, item(l))), d.help] }
+        const content: EmailContent = { subject: d.subject(o.store_name, o.number), heading: d.heading, paragraphs: [d.intro(o.number), ...o.lines.map((l) => d.line(l.quantity, item(l)))] }
         return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand, content }
       }
       const w = en.orderShipped

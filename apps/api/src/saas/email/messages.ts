@@ -180,7 +180,6 @@ export const en = {
     heading: 'It’s arrived',
     intro: (order: string) => `The courier delivered these items from order ${order}:`,
     line: (quantity: number, item: string) => `${quantity} × ${item}`,
-    help: 'Something not right? Reply to this email.',
   },
   // The store's own subject and message come first; these are the parts added for it (Carts' preview).
   cartReminder: {
