@@ -10,6 +10,13 @@ import { kindOf } from './offerView'
 const words = messages.offers.editor.errors
 
 export type Amounts = Record<string, string>
+/** A step typed in the main currency, with what it was saved as in every currency (kept while the main amount stands). */
+export interface Tier {
+  off: string
+  minimum: string
+  savedOff?: ApiMoney[]
+  savedMinimum?: ApiMoney[]
+}
 export type Target = 'products' | 'filter' | 'collection'
 export type Minimum = 'none' | 'amount' | 'these' | 'items'
 export type Who = 'all' | 'groups' | 'first' | 'customers' | 'market'
@@ -26,10 +33,12 @@ export interface OfferDraft {
   excludeGiftCards: boolean
   excludeOnSale: boolean
   /** Steps of a tiered order offer, in the main currency; none is a plain one. */
-  tiers: { off: string; minimum: string }[]
+  tiers: Tier[]
   /** A percentage's cap (E5), in the main currency. */
   capOn: boolean
   cap: string
+  /** The cap as saved, in every currency; sent back unchanged while the main amount is. */
+  capSaved: ApiMoney[]
   buyQuantity: string
   getQuantity: string
   buyIds: string[]
@@ -153,6 +162,12 @@ const amountsOf = (typed: Amounts, facts: StoreFacts): ApiMoney[] => {
 }
 const typedOf = (list: readonly ApiMoney[]): Amounts => Object.fromEntries(list.map((m) => [m.currency, majorOf(m.amount, m.currency)]))
 const mainOf = (list: readonly ApiMoney[], facts: StoreFacts): string => typedOf(list)[facts.main] ?? ''
+/** Amounts typed in the main currency only: as saved while the main amount is unchanged, else converted afresh. */
+const keptOr = (typed: string, saved: readonly ApiMoney[], facts: StoreFacts): ApiMoney[] => {
+  const minor = minorOf(typed, facts.main)
+  const savedMain = saved.find((m) => m.currency === facts.main)
+  return typeof minor === 'number' && savedMain && Number(savedMain.amount) === minor ? [...saved] : amountsOf({ [facts.main]: typed }, facts)
+}
 
 
 const blank = (type: OfferKind): OfferDraft => ({
@@ -169,6 +184,7 @@ const blank = (type: OfferKind): OfferDraft => ({
   tiers: [],
   capOn: false,
   cap: '',
+  capSaved: [],
   buyQuantity: '2',
   getQuantity: '1',
   buyIds: [],
@@ -254,6 +270,16 @@ const targetOf = (t: OfferTargets | null): Pick<OfferDraft, 'target' | 'productI
   return { target: x.collectionIds.length ? 'collection' : x.filterValueIds.length ? 'filter' : 'products', productIds: x.productIds, filterValueIds: x.filterValueIds, collectionIds: x.collectionIds }
 }
 
+/** A "buys at least N of these" the form can draw: on a products offer, naming exactly what the offer discounts. */
+const theseOf = (d: OfferDraft, c: OfferCondition): boolean => {
+  const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x))
+  if (d.type !== 'products') return false
+  if (c.operation === 'contains_products') return d.target === 'products' && same(c.productIds, d.productIds)
+  if (c.operation === 'contains_collection') return d.target === 'collection' && same(c.collectionIds, d.collectionIds)
+  if (c.operation === 'at_least_n_with_filter_values') return d.target === 'filter' && same(c.filterValueIds, d.filterValueIds)
+  return false
+}
+
 /** The form for an offer the API gave, every field as it stands. */
 export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
   const a: OfferAction = offer.action
@@ -272,7 +298,7 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
     description: offer.description,
   }
   const fixed = { kind: 'fixed' as const, amounts: typedOf(a.amounts) }
-  const percent = { kind: 'percent' as const, percent: String(a.percent ?? ''), capOn: a.cap.length > 0, cap: mainOf(a.cap, facts) }
+  const percent = { kind: 'percent' as const, percent: String(a.percent ?? ''), capOn: a.cap.length > 0, cap: mainOf(a.cap, facts), capSaved: a.cap }
   const exclude = { excludeGiftCards: a.exclude?.giftCards ?? false, excludeOnSale: a.exclude?.onSale ?? false }
   switch (a.operation) {
     case 'products_percentage_discount':
@@ -289,7 +315,7 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
       Object.assign(d, fixed, a.operation === 'shipping_fixed_discount' ? { shipMode: 'off' } : {})
       break
     case 'tiered_discount':
-      Object.assign(d, { kind: a.kind === 'fixed' ? 'fixed' : 'percent', tiers: a.tiers.map((t) => ({ off: a.kind === 'fixed' ? mainOf(t.amounts, facts) : String(t.percent ?? ''), minimum: mainOf(t.minimum, facts) })) })
+      Object.assign(d, { kind: a.kind === 'fixed' ? 'fixed' : 'percent', tiers: a.tiers.map((t) => ({ off: a.kind === 'fixed' ? mainOf(t.amounts, facts) : String(t.percent ?? ''), minimum: mainOf(t.minimum, facts), savedOff: t.amounts, savedMinimum: t.minimum })) })
       break
     case 'buy_x_get_y':
       Object.assign(d, { buyQuantity: String(a.buy?.quantity ?? 1), buyIds: a.buy?.targets?.productIds ?? [], getQuantity: String(a.get?.quantity ?? 1), getSame: !a.get?.targets, getIds: a.get?.targets?.productIds ?? [], getPercent: String(a.percent ?? 100), oncePerOrder: a.oncePerOrder })
@@ -298,7 +324,7 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
   for (const c of offer.conditions) {
     if (c.operation === 'minimum_order_amount') Object.assign(d, { minimum: 'amount', minAmounts: typedOf(c.amounts) })
     else if (c.operation === 'minimum_quantity') Object.assign(d, { minimum: 'items', minQuantity: String(c.minimum ?? '') })
-    else if (c.operation === 'contains_products' || c.operation === 'contains_collection' || c.operation === 'at_least_n_with_filter_values') Object.assign(d, { minimum: 'these', minQuantity: String(c.minimum ?? '') })
+    else if (theseOf(d, c)) Object.assign(d, { minimum: 'these', minQuantity: String(c.minimum ?? '') })
     else if (c.operation === 'customer_group') Object.assign(d, { who: 'groups', groupIds: c.groupIds })
     else if (c.operation === 'first_order') d.who = 'first'
     else if (c.operation === 'specific_customers') Object.assign(d, { who: 'customers', customerIds: c.customerIds })
@@ -319,7 +345,7 @@ const targetsOf = (d: OfferDraft): OfferTargets =>
 
 const actionOf = (d: OfferDraft, facts: StoreFacts): OfferAction => {
   const exclude = { giftCards: d.excludeGiftCards, onSale: d.excludeOnSale }
-  const cap = d.capOn && d.kind === 'percent' ? amountsOf({ [facts.main]: d.cap }, facts) : []
+  const cap = d.capOn && d.kind === 'percent' ? keptOr(d.cap, d.capSaved, facts) : []
   switch (d.type) {
     case 'products':
       return d.kind === 'percent' ? action({ operation: 'products_percentage_discount', percent: whole(d.percent), targets: targetsOf(d), exclude, cap }) : action({ operation: 'line_fixed_discount', amounts: amountsOf(d.amounts, facts), targets: targetsOf(d), exclude })
@@ -328,7 +354,7 @@ const actionOf = (d: OfferDraft, facts: StoreFacts): OfferAction => {
         return action({
           operation: 'tiered_discount',
           kind: d.kind,
-          tiers: d.tiers.map((t) => ({ minimum: amountsOf({ [facts.main]: t.minimum }, facts), percent: d.kind === 'percent' ? whole(t.off) : null, amounts: d.kind === 'fixed' ? amountsOf({ [facts.main]: t.off }, facts) : [] })),
+          tiers: d.tiers.map((t) => ({ minimum: keptOr(t.minimum, t.savedMinimum ?? [], facts), percent: d.kind === 'percent' ? whole(t.off) : null, amounts: d.kind === 'fixed' ? keptOr(t.off, t.savedOff ?? [], facts) : [] })),
         })
       return d.kind === 'percent' ? action({ operation: 'order_percentage_discount', percent: whole(d.percent), cap }) : action({ operation: 'order_fixed_discount', amounts: amountsOf(d.amounts, facts) })
     case 'bxgy':
