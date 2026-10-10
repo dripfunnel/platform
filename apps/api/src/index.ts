@@ -50,6 +50,8 @@ import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
 import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
 import { ratesRefreshDeliverer, ratesRefreshKind } from '#jobs/queues/deliverers/ratesRefresh'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
+import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
+import { cartRemindKind, markAbandonedCarts, queueDueReminders } from '#engine/modules/cartReminders/index'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
@@ -179,6 +181,8 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
+    // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
+    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
@@ -626,6 +630,18 @@ const sweepSchedules = (env: Env): Promise<void> =>
     await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
     })
+    // Carts left in checkout are marked, then each reminder step now due is queued once (FIRST-RELEASE §9).
+    const reminders = { sql, now: () => new Date() }
+    const abandoned = await markAbandonedCarts(reminders, 100).catch((error: unknown) => {
+      logEvent({ event: 'abandoned_carts_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (abandoned > 0) logEvent({ event: 'abandoned_carts_marked', api: 'system', code: 'abandoned', count: abandoned })
+    const reminded = await queueDueReminders(reminders, 200).catch((error: unknown) => {
+      logEvent({ event: 'cart_reminders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (reminded > 0) logEvent({ event: 'cart_reminders_queued', api: 'system', code: 'due', count: reminded })
     // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
     await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

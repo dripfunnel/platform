@@ -26,6 +26,7 @@ import { registerHome } from './home'
 import { registerReports } from './reports'
 import { registerReportExports } from './reportExports'
 import { registerOffers } from './offers'
+import { registerCartReminders } from './cartReminders'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
 import { registerShopify } from './shopify'
@@ -63,6 +64,7 @@ registerPayments(builder)
 registerOrders(builder)
 registerCustomers(builder)
 registerOffers(builder)
+registerCartReminders(builder)
 registerHome(builder)
 registerReports(builder)
 registerReportExports(builder)

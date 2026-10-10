@@ -181,6 +181,15 @@ export const en = {
     tracking: (tracking: string) => `Tracking number ${tracking}.`,
     action: 'Track your parcel',
   },
+  // The store's own subject and message come first; these are the parts added for it (Carts' preview).
+  cartReminder: {
+    greeting: (name: string | null) => (name ? `Hi ${name},` : 'Hi,'),
+    line: (quantity: number, item: string, amount: string | null) => (amount ? `${quantity} × ${item}: ${amount}` : `${quantity} × ${item}`),
+    code: (code: string, percent: number) => `Use ${code} for ${percent}% off your cart. It works once, for 48 hours, and is added for you when you go back.`,
+    action: 'Return to your cart',
+    why: (host: string) => `You’re getting this because you started checkout at ${host}.`,
+    unsubscribe: (url: string) => `Unsubscribe: ${url}`,
+  },
   money: (locale: string, amount: string, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(toMajor({ amount: BigInt(amount), currency }) as `${number}`),
   date: (at: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(at)} (UTC)`,
 } as const
