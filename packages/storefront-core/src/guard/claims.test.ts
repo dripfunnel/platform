@@ -89,6 +89,7 @@ describe('brandCopied', () => {
     ['Slow-made linen for warm days, always', 'tagline'],
     ['Write to Hello@Northstar.example', 'contact email'],
     ['Call 98765-43210', 'contact phone'],
+    ['Call (+91) 98765.43210 today', 'contact phone'],
     ['Call ९८७६५ ४३२१०', 'contact phone'],
     ['Visit 12 Residency Road', 'address'],
     ['instagram.com/northstarlinen', 'social link'],
@@ -99,6 +100,7 @@ describe('brandCopied', () => {
   it('leaves words that only share a part of a field, and a short one-word shop name', () => {
     expect(copied('Northstar Linens of the north')).toBeUndefined()
     expect(copied('Soft linen for warm days')).toBeUndefined()
+    expect(copied('Ships in 98 days. Order 765 within 4 hours, 3 items, 210 gsm')).toBeUndefined()
     expect(brandCopied({ ...brand, name: 'Home' })('Home')).toBeUndefined()
   })
 })
