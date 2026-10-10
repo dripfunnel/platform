@@ -371,7 +371,8 @@ before's net and orders), `sold` (products by money taken on their lines), `mark
 `tax` (as charged at checkout: by delivery state for a US store, by line rate otherwise, delivery's tax as a row with no
 rate), `suppliers` (units per owner, the store's own first, never money), and **top offers** (decided on #337: each
 discount line's name as shoppers saw it, its orders, the discount and those orders' net); `sold`, `markets` and `offers`
-answer their top rows (5 by default, up to 50). Locked below Growth by the plan's `reports_sales` and the supplier panel by
+answer their top rows (5 by default, up to 50), the tax rows and `suppliers` up to 50 (50 by default),
+the tax total every order's. Locked below Growth by the plan's `reports_sales` and the supplier panel by
 `reports_export` ("Export and supplier report", the pricing page), each refused as `PLAN_LIMIT` with the plan that
 unlocks it; Staff and every supplier are refused.
 

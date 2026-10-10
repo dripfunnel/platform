@@ -107,16 +107,17 @@ export interface TaxRow {
 
 /**
  * Tax as charged at checkout: by state for a US store (each order's delivery state), by rate otherwise (each line's
- * rate, then the order's tax its lines don't carry, delivery's, under a null key). Refunds don't change it.
+ * rate, then the order's tax its lines don't carry, delivery's, under a null key). Refunds don't change it. The rows
+ * are the top ones by amount; the total is every order's.
  */
-export const selectTax = async (tx: ScopedSql, w: ReportWindow, by: 'state' | 'rate'): Promise<{ total: string; rows: TaxRow[] }> => {
+export const selectTax = async (tx: ScopedSql, w: ReportWindow, by: 'state' | 'rate', limit: number): Promise<{ total: string; rows: TaxRow[] }> => {
   const [total] = await tx<{ amount: string }[]>`select coalesce(sum(o.tax_amount), 0)::text as amount from "order" o where ${within(tx, w)}`
   const rows =
     by === 'state'
       ? await tx<TaxRow[]>`
           select upper(o.shipping_address ->> 'region') as key, count(*)::int as orders, sum(o.tax_amount)::text as amount
           from "order" o where ${within(tx, w)} and o.tax_amount > 0
-          group by 1 order by sum(o.tax_amount) desc, 1 nulls last
+          group by 1 order by sum(o.tax_amount) desc, 1 nulls last limit ${limit}
         `
       : await tx<TaxRow[]>`
           select x.key, count(distinct x.order_id)::int as orders, sum(x.amount)::text as amount from (
@@ -126,7 +127,7 @@ export const selectTax = async (tx: ScopedSql, w: ReportWindow, by: 'state' | 'r
             select null, o.id, o.tax_amount - (select coalesce(sum(l.tax_amount), 0) from order_line l where l.order_id = o.id)
             from "order" o where ${within(tx, w)}
           ) x where x.amount > 0
-          group by x.key order by x.key is null, sum(x.amount) desc, x.key
+          group by x.key order by x.key is null, sum(x.amount) desc, x.key limit ${limit}
         `
   return { total: total?.amount ?? '0', rows }
 }
@@ -139,12 +140,12 @@ export interface SupplierUnitsRow {
 }
 
 /** Units sold per owner, never money: "Suppliers never see your totals" is the merchant's view of them. */
-export const selectSupplierUnits = (tx: ScopedSql, w: ReportWindow): Promise<SupplierUnitsRow[]> =>
+export const selectSupplierUnits = (tx: ScopedSql, w: ReportWindow, limit: number): Promise<SupplierUnitsRow[]> =>
   tx<SupplierUnitsRow[]>`
     select l.seller_id, s.name, sum(l.quantity)::int as units
     from "order" o join order_line l on l.order_id = o.id and l.store_id = o.store_id left join seller s on s.id = l.seller_id and s.store_id = l.store_id
     where ${within(tx, w)}
-    group by l.seller_id, s.name order by l.seller_id is not null, sum(l.quantity) desc, s.name
+    group by l.seller_id, s.name order by l.seller_id is not null, sum(l.quantity) desc, s.name, l.seller_id limit ${limit}
   `
 
 export interface OfferRow {

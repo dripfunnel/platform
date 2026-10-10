@@ -1802,9 +1802,9 @@ type StoreReport {
   offers(first: Int): [ReportOffer!]
   previousFrom: String
   sold(first: Int): [ReportProduct!]
-  suppliers: [ReportSupplier!]
+  suppliers(first: Int): [ReportSupplier!]
   takings: ReportTakings
-  tax: ReportTax
+  tax(first: Int): ReportTax
   timeZone: String
   to: String
 }

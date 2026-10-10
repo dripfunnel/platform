@@ -85,8 +85,8 @@ export const createReportsService = ({ sql, context, now }: ReportsDeps) => {
     takings: (r: ReportView): Promise<TakingsRow | null> => panel<TakingsRow | null>(r, null, (tx, w) => selectTakings(tx, w, r.previousFrom)),
     sold: (r: ReportView, limit: number): Promise<SoldRow[]> => panel(r, [], (tx, w) => selectSold(tx, w, limit)),
     markets: (r: ReportView, limit: number): Promise<MarketRow[]> => panel(r, [], (tx, w) => selectByMarket(tx, w, limit)),
-    tax: (r: ReportView): Promise<{ total: string; rows: TaxRow[] } | null> => panel<{ total: string; rows: TaxRow[] } | null>(r, null, (tx, w) => selectTax(tx, w, r.taxBy)),
-    suppliers: (r: ReportView): Promise<SupplierUnitsRow[]> => panel(r, [], selectSupplierUnits),
+    tax: (r: ReportView, limit: number): Promise<{ total: string; rows: TaxRow[] } | null> => panel<{ total: string; rows: TaxRow[] } | null>(r, null, (tx, w) => selectTax(tx, w, r.taxBy, limit)),
+    suppliers: (r: ReportView, limit: number): Promise<SupplierUnitsRow[]> => panel(r, [], (tx, w) => selectSupplierUnits(tx, w, limit)),
     offers: (r: ReportView, limit: number): Promise<OfferRow[]> => panel(r, [], (tx, w) => selectTopOffers(tx, w, limit)),
   }
 }

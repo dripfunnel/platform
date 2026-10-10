@@ -19,6 +19,8 @@ const cookies = {} as Record<Who, string>
 const plans = { full: '', sales: '', none: '' }
 const products = { kurta: '', scarf: '' }
 let india = ''
+let usa = ''
+let delta = ''
 // 11:30 in Kolkata on 10 October: the last 7 days began at midnight there on the 4th (18:30 UTC on the 3rd).
 const now = new Date('2026-10-10T06:00:00Z')
 
@@ -111,6 +113,10 @@ beforeAll(async () => {
   products.kurta = await product(t.storeA1, 'Kurta')
   products.scarf = await product(t.storeA1, 'Scarf', t.sellerA1First)
   const tee = await product(t.storeA2, 'Tee')
+  // Store A2 has its own supplier, market and offer, so a leak in either direction would show.
+  delta = (await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${t.storeA2}, 'Delta Goods', 'vendor-catalogue', 'active') returning id`)[0]?.id ?? ''
+  const cap = await product(t.storeA2, 'Cap', delta)
+  usa = (await db.sql<{ id: string }[]>`update market set name = 'United States' where store_id = ${t.storeA2} and is_primary returning id`)[0]?.id ?? ''
   // Every store starts with its Home market (migration 0051).
   india = (await db.sql<{ id: string }[]>`update market set name = 'India' where store_id = ${t.storeA1} and is_primary returning id`)[0]?.id ?? ''
 
@@ -129,8 +135,13 @@ beforeAll(async () => {
   await order(t.storeA1, 'R-5', '2026-10-06T11:00:00Z', { total: 3000, paid: false, method: 'cod' })
   await order(t.storeA1, 'R-6', '2026-10-06T12:00:00Z', { total: 7000, test: true })
   await order(t.storeA1, 'R-7', '2026-10-07T10:00:00Z', { total: 2000, currency: 'USD' })
-  await order(t.storeA2, 'S-1', '2026-10-07T10:00:00Z', { total: 8000, tax: 600, currency: 'USD', region: 'ny', lines: [{ product: tee, name: 'Tee', quantity: 4, total: 8000 }] })
-  await order(t.storeA2, 'S-2', '2026-10-08T10:00:00Z', { total: 3000, tax: 300, currency: 'USD', region: 'CA', lines: [{ product: tee, name: 'Tee', quantity: 1, total: 3000 }] })
+  await order(t.storeA2, 'S-1', '2026-10-07T10:00:00Z', { total: 8000, tax: 600, currency: 'USD', region: 'ny', market: usa, lines: [{ product: tee, name: 'Tee', quantity: 4, total: 8000 }] })
+  await order(t.storeA2, 'S-2', '2026-10-08T10:00:00Z', {
+    total: 3000, tax: 300, currency: 'USD', region: 'CA', discounts: [['SUMMER', 400]],
+    lines: [{ product: tee, name: 'Tee', quantity: 1, total: 1500 }, { product: cap, seller: delta, name: 'Cap', quantity: 2, total: 1500 }],
+  })
+  // 55 offers on one euro order, for the panels' page size.
+  await order(t.storeA2, 'S-3', '2026-10-08T11:00:00Z', { total: 9000, currency: 'EUR', lines: [{ product: tee, name: 'Tee', quantity: 1, total: 9000 }], discounts: Array.from({ length: 55 }, (_, i): [string, number] => [`OFFER${String(i).padStart(2, '0')}`, 100 + i]) })
 }, 60_000)
 
 afterAll(async () => {
@@ -182,11 +193,33 @@ describe('the panels', () => {
   it('goes by state for a US store, and counts nothing of another store', async () => {
     expect((await report('other', 'days: 7', 'currency currencies takings { orders sales { amount } } tax { by total { amount } rows { key amount { amount } } } sold { name units }')).data?.['report']).toEqual({
       currency: 'USD',
-      currencies: ['USD'],
+      currencies: ['EUR', 'USD'],
       takings: { orders: 2, sales: { amount: '11000' } },
       tax: { by: 'state', total: { amount: '900' }, rows: [{ key: 'NY', amount: { amount: '600' } }, { key: 'CA', amount: { amount: '300' } }] },
-      sold: [{ name: 'Tee', units: 5 }],
+      sold: [{ name: 'Tee', units: 5 }, { name: 'Cap', units: 2 }],
     })
+  })
+
+  it('keeps each store’s markets, offers and suppliers its own, both ways (ACCESS §11)', async () => {
+    const fields = 'markets { marketId name } offers { name } suppliers { supplierId name units }'
+    expect((await report('owner', 'days: 7', fields)).data?.['report']).toEqual({
+      markets: [{ marketId: india, name: 'India' }, { marketId: null, name: null }],
+      offers: [{ name: 'DIWALI10' }, { name: 'FREESHIP' }],
+      suppliers: [{ supplierId: null, name: null, units: 3 }, { supplierId: t.sellerA1First, name: 'Anand Textiles', units: 1 }],
+    })
+    expect((await report('other', 'days: 7', fields)).data?.['report']).toEqual({
+      markets: [{ marketId: usa, name: 'United States' }, { marketId: null, name: null }],
+      offers: [{ name: 'SUMMER' }],
+      suppliers: [{ supplierId: null, name: null, units: 5 }, { supplierId: delta, name: 'Delta Goods', units: 2 }],
+    })
+  })
+
+  it('answers 5 of a ranked panel’s rows by default and never more than 50', async () => {
+    const offers = async (args: string) => ((await report('other', 'days: 7, currency: "EUR"', `offers${args} { name }`)).data?.['report'] as { offers: { name: string }[] }).offers
+    expect((await offers('')).map((o) => o.name)).toEqual(['OFFER54', 'OFFER53', 'OFFER52', 'OFFER51', 'OFFER50'])
+    expect(await offers('(first: 500)')).toHaveLength(50)
+    expect(await offers('(first: 0)')).toHaveLength(1)
+    expect((await report('other', 'days: 7, currency: "EUR"', 'tax(first: 500) { rows { key } } suppliers(first: 500) { units }')).data?.['report']).toEqual({ tax: { rows: [] }, suppliers: [{ units: 1 }] })
   })
 })
 

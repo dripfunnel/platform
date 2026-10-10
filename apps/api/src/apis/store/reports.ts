@@ -17,7 +17,7 @@ import { requirePlan, storePageSize } from './refusals'
 // Reports (FIRST-RELEASE §10, PortalReports): Owner and Manager (`reports.read`), never Staff or a supplier, which reads
 // Your sales instead (§17). Locked below Growth (`reports_sales`); the supplier panel comes with export (`reports_export`).
 
-/** The panels' top rows by default: what the prototype's cards list. */
+/** The ranked panels' top rows by default, what the prototype's cards list; tax and suppliers a page. */
 const defaultTop = 5
 
 export const registerReports = (builder: StoreBuilder) => {
@@ -30,7 +30,7 @@ export const registerReports = (builder: StoreBuilder) => {
     if (!ctx.sql) throw forbidden()
     return requirePlan(ctx.sql, actingCaller(ctx).context, { key }, ctx.now())
   }
-  const top = (first: number | null | undefined) => Math.min(Math.max(Math.floor(first ?? defaultTop), 1), storePageSize)
+  const top = (first: number | null | undefined, fallback = defaultTop) => Math.min(Math.max(Math.floor(first ?? fallback), 1), storePageSize)
   // A panel's rows carry the report's currency: a report has none only when it sold nothing, so it has no rows either.
   type Panel<T> = { currency: string; row: T }
   const of = <T>(report: ReportView, rows: T[]): Panel<T>[] => {
@@ -115,12 +115,22 @@ export const registerReports = (builder: StoreBuilder) => {
       takings: t.field({ type: Takings, nullable: true, resolve: async (r, _, ctx) => one(r, await service(ctx).takings(r)) }),
       sold: t.field({ type: [Sold], args: { first: t.arg.int() }, resolve: async (r, args, ctx) => of(r, await service(ctx).sold(r, top(args.first))) }),
       markets: t.field({ type: [Market], args: { first: t.arg.int() }, resolve: async (r, args, ctx) => of(r, await service(ctx).markets(r, top(args.first))) }),
-      tax: t.field({ type: Tax, nullable: true, resolve: async (r, _, ctx) => { const tax = await service(ctx).tax(r); return one(r, tax && { by: r.taxBy, ...tax }) } }),
+      tax: t.field({
+        type: Tax,
+        nullable: true,
+        // `first` is how many rows, 50 by default; the total is every order's.
+        args: { first: t.arg.int() },
+        resolve: async (r, args, ctx) => {
+          const tax = await service(ctx).tax(r, top(args.first, storePageSize))
+          return one(r, tax && { by: r.taxBy, ...tax })
+        },
+      }),
       suppliers: t.field({
         type: [Supplier],
-        resolve: async (r, _, ctx) => {
+        args: { first: t.arg.int() },
+        resolve: async (r, args, ctx) => {
           await plan(ctx, 'reports_export')
-          return of(r, await service(ctx).suppliers(r))
+          return of(r, await service(ctx).suppliers(r, top(args.first, storePageSize)))
         },
       }),
       offers: t.field({ type: [Offer], args: { first: t.arg.int() }, resolve: async (r, args, ctx) => of(r, await service(ctx).offers(r, top(args.first))) }),
