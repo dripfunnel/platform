@@ -3722,7 +3722,7 @@
           "BAD_URL": "Use an address that starts with https:// and that the internet can find.",
           "PRIVATE_ADDRESS": "That address points inside a private network. Use one the internet can reach.",
           "NOT_FOUND": "That endpoint or delivery is no longer here.",
-          "TOO_MANY_ENDPOINTS": "Your store has as many endpoints as it can hold. Remove one first.",
+          "TOO_MANY_ENDPOINTS": "Your store has as many endpoints as it can hold, so another can’t be added.",
           "UNAVAILABLE": "We couldn’t check that address just now. Try again.",
           "ENDPOINT_OFF": "This endpoint is turned off. Turn it back on to send its events.",
           "TOO_OLD": "Events can be sent again for 7 days.",
