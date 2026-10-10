@@ -383,7 +383,7 @@ builder** is the same job with `panel: custom` and the prototype's two answers: 
 tax; or a row a line sold), a product (every product, units and takings; plus stock left and supplier) or a customer (who
 bought in the range, orders and spend; plus groups and tags). It is a file, as the prototype downloads it, so the
 proposed `customReport` query is not built. Up to 10,000 rows, saying where it was cut. Export needs the plan's
-`reports_export` and the builder `reports_custom` (Business), each refused as `PLAN_LIMIT`; allowed while read-only,
+`reports_sales` and `reports_export`, and the builder `reports_custom` (Business) as well, each refused as `PLAN_LIMIT`; allowed while read-only,
 never for a read-only support session.
 
 ---

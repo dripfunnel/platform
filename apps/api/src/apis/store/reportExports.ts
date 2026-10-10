@@ -9,7 +9,7 @@ import type { StoreBuilder } from './builder'
 import { requirePlan } from './refusals'
 
 // Reports' "Export" on every panel and the custom report builder (FIRST-RELEASE §10, PortalReports): a job read back by
-// id, for whoever reads Reports (`reports.read`); export needs the plan's `reports_export`, the builder `reports_custom`.
+// id, for whoever reads Reports (`reports.read`); export needs the plan's `reports_sales` and `reports_export`, the builder `reports_custom` too.
 
 export const registerReportExports = (builder: StoreBuilder) => {
   const exportsOf = (ctx: StoreContext) => {
@@ -65,7 +65,8 @@ export const registerReportExports = (builder: StoreBuilder) => {
         const { context } = actingCaller(ctx)
         if (context.caller.kind === 'support' && context.caller.access === 'read') throw forbidden()
         if (!ctx.sql) throw forbidden()
-        for (const key of args.panel === 'custom' ? (['reports_custom'] as const) : (['reports_sales', 'reports_export'] as const)) await requirePlan(ctx.sql, context, { key }, ctx.now())
+        // The builder is an export of Reports' sales too, so it needs all three switches.
+        for (const key of args.panel === 'custom' ? (['reports_sales', 'reports_export', 'reports_custom'] as const) : (['reports_sales', 'reports_export'] as const)) await requirePlan(ctx.sql, context, { key }, ctx.now())
         const result = await exportsOf(ctx).request({ panel: args.panel, days: args.days, currency: args.currency?.toUpperCase() ?? null, custom: args.custom ?? null })
         if (!result.ok) throw new GraphQLError('That report can’t be made.', { extensions: { code: result.reason } })
         return result.jobId

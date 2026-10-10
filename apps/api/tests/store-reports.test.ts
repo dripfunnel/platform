@@ -19,7 +19,7 @@ let db: TestDatabase
 let t: Tenants
 type Who = 'owner' | 'manager' | 'staff' | 'supplier' | 'other'
 const cookies = {} as Record<Who, string>
-const plans = { full: '', sales: '', none: '', business: '' }
+const plans = { full: '', sales: '', none: '', business: '', customOnly: '' }
 const products = { kurta: '', scarf: '' }
 let india = ''
 let usa = ''
@@ -95,6 +95,7 @@ beforeAll(async () => {
   plans.none = await plan('Starter', [])
   // Unpriced plans unlock by name (entitlements.ts), so this one sorts after Growth and Pro.
   plans.business = await plan('Scale', ['reports_sales', 'reports_export', 'reports_custom'])
+  plans.customOnly = await plan('Zed', ['reports_custom'])
   await subscribe(t.storeA1, t.partnerA, plans.full, 'INR')
   await subscribe(t.storeA2, t.partnerA, plans.full, 'USD')
 
@@ -302,6 +303,9 @@ describe('exports and the custom report builder', () => {
 
   it('builds a custom report a row an order, a line, a product or a customer, on Business', async () => {
     expect((await ask('owner', 'panel: custom, days: 7, custom: { rows: "orders", columns: "basic" }')).errors?.[0]?.extensions).toMatchObject({ code: 'PLAN_LIMIT', key: 'reports_custom', unlockedBy: { id: plans.business } })
+    // A partner's plan can carry the builder alone: it is still an export of the sales Reports lock.
+    await subscribe(t.storeA1, t.partnerA, plans.customOnly, 'INR')
+    expect((await ask('owner', 'panel: custom, days: 7, custom: { rows: "orders", columns: "basic" }')).errors?.[0]?.extensions).toMatchObject({ code: 'PLAN_LIMIT', key: 'reports_sales' })
     await subscribe(t.storeA1, t.partnerA, plans.business, 'INR')
     try {
       expect(await file('owner', 'panel: custom, days: 7, custom: { rows: "orders", columns: "basic" }')).toEqual(['order,placed at (UTC),customer,total,currency', 'R-1,2026-10-05T10:00:00.000Z,Buyer,100.00,INR', 'R-2,2026-10-09T20:00:00.000Z,Buyer,50.00,INR'])
