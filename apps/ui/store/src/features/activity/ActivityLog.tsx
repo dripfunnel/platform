@@ -154,7 +154,7 @@ export const ActivityLog = ({ title, heading: Heading, search, onSearch, read, c
     if (view.kind === 'loading') return <LoadingState label={words.loading} />
     if (view.kind === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
     const filtered = Boolean(search.who || search.what || search.q)
-    if (view.entries.length === 0) return <EmptyState title={filtered ? words.none : words.empty} />
+    if (view.entries.length === 0) return <EmptyState title={filtered ? words.none : words.empty} body={filtered ? words.noneBody : words.emptyBody} />
     return (
       <>
         <ul className="df-act-list" aria-label={words.listLabel}>

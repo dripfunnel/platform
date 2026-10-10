@@ -4991,7 +4991,7 @@
     "searchPlaceholder": "A name, order 1042, a product",
     "showing": "Showing everything by {name} in this store.",
     "clearPerson": "Everyone",
-    "none": "Nothing matches. Try another person or a shorter search.",
+    "none": "Nothing matches.",
     "empty": "Nothing has happened in this store yet.",
     "listLabel": "Activity",
     "loading": "Loading the activity log",
@@ -5133,6 +5133,8 @@
       "expired": "That export’s link has expired. Export again.",
       "tooLarge": "That export is too large. Narrow the filter and try again.",
       "failed": "The export couldn’t be made. Try again."
-    }
+    },
+    "noneBody": "Try another person, another kind of change or a shorter search.",
+    "emptyBody": "What your team, suppliers, apps, support and shoppers do here shows up as it happens."
   }
 }

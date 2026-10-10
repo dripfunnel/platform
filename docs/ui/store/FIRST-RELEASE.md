@@ -188,7 +188,7 @@ From the prototype's shell (`design.md` §3), which this release keeps:
 
 The partner's logo; the **store switcher** (current store's name and initial; "Switch store"
 lists the person's stores under this partner, never another partner's); Help; the person's name
-and role with a menu holding **My profile**, **Switch store** and **Sign out** ("Signs you out of
+and role with a menu holding **My profile**, **Store activity** (a Manager's, #333), **Switch store** and **Sign out** ("Signs you out of
 every store on this device"). On a phone the menu is a drawer behind a button.
 
 ### 3.3 Banners and states the shell owns
@@ -709,6 +709,15 @@ no ask), how a session works, and the support access log: who (the agent, the pa
 reason), when and how long or how it ended, and whether they could change things (allowed by whom, a request denied, or
 read-only), 25 a page with "Show older". **Decided here**: the switch stays usable in a read-only store, because the API lets a
 privacy control change then (`whileReadOnly`); the partner is named by the brand's product name, as the rest of the portal does.
+**Part 4, Activity log**: the Owner's Settings tab and the Manager's **Store activity** (`/activity`, from the user menu; anyone
+without `activity.read` is told so and nothing is read) are one view of `activityLog`, 50 a page with "Show older": who (the agent
+behind a support session, a person's name without their email), what in words (a code not worded yet shows itself), Done, Refused
+or Failed, and when; opened, an entry shows its changes, reason, how it was done, "Everything by {name}" and, for a product or an
+order, a link to it. Person, What (`activityWhats`) and Search live in the address (`who`, `whoName`, `what`, `q`), so a reload or
+a link keeps them; search waits for typing to settle. Export CSV (`exportActivity`, the filter as shown) is the Owner's, followed by
+the shell's export watcher; a Manager sees it disabled with "Only the store owner can export", and a read-only store still reads
+and exports. **Decided here**: the Person list offers the people in the entries loaded and the one picked, since no API lists the
+log's people; the prototype's scroll-to-load is a "Show older" button, as elsewhere in the portal.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
