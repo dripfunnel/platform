@@ -102,3 +102,13 @@ describe('brandCopied', () => {
     expect(brandCopied({ ...brand, name: 'Home' })('Home')).toBeUndefined()
   })
 })
+
+describe('claimsIn on long runs', () => {
+  it('reads a file-sized run of digits and separators in linear time', () => {
+    const runs = ['1,'.repeat(50_000), '9'.repeat(100_000), '1.'.repeat(50_000), '१'.repeat(100_000), '1h '.repeat(30_000)]
+    const start = performance.now()
+    for (const run of runs) claimsIn(`${run}x`)
+    // Quadratic patterns took several seconds for each 100 KB run, so ten seconds for all five fails them with room for a slow machine.
+    expect(performance.now() - start).toBeLessThan(10_000)
+  }, 20_000)
+})

@@ -1,9 +1,11 @@
 import type { RuleId } from './rules.js'
 
 // Invented data the theme's words may not claim (ARCHITECTURE §3.3, DESIGN §3), in English and Hindi, digits in any script.
+// Every repeat is bounded, so a long run of digits and separators costs linear time, not quadratic.
 const d = '\\p{Nd}'
-const amount = `${d}[${d},.]*`
-const few = `(?:${d}+|one|two|three|four|five|six|seven|eight|nine|ten|a\\s+few|few|a\\s+handful|last\\s+few)`
+const num = `${d}{1,12}`
+const amount = `${d}[${d},.]{0,15}`
+const few = `(?:${num}|one|two|three|four|five|six|seven|eight|nine|ten|a\\s+few|few|a\\s+handful|last\\s+few)`
 const five = `(?:5|10|५|१०)`
 const currencyCodes = 'rs|inr|usd|eur|gbp|aed|aud|cad|sgd|jpy|chf|nzd|sar|myr|zar'
 const word = (alternatives: string) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives})(?![\\p{L}\\p{N}])`, 'iu')
@@ -18,18 +20,18 @@ const claims: readonly Claim[] = [
     patterns: [
       plain(`\\p{Sc}\\s?${d}|${d}\\s?\\p{Sc}|${d}\\s?\\/-`),
       word(`(?:${currencyCodes}|mrp)\\.?\\s?:?\\s?${amount}|${amount}\\s?(?:${currencyCodes}|rupees?|dollars?|euros?|pounds?|dirhams?)`),
-      word(`${d}+\\s?(?:%|percent|per\\s+cent)\\s?(?:off|discount)|(?:save|get)\\s+(?:up\\s+to\\s+)?${d}+\\s?(?:%|percent)|flat\\s+${d}+\\s?(?:%\\s?)?off|half\\s+price|buy\\s+(?:one|1)\\s+get\\s+(?:one|1)|bogo`),
-      plain(`रु\\.?\\s?${d}|${d}\\s?(?:रुपये|रुपए|रु)(?![\\p{L}\\p{M}])|${d}+\\s?%\\s?(?:की\\s)?छूट`),
+      word(`${num}\\s?(?:%|percent|per\\s+cent)\\s?(?:off|discount)|(?:save|get)\\s+(?:up\\s+to\\s+)?${num}\\s?(?:%|percent)|flat\\s+${num}\\s?(?:%\\s?)?off|half\\s+price|buy\\s+(?:one|1)\\s+get\\s+(?:one|1)|bogo`),
+      plain(`रु\\.?\\s?${d}|${d}\\s?(?:रुपये|रुपए|रु)(?![\\p{L}\\p{M}])|${num}\\s?%\\s?(?:की\\s)?छूट`),
     ],
   },
   {
     rule: 'content/scarcity',
     what: 'a claim about stock or demand',
     patterns: [
-      word(`(?:only|just)\\s+${few}\\s+(?:left|remaining|available|in\\s+stock)|${few}\\s+(?:left|remaining)|${d}+\\s+in\\s+stock`),
+      word(`(?:only|just)\\s+${few}\\s+(?:left|remaining|available|in\\s+stock)|${few}\\s+(?:left|remaining)|${num}\\s+in\\s+stock`),
       word('selling\\s+fast|almost\\s+gone|nearly\\s+gone|limited\\s+stock|low\\s+(?:in\\s+)?stock|while\\s+(?:stocks?|supplies)\\s+last|in\\s+high\\s+demand|best\\s?-?sellers?|most\\s+popular|trending\\s+now|sells?\\s+out\\s+(?:soon|fast)'),
-      word(`${d}+\\s+(?:people|shoppers|customers)\\s+(?:are\\s+)?(?:viewing|looking|watching|bought|have\\s+bought)`),
-      plain('(?:केवल|सिर्फ|बस)\\s*\\p{Nd}+\\s*(?:बचे|बची|बाकी)|तेज़?ी\\s*से\\s*बिक|सीमित\\s*स्टॉक|स्टॉक\\s*सीमित|बेस्ट\\s*सेलर'),
+      word(`${num}\\s+(?:people|shoppers|customers)\\s+(?:are\\s+)?(?:viewing|looking|watching|bought|have\\s+bought)`),
+      plain('(?:केवल|सिर्फ|बस)\\s*\\p{Nd}{1,12}\\s*(?:बचे|बची|बाकी)|तेज़?ी\\s*से\\s*बिक|सीमित\\s*स्टॉक|स्टॉक\\s*सीमित|बेस्ट\\s*सेलर'),
     ],
   },
   {
@@ -46,8 +48,8 @@ const claims: readonly Claim[] = [
     patterns: [
       /[★☆⭐✩✪✫✬✭✮✯✰]/u,
       plain(`(?<![\\p{L}\\p{N}/.,])${d}(?:[.,]${d})?\\s*(?:\\/|out\\s+of)\\s*${five}(?![\\p{N}/])`),
-      word(`${d}(?:[.,]${d})?\\s*(?:stars?|rating)|rated\\s+(?:${d}|one|two|three|four|five)|(?:one|two|three|four|five)\\s+stars?|${d}[${d},]*\\+?\\s+(?:happy\\s+|verified\\s+|customer\\s+)?(?:reviews?|ratings?|customers)`),
-      plain(`${d}(?:[.,]${d})?\\s*में\\s*से\\s*${five}|${five}\\s*में\\s*से\\s*${d}|${d}(?:[.,]${d})?\\s*स्टार|${d}[${d},]*\\s*(?:रिव्यू|समीक्षाएं|समीक्षा|रेटिंग)`),
+      word(`${d}(?:[.,]${d})?\\s*(?:stars?|rating)|rated\\s+(?:${d}|one|two|three|four|five)|(?:one|two|three|four|five)\\s+stars?|${d}[${d},]{0,15}\\+?\\s+(?:happy\\s+|verified\\s+|customer\\s+)?(?:reviews?|ratings?|customers)`),
+      plain(`${d}(?:[.,]${d})?\\s*में\\s*से\\s*${five}|${five}\\s*में\\s*से\\s*${d}|${d}(?:[.,]${d})?\\s*स्टार|${d}[${d},]{0,15}\\s*(?:रिव्यू|समीक्षाएं|समीक्षा|रेटिंग)`),
     ],
   },
   {
@@ -55,8 +57,8 @@ const claims: readonly Claim[] = [
     what: 'a countdown',
     patterns: [
       word(`${d}{1,2}:${d}{2}:${d}{2}|count\\s?down|(?:ends|ending|expires|expiring)\\s+(?:in\\s+${d}|tonight|today|tomorrow|at\\s+midnight)`),
-      word(`${d}+\\s*(?:hours?|hrs?|minutes?|mins?|days?|seconds?|secs?|h|m|d|s)\\s*(?:${d}+\\s*(?:hours?|hrs?|minutes?|mins?|seconds?|secs?|h|m|s)\\s*)*(?:left|to\\s+go|remaining)`),
-      plain(`${d}+\\s*(?:घंटे|मिनट|दिन)\\s*(?:बाकी|शेष)|${d}+\\s*(?:घंटे|मिनट|दिन)\\s*में\\s*(?:समाप्त|खत्म)`),
+      word(`${num}\\s*(?:hours?|hrs?|minutes?|mins?|days?|seconds?|secs?|h|m|d|s)\\s*(?:${num}\\s*(?:hours?|hrs?|minutes?|mins?|seconds?|secs?|h|m|s)\\s*){0,3}(?:left|to\\s+go|remaining)`),
+      plain(`${num}\\s*(?:घंटे|मिनट|दिन)\\s*(?:बाकी|शेष)|${num}\\s*(?:घंटे|मिनट|दिन)\\s*में\\s*(?:समाप्त|खत्म)`),
     ],
   },
 ]
