@@ -182,7 +182,6 @@ export const en = {
     heading: 'It’s arrived',
     intro: (order: string) => `The courier delivered these items from order ${order}:`,
     line: (quantity: number, item: string) => `${quantity} × ${item}`,
-    help: 'Something not right? Reply to this email.',
   },
   // The store's own subject and message come first; these are the parts added for it (Carts' preview).
   cartReminder: {
@@ -192,6 +191,8 @@ export const en = {
     action: 'Return to your cart',
     why: (host: string) => `You’re getting this because you started checkout at ${host}.`,
     unsubscribe: (url: string) => `Unsubscribe: ${url}`,
+    testSubject: (subject: string) => `[Test] ${subject}`,
+    test: 'This is a test of your cart reminder, with a sample cart. Its code works at no checkout.',
   },
   money: (locale: string, amount: string, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(toMajor({ amount: BigInt(amount), currency }) as `${number}`),
   date: (at: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(at)} (UTC)`,

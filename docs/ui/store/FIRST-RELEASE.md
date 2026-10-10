@@ -375,8 +375,17 @@ lines, its code, **Return to your cart** (`https://{shop host}/cart/r/{token}`) 
 (`https://{shop host}/unsubscribe/{token}`). A placed live order recovers its shopper's carts left that week and stops
 their reminders. **Decided here (#321):** a store in the EU or EEA reminds only shoppers who agreed to email; quiet hours
 are the store's own time zone (a shopper's isn't known); the link gives a guest's cart to the browser that follows it (a
-new cart token), and asks the shopper to sign in for an account's cart; WhatsApp and the Carts tab's list, figures and
-actions are part 2.
+new cart token), and asks the shopper to sign in for an account's cart.
+
+**Part 2 (#321):** a step set to WhatsApp, in an Indian store on the plan's `automatic`, goes by the partner's WhatsApp
+Business number through MSG91 to a **signed-in** shopper who agreed to WhatsApp, at their account's own number (never a
+number typed in the cart); anyone else, or a partner whose account can't be read yet (#275), gets the email, and so
+does one whose account, template or number is gone by the time it goes. A provider's refusal for good marks it
+undeliverable. The Carts tab reads its list, counts, one cart and its figures, and writes
+"Send reminder now", "Stop reminders", "Resume reminders" and "Send me a test". **Decided here (#321):** a test goes by
+email to the person's own address only, never one typed in, so a store can't email strangers with it (the prototype's
+field is prefilled with it); "Send reminder now" below `automatic` gives one reminder a cart and no code, checked under the
+cart's lock.
 
 ## 10. Reports (`PortalReports`)
 
@@ -764,6 +773,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | | *Part 3: `generateCodes(offerId, count, prefix, length)` (a run of up to 5,000 single-use codes, readable with no 0/O or 1/I, from the Worker's random source, at most 100,000 an offer; `group_offers`; `NOT_A_CODE_OFFER` for an automatic one), `offerCodeBatches(offerId)` (cursor-paged, newest first) with each run's used count; `CODES_EXHAUSTED` when a prefix leaves too few new codes to draw, `exportOfferCodes(batchId)` (`offers.export`, a job read back by its asker with `offerCodesExport(id)`, never by a read-only support session), `checkCode(code)` (the offer, whether the code is single-use or used, and `answer`: `WORKS`, `INVALID`, `EXPIRED` or `USED_UP`, what a shopper meets; null alike for a malformed, a missing and another store's code; 30 a minute per person and store, `OFFER_CODE_RATE_LIMITER`, refused where unbound), `offerResults(id)` (uses, discount given, sales with the offer and the average order per currency, uses per day for 30 days in the store's time zone; `offer_results`).* | |
 | Abandoned carts | `abandonedCarts(filter)`, `cartSummary(range)`, `reminderSettings` | `saveReminderSettings`, `remindNow(cartId, discount)`, `sendTestReminder` |
 | | *Built on #321 (part 1): `reminderSettings` (the three steps, minimum, switches, `revision` and the plan's `level`; the prototype's starting words until the store saves) and `saveReminderSettings(revision, input)` (`carts.write`; `STALE_REVISION`; `PLAN_LIMIT` with `key: cart_reminders` for anything the plan doesn't allow that wasn't saved already; WhatsApp in India only). Shop API: `restoreCart(token)` (the cart, a guest's new `cartToken`, or `signInRequired`) and `unsubscribe(token)`, each limited per host and address with one refusal, `LINK_INVALID`.* | |
+| | *Part 2: `abandonedCarts(tab: open\|recovered\|lost, search)` (cursor-paged, newest left first, each with its `status`: recovered, stopped, no_contact, opted_out, skipped, not_recovered, reminded or waiting), `abandonedCartCounts`, `abandonedCart(id)` (its lines as they would be bought now and its reminders), `cartSummary(days)` (14 unless asked, at most 90; a recovery counts once its order is paid); `remindNow(cartId, discountPercent)` (`CANT_REMIND` for a cart bought, stopped, expired or with no email; `PLAN_LIMIT` for a second one or a code below `automatic`), `stopCartReminders(cartId, note)`, `resumeCartReminders(cartId)`, `sendTestReminder(position)` (to the person's own email, limited per person and store). All `carts.read` or `carts.write`, merchant side only.* | |
 | Reports | `report(days, currency)` with its panels, `reportExport(id)`, `reportExports` (built on #322) | `exportReport(panel, days, currency, custom)` (job; `panel: custom` is the custom report builder) |
 | Products | `products(filter, sort)`, `productCounts`, `product(id)`, `productStock(productId)`, `stockHistory(productId, versionId)`, `readiness(productId)`, `catalogExport(id)`, `catalogExports`, `catalogImport(id)`, `catalogImports`, `catalogImportTemplate` | `saveProduct`, `updateProducts(ids, patch)`, `deleteProducts`, `adjustStock(versionId, warehouseId, delta, reason)`, `setStock(entries)`, `setLowStockThreshold`, `approveProduct`, `sendBackProduct(reason)`, `uploadAsset` (signed upload), `writeDescription` (AI, metered), `requestCatalogExport(kind)` (job: products or stock), `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)` (jobs) |
 | Collections | `collections`, `facets` (the one a supplier reaches too, counting its own products only), `menu`, `sizeCharts`, `productCollections` (merchant side) | `saveCollection`, `deleteCollection`, `saveFacet`, `mergeFacetValues`, `saveMenu`, `saveSizeChart`, `deleteSizeChart`, `setProductCollections` (merchant side) |

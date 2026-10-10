@@ -1599,6 +1599,9 @@ cart_reminder       (id, store_id, order_id, step_id NULL, channel ('email'|'wha
                     -- sweeps queue it once; the engine writes it in system scope, the merchant side
                     -- reads it. An expired cart reminded in the last 30 days is kept until 30 days
                     -- after, so its unsubscribe link keeps working
+                    -- Part 2 (0121): discount_bps, the percentage chosen for one sent by hand (a
+                    -- step's own is on the step); channel 'whatsapp' goes to the signed-in
+                    -- shopper's own customer.phone, never the cart's typed one
 ```
 
 Order events (placed, paid, shipped, return started, refunded, "sent to warehouse by
