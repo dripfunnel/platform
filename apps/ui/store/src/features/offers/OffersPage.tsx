@@ -229,6 +229,14 @@ export const OffersPage = () => {
         <>
           {place && <CodeCheck sample={sample ? [...sample.live, ...sample.scheduled, ...sample.off, ...sample.ended] : null} timeZone={place.timeZone} />}
 
+          {counts.kind === 'error' && (
+            <p className="df-offers-note df-offers-note--warning" role="alert">
+              {words.countsFailed}{' '}
+              <button type="button" className="df-button" onClick={loadCounts}>
+                {words.error.retry}
+              </button>
+            </p>
+          )}
           <div className="df-offers-tabs" role="tablist" aria-label={words.tabs.label} onKeyDown={onTabKey}>
             {offerTabs.map((t) => (
               <button
@@ -245,7 +253,7 @@ export const OffersPage = () => {
                 onClick={() => goTab(t)}
               >
                 {words.tabs[t]}
-                <span className="df-offers-count">{counts.kind === 'ready' ? formatCount(counts.counts[t]) : '–'}</span>
+                {counts.kind === 'ready' && <span className="df-offers-count">{formatCount(counts.counts[t])}</span>}
               </button>
             ))}
           </div>
@@ -273,6 +281,7 @@ export const OffersPage = () => {
             {list.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: () => {
                   load()
                   loadPlace()
+                  loadCounts()
                 } }} />}
             {list.kind === 'ready' && rows.length === 0 && (
               <div className="df-offers-empty">

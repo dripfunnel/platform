@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { CollectionSummary } from '../../api/collections'
 import { findCustomers, type CustomerGroup } from '../../api/customers'
+import { codeLengths } from '../../api/offers'
 import type { Filter } from '../../api/filters'
 import type { Market } from '../../api/markets'
 import { fill, formatCount, formatList, messages } from '../../messages'
@@ -469,7 +470,7 @@ export const OfferForm = ({ draft: d, set, errors: e, facts, region, lists, prod
                   <label className="df-offer-inline">
                     <span>{words.batchLength}</span>
                     <select value={d.batch.length} disabled={disabled} onChange={(ev) => set({ batch: { ...d.batch, length: ev.target.value } })}>
-                      {['6', '8', '10'].map((l) => (
+                      {codeLengths.map((l) => (
                         <option key={l} value={l}>
                           {l}
                         </option>
