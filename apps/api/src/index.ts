@@ -118,7 +118,7 @@ interface Env extends Record<string, unknown> {
   CART_RATE_LIMITER?: RateLimit | undefined
   // "Check a code" in the Store API per person and store, and a shopper's codes per store and IP (SAPI 14); unbound, every one is refused.
   OFFER_CODE_RATE_LIMITER?: RateLimit | undefined
-  // Every request carrying an API key, per address, before the key is looked up (ACCESS.md §9 check 13); unbound, none is refused.
+  // Every request carrying an API key, per address, before the key is looked up (ACCESS.md §9 check 13); unbound, keys answer 500.
   API_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
@@ -423,9 +423,11 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
       return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
     }
     const facts = factsOf(request)
-    if (apiKeyOf(request) !== null && env.API_RATE_LIMITER) {
+    if (apiKeyOf(request) !== null) {
+      const limiter = env.API_RATE_LIMITER
+      if (!limiter) return misconfigured('API_RATE_LIMITER')
       const ip = request.headers.get('cf-connecting-ip')
-      if (!ip || !(await env.API_RATE_LIMITER.limit({ key: `api-key:${ip}` })).success) return tooManyRequests(60)
+      if (!ip || !(await limiter.limit({ key: `api-key:${ip}` })).success) return tooManyRequests(60)
     }
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
