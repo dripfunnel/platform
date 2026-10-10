@@ -59,8 +59,8 @@ export const ShipPanel = ({ kind, count, warehouses, store, busy, error, onCance
       <h2 id={`${id}-title`} ref={headingRef} tabIndex={-1}>
         {fill(plural(kind === 'toStore' ? words.titleToStore : words.title, count), { count: formatCount(count) })}
       </h2>
-      <div className="df-order-form-grid">
-        <label className="df-order-field">
+      <div className="df-form-grid">
+        <label className="df-form-field">
           <span>{words.location}</span>
           <select value={warehouseId} disabled={!warehouses || noLocation} onChange={(event) => setWarehouseId(event.target.value)}>
             {(warehouses ?? []).map((w) => (
@@ -71,21 +71,21 @@ export const ShipPanel = ({ kind, count, warehouses, store, busy, error, onCance
           </select>
         </label>
         {courierFields && (
-          <label className="df-order-field">
+          <label className="df-form-field">
             <span>{words.courier}</span>
             <input value={courier} maxLength={80} placeholder={words.courierPlaceholder} onChange={(event) => setCourier(event.target.value)} />
           </label>
         )}
       </div>
       {courierFields && (
-        <div className="df-order-form-grid">
-          <label className="df-order-field">
+        <div className="df-form-grid">
+          <label className="df-form-field">
             <span>
               {words.tracking} <small>{words.trackingHint}</small>
             </span>
-            <input className="df-order-mono" value={tracking} maxLength={80} placeholder={words.trackingPlaceholder} onChange={(event) => setTracking(event.target.value)} />
+            <input className="df-form-mono" value={tracking} maxLength={80} placeholder={words.trackingPlaceholder} onChange={(event) => setTracking(event.target.value)} />
           </label>
-          <label className="df-order-field">
+          <label className="df-form-field">
             <span>
               {words.link} <small>{words.linkHint}</small>
             </span>
@@ -95,11 +95,11 @@ export const ShipPanel = ({ kind, count, warehouses, store, busy, error, onCance
       )}
       <p className="df-order-sub">{noLocation ? words.noLocation : note}</p>
       {(problem ?? error) && (
-        <p className="df-order-problem" role="alert">
+        <p className="df-form-problem" role="alert">
           {problem ?? error}
         </p>
       )}
-      <div className="df-order-form-actions">
+      <div className="df-form-actions">
         <button type="button" className="df-button" onClick={onCancel}>
           {words.cancel}
         </button>

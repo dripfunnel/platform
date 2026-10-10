@@ -55,7 +55,7 @@ const sampleOrder: Order | null = harness
   fulfilmentState: 'unfulfilled',
   paymentMethod: 'razorpay',
   test: false,
-  customerId: 'c-ananya',
+  customerId: 'c1',
   email: 'ananya.rao@example.in',
   phone: '+91 98450 12345',
   marketName: 'India',

@@ -21,6 +21,7 @@ import { orderSample, orderStates, sampleWarehouses } from './orderPageStates'
 import { ordersSeatOf } from './ordersAccess'
 import { canRefundNow, canShipNow, freeToReturn, methodText, nothingSent, orderStatus, paidByHand } from './orderDetail'
 import { moneyText, paymentOf, statusPill } from './orderView'
+import '../common/form.css'
 import './order.css'
 import './orders.css'
 
@@ -367,7 +368,7 @@ export const OrderPage = () => {
           <OrderHistory order={order} timeZone={timeZone} note={access.canNote ? { disabled: ro, onAdd: () => setDialog('note') } : null} />
         </div>
         <div className="df-order-aside">
-          <OrderSide order={order} access={access} store={store} />
+          <OrderSide order={order} access={access} store={store} openCustomer={forced ? !access.supplier : acting.permissions.includes('customers.read')} />
         </div>
       </div>
 

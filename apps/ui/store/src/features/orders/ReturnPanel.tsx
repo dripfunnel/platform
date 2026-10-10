@@ -50,7 +50,7 @@ export const ReturnPanel = ({ order, busy, error, onCancel, onStart }: ReturnPan
           </div>
         )
       })}
-      <label className="df-order-field">
+      <label className="df-form-field">
         <span>{words.start.reason}</span>
         <select value={reason} onChange={(event) => setReason(returnReasons.find((r) => r === event.target.value) ?? 'doesnt_fit')}>
           {returnReasons.map((r) => (
@@ -62,11 +62,11 @@ export const ReturnPanel = ({ order, busy, error, onCancel, onStart }: ReturnPan
       </label>
       <p className="df-order-sub">{suppliers ? words.start.noteSuppliers : words.start.note}</p>
       {(problem ?? error) && (
-        <p className="df-order-problem" role="alert">
+        <p className="df-form-problem" role="alert">
           {problem ?? error}
         </p>
       )}
-      <div className="df-order-form-actions">
+      <div className="df-form-actions">
         <button type="button" className="df-button" onClick={onCancel}>
           {words.start.cancel}
         </button>

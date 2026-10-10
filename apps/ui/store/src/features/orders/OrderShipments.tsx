@@ -86,28 +86,28 @@ const TrackingForm = ({ shipment, busy, error, onCancel, onSave }: { shipment: O
   }
   return (
     <div className="df-order-tracking-form">
-      <div className="df-order-form-grid">
-        <label className="df-order-field">
+      <div className="df-form-grid">
+        <label className="df-form-field">
           <span>{shipWords.tracking}</span>
-          <input ref={first} className="df-order-mono" value={number} maxLength={80} placeholder={shipWords.trackingPlaceholder} onChange={(event) => setNumber(event.target.value)} />
+          <input ref={first} className="df-form-mono" value={number} maxLength={80} placeholder={shipWords.trackingPlaceholder} onChange={(event) => setNumber(event.target.value)} />
         </label>
-        <label className="df-order-field">
+        <label className="df-form-field">
           <span>{shipWords.courier}</span>
           <input value={courier} maxLength={80} placeholder={shipWords.courierPlaceholder} onChange={(event) => setCourier(event.target.value)} />
         </label>
       </div>
-      <label className="df-order-field">
+      <label className="df-form-field">
         <span>
           {shipWords.link} <small>{shipWords.linkHint}</small>
         </span>
         <input type="url" value={link} placeholder={shipWords.linkPlaceholder} onChange={(event) => setLink(event.target.value)} />
       </label>
       {(problem ?? error) && (
-        <p className="df-order-problem" role="alert">
+        <p className="df-form-problem" role="alert">
           {problem ?? error}
         </p>
       )}
-      <div className="df-order-form-actions">
+      <div className="df-form-actions">
         <button type="button" className="df-button" onClick={onCancel}>
           {words.cancel}
         </button>

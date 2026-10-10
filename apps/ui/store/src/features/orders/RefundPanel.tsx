@@ -103,14 +103,14 @@ export const RefundPanel = ({ order, access, from, busy, error, onCancel, onRefu
           </div>
         )
       })}
-      <div className="df-order-form-grid">
+      <div className="df-form-grid">
         {!access.supplier && currency && (
-          <label className="df-order-field">
+          <label className="df-form-field">
             <span>{maxText ? fill(words.amount, { max: maxText }) : words.amountLabel}</span>
             <input inputMode="decimal" value={amount} disabled={picked.length > 0} placeholder={picked.length > 0 ? words.amountPicked : ''} onChange={(event) => setAmount(event.target.value)} />
           </label>
         )}
-        <label className="df-order-field">
+        <label className="df-form-field">
           <span>{words.reason}</span>
           <select value={reason} onChange={(event) => setReason(refundReasons.find((r) => r === event.target.value) ?? 'other')}>
             {refundReasons.map((r) => (
@@ -127,11 +127,11 @@ export const RefundPanel = ({ order, access, from, busy, error, onCancel, onRefu
       </label>
       <p className="df-order-sub">{note}</p>
       {(problem ?? error) && (
-        <p className="df-order-problem" role="alert">
+        <p className="df-form-problem" role="alert">
           {problem ?? error}
         </p>
       )}
-      <div className="df-order-form-actions">
+      <div className="df-form-actions">
         <button type="button" className="df-button" onClick={onCancel}>
           {words.cancel}
         </button>

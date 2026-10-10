@@ -315,6 +315,15 @@ addresses, groups, tags, a team-only note, **marketing consent** (only the shopp
 team may record that they asked to stop) and their orders. Add a customer (order emails only),
 edit, manage groups (showing where a group is used before it changes), **export** (Owner,
 Manager and Staff, §1). "Suppliers never see this list."
+- **Built on #314, part 4** (`apps/ui/store/src/features/customers/`, `/customers`, `?customer=` opens one, as an
+  order's customer link does): People with search and the groups as chips, each row's city and tags, spend (not
+  Staff's) and orders, pages of 25, and the customer beside the list: contact and default address, groups toggled in
+  and out, tags (up to 20, 24 characters), the team's note, marketing consent with "Record that they asked to stop"
+  while they're opted in, and the newest orders; **Add a customer** (name, email, phone; an email already a customer
+  opens that one), **Edit details** (name, number, the default delivery address whole or not at all), Groups (make,
+  rename, delete saying who leaves, "See people"), and Export as a job. Decided there: the address is typed as its
+  parts, since `updateCustomer` takes them, where the prototype asks for one line; a group's description is kept as
+  it is, since the prototype edits only the name. `?state=` per `customerStates.ts`.
 
 ## 8. Offers (`Offers`, `OfferEditor`, OFFERS-DESIGN A–V)
 

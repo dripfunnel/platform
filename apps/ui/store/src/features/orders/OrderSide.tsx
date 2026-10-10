@@ -1,5 +1,7 @@
+import { Link } from '@tanstack/react-router'
 import type { Order } from '../../api/order'
 import type { ApiMoney } from '../../api/orders'
+import { harnessSearch } from '../../harness'
 import { fill, messages } from '../../messages'
 import { addressText, methodText } from './orderDetail'
 import { moneyText, type OrdersAccess } from './orderView'
@@ -34,10 +36,16 @@ const Totals = ({ order }: { order: Order }) => {
   )
 }
 
-const Customer = ({ order, contact }: { order: Order; contact: boolean }) => (
+const Customer = ({ order, contact, open }: { order: Order; contact: boolean; open: boolean }) => (
   <section className="df-order-card df-order-side" aria-labelledby="df-order-customer">
     <h2 id="df-order-customer">{words.customer.title}</h2>
-    <span className="df-order-customer-name">{order.customerName ?? words.customer.guest}</span>
+    {open && order.customerId ? (
+      <Link className="df-order-customer-name df-order-customer-link" to="/customers" search={(prev) => ({ ...harnessSearch(prev, prev['state'] ? 'list' : undefined), customer: order.customerId ?? undefined })}>
+        {order.customerName ?? words.customer.guest}
+      </Link>
+    ) : (
+      <span className="df-order-customer-name">{order.customerName ?? words.customer.guest}</span>
+    )}
     {contact && (order.email || order.phone) && (
       <span className="df-order-text2">
         {order.email}
@@ -67,10 +75,10 @@ const Customer = ({ order, contact }: { order: Order; contact: boolean }) => (
 )
 
 /** The right column: payment and the shopper for the merchant side; for a supplier, where its items go. */
-export const OrderSide = ({ order, access, store }: { order: Order; access: OrdersAccess; store: string }) => {
+export const OrderSide = ({ order, access, store, openCustomer }: { order: Order; access: OrdersAccess; store: string; openCustomer: boolean }) => {
   if (access.supplier) {
     const toShopper = order.parts.some((p) => p.shippingMode === 'to-shopper')
-    if (toShopper) return <Customer order={order} contact={false} />
+    if (toShopper) return <Customer order={order} contact={false} open={false} />
     return (
       <section className="df-order-card df-order-side" aria-labelledby="df-order-send-to">
         <h2 id="df-order-send-to">{words.sendTo.title}</h2>
@@ -82,7 +90,7 @@ export const OrderSide = ({ order, access, store }: { order: Order; access: Orde
   return (
     <>
       {access.money && <Totals order={order} />}
-      <Customer order={order} contact />
+      <Customer order={order} contact open={openCustomer} />
     </>
   )
 }
