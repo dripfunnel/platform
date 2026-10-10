@@ -235,6 +235,22 @@ describe('delivery', () => {
     expect(await db.sql`select uses_left from order_download where order_id = ${card.orderId}`).toEqual([{ uses_left: 3 }])
   })
 
+  it('closes a refunded order’s links and hides its keys, on the order page, the link and the email', async () => {
+    const bought = await placed([{ versionId: v.pack }, { versionId: v.keys }])
+    expect(await markPaid(bought.orderId)).toBe(true)
+    const seen = await orderView(bought.orderId, bought.token)
+    expect(seen.licenceKeys).toHaveLength(1)
+    const url = seen.downloads[0]?.url ?? ''
+    expect((await fetchDownload(url)).status).toBe(200)
+    expect((await merchant(`mutation { cancelOrder(orderId: "${bought.orderId}", reason: store) }`)).data?.['cancelOrder']).toBe(true)
+    expect(await db.sql`select payment_state from "order" where id = ${bought.orderId}`).toEqual([{ payment_state: 'refunded' }])
+    expect(await orderView(bought.orderId, bought.token)).toMatchObject({ downloads: [], licenceKeys: [] })
+    const refused = await fetchDownload(url)
+    expect(refused.status).toBe(404)
+    expect(refused.text).toContain('LINK_CLOSED')
+    expect(await emailFor({ template: 'order-downloads', orderId: bought.orderId })).toEqual({ send: false, reason: 'link_closed' })
+  })
+
   it('hands nothing out for a preview’s test order', async () => {
     const test = await placed([{ versionId: v.pack }])
     await db.sql`update payment set mode = 'test' where order_id = ${test.orderId}`

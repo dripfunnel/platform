@@ -4,6 +4,9 @@ import type { ScopedSql } from './index'
 // What a paid order's downloads, services and gift cards become (migration 0171; CATALOG-DESIGN T14), written by the
 // engine in system scope as the payment is: a download's grant, keys from the pool, a gift card and its ledger.
 
+/** An order's downloads and keys stay out only while it is paid: a refund in full closes its links and hides its keys. */
+export const handedOut = (tx: ScopedSql) => tx`o.state = 'placed' and o.payment_state in ('paid', 'partly_refunded')`
+
 export interface LineToDeliverRow {
   id: string
   product_id: string
@@ -139,7 +142,7 @@ export const selectDownloadsEmail = async (tx: ScopedSql, orderId: string): Prom
         coalesce((select json_agg(json_build_object('name', l.name, 'key', k.key) order by l.position, k.assigned_at, k.id)
           from licence_key k join order_line l on l.id = k.order_line_id where l.order_id = o.id), '[]'::json) as keys
       from "order" o join store s on s.id = o.store_id
-      where o.id = ${orderId} and o.state = 'placed' and o.payment_state in ('paid', 'partly_refunded')
+      where o.id = ${orderId} and ${handedOut(tx)}
     `
   )[0] ?? null
 
@@ -191,7 +194,7 @@ export const lockDownloadToServe = async (tx: ScopedSql, storeId: string, grantI
       select a.r2_key, a.mime, a.bytes, l.name from order_download d
       join asset a on a.id = d.asset_id join order_line l on l.id = d.order_line_id join "order" o on o.id = d.order_id
       where d.id = ${grantId} and d.store_id = ${storeId} and d.uses_left > 0 and d.expires_at > ${at}
-        and o.state = 'placed' and o.payment_state in ('paid', 'partly_refunded')
+        and ${handedOut(tx)}
       for update of d
     `
   )[0] ?? null
