@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({ loadOrders: vi.fn(), loadOrderCounts: vi.fn(), l
 vi.mock('../../api/orders', async (actual) => ({ ...(await actual<typeof import('../../api/orders')>()), ...api }))
 
 const { OrderList } = await import('./OrderList')
+const { Route: ordersRoute } = await import('../../routes/_app/orders')
 
 const order = (r: Partial<OrderSummary> & Pick<OrderSummary, 'id' | 'number'>): OrderSummary => ({
   placedAt: '2026-10-10T07:30:00.000Z',
@@ -43,12 +44,12 @@ const staff: Acting = { ...owner, role: 'staff', permissions: ['orders.read', 'o
 const supplier: Acting = { ...owner, role: 'supplier-member', tier: 'vendor-orders-fulfil', seller: { id: 'v1', name: 'Northwind Textiles' }, permissions: ['orders.read', 'orders.fulfil', 'orders.refund', 'exports.orders'] }
 const stockOnly: Acting = { ...supplier, tier: 'vendor-stock', permissions: ['catalog.read', 'stock.read'] }
 
-const show = async (acting: Acting, readOnly = false) => {
+const show = async (acting: Acting, readOnly = false, entry = '/orders') => {
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
-  const list = createRoute({ getParentRoute: () => app, path: '/orders', component: OrderList })
+  const list = createRoute({ getParentRoute: () => app, path: '/orders', validateSearch: ordersRoute.options.validateSearch, component: OrderList })
   const detail = createRoute({ getParentRoute: () => app, path: '/orders/$orderId', component: () => null })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, detail])]), history: createMemoryHistory({ initialEntries: ['/orders'] }) })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, detail])]), history: createMemoryHistory({ initialEntries: [entry] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -103,6 +104,15 @@ describe('the Orders list', () => {
     expect(rows[1]?.textContent).toContain(words.payment.pending)
     expect(rows[1]?.textContent).toContain(words.status.shipped)
     expect(rows[0]?.getAttribute('href')).toBe('/orders/o1')
+    expect(api.loadOrders).toHaveBeenCalledWith('ALL', '', {})
+  })
+
+  it('opens on the chip a link from Home names, one the seat has', async () => {
+    await show(owner, false, '/orders?filter=TO_SHIP')
+    expect(api.loadOrders).toHaveBeenCalledWith('TO_SHIP', '', {})
+    cleanup()
+    api.loadOrders.mockClear()
+    await show(supplier, false, '/orders?filter=PAYMENT_PENDING')
     expect(api.loadOrders).toHaveBeenCalledWith('ALL', '', {})
   })
 

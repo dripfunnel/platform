@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#322: Home's figures per seat, and Reports).
+Last updated: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -274,6 +274,14 @@ collections, payments, shipping) only while the store has no order, each item fo
 "products missing details for some countries", which needs a store-wide readiness count; and the checklist's
 storefront item, which waits for SAPI 17. The locale check reads `storeLocale` and `storeInfo`.
 
+**Built on #326, part 1** (`apps/ui/store/src/features/home`): Home per seat as `home` answers it. "Needs you" in the
+prototype's order, each opening its filtered list (Orders on To ship, Products on Waiting for approval or Low stock,
+Settings › Shipping, and the oldest payment to collect's order), or "Nothing is waiting for you" once a store with orders
+has none; the numbers and the latest orders while the store has orders, Staff's titled "Today" with items in place of
+totals; the checklist with only the items the API gives the seat. Decided here: the API keeps no "confirmed" fact for the
+locale check, so the Owner's line shows what sign-up set (country, pricing currency, main language) as done, with Change
+opening Settings › Store info; and a Manager's note names "the store owner", since a Manager can't read who that is.
+
 ---
 
 ## 6. Orders (`PortalOrders`, DESIGN-BRIEF F, flows 36–41, 70–71)
@@ -385,6 +393,17 @@ bought in the range, orders and spend; plus groups and tags). It is a file, as t
 proposed `customReport` query is not built. Up to 10,000 rows, saying where it was cut. Export needs the plan's
 `reports_sales` and `reports_export`, and the builder `reports_custom` (Business) as well, each refused as `PLAN_LIMIT`; allowed while read-only,
 never for a read-only support session.
+
+**Built on #326, part 2** (`apps/ui/store/src/features/reports`): Reports as PortalReports draws it, over `report`, with
+the range (7, 30 or 90 days), a currency picker when the store sold in more than one, each card's Export and Export all
+(the takings file) as jobs the shell's watcher follows, and the builder's two steps. Locked below Growth shows the
+prototype's locked view naming the plan `PLAN_LIMIT` gives, with See plans for the Owner and "Ask your store owner" for a
+Manager. Decided here: the supplier card is read on its own, so a plan without `reports_export` locks that card (naming
+its plan) and leaves the rest; it shows only when some units are a supplier's. Top offers comes after Suppliers, before
+Custom reports. The tax card is "Sales tax collected" by state in the US, "GST you owe" in India and "Tax you owe"
+elsewhere, rates as percentages and tax on delivery as its own row. The builder's plan (`reports_custom`) is known only
+from a refusal, which the dialog says and the card then names. A range with no sales says "Nothing to export" without
+asking, as the API can't make a file without a currency.
 
 ---
 

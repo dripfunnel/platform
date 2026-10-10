@@ -15,6 +15,7 @@ import './orders.css'
 
 const words = messages.orders
 const shellRoute = getRouteApi('/_app')
+const pageRoute = getRouteApi('/_app/orders')
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: OrderPage; counts: OrderCounts }
 type Cursor = { after?: string | null; before?: string | null }
@@ -39,7 +40,8 @@ export const OrderList = () => {
   const phone = usePhone()
   const exportJob = useListExport('orders')
 
-  const [filter, setFilter] = useState<OrderFilter>('ALL')
+  const { filter: opened } = pageRoute.useSearch()
+  const [filter, setFilter] = useState<OrderFilter>(() => (opened && chipsFor(access.supplier).includes(opened) ? opened : 'ALL'))
   const [search, setSearch] = useState('')
   const [cursor, setCursor] = useState<Cursor>({})
   const [pageIndex, setPageIndex] = useState(0)
