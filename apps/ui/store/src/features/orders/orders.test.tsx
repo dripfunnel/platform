@@ -70,9 +70,9 @@ afterEach(() => {
 })
 
 describe('who may do what on Orders', () => {
-  it('gives the owner every action, staff no money and no payment or refund, and a supplier its own part only', () => {
+  it('gives the owner every action, staff the money but no payment marking or refund, and a supplier its own part only', () => {
     expect(ordersAccessOf(owner, false)).toEqual({ supplier: false, money: true, canShip: true, canMarkPaid: true, canCancel: true, canNote: true, canRefund: true, canExport: true, readOnly: false })
-    expect(ordersAccessOf(staff, false)).toMatchObject({ money: false, canMarkPaid: false, canRefund: false, canCancel: true, canShip: true })
+    expect(ordersAccessOf(staff, false)).toMatchObject({ money: true, canMarkPaid: false, canRefund: false, canCancel: true, canShip: true })
     expect(ordersAccessOf(supplier, false)).toEqual({ supplier: true, money: false, canShip: true, canMarkPaid: false, canCancel: false, canNote: false, canRefund: true, canExport: true, readOnly: false })
   })
 
@@ -152,11 +152,12 @@ describe('the Orders list', () => {
     expect(screen.getByText('KT-1042')).toBeTruthy()
   })
 
-  it('shows staff the orders without totals or payment', async () => {
+  it('shows staff the totals, payment and payment chips, as the API gives them (ACCESS §5.1)', async () => {
     await show(staff)
     const first = within(screen.getByRole('list', { name: words.list.label })).getAllByRole('link')[0]
-    expect(first?.textContent).not.toContain('₹')
-    expect(first?.textContent).not.toContain(words.payment.paid)
+    expect(first?.textContent).toContain('₹4,897.00')
+    expect(first?.textContent).toContain(words.payment.paid)
+    expect(screen.getByRole('button', { name: /^Payment pending/ })).toBeTruthy()
   })
 
   it('shows a supplier To ship: its part’s chips only, the store in place of the shopper, and no money', async () => {
