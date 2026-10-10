@@ -179,6 +179,25 @@ describe('onboarding and submitForApproval', () => {
     expect(data?.onboarding.canSubmit).toEqual({ allowed: false, reason: 'ALREADY_SUBMITTED' })
   })
 
+  it('reads portalHost, wildcards and emailSender from the domain rows: missing, in progress, done', async () => {
+    const [fresh] = await db.sql<{ id: string }[]>`insert into partner (name, state) values ('Checklist Partner', 'draft') returning id`
+    const partner = fresh?.id ?? ''
+    const domainItems = async () =>
+      Object.fromEntries(((await run<Ob>(onboardingQuery, callerOf(partner, 'partner-owner'))).data?.onboarding.items ?? []).filter((i) => ['portalHost', 'wildcards', 'emailSender'].includes(i.key)).map((i) => [i.key, i.status]))
+    const address = (kind: string, host: string, status: string) =>
+      db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${partner}, ${kind}, ${host}, ${status}, 'CNAME', 'x.example')`
+    expect(await domainItems()).toEqual({ portalHost: 'missing', wildcards: 'missing', emailSender: 'missing' })
+    await address('portal', 'store.checklist.example', 'waiting')
+    await address('preview', '*.preview.checklist.example', 'live')
+    await address('email', 'mail.checklist.example', 'live')
+    // Both wildcards must be live: one alone is in progress (FIRST-RELEASE §4, item 4).
+    expect(await domainItems()).toEqual({ portalHost: 'progress', wildcards: 'progress', emailSender: 'done' })
+    await address('shops', '*.shops.checklist.example', 'live')
+    await db.sql`update partner_domain set status = 'live' where partner_id = ${partner} and kind = 'portal'`
+    await db.sql`update partner_domain set status = 'broken' where partner_id = ${partner} and kind = 'email'`
+    expect(await domainItems()).toEqual({ portalHost: 'done', wildcards: 'done', emailSender: 'progress' })
+  })
+
   it('refuses a second submission, and Support, Finance and Read-only outright', async () => {
     expect((await run<Sub>(submit, callerOf(ids.kl, 'partner-owner'))).data?.submitForApproval).toMatchObject({ ok: false, code: 'ALREADY_SUBMITTED' })
     for (const role of ['partner-support', 'partner-finance', 'partner-read-only'] as const) {
