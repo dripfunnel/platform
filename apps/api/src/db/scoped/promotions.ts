@@ -392,13 +392,12 @@ export const selectCartOffers = (tx: ScopedSql, storeId: string, codes: readonly
     order by p.created_at, p.id
   `
 
-/** How often this shopper has used each offer: by account, or by the email a guest gave (fact 8, #337). */
-export const selectShopperUses = async (tx: ScopedSql, storeId: string, ids: readonly string[], who: { customerId: string | null; email: string | null }): Promise<Map<string, number>> => {
-  if (ids.length === 0 || (who.customerId === null && who.email === null)) return new Map()
+/** How often a signed-in shopper has used each offer, by account only: an order's email is whatever its placer typed (fact 8). */
+export const selectShopperUses = async (tx: ScopedSql, storeId: string, ids: readonly string[], customerId: string | null): Promise<Map<string, number>> => {
+  if (ids.length === 0 || customerId === null) return new Map()
   const rows = await tx<{ promotion_id: string; n: number }[]>`
     select promotion_id, count(*)::int as n from promotion_usage
-    where store_id = ${storeId} and promotion_id = any (${pgArray(ids)}::uuid[])
-      and (${who.customerId === null ? tx`false` : tx`customer_id = ${who.customerId}`} or ${who.email === null ? tx`false` : tx`customer_email = ${who.email}`})
+    where store_id = ${storeId} and promotion_id = any (${pgArray(ids)}::uuid[]) and customer_id = ${customerId}
     group by promotion_id
   `
   return new Map(rows.map((r) => [r.promotion_id, r.n]))
@@ -410,14 +409,13 @@ export interface CartShopperRow {
   has_ordered: boolean
 }
 
-/** The facts a cart's conditions read about its shopper: their groups, whether they have ordered before, the store's time zone. */
-export const selectCartShopper = async (tx: ScopedSql, storeId: string, who: { customerId: string | null; email: string | null }): Promise<CartShopperRow> => {
+/** The facts a cart's conditions read about a signed-in shopper: their groups, whether they have ordered here, the store's time zone. */
+export const selectCartShopper = async (tx: ScopedSql, storeId: string, customerId: string | null): Promise<CartShopperRow> => {
   const [row] = await tx<CartShopperRow[]>`
     select s.time_zone,
       to_json(array(select m.group_id from customer_group_member m join customer_group g on g.id = m.group_id and g.deleted_at is null
-        where m.store_id = s.id and m.customer_id = ${who.customerId})) as group_ids,
-      exists (select 1 from "order" o where o.store_id = s.id and o.state = 'placed'
-        and (${who.customerId === null ? tx`false` : tx`o.customer_id = ${who.customerId}`} or ${who.email === null ? tx`false` : tx`lower(o.email) = ${who.email}`})) as has_ordered
+        where m.store_id = s.id and m.customer_id = ${customerId})) as group_ids,
+      ${customerId === null ? tx`false` : tx`exists (select 1 from "order" o where o.store_id = s.id and o.state = 'placed' and o.customer_id = ${customerId})`} as has_ordered
     from store s where s.id = ${storeId}
   `
   return row ?? { time_zone: 'UTC', group_ids: [], has_ordered: false }
