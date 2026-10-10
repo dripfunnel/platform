@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { downloadDays, downloadLimits, maxDownloadBytes, maxKeyLength, maxKeysPerSave, maxServiceDuration, maxServiceLocation, uploadDownload, type DownloadFile } from '../../api/productKinds'
-import { fill, formatCount, messages, plural } from '../../messages'
+import { fill, formatCount, formatMegabytes, messages, plural } from '../../messages'
 import { keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
 import type { Draft } from '../common/productDraft'
 import { Card, type Update } from './EditorCards'
@@ -11,15 +11,13 @@ const words = messages.editor.kinds
 
 const setDetails = (update: Update, change: (d: KindDetails) => KindDetails) => update((d) => ({ ...d, details: change(d.details) }))
 
-export const megabytes = (bytes: number) => fill(words.download.megabytes, { size: formatCount(Math.round((bytes / 1024 / 1024) * 10) / 10) })
-
 const typeOf = (mime: string) => {
   const types: Record<string, string> = words.download.types
   return types[mime] ?? (mime.startsWith('image/') ? words.download.types.image : words.download.types.other)
 }
 
 /** "PDF file · 18 MB": the API keeps the file's type and size, never its name. */
-export const fileMeta = (file: DownloadFile) => fill(words.download.fileMeta, { type: typeOf(file.mime), size: megabytes(file.bytes) })
+export const fileMeta = (file: DownloadFile) => fill(words.download.fileMeta, { type: typeOf(file.mime), size: formatMegabytes(file.bytes) })
 
 /** A download: a private file or a licence-key pool, and how often and how long its link works. */
 export const DownloadCard = ({ draft, update, disabled, problems, pool }: { draft: Draft; update: Update; disabled: boolean; problems: readonly KindProblem[]; pool: { left: number; sold: number } | null }) => {
@@ -40,7 +38,7 @@ export const DownloadCard = ({ draft, update, disabled, problems, pool }: { draf
       // A later choice of file wins over an earlier upload still on its way.
       if (mine !== latest.current) return
       setUploading(false)
-      if (!result.ok) return setRefusal(fill(words.download.refused[result.code], { size: megabytes(maxDownloadBytes) }))
+      if (!result.ok) return setRefusal(fill(words.download.refused[result.code], { size: formatMegabytes(maxDownloadBytes) }))
       set({ file: result.file })
     })
   }
@@ -69,7 +67,7 @@ export const DownloadCard = ({ draft, update, disabled, problems, pool }: { draf
           ) : (
             <button type="button" className="df-editor-drop" disabled={disabled || uploading} aria-describedby={missing ? `${id}-p` : undefined} onClick={() => input.current?.click()}>
               <strong>{uploading ? words.download.uploading : words.download.upload}</strong>
-              <span>{fill(words.download.uploadHint, { size: megabytes(maxDownloadBytes) })}</span>
+              <span>{fill(words.download.uploadHint, { size: formatMegabytes(maxDownloadBytes) })}</span>
             </button>
           )}
           <input

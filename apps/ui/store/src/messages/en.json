@@ -1761,7 +1761,6 @@
         "uploading": "Uploading…",
         "replace": "Replace",
         "fileMeta": "{type} file · {size}",
-        "megabytes": "{size} MB",
         "types": {
           "application/pdf": "PDF",
           "application/zip": "ZIP",
@@ -2131,8 +2130,7 @@
         "title": "That file can’t be imported"
       },
       "chooseAnother": "Choose another file",
-      "template": "Download the template",
-      "megabytes": "{size} MB"
+      "template": "Download the template"
     },
     "shopify": {
       "title": "Connect your Shopify store",
