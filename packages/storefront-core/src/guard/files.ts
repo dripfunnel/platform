@@ -1,4 +1,4 @@
-import { problem, type GuardContext, type Problem, type ThemeFile } from './rules'
+import { problem, type GuardContext, type Problem, type ThemeFile } from './rules.js'
 
 export const maxFiles = 200
 export const maxFileBytes = 100 * 1024

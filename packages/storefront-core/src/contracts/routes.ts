@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { coreRoutes } from './theme'
+import { coreRoutes } from './theme.js'
 
 /** A page under src/theme/pages without its .tsx, such as "HomePage" or "account/OrdersPage". */
 const themePage = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9_-]{0,63}){0,4}$/, 'Name a page under src/theme/pages without .tsx, such as "HomePage".')

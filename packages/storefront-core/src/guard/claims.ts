@@ -1,4 +1,4 @@
-import type { RuleId } from './rules'
+import type { RuleId } from './rules.js'
 
 // Invented data the theme's words may not claim (ARCHITECTURE §3.3, DESIGN §3), in English and Hindi, digits in any script.
 const d = '\\p{Nd}'

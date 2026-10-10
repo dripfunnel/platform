@@ -1,10 +1,10 @@
-import { checkContent } from './content'
-import { checkFiles } from './files'
-import { checkRoutes } from './routes'
-import { guardContextSchema, themeFileSchema, type GuardContext, type GuardResult, type Problem, type ThemeFile } from './rules'
+import { checkContent } from './content.js'
+import { checkFiles } from './files.js'
+import { checkRoutes } from './routes.js'
+import { guardContextSchema, themeFileSchema, type GuardContext, type GuardResult, type Problem, type ThemeFile } from './rules.js'
 
-export { maxFileBytes, maxFiles, maxThemeBytes } from './files'
-export { ruleIds, type GuardContext, type GuardResult, type Problem, type RuleId, type ThemeFile } from './rules'
+export { maxFileBytes, maxFiles, maxThemeBytes } from './files.js'
+export { ruleIds, type GuardContext, type GuardResult, type Problem, type RuleId, type ThemeFile } from './rules.js'
 
 const byPlace = (a: Problem, b: Problem) => (a.file ?? '').localeCompare(b.file ?? '') || (a.line ?? 0) - (b.line ?? 0) || a.rule.localeCompare(b.rule)
 

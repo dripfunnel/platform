@@ -123,6 +123,23 @@ describe('validateChange: routes and the store paths', () => {
   })
 })
 
+describe('the built validator', () => {
+  it('names the .js file in every relative import it reaches, so it runs in plain Node in the sandbox', () => {
+    const seen = new Set<string>()
+    const bare: string[] = []
+    const visit = (file: string) => {
+      if (seen.has(file)) return
+      seen.add(file)
+      for (const [, spec = ''] of (ts.sys.readFile(file) ?? '').matchAll(/from '(\.{1,2}\/[^']+)'/g)) {
+        if (!spec.endsWith('.js')) bare.push(`${file}: ${spec}`)
+        else visit(decodeURIComponent(new URL(spec.replace(/\.js$/, '.ts'), `file://${file}`).pathname))
+      }
+    }
+    visit(decodeURIComponent(new URL('./index.ts', import.meta.url).pathname))
+    expect(bare).toEqual([])
+  })
+})
+
 describe('the rule list', () => {
   it('has a refused case for every rule', () => {
     const covered = new Set<RuleId>([...corpus.map((c) => c.rule), ...generated.map(([, , rule]) => rule)])

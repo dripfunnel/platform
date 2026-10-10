@@ -1,5 +1,5 @@
-import { asRead } from './claims'
-import type { GuardContext } from './rules'
+import { asRead } from './claims.js'
+import type { GuardContext } from './rules.js'
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const isDigit = (cp: number) => /\p{Nd}/u.test(String.fromCodePoint(cp))

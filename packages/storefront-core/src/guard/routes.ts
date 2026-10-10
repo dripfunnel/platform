@@ -1,8 +1,8 @@
-import { reservedPathSegments, themeRoutesSchema } from '../contracts/routes'
-import { coreRoutes, type CoreRoute } from '../contracts/theme'
-import { routesPath } from './files'
-import { readJson } from './json'
-import { problem, type GuardContext, type Problem } from './rules'
+import { reservedPathSegments, themeRoutesSchema } from '../contracts/routes.js'
+import { coreRoutes, type CoreRoute } from '../contracts/theme.js'
+import { routesPath } from './files.js'
+import { readJson } from './json.js'
+import { problem, type GuardContext, type Problem } from './rules.js'
 
 // A custom page never performs commerce of its own: no cart, checkout or pricing page (ARCHITECTURE §3.1).
 const commerceWords = new Set(['cart', 'checkout', 'pay', 'payment', 'payments', 'price', 'prices', 'pricing'])

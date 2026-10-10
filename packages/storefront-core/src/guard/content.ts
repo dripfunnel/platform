@@ -1,8 +1,8 @@
-import { brandCopied } from './brand'
-import { claimsIn } from './claims'
-import { contentPath } from './files'
-import { readJson } from './json'
-import { problem, type GuardContext, type Problem } from './rules'
+import { brandCopied } from './brand.js'
+import { claimsIn } from './claims.js'
+import { contentPath } from './files.js'
+import { readJson } from './json.js'
+import { problem, type GuardContext, type Problem } from './rules.js'
 
 const maxDepth = 4
 const keyPattern = /^[A-Za-z0-9_-]{1,64}$/
