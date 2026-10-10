@@ -1061,7 +1061,10 @@ Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer), `
 checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by email or mobile
 code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption** (built on #323: `giftCardBalance`, `applyGiftCard`, CATALOG-DESIGN T14); digital
 downloads after payment; services sold with no booking (§1); marketing consent at
-checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
+checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes; and
+`reportStorefrontProblem(kind, subject, detail)`, where core reports a sealed component a theme hid, a section that threw or a
+checkout that fell back to the baseline (`kind` SEALED, SECTION or CHECKOUT, names only, never the address; storefront
+ARCHITECTURE §3.5; named on #481, built with the Shop API's next card). Catalogue
 queries are edge-cached per store, catalogue version, language, currency and market, the version's move being the purge (§5.5 there).
 
 ---
