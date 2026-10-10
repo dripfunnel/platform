@@ -1,5 +1,6 @@
 import type { CustomerAccounts } from '../../api/customerAccounts'
 import type { Gateway } from '../../api/payments'
+import type { ShippingSettings } from '../../api/shipping'
 import type { StoreInfo, StoreLocale } from '../../api/settings'
 import type { Market } from '../../api/markets'
 import type { ProductBasics } from '../../api/productEditor'
@@ -89,6 +90,7 @@ export interface SettingsReads {
   markets: () => Promise<Market[]>
   catalogue: () => Promise<ProductBasics>
   gateways: () => Promise<Gateway[]>
+  shipping: () => Promise<ShippingSettings>
   customerAccounts: () => Promise<CustomerAccounts>
 }
 
@@ -144,6 +146,26 @@ const sampleGateways: Gateway[] = harness
     ]
   : []
 
+const sampleShipping: ShippingSettings = {
+  revision: 3,
+  savedAt: '2026-10-01T09:00:00Z',
+  currency: 'INR',
+  courierRate: true,
+  flatRate: false,
+  flatAmount: '9900',
+  pickup: true,
+  pickupHours: 'Mon–Sat, 10 am – 6 pm',
+  pickupAddress: '14 Johari Bazaar, Jaipur',
+  freeMode: 'over',
+  freeThresholdAmount: '99900',
+  areaMode: 'everywhere',
+  areaFileName: null,
+  areaCount: 0,
+  areaSample: [],
+  labelSizes: ['a6', 'a4'],
+  couriers: [{ provider: 'shiprocket', status: 'pricing', offered: true, pickupMode: 'scheduled', labelSize: 'a6', trackingEmails: true, lastTestedAt: '2026-10-09T08:30:00Z', lastTestResult: 'ok' }],
+}
+
 /** The tabs' reads under ?state=: the samples above. */
 export const sampleReads: SettingsReads = {
   storeInfo: async () => sampleInfo,
@@ -155,6 +177,7 @@ export const sampleReads: SettingsReads = {
   invoice: async () => ({ taxPerLine: true, emailWithDispatch: true, footer: null, legalName: 'Kesari Threads Pvt Ltd' }),
   markets: async () => sampleMarkets,
   gateways: async () => sampleGateways,
+  shipping: async () => sampleShipping,
   customerAccounts: async () => ({ mode: 'both', customers: 1284, withEmail: 812, withPhone: 686, phoneOnly: 214 }),
   catalogue: async () => ({
     pricingCurrency: 'INR',

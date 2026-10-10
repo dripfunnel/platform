@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { loadCustomerAccounts } from '../../api/customerAccounts'
 import { loadAllMarkets } from '../../api/markets'
 import { loadGateways } from '../../api/payments'
+import { loadShipping } from '../../api/shipping'
 import { loadProductBasics } from '../../api/productEditor'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
 import { loadInvoiceSettings, loadTax } from '../../api/tax'
@@ -17,6 +18,7 @@ import { sampleReads, settingsStates, type SettingsReads } from './settingsState
 import { StoreInfoTab } from './StoreInfoTab'
 import { CustomerAccountsTab } from './CustomerAccountsTab'
 import { PaymentsTab } from './PaymentsTab'
+import { ShippingTab } from './ShippingTab'
 import { settingsTabs, type SettingsTab } from './settingsSearch'
 import { stripeBackOf, type StripeBack } from './stripeBack'
 import { CatalogueTab } from './CatalogueTab'
@@ -41,7 +43,7 @@ interface Done {
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, customerAccounts: loadCustomerAccounts }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics, gateways: loadGateways, shipping: loadShipping, customerAccounts: loadCustomerAccounts }
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: boolean }): Record<SettingsTab, () => Promise<Render>> => ({
@@ -62,6 +64,11 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
   payments: async () => {
     const [gateways, info] = await Promise.all([reads.gateways(), reads.storeInfo()])
     return (done, canEdit) => <PaymentsTab gateways={gateways} country={info?.country ?? null} canEdit={canEdit} back={done.stripe.back} onBackSeen={done.stripe.seen} onChanged={done.reload} />
+  },
+  // The form keeps its own draft over courier changes and uploads, so only a save's toast reaches the page.
+  shipping: async () => {
+    const [shipping, info] = await Promise.all([reads.shipping(), reads.storeInfo()])
+    return (done, canEdit) => <ShippingTab shipping={shipping} country={info?.country ?? null} canEdit={canEdit} onSaved={done.toast} />
   },
   // The store's locations, and its suppliers' named, read-only (SetOps "Warehouse").
   warehouse: async () => (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" />,
@@ -143,7 +150,7 @@ export const SettingsPage = () => {
         <DetailTabs
           label={words.tabs.label}
           tabs={settingsTabs}
-          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers }}
+          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, payments: words.tabs.payments, shipping: words.tabs.shipping, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue, customers: words.tabs.customers }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />

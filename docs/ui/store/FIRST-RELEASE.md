@@ -577,6 +577,15 @@ stops; the only live way to pay can't go (`LAST_METHOD`). Customer accounts pick
 see and through which text service codes go (MSG91 in India, Twilio in the US); codes go by text only, as the API sends them (the
 prototype's WhatsApp waits for a sender). Dropping mobile warns with the count of phone-only shoppers that they can't sign in
 while the store takes email only (ACCESS §2.1: the add-an-email step isn't built), rather than the prototype's promise to ask them.
+**Part 2, Shipping**: one draft of what the shopper pays, when it's free and where the store delivers, saved over its
+revision (`STALE` when someone saved since). The courier's rate, a flat rate and collection in person can be **on at once**
+(decided on #337; the prototype draws a choice of one), the flat amount kept as the courier's fallback while only the courier
+is on; collection asks for its hours; free over an amount says the amount in words, never a worked-out basket. The couriers
+are the partner's accounts (THIRD-PARTY-ACCESS §4), so Connect asks for no key: pricing or standby, "Use for pricing",
+Manage (pickups, label size, tracking emails), Disconnect saying who takes over, and Test all with each courier's answer
+in the card. "Upload list" reads a CSV or text file in the browser, keeps only codes of the store's country's shape and
+sends them at once (`replaceDeliveryArea`). A courier change or an upload reads the settings back without losing what is
+typed: an edited field stays, the rest follows the server (a last courier going switches its rate off there).
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
@@ -626,6 +635,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | ~~No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload~~ | Drawn by SUI 1 (#286) | resolved |
 | Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | WhatsApp reminders ship with email, through MSG91 (decided 2026-10-05 on #337) | scope, decided |
 | Payment setup pastes one "API key" for every gateway, Stripe included | Stripe by OAuth (decided on #337); every other provider its own named keys for live or test (#315) | rule |
+| Shipping's "What the shopper pays" is a choice of one, and a courier connects with a pasted account key | Any of the courier's rate, a flat rate and collection at once (#337); couriers on the partner's accounts, connected without a key (THIRD-PARTY-ACCESS §4) | rule |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |
 | The sandbox's stock-reason values | The list #183 settled is what DATA-MODEL stores | behaviour, decided |
 

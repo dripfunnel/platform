@@ -1179,3 +1179,85 @@
     min-height: 44px;
   }
 }
+
+/* Shipping (designs/SetOps.dc.html "shipping") */
+
+.df-ops-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.df-ops-head .df-set-help {
+  font-size: 13px;
+}
+
+.df-ops-choice--on {
+  padding: 9px 11px;
+  border: 2px solid var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-ops-choice:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-ops-pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 180px;
+  cursor: pointer;
+}
+
+.df-ops-pick input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--df-color-focus);
+}
+
+.df-ops-amount {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-ops-amount:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 1px;
+}
+
+.df-ops-amount span {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-ops-amount input {
+  width: 80px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.df-ops-tests {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+@media (max-width: 720px) {
+  .df-ops-amount {
+    height: 44px;
+  }
+}
