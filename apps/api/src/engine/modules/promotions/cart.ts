@@ -24,6 +24,8 @@ export interface CartOfferLine {
 
 export interface CartOffersInput {
   storeId: string
+  /** The cart being priced: a reminder's code works on its own cart only. */
+  cartId: string | null
   currency: string
   codes: readonly string[]
   /** The signed-in shopper; a guest is null, whatever contact they typed. */
@@ -77,7 +79,7 @@ export const cartOffers = async (sql: postgres.Sql, input: CartOffersInput): Pro
     const status = statusOf({ enabled: row.enabled && !row.deleted, startsAt: row.starts_at, endsAt: row.ends_at, usesCount: row.uses_count, totalUsesLimit: row.total_uses_limit }, now)
     if (row.code) {
       // An automatic offer's old code is no code at all, but the offer itself still applies.
-      const answer = row.trigger === 'code' ? codeAnswerOf(row, status, now) : 'INVALID'
+      const answer = row.trigger === 'code' && (row.code_order_id === null || row.code_order_id === input.cartId) ? codeAnswerOf(row, status, now) : 'INVALID'
       if (answer !== 'WORKS') states.set(row.code, answer)
       if (answer !== 'WORKS' && row.trigger === 'code') continue
     }

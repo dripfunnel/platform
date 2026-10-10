@@ -1,7 +1,7 @@
 import type { PageWindow } from '#core/paging'
 import type { ScopedSql } from './index'
 
-// A gift card's balance and its redemption (migration 0112; FIRST-RELEASE §19): every balance change in system scope,
+// A gift card's balance and its redemption (migration 0172; FIRST-RELEASE §19): every balance change in system scope,
 // under the card's row lock, with its movement in the ledger; the merchant side reads the cards it issued.
 
 export interface UsableGiftCardRow {

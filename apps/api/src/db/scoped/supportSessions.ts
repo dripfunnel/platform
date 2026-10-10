@@ -154,12 +154,14 @@ export interface SupportSessionRow {
   ended_at: Date | null
   ended_by_partner_user_id: string | null
   ended_by_name: string | null
+  /** Set when the store side ended it (0160): support switched off, its user gone or the store closed. */
+  end_reason: string | null
 }
 
 const sessionColumns = (tx: ScopedSql) => tx`
   select ss.id, ss.store_id, s.name as store_name, ss.membership_id, u.id as user_id, u.name as user_name, m.role_key, sl.name as seller_name,
     ss.partner_user_id, a.name as agent_name, ss.reason, ss.ticket, ss.started_at, ss.expires_at, ss.ended_at,
-    ss.ended_by_partner_user_id, e.name as ended_by_name
+    ss.ended_by_partner_user_id, e.name as ended_by_name, ss.end_reason
   from support_session ss
   join store s on s.id = ss.store_id
   join membership m on m.id = ss.membership_id

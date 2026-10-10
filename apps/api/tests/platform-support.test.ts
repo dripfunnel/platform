@@ -208,7 +208,7 @@ describe('re-authentication', () => {
 })
 
 describe('sessions', () => {
-  it('opens one session at a time for 30 minutes on the portal host, logged in the partner’s and the store’s log', async () => {
+  it('opens one session at a time for 30 minutes on the portal host, logged in the partner’s and the store’s log, emailing the Owners', async () => {
     const priya = callerOf(ids.ns, ids.priya, 'partner-support')
     const jenna = await membershipOf('jenna@harborcoffee.example')
     const opened = await openOn(priya, jenna)
@@ -225,6 +225,9 @@ describe('sessions', () => {
       tx`select 1 from activity_log where access_ref = ${opened?.sessionId ?? ''}`,
     )
     expect(storeSees.length).toBe(1)
+    // The store's Owners are emailed as it starts (ACCESS.md §8, #331).
+    const emails = await db.sql<{ payload: { template: string }; store_id: string }[]>`select payload, store_id from outbox where idempotency_key like ${`%support-session-started:${opened?.sessionId ?? ''}%`}`
+    expect(emails).toEqual([{ payload: { template: 'support-session-started', supportSessionId: opened?.sessionId }, store_id: logged?.store_id }])
     const badges = (await run<{ navBadges: { supportOpenSessions: number } }>(`{ navBadges { supportOpenSessions } }`, priya)).data?.navBadges
     expect(badges?.supportOpenSessions).toBe(1)
 
@@ -312,6 +315,18 @@ describe('sessions', () => {
     const reader = callerOf(ids.ns, ids.reader, 'partner-read-only')
     for (const source of [q.targets, q.mine]) expect((await run(source, reader)).code).toBe('FORBIDDEN')
     expect((await run(q.reauth, reader, { c: '123456' })).code).toBe('FORBIDDEN')
+  })
+})
+
+describe('ended by the store', () => {
+  it('says so in History when the store switched support off (#331)', async () => {
+    const priya = callerOf(ids.ns, ids.priya, 'partner-support')
+    clock = new Date(clock.getTime() + 2 * 60 * 60_000)
+    const opened = await openOn(priya, await membershipOf('jenna@harborcoffee.example'), 'Store ends it')
+    expect(opened?.ok).toBe(true)
+    await db.sql`update support_session set ended_at = ${clock}, end_reason = 'support_off' where id = ${opened?.sessionId ?? ''}`
+    const history = (await run<{ supportSessions: { items: { id: string; endedBy: string }[] } }>(q.sessions, priya, { open: false })).data?.supportSessions.items ?? []
+    expect(history.find((s) => s.id === opened?.sessionId)?.endedBy).toBe('store')
   })
 })
 

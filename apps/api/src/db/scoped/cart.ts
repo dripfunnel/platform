@@ -15,7 +15,7 @@ export interface CartAddress {
   phone: string | null
 }
 
-/** Who a gift card line goes to and when (migration 0111); null on every other line. */
+/** Who a gift card line goes to and when (migration 0171); null on every other line. */
 export interface CartGift {
   recipientName: string
   recipientEmail: string
@@ -39,7 +39,7 @@ export interface CartRow {
   revision: number
   /** The codes the shopper typed, as typed after normalising; the engine decides what each does (OFFERS fact 6). */
   promotion_codes: string[]
-  /** The gift card the engine put on it (migration 0112); never the shopper's to write. */
+  /** The gift card the engine put on it (migration 0172); never the shopper's to write. */
   gift_card_id: string | null
   lines: { version_id: string; quantity: number; gift: CartGift | null }[]
 }
@@ -138,10 +138,19 @@ export const selectCartVersions = (tx: ScopedSql, storeId: string, ids: readonly
     ? Promise.resolve([])
     : tx<{ id: string; product_id: string; tax_class_id: string | null }[]>`select id, product_id, tax_class_id from product_version where store_id = ${storeId} and id = any (${pgArray(ids)}::uuid[])`
 
-/** Carts past their expiry, a batch at a time, lines with them: nobody can open one again (the cron's sweep). */
+/**
+ * Carts past their expiry, a batch at a time, lines with them: nobody can open one again (the cron's sweep). One reminded
+ * in the last 30 days waits, so the unsubscribe link in its email keeps working that long (FIRST-RELEASE §9).
+ */
 export const deleteExpiredCarts = async (tx: ScopedSql, now: Date, limit: number): Promise<number> =>
   (
     await tx`
-      delete from "order" where id in (select id from "order" where state = 'cart' and cart_expires_at < ${now} order by cart_expires_at limit ${limit})
+      delete from "order" where id in (
+        select o.id from "order" o where o.state = 'cart' and o.cart_expires_at < ${now}
+          and not exists (select 1 from cart_reminder r where r.order_id = o.id and r.sent_at > ${new Date(now.getTime() - unsubscribeLinkMs)})
+        order by o.cart_expires_at limit ${limit})
     `
   ).count
+
+/** How long a reminder's unsubscribe link keeps working after it was sent. */
+export const unsubscribeLinkMs = 30 * 86_400_000

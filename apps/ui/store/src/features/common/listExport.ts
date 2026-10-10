@@ -3,13 +3,14 @@ import { startExport, useExportJob } from '@dripfunnel/shared/ui'
 import { loadCustomerExport } from '../../api/customers'
 import { loadCatalogExport } from '../../api/imports'
 import { loadOrderExport } from '../../api/orders'
+import { loadReportExport } from '../../api/reports'
 
 // The shell follows one export at a time, whichever list started it (shared exportJob); each kind is read back by its
 // own query, and each list shows only its own kind's job.
 
-export type ExportKind = 'catalog' | 'orders' | 'customers'
+export type ExportKind = 'catalog' | 'orders' | 'customers' | 'reports'
 
-const readers: Record<ExportKind, (id: string) => Promise<ExportJob | null>> = { catalog: loadCatalogExport, orders: loadOrderExport, customers: loadCustomerExport }
+const readers: Record<ExportKind, (id: string) => Promise<ExportJob | null>> = { catalog: loadCatalogExport, orders: loadOrderExport, customers: loadCustomerExport, reports: loadReportExport }
 const kinds = new Map<string, ExportKind>()
 
 export const startListExport = (kind: ExportKind, started: Promise<ExportJob>) =>

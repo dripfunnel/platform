@@ -13,7 +13,7 @@ export interface OrderToRefundRow {
   currency: string
   total_amount: string
   refunded_amount: string
-  /** What a gift card paid of the total (migration 0112). */
+  /** What a gift card paid of the total (migration 0172). */
   gift_card_amount: string
 }
 

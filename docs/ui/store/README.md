@@ -137,7 +137,7 @@ Products' approval chip and a Settings tab). Items a role can't use are **absent
 | **Manager** | Home · Orders · Customers · Offers · Abandoned carts · Reports · **Catalogue:** Products, Collections · **Your shop:** Storefront (view only) |
 | **Staff** | Home · Orders · Customers · Offers (view only) · Abandoned carts (view only) · **Catalogue:** Products (view only), Collections (view only) |
 | **Vendor · Stock only / Products and stock** | Your products |
-| **Vendor · + read-only orders** | Your products · Your sales |
+| **Vendor · + read-only orders** | Your products · To ship (view only) · Your sales |
 | **Vendor · + their orders** | Your products · To ship · Your sales |
 | + **Supplier admin**, any level | + Your team |
 

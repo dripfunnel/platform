@@ -13,14 +13,18 @@ import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache
 import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { handleSupportSession, isSupportSessionPath } from '#apis/store/supportSession'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
+import { handleDocument, isDocumentsPath } from '#apis/store/documents'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema, type StoreContext } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { resolvePortalPartner, resolveStoreStanding } from '#auth/storeCaller'
+import { storeActivityFor } from '#auth/storeSupport'
 import { storeOriginAllowed } from '#auth/storeCredential'
+import { machineCredentialOf } from '#auth/apiKeys'
 import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
 import { staffPortalCookieName } from '#auth/staffPortal'
@@ -36,11 +40,13 @@ import { parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localCouriers, localDns, localEmail, localSms } from '#integrations/local/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localSms, localWhatsApp } from '#integrations/local/index'
+import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
+import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
-import { stripeClient, type StripeApi } from '#integrations/stripe/index'
+import { storeBillingStripe, stripeClient, type StoreBillingStripe, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
 import { handleShopifyCallback, shopifyCallbackPath } from '#hooks/shopify'
@@ -51,6 +57,8 @@ import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
 import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
 import { ratesRefreshDeliverer, ratesRefreshKind } from '#jobs/queues/deliverers/ratesRefresh'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
+import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
+import { cartRemindKind, markAbandonedCarts, queueDueReminders } from '#engine/modules/cartReminders/index'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
@@ -78,12 +86,20 @@ import { stripeConnect } from '#integrations/stripe/connect'
 import { stripePayments, type StripeKeys } from '#integrations/stripe/payments'
 import { stripeTax } from '#integrations/stripe/tax'
 import { handleStripeConnectCallback, stripeConnectCallbackPath } from '#hooks/stripeConnect'
+import { courierHookOf, handleCourierHook } from '#hooks/couriers'
 import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
 import { keyedGateways } from '#integrations/payments/index'
 import { deleteExpiredCarts } from '#db/scoped/cart'
+import { storeEventKind } from '#db/scoped/storeEvents'
+import { deleteOldDeliveries } from '#db/scoped/webhooks'
+import { webhookDeliveryKind, webhookReleaseKind } from '#saas/webhooks/index'
+import { appNoticeKind } from '#saas/apps/index'
+import { webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDeliverer } from '#jobs/queues/deliverers/webhooks'
+import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
+import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
@@ -94,6 +110,7 @@ import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
 import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
+import { createAppRegistryService } from '#saas/apps/index'
 import { resolveArea, type Area } from './router'
 
 const servers = {
@@ -117,6 +134,8 @@ interface Env extends Record<string, unknown> {
   CART_RATE_LIMITER?: RateLimit | undefined
   // "Check a code" in the Store API per person and store, and a shopper's codes per store and IP (SAPI 14); unbound, every one is refused.
   OFFER_CODE_RATE_LIMITER?: RateLimit | undefined
+  // Every request carrying an API key, per address, before the key is looked up (ACCESS.md §9 check 13); unbound, keys answer 500.
+  API_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
   IMAGES?: ImagesBinding | undefined
@@ -161,6 +180,11 @@ const localSmsAccounts: PartnerSmsAccounts = {
       : { provider, accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
 }
 
+// Locally (SMS_LOCAL) every partner has a WhatsApp number with both cart templates, which the stand-in prints (#275 sets the real ones).
+const localWhatsAppAccounts: PartnerWhatsAppAccounts = {
+  forPartner: async () => ({ authKey: 'local', integratedNumber: 'local', language: 'en', templates: Object.fromEntries(whatsappMessages.map((m) => [m, m.replace('.', '_')])) }),
+}
+
 // Asked for, the stand-in wins (EMAIL_LOCAL; config refuses it anywhere but localhost), as Shopify's does; else SES
 // where its values are set; else email waits in the outbox.
 const emailFor = (config: Config) => {
@@ -170,14 +194,20 @@ const emailFor = (config: Config) => {
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
 // (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL.
+// The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
+const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
+
 const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null): Deliverers => {
-  const lookup = config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup()
+  const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
+    // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
+    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
+    ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
@@ -193,6 +223,10 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
     [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),
     [ratesRefreshKind]: ratesRefreshDeliverer(sql, ecbRates()),
+    [storeEventKind]: webhookEventDeliverer(sql),
+    [webhookDeliveryKind]: webhookDeliveryDeliverer(sql, { lookup, secrets }),
+    [webhookReleaseKind]: webhookReleaseDeliverer(sql),
+    [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
   }
 }
 
@@ -280,7 +314,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -299,18 +333,19 @@ const handleAdmin = async (
         : null,
       customers: caller ? createCustomersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffMembers: caller ? createStaffMembersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
+      apps: caller ? createAppRegistryService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, secrets: await (secretsFor(config) ?? null), lookup: lookupFor(sql, config), now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
 }
 
 // Built once per isolate from configuration, like the identity provider.
-let stripeBuilt: { key: string; api: StripeApi } | undefined
+let stripeBuilt: { key: string; api: StripeApi & StoreBillingStripe } | undefined
 
-const stripeFor = (config: Config): StripeApi | null => {
+const stripeFor = (config: Config): (StripeApi & StoreBillingStripe) | null => {
   const key = config.STRIPE_SECRET_KEY
   if (!key) return null
-  if (stripeBuilt?.key !== key) stripeBuilt = { key, api: stripeClient({ secretKey: key }) }
+  if (stripeBuilt?.key !== key) stripeBuilt = { key, api: { ...stripeClient({ secretKey: key }), ...storeBillingStripe({ secretKey: key }) } }
   return stripeBuilt.api
 }
 
@@ -403,6 +438,13 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   })
 }
 
+// A key over its plan's calls, or an address sending too many keys (decided on #337).
+const tooManyRequests = (retryAfterSeconds: number) =>
+  new Response(JSON.stringify({ errors: [{ message: 'Too many requests. Try again later.', extensions: { code: 'RATE_LIMITED' } }] }), {
+    status: 429,
+    headers: { 'content-type': 'application/json', 'retry-after': String(retryAfterSeconds) },
+  })
+
 // A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
 // caller is the session's person acting in the store the request names (ACCESS.md §4).
 const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
@@ -415,16 +457,38 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (!partnerId) return notFound()
     const brandFile = brandFileOf(url.pathname)
     if (brandFile) return request.method === 'GET' ? serveBrandFile(sql, env.ASSETS ?? null, env.IMAGES ?? null, partnerId, brandFile, new Date()) : notFound()
+    if (isSupportSessionPath(url.pathname)) {
+      const exchangeLimiter = env.SIGN_IN_RATE_LIMITER
+      const readLimiter = env.STAFF_SESSION_RATE_LIMITER
+      if (!exchangeLimiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+      if (!readLimiter) return misconfigured('STAFF_SESSION_RATE_LIMITER')
+      return handleSupportSession(request, url, {
+        sql,
+        partnerId,
+        activity: activityLog,
+        now: () => new Date(),
+        allowExchange: async (key) => (await exchangeLimiter.limit({ key })).success,
+        allowRead: async (key) => (await readLimiter.limit({ key })).success,
+      })
+    }
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
       return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
     }
     const facts = factsOf(request)
+    if (machineCredentialOf(request) !== null) {
+      const limiter = env.API_RATE_LIMITER
+      if (!limiter) return misconfigured('API_RATE_LIMITER')
+      const ip = request.headers.get('cf-connecting-ip')
+      if (!ip || !(await limiter.limit({ key: `api-key:${ip}` })).success) return tooManyRequests(60)
+    }
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), codeCheck: config.CODE_CHECK,
+    if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
+    const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
+    if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
   })
 }
@@ -461,6 +525,14 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     const allow = async (key: string) => (await limiter.limit({ key })).success
     return withConnection(config.HYPERDRIVE, ctx, (sql) => handlePaymentHook(request, paymentHook, { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, allow))
   }
+  const courierHook = courierHookOf(url.pathname)
+  if (courierHook) {
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    const limiter = env.SHOP_RATE_LIMITER
+    if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+    const couriers = config.COURIERS_LOCAL === '1' ? localCouriers() : null
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers }, async (key) => (await limiter.limit({ key })).success))
+  }
   if (url.pathname === stripeConnectCallbackPath) {
     const connect = payments.stripeConnect
     if (!connect) return notFound()
@@ -475,7 +547,7 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
   if (!hyperdrive) return new Response(null, { status: 503 })
   const secrets = await (secretsFor(config) ?? null)
   return withConnection(hyperdrive, ctx, (sql) =>
-    handleStripeHook(request, { sql, stripe, signingSecret, payments: { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, now: () => new Date() }),
+    handleStripeHook(request, { sql, stripe, signingSecret, payments: { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, activity: activityLog, now: () => new Date() }),
   )
 }
 
@@ -616,14 +688,43 @@ const sweepSchedules = (env: Env): Promise<void> =>
       return 0
     })
     if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
+    // FIRST-RELEASE §3.3: a trial that ended without a plan moves to the free plan, or owes one.
+    const trials = await endTrials(sql, activityLog, new Date()).catch((error: unknown) => {
+      logEvent({ event: 'trial_end_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return { ended: 0, failed: 0 }
+    })
+    if (trials.ended > 0) logEvent({ event: 'trials_ended', api: 'system', code: 'ended', count: trials.ended })
+    if (trials.failed > 0) logEvent({ event: 'trial_end_failed', api: 'system', code: 'store_failed', count: trials.failed })
+    // SAAS §7.3: a store 14 days past due is suspended.
+    const suspended = await suspendOverdueStores(sql, activityLog, new Date()).catch((error: unknown) => {
+      logEvent({ event: 'dunning_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (suspended > 0) logEvent({ event: 'stores_suspended', api: 'system', code: 'unpaid', count: suspended })
     // Old sign-in codes and sessions go, with the addresses they named.
     await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    })
+    // The webhook delivery log keeps a month (LOGGING §8's technical logs); replays reach back a week.
+    await withSystemScope(sql, (tx) => deleteOldDeliveries(tx, new Date(Date.now() - 30 * 86_400_000), 500)).catch((error: unknown) => {
+      logEvent({ event: 'webhook_log_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
     })
     // Carts past their 30 days go, with whatever address or email a guest left in them.
     await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
     })
+    // Carts left in checkout are marked, then each reminder step now due is queued once (FIRST-RELEASE §9).
+    const reminders = { sql, now: () => new Date() }
+    const abandoned = await markAbandonedCarts(reminders, 100).catch((error: unknown) => {
+      logEvent({ event: 'abandoned_carts_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (abandoned > 0) logEvent({ event: 'abandoned_carts_marked', api: 'system', code: 'abandoned', count: abandoned })
+    const reminded = await queueDueReminders(reminders, 200).catch((error: unknown) => {
+      logEvent({ event: 'cart_reminders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (reminded > 0) logEvent({ event: 'cart_reminders_queued', api: 'system', code: 'due', count: reminded })
     // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
     await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

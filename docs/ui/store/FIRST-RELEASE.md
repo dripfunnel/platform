@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#322: Home's figures per seat, and Reports).
+Last updated: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -211,7 +211,7 @@ every store on this device"). On a phone the menu is a drawer behind a button.
 
 **Built on #291**: the header (§3.2) and the banners for trial and its last day, past due,
 suspended, cancelled, provisioning, partner support and offline, in the prototype's words. The
-import banner is built on #302 from the caller's own `catalogImports`, not `storeState` (a run is its importer's); support's Allow / Deny waits for SAPI 21.
+import banner is built on #302 from the caller's own `catalogImports`, not `storeState` (a run is its importer's); support's Allow / Deny is built on #331: `storeState.support` adds the session's id, its access, who allowed it and the agent's request (`writeRequest`: note, state), answered with `allowSupportWrite` and `denySupportWrite` (ACCESS §8).
 
 ---
 
@@ -273,6 +273,14 @@ collections, payments, shipping) only while the store has no order, each item fo
 **Not built:** team requests, which need `access_request` and a "Send request" (DATA-MODEL §7.10) no card builds yet;
 "products missing details for some countries", which needs a store-wide readiness count; and the checklist's
 storefront item, which waits for SAPI 17. The locale check reads `storeLocale` and `storeInfo`.
+
+**Built on #326, part 1** (`apps/ui/store/src/features/home`): Home per seat as `home` answers it. "Needs you" in the
+prototype's order, each opening its filtered list (Orders on To ship, Products on Waiting for approval or Low stock,
+Settings › Shipping, and the oldest payment to collect's order), or "Nothing is waiting for you" once a store with orders
+has none; the numbers and the latest orders while the store has orders, Staff's titled "Today" with items in place of
+totals; the checklist with only the items the API gives the seat. Decided here: the API keeps no "confirmed" fact for the
+locale check, so the Owner's line shows what sign-up set (country, pricing currency, main language) as done, with Change
+opening Settings › Store info; and a Manager's note names "the store owner", since a Manager can't read who that is.
 
 ---
 
@@ -357,6 +365,29 @@ minimum cart value, skip when everything is out of stock, quiet hours in the sho
 a week per shopper, stop on any purchase (always on), an unsubscribe link in every email. Sent by
 **email through Amazon SES** from the partner's sender domain (SAAS §3.6). Staff view only.
 
+**Built on #321 (SAPI 15), part 1** (DATA-MODEL §7.2, §7.6): the every-minute cron marks a cart abandoned 20 minutes after
+its last change once the shopper gave an email or number or started checkout, with what its lines came to; queues each
+cart's latest step now due, once (a step after the first, a code and WhatsApp need the plan's `automatic`, the first alone
+`onePerCart`; `youSend` sends nothing by itself); and the `cart.remind` outbox row decides it as it is delivered: skipped
+as recovered, stopped, no email, opted out, undeliverable (bounced or complained), out of stock, under the minimum (in the
+minimum's own currency) or the weekly cap, held through quiet hours, else sent as one email from the store with its
+lines, its code, **Return to your cart** (`https://{shop host}/cart/r/{token}`) and **Unsubscribe**
+(`https://{shop host}/unsubscribe/{token}`). A placed live order recovers its shopper's carts left that week and stops
+their reminders. **Decided here (#321):** a store in the EU or EEA reminds only shoppers who agreed to email; quiet hours
+are the store's own time zone (a shopper's isn't known); the link gives a guest's cart to the browser that follows it (a
+new cart token), and asks the shopper to sign in for an account's cart.
+
+**Part 2 (#321):** a step set to WhatsApp, in an Indian store on the plan's `automatic`, goes by the partner's WhatsApp
+Business number through MSG91 to a **signed-in** shopper who agreed to WhatsApp, at their account's own number (never a
+number typed in the cart); anyone else, or a partner whose account can't be read yet (#275), gets the email, and so
+does one whose account, template or number is gone by the time it goes, under the email's own rules checked then (the
+shopper's answer for email and the suppression list). A provider's refusal for good marks it undeliverable. **Decided
+here (#321):** a shopper who agreed to some channels and not email gets no reminder email, in any country. The Carts tab reads its list, counts, one cart and its figures, and writes
+"Send reminder now", "Stop reminders", "Resume reminders" and "Send me a test". **Decided here (#321):** a test goes by
+email to the person's own address only, never one typed in, so a store can't email strangers with it (the prototype's
+field is prefilled with it); "Send reminder now" below `automatic` gives one reminder a cart and no code, checked under the
+cart's lock.
+
 ## 10. Reports (`PortalReports`)
 
 7, 30 or 90 days against the period before: takings (sales, refunds, net), what sold, where it
@@ -385,6 +416,17 @@ bought in the range, orders and spend; plus groups and tags). It is a file, as t
 proposed `customReport` query is not built. Up to 10,000 rows, saying where it was cut. Export needs the plan's
 `reports_sales` and `reports_export`, and the builder `reports_custom` (Business) as well, each refused as `PLAN_LIMIT`; allowed while read-only,
 never for a read-only support session.
+
+**Built on #326, part 2** (`apps/ui/store/src/features/reports`): Reports as PortalReports draws it, over `report`, with
+the range (7, 30 or 90 days), a currency picker when the store sold in more than one, each card's Export and Export all
+(the takings file) as jobs the shell's watcher follows, and the builder's two steps. Locked below Growth shows the
+prototype's locked view naming the plan `PLAN_LIMIT` gives, with See plans for the Owner and "Ask your store owner" for a
+Manager. Decided here: the supplier card is read on its own, so a plan without `reports_export` locks that card (naming
+its plan) and leaves the rest; it shows only when some units are a supplier's. Top offers comes after Suppliers, before
+Custom reports. The tax card is "Sales tax collected" by state in the US, "GST you owe" in India and "Tax you owe"
+elsewhere, rates as percentages and tax on delivery as its own row. The builder's plan (`reports_custom`) is known only
+from a refusal, which the dialog says and the card then names. A range with no sales says "Nothing to export" without
+asking, as the API can't make a file without a currency.
 
 ---
 
@@ -513,19 +555,25 @@ through. Your site stays live."), as is a support session.
   new link from here." with **End links** and **Cancel**. It moves the store's revocation
   number, is recorded as `storefront.preview_links_ended`, and shows "Preview links ended"
   (storefront PREVIEW §5, §8; decided 2026-10-09, #520).
-  **Not drawn** (the prototype card adds them; storefront ARCHITECTURE §6): "End all preview
-  links" and its confirmation; "Opening your
-  studio…" while the sandbox starts; "You're next — about N seconds" while studios queue;
-  "Finishing your previous change…" when another tab is changing the store; "Checking your
-  change…" while the change is checked and repaired.
+  **Drawn on #487** (`PortalStorefront`, `?state=` keys in designs/design.md §2; storefront
+  ARCHITECTURE §6): "End all preview links" (`preview-menu`), its confirmation (`end-links`) and
+  "Preview links ended" (`links-ended`); "Opening your studio…" over the current preview while
+  the sandbox starts (`opening`); "You're next — about N seconds" while studios queue
+  (`queued`); "Finishing your previous change…" when another tab is changing the store
+  (`finishing`); "Checking your change…" while the change is checked and repaired
+  (`checking`); "Your studio session ended. Reopen the studio to keep designing." with
+  **Reopen** (`ended`); a pasted or uploaded image and a website address in the chat
+  (`attach`); **Edit text** in every language (`edit-text`); the page picker listing every
+  page (`pages`).
 - **Publish** asks "Publish version N? We check your whole site first, then it goes live on
   {host} in a few minutes and uses about N build minutes. You can go back to version N−1 any
   time, for free.", shows "Building your site…", "Checking your site…", then "Checking it went
-  live…", and ends with "Version N is live — we checked your site and it changed". **Not drawn**:
-  a refused publish says what failed in plain words and that the live site is unchanged, and
-  offers **Publish everything before this change** when one change is to blame; a publish rolled
-  back after going live says so ("We put version N−1 back: your new version broke the checkout
-  on phones. We're fixing it."); neither uses a "Publish now" press.
+  live…", and ends with "Version N is live — we checked your site and it changed". **Drawn on
+  #487**, with "Checking your site…" (`pub-checking`): a refused publish says what failed in plain words and that the live site is unchanged, and
+  offers **Publish everything before this change** when one change is to blame (`pub-refused`;
+  `pub-refused-all` when none is); a publish rolled back after going live says so ("We put
+  version N−1 back: your new version broke the checkout on phones. We're fixing it.",
+  `rolled-back`); neither uses a "Publish now" press.
 - **Overview, Design tab**: "{host} · version N is live · {template} template", **View live site
   ↗**, **Change template**, **Open studio** or **Continue in studio**; the "Unpublished changes"
   notice with Discard and Continue in studio; the **catalogue Publish now bar** (not drawn;
@@ -626,6 +674,16 @@ in the card. "Upload list" reads a CSV or text file in the browser, keeps only c
 sends them at once (`replaceDeliveryArea`). A courier change or an upload reads the settings back without losing what is
 typed: an edited field stays, the rest follows the server (a last courier going switches its rate off there).
 
+**API side of Developers, #330 part 1** (SUI 14 draws it): `apiKeys` (name, prefix, scopes, supplier, who made it and whether
+they're still an Owner, expiry, last used, until when a rotated-from secret works), `apiKeyChoices` (the scopes a key may hold,
+the lifetimes 30, 90 and 365 days or never, the 50-key cap and the calls a minute and month), `createApiKey` and `rotateApiKey`
+(each answering the secret once) and `revokeApiKey`. The prototype's "Change products", "Change stock" and "Update orders" aren't
+offered yet: a key reads the catalogue, stock, orders and customers only (ACCESS §5.6, decided on #330).
+**Part 2**: `webhookEvents` (the six SetDev draws), `webhooks`, `webhookDeliveries(endpointId)` (event, status, attempts, response
+code, error code, time), `saveWebhook` (the signing secret answered when it is made), `removeWebhook`, `turnOnWebhook` (answers how
+many waiting events it sends) and `replayDelivery`; Apps' `installableApp` (the consent screen), `apps`, `installApp(appId, scopes)`
+and `uninstallApp`. The prototype's install link names its app: the portal takes the app's id from it.
+
 ## 16. Billing (`PortalBilling`, Owner only)
 
 *Billing is not in the merchant mobile app, and the app's Close my store is in Settings › Store
@@ -642,6 +700,24 @@ invoices with PDF and export; **Close my store** with "Download my data first" (
 customers) and "Move to Free instead". Who charges is the partner or DripFunnel on its behalf
 (SAAS §7.1) and the screen says which.
 
+**Built on #329 (SAPI 19), part 1**: `subscription` (plan, status, period, a scheduled change, the
+card's brand, last 4 and expiry, who collects, when Stripe last spoke), `planCatalogue` (the
+partner's Live plans priced in the store's currency, each with every value it sets, Unlimited as
+such), `usage` (products, staff and suppliers counted now; AI prompts and "Publish now" this
+month; bandwidth has no meter yet, so it isn't answered), `planChangeQuote` (what is offered, the
+charge, the credit, today's amount, from when, the next price), `changePlan`, `setPaymentMethod`
+(a Stripe `pm_` token only; while past due it also tries the open invoice, and it works while
+read-only), `billingDetails` and `saveBillingDetails` (a GSTIN in India, a VAT number in the EU),
+`invoices` and `downloadInvoice`. The Owner's only (`billing`), never a support session's or an
+impersonation's writes. A partner that bills its merchants itself answers `BILLED_BY_PARTNER`.
+`buyBandwidth` and `buySetup` wait for a bandwidth meter and the partner's setup offer.
+
+**Part 2**: `planKeep` and `keepProducts(ids)` (Choose what to keep, for products: SAAS §6.2),
+`cancelStore` (SAAS §4.2: read-only now, the storefront selling until the paid period ends) and
+`exportStoreData`, whose id `storeDataExport(id)` reads back as its products, orders and customers
+parts (`store.export`, the Owner in person only, also while read-only). A trial that ends with no
+plan moves to the free plan with the picks applied, or is past due where the partner has none.
+
 ## 17. Supplier views
 
 **Your products** (only theirs, with counts and empty states; stock only for the Stock-only tier;
@@ -650,6 +726,20 @@ catalogue tiers), **To ship** (their lines by shipping mode), **Your sales** (ow
 totals) and **Your team** (Supplier admin: invite, change admin or member, resend, remove, never
 the last admin; DATA-MODEL §4.2). Their own warehouses and stock. Never offers, customers beyond
 §6, plans, other suppliers or the store's totals.
+
+**Built on #327 (SUI 15)**: Your products and To ship are Products' and Orders' supplier views (#298, #314), and a
+Stock-only supplier's menu row says "stock only" (§3.1). **Your sales** (`/sales`) reads `mySales` in pages of 25:
+order and day, product and version, quantity, the line at the price sold, and its status; the note that the store
+settles outside the portal; and Export CSV, the supplier's own orders export (`exportOrders`). It asks the API only
+for a seat that holds `sales.read`, and tells every other seat it has no access. Decided here: **no status chips and no
+shipping status on Your sales**, because `mySales` answers the order's state and the units refunded but not the part's
+shipping, and has no filter: a line is Sold, "N of M refunded", Refunded or Cancelled, and its dates are UTC (a
+supplier reads no store settings).
+**Your team** (`/team`, part 2 of #327) reads `mySupplierTeam` and invites (member or admin), resends, cancels, changes
+the role and removes (restating that they lose access at once); the last admin's menu explains why nothing can change,
+and a refusal such as the server's `LAST_ADMIN` stays in the dialog that asked. It asks the API only for a seat that
+holds `supplier.team`, and tells every other seat it has no access. Decided here: a member's invitation choice is worded
+with the supplier's access level ("Supplier member — Stock only"), and the rows reuse Settings › People's (#290).
 
 ---
 
@@ -712,6 +802,8 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | | *Built on #320 (part 2): `offers(status, kind, trigger, search)` (status `live`, `scheduled`, `off` or `ended`, Used up under Ended; kind `products`, `order`, `bxgy` or `shipping`; search by name, team note or any part of a shared code, never a single-use one), `offerCounts` (the tabs), `offer(id)`, `saveOffer(id, revision, input)` (a new offer without `id`; `enabled` and `startsAt` are Start now, Schedule and Keep off; `STALE_REVISION` with the revision, `CODE_TAKEN` with the offer holding it and its status, deleted included, `UNKNOWN_TARGET`, `CURRENCY_NOT_SOLD`, `PLAN_LIMIT` with `offers`, `group_offers` or `live_offers`), `pauseOffer`, `resumeOffer` ("Turn back on", held to the live limit), `endOffer`, `duplicateOffer`, `deleteOffer` (soft). A changed shared code stops working and stays the offer's. Owner and Manager write, Staff read; the live limit counts live and scheduled offers, under the store's lock, so a downgrade keeps them running and blocks one more.* | |
 | | *Part 3: `generateCodes(offerId, count, prefix, length)` (a run of up to 5,000 single-use codes, readable with no 0/O or 1/I, from the Worker's random source, at most 100,000 an offer; `group_offers`; `NOT_A_CODE_OFFER` for an automatic one), `offerCodeBatches(offerId)` (cursor-paged, newest first) with each run's used count; `CODES_EXHAUSTED` when a prefix leaves too few new codes to draw, `exportOfferCodes(batchId)` (`offers.export`, a job read back by its asker with `offerCodesExport(id)`, never by a read-only support session), `checkCode(code)` (the offer, whether the code is single-use or used, and `answer`: `WORKS`, `INVALID`, `EXPIRED` or `USED_UP`, what a shopper meets; null alike for a malformed, a missing and another store's code; 30 a minute per person and store, `OFFER_CODE_RATE_LIMITER`, refused where unbound), `offerResults(id)` (uses, discount given, sales with the offer and the average order per currency, uses per day for 30 days in the store's time zone; `offer_results`).* | |
 | Abandoned carts | `abandonedCarts(filter)`, `cartSummary(range)`, `reminderSettings` | `saveReminderSettings`, `remindNow(cartId, discount)`, `sendTestReminder` |
+| | *Built on #321 (part 1): `reminderSettings` (the three steps, minimum, switches, `revision` and the plan's `level`; the prototype's starting words until the store saves) and `saveReminderSettings(revision, input)` (`carts.write`; `STALE_REVISION`; `PLAN_LIMIT` with `key: cart_reminders` for anything the plan doesn't allow that wasn't saved already; WhatsApp in India only). Shop API: `restoreCart(token)` (the cart, a guest's new `cartToken`, or `signInRequired`) and `unsubscribe(token)`, each limited per host and address with one refusal, `LINK_INVALID`.* | |
+| | *Part 2: `abandonedCarts(tab: open\|recovered\|lost, search)` (cursor-paged, newest left first, each with its `status`: recovered, stopped, no_contact, opted_out, skipped, not_recovered, reminded or waiting), `abandonedCartCounts`, `abandonedCart(id)` (its lines as they would be bought now and its reminders), `cartSummary(days)` (14 unless asked, at most 90; a recovery counts once its order is paid); `remindNow(cartId, discountPercent)` (`CANT_REMIND` for a cart bought, stopped, expired or with no email; `PLAN_LIMIT` for a second one or a code below `automatic`), `stopCartReminders(cartId, note)`, `resumeCartReminders(cartId)`, `sendTestReminder(position)` (to the person's own email, limited per person and store). All `carts.read` or `carts.write`, merchant side only.* | |
 | Reports | `report(days, currency)` with its panels, `reportExport(id)`, `reportExports` (built on #322) | `exportReport(panel, days, currency, custom)` (job; `panel: custom` is the custom report builder) |
 | Products | `products(filter, sort)`, `productCounts`, `product(id)`, `productStock(productId)`, `stockHistory(productId, versionId)`, `readiness(productId)`, `catalogExport(id)`, `catalogExports`, `catalogImport(id)`, `catalogImports`, `catalogImportTemplate` | `saveProduct`, `updateProducts(ids, patch)`, `deleteProducts`, `adjustStock(versionId, warehouseId, delta, reason)`, `setStock(entries)`, `setLowStockThreshold`, `approveProduct`, `sendBackProduct(reason)`, `uploadAsset` (signed upload), `writeDescription` (AI, metered), `requestCatalogExport(kind)` (job: products or stock), `startCatalogImport(file)`, `confirmCatalogImport(id, matching, warehouseId)` (jobs) |
 | Collections | `collections`, `facets` (the one a supplier reaches too, counting its own products only), `menu`, `sizeCharts`, `productCollections` (merchant side) | `saveCollection`, `deleteCollection`, `saveFacet`, `mergeFacetValues`, `saveMenu`, `saveSizeChart`, `deleteSizeChart`, `setProductCollections` (merchant side) |
@@ -719,8 +811,8 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | Storefront (SAPI 17, #318) | `storefront` (live version, draft, history, usage, publishing status), `storefrontTemplates`, `designChat`, `studioSession` (starting, queued with its place, ready, busy), `publishRun(id)` (steps and the gate's plain-words result), `designText(page, locale)`, `previewLink` | `chooseTemplate(key, keepWords)` (refused until the brand is ready), `askDesign(text, imageAssetId, sampleUrl, page, device)` (AI request, run in the store's sandbox), `saveDesignText(locale, key, text)`, `undoDesignChange`, `discardDraft`, `publishDesign`, `publishBefore(messageId)`, `goBackToVersion(n)`, `publishNow` |
 | Storefront site settings (SAPI 17b, #471) | `storefrontBrand` (with `brandReady`), `storefrontSeo`, `storefrontDomains` | `saveStorefrontBrand`, `saveStorefrontSeo`, `connectDomain`, `checkDomain`, `makeDomainPrimary`, `removeDomain` |
 | Settings | `storeInfo`, `people`, `suppliers`, `gateways`, `shipping`, `warehouses`, `tax`, `markets`, `catalogueSettings`, `customerAccounts`, `apiKeys`, `webhooks(…deliveries)`, `apps`, `supportAccess` (+ log) | `saveStoreInfo`, `saveCurrencies`, `saveLanguages`, `inviteMember`, `changeRole`, `removeMember`, `inviteSupplier`, `setSupplierAccess`, `setSupplierShippingMode`, `suspendSupplier(hide)`, `removeSupplier`, `setApproval`, `connectGateway`, `disconnectGateway`, `saveShipping`, `connectCourier`, `testCouriers`, `saveWarehouse`, `setDefaultWarehouse`, `saveTax`, `saveInvoiceSettings`, `saveMarket`, `saveCatalogueSettings`, `saveBadge`, `saveLegalDefaults`, `setCustomerSignIn`, `createApiKey` (secret shown once), `rotateApiKey`, `revokeApiKey`, `saveWebhook`, `replayDelivery`, `installApp`, `uninstallApp`, `setSupportAccess`, `answerSupportElevation(allow)` |
-| Activity (Owner, and Manager as Store activity) | `activityLog(filter)` (`activity.read`, Owner and Manager, shoppers included), never behind the Settings permission | `exportActivity` (job, `activity.export`, Owner only) |
-| Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails` | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `downloadInvoice`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
+| Activity (Owner, and Manager as Store activity) | `activityLog(filter)` (`activity.read`, Owner and Manager, shoppers included), never behind the Settings permission; `activityExport(id)` reads the job back (built on #331: the filter is person, what, result, search and dates, 50 a page) | `exportActivity` (job, `activity.export`, Owner only) |
+| Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails`, `planChangeQuote(plan, period, when)`, `downloadInvoice` (a read, as the partner's), `planKeep`, `storeDataExport(id)` | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
 | Supplier | Only these, seller-scoped, by ACCESS §5.2's tier: `me` and `storeState` **masked** to what the shell needs (person, role, tier, store name, the read-only flag; never the plan, trial or billing state, §2), `myStores`, `navBadges`, the Profile queries; `products`, `productCounts`, `product`, `facets` (to tag its own products; each value's count is of its own products only), `productStory`, `productStock`, `warehouses` (their own), `stockHistory`, `readiness` (`catalog.read`, `stock.read`); `catalogExport` and `catalogExports`, its own exports only (`exports.products`); `catalogImport`, `catalogImports` and `catalogImportTemplate`, its own imports only (`catalog.import`); `shopifyConnection` and `shopifyProducts`, its own connected shop (`catalog.import`); `orders`, `order` and `orderCounts` for their own lines only, so the To ship chips count nothing else (`orders.read`); `mySales` (`sales.read`, no totals); `mySupplierTeam` (Supplier admin). **Every other query is refused**: `home`, `customers`, `offers`, `abandonedCarts`, `report`, Collections but `facets`, Settings, Billing | Only these, by tier: `saveProduct`, its `filterValues` tagging its own products with the store's filter values, `saveProductStory`, `publishProductStory`, `copyProductStory` (`catalog.write`), `adjustStock`, `setStock`, `setLowStockThreshold`, `saveWarehouse`, `setDefaultWarehouse`, `deleteWarehouse` (`stock.write`, `warehouses.write`), `shipItems`, `addTracking` on their own shipments, `refund` on their own lines (`orders.fulfil`, `orders.refund`), `requestCatalogExport` (`exports.products`, its own rows), `exportOrders` (`exports.orders`, the two order tiers only), `startCatalogImport`, `confirmCatalogImport` (`catalog.import`, writing only its own rows), `connectShopify`, `finishShopifyConnect`, `startShopifyImport`, `disconnectShopify` (`catalog.import`, its own shop), the Profile mutations; `inviteSupplierUser`, `changeSupplierRole`, `removeSupplierUser` (Supplier admin). Every other mutation is refused |
 
 Every mutation is authorised by ACCESS §5.1–5.2 per role and tier, refused while past due
@@ -849,7 +941,34 @@ with an `order` movement, and what the order held is given back; a tracked versi
 (`NOT_ENOUGH_STOCK`). A cancelled, test, still-unpaid card or fully refunded order never ships (`NOT_SHIPPABLE`); a pickup order's is a
 `pickup` handed over, refused with a courier or tracking (`INVALID_INPUT`). The store shipping a transfer before it's paid lets its due date go, so the 3-day sweep leaves it; a supplier's shipment doesn't. `order`
 answers its `shipments` (a supplier's own only, so the store's onward tracking stays the store's) and each line's
-`sentToStoreQuantity`. A tracking address is https only. Booking a label through a courier is #311's.
+`sentToStoreQuantity`. A tracking address is https only.
+**Built on #311 (SAPI 12), part 1, labels and pickups:** `bookLabel(orderId, warehouseId, lines, courier)` and
+`requestPickup(shipmentId)` (`orders.fulfil`, as `shipItems`): one part's lines, as one parcel, from one of the caller's
+locations to the shopper, its label bought through the store's connected courier on its partner's account (THIRD-PARTY-ACCESS
+§4) at that courier's cheapest service. The courier is asked inside the shipment's transaction, as a refund asks its
+provider: a parcel it won't take (`UNSERVED`), a refused account (`COURIER_REJECTED`) or no answer (`COURIER_UNAVAILABLE`)
+writes nothing, and two bookings of the same units book one label (`TOO_MANY` for the second). A courier the store hasn't
+connected, its partner doesn't hold or the store's country doesn't use is `NOT_CONNECTED`; a location or shopper address
+that isn't whole is `NO_ADDRESS` (the store's own locations leave from Store info's address when they have none). The
+shipment is `booked`, with the courier's tracking number and link, and the shopper hears of it as of any shipment; its
+label is kept as the order's document, read at `GET /api/documents/{id}` (`orders.read`; a supplier only its own).
+With scheduled pickups the courier is asked to collect with the label (Shiprocket; a US carrier's daily pickup is the
+merchant's own arrangement); on request, `requestPickup` asks once (`PICKUP_ASKED`), only for a label booked here
+(`NOT_BOOKED`). `order` answers each shipment's `courier`, `labelDocumentId`, `pickupRequestedAt`, `pickupDate` and
+`pickupReference`. Decided there: a label is one part's (`ONE_PART`), so a refusal never leaves one parcel bought for
+another; a to-store supplier's hand-off is entered by hand; a to-shopper supplier books only on the store's account
+(`OWN_LABELS` with `label_account = own`, since DripFunnel holds only the partner's); labels are booked prepaid, since cash
+a courier collects would be remitted to the partner's account (asked as an open question, §21); a label's tracking can't be
+corrected by hand; Shiprocket's parcel goes as a 10 cm box, since an order line carries no dimensions.
+**Part 2, tracking sync:** each partner account's courier posts to `hooks.<host>/couriers/{shiprocket|easypost}/{partnerId}`
+(Shiprocket with its webhook token as `x-api-key`, EasyPost signing the body with its webhook secret); a hook not proved
+with the partner's secret is refused (400) whatever the reason, and one is applied only to that partner's booked parcels.
+A parcel's status (`in_transit`, `out_for_delivery`, `delivered`, `exception`, `returned`, `cancelled`) moves only forward
+in the courier's time, so a hook sent twice or late changes nothing; the first `delivered` sets `deliveredAt`, logs
+`order.delivered` (the store's and, on a supplier's parcel, its own) and tells the shopper once (`order.delivered`: an
+email of what arrived, and a text with the tracking link), unless the store switched that courier's tracking emails off.
+`order` answers each shipment's `trackingStatus` and `deliveredAt`. Decided there: no polling, since both couriers
+resend a hook they couldn't deliver; statuses before the courier has the parcel are ignored.
 **Part 3, returns and refunds:** `startReturn(orderId, lines, reason, note)`, `receiveReturn(returnId)` and
 `cancelReturn(returnId)` (the store's, `orders.refund`: shipped units only, each back to its owner's location by its part's
 mode; cancelled only while on its way back), and `refund(orderId, returnId, lines: [{ lineId, quantity, amount }], extra,
@@ -892,7 +1011,7 @@ email, from the store's name in its partner's look with the store's contact, and
 (`order.confirmed`, `order.shipped` with the courier and the tracking link, which waits until both exist). A test order, a
 cancelled one and a correction of tracking tell nobody. The engine queues an `order.notify` row of ids only; its deliverer
 reads the order when it runs and queues the email and the text, each once. The password email is #308's shopper code (a
-forgotten password signs in by code and sets a new one). `order.delivered` waits for tracking sync (#311).
+forgotten password signs in by code and sets a new one). `order.delivered` comes with tracking sync (#311 part 2).
 
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
 what the portal publishes:
@@ -1047,3 +1166,6 @@ and bearer tokens included); the rows name the cases easiest to miss.
   the preview (decided 2026-10-05 on #337).
 - ~~Apps: embedded pages or links only, and a public marketplace or private apps first
   (PLATFORM-PROMPT §10) — SUI 1 draws the first answer.~~ Private apps, as links (decided 2026-10-05 on #337).
+- **Cash on delivery through a courier's label** (#311): labels are booked prepaid for now, since the courier would remit
+  the cash it collects to the partner's own account, and nothing settles it on to the store. Collect through the label, and
+  how the partner pays it on?

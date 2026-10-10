@@ -9,8 +9,10 @@ import {
   countKnownIds,
   countOffers,
   countOnOffers,
+  insertBoundCode,
   insertCodeBatch,
   insertOffer,
+  reminderOfferFor,
   insertSingleUseCodes,
   lockOffer,
   replaceRules,
@@ -58,6 +60,24 @@ const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const randomCodes = (prefix: string, length: number, count: number): string[] => {
   const bytes = crypto.getRandomValues(new Uint8Array(length * count))
   return Array.from({ length: count }, (_, i) => prefix + Array.from(bytes.subarray(i * length, (i + 1) * length), (b) => codeAlphabet[b & 31] ?? 'A').join(''))
+}
+
+/** How long a cart reminder's code works after it is made (Carts: "expires in 48 hours"). */
+export const reminderCodeMs = 48 * 60 * 60 * 1000
+
+/**
+ * A cart reminder's single-use code (Carts; DATA-MODEL §7.7): one use, on the one cart it was sent for, from the store's
+ * hidden offer at that percentage, which is made the first time under a lock so two reminders never make two.
+ */
+export const issueReminderCode = async (tx: ScopedSql, r: { storeId: string; percent: number; name: string; orderId: string; customerId: string | null; now: Date }): Promise<{ id: string; code: string }> => {
+  await serialise(tx, `cart-reminder-offer:${r.storeId}:${r.percent}`)
+  const promotionId = await reminderOfferFor(tx, r.storeId, r.percent, r.name)
+  const expiresAt = new Date(r.now.getTime() + reminderCodeMs)
+  for (const code of randomCodes('BACK-', 6, 5)) {
+    const id = await insertBoundCode(tx, { storeId: r.storeId, promotionId, code, orderId: r.orderId, customerId: r.customerId, expiresAt })
+    if (id) return { id, code }
+  }
+  throw new Error('cart reminder: five codes drawn were all taken')
 }
 
 export interface CodeCheck {

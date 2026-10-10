@@ -3,8 +3,8 @@ import { pgArray, type ScopedSql } from './index'
 // The store's product and stock exports as jobs (migrations/0058; FIRST-RELEASE §13): asked for, built after
 // commit in the asker's own scope, read back by id. Row security keeps a supplier to its own jobs and rows.
 
-/** The store's exports: products and stock (#301), orders (#310), customers (#312), an offer's codes (#320) and reports (#322), each a job read back by id. */
-export type CatalogExportKind = 'products' | 'stock' | 'orders' | 'customers' | 'offer_codes' | 'report'
+/** The store's exports: products and stock (#301), orders (#310), customers (#312), an offer's codes (#320), reports (#322) and the activity log (#331), each a job read back by id. */
+export type CatalogExportKind = 'products' | 'stock' | 'orders' | 'customers' | 'offer_codes' | 'report' | 'activity'
 
 export interface CatalogExportRow {
   id: string
@@ -25,12 +25,12 @@ export interface CatalogExportRow {
 
 export const insertCatalogExport = async (
   tx: ScopedSql,
-  e: { storeId: string; sellerId: string | null; kind: CatalogExportKind; filter: Record<string, unknown>; byId: string; byLabel: string },
+  e: { storeId: string; sellerId: string | null; kind: CatalogExportKind; filter: Record<string, unknown>; byId: string; byLabel: string; bundle?: string },
 ): Promise<string> => {
   const id = crypto.randomUUID()
   await tx`
-    insert into catalog_export (id, store_id, seller_id, kind, filter, requested_by_id, requested_by_label)
-    values (${id}, ${e.storeId}, ${e.sellerId}, ${e.kind}, ${JSON.stringify(e.filter)}::text::jsonb, ${e.byId}, ${e.byLabel})
+    insert into catalog_export (id, store_id, seller_id, kind, filter, requested_by_id, requested_by_label, bundle)
+    values (${id}, ${e.storeId}, ${e.sellerId}, ${e.kind}, ${JSON.stringify(e.filter)}::text::jsonb, ${e.byId}, ${e.byLabel}, ${e.bundle ?? null})
   `
   return id
 }

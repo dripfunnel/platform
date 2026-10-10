@@ -16,14 +16,14 @@ export const assetsPath = '/api/assets'
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 const refuse = (status: number, code: string) => json(status, { ok: false, code })
 
-const statusOf: Record<string, number> = { UNAUTHENTICATED: 401, FORBIDDEN: 403, STORE_REQUIRED: 400, SUPPLIER_REQUIRED: 400, STORE_SUSPENDED: 403, READ_ONLY: 403 }
+const statusOf: Record<string, number> = { UNAUTHENTICATED: 401, FORBIDDEN: 403, STORE_REQUIRED: 400, SUPPLIER_REQUIRED: 400, STORE_SUSPENDED: 403, READ_ONLY: 403, SUPPORT_READ_ONLY: 403, BLOCKED_FOR_SUPPORT: 403 }
 
 /** The policy's refusal as an HTTP answer, or null when the caller may go on. */
-const refusedBy = async (ctx: StoreContext, permission: 'catalog.read' | 'catalog.write'): Promise<Response | null> => {
+const refusedBy = async (ctx: StoreContext, permission: 'catalog.read' | 'catalog.write', id: string): Promise<Response | null> => {
   // A Stock-only supplier uploads the photos of the products it proposes (decided on #337).
   const proposer = ctx.standing.kind === 'acting' && permission === 'catalog.write' && !storeRoleHas(ctx.standing.caller.role, 'catalog.write') && storeRoleHas(ctx.standing.caller.role, 'catalog.propose')
   try {
-    await storePolicy.authorize({ api: 'store', scope: 'store-seller', permission: proposer ? 'catalog.propose' : permission, target: 'none' }, ctx, {}, permission === 'catalog.write' ? 'mutation' : 'query')
+    await storePolicy.authorize({ api: 'store', scope: 'store-seller', permission: proposer ? 'catalog.propose' : permission, target: 'none' }, ctx, { id }, permission === 'catalog.write' ? 'mutation' : 'query', { name: 'assets', root: true })
     return null
   } catch (error) {
     const code = error instanceof GraphQLError ? String(error.extensions['code'] ?? 'FORBIDDEN') : 'FORBIDDEN'
@@ -38,7 +38,8 @@ export const handleAssets = async (request: Request, ctx: StoreContext, store: A
   const id = url.pathname.slice(assetsPath.length + 1)
   const reading = request.method === 'GET' && url.pathname !== assetsPath
   if (!reading && !(request.method === 'POST' && url.pathname === assetsPath)) return new Response('Method not allowed', { status: 405 })
-  const refused = await refusedBy(ctx, reading ? 'catalog.read' : 'catalog.write')
+  // A read is one a support session's log names, with the file's id (LOGGING.md §3).
+  const refused = await refusedBy(ctx, reading ? 'catalog.read' : 'catalog.write', id)
   if (refused) return refused
   if (!ctx.sql) return refuse(503, 'NOT_CONNECTED')
   if (!store) return refuse(503, 'NOT_CONNECTED')

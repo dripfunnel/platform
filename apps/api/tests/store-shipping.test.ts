@@ -48,6 +48,9 @@ const fakeCouriers = (accounts: ('shiprocket' | 'easypost')[]): CourierDirectory
           ? { amount: { amount: answer.rupees, currency: 'INR' }, service: 'Delhivery Surface', minDays: 3, maxDays: 5 }
           : { amount: { amount: answer.cents ?? 0n, currency: 'USD' }, service: 'Ground', minDays: 2, maxDays: 4 }
       },
+      book: async () => null,
+      pickup: async () => ({ ref: null, date: null }),
+      readHook: async () => null,
     },
   }),
 })

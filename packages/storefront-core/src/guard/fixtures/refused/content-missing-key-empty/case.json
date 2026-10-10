@@ -1,0 +1,5 @@
+{
+  "rule": "content/missing-key",
+  "file": "content/hi/pages.json",
+  "line": 9
+}

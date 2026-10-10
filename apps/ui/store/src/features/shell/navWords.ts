@@ -8,12 +8,18 @@ const words: NavViewWords<NavKey, NavBadgeSource> = {
   count: formatCount,
 }
 
-/** The seat's rows, worded, grouped and badged; Billing notes the trial's days left (the prototype's). */
+const noteOf = (key: string, seat: Seat, trialDaysLeft: number | null): string | undefined => {
+  if (key === 'billing' && trialDaysLeft !== null) return fill(plural(messages.shell.trialNote, trialDaysLeft), { count: formatCount(trialDaysLeft) })
+  if (key === 'yourProducts' && seat.side === 'supplier' && seat.tier === 'vendor-stock') return messages.shell.stockOnly
+  return undefined
+}
+
+/** The seat's rows, worded, grouped and badged; Billing notes the trial's days left and a Stock-only supplier's products say so (the prototype's). */
 export const navRowsFor = (seat: Seat, badges: Record<NavBadgeSource, number>, trialDaysLeft: number | null): NavRowView[] => {
   const rows = navFor(seat)
   return navView(rows, badges, words).map((view, i) => {
     const group = rows[i]?.group
-    const note = view.key === 'billing' && trialDaysLeft !== null ? fill(plural(messages.shell.trialNote, trialDaysLeft), { count: formatCount(trialDaysLeft) }) : undefined
+    const note = noteOf(view.key, seat, trialDaysLeft)
     return { ...view, ...(group ? { group: messages.shell.groups[group] } : {}), ...(note ? { note } : {}) }
   })
 }

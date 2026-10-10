@@ -312,4 +312,5 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
     // "Continue to payment": refused as NOT_READY with `problems` in its extensions until everything is in place.
     checkout: t.field({ type: Cart, extensions: { access: write }, resolve: async (_, __, ctx) => answered(await (await cartOf(ctx)).checkout()) }),
   }))
+  return { Cart }
 }

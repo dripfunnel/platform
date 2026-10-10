@@ -15,7 +15,7 @@ import {
 } from '#engine/modules/customers/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { actingCaller, tenantCaller, type StoreContext } from './access'
 import { moneyType, pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -43,8 +43,8 @@ export const registerCustomers = (builder: StoreBuilder) => {
   const Money = moneyType(builder)
   const service = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
-    const caller = actingCaller(ctx)
-    return createCustomersService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+    const caller = tenantCaller(ctx)
+    return createCustomersService({ sql: ctx.sql, context: caller.context, actor: { id: caller.actor.id, partnerId: caller.actor.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
   }
   const exportsOf = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
@@ -188,7 +188,7 @@ export const registerCustomers = (builder: StoreBuilder) => {
     customers: t.field({
       type: SummaryPage,
       args: { groupId: t.arg.id(), search: t.arg.string(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
-      extensions: { access: read },
+      extensions: { access: { ...read, machine: true } },
       resolve: async (_, args, ctx) => {
         const window = storePage(args)
         const filter = { groupId: args.groupId ? String(args.groupId).toLowerCase() : null, search: args.search ?? null }
@@ -196,9 +196,9 @@ export const registerCustomers = (builder: StoreBuilder) => {
       },
     }),
     // "People · n" on the tab.
-    customerCount: t.int({ extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).count() }),
-    customer: t.field({ type: Customer, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, args, ctx) => service(ctx).detail(String(args.id).toLowerCase()) }),
-    customerGroups: t.field({ type: [Group], extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).groups() }),
+    customerCount: t.int({ extensions: { access: { ...read, machine: true } }, resolve: (_, __, ctx) => service(ctx).count() }),
+    customer: t.field({ type: Customer, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: { ...read, machine: true } }, resolve: (_, args, ctx) => service(ctx).detail(String(args.id).toLowerCase()) }),
+    customerGroups: t.field({ type: [Group], extensions: { access: { ...read, machine: true } }, resolve: (_, __, ctx) => service(ctx).groups() }),
     customerExport: t.field({
       type: CustomerExport,
       nullable: true,

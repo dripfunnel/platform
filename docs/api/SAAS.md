@@ -242,6 +242,16 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
   (CONSOLE-DESIGN §8). Suspended is a person's decision; past due is a billing fact.
 - Every state change writes an audit entry and an outbox event (email to the Owner, cache
   purge of the storefront's degraded rule).
+- **Built on #329, part 2**: `cancelStore` (the Owner's, never a support session's) makes the store
+  cancelled and read-only at once. A paid plan ends at its period's end through Stripe's
+  `cancel_at_period_end`, and the Shop API keeps selling until `cancel_at`; a trial or a free plan
+  ends at once. The Owner gets `store-cancelled`, which says the data is kept 90 days, and
+  `exportStoreData` works while read-only. The cron ends each trial past `trial_ends_at` with no plan
+  chosen: it moves to the partner's free plan in the store's currency, with Choose what to keep
+  applied (§6.2), or becomes past due where the partner has none. Each store ends in its own
+  transaction, and one that fails goes behind the others in the next run. *Decided here*: that past-due
+  store may still choose a plan while read-only, since paying is how it leaves (ui/store
+  FIRST-RELEASE.md §3.3). The 90-day deletion is Closed's, not built here.
 
 ### 4.3 What the partner can do to an account
 
@@ -329,7 +339,8 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   **Planned** when its feature isn't built: the value is stored and the console tags the row,
   and nothing checks it until the feature ships. Enforced today: the original 13 and badges,
   FAQs and related products, product video, spreadsheet import and Shopify import, and since #320 `live_offers`, `group_offers` (customer-group and chosen-customer offers,
-  tiers, single-use codes) and `offer_results`; a version
+  tiers, single-use codes) and `offer_results`; since #321 `cart_reminders` (decided there: `youSend` sends by hand only,
+  one a cart; `onePerCart` sends the first reminder automatically; `automatic` sends all three, with codes and WhatsApp); a version
   written before the five catalogue rows existed starts with them on, and one written before `live_offers` with it
   unlimited, so no store loses a section or an offer.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
@@ -369,6 +380,13 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   it and nothing pauses; the card that enforces a row adds its keep-or-pause rule. An
   **Unlimited** limit is never near and never over: usage reads it as no cap, whatever an
   override adds.
+- **Built on #329, part 2, for products** (`planKeep`, `keepProducts(ids)`): the picks are for a
+  scheduled smaller plan, the free plan a trial ends on, or else the plan the store is on, where
+  they apply at once. What stays is every product with an order waiting to ship, then the Owner's
+  picks, then the best sellers and the most recently changed. The rest gets `hidden_by = 'plan'` when
+  the plan takes effect, and a bigger plan brings it back. `NOTHING_TO_KEEP` answers when the
+  catalogue already fits. *Decided here*: only products pause here, because staff, gateways,
+  couriers and markets get their keep rule with the card that enforces their limit (above).
 
 ### 6.3 Changing and retiring plans
 
@@ -430,6 +448,22 @@ partner's billing, or both) is open (§14).
   kept and is answered 200, so it never holds the endpoint up. Stripe slow answers 503 so Stripe delivers again, and marks the partner's
   feed stale, found by the event's Connect account or customer. Store-side writes (`store_subscription`, the merchant's invoices) are the Store
   strand's (ui/store/FIRST-RELEASE.md §20, SAPI 19).
+- **Built on #329** (`saas/storeBilling`, `apis/store/billing.ts`), the store's own plan: one Stripe
+  subscription per store on DripFunnel's account, priced from the plan version it buys, with the
+  store, plan and version in its metadata. Leaving the trial starts the first period now (the
+  prototype's "Choose plan"), and a free plan needs no card and nothing on Stripe. A plan at a
+  higher monthly price, or monthly to yearly, may move now, prorated by Stripe and invoiced at once
+  (`error_if_incomplete`: a declined card leaves the plan as it was); a lower one, or yearly to
+  monthly, waits for the period's end as a Stripe subscription schedule, recorded as
+  `next_plan_*` and applied when the subscription's metadata names it. Asking for the plan it has
+  calls a scheduled change off. One change at a time per store (`billing_claim`, two minutes), and
+  each Stripe write's idempotency key is the change and the store's `billing_revision`, which moves
+  only when a change is recorded or Stripe refuses one: two tabs, or a retry after a commit that was
+  lost once Stripe had answered, never charge twice.
+  `customer.subscription.*` events set the subscription's status and period and the store's
+  past due, paid and cancelled; merchant invoices are also kept as `invoice` rows with their lines.
+  *Decided here*: Stripe's own PDF is the invoice's PDF (as the partner's), so no `pdf_asset_id`;
+  the partner's Connect transfer and DripFunnel's fee on these subscriptions are a follow-up.
 - The webhook updates `store_subscription` (or the partner's account), invalidates the cached
   status on sessions, and writes outbox events for emails and storefront rules, in one
   transaction.
@@ -460,7 +494,11 @@ partner's billing, or both) is open (§14).
 ### 7.3 Dunning
 
 Past due stores by age (1–7, 8–14, 15+ days), the retry schedule, emails sent, and the moment
-past due becomes suspended (H4): **after 14 days unpaid** (decided 2026-10-05 on #284). Payouts to partners, when
+past due becomes suspended (H4): **after 14 days unpaid** (decided 2026-10-05 on #284). **Built on
+#329**: the cron suspends every store 14 days past due, by `Billing` with the partner's support as
+its contact, and emails the Owner. A suspended store can't pay in the portal (§4.2), so its reason
+names no way to but that contact, which may restore it (ACCESS §5.3); Stripe reporting it paid
+afterwards (its own retry) restores it and makes it active, while a person's suspension stays. Payouts to partners, when
 DripFunnel bills on their behalf, show period, gross, fees, payout and status (H5).
 
 ---

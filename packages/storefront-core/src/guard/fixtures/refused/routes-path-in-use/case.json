@@ -1,0 +1,5 @@
+{
+  "rule": "routes/path-in-use",
+  "file": "routes.json",
+  "line": 24
+}

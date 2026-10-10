@@ -7,6 +7,7 @@ import { pageOf, type Page, type PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectAccountById } from '#db/scoped/payments'
+import { queueStoreEvent } from '#db/scoped/storeEvents'
 import {
   addRefunded,
   anythingShipped,
@@ -263,6 +264,8 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
       )
       if (override && owner) await insertLedgerEntry(tx, { storeId, sellerId: owner, amount, currency: order.currency, refundId: id, createdBy: actor.id })
       await record(tx, override ? refundAudit.overridden : refundAudit.issued, order, o.reason, [owner])
+      // An order the gift card paid in full has no payment, and is live: a preview never spends a card.
+      if (!payment || payment.mode === 'live') await queueStoreEvent(tx, storeId, 'order.refunded', { object: 'order', id: order.id, number: order.number }, id, now())
       made.push({ id, amount })
     }
     // Back on hand at the owner's own location; a to-store supplier's units go back to it from the store, its to count.

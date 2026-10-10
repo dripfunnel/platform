@@ -194,7 +194,11 @@ job. Only the last call is local (`apps/api/src/integrations/local/`):
   for SaaS. Every other name goes to the real resolver and, with the `CF_*` values, to Cloudflare.
 - **Couriers** (`COURIERS_LOCAL`): every partner has a Shiprocket and an EasyPost account, which quote a fixed
   tariff within their own country (a base and a step per started 500 g), so Settings › Shipping and checkout's live
-  rates work without either provider (#305).
+  rates work without either provider (#305). Booking a label answers a made-up tracking number (`LOCAL…`, linked at
+  `track.localhost`) and a one-page PDF, and a pickup is always accepted (#311). Track one by posting a Shiprocket status
+to `https://hooks.localhost/couriers/shiprocket/<partner id>` with `x-api-key: local-courier-hook` and a body such as
+`{"awb": "LOCAL…", "current_status": "DELIVERED", "current_timestamp": "2026-10-12 11:00:00"}`; EasyPost's events sign
+with the same secret.
 
 Check that it's up:
 

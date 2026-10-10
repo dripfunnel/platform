@@ -186,6 +186,7 @@ The declaration replaces the first platform's tRPC procedure bases:
 | `scope: 'store'` | `tenantProcedure` | Acting store verified (§9 checks 1 and 10), `TenantContext` built, subscription gate applied. |
 | `scope: 'store-seller'` | `scopedProcedure` | `store` plus the `SellerScope` handed to the scoped query layer, so vendor reads and writes are filtered without the resolver asking. Every catalogue, inventory and order field uses this. |
 | `permission: <key>` | `capabilityProcedure(cap)` | The permission (or Owner-only capability, §5.1) must be in `TenantContext.permissions` for the acting store. |
+| `machine: true` | (none) | API keys may call it too, within their scopes (§5.6); the build fails when it names a permission no key can hold. |
 | `audit: <action>` | `privilegedProcedure(cap)` (never built) | The resolver's writes and its audit row commit in one transaction (§10). Required on every field that needs a capability, and on every Platform and Admin API mutation. |
 | `scope: 'partner'`, `scope: 'platform'` | (none) | Platform API fields see only the caller's partner; Admin API fields see every partner, per staff role. |
 
@@ -593,6 +594,7 @@ SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call,
 | `activity.export` | ✓ | | | | ✓ | |
 | `staff.manage` | ✓ | | | | | |
 | `partners.assign` (assign and unassign a Partner manager, #60) | ✓ | | | | | |
+| `apps.manage`: register, list, suspend and restore private apps (#330; no console screen yet) | ✓ | | | | | |
 
 | Decision (#14) | Rejected | Why |
 |---|---|---|
@@ -669,7 +671,38 @@ test (§11.2).
 - **App grants** are per store, with the scopes the merchant approved at install, revocable on
   uninstall; the app runs out of process and reaches the Store API like any other caller.
 - Creating, rotating and revoking keys, and installing and uninstalling apps, are audited.
-- **Webhook and key rules as drawn** (`SetDev`, #286; *proposed* for SAPI 20 to confirm): a rotated key's old secret keeps working for **24 hours**; an endpoint failing for **3 days** is disabled automatically and the Owner told; events for a disabled endpoint are kept **7 days** for replay.
+- **Webhook and key rules as drawn** (`SetDev`, #286; confirmed and built on #330): a rotated key's old secret keeps working for **24 hours**; an endpoint failing for **3 days** is disabled automatically and the Owner told; events for a disabled endpoint are kept **7 days** for replay.
+- **Built on #330 part 1** (API keys; `auth/apiKeys.ts`, `auth/machineCaller.ts`, `saas/apiKeys`, migration 0150): a key is
+  `dfk_` and 48 random characters, sent as `Authorization: Bearer`; only its SHA-256 and its first 12 characters (the prefix)
+  are kept, and the secret is in the answer to `createApiKey` or `rotateApiKey` alone. It is resolved in `system` scope on every
+  request, ignoring `X-Store` and `X-Supplier`; a key sent beside the portal's cookie, an unknown, revoked or expired one, one
+  for another partner's host, and a supplier-bound one whose supplier is suspended or removed all read as no key
+  (`UNAUTHENTICATED`). A key reaches only the fields declared `machine` (§3.1), within its scopes; every other field answers
+  `FORBIDDEN`. **Decided here**: the scopes a key may hold are the permissions of those fields, `catalog.read`, `stock.read`,
+  `orders.read` and `customers.read` (`machineScopes`), because no write records a key as its actor yet (LOGGING §4); a later
+  card opens writes field by field. A supplier-bound key holds only scopes of its supplier's tier, and is narrowed again to the
+  tier it has on each request. Rotating makes a new key and keeps the old secret working 24 hours; revoking ends the key and every
+  secret it was rotated from at once. Lifetimes are 30, 90 or 365 days or none; a store holds at most 50 live keys. When an Owner
+  who made keys is demoted or removed, the keys keep working, the list shows `createdByHere: false` and the Owners left get an
+  email (`api-keys-creator-gone`). **Calls are counted per store** (decided on #337): 60 a minute and 100,000 a month until the
+  plan sets its own (SAPI 19's entitlements); past either, the request answers HTTP 429 with `Retry-After`, and every address is
+  held to 1,200 key requests a minute before any key is looked up (`API_RATE_LIMITER`).
+- **Built on #330 part 2** (webhooks and apps; `saas/webhooks`, `saas/apps`, `jobs/queues/deliverers/webhooks.ts` and
+  `appNotice.ts`, migrations 0151 and 0152). **Webhooks**: the Owner's `saveWebhook` (https only, its address resolved and
+  refused when any answer is private, loopback, link-local or metadata, as `integrations/http/publicFetch.ts` checks), with the
+  signing secret (`whsec_`) answered once and kept sealed; `removeWebhook`, `turnOnWebhook` and `replayDelivery`. The engine queues
+  `order.placed`, `order.paid`, `order.shipped`, `order.refunded`, `product.updated` and `stock.changed` in the transaction that made
+  them, only when an endpoint takes the event and never for a preview's test order; `webhook.event` makes one delivery per endpoint,
+  and `webhook.deliver` sends it with `DripFunnel-Signature: t=<seconds>,v1=<HMAC-SHA256 of "t.body">`, the address checked again
+  first, a 5-second timeout and no redirect followed, retried by the relay's backoff up to its limit; a delivery whose signing key can't be opened is marked failed (`no_signing_key`). `turnOnWebhook` answers how many held events of the last week it will send and hands them to `webhook.release`, which queues 500 a pass, each its own transaction. **Decided here**: a body holds
+  ids only (`{ id, type, createdAt, store, data: { object, id, number? } }`), so neither the outbox nor the delivery log holds a
+  shopper's details; the receiver reads the rest with a key. **Apps**: staff with `apps.manage` register one (name, developer, site,
+  webhook address, scopes from `machineScopes`, its signing secret answered once); the Owner sees `installableApp`, and
+  `installApp` takes the scopes shown back, refusing `SCOPES_CHANGED` when they moved; the grant's token (`dfa_`) goes once to the
+  app's address, signed with its secret, with the Store API's address; it calls the Store API store-wide within its scopes, and
+  stops when uninstalled, or while DripFunnel has the app suspended. The notice waits while the app is suspended; if the relay gives
+  up on it, the token is gone for good, and the install shows `connection: failed` so the Owner removes it and installs again. Opening the app is a link to its site; nothing of it runs
+  in the portal (decided on #337).
 
 ---
 
@@ -920,7 +953,7 @@ support_session(store_id, partner_user_id, reason, access 'read',
    ▼
 Browser → https://<store's portal host>/support/enter?token=…
    → Store API exchanges it for a support cookie on that host (separate from any person session)
-   → TenantContext { caller: support, sellerScope: all, permissions: support read set }
+   → TenantContext { caller: support, sellerScope: the seat's, permissions: the seat's, read-only }
 ```
 
 **Rules:**
@@ -956,6 +989,41 @@ end a session. Returning to a session mints a fresh link only while a start woul
 allowed (support on, store not cancelled, user not suspended). Elevation, the exchange and the
 support caller stay with the Store strand; the exchange spends a link only while the start's
 codes still allow a session.
+
+**Built on #331** (the store's half):
+- **The seat.** A session acts as the membership it was opened on: that seat's role, permissions
+  and seller scope, read-only until elevated. So the "support read set" is the Owner's only when
+  the agent signed in as an Owner (decided here: #202 already opened sessions per user).
+- **The exchange.** The portal's `/support/enter` page posts the token to
+  `POST /api/auth/support-handoff`. That spends it once, only on the session's own partner's host
+  and while a start would still be allowed, and sets `__Host-portal_support`, a cookie of its own
+  beside any person's, of which only the hash is kept (`portal_session_hash`). A spent, expired or
+  unknown link is `HANDOFF_INVALID`.
+- **The routes.** `POST /api/auth/support-session` answers the cookie's session, open or how it
+  ended (`agent`, `colleague`, `store`, `expired`, `targetGone`, `storeClosed`), with its access
+  and request. `POST /api/auth/end-support-session` is the bar's End now, ended as the agent. The
+  cookie stays, acting as nobody. The exchange counts against the sign-in limiter, and the two
+  others against the session-read one (`STAFF_SESSION_RATE_LIMITER`, keyed by host and address).
+- **The caller.** A support cookie is read before the person's. Every request ends a session whose
+  store has switched support off (a start racing the switch), whose user, seat or supplier is no
+  longer active (`target_gone`) or whose store is cancelled or closed (`store_closed`), logged as
+  `support_session.ended` by `job`. Naming another store in `X-Store` is a logged crossing.
+- **The policy.** Every field a person's own session holds (`session` scope: profile, password,
+  2-factor, store switching) refuses a support session with `BLOCKED_FOR_SUPPORT`. Before
+  elevation every mutation refuses with `SUPPORT_READ_ONLY`, except `requestSupportWrite`, its
+  own. After it, the "never" list still refuses with `BLOCKED_FOR_SUPPORT`, by permission
+  (`invite`, `manage-vendors`, `supplier.team`, `payments.configure`, `billing`,
+  `support.allow_write`, `activity.export`, `store.export`) and by `blockedFor: ['support']` on a field
+  (`setSupportAccess` and the `supportAccess` log, `createApiKey`, `rotateApiKey`, `installApp`, and `saveWebhook`, which would send
+  the store's events to an address the agent chose).
+- **Elevation.** The agent asks with a note (`requestSupportWrite`, one open request at a time,
+  again after a Deny). The banner (`storeState.support`) shows it to the merchant side, and an
+  Owner or Manager answers with `allowSupportWrite` or `denySupportWrite`. The answer locks the
+  row, so it never crosses an end. A request no longer open is `NOT_PENDING`.
+- **The switch.** `setSupportAccess(false)` (`settings`, allowed while read-only) ends every open
+  session at once, each logged with `support_off`. `supportAccess` lists the last 90 days.
+- **Attribution.** Whatever a service files as the seat's person while a support session acts is
+  rewritten to the session (`actor_kind = support_session`) with the agent as `on_behalf_of`.
 
 ### 8.1 Staff impersonation (decided 2026-09-28, USERS-AND-DOMAINS §4.2)
 

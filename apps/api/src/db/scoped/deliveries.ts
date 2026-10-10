@@ -1,7 +1,7 @@
 import { insertOutbox } from './outbox'
 import type { ScopedSql } from './index'
 
-// What a paid order's downloads, services and gift cards become (migration 0111; CATALOG-DESIGN T14), written by the
+// What a paid order's downloads, services and gift cards become (migration 0171; CATALOG-DESIGN T14), written by the
 // engine in system scope as the payment is: a download's grant, keys from the pool, a gift card and its ledger.
 
 export interface LineToDeliverRow {
@@ -117,18 +117,6 @@ export const sendTimeOf = async (tx: ScopedSql, sendOn: string | null, timeZone:
 
 export const queueEmail = (tx: ScopedSql, e: { partnerId: string; storeId: string; key: string; payload: Record<string, unknown>; notBefore?: Date }) =>
   insertOutbox(tx, { kind: 'email', idempotencyKey: e.key, payload: e.payload, partnerId: e.partnerId, storeId: e.storeId, ...(e.notBefore ? { notBefore: e.notBefore } : {}) })
-
-/** The store's shop address: its live domain, else its name under the partner's shops domain (storefront LIVE-SHOP §1). */
-export const selectShopHost = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
-  (
-    await tx<{ host: string | null }[]>`
-      select coalesce(
-        (select d.host from custom_domain d where d.store_id = s.id and d.status = 'live' order by d.created_at limit 1),
-        (select s.code || '.' || substr(pd.host, 3) from partner_domain pd where pd.partner_id = s.partner_id and pd.kind = 'shops' and pd.status = 'live' and pd.host like '*.%' limit 1)
-      ) as host
-      from store s where s.id = ${storeId}
-    `
-  )[0]?.host ?? null
 
 export interface DownloadsEmailRow {
   store_id: string

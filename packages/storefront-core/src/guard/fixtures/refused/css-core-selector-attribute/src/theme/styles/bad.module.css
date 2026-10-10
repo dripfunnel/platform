@@ -1,0 +1,7 @@
+.card {
+  padding: 16px;
+}
+
+.card [data-df-required] {
+  visibility: hidden;
+}

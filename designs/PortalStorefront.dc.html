@@ -9,27 +9,37 @@
 <x-dc>
 <helmet>
 <script src="./storefront-lib.js"></script>
+<style>
+@keyframes df-spin{to{transform:rotate(360deg);}}
+.df-spin{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid #D7D3CD;border-top-color:#0A2A4A;animation:df-spin 0.9s linear infinite;}
+@media (prefers-reduced-motion: reduce){.df-spin{animation:none;}}
+[data-edit-text="1"] :is(h1,h2,h3,p,span,li):hover{outline:2px dashed #00519F;outline-offset:2px;cursor:text;}
+</style>
 </helmet>
 <div data-sf-root="1" style="min-height:100%;">
 <sc-if value="{{ notReady }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 28px;display:flex;flex-direction:column;gap:12px;"><div style="height:28px;width:200px;border-radius:6px;background:#ECE9E4;"></div><div style="height:360px;border-radius:12px;background:#F2F0EC;"></div></div></sc-if>
 
 <sc-if value="{{ mode.studio }}" hint-placeholder-val="{{ false }}">
-<div style="position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;background:#FDFAF7;">
+<div data-sf-studio="1" style="position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;background:#FDFAF7;">
   <div style="height:56px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;background:#FFFFFF;border-bottom:1px solid #E8E2DC;">
     <button onClick="{{ a.exitStudio }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">← Storefront</button>
     <div style="display:flex;flex-direction:column;min-width:0;line-height:1.25;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#0A2A4A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ studio.title }}</span><span style="font-size:12px;color:#5A6472;white-space:nowrap;">{{ studio.host }}</span></div>
     <span style="flex:none;height:22px;padding:0 8px;border-radius:5px;background:{{ studio.pillBg }};color:{{ studio.pillFg }};border:1px solid {{ studio.pillBd }};font-size:12px;font-weight:600;display:{{ studio.pillDisp }};align-items:center;white-space:nowrap;">{{ studio.status }}</span>
     <span style="flex:1;"></span>
+    <sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}">
+      <button data-menu-btn="page" aria-haspopup="listbox" aria-expanded="{{ pageMenu }}" onClick="{{ a.togglePages }}" style="flex:none;max-width:220px;height:34px;padding:0 10px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;"><span style="font-weight:400;color:#5A6472;">Page</span><span style="overflow:hidden;text-overflow:ellipsis;">{{ pageLabel }}</span><span aria-hidden="true" style="color:#5A6472;">▾</span></button>
+    </sc-if>
     <sc-if value="{{ narrowBar }}" hint-placeholder-val="{{ false }}">
-      <select aria-label="Page" value="{{ page }}" onChange="{{ on.pageSel }}" style="flex:none;height:34px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;padding:0 8px;"><sc-for list="{{ pageOpts }}" as="po" hint-placeholder-count="5"><option value="{{ po.k }}">{{ po.l }}</option></sc-for></select>
       <select aria-label="Screen size" value="{{ device }}" onChange="{{ on.devSel }}" style="flex:none;height:34px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;padding:0 8px;"><sc-for list="{{ devOpts }}" as="do" hint-placeholder-count="3"><option value="{{ do.k }}">{{ do.l }}</option></sc-for></select>
     </sc-if>
     <sc-if value="{{ wideBar }}" hint-placeholder-val="{{ true }}">
-      <div role="tablist" aria-label="Page" style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ pageTabs }}" as="pt" hint-placeholder-count="5"><button onClick="{{ pt.onClick }}" style="height:32px;padding:0 10px;border:0;background:{{ pt.bg }};color:{{ pt.fg }};font-size:12px;font-weight:600;cursor:pointer;">{{ pt.label }}</button></sc-for></div>
       <div aria-label="Screen size" style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ devTabs }}" as="dt" hint-placeholder-count="3"><button onClick="{{ dt.onClick }}" style="height:32px;padding:0 10px;border:0;background:{{ dt.bg }};color:{{ dt.fg }};font-size:12px;font-weight:600;cursor:pointer;">{{ dt.label }}</button></sc-for></div>
     </sc-if>
-    <sc-if value="{{ publishing }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;min-width:150px;"><div style="flex:1;height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ pubPct }};height:100%;background:#1D6B47;"></div></div><span style="font-size:12px;color:#434A55;white-space:nowrap;">{{ pubText }}</span></div></sc-if>
+    <sc-if value="{{ publishing }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;align-items:center;gap:8px;min-width:150px;"><div style="flex:1;height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ pubPct }};height:100%;background:#1D6B47;"></div></div><span style="font-size:12px;color:#434A55;white-space:nowrap;">{{ pubText }}</span></div></sc-if>
     <sc-if value="{{ notPublishing }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ prevBtnBar }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><button onClick="{{ a.openPreview }}" style="height:34px;padding:0 12px;border:0;background:#FFFFFF;color:#14181F;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Open preview ↗</button><button data-menu-btn="prev" aria-label="More preview options" aria-haspopup="menu" aria-expanded="{{ prevMenu }}" onClick="{{ a.togglePrevMenu }}" style="width:30px;height:34px;padding:0;border:0;border-left:1px solid #D7D3CD;background:#FFFFFF;color:#5A6472;font-size:12px;cursor:pointer;">▾</button></div>
+      </sc-if>
       <sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.discard }}" style="height:36px;padding:0 10px;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Discard</button></sc-if>
       <button onClick="{{ a.publish }}" style="height:36px;padding:0 16px;border:0;border-radius:8px;background:{{ studio.pubBg }};color:{{ studio.pubFg }};font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:{{ studio.pubCur }};white-space:nowrap;">{{ studio.pubLabel }}</button>
     </sc-if>
@@ -43,7 +53,14 @@
         <div style="padding:12px 16px;border-bottom:1px solid #F1EEEA;display:flex;justify-content:space-between;align-items:center;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;color:#0A2A4A;">Design with AI</span><span style="font-size:12px;color:#5A6472;">{{ aiLine }}</span></div>
         <div ref="{{ chatRef }}" style="flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">
           <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="2">
-            <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}"><div style="align-self:flex-end;max-width:85%;background:#F1EEEA;color:#14181F;border-radius:12px 12px 4px 12px;padding:10px 12px;font-size:14px;white-space:pre-wrap;">{{ m.text }}</div></sc-if>
+            <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+              <div style="align-self:flex-end;max-width:85%;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                <sc-if value="{{ m.hasSrc }}" hint-placeholder-val="{{ false }}"><img src="{{ m.imgSrc }}" alt="{{ m.imgAlt }}" style="display:block;width:168px;height:112px;object-fit:cover;border-radius:10px;border:1px solid #E8E2DC;"></sc-if>
+                <sc-if value="{{ m.noSrc }}" hint-placeholder-val="{{ false }}"><div role="img" aria-label="{{ m.imgAlt }}" style="width:168px;height:112px;border-radius:10px;border:1px solid #E8E2DC;background:{{ m.imgBg }};"></div></sc-if>
+                <sc-if value="{{ m.hasSite }}" hint-placeholder-val="{{ false }}"><span title="{{ m.site }}" style="max-width:100%;height:28px;padding:0 10px;border-radius:14px;border:1px solid #E8E2DC;background:#FFFFFF;color:#434A55;font-size:12px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ m.siteHost }}</span></span></sc-if>
+                <sc-if value="{{ m.hasText }}" hint-placeholder-val="{{ true }}"><div style="background:#F1EEEA;color:#14181F;border-radius:12px 12px 4px 12px;padding:10px 12px;font-size:14px;white-space:pre-wrap;">{{ m.text }}</div></sc-if>
+              </div>
+            </sc-if>
             <sc-if value="{{ m.isAi }}" hint-placeholder-val="{{ true }}">
               <div style="display:flex;flex-direction:column;gap:6px;max-width:94%;">
                 <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span>
@@ -55,28 +72,99 @@
             </sc-if>
             <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5A6472;"><span style="flex:1;height:1px;background:#E8E2DC;"></span><span>{{ m.text }}</span><span style="flex:1;height:1px;background:#E8E2DC;"></span></div></sc-if>
             <sc-if value="{{ m.isErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:13px;color:#A1261B;background:#FDECEC;border:1px solid #F3C7C2;border-radius:8px;padding:8px 10px;">{{ m.text }}</div></sc-if>
+            <sc-if value="{{ m.isRefused }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="display:flex;flex-direction:column;gap:8px;background:#FDECEC;border:1px solid #F3C7C2;border-radius:10px;padding:12px 14px;">
+                <strong style="font-size:14px;color:#A1261B;">{{ m.title }}</strong>
+                <span style="font-size:13px;color:#14181F;">{{ m.text }}</span>
+                <sc-if value="{{ m.hasCulprit }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#434A55;">{{ m.culprit }}</span></sc-if>
+                <sc-if value="{{ m.canPartial }}" hint-placeholder-val="{{ false }}"><button onClick="{{ m.partial }}" style="align-self:flex-start;min-height:34px;padding:6px 12px;border:1px solid #0A2A4A;border-radius:8px;background:#FFFFFF;color:#0A2A4A;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;text-align:left;">Publish everything before this change</button></sc-if>
+              </div>
+            </sc-if>
           </sc-for>
-          <sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span><span style="font-size:14px;color:#434A55;">Working on it — the preview updates as soon as it’s ready.</span></div></sc-if>
+          <sc-if value="{{ busyLine }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">DripFunnel AI</span><span style="font-size:14px;color:#434A55;">{{ busyText }}</span><sc-if value="{{ busyReopen }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.reopen }}" style="align-self:flex-start;margin-top:4px;height:36px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Reopen</button></sc-if></div></sc-if>
         </div>
         <div style="flex:none;border-top:1px solid #E8E2DC;padding:12px;display:flex;flex-direction:column;gap:8px;">
           <sc-if value="{{ showSugs }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ sugs }}" as="sg" hint-placeholder-count="3"><button onClick="{{ sg.onClick }}" style="min-height:30px;padding:4px 10px;border:1px solid #D7D3CD;border-radius:15px;background:#FFFFFF;color:#434A55;font-size:12px;cursor:pointer;text-align:left;" style-hover="background:#F7F2ED;">{{ sg.t }}</button></sc-for></div></sc-if>
           <div style="border:1px solid #D7D3CD;border-radius:10px;display:flex;flex-direction:column;background:#FFFFFF;">
-            <textarea aria-label="Describe a change" value="{{ prompt }}" onChange="{{ on.prompt }}" onKeyDown="{{ on.key }}" readOnly="{{ busy }}" rows="3" placeholder="Describe a change — e.g. “Make it feel warmer and add a reviews section”" style="border:0;outline:none;resize:none;padding:10px 12px;font-size:14px;background:transparent;color:#14181F;border-radius:10px;"></textarea>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 6px 12px;"><span style="font-size:12px;color:#5A6472;">Enter to send · Shift+Enter for a new line</span><button onClick="{{ a.send }}" style="height:34px;padding:0 16px;border:0;border-radius:8px;background:{{ sendBg }};color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ sendLabel }}</button></div>
+            <sc-if value="{{ hasAtt }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0;">
+                <sc-if value="{{ att.hasImg }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:8px;height:40px;max-width:100%;padding:0 4px;border:1px solid #E8E2DC;border-radius:8px;background:#F7F4F0;font-size:12px;color:#434A55;"><sc-if value="{{ att.hasSrc }}" hint-placeholder-val="{{ false }}"><img src="{{ att.imgSrc }}" alt="{{ att.imgAlt }}" style="flex:none;display:block;width:32px;height:32px;object-fit:cover;border-radius:6px;"></sc-if><sc-if value="{{ att.noSrc }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="{{ att.imgAlt }}" style="flex:none;width:32px;height:32px;border-radius:6px;background:{{ att.imgBg }};"></span></sc-if><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">{{ att.imgName }}</span><button aria-label="Remove the image" onClick="{{ a.rmImg }}" style="flex:none;width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#5A6472;font-size:16px;cursor:pointer;">×</button></span></sc-if>
+                <sc-if value="{{ att.hasSite }}" hint-placeholder-val="{{ false }}"><span title="{{ att.site }}" style="display:flex;align-items:center;gap:6px;height:40px;max-width:100%;padding:0 4px 0 10px;border:1px solid #E8E2DC;border-radius:8px;background:#F7F4F0;font-size:12px;color:#434A55;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;">{{ att.siteHost }}</span><button aria-label="Remove the website" onClick="{{ a.rmSite }}" style="flex:none;width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#5A6472;font-size:16px;cursor:pointer;">×</button></span></sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ siteOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:4px;padding:10px 10px 0;">
+                <span style="font-size:12px;font-weight:600;color:#434A55;">A website to take inspiration from</span>
+                <div style="display:flex;gap:6px;"><input aria-label="Website address" value="{{ siteIn }}" onChange="{{ on.siteIn }}" onKeyDown="{{ on.siteKey }}" placeholder="https://" style="flex:1;min-width:0;height:34px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;"><button onClick="{{ a.addSite }}" style="flex:none;height:34px;padding:0 12px;border:1px solid #0A2A4A;border-radius:8px;background:#FFFFFF;color:#0A2A4A;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Add</button><button onClick="{{ a.cancelSite }}" style="flex:none;height:34px;padding:0 6px;border:0;background:transparent;color:#B8541F;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button></div>
+                <sc-if value="{{ siteErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:12px;color:#A1261B;">{{ siteErr }}</span></sc-if>
+              </div>
+            </sc-if>
+            <textarea aria-label="Describe a change" value="{{ prompt }}" onChange="{{ on.prompt }}" onKeyDown="{{ on.key }}" onPaste="{{ on.paste }}" readOnly="{{ locked }}" rows="3" placeholder="Describe a change — e.g. “Make it feel warmer and add a reviews section”" style="border:0;outline:none;resize:none;padding:10px 12px;font-size:14px;background:transparent;color:#14181F;border-radius:10px;"></textarea>
+            <div style="display:flex;align-items:center;gap:4px;padding:4px 6px 6px 6px;">
+              <input data-sf-file="1" type="file" accept="image/png,image/jpeg,image/webp" onChange="{{ on.file }}" tabIndex="-1" aria-hidden="true" style="display:none;">
+              <button aria-label="Add an image" title="Add an image — or paste one" onClick="{{ a.pickImg }}" disabled="{{ locked }}" style="flex:none;width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#5A6472;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4z M4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17 M15.5 9.5h.01"></path></svg></button>
+              <button aria-label="Add a website" title="Add a website to take inspiration from" onClick="{{ a.openSite }}" disabled="{{ locked }}" style="flex:none;width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#5A6472;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg></button>
+              <span style="flex:1;min-width:0;padding-left:4px;font-size:12px;color:#5A6472;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Enter to send · Shift+Enter for a new line</span>
+              <button onClick="{{ a.send }}" style="flex:none;height:34px;padding:0 16px;border:0;border-radius:8px;background:{{ sendBg }};color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ sendLabel }}</button>
+            </div>
           </div>
         </div>
       </div>
     </sc-if>
     <sc-if value="{{ showPreview }}" hint-placeholder-val="{{ true }}">
       <div style="flex:1;min-width:0;background:#EDE8E2;overflow:auto;padding:{{ prev.pad }};display:flex;flex-direction:column;align-items:center;position:relative;">
-        <div style="width:{{ prev.w }};max-width:100%;flex:none;display:flex;flex-direction:column;border:{{ prev.bd }};border-radius:{{ prev.r }};overflow:hidden;background:#FFFFFF;box-shadow:{{ prev.shadow }};">
-          <sc-if value="{{ prev.bar }}" hint-placeholder-val="{{ true }}"><div style="height:34px;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px;background:#F7F4F0;border-bottom:1px solid #E8E2DC;"><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="margin-left:10px;height:22px;padding:0 12px;border-radius:11px;background:#FFFFFF;border:1px solid #E8E2DC;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#434A55;display:flex;align-items:center;">{{ studio.url }}</span></div></sc-if>
-          <dc-import name="SitePreview" site="{{ work }}" products="{{ prods }}" store="{{ store }}" device="{{ device }}" page="{{ page }}" on-nav="{{ a.nav }}" changed="{{ changed }}" currency="{{ cur }}" locale="{{ locale }}" powered="{{ powered }}" hint-size="100%,900px"></dc-import>
+        <div style="width:{{ tool.w }};max-width:100%;flex:none;display:flex;align-items:center;gap:8px;padding:{{ tool.pad }};margin-bottom:{{ tool.mb }};background:{{ tool.bg }};border-bottom:{{ tool.bd }};box-sizing:border-box;">
+          <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}">
+            <button data-menu-btn="page" aria-haspopup="listbox" aria-expanded="{{ pageMenu }}" onClick="{{ a.togglePages }}" style="flex:none;max-width:130px;height:34px;padding:0 10px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;"><span style="overflow:hidden;text-overflow:ellipsis;">{{ pageLabel }}</span><span aria-hidden="true" style="color:#5A6472;">▾</span></button>
+            <sc-if value="{{ prevBtnTool }}" hint-placeholder-val="{{ false }}"><div style="flex:none;display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><button onClick="{{ a.openPreview }}" style="height:34px;padding:0 10px;border:0;background:#FFFFFF;color:#14181F;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Open preview ↗</button><button data-menu-btn="prev" aria-label="More preview options" aria-haspopup="menu" aria-expanded="{{ prevMenu }}" onClick="{{ a.togglePrevMenu }}" style="width:30px;height:34px;padding:0;border:0;border-left:1px solid #D7D3CD;background:#FFFFFF;color:#5A6472;font-size:12px;cursor:pointer;">▾</button></div></sc-if>
+          </sc-if>
+          <span style="flex:1;"></span>
+          <sc-if value="{{ editHint }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#434A55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">Click any words in the preview</span></sc-if>
+          <button aria-pressed="{{ editMode }}" onClick="{{ a.toggleEdit }}" disabled="{{ locked }}" style="flex:none;height:34px;padding:0 12px;border:1px solid {{ editBtn.bd }};border-radius:8px;background:{{ editBtn.bg }};color:{{ editBtn.fg }};font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Edit text</button>
         </div>
-        <sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:14px;right:14px;height:28px;padding:0 12px;border-radius:14px;background:#0A2A4A;color:#FFFFFF;font-size:12px;font-weight:600;display:flex;align-items:center;">Updating preview…</span></sc-if>
+        <div data-sf-frame="1" data-edit-text="{{ editAttr }}" style="position:relative;width:{{ prev.w }};max-width:100%;flex:none;display:flex;flex-direction:column;border:{{ prev.bd }};border-radius:{{ prev.r }};overflow:hidden;background:#FFFFFF;box-shadow:{{ prev.shadow }};">
+          <sc-if value="{{ prev.bar }}" hint-placeholder-val="{{ true }}"><div style="height:34px;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px;background:#F7F4F0;border-bottom:1px solid #E8E2DC;"><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="width:9px;height:9px;border-radius:50%;background:#D7D3CD;"></span><span style="margin-left:10px;height:22px;padding:0 12px;border-radius:11px;background:#FFFFFF;border:1px solid #E8E2DC;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#434A55;display:flex;align-items:center;">{{ studio.url }}</span></div></sc-if>
+          <dc-import name="SitePreview" site="{{ work }}" products="{{ prods }}" store="{{ store }}" device="{{ device }}" page="{{ page }}" on-nav="{{ a.nav }}" changed="{{ changed }}" currency="{{ cur }}" locale="{{ locale }}" powered="{{ powered }}" other="{{ otherPage }}" hint-size="100%,900px"></dc-import>
+          <sc-if value="{{ sbxOn }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:5;background:rgba(253,250,247,0.55);display:flex;justify-content:center;align-items:flex-start;padding:64px 16px 16px;">
+              <div role="status" style="max-width:420px;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;box-shadow:0 10px 30px rgba(20,24,31,0.12);padding:16px 18px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;">
+                <div style="display:flex;align-items:center;gap:12px;"><sc-if value="{{ sbx.spin }}" hint-placeholder-val="{{ true }}"><span class="df-spin" aria-hidden="true"></span></sc-if><span style="font-size:14px;font-weight:600;color:#14181F;">{{ sbx.text }}</span></div>
+                <sc-if value="{{ sbx.ended }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.reopen }}" style="height:36px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">Reopen</button></sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </div>
       </div>
     </sc-if>
   </div>
+
+  <sc-if value="{{ anyMenu }}" hint-placeholder-val="{{ false }}"><div onClick="{{ a.closeMenus }}" style="position:absolute;inset:0;z-index:40;"></div></sc-if>
+  <sc-if value="{{ pageMenu }}" hint-placeholder-val="{{ false }}">
+    <div role="listbox" aria-label="Page" style="position:absolute;z-index:41;left:{{ menuPos.x }};top:{{ menuPos.y }};width:{{ menuPos.w }};max-height:{{ menuPos.mh }};overflow:auto;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:10px;box-shadow:0 10px 30px rgba(20,24,31,0.14);padding:4px 0 8px;">
+      <sc-for list="{{ pageGroups }}" as="g" hint-placeholder-count="3">
+        <div style="padding:10px 14px 4px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">{{ g.label }}</div>
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3"><button role="option" aria-selected="{{ it.on }}" onClick="{{ it.onClick }}" style="width:100%;min-height:34px;padding:4px 14px;border:0;background:{{ it.bg }};display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;cursor:pointer;" style-hover="background:#F7F4F0;"><span style="font-size:13px;font-weight:{{ it.fw }};color:#14181F;">{{ it.label }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5A6472;white-space:nowrap;">{{ it.path }}</span></button></sc-for>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ prevMenu }}" hint-placeholder-val="{{ false }}">
+    <div role="menu" aria-label="Preview links" style="position:absolute;z-index:41;left:{{ menuPos.x }};top:{{ menuPos.y }};width:{{ menuPos.w }};background:#FFFFFF;border:1px solid #E8E2DC;border-radius:10px;box-shadow:0 10px 30px rgba(20,24,31,0.14);padding:6px 0;">
+      <button role="menuitem" onClick="{{ a.endLinks }}" style="width:100%;min-height:36px;padding:6px 14px;border:0;background:transparent;text-align:left;cursor:pointer;font-size:13px;font-weight:600;color:#B8541F;" style-hover="background:#F7F4F0;">End all preview links</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ editOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:45;background:rgba(20,24,31,0.45);display:flex;align-items:center;justify-content:center;padding:16px;">
+      <div role="dialog" aria-modal="true" aria-label="Edit text" style="width:480px;max-width:100%;max-height:100%;overflow:auto;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;color:#0A2A4A;">Edit text</span><span style="font-size:13px;color:#5A6472;">{{ edit.where }}</span></div>
+        <sc-for list="{{ edit.fields }}" as="ef" hint-placeholder-count="2">
+          <label style="display:flex;flex-direction:column;gap:4px;"><span style="font-size:13px;font-weight:600;color:#434A55;">{{ ef.label }}</span><textarea value="{{ ef.v }}" onChange="{{ ef.on }}" rows="2" style="border:1px solid #D7D3CD;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;resize:vertical;color:#14181F;"></textarea><sc-if value="{{ ef.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">{{ ef.note }}</span></sc-if></label>
+        </sc-for>
+        <sc-if value="{{ edit.err }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:13px;color:#A1261B;">{{ edit.err }}</span></sc-if>
+        <div style="display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.editCancel }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Cancel</button><button onClick="{{ a.editSave }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save</button></div>
+      </div>
+    </div>
+  </sc-if>
 </div>
 </sc-if>
 
@@ -121,6 +209,7 @@
 
   <sc-if value="{{ tabDesign }}" hint-placeholder-val="{{ true }}">
     <div style="display:flex;flex-direction:column;gap:14px;">
+      <sc-if value="{{ rollNotice }}" hint-placeholder-val="{{ false }}"><div role="alert" style="padding:12px 14px;border-radius:10px;background:#FDECEC;border:1px solid #F3C7C2;color:#A1261B;font-size:14px;">{{ rollText }}</div></sc-if>
       <sc-if value="{{ draftNotice }}" hint-placeholder-val="{{ false }}">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:10px;background:#FFF6E5;border:1px solid #F2D9A6;color:#7A4B00;font-size:14px;">
           <span style="flex:1;min-width:220px;"><strong>Unpublished changes.</strong> {{ draftText }}</span>
@@ -206,6 +295,7 @@
           <sc-for list="{{ history }}" as="h" hint-placeholder-count="3">
             <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #F1EEEA;font-size:13px;">
               <span style="flex:1;min-width:0;display:flex;flex-direction:column;"><strong style="color:#14181F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">v{{ h.v }} · {{ h.label }}</strong><span style="color:#5A6472;">{{ h.date }} · {{ h.by }}</span></span>
+              <sc-if value="{{ h.rolledBack }}" hint-placeholder-val="{{ false }}"><span style="height:22px;padding:0 8px;border-radius:5px;background:#FDECEC;color:#A1261B;border:1px solid #F3C7C2;font-size:12px;font-weight:600;display:flex;align-items:center;white-space:nowrap;">Rolled back</span></sc-if>
               <sc-if value="{{ h.isLive }}" hint-placeholder-val="{{ false }}"><span style="height:22px;padding:0 8px;border-radius:5px;background:#EEF7F2;color:#1D6B47;border:1px solid #CBE6D6;font-size:12px;font-weight:600;display:flex;align-items:center;">Live</span></sc-if>
               <sc-if value="{{ h.canBack }}" hint-placeholder-val="{{ false }}"><button onClick="{{ h.back }}" style="height:30px;padding:0 10px;border:1px solid #D7D3CD;border-radius:6px;background:#FFFFFF;font-size:12px;cursor:pointer;white-space:nowrap;">Go back to this</button></sc-if>
             </div>
@@ -220,8 +310,33 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;app&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}">
 class Component extends DCLogic {
-  state = { lib: !!window.DFSite, tab: 'design', device: 'desktop', page: 'home', ovDevice: 'desktop', prompt: '', busy: false, pub: 0, w: 0, pane: 'chat', domIn: '', domErr: '', checking: false, checks: 0, checkMsg: '', seo: null, changed: [] };
+  state = { lib: !!window.DFSite, tab: 'design', device: 'desktop', page: 'home', ovDevice: 'desktop', prompt: '', phase: '', sbx: 'ready', queueSecs: 20, pub: 0, w: 0, pane: 'chat', domIn: '', domErr: '', checking: false, checks: 0, checkMsg: '', seo: null, changed: [],
+    attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '', pageMenu: false, prevMenu: false, menuPos: null, editMode: false, edit: null };
   chatRef = React.createRef();
+  // Edit text takes the click before the preview acts on it, so a click edits instead of navigating.
+  bindFrame(off) { const el = off ? null : document.querySelector('[data-sf-frame]'); if (el === this._frameEl) return; if (this._frameEl) this._frameEl.removeEventListener('click', this._onFrameClick, true); this._frameEl = el; if (el) el.addEventListener('click', this._onFrameClick, true); }
+  _onFrameClick = e => {
+    if (!this.state.editMode) return;
+    e.preventDefault(); e.stopPropagation();
+    const t = e.target; if (!t || t.childElementCount || !(t.textContent || '').trim()) return;
+    this.openEdit(t.textContent.trim());
+  };
+  _onKey = e => { if (e.key !== 'Escape') return; if (this.state.edit) this.setState({ edit: null }); else if (this.state.pageMenu || this.state.prevMenu) this.closeMenus(); };
+
+  // The studio's pages: core routes, content pages and the AI's own (FIRST-RELEASE §14; storefront ARCHITECTURE §3.1).
+  PAGES = [
+    ['Shop', [['home', 'Home', '/'], ['collection', 'All products', '/collections/all'], ['product', 'Product', '/products/…'], ['search', 'Search', '/search'], ['cart', 'Cart', '/cart'], ['checkout', 'Checkout', '/checkout'], ['account', 'Your account', '/account']]],
+    ['Policies', [['terms', 'Terms', '/policies/terms'], ['privacy', 'Privacy', '/policies/privacy'], ['shipping', 'Shipping', '/policies/shipping'], ['returns', 'Returns', '/policies/returns']]],
+    ['Content pages', [['faq', 'Questions we get asked', '/faq'], ['lookbook', 'Lookbook', '/lookbook']]],
+    ['Pages the AI made', [['about', 'About', '/about'], ['contact', 'Contact', '/contact'], ['gift', 'Gift guide', '/gift-guide']]]
+  ];
+  OTHER = {
+    collection: { title: 'All products', grid: true }, search: { title: 'Search results', body: 'Results for “linen”', grid: true },
+    checkout: { title: 'Checkout', body: 'Contact, delivery and payment. Payments are in test mode here, so no money is taken.' }, account: { title: 'Your account', body: 'Orders, addresses and your details.' },
+    terms: { title: 'Terms of service', body: 'The terms shoppers agree to when they order.' }, privacy: { title: 'Privacy policy', body: 'How your store uses shoppers’ details.' },
+    shipping: { title: 'Shipping', body: 'Where you deliver, how long it takes and what it costs.' }, returns: { title: 'Returns', body: 'How shoppers send things back.' },
+    faq: { title: 'Questions we get asked', body: 'Delivery, returns and sizing.' }, lookbook: { title: 'Lookbook', grid: true }, gift: { title: 'Gift guide', body: 'Ideas for everyone on your list.', grid: true }
+  };
   _ro = new ResizeObserver(es => { const w = Math.round(es[0].contentRect.width); if (w && Math.abs(w - this.state.w) > 2) this.setState({ w }); });
   rootRef = el => { if (el && el !== this._obs) { if (this._obs) this._ro.unobserve(this._obs); this._ro.observe(el); this._obs = el; } };
 
@@ -235,13 +350,14 @@ class Component extends DCLogic {
     if (!window.DFSite) this._lt = setInterval(() => { if (window.DFSite) { clearInterval(this._lt); this.setState({ lib: true }); } }, 60);
     this._onRs = () => this.measure(); window.addEventListener('resize', this._onRs);
     this._mt = setInterval(() => this.measure(), 500);
-    this.sync(); this.measure();
+    document.addEventListener('keydown', this._onKey);
+    this.sync(); this.measure(); this.bindFrame(); this.takeState();
   }
   componentDidUpdate() {
-    this.sync(); this.measure();
+    this.sync(); this.measure(); this.bindFrame(); this.takeState();
     const c = this.chatRef.current; if (c && this._seen !== this._msgN) { c.scrollTop = c.scrollHeight; this._seen = this._msgN; }
   }
-  componentWillUnmount() { clearInterval(this._mt); window.removeEventListener('resize', this._onRs); clearInterval(this._lt); clearInterval(this._t); clearTimeout(this._ct); clearTimeout(this._ct2); if (this._ro) this._ro.disconnect(); }
+  componentWillUnmount() { clearInterval(this._mt); window.removeEventListener('resize', this._onRs); clearInterval(this._lt); clearInterval(this._t); clearTimeout(this._ct); clearTimeout(this._ct2); clearTimeout(this._sb); clearTimeout(this._ph); clearTimeout(this._mo); document.removeEventListener('keydown', this._onKey); this.bindFrame(true); if (this._ro) this._ro.disconnect(); }
 
   ctx(app) { const si = app.data('storeInfo') || {}; return { store: app.storeName, city: app.R.city || '', email: si.email || ('hello@' + app.R.domain), phone: si.phone || '' }; }
   prods(app) { return (app.allProducts || []).filter(p => p.status !== 'hidden').slice(0, 12).map(p => ({ name: p.name, n: p.price, price: app.fmt(p.price), hue: p.photos && p.photos.length ? p.photos[0].hue : null })); }
@@ -275,7 +391,7 @@ class Component extends DCLogic {
     const start = site => {
       const id = Date.now();
       app.set('storefront', x => ({ ...x, draft: site, chat: [...(x.chat || []), { id, role: 'note', text: key === 'blank' ? 'Started from scratch' : 'Switched to ' + T.name }, { id: id + 1, role: 'ai', text: this.intro(site, app, true) }] }));
-      this.setState({ page: 'home', changed: [], pane: 'chat' }); this.setGallery(false); this.setStudio(true);
+      this.setState({ page: 'home', changed: [], pane: 'chat' }); this.setGallery(false); this.setStudio(true); this.startSandbox();
     };
     if (cur) app.modal({ title: key === 'blank' ? 'Start from scratch?' : 'Use ' + T.name + '?', body: 'Keep your words — headline, menu, footer, About and Contact — or start with the template’s sample text? Your live site doesn’t change until you publish.', confirm: 'Keep my words', alt: 'Use template text', onConfirm: () => start(L.keepContent(tplSite, cur)), onAlt: () => start(tplSite) });
     else start(tplSite);
@@ -294,18 +410,22 @@ class Component extends DCLogic {
     const app = this.props.app; const sf = app.data('storefront'); const site = sf.draft || sf.site;
     if (!site) { this.setGallery(true); return; }
     if (!(sf.chat || []).length) app.set('storefront', x => ({ ...x, chat: [{ id: Date.now(), role: 'ai', text: this.intro(site, app, false) }] }));
-    this.setState({ changed: [], pane: 'chat' }); this.setStudio(true);
+    this.setState({ changed: [], pane: 'chat' }); this.setStudio(true); this.startSandbox();
   }
+  // The frame shows the current preview under "Opening your studio…" until the container is ready (AI-STUDIO §3 step 6).
+  startSandbox() { clearTimeout(this._sb); this.setState({ sbx: 'opening' }); this._sb = setTimeout(() => this.setState({ sbx: 'ready' }), 1500); }
 
   async ask(text) {
-    const app = this.props.app; const L = window.DFSite; const sf = app.data('storefront');
-    const msg = String(text != null ? text : this.state.prompt).trim();
-    if (!msg || this.state.busy) return;
+    const app = this.props.app; const L = window.DFSite; const sf = app.data('storefront'); const s = this.state;
+    const msg = String(text != null ? text : s.prompt).trim();
+    const img = text != null ? null : s.attImg; const site = text != null ? '' : s.attSite;
+    if ((!msg && !img && !site) || s.phase || s.sbx !== 'ready') return;
     if (!app.needAI()) return;
     const before = sf.draft || sf.site; const uid = Date.now();
-    const earlier = (sf.chat || []).filter(m => m.role === 'user').slice(-4).map(m => '- ' + m.text).join('\n');
-    app.set('storefront', x => ({ ...x, prompts: (x.prompts || 0) + 1, chat: [...(x.chat || []), { id: uid, role: 'user', text: msg, at: uid }] }));
-    this.setState({ busy: true, prompt: '' });
+    const earlier = (sf.chat || []).filter(m => m.role === 'user' && m.text).slice(-4).map(m => '- ' + m.text).join('\n');
+    app.set('storefront', x => ({ ...x, prompts: (x.prompts || 0) + 1, chat: [...(x.chat || []), { id: uid, role: 'user', text: msg, img, site, at: uid }] }));
+    this.setState({ phase: 'working', prompt: '', attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '' });
+    const asked = (msg || 'Take inspiration from what I attached.') + (site ? '\nA website to take inspiration from: ' + site : '') + (img ? '\nI attached an image to take inspiration from: ' + img.name + '.' : '');
     const names = this.prods(app).map(p => p.name).join(', ');
     const sys = `You are the design assistant inside DripFunnel, an online-shop builder. You edit one storefront, described as JSON.
 Shop: ${app.storeName}, based in ${app.R.city}. It sells: ${names || 'nothing yet (sample products are shown)'}.
@@ -313,19 +433,21 @@ The merchant is looking at the ${this.state.page} page on ${this.state.device}.
 ${earlier ? 'Earlier requests in this session:\n' + earlier + '\n' : ''}Schema: ${L.SCHEMA}
 Current site JSON: ${JSON.stringify(before)}
 Rules: do what is asked and keep everything else exactly the same. Write shop copy in plain, warm language, no emoji, no fake urgency. If asked to change prices, stock, products, shipping or checkout, don't change the site and say that's done in Products or Settings.
-Reply with ONLY minified JSON and nothing else: {"site":{...the full updated site...},"reply":"one or two short first-person sentences saying what you changed","changed":["2-5 short labels, e.g. Colours, Hero headline, New reviews section"],"page":"home|about|contact|product|cart — where the change is best seen"}`;
+Reply with ONLY minified JSON and nothing else: {"site":{...the full updated site...},"reply":"one or two short first-person sentences saying what you changed","changed":["2-5 short labels, e.g. Colours, Hero headline, New reviews section"]}`;
     try {
-      const txt = await window.claude.complete({ system: sys, messages: [{ role: 'user', content: msg }], max_tokens: 4000 });
+      const txt = await window.claude.complete({ system: sys, messages: [{ role: 'user', content: asked }], max_tokens: 4000 });
       const j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
       const next = L.normalize({ ...(j.site || {}), tpl: before.tpl, name: before.name }, before);
       const keys = L.changedKeys(before, next); const themeCh = JSON.stringify(before.theme) !== JSON.stringify(next.theme);
       const nothing = !keys.length && !themeCh;
+      this.setState({ phase: 'checking' });
+      await new Promise(r => { this._ph = setTimeout(r, 900); });
       app.set('storefront', x => ({ ...x, draft: nothing ? x.draft : next, chat: [...x.chat, { id: uid + 1, role: 'ai', text: j.reply || (nothing ? 'I didn’t change anything.' : 'Done.'), changed: nothing ? [] : (Array.isArray(j.changed) ? j.changed : []).slice(0, 5).map(String), before: nothing ? null : before, at: Date.now() }] }));
-      const pgs = ['home', 'about', 'contact', 'product', 'cart'];
-      this.setState({ busy: false, changed: keys, page: pgs.includes(j.page) ? j.page : this.state.page, pane: app.phone && !nothing ? 'preview' : this.state.pane });
+      // An accepted change updates the frame in place: same page, scroll and width (AI-STUDIO §4 step 5).
+      this.setState({ phase: '', changed: keys, pane: app.phone && !nothing ? 'preview' : this.state.pane });
     } catch (e) {
       app.set('storefront', x => ({ ...x, chat: [...x.chat, { id: uid + 1, role: 'err', text: 'I couldn’t make that change — nothing on your site changed. Try again, or say it a different way.' }] }));
-      this.setState({ busy: false });
+      this.setState({ phase: '' });
     }
   }
 
@@ -336,12 +458,16 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
     this.setState({ changed: [] });
   }
 
-  publish() {
+  publish(part) {
     const app = this.props.app; const sf = app.data('storefront'); if (!sf.draft || this.state.pub) return;
     const v = (sf.live || 0) + 1; const host = this.primaryHost(sf, app);
-    app.modal({ title: `Publish version ${v}?`, body: `Your changes go live on ${host} in about a minute and use about 2 build minutes.${sf.live ? ' You can go back to version ' + sf.live + ' any time, for free.' : ''}`, confirm: 'Publish', onConfirm: () => this.runPublish(v) });
+    app.modal({ title: `Publish version ${v}?`, body: `We check your whole site first, then it goes live on ${host} in a few minutes and uses about 2 build minutes.${sf.live ? ' You can go back to version ' + sf.live + ' any time, for free.' : ''}`, confirm: 'Publish', onConfirm: () => this.runPublish(v, part) });
   }
-  runPublish(v) {
+  publishBefore(i) {
+    const m = (this.props.app.data('storefront').chat || [])[i]; if (!m || !m.partialSite) return;
+    this.publish({ site: m.partialSite, label: 'Everything before “' + m.culpritAsk + '”', from: i });
+  }
+  runPublish(v, part) {
     const app = this.props.app;
     this.setState({ pub: 5 }); clearInterval(this._t);
     this._t = setInterval(() => {
@@ -351,8 +477,10 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       app.set('storefront', x => {
         const chat = x.chat || []; let k = chat.length - 1; const since = [];
         while (k >= 0 && !chat[k].pubMark) { if (chat[k].role === 'user' && !chat[k].undone) since.unshift(chat[k].text); if (chat[k].role === 'note' && /^Switched|^Started/.test(chat[k].text)) since.unshift(chat[k].text); k--; }
-        const label = (since[since.length - 1] || 'Design update').slice(0, 52);
-        return { ...x, site: x.draft, draft: null, live: v, minutes: (x.minutes || 0) + 2, history: [{ v, label, date: Date.now(), by: 'Farhan', site: x.draft }, ...(x.history || [])], chat: [...chat, { id: Date.now(), role: 'note', text: 'Published as version ' + v, pubMark: true }] };
+        const label = ((part && part.label) || since[since.length - 1] || 'Design update').slice(0, 52);
+        const site = part ? part.site : x.draft; const rest = part && JSON.stringify(part.site) !== JSON.stringify(x.draft) ? x.draft : null;
+        const marked = part ? chat.map((c, k) => k === part.from ? { ...c, done: true } : c) : chat;
+        return { ...x, site, draft: rest, live: v, rolledBack: null, minutes: (x.minutes || 0) + 2, history: [{ v, label, date: Date.now(), by: 'Farhan', site }, ...(x.history || [])], chat: [...marked, { id: Date.now(), role: 'note', text: 'Published as version ' + v, pubMark: !rest }] };
       });
       this.setState({ pub: 0, changed: [] });
       app.toast(`Version ${v} is live — we checked your site and it changed`);
@@ -368,6 +496,109 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       if (!sf.site) { this.setStudio(false); this.setGallery(true); }
       app.toast('Changes discarded — your live site didn’t change');
     } });
+  }
+
+  closeMenus() { this.setState({ pageMenu: false, prevMenu: false }); }
+  openMenu(kind, el, tries) {
+    const root = document.querySelector('[data-sf-studio]'); const btn = el || (root && root.querySelector('[data-menu-btn="' + kind + '"]'));
+    if (!root || !btn) { if ((tries || 0) < 20) this._mo = setTimeout(() => this.openMenu(kind, null, (tries || 0) + 1), 100); return; }
+    const R = root.getBoundingClientRect(); const b = btn.getBoundingClientRect(); const w = kind === 'page' ? 290 : 210;
+    const x = Math.max(8, Math.min(kind === 'page' ? b.left - R.left : b.right - R.left - w, R.width - w - 8)); const y = b.bottom - R.top + 4;
+    this.setState({ pageMenu: kind === 'page', prevMenu: kind === 'prev', menuPos: { x: x + 'px', y: y + 'px', w: w + 'px', mh: Math.max(160, R.height - y - 12) + 'px' } });
+  }
+  // Names no host: the preview domain's shape is being redecided (design.md, Storefront row).
+  openPreview() { this.props.app.toast('Opens your preview in a new tab'); }
+  // Moves the store's revocation number, so every shared link stops (storefront PREVIEW §5 step 4).
+  endLinks() {
+    const app = this.props.app; this.closeMenus();
+    app.modal({ title: 'End all preview links?', body: 'Anyone you’ve shared a preview link with loses access now. Your team can open a new link from here.', confirm: 'End links', cancel: 'Cancel', danger: true, onConfirm: () => this.linksEnded() });
+  }
+  linksEnded() {
+    const app = this.props.app;
+    app.set('storefront', x => ({ ...x, previewEpoch: (x.previewEpoch || 0) + 1, chat: [...(x.chat || []), { id: Date.now(), role: 'note', text: 'Preview links ended', soft: true }] }));
+    app.toast('Preview links ended');
+  }
+
+  langs() { const ls = this.props.app.data('languages') || []; return ls.length ? ls : [{ code: 'en', name: 'English', main: true }]; }
+  openEdit(text) {
+    const app = this.props.app; const sf = app.data('storefront'); const work = sf.draft || sf.site;
+    if (!JSON.stringify(work).includes(JSON.stringify(text).slice(1, -1))) { app.toast('Those words come from your products or store details — change them there.'); return; }
+    const tr = (sf.tr || {})[text] || {}; const vals = {};
+    this.langs().forEach(l => { vals[l.code] = l.main ? text : (tr[l.code] || ''); });
+    this.setState({ edit: { orig: text, vals, err: '' } });
+  }
+  saveEdit() {
+    const app = this.props.app; const e = this.state.edit; if (!e) return;
+    const ls = this.langs(); const main = ls.find(l => l.main) || ls[0];
+    const next = String(e.vals[main.code] || '').trim();
+    if (!next) { this.setState({ edit: { ...e, err: 'Type the ' + main.name + ' words — it’s your main language.' } }); return; }
+    const others = {}; ls.filter(l => l.code !== main.code).forEach(l => { const v = String(e.vals[l.code] || '').trim(); if (v) others[l.code] = v; });
+    const swap = o => typeof o === 'string' ? o.split(e.orig).join(next) : Array.isArray(o) ? o.map(swap) : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, swap(v)])) : o;
+    this.setState({ edit: null, phase: 'checking' }); clearTimeout(this._ph);
+    this._ph = setTimeout(() => {
+      app.set('storefront', x => { const tr = { ...(x.tr || {}) }; delete tr[e.orig]; tr[next] = others; return { ...x, draft: swap(x.draft || x.site), tr, chat: [...(x.chat || []), { id: Date.now(), role: 'note', text: 'Text edited' }] }; });
+      this.setState({ phase: '' });
+    }, 700);
+  }
+
+  takeImg(file) {
+    if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) { this.props.app.toast('Add a PNG, JPEG or WebP image.'); return; }
+    const r = new FileReader(); r.onload = () => this.setState({ attImg: { name: file.name || 'Pasted image', src: String(r.result) } }); r.readAsDataURL(file);
+  }
+  addSite() {
+    let u = null; try { u = new URL(this.state.siteIn.trim()); } catch (e) { u = null; }
+    if (!u || u.protocol !== 'https:' || !u.hostname.includes('.')) { this.setState({ siteErr: 'Type the full address, starting with https://' }); return; }
+    this.setState({ attSite: u.href, siteOpen: false, siteIn: '', siteErr: '' });
+  }
+
+  // ?state= and the Storefront control open one state of the studio or the publish gate (design.md §2).
+  takeState() {
+    const app = this.props.app; if (!app || !this.state.lib) return;
+    const n = app.st.sfNonce; const sf = app.data('storefront');
+    if (!n || n === this._stateN || !sf || !sf.site || !app.caps.isOwner || app.caps.readOnly) return;
+    this._stateN = n; if (app.st.sfState) this.applyState(app.st.sfState);
+  }
+  applyState(k) {
+    const app = this.props.app; const sf = app.data('storefront'); const live = sf.site;
+    clearInterval(this._t); clearTimeout(this._sb); clearTimeout(this._ph);
+    const now = Date.now(); const v = (sf.live || 0) + 1;
+    const warm = { ...live, theme: { ...live.theme, bg: '#FBF5EE', accent: '#8A3B1E', accentText: '#FFFFFF' }, sections: (live.sections || []).map((x, i) => i === 0 ? { ...x, headline: 'Warm layers for cooler days' } : x) };
+    let chat = [{ id: now, role: 'ai', text: this.intro(live, app, false) },
+      { id: now + 1, role: 'user', text: 'Make the colours warmer and give the home page an autumn headline', at: now },
+      { id: now + 2, role: 'ai', text: 'I warmed up the background and buttons and gave the home page an autumn headline.', changed: ['Colours', 'Hero headline'], before: live, at: now }];
+    let draft = warm; let studio = true; let after = null; const extra = { rolledBack: null };
+    const st = { sbx: 'ready', phase: '', pub: 0, queueSecs: 20, pageMenu: false, prevMenu: false, editMode: false, edit: null, attImg: null, attSite: '', siteOpen: false, siteIn: '', siteErr: '', prompt: '', page: 'home', pane: 'chat', changed: [], tab: 'design' };
+    if (k === 'opening' || k === 'queued' || k === 'ended') st.sbx = k;
+    else if (k === 'finishing') st.phase = 'finishing';
+    else if (k === 'checking') { chat = [...chat, { id: now + 3, role: 'user', text: 'Add a customer reviews section', at: now }]; st.phase = 'checking'; }
+    else if (k === 'attach') {
+      chat = [...chat, { id: now + 3, role: 'user', text: 'Use the colours from this photo and a layout like this site', img: { name: 'shop-window.jpg', hue: 24 }, site: 'https://www.example.com/', at: now },
+        { id: now + 4, role: 'ai', text: 'I took the clay and sand tones from your photo and the roomy two-column layout from example.com. Your products and prices stay as they are.', changed: ['Colours', 'Layout'], before: warm, at: now }];
+      Object.assign(st, { prompt: 'Make the product page feel like this too', attImg: { name: 'linen-moodboard.png', hue: 200 }, attSite: 'https://www.example.org/' });
+    } else if (k === 'edit-text') {
+      if ((app.data('languages') || []).length < 2) app.set('languages', l => [...(l || []), { code: 'fr', name: 'Français' }]);
+      const h = warm.sections[0].headline; extra.tr = { ...(sf.tr || {}), [h]: { fr: 'Des épaisseurs chaudes pour les jours frais' } };
+      Object.assign(st, { editMode: true, pane: 'preview' }); after = () => this.openEdit(h);
+    } else if (k === 'pages') { st.pane = 'preview'; after = () => this.openMenu('page'); }
+    else if (k === 'preview-menu') { st.pane = 'preview'; after = () => this.openMenu('prev'); }
+    else if (k === 'end-links') after = () => this.endLinks();
+    else if (k === 'links-ended') after = () => this.linksEnded();
+    else if (k === 'pub-checking') st.pub = 55;
+    else if (k === 'pub-refused' || k === 'pub-refused-all') {
+      const one = k === 'pub-refused'; const ask = 'Add a buy bar that stays at the bottom on phones';
+      chat = [...chat, { id: now + 3, role: 'user', text: ask, at: now }, { id: now + 4, role: 'ai', text: 'I added a buy bar that stays at the bottom of the screen on phones.', changed: ['Buy bar on phones'], before: warm, at: now },
+        { id: now + 5, role: 'refused', title: `Version ${v} wasn’t published`, at: now,
+          text: one ? 'On phones, the new buy bar covers the price and its tax label, so shoppers can’t see what they’d pay. We tried to fix it and couldn’t. Your live site hasn’t changed.' : 'The checkout button can’t be reached with a keyboard on the cart page, so some shoppers couldn’t pay. We tried to fix it and couldn’t. Your live site hasn’t changed.',
+          culprit: one ? 'It started with this change: “' + ask + '”.' : '', culpritAsk: one ? ask : '', partialSite: one ? warm : null }];
+      draft = { ...warm, sections: [...warm.sections] };
+    } else if (k === 'rolled-back') {
+      studio = false; draft = null; chat = null;
+      extra.history = [{ v, label: 'Autumn colours and headline', date: now - 36e5, by: 'Farhan', site: warm, rolledBack: true }, ...(sf.history || []).filter(h => h.v !== v)];
+      extra.rolledBack = { v, back: sf.live };
+    }
+    app.set('storefront', x => ({ ...x, draft, ...(chat ? { chat } : {}), ...extra }));
+    this.setGallery(false);
+    this.setState(st, () => { this.setStudio(studio); if (after) setTimeout(after, 80); });
   }
 
   connect() {
@@ -405,11 +636,16 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
     const powered = !!P.powered;
     const padX = phone ? 14 : 28; const cw = Math.max(280, (s.w || 1000) - padX * 2);
     const chat = sf.chat || [];
-    this._msgN = chat.length + (s.busy ? 1 : 0) + (studioOn ? 1000 : 0);
+    this._msgN = chat.length + (s.phase ? 1 : 0) + (studioOn ? 1000 : 0);
 
     let undoIdx = -1;
-    for (let k = chat.length - 1; k >= 0; k--) { const m = chat[k]; if (m.pubMark || (m.role === 'note')) break; if (m.role === 'ai' && m.before && !m.undone) { undoIdx = k; break; } if (m.role === 'ai' && m.undone) break; }
-    const msgs = chat.map((m, i) => ({ text: m.text, isUser: m.role === 'user', isAi: m.role === 'ai', isNote: m.role === 'note', isErr: m.role === 'err', changed: (m.changed || []).map(t => ({ t })), hasChanged: !!(m.changed && m.changed.length) && !m.undone, canUndo: i === undoIdx && !s.busy, undone: !!m.undone, undo: () => this.undo(i) }));
+    for (let k = chat.length - 1; k >= 0; k--) { const m = chat[k]; if (m.pubMark || (m.role === 'note' && !m.soft)) break; if (m.role === 'ai' && m.before && !m.undone) { undoIdx = k; break; } if (m.role === 'ai' && m.undone) break; }
+    const locked = !!s.phase || s.sbx !== 'ready';
+    const tile = h => `linear-gradient(135deg,hsl(${h},35%,80%),hsl(${h},30%,62%))`;
+    const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } };
+    const msgs = chat.map((m, i) => ({ text: m.text, hasText: !!m.text, isUser: m.role === 'user', isAi: m.role === 'ai', isNote: m.role === 'note', isErr: m.role === 'err', changed: (m.changed || []).map(t => ({ t })), hasChanged: !!(m.changed && m.changed.length) && !m.undone, canUndo: i === undoIdx && !locked, undone: !!m.undone, undo: () => this.undo(i),
+      hasSrc: !!(m.img && m.img.src), noSrc: !!(m.img && !m.img.src), imgSrc: m.img && m.img.src || '', imgBg: tile(m.img && m.img.hue || 30), imgAlt: m.img ? 'Image you added: ' + m.img.name : '', hasSite: !!m.site, site: m.site || '', siteHost: m.site ? hostOf(m.site) : '',
+      isRefused: m.role === 'refused', title: m.title || '', culprit: m.culprit || '', hasCulprit: !!m.culprit, canPartial: !!m.partialSite && !m.done && !s.pub, partial: () => this.publishBefore(i) }));
 
     const ws = work || {}; const secTypes = (ws.sections || []).map(x => x.type);
     const sugPool = [
@@ -430,8 +666,9 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
           : { w: '390px', bd: '10px solid #14181F', r: '38px', pad: '24px', shadow: '0 10px 30px rgba(20,24,31,0.16)', bar: false };
     const seg = (on) => ({ bg: on ? '#0A2A4A' : '#FFFFFF', fg: on ? '#FFFFFF' : '#434A55' });
     const pubLabel = hasSite ? 'Publish' : 'Publish site';
+    const pageList = this.PAGES.flatMap(g => g[1]); const curPage = pageList.find(x => x[0] === s.page) || pageList[0];
     const studio = {
-      title: (ws.name || 'Custom') + ' · ' + store, host, url: host + (s.page === 'home' ? '' : s.page === 'product' ? '/products/' + ((prods[0] || {}).name || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-') : '/' + s.page),
+      title: (ws.name || 'Custom') + ' · ' + store, host, url: host + (s.page === 'home' ? '' : s.page === 'product' ? '/products/' + ((prods[0] || {}).name || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-') : curPage[2]),
       status: sf.draft ? 'Unpublished changes' : hasSite ? 'Same as live site' : 'Not published', pillDisp: phone || (s.w || 1000) < 1180 ? 'none' : 'flex',
       pillBg: sf.draft ? '#FFF6E5' : '#EEF7F2', pillFg: sf.draft ? '#7A4B00' : '#1D6B47', pillBd: sf.draft ? '#F2D9A6' : '#CBE6D6',
       pubLabel, pubBg: sf.draft ? '#EC844F' : '#E8E2DC', pubFg: sf.draft ? '#4A1B0C' : '#5A6472', pubCur: sf.draft ? 'pointer' : 'default'
@@ -481,7 +718,7 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
     const fmtD = d => new Date(d).toLocaleDateString(app.R.locale, { day: 'numeric', month: 'short' });
     const recent = chat.filter(m => m.role === 'user').slice(-5).reverse().map(m => ({ t: m.text, d: fmtD(m.at || Date.now()) }));
     const hist = P.history;
-    const history = (sf.history || []).filter(h => (Date.now() - h.date) / 864e5 <= hist || h.v === sf.live).map(h => ({ v: String(h.v), label: h.label, by: h.by, date: fmtD(h.date), isLive: h.v === sf.live, canBack: canEdit && h.v !== sf.live,
+    const history = (sf.history || []).filter(h => (Date.now() - h.date) / 864e5 <= hist || h.v === sf.live).map(h => ({ v: String(h.v), label: h.label, by: h.by, date: fmtD(h.date), isLive: h.v === sf.live, rolledBack: !!h.rolledBack, canBack: canEdit && h.v !== sf.live && !h.rolledBack,
       back: () => app.modal({ title: `Go back to version ${h.v}?`, body: `“${h.label}” goes live again. Your current version stays in history, so you can come back. No build minutes used.`, confirm: 'Go back', onConfirm: () => { app.set('storefront', x => ({ ...x, live: h.v, site: h.site || L.build('minimal', this.ctx(app)) })); app.toast(`Version ${h.v} is live again`); } }) }));
 
     return {
@@ -496,35 +733,54 @@ Reply with ONLY minified JSON and nothing else: {"site":{...the full updated sit
       tabs: [['design', 'Design'], ['settings', 'Site settings']].map(([k, l]) => ({ label: l, on: s.tab === k, fw: s.tab === k ? '700' : '600', fg: s.tab === k ? '#0A2A4A' : '#5A6472', bd: s.tab === k ? '#0A2A4A' : 'transparent', onClick: () => this.setState({ tab: k }) })),
       tabDesign: s.tab === 'design', tabSettings: s.tab === 'settings',
       draftNotice: !!sf.draft && hasSite, draftText: 'You’ve changed the design in the studio. Shoppers still see the version below until you publish.',
+      rollNotice: !!sf.rolledBack && hasSite, rollText: sf.rolledBack ? `We put version ${sf.rolledBack.back} back: your new version broke the checkout on phones. We’re fixing it.` : '',
       ovLabel: hasSite ? `Live now · version ${sf.live}` : '', ovDevs: [['desktop', 'Desktop'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, ...seg(s.ovDevice === k), onClick: () => this.setState({ ovDevice: k }) })), ov,
       gal: { title: hasSite ? 'Change template' : 'Choose a starting point', cols: `repeat(${gCols},minmax(0,1fr))`, zoom: cardW / 1280, thumbH: Math.round(cardW * 0.62) + 'px' }, tpls,
       studio, prev, device: dev, page: s.page, changed: s.changed,
       wideBar: !phone && (s.w || 1000) >= 1180, narrowBar: !phone && (s.w || 1000) < 1180,
-      pageOpts: [['home', 'Home'], ['product', 'Product'], ['cart', 'Cart'], ['about', 'About'], ['contact', 'Contact']].map(([k, l]) => ({ k, l })),
+      pageLabel: curPage[1], pageMenu: s.pageMenu, prevMenu: s.prevMenu, anyMenu: s.pageMenu || s.prevMenu, menuPos: s.menuPos || { x: '0', y: '0', w: '0', mh: '0' }, otherPage: this.OTHER[s.page] || null,
+      pageGroups: this.PAGES.map(([label, items]) => ({ label, items: items.map(([k, l, path]) => ({ label: l, path, on: s.page === k, fw: s.page === k ? '700' : '500', bg: s.page === k ? '#F4F8FB' : '#FFFFFF', onClick: () => this.setState({ page: k, pageMenu: false }) })) })),
+      prevBtnBar: !phone && !!sf.draft, prevBtnTool: phone && !!sf.draft,
+      tool: phone ? { w: '100%', pad: '8px 12px', mb: '0', bg: '#FFFFFF', bd: '1px solid #E8E2DC' } : { w: prev.w, pad: '0', mb: '10px', bg: 'transparent', bd: '0' },
+      editMode: s.editMode, editAttr: s.editMode ? '1' : '0', editHint: s.editMode && !phone, editBtn: s.editMode ? { bg: '#0A2A4A', fg: '#FFFFFF', bd: '#0A2A4A' } : { bg: '#FFFFFF', fg: '#14181F', bd: '#D7D3CD' },
+      editOpen: !!s.edit, edit: s.edit ? (() => { const ls = this.langs(); const main = ls.find(l => l.main) || ls[0]; return { where: 'On the ' + curPage[1] + ' page', err: s.edit.err,
+        fields: [main, ...ls.filter(l => l !== main)].map(l => { const v = s.edit.vals[l.code] || ''; return { label: l === main ? l.name + ' · main language' : l.name, v, note: l !== main && !v.trim() ? 'Not translated yet. Shoppers see your ' + main.name + ' text instead.' : '',
+          on: e => this.setState({ edit: { ...s.edit, err: '', vals: { ...s.edit.vals, [l.code]: e.target.value } } }) }; }) }; })() : { fields: [] },
+      sbxOn: s.sbx !== 'ready', sbx: s.sbx === 'ended' ? { text: 'Your studio session ended. Reopen the studio to keep designing.', spin: false, ended: true } : { text: s.sbx === 'queued' ? `You’re next — about ${s.queueSecs} seconds` : 'Opening your studio…', spin: true, ended: false },
+      locked, hasAtt: !!(s.attImg || s.attSite), siteOpen: s.siteOpen, siteIn: s.siteIn, siteErr: s.siteErr,
+      att: { hasImg: !!s.attImg, hasSrc: !!(s.attImg && s.attImg.src), noSrc: !!(s.attImg && !s.attImg.src), imgSrc: s.attImg && s.attImg.src || '', imgBg: tile(s.attImg && s.attImg.hue || 30), imgName: s.attImg ? s.attImg.name : '', imgAlt: s.attImg ? 'Image you added: ' + s.attImg.name : '', hasSite: !!s.attSite, site: s.attSite, siteHost: s.attSite ? hostOf(s.attSite) : '' },
       devOpts: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ k, l })),
-      pageTabs: [['home', 'Home'], ['product', 'Product'], ['cart', 'Cart'], ['about', 'About'], ['contact', 'Contact']].map(([k, l]) => ({ label: l, ...seg(s.page === k), onClick: () => this.setState({ page: k }) })),
       devTabs: [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => ({ label: l, ...seg(s.device === k), onClick: () => this.setState({ device: k }) })),
       paneTabs: [['chat', 'Chat'], ['preview', 'Preview']].map(([k, l]) => ({ label: l, bd: s.pane === k ? '#0A2A4A' : 'transparent', fg: s.pane === k ? '#0A2A4A' : '#5A6472', onClick: () => this.setState({ pane: k }) })),
       showChat: !phone || s.pane === 'chat', showPreview: !phone || s.pane === 'preview', chatW: phone ? '100%' : (s.w && s.w < 1100 ? '320px' : '380px'),
-      msgs, busy: s.busy, prompt: s.prompt, showSugs: !s.busy && sugPool.length > 0, sugs: sugPool.map(t => ({ t, onClick: () => this.ask(t) })),
-      sendLabel: s.busy ? 'Working…' : 'Send', sendBg: s.busy || !s.prompt.trim() ? '#F3D3BF' : '#EC844F',
+      msgs, prompt: s.prompt, showSugs: !locked && sugPool.length > 0, sugs: sugPool.map(t => ({ t, onClick: () => this.ask(t) })),
+      busyLine: !!s.phase || (phone && s.sbx !== 'ready'), busyReopen: phone && !s.phase && s.sbx === 'ended',
+      busyText: { working: 'Working on it — the preview updates as soon as it’s ready.', checking: 'Checking your change…', finishing: 'Finishing your previous change…' }[s.phase] || (s.sbx === 'ended' ? 'Your studio session ended. Reopen the studio to keep designing.' : s.sbx === 'queued' ? `You’re next — about ${s.queueSecs} seconds` : 'Opening your studio…'),
+      sendLabel: s.phase ? 'Working…' : 'Send', sendBg: locked || !(s.prompt.trim() || s.attImg || s.attSite) ? '#F3D3BF' : '#EC844F',
       aiLine: P.ai === 'key' ? (app.st.aiKey ? 'On your own AI key' : 'Needs your AI key') : 'AI tokens: ' + app.aiLeft(),
-      publishing: s.pub > 0, notPublishing: !s.pub, pubPct: s.pub + '%', pubText: s.pub < 60 ? 'Building your site…' : s.pub < 100 ? 'Checking it went live…' : 'Done',
+      publishing: s.pub > 0, notPublishing: !s.pub, pubPct: s.pub + '%', pubText: s.pub < 40 ? 'Building your site…' : s.pub < 75 ? 'Checking your site…' : s.pub < 100 ? 'Checking it went live…' : 'Done',
       setCols: phone || cw < 820 ? '1fr' : 'minmax(0,1.15fr) minmax(0,1fr)', seoCols: phone || cw < 1000 ? '1fr' : 'repeat(2,minmax(0,1fr))',
       doms, dom, dns, domIn: s.domIn, domErr: s.domErr, seo, meters, recent, hasRecent: recent.length > 0,
       stats: [{ v: String(sf.prompts || 0), l: 'AI requests this month' }, { v: String((sf.history || []).filter(h => (Date.now() - h.date) / 864e5 <= 31).length), l: 'Publishes in the last 30 days' }],
       aiNote: P.ai === 'key' ? 'On ' + P.name + ' the AI runs on your own OpenAI or Anthropic key, so tokens are billed by them. From Growth Pro it’s included.' : 'Going back to an older version never uses build minutes.',
       history, noHistory: !history.length, histNote: hist === Infinity ? 'Every published version is kept.' : `Kept for ${hist} days on ${P.name}.`,
       on: {
-        prompt: e => this.setState({ prompt: e.target.value }),
-        pageSel: e => this.setState({ page: e.target.value }), devSel: e => this.setState({ device: e.target.value }),
+        prompt: e => this.setState({ prompt: e.target.value }), devSel: e => this.setState({ device: e.target.value }),
+        paste: e => { const it = Array.from((e.clipboardData && e.clipboardData.items) || []).find(x => x.kind === 'file' && /^image\//.test(x.type)); if (it) { e.preventDefault(); this.takeImg(it.getAsFile()); } },
+        file: e => { this.takeImg(e.target.files && e.target.files[0]); e.target.value = ''; },
+        siteIn: e => this.setState({ siteIn: e.target.value, siteErr: '' }), siteKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.addSite(); } },
         key: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.ask(); } },
         domIn: e => this.setState({ domIn: e.target.value, domErr: '' }),
         seoTitle: e => this.setState({ seo: { ...sd, title: e.target.value } }), seoDesc: e => this.setState({ seo: { ...sd, desc: e.target.value } })
       },
       a: {
         send: () => this.ask(), nav: pg => this.setState({ page: pg }), publish: () => this.publish(), discard: () => this.discard(),
-        exitStudio: () => { this.setStudio(false); this.setState({ tab: 'design', changed: [] }); },
+        exitStudio: () => { clearTimeout(this._sb); this.setStudio(false); this.setState({ tab: 'design', changed: [], sbx: 'ready', editMode: false, edit: null, pageMenu: false, prevMenu: false }); },
+        reopen: () => this.startSandbox(), togglePages: e => s.pageMenu ? this.closeMenus() : this.openMenu('page', e && e.currentTarget), togglePrevMenu: e => s.prevMenu ? this.closeMenus() : this.openMenu('prev', e && e.currentTarget),
+        closeMenus: () => this.closeMenus(), openPreview: () => this.openPreview(), endLinks: () => this.endLinks(),
+        toggleEdit: () => this.setState({ editMode: !s.editMode, edit: null }), editCancel: () => this.setState({ edit: null }), editSave: () => this.saveEdit(),
+        pickImg: () => { const f = document.querySelector('[data-sf-file]'); if (f) f.click(); }, rmImg: () => this.setState({ attImg: null }), rmSite: () => this.setState({ attSite: '' }),
+        openSite: () => this.setState({ siteOpen: true, siteIn: '', siteErr: '' }), cancelSite: () => this.setState({ siteOpen: false, siteIn: '', siteErr: '' }), addSite: () => this.addSite(),
         openStudio: () => this.openStudio(), openGallery: () => this.setGallery(true), closeGallery: () => this.setGallery(false),
         viewLive: () => app.toast('Opens ' + host + ' in a new tab'), powered: () => app.upgradeTo('Removing “Powered by DripFunnel”', 'starter'),
         connect: () => this.connect(), check: () => this.check(),

@@ -46,6 +46,13 @@ describe('the store menu', () => {
     expect(vendor).not.toContain('df-nav-group')
     expect(vendor).not.toContain('disabled')
   })
+
+  it('notes "stock only" on a Stock-only supplier’s products, and on no other tier’s (FIRST-RELEASE §3.1)', async () => {
+    const stock = await render(<SideNav rows={navRowsFor({ side: 'supplier', tier: 'vendor-stock', admin: false }, { ordersToShip: 0, productsToApprove: 0 }, null)} variant="bar" label="Store" footer={null} />)
+    expect(stock).toContain('<span class="df-nav-note">stock only</span>')
+    const catalogue = await render(<SideNav rows={navRowsFor({ side: 'supplier', tier: 'vendor-catalogue', admin: true }, { ordersToShip: 0, productsToApprove: 0 }, null)} variant="bar" label="Store" footer={null} />)
+    expect(catalogue).not.toContain('stock only')
+  })
 })
 
 describe('the shell’s banners', () => {

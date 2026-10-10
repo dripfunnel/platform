@@ -32,6 +32,20 @@ describe('Stripe client', () => {
     await expect(stripeClient({ secretKey: 'rk_test_a', fetchImpl: answering(200, { nope: true }) }).invoice('in_1')).rejects.toBeInstanceOf(StripeUnavailable)
   })
 
+  it('reads every line of an invoice page by page, and refuses a list longer than it reads', async () => {
+    const line = (n: number) => ({ id: `il_${n}`, amount: 100 })
+    const pages = [{ data: [line(1), line(2)], has_more: true }, { data: [line(3)], has_more: false }]
+    const seen: Request[] = []
+    const paged = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(new Request(input, init))
+      return Response.json(pages[seen.length - 1])
+    }) as typeof fetch
+    expect((await stripeClient({ secretKey: 'rk_test_a', fetchImpl: paged }).invoiceLines('in_1')).map((l) => l.id)).toEqual(['il_1', 'il_2', 'il_3'])
+    expect(new URL(seen[1]?.url ?? '').searchParams.get('starting_after')).toBe('il_2')
+    const endless = answering(200, { data: [line(9)], has_more: true })
+    await expect(stripeClient({ secretKey: 'rk_test_a', fetchImpl: endless }).invoiceLines('in_1')).rejects.toBeInstanceOf(StripeUnavailable)
+  })
+
   it('treats no answer at all as unavailable', async () => {
     const failing = (async () => {
       throw new TypeError('network')

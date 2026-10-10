@@ -12,7 +12,7 @@ import {
 } from '#auth/activity'
 import { emailChangeValidMs } from '#auth/emailChangeTokens'
 import { hashPassword, minPasswordLength, verifyPassword } from '#auth/password'
-import type { StorePerson } from '#auth/storeCaller'
+import { standingPerson, type StorePerson } from '#auth/storeCaller'
 import { hashBackupCode, maxSmsCodesPer10Min, newBackupCodes, phoneHint } from '#auth/storeCodes'
 import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
 import { pageOf } from '#core/paging'
@@ -53,8 +53,9 @@ const sqlOf = (ctx: StoreContext) => {
 }
 
 const personOf = (ctx: StoreContext): StorePerson => {
-  if (ctx.standing.kind === 'signed-out') throw forbidden()
-  return ctx.standing.person
+  const person = standingPerson(ctx.standing)
+  if (!person) throw forbidden()
+  return person
 }
 
 const userOf = (p: StorePerson) => ({ id: p.id, partnerId: p.partnerId })
