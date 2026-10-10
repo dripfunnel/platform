@@ -153,7 +153,7 @@ describe('saving an offer', () => {
     const other = db.sql.begin(async (tx) => {
       await tx`select pg_advisory_xact_lock(hashtext(${`offer-code:${t.storeA1}:twins10`}))`
       first = (await tx<{ id: string }[]>`insert into promotion (store_id, name, trigger, enabled) values (${t.storeA1}, 'Twin one', 'code', false) returning id`)[0]?.id ?? ''
-      await tx`insert into promotion_action (promotion_id, store_id, operation, args, position) values (${first}, ${t.storeA1}, 'free_shipping', '{}', 0)`
+      await tx`insert into promotion_action (promotion_id, store_id, operation, args, position) values (${first}, ${t.storeA1}, 'order_percentage_discount', '{"percent": 5}', 0)`
       await tx`insert into promotion_code (promotion_id, store_id, code) values (${first}, ${t.storeA1}, 'TWINS10')`
       ready()
       await gate
