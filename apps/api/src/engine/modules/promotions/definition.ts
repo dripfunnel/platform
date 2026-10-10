@@ -8,7 +8,7 @@ import { isCurrency, parseMinor } from '#core/money'
 // (PLATFORM-PROMPT §5.10); a merchant only fills in the arguments.
 
 const maxTargetIds = 250
-export const maxConditions = 20
+const maxConditions = 20
 
 const uuid = z
   .string()
@@ -77,7 +77,6 @@ export type LeafCondition = z.output<typeof leafSchema>
 /** AND across an offer's conditions; `any_of` is the engine's OR, which the portal's form doesn't offer (fact 2, #337). */
 const conditionSchema = z.union([...leafConditions, z.object({ operation: z.literal('any_of'), conditions: z.array(leafSchema).min(2).max(10) }).strict()])
 export type Condition = z.output<typeof conditionSchema>
-export type ConditionOperation = Condition['operation']
 
 const tierSchema = z.object({ minimum: amountsSchema, percent: percent.optional(), amounts: amountsSchema.optional() }).strict()
 
@@ -105,9 +104,8 @@ const actionSchema = z.union([
     .refine((t) => t.tiers.every((tier) => (t.kind === 'percent' ? tier.percent !== undefined && !tier.amounts : tier.amounts !== undefined && tier.percent === undefined)), 'tiers'),
 ])
 export type Action = z.output<typeof actionSchema>
-export type ActionOperation = Action['operation']
 
-export const combinesSchema = z.object({ product: z.boolean(), order: z.boolean(), shipping: z.boolean() }).strict()
+const combinesSchema = z.object({ product: z.boolean(), order: z.boolean(), shipping: z.boolean() }).strict()
 export type Combines = z.output<typeof combinesSchema>
 
 export type OfferClass = keyof Combines
