@@ -166,7 +166,9 @@ export const createCartService = (deps: CartDeps) => {
     // Without an address, only collection from the store's own country can be quoted; a store with none offers nothing yet.
     const shipTo = address ? { country: address.country, region: address.region, postal: address.postalCode } : setup?.country ? { country: setup.country, region: null, postal: null } : null
     if (sent.length > 0 && shipTo) {
-      const quoted = await shipping.quote({ lines: sent.map((l) => ({ versionId: l.versionId, quantity: l.quantity })), shipTo, subtotal, marketId })
+      // Free delivery's threshold and the parcel's declared value are what is sent, never a download or gift card.
+      const sentValue = { amount: sent.reduce((sum, l) => sum + l.lineTotal.amount, 0n), currency }
+      const quoted = await shipping.quote({ lines: sent.map((l) => ({ versionId: l.versionId, quantity: l.quantity })), shipTo, subtotal: sentValue, marketId })
       if (quoted.ok) {
         // Without an address only collection in person can be priced honestly.
         shippingOptions = address ? quoted.value.options : quoted.value.options.filter((o) => o.id === 'pickup')

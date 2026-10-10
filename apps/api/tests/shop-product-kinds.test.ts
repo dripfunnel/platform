@@ -120,6 +120,24 @@ describe('a cart with nothing to send', () => {
   })
 })
 
+describe('free delivery', () => {
+  it('is reached by what is sent alone: a download in the cart counts toward no threshold', async () => {
+    await db.sql`update store_shipping set free_mode = 'over', free_threshold_amount = 150000 where store_id = ${store}`
+    try {
+      const { token } = await add(v.kurta, 1)
+      await add(v.pack, 1, token)
+      await shop('mutation { setShippingAddress(address: { name: "Meera", line1: "4 MI Road", city: "Jaipur", region: "Rajasthan", postalCode: "302001", country: "IN" }) { cart { id } } }', token)
+      await shop('mutation { setShippingOption(option: "flat") { cart { id } } }', token)
+      // 1,050 of kurta and 900 of download: over 1,500 together, under it in what is sent.
+      expect((await cart(token)).shipping).toEqual({ amount: '5000' })
+      await add(v.kurta, 1, token)
+      expect((await cart(token)).shipping).toEqual({ amount: '0' })
+    } finally {
+      await db.sql`update store_shipping set free_mode = 'never', free_threshold_amount = null where store_id = ${store}`
+    }
+  })
+})
+
 describe('a gift card', () => {
   it('carries no tax of its own: what a cart owes in tax is the kurta’s alone (CatEditor)', async () => {
     const taxOf = async (...versions: string[]) => {
