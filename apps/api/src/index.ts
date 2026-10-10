@@ -13,6 +13,7 @@ import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
 import { handleAssets, isAssetsPath } from '#apis/store/assets'
+import { handleDocument, isDocumentsPath } from '#apis/store/documents'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema, type StoreContext } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
@@ -34,7 +35,9 @@ import { parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localCloudflare, localCouriers, localDns, localEmail, localSms } from '#integrations/local/index'
+import { localCloudflare, localCouriers, localDns, localEmail, localSms, localWhatsApp } from '#integrations/local/index'
+import { whatsappDeliverer } from '#jobs/queues/deliverers/whatsapp'
+import { whatsappKind, whatsappMessages, type PartnerWhatsAppAccounts } from '#saas/whatsapp/index'
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
@@ -49,6 +52,8 @@ import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
 import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
 import { ratesRefreshDeliverer, ratesRefreshKind } from '#jobs/queues/deliverers/ratesRefresh'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
+import { cartRemindDeliverer } from '#jobs/queues/deliverers/cartRemind'
+import { cartRemindKind, markAbandonedCarts, queueDueReminders } from '#engine/modules/cartReminders/index'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
@@ -76,6 +81,7 @@ import { stripeConnect } from '#integrations/stripe/connect'
 import { stripePayments, type StripeKeys } from '#integrations/stripe/payments'
 import { stripeTax } from '#integrations/stripe/tax'
 import { handleStripeConnectCallback, stripeConnectCallbackPath } from '#hooks/stripeConnect'
+import { courierHookOf, handleCourierHook } from '#hooks/couriers'
 import { handlePaymentHook, paymentHookOf } from '#hooks/payments'
 import { keyedGateways } from '#integrations/payments/index'
 import { deleteExpiredCarts } from '#db/scoped/cart'
@@ -159,6 +165,11 @@ const localSmsAccounts: PartnerSmsAccounts = {
       : { provider, accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
 }
 
+// Locally (SMS_LOCAL) every partner has a WhatsApp number with both cart templates, which the stand-in prints (#275 sets the real ones).
+const localWhatsAppAccounts: PartnerWhatsAppAccounts = {
+  forPartner: async () => ({ authKey: 'local', integratedNumber: 'local', language: 'en', templates: Object.fromEntries(whatsappMessages.map((m) => [m, m.replace('.', '_')])) }),
+}
+
 // Asked for, the stand-in wins (EMAIL_LOCAL; config refuses it anywhere but localhost), as Shopify's does; else SES
 // where its values are set; else email waits in the outbox.
 const emailFor = (config: Config) => {
@@ -176,6 +187,9 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
+    // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
+    ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
+    ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
@@ -410,9 +424,10 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), codeCheck: config.CODE_CHECK,
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
+    if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
   })
 }
@@ -448,6 +463,14 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
     const allow = async (key: string) => (await limiter.limit({ key })).success
     return withConnection(config.HYPERDRIVE, ctx, (sql) => handlePaymentHook(request, paymentHook, { sql, activity: activityLog, gateways: payments.gateways, secrets, now: () => new Date() }, allow))
+  }
+  const courierHook = courierHookOf(url.pathname)
+  if (courierHook) {
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    const limiter = env.SHOP_RATE_LIMITER
+    if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
+    const couriers = config.COURIERS_LOCAL === '1' ? localCouriers() : null
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers }, async (key) => (await limiter.limit({ key })).success))
   }
   if (url.pathname === stripeConnectCallbackPath) {
     const connect = payments.stripeConnect
@@ -611,6 +634,18 @@ const sweepSchedules = (env: Env): Promise<void> =>
     await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
     })
+    // Carts left in checkout are marked, then each reminder step now due is queued once (FIRST-RELEASE §9).
+    const reminders = { sql, now: () => new Date() }
+    const abandoned = await markAbandonedCarts(reminders, 100).catch((error: unknown) => {
+      logEvent({ event: 'abandoned_carts_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (abandoned > 0) logEvent({ event: 'abandoned_carts_marked', api: 'system', code: 'abandoned', count: abandoned })
+    const reminded = await queueDueReminders(reminders, 200).catch((error: unknown) => {
+      logEvent({ event: 'cart_reminders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      return 0
+    })
+    if (reminded > 0) logEvent({ event: 'cart_reminders_queued', api: 'system', code: 'due', count: reminded })
     // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
     await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
       logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

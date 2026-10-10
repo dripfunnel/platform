@@ -6,7 +6,7 @@ import { insertOutbox } from './outbox'
 
 export const orderUpdateKind = 'order.notify'
 
-export type OrderUpdate = { event: 'confirmed'; orderId: string } | { event: 'shipped'; orderId: string; fulfilmentId: string }
+export type OrderUpdate = { event: 'confirmed'; orderId: string } | { event: 'shipped' | 'delivered'; orderId: string; fulfilmentId: string }
 
 /** Queued once an event: confirmed once an order, shipped once a shipment and once more when tracking first arrives. */
 export const queueOrderUpdate = async (tx: ScopedSql, storeId: string, update: OrderUpdate, key: string): Promise<void> => {
@@ -45,7 +45,7 @@ export interface ShipmentToTellRow {
 }
 
 export const selectShipmentToTell = async (tx: ScopedSql, fulfilmentId: string): Promise<ShipmentToTellRow | null> =>
-  (await tx<ShipmentToTellRow[]>`select order_id, courier_name, tracking_number, tracking_url from fulfilment where id = ${fulfilmentId} and kind = 'manual'`)[0] ?? null
+  (await tx<ShipmentToTellRow[]>`select order_id, courier_name, tracking_number, tracking_url from fulfilment where id = ${fulfilmentId} and kind in ('manual', 'booked')`)[0] ?? null
 
 export interface OrderEmailRow {
   store_id: string
