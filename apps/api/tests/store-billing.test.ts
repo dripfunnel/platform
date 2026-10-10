@@ -149,6 +149,7 @@ const reset = async () => {
   await subscribe(t.storeA1, t.partnerA, plans.growth, 'active', 3000, { customer: 'cus_a1', subscription: 'sub_a1' })
   subs.set('sub_a1', subscriptionOf('sub_a1', 'cus_a1', 3000, { store_id: t.storeA1, plan_id: plans.growth, plan_version: '1', interval: 'month' }))
   await subscribe(t.storeA2, t.partnerA, plans.business, 'trial', 6000, null)
+  await db.sql`update store set status = 'trial' where id = ${t.storeA2}`
   await subscribe(t.storeB1, t.partnerB, plans.otherPartner, 'active', 500, { customer: 'cus_b1', subscription: 'sub_b1' })
 }
 
@@ -326,13 +327,14 @@ describe('choosing a plan out of the trial', () => {
     expect((await change('trialOwner', plans.starter, 'PERIOD_END')).code).toBe('AT_PERIOD_END_ONLY')
     expect((await change('trialOwner', plans.starter, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Starter' }, status: 'active', price: { amount: '1000' }, collectedBy: 'dripfunnel' })
     expect(calls).toEqual(['create:1000'])
-    expect(await storeRow(t.storeA2)).toMatchObject({ plan_id: plans.starter })
+    expect(await storeRow(t.storeA2)).toMatchObject({ plan_id: plans.starter, status: 'active' })
     expect(await entries(t.storeA2, 'billing.plan_changed')).toHaveLength(1)
     expect(await entries(t.storeA2, 'billing.payment_method_set')).toHaveLength(1)
   })
 
   it('moves to Free with no card and nothing on Stripe', async () => {
     expect((await change('trialOwner', plans.free, 'NOW')).data?.['changePlan']).toMatchObject({ plan: { name: 'Free' }, status: 'active' })
+    expect(await storeRow(t.storeA2)).toMatchObject({ plan_id: plans.free, status: 'active' })
     expect(calls).toEqual([])
   })
 

@@ -88,12 +88,15 @@ export interface PlanMove {
   amount: number
 }
 
-/** The store is on the plan from now, its period Stripe's; any scheduled change is gone. store.plan_id mirrors it (§7.9). */
-export const applyPlan = async (tx: ScopedSql, storeId: string, move: PlanMove & { subscriptionId: string | null; periodStart: Date; periodEnd: Date }): Promise<void> => {
+/**
+ * The store is on the plan from now, its period Stripe's; any scheduled change is gone. store.plan_id mirrors it (§7.9).
+ * `activate`: the first plan paid for (or a free one) out of the trial, which makes the subscription active.
+ */
+export const applyPlan = async (tx: ScopedSql, storeId: string, move: PlanMove & { subscriptionId: string | null; periodStart: Date; periodEnd: Date; activate: boolean }): Promise<void> => {
   await tx`
     update store_subscription set plan_id = ${move.planId}, plan_version = ${move.planVersion}, interval = ${move.interval}, amount = ${move.amount},
       stripe_subscription_id = coalesce(${move.subscriptionId}, stripe_subscription_id), period_start = ${move.periodStart}, period_end = ${move.periodEnd},
-      status = case when status = 'trial' then 'active' else status end, trial_ends_at = case when status = 'trial' then null else trial_ends_at end,
+      status = case when ${move.activate} then 'active' else status end, trial_ends_at = case when ${move.activate} then null else trial_ends_at end,
       next_plan_id = null, next_plan_version = null, next_interval = null, change_at = null
     where store_id = ${storeId}
   `

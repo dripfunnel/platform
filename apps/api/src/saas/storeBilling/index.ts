@@ -12,6 +12,7 @@ import { countLiveSuppliers } from '#db/scoped/suppliers'
 import { selectCurrentVersions } from '#db/scoped/partnerPlans'
 import { planKeyDefs, UNLIMITED } from '#db/scoped/planKeys'
 import { selectStoreAccount } from '#db/scoped/storeAccount'
+import { selectStoreForUpdate } from '#db/scoped/stores'
 import {
   applyPlan,
   claimBilling,
@@ -31,6 +32,7 @@ import {
   type CataloguePlanRow,
 } from '#db/scoped/storeBilling'
 import { StripeRefused, StripeUnavailable, type StoreBillingStripe, type StripeApi, type StripeSubscription } from '#integrations/stripe/index'
+import { transitionStore } from '#saas/stores/index'
 import { addInterval, offeredWays, quoteChange, type CurrentPlan, type Interval, type When } from './quote'
 
 export { addInterval, offeredWays, quoteChange } from './quote'
@@ -394,8 +396,12 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
         }
       }
       await system(async (tx) => {
-        if (applied) await applyPlan(tx, storeId, { ...move, ...applied })
-        else if (keeps) await clearScheduledChange(tx, storeId)
+        if (applied) {
+          await applyPlan(tx, storeId, { ...move, ...applied, activate: !paidOf(sub) })
+          // Out of the trial the store is active too (SAAS §4.2: Active is a paid subscription, or a free plan).
+          const store = paidOf(sub) ? null : await selectStoreForUpdate(tx, storeId)
+          if (store?.status === 'trial') await transitionStore(tx, store, { to: 'active' }, at)
+        } else if (keeps) await clearScheduledChange(tx, storeId)
         else await scheduleChange(tx, storeId, { ...move, at: sub.period_end })
         await activity.record(tx, entry(applied ? storeBillingAudit.changePlan : keeps ? storeBillingAudit.cancelChange : storeBillingAudit.scheduleChange, changes))
       })
