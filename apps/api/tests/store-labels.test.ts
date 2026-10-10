@@ -333,6 +333,14 @@ describe('a pickup on request', () => {
     expect((await shipments('owner', id))?.find((s) => s['id'] === shipment)?.['pickupRequestedAt']).toBeNull()
   })
 
+  it('asks nothing of a courier the store has switched off since the label was booked', async () => {
+    await db.sql`update store_courier set role = 'off' where store_id = ${t.storeA1}`
+    expect((await pickup('owner', shipment)).code).toBe('NOT_CONNECTED')
+    await db.sql`update store_courier set role = 'pricing' where store_id = ${t.storeA1}`
+    expect(courier.pickups).toEqual([])
+    expect((await shipments('owner', id))?.find((s) => s['id'] === shipment)?.['pickupRequestedAt']).toBeNull()
+  })
+
   it('is asked once, however many ask at once', async () => {
     courier.pauseMs = 150
     const [a, b] = await Promise.all([pickup('owner', shipment), pickup('staff', shipment)])
