@@ -60,7 +60,7 @@ export const planKeyDefs: readonly PlanKeyDef[] = [
   { key: 'blog', kind: 'switch', group: 'storefront', enforced: false, monthly: false, choices: [] },
   { key: 'reports_sales', kind: 'switch', group: 'reports', enforced: true, monthly: false, choices: [] },
   { key: 'reports_export', kind: 'switch', group: 'reports', enforced: true, monthly: false, choices: [] },
-  { key: 'reports_custom', kind: 'switch', group: 'reports', enforced: false, monthly: false, choices: [] },
+  { key: 'reports_custom', kind: 'switch', group: 'reports', enforced: true, monthly: false, choices: [] },
   { key: 'support_level', kind: 'choice', group: 'support', enforced: false, monthly: false, choices: ['helpCentre', 'email', 'chat', 'priority', 'manager'] },
   { key: 'uptime_guarantee', kind: 'switch', group: 'support', enforced: false, monthly: false, choices: [] },
   { key: 'white_label', kind: 'switch', group: 'support', enforced: false, monthly: false, choices: [] },
