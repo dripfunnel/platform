@@ -118,7 +118,7 @@ const base64 = (bytes: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Arra
 export const hashSource = async (text: string): Promise<string> => `'sha256-${base64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))}'`
 
 const inline = (html: string, tag: 'script' | 'style') =>
-  [...html.matchAll(new RegExp(`<${tag}\\b([^>]*)>([\\s\\S]*?)</${tag}>`, 'gi'))].filter((m) => !/\bsrc\s*=/i.test(m[1] ?? '') && (m[2] ?? '') !== '').map((m) => m[2] ?? '')
+  [...html.matchAll(new RegExp(`<${tag}\\b([^>]*)>([\\s\\S]*?)</${tag}>`, 'gi'))].filter((m) => !/(?:^|\s)src\s*=/i.test(m[1] ?? '') && (m[2] ?? '') !== '').map((m) => m[2] ?? '')
 
 /** The hashes of a built page's inline scripts and styles, which its CSP lists. */
 export const inlineHashes = async (html: string): Promise<InlineHashes> => ({

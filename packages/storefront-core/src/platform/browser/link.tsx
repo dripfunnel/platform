@@ -3,13 +3,12 @@
 import type { ReactNode } from 'react'
 import { useStorefront } from '../store/context'
 
-/** An address a link may carry: a path on this store, or an http(s) address; never `javascript:` or `data:`. */
-const safe = (href: string): boolean => /^[/?#]/.test(href) ? !href.startsWith('//') : /^https?:\/\//i.test(href)
+/** A path on this store or an http(s) address; never `javascript:`, `data:`, `//host`, or a backslash or control character a browser would read as `/` or drop. */
+const safe = (href: string): boolean =>
+  ![...href].some((c) => c === '\\' || c <= ' ' || c === '\u007f' || /\s/.test(c)) && (/^[/?#]/.test(href) ? !href.startsWith('//') : /^https?:\/\//i.test(href))
 
-const elsewhere = (href: string): boolean => {
-  const here = globalThis.location
-  return here !== undefined && new URL(href, here.href).origin !== here.origin
-}
+// Decided from the address alone, so the server's HTML and the browser's render agree: this store's links are paths.
+const elsewhere = (href: string): boolean => /^https?:\/\//i.test(href)
 
 /**
  * The only link a theme renders (ARCHITECTURE §3.4). In the studio frame a link to another host opens a

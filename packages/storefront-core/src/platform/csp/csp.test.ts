@@ -67,8 +67,8 @@ describe('studioCsp', () => {
 
 describe('inlineHashes and pageHeaders', () => {
   it('hash each inline script and style exactly, and leave out scripts with a src', async () => {
-    const html = '<style>p{color:red}</style><script>self.a=1</script><script src="/x.js"></script><script type="application/json">{}</script>'
-    expect(await inlineHashes(html)).toEqual({ scripts: [await hashSource('self.a=1'), await hashSource('{}')], styles: [await hashSource('p{color:red}')] })
+    const html = '<style>p{color:red}</style><script>self.a=1</script><script src="/x.js"></script><script data-src="y">self.b=2</script><script type="application/json">{}</script>'
+    expect(await inlineHashes(html)).toEqual({ scripts: [await hashSource('self.a=1'), await hashSource('self.b=2'), await hashSource('{}')], styles: [await hashSource('p{color:red}')] })
     expect(await hashSource('abc')).toBe("'sha256-ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0='")
   })
 

@@ -404,8 +404,9 @@ their own cards.
   - no analytics and no payment provider: the studio loads neither, and checkout there shows a
     placeholder (a test checkout is the preview link's, PREVIEW §5 step 6). Links to other hosts
     open a new tab outside the frame, carrying nothing from it (`noreferrer`): core's `<Link>`
-    does this when the render mode is `studio`, and renders no link at all for an address that
-    isn't a path or `http(s)`;
+    does this for any `http(s)` address when the render mode is `studio` (the store's own links
+    are paths), and renders no link at all for an address that isn't a path or `http(s)` or that
+    holds a backslash, a space or a control character;
   - `frame-ancestors` only the store's portal host.
 
   So nothing in the frame can send a request to another host.
