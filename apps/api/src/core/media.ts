@@ -58,3 +58,26 @@ export const checkMedia = (bytes: Uint8Array): MediaCheck => {
   if (bytes.byteLength > (type.kind === 'image' ? maxImageBytes : maxVideoBytes)) return { ok: false, code: 'TOO_LARGE' }
   return { ok: true, type }
 }
+
+// What a download may be (CatEditor: PDF, ZIP, MP3, MP4 or an image), read from its bytes; never a photo or shown inline.
+export type DownloadType = { ext: 'pdf' | 'zip' | 'mp3' | 'mp4' | 'webm' | 'jpg' | 'png' | 'webp'; mime: string }
+
+// Held in memory while it is checked and stored, as a video is; larger files need R2's multipart upload.
+export const maxDownloadBytes = 30 * 1024 * 1024
+
+export const sniffDownload = (bytes: Uint8Array): DownloadType | null => {
+  if (startsWith(bytes, ascii('%PDF-'))) return { ext: 'pdf', mime: 'application/pdf' }
+  if (startsWith(bytes, [0x50, 0x4b, 0x03, 0x04])) return { ext: 'zip', mime: 'application/zip' }
+  if (startsWith(bytes, ascii('ID3')) || (at(bytes, 0) === 0xff && (at(bytes, 1) & 0xe0) === 0xe0)) return { ext: 'mp3', mime: 'audio/mpeg' }
+  const media = sniffMedia(bytes)
+  return media ? { ext: media.ext, mime: media.mime } : null
+}
+
+export type DownloadCheck = { ok: true; type: DownloadType } | { ok: false; code: 'EMPTY' | 'TOO_LARGE' | 'UNSUPPORTED_TYPE' }
+
+export const checkDownload = (bytes: Uint8Array): DownloadCheck => {
+  if (bytes.byteLength === 0) return { ok: false, code: 'EMPTY' }
+  if (bytes.byteLength > maxDownloadBytes) return { ok: false, code: 'TOO_LARGE' }
+  const type = sniffDownload(bytes)
+  return type ? { ok: true, type } : { ok: false, code: 'UNSUPPORTED_TYPE' }
+}

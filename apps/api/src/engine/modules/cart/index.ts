@@ -64,6 +64,8 @@ export interface CartView {
   checkoutStep: CartRow['checkout_step']
   /** Moves with every change: placement refuses a cart changed after it was priced. */
   revision: number
+  /** False when nothing in it is sent: checkout then asks no address or delivery (CATALOG T14). */
+  needsShipping: boolean
   lines: CartLineView[]
   subtotal: Money
   /** Null until there is an address to deliver to; collection in person is offered without one. */
@@ -134,16 +136,20 @@ export const createCartService = (deps: CartDeps) => {
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
     const priced = lines.filter((l): l is CartLineView & { lineTotal: Money } => l.lineTotal !== null)
+    // Only a physical item is sent (CATALOG T14); a gift card carries no tax, which is charged on what it buys (CatEditor).
+    const sent = priced.filter((l) => l.item?.product.productType === 'physical')
+    const needsShipping = lines.some((l) => l.item?.product.productType === 'physical')
+    const taxable = priced.filter((l) => l.item?.product.productType !== 'gift_card')
     const setup = await withScope(sql, context, (tx) => selectTaxSetup(tx, storeId))
-    const pickup = row.shipping_option === 'pickup'
+    const pickup = needsShipping && row.shipping_option === 'pickup'
     const address = row.shipping_address
     const shipping = createShippingService({ sql, context, actor: { id: customerId ?? 'guest', partnerId: context.partnerId }, activity: deps.activity, facts: deps.facts, now, couriers: deps.couriers })
     let shippingOptions: DeliveryOption[] = []
     let deliverable: boolean | null = null
     // Without an address, only collection from the store's own country can be quoted; a store with none offers nothing yet.
     const shipTo = address ? { country: address.country, region: address.region, postal: address.postalCode } : setup?.country ? { country: setup.country, region: null, postal: null } : null
-    if (priced.length > 0 && shipTo) {
-      const quoted = await shipping.quote({ lines: priced.map((l) => ({ versionId: l.versionId, quantity: l.quantity })), shipTo, subtotal, marketId })
+    if (sent.length > 0 && shipTo) {
+      const quoted = await shipping.quote({ lines: sent.map((l) => ({ versionId: l.versionId, quantity: l.quantity })), shipTo, subtotal, marketId })
       if (quoted.ok) {
         // Without an address only collection in person can be priced honestly.
         shippingOptions = address ? quoted.value.options : quoted.value.options.filter((o) => o.id === 'pickup')
@@ -151,13 +157,17 @@ export const createCartService = (deps: CartDeps) => {
       }
     }
     const chosen = shippingOptions.find((o) => o.id === row.shipping_option) ?? null
-    // Tax follows where the goods go: the address, or the store itself for collection (CATALOG fact 37).
-    const taxTo = pickup ? (setup?.country ? { country: setup.country, region: setup.region } : null) : address ? { country: address.country, region: address.region } : null
-    const tax = setup && taxTo ? await taxOf(setup, taxTo, pickup ? null : (address?.postalCode ?? null), priced, chosen?.amount.amount ?? null) : null
+    // Tax follows where the goods go: the address, or the store itself for collection (CATALOG fact 37); with nothing to
+    // send, where the shopper is billed, else the store (decided on #323).
+    const home = setup?.country ? { country: setup.country, region: setup.region, postalCode: null } : null
+    const taxAt = needsShipping ? (pickup ? home : address) : (row.billing_address ?? address ?? home)
+    const taxTo = taxAt ? { country: taxAt.country, region: taxAt.region } : null
+    const tax = setup && taxTo ? await taxOf(setup, taxTo, taxAt?.postalCode ?? null, taxable, chosen?.amount.amount ?? null) : null
     const total = subtotal.amount + (chosen?.amount.amount ?? 0n) + (tax && !tax.inclusive ? tax.amount.amount : 0n)
     const problems = checkoutProblems({
       lines,
       hasContact: Boolean(row.email || row.phone),
+      needsShipping,
       shippingOption: row.shipping_option,
       hasShippingAddress: address !== null,
       optionOffered: chosen !== null,
@@ -171,9 +181,10 @@ export const createCartService = (deps: CartDeps) => {
       note: row.shopper_note,
       shippingAddress: address,
       billingAddress: row.billing_address,
-      shippingOption: row.shipping_option,
+      shippingOption: needsShipping ? row.shipping_option : null,
       checkoutStep: row.checkout_step,
       revision: row.revision,
+      needsShipping,
       lines,
       subtotal,
       deliverable,

@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import type { Page } from '#core/paging'
-import type { ProductRequest, ShopFacetRow, ShopProductExtrasRow, ShopProductPage, ShopProductView, ShopSort, ShopVersionView } from '#engine/modules/storefront/index'
+import type { ProductRequest, ShopFacetRow, ShopKindView, ShopProductExtrasRow, ShopProductPage, ShopProductView, ShopSort, ShopVersionView } from '#engine/modules/storefront/index'
 import type { ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 import { assetUrl, catalogOf, imageOf } from './catalog'
@@ -145,6 +145,17 @@ export const registerProducts = ({ builder, pageInfo, image, money: MoneyType }:
       video: t.field({ type: Video, nullable: true, resolve: (s) => { const v = field(s.module, 'video') as { assetId: string | null; url: string | null } | null; return v ? { asset_id: v.assetId, url: v.url } : null } }),
     }),
   })
+  // A download's link rule, a service's details, a gift card's expiry (CATALOG T14): what the product page says of each.
+  const DownloadKind = builder.objectRef<NonNullable<ShopKindView['download']>>('ShopDownloadDetails').implement({
+    fields: (t) => ({ limit: t.exposeInt('limit'), days: t.exposeInt('days') }),
+  })
+  const ServiceKind = builder.objectRef<NonNullable<ShopKindView['service']>>('ShopServiceDetails').implement({
+    fields: (t) => ({ duration: t.exposeString('duration', { nullable: true }), location: t.exposeString('location', { nullable: true }) }),
+  })
+  const GiftCardKind = builder.objectRef<NonNullable<ShopKindView['giftCard']>>('ShopGiftCardDetails').implement({
+    // Null: cards never expire.
+    fields: (t) => ({ expiryMonths: t.exposeInt('expiryMonths', { nullable: true }) }),
+  })
   const Product = builder.objectRef<ShopProductPage>('ShopProduct').implement({
     fields: (t) => ({
       id: t.string({ resolve: (p) => p.product.id }),
@@ -152,6 +163,9 @@ export const registerProducts = ({ builder, pageInfo, image, money: MoneyType }:
       slug: t.string({ resolve: (p) => p.product.slug }),
       description: t.string({ resolve: (p) => p.product.description }),
       productType: t.string({ resolve: (p) => p.product.productType }),
+      download: t.field({ type: DownloadKind, nullable: true, resolve: (p) => p.product.kind?.download ?? null }),
+      service: t.field({ type: ServiceKind, nullable: true, resolve: (p) => p.product.kind?.service ?? null }),
+      giftCard: t.field({ type: GiftCardKind, nullable: true, resolve: (p) => p.product.kind?.giftCard ?? null }),
       seoTitle: t.string({ nullable: true, resolve: (p) => p.product.seoTitle }),
       seoDescription: t.string({ nullable: true, resolve: (p) => p.product.seoDescription }),
       price: t.field({ type: MoneyType, nullable: true, resolve: (p) => p.product.price }),

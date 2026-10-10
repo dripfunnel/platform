@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkMedia, maxImageBytes, sniffMedia } from './media'
+import { checkDownload, checkMedia, maxDownloadBytes, maxImageBytes, sniffDownload, sniffMedia } from './media'
 
 const bytes = (...parts: (number[] | string)[]) => new Uint8Array(parts.flatMap((p) => (typeof p === 'string' ? [...p].map((c) => c.charCodeAt(0)) : p)))
 
@@ -33,5 +33,16 @@ describe('media', () => {
 
   it('answers a size it can’t read as unknown rather than wrong', () => {
     expect(sniffMedia(bytes([0xff, 0xd8, 0xff, 0x00]))).toMatchObject({ width: null, height: null })
+  })
+
+  it('reads a download’s type from its bytes, and refuses a script, an empty file and one over its size', () => {
+    expect(sniffDownload(bytes('%PDF-1.7'))).toEqual({ ext: 'pdf', mime: 'application/pdf' })
+    expect(sniffDownload(bytes([0x50, 0x4b, 0x03, 0x04]))).toEqual({ ext: 'zip', mime: 'application/zip' })
+    expect(sniffDownload(bytes('ID3', [4, 0]))).toEqual({ ext: 'mp3', mime: 'audio/mpeg' })
+    expect(sniffDownload(png)).toEqual({ ext: 'png', mime: 'image/png' })
+    expect(sniffDownload(mp4)).toEqual({ ext: 'mp4', mime: 'video/mp4' })
+    expect(checkDownload(bytes('#!/bin/sh'))).toEqual({ ok: false, code: 'UNSUPPORTED_TYPE' })
+    expect(checkDownload(new Uint8Array())).toEqual({ ok: false, code: 'EMPTY' })
+    expect(checkDownload(new Uint8Array(maxDownloadBytes + 1))).toEqual({ ok: false, code: 'TOO_LARGE' })
   })
 })

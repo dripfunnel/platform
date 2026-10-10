@@ -8,6 +8,7 @@ const version = (id: string, prices: { currency: string; amount: string; compare
 const row = (over: Partial<ShopProductRow> = {}): ShopProductRow => ({
   id: 'p', name: 'Kurta', slug: 'kurta', description: '', product_type: 'physical', created_at: new Date('2026-08-01T00:00:00Z'), seo_title: null, seo_description: null,
   warranty_text: null, returns_text: null, size_chart_id: null, photos: [], manual_badges: [],
+  download_limit: 5, download_days: 30, service_duration: null, service_location: null, gift_card_expiry_months: null,
   versions: [version('v1', [{ currency: 'INR', amount: '149900', compare_at_amount: '199900' }]), version('v2', [{ currency: 'INR', amount: '99900', compare_at_amount: null }])],
   ...over,
 })
@@ -51,5 +52,16 @@ describe('a product as a shopper is told it', () => {
     expect(productView(row({ manual_badges: ['b5'] }), facts({ badges })).badges.map((b) => b.label)).toEqual(['Sale', 'Few left', 'Handmade'])
     expect(productView(row({ created_at: new Date('2026-10-01T00:00:00Z') }), facts({ badges })).badges.map((b) => b.label)).toEqual(['New', 'Sale', 'Few left'])
     expect(productView(row(), facts({ badges: null })).badges).toEqual([])
+  })
+
+  it('counts a key-pool download by its keys left, and says what a download, a service and a gift card come with (CATALOG T14)', () => {
+    const untracked = [version('v1', [{ currency: 'INR', amount: '900', compare_at_amount: null }], { track_stock: false })]
+    const keys = productView(row({ product_type: 'digital', download_limit: 3, download_days: 7, versions: untracked }), facts({ stock: new Map([['v1', { version_id: 'v1', available: 0, low: true }]]) }))
+    expect([keys.versions[0]?.available, keys.inStock, keys.kind]).toEqual([0, false, { download: { limit: 3, days: 7 }, service: null, giftCard: null }])
+    const file = productView(row({ product_type: 'digital', versions: untracked }), facts({ stock: new Map([['v1', { version_id: 'v1', available: null, low: false }]]) }))
+    expect([file.versions[0]?.available, file.inStock]).toEqual([null, true])
+    expect(productView(row({ product_type: 'service', service_duration: '2 hours', service_location: 'Our Jaipur studio', versions: untracked }), facts()).kind?.service).toEqual({ duration: '2 hours', location: 'Our Jaipur studio' })
+    expect(productView(row({ product_type: 'gift_card', gift_card_expiry_months: 12, versions: untracked }), facts()).kind?.giftCard).toEqual({ expiryMonths: 12 })
+    expect(productView(row(), facts()).kind).toBeNull()
   })
 })

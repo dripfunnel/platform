@@ -378,7 +378,9 @@ columns). Every panel exports. Locked below Growth. Owner and Manager.
   listing sections, translations, prices in other currencies and per market), A+ content at
   `/products/$productId/story`, and a supplier's Warehouses tab at `/products/warehouses` (#337). Still to
   come with their own cards: download files, service details and gift card amounts, a fixed price per
-  market, product video upload, and Import and Export (§13).
+  market, product video upload, and Import and Export (§13). **The API for the first three is built on #323**
+  (SAPI 22, part 1: `productKind`, `saveProductKind`, `addLicenceKeys`, `POST /api/assets?kind=download`;
+  CATALOG-DESIGN T14); a gift card's amounts are its versions.
 
 ## 12. Collections, Filters, Menus, Size charts (`CatCollections`, `CatSizeCharts`)
 

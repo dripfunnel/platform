@@ -233,6 +233,7 @@ export const createCheckout = (deps: CheckoutDeps) => {
           lines,
           parts: parts.map((sellerId) => ({ sellerId, shippingMode: sellerId ? (modes.get(sellerId) ?? 'to-store') : 'store' })),
           shipping: cart.shipping ? { amount: cart.shipping.amount, label: shippingLabel(cart) } : null,
+          shippingOption: cart.shippingOption,
           tax: { amount: cart.tax?.amount.amount ?? 0n, inclusive: cart.tax?.inclusive ?? false },
           subtotal: cart.subtotal.amount,
           total: cart.total.amount,

@@ -92,6 +92,8 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       shippingAddress: t.field({ type: Address, nullable: true, resolve: (c) => c.shippingAddress }),
       billingAddress: t.field({ type: Address, nullable: true, resolve: (c) => c.billingAddress }),
       shippingOption: t.exposeString('shippingOption', { nullable: true }),
+      // False when nothing in the cart is sent (downloads, services, gift cards): checkout skips the address and delivery.
+      needsShipping: t.exposeBoolean('needsShipping'),
       checkoutStep: t.exposeString('checkoutStep', { nullable: true }),
       lines: t.field({ type: [Line], resolve: (c) => c.lines }),
       subtotal: t.field({ type: Money_, resolve: (c) => c.subtotal }),

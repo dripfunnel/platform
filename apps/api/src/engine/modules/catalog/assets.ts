@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import { checkMedia, type MediaCheck } from '#core/media'
+import { checkDownload, checkMedia, type MediaCheck } from '#core/media'
 import type { TenantContext } from '#core/tenancy'
 import { insertAsset, selectAsset } from '#db/scoped/catalog'
 import { withScope } from '#db/scoped/index'
@@ -17,7 +17,7 @@ export interface AssetStore {
 export const assetsAudit = { uploaded: 'asset.uploaded' } as const
 
 export type UploadResult =
-  | { ok: true; asset: { id: string; kind: 'image' | 'video'; mime: string; bytes: number; width: number | null; height: number | null } }
+  | { ok: true; asset: { id: string; kind: 'image' | 'video' | 'file'; mime: string; bytes: number; width: number | null; height: number | null } }
   | Extract<MediaCheck, { ok: false }>
 
 export interface AssetDeps {
@@ -35,16 +35,13 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
   const { storeId } = context
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
 
-  const upload = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> => {
-    const checked = checkMedia(bytes)
-    if (!checked.ok) return checked
-    const { type } = checked
-    const key = `stores/${storeId}/assets/${crypto.randomUUID()}.${type.ext}`
+  const save = async (bytes: Uint8Array<ArrayBuffer>, file: { kind: 'image' | 'video' | 'file'; ext: string; mime: string; width: number | null; height: number | null }): Promise<string> => {
+    const key = `stores/${storeId}/assets/${crypto.randomUUID()}.${file.ext}`
     const checksum = hex(await crypto.subtle.digest('SHA-256', bytes))
     // Written inside the row's transaction, as brand files are: a failed write rolls the row back; a commit
     // failing after it leaves an object no row names (the sweep for those is open on #293).
-    const id = await withScope(sql, context, async (tx) => {
-      const made = await insertAsset(tx, { storeId, sellerId, key, kind: type.kind, mime: type.mime, bytes: bytes.byteLength, width: type.width, height: type.height, checksum, createdBy: actor.id })
+    return withScope(sql, context, async (tx) => {
+      const made = await insertAsset(tx, { storeId, sellerId, key, kind: file.kind, mime: file.mime, bytes: bytes.byteLength, width: file.width, height: file.height, checksum, createdBy: actor.id })
       await activity.record(tx, {
         category: 'write',
         action: assetsAudit.uploaded,
@@ -55,16 +52,31 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
         partnerId: actor.partnerId,
         storeId,
         sellerId,
-        target: { type: 'file', id: made, label: type.mime },
+        target: { type: 'file', id: made, label: file.mime },
         reason: null,
         api: 'store',
         visibility: 'store',
         ...facts,
       })
-      await store.put(key, bytes, { httpMetadata: { contentType: type.mime } })
+      await store.put(key, bytes, { httpMetadata: { contentType: file.mime } })
       return made
     })
+  }
+
+  const upload = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> => {
+    const checked = checkMedia(bytes)
+    if (!checked.ok) return checked
+    const { type } = checked
+    const id = await save(bytes, type)
     return { ok: true, asset: { id, kind: type.kind, mime: type.mime, bytes: bytes.byteLength, width: type.width, height: type.height } }
+  }
+
+  /** A download's file (CATALOG T14): kept as `file`, which no photo, page or storefront shows (migration 0064's asset policy). */
+  const uploadDownload = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> => {
+    const checked = checkDownload(bytes)
+    if (!checked.ok) return checked
+    const id = await save(bytes, { kind: 'file', ext: checked.type.ext, mime: checked.type.mime, width: null, height: null })
+    return { ok: true, asset: { id, kind: 'file', mime: checked.type.mime, bytes: bytes.byteLength, width: null, height: null } }
   }
 
   /** A file the caller may read, as a response the portal can show; null for one it can't, which looks the same as none. */
@@ -75,5 +87,5 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
     return object ? { body: object.body, mime: row.mime, bytes: row.bytes } : null
   }
 
-  return { upload, open }
+  return { upload, uploadDownload, open }
 }
