@@ -149,7 +149,8 @@ export interface CatalogExportDto {
   expiresAt: Date | null
 }
 
-const dtoOf = (job: Omit<CatalogExportRow, 'csv'> & { csv?: string | null }, now: Date): CatalogExportDto => {
+/** A job as the screen reads it: its file until it expires. */
+export const exportDtoOf = (job: Omit<CatalogExportRow, 'csv'> & { csv?: string | null }, now: Date): CatalogExportDto => {
   const expired = job.expires_at !== null && job.expires_at <= now
   return { id: job.id, kind: job.kind, state: expired ? 'expired' : job.state, rows: job.rows, truncated: job.truncated, csv: expired ? null : (job.csv ?? null), requestedAt: job.created_at, expiresAt: job.expires_at }
 }
@@ -206,12 +207,12 @@ export const createCatalogExportService = ({ sql, context, actor, activity, fact
     if (!z.guid().safeParse(id).success) return Promise.resolve(null)
     return inScope(async (tx) => {
       const job = await selectCatalogExport(tx, storeId, id)
-      return job && job.kind !== 'orders' && job.requested_by_id === actor.id ? dtoOf(job, now()) : null
+      return job && (job.kind === 'products' || job.kind === 'stock') && job.requested_by_id === actor.id ? exportDtoOf(job, now()) : null
     })
   }
 
   /** "Recent exports" (K8): the caller's own, newest first, without their files. */
-  const recentExports = (): Promise<CatalogExportDto[]> => inScope(async (tx) => (await selectCatalogExports(tx, storeId, actor.id, ['products', 'stock'], 10)).map((j) => dtoOf(j, now())))
+  const recentExports = (): Promise<CatalogExportDto[]> => inScope(async (tx) => (await selectCatalogExports(tx, storeId, actor.id, ['products', 'stock'], 10)).map((j) => exportDtoOf(j, now())))
 
   return { requestExport, catalogExport, recentExports }
 }

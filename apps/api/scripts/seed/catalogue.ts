@@ -38,6 +38,9 @@ const e = (
   ai_prompts: ai ?? 0,
 })
 
+// The pricing page's Reports rows (designs/DF Store Pricing): the four reports from Growth, export and custom above it.
+const allReports = { reports_sales: true, reports_export: true, reports_custom: true } as const
+
 const usdCad = (usd: [number, number], cad: [number, number]): PlanVersionPrice[] => [
   { currency: 'USD', monthly: usd[0], yearly: usd[1] },
   { currency: 'CAD', monthly: cad[0], yearly: cad[1] },
@@ -47,16 +50,16 @@ const eur = (monthly: number, yearly: number): PlanVersionPrice[] => [{ currency
 
 export const catalogue: Record<string, CatalogueEntry> = {
   'ns:Starter': { trialDays: 14, prices: usdCad([2900, 29000], [3900, 39000]), feeMinor: 1200, entitlements: e([false, false, false, false, false, true], [500, 2, 0, 1, 1, 20, 50]) },
-  'ns:Growth': { trialDays: 14, prices: usdCad([4900, 49000], [6500, 65000]), feeMinor: 1800, entitlements: e([true, true, true, false, true, true], [5000, 5, 5, 2, 2, 60, 200]) },
-  'ns:Pro': { trialDays: 14, prices: usdCad([9900, 99000], [12900, 129000]), feeMinor: 3500, entitlements: e([true, true, true, true, true, true], [10000, 15, 20, 4, 3, 150, 500]) },
+  'ns:Growth': { trialDays: 14, prices: usdCad([4900, 49000], [6500, 65000]), feeMinor: 1800, entitlements: { ...e([true, true, true, false, true, true], [5000, 5, 5, 2, 2, 60, 200]), reports_sales: true } },
+  'ns:Pro': { trialDays: 14, prices: usdCad([9900, 99000], [12900, 129000]), feeMinor: 3500, entitlements: { ...e([true, true, true, true, true, true], [10000, 15, 20, 4, 3, 150, 500]), ...allReports } },
   // The prototype's "Basic (2024)".
   'ns:Launch (retired)': { trialDays: 0, prices: usdCad([1900, 19000], [2500, 25000]), feeMinor: 1000, entitlements: e([false, false, false, false, false, false], [200, 1, 0, 1, 1, 10, 0]) },
   // The seed's Kaufladen is Awaiting approval with "Basis and Plus are priced" (the admin
   // console's view), so those two carry prices; the prototype's Draft has none. The third is
   // the prototype's "Profi", still unpriced.
   'kl:Basis': { trialDays: 14, prices: eur(2500, 25000), feeMinor: 1100, entitlements: e([false, false, false, false, false, true], [500, 2, 0, 2, 1, 20, 50]) },
-  'kl:Plus': { trialDays: 14, prices: eur(4500, 45000), feeMinor: 1700, entitlements: e([true, true, true, false, true, true], [5000, 5, 5, 2, 1, 60, 200]) },
-  'kl:Enterprise': { trialDays: 14, prices: unpricedEur, feeMinor: 3200, entitlements: e([true, true, true, false, true, true], [10000, 15, 20, 2, 1, 150, 500]) },
+  'kl:Plus': { trialDays: 14, prices: eur(4500, 45000), feeMinor: 1700, entitlements: { ...e([true, true, true, false, true, true], [5000, 5, 5, 2, 1, 60, 200]), reports_sales: true } },
+  'kl:Enterprise': { trialDays: 14, prices: unpricedEur, feeMinor: 3200, entitlements: { ...e([true, true, true, false, true, true], [10000, 15, 20, 2, 1, 150, 500]), ...allReports } },
 }
 
 /** A Live plan the prototype does not price still reads as priced, as the admin seed assumes (#33's go-live check). */
