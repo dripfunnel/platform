@@ -652,3 +652,8 @@
 .df-offer-make p {
   margin: 0;
 }
+.df-offers-zone {
+  margin-left: auto;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}

@@ -5024,7 +5024,8 @@
       "addName": "+ {name}"
     },
     "create": "Create offer",
-    "createPlus": "+ Create offer"
+    "createPlus": "+ Create offer",
+    "timesIn": "Times in {zone}"
   },
   "sales": {
     "title": "Your sales",
