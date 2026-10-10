@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkoutProblems, cleanAddress, cleanContact, priceLine } from './rules'
+import { checkoutProblems, cleanAddress, cleanContact, cleanGift, priceLine } from './rules'
 
 const inr = (amount: bigint) => ({ amount, currency: 'INR' })
 const item = { price: inr(99900n), available: 3, inStock: true, continueSelling: false, soldHere: true }
@@ -57,5 +57,18 @@ describe('what stands between a cart and payment', () => {
     expect(checkoutProblems({ ...ready, lines: [], hasContact: false, shippingOption: null, hasShippingAddress: false, optionOffered: false, taxKnown: false })).toEqual(['EMPTY', 'NO_CONTACT', 'NO_ADDRESS', 'NO_SHIPPING', 'TAX_UNAVAILABLE'])
     expect(checkoutProblems({ ...ready, optionOffered: false })).toEqual(['SHIPPING_UNAVAILABLE'])
     expect(checkoutProblems({ ...ready, lines: [priceLine({ versionId: 'v', quantity: 9, item })] })).toEqual(['LINE_PROBLEM'])
+  })
+})
+
+describe('a gift card’s recipient', () => {
+  const today = new Date('2026-10-10T12:00:00Z')
+  it('takes a name, an email, a short message and today or a day within a year', () => {
+    expect(cleanGift({ recipientName: ' Meera ', recipientEmail: 'Meera@Example.com', message: ' ', sendOn: '2026-10-10' }, today)).toEqual({ recipientName: 'Meera', recipientEmail: 'meera@example.com', message: null, sendOn: '2026-10-10' })
+    expect(cleanGift({ recipientName: 'Meera', recipientEmail: 'meera@example.com' }, today)?.sendOn).toBeNull()
+    expect(cleanGift({ recipientName: '', recipientEmail: 'meera@example.com' }, today)).toBeNull()
+    expect(cleanGift({ recipientName: 'Meera', recipientEmail: 'meera' }, today)).toBeNull()
+    expect(cleanGift({ recipientName: 'Meera', recipientEmail: 'meera@example.com', sendOn: '2026-10-07' }, today)).toBeNull()
+    expect(cleanGift({ recipientName: 'Meera', recipientEmail: 'meera@example.com', sendOn: '2027-12-01' }, today)).toBeNull()
+    expect(cleanGift({ recipientName: 'Meera', recipientEmail: 'meera@example.com', sendOn: '14/01/2027' }, today)).toBeNull()
   })
 })

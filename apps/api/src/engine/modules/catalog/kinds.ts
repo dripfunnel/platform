@@ -4,6 +4,7 @@ import { isUuid } from '#core/ids'
 import type { TenantContext } from '#core/tenancy'
 import { insertLicenceKeys, selectDownloadFile, selectProductKind, updateProductKind, type KindFields, type ProductKindRow } from '#db/scoped/catalogKinds'
 import { withScope, type ScopedSql } from '#db/scoped/index'
+import { fillKeys } from '#engine/modules/deliveries/index'
 import { selectStoreCountry } from '#db/scoped/orders'
 
 // A download, a service and a gift card (CATALOG-DESIGN T14; FIRST-RELEASE §1, decided on #337): a file or a licence-key
@@ -171,7 +172,16 @@ export const createKindService = ({ sql, context, actor, activity, facts, now }:
     })
 
   /** Keys added to a key-pool download; each paid unit takes one (CatEditor "one is sent per order"). */
-  const addKeys = (productId: string, keys: readonly string[]) =>
+  const addKeys = async (productId: string, keys: readonly string[]): Promise<KindResult<ProductKindView>> => {
+    const added = await addToPool(productId, keys)
+    if (!added.ok) return added
+    // Paid orders the pool ran dry for take theirs first, in system scope as a payment's do.
+    if ((await fillKeys(sql, storeId, added.value.productId, now())) === 0) return added
+    const after = await kind(added.value.productId)
+    return after ? { ok: true, value: after } : added
+  }
+
+  const addToPool = (productId: string, keys: readonly string[]) =>
     change(productId, async (tx, row) => {
       const clean = cleanKeys(keys)
       if (!clean) throw new Refused('INVALID_INPUT')

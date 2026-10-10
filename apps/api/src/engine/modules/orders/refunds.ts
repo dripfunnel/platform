@@ -32,6 +32,7 @@ import {
   type OrderToRefundRow,
   type ReturnToChangeRow,
 } from '#db/scoped/refunds'
+import { restoreGiftCard } from '#db/scoped/giftCards'
 import { cancelOrder as cancelPlaced, releaseStock } from '#db/scoped/orders'
 import { closeLatestAttempt, isManual, openAccount } from '#engine/modules/checkout/index'
 
@@ -235,12 +236,17 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
     total: bigint,
     o: { reason: RefundReason | 'cancelled'; note: string | null; restock: boolean; inReturn: ReturnToChangeRow | null },
   ): Promise<RefundResult<string[]>> => {
+    // Back the way it came: the payment first, up to what it took; the rest onto the gift card that paid it (decided on #323).
+    const giftPaid = BigInt(order.gift_card_amount)
+    const paymentLeft = BigInt(order.total_amount) - giftPaid - BigInt(order.refunded_amount)
+    const toPayment = total < paymentLeft ? total : paymentLeft > 0n ? paymentLeft : 0n
+    const toGiftCard = total - toPayment
     const payment = await selectCapturedPayment(tx, order.id)
-    if (!payment) return { ok: false, reason: 'NOT_PAID' }
-    const gateway = isCardProvider(payment.provider) ? gateways[payment.provider] : null
-    const accountRow = gateway && payment.provider_account_id ? await selectAccountById(tx, payment.provider_account_id) : null
-    const account = accountRow ? await openAccount(accountRow, payment.mode, secrets) : null
-    if (isCardProvider(payment.provider) && (!gateway || !account || !payment.provider_ref)) return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
+    if (!payment && (toPayment > 0n || giftPaid === 0n)) return { ok: false, reason: 'NOT_PAID' }
+    const gateway = payment && isCardProvider(payment.provider) ? gateways[payment.provider] : null
+    const accountRow = payment && gateway && payment.provider_account_id ? await selectAccountById(tx, payment.provider_account_id) : null
+    const account = payment && accountRow ? await openAccount(accountRow, payment.mode, secrets) : null
+    if (payment && toPayment > 0n && isCardProvider(payment.provider) && (!gateway || !account || !payment.provider_ref)) return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
 
     const made: { id: string; amount: bigint }[] = []
     let refundedBefore = order.refunded_amount
@@ -258,7 +264,8 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
       )
       if (override && owner) await insertLedgerEntry(tx, { storeId, sellerId: owner, amount, currency: order.currency, refundId: id, createdBy: actor.id })
       await record(tx, override ? refundAudit.overridden : refundAudit.issued, order, o.reason, [owner])
-      if (payment.mode === 'live') await queueStoreEvent(tx, storeId, 'order.refunded', { object: 'order', id: order.id, number: order.number }, id, now())
+      // An order the gift card paid in full has no payment, and is live: a preview never spends a card.
+      if (!payment || payment.mode === 'live') await queueStoreEvent(tx, storeId, 'order.refunded', { object: 'order', id: order.id, number: order.number }, id, now())
       made.push({ id, amount })
     }
     // Back on hand at the owner's own location; a to-store supplier's units go back to it from the store, its to count.
@@ -275,9 +282,9 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
     // One provider refund for the whole request, asked last inside the transaction: all of it goes back or none of it,
     // and the same request from the same order state is the same refund there.
     let atProvider: { providerRef: string | null; state: 'pending' | 'done' } = { providerRef: null, state: 'done' }
-    if (gateway && account && payment.provider_ref) {
+    if (gateway && account && payment?.provider_ref && toPayment > 0n) {
       try {
-        const back = await gateway.refund(account, payment.provider_ref, { refundId: await refundIdOf(order.id, order.refunded_amount, 'request', total), amount: { amount: total, currency: order.currency } })
+        const back = await gateway.refund(account, payment.provider_ref, { refundId: await refundIdOf(order.id, order.refunded_amount, 'request', toPayment), amount: { amount: toPayment, currency: order.currency } })
         if (back.state === 'failed') throw new Refused('PROVIDER_REFUSED')
         atProvider = { providerRef: back.providerRef, state: back.state }
       } catch (error) {
@@ -287,9 +294,15 @@ export const createRefundService = ({ sql, context, actor, activity, facts, gate
       }
     }
     // Cash on delivery or a transfer: the store gives the money back itself, and this records that it did.
-    for (const r of made) await insertPaymentRefund(tx, { refundId: r.id, paymentId: payment.id, storeId, providerRef: atProvider.providerRef, state: atProvider.state, amount: r.amount, currency: order.currency })
+    let onPayment = toPayment
+    for (const r of made) {
+      const amount = r.amount < onPayment ? r.amount : onPayment
+      onPayment -= amount
+      if (payment && amount > 0n) await insertPaymentRefund(tx, { refundId: r.id, paymentId: payment.id, storeId, providerRef: atProvider.providerRef, state: atProvider.state, amount, currency: order.currency })
+    }
+    await restoreGiftCard(tx, storeId, order.id, toGiftCard, now())
     await addRefunded(tx, order.id, total, now())
-    if (BigInt(order.refunded_amount) + total >= BigInt(order.total_amount)) await markPaymentRefunded(tx, payment.id, now())
+    if (payment && BigInt(order.refunded_amount) + total >= BigInt(order.total_amount)) await markPaymentRefunded(tx, payment.id, now())
     return { ok: true, value: made.map((r) => r.id) }
   }
 

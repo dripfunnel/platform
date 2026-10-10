@@ -7,6 +7,10 @@ import { hashShopperCode } from '#auth/shopperAuth'
 import { newSmsCode, smsCodeMs } from '#auth/storeCodes'
 import { selectCodeForEmail, setCodeHash } from '#db/scoped/shopper'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
+import { formatGiftCardCode, hashGiftCardCode, newGiftCardCode } from '#auth/giftCardCodes'
+import type { LinkSigner } from '#auth/signedLink'
+import { markGiftCardSent, selectDownloadsEmail, selectGiftCardStore } from '#db/scoped/deliveries'
+import { downloadUrl } from '#engine/modules/deliveries/index'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { selectBranding } from '#db/scoped/branding'
 import { selectKeyCreatorName } from '#db/scoped/apiKeys'
@@ -32,6 +36,8 @@ import type { Brand, EmailContent } from './render'
 export interface EmailHosts {
   adminHost: string
   platformHost: string
+  /** Signs a paid order's download links (auth/signedLink.ts); null where CREDENTIALS_KEK isn't set. */
+  downloadLinks?: LinkSigner | null
 }
 
 /** Who the email speaks for: DripFunnel to its partners and staff, a partner to its merchants (SAAS §3.6). */
@@ -39,7 +45,16 @@ export type Voice = { kind: 'dripfunnel' } | { kind: 'partner'; label: string | 
 
 export type Prepared =
   /** `accountSecurity`: an invitation, reset or lock notice, which is sent even to a suppressed address. */
-  | { send: true; to: string[]; voice: Voice; brand: Brand; content: EmailContent; accountSecurity: boolean }
+  | {
+      send: true
+      to: string[]
+      voice: Voice
+      brand: Brand
+      content: EmailContent
+      accountSecurity: boolean
+      /** What composing wrote (a gift card's code) is rolled back unless the message is handed to SES. */
+      keptOnlyIfSent?: boolean
+    }
   /** Nothing to send: the link is no longer open, or nobody is left to tell. A code, never a name. */
   | { send: false; reason: 'link_closed' | 'no_recipient' | 'tenant_mismatch' }
 
@@ -83,6 +98,8 @@ const payloads = {
   'store-cancelled': z.object({ storeId: id, until: z.iso.datetime() }),
   'order-confirmed': z.object({ orderId: id }),
   'order-shipped': z.object({ orderId: id, fulfilmentId: id }),
+  'order-downloads': z.object({ orderId: id }),
+  'gift-card': z.object({ giftCardId: id }),
   'order-delivered': z.object({ orderId: id, fulfilmentId: id }),
   'cart-reminder-test': z.object({ storeId: id, position: z.number().int().min(1).max(3), to: email }),
   'cart-reminder': z.object({
@@ -363,6 +380,47 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const contact = m.brand.supportEmail ?? m.brand.supportUrl
       const paragraphs = [w.body(m.store.name), w.reason(p.reason), ...(contact ? [w.contact(contact)] : [])]
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
+    }
+    case 'order-downloads': {
+      const p = parse(t)
+      const o = await selectDownloadsEmail(tx, p.orderId)
+      if (!o || (o.downloads.length === 0 && o.keys.length === 0)) return { send: false, reason: 'link_closed' }
+      if (o.partner_id !== row.partnerId || o.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
+      if (!o.email) return { send: false, reason: 'no_recipient' }
+      const look = await partnerBrand(tx, o.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const host = await selectShopHost(tx, o.store_id)
+      // A link needs the shop's address and the signing key; until both exist the email waits rather than going out bare.
+      if (o.downloads.length > 0 && (!host || !hosts.downloadLinks)) throw new NotYet('no_download_host', 60 * 60 * 1000)
+      const signer = hosts.downloadLinks ?? null
+      const w = en.orderDownloads
+      const links = host && signer ? await Promise.all(o.downloads.map(async (d) => w.link(d.name, await downloadUrl(signer, host, o.store_id, d.id)))) : []
+      const first = o.downloads[0]
+      const paragraphs = [w.intro(o.number), ...links, ...(first ? [w.rule(first.uses_left, en.date(new Date(first.expires_at)))] : []), ...o.keys.map((k) => w.key(k.name, k.key))]
+      return { send: true, accountSecurity: false, to: [o.email], voice: look.voice, brand: { ...look.brand, name: o.store_name, supportUrl: null }, content: { subject: w.subject(o.store_name, o.number), heading: w.heading, paragraphs, note: w.note } }
+    }
+    case 'gift-card': {
+      const p = parse(t)
+      const owner = await selectGiftCardStore(tx, p.giftCardId)
+      if (!owner) return { send: false, reason: 'link_closed' }
+      if (owner.store_id !== row.storeId || owner.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      // Every skip comes before the code is set: a card is marked sent only with an email to carry its code.
+      const look = await partnerBrand(tx, owner.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const code = newGiftCardCode()
+      const card = await markGiftCardSent(tx, p.giftCardId, { hash: await hashGiftCardCode(owner.store_id, code), last4: code.slice(-4) }, now)
+      if (!card) return { send: false, reason: 'link_closed' }
+      const host = await selectShopHost(tx, card.store_id)
+      const w = en.giftCard
+      const paragraphs = [
+        ...(card.recipient_name ? [w.hello(card.recipient_name)] : []),
+        ...(card.message ? [w.message(card.message)] : []),
+        w.code(formatGiftCardCode(code)),
+        card.expires_at ? w.until(en.date(new Date(card.expires_at))) : w.never,
+        w.use(card.store_name),
+      ]
+      const content: EmailContent = { subject: w.subject(card.store_name), heading: w.heading(en.money(card.locale, card.balance_amount, card.currency)), paragraphs, ...(host ? { action: { label: w.action, url: `https://${host}` } } : {}) }
+      return { send: true, accountSecurity: false, keptOnlyIfSent: true, to: [card.recipient_email], voice: look.voice, brand: { ...look.brand, name: card.store_name, supportUrl: null }, content }
     }
     case 'support-session-started':
     case 'support-write-allowed': {

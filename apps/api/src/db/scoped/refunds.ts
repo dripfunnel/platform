@@ -13,12 +13,15 @@ export interface OrderToRefundRow {
   currency: string
   total_amount: string
   refunded_amount: string
+  /** What a gift card paid of the total (migration 0172). */
+  gift_card_amount: string
 }
 
 export const lockOrderToRefund = async (tx: ScopedSql, storeId: string, orderId: string): Promise<OrderToRefundRow | null> =>
   (
     await tx<OrderToRefundRow[]>`
-      select id, number, state, payment_state, payment_method, currency, total_amount::text as total_amount, refunded_amount::text as refunded_amount
+      select id, number, state, payment_state, payment_method, currency, total_amount::text as total_amount, refunded_amount::text as refunded_amount,
+        gift_card_amount::text as gift_card_amount
       from "order" where id = ${orderId} and store_id = ${storeId} and state <> 'cart' for update
     `
   )[0] ?? null
