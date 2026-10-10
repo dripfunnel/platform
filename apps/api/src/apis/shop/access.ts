@@ -63,6 +63,15 @@ export const shopOf = (ctx: ShopContext): { sql: postgres.Sql; shopper: Shopper 
 }
 
 /** Test on a preview storefront, live everywhere else (storefront ARCHITECTURE §4.1). */
+/** A guessable code's tries per store and address, on the codes' limiter (FIRST-RELEASE §19); every try refused where it isn't bound. */
+export const limitCodeTries = async (ctx: ShopContext, kind: string, message: string): Promise<void> => {
+  const { shopper } = shopOf(ctx)
+  const { ip } = ctx.facts
+  if (ip === null || !ctx.allowCodeAttempt || !(await ctx.allowCodeAttempt(`${kind}:${shopper.context.storeId}:${ip}`))) {
+    throw new GraphQLError(message, { extensions: { code: 'RATE_LIMITED' } })
+  }
+}
+
 export const paymentModeOf = (shopper: Shopper): PaymentMode => (shopper.preview ? 'test' : 'live')
 
 /** Stripe Tax on the store's connected account, in the storefront's mode; null where it can't be asked. */

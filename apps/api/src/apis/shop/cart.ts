@@ -2,7 +2,7 @@ import { GraphQLError } from 'graphql'
 import { createCartService, type CartAddress, type CartGift, type CartChange, type CartLineView, type CartRefusal, type CartResult, type CartView } from '#engine/modules/cart/index'
 import { findGiftCard, type GiftCardView } from '#engine/modules/giftCards/index'
 import type { DeliveryOption } from '#engine/modules/shipping/index'
-import { shopOf, stripeTaxOf, type ShopContext } from './access'
+import { limitCodeTries, shopOf, stripeTaxOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 import { assetUrl } from './catalog'
 
@@ -26,14 +26,8 @@ const answered = <T>(result: CartResult<T>): T => {
   throw new GraphQLError(words[result.reason], { extensions: { code: result.reason, ...(result.problems ? { problems: result.problems } : {}) } })
 }
 
-/** Gift card numbers tried per store and address, with the offer codes' limiter, so a script can't walk the space. */
-const giftCardAttempt = async (ctx: ShopContext): Promise<void> => {
-  const { shopper } = shopOf(ctx)
-  const { ip } = ctx.facts
-  if (ip === null || !ctx.allowCodeAttempt || !(await ctx.allowCodeAttempt(`gift-card:${shopper.context.storeId}:${ip}`))) {
-    throw new GraphQLError('Too many numbers tried. Wait a minute and try again.', { extensions: { code: 'RATE_LIMITED' } })
-  }
-}
+/** Gift card numbers tried per store and address, so a script can't walk the space. */
+const giftCardAttempt = (ctx: ShopContext) => limitCodeTries(ctx, 'gift-card', 'Too many numbers tried. Wait a minute and try again.')
 
 export const cartOf = async (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
@@ -291,12 +285,7 @@ export const registerCart = ({ builder, money: Money_ }: ShopBuilder) => {
       extensions: { access: write },
       resolve: async (_, args, ctx) => {
         bounded(args.code)
-        const { shopper } = shopOf(ctx)
-        const { ip } = ctx.facts
-        // Per store and address, so a script can't try codes until one works (FIRST-RELEASE §19).
-        if (ip === null || !ctx.allowCodeAttempt || !(await ctx.allowCodeAttempt(`shop-code:${shopper.context.storeId}:${ip}`))) {
-          throw new GraphQLError('Too many codes tried. Wait a minute and try again.', { extensions: { code: 'RATE_LIMITED' } })
-        }
+        await limitCodeTries(ctx, 'shop-code', 'Too many codes tried. Wait a minute and try again.')
         return answered(await (await cartOf(ctx)).applyCode(args.code))
       },
     }),

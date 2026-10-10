@@ -43,8 +43,16 @@ export const restoreGiftCard = async (tx: ScopedSql, storeId: string, orderId: s
   if (amount <= 0n) return
   const [order] = await tx<{ gift_card_id: string | null; currency: string }[]>`select gift_card_id, currency from "order" where id = ${orderId} and store_id = ${storeId}`
   if (!order?.gift_card_id) return
-  await tx`update gift_card set balance_amount = least(initial_amount, balance_amount + ${amount.toString()}), updated_at = ${at} where id = ${order.gift_card_id}`
-  await tx`insert into gift_card_movement (gift_card_id, store_id, kind, amount, currency, order_id) values (${order.gift_card_id}, ${storeId}, 'restored', ${amount.toString()}, ${order.currency}, ${orderId})`
+  const [card] = await tx<{ balance_amount: string; initial_amount: string }[]>`
+    select balance_amount::text, initial_amount::text from gift_card where id = ${order.gift_card_id} and store_id = ${storeId} for update
+  `
+  if (!card) return
+  // Never above what it was issued for; the ledger records what was put back, not what was asked.
+  const room = BigInt(card.initial_amount) - BigInt(card.balance_amount)
+  const credited = amount < room ? amount : room
+  if (credited <= 0n) return
+  await tx`update gift_card set balance_amount = balance_amount + ${credited.toString()}, updated_at = ${at} where id = ${order.gift_card_id} and store_id = ${storeId}`
+  await tx`insert into gift_card_movement (gift_card_id, store_id, kind, amount, currency, order_id) values (${order.gift_card_id}, ${storeId}, 'restored', ${credited.toString()}, ${order.currency}, ${orderId})`
 }
 
 export interface IssuedGiftCardRow {

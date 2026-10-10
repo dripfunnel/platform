@@ -4,14 +4,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
-import { normaliseGiftCardCode } from '#auth/giftCardCodes'
+import { hashGiftCardCode, normaliseGiftCardCode } from '#auth/giftCardCodes'
 import { hashSessionId } from '#auth/session'
 import { resolveShopper } from '#auth/shopCaller'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import type { TenantContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { redeemGiftCard } from '#db/scoped/giftCards'
+import { redeemGiftCard, restoreGiftCard } from '#db/scoped/giftCards'
 import { releaseUnpaidOrders } from '#engine/modules/checkout/index'
 import { activityLog } from '#saas/activity/index'
 import { prepareEmail } from '#saas/email/index'
@@ -75,10 +75,10 @@ afterAll(async () => {
 })
 
 let codeAttempts = true
-const shop = async (source: string, cart: string | null = null, on = host) => {
+const shop = async (source: string, cart: string | null = null, on = host, preview = false) => {
   const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on)
   if (found.kind !== 'found') throw new Error('no store')
-  const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowCodeAttempt: async () => codeAttempts, allowNewCart: async () => true, now: () => new Date() }
+  const contextValue: ShopContext = { sql: db.sql, shopper: { ...found.shopper, preview }, origin: `https://${on}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowCodeAttempt: async () => codeAttempts, allowNewCart: async () => true, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, message: result.errors?.[0]?.message }
 }
@@ -153,6 +153,8 @@ describe('Issue a card', () => {
     expect(((await list('staff')).data?.['giftCards'] as { nodes: unknown[] }).nodes).toHaveLength(1)
     expect((await list('supplier')).code).toBe('FORBIDDEN')
     expect((await list('suratOwner')).data?.['giftCards']).toEqual({ nodes: [] })
+    // Another store asking by this store's product id sees no card of it.
+    expect((await merchant(`{ giftCards(productId: "${ids.cardProduct}") { nodes { id } } }`, 'suratOwner')).data?.['giftCards']).toEqual({ nodes: [] })
   })
 })
 
@@ -274,6 +276,41 @@ describe('redeeming', () => {
     expect(seen).toMatchObject({ amountDue: { amount: '80000' }, giftCard: null })
     const { orderId } = await place(token, 'bank_transfer')
     expect(await db.sql`select amount::int, (select gift_card_amount::int from "order" where id = ${orderId}) as gift from payment where order_id = ${orderId}`).toEqual([{ amount: 80000, gift: 0 }])
+  })
+
+  it('never spends a card on a preview, and opens no card in another currency than the cart’s', async () => {
+    const fresh = String((await issue('owner')).data?.['issueGiftCard'])
+    const number = await send(fresh)
+    const token = await cartOf(1)
+    const inPreview = await shop(`mutation { applyGiftCard(number: "${number}") { ${cartFields} } }`, token, host, true)
+    expect(inPreview.code).toBe('NOT_IN_PREVIEW')
+    expect((await apply(token, number)).cart?.amountDue).toEqual({ amount: '0' })
+    for (const provider of ['gift_card', 'bank_transfer']) {
+      expect((await shop(`mutation { placeOrder(provider: "${provider}") { orderId } }`, token, host, true)).code).toBe('METHOD_UNAVAILABLE')
+    }
+    expect(await cardRow(fresh)).toBe('100000')
+    // A card in dollars, in this rupee shop: the one refusal.
+    const dollars = 'DLRS2345DLRS2345'
+    await db.sql`insert into gift_card (store_id, product_id, currency, initial_amount, balance_amount, recipient_email, issued_by, code_hash, code_last4, sent_at)
+      values (${stores.kesari}, ${ids.cardProduct}, 'USD', 5000, 5000, 'usd@example.com', ${crypto.randomUUID()}, ${await hashGiftCardCode(stores.kesari, dollars)}, '2345', now())`
+    expect((await apply(await cartOf(1), dollars)).code).toBe('GIFT_CARD_INVALID')
+  })
+
+  it('gives back only onto the order’s own store’s card, and records only what was put back', async () => {
+    const fresh = String((await issue('owner')).data?.['issueGiftCard'])
+    const token = await cartOf(1)
+    await apply(token, await send(fresh))
+    const { orderId } = await place(token, 'gift_card')
+    expect(await cardRow(fresh)).toBe('60000')
+    await withSystemScope(db.sql, (tx) => restoreGiftCard(tx, stores.surat, orderId, 100n, new Date()))
+    expect(await cardRow(fresh)).toBe('60000')
+    await withSystemScope(db.sql, (tx) => restoreGiftCard(tx, stores.kesari, orderId, 100000n, new Date()))
+    expect(await cardRow(fresh)).toBe('100000')
+    expect(await db.sql`select kind, amount::int from gift_card_movement where gift_card_id = ${fresh} order by created_at, kind`).toEqual([
+      { kind: 'issued', amount: 100000 },
+      { kind: 'redeemed', amount: 40000 },
+      { kind: 'restored', amount: 40000 },
+    ])
   })
 
   it('debits a card only when it still holds the amount, writing nothing otherwise', async () => {
