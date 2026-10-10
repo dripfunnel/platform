@@ -1,4 +1,4 @@
-import { ConfirmDialog, EmptyState, ErrorState, ExportJobStatus, FilterSelect, LoadingState, SearchField, startExport, Toast, useExportJob, usePhone, useScreenState, type ConfirmDialogProps, type ExportJobWords } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, EmptyState, ErrorState, ExportJobStatus, FilterSelect, LoadingState, SearchField, Toast, usePhone, useScreenState, type ConfirmDialogProps, type ExportJobWords } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
@@ -27,12 +27,14 @@ import {
 } from '../../api/products'
 import { requestProductExport } from '../../api/imports'
 import { harnessEnabled } from '../../harness'
+import { startListExport, useListExport } from '../common/listExport'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { productListSample, productListStates, type ProductListState } from './productListStates'
 import { ProductCards, ProductTable } from './ProductRows'
 import { ProductsEmpty } from './ProductsEmpty'
 import { SupplierTabs } from './SupplierTabs'
 import { accessOf, summaryOf, type ProductAccess } from './productView'
+import '../common/chips.css'
 import './products.css'
 
 const words = messages.products
@@ -88,7 +90,7 @@ export const ProductList = () => {
   const sample = useMemo(() => productListSample(forced), [forced])
   const access = useMemo(() => forcedAccess(forced, accessOf(acting, state?.readOnly ?? false)), [forced, acting, state])
   const phone = usePhone()
-  const exportJob = useExportJob()
+  const exportJob = useListExport('catalog')
 
   const [query, setQuery] = useState<ProductQuery>(firstQuery)
   const [cursor, setCursor] = useState<Cursor>({})
@@ -275,7 +277,7 @@ export const ProductList = () => {
               </Link>
             )}
             {access.canExport && (
-              <button type="button" className="df-button" disabled={exportJob?.state === 'preparing'} onClick={() => void startExport(requestProductExport(query))}>
+              <button type="button" className="df-button" disabled={exportJob?.state === 'preparing'} onClick={() => void startListExport('catalog', requestProductExport(query))}>
                 {exported.button}
               </button>
             )}
@@ -332,11 +334,11 @@ export const ProductList = () => {
             </label>
           </div>
 
-          <div className="df-products-chips" role="group" aria-label={words.chips.label}>
+          <div className="df-chips" role="group" aria-label={words.chips.label}>
             {productFilters
               .filter((f) => f === 'all' || f === query.filter || view.counts[countOf[f]] > 0)
               .map((f) => (
-                <button key={f} type="button" className="df-products-chip" aria-pressed={query.filter === f} onClick={() => change({ filter: f })}>
+                <button key={f} type="button" className="df-chip" aria-pressed={query.filter === f} onClick={() => change({ filter: f })}>
                   {words.chips[f]}
                   <span>{formatCount(view.counts[countOf[f]])}</span>
                 </button>

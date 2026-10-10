@@ -180,12 +180,6 @@
     "home": {
       "title": "Home"
     },
-    "orders": {
-      "title": "Orders"
-    },
-    "customers": {
-      "title": "Customers"
-    },
     "offers": {
       "title": "Offers"
     },
@@ -206,9 +200,6 @@
     },
     "yourProducts": {
       "title": "Your products"
-    },
-    "toShip": {
-      "title": "To ship"
     },
     "sales": {
       "title": "Your sales"
@@ -3024,6 +3015,623 @@
       },
       "ruleOther": "Shown by a rule set elsewhere",
       "ruleKept": "Keep its current rule"
+    }
+  },
+  "orders": {
+    "title": "Orders",
+    "titleSupplier": "To ship",
+    "summary": {
+      "one": "{count} order · {toShip} to ship",
+      "other": "{count} orders · {toShip} to ship"
+    },
+    "summarySupplier": "Orders with your items in them. You see only your lines.",
+    "timesIn": "Times in {zone}",
+    "loading": "Loading orders",
+    "error": {
+      "title": "We couldn’t load your orders",
+      "body": "Your orders are safe. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You can’t see orders",
+      "body": "Ask your store owner if you need them."
+    },
+    "empty": {
+      "title": "No orders yet",
+      "body": "Your first order will appear here. Share your store link to get it."
+    },
+    "emptySupplier": {
+      "title": "Nothing to ship yet",
+      "body": "When a shopper buys one of your products, it appears here for you to pack."
+    },
+    "search": {
+      "label": "Search orders",
+      "placeholder": "Search by order number or name",
+      "placeholderSupplier": "Search by order number"
+    },
+    "chips": {
+      "label": "Show orders",
+      "ALL": "All",
+      "TO_SHIP": "To ship",
+      "PARTLY_SHIPPED": "Partly shipped",
+      "SHIPPED": "Shipped",
+      "CANCELLED_REFUNDED": "Cancelled & refunded",
+      "PAYMENT_PENDING": "Payment pending"
+    },
+    "noResults": {
+      "search": "No orders match “{search}”",
+      "filters": "No orders here",
+      "body": "Try another search or filter.",
+      "clear": "Show all orders"
+    },
+    "pages": {
+      "showing": "Showing {from}–{to}",
+      "previous": "Previous",
+      "next": "Next",
+      "label": "Pages"
+    },
+    "list": {
+      "label": "Orders"
+    },
+    "row": {
+      "items": {
+        "one": "{count} item",
+        "other": "{count} items"
+      },
+      "guest": "Guest",
+      "forStore": "For {store}",
+      "sendToStore": "Send to the store",
+      "toShopper": "Send to the shopper",
+      "test": "Test order"
+    },
+    "status": {
+      "toShip": "To ship",
+      "partly": "Partly shipped",
+      "shipped": "Shipped",
+      "refunded": "Refunded",
+      "cancelled": "Cancelled"
+    },
+    "payment": {
+      "pending": "payment pending",
+      "authorised": "card authorised",
+      "paid": "paid",
+      "partlyRefunded": "partly refunded",
+      "refunded": "refunded"
+    },
+    "export": {
+      "button": "Export",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "{count} line is ready.",
+        "other": "{count} lines are ready."
+      },
+      "truncated": "Only the first {count} lines are in it; narrow the filter to see the rest.",
+      "download": "Download",
+      "file": "orders-{date}.csv",
+      "expires": "The link works until {time}.",
+      "expired": "That export’s link has expired. Export again.",
+      "tooLarge": "That export is too large. Narrow the filter and try again.",
+      "failed": "The export couldn’t be made. Try again."
+    },
+    "detail": {
+      "back": "Orders",
+      "backSupplier": "To ship",
+      "loading": "Loading the order",
+      "error": {
+        "title": "We couldn’t load this order",
+        "body": "Nothing was changed. Try again in a moment.",
+        "retry": "Try again"
+      },
+      "notFound": {
+        "title": "We can’t find that order.",
+        "body": "It may not exist, or it isn’t one you can see.",
+        "cta": "Back to orders"
+      },
+      "pay": {
+        "pending": "Payment pending",
+        "authorised": "Card authorised",
+        "paid": "Paid",
+        "partlyRefunded": "Refunded {amount}",
+        "refunded": "Refunded {amount}"
+      },
+      "test": "Test order from a preview · never ships",
+      "placed": "Placed {time}",
+      "readOnly": "Your store is read-only until the bill is paid. You can look, but orders can’t be changed until then.",
+      "staffOnly": "Only the owner or a manager can mark an order paid, start a return or refund.",
+      "supplierNote": "You see only your items in this order. The store delivers to the shopper, so you don’t see who bought it, and totals cover other sellers too.",
+      "supplierNoteShopper": "You see only your items in this order. You send them to the shopper yourself.",
+      "failed": "That didn’t work. Nothing was changed; try again.",
+      "refused": {
+        "NOT_FOUND": "That order isn’t here any more.",
+        "NOT_SHIPPABLE": "This order can’t ship: it’s cancelled, a test, or still waiting for its card payment.",
+        "NOT_YOURS": "Some of these items, or that location, aren’t yours.",
+        "TOO_MANY": "That’s more than is left. Someone may have changed this order since it loaded.",
+        "NOT_ENOUGH_STOCK": "That location hasn’t that many. Change the stock or pick another location.",
+        "NO_STORE_LOCATION": "The store has no location to send these to yet.",
+        "NOT_CANCELLABLE": "Something has already been sent, so this order can’t be cancelled. Start a return instead.",
+        "PAYMENT_PENDING": "The shopper’s card payment is still going through. Try again in a few minutes.",
+        "NOT_PENDING": "This order isn’t waiting for payment any more.",
+        "READ_ONLY": "A read-only support session can’t change this store.",
+        "INVALID_INPUT": "Something here isn’t valid. Check it and try again.",
+        "NOT_PAID": "Nothing has been paid on this order to give back.",
+        "NOT_RECEIVED": "Mark the return as received first.",
+        "NOT_REQUESTED": "This return isn’t on its way back any more.",
+        "NO_LOCATION": "There’s no location for these to come back to yet. Add one under Products › Warehouses.",
+        "PROVIDER_UNAVAILABLE": "The payment provider didn’t answer. Nothing was refunded; try again.",
+        "PROVIDER_REFUSED": "The payment provider refused the refund. Nothing was refunded."
+      },
+      "actions": {
+        "ship": "Ship items",
+        "choosing": "Choosing items…",
+        "markPaid": "Mark as paid",
+        "cancel": "Cancel order",
+        "return": "Start a return",
+        "refund": "Refund"
+      },
+      "groups": {
+        "mine": "You pack these",
+        "supplier": "{supplier} packs these",
+        "yours": "Your items",
+        "toShip": "{count} to ship",
+        "allShipped": "All shipped",
+        "cancelled": "Cancelled",
+        "shopperShips": "{supplier} sends these to the shopper"
+      },
+      "line": {
+        "name": "{name} · {version}",
+        "quantity": "× {count}",
+        "shipped": "{shipped} of {count} shipped",
+        "sent": "{sent} of {count} sent to the store",
+        "notShipped": "Not shipped yet",
+        "shipNow": "Ship now",
+        "fewer": "Fewer of {name}",
+        "more": "More of {name}",
+        "picked": "{picked} / {left}"
+      },
+      "ship": {
+        "title": {
+          "one": "Ship {count} item",
+          "other": "Ship {count} items"
+        },
+        "titleToStore": {
+          "one": "Send {count} item to the store",
+          "other": "Send {count} items to the store"
+        },
+        "location": "Ship from",
+        "courier": "Courier",
+        "courierPlaceholder": "e.g. Delhivery",
+        "tracking": "Tracking number",
+        "trackingHint": "Optional — without one, the shopper’s email says “on its way” with no link",
+        "trackingPlaceholder": "e.g. 1Z999AA10123456784",
+        "link": "Tracking link",
+        "linkHint": "Optional — the courier’s page for this parcel",
+        "linkPlaceholder": "https://",
+        "linkInvalid": "A tracking link starts with https://",
+        "linkNeedsNumber": "Add the tracking number this link is for",
+        "note": "Shipping part of an order is normal — the rest stays “to ship”. The shopper gets an email, with tracking if you add it.",
+        "notePickup": "The shopper collects this order. Mark it handed over once they have it.",
+        "noteToStore": "Send these to {store}. The store delivers them to the shopper.",
+        "noLocation": "Add a location under Products › Warehouses before you ship.",
+        "pickNone": "Pick at least one item to ship.",
+        "cancel": "Cancel",
+        "confirm": "Mark as shipped",
+        "confirmPickup": "Mark as handed over",
+        "confirmToStore": "Mark as sent",
+        "done": {
+          "one": "{count} item shipped — {name} gets an email",
+          "other": "{count} items shipped — {name} gets an email"
+        },
+        "doneShort": {
+          "one": "{count} item shipped",
+          "other": "{count} items shipped"
+        },
+        "doneHanded": {
+          "one": "{count} item handed over",
+          "other": "{count} items handed over"
+        },
+        "doneToStore": {
+          "one": "{count} item marked as sent to {store}",
+          "other": "{count} items marked as sent to {store}"
+        }
+      },
+      "shipments": {
+        "title": "Shipments",
+        "item": "{count}× {name}",
+        "shipped": "Shipped {time} from {place}",
+        "sentToStore": "Sent to the store {time}",
+        "pickup": "Handed over {time}",
+        "tracking": "{courier} · {number}",
+        "trackingOnly": "Tracking {number}",
+        "track": "Track",
+        "noTracking": "No tracking yet",
+        "add": "Add tracking",
+        "save": "Save tracking",
+        "cancel": "Cancel",
+        "numberMissing": "Type the tracking number",
+        "added": "Tracking saved — the shopper gets it by email"
+      },
+      "markPaid": {
+        "title": "Mark {number} as paid?",
+        "body": "Only once the {amount} has actually reached you ({method}).",
+        "confirm": "Mark as paid",
+        "cancel": "Not yet",
+        "done": "{number} marked as paid"
+      },
+      "history": {
+        "title": "History",
+        "empty": "Nothing has happened to this order yet."
+      },
+      "note": {
+        "add": "+ Add a note (only your team sees it)",
+        "title": "Add a note",
+        "target": "Order {number}",
+        "body": "Only your team sees this.",
+        "label": "Note",
+        "placeholder": "e.g. Gift wrap — shopper called",
+        "missing": "Type the note",
+        "confirm": "Add note",
+        "cancel": "Cancel",
+        "done": "Note added",
+        "tooLong": "Keep the note under 1,000 characters"
+      },
+      "totals": {
+        "title": "Payment",
+        "items": "Items",
+        "discount": "Discount",
+        "delivery": "Delivery",
+        "free": "Free",
+        "includesTax": "Includes tax",
+        "tax": "Tax",
+        "duties": "Duties",
+        "total": "Total",
+        "refunded": "Refunded",
+        "paidWith": "Paid with",
+        "less": "−{amount}"
+      },
+      "customer": {
+        "title": "Customer",
+        "guest": "Guest",
+        "deliverTo": "Deliver to",
+        "pickup": "Collects the order from you",
+        "market": "Market: {market}",
+        "shopperNote": "Note from the shopper"
+      },
+      "sendTo": {
+        "title": "Send your items to",
+        "body": "{store} sends it on to the shopper. You don’t see who bought it."
+      },
+      "returns": {
+        "title": "Return {number}",
+        "states": {
+          "requested": "On its way back",
+          "received": "Received · refund due",
+          "refunded": "Refunded",
+          "cancelled": "Cancelled"
+        },
+        "sub": "{reason} · started {time}",
+        "suppliersRefund": "{reason} · started {time} · {suppliers} refund their items",
+        "receive": "Mark as received",
+        "received": "Received — now refund the items",
+        "refundThese": "Refund these items",
+        "cancel": "Cancel return",
+        "cancelTitle": "Cancel return {number}?",
+        "cancelBody": "Use this when the shopper keeps the items. Nothing is refunded, and the items can be returned again later.",
+        "cancelConfirm": "Cancel return",
+        "cancelKeep": "Keep it",
+        "cancelled": "Return {number} cancelled",
+        "reasons": {
+          "doesnt_fit": "Doesn’t fit",
+          "changed_mind": "Changed their mind",
+          "damaged": "Damaged in transit",
+          "wrong_item": "Wrong item sent",
+          "not_as_described": "Not as described"
+        },
+        "start": {
+          "title": "Start a return",
+          "reason": "Reason",
+          "shipped": "{count} shipped",
+          "supplierShipped": "{supplier} · {count} shipped",
+          "note": "The items come back to their owner’s location.",
+          "noteSuppliers": "The items come back to their owner’s location. Suppliers refund their own items once you mark them received.",
+          "pickNone": "Pick at least one item coming back.",
+          "cancel": "Cancel",
+          "confirm": "Start return",
+          "done": "Return started — mark it received when the items are back",
+          "doneSuppliers": "Return started — {suppliers} will refund their items once they’re back"
+        }
+      },
+      "refund": {
+        "title": "Refund",
+        "mine": "Your items",
+        "theirs": "{supplier}’s items",
+        "youRefund": "You refund these",
+        "theyRefund": "{supplier} refunds these",
+        "each": "{price} each",
+        "override": "{supplier} normally refunds their own items. Refunding here overrides them: it’s recorded against {supplier}, for you to settle with them.",
+        "amount": "Amount · up to {max}",
+        "amountLabel": "Amount",
+        "amountPicked": "What they paid for the picked items",
+        "amountInvalid": "Type an amount, like 250 or 250.50.",
+        "amountTooMuch": "That’s more than is left to refund ({max}).",
+        "reason": "Reason",
+        "reasons": {
+          "returned": "Returned by shopper",
+          "goodwill": "Goodwill",
+          "other": "Something else"
+        },
+        "restock": "Put the picked items back in stock",
+        "note": "Money goes back through {method}. Pick items, or type an amount for a goodwill refund.",
+        "noteByHand": "You give the money back yourself ({method}); this records that you did. Pick items, or type an amount for a goodwill refund.",
+        "noteSupplier": "Money goes back on the shopper’s payment. The store sees every refund you make.",
+        "pickNone": "Pick items, or type an amount.",
+        "cancel": "Cancel",
+        "confirmPicked": "Refund the picked items",
+        "confirmAmount": "Refund {amount}",
+        "done": "{amount} refunded to {name}",
+        "doneOverride": "{amount} refunded to {name} — recorded against {suppliers} to settle with them",
+        "doneSupplier": "{amount} refunded for your items",
+        "doneNoAmount": "Refunded to {name}",
+        "doneOverrideNoAmount": "Refunded to {name} — recorded against {suppliers} to settle with them",
+        "doneSupplierNoAmount": "Your items were refunded"
+      }
+    },
+    "cancel": {
+      "title": "Cancel {number}?",
+      "bodyPaid": "{name} gets {amount} back through {method}. The items go back in stock.",
+      "bodyPaidNoAmount": "{name} gets back what they paid, through {method}. The items go back in stock.",
+      "bodyUnpaid": "Nothing has been paid, so nothing is refunded. The items go back in stock.",
+      "reason": "Why",
+      "reasons": {
+        "out_of_stock": "Out of stock",
+        "shopper": "Shopper asked",
+        "store": "Looks like fraud",
+        "unpaid": "Not paid in time",
+        "unpaid_transfer": "Transfer not paid in time"
+      },
+      "confirm": "Cancel order",
+      "keep": "Keep order",
+      "done": "{number} cancelled"
+    },
+    "methods": {
+      "stripe": "Card",
+      "paypal": "PayPal",
+      "razorpay": "Razorpay",
+      "cashfree": "Cashfree",
+      "phonepe": "PhonePe",
+      "cod": "Cash on delivery",
+      "bank_transfer": "Bank transfer",
+      "other": "Online payment"
+    },
+    "history": {
+      "withDetail": "{action} · {detail}",
+      "by": "{what} · {name}",
+      "actions": {
+        "order.placed": "Order placed",
+        "order.paid": "Paid",
+        "order.marked_paid": "Marked as paid",
+        "order.payment_retried": "Payment tried again",
+        "order.paid_after_cancel": "Paid after it was cancelled",
+        "order.paid_twice": "Paid twice",
+        "order.oversold": "Sold more than was in stock",
+        "payment.amount_mismatch": "Paid a different amount than the order",
+        "order.cancelled": "Cancelled",
+        "order.note_added": "Note",
+        "order.shipped": "Items shipped",
+        "order.sent_to_store": "Items sent to the store",
+        "order.tracking_added": "Tracking added",
+        "return.started": "Return started",
+        "return.received": "Return received",
+        "return.cancelled": "Return cancelled",
+        "refund.issued": "Refunded",
+        "refund.overridden": "Refunded for a supplier",
+        "other": "Updated"
+      }
+    }
+  },
+  "customers": {
+    "title": "Customers",
+    "lede": "Everyone who has bought from you, or that you added. Suppliers never see this list.",
+    "add": "Add a customer",
+    "loading": "Loading customers",
+    "error": {
+      "title": "We couldn’t load your customers",
+      "body": "Your customers are safe. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You can’t see customers",
+      "body": "Ask your store owner if you need them."
+    },
+    "readOnly": "Your store is read-only until the bill is paid. You can look, but customers can’t be changed until then.",
+    "failed": "That didn’t work. Nothing was changed; try again.",
+    "refused": {
+      "NAME_TAKEN": "You already have a group with that name.",
+      "NUMBER_TAKEN": "Another customer already has that number.",
+      "VERIFIED": "The customer confirmed this number themselves, so only they can change it.",
+      "DELETED": "That customer deleted their account, so they can’t be added again.",
+      "TOO_MANY": "That’s more than a store can keep.",
+      "NOT_FOUND": "That isn’t here any more.",
+      "READ_ONLY": "A read-only support session can’t change this store.",
+      "INVALID_INPUT": "Something here isn’t valid. Check it and try again."
+    },
+    "tabs": {
+      "label": "Customers and groups",
+      "people": "People · {count}",
+      "groups": "Groups · {count}"
+    },
+    "empty": "Your customers appear here after their first order. You can also add one yourself.",
+    "search": {
+      "label": "Search customers",
+      "placeholder": "Search by name, email or tag"
+    },
+    "chips": {
+      "label": "Show a group",
+      "everyone": "Everyone",
+      "group": "{name} · {count}"
+    },
+    "noMatch": "Nobody matches.",
+    "list": {
+      "label": "Customers"
+    },
+    "pages": {
+      "showing": "Showing {from}–{to}",
+      "previous": "Previous",
+      "next": "Next",
+      "label": "Pages"
+    },
+    "row": {
+      "orders": {
+        "one": "{count} order",
+        "other": "{count} orders"
+      },
+      "noOrders": "No orders yet",
+      "noName": "No name",
+      "joiner": " · "
+    },
+    "export": {
+      "button": "Export",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "{count} row is ready.",
+        "other": "{count} rows are ready."
+      },
+      "truncated": "Only the first {count} rows are in it; narrow the search to see the rest.",
+      "download": "Download",
+      "file": "customers-{date}.csv",
+      "expires": "The link works until {time}.",
+      "expired": "That export’s link has expired. Export again.",
+      "tooLarge": "That export is too large. Narrow the search and try again.",
+      "failed": "The export couldn’t be made. Try again."
+    },
+    "detail": {
+      "loading": "Loading the customer",
+      "error": "We couldn’t load this customer.",
+      "retry": "Try again",
+      "edit": "Edit details",
+      "contact": "{email} · {phone}",
+      "noPhone": "no phone",
+      "noEmail": "no email",
+      "noAddress": "No address yet",
+      "orders": {
+        "one": "{count} order",
+        "other": "{count} orders"
+      },
+      "spent": "{amount} spent",
+      "groups": "Groups",
+      "groupOn": "✓ {name}",
+      "groupOff": "+ {name}",
+      "noGroups": "No groups yet — make one on the Groups tab.",
+      "addedTo": "{name} added to {group} — offers for this group apply to them now",
+      "leftGroup": "{name} left {group}",
+      "tags": "Tags",
+      "addTag": "+ Tag",
+      "removeTag": "Remove tag {tag}",
+      "tagsFull": "A customer can have up to 20 tags.",
+      "tag": {
+        "title": "Add a tag",
+        "body": "Tags help you find people, like Repeat, Press or Local.",
+        "label": "Tag",
+        "placeholder": "e.g. Repeat, Press, Local",
+        "missing": "Type a tag",
+        "tooLong": "Keep a tag to 24 characters",
+        "confirm": "Add tag",
+        "cancel": "Cancel"
+      },
+      "note": "Note",
+      "noteHint": "· only your team sees it",
+      "notePlaceholder": "e.g. Prefers gift wrap",
+      "saveNote": "Save note",
+      "noteSaved": "Note saved",
+      "consent": {
+        "title": "Marketing consent",
+        "opted_in": "Yes to marketing emails",
+        "opted_in_sms": "Yes to marketing emails and texts",
+        "stopped": "Asked to stop marketing",
+        "declined": "No marketing — they didn’t tick the box",
+        "not_asked": "Not asked yet",
+        "since": "Since {date} · {where}. Only the shopper can opt in — from checkout or their email.",
+        "stoppedOn": "Recorded {date}. Order and delivery emails still go to them.",
+        "byHand": "Added by hand, so they get order emails only. They can opt in from any email you send.",
+        "notAsked": "They get order and delivery emails only. Only the shopper can opt in.",
+        "where": {
+          "checkout": "Checkout",
+          "email": "Email",
+          "other": "Their email"
+        },
+        "stop": "Record that they asked to stop",
+        "stopTitle": "Stop marketing to {name}?",
+        "stopBody": "Do this when they ask you directly. They still get order and delivery emails.",
+        "stopConfirm": "Record it",
+        "stopCancel": "Cancel",
+        "stopDone": "Recorded — no more marketing to {name}"
+      },
+      "ordersLabel": "Their orders",
+      "order": "{date} · {status}",
+      "moreOrders": "The newest {count} of {total} orders",
+      "tagRemoved": "Tag {tag} removed",
+      "tagAdded": "Tag {tag} added"
+    },
+    "editForm": {
+      "title": "Edit {name}",
+      "name": "Full name",
+      "phone": "Phone number",
+      "address": "Street address",
+      "line2": "Flat, floor or building (optional)",
+      "city": "City",
+      "region": "State or region (optional)",
+      "postal": "Postal code (optional)",
+      "country": "Country",
+      "countryHint": "Two letters, like IN or US",
+      "nameMissing": "Type a name",
+      "addressPartial": "Fill in the street, city and country, or leave the address empty.",
+      "countryInvalid": "Use two letters for the country, like IN or US.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Saved — past orders keep the details they were placed with"
+    },
+    "addForm": {
+      "title": "Add a customer",
+      "body": "For people who buy in person or by phone. They don’t get an email from adding them.",
+      "name": "Full name",
+      "namePlaceholder": "e.g. Alex Morgan",
+      "email": "Email",
+      "emailPlaceholder": "name@example.com",
+      "phone": "Phone (optional)",
+      "nameMissing": "Type their name.",
+      "emailInvalid": "That doesn’t look like an email address.",
+      "confirm": "Add customer",
+      "cancel": "Cancel",
+      "added": "{name} added",
+      "existed": "{name} is already a customer — opened them"
+    },
+    "groups": {
+      "intro": "Groups let you give an offer to some customers only — for example VIP or Wholesale. Add people to a group from their customer page.",
+      "members": {
+        "one": "{count} person",
+        "other": "{count} people"
+      },
+      "membersWith": "{members} · {description}",
+      "seePeople": "See people",
+      "edit": "Edit",
+      "delete": "Delete",
+      "none": "No groups yet.",
+      "add": "+ New group",
+      "newTitle": "New group",
+      "editTitle": "Edit {name}",
+      "target": "Customer groups",
+      "body": "Offers can be given to a group only.",
+      "nameLabel": "Group name",
+      "namePlaceholder": "e.g. Wholesale",
+      "nameMissing": "Give it a name",
+      "make": "Make group",
+      "save": "Save",
+      "cancel": "Cancel",
+      "made": "{name} made — add people from their customer page",
+      "saved": "Saved",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "{members} leave the group. Offers for {name} stop applying to them.",
+      "deleteConfirm": "Delete group",
+      "deleted": "{name} deleted"
     }
   }
 }

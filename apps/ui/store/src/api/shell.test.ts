@@ -16,6 +16,18 @@ describe('seatOf', () => {
   })
 })
 
+describe('loadNavBadges', () => {
+  it('reads the orders to ship and the products to approve, and draws no badge for a count the API leaves out', async () => {
+    const { vi } = await import('vitest')
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ data: { navBadges: { products: 2, toShip: 5 } } })))
+    const { loadNavBadges } = await import('./shell')
+    expect(await loadNavBadges()).toEqual({ ordersToShip: 5, productsToApprove: 2 })
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ data: { navBadges: { products: null, toShip: null } } })))
+    expect(await loadNavBadges()).toEqual({ ordersToShip: 0, productsToApprove: 0 })
+    vi.unstubAllGlobals()
+  })
+})
+
 describe('loadMyStores and signOut', () => {
   const choice = (id: string) => ({ membershipId: `m-${id}`, store: { id, name: id }, role: 'owner', tier: null, seller: null })
 

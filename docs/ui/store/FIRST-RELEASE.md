@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-09 (#520: storefront hosting and builds: R2, one edge Worker, GitHub Actions; previews on `webpreview.store`; #493: Billing is not in the merchant mobile app).
+Last updated: 2026-10-10 (#314: Orders, returns, refunds and Customers in the portal).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -181,8 +181,8 @@ From the prototype's shell (`design.md` §3), which this release keeps:
 - **Built on #291** (`apps/ui/store/src/nav.ts`): the rows above per role and tier, the group
   headings, Billing's trial note, and every row leading to a screen or its placeholder.
   **Built on #298**: Products is a screen (§11), and the shell reads `navBadges` for its badge,
-  the products waiting for approval; a failed count draws no badge. Orders' badge stays 0 until
-  SAPI 11 counts the orders to ship.
+  the products waiting for approval; a failed count draws no badge. **Built on #314**: Orders' (and
+  a supplier's To ship) badge is `navBadges.toShip`.
 
 ### 3.2 Header
 
@@ -285,6 +285,28 @@ check. Every figure is the API's (`home`, §19).
   transfer (the order waits in Payment pending until then): Owner and Manager only
   (`orders.mark_paid`, ACCESS §5.1), audited with the actor. A transfer released
   for staying unpaid is cancelled by the system and logged as such (LOGGING §3).
+- **Built on #314, part 1** (`apps/ui/store/src/features/orders/`, `/orders`): the list with its chips and counts
+  (a supplier's four, its part's), search, pages of 25 and Export as a job the shell follows, each row's number, time,
+  shopper and city (a supplier's "For {store}" and where it sends them), status, total and payment; Staff see the money
+  too, since ACCESS §5.1 gives them `orders.read` and the API answers them (PortalOrders hides it). Decided there: a row says how many items, not their names, since `orders` answers a count;
+  times are the store's zone (`storeInfo.timeZone`; a supplier's UTC), named once above the list rather than on every
+  row; "Copy your store link" waits for the portal to know the shop's address (§4). `?state=` per `orderStates.ts`.
+- **Built on #314, part 2** (`/orders/$orderId`): an order's lines by who packs them, payment, the shopper and the
+  history with team notes; **Ship items** per line and quantity from one of the caller's own locations, with a courier,
+  tracking number and tracking link (https), a pickup handed over with neither, and a supplier's to-store items marked
+  as sent; **Add tracking** to a shipment sent without it; **Mark as paid** for cash on delivery and transfers
+  (`orders.mark_paid`; Staff see it disabled, with who can); **Cancel order** with a reason for every merchant
+  seat, as `cancelOrder` takes `orders.write`. Decided there: the courier is typed, since booking a label is #311's
+  and the courier list is the Owner's (`shippingSettings`); the tracking link is asked for because the shipping text
+  waits for one; Print (packing slip, invoice) is left for its own card. `?state=` per `orderPageStates.ts`.
+- **Built on #314, part 3**: **Start a return** (the shipped units no return holds and no refund outside one has
+  taken, with the prototype's five reasons), each return's card (On its way back → Received · refund due → Refunded,
+  or Cancelled), **Mark as received**, **Cancel return**, and **Refund**: units picked per line, grouped by who refunds
+  them, each at what the shopper paid as the API works it out, or an amount on its own for goodwill (`extra`, the
+  store's); the store picking a supplier's lines overrides it, "recorded against {supplier}, for you to settle with
+  them" (§18); "Put the picked items back in stock" is `restock`. The toast says what went back from the refunds the
+  API made. Decided there: picked items and a typed amount don't mix, since a typed figure would have to be split
+  across lines; no return label is promised, since booking one is #311's; the refund reasons are the API's three.
 
 ## 7. Customers (`PortalOrders` › Customers, flows 40, 72)
 
@@ -293,6 +315,15 @@ addresses, groups, tags, a team-only note, **marketing consent** (only the shopp
 team may record that they asked to stop) and their orders. Add a customer (order emails only),
 edit, manage groups (showing where a group is used before it changes), **export** (Owner,
 Manager and Staff, §1). "Suppliers never see this list."
+- **Built on #314, part 4** (`apps/ui/store/src/features/customers/`, `/customers`, `?customer=` opens one, as an
+  order's customer link does): People with search and the groups as chips, each row's city and tags, spend (Staff's
+  too, ACCESS §5.1) and orders, pages of 25, and the customer beside the list: contact and default address, groups toggled in
+  and out, tags (up to 20, 24 characters), the team's note, marketing consent with "Record that they asked to stop"
+  while they're opted in, and the newest orders; **Add a customer** (name, email, phone; an email already a customer
+  opens that one), **Edit details** (name, number, the default delivery address whole or not at all), Groups (make,
+  rename, delete saying who leaves, "See people"), and Export as a job. Decided there: the address is typed as its
+  parts, since `updateCustomer` takes them, where the prototype asks for one line; a group's description is kept as
+  it is, since the prototype edits only the name. `?state=` per `customerStates.ts`.
 
 ## 8. Offers (`Offers`, `OfferEditor`, OFFERS-DESIGN A–V)
 
@@ -576,6 +607,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Sign-in counts down the tries left and shows the paused screen after five wrong passwords | Every wrong password gets the same "don't match" answer; only the right password, during the pause, is told it is paused (ACCESS §2: never reveal an account) | rule |
 | README §4's "To approve" and "Suppliers" menu rows | The prototype's: approval in Products, suppliers in Settings (§3.1) | behaviour, decided here |
 | Customers export is offered to Owner and Manager | Staff too (§1) | behaviour, decided |
+| Orders and Customers hide totals, payment and spend from Staff | Staff see them: ACCESS §5.1 gives Staff `orders.read`, `customers.read` and the customers export with spend, and the API answers them (decided on #314's review) | rule |
 | ~~No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload~~ | Drawn by SUI 1 (#286) | resolved |
 | Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | WhatsApp reminders ship with email, through MSG91 (decided 2026-10-05 on #337) | scope, decided |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |

@@ -72,12 +72,12 @@ export type StoreState = NonNullable<z.infer<typeof stateSchema>['storeState']>
 export const loadStoreState = async (): Promise<StoreState | null> =>
   (await query(`{ storeState { readOnly status trialEndsAt pastDueSince provisioning { state step } support { partnerName agentFirstName endsAt } } }`, stateSchema)).storeState
 
-const badgesSchema = z.object({ navBadges: z.object({ products: z.number().int().nullable() }).nullable() })
+const badgesSchema = z.object({ navBadges: z.object({ products: z.number().int().nullable(), toShip: z.number().int().nullable() }).nullable() })
 
-/** The menu's counts (FIRST-RELEASE §19): products to approve now; orders to ship once SAPI 11 counts them. */
+/** The menu's counts (FIRST-RELEASE §3.1, §19): orders to ship and products to approve. */
 export const loadNavBadges = async (): Promise<Record<NavBadgeSource, number>> => {
-  const { navBadges } = await query('{ navBadges { products } }', badgesSchema)
-  return { ordersToShip: 0, productsToApprove: navBadges?.products ?? 0 }
+  const { navBadges } = await query('{ navBadges { products toShip } }', badgesSchema)
+  return { ordersToShip: navBadges?.toShip ?? 0, productsToApprove: navBadges?.products ?? 0 }
 }
 
 const switchSchema = z.object({ switchStore: choiceSchema })

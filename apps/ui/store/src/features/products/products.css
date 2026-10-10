@@ -58,40 +58,6 @@
   flex: 1 1 260px;
 }
 
-.df-products-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.df-products-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 13px;
-  border: 1px solid var(--df-color-field-border);
-  border-radius: 17px;
-  background: var(--df-color-surface);
-  color: var(--df-color-text);
-  font: inherit;
-  font-family: var(--df-font-heading);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.df-products-chip span {
-  font-weight: 400;
-  opacity: 0.75;
-}
-
-.df-products-chip[aria-pressed='true'] {
-  border-color: var(--df-color-focus);
-  background: var(--df-color-info-surface);
-  color: var(--df-color-info);
-}
-
 .df-products-bulk {
   position: sticky;
   top: 64px;
