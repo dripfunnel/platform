@@ -718,6 +718,24 @@ impersonation's writes. A partner that bills its merchants itself answers `BILLE
 parts (`store.export`, the Owner in person only, also while read-only). A trial that ends with no
 plan moves to the free plan with the picks applied, or is past due where the partner has none.
 
+**Built on #332 (SUI 13), part 1**: Billing (`/billing`, the Owner's, `billing`) reads `subscription`, `planCatalogue`
+and `usage` in one request: the partner's plans for the period switched to, who charges, this month's usage and the
+card. A plan change reads `planChangeQuote` first, `NOW` and, where offered, `PERIOD_END`, and the dialog states today's
+charge, the credit, the date and the next price before `changePlan`; a refusal stays in the dialog. A support session
+reads and changes nothing; while past due the Owner may still choose a plan. Decided here:
+- **Prices are the API's, as charged**: the yearly price reads "/year", never split into months, and the switch claims
+  no saving (ui/README §3). The button's words (Upgrade, Switch at period end) follow the API's ranking by monthly
+  price; when it happens is the quote's.
+- **A plan's card leads with products, staff, markets and bandwidth**, as the prototype's do, and "What each plan
+  includes" lists every value the plan carries in the API's order (decided on #337), a choice by name and a monthly
+  quota "a month". A usage row whose limit is 0 with nothing used is a feature the plan leaves out, not a meter.
+- **Not drawn**: the prototype's AI card (own key), Storefront setup and Buy extra bandwidth, which the API doesn't
+  offer (`buyBandwidth` and `buySetup` wait, above); and Billing's own trial and past-due strips, which the shell shows.
+  A scheduled change has its strip, and the plan it keeps offers "Keep" (the API calls the change off).
+- **The card is shown, not yet changed**: brand, last 4 and expiry. Stripe's hosted card field needs a publishable key
+  the Store API doesn't answer, so adding or changing the card waits for it (open question on #332), and a paid plan
+  without a card is held at the dialog with the reason rather than refused as `NO_CARD`.
+
 ## 17. Supplier views
 
 **Your products** (only theirs, with counts and empty states; stock only for the Stock-only tier;

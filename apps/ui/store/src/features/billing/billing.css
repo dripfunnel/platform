@@ -1,0 +1,305 @@
+/* Billing (designs/PortalBilling.dc.html): the period switch, the plan cards, usage and the card. */
+.df-billing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+  max-width: 1100px;
+}
+
+.df-billing .df-page-title {
+  font-size: 26px;
+}
+
+.df-billing .df-page-lede {
+  font-size: 14px;
+}
+
+.df-billing-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-billing-period {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+  background: var(--df-color-surface);
+}
+
+.df-billing-period button {
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--df-color-text-strong);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-billing-period button[aria-pressed='true'] {
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+}
+
+.df-billing-readonly {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: 10px;
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 13px;
+}
+
+.df-billing-refusal {
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-billing-plans {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.df-billing-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  align-self: stretch;
+}
+
+@media (max-width: 1100px) {
+  .df-billing-plan-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+.df-billing-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-billing-plan--current {
+  border: 2px solid var(--df-color-success);
+}
+
+.df-billing-plan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.df-billing-plan-head h2 {
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.df-billing-tag {
+  color: var(--df-color-focus);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.df-billing-tag--current {
+  color: var(--df-color-success);
+}
+
+.df-billing-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-billing-price strong {
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.df-billing-plan-note {
+  min-height: 32px;
+}
+
+.df-billing-points {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--df-color-text-strong);
+  font-size: 12px;
+}
+
+.df-billing-points li::before {
+  content: '✓ ';
+}
+
+.df-billing-plan .df-button {
+  min-height: 38px;
+  margin-top: auto;
+  font-size: 13px;
+}
+
+.df-billing-includes {
+  align-self: stretch;
+  overflow-x: auto;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-billing-includes table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.df-billing-includes :is(th, td) {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--df-color-border);
+  text-align: left;
+  font-weight: 400;
+}
+
+.df-billing-includes thead th {
+  font-family: var(--df-font-heading);
+  font-weight: 700;
+}
+
+.df-billing-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.df-billing-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.df-billing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-billing-card h2 {
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+
+.df-billing-strong {
+  margin: 0;
+  font-size: 14px;
+}
+
+.df-billing-note {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-billing-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-billing-link:hover:enabled {
+  color: var(--df-color-link-hover);
+}
+
+#df-billing-usage-card {
+  gap: 12px;
+}
+
+.df-billing-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.df-billing-meter-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.df-billing-meter-value {
+  color: var(--df-color-muted);
+  font-weight: 600;
+}
+
+.df-billing-meter-value--near,
+.df-billing-meter-value--full {
+  color: var(--df-color-warning);
+}
+
+.df-billing-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--df-color-neutral-surface);
+}
+
+.df-billing-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--df-color-success);
+}
+
+.df-billing-bar-fill--near {
+  background: var(--df-color-warning);
+}
+
+.df-billing-bar-fill--full {
+  background: var(--df-color-danger);
+}
+
+@media (max-width: 720px) {
+  .df-billing .df-page-title {
+    font-size: 22px;
+  }
+
+  .df-billing-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
