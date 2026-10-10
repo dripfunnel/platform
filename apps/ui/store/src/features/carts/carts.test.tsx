@@ -234,6 +234,21 @@ describe('one cart’s page', () => {
     expect(api.remindNow).toHaveBeenCalledWith('ab1', null)
   })
 
+  it('shows loading, never the last cart and its actions, while another cart is read', async () => {
+    let answerB: (d: CartDetail) => void = () => undefined
+    api.loadCart.mockImplementation((id: string) => (id === 'ab9' ? new Promise<CartDetail>((resolve) => (answerB = resolve)) : Promise.resolve(detail)))
+    const router = await show(owner, { entry: '/carts/ab1' })
+    expect(screen.getByRole('heading', { level: 1, name: 'Vikram Shah' })).toBeTruthy()
+    await act(() => router.navigate({ to: '/carts/$cartId', params: { cartId: 'ab9' } }))
+    await settle()
+    expect(screen.queryByRole('heading', { level: 1, name: 'Vikram Shah' })).toBeNull()
+    expect(screen.queryByRole('button', { name: words.menu.send })).toBeNull()
+    expect(screen.getByText(words.loadingCart)).toBeTruthy()
+    answerB({ ...detail, cart: meera })
+    await settle()
+    expect(screen.getByRole('heading', { level: 1, name: 'Meera Iyer' })).toBeTruthy()
+  })
+
   it('shows a seat without carts.read “not found”, reading nothing', async () => {
     await show(supplier, { entry: '/carts/ab1' })
     expect(screen.getByText(words.denied.title)).toBeTruthy()

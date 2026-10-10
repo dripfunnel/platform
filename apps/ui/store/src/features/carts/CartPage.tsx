@@ -41,6 +41,8 @@ export const CartPage = () => {
       return setView(detail ? { kind: 'ready', detail } : { kind: 'missing' })
     }
     if (!access.canRead) return
+    // Another cart never shows, nor takes its actions, under this one's address while it loads.
+    setView((current) => (current.kind === 'ready' && current.detail.cart.id === cartId ? current : { kind: 'loading' }))
     void loadCart(cartId).then(
       (detail) => mine === latest.current && setView(detail ? { kind: 'ready', detail } : { kind: 'missing' }),
       () => mine === latest.current && setView({ kind: 'error' }),
