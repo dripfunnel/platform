@@ -338,8 +338,15 @@ export const draftOf = (offer: Offer, facts: StoreFacts): OfferDraft => {
       Object.assign(d, { buyQuantity: String(a.buy?.quantity ?? 1), buyIds: a.buy?.targets?.productIds ?? [], buyKept: keptTargets(a.buy?.targets ?? null), getQuantity: String(a.get?.quantity ?? 1), getSame: !a.get?.targets, getIds: a.get?.targets?.productIds ?? [], getKept: keptTargets(a.get?.targets ?? null), getPercent: String(a.percent ?? 100), oncePerOrder: a.oncePerOrder })
       break
   }
+  // The form has one minimum, one audience and one repeat: the first condition of each fills it, any further one is kept
+  // and saved back as it came, so no restriction an offer holds is lost on edit.
+  const minimums = ['minimum_order_amount', 'minimum_quantity']
+  const audiences = ['customer_group', 'first_order', 'specific_customers', 'shipping_country']
   for (const c of offer.conditions) {
-    if (c.operation === 'minimum_order_amount') Object.assign(d, { minimum: 'amount', minAmounts: typedOf(c.amounts) })
+    const minimumTaken = d.minimum !== 'none' && (minimums.includes(c.operation) || theseOf(d, c))
+    const audienceTaken = d.who !== 'all' && audiences.includes(c.operation)
+    if (minimumTaken || audienceTaken || (c.operation === 'recurrence' && d.repeat)) d.kept.push(c)
+    else if (c.operation === 'minimum_order_amount') Object.assign(d, { minimum: 'amount', minAmounts: typedOf(c.amounts) })
     else if (c.operation === 'minimum_quantity') Object.assign(d, { minimum: 'items', minQuantity: String(c.minimum ?? '') })
     else if (theseOf(d, c)) Object.assign(d, { minimum: 'these', minQuantity: String(c.minimum ?? '') })
     else if (c.operation === 'customer_group') Object.assign(d, { who: 'groups', groupIds: c.groupIds })
