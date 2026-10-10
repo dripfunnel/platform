@@ -45,7 +45,16 @@ export type Voice = { kind: 'dripfunnel' } | { kind: 'partner'; label: string | 
 
 export type Prepared =
   /** `accountSecurity`: an invitation, reset or lock notice, which is sent even to a suppressed address. */
-  | { send: true; to: string[]; voice: Voice; brand: Brand; content: EmailContent; accountSecurity: boolean }
+  | {
+      send: true
+      to: string[]
+      voice: Voice
+      brand: Brand
+      content: EmailContent
+      accountSecurity: boolean
+      /** What composing wrote (a gift card's code) is rolled back unless the message is handed to SES. */
+      keptOnlyIfSent?: boolean
+    }
   /** Nothing to send: the link is no longer open, or nobody is left to tell. A code, never a name. */
   | { send: false; reason: 'link_closed' | 'no_recipient' | 'tenant_mismatch' }
 
@@ -392,15 +401,15 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'gift-card': {
       const p = parse(t)
-      const storeId = await selectGiftCardStore(tx, p.giftCardId)
-      if (!storeId) return { send: false, reason: 'link_closed' }
-      if (storeId !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
-      const code = newGiftCardCode()
-      const card = await markGiftCardSent(tx, p.giftCardId, { hash: await hashGiftCardCode(storeId, code), last4: code.slice(-4) }, now)
-      if (!card) return { send: false, reason: 'link_closed' }
-      if (card.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
-      const look = await partnerBrand(tx, card.partner_id)
+      const owner = await selectGiftCardStore(tx, p.giftCardId)
+      if (!owner) return { send: false, reason: 'link_closed' }
+      if (owner.store_id !== row.storeId || owner.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      // Every skip comes before the code is set: a card is marked sent only with an email to carry its code.
+      const look = await partnerBrand(tx, owner.partner_id)
       if (!look) return { send: false, reason: 'no_recipient' }
+      const code = newGiftCardCode()
+      const card = await markGiftCardSent(tx, p.giftCardId, { hash: await hashGiftCardCode(owner.store_id, code), last4: code.slice(-4) }, now)
+      if (!card) return { send: false, reason: 'link_closed' }
       const host = await selectShopHost(tx, card.store_id)
       const w = en.giftCard
       const paragraphs = [
@@ -411,7 +420,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
         w.use(card.store_name),
       ]
       const content: EmailContent = { subject: w.subject(card.store_name), heading: w.heading(en.money(card.locale, card.balance_amount, card.currency)), paragraphs, ...(host ? { action: { label: w.action, url: `https://${host}` } } : {}) }
-      return { send: true, accountSecurity: false, to: [card.recipient_email], voice: look.voice, brand: { ...look.brand, name: card.store_name, supportUrl: null }, content }
+      return { send: true, accountSecurity: false, keptOnlyIfSent: true, to: [card.recipient_email], voice: look.voice, brand: { ...look.brand, name: card.store_name, supportUrl: null }, content }
     }
     case 'support-session-started':
     case 'support-write-allowed': {
