@@ -123,6 +123,37 @@ describe('the Offers list', () => {
     expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'off', kind: 'bxgy', trigger: 'automatic', search: '' }, {})
   })
 
+  it('pages 25 at a time: Next asks after, Previous asks before, and says which rows it shows', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({ ...welcome, id: `o${i}`, name: `Offer ${i}` }))
+    api.loadOffers.mockImplementation((_: unknown, cursor: { after?: string; before?: string }) => Promise.resolve(cursor.after ? { rows: [paused], next: null, previous: 'c26' } : { rows: many, next: 'c25', previous: null }))
+    await show(owner)
+    expect(screen.getByText('Showing 1–25')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
+    await settle()
+    expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'live', kind: null, trigger: null, search: '' }, { after: 'c25' })
+    expect(screen.getByText('Showing 26–26')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.pages.previous }))
+    await settle()
+    expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'live', kind: null, trigger: null, search: '' }, { before: 'c26' })
+    expect(screen.getByText('Showing 1–25')).toBeTruthy()
+  })
+
+  it('starts a tab reached through the address, or a new filter, on its first page', async () => {
+    api.loadOffers.mockImplementation((_: unknown, cursor: { after?: string }) => Promise.resolve(cursor.after ? { rows: [paused], next: null, previous: 'c26' } : { rows: [welcome], next: 'c25', previous: null }))
+    const router = await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
+    await settle()
+    await act(() => router.navigate({ to: '/offers', search: { status: 'off' } }))
+    await settle()
+    expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'off', kind: null, trigger: null, search: '' }, {})
+    expect(screen.getByText('Showing 1–1')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
+    await settle()
+    fireEvent.change(screen.getByRole('combobox', { name: words.filters.how }), { target: { value: 'code' } })
+    await settle()
+    expect(api.loadOffers).toHaveBeenLastCalledWith({ tab: 'off', kind: null, trigger: 'code', search: '' }, {})
+  })
+
   it('moves between tabs with the arrow keys, Home and End, keeping one tab stop', async () => {
     await show(owner)
     const live = screen.getByRole('tab', { name: 'Live 1' })
