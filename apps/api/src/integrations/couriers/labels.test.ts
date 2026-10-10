@@ -156,14 +156,15 @@ describe('the local stand-in', () => {
 })
 
 describe('tracking hooks', () => {
-  const at = new Date('2026-10-12T00:00:00Z')
-  const hook = (body: unknown, headers: Record<string, string>) => ({ body: JSON.stringify(body), headers: new Headers(headers), receivedAt: at })
+  const hook = (body: unknown, headers: Record<string, string>) => ({ body: JSON.stringify(body), headers: new Headers(headers) })
 
   it('take Shiprocket’s status only with the partner’s token, in India’s time, ignoring what happens before the courier has it', async () => {
     expect(await shiprocketHook('tok', hook({ awb: 149, current_status: 'OUT FOR DELIVERY', current_timestamp: '12 10 2026 09:15:00' }, { 'x-api-key': 'tok' }))).toEqual([
       { providerRef: null, trackingNumber: '149', status: 'out_for_delivery', at: new Date('2026-10-12T03:45:00Z') },
     ])
-    expect(await shiprocketHook('tok', hook({ awb: '149', current_status: 'RTO DELIVERED' }, { 'x-api-key': 'tok' }))).toEqual([{ providerRef: null, trackingNumber: '149', status: 'returned', at }])
+    expect(await shiprocketHook('tok', hook({ awb: '149', current_status: 'RTO DELIVERED', current_timestamp: '2026-10-14 10:00:00' }, { 'x-api-key': 'tok' }))).toEqual([{ providerRef: null, trackingNumber: '149', status: 'returned', at: new Date('2026-10-14T04:30:00Z') }])
+    // No time of the courier's own, or one it can't be read from: it can't be ordered, so it moves nothing.
+    for (const time of [undefined, 'yesterday', '2026-13-45 99:00:00']) expect(await shiprocketHook('tok', hook({ awb: '149', current_status: 'IN TRANSIT', current_timestamp: time }, { 'x-api-key': 'tok' })), String(time)).toEqual([])
     expect(await shiprocketHook('tok', hook({ awb: '149', current_status: 'MANIFEST GENERATED' }, { 'x-api-key': 'tok' }))).toEqual([])
     expect(await shiprocketHook('tok', hook({ awb: '149', current_status: 'DELIVERED' }, { 'x-api-key': 'tok2' }))).toBeNull()
     expect(await shiprocketHook(null, hook({ awb: '149', current_status: 'DELIVERED' }, { 'x-api-key': '' }))).toBeNull()
@@ -179,6 +180,10 @@ describe('tracking hooks', () => {
     const signature = await sign(JSON.stringify(body), 'fine-secret')
     expect(await easyPostHook('ﬁne-secret', hook(body, { 'x-hmac-signature': signature }))).toEqual([{ providerRef: 'shp_1', trackingNumber: 'EZ1', status: 'delivered', at: new Date('2026-10-12T08:00:00Z') }])
     expect(await easyPostHook('other', hook(body, { 'x-hmac-signature': signature }))).toBeNull()
+    for (const updated of [null, 'not a time']) {
+      const timeless = { ...body, result: { ...body.result, status: 'in_transit', updated_at: updated } }
+      expect(await easyPostHook('fine-secret', hook(timeless, { 'x-hmac-signature': await sign(JSON.stringify(timeless), 'fine-secret') })), String(updated)).toEqual([])
+    }
     expect(await easyPostHook('fine-secret', hook(body, {}))).toBeNull()
     const other = { description: 'batch.created', result: { status: 'created' } }
     expect(await easyPostHook('fine-secret', hook(other, { 'x-hmac-signature': await sign(JSON.stringify(other), 'fine-secret') }))).toEqual([])

@@ -69,15 +69,21 @@ const refundsOf = async (stripe: StripeApi, invoice: StripeInvoice | null): Prom
   return charge && (charge.amount_refunded ?? 0) > 0 ? stripe.refunds(charge.id) : []
 }
 
+// The invoice with all its lines, so the merchant's copy adds up to its amount however many Stripe embedded.
+const invoiceOf = async (stripe: StripeApi, invoiceId: string): Promise<StripeInvoice> => {
+  const invoice = await stripe.invoice(invoiceId)
+  return invoice.lines?.has_more ? { ...invoice, lines: { data: await stripe.invoiceLines(invoice.id), has_more: false } } : invoice
+}
+
 const fetchSubject = async (stripe: StripeApi, event: StripeEvent): Promise<Subject> => {
   const object = event.data.object
   if (event.type.startsWith('invoice.')) {
-    const invoice = await stripe.invoice(object.id)
+    const invoice = await invoiceOf(stripe, object.id)
     return { kind: 'invoice', invoice, refunds: await refundsOf(stripe, invoice) }
   }
   if (event.type.startsWith('charge.')) {
     const charge = await stripe.charge(object.id)
-    const invoice = charge.invoice ? await stripe.invoice(charge.invoice) : null
+    const invoice = charge.invoice ? await invoiceOf(stripe, charge.invoice) : null
     return { kind: 'charge', invoice, refunds: await refundsOf(stripe, invoice) }
   }
   // A store's plan (#329): its status and period, and a scheduled change taking effect.
@@ -105,7 +111,7 @@ const storeInvoiceOf = (storeId: string, invoice: StripeInvoice, refunds: Stripe
     currency: upper(invoice.currency),
     issuedAt: seconds(invoice.status_transitions?.finalized_at ?? invoice.created),
     paidAt: paidAt ? seconds(paidAt) : null,
-    lines: (invoice.lines?.data ?? []).slice(0, 20).map((l) => ({
+    lines: (invoice.lines?.data ?? []).map((l) => ({
       label: (l.description ?? '').slice(0, 300),
       amount: l.amount ?? 0,
       kind: l.proration ? ((l.amount ?? 0) < 0 ? 'proration_credit' : 'proration_charge') : 'plan',

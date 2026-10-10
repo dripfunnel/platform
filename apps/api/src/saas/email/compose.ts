@@ -11,7 +11,7 @@ import { hashSessionId, newSessionId } from '#auth/session'
 import { selectBranding } from '#db/scoped/branding'
 import { selectKeyCreatorName } from '#db/scoped/apiKeys'
 import { markReminderSent, selectReminderFlow, selectReminderToSend, selectSampleItems, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
-import { defaultReminderStep, defaultReminderSteps } from '#engine/modules/cartReminders/index'
+import { defaultReminderStep, defaultReminderSteps, mayEmail } from '#engine/modules/cartReminders/index'
 import type { ScopedSql } from '#db/scoped/index'
 import { selectOrderEmail, selectShipmentToTell, type OrderEmailRow } from '#db/scoped/orderUpdates'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
@@ -421,6 +421,11 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (r.partner_id !== row.partnerId || r.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
       const look = await partnerBrand(tx, r.partner_id)
       if (!r.to || !look) return { send: false, reason: 'no_recipient' }
+      // Asked again as it goes: a retry can come after the shopper unsubscribed.
+      if (!mayEmail(r.store_country, r.consent)) {
+        await skipReminder(tx, p.reminderId, 'opted_out')
+        return { send: false, reason: 'no_recipient' }
+      }
       const host = await selectShopHost(tx, r.store_id)
       if (!host) {
         await skipReminder(tx, p.reminderId, 'no_shop_host')

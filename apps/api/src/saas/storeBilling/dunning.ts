@@ -71,7 +71,15 @@ export const applyStoreSubscription = async (tx: ScopedSql, sub: StripeSubscript
   // A scheduled change takes effect when Stripe's subscription names it: its phase sets the plan's metadata (SAAS §6.3).
   const m = sub.metadata
   if (row.next_plan_id && m['plan_id'] === row.next_plan_id && m['plan_version'] === String(row.next_plan_version) && item?.price.unit_amount != null) {
-    await applyPlan(tx, storeId, { planId: row.next_plan_id, planVersion: row.next_plan_version ?? 1, interval: m['interval'] === 'year' ? 'year' : 'month', amount: item.price.unit_amount, subscriptionId: sub.id, periodStart, periodEnd, activate: false })
+    const interval = m['interval'] === 'year' ? 'year' : 'month'
+    await applyPlan(tx, storeId, { planId: row.next_plan_id, planVersion: row.next_plan_version ?? 1, interval, amount: item.price.unit_amount, subscriptionId: sub.id, periodStart, periodEnd, activate: false })
+    await activity.record(
+      tx,
+      systemEntry({ id: storeId, partner_id: row.partner_id, name: row.store_name }, 'billing.plan_changed', 'provider', 'scheduled', [
+        { field: 'plan', before: row.plan_id, after: row.next_plan_id },
+        { field: 'interval', before: row.interval, after: interval },
+      ]),
+    )
   }
   const status = statusOf(sub.status, row.status)
   await syncSubscription(tx, storeId, { status, periodStart, periodEnd, cancelAt: sub.cancel_at_period_end ? periodEnd : null })

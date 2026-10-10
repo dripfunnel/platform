@@ -158,8 +158,8 @@ export const registerBilling = (builder: StoreBuilder) => {
   const Line = builder.objectRef<StoreInvoiceRow['lines'][number]>('InvoiceLine').implement({
     fields: (t) => ({
       label: t.exposeString('label'),
-      // Minor units; a credit is below zero.
-      amount: t.exposeString('amount'),
+      // A credit is below zero.
+      amount: t.field({ type: Money, resolve: (l) => ({ amount: l.amount, currency: l.currency }) }),
       // plan, proration_charge or proration_credit
       kind: t.exposeString('kind'),
       periodStart: t.exposeString('period_start', { nullable: true }),

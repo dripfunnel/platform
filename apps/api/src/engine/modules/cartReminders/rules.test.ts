@@ -55,6 +55,9 @@ describe('mayEmail', () => {
     expect(mayEmail('US', { consent_state: 'not_asked', consent_channels: [] })).toBe(true)
     expect(mayEmail('US', { consent_state: 'stopped', consent_channels: [] })).toBe(false)
     expect(mayEmail('IN', { consent_state: 'declined', consent_channels: [] })).toBe(false)
+    // Agreed to WhatsApp alone: no email, in India as anywhere.
+    expect(mayEmail('IN', { consent_state: 'opted_in', consent_channels: ['whatsapp'] })).toBe(false)
+    expect(mayEmail('IN', { consent_state: 'opted_in', consent_channels: ['whatsapp', 'email'] })).toBe(true)
   })
 
   it('in the EU and EEA only once they agreed to email', () => {
