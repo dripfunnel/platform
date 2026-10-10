@@ -5,6 +5,7 @@ import type { StoreCaller } from '#auth/storeCaller'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
+import { insertOutboxMany } from '#db/scoped/outbox'
 import { isStoreEvent } from '#db/scoped/storeEvents'
 import {
   countEndpoints,
@@ -108,8 +109,8 @@ export const createWebhooksService = ({ sql, caller, activity, facts, secrets, l
     ...facts,
   })
 
-  const queueDelivery = (tx: ScopedSql, deliveryId: string, key: string) =>
-    queueSideEffect(tx, { kind: webhookDeliveryKind, idempotencyKey: key, payload: { deliveryId }, partnerId: caller.context.partnerId, storeId })
+  const deliveryEffect = (deliveryId: string, key: string) =>
+    ({ kind: webhookDeliveryKind, idempotencyKey: key, payload: { deliveryId }, partnerId: caller.context.partnerId, storeId })
 
   const list = (window: PageWindow) => inStore((tx) => selectEndpoints(tx, storeId, window))
 
@@ -180,7 +181,7 @@ export const createWebhooksService = ({ sql, caller, activity, facts, secrets, l
       if (!old) return { ok: false, reason: 'NOT_FOUND' } as const
       await markEndpointWorking(tx, id, at)
       const released = await releaseHeld(tx, id, new Date(at.getTime() - replayWindowMs))
-      for (const deliveryId of released) await queueDelivery(tx, deliveryId, `${deliveryId}:on:${at.getTime()}`)
+      await insertOutboxMany(tx, released.map((deliveryId) => deliveryEffect(deliveryId, `${deliveryId}:on:${at.getTime()}`)))
       await activity.record(tx, entry(webhookAudit.turnedOn, old, [], old.status))
       return { ok: true, value: released.length } as const
     })
@@ -206,7 +207,7 @@ export const createWebhooksService = ({ sql, caller, activity, facts, secrets, l
       if (!endpoint) return { ok: false, reason: 'NOT_FOUND' } as const
       if (endpoint.status === 'disabled') return { ok: false, reason: 'ENDPOINT_OFF' } as const
       await insertDelivery(tx, { id: newId, endpointId: endpoint.id, storeId, event: found.d.event, eventId: found.d.event_id, body: found.d.body, status: 'pending', replayOf: found.d.id, now: at })
-      await queueDelivery(tx, newId, newId)
+      await queueSideEffect(tx, deliveryEffect(newId, newId))
       await activity.record(tx, entry(webhookAudit.replayed, endpoint, [], found.d.event))
       return { ok: true, value: newId } as const
     })
