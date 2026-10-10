@@ -65,7 +65,7 @@ export const planKeyDefs = [
   sw('blog', 'storefront'),
   sw('reports_sales', 'reports', true),
   sw('reports_export', 'reports', true),
-  sw('reports_custom', 'reports'),
+  sw('reports_custom', 'reports', true),
   choice('support_level', 'support', ['helpCentre', 'email', 'chat', 'priority', 'manager']),
   sw('uptime_guarantee', 'support'),
   sw('white_label', 'support'),

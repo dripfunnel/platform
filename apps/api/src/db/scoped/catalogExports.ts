@@ -3,8 +3,8 @@ import { pgArray, type ScopedSql } from './index'
 // The store's product and stock exports as jobs (migrations/0058; FIRST-RELEASE §13): asked for, built after
 // commit in the asker's own scope, read back by id. Row security keeps a supplier to its own jobs and rows.
 
-/** The store's exports: products and stock (#301), orders (#310) and customers (#312), each a job read back by id. */
-export type CatalogExportKind = 'products' | 'stock' | 'orders' | 'customers'
+/** The store's exports: products and stock (#301), orders (#310), customers (#312) and reports (#322), each a job read back by id. */
+export type CatalogExportKind = 'products' | 'stock' | 'orders' | 'customers' | 'report'
 
 export interface CatalogExportRow {
   id: string

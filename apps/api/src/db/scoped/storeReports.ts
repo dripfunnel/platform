@@ -1,4 +1,5 @@
 import type { ScopedSql } from './index'
+import { theirOrders } from './storeCustomers'
 import { sale } from './storeHome'
 
 // Reports (FIRST-RELEASE §10, PortalReports), read on the merchant side in the store's scope: each panel over the sales
@@ -166,4 +167,86 @@ export const selectTopOffers = (tx: ScopedSql, w: ReportWindow, limit: number): 
       group by a.label, o.id
     ) x
     group by x.label order by sum(x.discount) desc, x.label limit ${limit}
+  `
+
+// The exports' and the custom report builder's rows (PortalReports "Export", "Custom reports"): a row each, up to `limit`.
+
+export interface ReportOrderRow {
+  number: string
+  placed_at: Date
+  customer: string | null
+  market: string | null
+  total: string
+  refunded: string
+  tax: string
+}
+
+export const selectReportOrders = (tx: ScopedSql, w: ReportWindow, limit: number): Promise<ReportOrderRow[]> =>
+  tx<ReportOrderRow[]>`
+    select o.number, o.placed_at, o.shipping_address ->> 'name' as customer, m.name as market, o.total_amount::text as total, o.refunded_amount::text as refunded, o.tax_amount::text as tax
+    from "order" o left join market m on m.id = o.market_id and m.store_id = o.store_id
+    where ${within(tx, w)} order by o.placed_at, o.id limit ${limit}
+  `
+
+export interface ReportLineRow {
+  number: string
+  placed_at: Date
+  name: string
+  version_name: string | null
+  sku: string | null
+  quantity: number
+  unit: string
+  total: string
+  supplier: string | null
+}
+
+export const selectReportLines = (tx: ScopedSql, w: ReportWindow, limit: number): Promise<ReportLineRow[]> =>
+  tx<ReportLineRow[]>`
+    select o.number, o.placed_at, l.name, l.version_name, l.sku, l.quantity, l.unit_amount::text as unit, l.line_total_amount::text as total, s.name as supplier
+    from "order" o join order_line l on l.order_id = o.id and l.store_id = o.store_id left join seller s on s.id = l.seller_id and s.store_id = l.store_id
+    where ${within(tx, w)} order by o.placed_at, o.id, l.position, l.id limit ${limit}
+  `
+
+export interface ReportProductRow {
+  name: string
+  units: number
+  amount: string
+  /** On hand less reserved, everywhere it is counted. */
+  stock: number
+  supplier: string | null
+}
+
+/** Every product of the store, sold or not, with what it sold in the range. */
+export const selectReportProducts = (tx: ScopedSql, w: ReportWindow, limit: number): Promise<ReportProductRow[]> =>
+  tx<ReportProductRow[]>`
+    select p.name, coalesce(x.units, 0)::int as units, coalesce(x.amount, 0)::text as amount, s.name as supplier,
+      (select coalesce(sum(sl.on_hand - sl.reserved), 0)::int from stock_level sl join product_version v on v.id = sl.version_id
+        join warehouse wh on wh.id = sl.warehouse_id and wh.deleted_at is null where v.product_id = p.id and v.deleted_at is null) as stock
+    from product p
+    left join seller s on s.id = p.seller_id and s.store_id = p.store_id
+    left join lateral (
+      select sum(l.quantity) as units, sum(l.line_total_amount) as amount from "order" o join order_line l on l.order_id = o.id and l.store_id = o.store_id
+      where l.product_id = p.id and ${within(tx, w)}
+    ) x on true
+    where p.store_id = ${w.storeId} and p.deleted_at is null and not p.is_sample
+    order by coalesce(x.amount, 0) desc, p.name, p.id limit ${limit}
+  `
+
+export interface ReportCustomerRow {
+  name: string | null
+  email: string | null
+  orders: number
+  amount: string
+  groups: string[]
+  tags: string[]
+}
+
+/** The customers who bought in the range, with their orders and spend in it (Customers' own reckoning of whose an order is). */
+export const selectReportCustomers = (tx: ScopedSql, w: ReportWindow, limit: number): Promise<ReportCustomerRow[]> =>
+  tx<ReportCustomerRow[]>`
+    select c.name, c.email, count(*)::int as orders, sum(o.total_amount - o.refunded_amount)::text as amount, to_json(c.tags) as tags,
+      coalesce((select json_agg(g.name order by g.name) from customer_group_member gm join customer_group g on g.id = gm.group_id and g.deleted_at is null where gm.customer_id = c.id), '[]'::json) as groups
+    from customer c join "order" o on ${theirOrders(tx)}
+    where c.store_id = ${w.storeId} and c.status <> 'deleted' and ${within(tx, w)}
+    group by c.id order by sum(o.total_amount - o.refunded_amount) desc, c.id limit ${limit}
   `

@@ -10,3 +10,14 @@ export {
   type ReportView,
 } from './reports'
 export type { MarketRow, OfferRow, SoldRow, SupplierUnitsRow, TakingsRow, TaxRow } from '#db/scoped/storeReports'
+export {
+  buildReportExport,
+  createReportExportService,
+  customColumns,
+  customRows,
+  reportExportAudit,
+  reportPanels,
+  type CustomReport,
+  type CustomRows,
+  type ReportPanel,
+} from './exports'
