@@ -3,7 +3,7 @@ import { useId, useState } from 'react'
 import type { CatalogImport } from '../../api/imports'
 import type { Place } from '../../api/stock'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { downloadCsv } from './download'
+import { downloadCsv } from '../common/download'
 
 const words = messages.imports.check
 

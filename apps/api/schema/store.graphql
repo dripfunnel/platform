@@ -720,6 +720,26 @@ type IssuedApiKey {
   secret: String
 }
 
+type IssuedGiftCard {
+  amount: Money
+  balance: Money
+  createdAt: String
+  expiresAt: String
+  id: ID
+  last4: String
+  recipientEmail: String
+  recipientName: String
+  sendOn: String
+  sentAt: String
+  source: String
+  status: String
+}
+
+type IssuedGiftCardPage {
+  nodes: [IssuedGiftCard!]
+  pageInfo: PageInfo
+}
+
 type Market {
   active: Boolean
   countries: [String!]
@@ -896,6 +916,7 @@ type Mutation {
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
+  issueGiftCard(issueKey: ID!, productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
   keepProducts(ids: [ID!]!): PlanKeep
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
@@ -1878,6 +1899,7 @@ type Query {
   downloadInvoice(id: ID!): String
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
+  giftCards(after: String, before: String, first: Int, productId: ID!): IssuedGiftCardPage
   health: String
   home: StoreHome
   installableApp(id: ID!): InstallableApp

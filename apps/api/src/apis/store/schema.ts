@@ -5,6 +5,7 @@ import { registerListing } from './listing'
 import { registerPeople } from './people'
 import { registerProducts } from './products'
 import { registerProductKinds } from './productKinds'
+import { registerGiftCards } from './giftCards'
 import { registerProfile } from './profile'
 import { registerShell } from './shell'
 import { registerStructure } from './structure'
@@ -50,6 +51,7 @@ registerProfile(builder)
 registerPeople(builder)
 registerProducts(builder)
 registerProductKinds(builder)
+registerGiftCards(builder)
 registerStructure(builder)
 registerStory(builder)
 registerInventory(builder)

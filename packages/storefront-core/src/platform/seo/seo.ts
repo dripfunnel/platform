@@ -1,4 +1,4 @@
-import { toDecimal, type ShopMoney } from '../pricing/money'
+import { toDecimal, type Money } from '../../pricing/money'
 
 // Metadata every page gets from core, which a theme can't remove (storefront ARCHITECTURE §8):
 // canonical, Open Graph, noindex in preview, and structured data.
@@ -11,7 +11,7 @@ export type SeoInput = {
   description?: string | null | undefined
   image?: string | null | undefined
   preview: boolean
-  product?: { name: string; price: ShopMoney; available: boolean; image?: string | null | undefined } | undefined
+  product?: { name: string; price: Money; available: boolean; image?: string | null | undefined } | undefined
   breadcrumbs?: readonly { name: string; url: string }[] | undefined
 }
 

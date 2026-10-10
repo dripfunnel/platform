@@ -14,8 +14,8 @@ export const insertOutbox = async (tx: ScopedSql, row: NewOutboxRow): Promise<st
     // A savepoint, not ON CONFLICT: the conflict check would need a read the role has not got.
     await tx.savepoint(
       (sp) => sp`
-        insert into outbox (id, kind, idempotency_key, payload, partner_id, store_id)
-        values (${id}, ${row.kind}, ${key}, ${JSON.stringify(row.payload)}::text::jsonb, ${row.partnerId}, ${row.storeId})
+        insert into outbox (id, kind, idempotency_key, payload, partner_id, store_id, next_attempt_at)
+        values (${id}, ${row.kind}, ${key}, ${JSON.stringify(row.payload)}::text::jsonb, ${row.partnerId}, ${row.storeId}, coalesce(${row.notBefore ?? null}::timestamptz, now()))
       `,
     )
     return id
