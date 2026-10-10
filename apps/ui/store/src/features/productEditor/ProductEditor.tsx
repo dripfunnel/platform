@@ -248,14 +248,18 @@ export const ProductEditor = () => {
     return loadProductStock(stored.id)
   }
 
-  /** The kind's own card after the product, at the revision its save answered, then any keys typed; null when neither changed. */
-  const saveKind = async (id: string, revision: number): Promise<ProductKindView | null> => {
-    const input = kindInputOf(draft.kind, draft.details)
-    let kind: ProductKindView | null = null
-    if (input && (isNew || kindChanged(draft.kind, draft.details, saved.kind, saved.details))) kind = await saveProductKind(id, revision, input)
-    const keys = keysOf(draft.details.keys)
-    if (draft.kind === 'digital' && draft.details.download.mode === 'keys' && keys.length > 0) kind = await addLicenceKeys(id, keys)
-    return kind
+  /** The kind's own card after the product, at the revision its save answered, then any keys typed: what is stored after each, and why one failed. */
+  const saveKind = async (id: string, revision: number): Promise<{ stored: ProductKindView | null; failure: string | null }> => {
+    let stored: ProductKindView | null = null
+    try {
+      const input = kindInputOf(draft.kind, draft.details)
+      if (input && (isNew || kindChanged(draft.kind, draft.details, saved.kind, saved.details))) stored = await saveProductKind(id, revision, input)
+      const keys = keysOf(draft.details.keys)
+      if (draft.kind === 'digital' && draft.details.download.mode === 'keys' && keys.length > 0) stored = await addLicenceKeys(id, keys)
+      return { stored, failure: null }
+    } catch (error) {
+      return { stored, failure: kindRefusalOf(error) }
+    }
   }
 
   const save = async () => {
@@ -296,16 +300,13 @@ export const ProductEditor = () => {
       // its counts still to save.
       setShowProblems(false)
       setToast(done.approval === 'pending' && access.side === 'supplier' ? words.submitted : isNew ? fill(words.savedNew, { name: draft.name.trim() }) : words.saved)
-      let revision = done.revision
-      if (access.storeFields && draft.kind !== 'physical') {
-        try {
-          const answered = await saveKind(done.id, done.revision)
-          if (answered) [kindView, revision] = [answered, answered.revision]
-        } catch (error) {
-          kindFailure = kindRefusalOf(error)
-        }
-      } else kindView = null
-      setSaved((before) => ({ ...draft, stock: before.stock, collectionIds: before.collectionIds, details: kindFailure ? before.details : draft.details }))
+      const kindSave = access.storeFields && draft.kind !== 'physical' ? await saveKind(done.id, done.revision) : { stored: null, failure: null }
+      const answered = kindSave.stored
+      kindFailure = kindSave.failure
+      kindView = draft.kind === 'physical' ? null : (answered ?? kindView)
+      const revision = answered?.revision ?? done.revision
+      // A failed card leaves its last stored answer as saved, so only what didn't go stays unsaved.
+      setSaved((before) => ({ ...draft, stock: before.stock, collectionIds: before.collectionIds, details: !kindFailure ? draft.details : answered ? detailsOf(answered) : before.details }))
       if (product) setView((v) => (v.kind === 'ready' && v.product ? { ...v, product: { ...v.product, revision } } : v))
       // Read back what was stored: new versions' ids for the counts, the readiness the save changed.
       stored = await loadProduct(done.id).catch(() => null)
