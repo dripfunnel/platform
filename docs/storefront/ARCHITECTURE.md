@@ -415,7 +415,8 @@ their own cards.
   As built on #481 *(decided there)*: a section is what a route shim renders, the theme's page for
   the route and its layout's header and footer, each in `SectionBoundary(name, baseline)` with the
   baseline theme's same part. `CheckoutBoundary(baseline)` switches a shopper whose theme checkout
-  throws to the baseline checkout for the rest of the visit (remembered in `sessionStorage`). Both
+  throws to the baseline checkout for the rest of the visit (remembered in `sessionStorage`, read
+  before either checkout renders, so the server's HTML holds neither). Both
   report through `reportStorefrontProblem` (`SECTION` with the section's name, `CHECKOUT`).
 
 ---

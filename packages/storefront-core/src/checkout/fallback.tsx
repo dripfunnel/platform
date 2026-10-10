@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useState, type ReactNode } from 'react'
+import { useSyncExternalStore, type ReactNode } from 'react'
 import { Boundary } from '../platform/render/boundary'
 
 const key = 'df-baseline-checkout'
@@ -21,15 +21,20 @@ const rememberSwitch = () => {
   }
 }
 
+// The switch changes only when this boundary catches, and the boundary then shows the baseline itself.
+const unchanging = () => () => undefined
+const stored = () => (switched() ? 'baseline' : 'theme')
+const unknownOnServer = () => 'unknown' as const
+
 /**
  * The theme's checkout, until it throws: then that shopper gets the baseline checkout for the rest of
- * their visit (ARCHITECTURE §2.1 `checkout`, §3.3). `baseline` is the checkout #313 writes.
+ * their visit (ARCHITECTURE §2.1 `checkout`, §3.3). `baseline` is the checkout #313 writes. The server's
+ * HTML holds neither, since the switch lives in the browser; there the choice is made before either renders.
  */
 export const CheckoutBoundary = ({ baseline, children }: { baseline: ReactNode; children: ReactNode }) => {
-  const [baselineOnly, setBaselineOnly] = useState(false)
-  // Before paint, so a shopper already switched never sees the theme's checkout; after hydration, so the server's HTML matches.
-  useLayoutEffect(() => setBaselineOnly(switched()), [])
-  if (baselineOnly) return baseline
+  const choice = useSyncExternalStore(unchanging, stored, unknownOnServer)
+  if (choice === 'unknown') return null
+  if (choice === 'baseline') return baseline
   return (
     <Boundary kind="checkout" name="checkout" baseline={baseline} onFail={rememberSwitch}>
       {children}

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from '@testing-library/react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CheckoutBoundary } from '../../checkout/fallback'
 import { setProblemReporter, type StorefrontProblem } from '../../sealed/report'
@@ -60,7 +61,12 @@ describe('CheckoutBoundary', () => {
       </CheckoutBoundary>,
     )
     expect(screen.getByText('Baseline checkout')).toBeTruthy()
-    expect(screen.queryByText('Theme checkout')).toBeNull()
+    expect(theme).not.toHaveBeenCalled()
+  })
+
+  it('leaves the choice to the browser: the server renders neither checkout', () => {
+    sessionStorage.clear()
+    expect(renderToStaticMarkup(<CheckoutBoundary baseline={<p>Baseline checkout</p>}>{<p>Theme checkout</p>}</CheckoutBoundary>)).toBe('')
   })
 
   it('keeps the theme’s checkout while it works', () => {
