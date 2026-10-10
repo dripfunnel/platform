@@ -15,6 +15,9 @@ export const formatWait = (seconds: number): string => formatDuration(seconds, l
 
 export const formatCount = (count: number): string => formatNumber(count, locale)
 
+/** A file's size: "17.5 MB", in megabytes of 1,024 × 1,024 bytes. */
+export const formatMegabytes = (bytes: number): string => new Intl.NumberFormat(locale, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 1 }).format(bytes / 1024 / 1024)
+
 /** A calendar day ("2026-10-05") in the portal's words, read in UTC so no time zone moves it to another day. */
 export const formatDay = (day: string): string => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`))
 

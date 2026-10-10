@@ -1,6 +1,7 @@
 import { minorOf, moneyText } from '@dripfunnel/shared/format'
 import type { EditorProduct, ProductInput } from '../../api/productEditor'
 import type { StockLevel } from '../../api/stock'
+import { blankDetails, type KindDetails } from './kindDetails'
 
 // A product as a form edits it, shared by the editor (CatEditor) and the list's quick edit: text as typed, so a
 // half-typed price is kept until it is saved, and the versions as combinations of the choices. The API checks it all.
@@ -90,6 +91,8 @@ export interface Draft {
   sizeChartId: string | null
   /** The hand-picked collections it is in (the merchant side's), saved after the product. */
   collectionIds: string[]
+  /** A download's, service's or gift card's own card, saved after the product (`saveProductKind`). */
+  details: KindDetails
 }
 
 /** The listing's sections as the editor edits them (CATALOG S1–S9); a version's own specs are kept as they came. */
@@ -170,6 +173,7 @@ export const blankDraft = (units: Units = 'metric'): Draft => ({
   versionFilterValues: [],
   sizeChartId: null,
   collectionIds: [],
+  details: blankDetails(),
 })
 
 const isKind = (value: string): value is ProductKind => (productKinds as readonly string[]).includes(value)
@@ -264,6 +268,7 @@ export const draftOf = (product: EditorProduct, currency: string, { units = 'met
     versionFilterValues: product.filterValues.flatMap((f) => (f.versionId === null ? [] : [{ valueId: f.valueId, versionChoices: choicesOf(product, f.versionId) }])),
     sizeChartId: product.sizeChartId,
     collectionIds: [],
+    details: blankDetails(),
   }
 }
 
@@ -322,6 +327,33 @@ export const syncVersions = (draft: Draft): DraftVersion[] => {
     const kept = existing.get(keyOf(choices))
     return kept ? { ...kept, choices } : blankVersion(choices, template)
   })
+}
+
+/** A gift card's amounts (its versions' prices, CATALOG T14), lowest first. */
+export const amountsOf = (draft: Draft, currency: string): number[] =>
+  [...new Set(draft.versions.filter((v) => !v.removed).map((v) => minorOf(v.price, currency)).filter((p): p is number => typeof p === 'number' && p > 0))].sort((a, b) => a - b)
+
+/**
+ * A gift card's versions made from its amounts: one kind of choice named `optionName` with a value per amount, a version
+ * kept where its price matches; none at all for a single amount.
+ */
+export const withAmounts = (draft: Draft, amounts: readonly number[], currency: string, optionName: string, label: (amount: number) => string): Draft => {
+  const sorted = [...new Set(amounts)].sort((a, b) => a - b)
+  const live = draft.versions.filter((v) => !v.removed)
+  const kept = (amount: number) => live.find((v) => minorOf(v.price, currency) === amount)
+  if (sorted.length <= 1) {
+    const amount = sorted[0]
+    const from = amount === undefined ? live[0] : (kept(amount) ?? live[0])
+    const price = amount === undefined ? '' : moneyText({ amount, currency })
+    return { ...draft, options: [], versions: [{ ...blankVersion([], from), id: from?.id ?? null, sku: from?.sku ?? '', price, compareAt: '', otherPrices: [] }] }
+  }
+  const option = draft.options.length === 1 ? draft.options[0] : undefined
+  const values = sorted.map((amount) => ({ id: option?.values.find((v) => v.name === label(amount))?.id ?? null, name: label(amount) }))
+  const versions = sorted.map((amount) => {
+    const from = kept(amount)
+    return { ...blankVersion([label(amount)], from), id: from?.id ?? null, sku: from?.sku ?? '', price: moneyText({ amount, currency }), compareAt: '', otherPrices: [] }
+  })
+  return { ...draft, options: [{ id: option?.id ?? null, name: option?.name || optionName, values }], versions }
 }
 
 /** How many versions "Update versions" would add. */

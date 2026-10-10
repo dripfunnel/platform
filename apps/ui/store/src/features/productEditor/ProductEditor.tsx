@@ -6,12 +6,16 @@ import { getRouteApi, Link, useBlocker, useNavigate, useParams, useRouterState }
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadApprovalRequired, loadFacets, loadPricing, loadStoreCurrencies, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
 import { deleteProducts, loadHandPicked } from '../../api/products'
+import { addLicenceKeys, loadProductKind, maxKeyLength, maxKeysPerSave, saveProductKind, type ProductKindView } from '../../api/productKinds'
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
-import { fill, messages, plural } from '../../messages'
+import { fill, formatCount, messages, plural } from '../../messages'
 import { editorAccessOf } from '../common/access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
-import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem, type ListingSection, type Units } from '../common/productDraft'
+import { amountsOf, blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, withAmounts, type Draft, type DraftProblem, type ListingSection, type ProductKind, type Units } from '../common/productDraft'
+import { detailsOf, kindChanged, kindInputOf, kindProblemsOf, keysOf, type KindDetails, type KindProblem } from '../common/kindDetails'
+import { amountLabel, DownloadCard, GiftCardCard, ServiceCard } from './KindCards'
+import { GiftCardsIssued } from './GiftCardsIssued'
 import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
 import { EditorSections, SidePanel } from './EditorSections'
 import { CollectionsPart, ListingSections, type EditorExtras as Extras, type UnavailableChoice } from './ListingSections'
@@ -25,7 +29,7 @@ import './editor.css'
 const words = messages.editor
 const shellRoute = getRouteApi('/_app')
 
-type Loaded = { product: EditorProduct | null; currency: string; units: Units; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]>; extras: Extras }
+type Loaded = { product: EditorProduct | null; currency: string; units: Units; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]>; extras: Extras; kindView: ProductKindView | null }
 
 
 const sectionKeys: readonly ListingSection[] = ['specs', 'highlights', 'faqs', 'related', 'badges', 'sizeCharts']
@@ -60,9 +64,9 @@ const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: s
 }
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'notFound' } | ({ kind: 'ready' } & Loaded)
 
-const problemWords = (units: Units): Record<DraftProblem, string> => ({
+const problemWords = (units: Units, kind: ProductKind): Record<DraftProblem | KindProblem, string> => ({
   name: words.name.missing,
-  price: words.price.missing,
+  price: kind === 'gift_card' ? words.kinds.giftCard.missing : words.price.missing,
   compare: words.price.compareLow,
   cost: words.refused.INVALID_PRICE,
   options: words.refused.OPTION_VALUES_REQUIRED,
@@ -72,6 +76,8 @@ const problemWords = (units: Units): Record<DraftProblem, string> => ({
   box: fill(words.sections.boxInvalid, { example: words.sections.units[units].boxPlaceholder }),
   stock: words.stock.invalid,
   manual: words.refused.INVALID_PRICE,
+  file: words.kinds.download.missing,
+  keys: fill(words.kinds.download.keysInvalid, { max: formatCount(maxKeysPerSave), length: formatCount(maxKeyLength) }),
 })
 
 const closedHistory: StockHistoryView = { open: false, rows: null, more: false, failed: false }
@@ -82,6 +88,8 @@ declare module '@tanstack/react-router' {
   interface HistoryState {
     unsavedCounts?: Record<string, Record<string, string>> | undefined
     unsavedCollections?: string[] | undefined
+    /** A new download's, service's or gift card's details that didn't save; never its licence keys. */
+    unsavedDetails?: Omit<KindDetails, 'keys'> | undefined
   }
 }
 
@@ -89,6 +97,11 @@ const refusalOf = (error: unknown): string => {
   if (!isApiError(error)) return words.refused.other
   const known = (words.refused as Record<string, string>)[error.code]
   return known ?? words.refused.other
+}
+
+const kindRefusalOf = (error: unknown): string => {
+  const known: Record<string, string | undefined> = words.kinds.refused
+  return (isApiError(error) && known[error.code]) || words.kinds.refused.other
 }
 
 /** The product editor (CatEditor, FIRST-RELEASE §11); `new` opens an empty one. ?state= per editorStates.ts. */
@@ -124,20 +137,21 @@ export const ProductEditor = () => {
   const leaving = useRef(false)
   const carriedCounts = useRouterState({ select: (state) => state.location.state.unsavedCounts })
   const carriedCollections = useRouterState({ select: (state) => state.location.state.unsavedCollections })
-  const carriedRef = useRef({ counts: carriedCounts, collections: carriedCollections })
-  carriedRef.current = { counts: carriedCounts, collections: carriedCollections }
+  const carriedDetails = useRouterState({ select: (state) => state.location.state.unsavedDetails })
+  const carriedRef = useRef({ counts: carriedCounts, collections: carriedCollections, details: carriedDetails })
+  carriedRef.current = { counts: carriedCounts, collections: carriedCollections, details: carriedDetails }
 
   const show = useCallback((loaded: Loaded) => {
     const made = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels, manualCurrencies: loaded.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code) }) : blankDraft(loaded.units)
-    const next = { ...made, collectionIds: loaded.extras.memberships.filter((m) => m.kind === 'manual').map((m) => m.id) }
-    const { counts, collections } = loaded.product ? carriedRef.current : { counts: undefined, collections: undefined }
-    if ((counts || collections) && loaded.product) {
+    const next = { ...made, collectionIds: loaded.extras.memberships.filter((m) => m.kind === 'manual').map((m) => m.id), details: detailsOf(loaded.kindView) }
+    const { counts, collections, details } = loaded.product ? carriedRef.current : { counts: undefined, collections: undefined, details: undefined }
+    if ((counts || collections || details) && loaded.product) {
       // Applied once: a reload of this page shows what is stored, not picks already typed back in.
-      void navigate({ to: '/products/$productId', params: { productId: loaded.product.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts: undefined, unsavedCollections: undefined }) })
+      void navigate({ to: '/products/$productId', params: { productId: loaded.product.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts: undefined, unsavedCollections: undefined, unsavedDetails: undefined }) })
     }
-    setDraft({ ...next, stock: { ...next.stock, ...counts }, collectionIds: collections ?? next.collectionIds })
+    setDraft({ ...next, stock: { ...next.stock, ...counts }, collectionIds: collections ?? next.collectionIds, details: details ? { ...details, keys: '' } : next.details })
     setSaved(next)
-    setFailure(counts ? { text: words.stock.newFailed, stale: false } : collections ? { text: words.saveCollectionsFailed, stale: false } : null)
+    setFailure(counts ? { text: words.stock.newFailed, stale: false } : collections ? { text: words.saveCollectionsFailed, stale: false } : details ? { text: words.kinds.newFailed, stale: false } : null)
     setHistory(closedHistory)
     setView({ kind: 'ready', ...loaded })
   }, [navigate])
@@ -145,7 +159,7 @@ export const ProductEditor = () => {
   const load = useCallback(() => {
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
-    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: forced === 'new' ? null : sample.product, currency: sample.currency, units: 'metric', tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: forced === 'new' ? new Map() : sample.levels, extras: sample.extras })
+    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: sample.product, currency: sample.currency, units: 'metric', tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: sample.product ? sample.levels : new Map(), extras: sample.extras, kindView: sample.kind })
     const supplierSide = shell.acting.seller !== null
     void Promise.all([
       isNew ? Promise.resolve(null) : loadProduct(productId),
@@ -159,7 +173,10 @@ export const ProductEditor = () => {
         if (!isNew && !product) return setView({ kind: 'notFound' })
         const pricing = product?.pricingCurrency ?? basics.pricingCurrency
         if (!pricing) return setView({ kind: 'error' })
-        show({ product, currency: pricing, units: basics.unitSystem, tax, approvalRequired, warehouses, levels, extras: await loadExtras(basics, !supplierSide, isNew ? null : productId) })
+        // A kind's own details, the merchant's only (ACCESS §7.1): the form never offers stored ones as blank.
+        const kind = product && !supplierSide && product.productType !== 'physical' ? await loadProductKind(product.id).catch(() => undefined) : null
+        if (kind === undefined) return setView({ kind: 'error' })
+        show({ product, currency: pricing, units: basics.unitSystem, tax, approvalRequired, warehouses, levels, extras: await loadExtras(basics, !supplierSide, isNew ? null : productId), kindView: kind })
       },
       () => setView({ kind: 'error' }),
     )
@@ -194,6 +211,7 @@ export const ProductEditor = () => {
   const { product, currency, tax } = view
   const disabled = !access.canEdit || saving
   const problems = problemsOf(draft, currency)
+  const kindProblems = access.storeFields ? kindProblemsOf(draft.kind, draft.details) : []
   const shownProblems = showProblems ? problems : []
   const made = draft.options.length > 0 && draft.versions.some((v) => v.choices.length === draft.options.length)
   const status = isNew ? 'new' : product?.approval === 'pending' ? 'pending' : product?.approval === 'sent_back' ? 'sent_back' : draft.visible ? 'visible' : 'hidden'
@@ -230,9 +248,23 @@ export const ProductEditor = () => {
     return loadProductStock(stored.id)
   }
 
+  /** The kind's own card after the product, at the revision its save answered, then any keys typed: what is stored after each, and why one failed. */
+  const saveKind = async (id: string, revision: number): Promise<{ stored: ProductKindView | null; failure: string | null }> => {
+    let stored: ProductKindView | null = null
+    try {
+      const input = kindInputOf(draft.kind, draft.details)
+      if (input && (isNew || kindChanged(draft.kind, draft.details, saved.kind, saved.details))) stored = await saveProductKind(id, revision, input)
+      const keys = keysOf(draft.details.keys)
+      if (draft.kind === 'digital' && draft.details.download.mode === 'keys' && keys.length > 0) stored = await addLicenceKeys(id, keys)
+      return { stored, failure: null }
+    } catch (error) {
+      return { stored, failure: kindRefusalOf(error) }
+    }
+  }
+
   const save = async () => {
     // Stock only (a Stock-only supplier's product it can't otherwise edit): only the counts need to be right.
-    const blocking = access.canEdit ? problems : problems.filter((p) => p === 'stock')
+    const blocking = access.canEdit ? [...problems, ...kindProblems] : problems.filter((p) => p === 'stock')
     if (blocking.length > 0) {
       setShowProblems(true)
       return
@@ -245,6 +277,8 @@ export const ProductEditor = () => {
     setSaving(true)
     setFailure(null)
     let stored: EditorProduct | null = product
+    let kindView = view.kindView
+    let kindFailure: string | null = null
     const collectionsChanged = access.storeFields && !view.extras.choices.unavailable.has('collections') && [...draft.collectionIds].sort().join() !== [...saved.collectionIds].sort().join()
     /** The hand-picked collections after the product, by its own call; answers the listing's choices with them. */
     const saveCollections = async (id: string): Promise<Extras> => {
@@ -266,8 +300,14 @@ export const ProductEditor = () => {
       // its counts still to save.
       setShowProblems(false)
       setToast(done.approval === 'pending' && access.side === 'supplier' ? words.submitted : isNew ? fill(words.savedNew, { name: draft.name.trim() }) : words.saved)
-      setSaved((before) => ({ ...draft, stock: before.stock, collectionIds: before.collectionIds }))
-      if (product) setView((v) => (v.kind === 'ready' && v.product ? { ...v, product: { ...v.product, revision: done.revision } } : v))
+      const kindSave = access.storeFields && draft.kind !== 'physical' ? await saveKind(done.id, done.revision) : { stored: null, failure: null }
+      const answered = kindSave.stored
+      kindFailure = kindSave.failure
+      kindView = draft.kind === 'physical' ? null : (answered ?? kindView)
+      const revision = answered?.revision ?? done.revision
+      // A failed card leaves its last stored answer as saved, so only what didn't go stays unsaved.
+      setSaved((before) => ({ ...draft, stock: before.stock, collectionIds: before.collectionIds, details: !kindFailure ? draft.details : answered ? detailsOf(answered) : before.details }))
+      if (product) setView((v) => (v.kind === 'ready' && v.product ? { ...v, product: { ...v.product, revision } } : v))
       // Read back what was stored: new versions' ids for the counts, the readiness the save changed.
       stored = await loadProduct(done.id).catch(() => null)
       if (isNew) {
@@ -275,8 +315,10 @@ export const ProductEditor = () => {
         const counted = draft.kind === 'physical' && Object.values(draft.stock).some((byPlace) => Object.values(byPlace).some((t) => t.trim() !== ''))
         const unsavedCounts = counted ? await (stored ? saveStock(stored, saved) : Promise.reject(new Error('not read back'))).then(() => undefined, () => draft.stock) : undefined
         const unsavedCollections = await saveCollections(done.id).then(() => undefined, () => draft.collectionIds)
+        const { download, service, giftCard } = draft.details
+        const unsavedDetails = kindFailure ? { download, service, giftCard } : undefined
         leaving.current = true
-        void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts, unsavedCollections }) }).finally(() => (leaving.current = false))
+        void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts, unsavedCollections, unsavedDetails }) }).finally(() => (leaving.current = false))
         setSaving(false)
         return
       }
@@ -294,11 +336,11 @@ export const ProductEditor = () => {
       collectionsFailed = true
     }
     try {
-      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved), extras })
+      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved), extras, kindView })
       if (!access.canEdit) setToast(words.saved)
     } catch (error) {
       // The product is saved; its counts are still typed on the page, to save again.
-      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels, extras })
+      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels, extras, kindView })
       setDraft((d) => ({ ...d, stock: kept.stock }))
       setFailure({ text: isApiError(error) && error.code !== 'NOT_CONNECTED' ? refusalOf(error) : words.stock.failed, stale: false })
     }
@@ -306,10 +348,26 @@ export const ProductEditor = () => {
       setDraft((d) => ({ ...d, collectionIds: kept.collectionIds }))
       setFailure({ text: words.saveCollectionsFailed, stale: false })
     }
+    if (kindFailure) {
+      // The product is saved; what the shopper gets is still typed on the page, to save again.
+      setDraft((d) => ({ ...d, details: kept.details }))
+      setFailure({ text: kindFailure, stale: false })
+    }
     setSaving(false)
   }
 
   const names = new Map((product?.versions ?? []).map((v) => [v.id, v.choices.join(' / ')]))
+  // Only amounts already saved can be issued: each is a version with its id.
+  const issueAmounts = (product?.versions ?? []).flatMap((v) => {
+    const price = v.prices.find((p) => p.currency === currency)
+    return price ? [{ versionId: v.id, label: amountLabel(Number(price.amount), currency) }] : []
+  })
+  const pickKind = (kind: ProductKind) => {
+    if (kind === draft.kind) return
+    // A gift card's amounts are its versions (CATALOG T14): its prices become its amounts, its other choices go.
+    update((d) => (kind === 'gift_card' ? withAmounts({ ...d, kind, options: [] }, amountsOf(d, currency), currency, words.kinds.giftCard.option, (a) => amountLabel(a, currency)) : { ...d, kind }))
+    if (draft.kind === 'physical') setToast(words.kind.gone)
+  }
   const listingProps = { draft, update, disabled, choices: view.extras.choices, productId: product?.id ?? null, readiness: isNew ? undefined : (product?.readiness ?? null) }
 
   const toggleHistory = () => {
@@ -379,7 +437,8 @@ export const ProductEditor = () => {
 
   const banners: { tone: 'info' | 'warn'; title: string; body: string; action?: { label: string; run: () => void } }[] = []
   if (failure?.stale) banners.push({ tone: 'warn', title: words.banner.stale, body: words.banner.staleBody, action: { label: words.banner.reload, run: load } })
-  if (showProblems && problems.length > 1) banners.push({ tone: 'warn', title: fill(plural(words.banner.fix, problems.length), { count: String(problems.length) }), body: problems.map((p) => problemWords(draft.units)[p]).join(' · ') })
+  const allProblems = [...problems, ...kindProblems]
+  if (showProblems && allProblems.length > 1) banners.push({ tone: 'warn', title: fill(plural(words.banner.fix, allProblems.length), { count: String(allProblems.length) }), body: allProblems.map((p) => problemWords(draft.units, draft.kind)[p]).join(' · ') })
   if (access.readOnlyStore) banners.push({ tone: 'warn', title: words.banner.readOnly, body: words.banner.readOnlyBody })
   if (access.side === 'supplier' && product?.approval === 'sent_back' && product.sentBackReason) banners.push({ tone: 'warn', title: words.banner.sentBack, body: fill(words.banner.sentBackBody, { reason: product.sentBackReason }) })
   if (access.side === 'merchant' && product?.supplier) banners.push({ tone: 'info', title: fill(words.banner.theirs, { supplier: product.supplier.name }), body: words.banner.theirsBody })
@@ -442,17 +501,27 @@ export const ProductEditor = () => {
             <TranslationView productId={product.id} language={language} mainLanguage={view.extras.languages.main} supplier={access.side === 'supplier'} disabled={!access.canEdit} onSaved={setToast} onRows={countRows} onDirty={setTranslationDirty} />
           ) : (
             <>
-          <KindCard draft={draft} update={update} disabled={disabled} />
+          <KindCard draft={draft} disabled={disabled} supplier={access.side === 'supplier'} onPick={pickKind} />
+          {draft.kind === 'digital' && <DownloadCard draft={draft} update={update} disabled={disabled} problems={showProblems ? kindProblems : []} pool={product?.productType === 'digital' && view.kindView?.download?.mode === 'keys' ? { left: view.kindView.download.keysLeft, sold: view.kindView.download.keysSold } : null} />}
+          {draft.kind === 'service' && <ServiceCard draft={draft} update={update} disabled={disabled} />}
+          {draft.kind === 'gift_card' && (
+            <GiftCardCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} shortestMonths={view.kindView?.giftCard?.shortestMonths ?? null} ask={setAsk} onToast={setToast}>
+              {product?.productType === 'gift_card' && access.side === 'merchant' && (
+                <GiftCardsIssued productId={product.id} productName={product.name} amounts={issueAmounts} canIssue={access.storeFields} onToast={setToast} preset={sample?.cards ?? null} />
+              )}
+              {product?.productType !== 'gift_card' && access.storeFields && <p className="df-editor-hint">{words.kinds.giftCard.issueAfterSave}</p>}
+            </GiftCardCard>
+          )}
           <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} onRetry={(id) => { const file = files.current.get(id); if (file) upload(id, file) }} onDismiss={(id) => { files.current.delete(id); setPending((list) => list.filter((p) => p.id !== id)) }} />
           <BasicsCard draft={draft} update={update} disabled={disabled} problems={shownProblems} />
-          {!made && (
+          {!made && draft.kind !== 'gift_card' && (
                 <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} >
                   <PricesAbroad draft={draft} update={update} disabled={disabled} currencies={view.extras.currencies} converted={view.extras.converted.get(product?.versions[0]?.id ?? '') ?? []} problems={shownProblems} failed={view.extras.choices.unavailable.has('prices')} />
                   {product && access.storeFields && <MarketPrices productId={product.id} />}
                 </PriceCard>
               )}
           {physical && !made && <StockCard draft={draft} update={update} canStock={access.canStock && !saving} warehouses={view.warehouses} levels={product ? (view.levels.get(product.versions[0]?.id ?? '') ?? []) : []} versionId={product?.versions[0]?.id ?? null} problems={shownProblems} history={history} onHistory={toggleHistory} onAdjust={adjust} names={names} />}
-          <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />
+          {draft.kind !== 'gift_card' && <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />}
           <EditorSections
             draft={draft}
             update={update}

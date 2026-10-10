@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as StoresRouteImport } from './routes/stores'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppActivityRouteImport } from './routes/_app/activity'
 import { Route as AppBillingRouteImport } from './routes/_app/billing'
 import { Route as AppCartsRouteImport } from './routes/_app/carts'
 import { Route as AppCollectionsRouteImport } from './routes/_app/collections'
@@ -34,6 +35,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppBillingKeepRouteImport } from './routes/_app/billing_.keep'
 import { Route as AppCartsCartIdRouteImport } from './routes/_app/carts_.$cartId'
 import { Route as AppOffersOfferIdRouteImport } from './routes/_app/offers_.$offerId'
 import { Route as AppOffersNewRouteImport } from './routes/_app/offers_.new'
@@ -62,6 +64,11 @@ const StoresRoute = StoresRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBillingRoute = AppBillingRouteImport.update({
@@ -169,6 +176,11 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppBillingKeepRoute = AppBillingKeepRouteImport.update({
+  id: '/billing_/keep',
+  path: '/billing/keep',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCartsCartIdRoute = AppCartsCartIdRouteImport.update({
   id: '/carts_/$cartId',
   path: '/carts/$cartId',
@@ -229,6 +241,7 @@ const AppProductsProductIdStoryRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/stores': typeof StoresRoute
+  '/activity': typeof AppActivityRoute
   '/billing': typeof AppBillingRoute
   '/carts': typeof AppCartsRoute
   '/collections': typeof AppCollectionsRoute
@@ -250,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/billing/keep': typeof AppBillingKeepRoute
   '/carts/$cartId': typeof AppCartsCartIdRoute
   '/offers/$offerId': typeof AppOffersOfferIdRoute
   '/offers/new': typeof AppOffersNewRoute
@@ -265,6 +279,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/stores': typeof StoresRoute
+  '/activity': typeof AppActivityRoute
   '/billing': typeof AppBillingRoute
   '/carts': typeof AppCartsRoute
   '/collections': typeof AppCollectionsRoute
@@ -286,6 +301,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/billing/keep': typeof AppBillingKeepRoute
   '/carts/$cartId': typeof AppCartsCartIdRoute
   '/offers/$offerId': typeof AppOffersOfferIdRoute
   '/offers/new': typeof AppOffersNewRoute
@@ -303,6 +319,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
   '/stores': typeof StoresRoute
+  '/_app/activity': typeof AppActivityRoute
   '/_app/billing': typeof AppBillingRoute
   '/_app/carts': typeof AppCartsRoute
   '/_app/collections': typeof AppCollectionsRoute
@@ -325,6 +342,7 @@ export interface FileRoutesById {
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/billing_/keep': typeof AppBillingKeepRoute
   '/_app/carts_/$cartId': typeof AppCartsCartIdRoute
   '/_app/offers_/$offerId': typeof AppOffersOfferIdRoute
   '/_app/offers_/new': typeof AppOffersNewRoute
@@ -342,6 +360,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/stores'
+    | '/activity'
     | '/billing'
     | '/carts'
     | '/collections'
@@ -363,6 +382,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/billing/keep'
     | '/carts/$cartId'
     | '/offers/$offerId'
     | '/offers/new'
@@ -378,6 +398,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/stores'
+    | '/activity'
     | '/billing'
     | '/carts'
     | '/collections'
@@ -399,6 +420,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/billing/keep'
     | '/carts/$cartId'
     | '/offers/$offerId'
     | '/offers/new'
@@ -415,6 +437,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/stores'
+    | '/_app/activity'
     | '/_app/billing'
     | '/_app/carts'
     | '/_app/collections'
@@ -437,6 +460,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-up'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/billing_/keep'
     | '/_app/carts_/$cartId'
     | '/_app/offers_/$offerId'
     | '/_app/offers_/new'
@@ -485,6 +509,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/activity': {
+      id: '/_app/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/billing': {
@@ -634,6 +665,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/billing_/keep': {
+      id: '/_app/billing_/keep'
+      path: '/billing/keep'
+      fullPath: '/billing/keep'
+      preLoaderRoute: typeof AppBillingKeepRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/carts_/$cartId': {
       id: '/_app/carts_/$cartId'
       path: '/carts/$cartId'
@@ -715,6 +753,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppActivityRoute: typeof AppActivityRoute
   AppBillingRoute: typeof AppBillingRoute
   AppCartsRoute: typeof AppCartsRoute
   AppCollectionsRoute: typeof AppCollectionsRoute
@@ -730,6 +769,7 @@ interface AppRouteChildren {
   AppStorefrontRoute: typeof AppStorefrontRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppBillingKeepRoute: typeof AppBillingKeepRoute
   AppCartsCartIdRoute: typeof AppCartsCartIdRoute
   AppOffersOfferIdRoute: typeof AppOffersOfferIdRoute
   AppOffersNewRoute: typeof AppOffersNewRoute
@@ -744,6 +784,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppActivityRoute: AppActivityRoute,
   AppBillingRoute: AppBillingRoute,
   AppCartsRoute: AppCartsRoute,
   AppCollectionsRoute: AppCollectionsRoute,
@@ -759,6 +800,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStorefrontRoute: AppStorefrontRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
+  AppBillingKeepRoute: AppBillingKeepRoute,
   AppCartsCartIdRoute: AppCartsCartIdRoute,
   AppOffersOfferIdRoute: AppOffersOfferIdRoute,
   AppOffersNewRoute: AppOffersNewRoute,

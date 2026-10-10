@@ -5,24 +5,26 @@ import type { PartnerCouriers } from '#core/couriers'
 import { isUuid } from '#core/ids'
 import type { Money } from '#core/money'
 import type { TenantContext } from '#core/tenancy'
-import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartLine, updateCart, type CartAddress, type CartPatch, type CartRow } from '#db/scoped/cart'
+import { insertCart, lockCartRow, selectCart, selectGuestCartId, setCartGift, setCartLine, updateCart, type CartAddress, type CartGift, type CartPatch, type CartRow } from '#db/scoped/cart'
 import { defaultFeatures, type FeatureKey } from '#db/scoped/catalogListing'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { setCartGiftCard } from '#db/scoped/giftCards'
+import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
+import { findGiftCard, giftCardById, type GiftCardView } from '#engine/modules/giftCards/index'
 import { selectTaxSetup, type TaxSetupRow } from '#db/scoped/tax'
 import { cartOffers, deadCodeStates, normaliseCode, type CartDiscount, type CodeState } from '#engine/modules/promotions/index'
 import { createShippingService, type DeliveryOption } from '#engine/modules/shipping/index'
 import { createStorefrontCatalog, type CartItem } from '#engine/modules/storefront/index'
 import { computeTax, taxSettingOf, type LineTax, type StripeTaxDeps } from '#engine/modules/tax/index'
-import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type PricedLine } from './rules'
+import { cartLifeMs, checkoutProblems, cleanAddress, cleanContact, cleanGift, maxCartLines, maxQuantity, priceLine, type AddressInput, type CheckoutProblem, type GiftInput, type PricedLine } from './rules'
 
-export type { AddressInput, CheckoutProblem, LineProblem } from './rules'
+export type { AddressInput, CheckoutProblem, GiftInput, LineProblem } from './rules'
 export { cleanAddress, cleanContact } from './rules'
-export type { CartAddress } from '#db/scoped/cart'
+export type { CartAddress, CartGift } from '#db/scoped/cart'
 
 // A shopper's cart and checkout up to payment (SAPI 9; PLATFORM-PROMPT §5.4): the cart holds what the shopper chose, and the
 // engine prices it on every read, so nothing a storefront sends is ever a price (§5.5). Payment and placement are SAPI 10's.
 
-export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED' | 'TOO_MANY_CODES'
+export type CartRefusal = 'INVALID_INPUT' | 'UNAVAILABLE' | 'TOO_MANY_LINES' | 'NO_CART' | 'NOT_READY' | 'RATE_LIMITED' | 'TOO_MANY_CODES' | 'GIFT_CARD_INVALID' | 'NOT_IN_PREVIEW'
 
 /** Codes a cart holds at once (migration 0078). */
 export const maxCartCodes = 5
@@ -49,6 +51,8 @@ export interface CartDeps {
   stripeTax?: StripeTaxDeps | null
   /** Whether this requester may start another guest cart now (a limiter per store and IP). */
   allowNewCart: () => Promise<boolean>
+  /** A preview storefront in test mode: no real gift card is spent there (decided on #323). */
+  preview?: boolean
   now: () => Date
 }
 
@@ -56,6 +60,8 @@ export interface CartLineView extends PricedLine {
   item: CartItem | null
   /** What the offers take off this line; null when it isn't priced. */
   discount: Money | null
+  /** A gift card's recipient and day; null on every other line. */
+  gift: CartGift | null
 }
 
 export interface CartView {
@@ -90,6 +96,12 @@ export interface CartView {
   /** Null until the cart knows where it goes; `inclusive` when the prices already hold it (fact 6). */
   tax: { amount: Money; inclusive: boolean; lines: LineTax[] } | null
   total: Money
+  /** The gift card it holds and what it takes off the total; null when none, or the card can't be spent now. */
+  giftCard: (GiftCardView & { applied: Money }) | null
+  /** The cart holds a card that can't be spent now (spent, expired, disabled): placement refuses rather than charge the whole total. */
+  giftCardLapsed: boolean
+  /** What is left to pay once the gift card has taken its part. */
+  amountDue: Money
   /** What stands between this cart and payment; empty when it can be paid (`readyToPay`). */
   problems: CheckoutProblem[]
 }
@@ -174,7 +186,7 @@ export const createCartService = (deps: CartDeps) => {
     const lines: CartLineView[] = row.lines.map((l) => {
       const item = items.get(l.version_id) ?? null
       const facts = item ? { price: item.version.price, available: item.version.available, inStock: item.version.inStock, continueSelling: item.version.continueSelling, soldHere: item.soldHere } : null
-      return { ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }), item, discount: null }
+      return { ...priceLine({ versionId: l.version_id, quantity: l.quantity, item: facts }), item, discount: null, gift: l.gift }
     })
     const subtotal = lines.reduce<Money>((sum, l) => (l.lineTotal ? { amount: sum.amount + l.lineTotal.amount, currency } : sum), zero(currency))
     const priced = lines.filter((l): l is CartLineView & { lineTotal: Money } => l.lineTotal !== null)
@@ -223,6 +235,9 @@ export const createCartService = (deps: CartDeps) => {
     const taxTo = taxAt ? { country: taxAt.country, region: taxAt.region } : null
     const tax = setup && taxTo ? await taxOf(setup, taxTo, taxAt?.postalCode ?? null, afterOffers, shippingDue) : null
     const total = subtotal.amount - offers.pricing.discount + (chosen?.amount.amount ?? 0n) + (tax && !tax.inclusive ? tax.amount.amount : 0n)
+    // A card in another currency than the cart's is never spent: money is never converted silently (decided on #323).
+    const card = row.gift_card_id ? await giftCardById(sql, storeId, row.gift_card_id, now()) : null
+    const giftCard = card && card.balance.currency === currency ? { ...card, applied: { amount: card.balance.amount < total ? card.balance.amount : total, currency } } : null
     const problems = checkoutProblems({
       lines,
       hasContact: Boolean(row.email || row.phone),
@@ -255,6 +270,9 @@ export const createCartService = (deps: CartDeps) => {
       shippingDiscount: chosen ? { amount: offers.pricing.shippingDiscount, currency } : null,
       tax,
       total: { amount: total, currency },
+      giftCard,
+      giftCardLapsed: row.gift_card_id !== null && giftCard === null,
+      amountDue: { amount: total - (giftCard?.applied.amount ?? 0n), currency },
       problems,
     }
   }
@@ -293,10 +311,15 @@ export const createCartService = (deps: CartDeps) => {
    * "Add to cart": the shopper's cart, or a new one: a signed-in shopper's on its account, a guest's behind a new token
    * handed back once. Only a version shoppers can see is added.
    */
-  const add = async (versionId: string, quantity: number): Promise<CartResult<CartChange>> => {
+  const add = async (versionId: string, quantity: number, giftInput: GiftInput | null = null): Promise<CartResult<CartChange>> => {
     const id = versionId.toLowerCase()
     if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity) return { ok: false, reason: 'INVALID_INPUT' }
-    if (!(await catalog(deps.context).cartItems([id])).has(id)) return { ok: false, reason: 'UNAVAILABLE' }
+    const item = (await catalog(deps.context).cartItems([id])).get(id)
+    if (!item) return { ok: false, reason: 'UNAVAILABLE' }
+    // A gift card is one card a line, for the recipient chosen last; nothing else takes a recipient (decided on #323).
+    const isGiftCard = item.product.productType === 'gift_card'
+    const gift = giftInput ? cleanGift(giftInput, now()) : null
+    if (isGiftCard !== (gift !== null) || (isGiftCard && quantity !== 1)) return { ok: false, reason: 'INVALID_INPUT' }
     let context = deps.context
     let token: string | null = null
     const existing = await withScope(sql, context, (tx) => selectCart(tx, storeId, now()))
@@ -316,7 +339,8 @@ export const createCartService = (deps: CartDeps) => {
         }
         const held = found.lines.find((l) => l.version_id === id)?.quantity ?? 0
         if (!held && found.lines.length >= maxCartLines) throw new Refused('TOO_MANY_LINES')
-        await setCartLine(tx, storeId, found.id, id, Math.min(held + quantity, maxQuantity))
+        await setCartLine(tx, storeId, found.id, id, gift ? 1 : Math.min(held + quantity, maxQuantity))
+        if (gift) await setCartGift(tx, found.id, id, gift)
         await write(tx, found, {})
         return selectCart(tx, storeId, now())
       })
@@ -332,7 +356,8 @@ export const createCartService = (deps: CartDeps) => {
   const setQuantity = (versionId: string, quantity: number) =>
     change(async (tx, row) => {
       const id = versionId.toLowerCase()
-      if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 0 || quantity > maxQuantity || !row.lines.some((l) => l.version_id === id)) throw new Refused('INVALID_INPUT')
+      const line = row.lines.find((l) => l.version_id === id)
+      if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 0 || quantity > (line?.gift ? 1 : maxQuantity) || !line) throw new Refused('INVALID_INPUT')
       await setCartLine(tx, storeId, row.id, id, quantity)
       await write(tx, row, {})
     })
@@ -420,5 +445,21 @@ export const createCartService = (deps: CartDeps) => {
     })
   }
 
-  return { cart, add, setQuantity, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, checkout, claim }
+  /**
+   * A gift card's number at checkout (FIRST-RELEASE §19): one card a cart, put there in system scope once the code opens a
+   * card of this store in the cart's currency; any other code is the one refusal. The caller rate-limits it.
+   */
+  const setGiftCard = async (typed: string | null): Promise<CartResult<CartChange>> => {
+    if (deps.preview) return { ok: false, reason: 'NOT_IN_PREVIEW' }
+    const row = await withScope(sql, deps.context, (tx) => selectCart(tx, storeId, now()))
+    if (!row) return { ok: false, reason: 'NO_CART' }
+    const card = typed === null ? null : await findGiftCard(sql, storeId, typed, now())
+    if (typed !== null && (!card || card.balance.currency !== currency)) return { ok: false, reason: 'GIFT_CARD_INVALID' }
+    // The shopper has no write on the column; its cart was found as itself above.
+    if (!(await withSystemScope(sql, (tx) => setCartGiftCard(tx, storeId, row.id, card?.id ?? null, now())))) return { ok: false, reason: 'NO_CART' }
+    const after = await withScope(sql, deps.context, (tx) => selectCart(tx, storeId, now()))
+    return after ? { ok: true, value: { cart: await view(deps.context, after), token: null } } : { ok: false, reason: 'NO_CART' }
+  }
+
+  return { cart, add, setQuantity, setContact, setShippingAddress, setBillingAddress, setShippingOption, applyCode, removeCode, applyGiftCard: (code: string) => setGiftCard(code), removeGiftCard: () => setGiftCard(null), checkout, claim }
 }

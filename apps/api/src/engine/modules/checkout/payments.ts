@@ -23,6 +23,7 @@ import {
   setLineWarehouse,
   type PaymentToSettleRow,
 } from '#db/scoped/payments'
+import { deliverOrder } from '#engine/modules/deliveries/index'
 import { isManual, openAccount, providerLabels } from './providers'
 
 // A card payment settled from the webhook, the shopper's return or the sweep, each reading the provider back under the
@@ -117,6 +118,7 @@ export const applyOutcome = (deps: Pick<SettleDeps, 'sql' | 'activity' | 'now'>,
     await deps.activity.record(tx, providerEntry(p, provider, paymentAudit.paid, order, p.mode === 'test' ? 'test' : null))
     if (p.mode === 'live') await queueOrderUpdate(tx, p.store_id, { event: 'confirmed', orderId: p.order_id }, `confirmed:${p.order_id}`)
     if (p.mode === 'live') await queueStoreEvent(tx, p.store_id, 'order.paid', { object: 'order', id: p.order_id, number: p.order_number }, p.order_id, at)
+    await deliverOrder(tx, deps.activity, p.store_id, p.order_id, at)
     return 'paid'
   })
 
