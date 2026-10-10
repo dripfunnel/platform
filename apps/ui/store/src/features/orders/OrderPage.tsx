@@ -54,7 +54,9 @@ export const OrderPage = () => {
   const [warehouses, setWarehouses] = useState<Warehouse[] | null>(null)
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
-  const [formError, setFormError] = useState<string | null>(null)
+  // Each form keeps its own refusal, so one form never shows another's (cleared as it opens and closes).
+  const [shipError, setShipError] = useState<string | null>(null)
+  const [trackError, setTrackError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const latest = useRef(0)
@@ -84,8 +86,16 @@ export const OrderPage = () => {
   }, [forced, access.supplier, canRead])
 
   const openShip = (order: Order) => {
-    setFormError(null)
+    setShipError(null)
     setPicks(allLeft(order, access.supplier))
+  }
+  const closeShip = () => {
+    setShipError(null)
+    setPicks(null)
+  }
+  const showDialog = (next: Dialog | null) => {
+    setDialogError(null)
+    setDialog(next)
   }
 
   const shipOpen = picks !== null
@@ -140,8 +150,8 @@ export const OrderPage = () => {
     try {
       await work()
       setToast(done)
-      setDialog(null)
-      setPicks(null)
+      showDialog(null)
+      closeShip()
       load()
     } catch (error) {
       onError(refused(error))
@@ -163,13 +173,13 @@ export const OrderPage = () => {
           : firstName
             ? fill(plural(words.ship.done, pickCount), { ...count, name: firstName })
             : fill(plural(words.ship.doneShort, pickCount), count)
-    if (sample) return setPicks(null)
-    void run(() => shipItems({ orderId: order.id, ...form, lines }), done, setFormError)
+    if (sample) return closeShip()
+    void run(() => shipItems({ orderId: order.id, ...form, lines }), done, setShipError)
   }
 
   const track = (shipment: OrderShipment, courierName: string | null, trackingNumber: string, trackingUrl: string | null) => {
     if (sample) return
-    void run(() => addTracking(shipment.id, courierName, trackingNumber, trackingUrl), words.shipments.added, setFormError)
+    void run(() => addTracking(shipment.id, courierName, trackingNumber, trackingUrl), words.shipments.added, setTrackError)
   }
 
   const actions: Action[] = []
@@ -178,16 +188,16 @@ export const OrderPage = () => {
     actions.push({ key: 'ship', label: picks ? words.actions.choosing : words.actions.ship, tone: 'primary', disabled: ro, onClick: () => openShip(order) })
   const awaitingHand = !access.supplier && order.state === 'placed' && order.paymentState === 'pending' && paidByHand(order.paymentMethod)
   // Shown disabled to a seat that can’t, with who can (FIRST-RELEASE §3.1).
-  if (awaitingHand) actions.push({ key: 'markPaid', label: words.actions.markPaid, tone: 'warning', disabled: ro || !access.canMarkPaid, onClick: () => setDialog('markPaid') })
+  if (awaitingHand) actions.push({ key: 'markPaid', label: words.actions.markPaid, tone: 'warning', disabled: ro || !access.canMarkPaid, onClick: () => showDialog('markPaid') })
   if (access.canCancel && order.state === 'placed' && order.paymentState !== 'refunded' && nothingSent(order))
-    actions.push({ key: 'cancel', label: words.actions.cancel, tone: 'plain', disabled: ro, onClick: () => setDialog('cancel') })
+    actions.push({ key: 'cancel', label: words.actions.cancel, tone: 'plain', disabled: ro, onClick: () => showDialog('cancel') })
 
   const notes: string[] = []
   if (ro) notes.push(words.readOnly)
   else if (!access.canMarkPaid && awaitingHand) notes.push(words.staffOnly)
 
   const dialogProps = (): ConfirmDialogProps | null => {
-    const shared = { open: true, target: fill(words.note.target, { number: order.number }), error: dialogError, onCancel: () => setDialog(null) }
+    const shared = { open: true, target: fill(words.note.target, { number: order.number }), error: dialogError, onCancel: () => showDialog(null) }
     const failed = (text: string) => setDialogError(text)
     switch (dialog) {
       case 'markPaid':
@@ -270,13 +280,13 @@ export const OrderPage = () => {
               warehouses={warehouses}
               store={store}
               busy={busy}
-              error={formError}
-              onCancel={() => setPicks(null)}
+              error={shipError}
+              onCancel={closeShip}
               onShip={ship}
             />
           )}
-          <OrderShipments order={order} timeZone={timeZone} canTrack={(s) => access.canShip && !ro && (access.supplier || s.supplierId === null)} busy={busy} error={formError} onTrack={track} />
-          <OrderHistory order={order} timeZone={timeZone} note={access.canNote ? { disabled: ro, onAdd: () => setDialog('note') } : null} />
+          <OrderShipments order={order} timeZone={timeZone} canTrack={(s) => access.canShip && !ro && (access.supplier || s.supplierId === null)} busy={busy} error={trackError} onFormChange={() => setTrackError(null)} onTrack={track} />
+          <OrderHistory order={order} timeZone={timeZone} note={access.canNote ? { disabled: ro, onAdd: () => showDialog('note') } : null} />
         </div>
         <div className="df-order-aside">
           <OrderSide order={order} access={access} store={store} />
@@ -288,7 +298,7 @@ export const OrderPage = () => {
           {...openDialog}
           onConfirm={(...args) => {
             setDialogError(null)
-            if (sample) return setDialog(null)
+            if (sample) return showDialog(null)
             openDialog.onConfirm(...args)
           }}
         />
