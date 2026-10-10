@@ -435,7 +435,7 @@ describe('Close my store', () => {
       fireEvent.click(d.getByRole('button', { name: words.close.confirm }))
       await settle()
       expect(api.cancelStore).not.toHaveBeenCalled()
-      expect(sessionStorage.getItem('df-store-data-export')).toBe('x1')
+      expect(sessionStorage.getItem('df-store-data-export:s1')).toBe('x1')
       expect(screen.getByText(words.data.preparing)).toBeTruthy()
       await act(async () => {
         await vi.advanceTimersByTimeAsync(3100)
@@ -450,6 +450,23 @@ describe('Close my store', () => {
     api.loadStoreDataExport.mockClear()
     await show(owner)
     expect(api.loadStoreDataExport).toHaveBeenCalledWith('x1')
+  })
+
+  it('forgets a remembered export the API no longer answers for, so Download my data works again', async () => {
+    sessionStorage.setItem('df-store-data-export:s1', 'gone')
+    api.loadStoreDataExport.mockResolvedValue([])
+    api.loadBilling.mockResolvedValue(read({ subscription: { ...sub, cancelAt: sub.periodEnd } }))
+    await show(owner, { readOnly: true, support: null })
+    expect(api.loadStoreDataExport).toHaveBeenCalledWith('gone')
+    expect(screen.queryByText(words.data.preparing)).toBeNull()
+    expect((screen.getByRole('button', { name: words.banners.closing.action }) as HTMLButtonElement).disabled).toBe(false)
+    expect(sessionStorage.getItem('df-store-data-export:s1')).toBeNull()
+  })
+
+  it('remembers an export per store', async () => {
+    sessionStorage.setItem('df-store-data-export:other', 'x9')
+    await show(owner)
+    expect(api.loadStoreDataExport).not.toHaveBeenCalled()
   })
 
   it('moves to the free plan instead, from its quote, and goes on to choose what to keep', async () => {

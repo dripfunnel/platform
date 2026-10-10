@@ -748,7 +748,7 @@ the plan keeps is refused on the page; Save sends the Owner's picks to `keepProd
 the trial-ending strip, a scheduled change's strip and, in the trial, "Or choose what to keep on {free plan}".
 **Close my store…** restates what closing does (a paid plan sells until its period's end, a trial or free plan closes
 at once; everything kept 90 days) and offers Download my data first (`exportStoreData`, its three parts read back every
-3 seconds until settled, each a download, the job's id kept for the tab so a reload picks it up), Move to {free plan}
+3 seconds until settled, each a download, the job's id kept per store for the tab so a reload picks it up, and forgotten once the API no longer answers for it), Move to {free plan}
 instead (that plan's quote and change, then Choose what to keep) or Close my store (`cancelStore`). A closing store's
 strip says until when, with Download my data. Decided here: **only products are chosen**, as the API pauses only
 products (SAAS §6.2), so the prototype's team, supplier, market, payment, courier and location cards aren't drawn; the

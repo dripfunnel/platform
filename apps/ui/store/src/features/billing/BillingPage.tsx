@@ -45,7 +45,7 @@ export const BillingPage = () => {
   const [busy, setBusy] = useState(false)
   const [closing, setClosing] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
-  const data = useStoreDataExport(Boolean(sample))
+  const data = useStoreDataExport(Boolean(sample), acting.store.id)
   const latest = useRef(0)
 
   // Only the latest read answers, so a slow first read never replaces the one after a change.

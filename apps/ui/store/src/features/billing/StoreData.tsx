@@ -8,21 +8,22 @@ import { refusalIn } from '../common/refusal'
 const words = messages.billing.data
 const refused = refusalIn(messages.billing.refused)
 
-// The job's id outlives a reload, so "Download my data" picks up where it was (the parts are kept an hour).
-const storageKey = 'df-store-data-export'
+// The job's id outlives a reload, per store, so "Download my data" picks up where it was (the parts are kept an hour).
+const storageKey = (storeId: string) => `df-store-data-export:${storeId}`
 const pollMs = 3000
 
-const remembered = (): string | null => {
+const remembered = (storeId: string): string | null => {
   try {
-    return sessionStorage.getItem(storageKey)
+    return sessionStorage.getItem(storageKey(storeId))
   } catch {
     return null
   }
 }
 
-const remember = (id: string) => {
+const remember = (storeId: string, id: string | null) => {
   try {
-    sessionStorage.setItem(storageKey, id)
+    if (id) sessionStorage.setItem(storageKey(storeId), id)
+    else sessionStorage.removeItem(storageKey(storeId))
   } catch {
     // A browser that keeps nothing still shows the export until the page is left.
   }
@@ -38,18 +39,23 @@ export interface StoreDataExport {
 }
 
 /** "Download my data first" (FIRST-RELEASE §16): `exportStoreData`'s three parts, read back until each is settled. */
-export const useStoreDataExport = (sample: boolean): StoreDataExport => {
-  const [id, setId] = useState<string | null>(() => (sample ? null : remembered()))
+export const useStoreDataExport = (sample: boolean, storeId: string): StoreDataExport => {
+  const [id, setId] = useState<string | null>(() => (sample ? null : remembered(storeId)))
   const [sampled, setSampled] = useState<StoreDataPart[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const [settled, setSettled] = useState(false)
   const read = useCallback(() => (id ? loadStoreDataExport(id) : Promise.resolve([])), [id])
   const { value } = usePolling(id && !settled ? read : null, pollMs)
-  // Every part done, failed or expired: nothing more to wait for.
+  // Every part done, failed or expired: nothing more to wait for. A job the API no longer knows (gone after its hour) is forgotten.
   useEffect(() => {
-    if (value && value.length > 0 && value.every((p) => p.state !== 'queued')) setSettled(true)
-  }, [value])
+    if (!value) return
+    if (value.length === 0) {
+      remember(storeId, null)
+      setId(null)
+    }
+    if (value.every((p) => p.state !== 'queued')) setSettled(true)
+  }, [value, storeId])
   const raw = sampled ?? value
   const parts = useMemo(() => (raw && raw.length > 0 ? raw.map((p) => ({ kind: p.kind, job: readExportJob(p) ?? { id: p.id, state: 'failed' as const, entries: null, url: null, expiresAt: null } })) : null), [raw])
   const preparing = starting || (id !== null && !settled)
@@ -60,7 +66,7 @@ export const useStoreDataExport = (sample: boolean): StoreDataExport => {
     setStarting(true)
     exportStoreData()
       .then((next) => {
-        remember(next)
+        remember(storeId, next)
         setSettled(false)
         setId(next)
       })
