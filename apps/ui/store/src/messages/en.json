@@ -4550,7 +4550,8 @@
         "other": "{day}: {count} uses"
       },
       "today": "Today",
-      "note": "Sales with this offer are orders that used it. We don’t estimate sales the offer caused."
+      "note": "Sales with this offer are orders that used it. We don’t estimate sales the offer caused.",
+      "none": "—"
     },
     "codes": {
       "title": "Single-use codes",
