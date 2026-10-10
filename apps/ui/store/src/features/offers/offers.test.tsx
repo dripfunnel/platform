@@ -303,6 +303,14 @@ describe('the Offers list', () => {
     expect(within(row('Welcome 10% off')).queryByRole('button', { name: /^(Turn off|End now|Duplicate|Delete)/ })).toBeNull()
   })
 
+  it('gives Staff on an automatic offer a menu with View only', async () => {
+    api.loadOffers.mockResolvedValue(page([{ ...welcome, id: 'o5', name: 'Free delivery', trigger: 'automatic', code: null }]))
+    await show(staff)
+    openMenu('Free delivery')
+    expect(within(row('Free delivery')).getByRole('link', { name: /^View/ })).toBeTruthy()
+    expect(within(row('Free delivery')).queryByRole('button', { name: /^(Copy code|Turn off|End now|Duplicate|Delete)/ })).toBeNull()
+  })
+
   it('changes nothing while the store is view-only, and says so', async () => {
     await show(owner, { readOnly: true })
     expect(screen.getByText(words.notes.readOnly)).toBeTruthy()
