@@ -1921,7 +1921,10 @@ differently: `invoice` has no `pdf_asset_id`, `tax_label` or `reverse_charge` (t
 are Stripe's), and carries `stripe_invoice_id` unique and `paid_at`; `invoice_line` carries
 `position`, its amount signed (a credit below zero). `store_subscription` gains `next_interval`
 (a scheduled change of period), `billing_claim`, `billing_claim_until` (one change at a time) and
-`billing_revision` (what Stripe's idempotency keys carry, SAAS §7.2).
+`billing_revision` (what Stripe's idempotency keys carry, SAAS §7.2). Part 2 (migration `0170`):
+`store_subscription.keep_products` (the Owner's picks of Choose what to keep, at most 10,000,
+cleared once applied; SAAS §6.2), `catalog_export.bundle` (the three parts of `exportStoreData`,
+read back together) and a partial index on trials for the cron that ends them.
 
 **Reconciled on #157**: `plan.trial_days` is `0..90` (migration `0013`; it was `(0, 7, 14,
 30)`), so the house partner's 10-day trial fits (SAAS §6.1), and the seed's house plans carry
@@ -1988,6 +1991,7 @@ catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'|'ord
                     -- with #310 (0073), its filter a chip and a search, a supplier's file its own lines;
                     -- 'report' with #322 (0101), its filter the panel or custom report and the range fixed when asked
                     -- 'activity' with #331 (0161): the store's Activity log, its filter the screen's, built in the Owner's scope
+                    -- bundle (#329, 0170): the products, orders and customers parts of one exportStoreData
 signup              §3.3 (built on #290)
 access_request      (id, store_id, by_user_id, kind ('feature'|'area'), what,
                      resolved_at NULL, resolution ('acted'|'dismissed') NULL, resolved_by NULL)
