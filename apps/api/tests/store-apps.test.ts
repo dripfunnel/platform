@@ -7,6 +7,7 @@ import { secretBox, type SecretBox } from '#auth/secretBox'
 import type { StaffMember } from '#auth/staff'
 import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
+import { withScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { appNoticeKind, createAppRegistryService } from '#saas/apps/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -138,6 +139,13 @@ describe('Installing', () => {
     expect((await admin('superAdmin', 'mutation S($id: ID!) { setAppStatus(id: $id, suspended: true) }', { id: appId })).code).toBeUndefined()
     expect((await products(body.token)).code).toBe('UNAUTHENTICATED')
     expect((await w.gql('owner', 'query A($id: ID!) { installableApp(id: $id) { name } }', { id: appId })).data?.['installableApp']).toBeNull()
+    // The Owner still sees it, paused; a store holding no grant of it reads nothing of it.
+    expect((await installed('owner')).list?.find((g) => g.id === grant)).toMatchObject({ name: 'Feeds', suspended: true })
+    const appRows = (who: Who) =>
+      withScope(db.sql, { caller: { kind: 'person', userId: w.people[who], sessionId: 's' }, partnerId: w.partnerOf(who), storeId: w.storeOf(who), sellerScope: { kind: 'all' }, subscription: 'active' }, (tx) => tx`select id from app where id = ${appId}`)
+    expect(await appRows('owner')).toHaveLength(1)
+    expect(await appRows('a2Owner')).toHaveLength(0)
+    expect(await appRows('bOwner')).toHaveLength(0)
     await admin('superAdmin', 'mutation S($id: ID!) { setAppStatus(id: $id, suspended: false) }', { id: appId })
     expect((await products(body.token)).code).toBeUndefined()
 
@@ -164,5 +172,15 @@ describe('Installing', () => {
     }
     // Another store installs the same app on its own grant.
     expect((await install('a2Owner', made?.id ?? '', ['catalog.read'])).code).toBeUndefined()
+  })
+
+  it('lets the Owner remove an app DripFunnel has suspended', async () => {
+    const { app: made } = await register('Paused', ['catalog.read'])
+    const { grant } = await install('owner', made?.id ?? '', ['catalog.read'])
+    await admin('superAdmin', 'mutation S($id: ID!) { setAppStatus(id: $id, suspended: true) }', { id: made?.id })
+    expect((await w.gql('owner', 'mutation U($id: ID!) { uninstallApp(id: $id) }', { id: grant })).code).toBeUndefined()
+    expect((await installed('owner')).list?.map((g) => g.id)).not.toContain(grant)
+    // Uninstalled, the suspended app is no longer the store's to read.
+    expect((await w.gql('owner', 'query A($id: ID!) { installableApp(id: $id) { name } }', { id: made?.id })).data?.['installableApp']).toBeNull()
   })
 })

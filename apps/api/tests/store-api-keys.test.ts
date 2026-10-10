@@ -329,6 +329,28 @@ describe('Rotating, revoking and expiring', () => {
 })
 
 describe('Plan limits and the creator leaving', () => {
+  it('answers RATE_LIMITED past the month’s calls until the next month starts, and counts a new month from one', async () => {
+    const { key } = await create('bOwner', { name: 'Monthly' })
+    const secret = key?.secret ?? ''
+    const saved = now
+    try {
+      // The last minute of December: the quota opens at midnight UTC on 1 January.
+      now = new Date('2026-12-31T23:59:00Z')
+      await db.sql`insert into api_usage (store_id, minute_start, minute_used, month_start, month_used) values (${t.storeB1}, ${now}, 0, '2026-12-01', 100000)
+        on conflict (store_id) do update set minute_start = excluded.minute_start, minute_used = 0, month_start = excluded.month_start, month_used = 100000`
+      const over = await withKey(secret, '{ productCounts { all } }', {}, {}, t.partnerB)
+      expect([over.standing, over.code]).toEqual(['limited', 'RATE_LIMITED'])
+      const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers: { authorization: `Bearer ${secret}` } }), t.partnerB, now, activityLog, facts)
+      expect(standing).toEqual({ kind: 'limited', retryAfterSeconds: 60 })
+      now = new Date('2027-01-01T00:00:30Z')
+      expect((await withKey(secret, '{ productCounts { all } }', {}, {}, t.partnerB)).code).toBeUndefined()
+      expect((await db.sql<{ month_start: string; month_used: number }[]>`select to_char(month_start, 'YYYY-MM-DD') as month_start, month_used from api_usage where store_id = ${t.storeB1}`)[0]).toEqual({ month_start: '2027-01-01', month_used: 1 })
+    } finally {
+      now = saved
+      await db.sql`delete from api_usage where store_id = ${t.storeB1}`
+    }
+  })
+
   it('answers RATE_LIMITED past the plan’s calls this minute, and again once the minute turns', async () => {
     const { key } = await create('bOwner', { name: 'Busy' })
     const secret = key?.secret ?? ''
@@ -350,8 +372,12 @@ describe('Plan limits and the creator leaving', () => {
     expect((await gql('owner', 'mutation M($id: ID!) { changeRole(membershipId: $id, role: "manager") }', { id: memberships.coOwner })).code).toBeUndefined()
     expect((await list('owner')).keys?.find((k) => k.id === key?.id)).toMatchObject({ createdByName: 'Cora', createdByHere: false })
     expect((await productNames(key?.secret ?? '')).code).toBeUndefined()
-    const emails = await db.sql<{ creator: string; keys: number }[]>`select payload->>'creator' as creator, (payload->>'keys')::int as keys from outbox where payload->>'template' = 'api-keys-creator-gone'`
-    expect(emails).toEqual([{ creator: 'Cora', keys: 1 }])
+    const emails = await db.sql<{ creator: string; keys: number }[]>`select payload->>'creatorId' as creator, (payload->>'keys')::int as keys from outbox where payload->>'template' = 'api-keys-creator-gone'`
+    expect(emails).toEqual([{ creator: people.coOwner, keys: 1 }])
+    // Made an Owner and demoted again with the same keys, the Owners aren't told twice.
+    expect((await gql('owner', 'mutation M($id: ID!) { changeRole(membershipId: $id, role: "owner") }', { id: memberships.coOwner })).code).toBeUndefined()
+    expect((await gql('owner', 'mutation M($id: ID!) { changeRole(membershipId: $id, role: "manager") }', { id: memberships.coOwner })).code).toBeUndefined()
+    expect(await db.sql`select 1 from outbox where payload->>'template' = 'api-keys-creator-gone'`).toHaveLength(1)
     // Removing a Manager who made no key here tells nobody.
     expect((await gql('owner', 'mutation M($id: ID!) { removeMember(membershipId: $id) }', { id: memberships.coOwner })).code).toBeUndefined()
     expect(await db.sql`select 1 from outbox where payload->>'template' = 'api-keys-creator-gone'`).toHaveLength(1)
