@@ -20,7 +20,7 @@ export const courierHookOf = (pathname: string): { account: CourierAccountKind; 
 export const handleCourierHook = async (
   request: Request,
   hook: NonNullable<ReturnType<typeof courierHookOf>>,
-  deps: TrackingDeps & { couriers: CourierDirectory | null; now: () => Date },
+  deps: TrackingDeps & { couriers: CourierDirectory | null },
   allow: (key: string) => Promise<boolean>,
 ): Promise<Response> => {
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
@@ -31,7 +31,7 @@ export const handleCourierHook = async (
   if (!read.ok) return new Response(null, { status: 413 })
   // No account, a partner that doesn't exist and a bad signature all answer alike, so the address can't be probed.
   const gateway = deps.couriers ? (await deps.couriers.forPartner(hook.partnerId)).gateway : null
-  const events = gateway ? await gateway.readHook(hook.account, { body: new TextDecoder().decode(read.bytes), headers: request.headers, receivedAt: deps.now() }) : null
+  const events = gateway ? await gateway.readHook(hook.account, { body: new TextDecoder().decode(read.bytes), headers: request.headers }) : null
   if (!events) {
     logEvent({ event: 'courier_webhook', api: 'hooks', partnerId: hook.partnerId, code: `${hook.account}:invalid` })
     return new Response(null, { status: 400 })

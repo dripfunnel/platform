@@ -470,7 +470,7 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
     const limiter = env.SHOP_RATE_LIMITER
     if (!limiter) return misconfigured('SHOP_RATE_LIMITER')
     const couriers = config.COURIERS_LOCAL === '1' ? localCouriers() : null
-    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers, now: () => new Date() }, async (key) => (await limiter.limit({ key })).success))
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleCourierHook(request, courierHook, { sql, activity: activityLog, couriers }, async (key) => (await limiter.limit({ key })).success))
   }
   if (url.pathname === stripeConnectCallbackPath) {
     const connect = payments.stripeConnect

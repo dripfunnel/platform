@@ -184,6 +184,7 @@ export const easyPostHook = async (secret: string | null | undefined, hook: Cour
   const r = parsed.data.result
   const status = trackingOf[r.status]
   const at = r.updated_at ? new Date(r.updated_at) : null
-  if (!status || (!r.shipment_id && !r.tracking_code)) return []
-  return [{ providerRef: r.shipment_id ?? null, trackingNumber: r.tracking_code?.slice(0, 80) ?? null, status, at: at && !Number.isNaN(at.getTime()) ? at : hook.receivedAt }]
+  // Without the courier's own time an event can't be ordered, so it is ignored rather than taken as the newest.
+  if (!status || (!r.shipment_id && !r.tracking_code) || !at || Number.isNaN(at.getTime())) return []
+  return [{ providerRef: r.shipment_id ?? null, trackingNumber: r.tracking_code?.slice(0, 80) ?? null, status, at }]
 }
