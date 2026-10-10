@@ -45,7 +45,7 @@ export type WebhookRefusal = 'INVALID_INPUT' | 'BAD_URL' | 'PRIVATE_ADDRESS' | '
 export type WebhookResult<T> = { ok: true; value: T } | { ok: false; reason: WebhookRefusal }
 
 const secretAlphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-const newSigningSecret = (): string => {
+export const newSigningSecret = (): string => {
   let out = 'whsec_'
   while (out.length < 6 + 32) {
     for (const byte of crypto.getRandomValues(new Uint8Array(64))) if (byte < 248 && out.length < 6 + 32) out += secretAlphabet[byte % 62]

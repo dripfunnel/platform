@@ -20,7 +20,7 @@ import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { resolvePortalPartner, resolveStoreStanding } from '#auth/storeCaller'
 import { storeOriginAllowed } from '#auth/storeCredential'
-import { apiKeyOf } from '#auth/apiKeys'
+import { machineCredentialOf } from '#auth/apiKeys'
 import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
 import { staffPortalCookieName } from '#auth/staffPortal'
@@ -424,7 +424,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
       return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
     }
     const facts = factsOf(request)
-    if (apiKeyOf(request) !== null) {
+    if (machineCredentialOf(request) !== null) {
       const limiter = env.API_RATE_LIMITER
       if (!limiter) return misconfigured('API_RATE_LIMITER')
       const ip = request.headers.get('cf-connecting-ip')

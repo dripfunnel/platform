@@ -101,7 +101,7 @@ export interface TenantCaller {
   context: TenantContext
   store: { id: string; name: string }
   seller: { id: string; name: string } | null
-  actor: { kind: 'person' | 'api_key'; id: string; label: string | null; partnerId: string }
+  actor: { kind: 'person' | 'api_key' | 'app_grant'; id: string; label: string | null; partnerId: string }
 }
 
 /** The caller of a field open to keys (`machine`): a person or a key alike. */
