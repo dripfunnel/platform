@@ -59,6 +59,7 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
   const [saved, setSaved] = useState<string | null>(null)
   const [tested, setTested] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
+  const [sending, setSending] = useState(false)
   const [testError, setTestError] = useState<string | null>(null)
   const latest = useRef(0)
 
@@ -345,7 +346,13 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
             <strong>{words.unsaved}</strong>
           </span>
           <span className="df-reminders-bar-actions">
-            <button type="button" className="df-button" disabled={saving} onClick={() => setForm(JSON.parse(orig) as Form)}>
+            <button type="button" className="df-button" disabled={saving} onClick={() => {
+                setForm(JSON.parse(orig) as Form)
+                setProblem(null)
+                setStale(false)
+                setSaved(null)
+                setTested(null)
+              }}>
               {words.discard}
             </button>
             <button type="button" className="df-button df-button--primary" disabled={saving} onClick={save}>
@@ -364,15 +371,21 @@ export const RemindersPane = ({ access, forced, sample, storeName, email }: { ac
           confirmLabel={words.testSend}
           cancelLabel={words.cancel}
           error={testError}
+          blocked={sending ? words.testSending : null}
           onConfirm={() => {
             if (sample) return setTesting(false)
-            void sendTestReminder(step.position).then(
-              () => {
-                setTesting(false)
-                setTested(fill(words.testSent, { email }))
-              },
-              (error: unknown) => setTestError(isApiError(error, 'RATE_LIMITED') ? words.testTooMany : cartRefusal(error, access.canUpgrade)),
-            )
+            // One test per press: the dialog waits while one is on its way, so a double click sends one email.
+            if (sending) return
+            setSending(true)
+            void sendTestReminder(step.position)
+              .then(
+                () => {
+                  setTesting(false)
+                  setTested(fill(words.testSent, { email }))
+                },
+                (error: unknown) => setTestError(isApiError(error, 'RATE_LIMITED') ? words.testTooMany : cartRefusal(error, access.canUpgrade)),
+              )
+              .finally(() => setSending(false))
           }}
           onCancel={() => setTesting(false)}
         />

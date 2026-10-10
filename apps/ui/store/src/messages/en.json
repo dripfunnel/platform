@@ -5499,7 +5499,8 @@
       "cancel": "Cancel",
       "testSent": "Test sent to {email} — check spam if it isn’t there in a minute.",
       "testTooMany": "Too many tests. Wait a minute and try again.",
-      "testSaveFirst": "Save first: a test sends the saved reminder."
+      "testSaveFirst": "Save first: a test sends the saved reminder.",
+      "testSending": "Sending…"
     },
     "joiner": " · "
   }

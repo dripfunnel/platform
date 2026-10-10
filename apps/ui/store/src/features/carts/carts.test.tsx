@@ -454,6 +454,52 @@ describe('the Reminders tab', () => {
     expect(api.loadReminderSettings).not.toHaveBeenCalled()
   })
 
+  it('sends one test however often Send is pressed while it’s on its way', async () => {
+    let answer: () => void = () => undefined
+    api.sendTestReminder.mockImplementation(() => new Promise<void>((resolve) => (answer = resolve)))
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.click(screen.getByRole('button', { name: rw.test }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: rw.testSend }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: rw.testSend }))
+    answer()
+    await settle()
+    expect(api.sendTestReminder).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears a refusal when Discard puts the form back', async () => {
+    api.saveReminderSettings.mockRejectedValueOnce(planLimit)
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Quiet hours/ }))
+    fireEvent.click(screen.getByRole('button', { name: rw.save }))
+    await settle()
+    expect(screen.getByText('Your plan sends one reminder per cart, without a code. Growth Pro sends more. See plans in Billing.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: rw.discard }))
+    expect(screen.queryByText(/Your plan sends one reminder per cart/)).toBeNull()
+  })
+
+  it('tells a Manager on “you send” to ask the store owner, and shows a seat without carts.read nothing', async () => {
+    api.loadReminderSettings.mockResolvedValue({ ...settings, level: 'youSend', enabled: false })
+    await show(manager, { entry: '/carts?pane=reminders' })
+    expect(screen.getByText(rw.askOwner)).toBeTruthy()
+    expect(screen.queryByRole('link', { name: rw.seePlans })).toBeNull()
+    cleanup()
+    await show(supplier, { entry: '/carts?pane=reminders' })
+    expect(screen.getByText(words.denied.title)).toBeTruthy()
+    expect(api.loadReminderSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('previews a WhatsApp step in an Indian store on the plan’s automatic', async () => {
+    await show(owner, { entry: '/carts?pane=reminders' })
+    fireEvent.change(step(2).getByRole('combobox', { name: rw.sendBy }), { target: { value: 'whatsapp' } })
+    fireEvent.click(step(2).getByRole('button', { name: rw.preview }))
+    expect(screen.getByText('Preview · Reminder 2 · WhatsApp')).toBeTruthy()
+    expect(screen.getByText(rw.waStop)).toBeTruthy()
+    expect(step(2).queryByRole('textbox', { name: rw.subject })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: rw.save }))
+    await settle()
+    expect(api.saveReminderSettings).toHaveBeenCalledWith(expect.objectContaining({ steps: [steps[0], { ...steps[1], channel: 'whatsapp' }, steps[2]] }), 3)
+  })
+
   it('locks follow-ups, codes and WhatsApp below the plan’s automatic, and lets Staff only look', async () => {
     api.loadReminderSettings.mockResolvedValue({ ...settings, level: 'youSend', enabled: false })
     await show(owner, { entry: '/carts?pane=reminders' })
