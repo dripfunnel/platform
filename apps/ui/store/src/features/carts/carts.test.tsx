@@ -137,6 +137,53 @@ describe('the Abandoned carts list', () => {
     expect(screen.getByRole('link', { name: 'Meera Iyer' })).toBeTruthy()
   })
 
+  it('moves between tabs with the arrow keys, Home and End, keeping one tab stop', async () => {
+    await show(owner)
+    const open = screen.getByRole('tab', { name: 'In progress 1' })
+    expect(screen.getAllByRole('tab').filter((t) => t.tabIndex === 0)).toEqual([open])
+    fireEvent.keyDown(open, { key: 'End' })
+    await settle()
+    expect(screen.getByRole('tab', { name: 'Not recovered 1' }).getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Not recovered 1' }), { key: 'ArrowRight' })
+    await settle()
+    expect(screen.getByRole('tab', { name: 'In progress 1' }).getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'In progress 1' }), { key: 'ArrowLeft' })
+    await settle()
+    expect(screen.getByRole('tab', { name: 'Not recovered 1' }).getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Not recovered 1' }), { key: 'Home' })
+    await settle()
+    expect(api.loadCarts).toHaveBeenLastCalledWith('open', '', {})
+  })
+
+  it('pages back with Previous, and says when the list can’t be read, with a retry', async () => {
+    api.loadCarts.mockImplementation((_: string, __: string, cursor: { after?: string; before?: string }) => Promise.resolve(cursor.after ? { rows: [meera], next: null, previous: 'c26' } : { rows: [vikram], next: 'c25', previous: null }))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
+    await settle()
+    expect(screen.getByText('Showing 26–26')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.pages.previous }))
+    await settle()
+    expect(api.loadCarts).toHaveBeenLastCalledWith('open', '', { before: 'c26' })
+    expect(screen.getByText('Showing 1–1')).toBeTruthy()
+    cleanup()
+    api.loadCarts.mockRejectedValueOnce(new Error('down')).mockResolvedValue(page([vikram]))
+    await show(owner)
+    expect(screen.getByText(words.error.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
+    await settle()
+    expect(screen.getByRole('link', { name: 'Vikram Shah' })).toBeTruthy()
+  })
+
+  it('won’t stop reminders with a note longer than the API keeps', async () => {
+    await show(owner)
+    fireEvent.click(menu('Vikram Shah', /^Stop reminders/))
+    fireEvent.change(within(screen.getByRole('dialog')).getByRole('textbox'), { target: { value: 'x'.repeat(201) } })
+    expect(within(screen.getByRole('dialog')).getByText('Keep the note to 200 characters.')).toBeTruthy()
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: words.act.stop }))
+    await settle()
+    expect(api.stopReminders).not.toHaveBeenCalled()
+  })
+
   it('sends a reminder with a code on the plan’s automatic, and says what was sent', async () => {
     await show(owner)
     fireEvent.click(menu('Vikram Shah', /^Send reminder now/))
@@ -256,6 +303,15 @@ describe('one cart’s page', () => {
     expect(screen.queryByText('Vikram Shah')).toBeNull()
     expect(api.loadCart).not.toHaveBeenCalled()
     expect(api.loadReminderSending).not.toHaveBeenCalled()
+  })
+
+  it('says when a cart can’t be read, with a retry', async () => {
+    api.loadCart.mockRejectedValueOnce(new Error('down')).mockResolvedValue(detail)
+    await show(owner, { entry: '/carts/ab1' })
+    expect(screen.getByText(words.error.titleCart)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
+    await settle()
+    expect(screen.getByRole('heading', { level: 1, name: 'Vikram Shah' })).toBeTruthy()
   })
 
   it('links a recovered cart to its order, and shows a cart that isn’t here as not found', async () => {
