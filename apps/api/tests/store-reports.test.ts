@@ -186,7 +186,11 @@ describe('the panels', () => {
     expect((await report('owner', 'days: 7, currency: "usd"', 'currency takings { orders sales { amount currency } } offers { name }')).data?.['report']).toEqual({
       currency: 'USD', takings: { orders: 1, sales: { amount: '2000', currency: 'USD' } }, offers: [],
     })
-    for (const args of ['days: 14', 'days: 7, currency: "rupees"']) expect((await report('owner', args, 'days')).code, args).toBe('INVALID_INPUT')
+    for (const [args, field] of [['days: 14', 'days'], ['days: 7, currency: "rupees"', 'currency'], ['days: 7, currency: "US"', 'currency']] as const) {
+      const refused = await report('owner', args, 'days')
+      expect(refused.errors?.[0]?.extensions, args).toMatchObject({ code: 'INVALID_INPUT', field })
+    }
+    expect((await report('owner', 'days: 7, currency: "US"', 'days')).errors?.[0]?.message).toBe('That isn’t a currency code.')
   })
 
   it('counts units per supplier, the store’s own first, and never their money', async () => {

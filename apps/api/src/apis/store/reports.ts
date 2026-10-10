@@ -20,6 +20,8 @@ import { requirePlan, storePageSize } from './refusals'
 /** The ranked panels' top rows by default, what the prototype's cards list; tax and suppliers a page. */
 const defaultTop = 5
 
+const words = { days: 'Pick 7, 30 or 90 days.', currency: 'That isn’t a currency code.', store: 'That store has no reports.' } as const
+
 export const registerReports = (builder: StoreBuilder) => {
   const Money = moneyType(builder)
   const service = (ctx: StoreContext) => {
@@ -146,7 +148,7 @@ export const registerReports = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx) => {
         await plan(ctx, 'reports_sales')
         const result = await service(ctx).open(args.days, args.currency?.toUpperCase() ?? null)
-        if (!result.ok) throw new GraphQLError('Pick 7, 30 or 90 days.', { extensions: { code: result.reason } })
+        if (!result.ok) throw new GraphQLError(words[result.field ?? 'store'], { extensions: { code: result.reason, field: result.field } })
         return result.value
       },
     }),

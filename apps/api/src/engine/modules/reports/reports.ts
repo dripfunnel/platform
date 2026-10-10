@@ -40,7 +40,8 @@ export interface ReportView {
   taxBy: 'state' | 'rate'
 }
 
-export type ReportResult = { ok: true; value: ReportView } | { ok: false; reason: 'INVALID_INPUT' }
+/** `field` names the argument at fault, so the screen can say which. */
+export type ReportResult = { ok: true; value: ReportView } | { ok: false; reason: 'INVALID_INPUT'; field: 'days' | 'currency' | null }
 
 export interface ReportsDeps {
   sql: postgres.Sql
@@ -54,10 +55,11 @@ export const createReportsService = ({ sql, context, now }: ReportsDeps) => {
 
   /** The range and currency every panel reads; the pricing currency unless another is asked for. */
   const open = async (days: number, currency: string | null): Promise<ReportResult> => {
-    if (!isReportDays(days) || (currency !== null && !/^[A-Z]{3}$/.test(currency))) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!isReportDays(days)) return { ok: false, reason: 'INVALID_INPUT', field: 'days' }
+    if (currency !== null && !/^[A-Z]{3}$/.test(currency)) return { ok: false, reason: 'INVALID_INPUT', field: 'currency' }
     return inScope(async (tx): Promise<ReportResult> => {
       const range = await selectReportRange(tx, storeId, now(), days)
-      if (!range) return { ok: false, reason: 'INVALID_INPUT' }
+      if (!range) return { ok: false, reason: 'INVALID_INPUT', field: null }
       const currencies = await selectReportCurrencies(tx, storeId, range.from, range.to)
       return {
         ok: true,
