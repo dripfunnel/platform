@@ -9,6 +9,7 @@ import { fill, formatCount, messages, plural } from '../../messages'
 import { CodeCheck } from './CodeCheck'
 import { FirstTime } from './FirstTime'
 import { flash, takeFlash } from './flash'
+import { copyText } from './copyText'
 import { actsFor, useOfferActions, type OfferAct } from './offerActions'
 import { offerAccessOf } from './offerAccess'
 import { offerSample, offerStates, sampleNames } from './offerStates'
@@ -20,7 +21,8 @@ const words = messages.offers
 const shellRoute = getRouteApi('/_app')
 const pageRoute = getRouteApi('/_app/offers')
 
-type List = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: OfferPage }
+// A page is shown only for the tab, filters and page it was read for; anything else shows loading until its own answers.
+type List = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: OfferPage; key: string }
 type Counts = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; counts: OfferCounts }
 type Cursor = { after?: string | null; before?: string | null }
 // A page belongs to the tab it was read in: a tab reached any way (a click, Back, a link) starts on its first page.
@@ -60,12 +62,13 @@ export const OffersPage = () => {
     if (sample) {
       const q = search.trim().toLowerCase()
       const rows = sample[tab].filter((o) => (!kind || kindOf(o.action) === kind) && (!trigger || o.trigger === trigger) && (!q || o.name.toLowerCase().includes(q) || (o.code ?? '').toLowerCase().includes(q)))
-      return setList({ kind: 'ready', page: { rows, next: null, previous: null } })
+      return setList({ kind: 'ready', page: { rows, next: null, previous: null }, key: '' })
     }
     if (!access.canRead) return
-    setList((current) => (current.kind === 'ready' ? current : { kind: 'loading' }))
+    const key = JSON.stringify([tab, kind, trigger, search, cursor])
+    setList((current) => (current.kind === 'ready' && current.key === key ? current : { kind: 'loading' }))
     void loadOffers({ tab, kind, trigger, search }, cursor).then(
-      (page) => mine === latest.current && setList({ kind: 'ready', page }),
+      (page) => mine === latest.current && setList({ kind: 'ready', page, key }),
       () => mine === latest.current && setList({ kind: 'error' }),
     )
   }, [forced, sample, access.canRead, tab, kind, trigger, search, cursor])
@@ -172,7 +175,7 @@ export const OffersPage = () => {
             {offer.code && (
               <button type="button" className="df-button" onClick={() => {
                   close()
-                  void navigator.clipboard?.writeText(offer.code ?? '').then(() => setToast(fill(words.copied, { code: offer.code ?? '' })), () => setToast(words.copyFailed))
+                  void copyText(offer.code ?? '').then((ok) => setToast(ok ? fill(words.copied, { code: offer.code ?? '' }) : words.copyFailed))
                 }}>
                 {words.menu.copy}
                 <span className="df-offers-menu-sub">{offer.code}</span>
