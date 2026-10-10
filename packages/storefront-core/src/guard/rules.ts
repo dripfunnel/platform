@@ -32,6 +32,18 @@ export const ruleIds = [
   'jsx/loading-hint',
   'jsx/core-marker',
   'jsx/animated-property',
+  'css/unreadable',
+  'css/selector-not-scoped',
+  'css/global',
+  'css/pseudo-not-allowed',
+  'css/at-rule-not-allowed',
+  'css/url-not-media',
+  'css/function-not-allowed',
+  'css/core-selector',
+  'css/z-index',
+  'css/animated-property',
+  'css/text',
+  'css/composes',
   'content/unreadable',
   'content/missing-file',
   'content/missing-key',
@@ -80,6 +92,8 @@ export const guardContextSchema = z.strictObject({
   locales: z.array(z.string().regex(localePattern)).min(1).max(50),
   /** The paths the store's content pages and blog posts already use (SAPI 24). */
   usedPaths: z.array(z.string().max(512)).max(10_000),
+  /** The store's media ids, the only values a CSS url() may name. */
+  mediaIds: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,128}$/)).max(10_000),
   /** Site settings the theme reads through useStorefront() and never copies (DESIGN §2). */
   brand: z.strictObject({
     name: z.string().trim().min(1).max(200),

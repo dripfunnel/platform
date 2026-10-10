@@ -19,7 +19,7 @@ as customised by us, now removed from the workspace); §11 records what was take
 
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, the first required components, SEO and the route contract (#304), and the
-validator's file, content, routes and code rules (#480); everything else below is to build.
+validator, `./guard` (#480); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
@@ -296,7 +296,14 @@ As built on #480 *(decided there, the stricter reading where the list above is s
 **CSS**: CSS Modules only; every selector starts with a module class; no `:global`, no
 `@import`, no `@font-face`; `url()` only for the store's media ids; no selector naming a core
 class or a `df-` element; `z-index` below core's layer; animation only of `transform`,
-`opacity` and `filter`.
+`opacity` and `filter`. As built on #480 *(decided there)*: `url()` names a media id from the
+store's `mediaIds`, exactly; the z-index cap is 99 (`maxThemeZIndex`, *proposed*); only `@media`,
+`@supports`, `@container` and `@keyframes`; pseudo-classes and pseudo-elements from an allowlist
+(`::part` among them, for sealed components), and functions from an allowlist (no `attr()`,
+`image()` or `src()`); names are read with their escapes decoded, so `:\67lobal` is `:global`;
+nested rules are refused, so every selector is written out and checked; a transition names its
+properties (a bare `transition: 0.3s` animates everything); `content` and the other text
+properties hold no words; `composes` names only the module's own classes.
 
 **Content**: every key the theme's `t()` calls exists in **every language the store offers**
 (the AI writes them all, decided 2026-10-08 on #470; the merchant can correct any); no pattern

@@ -1,0 +1,8 @@
+.card {
+  padding: 16px;
+}
+
+.hero {
+  --bg: url('//cdn.example/x.png');
+  background: var(--bg);
+}

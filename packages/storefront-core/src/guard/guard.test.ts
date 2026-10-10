@@ -15,6 +15,7 @@ const baseline = readTree(`${fixtures}baseline`)
 const context: GuardContext = {
   locales: ['en', 'hi'],
   usedPaths: ['/faq', '/blog/summer-edit'],
+  mediaIds: ['m_hero01'],
   brand: {
     name: 'Northstar Linen',
     tagline: 'Slow-made linen for warm days',
