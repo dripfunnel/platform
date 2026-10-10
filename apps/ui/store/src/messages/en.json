@@ -4584,7 +4584,8 @@
       "more": "Show more runs",
       "loadingMore": "Loading more runs…",
       "moreFailed": "We couldn’t load more runs. Try again."
-    }
+    },
+    "timesIn": "Times in {zone}"
   },
   "sales": {
     "title": "Your sales",

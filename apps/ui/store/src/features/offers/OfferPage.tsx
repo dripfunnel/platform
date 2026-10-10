@@ -13,7 +13,8 @@ import { actsFor, useOfferActions } from './offerActions'
 import { offerAccessOf } from './offerAccess'
 import { OfferResults } from './OfferResults'
 import { offerSample, offerStates, sampleBatches, sampleNames, sampleResults } from './offerStates'
-import { countryName, dateTimeText, kindOf, orList, noNames, regionWords, sentence, statusKeyOf, statusLook, timeLine, zoneName, type OfferNames, type RegionWords } from './offerView'
+import { countryName, dateTimeText, kindOf, orList, noNames, regionWords, sentence, statusKeyOf, statusLook, timeLine, type OfferNames, type RegionWords } from './offerView'
+import { zoneName } from '../orders/orderView'
 import './offers.css'
 
 const words = messages.offers
