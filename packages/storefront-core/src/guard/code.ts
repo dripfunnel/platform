@@ -47,7 +47,7 @@ const walkingMembers = new Set([
   ...['textContent', 'insertAdjacentHTML', 'insertAdjacentElement', 'insertAdjacentText', 'setHTMLUnsafe', 'childNodes', 'firstChild', 'lastChild', 'firstElementChild'],
   ...['lastElementChild', 'nextSibling', 'previousSibling', 'nextElementSibling', 'previousElementSibling', 'offsetParent', 'assignedSlot', 'getElementById'],
   ...['getElementsByClassName', 'getElementsByTagName', 'appendChild', 'removeChild', 'replaceChildren', 'replaceWith', 'setAttribute', 'setAttributeNS', 'cloneNode'],
-  ...['elementFromPoint', 'elementsFromPoint'],
+  ...['elementFromPoint', 'elementsFromPoint', 'composedPath', 'relatedTarget'],
 ])
 // "A ref may style its own element and nothing else" (ARCHITECTURE §3.4).
 const elementMembers = new Set([
@@ -85,7 +85,9 @@ const kindOfValue = (w: Walk, type: ts.Type): 'dom' | 'style' | 'browser' | 'ope
   }
   if (all.some((t) => named(t, browserTypes))) return 'browser'
   if (all.some((t) => named(t, new Set(['CSSStyleDeclaration'])))) return 'style'
-  const isNode = (t: ts.Type) => w.checker.getPropertyOfType(w.checker.getApparentType(t), 'nodeType')?.declarations?.some((d) => fromLibrary(w, d)) ?? false
+  // An event's target is typed EventTarget, which a cast would otherwise turn into a node.
+  const isNode = (t: ts.Type) =>
+    named(t, new Set(['EventTarget'])) || (w.checker.getPropertyOfType(w.checker.getApparentType(t), 'nodeType')?.declarations?.some((d) => fromLibrary(w, d)) ?? false)
   return all.some(isNode) ? 'dom' : undefined
 }
 
@@ -231,6 +233,18 @@ const losesTranslate = (w: Walk, expr: ts.Expression): boolean => {
   return contextual === undefined ? !ts.isExpressionStatement(p) : !holdsTranslate(w, contextual)
 }
 
+const isAssertion = (node: ts.Node): node is ts.AsExpression | ts.TypeAssertion | ts.SatisfiesExpression =>
+  ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node)
+
+/** Whether an element (or its style) is cast, or handed to a type that isn't one, after which its members go unchecked. */
+const losesElement = (w: Walk, expr: ts.Expression): boolean => {
+  const kind = kindOfValue(w, w.checker.getTypeAtLocation(expr))
+  if (kind !== 'dom' && kind !== 'style') return false
+  const p = expr.parent
+  const target = isAssertion(p) ? w.checker.getTypeAtLocation(p) : (w.checker.getContextualType(expr) ?? undefined)
+  return target !== undefined && kindOfValue(w, target) !== kind
+}
+
 const checkCall = (w: Walk, call: ts.CallExpression) => {
   if (call.expression.kind === ts.SyntaxKind.ImportKeyword) return w.report(call, 'code/dynamic-import', 'A theme may not load code with import(); import from the allowed modules at the top of the file.')
   const callee = call.expression
@@ -338,6 +352,7 @@ const visit = (w: Walk, node: ts.Node, files: ReadonlySet<string>): void => {
     if (ts.isImportDeclaration(node) || node.moduleSpecifier) return
   }
   if (ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword) w.report(node, 'code/script-url', "A theme may not read import.meta; core's chunk loader alone handles script addresses.")
+  if (ts.isExpression(node) && losesElement(w, node)) w.report(node, 'code/dom-walking', "An element goes only where an element is expected; cast or handed to another type, what's reached through it would go unchecked.")
   if (ts.isExpression(node) && losesTranslate(w, node)) w.report(node, 'code/t-key-not-literal', "Call t() as core gives it, without passing it on as another type, so every key it's called with can be checked.")
   if (ts.isIdentifier(node)) checkIdentifier(w, node)
   else if (ts.isPropertyAccessExpression(node)) checkMember(w, node, node.expression, w.checker.getTypeAtLocation(node.expression), node.name.text)

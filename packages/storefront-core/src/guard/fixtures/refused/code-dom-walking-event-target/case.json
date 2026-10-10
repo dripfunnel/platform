@@ -1,0 +1,5 @@
+{
+  "rule": "code/dom-walking",
+  "file": "src/theme/components/interactive/Bad.tsx",
+  "line": 7
+}

@@ -275,8 +275,9 @@ As built on #480 *(decided there, the stricter reading where the list above is s
   window, the document, `location`, `navigator` or storage.
 - **The DOM**: on an element, only `style`, `classList`, focus, measuring, scrolling and event
   listeners. On its `style`, only `transform`, `opacity`, `filter` and custom properties through
-  `setProperty`. The walking names are refused on any value, so a cast doesn't hide them, and a
-  computed key must be written out or typed as a list of names.
+  `setProperty`. An element (an event's target included) is never cast or handed to a type that
+  isn't an element, the walking names are refused on any value, and a computed key must be written
+  out or typed as a list of names.
 - **JSX**: elements from an allowlist of layout, text, table and SVG shape elements, and attributes
   from an allowlist on each. No `style` attribute (motion's own `style` only with transform and
   opacity), no spread on an element, no `popover` or `<dialog>` (the top layer belongs to core's
