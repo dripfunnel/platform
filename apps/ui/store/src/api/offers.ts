@@ -244,10 +244,11 @@ const factsSchema = z.object({
 export const loadOfferFacts = async () => {
   const { storeInfo, storeLocale } = await query('{ storeInfo { timeZone country } storeLocale { pricingCurrency currencies { code status } rates { currency perEuro } } }', factsSchema)
   const main = storeLocale?.pricingCurrency
-  if (!main) throw new Error('The store has no pricing currency yet.')
+  // A guessed zone would schedule at the wrong moment while naming it as the store's; refuse instead (fact 9).
+  if (!main || !storeInfo) throw new Error('The store has no pricing currency or time zone yet.')
   return {
-    timeZone: storeInfo?.timeZone ?? 'UTC',
-    country: storeInfo?.country ?? null,
+    timeZone: storeInfo.timeZone,
+    country: storeInfo.country,
     main,
     others: (storeLocale?.currencies ?? []).filter((c) => c.status === 'active' && c.code !== main).map((c) => c.code),
     perEuro: Object.fromEntries((storeLocale?.rates ?? []).map((r) => [r.currency, Number(r.perEuro)]).filter(([, n]) => Number(n) > 0)),

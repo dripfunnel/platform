@@ -1,5 +1,5 @@
 import { minorOf, moneyDigits, moneyText } from '@dripfunnel/shared/format'
-import { offerIdLimit, type Offer, type OfferAction, type OfferCondition, type OfferKind, type OfferTargets } from '../../api/offers'
+import { codeLengths, offerIdLimit, type Offer, type OfferAction, type OfferCondition, type OfferKind, type OfferTargets } from '../../api/offers'
 import type { ApiMoney } from '../../api/orders'
 import { fill, formatCount, messages } from '../../messages'
 import { kindOf } from './offerView'
@@ -202,7 +202,7 @@ const blank = (type: OfferKind): OfferDraft => ({
   trigger: type === 'bxgy' || type === 'shipping' ? 'automatic' : 'code',
   code: '',
   singleUse: false,
-  batch: { count: '500', prefix: '', length: '8' },
+  batch: { count: '500', prefix: '', length: String(codeLengths[1]) },
   name: '',
   note: '',
   minimum: 'none',

@@ -5025,7 +5025,8 @@
       },
       "codePlaceholder": "SUMMER20",
       "removeGlyph": "×",
-      "addName": "+ {name}"
+      "addName": "+ {name}",
+      "noCodeYet": "—"
     },
     "create": "Create offer",
     "createPlus": "+ Create offer",

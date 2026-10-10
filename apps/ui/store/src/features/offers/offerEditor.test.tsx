@@ -183,6 +183,17 @@ describe('a new offer', () => {
     expect(within(dialog()).getByText(/200 single-use codes are made/)).toBeTruthy()
   })
 
+  it('says the offer is saved but its single-use codes weren’t made when that second step is refused', async () => {
+    api.generateCodes.mockRejectedValue(new ApiError('PLAN_LIMIT', 'no', { key: 'group_offers', limit: null, unlockedBy: { id: 'p', name: 'Growth Pro' } }))
+    await show(owner, '/offers/new?type=order')
+    fireEvent.click(screen.getByRole('checkbox', { name: words.singleUse }))
+    fireEvent.click(saveButton())
+    fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
+    await settle()
+    expect(api.saveOffer).toHaveBeenCalled()
+    expect(within(dialog()).getByText(/The single-use codes weren’t made: Your plan doesn’t include this. Growth Pro has more. See plans in Billing. Make them on the offer’s page./)).toBeTruthy()
+  })
+
   it('keeps a refusal in the Save dialog: the live-offer limit, with the plan for the Owner and “ask” for a Manager', async () => {
     const limit = new ApiError('PLAN_LIMIT', 'no', { key: 'live_offers', limit: 3, unlockedBy: { id: 'p', name: 'Growth Pro' } })
     api.saveOffer.mockRejectedValue(limit)
@@ -197,6 +208,27 @@ describe('a new offer', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: words.ask.confirm }))
     await settle()
     expect(within(dialog()).getByText('Your plan allows 3 live offers. Ask your store owner to upgrade.')).toBeTruthy()
+  })
+
+  it('drops unsaved work kept from an older revision of the offer', async () => {
+    api.loadOffer.mockResolvedValue({ ...welcome, status: 'off', enabled: false })
+    await show(owner, '/offers/o1/edit')
+    fireEvent.change(screen.getByRole('textbox', { name: words.name }), { target: { value: 'Welcome back' } })
+    await settle()
+    cleanup()
+    api.loadOffer.mockResolvedValue({ ...welcome, status: 'off', enabled: false, revision: 4 })
+    await show(owner, '/offers/o1/edit')
+    expect(screen.queryByText(words.kept.title)).toBeNull()
+    expect((screen.getByRole('textbox', { name: words.name }) as HTMLInputElement).value).toBe('Welcome 10% off')
+  })
+
+  it('opens the error with a retry when the store’s zone or currency can’t be read, never a guessed zone', async () => {
+    api.loadOfferFacts.mockRejectedValueOnce(new Error('no store info'))
+    await show(owner, '/offers/new?recipe=welcome')
+    expect(screen.getByText(messages.offers.error.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: messages.offers.error.retry }))
+    await settle()
+    expect((screen.getByRole('textbox', { name: words.name }) as HTMLInputElement).value).toBe('Welcome 10% off')
   })
 
   it('drops unsaved work kept by an older form, rather than opening it broken', async () => {

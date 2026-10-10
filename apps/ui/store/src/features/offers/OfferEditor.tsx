@@ -203,7 +203,7 @@ export const OfferEditor = () => {
   const value = draft.kind === 'percent' ? `${draft.percent || 0}%` : typedMoney(draft.amounts[facts.main] ?? '', facts.main)
   const quiet = draft.trigger === 'automatic' && draft.minimum === 'none' && draft.who === 'all' && !draft.startsAt && !draft.endsAt && !draft.totalUses && !draft.repeat
   const loud = quiet ? fill(draft.type === 'shipping' ? (draft.shipMode === 'off' ? words.loud.shippingOff : words.loud.shipping) : words.loud[draft.type], { value, ship: region.ship, amount: typedMoney(draft.amounts[facts.main] ?? '', facts.main), buy: draft.buyQuantity, get: draft.getQuantity }) : null
-  const said = sentence({ ...shaped, code: shaped.code ?? (draft.trigger === 'code' && !draft.singleUse ? '—' : null) }, region, names, now, facts.timeZone)
+  const said = sentence({ ...shaped, code: shaped.code ?? (draft.trigger === 'code' && !draft.singleUse ? words.noCodeYet : null) }, region, names, now, facts.timeZone)
   const warns = [
     draft.kind === 'percent' && Number(draft.percent) > 50 && draft.type !== 'bxgy' && draft.type !== 'shipping' ? fill(words.warns.big, { percent: draft.percent, tenth: String(Math.round(Number(draft.percent) / 10)) }) : '',
     draft.type === 'order' && draft.kind === 'fixed' && !draft.tiers.length && draft.minimum === 'none' ? fill(words.warns.noMinimum, { amount: value }) : '',
