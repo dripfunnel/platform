@@ -37,7 +37,7 @@ export const regionWords = (country: string | null): RegionWords => ({
 export type StatusKey = 'live' | 'ending' | 'scheduled' | 'off' | 'ended' | 'used_up'
 
 /** "Ending soon" is the portal's reading of a live offer's end (fact 9): within this many hours. */
-export const endingSoonHours = 48
+const endingSoonHours = 48
 const hour = 3_600_000
 
 export const statusKeyOf = (offer: Pick<Offer, 'status' | 'endsAt'>, now: Date): StatusKey =>
@@ -56,9 +56,6 @@ export const statusLook: Record<StatusKey, { tone: StatusTone; icon: StatusIconN
 export const dateTimeText = (iso: string, timeZone: string): string =>
   new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone }).format(new Date(iso))
 export const dayText = (iso: string, timeZone: string): string => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone }).format(new Date(iso))
-
-/** The store's time zone as people say it ("India Standard Time"), so no time is shown without its zone (fact 9). */
-export const zoneName = (timeZone: string): string => new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'longGeneric' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? timeZone
 
 /** A day of the week by its number, 0 being Sunday as a repeat's days are. */
 export const weekdayName = (day: number) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + day)))
@@ -107,7 +104,7 @@ export const orList = (items: readonly string[]): string => new Intl.ListFormat(
 export const countryName = (code: string) => new Intl.DisplayNames(locale, { type: 'region' }).of(code) ?? code
 const counted = (forms: { one?: string; other: string }, n: number) => fill(plural(forms, n), { count: formatCount(n) })
 
-export const targetsText = (t: OfferTargets | null, names: OfferNames): string => {
+const targetsText = (t: OfferTargets | null, names: OfferNames): string => {
   if (!t) return words.what.chosenProducts
   const named = (ids: readonly string[], map: ReadonlyMap<string, string>) => ids.map((id) => map.get(id)).filter((n): n is string => Boolean(n))
   const parts = [
@@ -149,6 +146,7 @@ export const whatText = (offer: Pick<Offer, 'action' | 'conditions'>, region: Re
 }
 
 const getWords = (percent: number | null) => (percent === null || percent === 100 ? words.what.bxgyFree : percent === 50 ? words.what.bxgyHalf : words.what.bxgyPercent)
+
 /** The offer in one sentence (§1, C1): what they get, how, the minimum, who, when, limits and what it combines with. */
 export const sentence = (offer: Pick<Offer, 'action' | 'conditions' | 'trigger' | 'code' | 'startsAt' | 'endsAt' | 'perCustomerLimit' | 'totalUsesLimit' | 'combines'>, region: RegionWords, names: OfferNames, now: Date, timeZone: string): string => {
   const s = words.sentence

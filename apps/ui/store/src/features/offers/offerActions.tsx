@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { z } from 'zod'
 import { deleteOffer, duplicateOffer, endOffer, setOfferOn, type Offer } from '../../api/offers'
 import { fill, formatCount, messages } from '../../messages'
-import { dateTimeText, statusKeyOf, zoneName } from './offerView'
+import { zoneName } from '../orders/orderView'
+import { dateTimeText, statusKeyOf } from './offerView'
 
 // Turn off, turn on, end now, duplicate and delete (N2–N5), from the list's row actions and the offer's page alike.
 // Each destructive one restates its consequence first; the API decides whether it may happen.
