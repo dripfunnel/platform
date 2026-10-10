@@ -4589,7 +4589,9 @@
       "prefixError": "Start with up to {max} letters, numbers, - or _.",
       "more": "Show more runs",
       "loadingMore": "Loading more runs…",
-      "moreFailed": "We couldn’t load more runs. Try again."
+      "moreFailed": "We couldn’t load more runs. Try again.",
+      "sampleChars": "K7QX2M9P4RT8WZ3N5H6J",
+      "sampleJoiner": " · "
     },
     "editor": {
       "recipeNames": {
@@ -4637,7 +4639,8 @@
         "total": "Enter 1 or more, or choose Unlimited.",
         "perCustomer": "Uses per customer must be a whole number from 1 to {max}, or Unlimited.",
         "otherAmount": "Give each other currency an amount above zero, or leave its box empty to convert at today’s rate.",
-        "tooMany": "An offer can name up to {max}. Remove some."
+        "tooMany": "An offer can name up to {max}. Remove some.",
+        "noRate": "There’s no exchange rate for {currencies} today, so it can’t be converted: type the amount in each of them."
       },
       "crumbNew": "New offer",
       "loading": "Loading the offer",
@@ -5026,7 +5029,8 @@
     },
     "create": "Create offer",
     "createPlus": "+ Create offer",
-    "timesIn": "Times in {zone}"
+    "timesIn": "Times in {zone}",
+    "countsFailed": "We couldn’t count the offers on each tab."
   },
   "sales": {
     "title": "Your sales",

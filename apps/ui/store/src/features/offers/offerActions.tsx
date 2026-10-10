@@ -1,6 +1,6 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog } from '@dripfunnel/shared/ui'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { z } from 'zod'
 import { deleteOffer, duplicateOffer, endOffer, setOfferOn, type Offer } from '../../api/offers'
 import { fill, formatCount, messages } from '../../messages'
@@ -50,12 +50,16 @@ export const useOfferActions = ({ sample, canUpgrade, timeZone, now, onDone }: {
   const [asked, setAsked] = useState<Asked | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // One act at a time: a second click while one is on its way (Duplicate twice) does nothing.
+  const running = useRef(false)
 
   const run = async (work: () => Promise<ActDone>, toast: string, fail: (message: string) => void) => {
+    if (running.current) return
     if (sample) {
       setAsked(null)
       return onDone(toast, { kind: 'changed' })
     }
+    running.current = true
     setBusy(true)
     try {
       const done = await work()
@@ -64,6 +68,7 @@ export const useOfferActions = ({ sample, canUpgrade, timeZone, now, onDone }: {
     } catch (e) {
       fail(offerRefusal(e, canUpgrade))
     } finally {
+      running.current = false
       setBusy(false)
     }
   }

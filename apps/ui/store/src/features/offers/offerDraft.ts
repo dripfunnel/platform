@@ -517,6 +517,9 @@ const amountOk = (text: string, currency: string) => {
 }
 /** Every other currency's box is empty (converted at save) or a positive amount, never dropped or zero. */
 const othersOk = (typed: Amounts, facts: StoreFacts) => facts.others.every((c) => !(typed[c] ?? '').trim() || amountOk(typed[c] ?? '', c))
+/** Currencies an empty box can't be filled in at save: there's no reference rate for them (or the main one) today. */
+const unrated = (typed: Amounts, facts: StoreFacts): string[] => facts.others.filter((c) => !(typed[c] ?? '').trim() && convertedMinor(1, facts, c) === null)
+const noRate = (currencies: readonly string[]) => fill(words.noRate, { currencies: currencies.join(', ') })
 const between = (text: string, low: number, high: number) => {
   const n = whole(text)
   return n !== null && n >= low && n <= high
@@ -529,9 +532,11 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
     if (d.kind === 'percent' && !between(d.percent, 1, 100)) e.value = words.percent
     if (d.kind === 'fixed' && !amountOk(d.amounts[main] ?? '', main)) e.value = words.amount
     else if (d.kind === 'fixed' && !othersOk(d.amounts, facts)) e.value = words.otherAmount
+    else if (d.kind === 'fixed' && unrated(d.amounts, facts).length) e.value = noRate(unrated(d.amounts, facts))
   }
   if (d.type === 'shipping' && d.shipMode === 'off' && !amountOk(d.amounts[main] ?? '', main)) e.value = words.amount
   else if (d.type === 'shipping' && d.shipMode === 'off' && !othersOk(d.amounts, facts)) e.value = words.otherAmount
+  else if (d.type === 'shipping' && d.shipMode === 'off' && unrated(d.amounts, facts).length) e.value = noRate(unrated(d.amounts, facts))
   if (d.type === 'products') {
     if (d.target === 'products' && !d.productIds.length) e.targets = words.products
     else if (d.productIds.length > offerLimits.ids) e.targets = fill(words.tooMany, { max: String(offerLimits.ids) })
@@ -539,10 +544,13 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
     if (d.target === 'collection' && !d.collectionIds.length) e.targets = words.collection
   }
   if (d.capOn && d.kind === 'percent' && !d.tiers.length && !amountOk(d.cap, main)) e.cap = words.amount
+  // A cap's and a step's other currencies are always converted (they have no boxes), so a missing rate stops them too.
+  else if (d.capOn && d.kind === 'percent' && !d.tiers.length && unrated({}, facts).length) e.cap = noRate(unrated({}, facts))
   if (d.type === 'order' && d.tiers.length) {
     const [low, high] = offerLimits.tiers
     if (d.tiers.length < low || d.tiers.length > high) e.tiers = fill(words.tierCount, { low: String(low), high: String(high) })
     else if (d.tiers.some((t) => !amountOk(t.minimum, main) || (d.kind === 'percent' ? !between(t.off, 1, 100) : !amountOk(t.off, main)))) e.tiers = words.tiers
+    else if (unrated({}, facts).length) e.tiers = noRate(unrated({}, facts))
   }
   if (d.type === 'bxgy') {
     if (!d.buyIds.length && !hasKept(d.buyKept)) e.buy = words.buy
@@ -565,6 +573,7 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
   else if (d.name.trim().length > offerLimits.name) e.name = fill(words.nameLong, { max: String(offerLimits.name) })
   if (d.minimum === 'amount' && !amountOk(d.minAmounts[main] ?? '', main)) e.minimum = words.minimumAmount
   else if (d.minimum === 'amount' && !othersOk(d.minAmounts, facts)) e.minimum = words.otherAmount
+  else if (d.minimum === 'amount' && unrated(d.minAmounts, facts).length) e.minimum = noRate(unrated(d.minAmounts, facts))
   if ((d.minimum === 'items' || d.minimum === 'these') && !between(d.minQuantity, 1, offerLimits.minimum)) e.minimum = fill(words.minimumItems, { max: String(offerLimits.minimum) })
   if (d.who === 'groups' && !d.groupIds.length) e.who = words.groups
   if (d.who === 'customers' && !d.customerIds.length) e.who = words.customers
