@@ -18,7 +18,7 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 export const courierCall = async (url: string, init: RequestInit, o: CallOptions): Promise<Response> => {
   for (let attempt = 1; ; attempt++) {
     const timeout = AbortSignal.timeout(courierTimeoutMs)
-    let response: Response | null = null
+    let response: Response | null
     try {
       response = await o.fetchImpl(url, { ...init, signal: o.signal ? AbortSignal.any([o.signal, timeout]) : timeout })
     } catch {
