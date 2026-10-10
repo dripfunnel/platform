@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { add, applyBps, compare, convert, fromDecimalRounded, fromMajor, isCurrency, minorDigits, parseMinor, roundPrice, toMajor, toMinorString } from './money'
+import { add, allocate, applyBps, compare, convert, fromDecimalRounded, fromMajor, isCurrency, minorDigits, parseMinor, roundPrice, toMajor, toMinorString } from './money'
 
 describe('money', () => {
   it('knows each currency’s minor unit, zero- and three-decimal ones included', () => {
@@ -81,5 +81,23 @@ describe('prices in another currency (CATALOG fact 26, O4)', () => {
     expect(roundPrice({ amount: 1547n, currency: 'JPY' }, 'nearest')).toEqual({ amount: 1547n, currency: 'JPY' })
     expect(roundPrice({ amount: 12345n, currency: 'KWD' }, 'nearest')).toEqual({ amount: 12000n, currency: 'KWD' })
     expect(roundPrice({ amount: 1547n, currency: 'USD' }, 'none')).toEqual({ amount: 1547n, currency: 'USD' })
+  })
+})
+
+describe('spreading an amount over lines (OFFERS fact 11)', () => {
+  it('sums exactly, in proportion, the remainder to the largest fractions', () => {
+    expect(allocate(1000n, [3333n, 3333n, 3334n])).toEqual([333n, 333n, 334n])
+    expect(allocate(100n, [1n, 1n, 1n])).toEqual([1n, 1n, 1n])
+    expect(allocate(10n, [1n, 1n, 1n])).toEqual([1n, 1n, 1n])
+    expect(allocate(2n, [1n, 1n, 1n])).toEqual([1n, 1n, 0n])
+    expect(allocate(7n, [0n, 5n, 5n])).toEqual([0n, 4n, 3n])
+  })
+
+  it('never gives a line more than it holds, and nothing when there is nothing to spread', () => {
+    expect(allocate(50n, [10n, 20n])).toEqual([10n, 20n])
+    expect(allocate(0n, [10n, 20n])).toEqual([0n, 0n])
+    expect(allocate(5n, [0n, 0n])).toEqual([0n, 0n])
+    const shares = allocate(999n, [7n, 13n, 1001n, 3n])
+    expect(shares.reduce((a, b) => a + b, 0n)).toBe(999n)
   })
 })

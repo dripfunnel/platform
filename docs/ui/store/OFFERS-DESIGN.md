@@ -340,6 +340,40 @@ promotions tests before relying on it.
     use, reserve stock or create an order. Engine requirement, `(release: decide)`. It powers
     "Try this offer" (part O).
 
+### 3.1 What the engine built (#320, SAPI 14)
+
+`apps/api/src/engine/modules/promotions` (`definition.ts` holds every argument, `pricing.ts` the pricing). Amounts are
+minor units per currency (`{ "INR": "50000", "USD": "600" }`); ids are the store's own.
+
+| Kind | Key | Arguments |
+|---|---|---|
+| Condition | `minimum_order_amount` | `amounts` |
+| | `minimum_quantity` | `minimum` (units in the whole cart) |
+| | `contains_products`, `contains_collection`, `at_least_n_with_filter_values` | `minimum`, and `productIds`, `collectionIds` or `filterValueIds` |
+| | `customer_group`, `specific_customers` | `groupIds` (any of), `customerIds` |
+| | `first_order` · `shipping_country` | none · `countries` |
+| | `recurrence` | `days` (0 is Sunday), `from`, `to` (`HH:MM`, the store's time zone) |
+| | `any_of` | `conditions`: two to ten of the above (the engine's OR) |
+| Action | `order_percentage_discount` · `order_fixed_discount` | `percent` (1–100) and an optional `cap` · `amounts` |
+| | `products_percentage_discount` · `line_fixed_discount` (per unit) | `percent` and optional `cap` · `amounts`; both `targets` and `exclude` (`giftCards`, `onSale`) |
+| | `free_shipping` · `shipping_fixed_discount` | none · `amounts` |
+| | `buy_x_get_y` | `buy` and `get` (`quantity`, `targets`; `get.targets` null is "the same"), `percent` off (100 is free), `oncePerOrder` |
+| | `tiered_discount` | `kind` (`percent` or `fixed`), two to five `tiers` (`minimum`, then `percent` or `amounts`) |
+
+**Decided here** (#320), where the facts above left the engine a choice:
+- **One action per offer.** The four types of §5 are one action each; the tables hold more for later.
+- **Targets are one argument** (products, collections and filter values, any of them) on the two product actions,
+  rather than separate `filter_value_discount` and `collection_discount` keys; `buy_x_get_y` is an action only.
+- **Inside a stage the biggest discount goes first** (as each would price alone, then the oldest offer, then by id), and
+  an offer is skipped when it and one already taken don't combine both ways. So the same cart always prices the same way,
+  and two offers that don't combine give the shopper the better one.
+- **An amount not set in the cart's currency means the offer doesn't apply in it** (a fixed amount, a minimum, a cap or a
+  tier), never a conversion at pricing time (fact 10).
+- **The minimum compares with the goods as priced in the store's own tax setting** (including tax in a tax-inclusive
+  store, before tax otherwise: fact 11's default), after the product stage's discounts for an order or shipping offer.
+- **Status ignores a repeating offer's windows**: it is Live between them; its time line says when it runs.
+- **A shipping offer applies once a delivery is chosen**, to what that delivery costs.
+
 ---
 
 ## 4. Who uses it, and what they see

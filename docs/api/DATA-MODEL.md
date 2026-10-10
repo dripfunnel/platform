@@ -181,11 +181,11 @@ partner_contract_rate (partner_id, currency, per_fee_unit numeric NULL)   -- a r
                       -- null: the partner prices in it, with no fee converted (0062)
 ```
 
-- **Keys**: 50 rows of `plan_key`, mirrored by `src/db/scoped/planKeys.ts` (a test compares
+- **Keys**: 51 rows of `plan_key`, mirrored by `src/db/scoped/planKeys.ts` (a test compares
   them). The original 13 are the switches `custom_domain`, `offers`, `suppliers_enabled`,
   `powered_by_removal`, `aplus`, `size_charts`, the limits `products`, `staff`, `suppliers`,
   `languages`, `currencies` and the monthly allowances `publish_now`, `ai_prompts`; 37 more
-  follow the pricing page's comparison (SAAS §6.1). Build minutes and AI cost are meters
+  follow the pricing page's comparison (SAAS §6.1), and `live_offers` (0076) the pricing page's "3 live". Build minutes and AI cost are meters
   with no plan value yet. `0070` gave every existing plan version a row for each new key.
 - **An edit is a version** (`db/scoped/plans.ts` `insertPlanVersion`): prices, trial and
   entitlements are written under `plan.version + 1`, taken under the plan's row lock, and
@@ -1607,6 +1607,17 @@ promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_i
                     -- (a proven phone resolves to one, ACCESS §2.1), else normalised
                     -- customer_email; results (part P) aggregate this table
 ```
+
+**Built on #320 (SAPI 14), migration 0076**, with these differences from the sketch above: `promotion` gains
+`trigger` (`automatic` | `code`: a code offer applies only through a code, even before its single-use codes are made),
+`created_by_user_id`, `created_at`, `updated_at` and `revision`; `disabled_reason` and `show_on_product_page` are not built
+(whether offers run while past due and product-page prices are still open, OFFERS §9). `combines_with` holds `product`,
+`order` and `shipping` only. `promotion_code` has no `customer_id` or `order_id` yet (they come with the cart reminders'
+codes, SAPI 15) and no `used_by_customer_id` (the usage row names the shopper); it gains `replaced_at`, set when a live
+offer's shared code is changed: the old code stops working and stays reserved to the offer. Codes are stored uppercase and
+checked against `^[A-Z0-9][A-Z0-9_-]{2,31}$`; a single-use code always belongs to a batch. Request roles never write
+`uses_count`, `used_at` or `promotion_usage`, and never delete an offer (soft only): placement counts uses in system
+scope. The operation keys are the migration's check lists (OFFERS-DESIGN §3.1 has the arguments).
 
 ### 7.8 Storefront, publishing, design history and AI runs
 

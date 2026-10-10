@@ -319,7 +319,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   currency**. Rejected: a nearest-regional-currency mapping (one more table to explain) and
   restricting sign-up to the three currencies.
 - **Four kinds of plan setting** (card #458; the keys are `apps/api/src/db/scoped/planKeys.ts`,
-  50 rows in the order and groups of `designs/DF Store Pricing.dc.html`): **on/off** (custom
+  51 rows in the order and groups of `designs/DF Store Pricing.dc.html`; `live_offers` added on #320): **on/off** (custom
   domain, offers, suppliers, "Powered by" removal, A+ content, size charts, badges, product
   video, imports, reports, white-label and more); **limit** (products, staff seats, suppliers,
   languages, currencies, photos, markets, couriers and more); **meter**, counted per billing
@@ -328,8 +328,10 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   (2147483647). A row is **enforced** when the server checks it where the write happens, or
   **Planned** when its feature isn't built: the value is stored and the console tags the row,
   and nothing checks it until the feature ships. Enforced today: the original 13 and badges,
-  FAQs and related products, product video, spreadsheet import and Shopify import; a version
-  written before those five existed starts with them on, so no store loses a section.
+  FAQs and related products, product video, spreadsheet import and Shopify import, and since #320 `live_offers`,
+  `group_offers` (customer-group and chosen-customer offers, tiers, single-use codes) and `offer_results`; a version
+  written before the five catalogue rows existed starts with them on, and one written before `live_offers` with it
+  unlimited, so no store loses a section or an offer.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
   can't configure a plan above it (G2, R3). **Built on #157** with the versioned catalogue,
   DripFunnel's wholesale fee per plan and the partner's contract (fee currency, the other
