@@ -85,6 +85,7 @@ export interface NewGiftCard {
   storeId: string
   orderId: string
   lineId: string
+  productId: string
   currency: string
   amount: bigint
   expiryMonths: number | null
@@ -97,8 +98,8 @@ export interface NewGiftCard {
 /** The card a paid gift card line becomes, with its `issued` movement; null when a replay finds it issued. */
 export const issueOrderGiftCard = async (tx: ScopedSql, g: NewGiftCard): Promise<string | null> => {
   const [made] = await tx<{ id: string }[]>`
-    insert into gift_card (store_id, currency, initial_amount, balance_amount, expiry_months, recipient_name, recipient_email, message, send_on, order_line_id)
-    values (${g.storeId}, ${g.currency}, ${g.amount.toString()}, ${g.amount.toString()}, ${g.expiryMonths}, ${g.recipientName}, ${g.recipientEmail}, ${g.message}, ${g.sendOn}::date, ${g.lineId})
+    insert into gift_card (store_id, product_id, currency, initial_amount, balance_amount, expiry_months, recipient_name, recipient_email, message, send_on, order_line_id)
+    values (${g.storeId}, ${g.productId}, ${g.currency}, ${g.amount.toString()}, ${g.amount.toString()}, ${g.expiryMonths}, ${g.recipientName}, ${g.recipientEmail}, ${g.message}, ${g.sendOn}::date, ${g.lineId})
     on conflict (order_line_id) do nothing
     returning id
   `

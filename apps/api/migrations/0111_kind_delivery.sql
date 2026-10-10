@@ -40,6 +40,8 @@ create index order_download_order_idx on order_download (store_id, order_id);
 create table gift_card (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references store (id),
+  -- The gift card product it was bought or issued as: the editor lists a product's cards (CatEditor "Cards issued").
+  product_id uuid not null,
   code_hash text check (code_hash ~ '^[0-9a-f]{64}$'),
   code_last4 text check (code_last4 ~ '^[A-Z0-9]{4}$'),
   currency text not null check (currency ~ '^[A-Z]{3}$'),
@@ -60,12 +62,13 @@ create table gift_card (
   updated_at timestamptz not null default now(),
   check ((code_hash is null) = (code_last4 is null)),
   check ((code_hash is null) = (sent_at is null)),
-  check ((order_line_id is null) <> (issued_by is null))
+  check ((order_line_id is null) <> (issued_by is null)),
+  foreign key (product_id, store_id) references product (id, store_id)
 );
 create unique index gift_card_code_key on gift_card (store_id, code_hash) where code_hash is not null;
-create index gift_card_store_idx on gift_card (store_id, created_at desc);
+create index gift_card_store_idx on gift_card (store_id, product_id, created_at desc);
 
--- Every change to a card's balance, once each for an order (the ledger PLATFORM-PROMPT §5.4 Money asks of balances).
+-- Every change to a card's balance (the ledger PLATFORM-PROMPT §5.4 Money asks of balances), an order redeeming it once.
 create table gift_card_movement (
   id uuid primary key default gen_random_uuid(),
   gift_card_id uuid not null references gift_card (id),
@@ -77,7 +80,7 @@ create table gift_card_movement (
   created_at timestamptz not null default now(),
   foreign key (order_id, store_id) references "order" (id, store_id)
 );
-create unique index gift_card_movement_once_key on gift_card_movement (gift_card_id, kind, order_id) where order_id is not null;
+create unique index gift_card_movement_once_key on gift_card_movement (gift_card_id, kind, order_id) where order_id is not null and kind in ('issued', 'redeemed');
 create index gift_card_movement_card_idx on gift_card_movement (store_id, gift_card_id, created_at);
 
 grant select, insert, update on order_download, gift_card, gift_card_movement to app_system;

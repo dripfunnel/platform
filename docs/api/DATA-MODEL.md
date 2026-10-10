@@ -1493,12 +1493,12 @@ order_download      (id, order_id, order_line_id UNIQUE, store_id, asset_id, use
                     -- product at payment; the link is the grant's id signed under CREDENTIALS_KEK
                     -- (auth/signedLink.ts), never stored, and the Worker streams the file from R2.
                     -- Merchant side reads; a shopper through its order; written in system scope only
-gift_card           (id, store_id, code_hash NULL, code_last4 NULL, currency, initial_amount,
+gift_card           (id, store_id, product_id, code_hash NULL, code_last4 NULL, currency, initial_amount,
                      balance_amount, expiry_months NULL, expires_at NULL, recipient_name, recipient_email,
                      message, send_on, sent_at, order_line_id NULL UNIQUE, issued_by NULL, status
                      ('active'|'disabled'))
 gift_card_movement  (id, gift_card_id, store_id, kind ('issued'|'redeemed'|'restored'), amount, currency,
-                     order_id NULL)  UNIQUE (gift_card_id, kind, order_id)
+                     order_id NULL)  UNIQUE (gift_card_id, kind, order_id) for issued and redeemed
                     -- built on #323 (0111): a paid gift card line issues one card, worth the line's
                     -- price before offers; its code is minted as its email is composed, on the
                     -- morning of send_on in the store's time zone, kept only as a hash salted with

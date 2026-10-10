@@ -32,6 +32,7 @@ export const deliverOrder = async (tx: ScopedSql, activity: ActivityLog, storeId
         storeId,
         orderId,
         lineId: line.id,
+        productId: line.product_id,
         currency: order.currency,
         // The card is worth its price before any offer, as the shopper chose it (decided on #323).
         amount: BigInt(line.unit_amount),
