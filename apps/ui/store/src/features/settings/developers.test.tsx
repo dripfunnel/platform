@@ -117,9 +117,15 @@ describe('API keys', () => {
     expect(screen.queryByRole('form', { name: k.newTitle })).toBeNull()
     const once = within(screen.getByRole('region', { name: k.secretTitle }))
     expect(once.getByText(secret)).toBeTruthy()
+    // The list read again doesn't take the secret away, and nothing can replace it before it's stored.
     expect(dev.loadApiKeys).toHaveBeenCalledTimes(2)
+    expect(once.getByText(secret)).toBeTruthy()
+    expect((screen.getByRole('button', { name: k.create }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Rotate Stock sync' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(k.storeFirst)).toBeTruthy()
     fireEvent.click(once.getByRole('button', { name: k.stored }))
     expect(screen.queryByText(secret)).toBeNull()
+    expect((screen.getByRole('button', { name: k.create }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('keeps a refused key’s form open with what was typed, and the refusal in it alone', async () => {
