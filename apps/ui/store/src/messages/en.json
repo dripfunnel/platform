@@ -135,6 +135,7 @@
     },
     "exportAll": "Export all",
     "exportPanel": "Export",
+    "exportPanelLabel": "Export {panel}",
     "thin": {
       "title": "Not much to show yet.",
       "some": "Reports get useful after a week or two of orders.",

@@ -9,7 +9,7 @@ import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import { startListExport, useListExport } from '../common/listExport'
 import { refusalIn } from '../common/refusal'
-import { reportSample, reportStates, type ReportState } from './reportStates'
+import { reportSample, reportStates, samplePlans, type ReportState } from './reportStates'
 import { ordersOf, panelsOf, type PanelView, type SuppliersView } from './reportView'
 import './reports.css'
 
@@ -86,7 +86,7 @@ export const ReportsPage = () => {
     const mine = ++latest.current
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
-    if (forced === 'locked' || forced === 'lockedManager') return setView({ kind: 'locked', plan: 'Growth' })
+    if (forced === 'locked' || forced === 'lockedManager') return setView({ kind: 'locked', plan: samplePlans.reports })
     if (sample) return setView({ kind: 'ready', report: { ...sample.report, days } })
     if (!seat.canRead) return
     setView({ kind: 'loading' })
@@ -106,7 +106,7 @@ export const ReportsPage = () => {
   // The supplier panel is a hint beside the rest: a failure leaves it out rather than failing the report.
   const loadSuppliers = useCallback(() => {
     const mine = ++latestSuppliers.current
-    if (sample) return setSuppliers(sample.suppliers === 'locked' ? { kind: 'locked', plan: 'Growth Pro' } : { kind: 'ready', rows: sample.suppliers })
+    if (sample) return setSuppliers(sample.suppliers === 'locked' ? { kind: 'locked', plan: samplePlans.export } : { kind: 'ready', rows: sample.suppliers })
     if (forced || !seat.canRead) return setSuppliers({ kind: 'hidden' })
     void loadReportSuppliers(days, currency).then(
       (rows) => {
@@ -236,7 +236,7 @@ export const ReportsPage = () => {
             <section className="df-reports-panel" aria-labelledby="df-reports-custom">
               <div className="df-reports-panel-head">
                 <h2 id="df-reports-custom">{words.custom.title}</h2>
-                <button type="button" className="df-reports-panel-export" disabled={busy || preparing} onClick={() => openDialog({ step: 'rows' })}>
+                <button type="button" className="df-reports-panel-export" disabled={busy || preparing} onClick={() => openDialog({ step: 'rows' })} aria-label={fill(words.exportPanelLabel, { panel: words.custom.title })}>
                   {words.exportPanel}
                 </button>
               </div>
@@ -305,7 +305,7 @@ const PanelCard = ({ panel, disabled, onExport }: { panel: PanelView; disabled: 
     <section className="df-reports-panel" aria-labelledby={id}>
       <div className="df-reports-panel-head">
         <h2 id={id}>{panel.title}</h2>
-        <button type="button" className="df-reports-panel-export" disabled={disabled} onClick={onExport} aria-label={`${words.exportPanel}: ${panel.title}`}>
+        <button type="button" className="df-reports-panel-export" disabled={disabled} onClick={onExport} aria-label={fill(words.exportPanelLabel, { panel: panel.title })}>
           {words.exportPanel}
         </button>
       </div>

@@ -8,6 +8,9 @@ export type ReportState = (typeof reportStates)[number]
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
 const harness = import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
 
+/** The plans the harness's locked states name, as the partner's PLAN_LIMIT would (the pricing page's Growth and Growth Pro). */
+export const samplePlans = { reports: harness ? 'Growth' : '', export: harness ? 'Growth Pro' : '' } as const
+
 const inr = (amount: string) => ({ amount, currency: 'INR' })
 const usd = (amount: string) => ({ amount, currency: 'USD' })
 

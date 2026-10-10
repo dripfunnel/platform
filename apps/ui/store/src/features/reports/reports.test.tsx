@@ -164,7 +164,7 @@ describe('the Reports screen', () => {
 
   it('exports a panel over the range and currency on screen, and Export all asks for the takings', async () => {
     await show(owner)
-    fireEvent.click(panel(words.sold.title).getByRole('button', { name: `${words.exportPanel}: ${words.sold.title}` }))
+    fireEvent.click(panel(words.sold.title).getByRole('button', { name: `Export ${words.sold.title}` }))
     await settle()
     expect(api.requestReportExport).toHaveBeenCalledWith('sold', 30, 'INR', null)
     expect(screen.getByRole('status').textContent).toBe(words.export.preparing)
@@ -209,7 +209,7 @@ describe('the Reports screen', () => {
 
   it('builds a custom report in two steps, its refusal in the dialog alone, cleared when it opens again', async () => {
     await show(owner)
-    const open = () => fireEvent.click(panel(words.custom.title).getByRole('button', { name: words.exportPanel }))
+    const open = () => fireEvent.click(screen.getByRole('button', { name: `Export ${words.custom.title}` }))
     open()
     fireEvent.click(screen.getByRole('button', { name: words.custom.next }))
     fireEvent.change(screen.getByRole('combobox', { name: words.custom.columnsLabel }), { target: { value: 'tax' } })
