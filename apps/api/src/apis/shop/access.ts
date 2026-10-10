@@ -35,6 +35,8 @@ export interface ShopContext extends Record<string, unknown> {
   sessionToken?: string | null
   /** Signs and checks a paid order's download links; null where CREDENTIALS_KEK isn't set. */
   downloadLinks?: LinkSigner | null
+  /** The download limiter (DOWNLOAD_RATE_LIMITER) by key, its own budget apart from sign-in's; refuses every download where it isn't bound. */
+  allowDownload?: (key: string) => Promise<boolean>
   /** The new-cart limiter (CART_RATE_LIMITER) by key; the Worker refuses to serve without it. */
   allowNewCart: (key: string) => Promise<boolean>
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key, so codes can't be guessed; refuses every code where it isn't bound. */
