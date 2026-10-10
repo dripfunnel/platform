@@ -167,13 +167,14 @@ const amountsOf = (typed: Amounts, facts: StoreFacts): ApiMoney[] => {
 }
 const typedOf = (list: readonly ApiMoney[]): Amounts => Object.fromEntries(list.map((m) => [m.currency, majorOf(m.amount, m.currency)]))
 const mainOf = (list: readonly ApiMoney[], facts: StoreFacts): string => typedOf(list)[facts.main] ?? ''
-/** Amounts typed in the main currency only: while it's unchanged each currency still sold keeps its saved amount and one
- *  added since is converted (OFFERS-DESIGN §3.1); a changed main amount converts them all afresh. */
-const keptOr = (typed: string, saved: readonly ApiMoney[], facts: StoreFacts): ApiMoney[] => {
+/** An amount typed in the main currency only, per currency: while it's unchanged each currency keeps its saved amount and
+ *  one added since is converted (OFFERS-DESIGN §3.1); a changed main amount converts them all afresh. */
+const keptTyped = (typed: string, saved: readonly ApiMoney[], facts: StoreFacts): Amounts => {
   const minor = minorOf(typed, facts.main)
   const savedMain = saved.find((m) => m.currency === facts.main)
-  return amountsOf(typeof minor === 'number' && savedMain && Number(savedMain.amount) === minor ? typedOf(saved) : { [facts.main]: typed }, facts)
+  return typeof minor === 'number' && savedMain && Number(savedMain.amount) === minor ? typedOf(saved) : { [facts.main]: typed }
 }
+const keptOr = (typed: string, saved: readonly ApiMoney[], facts: StoreFacts): ApiMoney[] => amountsOf(keptTyped(typed, saved, facts), facts)
 
 
 const blank = (type: OfferKind): OfferDraft => ({
@@ -524,6 +525,9 @@ const othersOk = (typed: Amounts, facts: StoreFacts) => facts.others.every((c) =
 /** Currencies an empty box can't be filled in at save: there's no reference rate for them (or the main one) today. */
 const unrated = (typed: Amounts, facts: StoreFacts): string[] => facts.others.filter((c) => !(typed[c] ?? '').trim() && convertedMinor(1, facts, c) === null)
 const noRate = (currencies: readonly string[]) => fill(words.noRate, { currencies: currencies.join(', ') })
+const tiersUnrated = (d: OfferDraft, facts: StoreFacts): string[] => [
+  ...new Set(d.tiers.flatMap((t) => [...unrated(keptTyped(t.minimum, t.savedMinimum ?? [], facts), facts), ...(d.kind === 'fixed' ? unrated(keptTyped(t.off, t.savedOff ?? [], facts), facts) : [])])),
+]
 const tooMany = () => fill(words.tooMany, { max: String(offerLimits.ids) })
 
 const between = (text: string, low: number, high: number) => {
@@ -550,13 +554,13 @@ export const errorsOf = (d: OfferDraft, facts: StoreFacts): Partial<Record<Field
     if ({ products: d.productIds, filter: d.filterValueIds, collection: d.collectionIds }[d.target].length > offerLimits.ids) e.targets = tooMany()
   }
   if (d.capOn && d.kind === 'percent' && !d.tiers.length && !amountOk(d.cap, main)) e.cap = words.amount
-  // A cap's and a step's other currencies are always converted (they have no boxes), so a missing rate stops them too.
-  else if (d.capOn && d.kind === 'percent' && !d.tiers.length && unrated({}, facts).length) e.cap = noRate(unrated({}, facts))
+  // A cap's and a step's other currencies have no boxes: one not kept as saved is converted, so a missing rate stops it.
+  else if (d.capOn && d.kind === 'percent' && !d.tiers.length && unrated(keptTyped(d.cap, d.capSaved, facts), facts).length) e.cap = noRate(unrated(keptTyped(d.cap, d.capSaved, facts), facts))
   if (d.type === 'order' && d.tiers.length) {
     const [low, high] = offerLimits.tiers
     if (d.tiers.length < low || d.tiers.length > high) e.tiers = fill(words.tierCount, { low: String(low), high: String(high) })
     else if (d.tiers.some((t) => !amountOk(t.minimum, main) || (d.kind === 'percent' ? !between(t.off, 1, 100) : !amountOk(t.off, main)))) e.tiers = words.tiers
-    else if (unrated({}, facts).length) e.tiers = noRate(unrated({}, facts))
+    else if (tiersUnrated(d, facts).length) e.tiers = noRate(tiersUnrated(d, facts))
   }
   if (d.type === 'bxgy') {
     if (!d.buyIds.length && !hasKept(d.buyKept)) e.buy = words.buy
