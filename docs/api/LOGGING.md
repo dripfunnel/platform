@@ -76,7 +76,8 @@ number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §2.2).
 **Reads are not logged**, with one exception: every support session logs what it opened,
 because the merchant has a right to know what support looked at (ACCESS.md §8). Built on #331: each query field
 a support session runs is a `support_session.viewed` entry, store visibility, naming the field and
-any id it was given, never its other arguments; the shell's 15-second `storeState` poll is not one.
+any id it was given, never its other arguments, and so is each file it opens through `/api/assets` or
+`/api/documents`, by the file's id; the shell's 15-second `storeState` poll is not one.
 A session's lifecycle (entered, write requested, allowed or denied, ended) has partner visibility,
 so the partner reads it as the store does. A second
 exception: **staff opening a customer's detail page** in the admin console is logged

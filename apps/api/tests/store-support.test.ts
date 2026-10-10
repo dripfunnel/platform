@@ -1,6 +1,8 @@
 import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { storePolicy, type StoreContext } from '#apis/store/access'
+import { handleAssets } from '#apis/store/assets'
+import { handleDocument } from '#apis/store/documents'
 import { storeSchema } from '#apis/store/schema'
 import { handleSupportSession, supportSessionPaths } from '#apis/store/supportSession'
 import { hashSessionId } from '#auth/session'
@@ -147,6 +149,17 @@ describe('the exchange', () => {
     expect((await entries(id)).map((e) => e.action)).toEqual(['support_session.entered', 'support_session.viewed'])
     const viewed = (await entries(id))[1]
     expect(viewed).toMatchObject({ actor_kind: 'support_session', actor_id: id, on_behalf_of_id: agents.priya, target_label: 'taxSetup', visibility: 'store' })
+  })
+
+  it('logs a file it opens through the asset and document routes, by the file’s id (LOGGING.md §3)', async () => {
+    const id = await opened('owner', agents.priya, 'tok-files')
+    const ctx = await contextFor({ support: await enter('tok-files') })
+    const photo = crypto.randomUUID()
+    const label = crypto.randomUUID()
+    await handleAssets(new Request(`https://store.example/api/assets/${photo}`), ctx, null)
+    await handleDocument(new Request(`https://store.example/api/documents/${label}`), ctx, null)
+    const viewed = await db.sql<{ target_id: string; target_label: string }[]>`select target_id, target_label from activity_log where access_ref = ${id} and action = 'support_session.viewed' order by occurred_at, id`
+    expect(viewed).toEqual([{ target_id: photo, target_label: 'assets' }, { target_id: label, target_label: 'documents' }])
   })
 
   it('refuses a link past its five minutes, on another partner’s host, or once support is off', async () => {
