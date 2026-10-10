@@ -40,13 +40,19 @@ export const optInCountries: ReadonlySet<string> = new Set([
   'IS', 'LI', 'NO',
 ])
 
-/** Whether the store may email this shopper about their cart: never after they stopped; in an opt-in country only once they agreed. */
+/** Whether the store may email this shopper about their cart: never after they stopped or chose other channels; in an opt-in country only once they agreed. */
 export const mayEmail = (storeCountry: string | null, consent: { consent_state: string; consent_channels: readonly string[] } | null): boolean => {
   const state = consent?.consent_state ?? 'not_asked'
   if (state === 'stopped' || state === 'declined') return false
+  // Agreeing to some channels and not email is no agreement to email, wherever the store is (decided on #321).
+  if (state === 'opted_in' && consent && consent.consent_channels.length > 0 && !consent.consent_channels.includes('email')) return false
   if (storeCountry !== null && optInCountries.has(storeCountry)) return state === 'opted_in' && (consent?.consent_channels.includes('email') ?? false)
   return true
 }
+
+/** Whether the shopper agreed to WhatsApp (Carts: "WhatsApp needs opt-in"); checked when it is chosen and again as it goes. */
+export const mayWhatsApp = (consent: { consent_state: string; consent_channels: readonly string[] } | null): boolean =>
+  consent?.consent_state === 'opted_in' && consent.consent_channels.includes('whatsapp')
 
 export interface DecisionFacts {
   byHand: boolean

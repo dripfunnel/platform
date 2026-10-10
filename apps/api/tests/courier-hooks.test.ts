@@ -38,7 +38,7 @@ const gql = async (source: string, who: Who) => {
 const post = async (path: string, body: string, headers: Record<string, string>, allow: (key: string) => Promise<boolean> = async () => true) => {
   const hook = courierHookOf(path)
   if (!hook) return 404
-  const response = await handleCourierHook(new Request(`https://hooks.example${path}`, { method: 'POST', body, headers }), hook, { sql: db.sql, activity: activityLog, couriers, now: () => new Date() }, allow)
+  const response = await handleCourierHook(new Request(`https://hooks.example${path}`, { method: 'POST', body, headers }), hook, { sql: db.sql, activity: activityLog, couriers }, allow)
   return response.status
 }
 const shiprocket = (partnerId: string, awb: string, status: string, at: string, token = localCourierHookSecret) =>
@@ -126,6 +126,17 @@ describe('a test label booked and tracked', () => {
     expect(read.shipments).toEqual([{ trackingStatus: 'delivered', deliveredAt: '2026-10-12T05:30:00.000Z' }])
   })
 
+  it('never moves a parcel delivered in the past back with a hook that has no time of the courier’s own', async () => {
+    const { shipments } = await order('T-5', [{ version: house, seller: null, at: main }])
+    const [parcel = ''] = shipments
+    const awb = await awbOf(parcel)
+    expect(await shiprocket(t.partnerA, awb, 'DELIVERED', '2026-01-05 11:00:00')).toBe(200)
+    for (const time of [undefined, 'soon']) {
+      expect(await post(`/couriers/shiprocket/${t.partnerA}`, JSON.stringify({ awb, current_status: 'IN TRANSIT', current_timestamp: time }), { 'x-api-key': localCourierHookSecret })).toBe(200)
+    }
+    expect(await shipment(parcel)).toMatchObject({ tracking_status: 'delivered', delivered_at: new Date('2026-01-05T05:30:00Z') })
+  })
+
   it('refuses a hook without the partner’s token, and applies another partner’s hook to none of this partner’s parcels', async () => {
     const { shipments } = await order('T-2', [{ version: house, seller: null, at: main }])
     const [parcel = ''] = shipments
@@ -155,7 +166,7 @@ describe('a test label booked and tracked', () => {
     expect(await shipment(parcel)).toMatchObject({ tracking_status: 'out_for_delivery', delivered_at: null })
     const hook = courierHookOf(`/couriers/easypost/${t.partnerA}`)
     if (!hook) throw new Error('no hook')
-    expect((await handleCourierHook(new Request('https://hooks.example/x'), hook, { sql: db.sql, activity: activityLog, couriers, now: () => new Date() }, async () => true)).status).toBe(405)
+    expect((await handleCourierHook(new Request('https://hooks.example/x'), hook, { sql: db.sql, activity: activityLog, couriers }, async () => true)).status).toBe(405)
     expect(courierHookOf('/couriers/dhl/x')).toBeNull()
     expect(courierHookOf(`/couriers/shiprocket/${t.partnerA}/extra`)).toBeNull()
   })
@@ -205,5 +216,18 @@ describe('the hook’s rate limits (#563)', () => {
     expect(await post(`/couriers/shiprocket/${t.partnerA}`, body('IN TRANSIT'), { 'x-api-key': localCourierHookSecret, 'cf-connecting-ip': '198.51.100.7' }, allow)).toBe(200)
     expect(used.get(`courier-hook:${t.partnerA}`)).toBe(1)
     expect((await shipment(shipments[0] ?? ''))?.tracking_status).toBe('in_transit')
+  })
+
+  it('never lets one partner’s burst of proven hooks from a courier’s shared address refuse another partner’s', async () => {
+    const used = new Map<string, number>()
+    const allow = async (key: string) => {
+      used.set(key, (used.get(key) ?? 0) + 1)
+      return (used.get(key) ?? 0) <= 3
+    }
+    const courierIp = { 'x-api-key': localCourierHookSecret, 'cf-connecting-ip': '192.0.2.50' }
+    const body = JSON.stringify({ awb: 'NONE', current_status: 'IN TRANSIT', current_timestamp: '2026-10-12 11:00:00' })
+    const busy = await Promise.all([1, 2, 3, 4].map(() => post(`/couriers/shiprocket/${t.partnerA}`, body, courierIp, allow)))
+    expect(busy).toEqual([200, 200, 200, 429])
+    expect(await post(`/couriers/shiprocket/${t.partnerB}`, body, courierIp, allow)).toBe(200)
   })
 })

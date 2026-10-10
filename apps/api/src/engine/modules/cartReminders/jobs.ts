@@ -10,15 +10,17 @@ import {
   selectReminderConsent,
   setReminderChannel,
   skipReminder,
+  switchReminderToEmail,
   type ReminderChannel,
   type ReminderToDecideRow,
+  type SkipReason,
 } from '#db/scoped/cartReminders'
 import { suppressedAmong } from '#db/scoped/emailSuppression'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
 import { cartLinesNow, type CartLineNow } from '#engine/modules/cart/index'
 import { issueReminderCode, localTimeIn } from '#engine/modules/promotions/index'
-import { idleMs, mayEmail, quietWaitMs, reminderWindowMs, skipReasonOf, weeklyCapMs } from './rules'
+import { idleMs, mayEmail, mayWhatsApp, quietWaitMs, reminderWindowMs, skipReasonOf, weeklyCapMs } from './rules'
 
 // The engine's side of abandoned carts (FIRST-RELEASE §9), run from the cron and the outbox in system scope: a cart left in
 // checkout is marked, each step that falls due is queued once, and each queued reminder is decided when it is delivered.
@@ -98,7 +100,7 @@ export const decideReminder = async ({ sql, now, suppressionKey, whatsappReady }
     const percent = bps && r.level >= 2 ? bps / 100 : null
     // WhatsApp in India, to a signed-in shopper's own number who agreed to it (#337; Carts "WhatsApp needs opt-in"),
     // through the partner's account; anyone else gets the email.
-    const number = r.cart.customer_id !== null && consent?.consent_state === 'opted_in' && consent.consent_channels.includes('whatsapp') && consent.phone?.startsWith('+91') ? consent.phone : null
+    const number = r.cart.customer_id !== null && mayWhatsApp(consent) && consent?.phone?.startsWith('+91') ? consent.phone : null
     const wantsWhatsApp = !r.by_hand && r.step?.channel === 'whatsapp' && r.level >= 2 && r.store_country === 'IN' && number !== null
     const channel: ReminderChannel = wantsWhatsApp && whatsappReady && (await whatsappReady(tx, r.partner_id, percent ? 'cart.reminder_code' : 'cart.reminder')) ? 'whatsapp' : 'email'
     const email = channel === 'email' ? r.cart.email : null
@@ -137,6 +139,30 @@ export const decideReminder = async ({ sql, now, suppressionKey, whatsappReady }
     else await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', ...message }, partnerId: r.partner_id, storeId: r.store_id })
     return { kind: 'queued', channel }
   })
+}
+
+/**
+ * A WhatsApp reminder that can't go after all (its account, template or number gone by delivery) becomes the email its
+ * row carries, under the email's own rules: the shopper's answer for email and the suppression list, checked now.
+ */
+export const fallBackToEmail = async (
+  tx: ScopedSql,
+  message: { reminderId: string; currency: string; lines: readonly { name: string; quantity: number; amount: string | null }[] },
+  suppressionKey: string,
+  now: Date,
+): Promise<'email' | SkipReason | null> => {
+  const r = await lockReminderToDecide(tx, message.reminderId, now)
+  if (!r || r.state !== 'queued') return null
+  const email = r.cart.email
+  const consent = await selectReminderConsent(tx, r.store_id, r.cart.customer_id, email)
+  const reason: SkipReason | null = !email ? 'no_contact' : !mayEmail(r.store_country, consent) ? 'opted_out' : (await suppressedAmong(tx, suppressionKey, [email])).size > 0 ? 'undeliverable' : null
+  if (reason) {
+    await skipReminder(tx, r.id, reason)
+    return reason
+  }
+  if (!(await switchReminderToEmail(tx, r.id))) return null
+  await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', ...message }, partnerId: r.partner_id, storeId: r.store_id })
+  return 'email'
 }
 
 /** A live order placed: the carts its shopper left in the last week are recovered by it, which stops their reminders. */

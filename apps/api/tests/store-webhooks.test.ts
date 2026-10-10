@@ -178,6 +178,24 @@ describe('Delivering', () => {
     await w.gql('owner', 'mutation R($id: ID!) { removeWebhook(id: $id) }', { id: saved?.id })
   })
 
+  it('tells of an order marked paid, never of a preview’s test order', async () => {
+    const { saved } = await save('owner', 'https://hooks.shop.example/paid', ['order.paid'])
+    const order = async (number: string, mode: 'live' | 'test') => {
+      const [row] = await db.sql<{ id: string }[]>`insert into "order" (store_id, state, payment_state, currency, number, placed_at, total_amount, payment_method, email)
+        values (${t.storeA1}, 'placed', 'pending', 'INR', ${number}, now(), 1000, 'cod', 'priya@example.com') returning id`
+      await db.sql`insert into payment (order_id, store_id, provider, kind, state, amount, currency, mode) values (${row?.id ?? ''}, ${t.storeA1}, 'cod', 'cod', 'pending', 1000, 'INR', ${mode})`
+      return row?.id ?? ''
+    }
+    const live = await order('WH-LIVE', 'live')
+    const test = await order('WH-TEST', 'test')
+    for (const id of [live, test]) expect((await w.gql('owner', 'mutation P($id: ID!) { markOrderPaid(orderId: $id) }', { id })).code).toBeUndefined()
+    const told = await db.sql<{ id: string }[]>`select payload->'data'->>'id' as id from outbox where kind = ${storeEventKind} and payload->>'event' = 'order.paid'`
+    expect(told.map((r) => r.id)).toEqual([live])
+    await relay()
+    await relay()
+    await w.gql('owner', 'mutation R($id: ID!) { removeWebhook(id: $id) }', { id: saved?.id })
+  })
+
   it('makes one delivery per endpoint however many times its fan-out runs', async () => {
     const { saved } = await save('owner', 'https://hooks.shop.example/once', ['product.updated'])
     await product('owner', 'Fan-out')

@@ -27,7 +27,8 @@ const dns = new Map<string, string[]>([
   ['A ledger.example', ['93.184.216.50']],
   ['A inside.example', ['192.168.1.4']],
 ])
-const app = fakeEndpoint(() => 200)
+let appAnswers = 200
+const app = fakeEndpoint(() => appAnswers)
 const staff: Record<'superAdmin' | 'support', StaffMember> = {
   superAdmin: { id: '', email: 'sa@dripfunnel.com', name: 'Sara', role: 'staff-super-admin' } as StaffMember,
   support: { id: '', email: 'su@dripfunnel.com', name: 'Suki', role: 'staff-support' } as StaffMember,
@@ -76,10 +77,10 @@ const install = async (who: Who, appId: string, scopes: string[]) => {
   return { grant: r.data?.['installApp'] as string | undefined, code: r.code }
 }
 const installed = async (who: Who) => {
-  const r = await w.gql(who, '{ apps { nodes { id appId name developer siteUrl scopes suspended installedByName lastUsedAt } } }')
-  return { list: (r.data?.['apps'] as { nodes: { id: string; appId: string; name: string; scopes: string[]; suspended: boolean; installedByName: string | null; lastUsedAt: string | null }[] } | null)?.nodes, code: r.code }
+  const r = await w.gql(who, '{ apps { nodes { id appId name developer siteUrl scopes suspended installedByName lastUsedAt connection } } }')
+  return { list: (r.data?.['apps'] as { nodes: { id: string; appId: string; name: string; scopes: string[]; suspended: boolean; installedByName: string | null; lastUsedAt: string | null; connection: string }[] } | null)?.nodes, code: r.code }
 }
-const relay = () => relayDue(db.sql, { [appNoticeKind]: appNoticeDeliverer(db.sql, { lookup: fakeLookup(dns), secrets, fetchImpl: app.fetchImpl, now }) }, { ...defaultRelayOptions, now })
+const relay = (clock: () => Date = now) => relayDue(db.sql, { [appNoticeKind]: appNoticeDeliverer(db.sql, { lookup: fakeLookup(dns), secrets, fetchImpl: app.fetchImpl, now: clock }) }, { ...defaultRelayOptions, now: clock })
 const products = (token: string, partnerId = t.partnerA) => w.bearer(token, '{ products { nodes { name } } }', partnerId)
 
 describe('The registry', () => {
@@ -121,8 +122,9 @@ describe('Installing', () => {
     const [sigT, sigV] = (told?.headers['dripfunnel-signature'] ?? '').split(',').map((p) => p.split('=')[1] ?? '')
     expect(sigV).toBe(createHmac('sha256', made?.secret ?? '').update(`${sigT}.${told?.body ?? ''}`).digest('hex'))
     // Once sent, the token is gone from the outbox row, and only its hash is kept.
-    const [row] = await db.sql<{ payload: Record<string, unknown> }[]>`select payload from outbox where kind = ${appNoticeKind} and payload->>'grantId' = ${grant}`
+    const [row] = await db.sql<{ payload: Record<string, unknown> }[]>`select payload from outbox where kind = ${appNoticeKind} and payload->>'grantId' = ${grant ?? ''}`
     expect(row?.payload).toEqual({ grantId: grant, notice: 'installed' })
+    expect((await installed('owner')).list?.find((g) => g.id === grant)).toMatchObject({ connection: 'sent' })
     expect(await db.sql`select 1 from app_grant where id = ${grant} and token_hash = encode(sha256(convert_to(${body.token}, 'UTF8')), 'hex')`).toHaveLength(1)
 
     // The token reads the store, store-wide (a supplier's product too), within its scopes.
@@ -172,6 +174,50 @@ describe('Installing', () => {
     }
     // Another store installs the same app on its own grant.
     expect((await install('a2Owner', made?.id ?? '', ['catalog.read'])).code).toBeUndefined()
+  })
+
+  it('holds an install’s notice while the app is suspended and sends it once restored; one for a grant since removed goes nowhere', async () => {
+    const { app: made } = await register('Held notice', ['catalog.read'])
+    const { grant } = await install('owner', made?.id ?? '', ['catalog.read'])
+    await admin('superAdmin', 'mutation S($id: ID!) { setAppStatus(id: $id, suspended: true) }', { id: made?.id })
+    const sent = () => app.sent.filter((s) => JSON.parse(s.body).grant === grant)
+    await relay()
+    expect(sent()).toHaveLength(0)
+    const row = async () => (await db.sql<{ attempts: number; delivered_at: Date | null; failed_at: Date | null; last_error: string | null }[]>`select attempts, delivered_at, failed_at, last_error from outbox where kind = ${appNoticeKind} and payload->>'grantId' = ${grant ?? ''} and payload->>'notice' = 'installed'`)[0]
+    expect(await row()).toMatchObject({ attempts: 0, delivered_at: null, failed_at: null, last_error: 'app_suspended' })
+    await admin('superAdmin', 'mutation S($id: ID!) { setAppStatus(id: $id, suspended: false) }', { id: made?.id })
+    await db.sql`update outbox set next_attempt_at = now() - interval '1 second' where kind = ${appNoticeKind} and payload->>'grantId' = ${grant ?? ''}`
+    await relay()
+    expect(sent().map((s) => s.headers['dripfunnel-event'])).toEqual(['app.installed'])
+
+    const { app: other } = await register('Gone before told', ['catalog.read'])
+    const { grant: removed } = await install('owner', other?.id ?? '', ['catalog.read'])
+    await w.gql('owner', 'mutation U($id: ID!) { uninstallApp(id: $id) }', { id: removed })
+    await relay()
+    const notices = await db.sql<{ notice: string; failed: boolean; last_error: string | null }[]>`select payload->>'notice' as notice, failed_at is not null as failed, last_error from outbox where kind = ${appNoticeKind} and payload->>'grantId' = ${removed ?? ''} order by created_at`
+    expect(notices).toEqual([{ notice: 'installed', failed: true, last_error: 'grant_revoked' }, { notice: 'uninstalled', failed: false, last_error: null }])
+    expect(app.sent.filter((s) => JSON.parse(s.body).grant === removed).map((s) => s.headers['dripfunnel-event'])).toEqual(['app.uninstalled'])
+  })
+
+  it('says an install never reached its app once the relay gives up, so the Owner can install it again', async () => {
+    const { app: made } = await register('Unreachable', ['catalog.read'])
+    const { grant } = await install('owner', made?.id ?? '', ['catalog.read'])
+    expect((await installed('owner')).list?.find((g) => g.id === grant)).toMatchObject({ connection: 'waiting' })
+    appAnswers = 500
+    try {
+      let clock = now()
+      for (let i = 0; i < defaultRelayOptions.maxAttempts + 1; i++) {
+        await relay(() => clock)
+        clock = new Date(clock.getTime() + defaultRelayOptions.maxDelayMs + 1000)
+      }
+    } finally {
+      appAnswers = 200
+    }
+    const [row] = await db.sql<{ payload: Record<string, unknown>; failed: boolean }[]>`select payload, failed_at is not null as failed from outbox where kind = ${appNoticeKind} and payload->>'grantId' = ${grant ?? ''}`
+    expect(row).toEqual({ payload: { grantId: grant, notice: 'installed' }, failed: true })
+    expect((await installed('owner')).list?.find((g) => g.id === grant)).toMatchObject({ connection: 'failed' })
+    expect((await w.gql('owner', 'mutation U($id: ID!) { uninstallApp(id: $id) }', { id: grant })).code).toBeUndefined()
+    expect((await install('owner', made?.id ?? '', ['catalog.read'])).code).toBeUndefined()
   })
 
   it('lets the Owner remove an app DripFunnel has suspended', async () => {

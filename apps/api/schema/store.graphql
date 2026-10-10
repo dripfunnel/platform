@@ -668,6 +668,7 @@ type InstallableApp {
 
 type InstalledApp {
   appId: ID
+  connection: String
   developer: String
   id: ID
   installedAt: String
@@ -693,7 +694,7 @@ input InviteSupplierInput {
 }
 
 type InvoiceLine {
-  amount: String
+  amount: Money
   kind: String
   label: String
   periodEnd: String

@@ -92,7 +92,6 @@ export interface TrackingEvent {
 export interface CourierHook {
   body: string
   headers: Headers
-  receivedAt: Date
 }
 
 export interface CourierGateway {

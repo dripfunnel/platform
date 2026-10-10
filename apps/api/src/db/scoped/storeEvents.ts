@@ -1,5 +1,5 @@
 import type { ScopedSql } from './index'
-import { insertOutbox } from './outbox'
+import { insertOutbox, insertOutboxMany } from './outbox'
 
 // The store's engine events for its webhooks (PLATFORM-PROMPT §5.5): queued in the transaction that made them, only
 // when an endpoint of the store takes the event, and fanned out to its endpoints by the `webhook.event` deliverer.
@@ -17,6 +17,15 @@ export interface StoreEventData {
   id: string
   /** The order's number, which the merchant knows it by. */
   number?: string
+}
+
+/** Many events of one kind in one store with one check, as a save of many stock numbers makes them. */
+export const queueStoreEvents = async (tx: ScopedSql, storeId: string, event: StoreEvent, items: readonly StoreEventData[], at: Date): Promise<void> => {
+  if (items.length === 0) return
+  const [row] = await tx<{ partner_id: string | null }[]>`select store_webhook_partner(${storeId}, ${event}) as partner_id`
+  const partnerId = row?.partner_id
+  if (!partnerId) return
+  await insertOutboxMany(tx, items.map((data) => ({ kind: storeEventKind, idempotencyKey: `${event}:${crypto.randomUUID()}`, payload: { eventId: crypto.randomUUID(), event, data, occurredAt: at.toISOString() }, partnerId, storeId })))
 }
 
 /** `key` makes it once an event: the same order paid twice through two paths is told once. */
