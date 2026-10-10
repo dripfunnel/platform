@@ -188,6 +188,13 @@ const isWrittenTag = (id: ts.Identifier): boolean => {
   return (ts.isJsxOpeningElement(tag) || ts.isJsxSelfClosingElement(tag) || ts.isJsxClosingElement(tag)) && tag.tagName === access
 }
 
+/** Whether a global is read only through one of its members, so the member allowlist sees every use of it. */
+const readsMember = (id: ts.Identifier): boolean => {
+  const p = id.parent
+  if ((ts.isPropertyAccessExpression(p) || ts.isElementAccessExpression(p)) && p.expression === id) return true
+  return ts.isVariableDeclaration(p) && p.initializer === id && ts.isObjectBindingPattern(p.name)
+}
+
 const checkIdentifier = (w: Walk, id: ts.Identifier) => {
   if (!isValueReference(id)) return
   if (id.text === 'require' && isGlobal(w, id)) return w.report(id, 'code/dynamic-import', 'A theme may not load code with require; import from the allowed modules at the top of the file.')
@@ -198,6 +205,10 @@ const checkIdentifier = (w: Walk, id: ts.Identifier) => {
     return
   }
   const called = ts.isCallExpression(id.parent) && id.parent.expression === id
+  const members = globals.get(id.text)
+  if (members instanceof Set && !readsMember(id)) {
+    return w.report(id, 'code/browser-global', `Use ${id.text} only as ${id.text}.member, such as ${id.text}.${[...members][0]}; held in a name or passed on, its other members would go unchecked.`)
+  }
   if (!globals.has(id.text) || (timers.has(id.text) && !called)) w.report(id, 'code/browser-global', browserMessage(id.text))
 }
 
