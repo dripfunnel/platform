@@ -2,8 +2,7 @@ import { z } from 'zod'
 import { hashSessionId, newSessionId } from '#auth/session'
 import { isE164 } from '#core/sms'
 import type { OutgoingWhatsApp } from '#core/whatsapp'
-import { markReminderSent, selectReminderToSend, selectShopHost, skipReminder, switchReminderToEmail } from '#db/scoped/cartReminders'
-import { insertOutbox } from '#db/scoped/outbox'
+import { markReminderSent, selectReminderToSend, selectShopHost, skipReminder } from '#db/scoped/cartReminders'
 import type { ScopedSql } from '#db/scoped/index'
 
 // What the platform sends by WhatsApp (THIRD-PARTY-ACCESS §2.8, decided on #337): abandoned-cart reminders, for stores in
@@ -44,13 +43,6 @@ export const whatsappPayloadSchema = z
   })
   .strict()
 export type WhatsAppPayload = z.infer<typeof whatsappPayloadSchema>
-
-/** WhatsApp can't take it after all (no account, template or number now): the shopper gets the email instead, once. */
-export const fallBackToEmail = async (tx: ScopedSql, payload: WhatsAppPayload, row: { partnerId: string; storeId: string | null }): Promise<boolean> => {
-  if (!(await switchReminderToEmail(tx, payload.reminderId))) return false
-  await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${payload.reminderId}`, payload: { template: 'cart-reminder', ...payload }, partnerId: row.partnerId, storeId: row.storeId })
-  return true
-}
 
 const itemsIn = (n: number) => (n === 1 ? '1 item' : `${n} items`)
 

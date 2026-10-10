@@ -10,8 +10,10 @@ import {
   selectReminderConsent,
   setReminderChannel,
   skipReminder,
+  switchReminderToEmail,
   type ReminderChannel,
   type ReminderToDecideRow,
+  type SkipReason,
 } from '#db/scoped/cartReminders'
 import { suppressedAmong } from '#db/scoped/emailSuppression'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
@@ -137,6 +139,30 @@ export const decideReminder = async ({ sql, now, suppressionKey, whatsappReady }
     else await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', ...message }, partnerId: r.partner_id, storeId: r.store_id })
     return { kind: 'queued', channel }
   })
+}
+
+/**
+ * A WhatsApp reminder that can't go after all (its account, template or number gone by delivery) becomes the email its
+ * row carries, under the email's own rules: the shopper's answer for email and the suppression list, checked now.
+ */
+export const fallBackToEmail = async (
+  tx: ScopedSql,
+  message: { reminderId: string; currency: string; lines: readonly { name: string; quantity: number; amount: string | null }[] },
+  suppressionKey: string,
+  now: Date,
+): Promise<'email' | SkipReason | null> => {
+  const r = await lockReminderToDecide(tx, message.reminderId, now)
+  if (!r || r.state !== 'queued') return null
+  const email = r.cart.email
+  const consent = await selectReminderConsent(tx, r.store_id, r.cart.customer_id, email)
+  const reason: SkipReason | null = !email ? 'no_contact' : !mayEmail(r.store_country, consent) ? 'opted_out' : (await suppressedAmong(tx, suppressionKey, [email])).size > 0 ? 'undeliverable' : null
+  if (reason) {
+    await skipReminder(tx, r.id, reason)
+    return reason
+  }
+  if (!(await switchReminderToEmail(tx, r.id))) return null
+  await insertOutbox(tx, { kind: 'email', idempotencyKey: `cart-reminder:${r.id}`, payload: { template: 'cart-reminder', ...message }, partnerId: r.partner_id, storeId: r.store_id })
+  return 'email'
 }
 
 /** A live order placed: the carts its shopper left in the last week are recovered by it, which stops their reminders. */

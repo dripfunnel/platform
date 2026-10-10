@@ -2,7 +2,7 @@
 
 import { defaultSteps } from './rules'
 
-export { cartRemindKind, decideReminder, markAbandonedCarts, queueDueReminders, recoverCarts, type ReminderDecision } from './jobs'
+export { cartRemindKind, decideReminder, fallBackToEmail, markAbandonedCarts, queueDueReminders, recoverCarts, type ReminderDecision } from './jobs'
 export { cartsAudit, createCartsService, maxStopNote, summaryDays, type AbandonedCartDetail, type AbandonedCartView, type CartStatus, type CartsRefusal, type CartsResult } from './carts'
 export { restoreCart, unsubscribe, type LinkResult, type Restored } from './links'
 export { cartRemindersAudit, createCartRemindersService, type ReminderSettingsView, type RemindersRefusal, type RemindersResult } from './service'
