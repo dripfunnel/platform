@@ -132,15 +132,17 @@ export const loadOfferResults = async (id: string): Promise<OfferResults> =>
 const batchSchema = z.object({ id: z.string(), prefix: z.string(), length: z.number().int(), count: z.number().int(), used: z.number().int(), createdAt: z.string() })
 export type CodeBatch = z.infer<typeof batchSchema>
 
-/** An offer's runs of single-use codes, newest first; an offer has a handful, so the first 50 are all of them. */
-export const loadCodeBatches = async (offerId: string): Promise<CodeBatch[]> =>
-  (
-    await query(
-      'query B($id: ID!) { offerCodeBatches(offerId: $id, first: 50) { nodes { id prefix length count used createdAt } } }',
-      z.object({ offerCodeBatches: z.object({ nodes: z.array(batchSchema) }) }),
-      { id: offerId },
-    )
-  ).offerCodeBatches.nodes
+/** One page of an offer's runs of single-use codes, newest first; `next` reads the page after it. */
+export const codeBatchPageSize = 25
+
+export const loadCodeBatches = async (offerId: string, after: string | null = null): Promise<{ rows: CodeBatch[]; next: string | null }> => {
+  const { offerCodeBatches } = await query(
+    'query B($id: ID!, $first: Int, $after: String) { offerCodeBatches(offerId: $id, first: $first, after: $after) { nodes { id prefix length count used createdAt } pageInfo { hasNextPage endCursor } } }',
+    z.object({ offerCodeBatches: z.object({ nodes: z.array(batchSchema), pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }) }) }),
+    { id: offerId, first: codeBatchPageSize, after },
+  )
+  return { rows: offerCodeBatches.nodes, next: offerCodeBatches.pageInfo.hasNextPage ? offerCodeBatches.pageInfo.endCursor : null }
+}
 
 const checkSchema = z.object({
   code: z.string(),

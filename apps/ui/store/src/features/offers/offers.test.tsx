@@ -91,7 +91,7 @@ beforeEach(() => {
   api.loadOfferNames.mockResolvedValue({ collections: new Map(), filterValues: new Map(), groups: new Map() })
   api.loadOffer.mockImplementation((id: string) => Promise.resolve([welcome, paused, single].find((o) => o.id === id) ?? null))
   api.loadOfferResults.mockResolvedValue({ uses: 38, discountGiven: [{ amount: '41200', currency: 'INR' }], salesWithOffer: [], averageOrder: [], byDay: [] })
-  api.loadCodeBatches.mockResolvedValue([{ id: 'b1', prefix: 'INSTA-', length: 8, count: 500, used: 37, createdAt: '2026-10-01T00:00:00.000Z' }])
+  api.loadCodeBatches.mockResolvedValue({ rows: [{ id: 'b1', prefix: 'INSTA-', length: 8, count: 500, used: 37, createdAt: '2026-10-01T00:00:00.000Z' }], next: null })
   api.setOfferOn.mockResolvedValue(undefined)
   api.endOffer.mockResolvedValue(undefined)
   api.deleteOffer.mockResolvedValue(undefined)
@@ -375,6 +375,19 @@ describe('one offer’s page', () => {
     await settle(1600)
     expect(screen.getByRole('link', { name: 'Download 500 codes (CSV)' }).getAttribute('href')).toBe('blob:codes')
     expect(sessionStorage.getItem('df-offer-codes:b1')).toBeNull()
+  })
+
+  it('reads more runs a page at a time, so no run is out of reach', async () => {
+    const run = (i: number) => ({ id: `b${i}`, prefix: `R${i}-`, length: 8, count: 100, used: 0, createdAt: '2026-10-01T00:00:00.000Z' })
+    api.loadCodeBatches.mockImplementation((_: string, after: string | null) => Promise.resolve(after ? { rows: [run(26)], next: null } : { rows: Array.from({ length: 25 }, (_, i) => run(i + 1)), next: 'c25' }))
+    await show(owner, { entry: '/offers/o3' })
+    expect(screen.queryByText(/start with R26-$/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.codes.more }))
+    await settle()
+    expect(api.loadCodeBatches).toHaveBeenLastCalledWith('o3', 'c25')
+    expect(screen.getByText(/start with R1-$/)).toBeTruthy()
+    expect(screen.getByText(/start with R26-$/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.codes.more })).toBeNull()
   })
 
   it('never offers a codes file to a seat without offers.export', async () => {

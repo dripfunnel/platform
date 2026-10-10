@@ -8,7 +8,8 @@ import { offerRefusal } from './offerActions'
 
 const words = messages.offers.codes
 
-type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; batches: CodeBatch[] }
+// Runs are read a page at a time; "Show more runs" adds the next page below (an offer can hold hundreds).
+type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; batches: CodeBatch[]; next: string | null; more: 'idle' | 'loading' | 'failed' }
 type Job = { kind: 'preparing' } | { kind: 'ready'; url: string; rows: number } | { kind: 'failed'; message: string }
 
 const pollMs = 1500
@@ -94,13 +95,24 @@ export const CodeBatches = ({ offerId, sample, canEdit, canExport, canUpgrade }:
 
   const load = useCallback(() => {
     const mine = ++latest.current
-    if (sample) return setView({ kind: 'ready', batches: sample })
+    if (sample) return setView({ kind: 'ready', batches: sample, next: null, more: 'idle' })
     void loadCodeBatches(offerId).then(
-      (batches) => mine === latest.current && setView({ kind: 'ready', batches }),
+      (page) => mine === latest.current && setView({ kind: 'ready', batches: page.rows, next: page.next, more: 'idle' }),
       () => mine === latest.current && setView({ kind: 'error' }),
     )
   }, [offerId, sample])
   useEffect(load, [load])
+
+  const more = () => {
+    if (view.kind !== 'ready' || !view.next) return
+    const mine = latest.current
+    const shown = view
+    setView({ ...shown, more: 'loading' })
+    void loadCodeBatches(offerId, shown.next).then(
+      (page) => mine === latest.current && setView({ kind: 'ready', batches: [...shown.batches, ...page.rows], next: page.next, more: 'idle' }),
+      () => mine === latest.current && setView({ ...shown, more: 'failed' }),
+    )
+  }
 
   const n = Number(count)
   const countOk = Number.isInteger(n) && n >= 1 && n <= codeBatchLimits.count
@@ -142,6 +154,14 @@ export const CodeBatches = ({ offerId, sample, canEdit, canExport, canUpgrade }:
             </li>
           ))}
         </ul>
+      )}
+      {view.kind === 'ready' && view.next && (
+        <span className="df-offer-batch-file">
+          <button type="button" className="df-button" disabled={view.more === 'loading'} onClick={more}>
+            {view.more === 'loading' ? words.loadingMore : words.more}
+          </button>
+          {view.more === 'failed' && <span className="df-offers-error" role="alert">{words.moreFailed}</span>}
+        </span>
       )}
       {canEdit && (
         <div className="df-offer-make">

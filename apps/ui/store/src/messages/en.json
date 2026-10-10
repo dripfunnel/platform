@@ -4579,7 +4579,10 @@
         "other": "{count} codes made."
       },
       "countError": "Make between 1 and {max} codes at a time.",
-      "prefixError": "Start with up to {max} letters, numbers, - or _."
+      "prefixError": "Start with up to {max} letters, numbers, - or _.",
+      "more": "Show more runs",
+      "loadingMore": "Loading more runs…",
+      "moreFailed": "We couldn’t load more runs. Try again."
     }
   },
   "sales": {
