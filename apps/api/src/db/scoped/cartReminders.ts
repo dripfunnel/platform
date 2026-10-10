@@ -196,6 +196,8 @@ export interface ReminderToDecideRow {
   partner_id: string
   state: 'queued' | 'sent' | 'skipped'
   by_hand: boolean
+  /** The percentage chosen for one sent by hand; a step's own is on the step. */
+  discount_bps: number | null
   /** The step's, or for one sent by hand the first step's; null when the store saved none. */
   step: Pick<StepRow, 'position' | 'channel' | 'subject' | 'body' | 'discount_bps' | 'enabled'> | null
   store_status: string
@@ -226,7 +228,7 @@ export const lockReminderToDecide = async (tx: ScopedSql, id: string, now: Date)
   const [locked] = await tx<{ id: string }[]>`select id from cart_reminder where id = ${id} for update`
   if (!locked) return null
   const [row] = await tx<ReminderToDecideRow[]>`
-    select r.id, r.store_id, s.partner_id, r.state, r.step_id is null as by_hand, s.status as store_status, s.country as store_country, s.time_zone,
+    select r.id, r.store_id, s.partner_id, r.state, r.step_id is null as by_hand, r.discount_bps, s.status as store_status, s.country as store_country, s.time_zone,
       ${reminderLevelSql(tx, tx`r.store_id`, now)}::int as level,
       (select json_build_object('position', st.position, 'channel', st.channel, 'subject', st.subject, 'body', st.body, 'discount_bps', st.discount_bps, 'enabled', st.enabled)
         from cart_reminder_step st where st.store_id = r.store_id and (st.id = r.step_id or (r.step_id is null and st.position = 1))) as step,
@@ -247,10 +249,10 @@ export const lockReminderToDecide = async (tx: ScopedSql, id: string, now: Date)
 }
 
 /** What the shopper said about marketing: their account's, or for a guest the customer row their email is. */
-export const selectReminderConsent = async (tx: ScopedSql, storeId: string, customerId: string | null, email: string | null): Promise<{ consent_state: string; consent_channels: string[] } | null> =>
+export const selectReminderConsent = async (tx: ScopedSql, storeId: string, customerId: string | null, email: string | null): Promise<{ consent_state: string; consent_channels: string[]; phone: string | null } | null> =>
   (
-    await tx<{ consent_state: string; consent_channels: string[] }[]>`
-      select consent_state, to_json(consent_channels) as consent_channels from customer
+    await tx<{ consent_state: string; consent_channels: string[]; phone: string | null }[]>`
+      select consent_state, to_json(consent_channels) as consent_channels, phone from customer
       where store_id = ${storeId} and (id = ${customerId}::uuid or (${customerId}::uuid is null and ${email}::text is not null and lower(email) = lower(${email})))
       order by (id = ${customerId}::uuid) desc nulls last limit 1
     `
@@ -275,7 +277,7 @@ export const setReminderChannel = async (tx: ScopedSql, id: string, channel: Rem
   await tx`update cart_reminder set channel = ${channel}, promotion_code_id = ${codeId} where id = ${id} and state = 'queued'`
 }
 
-export interface ReminderEmailRow {
+export interface ReminderToSendRow {
   store_id: string
   partner_id: string
   store_name: string
@@ -286,6 +288,9 @@ export interface ReminderEmailRow {
   state: string
   channel: string | null
   to: string | null
+  /** The signed-in shopper's own number, the one WhatsApp goes to (never a number typed in the cart). */
+  phone: string | null
+  items: number
   name: string | null
   subject: string | null
   body: string | null
@@ -294,12 +299,12 @@ export interface ReminderEmailRow {
   code_expires_at: Date | null
 }
 
-/** What a reminder's email says, read as it is sent. */
-export const selectReminderEmail = async (tx: ScopedSql, id: string): Promise<ReminderEmailRow | null> =>
+/** What a reminder says, read as it is sent. */
+export const selectReminderToSend = async (tx: ScopedSql, id: string): Promise<ReminderToSendRow | null> =>
   (
-    await tx<ReminderEmailRow[]>`
+    await tx<ReminderToSendRow[]>`
       select r.store_id, s.partner_id, s.name as store_name, s.code as store_code, s.contact_email, s.address, s.main_language as locale, r.state, r.channel,
-        coalesce(o.email, c.email) as to, coalesce(o.shipping_address ->> 'name', c.name) as name,
+        coalesce(o.email, c.email) as to, c.phone, coalesce((select sum(l.quantity)::int from cart_line l where l.order_id = o.id), 0) as items, coalesce(o.shipping_address ->> 'name', c.name) as name,
         st.subject, st.body, pc.code, (a.args ->> 'percent')::int as code_percent, pc.expires_at as code_expires_at
       from cart_reminder r join "order" o on o.id = r.order_id and o.store_id = r.store_id join store s on s.id = r.store_id
       left join customer c on c.id = o.customer_id and c.store_id = o.store_id
