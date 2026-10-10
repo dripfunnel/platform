@@ -5,7 +5,7 @@ import { logEvent } from '#core/log'
 import { applyTracking, type TrackingDeps } from '#engine/modules/orders/index'
 
 // hooks.<host>/couriers/<shiprocket|easypost>/<partner> (THIRD-PARTY-ACCESS §3.2, §4): one address per partner account,
-// as each signs with the partner's own secret; 400 for a bad signature, 503 so the courier sends it again.
+// as each signs with the partner's own secret; 400 for a bad proof, and any failure of ours answers 5xx, which both resend.
 
 const pathPattern = /^\/couriers\/(shiprocket|easypost)\/([0-9a-f-]{36})$/
 const maxBodyBytes = 64 * 1024
