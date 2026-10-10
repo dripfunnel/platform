@@ -80,6 +80,16 @@ const show = async ({ acting = owner, readOnly = false, state = '' } = {}) => {
   })
   await settle()
   await settle()
+  return router
+}
+
+const makeKey = async () => {
+  fireEvent.click(screen.getByRole('button', { name: k.create }))
+  const form = within(screen.getByRole('form', { name: k.newTitle }))
+  fireEvent.change(form.getByLabelText(k.name), { target: { value: 'Feed' } })
+  fireEvent.click(form.getByRole('button', { name: k.createKey }))
+  await settle()
+  return within(screen.getByRole('region', { name: k.secretTitle }))
 }
 
 beforeEach(() => {
@@ -103,6 +113,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
   vi.resetAllMocks()
 })
 
@@ -286,6 +297,53 @@ describe('webhooks', () => {
     expect(durationOf(182)).toBe('182 ms')
     expect(durationOf(1200)).toBe('1.2 s')
     expect(durationOf(null)).toBe('')
+  })
+})
+
+describe('a secret on screen', () => {
+  it('copies it, and says when the browser wouldn’t', async () => {
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('denied'))
+    await show()
+    const once = await makeKey()
+    fireEvent.click(once.getByRole('button', { name: w.copy }))
+    await settle()
+    expect(write).toHaveBeenCalledWith(secret)
+    expect(once.getByRole('status').textContent).toBe(w.copied)
+    fireEvent.click(once.getByRole('button', { name: w.copy }))
+    await settle()
+    expect(once.getByRole('status').textContent).toBe(w.copyFailed)
+  })
+
+  it('asks before leaving while it isn’t stored, and stays when the Owner says no', async () => {
+    const ask = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
+    vi.stubGlobal('confirm', ask)
+    const router = await show()
+    await makeKey()
+    // A blocked navigation never settles, so it isn't awaited.
+    act(() => void router.navigate({ to: '/settings', search: { tab: 'people' } }))
+    await settle()
+    expect(ask).toHaveBeenCalledWith(w.leave)
+    expect(screen.getByText(secret)).toBeTruthy()
+    act(() => void router.navigate({ to: '/settings', search: { tab: 'people' } }))
+    await settle()
+    expect(screen.queryByText(secret)).toBeNull()
+  })
+
+  it('leaves without asking once it is stored', async () => {
+    const ask = vi.fn()
+    vi.stubGlobal('confirm', ask)
+    const router = await show()
+    const once = await makeKey()
+    fireEvent.click(once.getByRole('button', { name: k.stored }))
+    act(() => void router.navigate({ to: '/settings', search: { tab: 'people' } }))
+    await settle()
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('can’t rotate a key while a new one is being made, so nothing typed is lost', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: k.create }))
+    expect((screen.getByRole('button', { name: 'Rotate Stock sync' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
 

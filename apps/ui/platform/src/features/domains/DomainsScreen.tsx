@@ -1,4 +1,4 @@
-import { ConfirmDialog, Toast, useCurrentStaffSession, useScreenState } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, copyText, Toast, useCurrentStaffSession, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { loadMerchantDomains, recheckPartnerDomain, removePartnerDomain, type Address, type DomainKind, type MerchantDomain } from '../../api/domains'
@@ -16,16 +16,7 @@ type Added = Extract<Address, { added: true }>
 
 // Copying a record is the main thing done here; the toast says it worked (§9.1).
 export const useCopy = (setToast: (text: string) => void) =>
-  useCallback(
-    (text: string) =>
-      void Promise.resolve()
-        .then(() => navigator.clipboard.writeText(text))
-        .then(
-          () => setToast(words.records.copied),
-          () => setToast(words.records.copyFailed),
-        ),
-    [setToast],
-  )
+  useCallback((text: string) => void copyText(text).then((ok) => setToast(ok ? words.records.copied : words.records.copyFailed)), [setToast])
 
 export const DomainsScreen = () => {
   const page = domainsRoute.useLoaderData()

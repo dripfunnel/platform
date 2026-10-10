@@ -3664,7 +3664,9 @@
           "other": "That didn’t work. Try again."
         },
         "stale": "Your keys didn’t load again. Reload the page to see them as they are.",
-        "storeFirst": "Store the key below before making or rotating another."
+        "storeFirst": "Store the key below before making or rotating another.",
+        "rotateTitle": "Rotate {name}?",
+        "revokeTitle": "Revoke {name}?"
       },
       "hooks": {
         "title": "Webhooks",
@@ -3736,7 +3738,8 @@
         "turnedOnNone": "Turned back on. No events were waiting.",
         "stale": "Your endpoints didn’t load again. Reload the page to see them as they are.",
         "storeFirst": "Store the signing secret below before adding another endpoint."
-      }
+      },
+      "leave": "Leave without storing the secret? We can’t show it again."
     }
   },
   "orders": {
