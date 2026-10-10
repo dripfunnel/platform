@@ -6,15 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Order, OrderLine, OrderPart } from '../../api/order'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
-import { eventText, leftToShip } from './orderDetail'
+import { eventText, freeToReturn, leftInReturn, leftToShip } from './orderDetail'
 
 // An order's page driven as each seat would (FIRST-RELEASE §6): what it shows, and what shipping, marking paid,
-// cancelling, tracking and notes send.
+// cancelling, tracking, notes, returns and refunds send.
 
 const words = messages.orders.detail
 const cancelWords = messages.orders.cancel
 
-const api = vi.hoisted(() => ({ loadOrder: vi.fn(), shipItems: vi.fn(), addTracking: vi.fn(), markOrderPaid: vi.fn(), cancelOrder: vi.fn(), addOrderNote: vi.fn() }))
+const api = vi.hoisted(() => ({ loadOrder: vi.fn(), shipItems: vi.fn(), addTracking: vi.fn(), markOrderPaid: vi.fn(), cancelOrder: vi.fn(), addOrderNote: vi.fn(), startReturn: vi.fn(), receiveReturn: vi.fn(), cancelReturn: vi.fn(), refund: vi.fn() }))
 vi.mock('../../api/order', async (actual) => ({ ...(await actual<typeof import('../../api/order')>()), ...api }))
 const listApi = vi.hoisted(() => ({ loadStoreTimeZone: vi.fn() }))
 vi.mock('../../api/orders', async (actual) => ({ ...(await actual<typeof import('../../api/orders')>()), ...listApi }))
@@ -104,7 +104,8 @@ beforeEach(() => {
     { id: 'w2', name: 'Pop-up', isDefault: false },
     { id: 'w1', name: 'Main location', isDefault: true },
   ])
-  for (const write of [api.shipItems, api.addTracking, api.markOrderPaid, api.cancelOrder, api.addOrderNote]) write.mockResolvedValue(undefined)
+  for (const write of [api.shipItems, api.addTracking, api.markOrderPaid, api.cancelOrder, api.addOrderNote, api.receiveReturn, api.cancelReturn]) write.mockResolvedValue(undefined)
+  api.startReturn.mockResolvedValue('r9')
 })
 
 afterEach(() => {
@@ -323,5 +324,155 @@ describe('an order’s page', () => {
     })
     await settle()
     expect(screen.getByRole('heading', { name: words.error.title })).toBeTruthy()
+  })
+})
+
+const refundWords = words.refund
+const returnWords = words.returns
+
+const shipped: Order = {
+  ...placed,
+  fulfilmentState: 'fulfilled',
+  parts: [
+    part({ id: 'own', state: 'shipped', lines: [{ ...shirt, fulfilledQuantity: 1 }, { ...cushion, fulfilledQuantity: 2 }] }),
+    part({ id: 'nw', supplierId: 'v1', supplierName: 'Northwind Textiles', shippingMode: 'to-shopper', state: 'shipped', lines: [{ ...dupatta, fulfilledQuantity: 1 }] }),
+  ],
+}
+
+const withReturns: Order = {
+  ...shipped,
+  parts: [part({ id: 'own', state: 'shipped', lines: [{ ...shirt, fulfilledQuantity: 1, returnedQuantity: 1 }, { ...cushion, fulfilledQuantity: 2, returnedQuantity: 1 }] }), shipped.parts[1] ?? part({ id: 'x', lines: [] })],
+  returns: [
+    { id: 'r2', number: 'R-2', state: 'requested', reason: 'damaged', startedAt: '2026-10-10T09:00:00.000Z', lines: [{ lineId: 'l2', quantity: 1 }] },
+    { id: 'r1', number: 'R-1', state: 'received', reason: 'doesnt_fit', startedAt: '2026-10-10T08:30:00.000Z', lines: [{ lineId: 'l1', quantity: 1 }] },
+  ],
+}
+
+describe('returns and refunds', () => {
+  it('counts what can still go back: shipped, not in a return, not refunded outside one; and what a return still owes', () => {
+    const line = { ...cushion, fulfilledQuantity: 2, returnedQuantity: 1 }
+    const order: Order = { ...withReturns, refunds: [{ id: 'f1', supplierId: null, returnId: null, amount: inr('89900'), lines: [{ lineId: 'l2', quantity: 1 }] }] }
+    expect(freeToReturn(order, line)).toBe(0)
+    expect(freeToReturn(withReturns, line)).toBe(1)
+    const received = withReturns.returns[1]
+    if (!received) throw new Error('fixture')
+    expect(leftInReturn(withReturns, received, 'l1')).toBe(1)
+    expect(leftInReturn({ ...withReturns, refunds: [{ id: 'f2', supplierId: null, returnId: 'r1', amount: inr('249900'), lines: [{ lineId: 'l1', quantity: 1 }] }] }, received, 'l1')).toBe(0)
+  })
+
+  it('starts a return for the picked shipped units with a reason, naming the supplier who refunds its own', async () => {
+    await show(owner, shipped)
+    fireEvent.click(button(words.actions.return))
+    const form = within(screen.getByRole('region', { name: returnWords.start.title }))
+    expect(form.getByText('Northwind Textiles · 1 shipped')).toBeTruthy()
+    fireEvent.click(form.getByRole('button', { name: returnWords.start.confirm }))
+    expect(form.getByRole('alert').textContent).toBe(returnWords.start.pickNone)
+    fireEvent.click(form.getByRole('button', { name: 'More of Handloom Dupatta' }))
+    fireEvent.change(form.getByRole('combobox', { name: returnWords.start.reason }), { target: { value: 'damaged' } })
+    fireEvent.click(form.getByRole('button', { name: returnWords.start.confirm }))
+    await settle()
+    expect(api.startReturn).toHaveBeenCalledWith('o1', [{ lineId: 'l3', quantity: 1 }], 'damaged')
+    expect(screen.getByText('Return started — Northwind Textiles will refund their items once they’re back')).toBeTruthy()
+  })
+
+  it('marks a return received, and cancels one the shopper keeps', async () => {
+    await show(owner, withReturns)
+    const coming = within(screen.getByRole('region', { name: 'Return R-2' }))
+    expect(coming.getByText(returnWords.states.requested)).toBeTruthy()
+    expect(coming.getByText('1× Cushion Cover')).toBeTruthy()
+    fireEvent.click(coming.getByRole('button', { name: returnWords.receive }))
+    await settle()
+    expect(api.receiveReturn).toHaveBeenCalledWith('r2')
+    fireEvent.click(within(screen.getByRole('region', { name: 'Return R-2' })).getByRole('button', { name: returnWords.cancel }))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText(returnWords.cancelBody)).toBeTruthy()
+    fireEvent.click(dialog.getByRole('button', { name: returnWords.cancelConfirm }))
+    await settle()
+    expect(api.cancelReturn).toHaveBeenCalledWith('r2')
+    expect(screen.getByText('Return R-2 cancelled')).toBeTruthy()
+  })
+
+  it('refunds a received return’s items, back in stock, and says what went back as the API recorded it', async () => {
+    api.refund.mockResolvedValue(['f9'])
+    await show(owner, withReturns)
+    api.loadOrder.mockResolvedValue({ ...withReturns, refunds: [{ id: 'f9', supplierId: null, returnId: 'r1', amount: inr('249900'), lines: [{ lineId: 'l1', quantity: 1 }] }] })
+    fireEvent.click(within(screen.getByRole('region', { name: 'Return R-1' })).getByRole('button', { name: returnWords.refundThese }))
+    const form = within(screen.getByRole('region', { name: refundWords.title }))
+    expect(form.getByText('1 / 1')).toBeTruthy()
+    expect((form.getByRole('checkbox', { name: refundWords.restock }) as HTMLInputElement).checked).toBe(true)
+    expect((form.getByRole('combobox', { name: refundWords.reason }) as HTMLSelectElement).value).toBe('returned')
+    expect((form.getByRole('textbox', { name: /^Amount/ }) as HTMLInputElement).disabled).toBe(true)
+    fireEvent.click(form.getByRole('button', { name: refundWords.confirmPicked }))
+    await settle()
+    expect(api.refund).toHaveBeenCalledWith({ orderId: 'o1', returnId: 'r1', lines: [{ lineId: 'l1', quantity: 1 }], extra: null, reason: 'returned', restock: true, override: false })
+    expect(screen.getByText('₹2,499.00 refunded to Ananya Rao')).toBeTruthy()
+    expect(screen.queryByRole('region', { name: refundWords.title })).toBeNull()
+  })
+
+  it('gives a goodwill amount on its own, and checks it before sending', async () => {
+    api.refund.mockResolvedValue(['f9'])
+    await show(owner, shipped)
+    fireEvent.click(button(words.actions.refund))
+    const form = within(screen.getByRole('region', { name: refundWords.title }))
+    const amount = form.getByRole('textbox', { name: 'Amount · up to ₹5,796.00' })
+    fireEvent.change(amount, { target: { value: '25.5.0' } })
+    fireEvent.click(form.getByRole('button', { name: refundWords.confirmPicked }))
+    expect(form.getByRole('alert').textContent).toBe(refundWords.amountInvalid)
+    fireEvent.change(amount, { target: { value: '9000' } })
+    fireEvent.click(form.getByRole('button', { name: 'Refund ₹9,000.00' }))
+    expect(form.getByRole('alert').textContent).toBe('That’s more than is left to refund (₹5,796.00).')
+    fireEvent.change(amount, { target: { value: '250' } })
+    fireEvent.click(form.getByRole('button', { name: 'Refund ₹250.00' }))
+    await settle()
+    expect(api.refund).toHaveBeenCalledWith({ orderId: 'o1', returnId: null, lines: [], extra: '25000', reason: 'goodwill', restock: false, override: false })
+  })
+
+  it('refunds a supplier’s items only as an override, saying it’s recorded against them', async () => {
+    api.refund.mockResolvedValue(['f9'])
+    await show(owner, shipped)
+    api.loadOrder.mockResolvedValue({ ...shipped, refunds: [{ id: 'f9', supplierId: 'v1', returnId: null, amount: inr('149900'), lines: [{ lineId: 'l3', quantity: 1 }] }] })
+    fireEvent.click(button(words.actions.refund))
+    const theirs = within(screen.getByRole('group', { name: 'Northwind Textiles’s items' }))
+    expect(theirs.getByText('Northwind Textiles refunds these')).toBeTruthy()
+    fireEvent.click(theirs.getByRole('button', { name: 'More of Handloom Dupatta' }))
+    expect(theirs.getByText(/Refunding here overrides them/)).toBeTruthy()
+    fireEvent.click(button(refundWords.confirmPicked))
+    await settle()
+    expect(api.refund).toHaveBeenCalledWith(expect.objectContaining({ lines: [{ lineId: 'l3', quantity: 1 }], override: true, extra: null }))
+    expect(screen.getByText('₹1,499.00 refunded to Ananya Rao — recorded against Northwind Textiles to settle with them')).toBeTruthy()
+  })
+
+  it('lets a supplier refund its own shipped items, with no amount field or returns to manage', async () => {
+    api.refund.mockResolvedValue(['f9'])
+    const own: Order = { ...shipped, customerName: 'Ananya Rao', total: null, subtotal: null, tax: null, shipping: null, paymentState: null, paymentMethod: null, email: null, phone: null, parts: [shipped.parts[1] ?? part({ id: 'x', lines: [] })], history: [] }
+    await show(supplier, own)
+    api.loadOrder.mockResolvedValue({ ...own, refunds: [{ id: 'f9', supplierId: 'v1', returnId: null, amount: inr('149900'), lines: [{ lineId: 'l3', quantity: 1 }] }] })
+    expect(screen.queryByRole('button', { name: words.actions.return })).toBeNull()
+    fireEvent.click(button(words.actions.refund))
+    const form = within(screen.getByRole('region', { name: refundWords.title }))
+    expect(form.queryByRole('textbox', { name: /^Amount/ })).toBeNull()
+    expect(form.getByText(refundWords.noteSupplier)).toBeTruthy()
+    fireEvent.click(form.getByRole('button', { name: 'More of Handloom Dupatta' }))
+    fireEvent.click(form.getByRole('button', { name: refundWords.confirmPicked }))
+    await settle()
+    expect(api.refund).toHaveBeenCalledWith(expect.objectContaining({ lines: [{ lineId: 'l3', quantity: 1 }], override: false }))
+    expect(screen.getByText('₹1,499.00 refunded for your items')).toBeTruthy()
+  })
+
+  it('keeps the refund form and says why when the payment provider doesn’t answer', async () => {
+    api.refund.mockRejectedValue(new ApiError('PROVIDER_UNAVAILABLE', 'down'))
+    await show(owner, withReturns)
+    fireEvent.click(within(screen.getByRole('region', { name: 'Return R-1' })).getByRole('button', { name: returnWords.refundThese }))
+    fireEvent.click(button(refundWords.confirmPicked))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(words.refused.PROVIDER_UNAVAILABLE)
+    expect(screen.getByRole('region', { name: refundWords.title })).toBeTruthy()
+  })
+
+  it('shows staff Start a return and Refund disabled, with who can', async () => {
+    await show(staff, shipped)
+    expect((button(words.actions.return) as HTMLButtonElement).disabled).toBe(true)
+    expect((button(words.actions.refund) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(words.staffOnly)).toBeTruthy()
   })
 })

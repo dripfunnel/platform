@@ -3,20 +3,23 @@ import '@dripfunnel/shared/ui/detail.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useParams } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { addOrderNote, addTracking, cancelOrder, cancelReasons, loadOrder, markOrderPaid, shipItems, type Order, type OrderShipment } from '../../api/order'
+import { addOrderNote, addTracking, cancelOrder, cancelReasons, cancelReturn, loadOrder, markOrderPaid, receiveReturn, refund, shipItems, startReturn, type Order, type OrderReturn, type OrderShipment, type ReturnReason } from '../../api/order'
 import { loadStoreTimeZone } from '../../api/orders'
 import { loadShipFrom, type Warehouse } from '../../api/stock'
 import { harnessEnabled, harnessSearch } from '../../harness'
-import { fill, formatCount, messages, plural } from '../../messages'
+import { fill, formatCount, formatList, messages, plural } from '../../messages'
 import { refusalIn } from '../common/refusal'
 import { OrderHistory } from './OrderHistory'
+import { OrderReturns } from './OrderReturns'
 import { allLeft, OrderParts, type Picks } from './OrderParts'
 import { OrderShipments } from './OrderShipments'
 import { OrderSide } from './OrderSide'
+import { RefundPanel, type RefundRequest } from './RefundPanel'
+import { ReturnPanel } from './ReturnPanel'
 import { ShipPanel, type ShipForm, type ShipKind } from './ShipPanel'
 import { orderSample, orderStates, sampleWarehouses } from './orderPageStates'
 import { ordersSeatOf } from './ordersAccess'
-import { canShipNow, methodText, nothingSent, orderStatus, paidByHand } from './orderDetail'
+import { canRefundNow, canShipNow, freeToReturn, methodText, nothingSent, orderStatus, paidByHand } from './orderDetail'
 import { moneyText, paymentOf, statusPill } from './orderView'
 import './order.css'
 import './orders.css'
@@ -27,12 +30,12 @@ const shellRoute = getRouteApi('/_app')
 const refused = refusalIn({ ...words.refused, other: words.failed })
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'missing' } | { kind: 'ready'; order: Order }
-type Dialog = 'markPaid' | 'cancel' | 'note'
+type Dialog = 'markPaid' | 'cancel' | 'note' | 'cancelReturn'
 
 interface Action {
   key: string
   label: string
-  tone: 'primary' | 'warning' | 'plain'
+  tone: 'primary' | 'warning' | 'refund' | 'plain'
   disabled: boolean
   onClick: () => void
 }
@@ -52,6 +55,9 @@ export const OrderPage = () => {
   const [timeZone, setTimeZone] = useState('UTC')
   const [picks, setPicks] = useState<Picks | null>(null)
   const [warehouses, setWarehouses] = useState<Warehouse[] | null>(null)
+  const [returning, setReturning] = useState(false)
+  const [refunding, setRefunding] = useState<{ from: OrderReturn | null } | null>(null)
+  const [returnTarget, setReturnTarget] = useState<OrderReturn | null>(null)
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
@@ -83,9 +89,24 @@ export const OrderPage = () => {
     void loadStoreTimeZone().then((zone) => setTimeZone(zone ?? 'UTC'), () => setTimeZone('UTC'))
   }, [forced, access.supplier, canRead])
 
-  const openShip = (order: Order) => {
+  // One form at a time: shipping, starting a return or refunding.
+  const closeForms = () => {
     setFormError(null)
+    setPicks(null)
+    setReturning(false)
+    setRefunding(null)
+  }
+  const openShip = (order: Order) => {
+    closeForms()
     setPicks(allLeft(order, access.supplier))
+  }
+  const openReturn = () => {
+    closeForms()
+    setReturning(true)
+  }
+  const openRefund = (from: OrderReturn | null) => {
+    closeForms()
+    setRefunding({ from })
   }
 
   const shipOpen = picks !== null
@@ -101,6 +122,8 @@ export const OrderPage = () => {
   // The harness opens the form as the prototype's Ship items does.
   useEffect(() => {
     if (forced === 'shipping' && sample) setPicks(allLeft(sample, false))
+    if (forced === 'returning') setReturning(true)
+    if (forced === 'refunding') setRefunding({ from: sample?.returns.find((r) => r.state === 'received') ?? null })
   }, [forced, sample])
 
   if (!canRead)
@@ -141,7 +164,7 @@ export const OrderPage = () => {
       await work()
       setToast(done)
       setDialog(null)
-      setPicks(null)
+      closeForms()
       load()
     } catch (error) {
       onError(refused(error))
@@ -172,6 +195,39 @@ export const OrderPage = () => {
     void run(() => addTracking(shipment.id, courierName, trackingNumber, trackingUrl), words.shipments.added, setFormError)
   }
 
+  const begin = (lines: { lineId: string; quantity: number }[], reason: ReturnReason) => {
+    const suppliers = [...new Set(order.parts.filter((p) => p.supplierName && p.lines.some((l) => lines.some((x) => x.lineId === l.id))).map((p) => p.supplierName ?? ''))]
+    const done = suppliers.length > 0 ? fill(words.returns.start.doneSuppliers, { suppliers: formatList(suppliers) }) : words.returns.start.done
+    if (sample) return setReturning(false)
+    void run(async () => void (await startReturn(order.id, lines, reason)), done, setFormError)
+  }
+
+  const receive = (r: OrderReturn) => {
+    if (sample) return
+    void run(() => receiveReturn(r.id), words.returns.received, setToast)
+  }
+
+  // The toast says what went back, as the API recorded it: the refunds it made, read back with the order.
+  const giveBack = (request: RefundRequest) => {
+    if (sample) return setRefunding(null)
+    const { suppliers, ...input } = request
+    setBusy(true)
+    void refund({ orderId: order.id, ...input })
+      .then(async (ids) => {
+        const fresh = await loadOrder(order.id).catch(() => null)
+        const made = (fresh ?? order).refunds.filter((r) => ids.includes(r.id))
+        const first = made[0]
+        const total = first ? moneyText({ amount: String(made.reduce((sum, r) => sum + BigInt(r.amount.amount), 0n)), currency: first.amount.currency }) : ''
+        const name = order.customerName ?? words.customer.guest
+        setToast(access.supplier ? fill(words.refund.doneSupplier, { amount: total }) : suppliers.length > 0 ? fill(words.refund.doneOverride, { amount: total, name, suppliers: formatList(suppliers) }) : fill(words.refund.done, { amount: total, name }))
+        closeForms()
+        if (fresh) setView({ kind: 'ready', order: fresh })
+        else load()
+      })
+      .catch((error: unknown) => setFormError(refused(error)))
+      .finally(() => setBusy(false))
+  }
+
   const actions: Action[] = []
   const ro = access.readOnly
   if (access.canShip && canShipNow(order, access.supplier) && Object.keys(left).length > 0)
@@ -179,12 +235,17 @@ export const OrderPage = () => {
   const awaitingHand = !access.supplier && order.state === 'placed' && order.paymentState === 'pending' && paidByHand(order.paymentMethod)
   // Shown disabled to a seat that can’t, with who can (FIRST-RELEASE §3.1).
   if (awaitingHand) actions.push({ key: 'markPaid', label: words.actions.markPaid, tone: 'warning', disabled: ro || !access.canMarkPaid, onClick: () => setDialog('markPaid') })
+  const returnable = order.state === 'placed' && order.parts.some((p) => p.lines.some((l) => freeToReturn(order, l) > 0))
+  const staffBlocked = !access.supplier && !access.canRefund
+  if (!access.supplier && returnable) actions.push({ key: 'return', label: words.actions.return, tone: 'plain', disabled: ro || staffBlocked, onClick: openReturn })
+  if ((access.canRefund || !access.supplier) && canRefundNow(order, access.supplier) && (!access.supplier || returnable))
+    actions.push({ key: 'refund', label: words.actions.refund, tone: 'refund', disabled: ro || staffBlocked, onClick: () => openRefund(null) })
   if (access.canCancel && order.state === 'placed' && order.paymentState !== 'refunded' && nothingSent(order))
     actions.push({ key: 'cancel', label: words.actions.cancel, tone: 'plain', disabled: ro, onClick: () => setDialog('cancel') })
 
   const notes: string[] = []
   if (ro) notes.push(words.readOnly)
-  else if (!access.canMarkPaid && awaitingHand) notes.push(words.staffOnly)
+  else if ((!access.canMarkPaid && awaitingHand) || (staffBlocked && actions.some((a) => a.key === 'return' || a.key === 'refund'))) notes.push(words.staffOnly)
 
   const dialogProps = (): ConfirmDialogProps | null => {
     const shared = { open: true, target: fill(words.note.target, { number: order.number }), error: dialogError, onCancel: () => setDialog(null) }
@@ -228,6 +289,18 @@ export const OrderPage = () => {
           input: { label: words.note.label, type: 'text', initial: '', placeholder: words.note.placeholder, error: (value) => (value.trim() === '' ? words.note.missing : value.trim().length > 1000 ? words.note.tooLong : null) },
           onConfirm: (_, value) => void run(() => addOrderNote(order.id, (value ?? '').trim()), words.note.done, failed),
         }
+      case 'cancelReturn': {
+        const number = returnTarget?.number ?? ''
+        return {
+          ...shared,
+          target: fill(words.returns.title, { number }),
+          title: fill(words.returns.cancelTitle, { number }),
+          consequence: words.returns.cancelBody,
+          confirmLabel: words.returns.cancelConfirm,
+          cancelLabel: words.returns.cancelKeep,
+          onConfirm: () => void run(() => cancelReturn(returnTarget?.id ?? ''), fill(words.returns.cancelled, { number }), failed),
+        }
+      }
       case null:
         return null
     }
@@ -275,6 +348,21 @@ export const OrderPage = () => {
               onShip={ship}
             />
           )}
+          {returning && <ReturnPanel order={order} busy={busy} error={formError} onCancel={closeForms} onStart={begin} />}
+          <OrderReturns
+            order={order}
+            timeZone={timeZone}
+            canManage={!access.supplier && access.canRefund}
+            canRefund={access.canRefund}
+            disabled={ro || busy}
+            onReceive={receive}
+            onCancel={(r) => {
+              setReturnTarget(r)
+              setDialog('cancelReturn')
+            }}
+            onRefund={openRefund}
+          />
+          {refunding && <RefundPanel key={refunding.from?.id ?? 'refund'} order={order} access={access} from={refunding.from} busy={busy} error={formError} onCancel={closeForms} onRefund={giveBack} />}
           <OrderShipments order={order} timeZone={timeZone} canTrack={(s) => access.canShip && !ro && (access.supplier || s.supplierId === null)} busy={busy} error={formError} onTrack={track} />
           <OrderHistory order={order} timeZone={timeZone} note={access.canNote ? { disabled: ro, onAdd: () => setDialog('note') } : null} />
         </div>

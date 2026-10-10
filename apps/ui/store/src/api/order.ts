@@ -168,3 +168,44 @@ export const cancelOrder = async (orderId: string, reason: CancelReason): Promis
 export const addOrderNote = async (orderId: string, note: string): Promise<void> => {
   await query('mutation N($o: ID!, $n: String!) { addOrderNote(orderId: $o, note: $n) }', z.object({ addOrderNote: z.boolean() }), { o: orderId, n: note })
 }
+
+export const returnReasons = ['doesnt_fit', 'changed_mind', 'damaged', 'wrong_item', 'not_as_described'] as const
+export type ReturnReason = (typeof returnReasons)[number]
+
+/** Shipped units on their way back, each to its owner's location by its part's mode; answers the return's id. */
+export const startReturn = async (orderId: string, lines: { lineId: string; quantity: number }[], reason: ReturnReason): Promise<string> =>
+  (await query('mutation R($o: ID!, $l: [ShipLineInput!]!, $r: ReturnReason!) { startReturn(orderId: $o, lines: $l, reason: $r) }', z.object({ startReturn: z.string() }), { o: orderId, l: lines, r: reason })).startReturn
+
+export const receiveReturn = async (returnId: string): Promise<void> => {
+  await query('mutation R($r: ID!) { receiveReturn(returnId: $r) }', z.object({ receiveReturn: z.boolean() }), { r: returnId })
+}
+
+export const cancelReturn = async (returnId: string): Promise<void> => {
+  await query('mutation C($r: ID!) { cancelReturn(returnId: $r) }', z.object({ cancelReturn: z.boolean() }), { r: returnId })
+}
+
+export const refundReasons = ['returned', 'goodwill', 'other'] as const
+export type RefundReason = (typeof refundReasons)[number]
+
+export interface RefundInput {
+  orderId: string
+  returnId: string | null
+  /** Picked units, each at the share the shopper paid for it, which the API works out. */
+  lines: { lineId: string; quantity: number }[]
+  /** Money with no units: the store's own goodwill, in minor units. */
+  extra: string | null
+  reason: RefundReason
+  restock: boolean
+  /** The store refunding a supplier's lines itself, recorded on that supplier's ledger. */
+  override: boolean
+}
+
+/** One refund an owner, on the payment the money came in on; answers the refunds made. */
+export const refund = async (input: RefundInput): Promise<string[]> =>
+  (
+    await query(
+      'mutation F($o: ID!, $ret: ID, $l: [RefundLineInput!]!, $x: String, $r: RefundReason!, $s: Boolean, $v: Boolean) { refund(orderId: $o, returnId: $ret, lines: $l, extra: $x, reason: $r, restock: $s, override: $v) }',
+      z.object({ refund: z.array(z.string()) }),
+      { o: input.orderId, ret: input.returnId, l: input.lines, x: input.extra, r: input.reason, s: input.restock, v: input.override },
+    )
+  ).refund

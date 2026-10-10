@@ -1,6 +1,7 @@
 import type { Order, OrderLine, OrderPart } from '../../api/order'
 import { fill, formatCount, messages } from '../../messages'
 import { leftToShip, lineName } from './orderDetail'
+import { Stepper } from './Stepper'
 import { moneyText, type OrdersAccess } from './orderView'
 
 const words = messages.orders.detail
@@ -57,15 +58,7 @@ export const OrderParts = ({ order, access, picks, onPick }: OrderPartsProps) =>
                 {picks && left > 0 && (
                   <div className="df-order-pick">
                     <span>{words.line.shipNow}</span>
-                    <span className="df-order-stepper">
-                      <button type="button" aria-label={fill(words.line.fewer, { name })} disabled={picked === 0} onClick={() => onPick(line.id, picked - 1)}>
-                        −
-                      </button>
-                      <span aria-live="polite">{fill(words.line.picked, { picked: formatCount(picked), left: formatCount(left) })}</span>
-                      <button type="button" aria-label={fill(words.line.more, { name })} disabled={picked >= left} onClick={() => onPick(line.id, picked + 1)}>
-                        +
-                      </button>
-                    </span>
+                    <Stepper name={name} value={picked} max={left} onChange={(value) => onPick(line.id, value)} />
                   </div>
                 )}
               </div>

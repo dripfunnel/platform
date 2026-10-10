@@ -2,8 +2,9 @@ import type { Order, OrderLine, OrderPart } from '../../api/order'
 import { hoursAgo, inr } from './orderStates'
 
 // An order's states under ?state= (ui/README.md §6), for any id: loading, error, notFound, toShip, shipping,
-// partlyShipped, paymentPending, shipped, cancelled, readOnly, staff, supplier, supplierToShopper.
-export const orderStates = ['loading', 'error', 'notFound', 'toShip', 'shipping', 'partlyShipped', 'paymentPending', 'shipped', 'cancelled', 'readOnly', 'staff', 'supplier', 'supplierToShopper'] as const
+// partlyShipped, paymentPending, shipped, cancelled, returning, returns, refunding, readOnly, staff, supplier,
+// supplierToShopper.
+export const orderStates = ['loading', 'error', 'notFound', 'toShip', 'shipping', 'partlyShipped', 'paymentPending', 'shipped', 'cancelled', 'returning', 'returns', 'refunding', 'readOnly', 'staff', 'supplier', 'supplierToShopper'] as const
 export type OrderState = (typeof orderStates)[number]
 
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
@@ -92,6 +93,25 @@ export const orderSample = (state: OrderState | null): Order | null => {
         paymentMethod: 'cod',
         history: [{ id: 'e1', action: 'order.placed', at: hoursAgo(2), actorKind: 'shopper', actorName: null, note: null }],
       }
+    case 'returning':
+    case 'returns':
+    case 'refunding': {
+      const shippedOrder = orderSample('shipped') ?? baseOrder
+      if (state === 'returning') return shippedOrder
+      return {
+        ...shippedOrder,
+        parts: [ownPart([shirt({ fulfilledQuantity: 1, returnedQuantity: 1 }), cushion({ fulfilledQuantity: 2, returnedQuantity: 1 })], 'shipped'), supplierPart([dupatta({ sentToStoreQuantity: 1, fulfilledQuantity: 1 })], 'to-store', 'shipped')],
+        returns: [
+          { id: 'r2', number: 'R1042-2', state: 'requested', reason: 'damaged', startedAt: hoursAgo(0.5), lines: [{ lineId: 'l2', quantity: 1 }] },
+          { id: 'r1', number: 'R1042-1', state: 'received', reason: 'doesnt_fit', startedAt: hoursAgo(0.8), lines: [{ lineId: 'l1', quantity: 1 }] },
+        ],
+        history: [
+          { id: 'e5', action: 'return.started', at: hoursAgo(0.5), actorKind: 'person', actorName: 'Farhan Ali', note: null },
+          { id: 'e4', action: 'return.received', at: hoursAgo(0.6), actorKind: 'person', actorName: 'Farhan Ali', note: null },
+          ...shippedOrder.history,
+        ],
+      }
+    }
     case 'shipped':
       return {
         ...baseOrder,

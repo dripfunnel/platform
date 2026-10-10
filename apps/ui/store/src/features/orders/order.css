@@ -406,6 +406,110 @@
   padding-top: 4px;
 }
 
+.df-order-action--refund {
+  border-color: var(--df-color-warning-border);
+  color: var(--df-color-link);
+}
+
+.df-order-pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.df-order-pick-row > :first-child {
+  flex: 1;
+  min-width: 160px;
+}
+
+.df-order-return {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+  padding: 14px 16px;
+  font-size: 13px;
+}
+
+.df-order-return-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-order-return-actions .df-button {
+  min-height: 34px;
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-order-form--refund {
+  border-color: var(--df-color-link);
+}
+
+.df-order-refund-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+}
+
+.df-order-refund-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+  font-size: 13px;
+}
+
+.df-order-refund-who {
+  color: var(--df-color-muted);
+}
+
+.df-order-refund-who--theirs {
+  color: var(--df-color-warning);
+}
+
+.df-order-override {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: var(--df-radius-small);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 12px;
+}
+
+.df-order-check {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  font-size: 13px;
+}
+
+.df-order-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--df-color-focus);
+}
+
+.df-order-refund-confirm {
+  border-color: var(--df-color-link);
+  background: var(--df-color-link);
+  color: var(--df-color-surface);
+  font-family: var(--df-font-heading);
+  font-weight: 700;
+}
+
+.df-order-refund-confirm:hover:not(:disabled) {
+  background: var(--df-color-link-hover);
+}
+
 @media (max-width: 720px) {
   .df-order-grid,
   .df-order-form-grid {

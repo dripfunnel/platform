@@ -3147,21 +3147,29 @@
       "refused": {
         "NOT_FOUND": "That order isn’t here any more.",
         "NOT_SHIPPABLE": "This order can’t ship: it’s cancelled, a test, or still waiting for its card payment.",
-        "NOT_YOURS": "Some of these items or that location aren’t yours to ship from.",
-        "TOO_MANY": "That’s more than is left. Someone may have shipped some already.",
+        "NOT_YOURS": "Some of these items, or that location, aren’t yours.",
+        "TOO_MANY": "That’s more than is left. Someone may have changed this order since it loaded.",
         "NOT_ENOUGH_STOCK": "That location hasn’t that many. Change the stock or pick another location.",
         "NO_STORE_LOCATION": "The store has no location to send these to yet.",
         "NOT_CANCELLABLE": "Something has already been sent, so this order can’t be cancelled. Start a return instead.",
         "PAYMENT_PENDING": "The shopper’s card payment is still going through. Try again in a few minutes.",
         "NOT_PENDING": "This order isn’t waiting for payment any more.",
         "READ_ONLY": "A read-only support session can’t change this store.",
-        "INVALID_INPUT": "Something here isn’t valid. Check it and try again."
+        "INVALID_INPUT": "Something here isn’t valid. Check it and try again.",
+        "NOT_PAID": "Nothing has been paid on this order to give back.",
+        "NOT_RECEIVED": "Mark the return as received first.",
+        "NOT_REQUESTED": "This return isn’t on its way back any more.",
+        "NO_LOCATION": "There’s no location for these to come back to yet. Add one under Products › Warehouses.",
+        "PROVIDER_UNAVAILABLE": "The payment provider didn’t answer. Nothing was refunded; try again.",
+        "PROVIDER_REFUSED": "The payment provider refused the refund. Nothing was refunded."
       },
       "actions": {
         "ship": "Ship items",
         "choosing": "Choosing items…",
         "markPaid": "Mark as paid",
-        "cancel": "Cancel order"
+        "cancel": "Cancel order",
+        "return": "Start a return",
+        "refund": "Refund"
       },
       "groups": {
         "mine": "You pack these",
@@ -3294,6 +3302,77 @@
       "sendTo": {
         "title": "Send your items to",
         "body": "{store} sends it on to the shopper. You don’t see who bought it."
+      },
+      "returns": {
+        "title": "Return {number}",
+        "states": {
+          "requested": "On its way back",
+          "received": "Received · refund due",
+          "refunded": "Refunded",
+          "cancelled": "Cancelled"
+        },
+        "sub": "{reason} · started {time}",
+        "suppliersRefund": "{reason} · started {time} · {suppliers} refund their items",
+        "receive": "Mark as received",
+        "received": "Received — now refund the items",
+        "refundThese": "Refund these items",
+        "cancel": "Cancel return",
+        "cancelTitle": "Cancel return {number}?",
+        "cancelBody": "Use this when the shopper keeps the items. Nothing is refunded, and the items can be returned again later.",
+        "cancelConfirm": "Cancel return",
+        "cancelKeep": "Keep it",
+        "cancelled": "Return {number} cancelled",
+        "reasons": {
+          "doesnt_fit": "Doesn’t fit",
+          "changed_mind": "Changed their mind",
+          "damaged": "Damaged in transit",
+          "wrong_item": "Wrong item sent",
+          "not_as_described": "Not as described"
+        },
+        "start": {
+          "title": "Start a return",
+          "reason": "Reason",
+          "shipped": "{count} shipped",
+          "supplierShipped": "{supplier} · {count} shipped",
+          "note": "The items come back to their owner’s location.",
+          "noteSuppliers": "The items come back to their owner’s location. Suppliers refund their own items once you mark them received.",
+          "pickNone": "Pick at least one item coming back.",
+          "cancel": "Cancel",
+          "confirm": "Start return",
+          "done": "Return started — mark it received when the items are back",
+          "doneSuppliers": "Return started — {suppliers} will refund their items once they’re back"
+        }
+      },
+      "refund": {
+        "title": "Refund",
+        "mine": "Your items",
+        "theirs": "{supplier}’s items",
+        "youRefund": "You refund these",
+        "theyRefund": "{supplier} refunds these",
+        "each": "{price} each",
+        "override": "{supplier} normally refunds their own items. Refunding here overrides them: it’s recorded against {supplier}, for you to settle with them.",
+        "amount": "Amount · up to {max}",
+        "amountLabel": "Amount",
+        "amountPicked": "What they paid for the picked items",
+        "amountInvalid": "Type an amount, like 250 or 250.50.",
+        "amountTooMuch": "That’s more than is left to refund ({max}).",
+        "reason": "Reason",
+        "reasons": {
+          "returned": "Returned by shopper",
+          "goodwill": "Goodwill",
+          "other": "Something else"
+        },
+        "restock": "Put the picked items back in stock",
+        "note": "Money goes back through {method}. Pick items, or type an amount for a goodwill refund.",
+        "noteByHand": "You give the money back yourself ({method}); this records that you did. Pick items, or type an amount for a goodwill refund.",
+        "noteSupplier": "Money goes back on the shopper’s payment. The store sees every refund you make.",
+        "pickNone": "Pick items, or type an amount.",
+        "cancel": "Cancel",
+        "confirmPicked": "Refund the picked items",
+        "confirmAmount": "Refund {amount}",
+        "done": "{amount} refunded to {name}",
+        "doneOverride": "{amount} refunded to {name} — recorded against {suppliers} to settle with them",
+        "doneSupplier": "{amount} refunded for your items"
       }
     },
     "cancel": {

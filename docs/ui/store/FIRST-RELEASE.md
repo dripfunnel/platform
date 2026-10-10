@@ -299,6 +299,14 @@ check. Every figure is the API's (`home`, §19).
   seat, as `cancelOrder` takes `orders.write`. Decided there: the courier is typed, since booking a label is #311's
   and the courier list is the Owner's (`shippingSettings`); the tracking link is asked for because the shipping text
   waits for one; Print (packing slip, invoice) is left for its own card. `?state=` per `orderPageStates.ts`.
+- **Built on #314, part 3**: **Start a return** (the shipped units no return holds and no refund outside one has
+  taken, with the prototype's five reasons), each return's card (On its way back → Received · refund due → Refunded,
+  or Cancelled), **Mark as received**, **Cancel return**, and **Refund**: units picked per line, grouped by who refunds
+  them, each at what the shopper paid as the API works it out, or an amount on its own for goodwill (`extra`, the
+  store's); the store picking a supplier's lines overrides it, "recorded against {supplier}, for you to settle with
+  them" (§18); "Put the picked items back in stock" is `restock`. The toast says what went back from the refunds the
+  API made. Decided there: picked items and a typed amount don't mix, since a typed figure would have to be split
+  across lines; no return label is promised, since booking one is #311's; the refund reasons are the API's three.
 
 ## 7. Customers (`PortalOrders` › Customers, flows 40, 72)
 

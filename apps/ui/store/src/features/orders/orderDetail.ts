@@ -1,4 +1,4 @@
-import type { Order, OrderAddress, OrderEvent, OrderLine, OrderPart } from '../../api/order'
+import type { Order, OrderAddress, OrderEvent, OrderLine, OrderPart, OrderReturn } from '../../api/order'
 import { fill, messages } from '../../messages'
 import { merchantStatus, partStatus, type OrderStatus } from './orderView'
 
@@ -52,3 +52,18 @@ export const eventText = (event: OrderEvent): string => {
   const what = detail ? fill(words.history.withDetail, { action, detail }) : action
   return event.actorName ? fill(words.history.by, { what, name: event.actorName }) : what
 }
+
+const sum = (quantities: readonly { lineId: string; quantity: number }[], lineId: string) => quantities.reduce((total, l) => (l.lineId === lineId ? total + l.quantity : total), 0)
+
+/** Shipped units no return holds and no refund outside one has taken: what can go back now (refunds.ts `free`). */
+export const freeToReturn = (order: Order, line: OrderLine): number => {
+  const outside = sum(order.refunds.filter((r) => r.returnId === null).flatMap((r) => r.lines), line.id)
+  return Math.max(0, line.fulfilledQuantity - line.returnedQuantity - outside)
+}
+
+/** What a return holds of a line that its refunds haven't taken yet. */
+export const leftInReturn = (order: Order, ret: OrderReturn, lineId: string): number =>
+  Math.max(0, sum(ret.lines, lineId) - sum(order.refunds.filter((r) => r.returnId === ret.id).flatMap((r) => r.lines), lineId))
+
+/** Paid and not over; a supplier reads no payment, so the API decides for it. */
+export const canRefundNow = (order: Order, supplier: boolean): boolean => order.state === 'placed' && (supplier || order.paymentState === 'paid' || order.paymentState === 'partly_refunded')
