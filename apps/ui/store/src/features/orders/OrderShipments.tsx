@@ -19,6 +19,15 @@ export interface OrderShipmentsProps {
   onTrack: (shipment: OrderShipment, courierName: string | null, trackingNumber: string, trackingUrl: string | null) => void
 }
 
+/** Only an https address becomes a link: the page shows what a supplier's shipments carry, whatever was stored. */
+const isHttps = (url: string): boolean => {
+  try {
+    return new URL(url).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 const whenText = (s: OrderShipment, timeZone: string) => {
   const time = timeText(s.shippedAt, timeZone)
   if (s.kind === 'sent_to_store') return fill(words.sentToStore, { time })
@@ -45,7 +54,7 @@ export const OrderShipments = ({ order, timeZone, canTrack, busy, error, onFormC
           {s.trackingNumber ? (
             <span>
               {s.courierName ? fill(words.tracking, { courier: s.courierName, number: s.trackingNumber }) : fill(words.trackingOnly, { number: s.trackingNumber })}
-              {s.trackingUrl && (
+              {s.trackingUrl && isHttps(s.trackingUrl) && (
                 <>
                   {' '}
                   <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer">

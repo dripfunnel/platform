@@ -221,10 +221,11 @@ export const OrderPage = () => {
           consequence: !paid ? cancelWords.bodyUnpaid : access.money && rest ? fill(cancelWords.bodyPaid, { name, amount: rest, method }) : fill(cancelWords.bodyPaidNoAmount, { name, method }),
           confirmLabel: cancelWords.confirm,
           cancelLabel: cancelWords.keep,
-          choices: [{ key: 'reason', label: cancelWords.reason, options: cancelReasons.map((r) => ({ value: r, label: cancelWords.reasons[r] })), initial: 'out_of_stock', error: () => null }],
+          choices: [{ key: 'reason', label: cancelWords.reason, options: cancelReasons.map((r) => ({ value: r, label: cancelWords.reasons[r] })), initial: 'out_of_stock', error: (value) => (cancelReasons.some((r) => r === value) ? null : cancelWords.reason) }],
           onConfirm: (_, __, picked) => {
-            const reason = cancelReasons.find((r) => r === picked.reason) ?? 'store'
-            void run(() => cancelOrder(order.id, reason), fill(cancelWords.done, { number: order.number }), failed)
+            // The dialog refuses any other pick, so a reason nobody chose is never recorded.
+            const reason = cancelReasons.find((r) => r === picked.reason)
+            if (reason) void run(() => cancelOrder(order.id, reason), fill(cancelWords.done, { number: order.number }), failed)
           },
         }
       }
