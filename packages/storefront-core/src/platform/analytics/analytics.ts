@@ -1,4 +1,5 @@
 import type { ConsentChoice } from '../consent/consent'
+import { setScriptSrc } from '../csp/trustedTypes'
 import { toDecimal, type Money } from '../../pricing/money'
 
 // Commerce events to the providers the store set up, each only after the shopper agreed to its
@@ -56,7 +57,7 @@ const win = () => globalThis as unknown as Layer & { document?: Document }
 
 const analyticsHosts = ['www.googletagmanager.com', 'connect.facebook.net']
 
-/** A script URL core may load: https, on an analytics host (the Trusted Types policy around it is #481's). */
+/** A script URL core may load: https, on an analytics host; set through Trusted Types' `df-core`. */
 export const analyticsScriptUrl = (src: string): string => {
   const url = new URL(src)
   if (url.protocol !== 'https:' || !analyticsHosts.includes(url.host)) throw new Error(`Not an analytics script URL: ${src}`)
@@ -68,7 +69,7 @@ const addScript = (src: string) => {
   if (!doc) return
   const s = doc.createElement('script')
   s.async = true
-  s.src = analyticsScriptUrl(src)
+  setScriptSrc(s, analyticsScriptUrl(src))
   doc.head.appendChild(s)
 }
 

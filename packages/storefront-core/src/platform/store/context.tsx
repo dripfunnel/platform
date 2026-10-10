@@ -6,7 +6,8 @@ import type { ShopClient } from '../api/client'
 import { createI18n, type Translate } from '../i18n/i18n'
 import type { ShopStoreSettings } from './store'
 
-export type RenderMode = 'live' | 'preview'
+/** `studio` is the AI studio's frame on the preview origin (AI-STUDIO §1). */
+export type RenderMode = 'live' | 'preview' | 'studio'
 
 export type Storefront = {
   client: ShopClient

@@ -14,3 +14,8 @@ export { setProblemReporter, shopProblemReporter, type StorefrontProblem } from 
 export { jsonLdText, seoFor, type Seo, type SeoInput } from './platform/seo/seo'
 export { StorefrontProvider, useStorefront, type RenderMode, type Storefront } from './platform/store/context'
 export { completeStore, loadStore, storeQuery, storeSchema, type ShopStoreSettings } from './platform/store/store'
+export { CheckoutBoundary } from './checkout/fallback'
+export { Link } from './platform/browser/link'
+export { hashSource, inlineHashes, pageHeaders, storeCsp, storeCspSchema, studioCsp, studioCspSchema, trustedTypesPolicies, type InlineHashes, type StoreCsp, type StudioCsp } from './platform/csp/csp'
+export { installTrustedTypes } from './platform/csp/trustedTypes'
+export { SectionBoundary } from './platform/render/boundary'

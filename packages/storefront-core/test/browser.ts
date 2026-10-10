@@ -26,11 +26,11 @@ export const launchChrome = (): Promise<Browser> => {
 /** Core's DOM-only source as browser modules: /core/sealed/element is src/sealed/element.ts, compiled on request. */
 const coreModule = (path: string): string | null => {
   const file = `${src}${path}.ts`
-  if (!/^[a-z/]+$/.test(path) || !existsSync(file)) return null
+  if (!/^[A-Za-z/]+$/.test(path) || !existsSync(file)) return null
   return ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
 }
 
-export type Answer = { body: string; type?: string; headers?: Record<string, string> }
+export type Answer = { body: string | Uint8Array; type?: string; headers?: Record<string, string> }
 
 export type Site = { origin: string; close: () => Promise<void> }
 

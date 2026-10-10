@@ -331,8 +331,9 @@ checkout's or confirmation's *(decided on #480)*.
 
 ### 3.5 Sealed components and the runtime walls
 
-*Built on #481 part 1*: the sealed components and their self-check, as below. The CSP, Trusted
-Types and error boundaries are its part 2.
+*Built on #481*: everything below, as each bullet's "as built" says. Wiring it into the template's
+route shims (the boundaries, `installTrustedTypes`) and the edge Worker sending the headers are
+their own cards.
 
 - **Sealed components** render in a **closed Shadow DOM**, styled only through the custom
   properties and `::part` names core documents; theme CSS can't reach inside. Each checks its
@@ -369,35 +370,52 @@ Types and error boundaries are its part 2.
     holds its session, AI-STUDIO §8).
   - `./testing` checks presence in a page's HTML (`pageProblems`) and visibility in a rendered
     page (`visibilityProblems`, without the layout checks where nothing is laid out, as in jsdom).
-- **CSP**: scripts only from the store's own build and the hosts of the analytics providers
+- **CSP**: scripts only from the store's own build, the hosts of the analytics providers
   **this store has set up** (GA4, Google Tag Manager, Meta Pixel, §2.1), which load only after
-  consent; `connect-src` only the Shop API, the store's payment providers and those analytics
+  consent, and its payment providers' SDKs (§2.1 `checkout`, *added on #481*); `connect-src` only the Shop API, the store's payment providers and those analytics
   hosts; images from the store's media, the payment providers and those analytics hosts (Meta
   Pixel sends by image request); fonts from the store's build; `form-action` only the store and
   the payment providers; `frame-src` only the payment providers. **Trusted Types** required,
   with the policies `df-core` (core's own script URLs for those analytics hosts), `default`
   (core's narrow fallback, accepting a script URL only on those hosts, for providers that set a
-  plain string such as `fbevents.js`) and `goog#html` (gtag.js and GTM's own); nothing else. A
+  plain string such as `fbevents.js`, or on the build's own origins, which `script-src` allows
+  anyway, for a bundler's chunk loader; *the build's origins decided on #481*) and `goog#html` (gtag.js and GTM's own); nothing else. A
   GTM container's tags run only from the hosts `script-src` lists, so a merchant's extra tags
-  need their host added to the store's analytics settings. The header and the `default` policy
-  are built on #481.
+  need their host added to the store's analytics settings.
+- **As built on #481** *(decided there)*: `storeCsp(store, hashes)` and `studioCsp(studio, hashes)`
+  build the headers from a page's `inlineHashes` (SHA-256 of each inline script and style, never a
+  nonce, so the same build gives the same header); `pageHeaders` gives each HTML file of a build
+  its own header, which the build writes into its manifest for the edge Worker to send unchanged
+  (LIVE-SHOP §4 step 8, §5 step 5). A store's header is `default-src 'none'`, then the sources
+  above, with `frame-ancestors 'none'`, `base-uri 'none'` and `object-src 'none'`; an origin is
+  https with no path. `goog#html` is listed only when the store uses GA4 or GTM. Each provider's
+  hosts are in `platform/csp` (the payment providers' *proposed*, until #313's adapters confirm
+  them). `installTrustedTypes({ analyticsHosts, buildOrigins })` creates `df-core` and `default`
+  once, before any script loads; core's analytics set their script through `df-core`.
 - **The studio frame's CSP is stricter** (decided 2026-10-09, #520; AI-STUDIO §8):
   - **`default-src 'none'`**, so every directive not listed below is closed;
   - `script-src`, `connect-src`, `font-src` and `style-src` are `'self'` only: the frame's own
     origin, which means `/__studio/{session}/`, its `/shop-api` and its WebSocket, with the
-    build's style hashes;
+    build's style hashes (so the studio's page has no inline script);
   - `img-src` and `media-src` are `'self'` and the platform's own media host (product photos and
     core's `<Video>`), never another party's;
   - `form-action`, `frame-src`, `object-src`, `base-uri`, `manifest-src` and `worker-src` are
     `'none'`;
   - no analytics and no payment provider: the studio loads neither, and checkout there shows a
     placeholder (a test checkout is the preview link's, PREVIEW §5 step 6). Links to other hosts
-    open a new tab outside the frame, carrying nothing from it (`noreferrer`);
+    open a new tab outside the frame, carrying nothing from it (`noreferrer`): core's `<Link>`
+    does this when the render mode is `studio`, and renders no link at all for an address that
+    isn't a path or `http(s)`;
   - `frame-ancestors` only the store's portal host.
 
   So nothing in the frame can send a request to another host.
 - **Error boundaries**: core wraps every section; a section that throws falls back to the
   baseline section and is reported. Checkout falls back to the baseline checkout.
+  As built on #481 *(decided there)*: a section is what a route shim renders, the theme's page for
+  the route and its layout's header and footer, each in `SectionBoundary(name, baseline)` with the
+  baseline theme's same part. `CheckoutBoundary(baseline)` switches a shopper whose theme checkout
+  throws to the baseline checkout for the rest of the visit (remembered in `sessionStorage`). Both
+  report through `reportStorefrontProblem` (`SECTION` with the section's name, `CHECKOUT`).
 
 ---
 
