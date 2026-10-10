@@ -9,8 +9,8 @@ import { fill, formatCount, formatList, messages } from '../../messages'
 import '../common/chips.css'
 import { RadioCards } from '../common/RadioCards'
 import { convertedText, generateCode, localOf, offerLimits, type Amounts, type Field, type Minimum, type OfferDraft, type StoreFacts, type Target, type Who } from './offerDraft'
-import { countryName, repeatText, weekdayName, zoneName, type RegionWords } from './offerView'
-import { moneyText } from '../orders/orderView'
+import { countryName, repeatText, weekdayName, type RegionWords } from './offerView'
+import { moneyText, zoneName } from '../orders/orderView'
 
 // The editor's five questions and "With other offers" (designs/OfferEditor.dc.html, Set up; OFFERS-DESIGN C–M), one
 // page, in §1's order. Only what the API can save is drawn (§7: no dead controls).

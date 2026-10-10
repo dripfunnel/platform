@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Offer, OfferAction } from '../../api/offers'
 import { messages } from '../../messages'
-import { blankDraft, seasonCode, convertedMinor, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, type StoreFacts } from './offerDraft'
+import { blankCondition, blankDraft, seasonCode, convertedMinor, convertedText, draftOf, endInstantOf, errorsOf, inputOf, instantOf, localOf, type StoreFacts } from './offerDraft'
 
 // The editor's form and the record it saves (OFFERS-DESIGN §3.1): the store's time zone, money per currency, what each
 // kind of offer sends, and what stops it saving.
@@ -152,6 +152,28 @@ describe('money in other currencies', () => {
     ]
     const tiered = draftOf({ ...base, action: action({ operation: 'tiered_discount', kind: 'percent', tiers: steps }) }, multi)
     expect(inputOf(tiered, multi, true).action).toEqual({ operation: 'tiered_discount', kind: 'percent', tiers: steps.map((t) => ({ minimum: t.minimum, percent: t.percent })) })
+  })
+
+  it('keeps a second condition for a slot the form draws once, so an edit loses no restriction', () => {
+    const conditions = [
+      blankCondition({ operation: 'customer_group', groupIds: ['g1'] }),
+      blankCondition({ operation: 'shipping_country', countries: ['IN'] }),
+      blankCondition({ operation: 'minimum_order_amount', amounts: [{ currency: 'INR', amount: '99900' }] }),
+      blankCondition({ operation: 'minimum_quantity', minimum: 3 }),
+      blankCondition({ operation: 'recurrence', days: [5], from: '17:00', to: '21:00' }),
+      blankCondition({ operation: 'recurrence', days: [6], from: '10:00', to: '12:00' }),
+    ]
+    const d = draftOf({ ...base, action: action({ operation: 'order_percentage_discount', percent: 10 }), conditions }, india)
+    expect(d).toMatchObject({ who: 'groups', groupIds: ['g1'], minimum: 'amount', repeat: { days: [5], from: '17:00', to: '21:00' } })
+    expect(d.kept.map((c) => c.operation)).toEqual(['shipping_country', 'minimum_quantity', 'recurrence'])
+    expect(inputOf(d, india, true).conditions).toEqual([
+      { operation: 'minimum_order_amount', amounts: [{ currency: 'INR', amount: '99900' }] },
+      { operation: 'customer_group', groupIds: ['g1'] },
+      { operation: 'recurrence', days: [5], from: '17:00', to: '21:00' },
+      { operation: 'shipping_country', countries: ['IN'] },
+      { operation: 'minimum_quantity', minimum: 3 },
+      { operation: 'recurrence', days: [6], from: '10:00', to: '12:00' },
+    ])
   })
 
   it('keeps a “buys at least N” it can’t draw, as it came', () => {
