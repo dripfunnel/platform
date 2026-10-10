@@ -1,9 +1,9 @@
-import { formatMoney } from '@dripfunnel/shared/format'
+import { formatMoney, moneyText } from '@dripfunnel/shared/format'
 import type { ApiMoney } from '../../api/orders'
-import type { BillingInterval, CataloguePlan, PlanValue, Subscription, Usage } from '../../api/billing'
+import type { BillingDetails, BillingInterval, CataloguePlan, Invoice, PlanValue, Subscription, Usage } from '../../api/billing'
 import { fill, formatCount, formatDay, locale, messages, plural } from '../../messages'
 
-// What the Billing screen says about the API's plan and usage (PortalBilling); nothing here prices anything.
+// What the Billing screen says about the API's plan, usage and invoices (PortalBilling); nothing here prices anything.
 
 const words = messages.billing
 
@@ -114,4 +114,53 @@ export const cardText = (card: Subscription['card']): string => {
   if (!card.expires) return on
   const [year, month] = card.expires.split('-')
   return fill(words.card.expires, { card: on, date: `${month ?? ''}/${(year ?? '').slice(2)}` })
+}
+
+export type TaxIdKind = 'gstin' | 'vat' | 'other'
+
+const euCountries = new Set(['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'])
+
+/** Which tax number invoices carry for a country (SAAS §7.2: a GSTIN in India, a VAT number in the EU). */
+export const taxIdKindOf = (country: string | null): TaxIdKind => (country === 'IN' ? 'gstin' : country && euCountries.has(country) ? 'vat' : 'other')
+
+/** The lines "On your invoices" shows: the saved details, or the store's own until some are saved. */
+export const billToLines = (details: BillingDetails | null, store: { legalName: string | null; name: string; contactEmail: string | null; country: string | null; taxId: string | null } | null): { lines: string[]; kind: TaxIdKind } => {
+  const kind = details?.taxIdKind ?? taxIdKindOf(details?.address.country ?? store?.country ?? null)
+  const taxLine = (value: string | null) => fill(words.details.taxIdLine, { label: words.details.taxId[kind], value: value ?? words.details.none })
+  if (details) {
+    const a = details.address
+    const address = [a.line1, a.line2, a.city, a.region, a.postal, a.country].filter(Boolean).join(', ')
+    return { lines: [details.legalName, address, taxLine(details.taxId), details.email], kind }
+  }
+  if (!store) return { lines: [], kind }
+  return { lines: [store.legalName ?? store.name, taxLine(store.taxId), store.contactEmail ?? ''].filter(Boolean), kind }
+}
+
+export interface InvoiceRowView {
+  id: string
+  number: string
+  day: string
+  label: string
+  amount: string
+  status: string
+  tone: 'ok' | 'due' | 'muted'
+}
+
+export const invoiceRow = (invoice: Invoice): InvoiceRowView => ({
+  id: invoice.id,
+  number: invoice.number ?? invoice.id.slice(0, 8),
+  day: dayOf(invoice.issuedAt),
+  label: invoice.kind === 'proration' ? words.invoices.proration : (invoice.lines[0]?.label ?? ''),
+  amount: money(invoice.amount),
+  status: words.invoices.status[invoice.status],
+  tone: invoice.status === 'paid' ? 'ok' : invoice.status === 'open' ? 'due' : 'muted',
+})
+
+/** "Export all": one row an invoice, amounts in units of their currency as a spreadsheet reads them. */
+export const invoiceCsvRows = (invoices: readonly Invoice[]): string[][] => {
+  const units = (m: ApiMoney) => moneyText({ amount: Number(m.amount), currency: m.currency })
+  return [
+    [...words.invoices.columns],
+    ...invoices.map((i) => [i.number ?? i.id, i.issuedAt.slice(0, 10), invoiceRow(i).label, units(i.amount), units(i.tax), i.amount.currency, words.invoices.status[i.status]]),
+  ]
 }

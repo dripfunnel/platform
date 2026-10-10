@@ -4502,6 +4502,71 @@
       "expires": "{card} · expires {date}",
       "note": "Never used for your shoppers’ payments. Not needed during the trial."
     },
+    "details": {
+      "title": "On your invoices",
+      "edit": "Edit",
+      "editLabel": "Edit the details on your invoices",
+      "none": "Not added yet",
+      "taxId": {
+        "gstin": "GSTIN",
+        "vat": "VAT number",
+        "other": "Tax number"
+      },
+      "taxIdLine": "{label}: {value}",
+      "notes": {
+        "gstin": "Add your GSTIN to claim input tax credit on the fee.",
+        "vat": "With a valid VAT number, invoices are reverse-charge where it applies.",
+        "other": "Shown on every invoice you get."
+      },
+      "form": {
+        "title": "Details on your invoices",
+        "body": "New invoices use these. Invoices already sent keep the details they were sent with.",
+        "legalName": "Company name",
+        "email": "Send invoices to",
+        "line1": "Address",
+        "line2": "Address line 2",
+        "city": "City",
+        "region": "State or region",
+        "postal": "Postal code",
+        "country": "Country",
+        "countryHint": "Two letters, like IN",
+        "taxIdHint": "Optional",
+        "missing": "Fill in the company name, email, address, city, postal code and country.",
+        "badEmail": "Enter an email like name@example.com.",
+        "badCountry": "Type the country as two letters, like IN or DE.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saved": "Saved — the next invoice uses these details."
+      }
+    },
+    "invoices": {
+      "title": "Invoices",
+      "exportAll": "Export all",
+      "exporting": "Exporting…",
+      "none": "No invoices yet.",
+      "noneTrial": "No invoices yet — the trial is free.",
+      "status": {
+        "paid": "Paid",
+        "open": "Due",
+        "void": "Void",
+        "refunded": "Refunded"
+      },
+      "proration": "Plan change",
+      "pdf": "PDF",
+      "pdfLabel": "PDF of invoice {number}",
+      "pdfBlocked": "Your browser blocked the new tab. Allow pop-ups for this site and try again.",
+      "more": "Show more",
+      "file": "invoices.csv",
+      "columns": [
+        "Invoice",
+        "Date",
+        "Description",
+        "Amount",
+        "Tax",
+        "Currency",
+        "Status"
+      ]
+    },
     "change": {
       "title": "Switch to {plan}",
       "titleKeep": "Keep {plan}?",
@@ -4541,6 +4606,7 @@
       "NO_CARD": "Add the card that pays for your plan first.",
       "CHANGE_IN_PROGRESS": "Another change to your plan is going through. Try again in a minute.",
       "CANCELLED": "Your store is closing, so its plan can’t change.",
+      "NO_PDF": "That invoice’s PDF isn’t available.",
       "NOT_FOUND": "That is no longer here.",
       "INVALID_INPUT": "Something here isn’t valid. Check the details and try again.",
       "READ_ONLY": "Your store is view-only right now, so this can’t change.",

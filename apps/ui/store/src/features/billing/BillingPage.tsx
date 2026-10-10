@@ -1,14 +1,17 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
-import { ConfirmDialog, EmptyState, ErrorState, LoadingState, Strip, Toast, useScreenState } from '@dripfunnel/shared/ui'
+import { csv } from '@dripfunnel/shared/format'
+import { ConfirmDialog, EmptyState, ErrorState, LoadingState, reserveTab, Strip, Toast, useScreenState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { changePlan, loadBilling, quotePlanChange, type BillingInterval, type BillingRead, type CataloguePlan, type PlanChangeQuote, type PlanChangeWhen, type Subscription } from '../../api/billing'
+import { changePlan, invoicePdf, loadAllInvoices, loadBilling, loadMoreInvoices, quotePlanChange, type BillingDetails, type BillingInterval, type BillingRead, type CataloguePlan, type PlanChangeQuote, type PlanChangeWhen, type Subscription } from '../../api/billing'
 import { harnessEnabled } from '../../harness'
 import { fill, formatTime, messages } from '../../messages'
+import { downloadCsv } from '../common/download'
 import { refusalIn } from '../common/refusal'
+import { BillingDetailsDialog } from './BillingDetailsDialog'
 import { billingSample, billingStates, type BillingState } from './billingStates'
-import { cardText, dayOf, metersOf, money } from './billingView'
+import { billToLines, cardText, dayOf, invoiceCsvRows, invoiceRow, metersOf, money } from './billingView'
 import { PlanGrid } from './PlanGrid'
 import './billing.css'
 
@@ -33,7 +36,7 @@ const seatOf = (forced: BillingState | null, acting: { permissions: readonly str
 
 export type Change = { plan: CataloguePlan; interval: BillingInterval; quotes: Partial<Record<PlanChangeWhen, PlanChangeQuote>> } | { plan: CataloguePlan; interval: BillingInterval; keep: string }
 
-/** Billing (PortalBilling, FIRST-RELEASE §16): the partner's plans, this month's usage and the card. */
+/** Billing (PortalBilling, FIRST-RELEASE §16): the partner's plans, this month's usage, the card, the invoice details and the invoices. */
 export const BillingPage = () => {
   const { acting, state } = shellRoute.useLoaderData()
   const router = useRouter()
@@ -47,6 +50,7 @@ export const BillingPage = () => {
   const [pending, setPending] = useState<string | null>(null)
   const [change, setChange] = useState<Change | null>(null)
   const [changeError, setChangeError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const latest = useRef(0)
@@ -122,6 +126,12 @@ export const BillingPage = () => {
       .finally(() => setBusy(false))
   }
 
+  const savedDetails = (details: BillingDetails) => {
+    setEditing(false)
+    setToast(words.details.form.saved)
+    setView((v) => (v.kind === 'ready' ? { kind: 'ready', read: { ...v.read, details } } : v))
+  }
+
   const canChange = Boolean(seat.canWrite && sub && sub.collectedBy === 'dripfunnel' && !sub.cancelAt && (!seat.readOnly || sub.status === 'past_due'))
 
   return (
@@ -170,14 +180,17 @@ export const BillingPage = () => {
                 <p className="df-billing-strong">{cardText(sub.card)}</p>
                 <p className="df-billing-note">{words.card.note}</p>
               </section>
+              <DetailsCard read={read} canEdit={seat.canWrite && !seat.readOnly} onEdit={() => setEditing(true)} />
             </div>
           </div>
+          <InvoicesCard read={read} sub={sub} sample={Boolean(sample)} onToast={setToast} />
           {sub.asOf && <p className="df-billing-note">{fill(words.asOf, { time: formatTime(sub.asOf) })}</p>}
         </>
       )}
       {change && sub && (
         <ChangeDialog change={change} sub={sub} busy={busy} error={changeError} onConfirm={confirmChange} onCancel={() => openChange(null)} />
       )}
+      {editing && read && <BillingDetailsDialog details={read.details} store={read.store} sample={Boolean(sample)} onSaved={savedDetails} onCancel={() => setEditing(false)} />}
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>
   )
@@ -270,6 +283,107 @@ const UsageCard = ({ read }: { read: BillingRead }) => {
           {m.note && <span className="df-billing-note">{m.note}</span>}
         </div>
       ))}
+    </section>
+  )
+}
+
+const DetailsCard = ({ read, canEdit, onEdit }: { read: BillingRead; canEdit: boolean; onEdit: () => void }) => {
+  const { lines, kind } = billToLines(read.details, read.store)
+  return (
+    <section className="df-billing-card" aria-labelledby="df-billing-details">
+      <div className="df-billing-card-head">
+        <h2 id="df-billing-details">{words.details.title}</h2>
+        {canEdit && (
+          <button type="button" className="df-billing-link" onClick={onEdit} aria-label={words.details.editLabel}>
+            {words.details.edit}
+          </button>
+        )}
+      </div>
+      {lines.map((line) => (
+        <p key={line} className="df-billing-line">
+          {line}
+        </p>
+      ))}
+      <p className="df-billing-note">{words.details.notes[kind]}</p>
+    </section>
+  )
+}
+
+const InvoicesCard = ({ read, sub, sample, onToast }: { read: BillingRead; sub: Subscription; sample: boolean; onToast: (text: string) => void }) => {
+  const [rows, setRows] = useState(read.invoices.rows)
+  const [next, setNext] = useState(read.invoices.next)
+  const [busy, setBusy] = useState<'more' | 'export' | null>(null)
+  useEffect(() => {
+    setRows(read.invoices.rows)
+    setNext(read.invoices.next)
+  }, [read])
+
+  const more = () => {
+    if (!next) return
+    setBusy('more')
+    loadMoreInvoices(next)
+      .then((page) => {
+        setRows((r) => [...r, ...page.rows])
+        setNext(page.next)
+      })
+      .catch((error: unknown) => onToast(refused(error)))
+      .finally(() => setBusy(null))
+  }
+
+  const exportAll = () => {
+    if (sample) return downloadCsv(csv(invoiceCsvRows(rows)), words.invoices.file)
+    setBusy('export')
+    loadAllInvoices()
+      .then((all) => downloadCsv(csv(invoiceCsvRows(all)), words.invoices.file))
+      .catch((error: unknown) => onToast(refused(error)))
+      .finally(() => setBusy(null))
+  }
+
+  // The tab opens on the click, before Stripe's fresh link comes back, or the browser blocks it.
+  const openPdf = (id: string) => {
+    if (sample) return
+    const tab = reserveTab()
+    if (tab.blocked) return onToast(words.invoices.pdfBlocked)
+    invoicePdf(id)
+      .then((url) => tab.go(url))
+      .catch((error: unknown) => {
+        tab.close()
+        onToast(refused(error))
+      })
+  }
+
+  return (
+    <section className="df-billing-card df-billing-invoices" aria-labelledby="df-billing-invoices">
+      <div className="df-billing-card-head">
+        <h2 id="df-billing-invoices">{words.invoices.title}</h2>
+        {rows.length > 0 && (
+          <button type="button" className="df-billing-link" disabled={busy !== null} onClick={exportAll}>
+            {busy === 'export' ? words.invoices.exporting : words.invoices.exportAll}
+          </button>
+        )}
+      </div>
+      {rows.length === 0 && <p className="df-billing-note">{sub.status === 'trial' ? words.invoices.noneTrial : words.invoices.none}</p>}
+      {rows.length > 0 && (
+        <ul className="df-billing-invoice-list">
+          {rows.map(invoiceRow).map((row) => (
+            <li key={row.id} className="df-billing-invoice">
+              <span className="df-billing-invoice-number">{row.number}</span>
+              <span className="df-billing-invoice-day">{row.day}</span>
+              <span className="df-billing-invoice-label">{row.label}</span>
+              <span>{row.amount}</span>
+              <span className={`df-billing-invoice-status df-billing-invoice-status--${row.tone}`}>{row.status}</span>
+              <button type="button" className="df-billing-link" onClick={() => openPdf(row.id)} aria-label={fill(words.invoices.pdfLabel, { number: row.number })}>
+                {words.invoices.pdf}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {next && (
+        <button type="button" className="df-button df-billing-more" disabled={busy !== null} onClick={more}>
+          {words.invoices.more}
+        </button>
+      )}
     </section>
   )
 }

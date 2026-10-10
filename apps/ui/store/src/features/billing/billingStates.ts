@@ -1,4 +1,4 @@
-import type { BillingRead, CataloguePlan, PlanValue, Subscription } from '../../api/billing'
+import type { BillingRead, CataloguePlan, Invoice, PlanValue, Subscription } from '../../api/billing'
 
 // Billing's states under ?state= (ui/README.md §6): loading, error, active, trial, trialEnding, pastDue, scheduled,
 // partner, noPlan, readOnly, denied.
@@ -28,6 +28,18 @@ const plans: CataloguePlan[] = harness
     ]
   : []
 
+const invoice = (id: string, number: string, issuedAt: string, amount: string, status: Invoice['status'] = 'paid'): Invoice => ({
+  id,
+  number,
+  kind: 'subscription',
+  status,
+  amount: inr(amount),
+  tax: inr(String(Math.round(Number(amount) * 0.18))),
+  issuedAt,
+  paidAt: status === 'paid' ? issuedAt : null,
+  lines: [{ label: 'Growth plan', kind: 'plan' }],
+})
+
 const active: Subscription | null = harness
   ? {
       plan: { id: 'growth', name: 'Growth' },
@@ -56,6 +68,15 @@ const read = (subscription: Subscription | null, more: Partial<BillingRead> = {}
     { key: 'ai_prompts', used: 12, limit: 50, unlimited: false, monthly: true },
     { key: 'publish_now', used: 10, limit: 10, unlimited: false, monthly: true },
   ],
+  details: {
+    legalName: 'Kesari Textiles Pvt Ltd',
+    email: 'accounts@kesari.example',
+    address: { line1: '14, 3rd Cross, Indiranagar', line2: null, city: 'Bengaluru', region: 'Karnataka', postal: '560038', country: 'IN' },
+    taxId: '29ABCDE1234F1Z5',
+    taxIdKind: 'gstin',
+  },
+  store: { legalName: 'Kesari Textiles Pvt Ltd', name: 'Kesari', contactEmail: 'hello@kesari.example', country: 'IN', taxId: null, address: null },
+  invoices: { rows: [invoice('i3', 'KC-0003', inDays(-12), '83300'), invoice('i2', 'KC-0002', inDays(-42), '83300'), invoice('i1', 'KC-0001', inDays(-72), '83300')], next: null },
   ...more,
 })
 
@@ -68,17 +89,17 @@ export const billingSample = (state: BillingState | null): BillingRead | null =>
     case 'readOnly':
       return read(active)
     case 'trial':
-      return read(trial)
+      return read(trial, { invoices: { rows: [], next: null }, details: null })
     case 'trialEnding':
-      return read({ ...trial, trialEndsAt: inDays(1) })
+      return read({ ...trial, trialEndsAt: inDays(1) }, { invoices: { rows: [], next: null } })
     case 'pastDue':
-      return read({ ...active, status: 'past_due' })
+      return read({ ...active, status: 'past_due' }, { invoices: { rows: [invoice('i4', 'KC-0004', inDays(-2), '83300', 'open'), ...read(active).invoices.rows], next: null } })
     case 'scheduled':
       return read({ ...active, plan: { id: 'pro', name: 'Growth Pro' }, price: inr('116600'), scheduled: { plan: { id: 'growth', name: 'Growth' }, interval: 'MONTH', at: active.periodEnd } })
     case 'partner':
       return read({ ...active, collectedBy: 'partner' })
     case 'noPlan':
-      return read(null, { plans: [], usage: [] })
+      return read(null, { plans: [], usage: [], invoices: { rows: [], next: null } })
     default:
       return null
   }

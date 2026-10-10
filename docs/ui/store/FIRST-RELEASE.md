@@ -736,6 +736,12 @@ reads and changes nothing; while past due the Owner may still choose a plan. Dec
   the Store API doesn't answer, so adding or changing the card waits for it (open question on #332), and a paid plan
   without a card is held at the dialog with the reason rather than refused as `NO_CARD`.
 
+**Part 2** adds the details on invoices (`billingDetails`, `saveBillingDetails`, the Owner's and not while read-only)
+and the invoices (`invoices` ten a page with Show more, Export all, and `downloadInvoice` for the PDF), read with the
+rest, with `storeInfo` to start the details from. Decided here: the details start from Store info's until saved, the
+country is typed as two letters and the API checks the tax number; **Export all** is a CSV the browser builds from every
+page, since the API has no invoice export; a PDF opens only at a Stripe https link.
+
 ## 17. Supplier views
 
 **Your products** (only theirs, with counts and empty states; stock only for the Stock-only tier;

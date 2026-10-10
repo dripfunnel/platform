@@ -3,22 +3,28 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BillingRead, CataloguePlan, PlanChangeQuote, Subscription } from '../../api/billing'
+import type { BillingRead, CataloguePlan, Invoice, PlanChangeQuote, Subscription } from '../../api/billing'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
-import { cardText, includesRows, metersOf, planPoints } from './billingView'
+import { billToLines, cardText, includesRows, invoiceCsvRows, metersOf, planPoints } from './billingView'
 
-// Billing driven as the Owner would (FIRST-RELEASE §16): plans and their limits, a change with its quote, usage and the
-// card; and who is turned away or kept from changing anything.
+// Billing driven as the Owner would (FIRST-RELEASE §16): plans and their limits, a change with its quote, usage, the
+// card, the details on invoices and the invoices; and who is turned away or kept from changing anything.
 
 const words = messages.billing
 
 const api = vi.hoisted(() => ({
   loadBilling: vi.fn(),
+  loadMoreInvoices: vi.fn(),
+  loadAllInvoices: vi.fn(),
   quotePlanChange: vi.fn(),
   changePlan: vi.fn(),
+  saveBillingDetails: vi.fn(),
+  invoicePdf: vi.fn(),
 }))
 vi.mock('../../api/billing', async (actual) => ({ ...(await actual<typeof import('../../api/billing')>()), ...api }))
+const download = vi.hoisted(() => ({ downloadCsv: vi.fn() }))
+vi.mock('../common/download', () => download)
 
 const { BillingPage } = await import('./BillingPage')
 
@@ -61,6 +67,8 @@ const sub: Subscription = {
   asOf: '2026-10-10T09:00:00.000Z',
 }
 
+const invoice = (id: string, number: string): Invoice => ({ id, number, kind: 'subscription', status: 'paid', amount: inr('83300'), tax: inr('14994'), issuedAt: '2026-10-01T00:00:00.000Z', paidAt: null, lines: [{ label: 'Growth plan', kind: 'plan' }] })
+
 const read = (more: Partial<BillingRead> = {}): BillingRead => ({
   subscription: sub,
   plans: [free, growth, pro],
@@ -68,6 +76,9 @@ const read = (more: Partial<BillingRead> = {}): BillingRead => ({
     { key: 'products', used: 84, limit: 100, unlimited: false, monthly: false },
     { key: 'staff', used: 1, limit: null, unlimited: true, monthly: false },
   ],
+  details: null,
+  store: { legalName: null, name: 'Kesari', contactEmail: 'hello@kesari.example', country: 'IN', taxId: null, address: { street: '14 MG Road', city: 'Bengaluru', postal: '560001', region: 'KA' } },
+  invoices: { rows: [invoice('i2', 'KC-0002')], next: 'c1' },
   ...more,
 })
 
@@ -143,10 +154,20 @@ describe('what Billing says', () => {
     expect(cardText(sub.card)).toBe('Visa ending 4242 · expires 04/28')
     expect(cardText(null)).toBe(words.card.none)
   })
+
+  it('starts the details from the store’s own until some are saved, with the tax number its country uses', () => {
+    expect(billToLines(null, read().store)).toEqual({ lines: ['Kesari', 'GSTIN: Not added yet', 'hello@kesari.example'], kind: 'gstin' })
+    const saved = billToLines({ legalName: 'Kesari GmbH', email: 'a@b.de', address: { line1: 'Hauptstr. 1', line2: null, city: 'Berlin', region: null, postal: '10115', country: 'DE' }, taxId: 'DE123456789', taxIdKind: 'vat' }, null)
+    expect(saved).toEqual({ lines: ['Kesari GmbH', 'Hauptstr. 1, Berlin, 10115, DE', 'VAT number: DE123456789', 'a@b.de'], kind: 'vat' })
+  })
+
+  it('exports invoices with amounts in units of their currency', () => {
+    expect(invoiceCsvRows([invoice('i1', 'KC-0001')])).toEqual([[...words.invoices.columns], ['KC-0001', '2026-10-01', 'Growth plan', '833.00', '149.94', 'INR', 'Paid']])
+  })
 })
 
 describe('the Billing screen', () => {
-  it('shows the partner’s plans, who charges, usage and the card', async () => {
+  it('shows the partner’s plans, who charges, usage, the card, the details and the invoices', async () => {
     await show(owner)
     expect(screen.getByText(/What you pay Kesari Commerce for your shop/)).toBeTruthy()
     expect(screen.getByText(/DripFunnel collects it on Kesari Commerce’s behalf/)).toBeTruthy()
@@ -157,6 +178,8 @@ describe('the Billing screen', () => {
     expect(plan('Growth Pro').getByRole('button', { name: words.plans.upgrade })).toBeTruthy()
     expect(screen.getByRole('meter', { name: 'Products' }).getAttribute('aria-valuenow')).toBe('84')
     expect(screen.getByText('Visa ending 4242 · expires 04/28')).toBeTruthy()
+    expect(screen.getByText('GSTIN: Not added yet')).toBeTruthy()
+    expect(screen.getByText('KC-0002')).toBeTruthy()
     expect(screen.queryByText(/4242 4242/)).toBeNull()
   })
 
@@ -232,10 +255,11 @@ describe('the Billing screen', () => {
   })
 
   it('in the trial, asks for the card before a paid plan and never lets the change go without one', async () => {
-    api.loadBilling.mockResolvedValue(read({ subscription: { ...sub, status: 'trial', card: null, plan: { id: 'pro', name: 'Growth Pro' } }, plans: [free, { ...growth, current: false }, { ...pro, current: true }] }))
+    api.loadBilling.mockResolvedValue(read({ subscription: { ...sub, status: 'trial', card: null, plan: { id: 'pro', name: 'Growth Pro' } }, plans: [free, { ...growth, current: false }, { ...pro, current: true }], invoices: { rows: [], next: null } }))
     api.quotePlanChange.mockResolvedValueOnce(quote({ offered: ['NOW'], charge: inr('83300'), credit: inr('0'), today: inr('83300'), nextPrice: inr('83300') }))
     await show(owner)
     expect(plan('Growth Pro').getByText(words.plans.trial)).toBeTruthy()
+    expect(screen.getByText(words.invoices.noneTrial)).toBeTruthy()
     fireEvent.click(plan('Growth').getByRole('button', { name: 'Choose Growth' }))
     await settle()
     expect(dialog().getByText('It starts today. Charged today: ₹833.00, then ₹833.00 a month.')).toBeTruthy()
@@ -256,6 +280,48 @@ describe('the Billing screen', () => {
     expect(api.changePlan).toHaveBeenCalledWith('growth', 'MONTH', 'NOW')
   })
 
+  it('saves the details on invoices, checking what it can and keeping the API’s refusal in the dialog', async () => {
+    api.saveBillingDetails.mockRejectedValueOnce(new ApiError('INVALID_INPUT', 'bad')).mockResolvedValueOnce({ legalName: 'Kesari', email: 'hello@kesari.example', address: { line1: '14 MG Road', line2: null, city: 'Bengaluru', region: 'KA', postal: '560001', country: 'IN' }, taxId: '29ABCDE1234F1Z5', taxIdKind: 'gstin' })
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.details.editLabel }))
+    const form = dialog()
+    expect((form.getByLabelText(new RegExp(`^${words.details.form.line1}\\s*$`)) as HTMLInputElement).value).toBe('14 MG Road')
+    fireEvent.change(form.getByLabelText(new RegExp(words.details.form.email)), { target: { value: 'not-an-email' } })
+    fireEvent.click(form.getByRole('button', { name: words.details.form.save }))
+    expect(form.getByRole('alert').textContent).toBe(words.details.form.badEmail)
+    fireEvent.change(form.getByLabelText(new RegExp(words.details.form.email)), { target: { value: ' hello@kesari.example ' } })
+    fireEvent.change(form.getByLabelText(/GSTIN/), { target: { value: '29ABCDE1234F1Z5' } })
+    fireEvent.click(form.getByRole('button', { name: words.details.form.save }))
+    await settle()
+    expect(form.getByRole('alert').textContent).toBe(words.refused.INVALID_INPUT)
+    fireEvent.click(form.getByRole('button', { name: words.details.form.save }))
+    await settle()
+    expect(api.saveBillingDetails).toHaveBeenLastCalledWith({ legalName: 'Kesari', email: 'hello@kesari.example', address: { line1: '14 MG Road', line2: null, city: 'Bengaluru', region: 'KA', postal: '560001', country: 'IN' }, taxId: '29ABCDE1234F1Z5' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByText('GSTIN: 29ABCDE1234F1Z5')).toBeTruthy()
+  })
+
+  it('pages the invoices, exports them all and opens a PDF only at Stripe’s link', async () => {
+    api.loadMoreInvoices.mockResolvedValue({ rows: [invoice('i1', 'KC-0001')], next: null })
+    api.loadAllInvoices.mockResolvedValue([invoice('i2', 'KC-0002'), invoice('i1', 'KC-0001')])
+    api.invoicePdf.mockResolvedValue('https://pay.stripe.com/invoice/x/pdf')
+    const replace = vi.fn()
+    vi.spyOn(window, 'open').mockReturnValue({ opener: null, location: { replace }, close: vi.fn() } as unknown as Window)
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.invoices.more }))
+    await settle()
+    expect(api.loadMoreInvoices).toHaveBeenCalledWith('c1')
+    expect(screen.getByText('KC-0001')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.invoices.more })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.invoices.exportAll }))
+    await settle()
+    expect(download.downloadCsv).toHaveBeenCalledWith(expect.stringContaining('KC-0001'), words.invoices.file)
+    fireEvent.click(screen.getByRole('button', { name: 'PDF of invoice KC-0002' }))
+    await settle()
+    expect(api.invoicePdf).toHaveBeenCalledWith('i2')
+    expect(replace).toHaveBeenCalledWith('https://pay.stripe.com/invoice/x/pdf')
+  })
+
   it('never lets a late first read replace the one after it', async () => {
     let answer: (r: BillingRead) => void = () => undefined
     api.loadBilling.mockReturnValueOnce(new Promise<BillingRead>((resolve) => (answer = resolve)))
@@ -265,7 +331,7 @@ describe('the Billing screen', () => {
     answer(read())
     await settle()
     expect(screen.getAllByText(words.plans.trial).length).toBe(1)
-    expect(screen.queryByText('Visa ending 4242 · expires 04/28')).toBeNull()
+    expect(screen.queryByText('KC-0002')).toBeNull()
   })
 })
 
@@ -283,12 +349,14 @@ describe('who may see and change Billing', () => {
     await show(owner, { readOnly: true, support: { partnerName: 'Kesari Commerce' } })
     expect(screen.getByText(words.readOnly)).toBeTruthy()
     expect(plan('Growth Pro').queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('button', { name: words.details.editLabel })).toBeNull()
   })
 
-  it('while past due, still offers a plan', async () => {
+  it('while past due, still offers a plan but not the details', async () => {
     api.loadBilling.mockResolvedValue(read({ subscription: { ...sub, status: 'past_due' } }))
     await show(owner, { readOnly: true, support: null })
     expect(plan('Growth Pro').getByRole('button', { name: words.plans.upgrade })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.details.editLabel })).toBeNull()
   })
 
   it('offers no plan change where the partner bills, or once the store is closing', async () => {
@@ -313,6 +381,6 @@ describe('who may see and change Billing', () => {
     expect(screen.getByText(words.error.title)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
     await settle()
-    expect(screen.getByText('Visa ending 4242 · expires 04/28')).toBeTruthy()
+    expect(screen.getByText('KC-0002')).toBeTruthy()
   })
 })

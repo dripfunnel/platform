@@ -1,10 +1,11 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
+import { allPages } from './allPages'
 import { query } from './client'
 import { moneySchema } from './orders'
 
 // Billing (FIRST-RELEASE §16, PortalBilling; apps/api/schema/store.graphql, src/apis/store/billing.ts): the Owner's
-// plan and its usage. Every amount, limit and refusal is the API's.
+// plan, usage, invoices and the details on them. Every amount, limit and refusal is the API's.
 
 export const billingIntervals = ['MONTH', 'YEAR'] as const
 export type BillingInterval = (typeof billingIntervals)[number]
@@ -46,34 +47,98 @@ export type CataloguePlan = z.infer<typeof planSchema>
 const usageSchema = z.object({ key: z.string(), used: z.number().int(), limit: z.number().int().nullable(), unlimited: z.boolean(), monthly: z.boolean() })
 export type Usage = z.infer<typeof usageSchema>
 
+const addressSchema = z.object({ line1: z.string(), line2: z.string().nullable(), city: z.string(), region: z.string().nullable(), postal: z.string(), country: z.string() })
+const detailsSchema = z.object({ legalName: z.string(), email: z.string(), address: addressSchema, taxId: z.string().nullable(), taxIdKind: z.enum(['gstin', 'vat']).nullable() })
+export type BillingDetails = z.infer<typeof detailsSchema>
+export type BillingDetailsInput = Omit<BillingDetails, 'taxIdKind'>
+
+const invoiceSchema = z.object({
+  id: z.string(),
+  number: z.string().nullable(),
+  kind: z.string(),
+  status: z.enum(['paid', 'open', 'void', 'refunded']),
+  amount: moneySchema,
+  tax: moneySchema,
+  issuedAt: z.string(),
+  paidAt: z.string().nullable(),
+  lines: z.array(z.object({ label: z.string(), kind: z.string() })),
+})
+export type Invoice = z.infer<typeof invoiceSchema>
+
+const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
+const invoicePageSchema = z.object({ nodes: z.array(invoiceSchema), pageInfo: pageInfoSchema })
+
+/** Where the store's own details stand, to start "On your invoices" from before any are saved (the prototype's). */
+const storeInfoSchema = z.object({
+  legalName: z.string().nullable(),
+  name: z.string(),
+  contactEmail: z.string().nullable(),
+  country: z.string().nullable(),
+  taxId: z.string().nullable(),
+  address: z.object({ street: z.string().nullable(), city: z.string().nullable(), postal: z.string().nullable(), region: z.string().nullable() }).nullable(),
+})
+export type BillingStoreInfo = z.infer<typeof storeInfoSchema>
+
+export interface InvoicePage {
+  rows: Invoice[]
+  next: string | null
+}
+
 export interface BillingRead {
   subscription: Subscription | null
   plans: CataloguePlan[]
   usage: Usage[]
+  details: BillingDetails | null
+  store: BillingStoreInfo | null
+  invoices: InvoicePage
 }
 
+export const invoicePageSize = 10
+
+const invoiceFields = 'nodes { id number kind status amount { amount currency } tax { amount currency } issuedAt paidAt lines { label kind } } pageInfo { hasNextPage endCursor }'
 const subscriptionFields =
   'plan { id name } status interval price { amount currency } periodStart periodEnd trialEndsAt cancelAt scheduled { plan { id name } interval at } card { brand last4 expires } collectedBy partnerName asOf'
 
 export const loadBilling = async (): Promise<BillingRead> => {
   const r = await query(
-    `{
+    `query B($first: Int) {
       subscription { ${subscriptionFields} }
       planCatalogue { id name description current monthly { amount currency } yearly { amount currency } values { key kind enabled amount unlimited } }
       usage { key used limit unlimited monthly }
+      billingDetails { legalName email address { line1 line2 city region postal country } taxId taxIdKind }
+      storeInfo { legalName name contactEmail country taxId address { street city postal region } }
+      invoices(first: $first) { ${invoiceFields} }
     }`,
     z.object({
       subscription: subscriptionSchema.nullable(),
       planCatalogue: z.array(planSchema).nullable(),
       usage: z.array(usageSchema).nullable(),
+      billingDetails: detailsSchema.nullable(),
+      storeInfo: storeInfoSchema.nullable(),
+      invoices: invoicePageSchema,
     }),
+    { first: invoicePageSize },
   )
   return {
     subscription: r.subscription,
     plans: r.planCatalogue ?? [],
     usage: r.usage ?? [],
+    details: r.billingDetails,
+    store: r.storeInfo,
+    invoices: { rows: r.invoices.nodes, next: r.invoices.pageInfo.hasNextPage ? r.invoices.pageInfo.endCursor : null },
   }
 }
+
+const readInvoices = async (after: string | null, first: number) =>
+  (await query(`query I($first: Int, $after: String) { invoices(first: $first, after: $after) { ${invoiceFields} } }`, z.object({ invoices: invoicePageSchema }), { first, after })).invoices
+
+export const loadMoreInvoices = async (after: string): Promise<InvoicePage> => {
+  const page = await readInvoices(after, invoicePageSize)
+  return { rows: page.nodes, next: page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null }
+}
+
+/** Every invoice, for "Export all". */
+export const loadAllInvoices = (): Promise<Invoice[]> => allPages((after) => readInvoices(after, 50))
 
 const quoteSchema = z.object({ offered: z.array(z.enum(['NOW', 'PERIOD_END'])), charge: moneySchema, credit: moneySchema, today: moneySchema, from: z.string(), nextPrice: moneySchema })
 export type PlanChangeQuote = z.infer<typeof quoteSchema>
@@ -95,4 +160,21 @@ export const changePlan = async (planId: string, interval: BillingInterval, when
   )
   if (!sub) throw new ApiError('BAD_RESPONSE', 'The plan change answered nothing.')
   return sub
+}
+
+export const saveBillingDetails = async (input: BillingDetailsInput): Promise<BillingDetails> => {
+  const { saveBillingDetails: saved } = await query(
+    'mutation D($input: BillingDetailsInput!) { saveBillingDetails(input: $input) { legalName email address { line1 line2 city region postal country } taxId taxIdKind } }',
+    z.object({ saveBillingDetails: detailsSchema.nullable() }),
+    { input },
+  )
+  if (!saved) throw new ApiError('BAD_RESPONSE', 'The details answered nothing.')
+  return saved
+}
+
+// Stripe's own link to the invoice, read fresh because it expires; only Stripe's https hosts are opened.
+export const invoicePdf = async (id: string): Promise<string> => {
+  const { downloadInvoice: url } = await query('query P($id: ID!) { downloadInvoice(id: $id) }', z.object({ downloadInvoice: z.string().nullable() }), { id })
+  if (!url || !/^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(url)) throw new ApiError('NO_PDF', 'The invoice link is not one of Stripe’s.')
+  return url
 }
