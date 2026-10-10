@@ -257,6 +257,22 @@ describe('the Offers list', () => {
     expect(screen.getByText(words.act.duplicated)).toBeTruthy()
   })
 
+  it('copies a code, and says so where the browser gives no clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    await show(owner)
+    openMenu('Welcome 10% off')
+    fireEvent.click(menuItem('Welcome 10% off', /^Copy code/))
+    await settle()
+    expect(writeText).toHaveBeenCalledWith('WELCOME10')
+    expect(screen.getByText('WELCOME10 copied.')).toBeTruthy()
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    openMenu('Welcome 10% off')
+    fireEvent.click(menuItem('Welcome 10% off', /^Copy code/))
+    await settle()
+    expect(screen.getByText(words.copyFailed)).toBeTruthy()
+  })
+
   it('lets Staff read offers and check codes, with no action that changes one', async () => {
     await show(staff)
     expect(screen.getByText(words.notes.staff)).toBeTruthy()
