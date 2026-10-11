@@ -14,9 +14,11 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 **Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9). On #317:
 the bucket layout (§2), the publish-storefront Workflow's queued → deploying → live | failed, the switch, go back and
 clean-up (§4 steps 1, 9 item 3 and 11), and the edge Worker's live path (§5, `store-proxy/src/live.ts`) with the host
-lookup, its `/shop-api` door and the cache purge; the rest is specification.
+lookup, its `/shop-api` door and the cache purge. On #517: the OIDC check (§9), the build calls (§4, "The build calls"),
+the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2); the
+rest is specification.
 
-Last updated: 2026-10-11 (#317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-11 (#517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -95,8 +97,8 @@ template.
 3. **No secrets and no variables are added.** The repo accepts no outside contributions, and
    the workflow runs only on `workflow_dispatch`.
    The App sets the repo's Actions to GitHub's own actions only, a read-only default workflow
-   token, and approval before any outside contributor's run (built on #316); #517 widens the
-   actions list if the build needs more.
+   token, and approval before any outside contributor's run (built on #316). The build needs no action at all: its
+   runner steps use only the runner's own `curl`, `jq`, `python3` and `aws` (#517).
    *Why:* there is nothing in the repo to steal, and nothing but the platform can start a run.
 4. **The AI can never change the workflow.** `.github/**` is outside the file allowlist
    (ARCHITECTURE §3.4), and the GitHub App is the only writer.
@@ -119,8 +121,9 @@ checking, deploying, live, failed, rolled back).
    none is running, queues `storefront.publish`, whose deliverer starts `jobs/workflows/publish-storefront.ts` under the
    run's id. A press while one runs waits as the one queued run (a second press is that run); the run that finishes
    queues it. Partial unique indexes allow one running and one queued run per store. The Workflow claims the run
-   (deploying), checks the build's folder has its `_manifest.json` (#517 adds the digest check of step 9), then
-   switches; any failure leaves the run failed with a code and the live build as it was.
+   (deploying), waits for the run's "uploaded" for the build id's 2 hours at most (`upload_timed_out`; #483 dispatches
+   the build before it), verifies and copies the upload (step 9, built on #517), then switches only a verified build;
+   any failure leaves the run failed with a code and the live build as it was.
 2. **Nothing reaches GitHub yet.** A design publish builds the draft's head commit from the
    store's private draft (AI-STUDIO §6); other publishes build the **live commit**, read from the
    live build's kept source bundle (step 3), never from GitHub. The repo's `main` gets the draft
@@ -177,7 +180,9 @@ checking, deploying, live, failed, rolled back).
    checkout is the post-deploy check (step 10). The container writes each check's pass or fail
    to its output folder. A runner step then:
    - computes the **digest of the files it handed to the container**: SHA-256 over the sorted
-     list of each file's path and SHA-256, computed outside the container;
+     list of each file's path and SHA-256, computed outside the container. Its form (decided on
+     #517): one line `<sha256 hex><two spaces><path>\n` per file, as `sha256sum` prints it, with
+     paths relative to the site's folder, sorted in byte order (`LC_ALL=C sort`);
    - sends the **report** (the results and the digest) **straight to the API** by OIDC.
 
    *Why:* the checks cost nothing on public repos and need no browser service of ours. The AI's
@@ -197,6 +202,13 @@ checking, deploying, live, failed, rolled back).
      sandbox (AI-STUDIO), then a new build. The live site stays as it was, and nothing became
      public.
 
+   **Built on #517**: the step lists every file of the site folder with its SHA-256 and size (sorted, so its digest is
+   the check step's), and stops if the folder holds a link or anything but files and folders, which would otherwise
+   carry a runner file into a public site. It uploads the folder and then `_manifest.json` with `aws s3 cp
+   --no-follow-symlinks` and the 15-minute credential, and calls `uploaded`. The platform's hooks host comes as the
+   dispatch's `api` input, beside `build_id`. Headers in the manifest are optional until core's build writes
+   `pageHeaders` for each page (#483); only `content-security-policy`, and only on HTML, is accepted.
+
    *Why:* the credential can't touch a build folder, another store or anything already live.
 9. **Verify, copy, switch, then push.** The API:
    1. checks that the report came through an OIDC-verified call (§9) and passed, and that the
@@ -212,7 +224,14 @@ checking, deploying, live, failed, rolled back).
       the manifest marks unchanged since the live build *(proposed, §10)* is copied server-side
       from the live build's folder instead, after the same check, so **every build folder is
       complete on its own**: the Worker never follows a reference, and clean-up can delete any old
-      build;
+      build. **Built on #517** (`saas/storefronts/verify.ts`, the publish run's `verify` step): at "uploaded" the staged
+      `_manifest.json` is read once and kept on `publish_run.upload_manifest` only when its digest is the report's
+      (otherwise the publish fails `manifest_refused`); no credential is issued after it. Each file it lists is then read
+      once into memory, hashed, and those same bytes written to the build folder with R2's own SHA-256 check on the write;
+      one missing or not matching fails the publish (`file_missing`, `file_mismatch`) and nothing goes live. Every `.js`
+      and `.css` file then goes to `storefront-assets` at `stores/{id}/builds/{b}/assets/<its path>`, read back from the
+      private folder, and the manifest is written last, so a build folder with one is whole. `verified_at` is set, and the
+      switch refuses a build without it;
    3. deletes the staging folder, moves the live pointer, records the new build as live
       (`publish_run` with the report as its `gate`, `design_version`) and refreshes the edge
       Worker's lookup (§5 step 1). **Built on #317**: one transaction moves `storefront.live_build_id`, marks the run
@@ -253,6 +272,23 @@ checking, deploying, live, failed, rolled back).
     store is SAAS §4.2's "closed, then deleted after 90 days", so a store closed for 90 days loses all its files in the
     three buckets once (`storefront.files_deleted_at`); a deletion request reaches the same function when that flow is
     built.
+
+**The build calls** (built on #517, `apps/api/src/apis/builds.ts`). The workflow's runner steps call
+`POST https://<hooks host>/builds/<step>` with a fresh OIDC token for the audience `https://<hooks host>` in
+`Authorization: Bearer`, and `{"build": "<build id>"}` in the body:
+
+| Step | Allowed when | Answers |
+|---|---|---|
+| `start` (step 5) | The build is `building` and has no report | 15-minute links: `source`, `snapshot`, and `live` (each file of the live build by path, or null before the first publish) |
+| `report` (step 7) | No report yet; the body adds `passed`, `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …}`. Kept on `publish_run.gate` once: a pass moves the build to `deploying`, a failure ends it (`failed`, `gate_failed`); the same report again gets the same answer |
+| `credentials` (step 8) | After a passing report and before "uploaded" | `endpoint`, `bucket`, `prefix` (the staging folder) and the 15-minute `accessKeyId`, `secretAccessKey`, `sessionToken` |
+| `uploaded` (step 9) | After a passing report; the same call again gets the same answer | `{"uploaded": true}`, or the refusal when the staged manifest is missing or its digest isn't the report's. Either way the upload is over, and the build's publish run is woken to verify it or fail it |
+
+Every refusal is the same `403 {"error":"refused"}`, whatever its cause; the cause goes to the technical log
+(LOGGING §9) and, for a run that proved itself and named a real build, to that store's activity log for staff. GitHub's
+keys or Cloudflare not answering is `503`, and more than 60 calls a minute from one address is `429`. A build id is
+good for **2 hours from its dispatch** (`publish_run.started_at`; decided on #517: the job's 30 minutes and a wait for a
+runner), and only for the first run that uses it.
 
 ---
 
@@ -367,9 +403,11 @@ What the edge Worker does on each request to a storefront host.
 ## 9. Isolation and security
 
 - **The OIDC check.** The API accepts a token only when every one of these holds:
-  - the issuer is GitHub's (`token.actions.githubusercontent.com`) and the audience is ours;
-  - `repository_id` is that store's repo;
-  - `job_workflow_ref` is the locked workflow on `main`;
+  - the issuer is GitHub's (`token.actions.githubusercontent.com`), the signature one of GitHub's published keys
+    (RS256 only; the key set cached and fetched again for a key id it doesn't hold), it hasn't expired, and the
+    audience is ours (`https://<hooks host>`, so a token for one environment is worthless in another);
+  - `repository_id` is that store's repo (`storefront.repo_id`, the id GitHub gave the repo, never its name);
+  - `job_workflow_ref` is the locked workflow on `main`, and `ref` is `main`;
   - the event is `workflow_dispatch`;
   - the build id is unexpired, belongs to that store, and is bound to the first `run_id` that
     uses it.

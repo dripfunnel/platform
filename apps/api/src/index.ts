@@ -4,6 +4,7 @@ import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { createServer } from '#apis/graphql/server'
 import { handleHealthCheck, isHealthPath } from '#apis/health'
+import { buildsPrefix, handleBuildCall } from '#apis/builds'
 import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
 import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
@@ -113,6 +114,10 @@ import { checkPreview, cleanStorefronts, lookupLiveHost, openPreview, storefront
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { githubConfigured } from '#integrations/github/index'
+import { actionsKeys } from '#integrations/github/oidc'
+import { storefrontR2, type StorefrontR2 } from '#integrations/cloudflare/r2'
+import { localActionsKeys, localStorefrontR2 } from '#integrations/local/builds'
+import type { BuildDeps } from '#saas/storefronts/index'
 import { storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
 import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
@@ -154,6 +159,8 @@ interface Env extends Record<string, unknown> {
   DOWNLOAD_RATE_LIMITER?: RateLimit | undefined
   // Every request carrying an API key, per address, before the key is looked up (ACCESS.md §9 check 13); unbound, keys answer 500.
   API_RATE_LIMITER?: RateLimit | undefined
+  // A store build's calls, per address, before the token is checked (storefront LIVE-SHOP.md §9); unbound, they answer 500.
+  BUILD_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
   IMAGES?: ImagesBinding | undefined
@@ -546,9 +553,39 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
 // SNS signs with few certificates; one verifier per isolate fetches each once.
 let snsBuilt: SnsVerifier | undefined
 
+// GitHub's OIDC keys, cached per isolate (integrations/github/oidc.ts); the R2 client is rebuilt only when its values change.
+let actionsKeysBuilt: ReturnType<typeof actionsKeys> | undefined
+let r2Built: { key: string; r2: StorefrontR2 } | undefined
+
+/** A store build's calls (LIVE-SHOP §4 steps 5–9): the stand-ins where asked for, else all six R2 values; null, no route. */
+const buildDepsFor = (config: Config, env: Env): Omit<BuildDeps, 'sql'> | null => {
+  const sites = env.STOREFRONT_SITES
+  const publish = env.PUBLISH_STOREFRONT
+  if (!sites || !publish) return null
+  // "Uploaded" wakes the build's own publish run, whose instance is named by the build id (jobs/workflows/publish-storefront.ts).
+  const wake = async (buildId: string) => (await publish.get(buildId)).sendEvent({ type: 'uploaded', payload: null })
+  const common = { audience: `https://${config.HOOKS_HOST}`, org: config.GITHUB_STORE_ORG, sites, wake, now: () => new Date() }
+  if (config.GITHUB_LOCAL === '1') return { ...common, keys: localActionsKeys, r2: localStorefrontR2(), buckets: { sites: 'storefront-sites-local', drafts: 'storefront-drafts-local' } }
+  const { R2_STOREFRONT_ACCOUNT_ID: accountId, R2_STOREFRONT_ACCESS_KEY_ID: accessKeyId, R2_STOREFRONT_SECRET_ACCESS_KEY: secretAccessKey, R2_STOREFRONT_API_TOKEN: apiToken } = config
+  const { STOREFRONT_SITES_BUCKET: sitesBucket, STOREFRONT_DRAFTS_BUCKET: draftsBucket } = config
+  if (!accountId || !accessKeyId || !secretAccessKey || !apiToken || !sitesBucket || !draftsBucket) return null
+  const key = `${accountId}:${accessKeyId}:${secretAccessKey}:${apiToken}`
+  if (r2Built?.key !== key) r2Built = { key, r2: storefrontR2({ accountId, accessKeyId, secretAccessKey, apiToken }) }
+  actionsKeysBuilt ??= actionsKeys()
+  return { ...common, keys: actionsKeysBuilt, r2: r2Built.r2, buckets: { sites: sitesBucket, drafts: draftsBucket } }
+}
+
 // hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
 // (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
 const handleHooks = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+  if (url.pathname.startsWith(buildsPrefix)) {
+    const deps = buildDepsFor(config, env)
+    if (!deps) return notFound()
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    const limiter = env.BUILD_RATE_LIMITER
+    if (!limiter) return misconfigured('BUILD_RATE_LIMITER')
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleBuildCall(request, { ...deps, sql }, async (key) => (await limiter.limit({ key })).success))
+  }
   if (url.pathname === shopifyCallbackPath) {
     const shopify = shopifyFor(config)
     const secrets = await secretsFor(config)
@@ -721,7 +758,7 @@ const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise
   // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
   const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
   // A publish reads the build's folder, so without the bucket it waits too.
-  const publishStorefront = env.PUBLISH_STOREFRONT && env.STOREFRONT_SITES ? env.PUBLISH_STOREFRONT : null
+  const publishStorefront = env.PUBLISH_STOREFRONT && env.STOREFRONT_SITES && env.STOREFRONT_ASSETS ? env.PUBLISH_STOREFRONT : null
   const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishStorefront))
   for (const [outcome, count] of Object.entries(counts)) {
     if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })

@@ -11,6 +11,7 @@ import {
   selectCreation,
   setFirstRepoHead,
   setJobState,
+  setRepoId,
   upsertDesignDraft,
   type CreationRow,
 } from '#db/scoped/storefronts'
@@ -83,11 +84,14 @@ const repoStep = async (deps: CreateDeps, p: CreateParams): Promise<string> => {
   const { skeleton, theme } = await templateFiles(deps.sites, core, p.template)
   await withSystemScope(deps.sql, (tx) => appendCompensation(tx, p.jobId, { step: 'repo', undo: 'deleteRepo', repo }))
   const repos = storeRepos(deps.github.session(), deps.org)
-  await repos.create(repo)
+  const created = await repos.create(repo)
   await repos.lockActions(repo)
   const first = await repos.head(repo)
   if (!first) throw new Error('create-storefront: the new repo has no main yet')
-  await withSystemScope(deps.sql, (tx) => setFirstRepoHead(tx, p.storeId, first))
+  await withSystemScope(deps.sql, async (tx) => {
+    await setRepoId(tx, p.storeId, created.id)
+    await setFirstRepoHead(tx, p.storeId, first)
+  })
   pushed(
     await commitToMain({ sql: deps.sql, repos, now: deps.now }, p.storeId, `template:${p.jobId}`, `Start from the ${p.template} template`, ['creating'], async () => ({
       replace: true,

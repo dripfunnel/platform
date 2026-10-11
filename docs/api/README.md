@@ -46,6 +46,7 @@ doesn't belong to, and a test proves it (`src/router.test.ts`, `src/index.test.t
 | **Store API** (`src/apis/store`) | `/api` on each partner's portal host | `schema/store.graphql` | `apps/ui/store`, integrations (API keys), installed apps | Merchants, their staff, vendors; API keys; apps; support sessions (read-only) | **The acting store**, and for vendors their own `seller_id` |
 | **Shop API** (`src/apis/shop`) | `/shop-api` on each storefront host | `schema/shop.graphql` | `@dripfunnel/storefront-core`, merchants' own storefronts | Shoppers (public store key + optional customer session) | One store, public data only |
 | Webhooks (`src/hooks`) | `hooks.dripfunnel.com` | none | Stripe, Razorpay, Shiprocket, SES, GitHub | Providers (signature verified) | Per provider event |
+| Build calls (`src/apis/builds.ts`) | `hooks.dripfunnel.com/builds/*` | none (JSON) | A store repo's locked workflow | A GitHub Actions run (its OIDC token, storefront/LIVE-SHOP.md §9) | The one build its token and build id name (#517) |
 
 ### 2.1 What belongs in which API
 

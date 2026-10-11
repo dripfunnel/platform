@@ -159,7 +159,8 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    Create the buckets first: a binding to a missing bucket fails the deploy, which is why #317 left them unbound. Create the R2 storefront
    upload credential (*Object Read & Write* on those three buckets only, able to create temporary
    credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
-   `R2_STOREFRONT_SECRET_ACCESS_KEY`, and a cache purge token → `CF_CACHE_PURGE_TOKEN`
+   `R2_STOREFRONT_SECRET_ACCESS_KEY` and the token's value → `R2_STOREFRONT_API_TOKEN`, with the bucket names
+   `STOREFRONT_SITES_BUCKET` and `STOREFRONT_DRAFTS_BUCKET` (all six or none, #517), and a cache purge token → `CF_CACHE_PURGE_TOKEN`
    (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
 2. **Preview domain**: register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §8:
    `webpreview.store` itself is prod's), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
@@ -232,6 +233,8 @@ Never reuse a value from local or production.
 | `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout |
 | `R2_STOREFRONT_ACCOUNT_ID` | Text | the Cloudflare account id | §2.8 item 1 |
 | `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's key pair | Shown once when the R2 token is created (§2.8 item 1) |
+| `R2_STOREFRONT_API_TOKEN` | Secret | the same R2 token's value | Shown once with the key pair (§2.8 item 1). Read since #517 with the five values beside it: without all six a store build's calls don't exist |
+| `STOREFRONT_SITES_BUCKET`, `STOREFRONT_DRAFTS_BUCKET` | Text | `storefront-sites-dev`, `storefront-drafts-dev` | The buckets of §2.8 item 1, by name: the build's credential and links name them (#517) |
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.ai` zone | Profile › API Tokens (§2.8 item 1). Read since #317 with `CF_SAAS_ZONE_ID`: purges the store proxy's cached host lookups after a publish, a domain or a state change; without it they expire within 60 seconds |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |

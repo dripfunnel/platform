@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-11 (#518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -220,6 +220,9 @@ with the same secret.
   `pnpm dev` restarts. The templates come from the local `storefront-sites-local` bucket (bound with `storefront-assets-local` and
   `storefront-drafts-local`, storefront LIVE-SHOP.md §2), which stays empty until the release
   uploads them (storefront ARCHITECTURE §2.3, #486), so until then the run stops at its first step and undoes itself.
+  A store build's calls on `https://hooks.localhost/builds/*` (#517) take tokens from a local OIDC issuer whose key
+  lives as long as the Worker, and answer with credentials and links that name nothing real: no runner reaches this
+  machine, so the integration tests are what drive them (`apps/api/tests/build-uploads.test.ts`).
 
 Check that it's up:
 

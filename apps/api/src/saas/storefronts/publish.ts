@@ -17,10 +17,13 @@ import {
   type NewRun,
   type RunRow,
 } from '#db/scoped/publishing'
+import { isUploaded, isVerified } from '#db/scoped/builds'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
-import { buildFolder, manifestName, stagingFolder } from './layout'
+import { buildLifetimeMs } from './builds'
+import { stagingFolder } from './layout'
 import { deletePrefix, type SitesBucket } from './templates'
+import { uploadRefusals, verifyUpload } from './verify'
 
 // The publish-storefront Workflow's steps this card reaches (SAAS §9.1; storefront LIVE-SHOP.md §4 steps 1 and 9):
 // queued → deploying → live | failed. INF 4 (#483) puts building and checking before deploying, and #517 the copy.
@@ -55,12 +58,16 @@ export const startPublish = async (tx: ScopedSql, run: Omit<NewRun, 'storeId'> &
 export interface PublishDeps {
   sql: postgres.Sql
   sites: SitesBucket
+  /** The public bucket the verified JS and CSS are copied into (LIVE-SHOP §4 step 9). */
+  assets: SitesBucket
   now: () => Date
 }
 
 /** A Workflow's `step.do`: a step's answer is kept, so a replay skips what already finished. */
 export interface PublishSteps {
   do: (name: string, work: () => Promise<string>) => Promise<string>
+  /** `step.waitForEvent` for the build's "uploaded" (#517); throws once `timeoutMinutes` pass without it. */
+  waitForUpload: (name: string, timeoutMinutes: number) => Promise<void>
 }
 
 class Busy extends Error {
@@ -101,17 +108,22 @@ const claimStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
     return 'claimed'
   })
 
-/** The build's folder must be complete before its pointer moves; #517 adds the digest check of LIVE-SHOP §4 step 9. */
+/** Every staged object hashed to the manifest whose digest the passing report sent, and copied (LIVE-SHOP §4 step 9). */
 const verifyStep = async (deps: PublishDeps, p: PublishParams): Promise<string> => {
-  if (!(await deps.sites.get(`${buildFolder(p.storeId, p.runId)}${manifestName}`))) throw new BuildMissing('the build has no manifest')
+  await verifyUpload(deps, p.storeId, p.runId)
   return 'verified'
 }
+
+const uploadedStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
+  withSystemScope(deps.sql, async (tx) => ((await isUploaded(tx, p.storeId, p.runId)) ? 'uploaded' : 'waiting'))
 
 const switchStep = async (deps: PublishDeps, p: PublishParams): Promise<string> => {
   const switched = await withSystemScope(deps.sql, async (tx) => {
     const storefront = await lockStorefront(tx, p.storeId)
     const run = await selectRun(tx, p.runId)
     if (!storefront || !run || run.store_id !== p.storeId || run.state !== 'deploying') return null
+    // The pointer moves only to a build whose every file was verified, whoever runs this step (LIVE-SHOP §4 step 9).
+    if (!(await isVerified(tx, run.store_id, run.id))) throw new BuildMissing('the build is not verified')
     const at = deps.now()
     const version = await switchLive(tx, run, storefront.live_build_id, at)
     await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `publish:${run.id}`, payload: { storeId: run.store_id, reason: 'publish' }, partnerId: run.partner_id, storeId: run.store_id })
@@ -138,15 +150,31 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string): Prom
   return 'failed'
 }
 
-const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing' }
+const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing', UploadTimedOut: 'upload_timed_out' }
+// A step's error may come back from the Workflow runtime as a plain Error, so a refused upload's code travels as its message.
+const codeOf = (error: unknown): string => {
+  if (!(error instanceof Error)) return 'deploy_failed'
+  if (error.name === 'UploadRefused' || uploadRefusals.has(error.message)) return error.message
+  return errorCodes[error.name] ?? 'deploy_failed'
+}
+
+class UploadTimedOut extends Error {
+  override name = 'UploadTimedOut'
+}
 
 export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: PublishSteps): Promise<'live' | 'failed' | 'stopped'> => {
   try {
     if ((await steps.do('claim', () => claimStep(deps, p))) === 'stopped') return 'stopped'
+    // INF 4 (#483) dispatches the build here; its upload step's "uploaded" wakes this run (LIVE-SHOP §4 steps 4–9).
+    if ((await steps.do('uploaded', () => uploadedStep(deps, p))) === 'waiting') {
+      await steps.waitForUpload('upload', buildLifetimeMs / 60_000).catch(() => {
+        throw new UploadTimedOut('no upload within the build id’s lifetime')
+      })
+    }
     await steps.do('verify', () => verifyStep(deps, p))
     return (await steps.do('switch', () => switchStep(deps, p))) === 'stopped' ? 'stopped' : 'live'
   } catch (error) {
-    const code = (error instanceof Error && errorCodes[error.name]) || 'deploy_failed'
+    const code = codeOf(error)
     logEvent({ event: 'storefront_publish_failed', api: 'system', storeId: p.storeId, code: `${code}:${failureCode(error)}` })
     await steps.do('fail', () => failStep(deps, p, code))
     return 'failed'

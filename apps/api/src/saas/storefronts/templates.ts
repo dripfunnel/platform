@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { lockedWorkflowFile } from '#integrations/github/oidc'
 import { isRepoPath, isThemePath } from './paths'
 
 // Where the Worker reads the templates (storefront ARCHITECTURE §2.3): the release workflow writes each core version's
@@ -7,7 +8,7 @@ import { isRepoPath, isThemePath } from './paths'
 
 /** The parts of an R2 binding the storefront steps use; R2Bucket is one. */
 export interface SitesBucket {
-  get: (key: string) => Promise<{ text: () => Promise<string>; arrayBuffer: () => Promise<ArrayBuffer>; httpMetadata?: { contentType?: string } } | null>
+  get: (key: string) => Promise<{ size: number; text: () => Promise<string>; arrayBuffer: () => Promise<ArrayBuffer>; httpMetadata?: { contentType?: string } } | null>
   put: (key: string, value: ArrayBuffer, options: { sha256: string; httpMetadata?: { contentType?: string } }) => Promise<{ checksums: { sha256?: ArrayBuffer } } | null>
   list: (options: { prefix: string; cursor?: string }) => Promise<{ objects: { key: string; uploaded: Date }[]; truncated: boolean; cursor?: string }>
   delete: (keys: string[]) => Promise<void>
@@ -23,7 +24,6 @@ const fileSchema = z.strictObject({ path: z.string().refine(isRepoPath), content
 const sourceSchema = z.strictObject({ files: z.array(fileSchema).max(1000) })
 const manifestSchema = z.strictObject({ files: z.array(z.strictObject({ path: z.string().refine(isRepoPath), sha256: z.string().regex(/^[0-9a-f]{64}$/) })).min(1).max(2000) })
 
-export const lockedWorkflowPath = '.github/workflows/build.yml'
 const templateRoot = (core: string, template: string) => `templates/${core}/themes/${template}/`
 
 const readJson = async <S extends z.ZodType>(bucket: SitesBucket, key: string, schema: S): Promise<z.infer<S>> => {
@@ -49,7 +49,7 @@ export const templateFiles = async (bucket: SitesBucket, core: string, template:
   const skeleton = (await readJson(bucket, `templates/${core}/skeleton.json`, sourceSchema)).files
   const theme = (await readJson(bucket, `${templateRoot(core, template)}source.json`, sourceSchema)).files
   const paths = new Set(skeleton.map((f) => f.path))
-  if (!paths.has(lockedWorkflowPath) || !paths.has('package.json') || skeleton.some((f) => isThemePath(f.path))) throw new TemplateMissing('the skeleton lacks its workflow or package.json, or carries a theme')
+  if (!paths.has(lockedWorkflowFile) || !paths.has('package.json') || skeleton.some((f) => isThemePath(f.path))) throw new TemplateMissing('the skeleton lacks its workflow or package.json, or carries a theme')
   if (theme.length === 0 || !theme.every((f) => isThemePath(f.path))) throw new TemplateMissing(`the ${template} theme writes outside ARCHITECTURE §3.4's paths`)
   return { skeleton, theme }
 }
