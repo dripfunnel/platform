@@ -1837,7 +1837,7 @@ design_version      (id, store_id, number, commit, template, core_version, label
                     -- clean-up never deletes a build a version names, so it is never null.
                     -- design_draft.base_version_id is built with it
 design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, changed text[],
-                     image_asset_id NULL, sample_url NULL, commit NULL, before_commit NULL,
+                     image_asset_id NULL, sample_url NULL, page NULL, commit NULL, before_commit NULL,
                      undone boolean, ai_run_id NULL, created_by NULL, created_at)
                     -- the studio's chat (PortalStorefront); changed is the plain-words list
                     -- of what changed; commit is the change's commit and before_commit what
@@ -1958,7 +1958,7 @@ core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), se
                     -- sandbox_image is Cloudflare's registry reference pinned by @sha256, which the
                     -- studio's Durable Object starts; written by release.yml's sandbox-image job
                     -- (built on #482, migration 0250); staff read it, system scope writes it
-storefront_template (key PK, name, description, demo_store_id NULL, core_min_version,
+storefront_template (key PK, name, tag, description, demo_store_id NULL, core_min_version,
                      state ('offered'|'retired'))
                     -- the template gallery (storefront ARCHITECTURE §2.3); the code itself is
                     -- in templates/storefront/themes/{key}; a partner offers a subset (G4)

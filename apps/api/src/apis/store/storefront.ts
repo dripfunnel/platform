@@ -1,5 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { createDesignerService, designAudit, type DesignRefusal, type DesignResult, type StorefrontView, type TemplateView } from '#saas/ai-designer/index'
+import type { VersionHistoryRow } from '#db/scoped/design'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
@@ -72,7 +73,7 @@ export const registerStorefront = (builder: StoreBuilder) => {
       previewReady: t.exposeBoolean('previewReady'),
     }),
   })
-  const Version = builder.objectRef<StorefrontView['history'][number]>('StorefrontVersion').implement({
+  const Version = builder.objectRef<VersionHistoryRow>('StorefrontVersion').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
       number: t.exposeInt('number'),
@@ -91,8 +92,8 @@ export const registerStorefront = (builder: StoreBuilder) => {
       template: t.exposeString('template', { nullable: true }),
       live: t.field({ type: Live, nullable: true, resolve: (s) => s.live }),
       draft: t.field({ type: Draft, nullable: true, resolve: (s) => s.draft }),
-      // Kept for the plan's days; the live version always.
-      history: t.field({ type: [Version], resolve: (s) => s.history }),
+      // Kept for the plan's days, the live version always; newest first, 50 at a time before a version's number.
+      history: t.field({ type: [Version], args: { before: t.arg.int() }, resolve: (_, args, ctx: StoreContext) => designerFor(ctx).history(args.before ?? null) }),
     }),
   })
 

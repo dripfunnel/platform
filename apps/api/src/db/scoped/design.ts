@@ -1,4 +1,5 @@
 import { pgArray, type ScopedSql } from './index'
+import { storefrontHostOf } from './publishing'
 
 // The Storefront area's rows as the Store API reads and the studio writes them (DATA-MODEL §7.8): the template gallery
 // (platform data, read in system scope), the chat, and the store's design state. Every read names the context's store.
@@ -8,15 +9,18 @@ export interface TemplateRow {
   name: string
   tag: string
   description: string
-  demo_store_id: string | null
+  /** The demo store's live address, when it has one. */
+  demo_host: string | null
 }
 
 /** The gallery in a fixed order: "Start from scratch" first, as ST 0 lists it (storefront ARCHITECTURE §2.3). */
 export const selectOfferedTemplates = (tx: ScopedSql): Promise<TemplateRow[]> =>
   tx<TemplateRow[]>`
-    select key, name, tag, description, demo_store_id from storefront_template where state = 'offered'
-    order by key = 'baseline' desc, case key when 'linen' then 1 when 'concrete' then 2 when 'bloom' then 3 when 'circuit' then 4
-      when 'market' then 5 when 'atelier' then 6 else 7 end, key`
+    select t.key, t.name, t.tag, t.description, case when s.id is null then null else ${storefrontHostOf(tx)} end as demo_host
+    from storefront_template t left join store s on s.id = t.demo_store_id
+    where t.state = 'offered'
+    order by t.key = 'baseline' desc, case t.key when 'linen' then 1 when 'concrete' then 2 when 'bloom' then 3 when 'circuit' then 4
+      when 'market' then 5 when 'atelier' then 6 else 7 end, t.key`
 
 export const isOfferedTemplate = async (tx: ScopedSql, key: string): Promise<boolean> =>
   (await tx`select 1 from storefront_template where key = ${key} and state = 'offered'`).length > 0
@@ -105,9 +109,9 @@ export interface VersionHistoryRow {
   published_at: Date
 }
 
-/** The history the plan keeps (SAAS §9.2): the live version always, the others published since `since`. */
-export const selectVersionHistory = (tx: ScopedSql, storeId: string, since: Date): Promise<VersionHistoryRow[]> =>
+/** The history the plan keeps (SAAS §9.2): the live version always, the others published since `since`; newest first, a page at a time. */
+export const selectVersionHistory = (tx: ScopedSql, storeId: string, since: Date, before: number | null, limit: number): Promise<VersionHistoryRow[]> =>
   tx<VersionHistoryRow[]>`
     select id, number, template, core_version, label, state, published_at from design_version
-    where store_id = ${storeId} and (state = 'live' or published_at >= ${since})
-    order by number desc`
+    where store_id = ${storeId} and (state = 'live' or published_at >= ${since}) ${before === null ? tx`` : tx`and number < ${before}`}
+    order by number desc limit ${limit}`

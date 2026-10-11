@@ -1,9 +1,9 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import { failureCode, logEvent } from '#core/log'
 import type { TenantContext } from '#core/tenancy'
 import { insertDesignMessage, isOfferedTemplate, selectDesignState, selectOfferedTemplates, selectVersionHistory, type DesignStateRow, type NewMessage, type VersionHistoryRow } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { selectStorefrontHost } from '#db/scoped/publishing'
 import { UNLIMITED } from '#db/scoped/planKeys'
 import { allowanceFor } from '#saas/entitlements/index'
 import { startStorefront } from '#saas/storefronts/index'
@@ -48,7 +48,6 @@ export interface StorefrontView {
   template: string | null
   live: { number: number; publishedAt: Date; template: string | null } | null
   draft: { template: string; changedAt: Date | null; previewReady: boolean } | null
-  history: VersionHistoryRow[]
 }
 
 const statusOf = (s: DesignStateRow): DesignStatus => {
@@ -60,6 +59,9 @@ const statusOf = (s: DesignStateRow): DesignStatus => {
 }
 
 const dayMs = 86_400_000
+const historyPage = 50
+/** Tries for an entry that follows a change made outside its transaction (`recordAfter`). */
+const recordTries = 3
 
 export const createDesignerService = ({ sql, context, actor, activity, facts, studio, now }: DesignerDeps) => {
   const { storeId } = context
@@ -82,6 +84,24 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     ...facts,
   })
 
+  /**
+   * The studio changed the draft in its Durable Object and R2, outside any transaction here, so the entry that follows is
+   * retried: a passing change is never left unlogged by a passing fault (AGENTS.md "Security": every write logged).
+   */
+  const recordAfter = async <T>(work: (tx: ScopedSql) => Promise<T>): Promise<T> => {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await withSystemScope(sql, work)
+      } catch (error) {
+        if (attempt >= recordTries) {
+          logEvent({ event: 'storefront_entry_failed', api: 'store', storeId, code: failureCode(error) })
+          throw error
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200 * attempt))
+      }
+    }
+  }
+
   const note = (tx: ScopedSql, text: string) => insertDesignMessage(tx, { storeId, role: 'note', text, createdBy: actor.id, at: now() } satisfies NewMessage)
 
   const state = async (tx: ScopedSql) => {
@@ -99,8 +119,7 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     return withSystemScope(sql, async (tx) =>
       Promise.all(
         (await selectOfferedTemplates(tx)).map(async (t) => {
-          const host = t.demo_store_id ? await selectStorefrontHost(tx, t.demo_store_id) : null
-          return { key: t.key, name: t.name, tag: t.tag, description: t.description, demoUrl: host ? `https://${host}` : null, current: t.key === current }
+          return { key: t.key, name: t.name, tag: t.tag, description: t.description, demoUrl: t.demo_host ? `https://${t.demo_host}` : null, current: t.key === current }
         }),
       ),
     )
@@ -135,27 +154,30 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
-    await withSystemScope(sql, record)
+    await recordAfter(record)
     return { ok: true, value: (await overview()).status }
   }
 
-  /** `storefront`: the status line, the live version, the draft and the history the plan keeps (FIRST-RELEASE §14). */
-  const overview = async (): Promise<StorefrontView> => {
-    const days = await allowanceFor(sql, context, 'history_days', now())
-    const since = days >= UNLIMITED ? new Date(0) : new Date(now().getTime() - days * dayMs)
-    return withScope(sql, context, async (tx) => {
+  /** `storefront`: the status line, the live version and the draft (FIRST-RELEASE §14). */
+  const overview = (): Promise<StorefrontView> =>
+    withScope(sql, context, async (tx) => {
       const s = await state(tx)
       return {
         status: statusOf(s),
         template: s.draft_template ?? s.live_template ?? s.storefront_template,
         live: s.live_number !== null && s.live_published_at ? { number: s.live_number, publishedAt: s.live_published_at, template: s.live_template } : null,
         draft: s.draft_template && s.draft_head ? { template: s.draft_template, changedAt: s.draft_changed_at, previewReady: s.draft_preview !== null } : null,
-        history: await selectVersionHistory(tx, storeId, since),
       }
     })
+
+  /** The history kept for the plan's days, the live version always (SAAS §9.2), `historyPage` at a time before a number. */
+  const history = async (before: number | null): Promise<VersionHistoryRow[]> => {
+    const days = await allowanceFor(sql, context, 'history_days', now())
+    const since = days >= UNLIMITED ? new Date(0) : new Date(now().getTime() - days * dayMs)
+    return withScope(sql, context, (tx) => selectVersionHistory(tx, storeId, since, before, historyPage))
   }
 
-  return { templates, chooseTemplate, overview }
+  return { templates, chooseTemplate, overview, history }
 }
 
 export type DesignerService = ReturnType<typeof createDesignerService>
