@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-12 (#471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-12 (#319 part 1: Storefront's page, Your brand and Site settings › Brand, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -676,6 +676,15 @@ through. Your site stays live."), as is a support session.
   minutes** (this month's meters, AI requests, publishes in the last 30 days, recent requests);
   **Version history** (kept for the plan's days, Live, **Go back to this**, which uses no build
   minutes and makes the draft that version).
+- **Built on #319 (part 1, on #471's Store API)**: the page with its tabs (ARIA tabs, `?tab=`), the read-only
+  notices, Your brand and Site settings › Brand, and the Pages and Journal tabs as empty states until #339; the
+  Design tab says what comes next until #318's gallery and studio (later parts), and shows a Manager "No storefront
+  yet". *Decided there:* Your brand replaces the whole page for the Owner while `brandReady` is false, and never
+  shows to a reader; its home page title and description are Search and sharing's, saved before the brand, so Site
+  settings › Brand doesn't repeat them; the tone of voice offers five suggestions or the merchant's own words; Site
+  settings is one column of cards until AI and build minutes and Version history arrive. A support session's writes
+  are refused by the API (`SUPPORT_READ_ONLY`), shown in the form that tried, since `storeState.support` doesn't
+  tell the agent from a member who sees the banner.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

@@ -1,0 +1,405 @@
+/* Storefront (designs/PortalStorefront.dc.html): the page, its tabs, the brand step and Site settings' cards. */
+.df-sf {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.df-sf-title {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.df-sf-sub {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-sf-notice {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-info-border);
+  border-radius: 10px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 13px;
+}
+
+.df-sf-tabs {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-sf-tabs button {
+  flex: none;
+  height: 40px;
+  margin-bottom: -1px;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-sf-tabs button[aria-selected='true'] {
+  border-bottom-color: var(--df-color-heading);
+  color: var(--df-color-heading);
+  font-weight: 700;
+}
+
+.df-sf-tabs button:focus-visible,
+.df-sf button:focus-visible,
+.df-sf a:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-sf-panel {
+  min-width: 0;
+}
+
+.df-sf .df-state {
+  max-width: none;
+}
+
+.df-sf a.df-button {
+  display: inline-flex;
+  align-items: center;
+  color: var(--df-color-text);
+  text-decoration: none;
+}
+
+.df-sf .df-button--small {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Cards: Site settings' and the brand step's groups. */
+.df-sf-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-sf-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.df-sf-card h2,
+.df-sf-group h3 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.df-sf-group h3 {
+  font-size: 14px;
+}
+
+.df-sf-lede {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sf-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.df-sf-brand .df-sf-group + .df-sf-group {
+  padding-top: 14px;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-sf-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.df-sf-field,
+.df-sf-image {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.df-sf-field--wide,
+.df-sf-pair {
+  grid-column: 1 / -1;
+}
+
+.df-sf-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.df-sf-field-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.df-sf-field label,
+.df-sf-label {
+  color: var(--df-color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-sf-required {
+  margin-left: 6px;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.df-sf-count {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sf-count--over {
+  color: var(--df-color-danger);
+}
+
+.df-sf-field input,
+.df-sf-field textarea,
+.df-sf-connect input {
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.df-sf-field textarea {
+  height: auto;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.df-sf-field :is(input, textarea)[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-sf-field :is(input, textarea):read-only {
+  background: var(--df-color-page);
+}
+
+.df-sf-field :is(input, textarea):focus-visible,
+.df-sf-connect input:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 1px;
+}
+
+.df-sf-mono {
+  font-family: var(--df-font-mono) !important;
+}
+
+.df-sf-help {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-sf-problem {
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-sf-failure {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+  font-size: 14px;
+}
+
+.df-sf-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-sf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The logo and favicon. */
+.df-sf-image-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-sf-image-preview {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+  object-fit: contain;
+}
+
+.df-sf-image-preview--none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--df-color-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.df-sf-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.df-sf-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.df-sf-upload:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-sf-colour {
+  display: flex;
+  gap: 6px;
+}
+
+.df-sf-colour input[type='color'] {
+  width: 44px;
+  flex: none;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.df-sf-colour input[type='color'][data-empty] {
+  opacity: 0.35;
+}
+
+.df-sf-colour input:last-child {
+  flex: 1;
+}
+
+.df-sf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 6px;
+}
+
+.df-sf-chips button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 999px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-sf-chips button[aria-pressed='true'] {
+  border-color: var(--df-color-heading);
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+}
+
+/* The brand step: one page of groups, then Continue to templates. */
+.df-sf-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+}
+
+.df-sf-step-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.df-sf-step-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Site settings: one column of cards up to 900 px (FIRST-RELEASE §14). */
+.df-sf-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+}
+
+@media (max-width: 639px) {
+  .df-sf-title {
+    font-size: 22px;
+  }
+
+  .df-sf-grid,
+  .df-sf-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-sf-tabs {
+    gap: 18px;
+  }
+}

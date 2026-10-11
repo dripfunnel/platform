@@ -328,7 +328,6 @@
     "help": "Help",
     "helpUrl": "https://help.dripfunnel.com/store",
     "opensInNewTab": "(opens in a new tab)",
-    "placeholder": "This screen arrives with its own card. The menu row is here so every row leads somewhere.",
     "groups": {
       "catalogue": "Catalogue",
       "shop": "Your shop",
@@ -450,32 +449,6 @@
     "sales": "Your sales",
     "team": "Your team"
   },
-  "screens": {
-    "home": {
-      "title": "Home"
-    },
-    "offers": {
-      "title": "Offers"
-    },
-    "carts": {
-      "title": "Abandoned carts"
-    },
-    "reports": {
-      "title": "Reports"
-    },
-    "products": {
-      "title": "Products"
-    },
-    "storefront": {
-      "title": "Storefront"
-    },
-    "yourProducts": {
-      "title": "Your products"
-    },
-    "profile": {
-      "title": "My profile"
-    }
-  },
   "chooseStore": {
     "title": "Choose a store",
     "body": "Signed in as {email}. You belong to {count} — pick one to open.",
@@ -498,50 +471,6 @@
     },
     "notYou": "Not you?",
     "signOut": "Sign out"
-  },
-  "states": {
-    "empty": {
-      "title": "Nothing here yet",
-      "body": "A new store is empty everywhere. What you add shows up here.",
-      "action": "Add the first one"
-    },
-    "loading": {
-      "label": "Loading"
-    },
-    "error": {
-      "title": "We couldn’t load this",
-      "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
-      "detailsLabel": "Technical details",
-      "codeLabel": "Error code",
-      "code": "UNKNOWN",
-      "requestIdLabel": "Request id",
-      "requestId": "7f3a91c2",
-      "retry": "Try again"
-    },
-    "denied": {
-      "action": "Change settings",
-      "reason": "Only the store owner can change this."
-    },
-    "readonly": {
-      "title": "Your store is view-only",
-      "body": "Your last payment didn’t go through. Everything is safe — you can look around, and saving works again once it’s paid."
-    },
-    "confirm": {
-      "open": "Remove…",
-      "title": "Remove this?",
-      "target": "Mara Linen Shirt",
-      "consequence": "Removes Mara Linen Shirt from your store. Shoppers can’t find it after this.",
-      "notes": [
-        "Orders that include it keep their copy."
-      ],
-      "reason": "Reason",
-      "reasonHint": "Required.",
-      "typeLabel": "Type Mara Linen Shirt to confirm",
-      "typeHint": "Type the name exactly to confirm.",
-      "typeExpected": "Mara Linen Shirt",
-      "confirm": "Remove",
-      "cancel": "Cancel"
-    }
   },
   "auth": {
     "logoAlt": "DripFunnel",
@@ -6477,5 +6406,147 @@
     "bySession": "Everything in this support session",
     "sessionOf": "{name}’s support session",
     "unnamed": "Someone without a name"
+  },
+  "storefront": {
+    "title": "Storefront",
+    "loading": "Loading your storefront",
+    "error": {
+      "title": "We couldn’t load your storefront",
+      "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You don’t have access to Storefront",
+      "body": "The store owner and managers look after the storefront. Ask your store owner if something on the site needs changing."
+    },
+    "notice": {
+      "manager": "You can look, but only the store owner can change the storefront.",
+      "readOnly": "Your store is view-only until the payment goes through. Your site stays live."
+    },
+    "tabs": {
+      "label": "Storefront",
+      "design": "Design",
+      "pages": "Pages",
+      "journal": "Journal",
+      "settings": "Site settings"
+    },
+    "design": {
+      "nextTitle": "Next: choose a starting point",
+      "nextBody": "Your brand is saved. Picking a template and designing your site with AI will happen here; they aren’t open yet. You can change your brand any time in Site settings.",
+      "toSettings": "Go to Site settings",
+      "noSiteTitle": "No storefront yet",
+      "noSiteBody": "The store owner picks a template and publishes the site. You’ll see it here once it’s live."
+    },
+    "pages": {
+      "title": "No pages yet",
+      "body": "Your FAQ, lookbook and other pages of your own will be listed here, with the pages the AI makes for your site. Adding pages isn’t open yet."
+    },
+    "journal": {
+      "title": "No posts yet",
+      "body": "Posts for your shop’s blog will be listed here, newest first. Writing posts isn’t open yet."
+    },
+    "brand": {
+      "title": "Your brand",
+      "lede": "Tell us about your shop. Your template and the AI use this to design your site. Only the name and logo are needed now; you can change everything later in Site settings.",
+      "sections": {
+        "identity": "Name and logo",
+        "look": "Favicon and colours",
+        "lookHelp": "Your colours are only a hint for the AI. Templates keep their own colours.",
+        "home": "Home page",
+        "homeHelp": "What Google and shared links show for your home page.",
+        "about": "About your shop",
+        "social": "Social links",
+        "socialHelp": "Your handle, or your profile’s address.",
+        "contact": "Public contact",
+        "contactHelp": "Shown to shoppers on your site. Filled in from Store info."
+      },
+      "shopName": "Shop name",
+      "required": "Required",
+      "logo": "Logo",
+      "logoHelp": "PNG, JPG or WebP. Shown in your site’s header.",
+      "logoAlt": "Your logo",
+      "noLogo": "No logo yet",
+      "favicon": "Favicon",
+      "faviconHelp": "The small icon in the browser tab. A square image works best.",
+      "faviconAlt": "Your favicon",
+      "noFavicon": "None",
+      "upload": "Upload",
+      "replace": "Replace",
+      "removeImage": "Remove",
+      "uploading": "Uploading…",
+      "primaryColour": "Primary colour",
+      "secondaryColour": "Secondary colour",
+      "colourHelp": "Like #1D6B47. Leave empty for none.",
+      "pickPrimary": "Pick the primary colour",
+      "pickSecondary": "Pick the secondary colour",
+      "homeTitle": "Home page title",
+      "homeDescription": "Home page description",
+      "tagline": "Tagline",
+      "taglineHelp": "A short line under your name, like “Handloom from Jaipur”.",
+      "description": "Short description",
+      "descriptionHelp": "A few sentences about what you sell.",
+      "count": "{count} / {limit}",
+      "voice": "Tone of voice",
+      "voiceHelp": "How your site talks to shoppers. Pick one, or use your own words.",
+      "voiceOwn": "Your own words",
+      "voices": [
+        "Warm and friendly",
+        "Calm and minimal",
+        "Bold and playful",
+        "Elegant and refined",
+        "Expert and straightforward"
+      ],
+      "social": {
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "x": "X",
+        "youtube": "YouTube",
+        "tiktok": "TikTok",
+        "whatsapp": "WhatsApp"
+      },
+      "socialPlaceholder": "@handle or address",
+      "whatsappPlaceholder": "Your WhatsApp number",
+      "email": "Email",
+      "phone": "Phone",
+      "street": "Street address",
+      "city": "City",
+      "postal": "Postal code",
+      "region": "State or region",
+      "continue": "Continue to templates",
+      "saving": "Saving…",
+      "needed": "Add your shop name and logo to continue.",
+      "savedStep": "Your brand is saved",
+      "card": {
+        "title": "Brand",
+        "lede": "Your shop’s name, logo, colours and voice. Your live site shows changes after your next publish.",
+        "save": "Save",
+        "cancel": "Cancel",
+        "saved": "Brand saved. Your live site shows it after your next publish."
+      },
+      "invalid": {
+        "shopName": "Give your shop a name.",
+        "colour": "Use a colour like #1D6B47.",
+        "contactAddress": "One of these lines is too long.",
+        "social": "Use your {network} handle, or your profile’s address on {network}.",
+        "other": "That’s too long."
+      },
+      "refused": {
+        "INVALID_EMAIL": "That doesn’t look like an email address.",
+        "INVALID_IMAGE": "Use an image you uploaded to this store.",
+        "NOT_FOUND": "That isn’t here any more. Reload the page.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "other": "That didn’t save. Check your connection and try again."
+      },
+      "uploadRefused": {
+        "TOO_LARGE": "That image is too big.",
+        "UNSUPPORTED_TYPE": "Use a PNG, JPG or WebP image.",
+        "EMPTY": "That file is empty.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "NOT_CONNECTED": "The image didn’t upload. Check your connection and try again."
+      }
+    }
   }
 }
