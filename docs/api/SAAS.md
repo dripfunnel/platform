@@ -826,7 +826,7 @@ built and gated per store, and the upgrade bot must exist from day one.
   and `core_upgrade_pinned` in the technical log, and the live build as it was. *Decided on #485:* while the merchant's
   studio is open the sandbox answers busy, and the bot waits 10 minutes at a time, two hours at most, then pins the store
   as `studio_busy`; a store with a publish running or waiting is waited for 5 minutes at a time, six hours at most
-  (`store_busy`); a build is waited for four hours at most (`build_timed_out`).
+  (`store_busy`); a build is waited for four hours at most (`build_timed_out`), then its run is failed unless its build already switched, whose post-deploy checks get half an hour more to end, so a build never goes live behind a store marked pinned.
 - **Canaries, then waves**: a canary group first, then percentages, with pause and roll back
   per rollout; per-store gate result shown (L2). A rollout is a platform-level `job`.
   **Built on #485** (`saas/fleet/rollout.ts`, `saas/fleet/admin.ts`; the Admin API's `coreRollouts`, `coreRollout`,

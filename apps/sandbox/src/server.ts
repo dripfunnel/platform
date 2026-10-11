@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { join } from 'node:path'
 import { z } from 'zod'
 import { inlineHashes, studioCsp } from '@dripfunnel/storefront-core'
-import { coreUpgradeNotes, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
+import { compareVersions, coreUpgradeNotes, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
 import { isRepoPath, isThemePath } from './paths'
 import { Workspace, NotLoaded } from './workspace'
 
@@ -22,12 +22,15 @@ const changeSchema = z.strictObject({
   context: z.unknown(),
 })
 const semver = z.string().regex(/^\d+\.\d+\.\d+$/)
-const upgradeSchema = z.strictObject({
-  from: semver,
-  to: semver,
-  message: z.string().min(1).max(2000),
-  baseline: z.array(z.strictObject({ path: z.string().refine(isThemePath), content: z.string().max(1024 * 1024) })).max(500).nullable(),
-})
+// Core only moves forward; the baseline may be written on the version the store is already on.
+const upgradeSchema = z
+  .strictObject({
+    from: semver,
+    to: semver,
+    message: z.string().min(1).max(2000),
+    baseline: z.array(z.strictObject({ path: z.string().refine(isThemePath), content: z.string().max(1024 * 1024) })).max(500).nullable(),
+  })
+  .refine((u) => compareVersions(u.to, u.from) > 0 || (u.baseline !== null && compareVersions(u.to, u.from) === 0), 'to must be newer than from')
 const rebaseSchema = z.strictObject({ onto: z.string().regex(/^[0-9a-f]{40}$/), context: z.unknown() })
 const undoSchema = z.strictObject({ commit: z.string().regex(/^[0-9a-f]{40}$/), message: z.string().min(1).max(2000), context: z.unknown() })
 

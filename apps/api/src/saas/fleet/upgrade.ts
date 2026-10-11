@@ -7,7 +7,7 @@ import { clearBaseline, finishStoreUpgrade, selectStoreUpgrade, selectUpgradeSou
 import { selectFailingChecks, selectRunOutcome } from '#db/scoped/publishing'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
-import { startUpgradePublish, upgradeBundle, upgradeFiles, type SitesBucket } from '#saas/storefronts/index'
+import { failUnswitchedRun, startUpgradePublish, upgradeBundle, upgradeFiles, type SitesBucket } from '#saas/storefronts/index'
 
 // One store's upgrade in a rollout (SAAS §10; storefront ARCHITECTURE §7, LIVE-SHOP §8): the upgrade's commit on the
 // store's own live code, made in its sandbox, then the publish pipeline with the new build image, and the push to the
@@ -44,7 +44,7 @@ export interface UpgradeSteps {
 }
 
 // The studio idles out after 10 minutes (AI-STUDIO §7), a build takes minutes; these bound the waits in between.
-export const upgradeWaits = { studioMs: 10 * 60_000, studioTries: 12, storeMs: 5 * 60_000, storeTries: 72, buildMs: 5 * 60_000, buildTries: 48 } as const
+export const upgradeWaits = { studioMs: 10 * 60_000, studioTries: 12, storeMs: 5 * 60_000, storeTries: 72, buildMs: 5 * 60_000, buildTries: 48, checksTries: 6 } as const
 
 type Claim = { from: string; to: string; template: string; sourceBuildId: string; major: boolean; security: boolean }
 type Outcome = { state: string; error: string | null; runId: string | null }
@@ -128,7 +128,14 @@ const buildCommit = async (deps: UpgradeDeps, steps: UpgradeSteps, p: UpgradePar
     if (outcome && ['live', 'checked', 'failed', 'rolled_back'].includes(outcome.state)) return { ...outcome, runId: id }
     await steps.sleep(`${label}:wait:${n}`, upgradeWaits.buildMs)
   }
-  return { state: 'failed', error: 'build_timed_out', runId: id }
+  // Past the wait the run is failed, so it can't go live later; a switched one has its checks' few minutes to end.
+  const stopped = await steps.do(`${label}:timeout`, () => withSystemScope(deps.sql, (tx) => failUnswitchedRun(tx, { storeId: p.storeId, runId: id, code: 'build_timed_out', at: deps.now() })))
+  for (let n = 0; n < (stopped === 'switched' ? upgradeWaits.checksTries : 1); n += 1) {
+    const outcome = JSON.parse(await steps.do(`${label}:last:${n}`, async () => JSON.stringify(await withSystemScope(deps.sql, (tx) => selectRunOutcome(tx, p.storeId, id))))) as Omit<Outcome, 'runId'> | null
+    if (outcome && ['live', 'checked', 'failed', 'rolled_back'].includes(outcome.state)) return { ...outcome, runId: id }
+    await steps.sleep(`${label}:last-wait:${n}`, upgradeWaits.buildMs)
+  }
+  return { state: 'deploying', error: 'build_timed_out', runId: id }
 }
 
 const pinned = (deps: UpgradeDeps, p: UpgradeParams, version: string, error: string) =>
@@ -208,6 +215,8 @@ export const runStoreUpgrade = async (deps: UpgradeDeps, p: UpgradeParams, steps
   const done = commit
   if (outcome.state === 'live') return steps.do('live', () => wentLive(deps, p, c, done, migrated ? 'migrated' : 'live'))
   if (outcome.state === 'checked') return steps.do('passed', () => passed(deps, p, c, done, migrated ? 'migrated' : 'passed'))
+  // A build still deciding keeps its commit, in case its checks keep it live.
+  if (outcome.state === 'deploying') return steps.do('pin', () => pinned(deps, p, c.to, reason))
   await steps.do('forget', () => forget(deps, p.storeId, done).then(() => 'forgotten'))
   if (c.security) {
     const baseline = await prepareCommit(deps, steps, p, c, true, 'baseline')

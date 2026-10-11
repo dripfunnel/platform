@@ -130,14 +130,20 @@ export class Workspace {
     const next = input.baseline ? baselineWithOwn(new Map(input.baseline.map((f) => [f.path, f.content])), theme) : applyCodemods(theme, applied.flatMap((n) => n.codemods))
     if (![...next.keys()].every(isThemePath)) throw new Error('An upgrade wrote outside the theme.')
     const changes = changesBetween(theme, next)
-    for (const f of changes) {
-      if (f.content === null) await rm(join(this.repo, f.path), { force: true })
-      else await this.write(f.path, f.content)
-    }
     const pkg = pinCore(await readFile(join(this.repo, 'package.json'), 'utf8'), input.to)
-    await this.write('package.json', pkg)
-    await this.git(['add', '--all'])
-    if ((await this.git(['diff', '--cached', '--name-only'])).trim() !== '') await this.git(['commit', '--quiet', '--message', input.message])
+    try {
+      for (const f of changes) {
+        if (f.content === null) await rm(join(this.repo, f.path), { force: true })
+        else await this.write(f.path, f.content)
+      }
+      await this.write('package.json', pkg)
+      await this.git(['add', '--all'])
+      if ((await this.git(['diff', '--cached', '--name-only'])).trim() !== '') await this.git(['commit', '--quiet', '--message', input.message])
+    } catch (error) {
+      // Nothing half-written may ride along with the next operation's commit.
+      await this.discard()
+      throw error
+    }
     return { commit: await this.head(), files: [...changes, { path: 'package.json', content: pkg }], notes: applied.map(({ version, kind, notes: words }) => ({ version, kind, notes: words })) }
   }
 
@@ -155,8 +161,13 @@ export class Workspace {
     this.mustBeLoaded()
     const file = join(this.dir, 'onto.bundle')
     const before = await this.head()
+    const refused = (rule: string, message: string): ChangeResult => ({ ok: false, problems: [{ step: 'validator', file: null, line: null, rule, message }] })
     try {
-      await this.git(['fetch', '--quiet', file, `+${branch}:refs/df/onto`])
+      // Only a real conflict is called one: a missing or unrelated commit is a fault in what was sent.
+      const fetched = await this.git(['fetch', '--quiet', file, `+${branch}:refs/df/onto`]).then(() => true, () => false)
+      const found = fetched && (await this.git(['merge-base', '--is-ancestor', onto, 'refs/df/onto']).then(() => true, () => false))
+      if (!found) return refused('rebase/missing-onto', 'The core update’s commit is not in the bundle sent for it.')
+      if (!(await this.git(['merge-base', onto, before]).then(() => true, () => false))) return refused('rebase/unrelated', 'The draft and the core update share no history.')
       const reached = await this.git(['merge-base', '--is-ancestor', onto, before]).then(() => true, () => false)
       if (reached) return { ok: true, changed: false, commit: before, bundle: this.current ?? (await this.rebundle()) }
       try {
@@ -164,19 +175,25 @@ export class Workspace {
       } catch {
         await this.git(['rebase', '--abort']).catch(() => undefined)
         await this.git(['reset', '--quiet', '--hard', before])
-        return { ok: false, problems: [{ step: 'validator', file: null, line: null, rule: 'rebase/conflict', message: 'The draft and the core update change the same lines of the theme.' }] }
+        return refused('rebase/conflict', 'The draft and the core update change the same lines of the theme.')
       }
-      const theme = await this.theme()
-      const refused = validate([...theme].map(([path, content]) => ({ path, content })), context)
       const next = join(this.client, 'next')
-      const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await build(theme, this.repo, next)
-      if (!gated.ok) {
+      try {
+        const theme = await this.theme()
+        const refused = validate([...theme].map(([path, content]) => ({ path, content })), context)
+        const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await build(theme, this.repo, next)
+        if (!gated.ok) {
+          await this.git(['reset', '--quiet', '--hard', before])
+          await rm(next, { recursive: true, force: true })
+          return gated
+        }
+        await this.promote(next, gated.bundle)
+        return { ok: true, changed: true, commit: await this.head(), bundle: gated.bundle }
+      } catch (error) {
         await this.git(['reset', '--quiet', '--hard', before])
         await rm(next, { recursive: true, force: true })
-        return gated
+        throw error
       }
-      await this.promote(next, gated.bundle)
-      return { ok: true, changed: true, commit: await this.head(), bundle: gated.bundle }
     } finally {
       await rm(file, { force: true })
       await this.git(['update-ref', '-d', 'refs/df/onto']).catch(() => undefined)
