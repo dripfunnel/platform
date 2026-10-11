@@ -84,3 +84,15 @@ describe('the post-deploy checks’ time limit', () => {
     expect(now).toBeLessThan(300_000 + 100_000)
   })
 })
+
+describe('an address that doesn’t answer', () => {
+  it('skips what it couldn’t reach rather than failing a good build', async () => {
+    const silent: EdgeProbe = { get: async () => ({ status: 0, contentType: '', build: null, body: '' }), shop: async () => ({ status: 0, data: null, errors: true }) }
+    const results = await runPostDeployChecks(silent, target, timing())
+    expect(failedCheck(results)).toBeNull()
+    expect(results.find((r) => r.name === 'home')).toMatchObject({ result: 'skipped', detail: 'The store’s address didn’t answer.' })
+    const noScripts = probeWith({ ...healthy, 'https://shop.example/assets/app.js': { status: 0, contentType: '', build: null, body: '' } }, shopOk)
+    expect(failedCheck(await runPostDeployChecks(noScripts, target, timing()))).toBeNull()
+  })
+})
+
