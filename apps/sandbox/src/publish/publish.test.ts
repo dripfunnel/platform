@@ -5,18 +5,23 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { chromium, type Browser } from 'playwright-core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { catalogueSnapshotSchema, type CatalogueSnapshot, type GateReport } from '@dripfunnel/storefront-core/guard'
 import { buildRuntime } from '../runtime/build'
+import { buildSite } from './build'
+import { checkSite } from './check'
 import { refusedEnvironment, runStep } from './main'
+import { checkout } from './source'
 
-// Card #483: the build image's build step, run as the locked workflow runs it (storefront LIVE-SHOP §4 steps
-// 6–7). A build renders the store's whole site, so the timeouts are long.
+// Card #483: the build image's two publish steps, run as the locked workflow runs them (storefront LIVE-SHOP §4 steps
+// 6–7). Each run here takes the store's whole site through a real headless browser, so the timeouts are long.
 vi.setConfig({ testTimeout: 240_000, hookTimeout: 120_000 })
 
 const run = promisify(execFile)
 const sandbox = fileURLToPath(new URL('../../', import.meta.url))
 const baselineDir = fileURLToPath(new URL('../../../../packages/storefront-core/src/guard/fixtures/baseline/', import.meta.url))
+const chrome = [process.env['CHROME_PATH'], '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p): p is string => p !== undefined && existsSync(p))
 
 const snapshot: CatalogueSnapshot = catalogueSnapshotSchema.parse({
   version: 1,
@@ -58,7 +63,7 @@ const listing = (dir: string, prefix = ''): string[] =>
       return statSync(join(dir, rel)).isDirectory() ? listing(dir, rel) : [`${createHash('sha256').update(readFileSync(join(dir, rel))).digest('hex')}  ${rel}`]
     })
 
-const cli = (args: string[], env: Record<string, string> = {}) => run(join(sandbox, 'node_modules/.bin/tsx'), [join(sandbox, 'src/publish/cli.ts'), ...args], { cwd: sandbox, env: { PATH: process.env['PATH'] ?? '', SANDBOX_RUNTIME: runtime, ...env }, maxBuffer: 16 * 1024 * 1024 })
+const cli = (args: string[], env: Record<string, string> = {}) => run(join(sandbox, 'node_modules/.bin/tsx'), [join(sandbox, 'src/publish/cli.ts'), ...args], { cwd: sandbox, env: { PATH: process.env['PATH'] ?? '', SANDBOX_RUNTIME: runtime, ...(chrome ? { CHROME_PATH: chrome } : {}), ...env }, maxBuffer: 16 * 1024 * 1024 })
 
 const stepArgs = (source: { bundle: string; commit: string }, snapshotFile: string) => ['--source', source.bundle, '--commit', source.commit, '--snapshot', snapshotFile]
 
@@ -106,5 +111,109 @@ describe('step build', () => {
     expect(report.passed).toBe(false)
     expect(report.checks.find((c) => c.name === 'validator')).toMatchObject({ passed: false })
     expect(existsSync(join(root, 'refused/site'))).toBe(false)
+  })
+})
+
+describe.skipIf(!chrome)('step check', () => {
+  let browser: Browser
+
+  beforeAll(async () => {
+    browser = await chromium.launch({ executablePath: chrome ?? '', headless: true })
+  })
+
+  afterAll(async () => {
+    await browser?.close()
+  })
+
+  it('passes the baseline theme through the whole gate against the edge-case catalogue, and writes every page’s CSP', async () => {
+    const source = await sourceOf('baseline')
+    const built = join(root, 'baseline-built')
+    await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', built])
+    await cli(['check', ...stepArgs(source, join(root, 'snapshot.json')), '--built', built, '--out', join(root, 'baseline-checked')])
+    const report = JSON.parse(readFileSync(join(root, 'baseline-checked/report.json'), 'utf8')) as GateReport
+    expect(report.checks.filter((c) => !c.passed)).toEqual([])
+    expect(report.passed).toBe(true)
+    const headers = JSON.parse(readFileSync(join(root, 'baseline-checked/headers.json'), 'utf8')) as Record<string, { 'content-security-policy': string }>
+    const pages = listing(join(built, 'site')).map((l) => l.slice(66)).filter((p) => p.endsWith('.html'))
+    expect(Object.keys(headers).sort()).toEqual(pages.sort())
+    expect(headers['index.html']?.['content-security-policy']).toMatch(/^default-src 'none'; script-src 'self' 'sha256-/)
+  })
+
+  it('refuses a covered required part, a checkout broken on phones, JavaScript over budget and an empty h1 without JavaScript, each by name', async () => {
+    const digits = (seed: number) => {
+      let x = seed
+      return Array.from({ length: 11_000 }, () => (x = (x * 1103515245 + 12345) % 2147483648) % 1000000).join(', ')
+    }
+    const table = (n: number) => `export const table${n} = [${digits(n + 7)}]\n`
+    const source = await sourceOf('broken', {
+      'src/theme/components/interactive/tableA.tsx': table(1),
+      'src/theme/components/interactive/tableB.tsx': table(2),
+      'src/theme/components/interactive/tableC.tsx': table(3),
+      'src/theme/components/interactive/tableD.tsx': table(4),
+      'src/theme/components/interactive/Heavy.tsx': [
+        "'use client'",
+        '',
+        "import { useMemo } from 'react'",
+        "import { table1 } from './tableA'",
+        "import { table2 } from './tableB'",
+        "import { table3 } from './tableC'",
+        "import { table4 } from './tableD'",
+        '',
+        'export const Heavy = () => {',
+        '  const total = useMemo(() => table1.length + table2.length + table3.length + table4.length, [])',
+        '  return <span data-total={total} />',
+        '}',
+        '',
+      ].join('\n'),
+      'src/theme/components/interactive/Later.tsx': [
+        "'use client'",
+        '',
+        "import { useEffect, useState } from 'react'",
+        '',
+        'export const Later = ({ words }: { words: string }) => {',
+        '  const [shown, setShown] = useState(false)',
+        '  useEffect(() => setShown(true), [])',
+        '  return <>{shown ? words : null}</>',
+        '}',
+        '',
+      ].join('\n'),
+      'src/theme/components/Shell.tsx': readFileSync(join(baselineDir, 'src/theme/components/Shell.tsx'), 'utf8')
+        .replace("import styles from '../styles/shell.module.css'", "import styles from '../styles/shell.module.css'\nimport { Later } from './interactive/Later'")
+        .replace('{title}</h1>', '<Later words={title} /></h1>')
+        .replace('<PoweredBy brand={poweredBy} t={t} className={styles.powered} />', '<PoweredBy brand={poweredBy} t={t} className={styles.powered} />\n        <span className={styles.veil} />'),
+      'src/theme/styles/shell.module.css': `${readFileSync(join(baselineDir, 'src/theme/styles/shell.module.css'), 'utf8')}\n.veil {\n  position: absolute;\n  inset: 0;\n  background: #fff;\n}\n\n.footer {\n  position: relative;\n}\n\n.blocker {\n  display: none;\n}\n\n@media (max-width: 500px) {\n  .blocker {\n    display: block;\n    position: fixed;\n    inset: 0;\n    z-index: 50;\n    background: #fff;\n  }\n}\n`,
+      'src/theme/pages/CheckoutPage.tsx': readFileSync(join(baselineDir, 'src/theme/pages/CheckoutPage.tsx'), 'utf8')
+        .replace("import styles from '../styles/page.module.css'", "import styles from '../styles/page.module.css'\nimport shell from '../styles/shell.module.css'")
+        .replace('</p>\n    </Shell>', '</p>\n      <div className={shell.blocker} />\n    </Shell>'),
+      'src/theme/pages/HomePage.tsx': readFileSync(join(baselineDir, 'src/theme/pages/HomePage.tsx'), 'utf8')
+        .replace("import { Disclosure } from '../components/interactive/Disclosure'", "import { Disclosure } from '../components/interactive/Disclosure'\nimport { Heavy } from '../components/interactive/Heavy'")
+        .replace('</Disclosure>', '</Disclosure>\n      <Heavy />'),
+    })
+    const out = join(root, 'broken-built')
+    const theme = await checkout(source.bundle, source.commit, join(root, 'broken-src'))
+    const built = await buildSite({ repo: join(root, 'broken-src'), theme, snapshot, runtimeDir: runtime, out, work: join(root, 'broken-work') })
+    expect(built.ok ? [] : built.report.checks.filter((c) => !c.passed)).toEqual([])
+    const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser })
+    const failed = Object.fromEntries(report.checks.filter((c) => !c.passed).map((c) => [c.name, c.detail ?? '']))
+    expect(report.passed).toBe(false)
+    expect(failed['sealed']).toContain('The "powered" component on the home page isn\'t seen: something covers its centre.')
+    expect(failed['checkout']).toContain('The checkout page at 390 px can\'t be used')
+    expect(failed['budgets']).toMatch(/^Home page loads [\d.]+ KB of JavaScript gzipped, over the 90.0 KB budget\./)
+    expect(failed['no-js']).toContain("main heading is empty without JavaScript.")
+    expect(report.checks.find((c) => c.name === 'validator')).toEqual({ name: 'validator', passed: true })
+  })
+
+  it('fails a page that reaches outside the store, and keeps the request from leaving', async () => {
+    const source = await sourceOf('reaching')
+    const out = join(root, 'reaching-built')
+    const theme = await checkout(source.bundle, source.commit, join(root, 'reaching-src'))
+    await buildSite({ repo: join(root, 'reaching-src'), theme, snapshot, runtimeDir: runtime, out, work: join(root, 'reaching-work') })
+    // As if something slipped past the validator: the built cart page asks another host for an image.
+    const cart = join(out, 'site/cart/index.html')
+    writeFileSync(cart, readFileSync(cart, 'utf8').replace('<div id="root">', '<div id="root"><img alt="" src="https://tracker.example/pixel.gif">'))
+    const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser })
+    const contracts = report.checks.find((c) => c.name === 'contracts')?.detail ?? ''
+    expect(contracts).toContain('The cart page at 390 px failed while loading.')
+    expect(contracts).not.toContain('tracker.example')
   })
 })

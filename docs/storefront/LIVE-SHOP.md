@@ -200,6 +200,12 @@ checking, deploying, live, failed, rolled back).
    failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
    same tree. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
    and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
+
+   **The image's `check` step, built on #483** (`node /opt/sandbox/dist/publish.js check`), in a fresh container with
+   the same refusals and its own checkout of the commit: it serves the built site on 127.0.0.1 with each page's CSP
+   and core's offline Shop API, drives the image's Chromium, and writes the gate's report and each HTML file's
+   headers. Any request leaving the machine is refused and fails its page, whether the routing or the page's own CSP
+   stops it; the page's error text stays out of the report.
 8. **Step `upload`:**
    - **After a passing report**, the API mints **an R2 temporary credential for the private
      `storefront-sites` bucket only, limited to a staging folder `stores/{id}/uploads/{build id}/`

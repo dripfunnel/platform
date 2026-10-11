@@ -10,7 +10,8 @@ RUN pnpm install --frozen-lockfile --filter @dripfunnel/sandbox... \
  && cp -r apps/sandbox/dist /out/dist
 
 FROM node:22-slim
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+# Chromium is the publish check's browser (LIVE-SHOP §4 step 7); the studio never starts it.
+RUN apt-get update && apt-get install -y --no-install-recommends git chromium && rm -rf /var/lib/apt/lists/*
 COPY --from=build /out /opt/sandbox
 # No credential is ever set here or at start (the server refuses one); the container's internet is off.
 ENV NODE_ENV=production PORT=8080 SANDBOX_SLOTS=1 SANDBOX_WORK=/tmp/sandbox SANDBOX_RUNTIME=/opt/sandbox/dist/runtime-files
