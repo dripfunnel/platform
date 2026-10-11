@@ -14,7 +14,7 @@ const html = (route: CoreRoute | 'custom') =>
   `<!doctype html><html lang="en"><body><header></header><main><h1>Title</h1>${requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy: true, legal: false, priced: true })
     .map((p) => `<df-sealed data-df-sealed="${p}"></df-sealed>`)
     .join('')}</main></body></html>`
-const read = (path: string, route: CoreRoute | 'custom'): PageRead => ({ path, route, html: html(route), h1s: ['Title'], mainText: 'Made slowly.', text: 'Title Made slowly.', links: ['/', '/our-story/'] })
+const read = (path: string, route: CoreRoute | 'custom'): PageRead => ({ path, route, html: html(route), h1s: ['Title'], mainText: 'Made slowly.', text: 'Title Made slowly.', links: ['/', '/our-story/'], errors: [] })
 const pages: PageRead[] = [...coreRoutes.map((r) => read(pathOf(r), r)), read('/our-story/', 'custom')]
 const visit = (p: PageRead, width: number): PageVisit => ({ path: p.path, route: p.route, width, errors: [], sealed: [], axe: [], mainSeen: true, overflow: false, diff: null })
 const visits = pages.flatMap((p) => gateWidths.map((w) => visit(p, w)))
@@ -27,7 +27,7 @@ const good: GateInput = {
   pages,
   visits,
   weights: pages.map(weight),
-  site: { origin, sitemap: `<urlset>${indexed.map((p) => `<url><loc>${origin}${p.path}</loc></url>`).join('')}</urlset>`, robots: `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`, files: ['assets/entry-a.js'] },
+  site: { origin, sitemap: `<urlset>${indexed.map((p) => `<url><loc>${origin}${p.path}</loc></url>`).join('')}</urlset>`, robots: `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`, files: ['assets/entry-a.js'], prefixes: ['/hi'] },
   data: ['Northstar Linen'],
   poweredBy: true,
   strictLook: false,
@@ -105,6 +105,17 @@ describe('the full gate', () => {
 
   it('lets the store’s own words through the content scan', () => {
     expect(failing({ ...good, data: ['Only 2 Left Studio'], pages: onPage(pages, '/', (p) => ({ ...p, text: 'Welcome to Only 2 Left Studio' })) })).toEqual([])
+  })
+
+  it('follows item links in the store’s own languages only, and fails one that leads nowhere', () => {
+    const linking = (links: string[]) => ({ ...good, pages: onPage(pages, '/', (p) => ({ ...p, links })) })
+    expect(failing(linking(['/products/linen-shirt/', '/hi/products/linen-shirt/', '/hi/collections/summer/']))).toEqual([])
+    expect(detail(linking(['/faq/products/1/']), 'crawl')).toBe('The link /faq/products/1/ on the home page leads nowhere.')
+    expect(detail(linking(['/xyz/collections/a/']), 'crawl')).toBe('The link /xyz/collections/a/ on the home page leads nowhere.')
+  })
+
+  it('fails a page that broke without JavaScript, as when it reached outside the store', () => {
+    expect(detail({ ...good, pages: onPage(pages, '/cart/', (p) => ({ ...p, errors: ['It tried to reach https://tracker.example'] })) }, 'contracts')).toBe('The cart page failed to load without JavaScript.')
   })
 
   it('keeps a sitemap to the pages search engines should see', () => {
