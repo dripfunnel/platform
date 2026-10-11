@@ -152,7 +152,8 @@ export const studioSessionClass = (connect: Connect) =>
         storeId,
         live: (forStore, session) => db((sql) => liveStudioSession(sql, forStore, session, new Date())),
         loaded: () => runner.loaded,
-        open: () => this.ctx.waitUntil(runner.open().catch(() => undefined)),
+        // Opening from the frame is activity, so the alarm that stops it when idle is armed (AI-STUDIO §7).
+        open: () => this.ctx.waitUntil(this.active(storeId).then((r) => r.open()).catch(() => undefined)),
         origins: async (frameOrigin) => {
           const portal = await db((sql) => withSystemScope(sql, (tx) => selectStudioPortalHost(tx, storeId)))
           return portal ? { media: frameOrigin, portal: `https://${portal}` } : null
