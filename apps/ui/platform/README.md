@@ -235,7 +235,7 @@ read in every build.
 name and a 10-character password, then 2-factor as step 2 of 2, required when the partner's
 Owner requires it and otherwise skippable. The route loader looks the token up, so a bad link
 is known before anything renders; the 2-factor step asks the API for a secret and shows it as a
-text key (the QR code is still a placeholder). `?state=` substitutes the answer instead:
+QR code of its `otpauth://` URI, drawn in the browser, and as a text key. `?state=` substitutes the answer instead:
 `expired`, `used`, `replaced`, `invalid`, `member` (invited by the Owner), `required` (2-factor
 required), and `twoFactor` for step 2. Codes: `INVITATION_EXPIRED`, `INVITATION_USED`,
 `INVITATION_REPLACED`, `INVITATION_INVALID`, `NAME_REQUIRED`, `WEAK_PASSWORD`,
