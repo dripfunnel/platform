@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { sealedProblemWords } from '../../testing/index'
 import { routeAddresses, type ThemeRoutes } from '../../contracts/routes'
 import { coreRoutes, requiredParts, type CoreRoute } from '../../contracts/theme'
 import { catalogueSnapshotSchema, edgeCases, fallbackPath, gateChecks, gateReport, gateWidths, maxDetail, pageBudgets, runGate, type CatalogueSnapshot, type GateCheckName, type GateInput, type PageRead, type PageVisit, type PageWeight } from '../index'
@@ -32,7 +33,7 @@ const good: GateInput = {
   poweredBy: true,
   legal: false,
   strictLook: false,
-  edge: [{ name: 'a right-to-left layout', pages: [pages[0] as PageRead], visits: [visit(pages[0] as PageRead, 390)] }],
+  edge: [{ name: 'a right-to-left layout', pages, visits: pages.map((p) => visit(p, 390)) }],
   edgeNames: ['a right-to-left layout'],
 }
 
@@ -59,7 +60,7 @@ describe('the full gate', () => {
       ['crawl', { ...good, pages: onPage(pages, '/', (p) => ({ ...p, links: ['/products/', '/gone/'] })) }],
       ['content', { ...good, pages: onPage(pages, '/', (p) => ({ ...p, text: 'Hurry, only 2 left in stock!' })) }],
       ['visual-diff', { ...good, strictLook: true, visits: onPage(visits, '/', (v) => ({ ...v, diff: 0.2 })) }],
-      ['edge-cases', { ...good, edge: [{ name: 'a right-to-left layout', pages: [pages[0] as PageRead], visits: [{ ...visit(pages[0] as PageRead, 390), overflow: true }] }] }],
+      ['edge-cases', { ...good, edge: [{ name: 'a right-to-left layout', pages, visits: pages.map((p) => ({ ...visit(p, 390), overflow: p.path === '/' })) }] }],
     ]
     for (const [name, input] of cases) expect([name, failing(input)]).toEqual([name, [name]])
   })
@@ -140,6 +141,8 @@ describe('the full gate', () => {
     // Pages in another language are read without JavaScript, not visited.
     expect(failing({ ...good, pages: [...pages, { ...read('/hi/', 'home') }], site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/hi/</loc></url>` } })).toEqual([])
     expect(detail({ ...good, edgeNames: ['a right-to-left layout', 'the hi language'] }, 'edge-cases')).toBe('The edge case "the hi language" wasn\'t rendered and seen.')
+    const partial = { ...good, edge: [{ name: 'a right-to-left layout', pages: pages.filter((p) => p.path !== '/cart/'), visits: pages.filter((p) => p.path !== '/search/').map((p) => visit(p, 390)) }] }
+    expect(detail(partial, 'edge-cases')).toBe("With a right-to-left layout: the search page wasn't seen at 390 px. With a right-to-left layout: the cart page wasn't rendered.")
   })
 
   it('requires the sealed legal notices on product, checkout and policy pages when the store’s markets need them', () => {
@@ -182,5 +185,14 @@ describe('the edge-case catalogue', () => {
     expect(long?.store.name.length).toBe(200)
     expect([long?.store.logo, long?.store.contactEmail, long?.poweredBy === null]).toEqual([null, null, false])
     for (const c of cases) expect(catalogueSnapshotSchema.safeParse(c.snapshot).success).toBe(true)
+  })
+})
+
+describe('the words for a sealed component the page reported', () => {
+  it('keep to core’s own part and problem names, whatever the page sent', () => {
+    expect(sealedProblemWords('cart page', 'price', 'too-small')).toBe('The "price" component on the cart page isn\'t seen: it is smaller than 24×12 px.')
+    expect(sealedProblemWords('cart page', 'Buy now, only 2 left!', 'too-small')).toBe("A required component on the cart page isn't seen.")
+    expect(sealedProblemWords('cart page', 'constructor', 'hidden')).toBe("A required component on the cart page isn't seen.")
+    expect(sealedProblemWords('cart page', 'powered', 'anything at all')).toBe('The "powered" component on the cart page isn\'t seen.')
   })
 })
