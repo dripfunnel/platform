@@ -67,13 +67,15 @@ const configSchema = z.object({
   SMS_LOCAL: z.literal('1').optional(),
   DNS_LOCAL: z.literal('1').optional(),
   COURIERS_LOCAL: z.literal('1').optional(),
+  // Store repos in an in-memory GitHub on this machine (docs/setup/local.md §6.1), whatever the GITHUB_APP_* values.
+  GITHUB_LOCAL: z.literal('1').optional(),
   // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
 const devHooksHost = 'dev-hooks.dripfunnel.ai'
 const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
-const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL'] as const
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
 const checkedConfig = configSchema.superRefine((c, ctx) => {

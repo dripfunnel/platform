@@ -53,8 +53,8 @@ infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the
 │  src/theme/**          AI-WRITTEN: pages, components, layouts, CSS Modules             │
 │  content/{locale}/*.json  AI-WRITTEN (the merchant may edit): every word shoppers see  │
 │  routes.json           AI-WRITTEN: which theme page skins each core route; custom pages│
-│  src/app/**            LOCKED, generated route shims: core route → theme page          │
-│  store.config.ts       LOCKED, generated with the repo (store key, API, locales)       │
+│  src/app/**            LOCKED: the skeleton's; route shims generated at build          │
+│  store.config.ts       LOCKED, generated with the repo (store key, Shop API path)      │
 │  package.json          LOCKED: core pinned exactly; the dependency allowlist           │
 └──────────────────────────────────┬─────────────────────────────────────────────────────┘
                                    │ depends on (exact version)
@@ -123,26 +123,26 @@ Created **when the merchant first picks a template** in Storefront, not at provi
 (decided 2026-10-08 on #470): an empty **public** repo with an opaque name in the `dripfunnel`
 org (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md) §3), into which
 `apps/api/src/integrations/github` copies `templates/storefront/` with the chosen template's
-theme (§2.3) through the GitHub App, then writes the generated files (`store.config.ts`, route
-shims) and pins the published `@dripfunnel/storefront-core` version (PLATFORM-PROMPT §5.7,
-`../ARCHITECTURE.md` §1). Nothing in the repo is edited by hand: each change the AI makes becomes a commit in the
+theme (§2.3) through the GitHub App, then writes the generated `store.config.ts` and pins the
+published `@dripfunnel/storefront-core` version (PLATFORM-PROMPT §5.7, `../ARCHITECTURE.md` §1;
+built on #316, SAAS §5 steps 4–8). Nothing in the repo is edited by hand: each change the AI makes becomes a commit in the
 store's private draft once it passes the fast gate (§6.2), and **the platform pushes the published
 tree to the repo as one squashed commit once its publish is live** through the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6); the
 sandbox itself holds no credential (§6.1).
 
 ```
 src/
-  app/                  LOCKED, generated. One thin file per core route and custom page,
-                        re-exporting the page routes.json names (the reference's
-                        "app files are re-export shims" test, kept).
+  app/                  LOCKED: the skeleton's files. The route shims, one thin file per core
+                        route and custom page re-exporting the page routes.json names (the
+                        reference's "app files are re-export shims" test, kept), are generated
+                        from routes.json at build, never kept in the repo (decided on #316).
   theme/                AI-WRITTEN
     pages/              a page per core route (§3.1) and the store's custom pages
     components/         server components; components/interactive/ for client islands
     styles/             *.module.css only
 content/{locale}/       AI-WRITTEN: every shopper-facing word, one file per page or area
 routes.json             AI-WRITTEN: core route → theme page; custom page path → theme page
-store.config.ts         LOCKED, generated: store key, Shop API URL, preview and live
-                        hostnames, locales, currencies, core feature flags
+store.config.ts         LOCKED, generated: the public store key and the Shop API's path
 package.json            LOCKED: core pinned exactly; dependencies from the allowlist only
 .github/workflows/build.yml  LOCKED, from the template: the only workflow (LIVE-SHOP §4)
 ```
@@ -151,12 +151,32 @@ Choosing another template later replaces `src/theme/**` and `routes.json` with t
 template's, after asking whether to **keep the merchant's words** (`content/**` kept) or take
 the template's.
 
+Decided on #316:
+- **The shims are generated at build, by core, from `routes.json`** (in the build image and the
+  studio's fast gate). A publish may push only §3.4's paths (AI-STUDIO §6), so a custom page the AI
+  adds could never bring its shim to the repo; and core owns the route map the shims follow.
+- **`store.config.ts` holds only what never changes**: the public store key and the Shop API's
+  path (`/shop-api`, same origin, LIVE-SHOP §5 step 3). Hostnames, languages and currencies
+  change in Settings and reach the build from the Shop API, so a settings change never needs a
+  commit.
+
 ### 2.3 Templates
 
 The six templates and "Start from scratch" live in this repo as complete starting themes,
 `templates/storefront/themes/{key}/` (`src/theme/**`, `content/**`, `routes.json`, a
 `template.json` with the name, description and demo store) *(proposed, the baseline-theme card
-confirms the path)*. "Start from scratch" is the baseline theme drawn in
+confirms the path)*.
+
+**Where the Worker reads them** (decided on #316): not from this repo, which the App can't and
+mustn't read, but from the `storefront-sites` bucket, where the release workflow puts each core
+version's files as it builds the templates' preview bundles (PREVIEW §4):
+`templates/{core}/skeleton.json` (every file of `templates/storefront/` outside the theme, the
+locked workflow and `package.json` included), `templates/{core}/themes/{key}/source.json` (the
+theme's files), `templates/{core}/themes/{key}/preview/manifest.json` (each preview file's path
+and SHA-256) with the files under `preview/files/`, and last `templates/current.json`
+(`{"core": "x.y.z"}`), which names the core new stores pin. The `create-storefront` Workflow
+refuses a skeleton without its workflow and `package.json` or carrying theme files, and a theme
+writing outside §3.4. "Start from scratch" is the baseline theme drawn in
 `designs/DF Storefront Prototype` (D1, #285). Every template passes every gate of §4.2 with
 every core release before it ships (§10). A template keeps its own colours; the brand's
 colours are a hint the AI uses when asked, never applied automatically.

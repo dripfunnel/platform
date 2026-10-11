@@ -1747,7 +1747,9 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                     -- (proposed; live_build_id and preview_epoch on #317, preview_key on #518);
                     -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
                     -- repo_head the commit its main is at, which a push must find there (built on
-                    -- #316, migration 0230; storefront AI-STUDIO §6)
+                    -- #316, migration 0230; storefront AI-STUDIO §6); template is written when the
+                    -- repo is ready (SAAS §5 step 8, migration 0231). Steps 4–8 run as a job of kind
+                    -- 'create-storefront', after the signup's 'provision-store' (#316)
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
                     -- and catalog_version (moved by triggers on every change a storefront shows; the
                     -- Shop API's edge cache keys on it); the rest comes with publishing (SAPI 17)
@@ -1779,7 +1781,10 @@ design_draft        (store_id PK, head_commit, base_version_id NULL, template, c
                     -- live, which pushes them to
                     -- the public repo (decided 2026-10-09, storefront AI-STUDIO §4, §6);
                     -- preview_deploy_ref is the preview's folder (PREVIEW §3);
-                    -- discard resets it to the live version's commit; deleted on publish
+                    -- discard resets it to the live version's commit; deleted on publish.
+                    -- Built on #316 (migration 0231) without base_version_id, which comes with
+                    -- design_version: the create-storefront Workflow writes the first, its head
+                    -- the repo's main and its preview the template's bundle (SAAS §5 step 7)
 design_version      (id, store_id, number, commit, template, core_version, label, deploy_ref NULL,
                      publish_run_id, published_by, published_at, state ('live'|'kept'))
                     -- PortalStorefront history: "Go back to version N" makes deploy_ref (the

@@ -11,7 +11,7 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 `../api/SAAS.md` owns the state and rules: provisioning (§5), domains (§8) and publishing
 (§9.1).
 
-**Status: specification only.** Nothing below is built.
+**Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9); the rest is specification.
 
 Last updated: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
@@ -76,7 +76,7 @@ Part of the `create-storefront` Workflow (SAAS §5 steps 4–8), when the mercha
 template.
 
 1. **The GitHub App creates a public repo with an opaque name**, for example
-   `dripfunnel/sf-k7f3q9` *(proposed)*.
+   `dripfunnel/sf-k7f3q9f2xa`: `sf-` and ten letters or digits (decided on #316).
    *Why:* the org's list of public repos would otherwise list every merchant by name.
 2. **It copies `templates/storefront/`** with the chosen template's theme, the generated
    `store.config.ts` and route shims, `package.json` pinning the current core version, and
@@ -395,6 +395,6 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   each unique transformation again every calendar month. For 5,000 stores with 1,000 images in 4
   sizes, that is about 20 million transformations, roughly $10,000 a month at list price.
   Resizing once at upload and storing the sizes in R2 would cost a small fraction of that.
-- How many builds a store keeps (20 proposed), and the bucket names *(decide on #317)*; the repo names *(decide on #316)*.
+- How many builds a store keeps (20 proposed), and the bucket names *(decide on #317)*; ~~the repo names~~ `sf-` and ten letters or digits (decided on #316).
 - Rendering pages on request instead of building them all (Workers for Platforms, a Worker per
   store) is a later option for very large catalogues. It isn't planned.
