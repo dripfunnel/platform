@@ -8,3 +8,4 @@ export { BuildRefused, BuildUnavailable, buildLifetimeMs, gateReport, handoutSec
 export { digestOf, manifestSchema, maxBuildFiles, maxFileBytes, type Manifest } from './manifest'
 export { isPublicAsset, UploadRefused, uploadRefusals, verifyUpload, type UploadRefusal, type VerifyDeps } from './verify'
 export { cleanStorefronts, keptBuilds, type StorefrontBuckets } from './cleanup'
+export { checkPreview, openPreview, previewLinkFor, type PreviewAccess } from './preview'
