@@ -74,7 +74,9 @@ describe('verifyActionsToken', () => {
     expect(await refusal(verifyActionsToken(await token({ aud: 'https://hooks.example.com' }), keySet, audience, now))).toBe('bad_token')
     expect(await refusal(verifyActionsToken(await token({ iss: 'https://evil.example.com' }), keySet, audience, now))).toBe('bad_token')
     // Signed by a key GitHub never published, under the published key's id.
-    expect(await refusal(verifyActionsToken(await token({ key: keys[1]?.privateKey }), keySet, audience, now))).toBe('bad_token')
+    const foreign = keys[1]?.privateKey
+    if (!foreign) throw new Error('no second key')
+    expect(await refusal(verifyActionsToken(await token({ key: foreign }), keySet, audience, now))).toBe('bad_token')
     expect(await refusal(verifyActionsToken('not.a.token', keySet, audience, now))).toBe('bad_token')
   })
 

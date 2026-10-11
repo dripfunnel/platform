@@ -91,7 +91,6 @@ const passedBuild = async (storeId: string, repo: { repo: string; id: number }, 
   return { id, auth }
 }
 
-const lines: string[] = []
 
 beforeAll(async () => {
   db = await createTestDatabase()

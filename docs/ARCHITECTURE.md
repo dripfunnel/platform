@@ -63,7 +63,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 | `platform.dripfunnel.com/api/*` | Platform API (`src/apis/platform`) | 404 |
 | A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). A partner's own host arrives only through store-proxy's service binding on the `PortalProxy` entrypoint; the Worker's own routes answer the Store API only on hosts in the admin host's zone (`dev-store.dripfunnel.ai` on dev, `store.northstar.localhost` locally) | 404 |
 | A storefront host `/shop-api/*` | Shop API (`src/apis/shop`); through store-proxy's `StorefrontEdge` binding only `/shop-api/*` answers, and never on our own hosts (#317) | |
-| `hooks.dripfunnel.com/*` | Webhooks (`src/hooks`) | 404 |
+| `hooks.dripfunnel.com/*` | Webhooks (`src/hooks`); `/builds/*`, a store repo's build calls by GitHub OIDC (`src/apis/builds.ts`, storefront/LIVE-SHOP.md §4, #517) | 404 |
 | Queue messages, Cron, Workflow steps | `src/jobs` | no HTTP route |
 
 `PortalProxy` answers only that row: our own hosts, any other path and a host not found are 404, and

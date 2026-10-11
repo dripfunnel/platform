@@ -1721,7 +1721,7 @@ content). Specified in SAAS §9 and storefront/ARCHITECTURE §4.2. **One home pe
 table owns the rest and every write to it updates the mirror in the same transaction.
 
 ```
-storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview_epoch, live_url, public_store_key,
+storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, preview_key, preview_epoch, live_url, public_store_key,
                      allowed_origins text[], checkout_url NULL, account_url NULL,
                      has_unpublished_changes boolean, changes_since NULL, changed_kinds text[],
                      changed_count integer, next_auto_publish_at, template NULL,
@@ -1748,6 +1748,8 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                     -- preview_url: the host is derived from preview_key and PREVIEW_DOMAIN, and a
                     -- preview opens only through a signed link (PREVIEW §8). live_build_id (the publish_run
                     -- id, null until the first publish) and preview_epoch (integer, 0) built on #317, migration 0233;
+                    -- repo_id is the repo's numeric GitHub id, which a build's OIDC token names as
+                    -- repository_id (LIVE-SHOP §9; built on #517, migration 0240, written with the repo);
                     -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
                     -- repo_head the commit its main is at, which a push must find there (built on
                     -- #316, migration 0230; storefront AI-STUDIO §6); template is written when the
@@ -1784,8 +1786,12 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- INF 5's rollback moves back to) and files_deleted_at (clean-up done, LIVE-SHOP §4 step 11).
                     -- Decided there: deploy_ref and previous_deploy_ref are not columns, since the run's id is
                     -- the build's folder; template is, so the switch writes the version without another read.
-                    -- gate, repair_attempts, bisect_commit, build_minutes and github_run_id come with #483
-                    -- and #517, which write them. One running and one queued per store (partial unique indexes)
+                    -- repair_attempts, bisect_commit and build_minutes come with #483, which writes them. One
+                    -- running and one queued per store (partial unique indexes). Built on #517 (migration 0240):
+                    -- github_run_id; gate (the check step's report: passed, and each check's name, pass or fail
+                    -- and plain words) with gate_digest (the digest of the files it checked, LIVE-SHOP §4 step 7);
+                    -- uploaded_at ("uploaded": no credential after it) and verified_at (every staged object
+                    -- hashed to its manifest entry and was copied, §4 step 9)
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
                      changed_at, changed_by, preview_deploy_ref NULL)
                     -- the one unpublished design per store: the draft's head (decided

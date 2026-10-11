@@ -12,10 +12,11 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 (§9.1).
 
 **Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9). On #317:
-the bucket layout (§2), the edge Worker's host lookup and its `/shop-api` door, and the cache purge (§5 step 1); the rest
-is specification.
+the bucket layout (§2), the edge Worker's host lookup and its `/shop-api` door, and the cache purge (§5 step 1). On #517:
+the OIDC check (§9) and the build calls `start`, `report` and `credentials` (§4, "The build calls"); the rest is
+specification.
 
-Last updated: 2026-10-11 (#317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-11 (#517: the build calls, the digest's form, the build id's lifetime; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -170,7 +171,9 @@ checking, deploying, live, failed, rolled back).
    checkout is the post-deploy check (step 10). The container writes each check's pass or fail
    to its output folder. A runner step then:
    - computes the **digest of the files it handed to the container**: SHA-256 over the sorted
-     list of each file's path and SHA-256, computed outside the container;
+     list of each file's path and SHA-256, computed outside the container. Its form (decided on
+     #517): one line `<sha256 hex><two spaces><path>\n` per file, as `sha256sum` prints it, with
+     paths relative to the site's folder, sorted in byte order (`LC_ALL=C sort`);
    - sends the **report** (the results and the digest) **straight to the API** by OIDC.
 
    *Why:* the checks cost nothing on public repos and need no browser service of ours. The AI's
@@ -234,6 +237,22 @@ checking, deploying, live, failed, rolled back).
     folders are deleted at the switch or when a run fails. **Deleting a store** (or a deletion
     request) deletes all its folders in both buckets and everything of its in the drafts bucket:
     the draft, every source bundle and every snapshot (SAAS §5).
+
+**The build calls** (built on #517, `apps/api/src/apis/builds.ts`). The workflow's runner steps call
+`POST https://<hooks host>/builds/<step>` with a fresh OIDC token for the audience `https://<hooks host>` in
+`Authorization: Bearer`, and `{"build": "<build id>"}` in the body:
+
+| Step | Allowed when | Answers |
+|---|---|---|
+| `start` (step 5) | The build is `building` and has no report | 15-minute links: `source`, `snapshot`, and `live` (each file of the live build by path, or null before the first publish) |
+| `report` (step 7) | No report yet; the body adds `passed`, `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …}`. Kept on `publish_run.gate` once: a pass moves the build to `deploying`, a failure ends it (`failed`, `gate_failed`); the same report again gets the same answer |
+| `credentials` (step 8) | After a passing report and before "uploaded" | `endpoint`, `bucket`, `prefix` (the staging folder) and the 15-minute `accessKeyId`, `secretAccessKey`, `sessionToken` |
+
+Every refusal is the same `403 {"error":"refused"}`, whatever its cause; the cause goes to the technical log
+(LOGGING §9) and, for a run that proved itself and named a real build, to that store's activity log for staff. GitHub's
+keys or Cloudflare not answering is `503`, and more than 60 calls a minute from one address is `429`. A build id is
+good for **2 hours from its dispatch** (`publish_run.started_at`; decided on #517: the job's 30 minutes and a wait for a
+runner), and only for the first run that uses it.
 
 ---
 
@@ -339,9 +358,11 @@ What the edge Worker does on each request to a storefront host.
 ## 9. Isolation and security
 
 - **The OIDC check.** The API accepts a token only when every one of these holds:
-  - the issuer is GitHub's (`token.actions.githubusercontent.com`) and the audience is ours;
-  - `repository_id` is that store's repo;
-  - `job_workflow_ref` is the locked workflow on `main`;
+  - the issuer is GitHub's (`token.actions.githubusercontent.com`), the signature one of GitHub's published keys
+    (RS256 only; the key set cached and fetched again for a key id it doesn't hold), it hasn't expired, and the
+    audience is ours (`https://<hooks host>`, so a token for one environment is worthless in another);
+  - `repository_id` is that store's repo (`storefront.repo_id`, the id GitHub gave the repo, never its name);
+  - `job_workflow_ref` is the locked workflow on `main`, and `ref` is `main`;
   - the event is `workflow_dispatch`;
   - the build id is unexpired, belongs to that store, and is bound to the first `run_id` that
     uses it.

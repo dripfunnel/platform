@@ -41,6 +41,12 @@ const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.to
 const hash = async (value: unknown) => hex(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(JSON.stringify(value))))
 const reply = (status: number, body?: unknown) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
+// Unique across stand-ins and restarts, as GitHub's own ids are: `storefront.repo_id` keeps them (#517).
+const repoId = (): number => {
+  const [high = 0, low = 0] = crypto.getRandomValues(new Uint32Array(2))
+  return (high % 2 ** 20) * 2 ** 32 + low + 1
+}
+
 /** `verifyKey` checks the App's JWT as GitHub would; without it any JWT-shaped bearer gets a token. */
 export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: string; installationId: string; appId: string; verifyKey?: CryptoKey }): LocalGitHub => {
   const repos = new Map<string, Repo>()
@@ -48,7 +54,6 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
   const grants: Record<string, string>[] = []
   const calls: string[] = []
   const failures: { matching: RegExp; status: number; times: number }[] = []
-  let nextId = 1000
 
   const storeTree = async (repo: Repo, files: Map<string, string>) => {
     const sha = await hash([...files].sort(([a], [b]) => a.localeCompare(b)))
@@ -92,7 +97,7 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     if (method === 'POST' && path === `/orgs/${org}/repos`) {
       const name = String(body['name'])
       if (repos.has(name)) return reply(422, { message: 'name already exists on this account' })
-      const repo: Repo = { id: nextId++, name, private: body['private'] === true, main: null, commits: new Map(), trees: new Map(), settings: {} }
+      const repo: Repo = { id: repoId(), name, private: body['private'] === true, main: null, commits: new Map(), trees: new Map(), settings: {} }
       if (body['auto_init'] === true) {
         const tree = await storeTree(repo, new Map([['README.md', `# ${name}\n`]]))
         repo.main = await storeCommit(repo, { tree, parents: [], message: 'Initial commit', date: new Date().toISOString() })

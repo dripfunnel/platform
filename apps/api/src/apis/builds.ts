@@ -28,6 +28,17 @@ const steps: Record<string, Step> = {
 
 const bearer = (request: Request): string | null => /^Bearer ([A-Za-z0-9_\-.]{20,8192})$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? null
 
+/** The body as JSON, or null when it is too long or isn't JSON; the step's schema then refuses it. */
+const jsonBody = async (request: Request): Promise<unknown> => {
+  const raw = await readCapped(request, bodyLimit)
+  if (!raw.ok) return null
+  try {
+    return JSON.parse(new TextDecoder().decode(raw.bytes)) as unknown
+  } catch {
+    return null
+  }
+}
+
 export const handleBuildCall = async (request: Request, deps: BuildDeps, allow: (key: string) => Promise<boolean>): Promise<Response> => {
   const name = new URL(request.url).pathname.slice(buildsPrefix.length)
   const step = Object.hasOwn(steps, name) ? steps[name] : undefined
@@ -38,13 +49,7 @@ export const handleBuildCall = async (request: Request, deps: BuildDeps, allow: 
     return json(429, { error: 'rate_limited' })
   }
   const token = bearer(request)
-  const raw = await readCapped(request, bodyLimit)
-  let body: unknown = null
-  try {
-    body = raw.ok ? JSON.parse(new TextDecoder().decode(raw.bytes)) : null
-  } catch {
-    body = null
-  }
+  const body = await jsonBody(request)
   if (!token) {
     log(403, 'refused:no_token')
     return refused()
