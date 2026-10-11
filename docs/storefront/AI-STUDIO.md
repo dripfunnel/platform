@@ -147,11 +147,12 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 ## 6. Publishing from the studio
 
 1. **The merchant presses Publish.** The Durable Object finishes any change in progress first.
-2. **If the live commit moved since the draft started** (the upgrade bot's commits touch only
-   `package.json` and codemods, never the theme), the container rebases the draft onto it first
-   and runs the fast gate again. **Built on #485** (the sandbox's `PUT /slots/{slot}/onto` and `POST /slots/{slot}/rebase`):
+2. **If the live commit moved since the draft started** (the upgrade bot's commits pin core in
+   `package.json` and apply the release's codemods, which may edit theme files; ARCHITECTURE §7.1), the container
+   rebases the draft onto it first and runs the fast gate again. **Built on #485** (the sandbox's `PUT /slots/{slot}/onto` and `POST /slots/{slot}/rebase`):
    the draft's own commits are replayed onto the upgrade's commit, then the validator and the fast gate run; a conflict
-   (`rebase/conflict`) or a refusal leaves the draft exactly as it was, and rebasing onto a commit the draft already has
+   (`rebase/conflict`; a commit missing from the bundle sent, `rebase/missing-onto`, or with no history in common,
+   `rebase/unrelated`) or a refusal leaves the draft exactly as it was, and rebasing onto a commit the draft already has
    changes nothing. The Durable Object's `prepareToPublish` (which #318's Publish calls first) moves the draft onto the
    live commit when that is on a newer core, or onto a major's passed upgrade waiting on the storefront (SAAS §10), in a
    sandbox of that version, saves the draft at its new head and core (its bisect chain starts again from it), and

@@ -106,6 +106,21 @@ export const startUpgradePublish = async (tx: ScopedSql, run: Omit<NewRun, 'uses
   return { ok: true, runId }
 }
 
+/**
+ * A publish the upgrade bot stopped waiting for (SAAS §10) ends failed, unless its build already switched and its
+ * post-deploy checks decide it; so it never goes live behind a store's row that says pinned.
+ */
+export const failUnswitchedRun = async (tx: ScopedSql, input: { storeId: string; runId: string; code: string; at: Date }): Promise<'failed' | 'switched' | 'ended'> => {
+  if (!(await lockStorefront(tx, input.storeId))) return 'ended'
+  const run = await selectRun(tx, input.runId)
+  if (!run || run.store_id !== input.storeId || run.state === 'live' || run.state === 'checked' || run.state === 'failed' || run.state === 'rolled_back') return 'ended'
+  if (run.switched_at) return 'switched'
+  await failRun(tx, run, input.code, input.at)
+  await activityLog.record(tx, systemEntry(run, 'storefront.publish_failed', 'failed', [{ field: 'error', before: null, after: input.code }]))
+  await queueNext(tx, run.store_id, run.partner_id)
+  return 'failed'
+}
+
 export type RenderResult = { ok: true; runId: string } | { ok: false; reason: 'NO_LIVE_BUILD' }
 
 /**
