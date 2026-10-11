@@ -30,8 +30,10 @@ const good: GateInput = {
   site: { origin, sitemap: `<urlset>${indexed.map((p) => `<url><loc>${origin}${p.path}</loc></url>`).join('')}</urlset>`, robots: `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`, files: ['assets/entry-a.js'], prefixes: ['/hi'] },
   data: ['Northstar Linen'],
   poweredBy: true,
+  legal: false,
   strictLook: false,
   edge: [{ name: 'a right-to-left layout', pages: [pages[0] as PageRead], visits: [visit(pages[0] as PageRead, 390)] }],
+  edgeNames: ['a right-to-left layout'],
 }
 
 const failing = (input: GateInput) => runGate(input).checks.filter((c) => !c.passed).map((c) => c.name)
@@ -57,7 +59,7 @@ describe('the full gate', () => {
       ['crawl', { ...good, pages: onPage(pages, '/', (p) => ({ ...p, links: ['/products/', '/gone/'] })) }],
       ['content', { ...good, pages: onPage(pages, '/', (p) => ({ ...p, text: 'Hurry, only 2 left in stock!' })) }],
       ['visual-diff', { ...good, strictLook: true, visits: onPage(visits, '/', (v) => ({ ...v, diff: 0.2 })) }],
-      ['edge-cases', { ...good, edge: [{ name: 'very long names', pages: [pages[0] as PageRead], visits: [{ ...visit(pages[0] as PageRead, 390), overflow: true }] }] }],
+      ['edge-cases', { ...good, edge: [{ name: 'a right-to-left layout', pages: [pages[0] as PageRead], visits: [{ ...visit(pages[0] as PageRead, 390), overflow: true }] }] }],
     ]
     for (const [name, input] of cases) expect([name, failing(input)]).toEqual([name, [name]])
   })
@@ -110,6 +112,7 @@ describe('the full gate', () => {
   it('follows item links in the store’s own languages only, and fails one that leads nowhere', () => {
     const linking = (links: string[]) => ({ ...good, pages: onPage(pages, '/', (p) => ({ ...p, links })) })
     expect(failing(linking(['/products/linen-shirt/', '/hi/products/linen-shirt/', '/hi/collections/summer/']))).toEqual([])
+    for (const twisted of ['/products/../account/', '/products/%2e%2e/cart/', '/products//x/', '/products\\x/']) expect(detail(linking([twisted]), 'crawl')).toBe(`The link ${twisted} on the home page leads nowhere.`)
     expect(detail(linking(['/faq/products/1/']), 'crawl')).toBe('The link /faq/products/1/ on the home page leads nowhere.')
     expect(detail(linking(['/xyz/collections/a/']), 'crawl')).toBe('The link /xyz/collections/a/ on the home page leads nowhere.')
   })
@@ -125,8 +128,22 @@ describe('the full gate', () => {
     // Items of indexable routes may be listed, in the store's languages, but not an account page or another site's.
     const items = { ...good, site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/products/linen-shirt/</loc></url><url><loc>${origin}/hi/collections/summer/</loc></url>` } }
     expect(failing(items)).toEqual([])
-    const stray = { ...good, site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/account/orders/42/</loc></url><url><loc>https://other.example/products/x/</loc></url>` } }
-    expect(detail(stray, 'crawl')).toBe(`The sitemap lists ${origin}/account/orders/42/, which isn't a page search engines should see. The sitemap lists https://other.example/products/x/, which isn't a page search engines should see.`)
+    const stray = { ...good, site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/account/orders/42/</loc></url><url><loc>https://other.example/products/x/</loc></url><url><loc>${origin}/products/../account/orders/42/</loc></url>` } }
+    expect(detail(stray, 'crawl')).toBe(`The sitemap lists ${origin}/account/orders/42/, which isn't a page search engines should see. The sitemap lists https://other.example/products/x/, which isn't a page search engines should see. The sitemap lists ${origin}/products/../account/orders/42/, which isn't a page search engines should see.`)
+  })
+
+  it('fails a page or width the check step skipped, an unweighed budgeted page and a missing edge case', () => {
+    const skipped = { ...good, visits: visits.filter((v) => !(v.path === '/search/' && v.width === 768)) }
+    expect(failing(skipped)).toEqual(['sealed', 'axe'])
+    expect(detail(skipped, 'sealed')).toBe("The search page wasn't visited at 768 px.")
+    expect(detail({ ...good, weights: good.weights.filter((w) => w.path !== '/cart/') }, 'budgets')).toBe("The cart page wasn't weighed.")
+    // Pages in another language are read without JavaScript, not visited.
+    expect(failing({ ...good, pages: [...pages, { ...read('/hi/', 'home') }], site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/hi/</loc></url>` } })).toEqual([])
+    expect(detail({ ...good, edgeNames: ['a right-to-left layout', 'the hi language'] }, 'edge-cases')).toBe('The edge case "the hi language" wasn\'t rendered and seen.')
+  })
+
+  it('requires the sealed legal notices on product, checkout and policy pages when the store’s markets need them', () => {
+    expect(detail({ ...good, legal: true }, 'contracts')).toContain('doesn\'t place the required "legal" component.')
   })
 
   it('fails a check handed nothing to judge, as when the check step stopped part-way', () => {
