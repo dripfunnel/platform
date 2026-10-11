@@ -1417,6 +1417,7 @@
       },
       "prices": "Prices",
       "pricesSub": "What merchants pay. DripFunnel keeps its wholesale fee and pays you the rest.",
+      "noCurrency": "Your contract names no currency to price plans in yet, so this plan can’t have a price or go live. DripFunnel sets it in your contract: ask your partner manager.",
       "monthly": "Monthly ({currency})",
       "yearly": "Yearly ({currency})",
       "fee": "DripFunnel’s fee {fee} / month",

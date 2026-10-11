@@ -150,7 +150,9 @@ out as design.md §7 says: cards on the left (name, description and trial; price
 included), a sticky summary on the right (status, stores on it, Make live, Retire plan), and a
 save bar that appears only when the draft differs from the saved plan. Beside each price the
 fee and margin arrive from the API's `quotePlanPrices` as `Money` ("You keep $31.00 of $49.00", or in red
-"Below DripFunnel's fee: you'd lose $3.00 per store"), re-quoted as prices are typed. The
+"Below DripFunnel's fee: you'd lose $3.00 per store"), re-quoted as prices are typed. A
+partner whose contract names no currency yet gets a note in place of the price rows saying
+DripFunnel sets it, and Make live refused with the same words (§7.2). The
 entitlement matrix has the three kinds of SAAS.md §6.1 and shows DripFunnel's ceiling on every
 row; a value above it is marked "Can't be more than 20,000." and Save is disabled with "Fix the
 highlighted rows first." The API refuses it too (`ABOVE_CEILING`, naming the row); nothing is
