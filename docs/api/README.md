@@ -255,7 +255,9 @@ value; set the real one in each Worker's dashboard (Settings › Variables and S
 read it from a global.
 
 **A migration**: add a numbered file to `migrations/` (`0002_...sql`, next number after the
-last one committed), reviewed SQL only, backward-compatible with the running release. Run
+last one committed, or the next in a block of ten reserved for a card built alongside others,
+such as 0220–0229 for #519, so parallel branches never take the same number; the runner applies
+every file not yet applied, in name order), reviewed SQL only, backward-compatible with the running release. Run
 `pnpm --filter ./apps/api migrate` (it reads `DATABASE_URL` from `apps/api/.env.local`) to apply every pending file in order against your local database;
 it refuses to run against anything but `localhost`/`127.0.0.1`/`::1` (AGENTS.md "Working
 with the user" rule 3). Each file runs inside its own transaction, so statements that
