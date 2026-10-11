@@ -229,3 +229,7 @@ export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date)
       select count(*)::int as used from publish_run
       where store_id = ${storeId} and uses_allowance and state in ('live', 'rolled_back') and created_at >= ${since}`
   )[0]?.used ?? 0
+
+/** When the build id's lifetime started (its claim), which every wait for the build counts down from. */
+export const selectStartedAt = async (tx: ScopedSql, storeId: string, runId: string): Promise<Date | null> =>
+  (await tx<{ started_at: Date | null }[]>`select started_at from publish_run where id = ${runId} and store_id = ${storeId}`)[0]?.started_at ?? null

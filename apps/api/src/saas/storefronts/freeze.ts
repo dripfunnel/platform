@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { markDispatched, selectBuildInput, selectSnapshotSource, unmarkDispatched } from '#db/scoped/publishing'
-import { GitHubRefused, GitHubUnavailable, noAnswer } from '#integrations/github/index'
+import { GitHubRefused, GitHubUnavailable } from '#integrations/github/index'
 import { selectShopStore } from '#db/scoped/shop'
 import { selectGuardContext, type GuardContextRow } from '#db/scoped/studio'
 import type { GuardContext } from '#integrations/sandbox/index'
@@ -115,10 +115,10 @@ export const dispatchBuild = async (deps: FreezeDeps, storeId: string, buildId: 
   try {
     started = await deps.dispatch(repo, buildId)
   } catch (error) {
-    // GitHub answered with a failure, so no run started and the step's retry may ask again; with no answer at all a run
-    // may have started, so the start stands and the report, or the build id's 2 hours, decides.
-    const answered = error instanceof GitHubRefused || (error instanceof GitHubUnavailable && error.message !== noAnswer)
-    if (answered) await withSystemScope(deps.sql, (tx) => unmarkDispatched(tx, storeId, buildId))
+    // Only a definite refusal (a 4xx, or a 401 or 429 GitHub never acted on) means no run started, so the retry may ask
+    // again; a 5xx or no answer at all may hide a started run, so the start stands and the report, or the 2 hours, decides.
+    const refused = error instanceof GitHubRefused || (error instanceof GitHubUnavailable && (error.status === 401 || error.status === 429))
+    if (refused) await withSystemScope(deps.sql, (tx) => unmarkDispatched(tx, storeId, buildId))
     throw error
   }
   if (!started) throw new FreezeRefused('no_repo')

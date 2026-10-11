@@ -11,6 +11,7 @@ import {
   moveLiveTo,
   selectGateVerdict,
   selectQueuedRun,
+  selectStartedAt,
   selectRun,
   selectVersion,
   startRun,
@@ -178,22 +179,27 @@ class GateFailed extends Error {
   override name = 'GateFailed'
 }
 
-const minutesLeft = buildLifetimeMs / 60_000
+/** One deadline per build: the build id's 2 hours from its claim, which its report and its upload share (LIVE-SHOP §9). */
+const deadlineOf = (deps: PublishDeps, storeId: string, buildId: string): Promise<string> =>
+  withSystemScope(deps.sql, async (tx) => new Date(((await selectStartedAt(tx, storeId, buildId)) ?? deps.now()).getTime() + buildLifetimeMs).toISOString())
+
+const minutesBefore = (deps: PublishDeps, deadline: string) => Math.max(1, Math.ceil((new Date(deadline).getTime() - deps.now().getTime()) / 60_000))
 
 export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: PublishSteps): Promise<'live' | 'failed' | 'stopped'> => {
   try {
     if ((await steps.do('claim', () => claimStep(deps, p))) === 'stopped') return 'stopped'
     await steps.do('freeze', () => freezeBuild(deps, p.storeId, p.runId))
     await steps.do('dispatch', () => dispatchBuild(deps, p.storeId, p.runId))
+    const deadline = await steps.do('deadline', () => deadlineOf(deps, p.storeId, p.runId))
     // The build's "report" and "uploaded" calls wake this run; a DB check comes first, so one that came early isn't missed.
     if ((await steps.do('reported', () => reportedStep(deps, p))) === 'waiting') {
-      await steps.waitFor('report', 'reported', minutesLeft).catch(() => {
+      await steps.waitFor('report', 'reported', minutesBefore(deps, deadline)).catch(() => {
         throw new ReportTimedOut('no report within the build id’s lifetime')
       })
     }
     if ((await steps.do('verdict', () => reportedStep(deps, p))) !== 'passed') throw new GateFailed('the gate refused the build')
     if ((await steps.do('uploaded', () => uploadedStep(deps, p))) === 'waiting') {
-      await steps.waitFor('upload', 'uploaded', minutesLeft).catch(() => {
+      await steps.waitFor('upload', 'uploaded', minutesBefore(deps, deadline)).catch(() => {
         throw new UploadTimedOut('no upload within the build id’s lifetime')
       })
     }

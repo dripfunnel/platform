@@ -157,7 +157,9 @@ checking, deploying, live, failed, rolled back).
    build, and an old id is refused.
    **Built on #483**: `POST /repos/{org}/{repo}/actions/workflows/build.yml/dispatches` on `main` with the inputs
    `build_id` and `api` (`https://<hooks host>`), at most once: `publish_run.dispatched_at` is set before GitHub is
-   asked and cleared only when GitHub answered no, so a retried step never starts a second run. A repo GitHub doesn't
+   asked, the request is sent once (again only after a 401), and the claim is cleared only on a definite refusal (a
+   4xx, 401 or 429); a 5xx or no answer may hide a started run, so it stands. The report and the upload share one
+   deadline, the build id's 2 hours from its claim. A repo GitHub doesn't
    know fails the publish as `no_repo`. The runner sends only the check container's report as a verdict: the build
    container ran the theme, so its own report can only refuse (its failing checks), and no report is "stopped".
 5. **The workflow is one job**, so the built site never leaves the runner as an artifact. Its
