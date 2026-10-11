@@ -101,7 +101,7 @@ import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/out
 import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
 import { githubConfigured } from '#integrations/github/index'
-import { storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/start'
+import { storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
 import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'

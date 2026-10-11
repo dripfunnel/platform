@@ -131,8 +131,9 @@ export const finishStoreRepo = async (tx: ScopedSql, d: { storeId: string; jobId
 }
 
 /** Everything the job made is gone: no repo, no pushes, the store free to try again. */
-export const failStoreRepo = async (tx: ScopedSql, d: { storeId: string; jobId: string; error: string; at: Date }): Promise<void> => {
+export const failStoreRepo = async (tx: ScopedSql, d: { storeId: string; jobId: string; error: string; details: string; at: Date }): Promise<void> => {
   await tx`update storefront set repo = null, repo_head = null, repo_state = 'failed' where store_id = ${d.storeId}`
   await tx`delete from storefront_push where store_id = ${d.storeId}`
   await tx`update job set state = 'failed', last_error = ${d.error}, finished_at = ${d.at} where id = ${d.jobId}`
+  await tx`insert into job_detail (job_id, details) values (${d.jobId}, ${d.details}) on conflict (job_id) do update set details = excluded.details`
 }

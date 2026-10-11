@@ -311,8 +311,9 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   transaction; its deliverer starts `jobs/workflows/create-storefront.ts` under the job's id after
   commit. Each step moves the job, registers its compensation in `job_detail` before acting, and
   is retried by the Workflow; a step that still fails undoes every step before it, newest first,
-  and leaves `storefront.repo_state = 'failed'` and the job failed with plain words, so choosing
-  again starts afresh. Until dev has the GitHub App (#287) and the sites bucket (#317), the
+  and leaves `storefront.repo_state = 'failed'` and the job failed with plain words (staff see the
+  step and an error code in its details), so choosing again starts afresh; a store left
+  `creating` with no job keeps its repo's name, so the next run reuses that repo. Until dev has the GitHub App (#287) and the sites bucket (#317), the
   choice waits in the outbox.
 - **A custom domain is not part of signup**; the merchant connects it whenever they like (§8).
 - "Under two minutes" means a **usable portal and preview** (decided 2026-10-05 on #337): the

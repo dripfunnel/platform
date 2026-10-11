@@ -40,7 +40,8 @@ export const startStorefront = async (tx: ScopedSql, storeId: string, template: 
     const running = await selectRunningCreation(tx, storeId)
     if (running) return { ok: true, jobId: running }
   }
-  const jobId = await beginStoreRepo(tx, storeId, opaqueRepoName(), createSteps, at)
+  // A store left creating with no job (its undo never finished) keeps its name, so the next run reuses that repo.
+  const jobId = await beginStoreRepo(tx, storeId, store.repo ?? opaqueRepoName(), createSteps, at)
   await queueSideEffect(tx, { kind: storefrontCreateKind, idempotencyKey: `${storefrontCreateKind}:${jobId}`, payload: { storeId, jobId, template }, partnerId: store.partner_id, storeId })
   return { ok: true, jobId }
 }

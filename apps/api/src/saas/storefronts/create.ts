@@ -15,6 +15,7 @@ import {
   type CreationRow,
 } from '#db/scoped/storefronts'
 import { storeRepos, type GitHubApp } from '#integrations/github/index'
+import { failureCode, logEvent } from '#core/log'
 import { activityLog } from '#saas/activity/index'
 import { commitToMain, type PushResult } from './push'
 import { currentCore, deletePrefix, previewFolder, previewManifest, previewSource, storePrefix, templateFiles, TemplateMissing, type SitesBucket } from './templates'
@@ -48,19 +49,22 @@ export const createSteps = ['repo', 'storeConfig', 'hostingTarget', 'firstBuild'
 // Read by the merchant and the partner (FIRST-RELEASE §7): plain words, never the cause.
 export const createFailedMessage = 'We couldn’t set up the site. Nothing was kept, and it can be tried again.'
 
-class NotRunning extends Error {
-  override name = 'NotRunning'
+/** A step's answer when its job is no longer running (finished, undone, or the store changed): nothing to do or undo. */
+const stopped = 'stopped'
+
+class Stopped extends Error {
+  override name = 'Stopped'
 }
 
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
-const enter = async (deps: CreateDeps, p: CreateParams, step: ProvisioningStep): Promise<CreationRow & { repo: string }> => {
+const enter = async (deps: CreateDeps, p: CreateParams, step: ProvisioningStep): Promise<(CreationRow & { repo: string }) | null> => {
   const row = await withSystemScope(deps.sql, async (tx) => {
     const found = await selectCreation(tx, p.storeId, p.jobId)
     if (found?.job_state === 'running') await moveJobTo(tx, p.jobId, step, deps.now())
     return found
   })
-  if (!row?.repo || row.job_state !== 'running' || row.repo_state !== 'creating' || row.storefront_kind !== 'ai') throw new NotRunning(`create-storefront ${p.jobId} isn't running`)
+  if (!row?.repo || row.job_state !== 'running' || row.repo_state !== 'creating' || row.storefront_kind !== 'ai') return null
   return { ...row, repo: row.repo }
 }
 
@@ -71,7 +75,9 @@ const pushed = (result: PushResult): string => {
 
 /** Step 4: the public repo, its Actions locked, then the skeleton, the theme and the locked workflow as one commit. */
 const repoStep = async (deps: CreateDeps, p: CreateParams): Promise<string> => {
-  const { repo } = await enter(deps, p, 'repo')
+  const entered = await enter(deps, p, 'repo')
+  if (!entered) return stopped
+  const { repo } = entered
   const core = await currentCore(deps.sites)
   const { skeleton, theme } = await templateFiles(deps.sites, core, p.template)
   await withSystemScope(deps.sql, (tx) => appendCompensation(tx, p.jobId, { step: 'repo', undo: 'deleteRepo', repo }))
@@ -103,6 +109,7 @@ const pinnedPackage = (skeletonPackage: string, repo: string, core: string): str
 /** Step 5: `store.config.ts`, and core pinned exactly (storefront ARCHITECTURE §2.2). */
 const configStep = async (deps: CreateDeps, p: CreateParams, core: string): Promise<string> => {
   const row = await enter(deps, p, 'storeConfig')
+  if (!row) return stopped
   const { skeleton } = await templateFiles(deps.sites, core, p.template)
   const skeletonPackage = skeleton.find((f) => f.path === 'package.json')?.content ?? '{}'
   const repos = storeRepos(deps.github.session(), deps.org)
@@ -121,7 +128,7 @@ const configStep = async (deps: CreateDeps, p: CreateParams, core: string): Prom
 
 /** Step 6: nothing to create in R2 (LIVE-SHOP §1); the store's prefix is recorded as what to delete. */
 const hostingStep = async (deps: CreateDeps, p: CreateParams): Promise<string> => {
-  await enter(deps, p, 'hostingTarget')
+  if (!(await enter(deps, p, 'hostingTarget'))) return stopped
   const prefix = storePrefix(p.storeId)
   await withSystemScope(deps.sql, (tx) => appendCompensation(tx, p.jobId, { step: 'hostingTarget', undo: 'deleteFolders', prefix }))
   deps.failAt?.('hostingTarget')
@@ -131,6 +138,7 @@ const hostingStep = async (deps: CreateDeps, p: CreateParams): Promise<string> =
 /** Step 7: the template's prebuilt preview copied into the store's first preview folder, each file confirmed by its hash. */
 const previewStep = async (deps: CreateDeps, p: CreateParams, core: string): Promise<string> => {
   const row = await enter(deps, p, 'firstBuild')
+  if (!row) return stopped
   const ref = p.jobId
   const folder = previewFolder(p.storeId, ref)
   await withSystemScope(deps.sql, (tx) => appendCompensation(tx, p.jobId, { step: 'firstBuild', undo: 'deletePreview', folder, ref }))
@@ -153,6 +161,7 @@ const previewStep = async (deps: CreateDeps, p: CreateParams, core: string): Pro
 /** Step 8: one transaction records the repo as ready, its template and core, and ends the job. */
 const doneStep = async (deps: CreateDeps, p: CreateParams, core: string): Promise<string> => {
   const row = await enter(deps, p, 'done')
+  if (!row) return stopped
   await withSystemScope(deps.sql, async (tx) => {
     const at = deps.now()
     await finishStoreRepo(tx, { storeId: p.storeId, jobId: p.jobId, template: p.template, coreVersion: core, at })
@@ -183,7 +192,7 @@ const doneStep = async (deps: CreateDeps, p: CreateParams, core: string): Promis
 }
 
 /** Every registered compensation, newest first, then the store marked as able to try again. */
-const undoStep = async (deps: CreateDeps, p: CreateParams): Promise<string> => {
+const undoStep = async (deps: CreateDeps, p: CreateParams, failed: { step: ProvisioningStep; code: string }): Promise<string> => {
   const row = await withSystemScope(deps.sql, async (tx) => {
     const found = await selectCreation(tx, p.storeId, p.jobId)
     if (found?.job_state === 'running') await setJobState(tx, p.jobId, 'cleaning')
@@ -206,7 +215,8 @@ const undoStep = async (deps: CreateDeps, p: CreateParams): Promise<string> => {
     }
   }
   await withSystemScope(deps.sql, async (tx) => {
-    await failStoreRepo(tx, { storeId: p.storeId, jobId: p.jobId, error: createFailedMessage, at: deps.now() })
+    // The cause for staff, as a code (core/log failureCode), never the error's words.
+    await failStoreRepo(tx, { storeId: p.storeId, jobId: p.jobId, error: createFailedMessage, details: `Stopped at ${failed.step}: ${failed.code}`, at: deps.now() })
     await activityLog.record(tx, {
       category: 'system',
       action: 'storefront.create_failed',
@@ -217,7 +227,7 @@ const undoStep = async (deps: CreateDeps, p: CreateParams): Promise<string> => {
       partnerId: row.partner_id,
       storeId: p.storeId,
       target: { type: 'storefront', id: p.storeId, label: row.repo ?? 'storefront' },
-      changes: [],
+      changes: [{ field: 'step', before: null, after: failed.step }],
       reason: null,
       api: 'system',
       requestId: null,
@@ -230,16 +240,26 @@ const undoStep = async (deps: CreateDeps, p: CreateParams): Promise<string> => {
 }
 
 /** SAAS §5 steps 4–8 in order; a step that fails for good undoes every step before it. */
-export const runCreateStorefront = async (deps: CreateDeps, p: CreateParams, steps: StepRunner): Promise<'created' | 'undone'> => {
+export const runCreateStorefront = async (deps: CreateDeps, p: CreateParams, steps: StepRunner): Promise<'created' | 'undone' | 'stopped'> => {
+  let at: ProvisioningStep = 'repo'
+  const run = async (step: ProvisioningStep, work: () => Promise<string>) => {
+    at = step
+    const answer = await steps.do(step, work)
+    if (answer === stopped) throw new Stopped()
+    return answer
+  }
   try {
-    const core = await steps.do('repo', () => repoStep(deps, p))
-    await steps.do('storeConfig', () => configStep(deps, p, core))
-    await steps.do('hostingTarget', () => hostingStep(deps, p))
-    await steps.do('firstBuild', () => previewStep(deps, p, core))
-    await steps.do('done', () => doneStep(deps, p, core))
+    const core = await run('repo', () => repoStep(deps, p))
+    await run('storeConfig', () => configStep(deps, p, core))
+    await run('hostingTarget', () => hostingStep(deps, p))
+    await run('firstBuild', () => previewStep(deps, p, core))
+    await run('done', () => doneStep(deps, p, core))
     return 'created'
-  } catch {
-    await steps.do('undo', () => undoStep(deps, p))
+  } catch (error) {
+    if (error instanceof Stopped) return 'stopped'
+    const failed = { step: at, code: failureCode(error) }
+    logEvent({ event: 'storefront_create_failed', api: 'system', storeId: p.storeId, code: `${failed.step}:${failed.code}` })
+    await steps.do('undo', () => undoStep(deps, p, failed))
     return 'undone'
   }
 }

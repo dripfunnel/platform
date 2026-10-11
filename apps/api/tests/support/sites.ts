@@ -1,4 +1,4 @@
-import type { SitesBucket } from '#saas/storefronts/templates'
+import type { SitesBucket } from '#saas/storefronts/index'
 
 // The storefront sites bucket in memory, for the create-storefront tests: R2's put refuses bytes whose SHA-256 isn't
 // the one it was given, and answers with the checksum it stored.

@@ -6,8 +6,7 @@ import { withScope, withSystemScope } from '#db/scoped/index'
 import { createGitHubApp } from '#integrations/github/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
 import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
-import { createFailedMessage, runCreateStorefront, type CreateDeps, type StepRunner } from '#saas/storefronts/create'
-import { startStorefront, storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/start'
+import { createFailedMessage, runCreateStorefront, startStorefront, storefrontCreateKind, type CreateDeps, type CreateStorefrontParams, type StepRunner } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { fakeSites, putText, type FakeSites } from './support/sites'
@@ -198,6 +197,32 @@ describe('the create-storefront Workflow', () => {
     expect(sites.keys(`stores/${t.storeA1}/`)).toHaveLength(2)
   })
 
+  it('stops, undoing nothing, when its job is no longer running', async () => {
+    const params = await started(t.storeA1)
+    expect(await runCreateStorefront(deps, params, once)).toBe('created')
+    const calls = github.calls.length
+    expect(await runCreateStorefront(deps, params, once)).toBe('stopped')
+    expect(github.calls).toHaveLength(calls)
+    expect(await storefront(t.storeA1)).toMatchObject({ repo_state: 'ready' })
+    expect(await job(params.jobId)).toMatchObject({ state: 'done' })
+  })
+
+  it('keeps the name of a store left creating with no job, so the next run reuses its repo', async () => {
+    const params = await started(t.storeA1)
+    const failAt = (step: ProvisioningStep) => {
+      if (step === 'repo') throw new Error('injected')
+    }
+    const undoFails: StepRunner = { do: async (name, work) => (name === 'undo' ? Promise.reject(new Error('GitHub down while undoing')) : work()) }
+    await expect(runCreateStorefront({ ...deps, failAt }, params, undoFails)).rejects.toThrow(/undoing/)
+    const left = (await storefront(t.storeA1))?.repo ?? ''
+    expect(github.repos.has(left)).toBe(true)
+    await db.sql`update job set state = 'failed' where id = ${params.jobId}`
+    const again = await started(t.storeA1)
+    expect((await storefront(t.storeA1))?.repo).toBe(left)
+    expect(await runCreateStorefront(deps, again, once)).toBe('created')
+    expect(github.repos.size).toBe(1)
+  })
+
   it('retries a GitHub outage and carries on', async () => {
     const params = await started(t.storeA1)
     github.fail(/^POST \/orgs\/dripfunnel\/repos$/, 503, 2)
@@ -211,13 +236,23 @@ describe('the create-storefront Workflow', () => {
     const failAt = (step: ProvisioningStep) => {
       if (step === failing) throw new Error(`injected at ${step}`)
     }
-    expect(await runCreateStorefront({ ...deps, failAt }, params, once)).toBe('undone')
+    const lines: string[] = []
+    const spy = vi.spyOn(console, 'log').mockImplementation((line: unknown) => void lines.push(String(line)))
+    try {
+      expect(await runCreateStorefront({ ...deps, failAt }, params, once)).toBe('undone')
+    } finally {
+      spy.mockRestore()
+    }
     expect(github.repos.size).toBe(0)
     expect(sites.keys('stores/')).toEqual([])
     expect(await db.sql`select 1 from design_draft`).toHaveLength(0)
     expect(await db.sql`select 1 from storefront_push`).toHaveLength(0)
     expect(await storefront(t.storeA1)).toMatchObject({ repo: null, repo_head: null, repo_state: 'failed', template: null })
     expect(await job(params.jobId)).toMatchObject({ state: 'failed', last_error: createFailedMessage })
+    // Staff see where and how it stopped, as a code, never the error's words.
+    const [detail] = await db.sql<{ details: string }[]>`select details from job_detail where job_id = ${params.jobId}`
+    expect(detail?.details).toBe(`Stopped at ${failing}: Error`)
+    expect(lines).toContainEqual(expect.stringContaining(`"event":"storefront_create_failed","api":"system","storeId":"${t.storeA1}","code":"${failing}:Error"`))
     const [store] = await db.sql<{ core_version: string | null }[]>`select core_version from store where id = ${t.storeA1}`
     expect(store?.core_version).toBeNull()
     expect((await db.sql<{ action: string }[]>`select action from activity_log where store_id = ${t.storeA1} and action like 'storefront.%' order by occurred_at desc limit 1`)[0]?.action).toBe('storefront.create_failed')

@@ -1,4 +1,4 @@
-import { createStorefrontParams, type CreateStorefrontParams } from '#saas/storefronts/start'
+import { createStorefrontParams, type CreateStorefrontParams } from '#saas/storefronts/index'
 import { GiveUp, type Deliverer } from '../outbox-relay'
 
 /** The Workflow binding's two calls the deliverer makes. */

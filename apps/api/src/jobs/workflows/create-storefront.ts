@@ -2,8 +2,7 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloud
 import type postgres from 'postgres'
 import { parseConfig } from '#core/config'
 import { githubFor } from '#integrations/github/index'
-import { runCreateStorefront } from '#saas/storefronts/create'
-import type { CreateStorefrontParams } from '#saas/storefronts/start'
+import { runCreateStorefront, type CreateStorefrontParams } from '#saas/storefronts/index'
 
 export interface CreateStorefrontEnv extends Record<string, unknown> {
   STOREFRONT_SITES?: R2Bucket | undefined
