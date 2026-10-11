@@ -8,11 +8,11 @@ export const HomePage = () => {
     <Layout>
       <section className={styles.hero}>
         <div className={styles.copy}>
-            <h1 className={styles.title}>{t('home.hero.title', { store: store.name })}</h1>
-            <p className={styles.lead}>{t('home.hero.lead')}</p>
-            <Link href="/search/" className={styles.button}>
-              {t('home.hero.shop')}
-            </Link>
+          <h1 className={styles.title}>{t('home.hero.title', { store: store.name })}</h1>
+          <p className={styles.lead}>{store.description ?? t('home.hero.lead')}</p>
+          <Link href="/search/" className={styles.button}>
+            {t('home.hero.shop')}
+          </Link>
         </div>
         <div className={styles.picture} />
       </section>
