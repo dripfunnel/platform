@@ -54,7 +54,7 @@ const build = async (storeId: string) => {
 describe('the edge Worker’s host lookup', () => {
   it('finds the store, its live build and its state from the shops host or the merchant’s own domain', async () => {
     const buildA1 = await build(t.storeA1)
-    expect(await edge().liveHost(shopsA1)).toEqual({ kind: 'store', storeId: t.storeA1, partnerId: t.partnerA, buildId: buildA1, state: 'open', name: 'Store A1', language: expect.any(String), indexNowKey: expect.stringMatching(/^[a-f0-9]{32}$/) })
+    expect(await edge().liveHost(shopsA1)).toEqual({ kind: 'store', storeId: t.storeA1, partnerId: t.partnerA, buildId: buildA1, state: 'open', name: 'Store A1', language: expect.any(String), indexNowKey: expect.stringMatching(/^[a-f0-9]{32}$/), primaryHost: shopsA1 })
     expect(await edge().liveHost(shopsA1.toUpperCase())).toMatchObject({ storeId: t.storeA1, buildId: buildA1 })
     // Before its first publish a store has no build to serve.
     expect(await edge().liveHost(customA2)).toMatchObject({ kind: 'store', storeId: t.storeA2, buildId: null })

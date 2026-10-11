@@ -632,6 +632,25 @@ describe('the backstop itself', () => {
     await expect(withScope(db.sql, supportSession(t.partnerA, t.storeA1, 'read'), (tx) => tx`select save_store_name('Renamed')`)).rejects.toThrow(/merchant side of a store only/)
   })
 
+  it('lets only the merchant side of a store remove its own domain (#471)', async () => {
+    const domain = async (storeId: string, host: string) =>
+      (await db.sql<{ id: string }[]>`insert into custom_domain (store_id, host, status, expected_cname, ownership_token) values (${storeId}, ${host}, 'live', 'x', 'y') returning id`)[0]?.id ?? ''
+    const a1 = await domain(t.storeA1, 'www.iso-a1.example')
+    const b1 = await domain(t.storeB1, 'www.iso-b1.example')
+    const removed = (context: CallerContext, id: string) => withScope(db.sql, context, async (tx) => (await tx`delete from custom_domain where id = ${id}`).count)
+    expect(await removed(storeCaller(t.partnerA, t.storeA1), b1)).toBe(0)
+    expect(await removed(storeCaller(t.partnerA, t.storeA2), a1)).toBe(0)
+    expect(await removed(supportSession(t.partnerA, t.storeA1, 'read'), a1)).toBe(0)
+    await expect(removed(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), a1)).rejects.toThrow(/permission denied/)
+    await expect(removed(partnerCaller(t.partnerA), a1)).rejects.toThrow(/permission denied/)
+    await expect(removed(staff, a1)).rejects.toThrow(/permission denied/)
+    // A store asking whether a host is taken learns only yes or no, and its own domain is not "taken".
+    const taken = (storeId: string, host: string) => withScope(db.sql, storeCaller(storeId === t.storeB1 ? t.partnerB : t.partnerA, storeId), async (tx) => (await tx<{ t: boolean }[]>`select merchant_host_taken(${host}) as t`)[0]?.t)
+    expect([await taken(t.storeA1, 'www.iso-a1.example'), await taken(t.storeA1, 'WWW.ISO-B1.example'), await taken(t.storeB1, 'www.iso-a1.example')]).toEqual([false, true, true])
+    expect(await removed(storeCaller(t.partnerA, t.storeA1), a1)).toBe(1)
+    await db.sql`delete from custom_domain where id = ${b1}`
+  })
+
   it('runs staff as app_platform, partner callers as app_partner, suppliers as app_supplier, shoppers as app_shop and other store callers as app_request (#205, #155, #295, #306)', async () => {
     const roleOf = async (context: CallerContext) =>
       withScope(db.sql, context, async (tx) => (await tx<{ role: string }[]>`select current_user as role`)[0]?.role)
@@ -752,6 +771,7 @@ describe('the backstop itself', () => {
       'end_staff_user_sessions',
       'latest_job_of',
       'membership_check_parents',
+      'merchant_host_taken',
       'open_support_banner',
       'partner_domain_record_owner',
       'partner_host_claimed',

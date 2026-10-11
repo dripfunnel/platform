@@ -1,4 +1,5 @@
 import type postgres from 'postgres'
+import type { CustomDomainRow } from '#db/schema/saas'
 import { pgArray, type ScopedSql } from './index'
 import type { StoreAddress } from './storeInfo'
 
@@ -113,4 +114,25 @@ export const selectHomePaths = async (tx: ScopedSql, storeId: string): Promise<s
 /** 0287's single-page render, queued after commit and only once the store has a live build (LIVE-SHOP §7). */
 export const queuePageRender = async (tx: ScopedSql, storeId: string, pages: readonly string[]): Promise<void> => {
   await tx`select storefront_render_queue(${storeId}, ${pgArray(pages)}::text[], '{}'::text[])`
+}
+
+// Site settings › Domains (migration 0291; SAAS §8): the store's own domain on `custom_domain`, merchant side.
+
+export const selectStoreDomains = (tx: ScopedSql, storeId: string): Promise<CustomDomainRow[]> =>
+  tx<CustomDomainRow[]>`select * from custom_domain where store_id = ${storeId} order by created_at, id limit 10`
+
+export const selectStoreDomainForUpdate = async (tx: ScopedSql, storeId: string, id: string): Promise<CustomDomainRow | null> =>
+  (await tx<CustomDomainRow[]>`select * from custom_domain where id = ${id} and store_id = ${storeId} for update`)[0] ?? null
+
+/** Another store's domain, or a partner's address or a name under one (0291's definer). */
+export const merchantHostTaken = async (tx: ScopedSql, host: string): Promise<boolean> =>
+  (await tx<{ taken: boolean }[]>`select merchant_host_taken(${host}) as taken`)[0]?.taken ?? true
+
+/** Null makes the free address primary again. */
+export const setPrimaryDomain = async (tx: ScopedSql, storeId: string, id: string | null): Promise<void> => {
+  await tx`update custom_domain set is_primary = (id = ${id}) is true where store_id = ${storeId} and is_primary is distinct from ((id = ${id}) is true)`
+}
+
+export const deleteStoreDomain = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
+  await tx`delete from custom_domain where id = ${id} and store_id = ${storeId}`
 }

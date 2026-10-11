@@ -968,8 +968,10 @@ type Mutation {
   changePlan(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): BillingSubscription
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
+  checkDomain(id: ID!): Boolean
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
   connectCourier(provider: String!): String
+  connectDomain(host: String!): StorefrontDomain
   connectGateway(bankDetails: String, keys: PaymentGatewayKeysInput, mode: PaymentMode, provider: String!): Boolean
   connectShopify(shop: String!): String
   connectStripe: String
@@ -1012,6 +1014,7 @@ type Mutation {
   inviteSupplierUser(email: String!, role: String!): ID
   issueGiftCard(issueKey: ID!, productId: ID!, recipientEmail: String!, recipientName: String, versionId: ID!): ID
   keepProducts(ids: [ID!]!): PlanKeep
+  makeDomainPrimary(id: ID): Boolean
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   openStorefrontPreview: String
@@ -1023,6 +1026,7 @@ type Mutation {
   refund(extra: String, lines: [RefundLineInput!]!, note: String, orderId: ID!, override: Boolean, reason: RefundReason!, restock: Boolean, returnId: ID): [ID!]
   regenerateBackupCodes: [String!]
   remindNow(cartId: ID!, discountPercent: Int): ID
+  removeDomain(id: ID!): Boolean
   removeMember(membershipId: ID!): Boolean
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
@@ -2077,6 +2081,7 @@ type Query {
   storeLocale: StoreLocale
   storeState: StoreState
   storefrontBrand: StorefrontBrand
+  storefrontDomains: StorefrontDomains
   storefrontSeo: StorefrontSeo
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
@@ -2802,6 +2807,28 @@ input StorefrontBrandInput {
   social: StorefrontSocialInput
   tagline: String
   voice: String
+}
+
+type StorefrontDnsRecord {
+  found: String
+  name: String
+  type: String
+  value: String
+}
+
+type StorefrontDomain {
+  checkedAt: String
+  host: String
+  id: ID
+  kind: String
+  primary: Boolean
+  records: [StorefrontDnsRecord!]
+  status: String
+}
+
+type StorefrontDomains {
+  customDomainAllowed: Boolean
+  domains: [StorefrontDomain!]
 }
 
 type StorefrontSeo {

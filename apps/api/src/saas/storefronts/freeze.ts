@@ -57,7 +57,8 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string,
   const languages = store.languages.length > 0 ? store.languages : [store.main_language]
   return {
     version: 1,
-    origin: `https://${shopsHostOf(source.shops_host, source.code)}`,
+    // The primary address, which canonical links and the sitemap name (SAAS §8): the store's own domain once made so.
+    origin: `https://${source.primary_host ?? shopsHostOf(source.shops_host, source.code)}`,
     store: {
       name: store.name,
       description: store.description,

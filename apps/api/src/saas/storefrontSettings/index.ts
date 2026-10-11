@@ -6,6 +6,7 @@ import { isMerchantImage, isProductPhoto, queuePageRender, saveStoreName, select
 import { cleanBrand, cleanSeo, SettingsInvalid, type SettingsRefusal } from './rules'
 
 export type { SeoRow } from '#db/scoped/storefrontSettings'
+export { createStoreDomainsService, domainAudit, type DomainRefusal, type DomainResult, type DomainsView, type DomainView } from './domains'
 export { maxSeoDescription, maxSeoTitle, socialNetworks, type SettingsRefusal, type SocialNetwork } from './rules'
 
 // Storefront › Site settings and the "Your brand" step (FIRST-RELEASE §14; SAAS §9.2): the Owner writes (`publish`), the
