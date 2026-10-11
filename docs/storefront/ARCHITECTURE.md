@@ -529,7 +529,8 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
   #483:* the CPU is slowed to a mid-range phone's speed calibrated against the runner's own, as Lighthouse does, instead
   of a fixed 4×, since a fixed rate on a busy or fast runner measures a different phone each time;
 - `no-js`, `crawl`: §8, with every internal link leading to a page or an item prefix, and `sitemap.xml` and
-  `robots.txt` naming exactly the pages search engines should see (home, custom pages, products, collections, policies);
+  `robots.txt` naming the pages search engines should see: every built home and custom page, and any product, collection
+  or policy address, in each of the store's languages; never a cart, checkout or account page;
 - `content`: the words a shopper reads, outside sealed parts and the store's own data, through the validator's claim scan;
 - `visual-diff`: each page's first screen at each width against the live build's; it reports, and fails only a publish
   that mustn't change the look (`strictLook`, a core patch or minor: §7) when more than 0.5% of a page changed, or when
