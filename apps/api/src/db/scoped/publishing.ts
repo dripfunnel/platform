@@ -287,3 +287,12 @@ export const selectFailingChecks = async (tx: ScopedSql, storeId: string, runId:
 /** When the build id's lifetime started (its claim), which every wait for the build counts down from. */
 export const selectStartedAt = async (tx: ScopedSql, storeId: string, runId: string): Promise<Date | null> =>
   (await tx<{ started_at: Date | null }[]>`select started_at from publish_run where id = ${runId} and store_id = ${storeId}`)[0]?.started_at ?? null
+
+/** A publish ending ends its repair and bisect builds still open, so none holds the store's slot (one running per store). */
+export const failOpenAttempts = async (tx: ScopedSql, storeId: string, rootId: string, error: string, at: Date): Promise<string[]> =>
+  (
+    await tx<{ id: string }[]>`
+      update publish_run set state = 'failed', error = ${error}, finished_at = ${at}
+      where attempt_of = ${rootId} and store_id = ${storeId} and state in ('building', 'checking', 'deploying')
+      returning id`
+  ).map((r) => r.id)

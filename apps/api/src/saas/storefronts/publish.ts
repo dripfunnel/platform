@@ -10,6 +10,7 @@ import {
   lockStorefront,
   moveLiveTo,
   failAttempt,
+  failOpenAttempts,
   finishRepaired,
   insertAttempt,
   selectBisectedRun,
@@ -165,15 +166,17 @@ const switchStep = async (deps: PublishDeps, p: PublishParams, buildId: string):
 
 /** The live build stays as it was; nothing became public (LIVE-SHOP §4 step 8). */
 const failStep = async (deps: PublishDeps, p: PublishParams, code: string): Promise<string> => {
-  await withSystemScope(deps.sql, async (tx) => {
-    if (!(await lockStorefront(tx, p.storeId))) return
+  const attempts = await withSystemScope(deps.sql, async (tx) => {
+    if (!(await lockStorefront(tx, p.storeId))) return []
     const run = await selectRun(tx, p.runId)
-    if (!run || run.store_id !== p.storeId || run.state === 'live' || run.state === 'failed' || run.state === 'rolled_back') return
+    if (!run || run.store_id !== p.storeId || run.state === 'live' || run.state === 'failed' || run.state === 'rolled_back') return []
+    const ended = await failOpenAttempts(tx, p.storeId, p.runId, code, deps.now())
     await failRun(tx, run, code, deps.now())
     await activityLog.record(tx, systemEntry(run, 'storefront.publish_failed', 'failed', [{ field: 'error', before: null, after: code }]))
     await queueNext(tx, run.store_id, run.partner_id)
+    return ended
   })
-  await deletePrefix(deps.sites, stagingFolder(p.storeId, p.runId))
+  for (const id of [p.runId, ...attempts]) await deletePrefix(deps.sites, stagingFolder(p.storeId, id))
   return 'failed'
 }
 

@@ -168,6 +168,26 @@ describe('a design publish that fails the gate', () => {
   })
 })
 
+describe('a publish whose repair never reports', () => {
+  it('ends with its open repair build, so the store can publish again', async () => {
+    const chain = [commit(601)]
+    await draftWith(t.storeA2, chain)
+    const runId = await publishDesign(t.storeA2, chain[0] ?? '')
+    const silentRepair = {
+      ...workflow(new Set(chain)),
+      waitFor: async (name: string, event: string) => {
+        if (name.startsWith('repair-')) throw new Error('waitForEvent timed out')
+        return workflow(new Set(chain)).waitFor(name, event)
+      },
+    }
+    expect(await runPublish(deps(async () => commit(602)), { runId, storeId: t.storeA2 }, silentRepair)).toBe('failed')
+    expect(await root(runId)).toMatchObject({ state: 'failed', error: 'report_timed_out' })
+    expect((await attemptsOf(runId)).map((a) => a.state)).toEqual(['failed'])
+    expect(await db.sql`select 1 from publish_run where store_id = ${t.storeA2} and state in ('building', 'checking', 'deploying')`).toHaveLength(0)
+    expect((await db.sql<{ build_state: string }[]>`select build_state from store where id = ${t.storeA2}`)[0]?.build_state).not.toBe('building')
+  })
+})
+
 describe('the draft’s changes', () => {
   it('are listed as the studio accepts them, and cleared when the store goes back to a version', async () => {
     await draftWith(t.storeA2, [])
