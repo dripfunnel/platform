@@ -117,9 +117,9 @@ export class StudioRunner {
   }
 
   /** A file of the frame's current bundle, or null while the sandbox isn't loaded (the frame shows the preview). */
-  async frameFile(path: string): Promise<Response | null> {
+  async frameFile(path: string, frame: { media: string; portal: string }): Promise<Response | null> {
     if (!this.loaded || !this.client) return null
-    return this.client.client(path)
+    return this.client.client(path, frame)
   }
 
   /** Idle stop (AI-STUDIO §7): the draft is already saved, so the next request starts again from it. */

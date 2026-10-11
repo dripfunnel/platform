@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { inlineHashes, studioCsp } from '@dripfunnel/storefront-core'
 import type { GuardContext } from '@dripfunnel/storefront-core/guard'
 import { isRepoPath } from './paths'
 import { Workspace, NotLoaded } from './workspace'
@@ -24,6 +25,12 @@ const undoSchema = z.strictObject({ commit: z.string().regex(/^[0-9a-f]{40}$/), 
 
 // validateChange parses the context with core's own schema before anything reads it (guard/rules.ts).
 const asContext = (value: unknown) => value as GuardContext
+
+const frameOrigins = (req: IncomingMessage): { mediaOrigin: string; portalOrigin: string } | null => {
+  const media = req.headers['x-df-frame-media']
+  const portal = req.headers['x-df-frame-portal']
+  return typeof media === 'string' && typeof portal === 'string' ? { mediaOrigin: media, portalOrigin: portal } : null
+}
 
 const types: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', json: 'application/json' }
 
@@ -129,7 +136,11 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir }: SandboxOptions): 
       const path = rest.join('/') || 'index.html'
       const bytes = await ws().clientFile(path, runtimeDir)
       if (!bytes) return send(res, 404, { error: 'NOT_FOUND' })
-      res.writeHead(200, { 'content-type': types[path.split('.').at(-1) ?? ''] ?? 'application/octet-stream', 'content-length': bytes.byteLength })
+      const headers: Record<string, string | number> = { 'content-type': types[path.split('.').at(-1) ?? ''] ?? 'application/octet-stream', 'content-length': bytes.byteLength }
+      const frame = frameOrigins(req)
+      // The studio frame's page carries core's own studio CSP (ARCHITECTURE §3.5), from the origins the Durable Object sent.
+      if (frame && path.endsWith('.html')) headers['content-security-policy'] = studioCsp(frame, await inlineHashes(bytes.toString('utf8')))
+      res.writeHead(200, headers)
       return res.end(bytes)
     }
     throw new HttpError(404, 'No such operation.')

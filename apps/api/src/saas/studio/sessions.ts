@@ -62,9 +62,12 @@ export const renewStudio = async (sql: postgres.Sql, context: TenantContext, rol
   return renewed ? expiresAt : null
 }
 
-/** Asked by the store's Durable Object on every frame request, before anything is read (AI-STUDIO §8 "Checked"). */
-export const liveStudioSession = async (sql: postgres.Sql, storeId: string, id: string, now: Date): Promise<{ userId: string; access: StudioAccess } | null> => {
-  if (!studioSessionPattern.test(id)) return null
-  const row = await withSystemScope(sql, async (tx) => selectLiveStudioSession(tx, storeId, await hashStudioSession(id), now))
+/** By the hash a frame's WebSocket is tagged with: the alarm closes it once this answers null. */
+export const liveStudioSessionHash = async (sql: postgres.Sql, storeId: string, idHash: string, now: Date): Promise<{ userId: string; access: StudioAccess } | null> => {
+  const row = await withSystemScope(sql, (tx) => selectLiveStudioSession(tx, storeId, idHash, now))
   return row ? { userId: row.user_id, access: row.can_change ? 'change' : 'view' } : null
 }
+
+/** Asked by the store's Durable Object on every frame request, before anything is read (AI-STUDIO §8 "Checked"). */
+export const liveStudioSession = async (sql: postgres.Sql, storeId: string, id: string, now: Date): Promise<{ userId: string; access: StudioAccess } | null> =>
+  studioSessionPattern.test(id) ? liveStudioSessionHash(sql, storeId, await hashStudioSession(id), now) : null

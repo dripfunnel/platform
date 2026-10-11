@@ -83,6 +83,22 @@ describe('the sandbox server', () => {
     expect((await fetch(`${base}/slots/store-a/client/../../repo/package.json`)).status).toBe(404)
   })
 
+  it('gives the frame’s page core’s studio CSP for the origins it is sent, and nothing to a page asked without them', async () => {
+    const framed = await fetch(`${base}/slots/store-a/client/index.html`, { headers: { 'x-df-frame-media': 'https://k7f3q9f2xa.webpreview.store', 'x-df-frame-portal': 'https://store.partner-a.example' } })
+    const csp = framed.headers.get('content-security-policy') ?? ''
+    expect(csp).toContain("default-src 'none'")
+    expect(csp).toContain("script-src 'self'")
+    expect(csp).toContain('frame-ancestors https://store.partner-a.example')
+    expect((await fetch(`${base}/slots/store-a/client/index.html`)).headers.get('content-security-policy')).toBeNull()
+  })
+
+  it('exports the theme from the entry and boots it once, so the hot reload can load a later one', async () => {
+    const html = await (await fetch(`${base}/slots/store-a/client/index.html`)).text()
+    const entry = /src="\/(assets\/entry-[A-Z0-9]+\.js)"/.exec(html)?.[1] ?? ''
+    const js = await (await fetch(`${base}/slots/store-a/client/${entry}`)).text()
+    expect(js).toMatch(/export\s*\{[^}]*\btheme\b/)
+  })
+
   it('makes an accepted change a local commit with a new bundle', async () => {
     const before = await head('store-a')
     const bundleBefore = await (await fetch(`${base}/slots/store-a/client/index.html`)).text()

@@ -41,9 +41,11 @@ const entrySource = (routesJson: string, content: Content): string => {
   return [
     `import { boot } from 'df:boot'`,
     ...pages.map((page) => `import { ${exportOf(page)} as ${ref(page)} } from './src/theme/pages/${page}.tsx'`),
-    `boot({ routes: { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} },`,
+    `export const theme = { routes: { ${Object.entries(routes.routes).map(([route, page]) => `${JSON.stringify(route)}: ${ref(page)}`).join(', ')} },`,
     `  custom: { ${Object.entries(routes.custom ?? {}).map(([path, page]) => `${JSON.stringify(path)}: ${ref(page)}`).join(', ')} },`,
-    `  content: ${JSON.stringify(content)} })`,
+    `  content: ${JSON.stringify(content)} }`,
+    // Booted once; later bundles in the studio frame are loaded by the hot reload, which reads `theme` (runtime/boot.tsx).
+    `boot(theme)`,
   ].join('\n')
 }
 

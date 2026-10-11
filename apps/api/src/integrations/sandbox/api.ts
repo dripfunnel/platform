@@ -72,10 +72,11 @@ export const sandboxClient = (send: SandboxFetch, slot: string) => {
     undo: async (commit: string, message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'undo', JSON.stringify({ commit, message, context })), changeSchema),
     exportBundle: async (): Promise<ArrayBuffer> => (await call('GET', 'bundle')).arrayBuffer(),
     previewFiles: async (): Promise<PreviewFiles> => json(await call('GET', 'preview'), previewSchema),
-    /** A frame file as the container serves it; a 404 is passed through, never thrown. */
-    client: async (path: string): Promise<Response> => {
+    /** A frame file as the container serves it, its page with core's studio CSP for these origins; a 404 is passed through. */
+    client: async (path: string, frame: { media: string; portal: string }): Promise<Response> => {
       try {
-        return await send(new Request(`http://sandbox/slots/${slot}/client/${path}`, { signal: AbortSignal.timeout(timeoutMs) }))
+        const headers = { 'x-df-frame-media': frame.media, 'x-df-frame-portal': frame.portal }
+        return await send(new Request(`http://sandbox/slots/${slot}/client/${path}`, { headers, signal: AbortSignal.timeout(timeoutMs) }))
       } catch {
         throw new SandboxDown('The sandbox did not answer.')
       }

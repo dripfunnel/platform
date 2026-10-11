@@ -1,5 +1,6 @@
 export { capacityLedger, defaultStudioCapacity, leaseMs, queueMs, type Grant, type LedgerStorage } from './capacity'
 export { maxRepairs, type DesignModel, type Proposal, type ProposalInput } from './model'
 export { StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type ChangeRequest, type DraftsBucket, type StudioCapacity, type StudioDeps } from './runner'
-export { hashStudioSession, liveStudioSession, openStudioSession, renewStudio, studioAccess, studioRenewEveryMs, studioSessionMs, studioSessionPattern, type OpenedStudioSession, type StudioAccess } from './sessions'
+export { dressFrameResponse, frameClosed, frameOpening, serveFrame, studioFrameOf, studioStoreHeader, type FrameServer } from './frame'
+export { hashStudioSession, liveStudioSession, liveStudioSessionHash, openStudioSession, renewStudio, studioAccess, studioRenewEveryMs, studioSessionMs, studioSessionPattern, type OpenedStudioSession, type StudioAccess } from './sessions'
 export { studioOf } from './stub'

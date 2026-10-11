@@ -14,7 +14,9 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node22',
-  packages: 'external',
+  // Core's root entry is bundled in (its files import without extensions, which Node can't load); everything else stays
+  // in the image's node_modules, guard included, which reads core's types beside it.
+  external: ['@dripfunnel/storefront-core/guard', 'clsx', 'esbuild', 'motion', 'react', 'react/*', 'react-dom', 'react-dom/*', 'typescript', 'zod'],
   logLevel: 'warning',
 })
 await buildRuntime(`${dist}runtime-files`)

@@ -36,6 +36,14 @@ export const moveDraft = async (
   await tx`update storefront set custom_paths = ${pgArray(d.customPaths)}::text[] where store_id = ${d.storeId}`
 }
 
+/** The partner's live portal host: the only page that may frame the studio (ARCHITECTURE §3.5 `frame-ancestors`). */
+export const selectStudioPortalHost = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (
+    await tx<{ host: string }[]>`
+      select d.host from store s join partner_domain d on d.partner_id = s.partner_id
+      where s.id = ${storeId} and d.kind = 'portal' and d.status = 'live' order by d.created_at limit 1`
+  )[0]?.host ?? null
+
 export interface GuardContextRow {
   name: string
   main_language: string

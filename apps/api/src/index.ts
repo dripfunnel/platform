@@ -103,7 +103,9 @@ import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
-import { studioCapacityClass, studioSessionClass, type CapacityNamespace } from '#jobs/durable/studio'
+import { studioCapacityClass, studioSessionClass, type CapacityNamespace, type StudioSessionObject } from '#jobs/durable/studio'
+import { handleStudioFrame } from '#apis/studio/frame'
+import { frameClosed } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
 import { cleanStorefronts, lookupLiveHost, storefrontPublishKind, type LiveHost, type PublishParams } from '#saas/storefronts/index'
@@ -614,6 +616,23 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
   })
 }
 
+// The studio frame on a preview host (storefront AI-STUDIO §3 step 6): the host's store's Durable Object, or nothing.
+const studioFrame = async (request: Request, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+  const namespace = env.STUDIO_SESSION as DurableObjectNamespace<StudioSessionObject> | undefined
+  if (!config.HYPERDRIVE || !namespace) return frameClosed()
+  return withConnection(config.HYPERDRIVE, ctx, (sql) =>
+    handleStudioFrame(request, {
+      sql,
+      previewDomain: config.PREVIEW_DOMAIN ?? null,
+      studioFor: (storeId) => {
+        const stub = namespace.get(namespace.idFromName(storeId))
+        return { check: (forStore, session) => stub.check(forStore, session), fetch: (r) => stub.fetch(r) }
+      },
+      shop: (r) => handleShop(r, new URL(r.url), config, env, ctx),
+    }),
+  )
+}
+
 const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: Entry): Promise<{ response: Response; area: Area | null }> => {
   const url = new URL(request.url)
   let config
@@ -626,6 +645,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
   const area = resolveArea(url, config, entry)
   if (!area) return { response: notFound(), area: null }
   if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
+  if (area === 'studio') return { response: await studioFrame(request, config, env, ctx), area }
   // Through PortalProxy nothing answers before the host is found among the live portal rows.
   if (entry === 'public' && isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id, env.ASSETS !== undefined), area }

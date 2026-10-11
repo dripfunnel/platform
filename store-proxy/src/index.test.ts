@@ -37,4 +37,18 @@ describe('store proxy', () => {
     await route(new Request('https://evildripfunnel.ai/'), env)
     expect(seen).toEqual(['net https://store.pages.dev/'])
   })
+
+  it('sends a preview host’s studio frame to the API’s StorefrontEdge, and nothing else of it there', async () => {
+    stubFetch()
+    const edge = { fetch: async (r: Request) => (seen.push(`edge ${r.url}`), new Response('edge')) } as unknown as Fetcher
+    const withEdge = { ...env, PREVIEW_DOMAIN: 'webpreview.store', STOREFRONT: edge }
+    await route(new Request('https://k7f3q9f2xa.webpreview.store/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/'), withEdge)
+    await route(new Request('https://portal.example.com/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/'), withEdge)
+    await route(new Request('https://k7f3q9f2xa.webpreview.store/__studio/x'), env)
+    expect(seen).toEqual([
+      'edge https://k7f3q9f2xa.webpreview.store/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/',
+      'net https://store.pages.dev/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/',
+      'net https://store.pages.dev/__studio/x',
+    ])
+  })
 })

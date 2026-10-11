@@ -57,6 +57,15 @@ describe('resolveArea', () => {
     expect(throughEdge('https://hooks.dripfunnel.com/stripe')).toBeUndefined()
   })
 
+  it('serves the studio frame only through StorefrontEdge, never on a portal host or the public entry (AI-STUDIO §8)', () => {
+    const frame = '/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/'
+    expect(resolveArea(new URL(`https://abcdefghij.webpreview.store${frame}`), config, 'edge')).toBe('studio')
+    expect(resolveArea(new URL(`https://abcdefghij.webpreview.store${frame}shop-api`), config, 'edge')).toBe('studio')
+    expect(area(`https://store.partner.com${frame}`)).toBeUndefined()
+    expect(resolveArea(new URL(`https://store.partner.com${frame}`), config, 'portal')).toBeUndefined()
+    expect(resolveArea(new URL(`https://admin.dripfunnel.com${frame}`), config, 'edge')).toBeUndefined()
+  })
+
   it('serves webhooks only on the hooks host', () => {
     expect(area('https://hooks.dripfunnel.com/stripe')).toBe('hooks')
     expect(area('https://store.partner.com/stripe')).toBeUndefined()

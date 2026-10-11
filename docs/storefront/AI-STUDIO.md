@@ -11,8 +11,8 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 [PREVIEW.md](PREVIEW.md) and [LIVE-SHOP.md](LIVE-SHOP.md) take the draft from here.
 
 **Status:** built on #482: the sandbox (`apps/sandbox`: §4 steps 3–4, the fast gate, the draft as a git bundle), its
-image per core version, and the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7). The
-studio's API and screens are #318 and #319.
+image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7), and the frame
+on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
 Last updated: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
@@ -311,6 +311,27 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   `studio_session`, which references the portal session: signing out deletes it. A renewal re-checks the caller as
   the Store API resolved them on that request; a seat that lost the studio deletes the session at once. The Owner
   changes, a Manager views, and staff, suppliers and support sessions get no studio (ACCESS §5.1 `publish`).
-- The WebSocket path through the edge Worker *(decide on #482, part 3)*.
-- Core's hot-swap entry point for the preview adapter *(decide on #304 and #482)*.
+- ~~The WebSocket path through the edge Worker.~~ **`/__studio/{session}/__hot`** (decided on #482), on the frame's own
+  origin, so the studio CSP's `connect-src 'self'` covers it. How the frame is served (decided on #482):
+  - store-proxy sends `{key}.<PREVIEW_DOMAIN>/__studio/*` to the API's `StorefrontEdge`; the router gives `/__studio`
+    an area on that entry only, so a portal host or the public entry answers 404;
+  - the API finds the store from the host's preview key, and forwards to that store's Durable Object with the store
+    id in a header it sets itself; `/__studio/{session}/shop-api` goes to the preview host's Shop API after the
+    object's `check`, with the id taken out of the path (so out of the Shop API's cache key);
+  - the object checks the session against its own store before anything is read, then serves the container's file,
+    `index.html` for any other page path, with the bundle's `/assets/` references moved under the session's prefix;
+  - HTML is `no-store`, chunks `private, max-age=31536000, immutable`, every response `Referrer-Policy: no-referrer`
+    and `X-Robots-Tag: noindex, nofollow`; the page carries core's `studioCsp`, built in the sandbox from the
+    frame's own origin (images reach it through `/shop-api/assets/`) and the partner's live portal host;
+  - until the container answers, the frame is an empty page that reloads every 2 seconds, and the portal shows
+    "Opening your studio…" over it (#319): serving the preview's files would need the preview's headers, which
+    are #317's;
+  - the hot-reload socket is tagged with the session's hash; the object's alarm closes a socket within a minute
+    of its session ending (signed out, expired, or a seat that lost the studio);
+  - the request log of the API never holds the path (LOGGING §9: host, status and timing only), and store-proxy
+    logs nothing of its own.
+- ~~Core's hot-swap entry point.~~ **`connectHotReload`** in `platform/render/studio` (decided on #482): the frame's
+  boot reads `/__studio/{session}/` from core's own module address (`studioBasePath`), points the Shop API client at
+  `/__studio/{session}/shop-api` (`studioShopEndpoint`), and on each notice imports the new entry and renders its
+  pages into the same root, applying only the newest bundle and putting the scroll back.
 - The retirement rule for old core versions' images *(decide on #485)*.
