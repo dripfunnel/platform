@@ -38,7 +38,7 @@ let template: { path: string; content: string }[]
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'sandbox-upgrade-'))
   await buildRuntime(join(root, 'runtime'))
-  const server = sandboxServer({ slots: 5, workRoot: join(root, 'work'), runtimeDir: join(root, 'runtime'), notes })
+  const server = sandboxServer({ slots: 6, workRoot: join(root, 'work'), runtimeDir: join(root, 'runtime'), notes })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   close = () => new Promise((resolve) => server.close(() => resolve()))
@@ -127,6 +127,21 @@ describe('a draft started before the upgrade', () => {
     // Rebasing again onto the same commit changes nothing.
     await fetch(`${base}/slots/draft/onto`, { method: 'PUT', body: upgraded.bundle })
     expect((await call('POST', '/slots/draft/rebase', { onto: upgraded.commit, context })).body).toMatchObject({ ok: true, changed: false, commit: rebased.body['commit'] })
+  })
+
+  it('names a missing or unrelated commit for what it is, never a conflict', async () => {
+    await loadBundle('broken', live)
+    const before = await head('broken')
+    await fetch(`${base}/slots/broken/onto`, { method: 'PUT', body: upgraded.bundle })
+    const missing = await call('POST', '/slots/broken/rebase', { onto: 'f'.repeat(40), context })
+    expect((missing.body['problems'] as { rule: string }[])[0]?.rule).toBe('rebase/missing-onto')
+    // No bundle sent first is the same fault.
+    expect(((await call('POST', '/slots/broken/rebase', { onto: upgraded.commit, context })).body['problems'] as { rule: string }[])[0]?.rule).toBe('rebase/missing-onto')
+    await call('PUT', '/slots/unrelated/draft', { files: template.map((f) => (f.path === 'routes.json' ? { path: f.path, content: `${f.content}\n` } : f)), message: 'Another start' })
+    await fetch(`${base}/slots/broken/onto`, { method: 'PUT', body: await exportBundle('unrelated') })
+    const unrelated = await call('POST', '/slots/broken/rebase', { onto: await head('unrelated'), context })
+    expect((unrelated.body['problems'] as { rule: string }[])[0]?.rule).toBe('rebase/unrelated')
+    expect(await head('broken')).toBe(before)
   })
 
   it('stays exactly as it was when the gate itself fails after the rebase', async () => {

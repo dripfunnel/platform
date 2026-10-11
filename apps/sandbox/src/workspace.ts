@@ -161,8 +161,13 @@ export class Workspace {
     this.mustBeLoaded()
     const file = join(this.dir, 'onto.bundle')
     const before = await this.head()
+    const refused = (rule: string, message: string): ChangeResult => ({ ok: false, problems: [{ step: 'validator', file: null, line: null, rule, message }] })
     try {
-      await this.git(['fetch', '--quiet', file, `+${branch}:refs/df/onto`])
+      // Only a real conflict is called one: a missing or unrelated commit is a fault in what was sent.
+      const fetched = await this.git(['fetch', '--quiet', file, `+${branch}:refs/df/onto`]).then(() => true, () => false)
+      const found = fetched && (await this.git(['merge-base', '--is-ancestor', onto, 'refs/df/onto']).then(() => true, () => false))
+      if (!found) return refused('rebase/missing-onto', 'The core update’s commit is not in the bundle sent for it.')
+      if (!(await this.git(['merge-base', onto, before]).then(() => true, () => false))) return refused('rebase/unrelated', 'The draft and the core update share no history.')
       const reached = await this.git(['merge-base', '--is-ancestor', onto, before]).then(() => true, () => false)
       if (reached) return { ok: true, changed: false, commit: before, bundle: this.current ?? (await this.rebundle()) }
       try {
@@ -170,7 +175,7 @@ export class Workspace {
       } catch {
         await this.git(['rebase', '--abort']).catch(() => undefined)
         await this.git(['reset', '--quiet', '--hard', before])
-        return { ok: false, problems: [{ step: 'validator', file: null, line: null, rule: 'rebase/conflict', message: 'The draft and the core update change the same lines of the theme.' }] }
+        return refused('rebase/conflict', 'The draft and the core update change the same lines of the theme.')
       }
       const next = join(this.client, 'next')
       try {
