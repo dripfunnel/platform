@@ -75,6 +75,22 @@ describe('Team', () => {
     expect(textOf(await teamTab('partner-owner', true))).toContain(words.team.refused.manage)
   })
 
+  it('offers a pending invitation Resend and Revoke, never Remove, and an accepted member Remove, all one size', async () => {
+    const rowOf = (html: string, id: string) => html.split('<tr').find((row) => row.includes(team.find((m) => m.id === id)?.email ?? id)) ?? ''
+    const buttons = (row: string) => [...row.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((match) => match[1])
+    const owner = await teamTab('partner-owner')
+    expect(buttons(rowOf(owner, 'u4'))).toEqual([words.team.resend, words.team.revoke])
+    expect(buttons(rowOf(owner, 'u2'))).toEqual([words.team.remove])
+    const actions = [...owner.matchAll(/<span class="df-settings-row-actions">([\s\S]*?)<\/span><\/td>/g)].map((match) => match[1] ?? '').join('')
+    expect([...new Set([...actions.matchAll(/<button[^>]*class="([^"]*)"/g)].map((match) => match[1]))]).toEqual(['df-button'])
+    const support = rowOf(await teamTab('partner-support'), 'u4')
+    expect(buttons(support)).toEqual([words.team.revoke])
+    expect(textOf(support)).toContain(words.team.refused.manage)
+    const ownerInvite = await render(<TeamTab team={team.map((m) => (m.id === 'u4' ? { ...m, role: 'partner-owner' as const } : m))} role="partner-admin" session={null} readOnly={false} busy={false} more={{ show: false, busy: false, failed: false }} onRun={() => Promise.resolve(true)} onMore={noop} />)
+    expect(buttons(rowOf(ownerInvite, 'u4'))).toEqual([words.team.revoke])
+    expect(textOf(rowOf(ownerInvite, 'u4'))).toContain(words.team.refused.ownerRole)
+  })
+
   it('shows a staff session up front that it never changes who is Owner', async () => {
     const setup = textOf(await teamTab('partner-owner', false, 'setup'))
     expect(setup).toContain(words.team.refusals.PARTNER_ENTERS_THIS_ITSELF)

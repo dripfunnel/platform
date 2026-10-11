@@ -204,17 +204,19 @@ export const TeamTab = ({ team, role, session, readOnly, busy, more, onRun, onMo
                   </td>
                   <td data-label={words.actions}>
                     <span className="df-settings-row-actions">
-                      {member.status === 'invited' && manage && (
+                      {/* A pending invitation is revoked, not removed (FIRST-RELEASE §14.2, ACCESS §6.3); the same rules hold. */}
+                      {member.status === 'invited' ? (
                         <>
-                          <button type="button" className="df-button df-button--small" disabled={busy} onClick={() => setPending({ kind: 'resend', member })}>
-                            {words.resend}
-                          </button>
-                          <button type="button" className="df-button df-button--small" disabled={busy} onClick={() => setPending({ kind: 'revoke', member })}>
-                            {words.revoke}
-                          </button>
+                          {removeWhy === null && (
+                            <button type="button" className="df-button" disabled={busy} onClick={() => setPending({ kind: 'resend', member })}>
+                              {words.resend}
+                            </button>
+                          )}
+                          <ActionControl label={words.revoke} refusal={removeWhy} disabled={busy} onRun={() => setPending({ kind: 'revoke', member })} />
                         </>
+                      ) : (
+                        <ActionControl label={words.remove} refusal={removeWhy} disabled={busy} onRun={() => setPending({ kind: 'remove', member })} />
                       )}
-                      <ActionControl label={words.remove} refusal={removeWhy} disabled={busy} onRun={() => setPending({ kind: 'remove', member })} />
                     </span>
                   </td>
                 </tr>
