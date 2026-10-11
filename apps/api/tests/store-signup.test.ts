@@ -148,6 +148,7 @@ describe('signing up', () => {
     expect(owner).toEqual({ role_key: 'owner', status: 'active', email_verified: true, phone: '+919845022113' })
     const [job] = await db.sql<{ state: string; steps: string[] }[]>`select state, array_to_json(steps) as steps from job where store_id = ${store?.id ?? ''}`
     expect(job).toEqual({ state: 'done', steps: ['accountAndStore', 'defaults', 'hostnames'] })
+    expect(await db.sql`select 1 from outbox where kind = 'store_host.sync' and store_id = ${store?.id ?? ''}`).toHaveLength(1)
     expect(await db.sql`select 1 from signup where email = 'owner.new@a.example'`).toHaveLength(0)
     const [entry] = await db.sql<{ visibility: string }[]>`select visibility from activity_log where action = 'store.created' and store_id = ${store?.id ?? ''}`
     expect(entry?.visibility).toBe('store')
@@ -196,6 +197,7 @@ describe('signing up', () => {
       })).rejects.toThrow(`injected at ${step}`)
       expect(await db.sql`select 1 from store where code = ${`fails-${step.toLowerCase()}`}`).toHaveLength(0)
       expect(await db.sql`select 1 from "user" where email = ${email}`).toHaveLength(0)
+      expect(await db.sql`select 1 from outbox o where kind = 'store_host.sync' and not exists (select 1 from store s where s.id = o.store_id)`).toHaveLength(0)
       expect((await post('/api/auth/sign-up/verify-phone', { code }, signup)).body['step']).toBe('enrol')
     }
   })

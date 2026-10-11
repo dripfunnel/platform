@@ -92,6 +92,7 @@ describe('creating', () => {
       select pp.monthly_amount, p.version from plan p join plan_price pp on pp.plan_id = p.id and pp.version = p.version and pp.currency = 'USD' where p.id = ${ids.nsPlan}`
     expect(sub).toEqual({ status: 'trial', amount: price?.monthly_amount, currency: 'USD', plan_version: price?.version })
     expect(await db.sql`select 1 from outbox where kind = 'email' and payload->>'template' = 'store-owner-invitation' and payload->>'storeId' = ${storeId}`).toHaveLength(1)
+    expect(await db.sql`select 1 from outbox where kind = 'store_host.sync' and store_id = ${storeId}`).toHaveLength(1)
     expect(await db.sql`select 1 from activity_log where action = 'store.created' and store_id = ${storeId}`).toHaveLength(1)
 
     const progress = (await run<{ provisioning: { steps: { key: string; state: string }[]; done: boolean } }>(q.progress, callerOf(ids.ns), { id: storeId })).data?.provisioning

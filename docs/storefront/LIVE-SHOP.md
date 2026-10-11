@@ -272,6 +272,9 @@ What the edge Worker does on each request to a storefront host.
   Cloudflare for SaaS custom hostname (SAAS §5 step 3, §8).
   *Why:* registering each name works on every Cloudflare plan. A wildcard custom hostname
   would need Enterprise.
+  Built on #519: the address is registered after signup once the partner's shops address is
+  live, every store's when that address goes live, and taken out when the store closes or the
+  address is removed (SAAS §8).
 - **A merchant's own domain** is another custom hostname on the same zone (SAAS §8). It reaches
   the same edge Worker, which maps it to the same store.
 - Each hostname costs about $0.10 a month after the first 100, on every plan below Enterprise

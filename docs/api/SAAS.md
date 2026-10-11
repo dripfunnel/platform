@@ -302,6 +302,11 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   step 3's hostnames are the store's code under the partner's wildcards (built for both the
   preview and shops wildcards; the preview one goes with #518). Signup ends there:
   `store.provisioned`, the welcome email through the outbox, the `signup` row deleted.
+  **Step 3's registration is built on #519**: the signup transaction, and the partner console's
+  Create store, queue `store_host.sync` through the outbox; after commit it registers
+  `{code}.shops.<partnerdomain>` with Cloudflare for SaaS, and does nothing while the partner's
+  shops address isn't live (§8 has the rest). Its compensation is the transaction's: a failed
+  signup leaves no row, so nothing is registered.
 - Steps 4–8 make the storefront **when the merchant first picks a template** (decided
   2026-10-08 on #470), as the `create-storefront` Workflow with their compensations (INF 1).
   They **never run for a store that uses its own frontend** (it gets a public store key and
@@ -563,6 +568,30 @@ failed; a live hostname can become expiring or broken if its records change.
    queues the same purge once #471 builds primary. *Decided here (#468): the purge names the
    host and its store, so #317 can purge by either; the removal is a function #471 calls in its
    own transaction, since the row's removal (DATA-MODEL §7.2's planned `removed_at`) is #471's.*
+   **Each store's shops host (#519).** Wildcard custom hostnames need Enterprise, so the
+   partner's shops address is only its wildcard DNS record, and each store's
+   `{code}.shops.<partnerdomain>` is registered as its own custom hostname
+   (`saas/domains/storeHosts.ts`, `jobs/queues/deliverers/storeHost.ts`). Its state is
+   Cloudflare's and is kept nowhere of ours. `store_host.sync` (one store) registers the host,
+   through the same `registerHostname`, while the store is open and its partner's shops address
+   is live, and does nothing otherwise; once the store is closed (`transitionStore`) the same job
+   takes the host out. When the shops address goes live, `domain.recheck` queues
+   `store_hosts.register`, which pages through the partner's open stores 100 at a time by code
+   and queues a sync for each, keyed by the address, so a retried page or the address going live
+   again queues none twice. Removing the shops address queues `store_hosts.remove`, which pages
+   through all the partner's stores, closed ones included, and queues `domain.remove` for each
+   host; `domain.remove` leaves a host an open store holds again because the address was added back.
+   Cloudflare being down rethrows, so the outbox retries; a refusal is recorded as
+   `store.shops_host_refused` (visibility `partner`) and the technical log
+   `store_host.refused`, and is not retried. A store closed or an address removed while its host
+   was being registered is taken back out. With no Cloudflare token configured,
+   `store_host.sync` waits in the outbox, as `domain.remove` does. Stores made before #519 are queued once by
+   migration 0220, with the fan-out's keys, so it registers nothing twice. Hostnames past the
+   first 100 are billed (Verify before building, below), which is why a closed store's goes.
+   *Decided here (#519): the partner console's Create store queues the registration as signup
+   does, since both make a store (§5); a closed store's host and every host of a removed address
+   go, a cancelled or suspended store's stay; the backfill is a migration, so it runs once in
+   each environment with the deploy, before the relay that delivers it is promoted.*
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
    **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check
