@@ -28,8 +28,9 @@ export const checksWindowMs = 120_000
 const retryMs = 10_000
 const maxAssetsPerPage = 20
 
-const productPage = /^(?:[a-z]{2,3}(?:-[A-Z]{2})?\/)?products\/([^/]+)\/index\.html$/
-const checkoutPage = /^(?:[a-z]{2,3}(?:-[A-Z]{2})?\/)?checkout\/index\.html$/
+// A product's own page, never the client-rendered `_fallback` one (core's routeAddresses); the main language comes first.
+const productPage = /^products\/([a-z0-9][a-z0-9-]*)\/index\.html$/
+const checkoutPage = /^checkout\/index\.html$/
 const pathOf = (file: string) => `/${file.replace(/(?:^|\/)index\.html$/, '')}`
 
 const pass = (name: CheckName, detail: string): CheckResult => ({ name, result: 'passed', detail })

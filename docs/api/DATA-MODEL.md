@@ -1866,6 +1866,12 @@ storefront_redirect (id, store_id, from_path, to_path, language NULL, reason ('r
                     -- the 301s of storefront ARCHITECTURE §8: written by the engine when a
                     -- product, collection, content page or custom page changes address; the
                     -- edge reads them per store; unique (store_id, from_path, language)
+                    -- Built on #484 (migration 0281): unique (store_id, from_path), since the path names its language;
+                    -- written by triggers on product.slug and on a product's translated slug (so an import, a supplier's
+                    -- save or a translation all leave one), as storefront_product_path(): /products/{slug} in the main
+                    -- language, /{language lowercased}/products/{slug} in another (core's languagePrefix, #483), with no
+                    -- trailing slash; the redirects into the old address follow it (no chains), and one away from an
+                    -- address that is live again goes. Collections, content and custom pages join with their renders
 storefront_vitals_day (store_id, day, page_kind, device ('phone'|'desktop'), samples,
                      lcp_p75_ms, inp_p75_ms, cls_p75)
                     -- real-user Core Web Vitals, recorded only after the shopper's consent

@@ -705,7 +705,7 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
     sort URLs canonicalised so they make no crawl traps; correct pagination canonicals;
     previews `noindex`.
   - **Addresses**: a renamed product, collection or page gets an automatic **301** from its
-    old address at the edge; removed products answer 404 or redirect; trailing slashes
+    old address at the edge (products built on #484: `storefront_redirect`, LIVE-SHOP §5 step 6); removed products answer 404 or redirect; trailing slashes
     consistent; the root redirects to the default locale.
   - **Breadcrumbs** are sealed on product and collection pages.
   - **Telling search engines**: IndexNow on every publish and single-page render (Bing,
