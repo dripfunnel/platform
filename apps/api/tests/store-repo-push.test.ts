@@ -33,6 +33,11 @@ const seedRepo = async (storeId: string, name: string, repos: StoreRepos) => {
     { path: 'package.json', content: '{"dependencies":{"@dripfunnel/storefront-core":"1.0.0"}}' },
     { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' },
     { path: 'src/theme/pages/OldPage.tsx', content: 'export const OldPage = () => null' },
+    // The template's own files under src/theme, outside the allowlist: no theme push writes or removes them.
+    { path: 'src/theme/manifest.ts', content: 'export const theme = {}' },
+    { path: 'src/theme/tokens.css', content: ':root {}' },
+    { path: 'src/theme/messages/en.json', content: '{}' },
+    { path: 'src/theme/sections/.gitkeep', content: '' },
     ...theme('first'),
   ])
   const head = await repos.commit(name, { tree, parent: first, message: 'Start from the bloom template', at: clock })
@@ -79,6 +84,7 @@ describe('the push API', () => {
     expect(files?.has('src/theme/pages/OldPage.tsx')).toBe(false)
     expect(files?.get('.github/workflows/build.yml')).toBe('on: workflow_dispatch\n')
     expect(files?.has('package.json')).toBe(true)
+    for (const kept of ['src/theme/manifest.ts', 'src/theme/tokens.css', 'src/theme/messages/en.json', 'src/theme/sections/.gitkeep']) expect(files?.has(kept), kept).toBe(true)
     const [row] = await db.sql<{ repo_head: string }[]>`select repo_head from storefront where store_id = ${t.storeA1}`
     expect(row?.repo_head).toBe(result.ok ? result.commit : '')
   })
