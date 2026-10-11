@@ -116,6 +116,16 @@ describe('step build', () => {
     expect(existsSync(join(root, 'refused/site'))).toBe(false)
   })
 
+  it('names a page whose theme code throws while rendering, writes no site, and keeps the error’s text out of the report', async () => {
+    const source = await sourceOf('throwing', { 'src/theme/pages/SearchPage.tsx': 'export const SearchPage = () => {\n  const parsed: number = JSON.parse(\'{\') as number\n  return parsed === 0 ? null : null\n}\n' })
+    await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', join(root, 'throwing')])
+    const report = JSON.parse(readFileSync(join(root, 'throwing/report.json'), 'utf8')) as GateReport
+    const contracts = report.checks.find((c) => c.name === 'contracts')
+    expect(contracts).toMatchObject({ passed: false, detail: expect.stringContaining('The search page (/search/) failed while rendering.') })
+    expect(contracts?.detail).not.toMatch(/JSON|SyntaxError|Unexpected/)
+    expect(existsSync(join(root, 'throwing/site'))).toBe(false)
+  })
+
   it('stops at the typecheck too, with the validator’s check failing and naming the file, and no site', async () => {
     const source = await sourceOf('untyped', { 'src/theme/pages/SearchPage.tsx': 'export const SearchPage = () => {\n  const count: string = 1\n  return count === null ? null : null\n}\n' })
     await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', join(root, 'untyped')])

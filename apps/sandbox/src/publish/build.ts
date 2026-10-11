@@ -1,7 +1,7 @@
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { themeRoutesSchema } from '@dripfunnel/storefront-core'
-import { checkValidator, edgeCases, gateCheck, gateReport, validateChange, type CatalogueSnapshot, type GateReport, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { checkValidator, edgeCases, gateCheck, gateReport, pageName, validateChange, type CatalogueSnapshot, type GateCheckName, type GateReport, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { bundle, runtimeFolder } from '../gate/bundle'
 import { typecheck } from '../gate/typecheck'
 import { directionOf, edgeRules, fileOf, pageDocument, plan, robots, sitemap, type PlannedPage } from './pages'
@@ -20,16 +20,25 @@ const write = async (file: string, text: string) => {
   await writeFile(file, text)
 }
 
-const failed = (problems: string[]): BuildOutcome => ({ ok: false, report: gateReport([gateCheck('validator', problems)]) })
+const failed = (problems: string[], name: GateCheckName = 'validator'): BuildOutcome => ({ ok: false, report: gateReport([gateCheck(name, problems)]) })
 
-const renderPages = async (server: ServerTheme, pages: readonly PlannedPage[], s: CatalogueSnapshot, into: string, assets: { entry: string; css: string[] }, dir?: 'ltr' | 'rtl') => {
+/** Renders each page; a page whose theme code throws is named, never its error's text (LIVE-SHOP §4 step 5's log). */
+const renderPages = async (server: ServerTheme, pages: readonly PlannedPage[], s: CatalogueSnapshot, into: string, assets: { entry: string; css: string[] }, dir?: 'ltr' | 'rtl'): Promise<string[]> => {
+  const thrown: string[] = []
   for (const page of pages) {
     const store = { ...s.store, language: page.language }
     const Page = server.page(page.route === 'custom' ? null : page.route, page.custom)
     if (!Page) continue
-    const body = server.render(Page, { store, poweredBy: s.poweredBy })
+    let body: string
+    try {
+      body = server.render(Page, { store, poweredBy: s.poweredBy })
+    } catch {
+      thrown.push(`The ${pageName(page)} (${page.path}) failed while rendering.`)
+      continue
+    }
     await write(join(into, fileOf(page.path)), pageDocument(page, s, { body, assets, dir: dir ?? directionOf(page.language), store }))
   }
+  return thrown
 }
 
 /** Builds `theme` (already checked out at `repo`) into `out`; the same theme and snapshot always give the same files. */
@@ -51,9 +60,14 @@ export const buildSite = async (input: { repo: string; theme: readonly ThemeFile
   await cp(input.runtimeDir, join(site, runtimeFolder), { recursive: true })
   const assets = { entry: client.bundle.entry, css: client.bundle.files.filter((f) => f.path.endsWith('.css')).map((f) => f.path) }
 
-  const server = await serverTheme(input.repo, join(work, 'server'))
+  const server = await serverTheme(input.repo, join(work, 'server')).catch(() => null)
+  if (!server) return failed(["The theme's pages can't be bundled for the static build."], 'contracts')
   const pages = plan(routes, s.store)
-  await renderPages(server, pages, s, site, assets)
+  const thrown = await renderPages(server, pages, s, site, assets)
+  if (thrown.length > 0) {
+    await rm(site, { recursive: true, force: true })
+    return failed(thrown, 'contracts')
+  }
   await write(join(site, 'sitemap.xml'), sitemap(pages, s.origin))
   await write(join(site, 'robots.txt'), robots(s.origin))
   await write(join(site, '_edge.json'), `${JSON.stringify(edgeRules(pages, s.store))}\n`)
@@ -61,7 +75,11 @@ export const buildSite = async (input: { repo: string; theme: readonly ThemeFile
   const main = pages.filter((p) => p.language === s.store.mainLanguage)
   for (const [n, edge] of edgeCases(s).entries()) {
     const language = edge.snapshot.store.language
-    await renderPages(server, main.map((p) => ({ ...p, language })), edge.snapshot, join(out, edgeFolder(n)), assets, edge.dir)
+    const edgeThrown = await renderPages(server, main.map((p) => ({ ...p, language })), edge.snapshot, join(out, edgeFolder(n)), assets, edge.dir)
+    if (edgeThrown.length > 0) {
+      await rm(site, { recursive: true, force: true })
+      return failed(edgeThrown.map((t) => `With ${edge.name}: ${t}`), 'edge-cases')
+    }
   }
   return { ok: true, pages: pages.length }
 }
