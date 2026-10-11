@@ -17,7 +17,6 @@ import {
   selectStoreProducts,
   updateContent,
   type ContentKind,
-  type ContentRow,
   type ContentStatus,
 } from '#db/scoped/storefrontContent'
 import { cleanContent, ContentInvalid, contentPath, namedIn, pathHolder, type CleanContent, type PathHolder } from './rules'
