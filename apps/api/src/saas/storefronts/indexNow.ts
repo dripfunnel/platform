@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import { isLocalhost } from '#core/config'
 import { withSystemScope } from '#db/scoped/index'
-import { selectStorefrontHost } from '#db/scoped/publishing'
+import { selectIndexNowKey, selectStorefrontHost } from '#db/scoped/publishing'
 import { buildFolder, manifestName } from './layout'
 import { manifestSchema, type Manifest } from './manifest'
 import type { SitesBucket } from './templates'
@@ -28,7 +28,7 @@ const addressOf = (path: string) => `/${path.replace(/(?:^|\/)index\.html$/, (m)
 export const indexNowSubmission = async (deps: { sql: postgres.Sql; sites: SitesBucket }, p: IndexNowPayload): Promise<{ host: string; key: string; urls: string[] } | null> => {
   const row = await withSystemScope(deps.sql, async (tx) => ({
     host: await selectStorefrontHost(tx, p.storeId),
-    key: (await tx<{ indexnow_key: string }[]>`select indexnow_key from storefront where store_id = ${p.storeId}`)[0]?.indexnow_key ?? null,
+    key: await selectIndexNowKey(tx, p.storeId),
   }))
   if (!row.host || !row.key || isLocalhost(row.host)) return null
   const now = await pages(deps.sites, p.storeId, p.buildId)
