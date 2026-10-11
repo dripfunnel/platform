@@ -10,9 +10,11 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 (`designs/PortalStorefront`) owns the screens. This document owns the **infrastructure**.
 [PREVIEW.md](PREVIEW.md) and [LIVE-SHOP.md](LIVE-SHOP.md) take the draft from here.
 
-**Status: specification only.** Nothing below is built.
+**Status:** the sandbox (`apps/sandbox`: §4 steps 3–4, the fast gate, the draft as a git bundle) and its image per core
+version are built on #482; the rest is specification.
 
-Last updated: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
+Last updated: 2026-10-11 (#482: the sandbox, its size and its image).
+Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
 ---
@@ -253,8 +255,31 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 
 ## 9. Open questions
 
-- The container size: `basic` if the typecheck and bundle fit in 1 GiB, measured with a real
-  theme *(decide on #482)*.
+- ~~The container size.~~ **`basic`** (¼ vCPU, 1 GiB, 4 GB disk; decided on #482). The fast gate over the
+  baseline theme (22 files) peaked at **365 MiB** in the sandbox's process, the first change in 1.0 s and later
+  ones in 0.33 s on a developer's laptop (2026-10-11); expect about four times that on ¼ vCPU. The Durable
+  Object starts it as custom resources (`vcpu: 0.25, memoryMib: 1024, diskMb: 4096`), since the
+  `durable_object` scheduling policy, which picks the image per start, takes no `basic` name and has no
+  `max_instances`. A theme near the 200-file cap is to measure on dev.
+- **How the sandbox works** (decided on #482):
+  - the model's diff is a list of **whole files**, each with its new text or `null` to remove it, not a
+    patch: the validator judges whole files, and a patch that doesn't apply is one failure fewer;
+  - the change is judged before anything is written: the validator runs over the theme in memory, then
+    the files are written, then the typecheck, the bundle and the byte budgets; any failure puts the
+    working copy back with `git reset --hard` and `git clean`;
+  - the typecheck resolves `react`, core's `./theme` and the allowlisted libraries from the image, never
+    from the store's repo, and leaves a `t('file.key')` argument to the validator, because core's
+    `Translate` names only core's own keys;
+  - the **byte budgets** (ARCHITECTURE §9) count the theme's own chunks and CSS, the part a change can move.
+    Core's runtime (react, react-dom, core and the boot module; motion only when a theme imports it) is
+    about 172 KB gzipped on its own, so the whole page's weight is the publish gate's to judge;
+  - the bundle's page loads one module by an absolute `/assets/` path and has no inline script; the
+    theme's chunks import core's runtime by relative path from `assets/core/`, which the container serves
+    from its image and a preview's host maps to `core/{version}/` (PREVIEW §3);
+  - every commit is authored by `DripFunnel <noreply@dripfunnel.com>`, and git runs with no config of
+    its own, no hooks and the `file` protocol only;
+  - the server refuses to start when a variable that looks like a credential is set, and blocks
+    `fetch`, sockets, HTTP and DNS inside its own process on top of the container's `enableInternet: false`.
 - The idle timeout: 10 minutes proposed, 5 suggested *(decide on #482)*.
 - Whether a plan caps simultaneous studio sessions *(decide on #287 and #482)*.
 - The studio session's renewal interval (5 minutes proposed, renewed through the Store API with

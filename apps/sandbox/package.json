@@ -4,7 +4,6 @@
   "type": "module",
   "scripts": {
     "build": "tsx scripts/build.ts",
-    "dev": "SANDBOX_SLOTS=50 tsx src/main.ts",
     "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run"

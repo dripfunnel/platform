@@ -77,6 +77,15 @@ export default tseslint.config(
     },
   },
   {
+    files: ['apps/sandbox/**/*.ts'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    // The frame's boot module runs in the store's preview origin, never in Node (storefront AI-STUDIO §3 step 6).
+    files: ['apps/sandbox/src/runtime/boot.tsx'],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
     files: ['packages/storefront-core/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser } },
     rules: {

@@ -78,10 +78,12 @@ Run the gates before reporting a change as done.
 - **`templates/storefront/`** is copied into each new store repo when its merchant picks a
   template. Commerce logic belongs in `storefront-core`, never in the template or a theme.
   *Planned, not yet present*: `themes/` with the starting themes (#486).
-- *Planned, not yet present*: **`apps/sandbox`**, the container image that will run AI changes
-  in Cloudflare Containers (docs/storefront/AI-STUDIO.md; #482) and, published on `ghcr.io`,
-  every store repo's build on GitHub Actions (docs/storefront/LIVE-SHOP.md). It is Node, holds
-  no secret and reaches no network; the API Worker makes every outside call for it.
+- **`apps/sandbox`** is the container image that runs AI changes in Cloudflare Containers
+  (docs/storefront/AI-STUDIO.md; #482) and, published on `ghcr.io`, every store repo's build on
+  GitHub Actions (docs/storefront/LIVE-SHOP.md). It is Node, holds no secret and reaches no
+  network (it refuses to start with a credential in its environment, and blocks sockets
+  itself); the API Worker makes every outside call for it. Its tests run its Node code
+  directly, never a container.
 - **`docs/`** is the specification, laid out like the code (docs/README.md §3). Update the
   relevant document in the same change as the code it describes, following docs/README.md §6.
 - **`designs/`** holds one clickable prototype per portal (`DF Store Prototype` →
