@@ -13,10 +13,11 @@ export interface PreviewCheck {
   epoch: number
 }
 
-/** The service binding to the API's `StorefrontEdge` entrypoint: `/shop-api/*`, and its three questions. */
+/** The service binding to the API's `StorefrontEdge` entrypoint: `/shop-api/*`, and its four questions. */
 export interface EdgeApi {
   fetch: (request: Request) => Promise<Response>
   liveHost: (host: string) => Promise<unknown>
+  redirect: (storeId: string, path: string) => Promise<unknown>
   openPreview: (key: string, token: string) => Promise<unknown>
   previewAccess: (check: PreviewCheck) => Promise<unknown>
 }
@@ -45,6 +46,17 @@ export const parseLiveHost = (value: unknown): LiveHost => {
   )
     return { kind: 'store', storeId: v['storeId'], partnerId: v['partnerId'], buildId: v['buildId'], state, name: v['name'], language: v['language'] }
   throw new EdgeAnswerInvalid('liveHost')
+}
+
+// The same rule as `_edge.json`'s paths (live.ts): plain names on the store's own host, never `//host` or `/\host`.
+const isRedirectPath = (value: unknown): value is string => typeof value === 'string' && value.length <= 2048 && /^(\/[A-Za-z0-9._~@+,=-]+)+$/.test(value)
+
+/** A renamed address's new one, or null (storefront ARCHITECTURE §8). */
+export const parseRedirect = (value: unknown): string | null => {
+  const to = record(value)?.['to']
+  if (to === null) return null
+  if (isRedirectPath(to)) return to
+  throw new EdgeAnswerInvalid('redirect')
 }
 
 export const parsePreviewAccess = (value: unknown): PreviewAccess => {

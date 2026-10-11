@@ -110,7 +110,7 @@ import { handleStudioFrame } from '#apis/studio/frame'
 import { frameClosed } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
-import { checkPreview, cleanStorefronts, lookupLiveHost, openPreview, storefrontPublishKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
+import { checkPreview, cleanStorefronts, lookupLiveHost, lookupRedirect, openPreview, storefrontPublishKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { githubConfigured } from '#integrations/github/index'
@@ -976,6 +976,11 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
   /** Thrown, never answered as unknown, when the database can't be asked: the edge then caches nothing. */
   liveHost(host: string): Promise<LiveHost> {
     return edgeQuery(this.env, this.ctx, (sql, config) => lookupLiveHost(sql, host, { localhost: isLocalhost(config.HOOKS_HOST) }))
+  }
+
+  /** A renamed address of the store its hostname named (storefront ARCHITECTURE §8), for a path its live build lacks. */
+  redirect(storeId: string, path: string): Promise<{ to: string | null }> {
+    return edgeQuery(this.env, this.ctx, (sql) => lookupRedirect(sql, storeId, path))
   }
 
   /** `__open?t=` on a preview host (PREVIEW.md §5 step 2); without the link's key no link opens. */

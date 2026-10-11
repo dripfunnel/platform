@@ -691,7 +691,8 @@ SaaS layer owns the state and the rules:
   `publish_run` from the Workflow (`jobs/workflows/publish-storefront.ts`), the build's run and
   the switch of the live pointer, with the gate's report. **Built on #317:** queued → deploying → live | failed, the
   switch, one running and one queued run per store, and go back (storefront LIVE-SHOP §4 steps 1 and 9); building and
-  checking come with #483, rolled back with #484. A refused or rolled-back publish keeps the previous
+  checking come with #483. **Built on #484:** the post-deploy checks and rolled back (LIVE-SHOP §4 step 10); a switched
+  run stays deploying until its checks end. A refused or rolled-back publish keeps the previous
   live site, says so plainly, and **never uses an allowance**.
 - **Who pays for checking**: repair attempts and gate runs are the platform's cost, recorded
   for §12 and never counted on the merchant's meters (decided 2026-10-08 on #470).

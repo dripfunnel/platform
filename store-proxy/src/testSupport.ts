@@ -64,6 +64,8 @@ export interface FakeEdge extends EdgeApi {
   /** Each token's preview key and what `openPreview` answers for it there; `previewAccess` per key, store, user and epoch. */
   tokens: Map<string, { key: string; access: PreviewAccess }>
   access: Map<string, PreviewAccess>
+  /** What `redirect` answers, by store id and path. */
+  redirects: Map<string, unknown>
   calls: string[]
   forwarded: Request[]
 }
@@ -73,6 +75,7 @@ export const fakeEdge = (): FakeEdge => {
     hosts: new Map(),
     tokens: new Map(),
     access: new Map(),
+    redirects: new Map(),
     calls: [],
     forwarded: [],
     fetch: async (request) => {
@@ -82,6 +85,10 @@ export const fakeEdge = (): FakeEdge => {
     liveHost: async (host) => {
       edge.calls.push(`liveHost ${host}`)
       return edge.hosts.get(host) ?? { kind: 'none' }
+    },
+    redirect: async (storeId, path) => {
+      edge.calls.push(`redirect ${storeId}${path}`)
+      return edge.redirects.get(`${storeId}${path}`) ?? { to: null }
     },
     openPreview: async (key, token) => {
       edge.calls.push(`openPreview ${key}`)

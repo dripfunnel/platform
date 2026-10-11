@@ -1,6 +1,6 @@
 import type { Deps } from './deps'
 import { remember } from './deps'
-import { parseLiveHost, type LiveHost } from './edge'
+import { parseLiveHost, parseRedirect, type LiveHost } from './edge'
 import { fileHeaders, relativeKey } from './files'
 import { page } from './pages'
 
@@ -89,11 +89,24 @@ const edgeRules = async (host: string, store: Store & { buildId: string }, deps:
   }
 }
 
+/**
+ * A renamed address the store recorded (`storefront_redirect`, ARCHITECTURE §8), asked of the API and cached like the
+ * lookup: per data centre, at most a minute, under the store's tag, so a rename's 301 needs no rebuild.
+ */
+const storedRedirect = async (url: URL, store: Store, deps: Deps): Promise<string | null> => {
+  const key = `https://${url.hostname}/__df/redirect/${store.storeId}${url.pathname}`
+  const hit = await deps.cache.match(key)
+  if (hit) return parseRedirect(await hit.json())
+  const to = parseRedirect(await deps.edge.redirect(store.storeId, url.pathname))
+  remember(deps, key, new Response(JSON.stringify({ to }), { headers: { 'content-type': 'application/json', 'cache-control': `max-age=${lookupSeconds}`, 'cache-tag': `df-store-${store.storeId}` } }))
+  return to
+}
+
 /** A path the build has no file for: a recorded redirect, a fallback page the browser fills in, or the build's 404. */
 const missing = async (url: URL, store: Store & { buildId: string }, deps: Deps): Promise<Response> => {
   const rules = await edgeRules(url.hostname, store, deps)
-  const redirect = rules.redirects.find((r) => r.from === url.pathname)
-  if (redirect) return new Response(null, { status: 301, headers: { location: redirect.to } })
+  const redirect = rules.redirects.find((r) => r.from === url.pathname)?.to ?? (await storedRedirect(url, store, deps))
+  if (redirect) return new Response(null, { status: 301, headers: { location: redirect } })
   const fallback = rules.fallbacks.find((f) => url.pathname.startsWith(f.prefix))
   const fallbackKey = fallback ? relativeKey(fallback.page) : null
   if (fallbackKey) {

@@ -15,10 +15,10 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 the bucket layout (§2), the publish-storefront Workflow's queued → deploying → live | failed, the switch, go back and
 clean-up (§4 steps 1, 9 item 3 and 11), and the edge Worker's live path (§5, `store-proxy/src/live.ts`) with the host
 lookup, its `/shop-api` door and the cache purge. On #517: the OIDC check (§9), the build calls (§4, "The build calls"),
-the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2); the
-rest is specification.
+the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2). On
+#484: the post-deploy checks and the automatic rollback (§4 step 10); the rest is specification.
 
-Last updated: 2026-10-11 (#517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -259,6 +259,28 @@ checking, deploying, live, failed, rolled back).
 10. **Post-deploy checks and automatic rollback**, from the edge, run by the platform, follow
     ARCHITECTURE §4.2 steps 5–6. A rollback is the same pointer move back to the previous build:
     no rebuild, live everywhere within a minute (§5 step 1).
+    **Built on #484** (`saas/storefronts/postDeploy.ts`, the run's `checks`, `rollback` and `confirm` steps): the switch
+    moves the pointer and numbers the version, and the run stays `deploying`, so a press waits and go back is refused,
+    until the checks end. They run on the store's own address (its oldest live custom domain, else its shops host),
+    through `integrations/http/edgeProbe.ts`: every call has a 10-second timeout and up to three tries with growing
+    waits. Every answer of the edge Worker names the build it came from (`x-df-build`), and the checks wait, 10 seconds
+    at a time, until it is the new one, for two minutes at most. Then, decided here as plain HTTP from the API Worker:
+    - **home**, **product** (the first `products/{slug}/index.html` of the build's manifest) and **checkout** (its
+      `checkout/index.html`) open: 200, HTML, and each of their scripts and stylesheets answers 200. A build with no
+      checkout page fails; one with no product page skips the product and cart checks;
+    - **cart**: the Shop API, through the store's own `/shop-api`, answers that product with a version to add. No cart
+      is created on a merchant's live store;
+    - **payment**: the Shop API's `paymentOptions` answer, and every card provider among them has the public key its
+      payment element needs. A store that takes no payment yet skips it.
+
+    A failure is tried once more 10 seconds later before it counts. Then the run is live (`storefront.published`), or the
+    pointer moves back to `previous_build_id` in one transaction: the run reads `rolled_back` with the failed check as
+    its error (`check_home`, `check_product`, `check_cart`, `check_checkout`, `check_payment`), its version is
+    withdrawn and the one before is live again, the lookup is purged and `storefront.rolled_back` is recorded. A store's
+    first publish rolls back to no build. Anything that breaks after the switch rolls back the same way, and a replayed
+    rollback changes nothing. Its build folder stays as it was, for the repair loop (#483). Checking the theme's own
+    behaviour in a browser (pressing Add to cart, the payment element drawn) needs a headless browser; *proposed* as a
+    follow-up with Cloudflare Browser Rendering.
 11. **Clean-up:** a store keeps its last **20** builds (decided on #317, as proposed) and every build a kept
     version in the history refers to (SAAS §9.2). Older build folders are deleted, along with
     each build's snapshot and its source bundle (`sources/{store}/{build id}.bundle`). Staging

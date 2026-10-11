@@ -1,6 +1,7 @@
+import type postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
-import { digestOf, lookupLiveHost, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
+import { digestOf, lookupLiveHost, lookupRedirect, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
 import { buildFolder, stagingFolder } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { testProbe, type TestProbe } from './support/edgeProbe'
@@ -214,5 +215,86 @@ describe('the post-deploy checks', () => {
     }
     expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, watching)).toBe('live')
     expect(await db.sql`select 1 from outbox where kind = 'storefront.publish' and payload->>'runId' = ${next[0] ?? ''}`).toHaveLength(1)
+  })
+})
+
+describe('storefront_redirect', () => {
+  const redirects = (storeId: string) =>
+    db.sql<{ from_path: string; to_path: string; language: string | null }[]>`select from_path, to_path, language from storefront_redirect where store_id = ${storeId} order by from_path`
+  const product = async (storeId: string, slug: string) =>
+    (await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, ${slug}, ${slug}, 'visible') returning id`)[0]?.id ?? ''
+  const main = async (storeId: string) => ((await db.sql<{ main_language: string }[]>`select main_language from store where id = ${storeId}`)[0]?.main_language ?? '').toLowerCase()
+
+  it('follows a product through renames with no chains, and drops the one away from an address that is live again', async () => {
+    const lang = await main(t.storeB1)
+    const id = await product(t.storeB1, 'mug')
+    await db.sql`update product set slug = 'blue-mug' where id = ${id}`
+    await db.sql`update product set slug = 'big-blue-mug' where id = ${id}`
+    expect((await redirects(t.storeB1)).map((r) => [r.from_path, r.to_path])).toEqual([
+      [`/${lang}/products/blue-mug`, `/${lang}/products/big-blue-mug`],
+      [`/${lang}/products/mug`, `/${lang}/products/big-blue-mug`],
+    ])
+    await db.sql`update product set slug = 'mug' where id = ${id}`
+    expect((await redirects(t.storeB1)).map((r) => [r.from_path, r.to_path])).toEqual([
+      [`/${lang}/products/big-blue-mug`, `/${lang}/products/mug`],
+      [`/${lang}/products/blue-mug`, `/${lang}/products/mug`],
+    ])
+    await db.sql`delete from storefront_redirect where store_id = ${t.storeB1}`
+  })
+
+  it('moves only the language whose translated address changed, and brings the main one back when it goes', async () => {
+    await db.sql`insert into store_language (store_id, language, status, position) values (${t.storeB1}, 'hi-IN', 'active', 1)`
+    const lang = await main(t.storeB1)
+    const id = await product(t.storeB1, 'lamp')
+    const translate = (text: string) => db.sql`
+      insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeB1}, 'product', ${id}, 'slug', 'hi-IN', ${text}, md5('lamp'))
+      on conflict (store_id, entity, entity_id, field, language) do update set text = excluded.text`
+    await translate('deepak')
+    await translate('bada-deepak')
+    await db.sql`update product set slug = 'desk-lamp' where id = ${id}`
+    expect((await redirects(t.storeB1)).map((r) => [r.from_path, r.to_path])).toEqual(
+      [
+        ['/hi-in/products/deepak', '/hi-in/products/bada-deepak'],
+        ['/hi-in/products/lamp', '/hi-in/products/bada-deepak'],
+        [`/${lang}/products/lamp`, `/${lang}/products/desk-lamp`],
+      ].sort((a, b) => ((a[0] ?? '') < (b[0] ?? '') ? -1 : 1)),
+    )
+    await db.sql`delete from translation where store_id = ${t.storeB1} and entity_id = ${id}`
+    expect((await redirects(t.storeB1)).filter((r) => r.language === 'hi-IN').map((r) => [r.from_path, r.to_path])).toEqual([
+      ['/hi-in/products/bada-deepak', '/hi-in/products/desk-lamp'],
+      ['/hi-in/products/deepak', '/hi-in/products/desk-lamp'],
+      ['/hi-in/products/lamp', '/hi-in/products/desk-lamp'],
+    ])
+  })
+
+  it('answers the edge only for the store its host named, and only for a plain path', async () => {
+    const [row] = await redirects(t.storeB1)
+    expect(await lookupRedirect(db.sql, t.storeB1, row?.from_path ?? '')).toEqual({ to: row?.to_path })
+    expect(await lookupRedirect(db.sql, t.storeA1, row?.from_path ?? '')).toEqual({ to: null })
+    expect(await lookupRedirect(db.sql, t.storeB1, `${row?.from_path ?? ''}/../x`)).toEqual({ to: null })
+    expect(await lookupRedirect(db.sql, 'not-a-store', '/x')).toEqual({ to: null })
+  })
+
+  it('is read by the store’s own merchant side only: never another store, a supplier, a partner or staff, and written by nobody', async () => {
+    const as = (role: string, scope: string, storeId: string, sellerId: string, work: (tx: postgres.TransactionSql) => Promise<unknown>) =>
+      db.sql.begin(async (tx: postgres.TransactionSql) => {
+        await tx.unsafe(`set local role ${role}`)
+        await tx`select set_config('app.scope', ${scope}, true)`
+        await tx`select set_config('app.partner_id', ${t.partnerB}, true)`
+        await tx`select set_config('app.store_id', ${storeId}, true)`
+        await tx`select set_config('app.seller_id', ${sellerId}, true)`
+        return work(tx)
+      })
+    const count = (role: string, scope: string, storeId: string, sellerId = '') =>
+      as(role, scope, storeId, sellerId, async (tx) => (await tx`select 1 from storefront_redirect`).length)
+    const total = (await redirects(t.storeB1)).length
+    expect(total).toBeGreaterThan(0)
+    expect(await count('app_request', 'store', t.storeB1)).toBe(total)
+    expect(await count('app_request', 'store', t.storeA1)).toBe(0)
+    expect(await count('app_request', 'store', t.storeB1, t.sellerB1)).toBe(0)
+    await expect(count('app_partner', 'partner', t.storeB1)).rejects.toThrow(/permission denied/)
+    await expect(count('app_platform', 'platform', t.storeB1)).rejects.toThrow(/permission denied/)
+    await expect(as('app_request', 'store', t.storeB1, '', (tx) => tx`insert into storefront_redirect (store_id, from_path, to_path, reason) values (${t.storeB1}, '/a', '/b', 'renamed')`)).rejects.toThrow(/permission denied/)
+    await expect(as('app_system', 'system', t.storeB1, '', (tx) => tx`delete from storefront_redirect`)).rejects.toThrow(/permission denied/)
   })
 })

@@ -131,6 +131,27 @@ describe('the live site', () => {
     expect((await get(`https://${hostB}/nowhere/`)).status).toBe(404)
   })
 
+  it('answers a renamed product’s old address with the store’s recorded 301, cached like the lookup', async () => {
+    edge.redirects.set(`${storeA}/en-in/products/old-mug`, { to: '/en-in/products/blue-mug' })
+    const moved = await get(`https://${hostA}/en-in/products/old-mug`)
+    expect([moved.status, moved.headers.get('location')]).toEqual([301, '/en-in/products/blue-mug'])
+    await get(`https://${hostA}/en-in/products/old-mug`)
+    expect(edge.calls.filter((c) => c.startsWith('redirect '))).toEqual([`redirect ${storeA}/en-in/products/old-mug`])
+    // Store B's host asks only for store B, which recorded nothing there.
+    expect((await get(`https://${hostB}/en-in/products/old-mug`)).status).toBe(404)
+    expect(edge.calls).toContain(`redirect ${storeB}/en-in/products/old-mug`)
+    // A file of the live build always wins, and nothing is asked for it.
+    edge.redirects.set(`${storeA}/about`, { to: '/elsewhere' })
+    expect(await text(`https://${hostA}/about`)).toBe('A about')
+    expect(edge.calls).not.toContain(`redirect ${storeA}/about`)
+  })
+
+  it('refuses a recorded redirect that would leave the store’s host, caching nothing', async () => {
+    edge.redirects.set(`${storeA}/en-in/products/x`, { to: '//evil.example/' })
+    expect((await get(`https://${hostA}/en-in/products/x`)).status).toBe(503)
+    expect(cache.keys().filter((k) => k.includes('/__df/redirect/'))).toEqual([])
+  })
+
   it('sends /shop-api/* to the API, keeping the shopper’s host', async () => {
     await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}' })
     expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`])

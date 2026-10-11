@@ -24,3 +24,7 @@ export const selectEdgeHost = async (tx: ScopedSql, host: string): Promise<EdgeH
   // Two stores claiming one host is a data fault: neither is served, as in the Shop API.
   return rows.length === 1 ? (rows[0] ?? null) : null
 }
+
+/** Where a store's old address now lives (storefront ARCHITECTURE §8), read in system scope for the edge Worker. */
+export const selectRedirect = async (tx: ScopedSql, storeId: string, path: string): Promise<string | null> =>
+  (await tx<{ to_path: string }[]>`select to_path from storefront_redirect where store_id = ${storeId} and from_path = ${path}`)[0]?.to_path ?? null
