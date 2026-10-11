@@ -288,6 +288,18 @@ describe('site settings › domains', () => {
     expect(domains.getByText(fill(d.records.found, { found: 'other.example.net' }))).toBeTruthy()
   })
 
+  it('never cancels a broken domain, which was live, without asking', async () => {
+    api.loadDomains.mockResolvedValue({ ...live, domains: [{ ...live.domains[0], primary: false }, { ...waiting.domains[1], status: 'broken', primary: true }] })
+    await show({ tab: 'settings' })
+    const domains = card(d.title)
+    expect(domains.getByText(fill(d.records.broken, { host: 'www.kesari.in' }))).toBeTruthy()
+    expect(domains.getByRole('button', { name: d.check })).toBeTruthy()
+    expect(domains.queryByRole('button', { name: fill(d.cancelNamed, { host: 'www.kesari.in' }) })).toBeNull()
+    fireEvent.click(domains.getByRole('button', { name: fill(d.removeNamed, { host: 'www.kesari.in' }) }))
+    expect(within(document.querySelector('dialog') as HTMLElement).getByText(d.removeBody)).toBeTruthy()
+    expect(api.removeDomain).not.toHaveBeenCalled()
+  })
+
   it('makes a live domain primary, and removes one only after asking', async () => {
     api.loadDomains.mockResolvedValue(live)
     await show({ tab: 'settings' })

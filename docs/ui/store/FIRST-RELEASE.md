@@ -688,7 +688,8 @@ through. Your site stays live."), as is a support session.
 - **Built on #319 (part 2)**: Site settings › Domains and Search and sharing, below Brand. *Decided there:*
   domains read verifying and issuing as "Securing (SSL)…", expiring as "Certificate renewing", failed as "Couldn't
   connect" with what DNS answers, and broken as "Stopped working"; waiting, failed and broken show the records with
-  Copy, Check now and Cancel, a single column of labelled lines on a phone; the list is read again every 15 seconds
+  Copy and Check now, a single column of labelled lines on a phone, and Cancel (no question) only for waiting and
+  failed, which never reached shoppers; the list is read again every 15 seconds
   while a domain is on its way; "Check now" promises no email or scheduled re-check, which aren't built (#471); on
   a plan without `custom_domain` the card says so and links the Owner to Billing. Search and sharing's counters
   turn red and say "too long" past the limit, which disables Save; the share image is picked from the first photo

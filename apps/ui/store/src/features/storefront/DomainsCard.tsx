@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { StorefrontDomain, StorefrontDomains } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
-import { canMakePrimary, domainNote, domainPill, domainRefusal, inProgress, needsRecords, recordsTitle } from './domainView'
+import { canCancel, canMakePrimary, domainNote, domainPill, domainRefusal, inProgress, needsRecords, recordsTitle } from './domainView'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.domains
@@ -183,9 +183,11 @@ export const DomainsCard = ({ domains, onDomains, canEdit, canUpgrade, api, onTo
               <span className="df-sf-check-note" role="status">
                 {checked === custom.id ? words.notYet : custom.checkedAt ? fill(words.checkedAt, { time: formatTime(custom.checkedAt) }) : ''}
               </span>
-              <button type="button" className="df-sf-link df-sf-link--danger" aria-label={fill(words.cancelNamed, { host: custom.host })} disabled={busy !== null} onClick={() => void act(`remove-${custom.id}`, () => api.removeDomain(custom.id), fill(words.removed, { host: custom.host }))}>
-                {words.cancel}
-              </button>
+              {canCancel(custom) && (
+                <button type="button" className="df-sf-link df-sf-link--danger" aria-label={fill(words.cancelNamed, { host: custom.host })} disabled={busy !== null} onClick={() => void act(`remove-${custom.id}`, () => api.removeDomain(custom.id), fill(words.removed, { host: custom.host }))}>
+                  {words.cancel}
+                </button>
+              )}
             </span>
           )}
         </div>

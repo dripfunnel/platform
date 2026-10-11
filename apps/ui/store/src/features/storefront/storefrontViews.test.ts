@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { StorefrontDomain } from '../../api/storefront'
 import { fill, messages } from '../../messages'
 import { brandComplete, brandFormOf, brandProblemOf, pickerValue } from './brandDraft'
-import { canMakePrimary, domainRefusal, inProgress, needsRecords } from './domainView'
+import { canCancel, canMakePrimary, domainRefusal, inProgress, needsRecords } from './domainView'
 import { counterText, googleTitle, seoTooLong } from './seoView'
 import { storefrontAccessOf } from './storefrontAccess'
 
@@ -65,6 +65,9 @@ describe('domains', () => {
     expect(canMakePrimary(domain({ status: 'expiring' }))).toBe(true)
     expect(canMakePrimary(domain({ status: 'verifying' }))).toBe(false)
     expect(canMakePrimary(domain({ status: 'live', primary: true }))).toBe(false)
+    expect(canCancel(domain({ status: 'waiting' }))).toBe(true)
+    expect(canCancel(domain({ status: 'failed' }))).toBe(true)
+    expect(canCancel(domain({ status: 'broken' }))).toBe(false)
     expect(inProgress([domain({ status: 'live' }), domain({ status: 'issuing' })])).toBe(true)
     expect(inProgress([domain({ status: 'failed' })])).toBe(false)
   })

@@ -28,6 +28,9 @@ export const canMakePrimary = (d: StorefrontDomain): boolean => !d.primary && re
 /** DNS is what's missing: the records to add, Check now and Cancel. */
 export const needsRecords = (d: StorefrontDomain): boolean => d.kind === 'custom' && (d.status === 'waiting' || d.status === 'failed' || d.status === 'broken')
 
+/** Never live, so no shopper reaches it: Cancel drops it without asking. A broken domain was live, so only Remove, which asks. */
+export const canCancel = (d: StorefrontDomain): boolean => d.status === 'waiting' || d.status === 'failed'
+
 /** Still on its way to live: the list is read again until it settles. */
 export const inProgress = (domains: readonly StorefrontDomain[]): boolean => domains.some((d) => d.status === 'waiting' || d.status === 'verifying' || d.status === 'issuing')
 
