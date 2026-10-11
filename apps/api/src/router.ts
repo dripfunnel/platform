@@ -2,8 +2,8 @@ import type { Config } from '#core/config'
 
 export type Area = 'admin' | 'platform' | 'store' | 'shop' | 'hooks'
 
-/** How the request reached the Worker: its own routes, or store-proxy's `PortalProxy` binding (SAAS.md §8). */
-export type Entry = 'public' | 'portal'
+/** How the request reached the Worker: its own routes, or store-proxy's `PortalProxy` or `StorefrontEdge` binding (SAAS.md §8). */
+export type Entry = 'public' | 'portal' | 'edge'
 
 const under = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`)
 
@@ -13,6 +13,8 @@ const ownZoneOf = (adminHost: string) => adminHost.slice(adminHost.indexOf('.') 
 export const resolveArea = (url: URL, config: Pick<Config, 'ADMIN_HOST' | 'PLATFORM_HOST' | 'HOOKS_HOST'>, entry: Entry): Area | undefined => {
   const ownHost = url.hostname === config.HOOKS_HOST || url.hostname === config.ADMIN_HOST || url.hostname === config.PLATFORM_HOST
   if (entry === 'portal') return !ownHost && under(url.pathname, '/api') ? 'store' : undefined
+  // A storefront or preview host's Shop API, after the edge Worker's own checks (storefront LIVE-SHOP §5 step 3, PREVIEW §5 step 5).
+  if (entry === 'edge') return !ownHost && under(url.pathname, '/shop-api') ? 'shop' : undefined
   if (url.hostname === config.HOOKS_HOST) return 'hooks'
   if (url.hostname === config.ADMIN_HOST) return under(url.pathname, '/api') ? 'admin' : undefined
   if (url.hostname === config.PLATFORM_HOST) return under(url.pathname, '/api') ? 'platform' : undefined

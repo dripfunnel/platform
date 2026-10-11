@@ -7,6 +7,8 @@ const configSchema = z.object({
   CF_CUSTOM_HOSTNAMES_TOKEN: z.string().min(1).optional(),
   CF_SAAS_ZONE_ID: z.string().min(1).optional(),
   EDGE_ZONE: z.string().min(1).default('dripfunnel.com'),
+  // Purges the edge Worker's cached host lookups by tag on CF_SAAS_ZONE_ID (storefront LIVE-SHOP.md §5 step 1); absent, they expire in 60 seconds.
+  CF_CACHE_PURGE_TOKEN: z.string().min(1).optional(),
   // Every store's preview is `{key}.<it>` (storefront PREVIEW.md §8): its own registrable domain, never a console's.
   PREVIEW_DOMAIN: z.string().regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'PREVIEW_DOMAIN must be a domain such as webpreview.store').optional(),
   HYPERDRIVE: z.object({ connectionString: z.string().min(1) }).optional(),
@@ -76,7 +78,7 @@ const configSchema = z.object({
 })
 
 const devHooksHost = 'dev-hooks.dripfunnel.ai'
-const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
+export const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
 const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.

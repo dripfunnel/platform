@@ -37,7 +37,7 @@ import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
-import { parseConfig, type Config } from '#core/config'
+import { isLocalhost, parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
@@ -103,6 +103,9 @@ import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
+import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
+import { cachePurgeClient } from '#integrations/cloudflare/purge'
+import { lookupLiveHost, type LiveHost } from '#saas/storefronts/index'
 import { githubConfigured } from '#integrations/github/index'
 import { storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
@@ -153,6 +156,9 @@ interface Env extends Record<string, unknown> {
   // SAAS §5 steps 4–8 and the bucket its templates and previews are in; unbound, a store's first template choice waits in the outbox.
   CREATE_STOREFRONT?: Workflow<CreateStorefrontParams> | undefined
   STOREFRONT_SITES?: R2Bucket | undefined
+  // The other two storefront buckets (storefront LIVE-SHOP.md §2): built JS and CSS behind the asset host, and the private drafts.
+  STOREFRONT_ASSETS?: R2Bucket | undefined
+  STOREFRONT_DRAFTS?: R2Bucket | undefined
 }
 
 // Built once per isolate from configuration, like Stripe's client below.
@@ -243,6 +249,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [webhookReleaseKind]: webhookReleaseDeliverer(sql),
     [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
     ...(createStorefront ? { [storefrontCreateKind]: storefrontCreateDeliverer(createStorefront) } : {}),
+    ...(config.CF_CACHE_PURGE_TOKEN && config.CF_SAAS_ZONE_ID ? { [cachePurgeKind]: cachePurgeDeliverer(cachePurgeClient({ token: config.CF_CACHE_PURGE_TOKEN, zoneId: config.CF_SAAS_ZONE_ID })) } : {}),
   }
 }
 
@@ -851,6 +858,25 @@ const serve = async (request: Request, env: Env, ctx: ExecutionContext, entry: E
 export class PortalProxy extends WorkerEntrypoint<Env> {
   override fetch(request: Request): Promise<Response> {
     return serve(request, this.env, this.ctx, 'portal')
+  }
+}
+
+/** store-proxy's storefront half (storefront LIVE-SHOP.md §5, PREVIEW.md §5): its host lookups, and `/shop-api/*` once it has checked the request. */
+export class StorefrontEdge extends WorkerEntrypoint<Env> {
+  override fetch(request: Request): Promise<Response> {
+    return serve(request, this.env, this.ctx, 'edge')
+  }
+
+  /** Thrown, never answered as unknown, when the database can't be asked: the edge then caches nothing. */
+  async liveHost(host: string): Promise<LiveHost> {
+    const config = parseConfig(this.env)
+    if (!config.HYPERDRIVE) throw new Error('storefront edge: no database')
+    const sql = getClient(config.HYPERDRIVE)
+    try {
+      return await lookupLiveHost(sql, host, { localhost: isLocalhost(config.HOOKS_HOST) })
+    } finally {
+      this.ctx.waitUntil(sql.end({ timeout: 5 }))
+    }
   }
 }
 

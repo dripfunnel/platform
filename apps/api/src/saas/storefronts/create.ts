@@ -18,7 +18,8 @@ import { storeRepos, type GitHubApp } from '#integrations/github/index'
 import { failureCode, logEvent } from '#core/log'
 import { activityLog } from '#saas/activity/index'
 import { commitToMain, type PushResult } from './push'
-import { currentCore, deletePrefix, previewFolder, previewManifest, previewSource, storePrefix, templateFiles, TemplateMissing, type SitesBucket } from './templates'
+import { previewFolder, storePrefix } from './layout'
+import { currentCore, deletePrefix, previewManifest, previewSource, templateFiles, TemplateMissing, type SitesBucket } from './templates'
 
 // The create-storefront Workflow's steps (SAAS §5 steps 4–8, storefront LIVE-SHOP.md §3). Each is idempotent, moves the
 // job to itself, and registers its compensation before it acts; a failure anywhere undoes them all, newest first.

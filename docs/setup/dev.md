@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-11 (#518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -148,8 +148,15 @@ The Store strand needs these before its cards can run against real services. Eac
 by a person (the account's owner signs the terms); the cards build against local adapters until
 then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 
-1. **Cloudflare, buckets** (dev account): create `storefront-sites` (private), `storefront-assets`
-   (made public through the asset host once #317 names it; keep the r2.dev address off until then) and `storefront-drafts` (private). Create the R2 storefront
+1. **Cloudflare, buckets** (dev account): create `storefront-sites-dev` (private), `storefront-assets-dev` and
+   `storefront-drafts-dev` (private) (names decided on #317). Make `storefront-assets-dev` public only through its custom
+   domain `sf-assets.dripfunnel.ai` (R2 › the bucket › Settings › Custom Domains; keep the r2.dev address off), give it a CORS
+   rule allowing `GET` from any origin (the storefront's module scripts load cross-origin), and add a Worker route
+   `sf-assets.dripfunnel.ai/*` with **no Worker** (Workers Routes › Add route › Worker: None), so the store proxy's `*/*`
+   route never runs for it (LIVE-SHOP §5 step 7). Then bind them in `apps/api/wrangler.jsonc`'s `env.dev`:
+   `{ "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-dev" }` and likewise `STOREFRONT_ASSETS` and
+   `STOREFRONT_DRAFTS`, with the `CREATE_STOREFRONT` Workflow as in `env.local` (the deploy token needs *Workflows: Edit*).
+   Create the buckets first: a binding to a missing bucket fails the deploy, which is why #317 left them unbound. Create the R2 storefront
    upload credential (*Object Read & Write* on those three buckets only, able to create temporary
    credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
    `R2_STOREFRONT_SECRET_ACCESS_KEY`, and a cache purge token → `CF_CACHE_PURGE_TOKEN`
@@ -217,7 +224,7 @@ Never reuse a value from local or production.
 | `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout |
 | `R2_STOREFRONT_ACCOUNT_ID` | Text | the Cloudflare account id | §2.8 item 1 |
 | `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's key pair | Shown once when the R2 token is created (§2.8 item 1) |
-| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token | Profile › API Tokens (§2.8 item 1) |
+| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.ai` zone | Profile › API Tokens (§2.8 item 1). Read since #317 with `CF_SAAS_ZONE_ID`: purges the store proxy's cached host lookups after a publish, a domain or a state change; without it they expire within 60 seconds |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
 | `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §8); `preview.localhost` locally. Read since #518: without it no preview host answers |
