@@ -8,9 +8,9 @@ import type postgres from 'postgres'
 const payload = z.object({ host: z.string().min(1) }).strict()
 
 /**
- * `domain.remove`: takes a removed portal host out of Cloudflare for SaaS, after the removal commits
- * (SAAS.md §8). Registered only when a client exists, so with no token the effect waits like `email`
- * does for SES. A host some partner has since claimed is left alone.
+ * `domain.remove`: takes a removed portal host or merchant domain out of Cloudflare for SaaS, after the
+ * removal commits (SAAS.md §8). Registered only when a client exists, so with no token the effect waits
+ * like `email` does for SES. A host some partner or store has since claimed is left alone.
  */
 export const domainRemoveDeliverer = (sql: postgres.Sql, cloudflare: CloudflareApi): Deliverer => ({
   deliver: async (effect) => {

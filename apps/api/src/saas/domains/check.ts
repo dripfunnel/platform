@@ -4,7 +4,7 @@ import { nameToResolve, recordMatches, type RecordPurpose } from './records'
 
 // SAAS.md §8: waiting for DNS → live once the record points at us; a record that points
 // elsewhere fails, and one that stops pointing at us after being live is broken. Certificate
-// issuance (verifying, issuing) arrives with the Cloudflare for SaaS integration.
+// issuance (verifying, issuing) is Cloudflare's once DNS passes (hostnames.ts).
 
 export interface DomainCheck {
   status: HostStatus
