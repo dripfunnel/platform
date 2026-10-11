@@ -119,6 +119,18 @@ const settled = async (page: Page, net: Network) => {
   for (const origin of new Set((await page.evaluate('window.__dfRefused ?? []')) as string[])) net.errors.push(`It tried to reach ${origin}, which its content security policy refused.`)
 }
 
+/** How long a page may take to settle; one that never does (a script polling forever) fails, never the whole step. */
+const navigationMs = 15_000
+
+/** Opens a page and lets it settle; a page that doesn't is the page's failure, and what it did show is still checked. */
+const open = async (page: Page, url: string, net: Network): Promise<void> => {
+  try {
+    await page.goto(url, { waitUntil: 'networkidle', timeout: navigationMs })
+  } catch {
+    net.errors.push('It never finished loading.')
+  }
+}
+
 /** The page's main heading is shown inside its main landmark, on screen, and is what a tap at its centre reaches. */
 const mainSeen = (page: Page) =>
   page.evaluate(() => {
@@ -159,7 +171,7 @@ const visit = async (c: Contexts, served: Served, s: CatalogueSnapshot, assets: 
   const page = await c.returning.newPage()
   try {
     await wire(page, served, s, { assets }, net)
-    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+    await open(page, `${served.origin}${p.path}`, net)
     await settled(page, net)
     const seen = await mainSeen(page)
     const wide = await overflows(page)
@@ -180,7 +192,7 @@ const firstVisit = async (c: Contexts, served: Served, s: CatalogueSnapshot, ass
   try {
     await wire(page, served, s, { assets }, net)
     // Hydrated first, then a sealed component's own check needs its second look (sealed/visibility.ts `settleMs`).
-    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+    await open(page, `${served.origin}${p.path}`, net)
     await page.waitForTimeout(settle)
     return sealedWords(net.reports, p, 'consent')
   } finally {
@@ -225,7 +237,7 @@ const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, ass
       await cdp.send('Emulation.setCPUThrottlingRate', { rate })
       await wire(page, served, s, { assets }, net)
       // Every request settled and every body read before anything is counted, however slow the runner.
-      await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+      await open(page, `${served.origin}${p.path}`, net)
       await Promise.all(net.reading)
       const m = (await page.evaluate('window.__dfMetrics')) as { lcp: number; cls: number; tbt: number }
       w.lcpMs.push(m.lcp)
@@ -271,7 +283,7 @@ const readPage = async (context: BrowserContext, served: Served, s: CatalogueSna
   try {
     // The same refusal as with JavaScript on: a request leaving the machine fails the page (the context skips the CSP).
     await wire(page, served, s, { assets: roots.assets }, net)
-    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+    await open(page, `${served.origin}${p.path}`, net)
     const facts = (await page.evaluate(readFacts)) as Pick<PageRead, 'h1s' | 'mainText' | 'text' | 'links'>
     return { path: p.path, route: p.route, html: found.bytes.toString('utf8'), ...facts, errors: net.errors }
   } finally {
@@ -312,7 +324,7 @@ const liveShot = async (browser: Browser, served: Served, live: string, s: Catal
       const found = asset ? await fileFor([live], asset) : null
       return found ? route.fulfill({ status: 200, body: found.bytes }) : route.abort('blockedbyclient')
     })
-    await page.goto(`${served.origin}${path}`, { waitUntil: 'load' })
+    await open(page, `${served.origin}${path}`, network())
     await settled(page, network())
     return await page.screenshot()
   } finally {

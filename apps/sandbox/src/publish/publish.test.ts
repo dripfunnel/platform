@@ -312,14 +312,19 @@ describe.skipIf(!chrome)('step check', () => {
     // As if something slipped past the validator: the built cart page asks another host for an image.
     const cart = join(out, 'site/cart/index.html')
     writeFileSync(cart, readFileSync(cart, 'utf8').replace('<div id="root">', '<div id="root"><img alt="" src="https://tracker.example/pixel.gif">'))
+    // And the search page never settles: its script asks the Shop API every 200 ms, so the page fails, not the step.
+    writeFileSync(join(out, 'site/assets/poll.js'), "setInterval(() => fetch('/shop-api', { method: 'POST', body: '{}' }), 200)\n")
+    const search = join(out, 'site/search/index.html')
+    writeFileSync(search, readFileSync(search, 'utf8').replace('</head>', '<script src="/assets/poll.js"></script></head>'))
     const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot: hosted, theme, strictLook: false, browser })
     const contracts = report.checks.find((c) => c.name === 'contracts')?.detail ?? ''
     // With JavaScript on the page's CSP stops it; with JavaScript off the CSP is bypassed and the routing refuses it.
     expect(contracts).toContain('The cart page at 390 px failed while loading.')
     expect(contracts).toContain('The cart page failed to load without JavaScript.')
     expect(contracts).not.toContain('tracker.example')
-    // Only the cart failed: every other page loaded its scripts and styles from the asset host.
-    expect(contracts).not.toMatch(/home page|search page|checkout page/)
+    expect(contracts).toContain('The search page at 390 px failed while loading.')
+    // Only those two failed: every other page loaded its scripts and styles from the asset host.
+    expect(contracts).not.toMatch(/home page|checkout page|page \/our-story/)
     expect(report.checks.find((c) => c.name === 'sealed')).toEqual({ name: 'sealed', passed: true })
   })
 
