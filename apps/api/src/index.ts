@@ -34,6 +34,7 @@ import { passwordResetRequestKind } from '#auth/partnerTokens'
 import { userPasswordResetRequestKind } from '#auth/storeTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { linkSigner, type LinkSigner } from '#auth/signedLink'
+import { previewLinks, type PreviewLinks } from '#auth/previewLink'
 import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
@@ -106,7 +107,7 @@ import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
-import { cleanStorefronts, lookupLiveHost, storefrontPublishKind, type LiveHost, type PublishParams } from '#saas/storefronts/index'
+import { checkPreview, cleanStorefronts, lookupLiveHost, openPreview, storefrontPublishKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { githubConfigured } from '#integrations/github/index'
@@ -422,6 +423,19 @@ const secretsFor = (config: Config): Promise<SecretBox> | null => {
   return box.secrets
 }
 
+let previewKey: { key: string; links: Promise<PreviewLinks> } | undefined
+const previewLinksFor = (config: Config): Promise<PreviewLinks> | null => {
+  const key = config.PREVIEW_LINK_KEY
+  if (!key) return null
+  if (previewKey?.key !== key) previewKey = { key, links: previewLinks(key) }
+  return previewKey.links
+}
+/** "Open preview" needs both the preview domain and the link's key (storefront PREVIEW.md §5 step 1, §8). */
+const previewFor = async (config: Config): Promise<{ domain: string; links: PreviewLinks } | null> => {
+  const links = previewLinksFor(config)
+  return config.PREVIEW_DOMAIN && links ? { domain: config.PREVIEW_DOMAIN, links: await links } : null
+}
+
 let linkKey: { key: string; signer: Promise<LinkSigner> } | undefined
 
 /** A paid order's download links, signed under CREDENTIALS_KEK (auth/signedLink.ts). */
@@ -522,7 +536,8 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
-      allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
+      allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
+      preview: await previewFor(config), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
@@ -913,6 +928,18 @@ export class PortalProxy extends WorkerEntrypoint<Env> {
   }
 }
 
+// The edge's questions, each on its own connection, closed after the answer.
+const edgeQuery = async <T>(env: Env, ctx: ExecutionContext, work: (sql: postgres.Sql, config: Config) => Promise<T>): Promise<T> => {
+  const config = parseConfig(env)
+  if (!config.HYPERDRIVE) throw new Error('storefront edge: no database')
+  const sql = getClient(config.HYPERDRIVE)
+  try {
+    return await work(sql, config)
+  } finally {
+    ctx.waitUntil(sql.end({ timeout: 5 }))
+  }
+}
+
 /** store-proxy's storefront half (storefront LIVE-SHOP.md §5, PREVIEW.md §5): its host lookups, and `/shop-api/*` once it has checked the request. */
 export class StorefrontEdge extends WorkerEntrypoint<Env> {
   override fetch(request: Request): Promise<Response> {
@@ -920,15 +947,21 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
   }
 
   /** Thrown, never answered as unknown, when the database can't be asked: the edge then caches nothing. */
-  async liveHost(host: string): Promise<LiveHost> {
-    const config = parseConfig(this.env)
-    if (!config.HYPERDRIVE) throw new Error('storefront edge: no database')
-    const sql = getClient(config.HYPERDRIVE)
-    try {
-      return await lookupLiveHost(sql, host, { localhost: isLocalhost(config.HOOKS_HOST) })
-    } finally {
-      this.ctx.waitUntil(sql.end({ timeout: 5 }))
-    }
+  liveHost(host: string): Promise<LiveHost> {
+    return edgeQuery(this.env, this.ctx, (sql, config) => lookupLiveHost(sql, host, { localhost: isLocalhost(config.HOOKS_HOST) }))
+  }
+
+  /** `__open?t=` on a preview host (PREVIEW.md §5 step 2); without the link's key no link opens. */
+  openPreview(key: string, token: string): Promise<PreviewAccess> {
+    return edgeQuery(this.env, this.ctx, async (sql, config) => {
+      const links = previewLinksFor(config)
+      return links ? openPreview(sql, await links, key, token, new Date()) : { ok: false }
+    })
+  }
+
+  /** The full re-check of every HTML and /shop-api request on a preview host (PREVIEW.md §5 step 4). */
+  previewAccess(check: unknown): Promise<PreviewAccess> {
+    return edgeQuery(this.env, this.ctx, (sql) => checkPreview(sql, check))
   }
 }
 

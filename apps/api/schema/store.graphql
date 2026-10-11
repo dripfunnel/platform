@@ -920,6 +920,7 @@ type Mutation {
   keepProducts(ids: [ID!]!): PlanKeep
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
+  openStorefrontPreview: String
   pauseOffer(id: ID!): Boolean
   proposeProduct(input: ProductInput!): SavedProduct
   publishProductStory(productId: ID!, revision: Int!): ProductStory

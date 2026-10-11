@@ -4,6 +4,9 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "workers_dev": false,
+  // Its own request lines only, which leave out preview tokens and studio sessions (LOGGING §9); no automatic invocation logs.
+  "observability": { "enabled": false },
+  "logpush": false,
   "env": {
     // Partner portal hosts arrive here through Cloudflare for SaaS (SAAS.md §8); `*/*` catches
     // them, and the Worker passes every host of our own zone straight through.
@@ -13,6 +16,11 @@
       // The API serves a partner's own host only on this entrypoint (SAAS.md §8, #426).
       "services": [{ "binding": "API", "service": "dripfunnel-api-dev", "entrypoint": "PortalProxy" }],
       "routes": [{ "pattern": "*/*", "zone_name": "dripfunnel.ai" }]
+      // Storefront and preview hosts (storefront LIVE-SHOP.md §5, PREVIEW.md §5) wait for #287's bucket and preview zone, then
+      // gain: "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-dev" }], a second service
+      // { "binding": "EDGE", "service": "dripfunnel-api-dev", "entrypoint": "StorefrontEdge" }, the route
+      // { "pattern": "*.<dev preview domain>/*", "zone_name": "<dev preview domain>" }, the variable PREVIEW_DOMAIN and the
+      // secret PREVIEW_SESSION_KEY (docs/setup/dev.md §2.8). A binding to a missing bucket or zone fails the deploy.
     }
   }
 }

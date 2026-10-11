@@ -7,3 +7,4 @@ export { goBack, publishParams, runPublish, startPublish, storefrontPublishKind,
 export { BuildRefused, BuildUnavailable, buildLifetimeMs, gateReport, handoutSeconds, issueCredentials, reportBuild, startBuild, type BuildDeps, type BuildRefusal, type GateReport } from './builds'
 export { digestOf, manifestSchema, maxBuildFiles, maxFileBytes, type Manifest } from './manifest'
 export { cleanStorefronts, keptBuilds, type StorefrontBuckets } from './cleanup'
+export { checkPreview, openPreview, previewLinkFor, type PreviewAccess } from './preview'
