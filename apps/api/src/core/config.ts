@@ -68,6 +68,14 @@ const configSchema = z.object({
     .transform((value) => value.replaceAll('\\n', '\n').trim())
     .refine((value) => /^-----BEGIN (RSA )?PRIVATE KEY-----\n[\s\S]+\n-----END (RSA )?PRIVATE KEY-----$/.test(value), 'GITHUB_APP_PRIVATE_KEY must be the App’s PEM private key')
     .optional(),
+  // The R2 storefront upload credential (THIRD-PARTY-ACCESS.md §2.1, §8): all six or none; without them a store build's
+  // calls (storefront LIVE-SHOP.md §4 steps 5–9) don't exist. The account id and bucket names are variables.
+  R2_STOREFRONT_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'R2_STOREFRONT_ACCOUNT_ID must be the 32-character account id').optional(),
+  R2_STOREFRONT_ACCESS_KEY_ID: z.string().regex(/^[0-9a-f]{32}$/, 'R2_STOREFRONT_ACCESS_KEY_ID must be the R2 token’s access key id').optional(),
+  R2_STOREFRONT_SECRET_ACCESS_KEY: z.string().regex(/^[0-9a-f]{64}$/, 'R2_STOREFRONT_SECRET_ACCESS_KEY must be the R2 token’s secret access key').optional(),
+  R2_STOREFRONT_API_TOKEN: z.string().min(20).optional(),
+  STOREFRONT_SITES_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, 'STOREFRONT_SITES_BUCKET must be an R2 bucket name').optional(),
+  STOREFRONT_DRAFTS_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, 'STOREFRONT_DRAFTS_BUCKET must be an R2 bucket name').optional(),
   // The organisation store repos are created in (LIVE-SHOP.md §3).
   GITHUB_STORE_ORG: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/, 'GITHUB_STORE_ORG must be a GitHub organisation name').default('dripfunnel'),
   // Local stand-ins for the last step of email, SMS, couriers and DNS (docs/setup/local.md §6.1): the outbox, templates,
@@ -96,6 +104,8 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   if ((c.STRIPE_TEST_SECRET_KEY === undefined) !== (c.STRIPE_TEST_PUBLISHABLE_KEY === undefined)) ctx.addIssue({ code: 'custom', message: 'STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PUBLISHABLE_KEY go together', path: ['STRIPE_TEST_SECRET_KEY'] })
   const github = [c.GITHUB_APP_ID, c.GITHUB_APP_INSTALLATION_ID, c.GITHUB_APP_PRIVATE_KEY].filter((v) => v !== undefined).length
   if (github !== 0 && github !== 3) ctx.addIssue({ code: 'custom', message: 'GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID and GITHUB_APP_PRIVATE_KEY go together', path: ['GITHUB_APP_ID'] })
+  const r2 = [c.R2_STOREFRONT_ACCOUNT_ID, c.R2_STOREFRONT_ACCESS_KEY_ID, c.R2_STOREFRONT_SECRET_ACCESS_KEY, c.R2_STOREFRONT_API_TOKEN, c.STOREFRONT_SITES_BUCKET, c.STOREFRONT_DRAFTS_BUCKET].filter((v) => v !== undefined).length
+  if (r2 !== 0 && r2 !== 6) ctx.addIssue({ code: 'custom', message: 'The four R2_STOREFRONT_* values and the two STOREFRONT_*_BUCKET names go together', path: ['R2_STOREFRONT_ACCOUNT_ID'] })
   if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !isLocalhost(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
   if (c.PREVIEW_DOMAIN !== undefined && ourHosts.some((h) => h === c.PREVIEW_DOMAIN || h.endsWith(`.${c.PREVIEW_DOMAIN}`) || c.PREVIEW_DOMAIN?.endsWith(`.${h}`)))

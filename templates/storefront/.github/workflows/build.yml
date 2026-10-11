@@ -1,11 +1,14 @@
 # The store's one workflow, locked (storefront LIVE-SHOP.md §3, §4): only the platform starts it, and only the platform
-# writes this file. Its steps (fetch, build, check, upload) arrive with INF 2b (#517) and INF 4.
+# writes this file. Its fetch, build and check steps arrive with INF 4 (#483); the upload step is INF 2b's (#517).
 name: build
 on:
   workflow_dispatch:
     inputs:
       build_id:
         description: The single-use build id the platform dispatched (LIVE-SHOP.md §4 step 4)
+        required: true
+      api:
+        description: The platform's hooks host, which every call goes to and every OIDC token names (LIVE-SHOP.md §9)
         required: true
 permissions:
   id-token: write
@@ -16,5 +19,51 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      BUILD_ID: ${{ inputs.build_id }}
+      API: ${{ inputs.api }}
+      # The built site: #483's build step writes it and its check step hands these same files to the gate.
+      SITE: ${{ runner.temp }}/site
     steps:
-      - run: echo "No build steps yet (#517)."
+      # fetch, build and check: INF 4 (#483). A failing check stops the job here, so nothing is uploaded.
+      - name: upload
+        # The workflow's own runner code (LIVE-SHOP §4 step 8): no checkout, and nothing from the repo or the site runs.
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$API" =~ ^https://[a-z0-9.-]+$ && "$BUILD_ID" =~ ^[0-9a-f-]{36}$ ]] || { echo "upload: refused"; exit 1; }
+          call() {
+            local audience token
+            audience=$(jq -rn --arg v "$API" '$v|@uri')
+            token=$(curl -sSf --max-time 30 -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$audience" | jq -r .value)
+            echo "::add-mask::$token"
+            curl -sSf --max-time 120 --retry 3 -X POST -H "Authorization: Bearer $token" -H 'content-type: application/json' \
+              --data "{\"build\":\"$BUILD_ID\"}" "$API/builds/$1"
+          }
+          # Every file with its SHA-256 and size, sorted by path; a link or anything but a plain file stops the upload.
+          python3 - "$SITE" > "$RUNNER_TEMP/manifest.json" <<'PY'
+          import hashlib, json, os, sys
+          root, files = sys.argv[1], []
+          for folder, dirs, names in os.walk(root):
+              for name in dirs + names:
+                  full = os.path.join(folder, name)
+                  if os.path.islink(full) or not (os.path.isdir(full) or os.path.isfile(full)):
+                      sys.exit("upload: the site holds something other than files and folders")
+              for name in names:
+                  data = open(os.path.join(folder, name), "rb").read()
+                  path = os.path.relpath(os.path.join(folder, name), root).replace(os.sep, "/")
+                  files.append({"path": path, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)})
+          files.sort(key=lambda f: f["path"].encode())
+          json.dump({"files": files}, sys.stdout, separators=(",", ":"))
+          PY
+          creds=$(call credentials)
+          for field in accessKeyId secretAccessKey sessionToken; do echo "::add-mask::$(jq -r ".$field" <<<"$creds")"; done
+          endpoint=$(jq -r .endpoint <<<"$creds"); target="s3://$(jq -r .bucket <<<"$creds")/$(jq -r .prefix <<<"$creds")"
+          AWS_ACCESS_KEY_ID=$(jq -r .accessKeyId <<<"$creds") AWS_SECRET_ACCESS_KEY=$(jq -r .secretAccessKey <<<"$creds") \
+          AWS_SESSION_TOKEN=$(jq -r .sessionToken <<<"$creds") AWS_DEFAULT_REGION=auto \
+          AWS_REQUEST_CHECKSUM_CALCULATION=when_required AWS_RESPONSE_CHECKSUM_VALIDATION=when_required bash -c '
+            aws s3 cp "$SITE" "$1" --recursive --no-follow-symlinks --only-show-errors --endpoint-url "$2"
+            aws s3 cp "$RUNNER_TEMP/manifest.json" "$1_manifest.json" --only-show-errors --endpoint-url "$2"
+          ' upload "$target" "$endpoint"
+          call uploaded > /dev/null
+          echo "upload: done"

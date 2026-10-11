@@ -71,8 +71,8 @@ const started = async (storeId: string, template = 'bloom') => {
 }
 
 const storefront = async (storeId: string) =>
-  (await db.sql<{ repo: string | null; repo_state: string; repo_head: string | null; template: string | null; public_store_key: string }[]>`
-    select repo, repo_state, repo_head, template, public_store_key from storefront where store_id = ${storeId}`)[0]
+  (await db.sql<{ repo: string | null; repo_id: string | null; repo_state: string; repo_head: string | null; template: string | null; public_store_key: string }[]>`
+    select repo, repo_id::text as repo_id, repo_state, repo_head, template, public_store_key from storefront where store_id = ${storeId}`)[0]
 
 const job = async (jobId: string) => (await db.sql<{ state: string; step: string; last_error: string | null; kind: string; steps: string[] }[]>`select state, step, last_error, kind, to_jsonb(steps) as steps from job where id = ${jobId}`)[0]
 
@@ -150,6 +150,8 @@ describe('the create-storefront Workflow', () => {
     const row = await storefront(t.storeA1)
     const repo = row?.repo ?? ''
     expect(row).toMatchObject({ repo_state: 'ready', template: 'bloom', repo_head: github.repos.get(repo)?.main })
+    // The id a build's OIDC token names (#517).
+    expect(row?.repo_id).toBe(String(github.repos.get(repo)?.id))
     expect(github.repos.get(repo)?.private).toBe(false)
     expect(github.history(repo).map((c) => c.message)).toEqual([`Store settings and storefront-core ${core}`, 'Start from the bloom template', 'Initial commit'])
 
@@ -247,7 +249,7 @@ describe('the create-storefront Workflow', () => {
     expect(sites.keys('stores/')).toEqual([])
     expect(await db.sql`select 1 from design_draft`).toHaveLength(0)
     expect(await db.sql`select 1 from storefront_push`).toHaveLength(0)
-    expect(await storefront(t.storeA1)).toMatchObject({ repo: null, repo_head: null, repo_state: 'failed', template: null })
+    expect(await storefront(t.storeA1)).toMatchObject({ repo: null, repo_id: null, repo_head: null, repo_state: 'failed', template: null })
     expect(await job(params.jobId)).toMatchObject({ state: 'failed', last_error: createFailedMessage })
     // Staff see where and how it stopped, as a code, never the error's words.
     const [detail] = await db.sql<{ details: string }[]>`select details from job_detail where job_id = ${params.jobId}`
