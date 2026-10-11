@@ -63,6 +63,9 @@
   --df-color-session-ink: #2a1a00;
   --df-color-session-edge: #b7791f;
   --df-color-session-stripe: rgb(0 0 0 / 0.06);
+  /* A QR code to scan (2-factor setup): dark on light in both themes, since readers can't decode it inverted. */
+  --df-color-qr: #14181f;
+  --df-color-qr-ground: #ffffff;
   --df-shadow-floating: 0 18px 44px -20px rgb(10 42 74 / 0.5);
   --df-radius-small: 6px;
   --df-radius: 8px;

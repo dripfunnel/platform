@@ -75,7 +75,6 @@
       "bodyRequired": "Scan the code with your authenticator app, then enter the 6-digit code it shows. You’ll need it every time you sign in.",
       "bodyOptional": "Scan the code with your authenticator app, then enter the 6-digit code it shows. You can skip this and set it up later.",
       "qrLabel": "QR code for your authenticator app",
-      "qrPlaceholder": "QR code",
       "keyLabel": "Can’t scan it? Enter this key:",
       "finish": "Accept and sign in",
       "skip": "Skip for now",
