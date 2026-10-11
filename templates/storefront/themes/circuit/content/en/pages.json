@@ -82,8 +82,8 @@
   },
   "about": {
     "title": "About {store}",
-    "first": "We test what we sell and write down what we find, so you can buy once.",
-    "second": "If something stops working, write to us and we will help."
+    "first": "Tell shoppers who runs {store} and what you sell.",
+    "second": "Say how you choose what you sell and how you help after a sale. The studio can help you write it."
   },
   "contact": {
     "title": "Get in touch",
