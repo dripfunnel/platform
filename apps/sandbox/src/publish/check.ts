@@ -8,7 +8,7 @@ import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
 import { edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
 import { edgeFolder } from './build'
-import { fileOf, plan, type PlannedPage } from './pages'
+import { fileOf, languagePrefix, plan, type PlannedPage } from './pages'
 import { fileFor, serveFolders, shopFixture, type Served, type ShopReport } from './serve'
 
 // Step `check` (storefront LIVE-SHOP §4 step 7): a fresh process serves the built files to its own headless browser and
@@ -262,14 +262,17 @@ const readFacts = `(() => {
 })()`
 
 /** A page without JavaScript, as a crawler and a shopper with scripts off see it (ARCHITECTURE §8). */
-const readPage = async (context: BrowserContext, served: Served, root: string, p: PlannedPage, prefix = ''): Promise<PageRead | null> => {
-  const found = await fileFor([root], `${prefix}${p.path}`)
+const readPage = async (context: BrowserContext, served: Served, s: CatalogueSnapshot, roots: { page: string; assets: string }, p: PlannedPage): Promise<PageRead | null> => {
+  const found = await fileFor([roots.page], p.path)
   if (!found) return null
   const page = await context.newPage()
+  const net = network()
   try {
-    await page.goto(`${served.origin}${prefix}${p.path}`, { waitUntil: 'load' })
+    // The same refusal as with JavaScript on: a request leaving the machine fails the page (the context skips the CSP).
+    await wire(page, served, s, { assets: roots.assets }, net)
+    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
     const facts = (await page.evaluate(readFacts)) as Pick<PageRead, 'h1s' | 'mainText' | 'text' | 'links'>
-    return { path: p.path, route: p.route, html: found.bytes.toString('utf8'), ...facts }
+    return { path: p.path, route: p.route, html: found.bytes.toString('utf8'), ...facts, errors: net.errors }
   } finally {
     await page.close()
   }
@@ -331,10 +334,11 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
   const edgeHeaders = await Promise.all(edgeRoots.map((root, n) => headersOf(root, cases[n]?.snapshot ?? s)))
   const edgeServed = await Promise.all(edgeRoots.map((root, n) => serveFolders([root, site], (rel) => edgeHeaders[n]?.[rel]?.['content-security-policy'] ?? null)))
   const liveServed = input.live ? await serveFolders([input.live], () => null) : null
-  const scripts = await browser.newContext({ javaScriptEnabled: false })
+  // Without JavaScript the CSP is bypassed, so every request the page makes reaches the routing that refuses and records it.
+  const scripts = await browser.newContext({ javaScriptEnabled: false, bypassCSP: true })
   const blank = await (await browser.newContext()).newPage()
   try {
-    const reads = (await pool(pages, (p) => readPage(scripts, served, site, p))).filter((r): r is PageRead => r !== null)
+    const reads = (await pool(pages, (p) => readPage(scripts, served, s, { page: site, assets: site }, p))).filter((r): r is PageRead => r !== null)
     const axe = await axeSource()
     const visits: PageVisit[] = []
     for (const width of gateWidths) {
@@ -363,7 +367,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
         const c = await contextsFor(browser, gateWidths[0])
         try {
           const casePages = main.map((p) => ({ ...p, language: edgeCase.snapshot.store.language }))
-          const edgeReads = (await pool(casePages, (p) => readPage(scripts, servedEdge, root, p))).filter((r): r is PageRead => r !== null)
+          const edgeReads = (await pool(casePages, (p) => readPage(scripts, servedEdge, edgeCase.snapshot, { page: root, assets: site }, p))).filter((r): r is PageRead => r !== null)
           const edgeVisits = (await pool(casePages, (p) => visit(c, servedEdge, edgeCase.snapshot, site, p, gateWidths[0], null))).map((v) => v.visit)
           return { name: edgeCase.name, pages: edgeReads, visits: edgeVisits }
         } finally {
@@ -380,7 +384,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
       pages: reads,
       visits,
       weights,
-      site: { origin: s.origin, sitemap: await text('sitemap.xml'), robots: await text('robots.txt'), files },
+      site: { origin: s.origin, sitemap: await text('sitemap.xml'), robots: await text('robots.txt'), files, prefixes: s.store.languages.map((l) => languagePrefix(s.store, l)).filter((x) => x !== '') },
       data: [s.store.name, s.store.description ?? '', s.poweredBy ?? '', s.store.contactEmail ?? '', s.store.contactPhone ?? ''],
       poweredBy: s.poweredBy !== null,
       strictLook: input.strictLook,
