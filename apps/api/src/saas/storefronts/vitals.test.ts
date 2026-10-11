@@ -31,4 +31,14 @@ describe('the regression rule', () => {
     expect(verdict({ ...base, lcp: 600 }, { ...base, lcp: 1300 })).toBe('regressed')
     expect(verdict({ ...base, lcp: 600 }, { ...base, lcp: 800 })).toBe('ok')
   })
+
+  it('judges INP only on enough visits with an interaction, on each side', () => {
+    const withInp = (n: number, inp: number, interactions: number): VitalsDays => {
+      const d = days(n, { ...base, inp })
+      return { ...d, inp_hist: d.inp_hist.map((c) => (c > 0 ? interactions : 0)) }
+    }
+    // A week with no INP data, then two interactions at 300 ms: nothing to compare.
+    expect(compare([withInp(minSamples, 10, 0)], [withInp(minSamples, 300, 2)])[0]?.verdict).toBe('ok')
+    expect(compare([withInp(minSamples, 100, minSamples)], [withInp(minSamples, 300, minSamples)])[0]?.verdict).toBe('severe')
+  })
 })

@@ -75,9 +75,12 @@ export const compare = (before: VitalsDays[], after: VitalsDays[]): Comparison[]
     if (!b || a.samples < minSamples || b.samples < minSamples) return []
     const m = (h: { lcp: number[]; inp: number[]; cls: number[] }) => ({ lcp: p75(h.lcp, 'lcp'), inp: p75(h.inp, 'inp'), cls: p75(h.cls, 'cls') })
     const [x, y] = [m(b), m(a)]
-    const doubled = (m: 'lcp' | 'inp') => y[m] >= 2 * x[m] && y[m] > good[m] && moved(m, x[m], y[m])
+    // INP counts only visits with an interaction, so it needs as many of those on each side as the page views do.
+    const counted = (h: number[]) => h.reduce((n, c) => n + c, 0) >= minSamples
+    const judged = (m: Measure) => m !== 'inp' || (counted(a.inp) && counted(b.inp))
+    const doubled = (m: 'lcp' | 'inp') => judged(m) && y[m] >= 2 * x[m] && y[m] > good[m] && moved(m, x[m], y[m])
     const severe = doubled('lcp') || doubled('inp') || (y.cls > 250 && x.cls <= 250)
-    const worse = (m: Measure) => y[m] > flagRatio * x[m] && moved(m, x[m], y[m])
+    const worse = (m: Measure) => judged(m) && y[m] > flagRatio * x[m] && moved(m, x[m], y[m])
     const regressed = worse('lcp') || worse('inp') || worse('cls')
     return [{ page, before: x, after: y, verdict: severe ? 'severe' : regressed ? 'regressed' : 'ok' }]
   })
