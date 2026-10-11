@@ -6,6 +6,8 @@ import { messages } from '../../messages'
 import { CompanyTab } from './CompanyTab'
 import { PayoutTab } from './PayoutTab'
 import { SecurityTab } from './SecurityTab'
+import { Settings } from './Settings'
+import { settingsTabs } from './settingsHarness'
 import { company, team } from './settingsTestData'
 import { actionOnConfirm, dialogFor, TeamTab } from './TeamTab'
 import { inviteFrom, isLastOwner, removeRefusal, roleRefusal, rolesFor, transferCandidates } from './teamRules'
@@ -14,11 +16,12 @@ import { partnerRoles } from '../shell/partnerRoles'
 const words = messages.settings
 const noop = () => undefined
 const textOf = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ')
-const render = async (element: ReactNode) => {
-  const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: ['/settings'] }) })
+const render = async (element: ReactNode, at = '/settings') => {
+  const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: [at] }) })
   await router.load()
   return renderToString(<RouterProvider router={router} />)
 }
+const currentTabs = (html: string) => [...html.matchAll(/<a[^>]*aria-current="page"[^>]*>([^<]*)<\/a>/g)].map((match) => match[1])
 const byId = (id: string) => {
   const found = team.find((m) => m.id === id)
   if (!found) throw new Error(id)
@@ -152,5 +155,12 @@ describe('Security', () => {
     const html = await render(<SecurityTab required={false} team={team} complete blocked={words.team.refusals.BLOCKED_WHILE_IMPERSONATING} isOwner busy={false} session={null} onChange={noop} />)
     expect(html).toMatch(/<input[^>]*disabled=""/)
     expect(textOf(html)).toContain(words.team.refusals.BLOCKED_WHILE_IMPERSONATING)
+  })
+})
+
+describe('Settings tabs', () => {
+  it.each(settingsTabs)('marks only %s as the open tab', async (tab) => {
+    const html = await render(<Settings tab={tab} readOnly={false}>{null}</Settings>, tab === 'company' ? '/settings' : `/settings?tab=${tab}`)
+    expect(currentTabs(html)).toEqual([words.tabs[tab]])
   })
 })

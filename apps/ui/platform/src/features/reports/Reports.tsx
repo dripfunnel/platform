@@ -76,7 +76,7 @@ export const Reports = ({ report, filter, plans, countries, forced, exportJob, o
         tabs={reportTabs}
         labels={words.tabs}
         current={tab}
-        link={(target, props) => <Link to="/reports" search={{ ...filter, ...(target === 'growth' ? {} : { tab: target }) }} {...props} />}
+        link={(target, props) => <Link to="/reports" search={{ ...filter, tab: target === 'growth' ? undefined : target }} activeOptions={{ explicitUndefined: true }} {...props} />}
       />
       <div className="df-list-filters" role="group" aria-label={words.filters.label}>
         <FilterSelect label={words.filters.range} anyLabel={words.filters.ranges['6m']} options={reportRanges.filter((r) => r !== '6m').map((r) => ({ value: r, label: words.filters.ranges[r] }))} value={filter.range === '3m' ? '3m' : undefined} onChange={(value) => onFilter({ ...filter, range: value })} />
