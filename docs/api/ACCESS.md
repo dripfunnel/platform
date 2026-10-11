@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -974,7 +974,8 @@ Browser → https://<store's portal host>/support/enter?token=…
   (`support.allow_write`, §5.1) (decided 2026-10-05 on #337). It only exists inside a session the Owner's On/Off
   switch let start; a Manager's Allow emails the Owners like a session start does.
 - **Never, even elevated**: change passwords or sign-in methods, payment methods, payouts,
-  ownership or roles; create API keys or install apps. A support session is not a person, so it
+  ownership or roles; create API keys or install apps; open a storefront preview link, which names
+  the person who opened it (storefront PREVIEW §5, #317). A support session is not a person, so it
   can't act as one.
 - **Staff don't use support sessions**: they impersonate (§8.1).
 - A partner's support session never reaches a store of another partner; the host check (§9

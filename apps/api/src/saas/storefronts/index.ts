@@ -6,3 +6,4 @@ export { createStorefrontParams, startStorefront, storefrontCreateKind, type Cre
 export { edgeCacheTags, lookupLiveHost, type EdgeState, type LiveHost } from './edge'
 export { goBack, publishParams, runPublish, startPublish, storefrontPublishKind, type GoBackActor, type GoBackResult, type PublishDeps, type PublishParams } from './publish'
 export { cleanStorefronts, keptBuilds, type StorefrontBuckets } from './cleanup'
+export { checkPreview, openPreview, previewLinkFor, type PreviewAccess } from './preview'

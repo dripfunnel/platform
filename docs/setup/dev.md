@@ -193,7 +193,10 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
      portal for its current documents.
 7. **Sandboxes** for merchant testing: PayPal, Razorpay, Cashfree, PhonePe, Shiprocket and
    EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (THIRD-PARTY-ACCESS §3).
-8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY`.
+8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY` (the API Worker), and another → `PREVIEW_SESSION_KEY` (the store proxy,
+   `wrangler secret put PREVIEW_SESSION_KEY --env dev` in `store-proxy`). Then give `store-proxy/wrangler.jsonc`'s `env.dev`
+   the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.<dev preview domain>/*` and the
+   variable `PREVIEW_DOMAIN`, as its comment lists (#317).
 
 ---
 
@@ -233,7 +236,7 @@ Never reuse a value from local or production.
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
 | `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §8); `preview.localhost` locally. Read since #518: without it no preview host answers |
-| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Needed from ST 1a |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Read since #317: seals "Open preview" links; without it, or without `PREVIEW_DOMAIN`, Open preview answers "not set up" |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
 "not connected" instead of failing. Leaving out part of a group does the same, so set each
