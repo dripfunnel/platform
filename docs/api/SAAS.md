@@ -680,7 +680,9 @@ SaaS layer owns the state and the rules:
   the allowance. Stores with no changes aren't rebuilt.
 - **New and renamed products** get a **single-page render** at once (the page, its sitemap
   entry, the old address's redirect, IndexNow), using no allowance (decided 2026-10-08 on #470;
-  storefront ARCHITECTURE §4.2).
+  storefront ARCHITECTURE §4.2). **Built on #484** (storefront LIVE-SHOP §7): a page run (`kind = 'page'`) of the live
+  commit in the store's workflow; a waiting page run takes later addresses, and a press behind it widens it into that
+  publish. Saving the home page's search and sharing queues `storefront.render` with `/` (#471 calls it).
 - **Staff publishes**: Admin can run a publish without using the allowance, for example after a
   failure on our side (L5).
 - **One build at a time per store**: a press during a build queues the next; changes made
