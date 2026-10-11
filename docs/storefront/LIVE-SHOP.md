@@ -246,7 +246,8 @@ checking, deploying, live, failed, rolled back).
     folders are deleted at the switch or when a run fails. **Deleting a store** (or a deletion
     request) deletes all its folders in both buckets and everything of its in the drafts bucket:
     the draft, every source bundle and every snapshot (SAAS §5).
-    **Built on #317** (`saas/storefronts/cleanup.ts`, the daily `0 3 * * *` cron, 50 of each a day): a build past the
+    **Built on #317** (`saas/storefronts/cleanup.ts`, the daily `0 3 * * *` cron, 50 of each a day, oldest first; one item
+    that fails is logged and retried the next day, never stopping the rest): a build past the
     newest 20 that went live, named by no version and not live, and every failed run's build, lose their build and staging
     folders, their assets folder, source bundle and snapshot, marked `files_deleted_at`. *Decided on #317:* deleting a
     store is SAAS §4.2's "closed, then deleted after 90 days", so a store closed for 90 days loses all its files in the

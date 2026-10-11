@@ -111,7 +111,7 @@ const switchStep = async (deps: PublishDeps, p: PublishParams): Promise<string> 
   const switched = await withSystemScope(deps.sql, async (tx) => {
     const storefront = await lockStorefront(tx, p.storeId)
     const run = await selectRun(tx, p.runId)
-    if (!storefront || !run || run.state !== 'deploying') return null
+    if (!storefront || !run || run.store_id !== p.storeId || run.state !== 'deploying') return null
     const at = deps.now()
     const version = await switchLive(tx, run, storefront.live_build_id, at)
     await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `publish:${run.id}`, payload: { storeId: run.store_id, reason: 'publish' }, partnerId: run.partner_id, storeId: run.store_id })
@@ -129,7 +129,7 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string): Prom
   await withSystemScope(deps.sql, async (tx) => {
     if (!(await lockStorefront(tx, p.storeId))) return
     const run = await selectRun(tx, p.runId)
-    if (!run || run.state === 'live' || run.state === 'failed' || run.state === 'rolled_back') return
+    if (!run || run.store_id !== p.storeId || run.state === 'live' || run.state === 'failed' || run.state === 'rolled_back') return
     await failRun(tx, run, code, deps.now())
     await activityLog.record(tx, systemEntry(run, 'storefront.publish_failed', 'failed', [{ field: 'error', before: null, after: code }]))
     await queueNext(tx, run.store_id, run.partner_id)

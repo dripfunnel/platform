@@ -114,6 +114,19 @@ describe('a publish', () => {
     expect(await live(t.storeA2)).toBe(second)
   })
 
+  it('fails a run that finds another running without changing what the console shows for the running one', async () => {
+    const running = runIdOf(await start(t.storeA2, 20))
+    await db.sql`update publish_run set state = 'deploying' where id = ${running}`
+    await db.sql`update store set build_state = 'building' where id = ${t.storeA2}`
+    const raced = runIdOf(await start(t.storeA2, 21))
+    expect(await runPublish(deps(), { runId: raced, storeId: t.storeA2 }, steps)).toBe('failed')
+    expect(await runState(raced)).toEqual({ state: 'failed', error: 'busy' })
+    const [store] = await db.sql<{ build_state: string }[]>`select build_state from store where id = ${t.storeA2}`
+    expect(store?.build_state).toBe('building')
+    expect(await runPublish(deps(), { runId: running, storeId: t.storeA1 }, steps)).toBe('stopped')
+    await db.sql`update publish_run set state = 'failed', error = 'deploy_failed' where id = ${running}`
+  })
+
   it('fails without touching the live build when its files never arrived', async () => {
     const before = await live(t.storeA1)
     const runId = runIdOf(await start(t.storeA1, 3))
@@ -218,6 +231,9 @@ describe('clean-up', () => {
   })
 
   it('deletes preview folders a publish made old, never the current one or one written since', async () => {
+    // A publish since the last clean-up is what makes a store's folders old.
+    await publish(t.storeA1, 50)
+    await publish(t.storeA2, 51)
     const published = (await db.sql<{ at: Date }[]>`select max(finished_at) as at from publish_run where store_id = ${t.storeA1} and state = 'live'`)[0]?.at ?? new Date()
     for (const ref of ['change-1', 'change-2', 'change-9', 'change-10']) await putText(sites, `${previewFolder(t.storeA1, ref)}index.html`, ref)
     await putText(sites, `${previewFolder(t.storeA2, 'change-1')}index.html`, 'theirs')
@@ -225,10 +241,39 @@ describe('clean-up', () => {
     for (const ref of ['change-1', 'change-2', 'change-9']) sites.age(previewFolder(t.storeA1, ref), before)
     sites.age(previewFolder(t.storeA2, 'change-1'), before)
     sites.age(previewFolder(t.storeA1, 'change-10'), new Date(published.getTime() + 60_000))
-    await cleanStorefronts(db.sql, { sites, assets, drafts }, new Date())
+    expect((await cleanStorefronts(db.sql, { sites, assets, drafts }, new Date())).previews).toBe(3)
     expect(sites.keys(`stores/${t.storeA1}/preview/`)).toEqual([`${previewFolder(t.storeA1, 'change-10')}index.html`, `${previewFolder(t.storeA1, 'change-9')}index.html`])
     // Store A2 has no draft, so none of its folders is current, and its publish made them old.
     expect(sites.keys(`stores/${t.storeA2}/preview/`)).toEqual([])
+    // Each store is tidied once per publish: the next run doesn't list them again.
+    await putText(sites, `${previewFolder(t.storeA1, 'change-3')}index.html`, 'old')
+    sites.age(previewFolder(t.storeA1, 'change-3'), before)
+    await cleanStorefronts(db.sql, { sites, assets, drafts }, new Date())
+    expect(sites.keys(previewFolder(t.storeA1, 'change-3'))).toHaveLength(1)
+  })
+
+  it('logs one item that fails and goes on with the rest', async () => {
+    const [store] = await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, status) values (${t.partnerA}, 'Flaky', 'flaky', 'active') returning id`
+    const storeId = store?.id ?? ''
+    const failedRuns: string[] = []
+    for (const n of [300, 301]) {
+      const id = runIdOf(await start(storeId, n))
+      await db.sql`update publish_run set state = 'failed', error = 'deploy_failed', created_at = now() - interval '1 year' + ${`${n} seconds`}::interval where id = ${id}`
+      failedRuns.push(id)
+    }
+    const [first, second] = failedRuns
+    const broken = { ...drafts, delete: async (keys: string[]) => (keys.some((k) => k.includes(first ?? '-')) ? Promise.reject(new Error('r2 down')) : drafts.delete(keys)) }
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      await cleanStorefronts(db.sql, { sites, assets, drafts: broken }, new Date())
+    } finally {
+      console.log = log
+    }
+    const done = await db.sql<{ id: string }[]>`select id from publish_run where store_id = ${storeId} and files_deleted_at is not null`
+    expect(done.map((r) => r.id)).toEqual([second])
+    expect(lines.filter((l) => l.includes('storefront_cleanup_item_failed'))).toHaveLength(1)
   })
 
   it('erases a store closed for 90 days from all three buckets, once, and no other store', async () => {
