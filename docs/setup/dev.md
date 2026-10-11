@@ -261,7 +261,7 @@ links point at production's admin console.
    [ROLLBACK.md](../code/ROLLBACK.md) before trying again).
 3. Check the API. Access gates the hosts, so open this in a browser where you're signed in to
    Access:
-   `https://dev-platform.dripfunnel.ai/api/health` → `{"ok":true,"area":"platform","db":"ok",…}`.
+   `https://dev-platform.dripfunnel.ai/api/health` → `{"ok":true,"area":"platform","db":"ok","dbLatencyMs":…,…}`.
    `db: "missing"` means the Hyperdrive binding was lost; a 500 usually means a required value
    (§3) is missing.
 4. Watch the Worker's logs: `pnpm --filter ./apps/api exec wrangler tail --env dev`.

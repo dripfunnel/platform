@@ -37,6 +37,15 @@ describe('worker', () => {
     expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down', version: 'test-version' })
   })
 
+  it('reports how long the database took to answer when it is up', async () => {
+    // eslint-disable-next-line no-restricted-globals -- test-only Node process, this file never runs in the Worker
+    const connectionString = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HYPERDRIVE: { connectionString } }, ctx)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'ok', dbLatencyMs: expect.any(Number), version: 'test-version' })
+  })
+
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
     const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })

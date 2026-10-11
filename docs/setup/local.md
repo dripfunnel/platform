@@ -230,10 +230,11 @@ Check that it's up:
 
 ```bash
 curl -H "host: admin.localhost" -H "cf-connecting-ip: 127.0.0.1" http://localhost:8787/api/health
-# {"ok":true,"area":"admin","db":"ok","version":"…"}
+# {"ok":true,"area":"admin","db":"ok","dbLatencyMs":3,"version":"…"}
 ```
 
 `/api/health` is per API host; a request without `cf-connecting-ip` gets 400 by design.
+`dbLatencyMs` is how long the database check took, and is present only when `db` is `"ok"`.
 
 ---
 
