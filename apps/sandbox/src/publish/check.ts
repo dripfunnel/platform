@@ -137,10 +137,11 @@ const mainSeen = (page: Page) =>
 
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)
 
-const sealedWords = (reports: readonly ShopReport[], p: { path: string; route: PlannedPage['route'] }, only?: string) =>
+export const sealedWords = (reports: readonly ShopReport[], p: { path: string; route: PlannedPage['route'] }, only?: string) =>
   reports
     .filter((r) => r.kind === 'SEALED' && (only === undefined || r.subject === only))
-    .map((r) => (r.detail && ['hidden', 'transparent', 'too-small', 'off-screen', 'covered'].includes(r.detail) ? sealedProblemWords(pageName(p), r.subject as 'price', r.detail as 'hidden') : `The "${r.subject}" component on the ${pageName(p)} isn't seen.`))
+    // The page's script sent these; core's words keep only its own part and problem names.
+    .map((r) => sealedProblemWords(pageName(p), r.subject, r.detail))
 
 type Contexts = { returning: BrowserContext; first: BrowserContext }
 
