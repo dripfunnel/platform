@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
+import { storeContentPaths } from '#engine/modules/content/index'
 import { insertAiRun, moveDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost } from '#integrations/sandbox/index'
 import { draftBundle, previewFolder, sourceBundle, templateFiles, type SitesBucket } from '../storefronts/index'
@@ -303,12 +304,11 @@ export class StudioRunner {
   }
 
   private async guardContext(): Promise<GuardContext> {
-    const row = await this.system((tx) => selectGuardContext(tx, this.deps.storeId))
+    const { row, usedPaths } = await this.system(async (tx) => ({ row: await selectGuardContext(tx, this.deps.storeId), usedPaths: await storeContentPaths(tx, this.deps.storeId) }))
     if (!row) throw new StudioUnavailable('The store is gone.')
-    // Content pages and posts (SAPI 24) don't exist yet, so no path is taken but core's (ARCHITECTURE §3.1).
     // A theme writes one content folder per language (`content/en`), which core's i18n reads for en-US and en-IN alike.
     const locales = [...new Set([row.main_language, ...row.languages].map((l) => l.split('-')[0] ?? l))]
-    return { locales, usedPaths: [], mediaIds: row.media_ids, brand: { name: row.name, tagline: null, email: null, phone: null, address: [], socialLinks: [] } }
+    return { locales, usedPaths, mediaIds: row.media_ids, brand: { name: row.name, tagline: null, email: null, phone: null, address: [], socialLinks: [] } }
   }
 }
 
