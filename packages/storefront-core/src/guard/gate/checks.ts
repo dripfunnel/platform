@@ -18,8 +18,8 @@ export const lookTolerance = 0.005
 
 export type PageRoute = CoreRoute | 'custom'
 
-/** A built page without JavaScript: its file, its headings, the words of its main landmark and its links. */
-export type PageRead = { path: string; route: PageRoute; html: string; h1s: string[]; mainText: string; text: string; links: string[] }
+/** A built page without JavaScript: its file, its headings, the words of its main landmark, its links, and what went wrong. */
+export type PageRead = { path: string; route: PageRoute; html: string; h1s: string[]; mainText: string; text: string; links: string[]; errors: string[] }
 
 /** A built page in the browser with JavaScript on, at one width. */
 export type PageVisit = {
@@ -49,7 +49,8 @@ export type GateInput = {
   pages: readonly PageRead[]
   visits: readonly PageVisit[]
   weights: readonly PageWeight[]
-  site: { origin: string; sitemap: string | null; robots: string | null; files: readonly string[] }
+  /** `prefixes`: the store's other languages' address prefixes, such as `/hi` (ARCHITECTURE §8 locale routing). */
+  site: { origin: string; sitemap: string | null; robots: string | null; files: readonly string[]; prefixes: readonly string[] }
   /** Words from the store's own data, which the content scan doesn't hold against the theme. */
   data: readonly string[]
   poweredBy: boolean
@@ -107,6 +108,7 @@ export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visi
 }
 
 const pageShape = (page: PageRead, shape: Shape): string[] => [
+  ...(page.errors.length > 0 ? [`The ${pageName(page)} failed to load without JavaScript.`] : []),
   ...partsFor(page.route, shape)
     .filter((part) => !page.html.includes(`data-df-sealed="${part}"`))
     .map((part) => `The ${pageName(page)} doesn't place the required "${part}" component.`),
@@ -183,7 +185,7 @@ export const checkCrawl = (input: Pick<GateInput, 'pages' | 'site'>): GateCheck 
     return 'prefix' in a ? [a.prefix] : []
   })
   // An item address in another language keeps its route's prefix after the language's code (`/hi/products/…`).
-  const unprefixed = (path: string) => [path, path.replace(/^\/[a-z]{2,3}(?:-[a-z]{2})?(?=\/)/, '')]
+  const unprefixed = (path: string) => [path, ...input.site.prefixes.filter((p) => path.startsWith(`${p}/`)).map((p) => path.slice(p.length))]
   const leads = (href: string) => {
     const path = href.split(/[?#]/)[0] ?? ''
     return pages.has(path) || files.has(path) || unprefixed(path).some((u) => prefixes.some((p) => u.startsWith(p) && u.length > p.length))
