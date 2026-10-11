@@ -527,7 +527,8 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
 - `axe`: WCAG 2.0–2.2 A and AA rules on every page at each width;
 - `budgets`: §9 on a phone (390 px, CPU slowed 4×) for home, collection, product, custom pages and cart;
 - `no-js`, `crawl`: §8, with every internal link leading to a page or an item prefix, and `sitemap.xml` and
-  `robots.txt` naming exactly the pages search engines should see (home, custom pages, products, collections, policies);
+  `robots.txt` naming the pages search engines should see: every built home and custom page, and any product, collection
+  or policy address, in each of the store's languages; never a cart, checkout or account page;
 - `content`: the words a shopper reads, outside sealed parts and the store's own data, through the validator's claim scan;
 - `visual-diff`: each page's first screen at each width against the live build's; it reports, and fails only a publish
   that mustn't change the look (`strictLook`, a core patch or minor: §7) when more than 0.5% of a page changed, or when
