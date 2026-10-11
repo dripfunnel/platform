@@ -94,10 +94,12 @@ const edgeRules = async (host: string, store: Store & { buildId: string }, deps:
  * lookup: per data centre, at most a minute, under the store's tag, so a rename's 301 needs no rebuild.
  */
 const storedRedirect = async (url: URL, store: Store, deps: Deps): Promise<string | null> => {
-  const key = `https://${url.hostname}/__df/redirect/${store.storeId}${url.pathname}`
+  // Recorded without a trailing slash, as a page answers either way.
+  const path = url.pathname.replace(/(.)\/+$/, '$1')
+  const key = `https://${url.hostname}/__df/redirect/${store.storeId}${path}`
   const hit = await deps.cache.match(key)
   if (hit) return parseRedirect(await hit.json())
-  const to = parseRedirect(await deps.edge.redirect(store.storeId, url.pathname))
+  const to = parseRedirect(await deps.edge.redirect(store.storeId, path))
   remember(deps, key, new Response(JSON.stringify({ to }), { headers: { 'content-type': 'application/json', 'cache-control': `max-age=${lookupSeconds}`, 'cache-tag': `df-store-${store.storeId}` } }))
   return to
 }

@@ -135,7 +135,7 @@ describe('the live site', () => {
     edge.redirects.set(`${storeA}/en-in/products/old-mug`, { to: '/en-in/products/blue-mug' })
     const moved = await get(`https://${hostA}/en-in/products/old-mug`)
     expect([moved.status, moved.headers.get('location')]).toEqual([301, '/en-in/products/blue-mug'])
-    await get(`https://${hostA}/en-in/products/old-mug`)
+    await get(`https://${hostA}/en-in/products/old-mug/`)
     expect(edge.calls.filter((c) => c.startsWith('redirect '))).toEqual([`redirect ${storeA}/en-in/products/old-mug`])
     // Store B's host asks only for store B, which recorded nothing there.
     expect((await get(`https://${hostB}/en-in/products/old-mug`)).status).toBe(404)

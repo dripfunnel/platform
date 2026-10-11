@@ -223,28 +223,25 @@ describe('storefront_redirect', () => {
     db.sql<{ from_path: string; to_path: string; language: string | null }[]>`select from_path, to_path, language from storefront_redirect where store_id = ${storeId} order by from_path`
   const product = async (storeId: string, slug: string) =>
     (await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${storeId}, ${slug}, ${slug}, 'visible') returning id`)[0]?.id ?? ''
-  const main = async (storeId: string) => ((await db.sql<{ main_language: string }[]>`select main_language from store where id = ${storeId}`)[0]?.main_language ?? '').toLowerCase()
 
   it('follows a product through renames with no chains, and drops the one away from an address that is live again', async () => {
-    const lang = await main(t.storeB1)
     const id = await product(t.storeB1, 'mug')
     await db.sql`update product set slug = 'blue-mug' where id = ${id}`
     await db.sql`update product set slug = 'big-blue-mug' where id = ${id}`
     expect((await redirects(t.storeB1)).map((r) => [r.from_path, r.to_path])).toEqual([
-      [`/${lang}/products/blue-mug`, `/${lang}/products/big-blue-mug`],
-      [`/${lang}/products/mug`, `/${lang}/products/big-blue-mug`],
+      [`/products/blue-mug`, `/products/big-blue-mug`],
+      [`/products/mug`, `/products/big-blue-mug`],
     ])
     await db.sql`update product set slug = 'mug' where id = ${id}`
     expect((await redirects(t.storeB1)).map((r) => [r.from_path, r.to_path])).toEqual([
-      [`/${lang}/products/big-blue-mug`, `/${lang}/products/mug`],
-      [`/${lang}/products/blue-mug`, `/${lang}/products/mug`],
+      [`/products/big-blue-mug`, `/products/mug`],
+      [`/products/blue-mug`, `/products/mug`],
     ])
     await db.sql`delete from storefront_redirect where store_id = ${t.storeB1}`
   })
 
   it('moves only the language whose translated address changed, and brings the main one back when it goes', async () => {
     await db.sql`insert into store_language (store_id, language, status, position) values (${t.storeB1}, 'hi-IN', 'active', 1)`
-    const lang = await main(t.storeB1)
     const id = await product(t.storeB1, 'lamp')
     const translate = (text: string) => db.sql`
       insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeB1}, 'product', ${id}, 'slug', 'hi-IN', ${text}, md5('lamp'))
@@ -256,7 +253,7 @@ describe('storefront_redirect', () => {
       [
         ['/hi-in/products/deepak', '/hi-in/products/bada-deepak'],
         ['/hi-in/products/lamp', '/hi-in/products/bada-deepak'],
-        [`/${lang}/products/lamp`, `/${lang}/products/desk-lamp`],
+        [`/products/lamp`, `/products/desk-lamp`],
       ].sort((a, b) => ((a[0] ?? '') < (b[0] ?? '') ? -1 : 1)),
     )
     await db.sql`delete from translation where store_id = ${t.storeB1} and entity_id = ${id}`

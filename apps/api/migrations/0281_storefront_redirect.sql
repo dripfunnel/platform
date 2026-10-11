@@ -2,11 +2,15 @@
 -- DATA-MODEL §7.8). Written by triggers wherever a product's address changes in any language, so an import, a
 -- supplier's save or a translation each leave the same redirect. Nothing here is destructive.
 
--- A product's address in one of the store's languages (decided on #484): the language tag lowercased, then the slug.
--- storefront-core's productPath builds the same path.
-create function storefront_product_path(language text, slug text) returns text
-language sql immutable
-as $$ select '/' || lower(language) || '/products/' || slug $$;
+-- A product's address in one of the store's languages: `/products/{slug}` in its main language (core's routeAddresses,
+-- #483), under the language tag lowercased in any other (decided on #484). Kept without a trailing slash.
+create function storefront_product_path(store uuid, language text, slug text) returns text
+language sql stable
+security definer
+set search_path = public
+as $$
+  select case when language = (select s.main_language from store s where s.id = store) then '' else '/' || lower(language) end || '/products/' || slug
+$$;
 
 create table storefront_redirect (
   id uuid primary key default gen_random_uuid(),
@@ -56,7 +60,7 @@ begin
       where l.store_id = new.store_id and l.status = 'active'
         and not exists (select 1 from translation t where t.store_id = new.store_id and t.entity = 'product' and t.entity_id = new.id::text and t.field = 'slug' and t.language = l.language)
     loop
-      perform storefront_redirect_move(new.store_id, lang, storefront_product_path(lang, old.slug), storefront_product_path(lang, new.slug));
+      perform storefront_redirect_move(new.store_id, lang, storefront_product_path(new.store_id, lang, old.slug), storefront_product_path(new.store_id, lang, new.slug));
     end loop;
   end if;
   return null;
@@ -89,13 +93,15 @@ begin
   end if;
   old_slug := case when tg_op = 'INSERT' then main else old.text end;
   new_slug := case when tg_op = 'DELETE' then main else new.text end;
-  perform storefront_redirect_move(row_.store_id, row_.language, storefront_product_path(row_.language, old_slug), storefront_product_path(row_.language, new_slug));
+  perform storefront_redirect_move(row_.store_id, row_.language, storefront_product_path(row_.store_id, row_.language, old_slug), storefront_product_path(row_.store_id, row_.language, new_slug));
   return null;
 end
 $$;
 
 grant select, insert, update, delete on storefront_redirect to app_definer;
 grant select on product, store_language, translation to app_definer;
+grant select (id, main_language) on store to app_definer;
+alter function storefront_product_path(uuid, text, text) owner to app_definer;
 alter function storefront_redirect_move(uuid, text, text, text) owner to app_definer;
 alter function storefront_redirect_product_slug() owner to app_definer;
 alter function storefront_redirect_translated_slug() owner to app_definer;
