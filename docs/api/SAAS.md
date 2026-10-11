@@ -290,9 +290,9 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 | 2 | **Defaults**: store settings from the partner's defaults for new stores (region, currency, languages, tax behaviour, units, sample product), default warehouse, shipping and payment placeholders. **Per-store rows only**, never a shared one (the first platform's `TaxRate` lesson) | Deleted with the store |
 | 3 | **Hostnames**: reserve `{shop}` and register `{shop}.shops.<partnerdomain>` under the partner's wildcard as its own custom hostname (wildcard custom hostnames need Enterprise). The preview needs none: `{key}.webpreview.store` ([../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2) | Release the reservation and routes |
 | 4 | **Repo** (when the merchant first picks a template): the GitHub App creates an empty **public** repo with an opaque name in the `dripfunnel` org and copies `templates/storefront/` with the chosen template's theme and the locked build workflow into it through the GitHub API ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §3) | Delete the repo |
-| 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version. **The repo holds no secret or variable, and one locked workflow** that builds inside the public build image and uploads through GitHub OIDC ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4); every Cloudflare credential stays with the platform | Revert the commit (removed with the repo) |
+| 5 | **Store config**: generate `store.config.ts` (the public store key and the Shop API's path; hostnames, locales and currencies come from the Shop API at build, so a settings change needs no commit, decided on #316) and pin the current `@dripfunnel/storefront-core` version in `package.json`; the route shims are generated at build from `routes.json` (storefront ARCHITECTURE §2.2, decided on #316). **The repo holds no secret or variable, and one locked workflow** that builds inside the public build image and uploads through GitHub OIDC ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4); every Cloudflare credential stays with the platform | Revert the commit (removed with the repo) |
 | 6 | **Hosting target**: the store's folder in R2, served by the edge Worker; nothing to create (decided 2026-10-09, replacing a Pages project per store: 100 projects per account; [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1) | Delete the store's folders in both storefront buckets, and its draft, source bundles and snapshots in the drafts bucket (storefront LIVE-SHOP §4 step 11) |
-| 7 | **First preview**: the template's ready-made preview bundle copied into the store's preview folder in R2 (seconds, no container; [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §4), **confirmed complete** from the copy's result, not assumed (the first platform's gap at this step). The first live build is the merchant's first Publish (§9) | Nothing to undo; a failed first preview leaves the store usable and shows "storefront build failed, retrying" |
+| 7 | **First preview**: the template's ready-made preview bundle copied into the store's preview folder in R2 (seconds, no container; [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §4), **confirmed complete** from the copy's result, not assumed (the first platform's gap at this step). The first live build is the merchant's first Publish (§9) | Delete the copied folder and the `design_draft` row: a failure at any of steps 4–8 undoes them all, so the store can try again (decided on #316) |
 | 8 | **Done**: write `storefront.core_version`, `template` and the repo name, `repo_state = 'ready'`, emit `storefront.created` | n/a |
 
 - Steps 1–3 make a usable store: the merchant can enter the portal once they finish. **Built on
@@ -306,7 +306,15 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   2026-10-08 on #470), as the `create-storefront` Workflow with their compensations (INF 1).
   They **never run for a store that uses its own frontend** (it gets a public store key and
   allowed origins instead; PLATFORM-PROMPT §5.6), and run whenever such a store first picks a
-  template.
+  template. **Built on #316**: `saas/storefronts/start.ts` names the repo (`sf-` and ten letters
+  or digits), starts a `create-storefront` job and queues `storefront.create` in the choosing
+  transaction; its deliverer starts `jobs/workflows/create-storefront.ts` under the job's id after
+  commit. Each step moves the job, registers its compensation in `job_detail` before acting, and
+  is retried by the Workflow; a step that still fails undoes every step before it, newest first,
+  and leaves `storefront.repo_state = 'failed'` and the job failed with plain words (staff see the
+  step and an error code in its details), so choosing again starts afresh; a store left
+  `creating` with no job keeps its repo's name, so the next run reuses that repo. Until dev has the GitHub App (#287) and the sites bucket (#317), the
+  choice waits in the outbox.
 - **A custom domain is not part of signup**; the merchant connects it whenever they like (§8).
 - "Under two minutes" means a **usable portal and preview** (decided 2026-10-05 on #337): the
   portal at signup, the preview within seconds of picking a template (steps 4–8); the first

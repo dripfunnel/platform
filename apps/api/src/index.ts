@@ -98,6 +98,10 @@ import { webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDelivere
 import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
+import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
+import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
+import { githubConfigured } from '#integrations/github/index'
+import { storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
 import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
@@ -143,6 +147,9 @@ interface Env extends Record<string, unknown> {
   IMAGES?: ImagesBinding | undefined
   // Wakes the outbox relay after a request (api/README.md §5); unbound, cron delivers.
   OUTBOX_WAKE?: Queue<OutboxWake> | undefined
+  // SAAS §5 steps 4–8 and the bucket its templates and previews are in; unbound, a store's first template choice waits in the outbox.
+  CREATE_STOREFRONT?: Workflow<CreateStorefrontParams> | undefined
+  STOREFRONT_SITES?: R2Bucket | undefined
 }
 
 // Built once per isolate from configuration, like Stripe's client below.
@@ -199,7 +206,7 @@ const emailFor = (config: Config) => {
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
-const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null): Deliverers => {
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null): Deliverers => {
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
@@ -229,6 +236,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [webhookDeliveryKind]: webhookDeliveryDeliverer(sql, { lookup, secrets }),
     [webhookReleaseKind]: webhookReleaseDeliverer(sql),
     [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
+    ...(createStorefront ? { [storefrontCreateKind]: storefrontCreateDeliverer(createStorefront) } : {}),
   }
 }
 
@@ -652,7 +660,9 @@ export const wakeOutbox = (request: Request, response: Response, env: Env, ctx: 
 // Delivers what is due (api/README.md §5): cron's sweep and each batch of wakes both call it.
 const sweepOutbox = (env: Env): Promise<void> =>
   relayWith(env, async (sql, config) => {
-    const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null)))
+    // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
+    const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
+    const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront))
     for (const [outcome, count] of Object.entries(counts)) {
       if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
     }
@@ -737,6 +747,9 @@ const sweepSchedules = (env: Env): Promise<void> =>
     })
     if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
   })
+
+// Wrangler finds a Workflow's class among the Worker's exports (wrangler.jsonc `workflows`).
+export const CreateStorefront = createStorefrontWorkflow(getClient)
 
 export default {
   async fetch(request, env, ctx) {
