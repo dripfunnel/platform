@@ -1,0 +1,27 @@
+{
+  "hero": {
+    "title": "Gear that just works",
+    "lead": "Clear specs and honest advice before you buy.",
+    "shop": "Shop all"
+  },
+  "features": {
+    "title": "Why buy here",
+    "one": {
+      "title": "Clear specs",
+      "body": "Every detail on every product page."
+    },
+    "two": {
+      "title": "Real support",
+      "body": "People, not bots, answer your questions."
+    },
+    "three": {
+      "title": "Track every order",
+      "body": "Your orders and addresses in your account."
+    }
+  },
+  "join": {
+    "title": "New releases",
+    "body": "Create an account to hear about new gear and follow your orders.",
+    "action": "Create an account"
+  }
+}
