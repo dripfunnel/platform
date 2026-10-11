@@ -249,9 +249,18 @@ export const checkVisualDiff = (visits: readonly PageVisit[], strict: boolean): 
 }
 
 /** ARCHITECTURE §10: the theme against the edge-case catalogue renders whole, fits the screen and keeps its required parts. */
-export const checkEdgeCases = (input: Pick<GateInput, 'edge' | 'edgeNames' | 'poweredBy' | 'priced' | 'legal'>): GateCheck => {
+export const checkEdgeCases = (input: Pick<GateInput, 'edge' | 'edgeNames' | 'poweredBy' | 'priced' | 'legal' | 'pages' | 'site'>): GateCheck => {
   const { edge } = input
-  const missing = input.edgeNames.filter((n) => !edge.some((c) => c.name === n && c.pages.length > 0 && c.visits.length > 0)).map((n) => `The edge case "${n}" wasn't rendered and seen.`)
+  const expected = mainPages(input)
+  // Every case renders every page of the main build, each read and seen at phone width.
+  const missing = input.edgeNames.flatMap((n) => {
+    const c = edge.find((x) => x.name === n)
+    if (!c) return [`The edge case "${n}" wasn't rendered and seen.`]
+    return expected.flatMap((p) => [
+      ...(c.pages.some((r) => r.path === p.path) ? [] : [`With ${n}: the ${pageName(p)} wasn't rendered.`]),
+      ...(c.visits.some((v) => v.path === p.path && v.width === gateWidths[0]) ? [] : [`With ${n}: the ${pageName(p)} wasn't seen at ${gateWidths[0]} px.`]),
+    ])
+  })
   return gateCheck(
     'edge-cases',
     edge.length === 0 ? sawNothing('edge-case renders') : [...missing, ...edge.flatMap(({ name, pages, visits }) => [
