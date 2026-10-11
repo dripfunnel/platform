@@ -5,7 +5,7 @@ import { gzipSync } from 'node:zlib'
 import type { Browser, BrowserContext, Page, Route } from 'playwright-core'
 import { pageHeaders, storeCsp, themeRoutesSchema, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
-import { edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
+import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
 import { edgeFolder } from './build'
 import { fileOf, languagePrefix, plan, type PlannedPage } from './pages'
@@ -202,8 +202,6 @@ const phoneRate = async (browser: Browser): Promise<number> => {
   }
 }
 
-/** ARCHITECTURE §9 budgets these page types. */
-const weighed: ReadonlySet<PlannedPage['route']> = new Set(['home', 'collection', 'product', 'custom', 'cart'])
 
 /** ARCHITECTURE §9 on a mid-range phone: the first load's bytes, and its timings three times. */
 const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage, rate: number): Promise<PageWeight> => {
@@ -358,7 +356,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
     // One page at a time: timings taken side by side would slow each other down.
     const weights: PageWeight[] = []
     const rate = await phoneRate(browser)
-    for (const p of main.filter((x) => weighed.has(x.route) && fileOf(x.path) in headers)) weights.push(await weigh(browser, served, s, site, p, rate))
+    for (const p of main.filter((x) => budgetedRoutes.has(x.route) && fileOf(x.path) in headers)) weights.push(await weigh(browser, served, s, site, p, rate))
     const edge = await Promise.all(
       cases.map(async (edgeCase, n) => {
         const servedEdge = edgeServed[n]
@@ -391,6 +389,9 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
       edge,
       // A static cart has no lines, and core's product hooks don't reach a built page yet (ARCHITECTURE §4.2).
       priced: new Set(),
+      // The snapshot carries no legal notices yet: core's LegalNotices has no data source in the Shop API.
+      legal: false,
+      edgeNames: cases.map((c) => c.name),
     })
     return { report, headers }
   } finally {
