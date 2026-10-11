@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-12 (#471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -1849,11 +1849,21 @@ storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_
                     -- the contact fields default from Store info; the Shop API reads logo,
                     -- favicon, tagline, description, social and contact, never the colours or
                     -- voice (the theme reads them through core, storefront ARCHITECTURE §2.1)
+                    -- Built on #471 (migration 0290): a row exists once the brand is saved with its logo, so
+                    -- brandReady is a name on store plus a row here; contact_address is store.address's shape;
+                    -- social holds each network's https profile address (a handle is saved as its address);
+                    -- tagline ≤100, description ≤300, voice ≤60 (any words: the list is the portal's suggestions);
+                    -- the brand step's shop name is store.name, written through save_store_name(). The Shop
+                    -- API's store answers the brand's logo, description and contact over Store info's once a row
+                    -- exists, plus favicon, tagline and social; app_shop holds no grant on the colours or voice
 storefront_seo      (store_id PK, title (≤60), description (≤155), share_asset_id NULL,
                      updated_at)
                     -- the home page's search and sharing; the share image is one of the
                     -- store's product photos; read by the Shop API for core's <head>; saving
                     -- re-renders the home page at once (SAAS §9.2), the rest at the next publish
+                    -- Built on #471 (migration 0290): title and description null until written; the share image
+                    -- is any product photo of the store; a save that changes them queues storefront.render for the
+                    -- home page in every offered language (/ and /{language}/), only once a build is live
 ai_run              (id, store_id, kind ('design'|'repair'|'migration'|'description'
                      |'translation'), requested_by, prompt, model, tokens_in, tokens_out,
                      cost_amount, cost_currency, billed_to ('plan'|'own_key'|'platform'),
