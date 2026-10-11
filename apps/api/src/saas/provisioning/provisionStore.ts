@@ -2,6 +2,7 @@ import type { ProvisioningStep } from '#db/schema/saas'
 import type { ScopedSql } from '#db/scoped/index'
 import { insertNewSubscription, insertPartnerStore, lockPartnerStores } from '#db/scoped/partnerCreateStore'
 import { finishJob, insertActiveOwnerMembership, insertRunningJob, insertSignupUser, moveJobTo, selectSignupPlan, storeCodeTaken } from '#db/scoped/signup'
+import { queueStoreHostSync } from '#saas/domains/index'
 import { addMonth } from '#saas/partnerStores/create'
 import { stepsFor } from './stuck'
 
@@ -44,8 +45,9 @@ export const provisionStore = async (tx: ScopedSql, input: ProvisionInput, at: D
   await moveJobTo(tx, jobId, 'defaults', at)
   failAt('defaults')
 
-  // 3. Hostnames: `{code}.preview` and `{code}.shops` live under the partner's wildcards, so the code is the reservation.
+  // 3. Hostnames: the code is the reservation; `{code}.shops` is registered after commit, once the shops address is live.
   await moveJobTo(tx, jobId, 'hostnames', at)
+  await queueStoreHostSync(tx, { partnerId: input.partnerId, storeId }, 'provisioned')
   failAt('hostnames')
 
   await finishJob(tx, jobId, at)

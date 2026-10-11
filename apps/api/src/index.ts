@@ -73,6 +73,7 @@ import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActiv
 import { cloudflareClient } from '#integrations/cloudflare/api'
 import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
+import { storeHostSyncDeliverer, storeHostsRegisterDeliverer, storeHostsRemoveDeliverer } from '#jobs/queues/deliverers/storeHost'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
@@ -94,6 +95,7 @@ import { storeEventKind } from '#db/scoped/storeEvents'
 import { deleteOldDeliveries } from '#db/scoped/webhooks'
 import { webhookDeliveryKind, webhookReleaseKind } from '#saas/webhooks/index'
 import { appNoticeKind } from '#saas/apps/index'
+import { storeHostSyncKind, storeHostsRegisterKind, storeHostsRemoveKind } from '#saas/domains/index'
 import { webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDeliverer } from '#jobs/queues/deliverers/webhooks'
 import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
@@ -213,6 +215,9 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
+    ...(cloudflare ? { [storeHostSyncKind]: storeHostSyncDeliverer(sql, cloudflare) } : {}),
+    [storeHostsRegisterKind]: storeHostsRegisterDeliverer(sql),
+    [storeHostsRemoveKind]: storeHostsRemoveDeliverer(sql),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),

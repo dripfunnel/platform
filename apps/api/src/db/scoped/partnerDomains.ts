@@ -1,4 +1,4 @@
-import type { DomainKind, HostStatus, PartnerDomainRow } from '../schema/saas'
+import type { DomainKind, HostStatus, PartnerDomainRow, StoreStatus } from '../schema/saas'
 import type { KeysetPage } from './activity'
 import type { ScopedSql } from './index'
 
@@ -131,4 +131,43 @@ export const deletePartnerAddress = async (tx: ScopedSql, domainId: string): Pro
 
 /** Whether any partner or store holds the host now, so a removal never takes a host somebody else has claimed. */
 export const hostHeld = async (tx: ScopedSql, host: string): Promise<boolean> =>
-  (await tx`select 1 from partner_domain where lower(host) = ${host.toLowerCase()} union all select 1 from custom_domain where lower(host) = ${host.toLowerCase()} limit 1`).length > 0
+  (
+    await tx`
+      select 1 from partner_domain where lower(host) = ${host.toLowerCase()}
+      union all select 1 from custom_domain where lower(host) = ${host.toLowerCase()}
+      union all
+      select 1 from store s join partner_domain d on d.partner_id = s.partner_id and d.kind = 'shops'
+      where s.status <> 'closed' and lower(s.code || substr(d.host, 2)) = ${host.toLowerCase()}
+      limit 1
+    `
+  ).length > 0
+
+export interface StoreShopsRow {
+  partner_id: string
+  code: string
+  status: StoreStatus
+  shops_id: string | null
+  shops_host: string | null
+  shops_status: HostStatus | null
+}
+
+/** A store with its partner's shops address, if it has one (SAAS §5 step 3). */
+export const selectStoreShops = async (tx: ScopedSql, storeId: string): Promise<StoreShopsRow | null> =>
+  (
+    await tx<StoreShopsRow[]>`
+      select s.partner_id, s.code, s.status, d.id as shops_id, d.host as shops_host, d.status as shops_status
+      from store s left join partner_domain d on d.partner_id = s.partner_id and d.kind = 'shops'
+      where s.id = ${storeId}
+    `
+  )[0] ?? null
+
+/** A page of the partner's stores after `after` by code (store_code_key), for the shops address fan-outs. */
+export const selectPartnerStoreCodes = (tx: ScopedSql, partnerId: string, after: string | null, limit: number, withClosed: boolean): Promise<{ id: string; code: string }[]> =>
+  tx<{ id: string; code: string }[]>`
+    select id, code from store
+    where partner_id = ${partnerId}
+      ${after === null ? tx`` : tx`and code > ${after}`}
+      ${withClosed ? tx`` : tx`and status <> 'closed'`}
+    order by code
+    limit ${limit}
+  `
