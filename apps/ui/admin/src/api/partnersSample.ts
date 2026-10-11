@@ -35,7 +35,6 @@ const edge = 'edge.dripfunnel.net'
 const domainsFor = (base: string, portal: string, waiting: readonly DomainKind[] = []): PartnerDomain[] => {
   const spec: [DomainKind, string, string, string][] = [
     ['portal', portal, 'CNAME', `portal.${edge}`],
-    ['preview', `*.preview.${base}`, 'CNAME', `preview.${edge}`],
     ['shops', `*.shops.${base}`, 'CNAME', `shops.${edge}`],
     ['email', `mail.${base}`, 'TXT', 'v=spf1 include:mail.dripfunnel.net ~all'],
   ]
@@ -262,7 +261,7 @@ export const samplePartners: readonly SamplePartner[] = [
       ...(['wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const).map((item) => ({ item, ...missing('Not started') })),
     ],
     branding: { productName: 'Tallis Shops', primaryColor: '#3D5A40', accentColor: '#E3B23C', poweredBy: 'on' },
-    domains: domainsFor('tallis.studio', 'shops.tallis.studio', ['portal', 'preview', 'shops', 'email']),
+    domains: domainsFor('tallis.studio', 'shops.tallis.studio', ['portal', 'shops', 'email']),
     plans: [],
     team: [],
     checks: { portalHost: false, emailDomain: false, pricedPlan: false, legalPages: false },
@@ -284,12 +283,12 @@ export const samplePartners: readonly SamplePartner[] = [
       { item: 'company', ...done('Priya', 'DripFunnel', 'Nordlicht Media AB, Stockholm') },
       { item: 'branding', ...done('Priya', 'DripFunnel') },
       { item: 'portalHost', ...done('Priya', 'DripFunnel') },
-      { item: 'wildcards', ...progress('*.preview.nordlicht.media: waiting for DNS') },
+      { item: 'wildcards', ...progress('*.shops.nordlicht.media: waiting for DNS') },
       { item: 'emailSender', ...progress('mail.nordlicht.media: verifying') },
       ...(['plan', 'legal', 'paymentMethod', 'payoutDetails'] as const).map((item) => ({ item, ...missing('Not started') })),
     ],
     branding: { productName: 'Nordlicht Shops', primaryColor: '#3B2F63', accentColor: '#7FD1C7', poweredBy: 'on' },
-    domains: domainsFor('nordlicht.media', 'shops.nordlicht.media', ['preview', 'shops', 'email']),
+    domains: domainsFor('nordlicht.media', 'shops.nordlicht.media', ['shops', 'email']),
     plans: [],
     team: [],
     checks: { portalHost: true, emailDomain: false, pricedPlan: false, legalPages: false },

@@ -2,9 +2,9 @@ import { ApiError, type PageInfo } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
 
-// Domains on the Platform API (FIRST-RELEASE.md §9, §16): the partner's four addresses with their
+// Domains on the Platform API (FIRST-RELEASE.md §9, §16): the partner's three addresses with their
 // DNS records, adding one, re-checking one, and the merchants' own domains.
-export const domainKinds = ['portal', 'preview', 'shops', 'email'] as const
+export const domainKinds = ['portal', 'shops', 'email'] as const
 export type DomainKind = (typeof domainKinds)[number]
 
 export const hostStatuses = ['waiting', 'verifying', 'issuing', 'live', 'failed', 'expiring', 'broken'] as const

@@ -107,6 +107,12 @@ describe('Partner detail', () => {
     }
   })
 
+  it('lists the portal host, shop wildcard and email sender domain, and no preview address (#518)', async () => {
+    const text = textOf(await render({ tab: 'domains' }))
+    for (const kind of ['portal', 'shops', 'email'] as const) expect(text).toContain(words.domains.kinds[kind])
+    expect(text).not.toMatch(/preview/i)
+  })
+
   it('lists the setup checklist with who did each item and the API line for it', async () => {
     const text = textOf(await render())
     expect(text).toContain('Done by Priya (DripFunnel)')

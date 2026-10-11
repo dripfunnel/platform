@@ -111,7 +111,6 @@ const sample = (seed: Seed): SampleStore => {
       version: seed.version ?? null,
       lastBuildAt: built?.[0] ?? null,
       lastPublishAt: built?.[1] ?? null,
-      previewHost: `${seed.code}.preview.${shops}`,
     },
     provisioning: { error: seed.error ?? null },
     records: recordsFor(host, custom, status, seed.code),

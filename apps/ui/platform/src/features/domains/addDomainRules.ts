@@ -3,7 +3,7 @@ import { fill, messages } from '../../messages'
 
 const words = messages.domains.new
 
-export const isWildcard = (kind: DomainKind): boolean => kind === 'preview' || kind === 'shops'
+export const isWildcard = (kind: DomainKind): boolean => kind === 'shops'
 
 // What was typed, as a hostname: no scheme, path or `*.`; the API adds the wildcard's `*.` itself.
 export const hostFrom = (typed: string): string =>

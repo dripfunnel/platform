@@ -23,7 +23,7 @@ const store = {
   country: 'AE',
   history: [{ at: '2026-09-23T00:00:00.000Z', action: 'store.past_due', by: null, note: '3 failed payments' }],
   counts: { owners: 1, managers: 1, staff: 3, suppliers: 0 },
-  site: { version: 'v21', lastBuildAt: null, lastPublishAt: null, previewHost: null },
+  site: { version: 'v21', lastBuildAt: null, lastPublishAt: null },
   provisioning: { error: null },
   records: [{ kind: 'custom', host: 'kikokids.example', record: 'CNAME', expected: 'shops.edge', found: null, status: 'waiting' }],
   users: [
