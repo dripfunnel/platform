@@ -11,8 +11,8 @@ import { buildSite } from './build'
 import { checkSite } from './check'
 import { checkout } from './source'
 
-// The build image's two publish steps (storefront LIVE-SHOP §4 steps 6–7), each run by the locked workflow in its own
-// `--network none` container: `build` writes the site, `check` writes the gate's report and each page's headers.
+// The build image's publish steps (storefront LIVE-SHOP §4 steps 6–7), each run by the locked workflow in its own
+// `--network none` container: `build` writes the site, `check` the gate's report and each page's headers.
 
 /** The runner's own names: none may reach the AI's code (LIVE-SHOP §4 step 5). */
 const runnerName = /^(?:GITHUB_|ACTIONS_|RUNNER_|INPUT_)/
@@ -44,6 +44,7 @@ export const runStep = async (argv: readonly string[], env: NodeJS.ProcessEnv): 
   }
   const { positionals, values } = parseArgs({ args: [...argv], options, allowPositionals: true })
   const step = positionals[0]
+  if (step !== 'build' && step !== 'check') throw new Error('Name the step: build or check.')
   const out = required(values.out, 'out')
   const snapshot = catalogueSnapshotSchema.parse(JSON.parse(await readFile(required(values.snapshot, 'snapshot'), 'utf8')))
   const work = join(out, '.work')
@@ -58,19 +59,16 @@ export const runStep = async (argv: readonly string[], env: NodeJS.ProcessEnv): 
     if (!built.ok) await writeFile(join(out, 'report.json'), JSON.stringify(built.report))
     return 0
   }
-  if (step === 'check') {
-    const built = required(values.built, 'built')
-    const executablePath = browserPaths.find((p): p is string => p !== undefined && p !== '' && existsSync(p))
-    if (!executablePath) throw new Error('The check step needs Chromium; set CHROME_PATH.')
-    const browser = await chromium.launch({ executablePath, headless: true })
-    try {
-      const checked = await checkSite({ site: join(built, 'site'), out: built, live: values.live ?? null, snapshot, theme, strictLook: values['strict-look'] ?? false, browser })
-      await writeFile(join(out, 'report.json'), JSON.stringify(checked.report))
-      await writeFile(join(out, 'headers.json'), JSON.stringify(checked.headers))
-      return 0
-    } finally {
-      await browser.close()
-    }
+  const built = required(values.built, 'built')
+  const executablePath = browserPaths.find((p): p is string => p !== undefined && p !== '' && existsSync(p))
+  if (!executablePath) throw new Error('The check step needs Chromium; set CHROME_PATH.')
+  const browser = await chromium.launch({ executablePath, headless: true })
+  try {
+    const checked = await checkSite({ site: join(built, 'site'), out: built, live: values.live ?? null, snapshot, theme, strictLook: values['strict-look'] ?? false, browser })
+    await writeFile(join(out, 'report.json'), JSON.stringify(checked.report))
+    await writeFile(join(out, 'headers.json'), JSON.stringify(checked.headers))
+    return 0
+  } finally {
+    await browser.close()
   }
-  throw new Error('Name the step: build or check.')
 }

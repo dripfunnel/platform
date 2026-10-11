@@ -522,14 +522,16 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
   `robots.txt` naming exactly the pages search engines should see (home, custom pages, products, collections, policies);
 - `content`: the words a shopper reads, outside sealed parts and the store's own data, through the validator's claim scan;
 - `visual-diff`: each page's first screen at each width against the live build's; it reports, and fails only a publish
-  that mustn't change the look (`strictLook`, a core patch or minor: §7) when more than 0.5% of a page changed;
+  that mustn't change the look (`strictLook`, a core patch or minor: §7) when more than 0.5% of a page changed, or when
+  no live page could be compared;
 - `edge-cases`: the theme rendered against the edge-case catalogue (§10) at phone width: whole, no wider than the
   screen, its required parts seen, its heading and words there without JavaScript.
 
 *Decided on #483:* until core's product hooks exist (§2.1 `products`), the static build prerenders the routes core can
 fill today (home, search, cart, checkout, the account and sign-in pages, 404, the degraded page and the custom pages),
-and each item route's client-rendered page; a page core gave no price to show is checked with `requiredParts(…,
-{ priced: false })`, so the price is required again wherever core supplies one.
+and each item route's client-rendered page. `runGate` requires the sealed price on the routes core gave a price to show
+(`priced`; product, cart and checkout when the input leaves it out), and the check step names none until core's
+product and cart hooks put a price on a built page: a static cart has no lines.
 
 **Staying current without full rebuilds on every edit** *(the platform's rule that catalogue
 changes don't rebuild, adapted to SSG)*:
