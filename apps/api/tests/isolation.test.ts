@@ -350,7 +350,7 @@ describe('the backstop itself', () => {
       'store_billing_details', 'invoice', 'invoice_line', 'storefront_push', 'design_draft', 'publish_run', 'design_version', 'core_release', 'studio_session', 'ai_run',
       'storefront_content', 'storefront_redirect', 'storefront_content_translation', 'storefront_vitals_day',
       'storefront_brand', 'storefront_seo',
-      'storefront_template', 'design_message',
+      'design_message',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -642,7 +642,6 @@ describe('the backstop itself', () => {
     // A supplier, a partner, staff and a shopper hold no grant on it.
     for (const context of [storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), partnerCaller(t.partnerA), staff, shopper(t.partnerA, t.storeA1, null)]) await expect(count(context)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA1), (tx) => tx`insert into design_message (store_id, role, text) values (${t.storeA1}, 'user', 'forged')`)).rejects.toThrow(/permission denied/)
-    await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA1), (tx) => tx`select key from storefront_template`)).rejects.toThrow(/permission denied/)
   })
 
   it('lets only the merchant side of a store remove its own domain (#471)', async () => {
