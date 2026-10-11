@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { withScope } from '#db/scoped/index'
-import { previewLinkFor } from '#saas/storefronts/index'
+import { previewLinkFor } from '#saas/storefronts/preview'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
