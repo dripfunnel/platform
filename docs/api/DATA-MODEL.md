@@ -9,7 +9,8 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-11 (#518: `storefront.preview_key` built, `partner_domain`'s preview kind
+Last updated: 2026-10-11 (#317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
 preview key, build ids).
@@ -1745,8 +1746,10 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                     -- platform-unique label of {key}.webpreview.store (PREVIEW §2); preview_epoch
                     -- (integer, proposed) ends every preview link when moved (PREVIEW §5 step 4); no
                     -- preview_url: the host is derived from preview_key and PREVIEW_DOMAIN, and a
-                    -- preview opens only through a signed link (PREVIEW §8). All
-                    -- (proposed; live_build_id and preview_epoch on #317);
+                    -- preview opens only through a signed link (PREVIEW §8). live_build_id (the publish_run
+                    -- id, null until the first publish) and preview_epoch (integer, 0) built on #317, migration 0233;
+                    -- files_deleted_at (0234) is when clean-up erased a store closed 90 days from the three buckets;
+                    -- previews_tidied_at (0235) the publish its old preview folders were last deleted against (PREVIEW §3);
                     -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
                     -- repo_head the commit its main is at, which a push must find there (built on
                     -- #316, migration 0230; storefront AI-STUDIO §6); template is written when the
@@ -1777,6 +1780,14 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- it was bound to on first use (LIVE-SHOP §9); deploy_ref is the build's
                     -- folder in R2 (stores/{id}/builds/{deploy_ref}/); gate is the report the
                     -- workflow's check job sent (LIVE-SHOP §4 step 7)
+                    -- Built on #317 (migration 0233) with id, store_id, kind, state, commit, template,
+                    -- core_version, uses_allowance, started_by_*, created_at, started_at, finished_at, error (a
+                    -- code) and two of its own: previous_build_id (the build live when this one switched, which
+                    -- INF 5's rollback moves back to) and files_deleted_at (clean-up done, LIVE-SHOP §4 step 11).
+                    -- Decided there: deploy_ref and previous_deploy_ref are not columns, since the run's id is
+                    -- the build's folder; template is, so the switch writes the version without another read.
+                    -- gate, repair_attempts, bisect_commit, build_minutes and github_run_id come with #483
+                    -- and #517, which write them. One running and one queued per store (partial unique indexes)
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
                      changed_at, changed_by, preview_deploy_ref NULL)
                     -- the one unpublished design per store: the draft's head (decided
@@ -1789,13 +1800,16 @@ design_draft        (store_id PK, head_commit, base_version_id NULL, template, c
                     -- Built on #316 (migration 0231) without base_version_id, which comes with
                     -- design_version: the create-storefront Workflow writes the first, its head
                     -- the repo's main and its preview the template's bundle (SAAS §5 step 7)
-design_version      (id, store_id, number, commit, template, core_version, label, deploy_ref NULL,
-                     publish_run_id, published_by, published_at, state ('live'|'kept'))
+design_version      (id, store_id, number, commit, template, core_version, label NULL, build_id,
+                     published_by NULL, published_at, state ('live'|'kept'))
                     -- PortalStorefront history: "Go back to version N" makes deploy_ref (the
                     -- build's folder in R2) live again, no build (SAAS §9.2, LIVE-SHOP §4), then resets design_draft to commit; one 'live' per
                     -- store; rows older than the plan's history days are deleted except the live
                     -- one; label is the merchant's last request before publishing (§5.3
-                    -- app_partner: never label)
+                    -- app_partner: never label). Built on #317 (migration 0233): build_id is the publish_run
+                    -- that built it, which is the build's folder (replacing deploy_ref and publish_run_id);
+                    -- clean-up never deletes a build a version names, so it is never null.
+                    -- design_draft.base_version_id is built with it
 design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, changed text[],
                      image_asset_id NULL, sample_url NULL, commit NULL, before_commit NULL,
                      undone boolean, ai_run_id NULL, created_by NULL, created_at)

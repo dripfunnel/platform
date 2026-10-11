@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-11 (#518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -592,8 +592,9 @@ failed; a live hostname can become expiring or broken if its records change.
    alone, and one Cloudflare doesn't know is already gone.
    **The edge Worker's lookup (#468):** a merchant domain going live or removed also queues
    `cache.purge` with `{ storeId, host, reason: 'domain-live' | 'domain-removed' }`, the
-   best-effort purge of LIVE-SHOP §5 step 1. Its deliverer is #317's, so until then the row
-   waits in the outbox; the lookup's 60-second limit is what guarantees the change. Made primary
+   best-effort purge of LIVE-SHOP §5 step 1. **Delivered on #317** (`jobs/queues/deliverers/cachePurge.ts`): it purges
+   the edge lookup's tags for the store, the host and the partner the payload names, where `CF_CACHE_PURGE_TOKEN` is set,
+   and otherwise waits in the outbox; the lookup's 60-second limit is what guarantees the change. Made primary
    queues the same purge once #471 builds primary. *Decided here (#468): the purge names the
    host and its store, so #317 can purge by either; the removal is a function #471 calls in its
    own transaction, since the row's removal (DATA-MODEL §7.2's planned `removed_at`) is #471's.*
@@ -688,7 +689,9 @@ SaaS layer owns the state and the rules:
   ahead of automatic publishes.
 - **Real status**: queued, building, checking, deploying, live, failed, rolled back, recorded in
   `publish_run` from the Workflow (`jobs/workflows/publish-storefront.ts`), the build's run and
-  the switch of the live pointer, with the gate's report. A refused or rolled-back publish keeps the previous
+  the switch of the live pointer, with the gate's report. **Built on #317:** queued → deploying → live | failed, the
+  switch, one running and one queued run per store, and go back (storefront LIVE-SHOP §4 steps 1 and 9); building and
+  checking come with #483, rolled back with #484. A refused or rolled-back publish keeps the previous
   live site, says so plainly, and **never uses an allowance**.
 - **Who pays for checking**: repair attempts and gate runs are the platform's cost, recorded
   for §12 and never counted on the merchant's meters (decided 2026-10-08 on #470).

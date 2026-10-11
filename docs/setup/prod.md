@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-11 (#518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -168,8 +168,9 @@ moment you save.
 | `STRIPE_PUBLISHABLE_KEY` | Text | the **live** `pk_live_…` | Stripe (live mode) › Developers › API keys |
 | `STRIPE_TEST_SECRET_KEY` | Secret | a **test-mode** restricted key `rk_test_…`, permissions as `STRIPE_SECRET_KEY`'s | For checkout on preview storefronts in test mode (THIRD-PARTY-ACCESS §8.1); with the next row or neither |
 | `STRIPE_TEST_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys |
+| `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.com` zone | Purges the store proxy's cached host lookups (storefront LIVE-SHOP.md §5 step 1); read since #317 with `CF_SAAS_ZONE_ID`. The buckets `storefront-sites`, `storefront-assets` (custom domain `sf-assets.dripfunnel.com`, CORS `GET` from any origin, its route excluded from the Worker) and `storefront-drafts` are created and bound as on dev (dev.md §2.8 item 1), without the `-dev` |
 | `PREVIEW_DOMAIN` | Text | `webpreview.store` | Every store's preview, `{key}.webpreview.store` (PREVIEW.md §8). Validated at boot; read since #518: without it no preview host answers |
-| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Needed from ST 1a |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Read since #317 ("Open preview" links). The store proxy (`dripfunnel-store-proxy`) gets its own `PREVIEW_SESSION_KEY`, the `SITES` and `EDGE` bindings, the `*.webpreview.store/*` route and `PREVIEW_DOMAIN` as dev does (dev.md §2.8 item 8) |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
 harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.com`.

@@ -9,7 +9,7 @@ import { isRepoPath, isThemePath } from './paths'
 export interface SitesBucket {
   get: (key: string) => Promise<{ text: () => Promise<string>; arrayBuffer: () => Promise<ArrayBuffer>; httpMetadata?: { contentType?: string } } | null>
   put: (key: string, value: ArrayBuffer, options: { sha256: string; httpMetadata?: { contentType?: string } }) => Promise<{ checksums: { sha256?: ArrayBuffer } } | null>
-  list: (options: { prefix: string }) => Promise<{ objects: { key: string }[]; truncated: boolean }>
+  list: (options: { prefix: string; cursor?: string }) => Promise<{ objects: { key: string; uploaded: Date }[]; truncated: boolean; cursor?: string }>
   delete: (keys: string[]) => Promise<void>
 }
 
@@ -25,8 +25,6 @@ const manifestSchema = z.strictObject({ files: z.array(z.strictObject({ path: z.
 
 export const lockedWorkflowPath = '.github/workflows/build.yml'
 const templateRoot = (core: string, template: string) => `templates/${core}/themes/${template}/`
-export const storePrefix = (storeId: string) => `stores/${storeId}/`
-export const previewFolder = (storeId: string, ref: string) => `${storePrefix(storeId)}preview/${ref}/`
 
 const readJson = async <S extends z.ZodType>(bucket: SitesBucket, key: string, schema: S): Promise<z.infer<S>> => {
   const object = await bucket.get(key)

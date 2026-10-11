@@ -33,11 +33,12 @@ import { passwordResetRequestKind } from '#auth/partnerTokens'
 import { userPasswordResetRequestKind } from '#auth/storeTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { linkSigner, type LinkSigner } from '#auth/signedLink'
+import { previewLinks, type PreviewLinks } from '#auth/previewLink'
 import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
-import { parseConfig, type Config } from '#core/config'
+import { isLocalhost, parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
@@ -103,6 +104,11 @@ import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
+import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
+import { cachePurgeClient } from '#integrations/cloudflare/purge'
+import { checkPreview, cleanStorefronts, lookupLiveHost, openPreview, storefrontPublishKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
+import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
+import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { githubConfigured } from '#integrations/github/index'
 import { storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
@@ -153,6 +159,11 @@ interface Env extends Record<string, unknown> {
   // SAAS §5 steps 4–8 and the bucket its templates and previews are in; unbound, a store's first template choice waits in the outbox.
   CREATE_STOREFRONT?: Workflow<CreateStorefrontParams> | undefined
   STOREFRONT_SITES?: R2Bucket | undefined
+  // The other two storefront buckets (storefront LIVE-SHOP.md §2): built JS and CSS behind the asset host, and the private drafts.
+  STOREFRONT_ASSETS?: R2Bucket | undefined
+  STOREFRONT_DRAFTS?: R2Bucket | undefined
+  // SAAS §9.1's publish-storefront Workflow; unbound, a publish waits in the outbox.
+  PUBLISH_STOREFRONT?: Workflow<PublishParams> | undefined
 }
 
 // Built once per isolate from configuration, like Stripe's client below.
@@ -209,7 +220,7 @@ const emailFor = (config: Config) => {
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
-const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null): Deliverers => {
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null, publishStorefront: PublishWorkflow | null): Deliverers => {
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
@@ -243,6 +254,8 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [webhookReleaseKind]: webhookReleaseDeliverer(sql),
     [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
     ...(createStorefront ? { [storefrontCreateKind]: storefrontCreateDeliverer(createStorefront) } : {}),
+    ...(publishStorefront ? { [storefrontPublishKind]: storefrontPublishDeliverer(publishStorefront) } : {}),
+    ...(config.CF_CACHE_PURGE_TOKEN && config.CF_SAAS_ZONE_ID ? { [cachePurgeKind]: cachePurgeDeliverer(cachePurgeClient({ token: config.CF_CACHE_PURGE_TOKEN, zoneId: config.CF_SAAS_ZONE_ID })) } : {}),
   }
 }
 
@@ -403,6 +416,19 @@ const secretsFor = (config: Config): Promise<SecretBox> | null => {
   return box.secrets
 }
 
+let previewKey: { key: string; links: Promise<PreviewLinks> } | undefined
+const previewLinksFor = (config: Config): Promise<PreviewLinks> | null => {
+  const key = config.PREVIEW_LINK_KEY
+  if (!key) return null
+  if (previewKey?.key !== key) previewKey = { key, links: previewLinks(key) }
+  return previewKey.links
+}
+/** "Open preview" needs both the preview domain and the link's key (storefront PREVIEW.md §5 step 1, §8). */
+const previewFor = async (config: Config): Promise<{ domain: string; links: PreviewLinks } | null> => {
+  const links = previewLinksFor(config)
+  return config.PREVIEW_DOMAIN && links ? { domain: config.PREVIEW_DOMAIN, links: await links } : null
+}
+
 let linkKey: { key: string; signer: Promise<LinkSigner> } | undefined
 
 /** A paid order's download links, signed under CREDENTIALS_KEK (auth/signedLink.ts). */
@@ -503,7 +529,8 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
-      allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
+      allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
+      preview: await previewFor(config), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
@@ -669,7 +696,9 @@ export const wakeOutbox = (request: Request, response: Response, env: Env, ctx: 
 const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise<void> => {
   // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
   const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
-  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront))
+  // A publish reads the build's folder, so without the bucket it waits too.
+  const publishStorefront = env.PUBLISH_STOREFRONT && env.STOREFRONT_SITES ? env.PUBLISH_STOREFRONT : null
+  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishStorefront))
   for (const [outcome, count] of Object.entries(counts)) {
     if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
   }
@@ -812,12 +841,23 @@ const purgeWebhookLog: CronJob = async (sql) => {
   })
 }
 
+// Old builds, preview folders and closed stores' files (storefront LIVE-SHOP §4 step 11); only where all three buckets are bound.
+const cleanStorefrontFiles: CronJob = async (sql, _config, env) => {
+  const { STOREFRONT_SITES: sites, STOREFRONT_ASSETS: assets, STOREFRONT_DRAFTS: drafts } = env
+  if (!sites || !assets || !drafts) return
+  const cleaned = await cleanStorefronts(sql, { sites, assets, drafts }, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'storefront_cleanup_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return null
+  })
+  if (cleaned && cleaned.builds + cleaned.previews + cleaned.stores > 0) logEvent({ event: 'storefront_cleaned', api: 'system', code: 'cleaned', count: cleaned.builds + cleaned.previews + cleaned.stores })
+}
+
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [expireSms, relayOutbox],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
-  '0 3 * * *': [purgeCarts, purgeWebhookLog],
+  '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles],
 }
 
 const runCron = async (cron: string, env: Env): Promise<void> => {
@@ -854,8 +894,46 @@ export class PortalProxy extends WorkerEntrypoint<Env> {
   }
 }
 
+// The edge's questions, each on its own connection, closed after the answer.
+const edgeQuery = async <T>(env: Env, ctx: ExecutionContext, work: (sql: postgres.Sql, config: Config) => Promise<T>): Promise<T> => {
+  const config = parseConfig(env)
+  if (!config.HYPERDRIVE) throw new Error('storefront edge: no database')
+  const sql = getClient(config.HYPERDRIVE)
+  try {
+    return await work(sql, config)
+  } finally {
+    ctx.waitUntil(sql.end({ timeout: 5 }))
+  }
+}
+
+/** store-proxy's storefront half (storefront LIVE-SHOP.md §5, PREVIEW.md §5): its host lookups, and `/shop-api/*` once it has checked the request. */
+export class StorefrontEdge extends WorkerEntrypoint<Env> {
+  override fetch(request: Request): Promise<Response> {
+    return serve(request, this.env, this.ctx, 'edge')
+  }
+
+  /** Thrown, never answered as unknown, when the database can't be asked: the edge then caches nothing. */
+  liveHost(host: string): Promise<LiveHost> {
+    return edgeQuery(this.env, this.ctx, (sql, config) => lookupLiveHost(sql, host, { localhost: isLocalhost(config.HOOKS_HOST) }))
+  }
+
+  /** `__open?t=` on a preview host (PREVIEW.md §5 step 2); without the link's key no link opens. */
+  openPreview(key: string, token: string): Promise<PreviewAccess> {
+    return edgeQuery(this.env, this.ctx, async (sql, config) => {
+      const links = previewLinksFor(config)
+      return links ? openPreview(sql, await links, key, token, new Date()) : { ok: false }
+    })
+  }
+
+  /** The full re-check of every HTML and /shop-api request on a preview host (PREVIEW.md §5 step 4). */
+  previewAccess(check: unknown): Promise<PreviewAccess> {
+    return edgeQuery(this.env, this.ctx, (sql) => checkPreview(sql, check))
+  }
+}
+
 // Wrangler finds a Workflow's class among the Worker's exports (wrangler.jsonc `workflows`).
 export const CreateStorefront = createStorefrontWorkflow(getClient)
+export const PublishStorefront = publishStorefrontWorkflow(getClient)
 
 export default {
   fetch: (request, env, ctx) => serve(request, env, ctx, 'public'),

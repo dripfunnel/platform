@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-11 (#518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -59,7 +59,7 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Custom hostnames token** (runtime) | Creating, checking and deleting Cloudflare for SaaS custom hostnames for partner portal hosts and merchant domains ([../api/SAAS.md](../api/SAAS.md) §8) | API token, scoped to *SSL and Certificates: Edit* and *Custom Hostnames: Edit* on the SaaS zone only | Worker secret | 4 (partner hosts), 6 (merchant domains) |
 | ~~**Storefront deploy tokens**~~ | **Not needed** (decided 2026-10-09): storefronts are files in R2 served by the edge Worker, not Pages projects ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1); replaced by the row below | — | — | — |
 | **R2 storefront upload credential** (runtime) | The parent R2 credential from which the API mints **15-minute temporary credentials for the private `storefront-sites` bucket, limited to one build's staging folder** (`stores/{id}/uploads/{build id}/`, never a build folder) for a store repo's upload step, after a GitHub OIDC check and a passing report. The API itself copies verified files into the write-once build folders ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4, §9) | R2 API token with *Object Read & Write* on the storefront buckets only, plus permission to create temporary credentials | Worker secret (names decided on #317). **Never in a store repo or a container** | 6 |
-| **Cache purge token** (runtime) | Purging storefront caches after publish, the degraded-store edge rule, removing hidden products | API token, scoped to *Cache Purge* (plus *Zone Rulesets: Edit* if degraded pages are edge rules) | Worker secret | 6 |
+| **Cache purge token** (runtime) | Purging the edge Worker's cached host lookups after a publish, a domain change or a store's state change (the degraded page is the Worker's own, decided on #317) | API token, scoped to *Cache Purge* on the zone `CF_SAAS_ZONE_ID` names | Worker secret `CF_CACHE_PURGE_TOKEN`, read since #317 | 6 |
 | **Cloudflare for SaaS** on the zone | Custom hostnames with automatic certificates for every partner and merchant host | Plan add-on | — | 4 |
 | — | ~~Wildcard custom hostnames may need **Enterprise**; per-hostname price~~ Checked 2026-10-09: wildcards are Enterprise only; 100 hostnames included, then $0.10 a month each, up to 50,000. Shops hostnames are registered one per store, and previews moved to `webpreview.store` ([../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §5) | — | — | — |
 | **`webpreview.store`**, registered, as its own zone on the main account | Every store's preview, `{key}.webpreview.store`: one proxied wildcard record, Universal SSL, a Worker route ([../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2) | Domain and zone (Free plan is enough) | Registrar; Cloudflare | 6. **Lead time**: register now (available on 2026-10-09) |
@@ -641,7 +641,8 @@ generation are in the section it cites. *First needed* names a slice (§6) for t
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
 | ~~`CF_PAGES_POOL`~~ | **Not needed** (decided 2026-10-09): no Pages project per store. Replaced by the R2 storefront upload credential (§2.1), names decided on #317 | — | §2.1 | — |
 | `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |
-| `PREVIEW_LINK_KEY` | Signs and checks the preview storefront's links (#284, storefront ARCHITECTURE §4.1; HMAC-SHA-256 with the expiry in the link *(proposed, ST 1a confirms)*). One per environment (named on #287) | Worker secret | §5 | ST 1a / INF 2 |
+| `PREVIEW_LINK_KEY` | Seals and opens the preview storefront's links (#284, storefront PREVIEW §5 step 1). *Decided on #317:* AES-GCM under a key derived with HKDF, not only a signature, since the link is shared and must not show its issuer; 7 days. One per environment (named on #287) | API Worker secret | §5 | INF 2 |
+| `PREVIEW_SESSION_KEY` | Seals the preview session cookie the store proxy sets (storefront PREVIEW §5 step 2), AES-GCM, 32 bytes in base64 (decided on #317) | store proxy Worker secret | §5 | INF 2 |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | **Not needed** (decided on #309): connected merchant accounts' events arrive on the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts (`STRIPE_WEBHOOK_SECRET`); only a separate merchant endpoint would need it | — | §2.7, §3.1 | — |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |
 | `AI_GATEWAY_TOKEN` | Cloudflare AI Gateway in front of every partner's AI calls *(optional)* | Worker secret | §2.6 | slice 9 |
