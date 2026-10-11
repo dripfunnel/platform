@@ -21,6 +21,19 @@ export interface RunRow {
   /** Set once the pointer moved to this build; the run stays deploying until its post-deploy checks pass (LIVE-SHOP §4 step 10). */
   switched_at: Date | null
   previous_build_id: string | null
+  /** A page run's input (LIVE-SHOP §7): the addresses it renders and those whose files it leaves out. */
+  render: PageRender | null
+}
+
+export interface PageRender {
+  pages: string[]
+  drop: string[]
+}
+
+export interface QueuedRun {
+  id: string
+  kind: PublishKind
+  render: PageRender | null
 }
 
 export interface NewRun {
@@ -32,6 +45,7 @@ export interface NewRun {
   usesAllowance: boolean
   startedBy: { kind: 'user' | 'staff' | 'system'; id: string | null }
   at: Date
+  render?: PageRender | undefined
 }
 
 /** The store's storefront row, locked, so two publishes or a publish and a go back take turns. */
@@ -42,16 +56,35 @@ export const lockStorefront = async (tx: ScopedSql, storeId: string): Promise<{ 
   )[0] ?? null
 
 /** The run waiting behind the running one, if there is one: a second press during a run is the same run (SAAS §9.1). */
-export const selectQueuedRun = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
-  (await tx<{ id: string }[]>`select id from publish_run where store_id = ${storeId} and state = 'queued'`)[0]?.id ?? null
+export const selectQueuedRun = async (tx: ScopedSql, storeId: string): Promise<QueuedRun | null> =>
+  (await tx<QueuedRun[]>`select id, kind, render from publish_run where store_id = ${storeId} and state = 'queued'`)[0] ?? null
+
+/** A waiting page run takes more addresses (one render for a burst of saves, SAAS §9.1). */
+export const setQueuedRender = async (tx: ScopedSql, runId: string, render: PageRender): Promise<void> => {
+  await tx`update publish_run set render = ${tx.json({ pages: render.pages, drop: render.drop })} where id = ${runId} and state = 'queued' and kind = 'page'`
+}
+
+/** A page run builds the live commit as it is when it starts, not as it was when asked for (LIVE-SHOP §7). */
+export const followLiveBuild = async (tx: ScopedSql, runId: string, live: Pick<RunRow, 'commit' | 'template' | 'core_version'>): Promise<void> => {
+  await tx`update publish_run set commit = ${live.commit}, template = ${live.template}, core_version = ${live.core_version} where id = ${runId} and kind = 'page' and state = 'queued'`
+}
+
+/** A waiting page run becomes the full publish pressed behind it, which renders every page anyway. */
+export const widenQueuedRun = async (tx: ScopedSql, runId: string, run: Omit<NewRun, 'storeId' | 'at' | 'render'>): Promise<void> => {
+  await tx`
+    update publish_run set kind = ${run.kind}, render = null, commit = ${run.commit}, template = ${run.template}, core_version = ${run.coreVersion},
+      uses_allowance = ${run.usesAllowance}, started_by_kind = ${run.startedBy.kind}, started_by_id = ${run.startedBy.id}
+    where id = ${runId} and state = 'queued' and kind = 'page'`
+}
 
 export const hasActiveRun = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
   (await tx<{ id: string }[]>`select id from publish_run where store_id = ${storeId} and state in ('building', 'checking', 'deploying')`).length > 0
 
 export const insertQueuedRun = async (tx: ScopedSql, run: NewRun): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
-    insert into publish_run (store_id, kind, commit, template, core_version, uses_allowance, started_by_kind, started_by_id, created_at)
-    values (${run.storeId}, ${run.kind}, ${run.commit}, ${run.template}, ${run.coreVersion}, ${run.usesAllowance}, ${run.startedBy.kind}, ${run.startedBy.id}, ${run.at})
+    insert into publish_run (store_id, kind, commit, template, core_version, uses_allowance, started_by_kind, started_by_id, created_at, render)
+    values (${run.storeId}, ${run.kind}, ${run.commit}, ${run.template}, ${run.coreVersion}, ${run.usesAllowance}, ${run.startedBy.kind}, ${run.startedBy.id}, ${run.at},
+      ${run.render ? tx.json({ pages: run.render.pages, drop: run.render.drop }) : null})
     returning id`
   if (!row) throw new Error('publish_run: insert returned nothing')
   return row.id
@@ -61,7 +94,7 @@ export const selectRun = async (tx: ScopedSql, runId: string): Promise<RunRow | 
   (
     await tx<RunRow[]>`
       select r.id, r.store_id, s.partner_id, r.kind, r.state, r.commit, r.template, r.core_version, r.started_by_kind, r.started_by_id,
-        r.switched_at, r.previous_build_id
+        r.switched_at, r.previous_build_id, r.render
       from publish_run r join store s on s.id = r.store_id where r.id = ${runId}`
   )[0] ?? null
 
@@ -78,6 +111,12 @@ export const startRun = async (tx: ScopedSql, run: RunRow, at: Date): Promise<vo
 export const switchLive = async (tx: ScopedSql, run: RunRow, previous: string | null, at: Date): Promise<number> => {
   await tx`update storefront set live_build_id = ${run.id} where store_id = ${run.store_id}`
   await tx`update publish_run set switched_at = ${at}, previous_build_id = ${previous} where id = ${run.id}`
+  // A page render is the live version's own build again, not a version of its own (LIVE-SHOP §7).
+  if (run.kind === 'page') {
+    const [kept] = await tx<{ number: number }[]>`update design_version set build_id = ${run.id} where store_id = ${run.store_id} and state = 'live' returning number`
+    if (!kept) throw new Error('design_version: a page render with no live version')
+    return kept.number
+  }
   await tx`update design_version set state = 'kept' where store_id = ${run.store_id} and state = 'live'`
   const [version] = await tx<{ number: number }[]>`
     insert into design_version (store_id, number, commit, template, core_version, build_id, published_by, published_at, state)
@@ -100,6 +139,22 @@ export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${run.core_version} where id = ${run.store_id}`
 }
 
+/** The build whose asset folder a new build's pages load from: the live build's own, or the one it inherited. */
+export const selectAssetsBuild = async (tx: ScopedSql, buildId: string): Promise<string | null> =>
+  (await tx<{ id: string }[]>`select coalesce(assets_build_id, id) as id from publish_run where id = ${buildId}`)[0]?.id ?? null
+
+export const setAssetsBuild = async (tx: ScopedSql, runId: string, assetsBuildId: string): Promise<void> => {
+  await tx`update publish_run set assets_build_id = ${assetsBuildId} where id = ${runId}`
+}
+
+/** The store's live build, the pointer itself (LIVE-SHOP §4 step 9), unlocked. */
+export const selectLiveBuildId = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${storeId}`)[0]?.live_build_id ?? null
+
+/** The store's IndexNow key, which its hosts serve at /{key}.txt (ARCHITECTURE §8). */
+export const selectIndexNowKey = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ indexnow_key: string }[]>`select indexnow_key from storefront where store_id = ${storeId}`)[0]?.indexnow_key ?? null
+
 /** The number of the version a build is, if it is one. */
 export const versionOfBuild = async (tx: ScopedSql, buildId: string): Promise<number | null> =>
   (await tx<{ number: number }[]>`select number from design_version where build_id = ${buildId} order by number desc limit 1`)[0]?.number ?? null
@@ -117,6 +172,10 @@ export const rollBackRun = async (tx: ScopedSql, run: RunRow, error: string, at:
   const withdrawn = await versionOfBuild(tx, run.id)
   await tx`update storefront set live_build_id = ${previous} where store_id = ${run.store_id}`
   await tx`update publish_run set state = 'rolled_back', error = ${error}, rolled_back_at = ${at}, finished_at = ${at} where id = ${run.id}`
+  if (run.kind === 'page' && previous) {
+    await tx`update design_version set build_id = ${previous} where build_id = ${run.id}`
+    return { withdrawn: null, back: withdrawn }
+  }
   await tx`update design_version set state = 'kept' where build_id = ${run.id}`
   const [back] = previous
     ? await tx<{ id: string; number: number }[]>`
@@ -195,6 +254,8 @@ export const selectExpiredBuilds = async (tx: ScopedSql, keep: number, limit: nu
       where r.rank > ${keep} and r.files_deleted_at is null
         and not exists (select 1 from storefront f where f.live_build_id = r.id)
         and not exists (select 1 from design_version v where v.build_id = r.id)
+        -- A page render's pages load this build's JS and CSS (LIVE-SHOP §7).
+        and not exists (select 1 from publish_run x where x.assets_build_id = r.id and x.id <> r.id and x.files_deleted_at is null)
       union all
       select id, store_id, created_at from publish_run where state = 'failed' and files_deleted_at is null
     ) due

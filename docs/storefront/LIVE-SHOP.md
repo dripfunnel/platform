@@ -328,7 +328,7 @@ checking, deploying, live, failed, rolled back).
     the draft, every source bundle and every snapshot (SAAS §5).
     **Built on #317** (`saas/storefronts/cleanup.ts`, the daily `0 3 * * *` cron, 50 of each a day, oldest first; one item
     that fails is logged and retried the next day, never stopping the rest): a build past the
-    newest 20 that went live, named by no version and not live, and every failed run's build, lose their build and staging
+    newest 20 that went live, named by no version, not live and whose assets no kept page run loads (#484), and every failed run's build, lose their build and staging
     folders, their assets folder, source bundle and snapshot, marked `files_deleted_at`. *Decided on #317:* deleting a
     store is SAAS §4.2's "closed, then deleted after 90 days", so a store closed for 90 days loses all its files in the
     three buckets once (`storefront.files_deleted_at`); a deletion request reaches the same function when that flow is
@@ -441,16 +441,32 @@ What the edge Worker does on each request to a storefront host.
 ## 7. Updates between publishes
 
 - **A new or renamed product** gets its page at once with a **single-page render** (decided
-  2026-10-08 on #470: page, sitemap, redirect, IndexNow, no allowance). Where it runs is open
-  *(decide on #484)*:
-  - the store's workflow with a one-page input: about a minute, and free;
-  - or a small render in a Cloudflare container: seconds, as decided, but billed.
+  2026-10-08 on #470: page, sitemap, redirect, IndexNow, no allowance). **Where it runs: the store's workflow with a
+  one-page input** (decided on #484): about a minute, free, and through the same checks as every publish (§4 steps 5–10),
+  rather than a container render in seconds that is billed and would need its own gate path.
 - **Saving the home page's search and sharing** re-renders the home page the same way (SAAS
   §9.2).
 - Either way, the new files go into a **new build folder**, the API copies the live build's
   other files into it server-side (§4 step 9), and the pointer moves. Every build folder stays
   complete on its own.
   *Why:* a live build is never changed in place, so it can always be gone back to.
+- **Built on #484** (`saas/storefronts/render.ts`, `jobs/workflows/render-page.ts`):
+  - **Asked for** through the outbox (`storefront.render`: the store, the addresses to render and those to leave out),
+    by triggers when a product becomes visible or a visible one's address changes in any language (migration 0287), and by
+    #471's home page save with `/`. A store with no live build waits for its first publish.
+  - **A page run** (`publish_run.kind = 'page'`, `render`, no allowance) of the live build's commit, one at a time like
+    every run. A waiting page run takes later addresses (the later request wins where two disagree), up to 100, past
+    which it becomes an automatic full publish; a press behind it widens it into that publish.
+  - **The build**: the frozen snapshot's `assetBase` is the live build's asset folder, since the same commit builds the
+    same JS and CSS byte for byte. *Until the build image takes a page list* (`renderInputs` gives it, with a `pages`
+    input on the locked workflow: a follow-up of #483's build), a page run builds every page of the live commit from a
+    fresh snapshot, so its folder is the same, only slower. The upload is verified as any (§4 step 9); then the API
+    copies every other file of the live build's folder into the new one, 500 a Workflow step, leaving out the moved
+    addresses' folders, and writes the whole manifest last. The run records `assets_build_id`, and clean-up keeps a
+    build while a kept one loads its assets.
+  - **The switch** makes the new folder the live version's build (no new version), then the post-deploy checks; a
+    rollback gives the version its build back. Once it stays live, `storefront.indexnow` tells IndexNow the pages that
+    changed or went.
 
 ---
 
@@ -547,8 +563,7 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   checkout to the post-deploy check (decided on #483, ARCHITECTURE §4.2).
 - The GitHub org's plan for Actions concurrency *(decide on #287)*.
 - A fallback build runner if GitHub limits Actions on the org *(decide)*.
-- Where single-page renders run: the workflow (about a minute, free) or a container (seconds,
-  billed) *(decide on #484)*.
+- ~~Where single-page renders run~~: the store's workflow with a one-page input (decided on #484, §7).
 - **Image resizing cost** *(ask)*. Cloudflare image resizing (decided 2026-10-05 on #337) bills
   each unique transformation again every calendar month. For 5,000 stores with 1,000 images in 4
   sizes, that is about 20 million transformations, roughly $10,000 a month at list price.

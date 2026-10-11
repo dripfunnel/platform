@@ -567,7 +567,8 @@ changes don't rebuild, adapted to SSG)*:
    **single-page render** builds that product's page (and its version URLs) with the store's
    live theme, adds it to the sitemap, redirects the old address (§8), stores it as a new build
    into which the API copies the live build's other files (LIVE-SHOP §7) and notifies IndexNow. It takes seconds and uses no allowance. Until it lands,
-   and for any other unknown catalogue URL, the edge serves a client-rendered fallback.
+   and for any other unknown catalogue URL, the edge serves a client-rendered fallback. *Built on #484* in the store's
+   workflow, about a minute rather than seconds (decided there: LIVE-SHOP §7).
 2. **Catalogue publishing**:
    - **Change detection**: engine events (product, version, collection, filter, menu,
      content, store settings that appear on the storefront) mark the store's live site
@@ -766,7 +767,8 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
     consistent; the root redirects to the default locale.
   - **Breadcrumbs** are sealed on product and collection pages.
   - **Telling search engines**: IndexNow on every publish and single-page render (Bing,
-    Yandex); Google through the sitemap named in `robots.txt`. A Search Console verification
+    Yandex; built on #484: the pages whose bytes changed or went since the build before, once the build passed its
+    post-deploy checks, with the store's own key served by the edge at `/{key}.txt`); Google through the sitemap named in `robots.txt`. A Search Console verification
     tag can be set in Site settings.
   - **What the theme must do**: one `<h1>` per page and headings in order; the main content
     in the HTML without JavaScript (the gate renders every page with JavaScript off and checks

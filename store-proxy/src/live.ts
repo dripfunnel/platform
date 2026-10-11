@@ -148,6 +148,8 @@ const serveStore = async (request: Request, url: URL, store: Store, deps: Deps):
   // SAAS §4.2: a suspended store's page tells shoppers to contact the shop, with no DripFunnel route.
   if (store.state === 'suspended') return page('degraded', 503, { language: store.language, heading: store.name, headers: { 'retry-after': '3600' } })
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } })
+  // IndexNow's proof that the key is this host's (ARCHITECTURE §8); the key is public by design.
+  if (url.pathname === `/${store.indexNowKey}.txt`) return new Response(store.indexNowKey, { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'max-age=3600' } })
   if (store.buildId === null) return page('missing', 404, { language: store.language })
   const live = { ...store, buildId: store.buildId }
   const rel = relativeKey(url.pathname)
