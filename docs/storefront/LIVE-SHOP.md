@@ -176,7 +176,7 @@ checking, deploying, live, failed, rolled back).
    - the edge-case catalogue render;
    - a visual diff against the live build's files from step 3.
 
-   The checkout smoke test runs against core's offline Shop API fixture (decided on #483); the real
+   The checkout smoke test runs against core's offline Shop API fixture *(proposed)*; the real
    checkout is the post-deploy check (step 10). The container writes each check's pass or fail
    to its output folder. A runner step then:
    - computes the **digest of the files it handed to the container**: SHA-256 over the sorted
@@ -487,8 +487,8 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
 - ~~Where the publish checks run and what switches a store to its new build.~~ Inside the build
   workflow; the API switches on an OIDC-verified passing report (decided 2026-10-09, §4 steps
   7–9).
-- ~~Whether the checkout smoke test can run offline against core's Shop API fixture~~ It does, leaving the real
-  checkout to the post-deploy check (decided on #483, ARCHITECTURE §4.2).
+- Whether the checkout smoke test can run offline against core's Shop API fixture, leaving the
+  real checkout to the post-deploy check *(proposed, decide on #483 with the check step)*.
 - The GitHub org's plan for Actions concurrency *(decide on #287)*.
 - A fallback build runner if GitHub limits Actions on the org *(decide)*.
 - Where single-page renders run: the workflow (about a minute, free) or a container (seconds,
