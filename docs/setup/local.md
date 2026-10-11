@@ -163,9 +163,10 @@ Before the Worker starts, `pnpm dev` runs `pnpm --filter ./apps/api check:local`
 - port 8787 is already taken, usually by another `pnpm dev`. Wrangler would quietly move to
   8788 while the consoles kept calling the old Worker on 8787.
 
-Locally nothing fires the Worker's every-minute cron (`wrangler dev` never does), so `pnpm dev`
-starts it with `--test-scheduled` and calls `/__scheduled` once a minute itself
-(`apps/api/scripts/local/dev.ts`): the outbox (email, exports, domain checks) runs as on dev.
+Locally nothing fires the Worker's crons (`wrangler dev` never does), so `pnpm dev` starts it
+with `--test-scheduled` and, at the start of each minute, calls `/__scheduled` for every cron in
+`wrangler.jsonc` due then (`apps/api/scripts/local/dev.ts`, in UTC as on Cloudflare): the outbox
+(email, exports, domain checks) and the clean-ups run as on dev (../api/README.md §5.1).
 
 It warns and carries on when there is no sample data, or when a feature's values are partial or
 still the example's placeholders. The consoles start with `--strictPort`, so a taken console

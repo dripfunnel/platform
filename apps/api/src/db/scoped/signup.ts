@@ -166,8 +166,8 @@ export const deleteSignup = async (tx: ScopedSql, signupId: string): Promise<voi
   await tx`delete from signup where id = ${signupId}`
 }
 
-/** Sign-ups nobody finished, past their day, with their password hashes; and text records past theirs. */
+/** Sign-ups nobody finished, past their day, with their password hashes; and text records past theirs. How many rows of both. */
 export const deleteExpiredSignups = async (tx: ScopedSql, now: Date, limit: number): Promise<number> => {
-  await tx`delete from signup_text where id in (select id from signup_text where sent_at <= ${new Date(now.getTime() - 24 * 60 * 60 * 1000)} order by sent_at limit ${limit})`
-  return (await tx`delete from signup where id in (select id from signup where expires_at <= ${now} order by expires_at limit ${limit})`).count
+  const texts = await tx`delete from signup_text where id in (select id from signup_text where sent_at <= ${new Date(now.getTime() - 24 * 60 * 60 * 1000)} order by sent_at limit ${limit})`
+  return texts.count + (await tx`delete from signup where id in (select id from signup where expires_at <= ${now} order by expires_at limit ${limit})`).count
 }

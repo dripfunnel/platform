@@ -409,7 +409,7 @@ minimum cart value, skip when everything is out of stock, quiet hours in the sho
 a week per shopper, stop on any purchase (always on), an unsubscribe link in every email. Sent by
 **email through Amazon SES** from the partner's sender domain (SAAS §3.6). Staff view only.
 
-**Built on #321 (SAPI 15), part 1** (DATA-MODEL §7.2, §7.6): the every-minute cron marks a cart abandoned 20 minutes after
+**Built on #321 (SAPI 15), part 1** (DATA-MODEL §7.2, §7.6): the every-5-minutes cron (api/README.md §5.1) marks a cart abandoned 20 minutes after
 its last change once the shopper gave an email or number or started checkout, with what its lines came to; queues each
 cart's latest step now due, once (a step after the first, a code and WhatsApp need the plan's `automatic`, the first alone
 `onePerCart`; `youSend` sends nothing by itself); and the `cart.remind` outbox row decides it as it is delivered: skipped
