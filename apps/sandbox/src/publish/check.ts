@@ -25,7 +25,14 @@ export type CheckInput = {
   theme: readonly ThemeFile[]
   strictLook: boolean
   browser: Browser
+  /** One load's timings; the browser's own unless a test, on a runner shared with other suites, fixes them. */
+  metrics?: (page: Page) => Promise<LoadMetrics>
 }
+
+export type LoadMetrics = { lcp: number; cls: number; tbt: number }
+
+/** What the browser itself measured of the load (ARCHITECTURE §9), from the observers `weigh` installs. */
+export const browserMetrics = async (page: Page): Promise<LoadMetrics> => (await page.evaluate('window.__dfMetrics')) as LoadMetrics
 
 export type CheckOutcome = { report: GateReport; headers: Record<string, { 'content-security-policy': string }> }
 
@@ -203,7 +210,7 @@ const phoneRate = async (browser: Browser): Promise<number> => {
 
 
 /** ARCHITECTURE §9 on a mid-range phone: the first load's bytes, and its timings three times. */
-const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage, rate: number): Promise<PageWeight> => {
+const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage, rate: number, metrics: (page: Page) => Promise<LoadMetrics>): Promise<PageWeight> => {
   const w: PageWeight = { path: p.path, route: p.route, jsGzip: 0, runtimeJsGzip: 0, cssGzip: 0, bytes: 0, lcpMs: [], cls: [], tbtMs: [] }
   for (let run = 0; run < 3; run += 1) {
     const context = await browser.newContext({ viewport: { width: gateWidths[0], height }, isMobile: true, hasTouch: true })
@@ -223,7 +230,7 @@ const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, ass
       // Every request settled and every body read before anything is counted, however slow the runner.
       await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
       await Promise.all(net.reading)
-      const m = (await page.evaluate('window.__dfMetrics')) as { lcp: number; cls: number; tbt: number }
+      const m = await metrics(page)
       w.lcpMs.push(m.lcp)
       w.cls.push(m.cls)
       w.tbtMs.push(m.tbt)
@@ -355,7 +362,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
     // One page at a time: timings taken side by side would slow each other down.
     const weights: PageWeight[] = []
     const rate = await phoneRate(browser)
-    for (const p of main.filter((x) => budgetedRoutes.has(x.route) && fileOf(x.path) in headers)) weights.push(await weigh(browser, served, s, site, p, rate))
+    for (const p of main.filter((x) => budgetedRoutes.has(x.route) && fileOf(x.path) in headers)) weights.push(await weigh(browser, served, s, site, p, rate, input.metrics ?? browserMetrics))
     const edge = await Promise.all(
       cases.map(async (edgeCase, n) => {
         const servedEdge = edgeServed[n]

@@ -5,12 +5,12 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { chromium, type Browser } from 'playwright-core'
+import { chromium, type Browser, type Page } from 'playwright-core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { catalogueSnapshotSchema, type CatalogueSnapshot, type GateReport } from '@dripfunnel/storefront-core/guard'
 import { buildRuntime } from '../runtime/build'
 import { buildSite } from './build'
-import { checkSite, difference } from './check'
+import { browserMetrics, checkSite, difference, type LoadMetrics } from './check'
 import { refusedEnvironment, runStep } from './main'
 import { checkout } from './source'
 
@@ -196,6 +196,9 @@ if (!chrome) console.warn('Skipping the check step’s tests: no Chromium here (
 
 describe.skipIf(!chrome)('step check', () => {
   let browser: Browser
+  // CI's runner is shared with every other suite, so its clock can't gate a page: the layout shift is the browser's
+  // own, the times are fixed (the next test proves timings over budget fail).
+  const steady = (tbt: (path: string) => number) => async (page: Page): Promise<LoadMetrics> => ({ ...(await browserMetrics(page)), lcp: 500, tbt: tbt(new URL(page.url()).pathname) })
 
   beforeAll(async () => {
     browser = await chromium.launch({ executablePath: chrome ?? '', headless: true })
@@ -211,7 +214,8 @@ describe.skipIf(!chrome)('step check', () => {
     await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', built])
     // Its own copy as the live site, in a publish that must keep the look: every page matches.
     cpSync(join(built, 'site'), join(root, 'baseline-live'), { recursive: true })
-    await cli(['check', ...stepArgs(source, join(root, 'snapshot.json')), '--built', built, '--live', join(root, 'baseline-live'), '--strict-look', '--out', join(root, 'baseline-checked')])
+    const checkArgs = ['check', ...stepArgs(source, join(root, 'snapshot.json')), '--built', built, '--live', join(root, 'baseline-live'), '--strict-look', '--out', join(root, 'baseline-checked')]
+    expect(await runStep(checkArgs, { PATH: process.env['PATH'] ?? '' }, { metrics: steady(() => 20) })).toBe(0)
     const report = JSON.parse(readFileSync(join(root, 'baseline-checked/report.json'), 'utf8')) as GateReport
     expect(report.checks.filter((c) => !c.passed)).toEqual([])
     expect(report.checks.find((c) => c.name === 'visual-diff')).toEqual({ name: 'visual-diff', passed: true })
@@ -220,6 +224,15 @@ describe.skipIf(!chrome)('step check', () => {
     const pages = listing(join(built, 'site')).map((l) => l.slice(66)).filter((p) => p.endsWith('.html'))
     expect(Object.keys(headers).sort()).toEqual(pages.sort())
     expect(headers['index.html']?.['content-security-policy']).toMatch(/^default-src 'none'; script-src 'self' 'sha256-/)
+  })
+
+  it('fails a page whose loads block the main thread past the budget, by the timings it measured', async () => {
+    const source = await sourceOf('blocking')
+    const out = join(root, 'blocking-built')
+    const theme = await checkout(source.bundle, source.commit, join(root, 'blocking-src'))
+    await buildSite({ repo: join(root, 'blocking-src'), theme, snapshot, runtimeDir: runtime, out, work: join(root, 'blocking-work') })
+    const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser, metrics: steady((path) => (path === '/' ? 400 : 20)) })
+    expect(report.checks.find((c) => c.name === 'budgets')).toEqual({ name: 'budgets', passed: false, detail: 'Home page blocks for 400 ms while loading, over 150 ms.' })
   })
 
   it('refuses a covered required part, a checkout broken on phones, JavaScript over budget and an empty h1 without JavaScript, each by name', async () => {
