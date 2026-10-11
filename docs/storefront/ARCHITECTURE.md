@@ -554,7 +554,10 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
 fill today (home, search, cart, checkout, the account and sign-in pages, 404, the degraded page and the custom pages),
 and each item route's client-rendered page. `runGate` requires the sealed price on the routes core gave a price to show
 (`priced`; product, cart and checkout when the input leaves it out), and the check step names none until core's
-product and cart hooks put a price on a built page: a static cart has no lines.
+product and cart hooks put a price on a built page: a static cart has no lines. Legal notices are required the same way when the
+input says the store's markets need them (`legal`). A page or width the check step skipped, an unweighed budgeted page
+or an edge case it didn't render fails the check that needed it, and an address with `..`, an encoded character, a
+query or an empty segment never passes for a page or an item.
 
 **Staying current without full rebuilds on every edit** *(the platform's rule that catalogue
 changes don't rebuild, adapted to SSG)*:
