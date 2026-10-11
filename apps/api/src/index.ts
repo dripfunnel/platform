@@ -213,7 +213,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
-    'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
+    'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),

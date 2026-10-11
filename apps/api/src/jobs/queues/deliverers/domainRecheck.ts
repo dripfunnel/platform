@@ -6,8 +6,8 @@ import { selectPartnerDomainById, updatePartnerDomainCheck } from '#db/scoped/pa
 import { queueSideEffect } from '#saas/outbox/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { activityLog } from '#saas/activity/index'
-import { checkRecords } from '#saas/domains/index'
-import { CloudflareRefused, hostStatusOf, type CloudflareApi } from '#integrations/cloudflare/api'
+import { checkRecords, registerHostname } from '#saas/domains/index'
+import type { CloudflareApi } from '#integrations/cloudflare/api'
 import type { Deliverer } from '../outbox-relay'
 
 const payload = z.object({ partnerId: z.guid(), domainId: z.guid() }).strict()
@@ -28,21 +28,9 @@ export const domainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLookup, now
     const at = now()
     // Once DNS points at us, the portal host's state is Cloudflare's: verifying, issuing, live (SAAS §8).
     if (domain.kind === 'portal' && check.status === 'live' && cloudflare) {
-      // A removal can commit during the DNS lookup; registering then would orphan the host in Cloudflare.
-      const stillThere = await withSystemScope(sql, (tx) => selectPartnerDomainById(tx, domain.id))
-      if (!stillThere) return
-      try {
-        check.status = hostStatusOf(await cloudflare.ensureHostname(domain.host))
-        // A removal can also commit between the check above and the registration, after domain.remove ran.
-        if (!(await withSystemScope(sql, (tx) => selectPartnerDomainById(tx, domain.id)))) {
-          await cloudflare.removeHostname(domain.host)
-          return
-        }
-      } catch (error) {
-        // A refusal (bad host, token) will not change by retrying; an outage throws and the relay retries.
-        if (!(error instanceof CloudflareRefused)) throw error
-        check.status = 'failed'
-      }
+      const registered = await registerHostname(cloudflare, domain.host, async () => (await withSystemScope(sql, (tx) => selectPartnerDomainById(tx, domain.id))) !== null)
+      if (registered === null) return
+      check.status = registered
     }
     await withSystemScope(sql, async (tx) => {
       // Locked, so two checks at once agree on what changed: one entry and one email per change.

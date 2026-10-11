@@ -525,9 +525,13 @@ failed; a live hostname can become expiring or broken if its records change.
    outbox and `jobs/queues/deliverers/domainRecheck.ts` asks one fixed DNS-over-HTTPS resolver
    for the record after commit, so a user's hostname never becomes a host the Worker connects
    to; it moves waiting → live, or failed, or broken once a live record changes. **Merchant
-   domains the same way on #34** (`custom_domain.recheck`): the CNAME decides the status and
-   the ownership TXT is recorded for the certificate step. For the portal host, once
-   DNS passes, the status is Cloudflare's own: verifying, issuing, live (`hostStatusOf`).
+   domains the same way on #34** (`custom_domain.recheck`): the CNAME decides the status until
+   it passes, and the ownership TXT is recorded. For the portal host (#422) and **a merchant
+   domain (#468)**, once DNS passes the hostname is registered as a Cloudflare for SaaS custom
+   hostname and the status is Cloudflare's own: verifying, issuing, live (`hostStatusOf`, through
+   `saas/domains` `registerHostname`, shared by both deliverers). Cloudflare being down rethrows,
+   so the outbox retries; a refusal fails the address; an address removed while it was being
+   registered is taken back out. With no Cloudflare token configured, the DNS answer stands.
    **Edge routing (checked 2026-10-05, dev):** each environment's zone holds a proxied
    fallback-origin record, `portal.edge.<zone>` → the store Pages project, set as the zone's
    Cloudflare for SaaS fallback origin; `EDGE_ZONE` names the zone and so the CNAME targets
@@ -548,7 +552,17 @@ failed; a live hostname can become expiring or broken if its records change.
    `PortalProxy` entrypoint reached only through the proxy's service binding, with the partner
    found in `partner_domain` by host.
    Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the
-   SaaS hostname after commit; the console has no Remove button yet.
+   SaaS hostname after commit; the console has no Remove button yet. Removing a merchant domain
+   queues the same `domain.remove` through `queueMerchantDomainRemoval` (the row change and the
+   endpoint are #471's `removeDomain`). A host another partner or store still holds is left
+   alone, and one Cloudflare doesn't know is already gone.
+   **The edge Worker's lookup (#468):** a merchant domain going live or removed also queues
+   `cache.purge` with `{ storeId, host, reason: 'domain-live' | 'domain-removed' }`, the
+   best-effort purge of LIVE-SHOP §5 step 1. Its deliverer is #317's, so until then the row
+   waits in the outbox; the lookup's 60-second limit is what guarantees the change. Made primary
+   queues the same purge once #471 builds primary. *Decided here (#468): the purge names the
+   host and its store, so #317 can purge by either; the removal is a function #471 calls in its
+   own transaction, since the row's removal (DATA-MODEL §7.2's planned `removed_at`) is #471's.*
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
    **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check

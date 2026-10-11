@@ -129,5 +129,6 @@ export const deletePartnerAddress = async (tx: ScopedSql, domainId: string): Pro
   await tx`delete from partner_domain where id = ${domainId}`
 }
 
-/** Whether any partner holds the host now, so a removal never takes a host somebody else has claimed. */
-export const hostHeld = async (tx: ScopedSql, host: string): Promise<boolean> => (await tx`select 1 from partner_domain where lower(host) = ${host.toLowerCase()} limit 1`).length > 0
+/** Whether any partner or store holds the host now, so a removal never takes a host somebody else has claimed. */
+export const hostHeld = async (tx: ScopedSql, host: string): Promise<boolean> =>
+  (await tx`select 1 from partner_domain where lower(host) = ${host.toLowerCase()} union all select 1 from custom_domain where lower(host) = ${host.toLowerCase()} limit 1`).length > 0
