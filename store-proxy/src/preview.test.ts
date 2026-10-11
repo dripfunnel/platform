@@ -146,6 +146,16 @@ describe('a preview page', () => {
     expect(JSON.stringify([...(forwarded?.headers ?? [])])).not.toContain(owner)
   })
 
+  it('only reads: a post to a page neither renews the session nor asks the API', async () => {
+    const cookie = await opened()
+    const calls = edge.calls.length
+    const posted = await get(`https://${hostA}/products/x/`, { method: 'POST', body: 'a=1', ...withCookie(cookie) })
+    expect(posted.status).toBe(405)
+    expect(posted.headers.get('set-cookie')).toBeNull()
+    expect(edge.calls.length).toBe(calls)
+    expect((await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}', ...withCookie(cookie) })).status).toBe(200)
+  })
+
   it('answers a name under the preview domain that is no preview key with nothing', async () => {
     expect((await get('https://not-a-key.webpreview.store/')).status).toBe(404)
     expect((await get(`https://x.${hostA}/`)).status).toBe(404)

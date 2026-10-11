@@ -169,7 +169,8 @@ container.
    **Built on #317** (`store-proxy/src/preview.ts`): HTML and `/shop-api` ask `StorefrontEdge.previewAccess` (an active
    merchant seat whose role holds `publish`, an active user, the same `preview_epoch`, the key still the store's, and
    neither store nor partner closed) and get the current folder; chunks are any path whose last part has an extension
-   other than `.html`, read from the cookie's folder.
+   other than `.html`, read from the cookie's folder. A preview host only reads: any method but GET and HEAD gets 405
+   before the re-check, except `/shop-api`, which the API judges.
 
    *Why:* a removed team member or vendor, a user whose capability was taken away, or "End all
    preview links" loses the HTML and `/shop-api` at once. Because the session lives 15 minutes and
