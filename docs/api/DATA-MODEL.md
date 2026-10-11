@@ -1749,6 +1749,7 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                     -- preview_url: the host is derived from preview_key and PREVIEW_DOMAIN, and a
                     -- preview opens only through a signed link (PREVIEW §8). live_build_id (the publish_run
                     -- id, null until the first publish) and preview_epoch (integer, 0) built on #317, migration 0233;
+                    -- files_deleted_at (0234) is when clean-up erased a store closed 90 days from the three buckets;
                     -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
                     -- repo_head the commit its main is at, which a push must find there (built on
                     -- #316, migration 0230; storefront AI-STUDIO §6); template is written when the

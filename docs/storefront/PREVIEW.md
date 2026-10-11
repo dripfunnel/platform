@@ -11,7 +11,8 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 
 **Status: specification only**, except the preview key (§2 step 5) and the Shop API's side of §5 step 5 and §6, built on #518.
 
-Last updated: 2026-10-11 (#518: `storefront.preview_key` and the Shop API on preview hosts built).
+Last updated: 2026-10-11 (#317: preview folder retention decided; before it #518: `storefront.preview_key` and the Shop
+API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
 studio's fast gate, served from R2 by the edge Worker).
 
@@ -65,8 +66,10 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 | `storefront-assets`: `core/{version}/` | React, core and the allowed libraries for each core version, built once per release | Shared by every store, so a store's preview upload is only its theme, about 100–300 KB. |
 | `design_draft.preview_deploy_ref` (Postgres, DATA-MODEL §7) | Which change folder the preview link shows | The pointer is state the studio shows, kept beside the draft it belongs to. |
 
-- Preview folders are deleted once a publish has made the draft live, except the current one
-  *(decide retention on #317)*.
+- Preview folders are deleted once a publish has made the draft live, except the current one.
+  *Decided on #317:* nothing older is kept: undo and discard make new changes (§4), so an old folder is never shown again.
+  The daily clean-up deletes every folder but `design_draft.preview_deploy_ref` whose files were written before the store's
+  latest live publish, looking at each store for a week after it publishes (LIVE-SHOP §4 step 11).
 - The theme's chunks stay behind the edge Worker, never on the public asset host.
   *Why:* a draft's code and words are private until published.
 
@@ -252,4 +255,5 @@ There is no per-store hostname fee.
 - ~~Whether the consoles show a store's preview address.~~ They don't: a preview opens only
   through the merchant's signed link (decided 2026-10-09, #518).
 - Express wallets in preview *(decide on #313)*.
-- How long old preview folders are kept *(decide on #317)*.
+- ~~How long old preview folders are kept~~ Until the next publish goes live, then deleted bar the current one (decided on
+  #317, §3).

@@ -4,11 +4,12 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TenantContext } from '#core/tenancy'
 import type { StoreRole } from '#auth/storePermissions'
-import { draftBundle, previewFolder, type SitesBucket } from '#saas/storefronts/index'
+import { draftBundle, previewFolder } from '#saas/storefronts/index'
 import { liveStudioSession, openStudioSession, renewStudio, studioOf, StudioRunner, StudioUnavailable, type DesignModel, type DraftsBucket, type Proposal, type StudioDeps } from '#saas/studio/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
+import { fakeSites, putText, type FakeSites } from './support/sites'
 
 // INF 3 (#482): the studio's change loop against the real sandbox (apps/sandbox in its own process, real git and the
 // real fast gate) and the real database; R2 and the model are stand-ins (storefront AI-STUDIO.md §3–§8).
@@ -27,22 +28,18 @@ const walk = async (dir: string, prefix = ''): Promise<{ path: string; content: 
     )
   ).flat()
 
-const memoryBucket = () => {
-  const objects = new Map<string, { bytes: ArrayBuffer; type?: string | undefined }>()
+/** The private drafts bucket in memory, counting its writes. */
+const memoryDrafts = () => {
+  const objects = new Map<string, { bytes: ArrayBuffer }>()
   const puts: string[] = []
-  const bucket: SitesBucket & DraftsBucket = {
-    get: async (key: string) => {
+  const bucket: DraftsBucket = {
+    get: async (key) => {
       const o = objects.get(key)
-      return o ? { text: async () => new TextDecoder().decode(o.bytes), arrayBuffer: async () => o.bytes, httpMetadata: { ...(o.type ? { contentType: o.type } : {}) } } : null
+      return o ? { arrayBuffer: async () => o.bytes } : null
     },
-    put: async (key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }) => {
+    put: async (key, value) => {
       puts.push(key)
-      objects.set(key, { bytes: value, type: options?.httpMetadata?.contentType })
-      return { checksums: {} }
-    },
-    list: async ({ prefix }: { prefix: string }) => ({ objects: [...objects.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key })), truncated: false }),
-    delete: async (keys: string[]) => {
-      for (const k of keys) objects.delete(k)
+      objects.set(key, { bytes: value })
     },
   }
   return { bucket, objects, puts }
@@ -93,8 +90,8 @@ const manager: StoreRole = { side: 'merchant', role: 'manager' }
 const staff: StoreRole = { side: 'merchant', role: 'staff' }
 const supplier: StoreRole = { side: 'supplier', role: 'supplier-admin', tier: 'vendor-catalogue' }
 
-let sites: ReturnType<typeof memoryBucket>
-let drafts: ReturnType<typeof memoryBucket>
+let sites: FakeSites
+let drafts: ReturnType<typeof memoryDrafts>
 let ownerA: { userId: string; sessionHash: string }
 
 const runnerFor = async (storeId: string, overrides: Partial<StudioDeps> = {}) => {
@@ -107,7 +104,7 @@ const runnerFor = async (storeId: string, overrides: Partial<StudioDeps> = {}) =
     storeId,
     host: async () => host,
     drafts: drafts.bucket,
-    sites: sites.bucket,
+    sites,
     capacity: { acquire: async () => ({ granted: true }), release: async () => void released.push(storeId) },
     now: () => new Date(),
     newId: () => crypto.randomUUID(),
@@ -133,12 +130,10 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  sites = memoryBucket()
-  drafts = memoryBucket()
-  const json = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).buffer
-  await sites.bucket.put(`templates/${core}/skeleton.json`, json({ files: [{ path: 'package.json', content: '{"name":"store"}\n' }, { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' }] }))
-  await sites.bucket.put(`templates/${core}/themes/baseline/source.json`, json({ files: template }))
-  sites.puts.length = 0
+  sites = fakeSites()
+  drafts = memoryDrafts()
+  await putText(sites, `templates/${core}/skeleton.json`, JSON.stringify({ files: [{ path: 'package.json', content: '{"name":"store"}\n' }, { path: '.github/workflows/build.yml', content: 'on: workflow_dispatch\n' }] }))
+  await putText(sites, `templates/${core}/themes/baseline/source.json`, JSON.stringify({ files: template }))
   await db.sql`delete from ai_run`
   await db.sql`delete from design_draft`
 })
@@ -174,12 +169,12 @@ describe('one change', () => {
   it('is refused after three repairs with nothing changed, and records the three repairs on the platform', async () => {
     const { runner } = await runnerFor(t.storeA2)
     await runner.open()
-    const before = { drafts: drafts.puts.length, sites: sites.puts.length }
+    const before = { drafts: drafts.puts.length, sites: sites.objects.size }
     const { model, asks } = scripted([[refusedPage]])
     const refused = await runner.change({ request: 'Fetch something', userId: ownerA.userId, billedTo: 'own_key', model })
     expect(refused).toMatchObject({ outcome: 'refused', repairs: 3 })
     expect(asks).toEqual([{ problems: 0 }, { problems: 1 }, { problems: 1 }, { problems: 1 }])
-    expect({ drafts: drafts.puts.length, sites: sites.puts.length }).toEqual(before)
+    expect({ drafts: drafts.puts.length, sites: sites.objects.size }).toEqual(before)
     expect(await draftRow(t.storeA2)).toBeNull()
     const runs = await db.sql<{ kind: string; billed_to: string; parent_run_id: string | null; outcome: string; repair_attempts: number }[]>`
       select kind, billed_to, parent_run_id, outcome, repair_attempts from ai_run where store_id = ${t.storeA2} order by kind, created_at`
@@ -260,7 +255,7 @@ describe('a crash mid-change', () => {
       storeId: t.storeA1,
       host: async () => killOnChange,
       drafts: drafts.bucket,
-      sites: sites.bucket,
+      sites,
       capacity: { acquire: async () => ({ granted: true }), release: async () => undefined },
       now: () => new Date(),
       newId: () => crypto.randomUUID(),

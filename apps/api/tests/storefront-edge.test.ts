@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { CallerContext } from '#core/tenancy'
+import { withScope } from '#db/scoped/index'
 import { StorefrontEdge } from '../src/index'
 import { cachePurgeDeliverer } from '#jobs/queues/deliverers/cachePurge'
 import { GiveUp, type Effect } from '#jobs/queues/outbox-relay'
@@ -87,6 +89,30 @@ describe('the edge Worker’s host lookup', () => {
   it('refuses to answer without a database, so the edge caches nothing', async () => {
     const bare = new StorefrontEdge(ctx, { ...env(), HYPERDRIVE: undefined } as never)
     await expect(bare.liveHost(shopsA1)).rejects.toThrow()
+  })
+})
+
+describe('who reads the publishing rows', () => {
+  it('shows a store’s runs and versions to its own merchant only: never another store, a supplier or a partner', async () => {
+    for (const storeId of [t.storeA1, t.storeA2]) {
+      const [run] = await db.sql<{ id: string }[]>`select live_build_id as id from storefront where store_id = ${storeId}`
+      await db.sql`insert into design_version (store_id, number, commit, template, core_version, build_id, published_at, state)
+        values (${storeId}, 1, ${'b'.repeat(40)}, 'linen', '1.0.0', ${run?.id ?? ''}, now(), 'live')`
+    }
+    const person = { kind: 'person' as const, userId: '00000000-0000-4000-8000-0000000000aa', sessionId: 's' }
+    const merchant = (storeId: string): CallerContext => ({ caller: person, partnerId: t.partnerA, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
+    const read = (context: CallerContext) =>
+      withScope(db.sql, context, async (tx) => ({
+        runs: (await tx<{ store_id: string }[]>`select distinct store_id from publish_run`).map((r) => r.store_id),
+        versions: (await tx<{ store_id: string }[]>`select store_id from design_version`).map((r) => r.store_id),
+      }))
+    expect(await read(merchant(t.storeA1))).toEqual({ runs: [t.storeA1], versions: [t.storeA1] })
+    expect(await read(merchant(t.storeA2))).toEqual({ runs: [t.storeA2], versions: [t.storeA2] })
+    await expect(read({ ...merchant(t.storeA1), sellerScope: { kind: 'seller', sellerId: t.sellerA1First } })).rejects.toThrow(/permission denied/i)
+    await expect(read({ caller: { kind: 'partner-user', partnerUserId: '00000000-0000-4000-8000-0000000000bb' }, partnerId: t.partnerA })).rejects.toThrow(/permission denied/i)
+    // The merchant side only reads them: jobs write (DATA-MODEL §7.8).
+    await expect(withScope(db.sql, merchant(t.storeA1), (tx) => tx`update publish_run set error = 'x' where store_id = ${t.storeA1}`)).rejects.toThrow(/permission denied/i)
+    await expect(withScope(db.sql, merchant(t.storeA1), (tx) => tx`delete from design_version where store_id = ${t.storeA1}`)).rejects.toThrow(/permission denied/i)
   })
 })
 
