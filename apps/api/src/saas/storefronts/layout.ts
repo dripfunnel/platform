@@ -17,6 +17,10 @@ export const sourcesPrefix = (storeId: string) => `sources/${storeId}/`
 export const sourceBundle = (storeId: string, buildId: string) => `${sourcesPrefix(storeId)}${buildId}.bundle`
 export const snapshotsPrefix = (storeId: string) => `snapshots/${storeId}/`
 export const snapshotFile = (storeId: string, buildId: string) => `${snapshotsPrefix(storeId)}${buildId}.json`
+/** The upgrade bot's private commits (LIVE-SHOP §8): each as a bundle, with the files it changed for the push once live. */
+export const upgradesPrefix = (storeId: string) => `upgrades/${storeId}/`
+export const upgradeBundle = (storeId: string, commit: string) => `${upgradesPrefix(storeId)}${commit}.bundle`
+export const upgradeFiles = (storeId: string, commit: string) => `${upgradesPrefix(storeId)}${commit}.json`
 
 /** The build's own list of its files and each one's headers, written by the copy of LIVE-SHOP §4 step 9 (#517). */
 export const manifestName = '_manifest.json'

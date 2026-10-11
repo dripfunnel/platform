@@ -8,6 +8,7 @@ import {
   failAttempt,
   failOpenAttempts,
   failRun,
+  finishChecked,
   finishRepaired,
   hasActiveRun,
   insertAttempt,
@@ -87,6 +88,21 @@ export const startPublish = async (tx: ScopedSql, run: Omit<NewRun, 'storeId'> &
   }
   const runId = await insertQueuedRun(tx, run)
   if (!(await hasActiveRun(tx, run.storeId))) await queueRun(tx, run.storeId, storefront.partner_id, { id: runId, kind: run.kind })
+  return { ok: true, runId }
+}
+
+export type UpgradeStart = { ok: true; runId: string } | { ok: false; reason: 'BUSY' | 'NO_STOREFRONT' }
+
+/**
+ * The upgrade bot's publish (LIVE-SHOP §8): it never merges into a waiting run, so it starts only when the store has none
+ * running or waiting; otherwise the bot tries again later.
+ */
+export const startUpgradePublish = async (tx: ScopedSql, run: Omit<NewRun, 'usesAllowance' | 'startedBy'> & { kind: 'upgrade' | 'security' }): Promise<UpgradeStart> => {
+  const storefront = await lockStorefront(tx, run.storeId)
+  if (!storefront) return { ok: false, reason: 'NO_STOREFRONT' }
+  if ((await selectQueuedRun(tx, run.storeId)) || (await hasActiveRun(tx, run.storeId))) return { ok: false, reason: 'BUSY' }
+  const runId = await insertQueuedRun(tx, { ...run, usesAllowance: false, startedBy: { kind: 'system', id: null } })
+  await queueRun(tx, run.storeId, storefront.partner_id, { id: runId, kind: run.kind })
   return { ok: true, runId }
 }
 
@@ -208,6 +224,16 @@ const inheritSteps = async (deps: PublishDeps, p: PublishParams, steps: PublishS
     return 'sealed'
   })
 }
+
+/** A major's upgrade passed its gate and stops there: nothing goes live until the merchant's next publish (ARCHITECTURE §7). */
+const checkedStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
+  withSystemScope(deps.sql, async (tx) => {
+    const run = await selectRun(tx, p.runId)
+    if (!run || run.store_id !== p.storeId || run.state !== 'checked') return 'go'
+    await finishChecked(tx, run, deps.now())
+    await queueNext(tx, run.store_id, run.partner_id)
+    return 'checked'
+  })
 
 /** The report's verdict once it came (LIVE-SHOP §4 step 7). */
 const reportedStep = (deps: PublishDeps, storeId: string, buildId: string): Promise<string> =>
@@ -440,7 +466,7 @@ const bisect = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams):
 }
 
 /** A publish of any kind; a page run completes its folder from the live build's before the switch (LIVE-SHOP §7). */
-export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: PublishSteps): Promise<'live' | 'failed' | 'rolled_back' | 'stopped'> => {
+export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: PublishSteps): Promise<'live' | 'checked' | 'failed' | 'rolled_back' | 'stopped'> => {
   let liveId = p.runId
   try {
     const claimed = await steps.do('claim', () => claimStep(deps, p))
@@ -452,7 +478,7 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
       const repaired = await repairs(deps, steps, p)
       if (!repaired) throw (await bisect(deps, steps, p)) ? new Bisected('publish everything before this change') : new GateFailed('the gate refused the build')
       liveId = repaired
-    }
+    } else if ((await steps.do('checked', () => checkedStep(deps, p))) === 'checked') return 'checked'
     if ((await steps.do('uploaded', () => uploadedStep(deps, p.storeId, liveId))) === 'waiting') {
       const deadline = await steps.do('upload-deadline', () => deadlineOf(deps, p.storeId, liveId))
       await steps.waitFor('upload', 'uploaded', minutesBefore(deps, deadline)).catch(() => {
