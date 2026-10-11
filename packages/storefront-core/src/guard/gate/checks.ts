@@ -53,6 +53,11 @@ export type GateInput = {
   /** Words from the store's own data, which the content scan doesn't hold against the theme. */
   data: readonly string[]
   poweredBy: boolean
+  /**
+   * The routes whose pages core gave a price to show (a product, cart lines), which must place the sealed price
+   * (DESIGN §3). Left out, product, cart and checkout all must.
+   */
+  priced?: ReadonlySet<PageRoute>
   /** A publish that mustn't change the look (a core patch or minor, ARCHITECTURE §7): any page that looks different fails. */
   strictLook: boolean
   /** The theme rendered against the edge-case catalogue (§10), by case. */
@@ -71,13 +76,19 @@ export const pageName = (p: { path: string; route: PageRoute }) => (p.route === 
 const at = (v: PageVisit) => `${pageName(v)} at ${v.width} px`
 const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-const partsFor = (route: PageRoute, poweredBy: boolean) => requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy, legal: false, priced: false })
+const pricedRoutes: ReadonlySet<PageRoute> = new Set<PageRoute>(['product', 'cart', 'checkout'])
+
+type Shape = { poweredBy: boolean; priced: ReadonlySet<PageRoute> }
+const shapeOf = (input: Pick<GateInput, 'poweredBy' | 'priced'>): Shape => ({ poweredBy: input.poweredBy, priced: input.priced ?? pricedRoutes })
+
+const partsFor = (route: PageRoute, shape: Shape) =>
+  requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy: shape.poweredBy, legal: false, priced: shape.priced.has(route) })
 
 export const checkValidator = (problems: readonly Problem[]): GateCheck =>
   gateCheck('validator', problems.map((p) => `${p.file ?? 'The theme'}${p.line ? `:${p.line}` : ''}: ${p.message}`))
 
 /** ARCHITECTURE §3.1–§3.2: every route has its page, each page has its required parts, one h1 and a main, and none crashes. */
-export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visits' | 'poweredBy'>): GateCheck => {
+export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visits' | 'poweredBy' | 'priced'>): GateCheck => {
   const built = new Set(input.pages.map((p) => p.path))
   const problems: string[] = []
   for (const route of coreRoutes) {
@@ -90,13 +101,13 @@ export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visi
     if (!built.has(path)) problems.push(`The build has no ${pageName({ path, route })}.`)
   }
   for (const path of Object.keys(input.routes.custom ?? {})) if (!built.has(`${path}/`)) problems.push(`The build has no page ${path}/.`)
-  for (const page of input.pages) problems.push(...pageShape(page, input.poweredBy))
+  for (const page of input.pages) problems.push(...pageShape(page, shapeOf(input)))
   for (const v of input.visits) if (v.errors.length > 0) problems.push(`The ${at(v)} failed while loading.`)
   return gateCheck('contracts', problems)
 }
 
-const pageShape = (page: PageRead, poweredBy: boolean): string[] => [
-  ...partsFor(page.route, poweredBy)
+const pageShape = (page: PageRead, shape: Shape): string[] => [
+  ...partsFor(page.route, shape)
     .filter((part) => !page.html.includes(`data-df-sealed="${part}"`))
     .map((part) => `The ${pageName(page)} doesn't place the required "${part}" component.`),
   ...(page.h1s.length === 1 ? [] : [`The ${pageName(page)} has ${page.h1s.length} main headings (h1); it needs exactly one.`]),
@@ -196,21 +207,24 @@ export const checkClaims = (pages: readonly PageRead[], data: readonly string[])
   return gateCheck('content', pages.flatMap((p) => claimsIn(strip(p.text)).map((c) => `The ${pageName(p)} reads as ${c.what}. Such facts come only from the store's data through core.`)))
 }
 
+const pagesWord = (n: number) => `${n} ${new Intl.PluralRules('en').select(n) === 'one' ? 'page looks' : 'pages look'}`
+
 export const checkVisualDiff = (visits: readonly PageVisit[], strict: boolean): GateCheck => {
   const compared = visits.filter((v) => v.diff !== null)
   const changed = compared.filter((v) => (v.diff ?? 0) > lookTolerance)
   const words = changed.map((v) => `The ${at(v)} looks different from the live site (${((v.diff ?? 0) * 100).toFixed(1)}% of it changed).`)
-  if (strict) return gateCheck('visual-diff', words)
+  // A publish that must keep the look can't pass on nothing compared, as when the live pages never loaded.
+  if (strict) return gateCheck('visual-diff', compared.length === 0 ? sawNothing('live pages to compare with') : words)
   const pages = new Set(changed.map((v) => v.path)).size
-  return gateCheck('visual-diff', [], compared.length === 0 ? 'There is no live site to compare with.' : pages === 0 ? 'Every page looks as it does on the live site.' : `${pages} pages look different from the live site.`)
+  return gateCheck('visual-diff', [], compared.length === 0 ? 'There is no live site to compare with.' : pages === 0 ? 'Every page looks as it does on the live site.' : `${pagesWord(pages)} different from the live site.`)
 }
 
 /** ARCHITECTURE §10: the theme against the edge-case catalogue renders whole, fits the screen and keeps its required parts. */
-export const checkEdgeCases = (edge: GateInput['edge'], poweredBy: boolean): GateCheck =>
+export const checkEdgeCases = (edge: GateInput['edge'], shape: Pick<GateInput, 'poweredBy' | 'priced'>): GateCheck =>
   gateCheck(
     'edge-cases',
     edge.length === 0 || edge.some((c) => c.pages.length === 0 || c.visits.length === 0) ? sawNothing('edge-case renders') : edge.flatMap(({ name, pages, visits }) => [
-      ...pages.flatMap((p) => [...pageShape(p, poweredBy), ...withoutJs(p)].map((d) => `With ${name}: ${d}`)),
+      ...pages.flatMap((p) => [...pageShape(p, shapeOf(shape)), ...withoutJs(p)].map((d) => `With ${name}: ${d}`)),
       ...visits.flatMap((v) => [
         ...(v.errors.length > 0 ? [`With ${name}: the ${at(v)} failed while loading.`] : []),
         ...v.sealed.map((s) => `With ${name}, at ${v.width} px: ${s}`),
@@ -231,5 +245,5 @@ export const runGate = (input: GateInput): GateReport =>
     checkCrawl(input),
     checkClaims(input.pages, input.data),
     checkVisualDiff(input.visits, input.strictLook),
-    checkEdgeCases(input.edge, input.poweredBy),
+    checkEdgeCases(input.edge, input),
   ])

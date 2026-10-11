@@ -11,7 +11,7 @@ const pathOf = (route: CoreRoute) => {
   return 'page' in a ? a.page : fallbackPath(route)
 }
 const html = (route: CoreRoute | 'custom') =>
-  `<!doctype html><html lang="en"><body><header></header><main><h1>Title</h1>${requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy: true, legal: false, priced: false })
+  `<!doctype html><html lang="en"><body><header></header><main><h1>Title</h1>${requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy: true, legal: false, priced: true })
     .map((p) => `<df-sealed data-df-sealed="${p}"></df-sealed>`)
     .join('')}</main></body></html>`
 const read = (path: string, route: CoreRoute | 'custom'): PageRead => ({ path, route, html: html(route), h1s: ['Title'], mainText: 'Made slowly.', text: 'Title Made slowly.', links: ['/', '/our-story/'] })
@@ -76,6 +76,13 @@ describe('the full gate', () => {
     expect(failing({ ...good, weights: onPage(good.weights, '/', (w) => ({ ...w, lcpMs: [2100, 2200, 100] })) })).toEqual(['budgets'])
   })
 
+  it('requires the sealed price on product, cart and checkout unless the check step says core gave the page no price', () => {
+    const noPrice = onPage(pages, '/cart/', (p) => ({ ...p, html: p.html.replace('data-df-sealed="price"', '') }))
+    expect(detail({ ...good, pages: noPrice }, 'contracts')).toBe('The cart page doesn\'t place the required "price" component.')
+    expect(failing({ ...good, pages: noPrice, priced: new Set(['product', 'checkout']) })).toEqual([])
+    expect(failing({ ...good, pages: noPrice, priced: new Set(['cart']) })).toEqual(['contracts'])
+  })
+
   it('names a page with a missing required part, two h1s or a crash as a contract failure', () => {
     const noConsent = onPage(pages, '/cart/', (p) => ({ ...p, html: p.html.replace('data-df-sealed="consent"', '') }))
     expect(detail({ ...good, pages: noConsent }, 'contracts')).toBe('The cart page doesn\'t place the required "consent" component.')
@@ -87,7 +94,12 @@ describe('the full gate', () => {
 
   it('reports a changed look without failing unless the publish must keep the look', () => {
     const changed = { ...good, visits: onPage(visits, '/', (v) => ({ ...v, diff: 0.2 })) }
-    expect(runGate(changed).checks.find((c) => c.name === 'visual-diff')).toEqual({ name: 'visual-diff', passed: true, detail: '1 pages look different from the live site.' })
+    expect(runGate(changed).checks.find((c) => c.name === 'visual-diff')).toEqual({ name: 'visual-diff', passed: true, detail: '1 page looks different from the live site.' })
+    const two = { ...good, visits: visits.map((v) => (v.path === '/' || v.path === '/cart/' ? { ...v, diff: 0.2 } : v)) }
+    expect(detail(two, 'visual-diff')).toBe('2 pages look different from the live site.')
+    // A publish that must keep the look fails when nothing was compared, and passes when every page matched.
+    expect(detail({ ...good, strictLook: true }, 'visual-diff')).toBe('This check saw no live pages to compare with.')
+    expect(failing({ ...good, strictLook: true, visits: visits.map((v) => ({ ...v, diff: 0 })) })).toEqual([])
     expect(runGate(good).checks.find((c) => c.name === 'visual-diff')?.detail).toBe('There is no live site to compare with.')
   })
 
