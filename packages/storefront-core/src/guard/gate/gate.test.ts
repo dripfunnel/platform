@@ -57,7 +57,7 @@ describe('the full gate', () => {
       ['crawl', { ...good, pages: onPage(pages, '/', (p) => ({ ...p, links: ['/products/', '/gone/'] })) }],
       ['content', { ...good, pages: onPage(pages, '/', (p) => ({ ...p, text: 'Hurry, only 2 left in stock!' })) }],
       ['visual-diff', { ...good, strictLook: true, visits: onPage(visits, '/', (v) => ({ ...v, diff: 0.2 })) }],
-      ['edge-cases', { ...good, edge: [{ name: 'very long names', pages: [], visits: [{ ...visit(pages[0] as PageRead, 390), overflow: true }] }] }],
+      ['edge-cases', { ...good, edge: [{ name: 'very long names', pages: [pages[0] as PageRead], visits: [{ ...visit(pages[0] as PageRead, 390), overflow: true }] }] }],
     ]
     for (const [name, input] of cases) expect([name, failing(input)]).toEqual([name, [name]])
   })
@@ -80,7 +80,9 @@ describe('the full gate', () => {
     const noConsent = onPage(pages, '/cart/', (p) => ({ ...p, html: p.html.replace('data-df-sealed="consent"', '') }))
     expect(detail({ ...good, pages: noConsent }, 'contracts')).toBe('The cart page doesn\'t place the required "consent" component.')
     expect(detail({ ...good, pages: onPage(pages, '/', (p) => ({ ...p, h1s: ['A', 'B'] })) }, 'contracts')).toBe('The home page has 2 main headings (h1); it needs exactly one.')
-    expect(detail({ ...good, visits: onPage(visits, '/search/', (v) => ({ ...v, errors: ['TypeError: x is undefined'] })) }, 'contracts')).toContain('The search page at 390 px failed while loading: TypeError')
+    const thrown = detail({ ...good, visits: onPage(visits, '/search/', (v) => ({ ...v, errors: ['TypeError: x is undefined at https://shop.example.com/assets/entry.js:1'] })) }, 'contracts')
+    expect(thrown).toContain('The search page at 390 px failed while loading.')
+    expect(thrown).not.toMatch(/TypeError|https:/)
   })
 
   it('reports a changed look without failing unless the publish must keep the look', () => {
@@ -97,6 +99,12 @@ describe('the full gate', () => {
     const withCart = { ...good, site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/cart/</loc></url>` } }
     expect(detail(withCart, 'crawl')).toBe(`The sitemap lists ${origin}/cart/, which isn't a page search engines should see.`)
     expect(detail({ ...good, site: { ...good.site, robots: 'User-agent: *\n' } }, 'crawl')).toBe('robots.txt doesn’t name the sitemap.')
+  })
+
+  it('fails a check handed nothing to judge, as when the check step stopped part-way', () => {
+    const empty = runGate({ ...good, visits: [], weights: [], pages: [], edge: [] })
+    for (const name of ['sealed', 'axe', 'budgets', 'no-js', 'edge-cases'] as const) expect(empty.checks.find((c) => c.name === name)).toMatchObject({ passed: false, detail: expect.stringMatching(/^This check saw no /) })
+    expect(runGate({ ...good, edge: [{ name: 'rtl', pages: [], visits: [] }] }).checks.find((c) => c.name === 'edge-cases')?.passed).toBe(false)
   })
 
   it('fails a check that never ran, and keeps each check’s words short', () => {

@@ -212,6 +212,8 @@ describe.skipIf(!chrome)('step check', () => {
     const cart = join(out, 'site/cart/index.html')
     writeFileSync(cart, readFileSync(cart, 'utf8').replace('<div id="root">', '<div id="root"><img alt="" src="https://tracker.example/pixel.gif">'))
     const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser })
-    expect(report.checks.find((c) => c.name === 'contracts')?.detail).toContain('The cart page at 390 px failed while loading: It tried to reach https://tracker.example, which its content security policy refused.')
+    const contracts = report.checks.find((c) => c.name === 'contracts')?.detail ?? ''
+    expect(contracts).toContain('The cart page at 390 px failed while loading.')
+    expect(contracts).not.toContain('tracker.example')
   })
 })

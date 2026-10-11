@@ -26,7 +26,7 @@ export type PageVisit = {
   path: string
   route: PageRoute
   width: number
-  /** Uncaught errors while it loaded and settled. */
+  /** What went wrong while it loaded and settled; only counted here, never copied into the report's words. */
   errors: string[]
   /** What core's `visibilityProblems` found (./testing). */
   sealed: string[]
@@ -40,8 +40,7 @@ export type PageVisit = {
   diff: number | null
 }
 
-/** A page's first-load weight and its timings at phone width, three times each. */
-/** `jsGzip` is the theme's own JavaScript; `runtimeJsGzip` core's runtime, reported beside it (ARCHITECTURE §9). */
+/** A page's first-load weight and timings at phone width, three times each: `jsGzip` the theme's own, `runtimeJsGzip` core's (ARCHITECTURE §9). */
 export type PageWeight = { path: string; route: PageRoute; jsGzip: number; runtimeJsGzip: number; cssGzip: number; bytes: number; lcpMs: number[]; cls: number[]; tbtMs: number[] }
 
 export type GateInput = {
@@ -92,7 +91,7 @@ export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visi
   }
   for (const path of Object.keys(input.routes.custom ?? {})) if (!built.has(`${path}/`)) problems.push(`The build has no page ${path}/.`)
   for (const page of input.pages) problems.push(...pageShape(page, input.poweredBy))
-  for (const v of input.visits) if (v.errors.length > 0) problems.push(`The ${at(v)} failed while loading: ${v.errors[0] ?? ''}`)
+  for (const v of input.visits) if (v.errors.length > 0) problems.push(`The ${at(v)} failed while loading.`)
   return gateCheck('contracts', problems)
 }
 
@@ -105,7 +104,11 @@ const pageShape = (page: PageRead, poweredBy: boolean): string[] => [
   ...(/<html[^>]*\slang="[^"]+"/.test(page.html) ? [] : [`The ${pageName(page)} doesn't name its language.`]),
 ]
 
-export const checkSealed = (visits: readonly PageVisit[]): GateCheck => gateCheck('sealed', visits.flatMap((v) => v.sealed.map((p) => `At ${v.width} px: ${p}`)))
+/** A check with nothing to judge fails: a check step that stopped part-way never reads as a pass. */
+const sawNothing = (what: string) => [`This check saw no ${what}.`]
+
+export const checkSealed = (visits: readonly PageVisit[]): GateCheck =>
+  gateCheck('sealed', visits.length === 0 ? sawNothing('pages') : visits.flatMap((v) => v.sealed.map((p) => `At ${v.width} px: ${p}`)))
 
 /** The checkout smoke test against the offline Shop API fixture: the cart and checkout open, are seen and work at every width. */
 export const checkCheckout = (visits: readonly PageVisit[]): GateCheck => {
@@ -114,7 +117,7 @@ export const checkCheckout = (visits: readonly PageVisit[]): GateCheck => {
     for (const width of gateWidths) {
       const v = visits.find((x) => x.route === route && x.width === width)
       if (!v) problems.push(`The ${route} page wasn't opened at ${width} px.`)
-      else if (v.errors.length > 0) problems.push(`The ${at(v)} stopped with an error: ${v.errors[0] ?? ''}`)
+      else if (v.errors.length > 0) problems.push(`The ${at(v)} stopped with an error.`)
       else if (!v.mainSeen) problems.push(`The ${at(v)} can't be used: its main content is hidden, off screen or covered.`)
       else if (v.sealed.length > 0) problems.push(`The ${at(v)} hides a required part: ${v.sealed[0] ?? ''}`)
     }
@@ -123,7 +126,7 @@ export const checkCheckout = (visits: readonly PageVisit[]): GateCheck => {
 }
 
 export const checkAxe = (visits: readonly PageVisit[]): GateCheck =>
-  gateCheck('axe', visits.filter((v) => v.axe.length > 0).map((v) => `The ${at(v)} breaks accessibility rules: ${[...new Set(v.axe)].join(', ')}.`))
+  gateCheck('axe', visits.length === 0 ? sawNothing('pages') : visits.filter((v) => v.axe.length > 0).map((v) => `The ${at(v)} breaks accessibility rules: ${[...new Set(v.axe)].join(', ')}.`))
 
 const median = (values: readonly number[]) => {
   const sorted = [...values].sort((a, b) => a - b)
@@ -133,7 +136,7 @@ const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`
 
 export const checkBudgets = (weights: readonly PageWeight[]): GateCheck => {
   const b = pageBudgets
-  const problems = weights.flatMap((w) => {
+  const problems = weights.length === 0 ? sawNothing('pages weighed') : weights.flatMap((w) => {
     const name = upper(pageName(w))
     const found: string[] = []
     if (w.route !== 'checkout' && w.jsGzip > b.jsGzip) found.push(`${name} loads ${kb(w.jsGzip)} of JavaScript gzipped, over the ${kb(b.jsGzip)} budget.`)
@@ -154,7 +157,7 @@ const withoutJs = (p: PageRead): string[] => [
   ...(p.mainText.trim() === '' ? [`The ${pageName(p)} shows no main text without JavaScript.`] : []),
 ]
 
-export const checkNoJs = (pages: readonly PageRead[]): GateCheck => gateCheck('no-js', pages.flatMap(withoutJs))
+export const checkNoJs = (pages: readonly PageRead[]): GateCheck => gateCheck('no-js', pages.length === 0 ? sawNothing('pages') : pages.flatMap(withoutJs))
 
 const internal = (href: string) => href.startsWith('/') && !href.startsWith('//')
 
@@ -206,10 +209,10 @@ export const checkVisualDiff = (visits: readonly PageVisit[], strict: boolean): 
 export const checkEdgeCases = (edge: GateInput['edge'], poweredBy: boolean): GateCheck =>
   gateCheck(
     'edge-cases',
-    edge.flatMap(({ name, pages, visits }) => [
+    edge.length === 0 || edge.some((c) => c.pages.length === 0 || c.visits.length === 0) ? sawNothing('edge-case renders') : edge.flatMap(({ name, pages, visits }) => [
       ...pages.flatMap((p) => [...pageShape(p, poweredBy), ...withoutJs(p)].map((d) => `With ${name}: ${d}`)),
       ...visits.flatMap((v) => [
-        ...v.errors.slice(0, 1).map((e) => `With ${name}: the ${at(v)} failed while loading: ${e}`),
+        ...(v.errors.length > 0 ? [`With ${name}: the ${at(v)} failed while loading.`] : []),
         ...v.sealed.map((s) => `With ${name}, at ${v.width} px: ${s}`),
         ...(v.overflow ? [`With ${name}: the ${at(v)} is wider than the screen.`] : []),
       ]),
