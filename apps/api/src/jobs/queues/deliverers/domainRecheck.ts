@@ -56,7 +56,7 @@ export const domainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLookup, now
           storeId: null,
         })
         // Each store's shops host is its own custom hostname under this wildcard (SAAS §5 step 3).
-        if (domain.kind === 'shops') await queueStoreHostsRegistration(tx, { partnerId: domain.partner_id, domainId: domain.id })
+        if (domain.kind === 'shops') await queueStoreHostsRegistration(tx, { partnerId: domain.partner_id, domainId: domain.id, round: at.toISOString() })
       }
       if (status !== current.status) {
         await activityLog.record(tx, {

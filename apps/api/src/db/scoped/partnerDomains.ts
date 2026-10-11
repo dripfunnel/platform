@@ -130,17 +130,23 @@ export const deletePartnerAddress = async (tx: ScopedSql, domainId: string): Pro
 }
 
 /** Whether any partner or store holds the host now, so a removal never takes a host somebody else has claimed. */
-export const hostHeld = async (tx: ScopedSql, host: string): Promise<boolean> =>
-  (
+export const hostHeld = async (tx: ScopedSql, host: string): Promise<boolean> => {
+  const lower = host.toLowerCase()
+  // An open store's shops host is its code under its partner's `*.` address: found by partner_domain_host_idx, then store_code_key.
+  const dot = lower.indexOf('.')
+  const code = lower.slice(0, dot)
+  const address = `*${lower.slice(dot)}`
+  return (
     await tx`
-      select 1 from partner_domain where lower(host) = ${host.toLowerCase()}
-      union all select 1 from custom_domain where lower(host) = ${host.toLowerCase()}
+      select 1 from partner_domain where lower(host) = ${lower}
+      union all select 1 from custom_domain where lower(host) = ${lower}
       union all
-      select 1 from store s join partner_domain d on d.partner_id = s.partner_id and d.kind = 'shops'
-      where s.status <> 'closed' and lower(s.code || substr(d.host, 2)) = ${host.toLowerCase()}
+      select 1 from partner_domain d join store s on s.partner_id = d.partner_id and s.code = ${code}
+      where ${dot > 0} and lower(d.host) = ${address} and d.kind = 'shops' and s.status <> 'closed'
       limit 1
     `
   ).length > 0
+}
 
 export interface StoreShopsRow {
   partner_id: string

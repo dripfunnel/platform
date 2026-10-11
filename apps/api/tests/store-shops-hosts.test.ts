@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import { withSystemScope } from '#db/scoped/index'
+import { hostHeld } from '#db/scoped/partnerDomains'
 import { selectStoreForUpdate } from '#db/scoped/stores'
 import { CloudflareRefused, CloudflareUnavailable, type CloudflareApi } from '#integrations/cloudflare/api'
 import type { DnsLookup } from '#integrations/dns/doh'
@@ -9,7 +10,7 @@ import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
 import { storeHostRefusedAction, storeHostSyncDeliverer, storeHostsRegisterDeliverer, storeHostsRemoveDeliverer } from '#jobs/queues/deliverers/storeHost'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
-import { queueStoreHostsRegistration, storeHostPageSize, storeHostSyncKind } from '#saas/domains/index'
+import { queueStoreHostSync, queueStoreHostsRegistration, storeHostPageSize, storeHostSyncKind } from '#saas/domains/index'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { provisionStore } from '#saas/provisioning/index'
@@ -79,8 +80,8 @@ const dnsPasses: DnsLookup = {
   resolve: async (name, type) => (await db.sql<{ expected: string }[]>`select expected from partner_domain_record where lower(name) = lower(${name}) and record_type = ${type}`).map((r) => r.expected),
 }
 
-const goLive = (domainId: string, partnerId: string) =>
-  domainRecheckDeliverer(db.sql, dnsPasses, () => now, null).deliver({ payload: { partnerId, domainId } } as never, new AbortController().signal)
+const goLive = (domainId: string, partnerId: string, at = now) =>
+  domainRecheckDeliverer(db.sql, dnsPasses, () => at, null).deliver({ payload: { partnerId, domainId } } as never, new AbortController().signal)
 
 const openCodes = async (partnerId: string) => (await db.sql<{ code: string }[]>`select code from store where partner_id = ${partnerId} and status <> 'closed' order by code`).map((r) => r.code)
 const hostsOf = (codes: readonly string[], base: string) => codes.map((c) => `${c}.${base}`).sort()
@@ -157,26 +158,35 @@ describe('registering each store’s shops host', () => {
     const bzStore = (await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.bz} limit 1`)[0]?.id ?? ''
     await withSystemScope(db.sql, async (tx) => {
       await tx`insert into outbox (kind, idempotency_key, payload, partner_id, store_id) values (${storeHostSyncKind}, 'cross', ${JSON.stringify({ partnerId: ids.ns, storeId: bzStore })}::text::jsonb, ${ids.ns}, ${bzStore})`
-      await queueStoreHostsRegistration(tx, { partnerId: ids.bz, domainId: ids.nsShops })
+      await queueStoreHostsRegistration(tx, { partnerId: ids.bz, domainId: ids.nsShops, round: 'cross' })
     })
     await drain(cloudflare)
     expect(cloudflare.created).toEqual([`birch-519.${shopsBase.ns}`])
     expect(cloudflare.ensured.every((h) => h.endsWith(`.${shopsBase.ns}`))).toBe(true)
   })
 
-  it('pages through every store once, even when the address goes live again and a page is delivered twice', async () => {
+  it('pages through every store once, even when a page is delivered twice, and reaches a store made while the address was broken', async () => {
     const cloudflare = fakeCloudflare()
     await goLive(ids.bfShops, ids.bf)
-    const page = { payload: { partnerId: ids.bf, domainId: ids.bfShops, after: null } } as never
+    const page = { payload: { partnerId: ids.bf, domainId: ids.bfShops, round: now.toISOString(), after: null } } as never
     await storeHostsRegisterDeliverer(db.sql).deliver(page, new AbortController().signal)
     await storeHostsRegisterDeliverer(db.sql).deliver(page, new AbortController().signal)
+    await drain(cloudflare)
+    expect(cloudflare.ensured).toHaveLength((await openCodes(ids.bf)).length)
+
     await db.sql`update partner_domain set status = 'broken' where id = ${ids.bfShops}`
-    await goLive(ids.bfShops, ids.bf)
+    const [late] = await db.sql<{ id: string }[]>`
+      insert into store (partner_id, name, code, country, pricing_currency, status, storefront_kind, created_at)
+      values (${ids.bf}, 'Fern late', 'fern-late', 'US', 'USD', 'active', 'ai', ${now}) returning id`
+    await withSystemScope(db.sql, (tx) => queueStoreHostSync(tx, { partnerId: ids.bf, storeId: late?.id ?? '' }, 'provisioned'))
+    await drain(cloudflare)
+    expect(cloudflare.ensured).not.toContain(`fern-late.${shopsBase.bf}`)
+    await goLive(ids.bfShops, ids.bf, new Date(now.getTime() + 60_000))
     await drain(cloudflare)
     const codes = await openCodes(ids.bf)
     expect(codes.length).toBeGreaterThan(storeHostPageSize)
     expect([...cloudflare.ensured].sort()).toEqual(hostsOf(codes, shopsBase.bf))
-    expect(await db.sql`select 1 from outbox where kind = 'store_hosts.register' and partner_id = ${ids.bf}`).toHaveLength(2)
+    expect(await db.sql`select 1 from outbox where kind = 'store_hosts.register' and partner_id = ${ids.bf}`).toHaveLength(4)
   })
 
   it('retries while Cloudflare is down, and records a refusal in the activity log and the technical logs', async () => {
@@ -240,6 +250,10 @@ describe('taking store hosts out of Cloudflare', () => {
     await drain(cloudflare)
     expect([...cloudflare.hosts].sort()).toEqual(nsHosts)
     expect(cloudflare.removed.filter((h) => h.endsWith(`.${shopsBase.bf}`))).toHaveLength((await openCodes(ids.bf)).length)
+    const held = (host: string) => withSystemScope(db.sql, (tx) => hostHeld(tx, host))
+    expect(await held(nsHosts[0] ?? '')).toBe(true)
+    expect(await held(`maple-519.${shopsBase.ns}`)).toBe(false)
+    expect(await held(`fern-001.${shopsBase.bf}`)).toBe(false)
   })
 })
 
@@ -255,7 +269,7 @@ describe('the backfill (migration 0220)', () => {
 
     const queued = await db.sql`select 1 from outbox where kind = ${storeHostSyncKind}`
     await db.sql.unsafe(backfill)
-    await withSystemScope(db.sql, (tx) => queueStoreHostsRegistration(tx, { partnerId: ids.ns, domainId: ids.nsShops }))
+    await withSystemScope(db.sql, (tx) => queueStoreHostsRegistration(tx, { partnerId: ids.ns, domainId: ids.nsShops, round: 'after-backfill' }))
     await drain(cloudflare)
     expect(await db.sql`select 1 from outbox where kind = ${storeHostSyncKind}`).toHaveLength(queued.length)
     expect(cloudflare.ensured).toHaveLength(queued.length)

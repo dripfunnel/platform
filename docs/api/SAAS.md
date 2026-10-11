@@ -577,8 +577,9 @@ failed; a live hostname can become expiring or broken if its records change.
    is live, and does nothing otherwise; once the store is closed (`transitionStore`) the same job
    takes the host out. When the shops address goes live, `domain.recheck` queues
    `store_hosts.register`, which pages through the partner's open stores 100 at a time by code
-   and queues a sync for each, keyed by the address, so a retried page or the address going live
-   again queues none twice. Removing the shops address queues `store_hosts.remove`, which pages
+   and queues a sync for each, keyed by the address, so a retried page queues none twice. Each
+   time the address goes live starts its own pages, so a store made while it was broken is
+   reached too, and every store already queued is skipped. Removing the shops address queues `store_hosts.remove`, which pages
    through all the partner's stores, closed ones included, and queues `domain.remove` for each
    host; `domain.remove` leaves a host an open store holds again because the address was added back.
    Cloudflare being down rethrows, so the outbox retries; a refusal is recorded as

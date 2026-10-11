@@ -31,13 +31,24 @@ export interface ShopsAddress {
   domainId: string
 }
 
+/** One going-live of the address: each starts a fan-out of its own, so a store made while it was broken is reached too. */
+export interface ShopsAddressRound extends ShopsAddress {
+  round: string
+}
+
 export interface RemovedShopsAddress extends ShopsAddress {
   host: string
 }
 
 /** A page of the fan-out after the shops address went live, from `after` (a store code); each page queues the next. */
-export const queueStoreHostsRegistration = (tx: ScopedSql, address: ShopsAddress, after: string | null = null): Promise<string | null> =>
-  queueSideEffect(tx, { kind: storeHostsRegisterKind, idempotencyKey: `${address.domainId}:${after ?? ''}`, payload: { partnerId: address.partnerId, domainId: address.domainId, after }, partnerId: address.partnerId, storeId: null })
+export const queueStoreHostsRegistration = (tx: ScopedSql, address: ShopsAddressRound, after: string | null = null): Promise<string | null> =>
+  queueSideEffect(tx, {
+    kind: storeHostsRegisterKind,
+    idempotencyKey: `${address.domainId}:${address.round}:${after ?? ''}`,
+    payload: { partnerId: address.partnerId, domainId: address.domainId, round: address.round, after },
+    partnerId: address.partnerId,
+    storeId: null,
+  })
 
 /** A page of the fan-out after the shops address was removed; the address's row is gone, so its host travels along. */
 export const queueStoreHostsRemoval = (tx: ScopedSql, address: RemovedShopsAddress, after: string | null = null): Promise<string | null> =>
@@ -51,8 +62,8 @@ export const queueStoreHostsRemoval = (tx: ScopedSql, address: RemovedShopsAddre
 
 const nextPage = (page: readonly { code: string }[]): string | null => (page.length === storeHostPageSize ? (page.at(-1)?.code ?? null) : null)
 
-/** One page of open stores, a sync each, keyed by the address so a retried page or migration 0220's backfill queues none twice. */
-export const registerStoreHostsPage = async (tx: ScopedSql, address: ShopsAddress, after: string | null): Promise<void> => {
+/** One page of open stores, a sync each, keyed by the address so a store already queued, by another round or migration 0220's backfill, is not queued twice. */
+export const registerStoreHostsPage = async (tx: ScopedSql, address: ShopsAddressRound, after: string | null): Promise<void> => {
   const page = await selectPartnerStoreCodes(tx, address.partnerId, after, storeHostPageSize, false)
   await insertOutboxMany(
     tx,

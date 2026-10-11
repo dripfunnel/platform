@@ -11,6 +11,7 @@ import type { Deliverer } from '../outbox-relay'
 
 const syncPayload = z.object({ partnerId: z.guid(), storeId: z.guid() }).strict()
 const pagePayload = z.object({ partnerId: z.guid(), domainId: z.guid(), after: z.string().min(1).nullable() }).strict()
+const registerPayload = pagePayload.extend({ round: z.string().min(1) }).strict()
 const removalPayload = pagePayload.extend({ host: z.string().startsWith('*.') }).strict()
 
 export const storeHostRefusedAction = 'store.shops_host_refused'
@@ -67,13 +68,13 @@ export const storeHostSyncDeliverer = (sql: postgres.Sql, cloudflare: Cloudflare
 /** `store_hosts.register`: a page of the partner's stores once its shops address is live (SAAS §8). */
 export const storeHostsRegisterDeliverer = (sql: postgres.Sql): Deliverer => ({
   deliver: async (effect) => {
-    const parsed = pagePayload.safeParse(effect.payload)
+    const parsed = registerPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('store_hosts.register: bad payload')
-    const { partnerId, domainId, after } = parsed.data
+    const { partnerId, domainId, round, after } = parsed.data
     await withSystemScope(sql, async (tx) => {
       const address = await selectPartnerDomainById(tx, domainId)
       if (!address || address.partner_id !== partnerId || address.kind !== 'shops' || address.status !== 'live') return
-      await registerStoreHostsPage(tx, { partnerId, domainId }, after)
+      await registerStoreHostsPage(tx, { partnerId, domainId, round }, after)
     })
   },
 })

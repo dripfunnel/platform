@@ -14,5 +14,6 @@ export {
   storeHostsRemoveKind,
   type RemovedShopsAddress,
   type ShopsAddress,
+  type ShopsAddressRound,
   type StoreRef,
 } from './storeHosts'
