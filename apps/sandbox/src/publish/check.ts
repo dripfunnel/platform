@@ -170,9 +170,12 @@ const firstVisit = async (c: Contexts, served: Served, s: CatalogueSnapshot, ass
   }
 }
 
+/** ARCHITECTURE §9 budgets these page types. */
+const weighed: ReadonlySet<PlannedPage['route']> = new Set(['home', 'collection', 'product', 'custom', 'cart'])
+
 /** ARCHITECTURE §9 on a mid-range phone: the first load's bytes, and its timings three times. */
 const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage): Promise<PageWeight> => {
-  const w: PageWeight = { path: p.path, route: p.route, jsGzip: 0, cssGzip: 0, bytes: 0, lcpMs: [], cls: [], tbtMs: [] }
+  const w: PageWeight = { path: p.path, route: p.route, jsGzip: 0, runtimeJsGzip: 0, cssGzip: 0, bytes: 0, lcpMs: [], cls: [], tbtMs: [] }
   for (let run = 0; run < 3; run += 1) {
     const context = await browser.newContext({ viewport: { width: gateWidths[0], height }, isMobile: true, hasTouch: true })
     await context.addInitScript(() => {
@@ -195,8 +198,10 @@ const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, ass
       w.cls.push(m.cls)
       w.tbtMs.push(m.tbt)
       if (run === 0) {
-        // The theme's own chunks; core's runtime under assets/core/ is reported, not yet counted (ARCHITECTURE §9).
-        w.jsGzip = net.js.filter((j) => !new URL(j.url).pathname.includes(`/${runtimeFolder}`)).reduce((n, j) => n + j.gzip, 0)
+        // The theme's own chunks; core's runtime under assets/core/ is reported beside them (ARCHITECTURE §9).
+        const runtime = (j: { url: string }) => new URL(j.url).pathname.includes(`/${runtimeFolder}`)
+        w.jsGzip = net.js.filter((j) => !runtime(j)).reduce((n, j) => n + j.gzip, 0)
+        w.runtimeJsGzip = net.js.filter(runtime).reduce((n, j) => n + j.gzip, 0)
         w.cssGzip = net.css
         w.bytes = net.bytes
       }
@@ -313,7 +318,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
         await c.first.close()
       }
     }
-    const weights = await pool(main.filter((p) => fileOf(p.path) in headers), (p) => weigh(browser, served, s, site, p))
+    const weights = await pool(main.filter((p) => weighed.has(p.route) && fileOf(p.path) in headers), (p) => weigh(browser, served, s, site, p))
     const edge = await Promise.all(
       cases.map(async (edgeCase, n) => {
         const servedEdge = edgeServed[n]

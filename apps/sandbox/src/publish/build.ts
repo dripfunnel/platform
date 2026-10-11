@@ -41,8 +41,9 @@ export const buildSite = async (input: { repo: string; theme: readonly ThemeFile
   if (types.length > 0) return failed(types.map((p) => `${p.file ?? 'The theme'}${p.line ? `:${p.line}` : ''}: ${p.message}`))
   const routes = themeRoutesSchema.parse(JSON.parse(input.theme.find((f) => f.path === 'routes.json')?.content ?? '{}'))
 
-  await rm(out, { recursive: true, force: true })
   const site = join(out, 'site')
+  await rm(site, { recursive: true, force: true })
+  await rm(join(out, 'edge'), { recursive: true, force: true })
   const client = await bundle(input.repo, site)
   if (!client.ok) return failed(client.problems.map((p) => `${p.file ?? 'The theme'}: ${p.message}`))
   // The fast gate's page is the studio's; the live site's pages are written below.

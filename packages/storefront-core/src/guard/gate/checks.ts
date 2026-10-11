@@ -41,7 +41,8 @@ export type PageVisit = {
 }
 
 /** A page's first-load weight and its timings at phone width, three times each. */
-export type PageWeight = { path: string; route: PageRoute; jsGzip: number; cssGzip: number; bytes: number; lcpMs: number[]; cls: number[]; tbtMs: number[] }
+/** `jsGzip` is the theme's own JavaScript; `runtimeJsGzip` core's runtime, reported beside it (ARCHITECTURE §9). */
+export type PageWeight = { path: string; route: PageRoute; jsGzip: number; runtimeJsGzip: number; cssGzip: number; bytes: number; lcpMs: number[]; cls: number[]; tbtMs: number[] }
 
 export type GateInput = {
   validator: readonly Problem[]
@@ -143,7 +144,8 @@ export const checkBudgets = (weights: readonly PageWeight[]): GateCheck => {
     if (median(w.tbtMs) > b.tbtMs) found.push(`${name} blocks for ${Math.round(median(w.tbtMs))} ms while loading, over ${b.tbtMs} ms.`)
     return found
   })
-  return gateCheck('budgets', problems)
+  const runtime = Math.max(0, ...weights.map((w) => w.runtimeJsGzip))
+  return gateCheck('budgets', problems, runtime > 0 ? `Core's runtime adds ${kb(runtime)} of JavaScript gzipped to a page, outside the theme's budget.` : undefined)
 }
 
 /** ARCHITECTURE §8: without JavaScript every page still shows its heading and its main words. */
