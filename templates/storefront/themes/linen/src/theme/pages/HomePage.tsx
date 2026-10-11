@@ -16,11 +16,11 @@ export const HomePage = () => {
         </div>
         <div className={styles.picture} />
       </section>
-      <section className={styles.story}>
+      <section className={styles.section}>
         <h2 className={styles.heading}>{t('home.story.title')}</h2>
         <p className={styles.body}>{t('home.story.body')}</p>
       </section>
-      <section className={styles.join}>
+      <section className={styles.section}>
         <h2 className={styles.heading}>{t('home.join.title')}</h2>
         <p className={styles.body}>{t('home.join.body')}</p>
         <Link href="/register/" className={styles.button}>
