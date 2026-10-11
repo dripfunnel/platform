@@ -222,7 +222,7 @@ export const runStoreUpgrade = async (deps: UpgradeDeps, p: UpgradeParams, steps
     const baseline = await prepareCommit(deps, steps, p, c, true, 'baseline')
     if (baseline) {
       const served = await buildCommit(deps, steps, p, c, baseline.commit, { baseline: true }, 'baseline-build')
-      await steps.do('forget-baseline', () => forget(deps, p.storeId, baseline.commit).then(() => 'forgotten'))
+      if (served.state !== 'deploying') await steps.do('forget-baseline', () => forget(deps, p.storeId, baseline.commit).then(() => 'forgotten'))
       if (served.state === 'live') return steps.do('baseline', () => servedBaseline(deps, p, c, reason))
     }
   }
