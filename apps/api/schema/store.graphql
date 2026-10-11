@@ -648,6 +648,34 @@ type CustomerSummary {
   tags: [String!]
 }
 
+type DesignAnswer {
+  message: DesignMessage
+  outcome: String
+}
+
+type DesignChat {
+  messages: [DesignMessage!]
+  next: String
+}
+
+type DesignMessage {
+  canUndo: Boolean
+  changed: [String!]
+  createdAt: String
+  id: ID
+  imageAssetId: ID
+  page: String
+  role: String
+  sampleUrl: String
+  text: String
+  undone: Boolean
+}
+
+type DesignText {
+  key: String
+  text: String
+}
+
 type DownloadDetails {
   days: Int
   file: DownloadFile
@@ -959,6 +987,7 @@ type Mutation {
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
+  askDesign(device: String!, imageAssetId: ID, page: String!, sampleUrl: String, text: String!): DesignAnswer
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
@@ -994,6 +1023,7 @@ type Mutation {
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
   denySupportWrite(sessionId: ID!): Boolean
+  discardDraft: Boolean
   disconnectCourier(provider: String!): String
   disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
@@ -1032,6 +1062,7 @@ type Mutation {
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
   removeWebhook(id: ID!): Boolean
+  renewStudioSession(session: String!): String
   replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
   replayDelivery(id: ID!): ID
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
@@ -1058,6 +1089,7 @@ type Mutation {
   saveCourierOptions(input: CourierOptionsInput!, provider: String!): Boolean
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveCustomerAccounts(mode: String!): CustomerAccounts
+  saveDesignText(key: String!, locale: String!, text: String!): Boolean
   saveFacet(input: FacetInput!): ID
   saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
   saveLanguages(languages: [String!]!, main: String!): Boolean
@@ -1110,6 +1142,7 @@ type Mutation {
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
   turnOnWebhook(id: ID!): Int
+  undoDesignChange(messageId: ID!): DesignMessage
   uninstallApp(id: ID!): Boolean
   updateCustomer(address: CustomerAddressInput, id: ID!, name: String, phone: String): Boolean
   updateGroup(description: String, id: ID!, name: String!): Boolean
@@ -2021,6 +2054,8 @@ type Query {
   customerExports: [CustomerExport!]
   customerGroups: [CustomerGroup!]
   customers(after: String, before: String, first: Int, groupId: ID, search: String): CustomerPage
+  designChat(after: String): DesignChat
+  designText(locale: String!, page: String!): [DesignText!]
   downloadInvoice(id: ID!): String
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
@@ -2088,6 +2123,7 @@ type Query {
   storefrontTemplates: [StorefrontTemplate!]
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  studioSession(session: String): StudioSession
   subscription: BillingSubscription
   supplier(id: ID!): Supplier
   supplierApprovalRequired: Boolean
@@ -2996,6 +3032,15 @@ type StoryVideo {
 input StoryVideoInput {
   assetId: ID
   url: String
+}
+
+type StudioSession {
+  access: String
+  expiresAt: String
+  frameUrl: String
+  place: Int
+  session: String
+  state: String
 }
 
 type Supplier {

@@ -165,7 +165,8 @@ They are literals, never interpolated, so an entry cannot carry a subject or an 
 - **Built on #15, decided on #33.** A mutation's declaration carries `audit: '<action>'` and
   the schema refuses to build without it, or `unlogged: '<rule>'` naming one of the writes §3 leaves out (`cart`: a shopper's cart, built on #308;
   `payment_return`: a shopper back from paying, whose read-back writes only the settlement, which the provider's
-  `order.paid` records, #309); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
+  `order.paid` records, #309; `studio_renewal`: a studio session's renewal every two minutes, which only re-checks the seat
+  and moves the session's expiry, #318); the rule is a closed list in `apis/graphql/scope.ts`, so a new one is a change
   to this section. The entry is written **by the service, inside the
   transaction that makes the change**, because only the service holds that transaction; the
   declaration names the action the mutation records when it does what it is named for, and a

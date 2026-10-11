@@ -215,6 +215,8 @@ job. Only the last call is local (`apps/api/src/integrations/local/`):
 to `https://hooks.localhost/couriers/shiprocket/<partner id>` with `x-api-key: local-courier-hook` and a body such as
 `{"awb": "LOCAL…", "current_status": "DELIVERED", "current_timestamp": "2026-10-12 11:00:00"}`; EasyPost's events sign
 with the same secret.
+- **The designer's model** (`AI_LOCAL`): every studio request answers "nothing changed" without calling a provider
+  (#318), so the studio's chat, metering and gate run end to end; set `AI_PROVIDER_KEY` instead to use a real model.
 - **GitHub** (`GITHUB_LOCAL`): store repos are made in an in-memory GitHub that the App's real client talks to (#316), so
   a store's first template choice runs the whole `create-storefront` Workflow without the App. The repos last until
   `pnpm dev` restarts. The templates come from the local `storefront-sites-local` bucket (bound with `storefront-assets-local` and

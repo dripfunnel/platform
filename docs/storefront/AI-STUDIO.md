@@ -78,6 +78,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
      row exists);
    - otherwise from the **live build's source bundle** (LIVE-SHOP §4 step 3), the published code.
 
+   **Built on #318:** the draft bundle is read only while the `design_draft` row exists, and the live build's source
+   bundle is checked out at the live build's own commit (the sandbox's `PUT draft?at=`), since a design publish's
+   source may hold later changes.
    *Why the Durable Object and not the container:* the container has no network. *Why never
    GitHub:* it doesn't have the unpublished changes, its `main` can lag behind a publish whose push
    is still retrying, and reading R2 doesn't use GitHub's API limits.
@@ -138,6 +141,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **Discard** resets the draft to the live version's commit (the live build's source bundle,
   never GitHub's `main`), deletes the
   draft bundle and the `design_draft` row, and points the preview at the live code.
+  **Built on #318:** Discard runs in the store's Durable Object's turn, so no change lands between: the row goes, then
+  the bundle, then the sandbox unloads and the next open loads the live code. Undo answers `NOT_LATEST` for any change
+  but the latest still in place.
 - **Go back to version N** first makes that version's build live again by moving the pointer
   ([LIVE-SHOP.md](LIVE-SHOP.md) §4 step 10), then resets the draft to that version's commit
   (ARCHITECTURE §6.2, including its security-release exception).
