@@ -15,11 +15,11 @@ export const HomePage = () => {
           </Link>
         </div>
       </section>
-      <section className={styles.story}>
+      <section className={styles.section}>
         <h2 className={styles.heading}>{t('home.story.title')}</h2>
         <p className={styles.body}>{t('home.story.body')}</p>
       </section>
-      <section className={styles.join}>
+      <section className={styles.section}>
         <h2 className={styles.heading}>{t('home.contact.title')}</h2>
         <p className={styles.body}>{t('home.contact.body')}</p>
         <Link href="/contact/" className={styles.button}>

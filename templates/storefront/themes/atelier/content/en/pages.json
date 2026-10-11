@@ -13,12 +13,12 @@
   },
   "cart": {
     "title": "Your cart",
-    "lead": "Your cart is empty.",
+    "lead": "Check what you picked before you check out.",
     "action": "Keep shopping"
   },
   "checkout": {
     "title": "Checkout",
-    "lead": "Add something to your cart before you check out.",
+    "lead": "A few details and your order is on its way.",
     "action": "Back to your cart"
   },
   "confirmation": {

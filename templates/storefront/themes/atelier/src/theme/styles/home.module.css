@@ -21,6 +21,15 @@
   color: #fff;
 }
 
+.copy .button:focus-visible {
+  outline-color: #fff;
+}
+
+.copy .button {
+  background: var(--bg);
+  color: var(--ink);
+}
+
 .title {
   max-width: 14ch;
   margin: 0;
@@ -82,19 +91,7 @@
   font-size: 16px;
 }
 
-.story {
-  display: flex;
-  box-sizing: border-box;
-  width: min(100%, 1240px);
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  margin-inline: auto;
-  padding: 44px 16px;
-  text-align: center;
-}
-
-.join {
+.section {
   display: flex;
   box-sizing: border-box;
   width: min(100%, 1240px);
@@ -120,11 +117,7 @@
     font-size: 34px;
   }
 
-  .story {
-    padding: 80px 56px;
-  }
-
-  .join {
+  .section {
     padding: 80px 56px;
   }
 }
