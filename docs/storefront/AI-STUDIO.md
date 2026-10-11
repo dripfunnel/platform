@@ -303,7 +303,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   - only opening, changing and undoing keep a studio from its idle stop; the alarm stops a container whose object
     was evicted (no runner left to reach it), and one whose lapsed lease the ledger won't renew;
   - the validator's languages are the store's languages' base codes (`en-IN` → `content/en/`), which core's
-    i18n reads for every region of a language; content and post paths are empty until SAPI 24 adds them;
+    i18n reads for every region of a language; the content and post paths are SAPI 24's `storeContentPaths` (#338), read with the rest of the context;
   - **capacity**: the `durable_object` scheduling policy has no `max_instances`, so one `StudioCapacity` object
     keeps a ledger of `STUDIO_CAPACITY` running studios (default 5,000, short of the ~6,000 the account's
     vCPU allows at `basic`): a running studio's lease is renewed every minute and lapses 3 minutes after the
