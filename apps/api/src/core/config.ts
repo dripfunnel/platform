@@ -11,6 +11,11 @@ const configSchema = z.object({
   CF_CACHE_PURGE_TOKEN: z.string().min(1).optional(),
   // Every store's preview is `{key}.<it>` (storefront PREVIEW.md §8): its own registrable domain, never a console's.
   PREVIEW_DOMAIN: z.string().regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'PREVIEW_DOMAIN must be a domain such as webpreview.store').optional(),
+  // Seals the preview link's token (storefront PREVIEW.md §5 step 1): 32 bytes in base64. Absent, "Open preview" answers NOT_CONNECTED.
+  PREVIEW_LINK_KEY: z
+    .string()
+    .refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value), 'PREVIEW_LINK_KEY must be 32 bytes in base64')
+    .optional(),
   HYPERDRIVE: z.object({ connectionString: z.string().min(1) }).optional(),
   // Set where the binding exists (#30): a missing binding is then `missing` (503), not `unconfigured`.
   HYPERDRIVE_REQUIRED: z.literal('1').optional(),
