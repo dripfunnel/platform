@@ -168,8 +168,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    `storefront.repo_head`, and `main` moves only as a fast-forward from it, so a push finding
    `main` elsewhere is refused (`MAIN_MOVED`) and nothing changes. Each push has the caller's key
    (`storefront_push`): a retry returns the first push's commit, and one retried after a crash
-   rebuilds the identical commit (the same tree, parent and date) and finds it on `main`, so a
-   push never lands twice. Commits are authored as `DripFunnel <noreply@dripfunnel.com>`.
+   rebuilds the identical commit (the same tree, parent and date) and finds it on `main` or in its
+   history, so a push never lands twice. Commits are authored as `DripFunnel <noreply@dripfunnel.com>`.
 
 ---
 

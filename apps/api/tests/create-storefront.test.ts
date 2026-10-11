@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import type { ProvisioningStep } from '#db/schema/saas'
 import type { CallerContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
-import { createGitHubApp } from '#integrations/github/app'
+import { createGitHubApp } from '#integrations/github/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
 import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createFailedMessage, runCreateStorefront, type CreateDeps, type StepRunner } from '#saas/storefronts/create'

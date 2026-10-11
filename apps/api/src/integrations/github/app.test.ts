@@ -101,5 +101,7 @@ describe('the GitHub App client', () => {
     expect(await repos.advance('sf-abcdefghij', next)).toBe(true)
     expect(await repos.advance('sf-abcdefghij', sibling)).toBe(false)
     expect(await repos.head('sf-abcdefghij')).toBe(next)
+    expect(await repos.reaches('sf-abcdefghij', next, first)).toBe(true)
+    expect(await repos.reaches('sf-abcdefghij', next, sibling)).toBe(false)
   })
 })

@@ -140,6 +140,13 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
       const date = (body['committer'] as { date?: string } | undefined)?.date ?? new Date().toISOString()
       return reply(201, { sha: await storeCommit(repo, { tree, parents, message: String(body['message']), date }) })
     }
+    const comparePath = /^\/compare\/([0-9a-f]{40})\.\.\.([0-9a-f]{40})$/.exec(rest)
+    if (method === 'GET' && comparePath) {
+      const [, base = '', head = ''] = comparePath
+      if (!repo.commits.has(base) || !repo.commits.has(head)) return reply(404, { message: 'Not Found' })
+      const status = base === head ? 'identical' : descends(repo, head, base) ? 'ahead' : descends(repo, base, head) ? 'behind' : 'diverged'
+      return reply(200, { status })
+    }
     if (method === 'PATCH' && rest === '/git/refs/heads/main') {
       const sha = String(body['sha'])
       if (!repo.commits.has(sha)) return reply(422, { message: 'Object does not exist' })

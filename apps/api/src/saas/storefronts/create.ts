@@ -14,8 +14,7 @@ import {
   upsertDesignDraft,
   type CreationRow,
 } from '#db/scoped/storefronts'
-import type { GitHubApp } from '#integrations/github/app'
-import { storeRepos } from '#integrations/github/repos'
+import { storeRepos, type GitHubApp } from '#integrations/github/index'
 import { activityLog } from '#saas/activity/index'
 import { commitToMain, type PushResult } from './push'
 import { currentCore, deletePrefix, previewFolder, previewManifest, previewSource, storePrefix, templateFiles, TemplateMissing, type SitesBucket } from './templates'
