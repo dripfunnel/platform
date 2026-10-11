@@ -176,7 +176,7 @@ checking, deploying, live, failed, rolled back).
    - the edge-case catalogue render;
    - a visual diff against the live build's files from step 3.
 
-   The checkout smoke test runs against core's offline Shop API fixture *(proposed)*; the real
+   The checkout smoke test runs against core's offline Shop API fixture (decided on #483); the real
    checkout is the post-deploy check (step 10). The container writes each check's pass or fail
    to its output folder. A runner step then:
    - computes the **digest of the files it handed to the container**: SHA-256 over the sorted
@@ -190,6 +190,18 @@ checking, deploying, live, failed, rolled back).
    bytes (step 9). A theme that behaves differently under checks is what the validator's ban on
    environment sniffing (ARCHITECTURE §3.4) and the post-deploy checks from the edge (step 10)
    are there to catch.
+
+   **The image's steps, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build|check`):
+   each refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`) in its
+   environment, and checks the commit out of the source bundle itself. `build` runs the validator and the typecheck,
+   bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
+   sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
+   `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
+   failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
+   same tree. `check` serves the site on 127.0.0.1 with each page's CSP and core's offline Shop API, drives the image's
+   Chromium, and writes the report and each HTML file's headers; any request leaving the machine is refused and fails
+   the page. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
+   and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
 8. **Step `upload`:**
    - **After a passing report**, the API mints **an R2 temporary credential for the private
      `storefront-sites` bucket only, limited to a staging folder `stores/{id}/uploads/{build id}/`
@@ -477,8 +489,8 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
 - ~~Where the publish checks run and what switches a store to its new build.~~ Inside the build
   workflow; the API switches on an OIDC-verified passing report (decided 2026-10-09, §4 steps
   7–9).
-- Whether the checkout smoke test can run offline against core's Shop API fixture, leaving the
-  real checkout to the post-deploy check *(proposed, decide on #483)*.
+- ~~Whether the checkout smoke test can run offline against core's Shop API fixture~~ It does, leaving the real
+  checkout to the post-deploy check (decided on #483, ARCHITECTURE §4.2).
 - The GitHub org's plan for Actions concurrency *(decide on #287)*.
 - A fallback build runner if GitHub limits Actions on the org *(decide)*.
 - Where single-page renders run: the workflow (about a minute, free) or a container (seconds,
