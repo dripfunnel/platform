@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import worker from '../src/index'
+import { PortalProxy } from '../src/index'
 import { mintApiKey } from '#auth/apiKeys'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -26,10 +26,8 @@ const env = (overrides: Record<string, unknown> = {}) => ({
 })
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise, passThroughOnException: () => undefined } as unknown as ExecutionContext
 const ask = (key: string, h = host, e = env()) =>
-  worker.fetch(
-    new Request(`https://${h}/api/`, { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.9', authorization: `Bearer ${key}` }, body: JSON.stringify({ query: '{ productCounts { all } }' }) }) as Parameters<typeof worker.fetch>[0],
-    e as never,
-    ctx,
+  new PortalProxy(ctx, e as never).fetch(
+    new Request(`https://${h}/api/`, { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.9', authorization: `Bearer ${key}` }, body: JSON.stringify({ query: '{ productCounts { all } }' }) }),
   )
 
 beforeAll(async () => {

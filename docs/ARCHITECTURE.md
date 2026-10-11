@@ -43,7 +43,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 | Deployable | Kind | Serves | Hostnames |
 |---|---|---|---|
 | `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host; `hooks.dripfunnel.com` |
-| `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS. Partner portal hosts: `/api/*` to the API Worker, the rest to the store Pages project. Storefront hosts and `*.webpreview.store`: each store's built files from R2, `/shop-api/*` to the API Worker (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09). Our own hosts pass through (SAAS.md §8). Portal part on dev only so far | every partner portal host; every storefront host; `*.webpreview.store` |
+| `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS. Partner portal hosts: `/api/*` to the API Worker's `PortalProxy` entrypoint through a service binding, the rest to the store Pages project. Storefront hosts and `*.webpreview.store`: each store's built files from R2, `/shop-api/*` to the API Worker (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09). Our own hosts pass through (SAAS.md §8). Portal part on dev only so far | every partner portal host; every storefront host; `*.webpreview.store` |
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
 | `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |
@@ -59,11 +59,14 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 |---|---|---|
 | `admin.dripfunnel.com/api/*` | Admin API (`src/apis/admin`) | 404 |
 | `platform.dripfunnel.com/api/*` | Platform API (`src/apis/platform`) | 404 |
-| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal`, not waiting or failed, of a partner not closed (#288) | 404 |
+| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). A partner's own host arrives only through store-proxy's service binding on the `PortalProxy` entrypoint; the Worker's own routes answer the Store API only on hosts in the admin host's zone (`dev-store.dripfunnel.ai` on dev, `store.northstar.localhost` locally) | 404 |
 | A storefront host `/shop-api/*` | Shop API (`src/apis/shop`) | |
 | `hooks.dripfunnel.com/*` | Webhooks (`src/hooks`) | 404 |
 | Queue messages, Cron, Workflow steps | `src/jobs` | no HTTP route |
 
+`PortalProxy` answers only that row: our own hosts, any other path and a host not found are 404, and
+nothing (not even `/api/health`) answers before the lookup. Public traffic can't reach an
+entrypoint, so a forged `Host` on the Worker's own routes finds no partner (decided on #422).
 A test proves every API answers 404 on every host it doesn't belong to. Cloudflare Access
 guards `admin.dripfunnel.com`. Prod deploys upload a Worker version without putting it live;
 promoting it to 100% (and rolling back) is a manual `wrangler versions deploy` command, so a

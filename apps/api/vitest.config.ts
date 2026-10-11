@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
 // Local values from apps/api/.env.local (#272); what the shell or CI already set wins.
@@ -8,6 +9,8 @@ export default defineConfig({
   // Node loads Pothos and Yoga with the production build of graphql; without this, Vite gives
   // our own imports the development one, and graphql refuses types from a second copy.
   ssr: { resolve: { conditions: ['module', 'node'] } },
+  // The runtime's own module; Node has none, so the entrypoints import a stand-in.
+  resolve: { alias: { 'cloudflare:workers': fileURLToPath(new URL('./tests/support/cloudflareWorkers.ts', import.meta.url)) } },
   test: {
     // tests/ is the integration suite, which creates a database of its own per run and has
     // its own config. Excluded here so `pnpm test` does not run it twice.

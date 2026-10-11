@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import worker, { guarded, wakeOutbox } from './index'
+import worker, { guarded, PortalProxy, wakeOutbox } from './index'
 
 const env = {
   ADMIN_HOST: 'admin.dripfunnel.com',
@@ -69,7 +69,7 @@ describe('worker', () => {
 
   it('shows integrations on a localhost host too', async () => {
     const request = new Request('https://platform.localhost/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
-    const body = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HOOKS_HOST: 'hooks.localhost' }, ctx)).json()
+    const body = await (await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, ADMIN_HOST: 'admin.localhost', PLATFORM_HOST: 'platform.localhost', HOOKS_HOST: 'hooks.localhost' }, ctx)).json()
     expect(body).toHaveProperty('integrations')
   })
 
@@ -150,23 +150,28 @@ describe('worker', () => {
   })
 
   // The Store API knows a portal host only from the database (docs/ARCHITECTURE.md §2; #288).
-  it('answers the Store API on a portal host without a database, signed out', async () => {
+  it('answers the Store API on a portal host of our own zone without a database, signed out', async () => {
     const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
-    for (const href of ['https://store.partner.com/api', 'https://store.partner.com/api/']) {
-      const request = new Request(href, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://store.partner.com' }, body: JSON.stringify({ query: '{ health }' }) })
+    for (const href of ['https://store.dripfunnel.com/api', 'https://store.dripfunnel.com/api/']) {
+      const request = new Request(href, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://store.dripfunnel.com' }, body: JSON.stringify({ query: '{ health }' }) })
       const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
       expect(await response.json()).toEqual({ data: { health: 'ok' } })
     }
   })
 
   it('fails a Store API request rather than answering it when the database is down', async () => {
-    const response = await query('https://store.partner.com/api/')
+    const response = await query('https://store.dripfunnel.com/api/')
     expect(response.status).toBeGreaterThanOrEqual(500)
   })
 
   it('refuses a Store API mutation posted from another origin', async () => {
-    const response = await call('https://store.partner.com/api/', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://evil.example' }, body: JSON.stringify({ query: '{ health }' }) })
+    const response = await call('https://store.dripfunnel.com/api/', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://evil.example' }, body: JSON.stringify({ query: '{ health }' }) })
     expect(response.status).toBe(403)
+  })
+
+  it('answers a partner’s own host nothing on the public fetch, health included (SAAS.md §8)', async () => {
+    expect((await query('https://store.partner.com/api/')).status).toBe(404)
+    expect((await call('https://store.partner.com/api/health')).status).toBe(404)
   })
 
   it('returns 500 without a payload when required config is missing', async () => {
@@ -237,8 +242,36 @@ describe('worker', () => {
   it('returns 404 outside the known routes', async () => {
     expect((await call('https://admin.dripfunnel.com/shop-api')).status).toBe(404)
     expect((await call('https://platform.dripfunnel.com/shop-api')).status).toBe(404)
-    expect((await call('https://store.partner.com/')).status).toBe(404)
+    expect((await call('https://store.dripfunnel.com/')).status).toBe(404)
     expect((await call('https://hooks.dripfunnel.com/stripe')).status).toBe(404)
+  })
+})
+
+describe('the PortalProxy entrypoint', () => {
+  const viaProxy = (href: string, e: Record<string, unknown> = env) =>
+    new PortalProxy(ctx, e as never).fetch(
+      new Request(href, { method: 'POST', headers: { 'content-type': 'application/json', origin: new URL(href).origin, 'cf-connecting-ip': '203.0.113.1' }, body: JSON.stringify({ query: '{ health }' }) }),
+    )
+
+  it('answers nothing on our own hosts, whatever the path', async () => {
+    for (const href of ['https://admin.dripfunnel.com/api/', 'https://platform.dripfunnel.com/api/', 'https://hooks.dripfunnel.com/stripe']) {
+      expect((await viaProxy(href)).status).toBe(404)
+    }
+  })
+
+  it('answers nothing but /api on a partner’s host', async () => {
+    expect((await viaProxy('https://store.partner.com/')).status).toBe(404)
+    expect((await viaProxy('https://acme.shops.partner.com/shop-api')).status).toBe(404)
+  })
+
+  it('answers 404 without a database, since no host can be found, health included', async () => {
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    expect((await viaProxy('https://store.partner.com/api/', withoutHyperdrive)).status).toBe(404)
+    expect((await viaProxy('https://store.partner.com/api/health', withoutHyperdrive)).status).toBe(404)
+  })
+
+  it('fails rather than answers when the database is down', async () => {
+    expect((await viaProxy('https://store.partner.com/api/')).status).toBeGreaterThanOrEqual(500)
   })
 })
 

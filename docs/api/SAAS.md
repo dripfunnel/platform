@@ -543,10 +543,16 @@ failed; a live hostname can become expiring or broken if its records change.
    (whose own URL gives it the right `Host`), and keeps the partner's own `Host` on `/api/*`.
    Hosts on our own zone pass through untouched, and `dev-admin`, `dev-platform`, `dev-store`
    and `dev-hooks` answered as before.
-   **Not built (#426):** the API Worker routes any other host's `/api/*` to the Store API
-   without checking the host is registered (`resolveArea`). The decided design is a
-   `PortalProxy` entrypoint reached only through the proxy's service binding, with the partner
-   found in `partner_domain` by host.
+   **How a portal host reaches the API (#426, decided on #422):** the proxy's `API` service
+   binding names the API Worker's `PortalProxy` entrypoint (`store-proxy/wrangler.jsonc`, dev;
+   prod with #428), and sends the request with the partner's own `Host`: no forwarded-host
+   header, no shared secret. `PortalProxy` finds the partner among `partner_domain`'s portal
+   rows that have gone live (`live`, `expiring`, `broken`) of a partner not closed, and serves
+   only `/api/*`; anything else is 404. The Worker's public `fetch` serves the Store API only on
+   our own zone's hosts, so a partner's host sent to it with a forged `Host` is 404
+   (ARCHITECTURE §2). *Decided here (#426): our own zone is the admin host's parent, so feature
+   environments and `*.localhost` work with no new setting; verifying and issuing hosts are not
+   yet live, as the card says.*
    Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the
    SaaS hostname after commit; the console has no Remove button yet.
 4. Once the certificate is issued the hostname is live and routed to the store's live site

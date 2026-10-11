@@ -3,12 +3,12 @@ import type { ScopedSql } from './index'
 // Caller resolution on a portal host (ACCESS.md §3, §4). Each runs in `system` scope, because
 // no caller is known yet; each takes the host's partner and never reaches past it.
 
-/** The partner whose portal this host is; null for a host no partner holds, or a closed partner's. */
+/** The partner whose portal this host is; null for a host no partner holds, not yet live, or a closed partner's. */
 export const selectPortalPartner = async (tx: ScopedSql, host: string): Promise<string | null> => {
   const rows = await tx<{ partner_id: string }[]>`
     select d.partner_id from partner_domain d join partner p on p.id = d.partner_id
     where d.kind = 'portal' and lower(d.host) = lower(${host})
-      and d.status not in ('waiting', 'failed') and p.state <> 'closed'
+      and d.status in ('live', 'expiring', 'broken') and p.state <> 'closed'
   `
   return rows[0]?.partner_id ?? null
 }
