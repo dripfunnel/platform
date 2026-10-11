@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from 'jose'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import worker from '../src/index'
@@ -460,5 +464,37 @@ describe('a build from its report to live', () => {
     expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: id, storeId: t.storeA2 }, steps)).toBe('failed')
     expect(await uploadOf(id)).toMatchObject({ state: 'failed', error: 'file_mismatch', verified_at: null })
     expect((await db.sql<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`)[0]?.live_build_id).toBe(before)
+  })
+})
+
+describe('the locked workflow’s upload step', () => {
+  const workflow = readFileSync(new URL('../../../templates/storefront/.github/workflows/build.yml', import.meta.url), 'utf8')
+  const manifestScript = (/<<'PY'\n([\s\S]*?)\n\s*PY\n/.exec(workflow)?.[1] ?? '').replace(/^ {10}/gm, '')
+
+  it('runs only when the platform dispatches it, with the OIDC permission alone, and no action or repo code', () => {
+    expect(workflow).toMatch(/^on:\n {2}workflow_dispatch:\n/m)
+    expect(workflow).not.toMatch(/^\s*(push|pull_request|pull_request_target|schedule|workflow_run):/m)
+    expect(workflow).toMatch(/^permissions:\n {2}id-token: write\nconcurrency:/m)
+    expect(workflow).not.toMatch(/^\s*-?\s*uses:/m)
+    expect(workflow).not.toMatch(/\b(npm|pnpm|npx|yarn)\b|actions\/checkout/)
+    expect(workflow).toContain('"$API/builds/$1"')
+    expect(workflow).toContain('--no-follow-symlinks')
+  })
+
+  it('lists the site as the API’s digest reads it, and stops at a link', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'site-'))
+    try {
+      for (const [path, text] of Object.entries(site)) {
+        mkdirSync(dirname(join(root, path)), { recursive: true })
+        writeFileSync(join(root, path), text)
+      }
+      const listed = JSON.parse(execFileSync('python3', ['-c', manifestScript, root], { encoding: 'utf8' })) as { files: { path: string; sha256: string; size: number }[] }
+      expect(listed).toEqual({ files: [...(await manifestOf(site)).files].sort((a, b) => (a.path < b.path ? -1 : 1)) })
+      expect(await digestOf(listed.files)).toBe(await digestOf((await manifestOf(site)).files))
+      symlinkSync('/etc/hosts', join(root, 'leak.html'))
+      expect(() => execFileSync('python3', ['-c', manifestScript, root], { stdio: 'pipe' })).toThrow()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })
