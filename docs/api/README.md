@@ -217,8 +217,8 @@ deliverer that will never deliver a row throws `GiveUp` with a reason, and the r
 
 ### 5.1 Schedules
 
-Cron is the clock (../ARCHITECTURE.md §4). `wrangler.jsonc` lists four crons, one per cadence (#477), and
-`scheduled()` runs the group `cronGroups` in `src/index.ts` gives the firing expression. An expression with no group
+Cron is the clock (../ARCHITECTURE.md §4). `wrangler.jsonc` lists four crons, one per cadence (#477). For the
+expression that fired, `scheduled()` runs that expression's group in `cronGroups` (`src/index.ts`); one with no group
 logs `cron_unknown` and runs nothing. Each job catches and logs its own failure, so one that fails never stops the
 rest of its group. Cloudflare gives a cron 30 s of CPU when it runs more often than hourly, and 15 minutes when it
 runs hourly or less often.
@@ -263,7 +263,8 @@ and retries with backoff. A fake of it goes in `tests/support/`.
 
 **A job**: single-step work is a Queue consumer in `jobs/queues/`; multi-step work with
 compensation is a Workflow in `jobs/workflows/`, recording each step in the `job` table so
-the consoles can show progress; schedules go in `jobs/cron.ts`. Every handler is idempotent.
+the consoles can show progress; a scheduled job joins the `cronGroups` group whose cadence fits it (§5.1). Every
+handler is idempotent.
 
 **A webhook**: one file per provider in `hooks/`: verify the signature, record the event id
 for idempotency, write outbox rows or engine calls, return fast.
