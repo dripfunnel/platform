@@ -23,7 +23,7 @@ components with the branded commerce types (#481), and the publish gate's suites
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-12 (#486: the starting themes as built).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built).
 
 ---
 
@@ -178,8 +178,10 @@ The six templates and "Start from scratch" live in this repo as complete startin
   consent banner, Cookie settings, "Powered by" and preview banner. The product grids, collection tiles and cart lines
   the prototype draws join each theme with core's browse and cart hooks (#307, #313); until then their pages show
   their frame and words. Pictures are the template's own CSS surfaces, never a product's.
-- The prototype's sample words that state a fact about a store (a returns window, a warranty, delivery times, a
-  discount, a certification, "bestsellers") and its testimonials (§12, DESIGN §9) are left out or rewritten as mood.
+- The sample words state no fact about a store, since any store may start from any theme: no product, material,
+  origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
+  testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the
+  store's own description when it has one, and the About pages are prompts the merchant replaces.
 - `apps/sandbox/src/themes.test.ts` gates every theme on each change: the validator, the preview bundle within the
   byte budgets with every route rendered from it in preview mode, and the whole publish gate (§4.2) against the
   edge-case catalogue.
