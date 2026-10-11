@@ -6,43 +6,6 @@ import type { ScopedSql } from './index'
 export type RolloutState = 'canary' | 'waves' | 'paused' | 'done' | 'rolled_back'
 export type StoreUpgradeState = 'pending' | 'running' | 'passed' | 'migrated' | 'pinned' | 'baseline' | 'live' | 'reverted'
 
-export interface RolloutRow {
-  id: string
-  version: string
-  security: boolean
-  state: RolloutState
-  paused_state: 'canary' | 'waves' | null
-  percent: number
-  reason: string
-  started_by: string | null
-  started_at: Date
-  finished_at: Date | null
-  enrolled_at: Date | null
-}
-
-const rolloutColumns = 'id, version, security, state, paused_state, percent, reason, started_by, started_at, finished_at, enrolled_at'
-
-export const selectRollout = async (tx: ScopedSql, id: string, lock = false): Promise<RolloutRow | null> =>
-  (await tx<RolloutRow[]>`select ${tx.unsafe(rolloutColumns)} from core_rollout where id = ${id} ${lock ? tx`for update` : tx``}`)[0] ?? null
-
-/** The rollout the tick moves: the one running, paused or not, or one rolled back with stores still to put back. */
-export const selectRolloutsToTick = (tx: ScopedSql): Promise<RolloutRow[]> =>
-  tx<RolloutRow[]>`
-    select ${tx.unsafe(rolloutColumns)} from core_rollout r
-    where state in ('canary', 'waves')
-      or (state = 'rolled_back' and exists (select 1 from core_rollout_store s where s.rollout_id = r.id and s.state in ('live', 'migrated', 'passed') and s.error is null))
-    order by started_at
-    for update`
-
-export const selectRollouts = (tx: ScopedSql, page: { after?: { at: Date; id: string } | undefined; limit: number }): Promise<RolloutRow[]> =>
-  tx<RolloutRow[]>`
-    select ${tx.unsafe(rolloutColumns)} from core_rollout
-    where ${page.after ? tx`(started_at, id) < (${page.after.at}, ${page.after.id})` : tx`true`}
-    order by started_at desc, id desc limit ${page.limit + 1}`
-
-export const selectReleaseForRollout = async (tx: ScopedSql, version: string): Promise<{ version: string; security: boolean } | null> =>
-  (await tx<{ version: string; security: boolean }[]>`select version, security from core_release where version = ${version}`)[0] ?? null
-
 export const insertRollout = async (tx: ScopedSql, r: { version: string; security: boolean; by: string | null; reason: string; at: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into core_rollout (version, security, started_by, reason, started_at) values (${r.version}, ${r.security}, ${r.by}, ${r.reason}, ${r.at}) returning id`
@@ -50,18 +13,11 @@ export const insertRollout = async (tx: ScopedSql, r: { version: string; securit
   return row.id
 }
 
-export const setRolloutState = async (tx: ScopedSql, id: string, change: { state: RolloutState; pausedState?: 'canary' | 'waves' | null; percent?: number; finishedAt?: Date | null }): Promise<void> => {
-  await tx`
-    update core_rollout set state = ${change.state}, paused_state = ${change.pausedState ?? null},
-      percent = coalesce(${change.percent ?? null}::int, percent), finished_at = coalesce(${change.finishedAt ?? null}::timestamptz, finished_at)
-    where id = ${id}`
-}
-
 /**
  * Every store live on an older core joins the rollout (SAAS §10): the first `canaries` by a hash of the store and the
  * rollout at position 0, every other at a position from 1 to 100 that the waves' percent reaches.
  */
-export const enrolStores = async (tx: ScopedSql, rollout: Pick<RolloutRow, 'id' | 'version'>, canaries: number, at: Date): Promise<number> => {
+export const enrolStores = async (tx: ScopedSql, rollout: { id: string; version: string }, canaries: number, at: Date): Promise<number> => {
   const rows = await tx`
     insert into core_rollout_store (rollout_id, store_id, position, from_version)
     select ${rollout.id}, e.store_id, case when e.rank <= ${canaries} then 0 else 1 + mod(abs(hashtext(e.store_id::text || ${rollout.id}::text)), 100) end, e.core_version
@@ -75,25 +31,6 @@ export const enrolStores = async (tx: ScopedSql, rollout: Pick<RolloutRow, 'id' 
     returning store_id`
   await tx`update core_rollout set enrolled_at = ${at} where id = ${rollout.id}`
   return rows.count
-}
-
-/** Upgrades running across every rollout: each holds one of the org's Actions jobs at most (LIVE-SHOP §10). */
-export const countRunning = async (tx: ScopedSql): Promise<number> =>
-  Number((await tx<{ n: string }[]>`select count(*)::text as n from core_rollout_store where state = 'running'`)[0]?.n ?? 0)
-
-export interface PhaseCounts {
-  pending: number
-  running: number
-  failed: number
-}
-
-/** Within `upTo` (0 for the canaries): still to start, running, and ended pinned or on the baseline. */
-export const phaseCounts = async (tx: ScopedSql, rolloutId: string, upTo: number): Promise<PhaseCounts> => {
-  const [row] = await tx<{ pending: string; running: string; failed: string }[]>`
-    select count(*) filter (where state = 'pending')::text as pending, count(*) filter (where state = 'running')::text as running,
-      count(*) filter (where state in ('pinned', 'baseline'))::text as failed
-    from core_rollout_store where rollout_id = ${rolloutId} and position <= ${upTo}`
-  return { pending: Number(row?.pending ?? 0), running: Number(row?.running ?? 0), failed: Number(row?.failed ?? 0) }
 }
 
 /** Marks up to `limit` waiting stores within `upTo` running, lowest position first; their ids to queue. */
@@ -160,19 +97,3 @@ export const setCorePinned = async (tx: ScopedSql, storeId: string, reason: stri
 export const setPendingUpgrade = async (tx: ScopedSql, storeId: string, pending: { version: string; commit: string } | null): Promise<void> => {
   await tx`update storefront set core_upgrade_version = ${pending?.version ?? null}, core_upgrade_commit = ${pending?.commit ?? null} where store_id = ${storeId}`
 }
-
-/** A rolled-back rollout's stores still on its version, a batch at a time. */
-export const selectToRevert = (tx: ScopedSql, rolloutId: string, limit: number): Promise<{ id: string; store_id: string; state: StoreUpgradeState; publish_run_id: string | null }[]> =>
-  tx<{ id: string; store_id: string; state: StoreUpgradeState; publish_run_id: string | null }[]>`
-    select id, store_id, state, publish_run_id from core_rollout_store
-    where rollout_id = ${rolloutId} and state in ('live', 'migrated', 'passed') and error is null
-    order by position, store_id limit ${limit}`
-
-/** Put back, or left as it is with why: `moved_on` when the store published since. */
-export const markReverted = async (tx: ScopedSql, id: string, outcome: { reverted: true } | { reverted: false; error: string }, at: Date): Promise<void> => {
-  if (outcome.reverted) await tx`update core_rollout_store set state = 'reverted', finished_at = ${at} where id = ${id}`
-  else await tx`update core_rollout_store set error = ${outcome.error} where id = ${id}`
-}
-
-export const countStoresByState = (tx: ScopedSql, rolloutId: string): Promise<{ state: StoreUpgradeState; n: number }[]> =>
-  tx<{ state: StoreUpgradeState; n: number }[]>`select state, count(*)::int as n from core_rollout_store where rollout_id = ${rolloutId} group by state order by state`
