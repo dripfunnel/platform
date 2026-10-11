@@ -40,6 +40,7 @@ import { registerBilling } from './billing'
 import { registerPricing } from './planPricing'
 import { registerPreview } from './preview'
 import { registerContent } from './content'
+import { registerStorefrontSettings } from './storefrontSettings'
 
 export type { StoreContext } from './access'
 
@@ -64,7 +65,7 @@ registerSupplierTeam(builder)
 registerApproval(builder)
 registerMarkets(builder)
 registerTranslations(builder)
-registerStoreInfo(builder)
+const storeAddress = registerStoreInfo(builder)
 registerCatalogExports(builder)
 registerCatalogImports(builder)
 registerShopify(builder)
@@ -88,5 +89,6 @@ registerApps(builder)
 registerBilling(builder)
 registerPreview(builder)
 registerContent(builder)
+registerStorefrontSettings(builder, storeAddress)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

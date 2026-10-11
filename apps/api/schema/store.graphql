@@ -1068,6 +1068,8 @@ type Mutation {
   saveShipping(input: ShippingInput!, revision: Int!): Int
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
   saveStoreInfo(input: StoreInfoInput!): Boolean
+  saveStorefrontBrand(input: StorefrontBrandInput!): StorefrontBrand
+  saveStorefrontSeo(input: StorefrontSeoInput!): StorefrontSeo
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
   saveTaxClass(id: ID, input: TaxClassInput!): ID
   saveTaxZone(id: ID, input: TaxZoneInput!): ID
@@ -2074,6 +2076,8 @@ type Query {
   storeInfo: StoreInfo
   storeLocale: StoreLocale
   storeState: StoreState
+  storefrontBrand: StorefrontBrand
+  storefrontSeo: StorefrontSeo
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
   subscription: BillingSubscription
@@ -2767,6 +2771,67 @@ type StoreSupportSession {
 type StoreSupportSessions {
   nodes: [StoreSupportSession!]
   pageInfo: PageInfo
+}
+
+type StorefrontBrand {
+  brandReady: Boolean
+  contactAddress: StoreAddress
+  contactEmail: String
+  contactPhone: String
+  description: String
+  faviconAssetId: ID
+  logoAssetId: ID
+  primaryColour: String
+  secondaryColour: String
+  shopName: String
+  social: StorefrontSocialLinks
+  tagline: String
+  voice: String
+}
+
+input StorefrontBrandInput {
+  contactAddress: StoreAddressInput
+  contactEmail: String
+  contactPhone: String
+  description: String
+  faviconAssetId: ID
+  logoAssetId: ID!
+  primaryColour: String
+  secondaryColour: String
+  shopName: String
+  social: StorefrontSocialInput
+  tagline: String
+  voice: String
+}
+
+type StorefrontSeo {
+  description: String
+  shareImageAssetId: ID
+  title: String
+}
+
+input StorefrontSeoInput {
+  description: String
+  shareImageAssetId: ID
+  title: String
+}
+
+input StorefrontSocialInput {
+  facebook: String
+  instagram: String
+  tiktok: String
+  whatsapp: String
+  x: String
+  youtube: String
+}
+
+type StorefrontSocialLinks {
+  facebook: String
+  instagram: String
+  tiktok: String
+  whatsapp: String
+  x: String
+  youtube: String
 }
 
 type StoryBlock {
