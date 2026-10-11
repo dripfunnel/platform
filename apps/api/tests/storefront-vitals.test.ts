@@ -128,21 +128,45 @@ describe('the regression rule', () => {
   const run = async (id: string) => (await db.sql<{ state: string; error: string | null; vitals: { verdict: string; rolledBack: boolean } | null }[]>`select state, error, vitals from publish_run where id = ${id}`)[0]
   const live = async (storeId: string) => (await db.sql<{ live_build_id: string }[]>`select live_build_id from storefront where store_id = ${storeId}`)[0]?.live_build_id
 
-  it('rolls a build whose LCP doubled back to the one before, once its first whole day is in', async () => {
-    const switched = day(0)
+  it('rolls a build whose LCP doubled on each of its first two whole days back to the one before, once, and retries one a publish held up', async () => {
     const before = await liveRun(t.storeA2, 1, day(-10), null)
-    const after = await liveRun(t.storeA2, 2, switched, before)
+    const after = await liveRun(t.storeA2, 2, day(0), before)
     for (const d of [-3, -2]) await fill(t.storeA2, day(d), 40, { lcp: 1500, inp: 100, cls: 20 })
-    await fill(t.storeA2, day(1), 60, { lcp: 3800, inp: 110, cls: 20 })
-    // Not before its first whole day is over.
-    expect(await readVitalsRegressions(db.sql, day(1))).toBe(0)
-    expect(await readVitalsRegressions(db.sql, day(2))).toBe(1)
+    for (const d of [1, 2]) await fill(t.storeA2, day(d), 60, { lcp: 3800, inp: 110, cls: 20 })
+    // Not before its second whole day is over.
+    expect(await readVitalsRegressions(db.sql, day(2))).toBe(0)
+    // A publish running at 03:00 holds the rollback back; nothing is recorded, so the next day reads it again.
+    const [running] = await db.sql<{ id: string }[]>`insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind) values (${t.storeA2}, 'automatic', 'building', ${commit(9)}, 'linen', '1.0.0', 'system') returning id`
+    expect(await readVitalsRegressions(db.sql, day(3))).toBe(0)
+    expect(await run(after)).toMatchObject({ state: 'live', vitals: null })
+    await db.sql`update publish_run set state = 'failed', error = 'deploy_failed' where id = ${running?.id ?? ''}`
+    expect(await readVitalsRegressions(db.sql, day(4))).toBe(1)
     expect(await run(after)).toMatchObject({ state: 'rolled_back', error: 'vitals_regressed', vitals: { verdict: 'severe', rolledBack: true } })
     expect(await live(t.storeA2)).toBe(before)
     const [entry] = await db.sql<{ reason: string }[]>`select reason from activity_log where store_id = ${t.storeA2} and action = 'storefront.rolled_back'`
     expect(entry?.reason).toBe('vitals_regressed')
-    // Read once: a second pass changes nothing.
-    expect(await readVitalsRegressions(db.sql, day(3))).toBe(0)
+    // Read once: a later pass changes nothing.
+    expect(await readVitalsRegressions(db.sql, day(5))).toBe(0)
+  })
+
+  it('only flags a severe day the next day doesn’t repeat, as one burst of beacons could fake it', async () => {
+    await db.sql`delete from storefront_vitals_day where store_id = ${t.storeA2}`
+    const prior = await live(t.storeA2)
+    const burst = await liveRun(t.storeA2, 5, day(30), prior ?? null)
+    await fill(t.storeA2, day(28), 60, { lcp: 1500, inp: 100, cls: 20 })
+    await fill(t.storeA2, day(31), 60, { lcp: 9000, inp: 100, cls: 20 })
+    await fill(t.storeA2, day(32), 60, { lcp: 1500, inp: 100, cls: 20 })
+    expect(await readVitalsRegressions(db.sql, day(33))).toBe(1)
+    expect(await run(burst)).toMatchObject({ state: 'live', vitals: { verdict: 'regressed', rolledBack: false } })
+  })
+
+  it('keeps at most 5,000 samples a day per page kind and device', async () => {
+    await db.sql`delete from storefront_vitals_day where store_id = ${t.storeA2}`
+    await fill(t.storeA2, day(40), 1, { lcp: 1500, inp: 100, cls: 20 })
+    await db.sql`update storefront_vitals_day set samples = 5000 where store_id = ${t.storeA2}`
+    await fill(t.storeA2, day(40), 3, { lcp: 1500, inp: 100, cls: 20 })
+    const [row] = await db.sql<{ samples: number }[]>`select samples from storefront_vitals_day where store_id = ${t.storeA2}`
+    expect(row?.samples).toBe(5000)
   })
 
   it('flags a smaller regression without rolling back, and says nothing with too few samples', async () => {
@@ -151,12 +175,12 @@ describe('the regression rule', () => {
     const flagged = await liveRun(t.storeA2, 3, day(10), prior ?? null)
     await fill(t.storeA2, day(8), 60, { lcp: 1500, inp: 100, cls: 20 })
     await fill(t.storeA2, day(11), 60, { lcp: 2000, inp: 100, cls: 20 })
-    expect(await readVitalsRegressions(db.sql, day(12))).toBe(1)
+    expect(await readVitalsRegressions(db.sql, day(13))).toBe(1)
     expect(await run(flagged)).toMatchObject({ state: 'live', vitals: { verdict: 'regressed', rolledBack: false } })
     const quiet = await liveRun(t.storeA2, 4, day(20), flagged)
     await fill(t.storeA2, day(18), 10, { lcp: 1500, inp: 100, cls: 20 })
     await fill(t.storeA2, day(21), 10, { lcp: 9000, inp: 900, cls: 900 })
-    expect(await readVitalsRegressions(db.sql, day(22))).toBe(1)
+    expect(await readVitalsRegressions(db.sql, day(23))).toBe(1)
     expect(await run(quiet)).toMatchObject({ state: 'live', vitals: { verdict: 'ok', rolledBack: false } })
   })
 })

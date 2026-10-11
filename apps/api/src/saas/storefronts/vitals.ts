@@ -86,25 +86,35 @@ export const compare = (before: VitalsDays[], after: VitalsDays[]): Comparison[]
 const isoDay = (at: Date) => at.toISOString().slice(0, 10)
 
 /**
- * The regression rule, daily: a build that has been live for a whole day is read once against the week before its
- * switch (the switch day itself on neither side). Severe rolls back; a smaller regression is flagged on the run for the
- * admin console and the repair loop (#483). Returns how many builds were read.
+ * The regression rule, daily: a build live for two whole days is read once against the week before its switch (the
+ * switch day itself on neither side). Severe rolls back only when each of those two days is severe on its own, so one
+ * day's burst of beacons, which anyone can send, isn't enough (ARCHITECTURE §9); a smaller regression is flagged on the
+ * run for the admin console and the repair loop (#483). A rollback refused while a publish runs is tried the next day.
+ * Returns how many builds were read.
  */
 export const readVitalsRegressions = async (sql: postgres.Sql, now: Date, limit = 100): Promise<number> => {
   const startOfToday = new Date(`${isoDay(now)}T00:00:00Z`)
-  // Switched before yesterday began, so yesterday was a whole day of it; not more than a week back.
-  const builds = await withSystemScope(sql, (tx) => selectBuildsToRead(tx, new Date(startOfToday.getTime() - 8 * dayMs), new Date(startOfToday.getTime() - dayMs), limit))
+  const day = (from: Date, n: number) => isoDay(new Date(from.getTime() + n * dayMs))
+  const builds = await withSystemScope(sql, (tx) => selectBuildsToRead(tx, new Date(startOfToday.getTime() - 8 * dayMs), new Date(startOfToday.getTime() - 2 * dayMs), limit))
+  let read = 0
   for (const build of builds) {
     const switchDay = new Date(`${isoDay(build.switched_at)}T00:00:00Z`)
-    const [before, after] = await withSystemScope(sql, async (tx) => [
-      await selectVitals(tx, build.store_id, isoDay(new Date(switchDay.getTime() - 7 * dayMs)), isoDay(new Date(switchDay.getTime() - dayMs))),
-      await selectVitals(tx, build.store_id, isoDay(new Date(switchDay.getTime() + dayMs)), isoDay(new Date(startOfToday.getTime() - dayMs))),
+    const [before, first, second, after] = await withSystemScope(sql, async (tx) => [
+      await selectVitals(tx, build.store_id, day(switchDay, -7), day(switchDay, -1)),
+      await selectVitals(tx, build.store_id, day(switchDay, 1), day(switchDay, 1)),
+      await selectVitals(tx, build.store_id, day(switchDay, 2), day(switchDay, 2)),
+      await selectVitals(tx, build.store_id, day(switchDay, 1), day(startOfToday, -1)),
     ])
+    const severeOn = (days: VitalsDays[]) => new Set(compare(before, days).filter((p) => p.verdict === 'severe').map((p) => p.page))
+    const [a, b] = [severeOn(first), severeOn(second)]
     const pages = compare(before, after)
-    const verdict = pages.some((p) => p.verdict === 'severe') ? 'severe' : pages.some((p) => p.verdict === 'regressed') ? 'regressed' : 'ok'
-    const rolledBack = verdict === 'severe' && (await rollBackLiveBuild(sql, { storeId: build.store_id, runId: build.id, code: 'vitals_regressed', now }))
+    const verdict = [...a].some((page) => b.has(page)) ? 'severe' : pages.some((p) => p.verdict !== 'ok') ? 'regressed' : 'ok'
+    const outcome = verdict === 'severe' ? await rollBackLiveBuild(sql, { storeId: build.store_id, runId: build.id, code: 'vitals_regressed', now }) : 'kept'
+    if (outcome === 'busy') continue
+    read += 1
+    const rolledBack = outcome === 'rolled_back'
     await withSystemScope(sql, (tx) => recordVerdict(tx, build.id, { readAt: now.toISOString(), verdict, rolledBack, pages }))
     if (verdict !== 'ok') logEvent({ event: 'storefront_vitals_regressed', api: 'system', storeId: build.store_id, code: rolledBack ? 'rolled_back' : verdict })
   }
-  return builds.length
+  return read
 }

@@ -822,15 +822,18 @@ fits (suggested on #483).
   `/shop-api/vitals` only if the shopper has agreed to analytics by then: the page kind, phone or desktop, and the
   three measures (INP null for a visit with no interaction), nothing else; the intake refuses any other field and a
   body over 1 KB before reading it, and sits behind the Shop API's per-address limiter. The Shop API keeps them as each
-  day's histograms (`storefront_vitals_day`), never for a preview host. *Decided on #484:* the rule runs daily at 03:00
-  UTC and reads a build once, after its first whole day live and within a week: the days after its switch day against
-  the seven days before it, per page kind and device, each side with at least 50 samples. **Severe** rolls back (the
-  pointer move of LIVE-SHOP §4 step 10, `vitals_regressed`, refused while a publish runs or once the build before is
-  gone): LCP or INP p75 doubled and now above Google's "good" (2.5 s, 200 ms), or CLS p75 above 0.25 from under it.
+  day's histograms (`storefront_vitals_day`, at most 5,000 samples a day per page kind and device), never for a preview
+  host. *Decided on #484:* the rule runs daily at 03:00 UTC and reads a build once, after its first two whole days live
+  and within a week: the days after its switch day against the seven days before it, per page kind and device, each
+  side with at least 50 samples. **Severe** rolls back (the pointer move of LIVE-SHOP §4 step 10, `vitals_regressed`;
+  held while a publish runs and read again the next day, refused once the build before is gone) only when each of the
+  two days is severe on its own: LCP or INP p75 doubled and now above Google's "good" (2.5 s, 200 ms), or CLS p75 above
+  0.25 from under it.
   **Regressed** is a p75 a fifth worse; either needs a move of at least two histogram buckets, the data's resolution.
   It is kept on `publish_run.vitals` for the admin console and the repair loop (#483). The beacons are unauthenticated,
-  so a determined sender from many addresses could fake a severe regression; what it buys is a pointer move back to the
-  build before, recorded and undone by the next publish, which we accept (raised on #484's review). Reading Google's
+  so the rule asks for two days in a row and caps a day's samples; a sender who keeps faking a regression from many
+  addresses for two days buys a pointer move back to the build before, recorded and undone by the next publish, which
+  we accept (raised on #484's review). Reading Google's
   CrUX data is a follow-up.
 
 ---
