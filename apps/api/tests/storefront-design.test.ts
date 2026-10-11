@@ -8,7 +8,10 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
 import { fakeSites, putText, type FakeSites } from './support/sites'
-import { seedStoreWorld, type StoreWorld } from './support/storeWorld'
+import { hashSessionId } from '#auth/session'
+import { activityLog } from '#saas/activity/index'
+import { exchangeSupportHandoff } from '#saas/storeSupport/index'
+import { seedStoreWorld, type StoreWorld, type Who } from './support/storeWorld'
 import { localStudio } from './support/studio'
 
 // Card #318 (SAPI 17), part 1: the template gallery, choosing a template and the Storefront overview on the Store API
@@ -117,6 +120,42 @@ describe('the template gallery', () => {
   })
 })
 
+describe('each store’s own storefront', () => {
+  it('answers the caller’s store only, and a choice in one store leaves another’s draft and outbox alone', async () => {
+    const [run] = await db.sql<{ id: string }[]>`
+      insert into publish_run (store_id, kind, state, commit, template, core_version, uses_allowance, started_by_kind, created_at)
+      values (${t.storeB1}, 'design', 'live', ${'b'.repeat(40)}, 'bloom', ${core}, false, 'system', now()) returning id`
+    await db.sql`insert into design_version (store_id, number, commit, template, core_version, build_id, published_at, state) values (${t.storeB1}, 999, ${'b'.repeat(40)}, 'bloom', ${core}, ${run?.id ?? ''}, now(), 'live')`
+    const read = async (who: Who) => (await w.gql(who, '{ storefront { status template live { number } history { number } } }')).data?.['storefront']
+    expect(await read('bOwner')).toEqual({ status: 'not_started', template: 'bloom', live: { number: 999 }, history: [{ number: 999 }] })
+    for (const who of ['owner', 'a2Owner'] as const) {
+      const mine = (await read(who)) as { live: { number: number } | null; history: { number: number }[] }
+      expect(mine.live?.number).not.toBe(999)
+      expect(mine.history.map((v) => v.number)).not.toContain(999)
+    }
+    const outbox = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where store_id = ${t.storeB1}`)[0]?.n
+    const before = await outbox()
+    await choose('a2Owner', 'linen', false)
+    expect(await outbox()).toBe(before)
+    expect(await db.sql`select 1 from design_draft where store_id = ${t.storeB1}`).toHaveLength(0)
+    await db.sql`delete from design_version where store_id = ${t.storeB1}`
+    await db.sql`delete from publish_run where store_id = ${t.storeB1}`
+  })
+
+  it('refuses the choice to a partner’s support session, even one allowed to make changes', async () => {
+    const [agent] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'ravi@partner-a.example', 'Ravi', 'partner-support', 'active') returning id`
+    const [seat] = await db.sql<{ id: string }[]>`select id from membership where user_id = ${w.people.owner}`
+    const at = now()
+    await db.sql`
+      insert into support_session (partner_id, store_id, membership_id, partner_user_id, reason, started_at, expires_at, handoff_hash, handoff_expires_at, access, write_requested_at, write_decided_at)
+      values (${t.partnerA}, ${t.storeA1}, ${seat?.id ?? ''}, ${agent?.id ?? ''}, 'Help', ${at}, ${new Date(at.getTime() + 30 * 60_000)}, ${await hashSessionId('tok-studio')}, ${new Date(at.getTime() + 5 * 60_000)}, 'write', ${at}, ${at})`
+    const entered = await exchangeSupportHandoff({ sql: db.sql, partnerId: t.partnerA, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, now }, 'tok-studio')
+    const cookie = entered?.cookie ?? ''
+    expect((await w.support(cookie, t.partnerA, '{ storefront { status } }')).code).toBeUndefined()
+    expect((await w.support(cookie, t.partnerA, 'mutation { chooseTemplate(key: "linen", keepWords: false) }')).code).toBe('BLOCKED_FOR_SUPPORT')
+  })
+})
+
 describe('the version history', () => {
   it('comes newest first, 50 at a time, the live version always and the rest within the plan’s days', async () => {
     await db.sql`
@@ -176,6 +215,11 @@ describe('choosing a template', () => {
     expect(local.calls.every((c) => c.storeId === c.contextStore)).toBe(true)
     expect(local.calls.some((c) => c.storeId === t.storeB1)).toBe(true)
 
+    const entries = (await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${t.storeB1} and action = 'storefront.template_chosen'`)[0]?.n
+    // The template the draft already uses changes nothing and records nothing.
+    expect((await choose('bOwner', 'linen', true)).code).toBeUndefined()
+    expect((await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${t.storeB1} and action = 'storefront.template_chosen'`)[0]?.n)
+      .toBe(entries)
     const again = await choose('bOwner', 'baseline', false)
     expect(again.code).toBeUndefined()
     const [moved] = await db.sql<{ head_commit: string; template: string }[]>`select head_commit, template from design_draft where store_id = ${t.storeB1}`

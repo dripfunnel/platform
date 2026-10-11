@@ -172,7 +172,8 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
-    await recordAfter(sql, storeId, record)
+    // The template the draft already uses changes nothing, so nothing is recorded as chosen.
+    if (answer.outcome === 'changed') await recordAfter(sql, storeId, record)
     return { ok: true, value: (await overview()).status }
   }
 

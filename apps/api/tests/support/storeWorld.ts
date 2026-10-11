@@ -5,6 +5,7 @@ import { storeSchema } from '#apis/store/schema'
 import type { SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
+import { supportCookieName } from '#auth/storeSupport'
 import { withSystemScope } from '#db/scoped/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { activityLog } from '#saas/activity/index'
@@ -28,6 +29,8 @@ export interface StoreWorld {
   storeOf: (who: Who) => string
   partnerOf: (who: Who) => string
   gql: (who: Who, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
+  /** A partner's support session in a store (ACCESS §8), by its cookie. */
+  support: (cookie: string, partnerId: string, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
   /** A bearer credential (an API key or an app's token) on a partner's portal host. */
   bearer: (secret: string, source: string, partnerId: string) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
 }
@@ -76,6 +79,7 @@ export const seedStoreWorld = async (sql: postgres.Sql, t: Tenants, o: WorldOpti
     partnerOf,
     gql: (who, source, variables = {}) =>
       run({ cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeOf(who), ...(seats[who].supplier ? { [supplierHeader]: t.sellerA1First } : {}) }, partnerOf(who), source, variables),
+    support: (cookie, partnerId, source, variables = {}) => run({ cookie: `${supportCookieName}=${cookie}` }, partnerId, source, variables),
     bearer: (secret, source, partnerId) => run({ authorization: `Bearer ${secret}` }, partnerId, source),
   }
 }
