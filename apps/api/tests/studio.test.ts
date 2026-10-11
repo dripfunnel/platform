@@ -200,6 +200,27 @@ describe('one change', () => {
   })
 })
 
+describe('a model that fails partway', () => {
+  it('meters the asks already made as failed, and changes nothing', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    let asks = 0
+    const flaky: DesignModel = {
+      propose: async () => {
+        asks += 1
+        if (asks === 3) throw new Error('model unavailable')
+        return { files: [refusedPage], model: 'test-model', tokensIn: 10, tokensOut: 5, costAmount: 1, costCurrency: 'USD' }
+      },
+    }
+    await expect(runner.change({ request: 'Fails on the third ask', userId: ownerA.userId, billedTo: 'plan', model: flaky })).rejects.toThrow(/model unavailable/)
+    const runs = await db.sql<{ kind: string; billed_to: string; outcome: string }[]>`select kind, billed_to, outcome from ai_run where store_id = ${t.storeA2} order by kind`
+    expect(runs).toEqual([
+      { kind: 'design', billed_to: 'plan', outcome: 'failed' },
+      { kind: 'repair', billed_to: 'platform', outcome: 'refused' },
+    ])
+    expect(await draftRow(t.storeA2)).toBeNull()
+  })
+})
+
 describe('a failed load', () => {
   it('stops the container it started and gives back its place', async () => {
     const empty = fakeSites()
