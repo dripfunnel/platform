@@ -5,6 +5,7 @@ import { GitHubRefused, GitHubUnavailable, noAnswer } from '#integrations/github
 import { selectShopStore } from '#db/scoped/shop'
 import { selectGuardContext, type GuardContextRow } from '#db/scoped/studio'
 import type { GuardContext } from '#integrations/sandbox/index'
+import { storeContentPaths } from '#engine/modules/content/index'
 import { shopsHostOf } from '#saas/domains/storeHosts'
 import { assetsFolder, draftBundle, snapshotFile, sourceBundle } from './layout'
 import type { SitesBucket } from './templates'
@@ -35,10 +36,9 @@ export interface FreezeDeps {
 }
 
 /** A theme writes one content folder per language (`content/en`), which core's i18n reads for en-US and en-IN alike. */
-export const guardContextFor = (row: GuardContextRow): GuardContext => ({
+export const guardContextFor = (row: GuardContextRow, usedPaths: string[]): GuardContext => ({
   locales: [...new Set([row.main_language, ...row.languages].map((l) => l.split('-')[0] ?? l))],
-  // Content pages and posts (SAPI 24) don't exist yet, so no path is taken but core's (ARCHITECTURE §3.1).
-  usedPaths: [],
+  usedPaths,
   mediaIds: row.media_ids,
   brand: { name: row.name, tagline: null, email: null, phone: null, address: [], socialLinks: [] },
 })
@@ -74,7 +74,7 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, buildId: string, asset
       address: { street: store.address.street ?? null, city: store.address.city ?? null, region: store.address.region ?? null, postal: store.address.postal ?? null, country: store.country },
     },
     poweredBy: source.powered_by,
-    guard: guardContextFor(guard),
+    guard: guardContextFor(guard, await storeContentPaths(tx, storeId)),
     csp: { assetOrigin, mediaOrigins: [], analytics: [], payments: [] },
     assetBase: assetOrigin ? `${assetOrigin}/${assetsFolder(storeId, buildId)}` : null,
   }

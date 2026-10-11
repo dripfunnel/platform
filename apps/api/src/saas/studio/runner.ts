@@ -306,13 +306,7 @@ export class StudioRunner {
   private async guardContext(): Promise<GuardContext> {
     const { row, usedPaths } = await this.system(async (tx) => ({ row: await selectGuardContext(tx, this.deps.storeId), usedPaths: await storeContentPaths(tx, this.deps.storeId) }))
     if (!row) throw new StudioUnavailable('The store is gone.')
-<<<<<<< HEAD
-    return guardContextFor(row)
-=======
-    // A theme writes one content folder per language (`content/en`), which core's i18n reads for en-US and en-IN alike.
-    const locales = [...new Set([row.main_language, ...row.languages].map((l) => l.split('-')[0] ?? l))]
-    return { locales, usedPaths, mediaIds: row.media_ids, brand: { name: row.name, tagline: null, email: null, phone: null, address: [], socialLinks: [] } }
->>>>>>> #483/task/publish-gate-3
+    return guardContextFor(row, usedPaths)
   }
 }
 
