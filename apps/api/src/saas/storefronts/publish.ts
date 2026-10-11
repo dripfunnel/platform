@@ -9,6 +9,7 @@ import {
   insertQueuedRun,
   lockStorefront,
   moveLiveTo,
+  selectGateVerdict,
   selectQueuedRun,
   selectRun,
   selectVersion,
@@ -18,7 +19,6 @@ import {
   type RunRow,
 } from '#db/scoped/publishing'
 import { isUploaded, isVerified } from '#db/scoped/builds'
-import { selectGateVerdict } from '#db/scoped/publishing'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'

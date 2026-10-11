@@ -193,8 +193,13 @@ export const selectBuildInput = async (tx: ScopedSql, storeId: string, runId: st
       from publish_run r join storefront f on f.store_id = r.store_id where r.id = ${runId} and r.store_id = ${storeId}`
   )[0] ?? null
 
-export const markDispatched = async (tx: ScopedSql, storeId: string, runId: string, at: Date): Promise<void> => {
-  await tx`update publish_run set dispatched_at = ${at} where id = ${runId} and store_id = ${storeId} and dispatched_at is null`
+/** Claims the build's one dispatch; false when another attempt already holds it. */
+export const markDispatched = async (tx: ScopedSql, storeId: string, runId: string, at: Date): Promise<boolean> =>
+  (await tx`update publish_run set dispatched_at = ${at} where id = ${runId} and store_id = ${storeId} and dispatched_at is null`).count === 1
+
+/** GitHub refused the dispatch, so no run started and the next attempt may ask again. */
+export const unmarkDispatched = async (tx: ScopedSql, storeId: string, runId: string): Promise<void> => {
+  await tx`update publish_run set dispatched_at = null where id = ${runId} and store_id = ${storeId} and gate is null`
 }
 
 /** The report's verdict, or null before one came (LIVE-SHOP §4 step 7). */

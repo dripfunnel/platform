@@ -156,8 +156,10 @@ checking, deploying, live, failed, rolled back).
    *Why:* the build id ties the run to this `publish_run`, so a run can't upload into another
    build, and an old id is refused.
    **Built on #483**: `POST /repos/{org}/{repo}/actions/workflows/build.yml/dispatches` on `main` with the inputs
-   `build_id` and `api` (`https://<hooks host>`), once (`publish_run.dispatched_at`); a repo GitHub doesn't know fails
-   the publish as `no_repo`.
+   `build_id` and `api` (`https://<hooks host>`), at most once: `publish_run.dispatched_at` is set before GitHub is
+   asked and cleared only when GitHub answered no, so a retried step never starts a second run. A repo GitHub doesn't
+   know fails the publish as `no_repo`. The runner sends only the check container's report as a verdict: the build
+   container ran the theme, so its own report can only refuse (its failing checks), and no report is "stopped".
 5. **The workflow is one job**, so the built site never leaves the runner as an artifact. Its
    permissions are `id-token: write` and nothing else.
    - **Networking off:** the AI-written code (the static build, and the theme in the headless

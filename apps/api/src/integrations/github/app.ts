@@ -13,6 +13,9 @@ export class GitHubUnavailable extends Error {
   override name = 'GitHubUnavailable'
 }
 
+/** GitHubUnavailable's words when no answer came at all, so a caller can tell it from a 5xx. */
+export const noAnswer = 'GitHub did not answer'
+
 /** GitHub refused the request itself (4xx); retrying it unchanged gives the same answer. */
 export class GitHubRefused extends Error {
   override name = 'GitHubRefused'
@@ -105,7 +108,7 @@ export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl =
         throw new GitHubRefused(response.status)
       }
       renew = response?.status === 401
-      if (attempt + 1 >= attempts) throw new GitHubUnavailable(response ? `GitHub answered ${response.status}` : 'GitHub did not answer')
+      if (attempt + 1 >= attempts) throw new GitHubUnavailable(response ? `GitHub answered ${response.status}` : noAnswer)
       await sleep(retryAfter(response, attempt))
     }
   }

@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { markDispatched, selectBuildInput, selectSnapshotSource } from '#db/scoped/publishing'
+import { markDispatched, selectBuildInput, selectSnapshotSource, unmarkDispatched } from '#db/scoped/publishing'
+import { GitHubRefused, GitHubUnavailable, noAnswer } from '#integrations/github/index'
 import { selectShopStore } from '#db/scoped/shop'
 import { selectGuardContext, type GuardContextRow } from '#db/scoped/studio'
 import type { GuardContext } from '#integrations/sandbox/index'
@@ -100,12 +101,26 @@ export const freezeBuild = async (deps: FreezeDeps, storeId: string, buildId: st
   return 'frozen'
 }
 
-/** Step 4: the store repo's locked workflow, started once with the build id and the hooks host. */
+/**
+ * Step 4: the store repo's locked workflow, started at most once with the build id and the hooks host. The start is
+ * recorded before GitHub is asked, and taken back only when GitHub said no, so a retried step never starts a second run.
+ */
 export const dispatchBuild = async (deps: FreezeDeps, storeId: string, buildId: string): Promise<'dispatched' | 'skipped'> => {
   const input = await withSystemScope(deps.sql, (tx) => selectBuildInput(tx, storeId, buildId))
   if (input?.dispatched_at || input?.reported) return 'skipped'
   if (!input?.repo) throw new FreezeRefused('no_repo')
-  if (!(await deps.dispatch(input.repo, buildId))) throw new FreezeRefused('no_repo')
-  await withSystemScope(deps.sql, (tx) => markDispatched(tx, storeId, buildId, deps.now()))
+  const repo = input.repo
+  if (!(await withSystemScope(deps.sql, (tx) => markDispatched(tx, storeId, buildId, deps.now())))) return 'skipped'
+  let started: boolean
+  try {
+    started = await deps.dispatch(repo, buildId)
+  } catch (error) {
+    // GitHub answered with a failure, so no run started and the step's retry may ask again; with no answer at all a run
+    // may have started, so the start stands and the report, or the build id's 2 hours, decides.
+    const answered = error instanceof GitHubRefused || (error instanceof GitHubUnavailable && error.message !== noAnswer)
+    if (answered) await withSystemScope(deps.sql, (tx) => unmarkDispatched(tx, storeId, buildId))
+    throw error
+  }
+  if (!started) throw new FreezeRefused('no_repo')
   return 'dispatched'
 }

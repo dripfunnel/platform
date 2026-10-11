@@ -6,9 +6,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
 import { allowanceUsed } from '#db/scoped/publishing'
 import { recordGate } from '#db/scoped/builds'
-import { createGitHubApp, storeRepos } from '#integrations/github/index'
+import { createGitHubApp, GitHubRefused, GitHubUnavailable, noAnswer, storeRepos } from '#integrations/github/index'
 import { localGitHub } from '#integrations/local/github'
-import { digestOf, runPublish, startPublish, type PublishDeps } from '#saas/storefronts/index'
+import { digestOf, dispatchBuild, runPublish, startPublish, type PublishDeps } from '#saas/storefronts/index'
 import { draftBundle, snapshotFile, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -136,6 +136,34 @@ describe('a publish’s build', () => {
   })
 })
 
+describe('the dispatch', () => {
+  it('starts at most one run however often its step is retried, and asks again only when GitHub said no', async () => {
+    const runId = await start(t.storeA2, 'design', 20)
+    await db.sql`update publish_run set state = 'building', started_at = now() where id = ${runId}`
+    let answers: (() => Promise<boolean>)[] = [async () => Promise.reject(new GitHubRefused(422)), async () => Promise.reject(new GitHubUnavailable('GitHub answered 502')), async () => true]
+    const asked: string[] = []
+    const retrying = { ...deps(), dispatch: async (repo: string) => {
+      asked.push(repo)
+      return (answers.shift() ?? (async () => true))()
+    } }
+    await expect(dispatchBuild(retrying, t.storeA2, runId)).rejects.toThrow(GitHubRefused)
+    await expect(dispatchBuild(retrying, t.storeA2, runId)).rejects.toThrow(GitHubUnavailable)
+    expect(await dispatchBuild(retrying, t.storeA2, runId)).toBe('dispatched')
+    // The step failing after GitHub started the run: its retry finds the start recorded and starts nothing.
+    expect(await dispatchBuild(retrying, t.storeA2, runId)).toBe('skipped')
+    expect(asked).toHaveLength(3)
+    // No answer at all: a run may have started, so the start stands and nothing is asked again.
+    const silent = await start(t.storeA2, 'design', 21)
+    await db.sql`update publish_run set state = 'failed' where id = ${runId}`
+    await db.sql`update publish_run set state = 'building', started_at = now() where id = ${silent}`
+    answers = [async () => Promise.reject(new GitHubUnavailable(noAnswer))]
+    await expect(dispatchBuild(retrying, t.storeA2, silent)).rejects.toThrow(GitHubUnavailable)
+    expect(await dispatchBuild(retrying, t.storeA2, silent)).toBe('skipped')
+    expect(asked).toHaveLength(4)
+    await db.sql`update publish_run set state = 'failed' where id = ${silent}`
+  })
+})
+
 describe('"Publish now"’s allowance', () => {
   it('is never used by a refused or failed publish', async () => {
     const since = new Date(Date.now() - 60_000)
@@ -199,6 +227,19 @@ describe('the locked workflow (LIVE-SHOP §4 step 5)', () => {
     }
     // The containers' own output never reaches the log.
     expect([...workflow.matchAll(/publish\.js (?:build|check)[^\n]*(?:\n[^\n]*?){0,2}> \/dev\/null 2>&1/g)]).toHaveLength(2)
+  })
+
+  it('takes a passing verdict only from the check container: the build container’s report can only refuse', () => {
+    const pick = /--argjson stopped "\$stopped" '([^']*)'/.exec(step('check'))?.[1] ?? ''
+    const stopped = /stopped='([^']*)'/.exec(step('check'))?.[1] ?? ''
+    const verdict = (report: string) => JSON.parse(execFileSync('jq', ['-c', '--argjson', 'stopped', stopped, pick], { input: report, encoding: 'utf8' })) as unknown
+    const forged = JSON.stringify({ passed: true, checks: [{ name: 'contracts', passed: true }] })
+    expect(verdict(forged)).toEqual({ passed: false, checks: JSON.parse(stopped) as unknown })
+    expect(verdict(JSON.stringify({ passed: false, checks: [{ name: 'validator', passed: false, detail: 'No.' }, { name: 'axe', passed: true }] }))).toEqual({ passed: false, checks: [{ name: 'validator', passed: false, detail: 'No.' }] })
+    expect(verdict('{}')).toEqual({ passed: false, checks: JSON.parse(stopped) as unknown })
+    // The check container runs whenever there is a site, whatever the build left beside it.
+    expect(step('check')).toContain('if [[ -d "$SITE" ]]; then')
+    expect(step('check')).not.toContain('report="$BUILT/report.json"')
   })
 
   it('reports the digest of exactly the files it handed to the check, as the API computes it', async () => {

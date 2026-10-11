@@ -102,7 +102,7 @@ jobs:
         run: |
           set -euo pipefail
           source "$RUNNER_TEMP/call.sh"
-          if [[ -d "$SITE" && ! -f "$BUILT/report.json" ]]; then
+          if [[ -d "$SITE" ]]; then
             live=(); [[ -d "$IN/live" ]] && live=(--live /in/live)
             strict=(); [[ "$STRICT" == true ]] && strict=(--strict-look)
             docker run --rm --network none --read-only --tmpfs /tmp --shm-size 1g --cap-drop ALL --security-opt no-new-privileges \
@@ -110,16 +110,19 @@ jobs:
               node /opt/sandbox/dist/publish.js check --source /in/source.bundle --commit "$COMMIT" --snapshot /in/snapshot.json \
               --built /built ${live[@]+"${live[@]}"} ${strict[@]+"${strict[@]}"} --out /out > /dev/null 2>&1 || true
           fi
-          report="$CHECKED/report.json"; [[ -f "$report" ]] || report="$BUILT/report.json"
-          if ! jq -e '(.passed | type == "boolean") and (.checks | type == "array" and length > 0)' "$report" > /dev/null 2>&1; then
-            report="$RUNNER_TEMP/stopped.json"
-            echo '{"passed":false,"checks":[{"name":"contracts","passed":false,"detail":"The build stopped before its checks finished."}]}' > "$report"
+          # Only the check container's report can pass. The build container ran the theme, so its report can only
+          # refuse: its failing checks are kept, and anything else is the "stopped" failure.
+          stopped='[{"name":"contracts","passed":false,"detail":"The build stopped before its checks finished."}]'
+          if jq -e '(.passed | type == "boolean") and (.checks | type == "array" and length > 0)' "$CHECKED/report.json" > /dev/null 2>&1; then
+            report=$(jq -c . "$CHECKED/report.json")
+          else
+            report=$( (cat "$BUILT/report.json" 2> /dev/null || echo '{}') | jq -c --argjson stopped "$stopped" '{passed: false, checks: ([.checks[]? | select(.passed == false)] | if length > 0 then . else $stopped end)}' 2> /dev/null || printf '{"passed":false,"checks":%s}' "$stopped")
           fi
           # The digest of exactly the files handed to the check (LIVE-SHOP §4 step 7), computed out here.
           mkdir -p "$SITE"
           digest=$(python3 "$RUNNER_TEMP/list.py" "$SITE" | python3 -c 'import hashlib, json, sys; print(hashlib.sha256("".join(f["sha256"] + "  " + f["path"] + "\n" for f in json.load(sys.stdin)["files"]).encode()).hexdigest())')
           body=$(jq -c --arg build "$BUILD_ID" --arg digest "$digest" \
-            '{build: $build, passed: .passed, digest: $digest, checks: [.checks[] | {name, passed} + (if .detail then {detail} else {} end)]}' "$report")
+            '{build: $build, passed: .passed, digest: $digest, checks: [.checks[] | {name, passed} + (if .detail then {detail} else {} end)]}' <<<"$report")
           mint; answer=$(call report "$body")
           [[ "$(jq -r .upload <<<"$answer")" == true ]] && echo "UPLOAD=1" >> "$GITHUB_ENV"
           [[ "$(jq -r .passed <<<"$answer")" == true ]] && echo "check: passed" || { echo "check: failed"; exit 1; }

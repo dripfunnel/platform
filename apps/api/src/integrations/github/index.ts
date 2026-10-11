@@ -2,7 +2,7 @@ import type { Config } from '#core/config'
 import { localGitHub } from '../local/github'
 import { createGitHubApp, type GitHubApp } from './app'
 
-export { createGitHubApp, GitHubUnavailable, type GitHubApp } from './app'
+export { createGitHubApp, GitHubRefused, GitHubUnavailable, noAnswer, type GitHubApp } from './app'
 export { storeRepos, type RepoChange, type StoreRepos } from './repos'
 
 // Locally the stand-in lives as long as the isolate, so the repos a run made are there for its next step.
