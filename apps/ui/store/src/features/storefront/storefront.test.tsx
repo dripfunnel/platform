@@ -264,6 +264,17 @@ describe('site settings › domains', () => {
     expect(card(d.title).queryByRole('alert')).toBeNull()
   })
 
+  it('says so when a write went through but the list couldn’t be read again', async () => {
+    api.connectDomain.mockResolvedValueOnce(waiting.domains[1])
+    await show({ tab: 'settings' })
+    api.loadDomains.mockRejectedValueOnce(new Error('offline'))
+    const domains = card(d.title)
+    fireEvent.change(domains.getByLabelText(d.connectLabel), { target: { value: 'www.kesari.in' } })
+    fireEvent.click(domains.getByRole('button', { name: d.connect }))
+    await settle()
+    expect(domains.getByRole('alert').textContent).toBe(d.notRefreshed)
+  })
+
   it('waits for DNS with the records to copy, Check now and Cancel', async () => {
     api.loadDomains.mockResolvedValue(waiting)
     const writeText = vi.fn().mockResolvedValue(undefined)

@@ -6603,6 +6603,7 @@
       "removeConfirm": "Remove domain",
       "keep": "Keep it",
       "removed": "{host} removed",
+      "notRefreshed": "That went through, but the list didn’t update. Reload the page to see where your domains stand.",
       "refused": {
         "INVALID_HOSTNAME": "Type the domain only, like www.yourshop.com.",
         "APEX_NOT_AVAILABLE": "Use a subdomain, like {suggested}.",

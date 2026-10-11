@@ -34,13 +34,15 @@ export const DomainsCard = ({ domains, onDomains, canEdit, canUpgrade, api, onTo
   const latest = useRef(0)
   const onDomainsRef = useRef(onDomains)
   onDomainsRef.current = onDomains
-  const reload = useCallback(async () => {
+  /** False when the list couldn't be read: a poll stays quiet, an action says so. */
+  const reload = useCallback(async (): Promise<boolean> => {
     const ask = ++latest.current
     try {
       const next = await api.loadDomains()
       if (ask === latest.current) onDomainsRef.current(next)
+      return true
     } catch {
-      // The list on screen stays; the next poll or action reads it again.
+      return false
     }
   }, [api])
   const pending = inProgress(domains.domains)
@@ -55,7 +57,7 @@ export const DomainsCard = ({ domains, onDomains, canEdit, canUpgrade, api, onTo
     setProblem(null)
     try {
       await work()
-      await reload()
+      if (!(await reload())) setProblem(words.notRefreshed)
       if (done) onToast(done)
     } catch (error) {
       setProblem(domainRefusal(error))
