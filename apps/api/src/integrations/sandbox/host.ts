@@ -1,4 +1,4 @@
-import { SandboxDown, type SandboxFetch } from './client'
+import { SandboxDown, type SandboxFetch } from './api'
 
 // Where a store's sandbox runs: its own Cloudflare container (AI-STUDIO §1), or, on this machine, `apps/sandbox` started
 // by hand as the local stand-in (docs/setup/local.md), one slot per store.

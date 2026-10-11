@@ -10,8 +10,9 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 (`designs/PortalStorefront`) owns the screens. This document owns the **infrastructure**.
 [PREVIEW.md](PREVIEW.md) and [LIVE-SHOP.md](LIVE-SHOP.md) take the draft from here.
 
-**Status:** the sandbox (`apps/sandbox`: §4 steps 3–4, the fast gate, the draft as a git bundle) and its image per core
-version are built on #482; the rest is specification.
+**Status:** built on #482: the sandbox (`apps/sandbox`: §4 steps 3–4, the fast gate, the draft as a git bundle), its
+image per core version, and the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7). The
+studio's API and screens are #318 and #319.
 
 Last updated: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
@@ -280,9 +281,36 @@ built from the fast gate's bundle, the frame on the store's preview origin).
     its own, no hooks and the `file` protocol only;
   - the server refuses to start when a variable that looks like a credential is set, and blocks
     `fetch`, sockets, HTTP and DNS inside its own process on top of the container's `enableInternet: false`.
-- The idle timeout: 10 minutes proposed, 5 suggested *(decide on #482)*.
-- Whether a plan caps simultaneous studio sessions *(decide on #287 and #482)*.
-- The studio session's renewal interval (5 minutes proposed, renewed through the Store API with
-  the access re-check) and the WebSocket path through the edge Worker *(decide on #482)*.
+- ~~The idle timeout.~~ **10 minutes** (decided on #482): a merchant reading the preview between asks often passes 5,
+  a container at `basic` costs about a cent an hour, and a cold start reloads the saved draft in seconds.
+- **How the Durable Object runs a change** (decided on #482):
+  - `StudioSession` is named by the store id of the session's `TenantContext` (`studioOf`), keeps that id in its
+    storage on the first call, and refuses a call for any other store;
+  - one change at a time: a promise chain per object, with `pending` for "Finishing your previous change…";
+  - the model is the Worker's: the Store API passes it to `change()` over RPC, so the partner's or merchant's
+    key never reaches the object's storage or the container; a repair asks it again with the gate's
+    problems (`ai_run` rows of kind `repair`, billed to `platform`, under the request's own run);
+  - it loads `drafts/{store}.bundle`, else the live build's `sources/{store}/{build}.bundle`, else, for a store
+    that has never published, the template's files from the sites bucket (the template's commit on GitHub
+    is never read);
+  - each accepted change saves, in this order: the draft bundle, the preview folder
+    `stores/{id}/preview/{change id}/` (each file with its SHA-256), `design_draft.head_commit` and
+    `preview_deploy_ref` with `storefront.custom_paths`, then the frame's reload notice;
+  - a sandbox that stops answering is started again from the saved draft and the step is tried once more;
+    a second failure answers "unavailable" and the draft stays at its last saved state;
+  - the validator's languages are the store's languages' base codes (`en-IN` → `content/en/`), which core's
+    i18n reads for every region of a language; content and post paths are empty until SAPI 24 adds them;
+  - **capacity**: the `durable_object` scheduling policy has no `max_instances`, so one `StudioCapacity` object
+    keeps a ledger of `STUDIO_CAPACITY` running studios (default 5,000, short of the ~6,000 the account's
+    vCPU allows at `basic`): a running studio's lease is renewed every minute and lapses 3 minutes after the
+    last renewal; a waiting studio keeps its place by when it first asked and leaves the queue a minute
+    after it stops asking.
+- Whether a plan caps simultaneous studio sessions *(decide on #287; #482 caps only the account, by `STUDIO_CAPACITY`)*.
+- ~~The studio session's renewal interval.~~ **Live 5 minutes, renewed every 2** (decided on #482), so one missed
+  renewal never closes the frame. The id is 128 random bits (22 base64url characters) kept only as its SHA-256 in
+  `studio_session`, which references the portal session: signing out deletes it. A renewal re-checks the caller as
+  the Store API resolved them on that request; a seat that lost the studio deletes the session at once. The Owner
+  changes, a Manager views, and staff, suppliers and support sessions get no studio (ACCESS §5.1 `publish`).
+- The WebSocket path through the edge Worker *(decide on #482, part 3)*.
 - Core's hot-swap entry point for the preview adapter *(decide on #304 and #482)*.
 - The retirement rule for old core versions' images *(decide on #485)*.

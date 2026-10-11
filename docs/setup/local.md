@@ -173,6 +173,20 @@ It warns and carries on when there is no sample data, or when a feature's values
 still the example's placeholders. The consoles start with `--strictPort`, so a taken console
 port is an error too, not a silent move to the next port.
 
+### 6.0 The studio's sandbox
+
+The studio runs each store's changes in a container on Cloudflare (`../storefront/AI-STUDIO.md`); here
+`apps/sandbox` runs as a plain Node process instead, one working copy per store (#482):
+
+```bash
+pnpm --filter ./apps/sandbox start:local   # http://127.0.0.1:8790, with an empty environment
+```
+
+Then set `SANDBOX_LOCAL_URL=http://127.0.0.1:8790` in `apps/api/.env.local`. The Worker refuses it
+anywhere but on localhost. Without it the local `StudioSession` has no sandbox and answers that the
+studio is unavailable. It needs no Docker: the sandbox's own tests and the API's studio tests start it
+the same way.
+
 ### 6.1 Where emails, texts, courier quotes and domain checks go
 
 With `EMAIL_LOCAL`, `SMS_LOCAL`, `DNS_LOCAL` and `COURIERS_LOCAL` (the defaults in `.env.example`), everything
