@@ -122,6 +122,11 @@ describe('the full gate', () => {
     const withCart = { ...good, site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/cart/</loc></url>` } }
     expect(detail(withCart, 'crawl')).toBe(`The sitemap lists ${origin}/cart/, which isn't a page search engines should see.`)
     expect(detail({ ...good, site: { ...good.site, robots: 'User-agent: *\n' } }, 'crawl')).toBe('robots.txt doesn’t name the sitemap.')
+    // Items of indexable routes may be listed, in the store's languages, but not an account page or another site's.
+    const items = { ...good, site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/products/linen-shirt/</loc></url><url><loc>${origin}/hi/collections/summer/</loc></url>` } }
+    expect(failing(items)).toEqual([])
+    const stray = { ...good, site: { ...good.site, sitemap: `${good.site.sitemap ?? ''}<url><loc>${origin}/account/orders/42/</loc></url><url><loc>https://other.example/products/x/</loc></url>` } }
+    expect(detail(stray, 'crawl')).toBe(`The sitemap lists ${origin}/account/orders/42/, which isn't a page search engines should see. The sitemap lists https://other.example/products/x/, which isn't a page search engines should see.`)
   })
 
   it('fails a check handed nothing to judge, as when the check step stopped part-way', () => {

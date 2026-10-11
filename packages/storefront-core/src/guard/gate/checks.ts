@@ -197,7 +197,13 @@ export const checkCrawl = (input: Pick<GateInput, 'pages' | 'site'>): GateCheck 
     const listed = new Set(sitemapLocs(input.site.sitemap))
     const wanted = input.pages.filter((p) => indexable(p.route) && !p.path.includes('/_fallback/')).map((p) => `${input.site.origin}${p.path}`)
     for (const url of wanted) if (!listed.has(url)) problems.push(`The sitemap leaves out ${url}.`)
-    for (const url of listed) if (!wanted.includes(url)) problems.push(`The sitemap lists ${url}, which isn't a page search engines should see.`)
+    // An item of an indexable route (a product, a collection, a policy) may be listed, in any of the store's languages.
+    const itemPrefixes = coreRoutes.flatMap((r) => {
+      const a = routeAddresses[r]
+      return indexable(r) && 'prefix' in a ? [a.prefix] : []
+    })
+    const item = (url: string) => url.startsWith(`${input.site.origin}/`) && unprefixed(url.slice(input.site.origin.length)).some((u) => itemPrefixes.some((p) => u.startsWith(p) && u.length > p.length))
+    for (const url of listed) if (!wanted.includes(url) && !item(url)) problems.push(`The sitemap lists ${url}, which isn't a page search engines should see.`)
   }
   if (!input.site.robots?.split('\n').includes(`Sitemap: ${sitemap}`)) problems.push('robots.txt doesn’t name the sitemap.')
   return gateCheck('crawl', problems)
