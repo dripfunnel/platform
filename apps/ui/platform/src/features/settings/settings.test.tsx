@@ -8,7 +8,7 @@ import { PayoutTab } from './PayoutTab'
 import { SecurityTab } from './SecurityTab'
 import { company, team } from './settingsTestData'
 import { actionOnConfirm, dialogFor, TeamTab } from './TeamTab'
-import { inviteFrom, isLastOwner, removeRefusal, roleRefusal, rolesFor, transferCandidates } from './teamRules'
+import { inviteFrom, inviteRefusal, isLastOwner, removeRefusal, roleRefusal, rolesFor, transferCandidates } from './teamRules'
 import { partnerRoles } from '../shell/partnerRoles'
 
 const words = messages.settings
@@ -58,6 +58,9 @@ describe('Team', () => {
     expect(roleRefusal({ ...byId('u1'), you: false }, team, 'partner-admin')).toBe(words.team.refused.ownerRole)
     expect(roleRefusal({ ...byId('u1'), you: false }, team, 'partner-owner')).toBe(words.team.refused.lastOwner)
     expect(removeRefusal(byId('u3'), team, 'partner-support')).toBe(words.team.refused.manage)
+    expect(inviteRefusal(byId('u4'), 'partner-admin')).toBeNull()
+    expect(inviteRefusal({ ...byId('u4'), role: 'partner-owner' }, 'partner-admin')).toBe(words.team.refused.ownerRole)
+    expect(inviteRefusal(byId('u4'), 'partner-finance')).toBe(words.team.refused.manage)
     expect(rolesFor('partner-admin', partnerRoles)).not.toContain('partner-owner')
     expect(rolesFor('partner-owner', partnerRoles)).toContain('partner-owner')
     expect(transferCandidates(team).map((m) => m.id)).toEqual(['u2', 'u3'])
@@ -89,6 +92,9 @@ describe('Team', () => {
     const ownerInvite = await render(<TeamTab team={team.map((m) => (m.id === 'u4' ? { ...m, role: 'partner-owner' as const } : m))} role="partner-admin" session={null} readOnly={false} busy={false} more={{ show: false, busy: false, failed: false }} onRun={() => Promise.resolve(true)} onMore={noop} />)
     expect(buttons(rowOf(ownerInvite, 'u4'))).toEqual([words.team.revoke])
     expect(textOf(rowOf(ownerInvite, 'u4'))).toContain(words.team.refused.ownerRole)
+    const staffSession = await render(<TeamTab team={team.map((m) => (m.id === 'u4' ? { ...m, role: 'partner-owner' as const } : m))} role="partner-owner" session="impersonation" readOnly={false} busy={false} more={{ show: false, busy: false, failed: false }} onRun={() => Promise.resolve(true)} onMore={noop} />)
+    expect(buttons(rowOf(staffSession, 'u4'))).toEqual([words.team.resend, words.team.revoke])
+    expect(buttons(rowOf(await teamTab('partner-owner', true), 'u4'))).toEqual([words.team.revoke])
   })
 
   it('shows a staff session up front that it never changes who is Owner', async () => {
