@@ -1737,7 +1737,8 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                     -- 'baseline' while a security fix serves the baseline theme, and
                     -- core_pinned_reason while an upgrade failed (SAAS §10, decided on #470);
                     -- custom_paths are the draft theme's own pages (routes.json), which
-                    -- SAPI 24 checks a new slug against (storefront ARCHITECTURE §3.1).
+                    -- SAPI 24 checks a new slug against (storefront ARCHITECTURE §3.1); written by
+                    -- the studio on each accepted change (built on #482, migration 0251).
                     -- live_build_id is the live pointer: the publish_run whose files in R2 the
                     -- edge Worker serves (storefront LIVE-SHOP §4 step 9, §5), and whose kept
                     -- source bundle (sources/{store}/{build id}.bundle, private) is the record of
@@ -1848,7 +1849,15 @@ ai_run              (id, store_id, kind ('design'|'repair'|'migration'|'descript
                     -- billed to its plan or own key; its repairs, a publish's repairs and the
                     -- upgrade bot's migrations are 'platform' (decided 2026-10-08 on #470) and
                     -- never count on the store's meter; build minutes are publish_run's; prompt
-                    -- is the merchant's (§5.3)
+                    -- is the merchant's (§5.3). Built on #482 (migration 0251) with created_at, a check
+                    -- that a repair is billed to platform under its parent, and only the merchant's
+                    -- read so far: the partner's and staff's metering view comes with its first reader
+studio_session      (id_hash PK, store_id, user_id, user_session_hash, can_change, created_at,
+                     expires_at)
+                    -- the studio frame's bearer id (storefront AI-STUDIO §8), kept only as its SHA-256;
+                    -- user_session_hash references user_session on delete cascade, so signing out
+                    -- ends it; live 5 minutes, renewed with an access re-check; system scope only
+                    -- (built on #482, migration 0251)
 storefront_redirect (id, store_id, from_path, to_path, language NULL, reason ('renamed'
                      |'removed'|'merged'), created_at)
                     -- the 301s of storefront ARCHITECTURE §8: written by the engine when a
@@ -1878,7 +1887,10 @@ store_limit_override (id, store_id, key, amount, duration ('month'|'always'), mo
 ```
 core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), security boolean,
                      sandbox_image, shop_api_versions text[], notes_url)
-                    -- every published storefront-core version and its sandbox image digest
+                    -- every published storefront-core version and its sandbox image digest:
+                    -- sandbox_image is Cloudflare's registry reference pinned by @sha256, which the
+                    -- studio's Durable Object starts; written by release.yml's sandbox-image job
+                    -- (built on #482, migration 0250); staff read it, system scope writes it
 storefront_template (key PK, name, description, demo_store_id NULL, core_min_version,
                      state ('offered'|'retired'))
                     -- the template gallery (storefront ARCHITECTURE §2.3); the code itself is

@@ -169,6 +169,11 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 3. **Cloudflare Containers and Durable Objects**: enable both on the Cloudflare account you use for dev. Measure the cold
    start of a 1.5–2 GB image at `basic` and `standard-1`, and record it with the date in
    THIRD-PARTY-ACCESS §2.1. Ask for a raise only if the limits are below the studio load (AI-STUDIO §7).
+   Then give `env.dev` in `apps/api/wrangler.jsonc` what `env.local` has for the studio (#482): the
+   `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Object bindings, their `studio-v1` migration, and a
+   `containers` entry `{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { … } }`
+   naming each core version's image by its `core_release.sandbox_image` digest. `STUDIO_CAPACITY` (a
+   Worker variable, default 5000) caps studios running at once.
 4. **GitHub**: the org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,
    500 Enterprise; main's protection needs Team, ARCHITECTURE §6). Create
    the *DripFunnel Provisioning* App with *Administration*, *Contents*, *Workflows* and *Actions*

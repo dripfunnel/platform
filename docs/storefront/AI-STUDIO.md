@@ -10,9 +10,12 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 (`designs/PortalStorefront`) owns the screens. This document owns the **infrastructure**.
 [PREVIEW.md](PREVIEW.md) and [LIVE-SHOP.md](LIVE-SHOP.md) take the draft from here.
 
-**Status: specification only.** Nothing below is built.
+**Status:** built on #482: the sandbox (`apps/sandbox`: §4 steps 3–4, the fast gate, the draft as a git bundle), its
+image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7), and the frame
+on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
-Last updated: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
+Last updated: 2026-10-11 (#482: the sandbox, its size and its image).
+Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
 ---
@@ -253,11 +256,87 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 
 ## 9. Open questions
 
-- The container size: `basic` if the typecheck and bundle fit in 1 GiB, measured with a real
-  theme *(decide on #482)*.
-- The idle timeout: 10 minutes proposed, 5 suggested *(decide on #482)*.
-- Whether a plan caps simultaneous studio sessions *(decide on #287 and #482)*.
-- The studio session's renewal interval (5 minutes proposed, renewed through the Store API with
-  the access re-check) and the WebSocket path through the edge Worker *(decide on #482)*.
-- Core's hot-swap entry point for the preview adapter *(decide on #304 and #482)*.
+- ~~The container size.~~ **`basic`** (¼ vCPU, 1 GiB, 4 GB disk; decided on #482). The fast gate over the
+  baseline theme (22 files) peaked at **365 MiB** in the sandbox's process, the first change in 1.0 s and later
+  ones in 0.33 s on a developer's laptop (2026-10-11); expect about four times that on ¼ vCPU. The Durable
+  Object starts it as custom resources (`vcpu: 0.25, memoryMib: 1024, diskMb: 4096`), since the
+  `durable_object` scheduling policy, which picks the image per start, takes no `basic` name and has no
+  `max_instances`. A theme near the 200-file cap is to measure on dev.
+- **How the sandbox works** (decided on #482):
+  - the model's diff is a list of **whole files**, each with its new text or `null` to remove it, not a
+    patch: the validator judges whole files, and a patch that doesn't apply is one failure fewer;
+  - the change is judged before anything is written: the validator runs over the theme in memory, then
+    the files are written, then the typecheck, the bundle and the byte budgets; any failure puts the
+    working copy back with `git reset --hard` and `git clean`;
+  - the typecheck resolves `react`, core's `./theme` and the allowlisted libraries from the image, never
+    from the store's repo, and leaves a `t('file.key')` argument to the validator, because core's
+    `Translate` names only core's own keys;
+  - the **byte budgets** (ARCHITECTURE §9) count the theme's own chunks and CSS, the part a change can move.
+    Core's runtime (react, react-dom, core and the boot module; motion only when a theme imports it) is
+    about 172 KB gzipped on its own, so the whole page's weight is the publish gate's to judge;
+  - the bundle's page loads one module by an absolute `/assets/` path and has no inline script; the
+    theme's chunks import core's runtime by relative path from `assets/core/`, which the container serves
+    from its image and a preview's host maps to `core/{version}/` (PREVIEW §3);
+  - every commit is authored by `DripFunnel <noreply@dripfunnel.com>`, and git runs with no config of
+    its own, no hooks and the `file` protocol only;
+  - the server refuses to start when a variable that looks like a credential is set, and blocks
+    `fetch`, sockets, HTTP and DNS inside its own process on top of the container's `enableInternet: false`.
+- ~~The idle timeout.~~ **10 minutes** (decided on #482): a merchant reading the preview between asks often passes 5,
+  a container at `basic` costs about a cent an hour, and a cold start reloads the saved draft in seconds.
+- **How the Durable Object runs a change** (decided on #482):
+  - `StudioSession` is named by the store id of the session's `TenantContext` (`studioOf`), keeps that id in its
+    storage on the first call, and refuses a call for any other store;
+  - one change at a time: a promise chain per object, with `pending` for "Finishing your previous change…";
+  - the model is the Worker's: the Store API passes it to `change()` over RPC, so the partner's or merchant's
+    key never reaches the object's storage or the container; a repair asks it again with the gate's
+    problems (`ai_run` rows of kind `repair`, billed to `platform`, under the request's own run);
+  - it loads `drafts/{store}.bundle`, else the live build's `sources/{store}/{build}.bundle`, else, for a store
+    that has never published, the template's files from the sites bucket (the template's commit on GitHub
+    is never read);
+  - each accepted change saves, in this order: the draft bundle, the preview folder
+    `stores/{id}/preview/{change id}/` (each file with its SHA-256), `design_draft.head_commit` and
+    `preview_deploy_ref` with `storefront.custom_paths`, then the frame's reload notice;
+  - a sandbox that stops answering is started again from the saved draft and the step is tried once more;
+    a second failure answers "unavailable" and the draft stays at its last saved state;
+  - a load that fails after the container started stops it and gives its place back; a change the model or
+    the sandbox fails partway is metered as `failed`, with every ask already made;
+  - only opening, changing and undoing keep a studio from its idle stop; the alarm stops a container whose object
+    was evicted (no runner left to reach it), and one whose lapsed lease the ledger won't renew;
+  - the validator's languages are the store's languages' base codes (`en-IN` → `content/en/`), which core's
+    i18n reads for every region of a language; content and post paths are empty until SAPI 24 adds them;
+  - **capacity**: the `durable_object` scheduling policy has no `max_instances`, so one `StudioCapacity` object
+    keeps a ledger of `STUDIO_CAPACITY` running studios (default 5,000, short of the ~6,000 the account's
+    vCPU allows at `basic`): a running studio's lease is renewed every minute and lapses 3 minutes after the
+    last renewal; a waiting studio keeps its place by when it first asked and leaves the queue a minute
+    after it stops asking.
+- Whether a plan caps simultaneous studio sessions *(decide on #287; #482 caps only the account, by `STUDIO_CAPACITY`)*.
+- ~~The studio session's renewal interval.~~ **Live 5 minutes, renewed every 2** (decided on #482), so one missed
+  renewal never closes the frame. The id is 128 random bits (22 base64url characters) kept only as its SHA-256 in
+  `studio_session`, which references the portal session: signing out deletes it. A renewal re-checks the caller as
+  the Store API resolved them on that request; a seat that lost the studio deletes the session at once. The Owner
+  changes, a Manager views, and staff, suppliers and support sessions get no studio (ACCESS §5.1 `publish`). A studio session
+  is live only while its portal session is fully signed in: `stage = 'full'`, inside both its absolute and idle bounds.
+- ~~The WebSocket path through the edge Worker.~~ **`/__studio/{session}/__hot`** (decided on #482), on the frame's own
+  origin, so the studio CSP's `connect-src 'self'` covers it. How the frame is served (decided on #482):
+  - store-proxy sends `{key}.<PREVIEW_DOMAIN>/__studio/*` to the API's `StorefrontEdge`; the router gives `/__studio`
+    an area on that entry only, so a portal host or the public entry answers 404;
+  - the API finds the store from the host's preview key, and forwards to that store's Durable Object with the store
+    id in a header it sets itself; `/__studio/{session}/shop-api` goes to the preview host's Shop API after the
+    object's `check`, with the id taken out of the path (so out of the Shop API's cache key);
+  - the object checks the session against its own store before anything is read, then serves the container's file,
+    `index.html` for any other page path, with the bundle's `/assets/` references moved under the session's prefix;
+  - HTML is `no-store`, chunks `private, max-age=31536000, immutable`, every response `Referrer-Policy: no-referrer`
+    and `X-Robots-Tag: noindex, nofollow`; the page carries core's `studioCsp`, built in the sandbox from the
+    frame's own origin (images reach it through `/shop-api/assets/`) and the partner's live portal host;
+  - until the container answers, the frame is an empty page that reloads every 2 seconds, and the portal shows
+    "Opening your studio…" over it (#319): serving the preview's files would need the preview's headers, which
+    are #317's;
+  - the hot-reload socket is tagged with the session's hash; the object's alarm closes a socket within a minute
+    of its session ending (signed out, expired, or a seat that lost the studio);
+  - the session id reaches no log: the API's request line holds the host, the status and the timing only, and
+    store-proxy's own request line writes the path as `/__studio/:session/…` (LOGGING §9).
+- ~~Core's hot-swap entry point.~~ **`connectHotReload`** in `platform/render/studio` (decided on #482): the frame's
+  boot reads `/__studio/{session}/` from core's own module address (`studioBasePath`), points the Shop API client at
+  `/__studio/{session}/shop-api` (`studioShopEndpoint`), and on each notice imports the new entry and renders its
+  pages into the same root, applying only the newest bundle and putting the scroll back.
 - The retirement rule for old core versions' images *(decide on #485)*.

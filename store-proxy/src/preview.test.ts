@@ -119,8 +119,14 @@ describe('a preview page', () => {
     expect(await isClosed(await get(`https://${hostB}/`, withCookie(cookie)))).toBe(true)
     expect((await get(`https://${hostB}/assets/app.js`, withCookie(cookie))).status).toBe(403)
     expect(await isClosed(await get(`https://${hostA}/`, withCookie(`${cookie.slice(0, -2)}xx`)))).toBe(true)
-    expect(await isClosed(await get(`https://${hostB}/__studio/session-of-a/`))).toBe(true)
     expect(sites.asked.filter((k) => k.includes(storeB))).toEqual([])
+  })
+
+  it('hands the studio frame to the API untouched, which checks the session against the host’s store, and reads nothing itself', async () => {
+    const before = sites.asked.length
+    await get(`https://${hostB}/__studio/session-of-a/index.html`)
+    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostB}/__studio/session-of-a/index.html`])
+    expect(sites.asked).toHaveLength(before)
   })
 
   it('serves chunks on the cookie alone, checked before the cache; the copy kept is shared, the one sent private', async () => {

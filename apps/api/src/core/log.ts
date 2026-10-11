@@ -19,7 +19,7 @@ export type TechnicalLogKey = (typeof technicalLogKeys)[number]
 export interface TechnicalEvent {
   event: string
   requestId?: string | null
-  api?: 'admin' | 'platform' | 'store' | 'shop' | 'hooks' | 'system' | null
+  api?: 'admin' | 'platform' | 'store' | 'shop' | 'hooks' | 'studio' | 'system' | null
   host?: string | null
   partnerId?: string | null
   storeId?: string | null

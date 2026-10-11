@@ -10,7 +10,8 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-10-09 (the sandbox image published publicly on `ghcr.io` for store builds).
+Last updated: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
+Before: 2026-10-09 (the sandbox image published publicly on `ghcr.io` for store builds).
 
 ---
 
@@ -109,9 +110,10 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 **Access**
 - **Store repos never install it** (decided 2026-10-08 on #470): every build and every AI
   change runs in the **sandbox image** for the store's core version (`apps/sandbox`), which
-  the release workflow will build after publishing and push to Cloudflare's registry (studios)
-  and **publicly to `ghcr.io`** (store repos' builds on GitHub Actions pull it with no token;
-  decided 2026-10-09, `../storefront/LIVE-SHOP.md` §4) *(planned, #482)*, with core, the allowed libraries
+  the release workflow's `sandbox-image` job builds after publishing and pushes to Cloudflare's registry (studios)
+  and **publicly to `ghcr.io`** as `ghcr.io/dripfunnel/storefront-build:<version>` (store repos' builds on GitHub
+  Actions pull it with no token; decided 2026-10-09, `../storefront/LIVE-SHOP.md` §4), then records its
+  Cloudflare digest in `core_release` (built on #482), with core, the allowed libraries
   and the gate tools preinstalled. A store repo's `package.json` only pins the version, which
   picks the image. No store repo holds a token or an `.npmrc` with one, and no secret or
   grant is needed for store repos (decided on #470, which replaced #303's org secret).

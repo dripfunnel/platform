@@ -69,8 +69,9 @@ export const servePreview = async (request: Request, url: URL, key: string, deps
   if (request.method !== 'GET' && request.method !== 'HEAD' && !isShopApi(url.pathname)) return withPreviewHeaders(new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } }))
   if (url.pathname === '/robots.txt') return withPreviewHeaders(new Response(robots, { headers: { 'content-type': 'text/plain' } }))
   if (url.pathname === '/__open') return open(url, key, deps)
-  // The studio frame's own door is INF 3's (#482); until then no studio session exists to present.
-  if (url.pathname.startsWith('/__studio/')) return closed()
+  // The studio frame (AI-STUDIO §3 step 6): the API finds this host's store and its Durable Object checks the session in
+  // the path before anything is read; no cookie is asked for, since the cross-site frame never has one.
+  if (url.pathname.startsWith('/__studio/')) return deps.edge.fetch(request)
   const value = cookieValue(request, sessionCookie)
   const session = value && deps.sessions ? await deps.sessions.read(value) : null
   const live = session !== null && session.k === key && session.x > deps.now() / 1000
