@@ -60,7 +60,11 @@
         "consumers": [{ "queue": "dripfunnel-outbox-wake-local", "max_batch_size": 100, "max_batch_timeout": 1 }]
       },
       // SAAS §5 steps 4–8 (jobs/workflows/create-storefront.ts).
-      "workflows": [{ "name": "dripfunnel-create-storefront-local", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" }]
+      "workflows": [
+        { "name": "dripfunnel-create-storefront-local", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" },
+        // SAAS §9.1 (jobs/workflows/publish-storefront.ts); dev and prod gain it with the buckets (docs/setup/dev.md §2.8).
+        { "name": "dripfunnel-publish-storefront-local", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" }
+      ]
     },
     // `wrangler deploy --env dev`, from .github/workflows/dev.yml, on every push to `dev`
     // (ARCHITECTURE.md §6). Same dev Cloudflare account as feature environments (selected
