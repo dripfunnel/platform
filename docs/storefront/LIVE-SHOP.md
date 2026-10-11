@@ -192,8 +192,8 @@ checking, deploying, live, failed, rolled back).
    are there to catch.
 
    **The image's `build` step, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build`):
-   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`) in its
-   environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
+   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`, `INPUT_*`) in
+   its environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
    bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
    sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
    `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
