@@ -32,7 +32,7 @@ import { isUploaded, isVerified } from '#db/scoped/builds'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'
-import { maxRepairs } from '#saas/studio/model'
+import { maxRepairs } from '#saas/studio/index'
 import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
 import { stagingFolder } from './layout'
 import { deletePrefix, type SitesBucket } from './templates'
@@ -76,10 +76,9 @@ export interface PublishDeps extends FreezeDeps {
   assets: SitesBucket
 }
 
-/** The studio's change loop asked to fix the failing checks (AI-STUDIO §6); the draft's new commit, or null. */
 /**
- * `key` is the publish and the try (`{run}:{n}`): asked again with the same key, as a retried step does, it answers the
- * change it already made instead of making a second one.
+ * The studio's change loop asked to fix the failing checks (AI-STUDIO §6): the draft's new commit, or null. `key` is
+ * `{run}:{n}`, so a retried step gets the change already made, never a second one.
  */
 export type PublishRepair = (storeId: string, failing: string[], key: string) => Promise<string | null>
 

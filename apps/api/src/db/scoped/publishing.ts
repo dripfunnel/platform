@@ -127,7 +127,7 @@ export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: Versio
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${version.core_version} where id = ${storeId}`
 }
 
-/** Builds whose folders clean-up deletes: past the newest `keep` that went live, never live, never a version's (LIVE-SHOP §4 step 11). */
+/** Builds whose folders clean-up deletes: past the newest `keep` that went live, never live, never a version's; every failed run and bisect probe (LIVE-SHOP §4 step 11). */
 export const selectExpiredBuilds = async (tx: ScopedSql, keep: number, limit: number): Promise<{ id: string; store_id: string }[]> =>
   tx<{ id: string; store_id: string }[]>`
     select id, store_id from (
@@ -140,7 +140,7 @@ export const selectExpiredBuilds = async (tx: ScopedSql, keep: number, limit: nu
         and not exists (select 1 from storefront f where f.live_build_id = r.id)
         and not exists (select 1 from design_version v where v.build_id = r.id)
       union all
-      select id, store_id, created_at from publish_run where state = 'failed' and files_deleted_at is null
+      select id, store_id, created_at from publish_run where state in ('failed', 'checked') and files_deleted_at is null
     ) due
     order by created_at, id
     limit ${limit}`

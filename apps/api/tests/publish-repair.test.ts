@@ -3,7 +3,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { recordGate } from '#db/scoped/builds'
 import { moveDraft } from '#db/scoped/studio'
 import { digestOf, goBack, publishBefore, runPublish, startPublish, type PublishDeps, type PublishRepair } from '#saas/storefronts/index'
-import { failAttempt, finishRepaired, selectFailingChecks, setBisectCommit, setRepairAttempts } from '#db/scoped/publishing'
+import { failAttempt, finishRepaired, selectExpiredBuilds, selectFailingChecks, setBisectCommit, setRepairAttempts } from '#db/scoped/publishing'
 import { draftBundle, stagingFolder } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -104,6 +104,11 @@ describe('a design publish that fails the gate', () => {
     expect(probes.map((p) => p.commit)).toContain(chain[2])
     expect(await live(t.storeA1)).toBe(before)
     expect(await db.sql`select 1 from publish_run where attempt_of = ${runId} and uploaded_at is not null`).toHaveLength(0)
+    // Every probe, the passing ones too, is left to clean-up (LIVE-SHOP §4 step 11).
+    const due = new Set((await withSystemScope(db.sql, (tx) => selectExpiredBuilds(tx, 20, 1000))).map((b) => b.id))
+    const ids = await db.sql<{ id: string; state: string }[]>`select id, state from publish_run where attempt_of = ${runId}`
+    expect(ids.some((p) => p.state === 'checked')).toBe(true)
+    for (const probe of ids) expect(due.has(probe.id)).toBe(true)
   })
 
   it('offers "publish everything before this change", and that publish passes and goes live', async () => {
