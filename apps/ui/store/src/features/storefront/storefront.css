@@ -260,6 +260,10 @@
   cursor: pointer;
 }
 
+.df-sf-link--danger {
+  color: var(--df-color-danger);
+}
+
 .df-sf-actions {
   display: flex;
   flex-wrap: wrap;
@@ -381,12 +385,287 @@
   gap: 12px;
 }
 
-/* Site settings: one column of cards up to 900 px (FIRST-RELEASE §14). */
+/* Site settings: Brand above Domains (FIRST-RELEASE §14); the prototype's second column, AI and build minutes and
+   Version history, comes with #318's operations. */
 .df-sf-settings {
   display: flex;
   flex-direction: column;
   gap: 16px;
   max-width: 900px;
+}
+
+/* Domains. */
+.df-sf-domain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-sf-domain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+}
+
+.df-sf-domain-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+.df-sf-domain-name strong {
+  color: var(--df-color-text-strong);
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.df-sf-domain-name span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-sf-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-neutral-border);
+  border-radius: 5px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-neutral);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-sf-connect {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.df-sf-connect label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-sf-connect-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.df-sf-connect-row input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.df-sf-records {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--df-color-page);
+}
+
+.df-sf-records strong {
+  color: var(--df-color-text-strong);
+  font-size: 14px;
+}
+
+.df-sf-dns {
+  width: 100%;
+  border-spacing: 0 6px;
+  table-layout: fixed;
+  font-size: 12px;
+}
+
+.df-sf-dns th {
+  padding: 0 10px;
+  color: var(--df-color-muted);
+  font-weight: 400;
+  text-align: left;
+}
+
+.df-sf-dns th:nth-child(1) {
+  width: 60px;
+}
+
+.df-sf-dns th:nth-child(2) {
+  width: 36%;
+}
+
+.df-sf-dns th:last-child {
+  width: 72px;
+}
+
+.df-sf-dns td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--df-color-border);
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-surface);
+  color: var(--df-color-text-strong);
+  font-family: var(--df-font-mono);
+  vertical-align: middle;
+  word-break: break-all;
+}
+
+.df-sf-dns td:first-child {
+  border-left: 1px solid var(--df-color-border);
+  border-radius: 8px 0 0 8px;
+}
+
+.df-sf-dns td:last-child {
+  border-right: 1px solid var(--df-color-border);
+  border-radius: 0 8px 8px 0;
+  font-family: var(--df-font);
+  text-align: right;
+}
+
+.df-sf-found {
+  display: block;
+  margin-top: 2px;
+  color: var(--df-color-danger);
+  font-family: var(--df-font);
+}
+
+.df-sf-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-sf-check-note {
+  flex: 1;
+  min-width: 160px;
+  color: var(--df-color-warning);
+  font-size: 13px;
+}
+
+/* Search and sharing. */
+.df-sf-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.df-sf-photos button {
+  width: 64px;
+  height: 44px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: var(--df-color-page);
+  cursor: pointer;
+}
+
+.df-sf-photos button[aria-pressed='true'] {
+  border-color: var(--df-color-focus);
+}
+
+.df-sf-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.df-sf-previews {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.df-sf-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+}
+
+.df-sf-preview--share {
+  padding: 0;
+  overflow: hidden;
+}
+
+.df-sf-kicker {
+  padding-bottom: 6px;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-sf-preview--share .df-sf-kicker {
+  padding: 12px 12px 6px;
+}
+
+.df-sf-google-host {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-sf-google-title {
+  color: var(--df-color-info);
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.df-sf-google-text {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sf-share-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1200 / 630;
+  background: var(--df-color-neutral-surface);
+  object-fit: cover;
+}
+
+.df-sf-share-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 12px;
+  background: var(--df-color-page);
+}
+
+.df-sf-share-host {
+  color: var(--df-color-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.df-sf-share-title {
+  overflow: hidden;
+  color: var(--df-color-text-strong);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .df-sf-previews {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 639px) {
@@ -401,5 +680,42 @@
 
   .df-sf-tabs {
     gap: 18px;
+  }
+
+  /* Each record as a block of labelled lines: three columns can't hold a host name at this width. */
+  .df-sf-dns,
+  .df-sf-dns tbody,
+  .df-sf-dns tr,
+  .df-sf-dns td {
+    display: block;
+  }
+
+  .df-sf-dns thead {
+    display: none;
+  }
+
+  .df-sf-dns tr {
+    margin-bottom: 8px;
+    padding: 6px 0;
+    border: 1px solid var(--df-color-border);
+    border-radius: 8px;
+    background: var(--df-color-surface);
+  }
+
+  .df-sf-dns td,
+  .df-sf-dns td:first-child,
+  .df-sf-dns td:last-child {
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 0;
+    text-align: left;
+  }
+
+  .df-sf-dns td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--df-color-muted);
+    font-family: var(--df-font);
+    font-size: 11px;
   }
 }

@@ -1,10 +1,15 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { describe, expect, it } from 'vitest'
-import { messages } from '../../messages'
+import type { StorefrontDomain } from '../../api/storefront'
+import { fill, messages } from '../../messages'
 import { brandComplete, brandFormOf, brandProblemOf, pickerValue } from './brandDraft'
+import { canMakePrimary, domainRefusal, inProgress, needsRecords } from './domainView'
+import { counterText, googleTitle, seoTooLong } from './seoView'
 import { storefrontAccessOf } from './storefrontAccess'
 
 const words = messages.storefront
+
+const domain = (over: Partial<StorefrontDomain>): StorefrontDomain => ({ id: 'd1', host: 'www.kesari.in', kind: 'custom', status: 'live', primary: false, checkedAt: null, records: [], ...over })
 
 describe('storefront access', () => {
   it('gives the Owner the edits, the Manager a look, and Staff nothing', () => {
@@ -46,5 +51,42 @@ describe('the brand', () => {
     expect(brandProblemOf(new ApiError('INVALID_EMAIL', 'x'), words.brand.refused)).toEqual({ field: 'contactEmail', text: words.brand.refused.INVALID_EMAIL })
     expect(brandProblemOf(new ApiError('SUPPORT_READ_ONLY', 'x'), words.brand.refused)).toEqual({ field: null, text: words.brand.refused.SUPPORT_READ_ONLY })
     expect(brandProblemOf(new Error('offline'), words.brand.refused)).toEqual({ field: null, text: words.brand.refused.other })
+  })
+})
+
+describe('domains', () => {
+  it('read each built state as the portal shows it', () => {
+    expect(needsRecords(domain({ status: 'waiting' }))).toBe(true)
+    expect(needsRecords(domain({ status: 'failed' }))).toBe(true)
+    expect(needsRecords(domain({ status: 'broken' }))).toBe(true)
+    expect(needsRecords(domain({ status: 'issuing' }))).toBe(false)
+    expect(needsRecords(domain({ kind: 'free', id: null, status: 'waiting' }))).toBe(false)
+    expect(canMakePrimary(domain({ status: 'live' }))).toBe(true)
+    expect(canMakePrimary(domain({ status: 'expiring' }))).toBe(true)
+    expect(canMakePrimary(domain({ status: 'verifying' }))).toBe(false)
+    expect(canMakePrimary(domain({ status: 'live', primary: true }))).toBe(false)
+    expect(inProgress([domain({ status: 'live' }), domain({ status: 'issuing' })])).toBe(true)
+    expect(inProgress([domain({ status: 'failed' })])).toBe(false)
+  })
+
+  it('name the subdomain to use for a bare domain', () => {
+    expect(domainRefusal(new ApiError('APEX_NOT_AVAILABLE', 'x', { suggested: 'www.kesari.in' }))).toBe(fill(words.domains.refused.APEX_NOT_AVAILABLE, { suggested: 'www.kesari.in' }))
+    expect(domainRefusal(new ApiError('APEX_NOT_AVAILABLE', 'x'))).toBe(words.domains.refused.INVALID_HOSTNAME)
+    expect(domainRefusal(new ApiError('PLAN_LIMIT', 'x'))).toBe(words.domains.refused.PLAN_LIMIT)
+    expect(domainRefusal(new ApiError('SOMETHING_NEW', 'x'))).toBe(words.domains.refused.other)
+  })
+})
+
+describe('search and sharing', () => {
+  it('counts against the limit, in words once it is too long', () => {
+    expect(counterText(60, 60)).toBe(fill(words.seo.count, { count: '60', limit: '60' }))
+    expect(counterText(61, 60)).toBe(fill(words.seo.countOver, { count: '61', limit: '60' }))
+    expect(seoTooLong({ title: 'x'.repeat(60), description: 'y'.repeat(155) })).toBe(false)
+    expect(seoTooLong({ title: 'x', description: 'y'.repeat(156) })).toBe(true)
+  })
+
+  it('previews the shop’s name for an empty title and cuts a long one', () => {
+    expect(googleTitle('  ', 'Kesari Threads')).toBe('Kesari Threads')
+    expect(googleTitle('x'.repeat(70), 'Kesari')).toBe(`${'x'.repeat(58)}…`)
   })
 })

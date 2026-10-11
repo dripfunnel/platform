@@ -2,7 +2,7 @@ import { EmptyState, ErrorState, LoadingState, Toast, useScreenState } from '@dr
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import type { StorefrontBrand, StorefrontSeo } from '../../api/storefront'
+import type { StorefrontBrand, StorefrontDomains, StorefrontSeo } from '../../api/storefront'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { messages } from '../../messages'
 import { tabKeyHandler } from '../common/tabKeys'
@@ -20,6 +20,7 @@ const pageRoute = getRouteApi('/_app/storefront')
 interface Reads {
   brand: StorefrontBrand | null
   seo: StorefrontSeo
+  domains: StorefrontDomains
 }
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; reads: Reads }
 
@@ -31,6 +32,7 @@ export const StorefrontPage = () => {
   const forced = useScreenState(storefrontStates, harnessEnabled)
   const access = useMemo(() => storefrontAccessOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
   const api = useMemo(() => (forced ? sampleApi(forced) : storeApi), [forced])
+  const canUpgrade = forced !== null || acting.permissions.includes('billing')
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
 
@@ -42,14 +44,15 @@ export const StorefrontPage = () => {
     if (forced === 'error') return setView({ kind: 'error' })
     if (!access.canRead) return
     setView({ kind: 'loading' })
-    void Promise.all([api.loadBrand(), api.loadSeo()]).then(
-      ([brand, seo]) => ask === latest.current && setView({ kind: 'ready', reads: { brand, seo } }),
+    void Promise.all([api.loadBrand(), api.loadSeo(), api.loadDomains()]).then(
+      ([brand, seo, domains]) => ask === latest.current && setView({ kind: 'ready', reads: { brand, seo, domains } }),
       () => ask === latest.current && setView({ kind: 'error' }),
     )
   }, [forced, access.canRead, api])
   useEffect(load, [load])
 
   const update = useCallback((patch: Partial<Reads>) => setView((v) => (v.kind === 'ready' ? { kind: 'ready', reads: { ...v.reads, ...patch } } : v)), [])
+  const onDomains = useCallback((domains: StorefrontDomains) => update({ domains }), [update])
 
   const tabsId = useId()
   const tabRefs = useRef<Partial<Record<StorefrontTab, HTMLButtonElement | null>>>({})
@@ -72,7 +75,7 @@ export const StorefrontPage = () => {
       </div>
     )
 
-  const { brand, seo } = view.reads
+  const { brand, seo, domains } = view.reads
   if (access.canEdit && !brand?.brandReady)
     return (
       <div className="df-sf">
@@ -97,12 +100,21 @@ export const StorefrontPage = () => {
       return (
         <SiteSettingsTab
           brand={brand}
+          seo={seo}
+          domains={domains}
           canEdit={access.canEdit}
+          canUpgrade={canUpgrade}
           api={api}
           onBrand={(saved, text) => {
             update({ brand: saved })
             setToast(text)
           }}
+          onSeo={(saved, text) => {
+            update({ seo: saved })
+            setToast(text)
+          }}
+          onDomains={onDomains}
+          onToast={setToast}
         />
       )
     // Until the gallery and the studio (#318) are built, the Design tab says what comes next and draws no site.

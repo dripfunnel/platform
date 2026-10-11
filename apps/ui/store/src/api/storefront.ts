@@ -62,3 +62,63 @@ export const loadSeo = async (): Promise<StorefrontSeo> => (await query('{ store
 /** Saving renders the home page again at once, using no allowance (FIRST-RELEASE §14). */
 export const saveSeo = async (input: { title: string; description: string; shareImageAssetId: string | null }): Promise<StorefrontSeo> =>
   (await query('mutation S($input: StorefrontSeoInput!) { saveStorefrontSeo(input: $input) { title description shareImageAssetId } }', z.object({ saveStorefrontSeo: seoSchema }), { input })).saveStorefrontSeo
+
+export const domainStatuses = ['waiting', 'verifying', 'issuing', 'live', 'failed', 'expiring', 'broken'] as const
+export type DomainStatus = (typeof domainStatuses)[number]
+
+const domainSchema = z.object({
+  /** Null for the free address. */
+  id: z.string().nullable(),
+  host: z.string(),
+  kind: z.enum(['free', 'custom']),
+  status: z.enum(domainStatuses),
+  primary: z.boolean(),
+  checkedAt: text,
+  records: z.array(z.object({ type: z.string(), name: z.string(), value: z.string(), found: text })),
+})
+export type StorefrontDomain = z.infer<typeof domainSchema>
+
+const domainsSchema = z.object({ customDomainAllowed: z.boolean(), domains: z.array(domainSchema) })
+export type StorefrontDomains = z.infer<typeof domainsSchema>
+
+const domainFields = 'id host kind status primary checkedAt records { type name value found }'
+
+/** The free address first, then the store's own. */
+export const loadDomains = async (): Promise<StorefrontDomains> =>
+  (await query(`{ storefrontDomains { customDomainAllowed domains { ${domainFields} } } }`, z.object({ storefrontDomains: domainsSchema }))).storefrontDomains
+
+export const connectDomain = async (host: string): Promise<StorefrontDomain> =>
+  (await query(`mutation C($host: String!) { connectDomain(host: $host) { ${domainFields} } }`, z.object({ connectDomain: domainSchema }), { host })).connectDomain
+
+/** Queues a check; storefrontDomains answers it once DNS does. */
+export const checkDomain = async (id: string): Promise<void> => {
+  await query('mutation K($id: ID!) { checkDomain(id: $id) }', z.object({ checkDomain: z.boolean() }), { id })
+}
+
+/** Null makes the free address the main one again. */
+export const makeDomainPrimary = async (id: string | null): Promise<void> => {
+  await query('mutation P($id: ID) { makeDomainPrimary(id: $id) }', z.object({ makeDomainPrimary: z.boolean() }), { id })
+}
+
+/** Also cancels a domain still waiting for DNS. */
+export const removeDomain = async (id: string): Promise<void> => {
+  await query('mutation R($id: ID!) { removeDomain(id: $id) }', z.object({ removeDomain: z.boolean() }), { id })
+}
+
+/** How many product photos the share image is picked from (PortalStorefront › Search and sharing). */
+export const shareImageChoices = 5
+
+/** The first photo of the most recently changed products that have one: the share image must be a product photo. */
+export const loadShareImages = async (): Promise<string[]> => {
+  const list = await query(
+    'query L($first: Int!) { products(first: $first, sort: "updated") { nodes { id photoUrl } } }',
+    z.object({ products: z.object({ nodes: z.array(z.object({ id: z.string(), photoUrl: z.string().nullable() })) }).nullable() }),
+    { first: shareImageChoices },
+  )
+  const ids = (list.products?.nodes ?? []).filter((p) => p.photoUrl !== null).map((p) => p.id)
+  if (ids.length === 0) return []
+  const fields = ids.map((_, i) => `p${i}: product(id: $p${i}) { photos { assetId } }`).join(' ')
+  const params = ids.map((_, i) => `$p${i}: ID!`).join(', ')
+  const photos = await query(`query P(${params}) { ${fields} }`, z.record(z.string(), z.object({ photos: z.array(z.object({ assetId: z.string().nullable() })).nullable() }).nullable()), Object.fromEntries(ids.map((id, i) => [`p${i}`, id])))
+  return ids.map((_, i) => photos[`p${i}`]?.photos?.[0]?.assetId ?? null).filter((id): id is string => id !== null)
+}

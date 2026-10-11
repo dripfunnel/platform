@@ -6,17 +6,19 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import type { Acting } from '../../api/shell'
-import type { StorefrontBrand, StorefrontSeo } from '../../api/storefront'
+import type { StorefrontBrand, StorefrontDomains, StorefrontSeo } from '../../api/storefront'
 import { fill, messages } from '../../messages'
 import { storefrontTabs } from './storefrontAccess'
 
-// Storefront driven by each seat (FIRST-RELEASE §14): the brand step, the tabs, and Site settings › Brand.
+// Storefront driven by each seat (FIRST-RELEASE §14): the brand step, the tabs, and Site settings' three cards.
 
 const words = messages.storefront
 const b = words.brand
+const d = words.domains
+const s = words.seo
 const [warm = ''] = b.voices
 
-const api = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadSeo: vi.fn(), saveSeo: vi.fn() }))
+const api = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadSeo: vi.fn(), saveSeo: vi.fn(), loadDomains: vi.fn(), connectDomain: vi.fn(), checkDomain: vi.fn(), makeDomainPrimary: vi.fn(), removeDomain: vi.fn(), loadShareImages: vi.fn() }))
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
 const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
 vi.mock('../../api/productEditor', () => upload)
@@ -31,6 +33,15 @@ const none = { instagram: null, facebook: null, x: null, youtube: null, tiktok: 
 const firstVisit: StorefrontBrand = { brandReady: false, shopName: 'Kesari Threads', logoAssetId: null, faviconAssetId: null, primaryColour: null, secondaryColour: null, tagline: null, description: null, social: none, contactEmail: 'hello@kesari.in', contactPhone: null, contactAddress: null, voice: null }
 const ready: StorefrontBrand = { ...firstVisit, brandReady: true, logoAssetId: 'a-logo', tagline: 'Handloom from Jaipur' }
 const seo: StorefrontSeo = { title: 'Kesari Threads', description: 'Handloom from Jaipur', shareImageAssetId: null }
+const free = { id: null, host: 'kesari.shops.example.com', kind: 'free' as const, checkedAt: null, records: [] }
+const records = [
+  { type: 'CNAME', name: 'www.kesari.in', value: 'shops.edge.example.com', found: null },
+  { type: 'TXT', name: '_df-verify.www.kesari.in', value: 'df-verify=abc', found: null },
+]
+const onlyFree: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }] }
+const waiting: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { id: 'd1', host: 'www.kesari.in', kind: 'custom', status: 'waiting', primary: false, checkedAt: null, records }] }
+const live: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { id: 'd1', host: 'www.kesari.in', kind: 'custom', status: 'live', primary: false, checkedAt: null, records }] }
+
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
 const show = async ({ acting = owner, readOnly = false, tab }: { acting?: Acting; readOnly?: boolean; tab?: string } = {}) => {
@@ -53,8 +64,13 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })))
   api.loadBrand.mockResolvedValue(ready)
   api.loadSeo.mockResolvedValue(seo)
+  api.loadDomains.mockResolvedValue(onlyFree)
+  api.loadShareImages.mockResolvedValue([])
   api.saveSeo.mockImplementation((input: StorefrontSeo) => Promise.resolve(input))
   api.saveBrand.mockImplementation((input: StorefrontBrand) => Promise.resolve({ ...input, brandReady: true }))
+  api.checkDomain.mockResolvedValue(undefined)
+  api.removeDomain.mockResolvedValue(undefined)
+  api.makeDomainPrimary.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -175,6 +191,7 @@ describe('the brand step', () => {
     expect(screen.getByText(words.notice.manager)).toBeTruthy()
     expect(field(/Shop name/).readOnly).toBe(true)
     expect(screen.queryByRole('button', { name: b.card.save })).toBeNull()
+    expect(screen.queryByLabelText(d.connectLabel)).toBeNull()
     expect(screen.queryByLabelText(b.logo)).toBeNull()
     fireEvent.click(screen.getByRole('tab', { name: words.tabs.design }))
     await settle()
@@ -186,8 +203,8 @@ describe('the brand step', () => {
     await show({ readOnly: true, tab: 'settings' })
     expect(screen.queryByRole('heading', { name: b.title })).toBeNull()
     expect(screen.getByText(words.notice.readOnly)).toBeTruthy()
-    expect(field(b.tagline).readOnly).toBe(true)
-    expect(screen.queryByLabelText(b.logo)).toBeNull()
+    expect(field(s.pageTitle).readOnly).toBe(true)
+    expect(screen.queryByRole('button', { name: d.makePrimary })).toBeNull()
   })
 })
 
@@ -204,5 +221,153 @@ describe('site settings › brand', () => {
     await settle()
     expect(api.saveBrand).toHaveBeenCalledWith(expect.objectContaining({ tagline: 'Block print', logoAssetId: 'a-logo' }))
     expect(screen.getByText(b.card.saved)).toBeTruthy()
+  })
+})
+
+describe('site settings › domains', () => {
+  it('connects a domain, and shows the refusal in its own card only', async () => {
+    api.connectDomain.mockRejectedValueOnce(new ApiError('APEX_NOT_AVAILABLE', 'Use a subdomain.', { suggested: 'www.kesari.in' }))
+    await show({ tab: 'settings' })
+    const domains = card(d.title)
+    fireEvent.click(domains.getByRole('button', { name: d.connect }))
+    expect(domains.getByRole('alert').textContent).toBe(d.hostMissing)
+    fireEvent.change(domains.getByLabelText(d.connectLabel), { target: { value: 'kesari.in' } })
+    fireEvent.click(domains.getByRole('button', { name: d.connect }))
+    await settle()
+    expect(api.connectDomain).toHaveBeenCalledWith('kesari.in')
+    expect(domains.getByRole('alert').textContent).toBe(fill(d.refused.APEX_NOT_AVAILABLE, { suggested: 'www.kesari.in' }))
+    expect(card(s.title).queryByRole('alert')).toBeNull()
+    expect(card(b.card.title).queryByRole('alert')).toBeNull()
+
+    api.connectDomain.mockResolvedValueOnce(waiting.domains[1])
+    api.loadDomains.mockResolvedValue(waiting)
+    fireEvent.change(domains.getByLabelText(d.connectLabel), { target: { value: 'www.kesari.in' } })
+    fireEvent.click(domains.getByRole('button', { name: d.connect }))
+    await settle()
+    expect(domains.queryByRole('alert')).toBeNull()
+    expect(domains.getByText(fill(d.records.title, { host: 'www.kesari.in' }))).toBeTruthy()
+    expect(domains.queryByLabelText(d.connectLabel)).toBeNull()
+  })
+
+  it('waits for DNS with the records to copy, Check now and Cancel', async () => {
+    api.loadDomains.mockResolvedValue(waiting)
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    await show({ tab: 'settings' })
+    const domains = card(d.title)
+    expect(domains.getByText(d.status.waiting)).toBeTruthy()
+    expect(domains.getByText(d.ownPending)).toBeTruthy()
+    fireEvent.click(domains.getByRole('button', { name: fill(d.records.copyNamed, { type: 'CNAME' }) }))
+    await settle()
+    expect(writeText).toHaveBeenCalledWith('shops.edge.example.com')
+    expect(screen.getByText(d.records.copied)).toBeTruthy()
+
+    fireEvent.click(domains.getByRole('button', { name: d.check }))
+    await settle()
+    expect(api.checkDomain).toHaveBeenCalledWith('d1')
+    expect(domains.getByText(d.notYet)).toBeTruthy()
+
+    api.checkDomain.mockRejectedValueOnce(new ApiError('TOO_SOON', 'We just checked.'))
+    fireEvent.click(domains.getByRole('button', { name: d.check }))
+    await settle()
+    expect(domains.getByRole('alert').textContent).toBe(d.refused.TOO_SOON)
+
+    api.loadDomains.mockResolvedValue(onlyFree)
+    fireEvent.click(domains.getByRole('button', { name: fill(d.cancelNamed, { host: 'www.kesari.in' }) }))
+    await settle()
+    expect(api.removeDomain).toHaveBeenCalledWith('d1')
+    expect(domains.queryByText('www.kesari.in')).toBeNull()
+  })
+
+  it('shows what DNS answers when a domain failed', async () => {
+    api.loadDomains.mockResolvedValue({ ...waiting, domains: [waiting.domains[0], { ...waiting.domains[1], status: 'failed', records: [{ ...records[0], found: 'other.example.net' }, records[1]] }] })
+    await show({ tab: 'settings' })
+    const domains = card(d.title)
+    expect(domains.getByText(d.status.failed)).toBeTruthy()
+    expect(domains.getByText(fill(d.records.failed, { host: 'www.kesari.in' }))).toBeTruthy()
+    expect(domains.getByText(fill(d.records.found, { found: 'other.example.net' }))).toBeTruthy()
+  })
+
+  it('makes a live domain primary, and removes one only after asking', async () => {
+    api.loadDomains.mockResolvedValue(live)
+    await show({ tab: 'settings' })
+    const domains = card(d.title)
+    expect(domains.getAllByText(d.status.live)).toHaveLength(2)
+    expect(domains.queryByRole('button', { name: d.check })).toBeNull()
+    fireEvent.click(domains.getByRole('button', { name: fill(d.makePrimaryNamed, { host: 'www.kesari.in' }) }))
+    await settle()
+    expect(api.makeDomainPrimary).toHaveBeenCalledWith('d1')
+    expect(screen.getByText(fill(d.primaryDone, { host: 'www.kesari.in' }))).toBeTruthy()
+
+    fireEvent.click(domains.getByRole('button', { name: fill(d.removeNamed, { host: 'www.kesari.in' }) }))
+    const ask = within(document.querySelector('dialog') as HTMLElement)
+    expect(ask.getByText(d.removeBody)).toBeTruthy()
+    expect(api.removeDomain).not.toHaveBeenCalled()
+    fireEvent.click(ask.getByRole('button', { name: d.removeConfirm }))
+    await settle()
+    expect(api.removeDomain).toHaveBeenCalledWith('d1')
+  })
+
+  it('points a plan without an own domain to the plans', async () => {
+    api.loadDomains.mockResolvedValue({ ...onlyFree, customDomainAllowed: false })
+    await show({ tab: 'settings' })
+    const domains = card(d.title)
+    expect(domains.getByText(d.planNote, { exact: false })).toBeTruthy()
+    expect(domains.getByRole('link', { name: d.plans })).toBeTruthy()
+    expect(domains.queryByRole('textbox')).toBeNull()
+  })
+
+  it('never lets a late answer put back a domain just removed', async () => {
+    let late: (value: StorefrontDomains) => void = () => undefined
+    api.loadDomains
+      .mockResolvedValueOnce(waiting)
+      .mockImplementationOnce(() => new Promise<StorefrontDomains>((resolve) => (late = resolve)))
+      .mockResolvedValueOnce(onlyFree)
+      // A list going back to waiting would be read again; that read never answers here, so only the guard keeps it out.
+      .mockImplementation(() => new Promise<StorefrontDomains>(() => undefined))
+    await show({ tab: 'settings' })
+    const domains = card(d.title)
+    fireEvent.click(domains.getByRole('button', { name: fill(d.cancelNamed, { host: 'www.kesari.in' }) }))
+    await settle()
+    expect(domains.queryByText('www.kesari.in')).toBeNull()
+    await act(async () => late(waiting))
+    await settle()
+    expect(domains.queryByText('www.kesari.in')).toBeNull()
+  })
+})
+
+describe('site settings › search and sharing', () => {
+  it('counts each field, refuses past the limit, and saves or cancels', async () => {
+    api.loadShareImages.mockResolvedValue(['p1', 'p2'])
+    await show({ tab: 'settings' })
+    const box = card(s.title)
+    expect(box.getByText(fill(s.count, { count: '14', limit: '60' }))).toBeTruthy()
+    expect(box.queryByRole('button', { name: s.save })).toBeNull()
+    fireEvent.change(box.getByRole('textbox', { name: s.pageTitle }), { target: { value: 'x'.repeat(61) } })
+    expect(box.getByText(fill(s.countOver, { count: '61', limit: '60' }))).toBeTruthy()
+    expect((box.getByRole('button', { name: s.save }) as HTMLButtonElement).disabled).toBe(true)
+    expect(box.getByText(s.tooLong)).toBeTruthy()
+    fireEvent.click(box.getByRole('button', { name: s.cancel }))
+    expect((box.getByRole('textbox', { name: s.pageTitle }) as HTMLInputElement).value).toBe('Kesari Threads')
+
+    fireEvent.change(box.getByRole('textbox', { name: s.pageTitle }), { target: { value: 'Kesari Threads — handloom' } })
+    fireEvent.click(box.getByRole('button', { name: fill(s.usePhoto, { number: '2' }) }))
+    expect(box.getAllByText('Kesari Threads — handloom').length).toBe(2)
+    fireEvent.click(box.getByRole('button', { name: s.save }))
+    await settle()
+    expect(api.saveSeo).toHaveBeenCalledWith({ title: 'Kesari Threads — handloom', description: 'Handloom from Jaipur', shareImageAssetId: 'p2' })
+    expect(screen.getByText(s.saved)).toBeTruthy()
+    expect(box.queryByRole('button', { name: s.save })).toBeNull()
+  })
+
+  it('shows a refusal in its own card', async () => {
+    api.saveSeo.mockRejectedValueOnce(new ApiError('READ_ONLY', 'Read-only.'))
+    await show({ tab: 'settings' })
+    const box = card(s.title)
+    fireEvent.change(box.getByRole('textbox', { name: s.description }), { target: { value: 'New words' } })
+    fireEvent.click(box.getByRole('button', { name: s.save }))
+    await settle()
+    expect(box.getByRole('alert').textContent).toBe(s.refused.READ_ONLY)
+    expect(card(d.title).queryByRole('alert')).toBeNull()
   })
 })

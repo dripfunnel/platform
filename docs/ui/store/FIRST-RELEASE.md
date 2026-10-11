@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-12 (#319 part 1: Storefront's page, Your brand and Site settings › Brand, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -685,6 +685,14 @@ through. Your site stays live."), as is a support session.
   settings is one column of cards until AI and build minutes and Version history arrive. A support session's writes
   are refused by the API (`SUPPORT_READ_ONLY`), shown in the form that tried, since `storeState.support` doesn't
   tell the agent from a member who sees the banner.
+- **Built on #319 (part 2)**: Site settings › Domains and Search and sharing, below Brand. *Decided there:*
+  domains read verifying and issuing as "Securing (SSL)…", expiring as "Certificate renewing", failed as "Couldn't
+  connect" with what DNS answers, and broken as "Stopped working"; waiting, failed and broken show the records with
+  Copy, Check now and Cancel, a single column of labelled lines on a phone; the list is read again every 15 seconds
+  while a domain is on its way; "Check now" promises no email or scheduled re-check, which aren't built (#471); on
+  a plan without `custom_domain` the card says so and links the Owner to Billing. Search and sharing's counters
+  turn red and say "too long" past the limit, which disables Save; the share image is picked from the first photo
+  of the five products changed last.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---
