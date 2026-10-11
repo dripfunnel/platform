@@ -3,7 +3,7 @@ import worker from '../src/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
-// The Worker's crons (#477) against a real database: each runs its own group cleanly, and only the daily one purges carts.
+// The Worker's crons (#477) against a real database: each runs its own group cleanly, and each purge waits for its own cadence.
 
 let db: TestDatabase
 let t: Tenants
@@ -54,5 +54,17 @@ describe('the crons', () => {
     expect(await expiredCarts()).toBe(600)
     await run('0 3 * * *')
     expect(await expiredCarts()).toBe(0)
+  })
+
+  it('purges expired sign-up texts past one batch hourly, though no sign-up is due with them', async () => {
+    const texts = async () => Number((await db.sql<{ n: string }[]>`select count(*)::text as n from signup_text where partner_id = ${t.partnerA}`)[0]?.n)
+    await db.sql`
+      insert into signup_text (partner_id, phone, sent_at)
+      select ${t.partnerA}, '+15550100' || g::text, now() - interval '2 days' from generate_series(1, 600) g
+    `
+    await run('*/5 * * * *')
+    expect(await texts()).toBe(600)
+    await run('0 * * * *')
+    expect(await texts()).toBe(0)
   })
 })
