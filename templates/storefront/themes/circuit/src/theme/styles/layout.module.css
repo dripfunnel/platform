@@ -267,9 +267,13 @@
 
 .brand:focus-visible,
 .navLink:focus-visible,
-.tool:focus-visible,
+.tool:focus-visible {
+  outline: 2px solid var(--header-ink);
+  outline-offset: 2px;
+}
+
 .footerLink:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--footer-ink);
   outline-offset: 2px;
 }
 
