@@ -213,3 +213,42 @@ describe('a single-page render', () => {
     await expect(deliver({ storeId: t.storeA1, pages: [], drop: [] })).rejects.toBeInstanceOf(GiveUp)
   })
 })
+
+describe('isolation', () => {
+  it('queues a product change in store B for store B alone, and never reads another store’s live build, folder or key', async () => {
+    await db.sql`update store set status = 'active' where id = ${t.storeB1}`
+    const started = await withSystemScope(db.sql, (tx) =>
+      startPublish(tx, { storeId: t.storeB1, kind: 'design', commit: commit(9), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date() }),
+    )
+    const baseB = started.ok ? started.runId : ''
+    await stage(t.storeB1, baseB, { 'index.html': html('B home'), 'checkout/index.html': html('B checkout'), 'products/secret/index.html': html('B secret') })
+    expect(await runPublish(deps(), { runId: baseB, storeId: t.storeB1 }, steps)).toBe('live')
+    const before = (await db.sql`select 1 from outbox where kind = 'storefront.render' and store_id = ${t.storeA1}`).length
+    await db.sql`insert into product (store_id, name, slug, visibility) values (${t.storeB1}, 'Vase', 'vase', 'visible')`
+    const queued = await db.sql<{ store_id: string; payload: { storeId: string } }[]>`select store_id, payload from outbox where kind = 'storefront.render' and payload->>'storeId' = ${t.storeB1}`
+    expect(queued.map((q) => [q.store_id, q.payload.storeId])).toEqual([[t.storeB1, t.storeB1]])
+    expect((await db.sql`select 1 from outbox where kind = 'storefront.render' and store_id = ${t.storeA1}`).length).toBe(before)
+
+    // Store A's page run renders beside store A's live build, with store A's assets.
+    const liveA = await live(t.storeA1)
+    const page = await withSystemScope(db.sql, (tx) =>
+      startPublish(tx, { storeId: t.storeA1, kind: 'page', commit: commit(1), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date(), render: { pages: ['/'], drop: [] } }),
+    )
+    const pageA = page.ok ? page.runId : ''
+    const inputs = await renderInputs(db.sql, pageA)
+    expect(inputs?.assetsBuildId).not.toBe(baseB)
+    expect([liveA, base]).toContain(inputs?.assetsBuildId)
+    await stage(t.storeA1, pageA, { 'index.html': html('A home again') })
+    expect(await runPublish(deps(), { runId: pageA, storeId: t.storeA1 }, steps)).toBe('live')
+    expect([...snapshotOf(buildFolder(t.storeA1, pageA)).values()].join('')).not.toContain('B ')
+
+    // IndexNow for store A names store A's host and key; a build of store B named under store A reads nothing of B's.
+    const keys = await db.sql<{ store_id: string; indexnow_key: string }[]>`select store_id, indexnow_key from storefront where store_id in (${t.storeA1}, ${t.storeB1})`
+    const keyOf = (id: string) => keys.find((k) => k.store_id === id)?.indexnow_key
+    const submission = await indexNowSubmission({ sql: db.sql, sites }, { storeId: t.storeA1, buildId: pageA, previousBuildId: liveA })
+    expect(submission?.key).toBe(keyOf(t.storeA1))
+    expect(submission?.urls.every((u) => u.startsWith(`https://${host}/`))).toBe(true)
+    const forged = await indexNowSubmission({ sql: db.sql, sites }, { storeId: t.storeA1, buildId: baseB, previousBuildId: null })
+    expect(forged).toBeNull()
+  })
+})

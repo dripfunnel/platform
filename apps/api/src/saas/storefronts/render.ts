@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
-import { selectAssetsBuild, selectRun, setAssetsBuild, type PageRender } from '#db/scoped/publishing'
+import { selectAssetsBuild, selectLiveBuildId, selectRun, setAssetsBuild, type PageRender } from '#db/scoped/publishing'
 import { selectUpload } from '#db/scoped/builds'
 import { buildFolder, manifestName } from './layout'
 import { manifestSchema, maxBuildFiles, type Manifest } from './manifest'
@@ -38,7 +38,7 @@ const folderOf = (path: string) => {
 export const renderInputs = (sql: postgres.Sql, runId: string): Promise<{ pages: string[]; assetsBuildId: string } | null> =>
   withSystemScope(sql, async (tx) => {
     const run = await selectRun(tx, runId)
-    const live = run?.render ? (await tx<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${run.store_id}`)[0]?.live_build_id : null
+    const live = run?.render ? await selectLiveBuildId(tx, run.store_id) : null
     const assets = live ? await selectAssetsBuild(tx, live) : null
     return run?.render && assets ? { pages: run.render.pages, assetsBuildId: assets } : null
   })
@@ -64,7 +64,7 @@ export const inheritPlan = async (deps: VerifyDeps, storeId: string, runId: stri
   const found = await withSystemScope(deps.sql, async (tx) => {
     const run = await selectRun(tx, runId)
     const upload = await selectUpload(tx, storeId, runId)
-    const live = (await tx<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${storeId}`)[0]?.live_build_id ?? null
+    const live = await selectLiveBuildId(tx, storeId)
     return { run, upload, live }
   })
   const uploaded = manifestSchema.safeParse(found.upload?.upload_manifest)

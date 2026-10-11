@@ -141,6 +141,14 @@ export const setAssetsBuild = async (tx: ScopedSql, runId: string, assetsBuildId
 export const buildFilesKept = async (tx: ScopedSql, buildId: string): Promise<boolean> =>
   (await tx<{ id: string }[]>`select id from publish_run where id = ${buildId} and files_deleted_at is null`).length > 0
 
+/** The store's live build, the pointer itself (LIVE-SHOP §4 step 9), unlocked. */
+export const selectLiveBuildId = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${storeId}`)[0]?.live_build_id ?? null
+
+/** The store's IndexNow key, which its hosts serve at /{key}.txt (ARCHITECTURE §8). */
+export const selectIndexNowKey = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ indexnow_key: string }[]>`select indexnow_key from storefront where store_id = ${storeId}`)[0]?.indexnow_key ?? null
+
 /** The number of the version a build is, if it is one. */
 export const versionOfBuild = async (tx: ScopedSql, buildId: string): Promise<number | null> =>
   (await tx<{ number: number }[]>`select number from design_version where build_id = ${buildId} order by number desc limit 1`)[0]?.number ?? null
