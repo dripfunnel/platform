@@ -3,13 +3,15 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import { localMessageMarker, type LocalMessage } from '#integrations/local/index'
+import { cronDue, wranglerCrons } from './cron'
 
-// `pnpm dev` for the Worker: wrangler dev never fires wrangler.jsonc's cron itself, so the outbox,
-// the domain checks and the export clean-up would never run locally. This starts it with
-// --test-scheduled and calls /__scheduled once a minute, as Cloudflare does on dev and prod.
+// `pnpm dev` for the Worker: wrangler dev never fires wrangler.jsonc's crons itself, so the outbox,
+// the domain checks and the clean-ups would never run locally. This starts it with --test-scheduled
+// and, each minute, calls /__scheduled for every cron due then, as Cloudflare does on dev and prod.
 const port = 8787
 const everyMs = 60_000
-const scheduled = `http://localhost:${port}/__scheduled?cron=${encodeURIComponent('* * * * *')}`
+const crons = wranglerCrons()
+const scheduled = (cron: string) => `http://localhost:${port}/__scheduled?cron=${encodeURIComponent(cron)}`
 
 const wrangler = spawn('wrangler', ['dev', '--env', 'local', '--test-scheduled', '--port', String(port), ...process.argv.slice(2)], { stdio: ['inherit', 'pipe', 'inherit'] })
 
@@ -33,9 +35,17 @@ createInterface({ input: wrangler.stdout }).on('line', (line) => {
 
 let warned = false
 const tick = async () => {
+  const at = new Date()
   try {
-    const response = await fetch(scheduled, { signal: AbortSignal.timeout(everyMs - 5_000) })
-    if (!response.ok) throw new Error(`answered ${response.status}`)
+    // Side by side, as Cloudflare starts each due cron as its own run.
+    await Promise.all(
+      crons
+        .filter((cron) => cronDue(cron, at))
+        .map(async (cron) => {
+          const response = await fetch(scheduled(cron), { signal: AbortSignal.timeout(everyMs - 5_000) })
+          if (!response.ok) throw new Error(`answered ${response.status}`)
+        }),
+    )
     warned = false
   } catch (error) {
     // Once per outage, not every minute: the Worker may still be starting or reloading.
@@ -44,9 +54,17 @@ const tick = async () => {
   }
 }
 
-const timer = setInterval(() => void tick(), everyMs)
+// Just after each minute starts, so no minute is skipped or run twice.
+let timer: NodeJS.Timeout
+const next = () => {
+  timer = setTimeout(() => {
+    void tick()
+    next()
+  }, everyMs - (Date.now() % everyMs) + 1_000)
+}
+next()
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => wrangler.kill(signal))
 wrangler.on('exit', (code) => {
-  clearInterval(timer)
+  clearTimeout(timer)
   process.exit(code ?? 0)
 })

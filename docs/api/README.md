@@ -215,6 +215,26 @@ request. They are outbox rows, delivered by `jobs/queues/outbox-relay.ts` after 
 with no deliverer registered (email without SES values, texts until #275 reads partners' SMS accounts) waits unclaimed. A
 deliverer that will never deliver a row throws `GiveUp` with a reason, and the row is given up, not delivered. One whose row can't go yet for a reason outside it (a partner with no live portal host) throws `NotYet`: the row is tried again later and the attempt isn't counted.
 
+### 5.1 Schedules
+
+Cron is the clock (../ARCHITECTURE.md §4). `wrangler.jsonc` lists four crons, one per cadence (#477). For the
+expression that fired, `scheduled()` runs that expression's group in `cronGroups` (`src/index.ts`); one with no group
+logs `cron_unknown` and runs nothing. Each job catches and logs its own failure, so one that fails never stops the
+rest of its group. Cloudflare gives a cron 30 s of CPU when it runs more often than hourly, and 15 minutes when it
+runs hourly or less often.
+
+| Cron | Jobs |
+|---|---|
+| `* * * * *` | expired SMS, then the outbox relay (the backstop for any wake that never arrived) |
+| `*/5 * * * *` | due domain checks, stuck exports and imports failed, unpaid orders released, ended trials, overdue stores suspended, abandoned carts marked, due cart reminders queued |
+| `0 * * * *` | exchange-rate refresh, expired exports and imports deleted with stale and abandoned Shopify connections, shopper sign-in codes and sessions purged, unfinished sign-ups purged |
+| `0 3 * * *` (UTC) | expired carts purged, webhook delivery log past a month purged |
+
+A purge that deletes a batch of 500 at a time repeats its batch until one comes back short, up to 60 times an hour
+or 1440 times a day, so it can delete as much as it did when it ran every minute. Rows a job queues in the outbox
+go out with the next every-minute relay. Locally, `pnpm dev` fires each cron in the minute it is due
+(`apps/api/scripts/local/dev.ts`, ../setup/local.md §6).
+
 ---
 
 ## 6. How to add things
@@ -243,7 +263,8 @@ and retries with backoff. A fake of it goes in `tests/support/`.
 
 **A job**: single-step work is a Queue consumer in `jobs/queues/`; multi-step work with
 compensation is a Workflow in `jobs/workflows/`, recording each step in the `job` table so
-the consoles can show progress; schedules go in `jobs/cron.ts`. Every handler is idempotent.
+the consoles can show progress; a scheduled job joins the `cronGroups` group whose cadence fits it (§5.1). Every
+handler is idempotent.
 
 **A webhook**: one file per provider in `hooks/`: verify the signature, record the event id
 for idempotency, write outbox rows or engine calls, return fast.
