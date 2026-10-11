@@ -79,5 +79,5 @@ export const edgeRules = (pages: readonly PlannedPage[], store: CatalogueSnapsho
     const address = routeAddresses[p.route]
     return 'prefix' in address ? [{ prefix: `${languagePrefix(store, p.language)}${address.prefix}`, page: p.path }] : []
   }),
-  notFound: pages.some((p) => p.route === 'notFound' && p.language === store.mainLanguage) ? routeAddresses.notFound.page : null,
+  notFound: pages.find((p) => p.route === 'notFound' && p.language === store.mainLanguage)?.path ?? null,
 })

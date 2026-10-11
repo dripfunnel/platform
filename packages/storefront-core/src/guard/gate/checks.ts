@@ -32,7 +32,7 @@ export type PageVisit = {
   sealed: string[]
   /** The ids of the axe rules it breaks. */
   axe: string[]
-  /** Its main landmark has a size, is on screen and isn't covered at its centre. */
+  /** Its main heading, inside the main landmark, is on screen and is what a tap at its centre reaches. */
   mainSeen: boolean
   /** It is wider than the screen. */
   overflow: boolean
@@ -110,7 +110,7 @@ export const checkSealed = (visits: readonly PageVisit[]): GateCheck => gateChec
 /** The checkout smoke test against the offline Shop API fixture: the cart and checkout open, are seen and work at every width. */
 export const checkCheckout = (visits: readonly PageVisit[]): GateCheck => {
   const problems: string[] = []
-  for (const route of ['cart', 'checkout'] as const) {
+  for (const route of ['checkout', 'cart'] as const) {
     for (const width of gateWidths) {
       const v = visits.find((x) => x.route === route && x.width === width)
       if (!v) problems.push(`The ${route} page wasn't opened at ${width} px.`)

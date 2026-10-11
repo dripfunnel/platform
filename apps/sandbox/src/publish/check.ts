@@ -89,6 +89,14 @@ const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { a
     return route.abort('blockedbyclient')
   })
   page.on('pageerror', (e) => net.errors.push(e.message.split('\n')[0] ?? 'An error.'))
+  // A request the CSP refused never leaves, so the route above never sees it; it still fails the page.
+  await page.addInitScript(() => {
+    const refused: string[] = []
+    Object.defineProperty(window, '__dfRefused', { value: refused })
+    document.addEventListener('securitypolicyviolation', (e) => {
+      if (/^(?:https?|wss?):/.test(e.blockedURI)) refused.push(new URL(e.blockedURI).origin)
+    })
+  })
   page.on('response', (response) => {
     void response.body().then(
       (body) => {
@@ -102,23 +110,25 @@ const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { a
   })
 }
 
-const settled = async (page: Page) => {
+const settled = async (page: Page, net: Network) => {
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await page.waitForTimeout(settle)
   await page.evaluate(() => window.scrollTo(0, 0))
+  for (const origin of new Set((await page.evaluate('window.__dfRefused ?? []')) as string[])) net.errors.push(`It tried to reach ${origin}, which its content security policy refused.`)
 }
 
-/** The main landmark has a size, is on screen and is what a tap at its centre reaches. */
+/** The page's main heading is shown inside its main landmark, on screen, and is what a tap at its centre reaches. */
 const mainSeen = (page: Page) =>
   page.evaluate(() => {
-    const main = document.querySelector('main')
-    if (!main?.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false
-    const r = main.getBoundingClientRect()
-    const top = Math.max(r.top, 0)
-    const bottom = Math.min(r.bottom, innerHeight)
-    if (r.width < 1 || bottom <= top || r.right <= 0 || r.left >= innerWidth) return false
-    const hit = document.elementFromPoint(Math.min(Math.max(r.left + r.width / 2, 0), innerWidth - 1), (top + bottom) / 2)
-    return hit !== null && main.contains(hit)
+    const heading = document.querySelector('main h1')
+    if (!heading?.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false
+    heading.scrollIntoView({ block: 'center', inline: 'center' })
+    const r = heading.getBoundingClientRect()
+    const x = r.left + r.width / 2
+    const y = r.top + r.height / 2
+    const hit = r.width >= 1 && r.height >= 1 && x >= 0 && x < innerWidth && y >= 0 && y < innerHeight ? document.elementFromPoint(x, y) : null
+    window.scrollTo(0, 0)
+    return hit !== null && heading.contains(hit)
   })
 
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)
@@ -143,7 +153,7 @@ const visit = async (c: Contexts, served: Served, s: CatalogueSnapshot, assets: 
   try {
     await wire(page, served, s, { assets }, net)
     await page.goto(`${served.origin}${p.path}`, { waitUntil: 'load' })
-    await settled(page)
+    await settled(page, net)
     const seen = await mainSeen(page)
     const wide = await overflows(page)
     const broken = axe ? ((await page.evaluate(`${axe};axe.run(document,{runOnly:{type:'tag',values:${JSON.stringify(axeTags)}},resultTypes:['violations']}).then(r=>r.violations.map(v=>v.id))`)) as string[]) : []
@@ -276,7 +286,7 @@ const liveShot = async (browser: Browser, served: Served, live: string, s: Catal
       return found ? route.fulfill({ status: 200, body: found.bytes }) : route.abort('blockedbyclient')
     })
     await page.goto(`${served.origin}${path}`, { waitUntil: 'load' })
-    await settled(page)
+    await settled(page, { errors: [], reports: [], js: [], css: 0, bytes: 0 })
     return await page.screenshot()
   } finally {
     await context.close()
