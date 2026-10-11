@@ -11,9 +11,6 @@ export type Device = 'phone' | 'desktop'
 export const buckets = { lcp: { width: 250, count: 41 }, inp: { width: 25, count: 81 }, cls: { width: 10, count: 101 } } as const
 export type Measure = keyof typeof buckets
 
-/** Samples a store's page kind and device keep a day; past it a day's histogram is full (decided on #484). */
-export const maxDailySamples = 5_000
-
 export const bucketOf = (measure: Measure, value: number): number => Math.min(buckets[measure].count - 1, Math.max(0, Math.floor(value / buckets[measure].width)))
 
 export interface VitalsSample {
@@ -41,7 +38,7 @@ export const recordVitals = async (tx: ScopedSql, s: VitalsSample): Promise<void
   await tx`
     update storefront_vitals_day set samples = samples + 1,
       lcp_hist[${lcp}] = lcp_hist[${lcp}] + 1, cls_hist[${cls}] = cls_hist[${cls}] + 1${inp === null ? tx`` : tx`, inp_hist[${inp}] = inp_hist[${inp}] + 1`}
-    where store_id = ${s.storeId} and day = ${s.day} and page_kind = ${s.pageKind} and device = ${s.device} and samples < ${maxDailySamples}`
+    where store_id = ${s.storeId} and day = ${s.day} and page_kind = ${s.pageKind} and device = ${s.device}`
 }
 
 export interface VitalsDays {

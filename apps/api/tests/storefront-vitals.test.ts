@@ -170,15 +170,6 @@ describe('the regression rule', () => {
     expect(await run(flooded)).toMatchObject({ state: 'live', vitals: { verdict: 'regressed', rolledBack: false } })
   })
 
-  it('keeps at most 5,000 samples a day per page kind and device', async () => {
-    await db.sql`delete from storefront_vitals_day where store_id = ${t.storeA2}`
-    await fill(t.storeA2, day(40), 1, { lcp: 1500, inp: 100, cls: 20 })
-    await db.sql`update storefront_vitals_day set samples = 5000 where store_id = ${t.storeA2}`
-    await fill(t.storeA2, day(40), 3, { lcp: 1500, inp: 100, cls: 20 })
-    const [row] = await db.sql<{ samples: number }[]>`select samples from storefront_vitals_day where store_id = ${t.storeA2}`
-    expect(row?.samples).toBe(5000)
-  })
-
   it('flags a smaller regression without rolling back, and says nothing with too few samples', async () => {
     await db.sql`delete from storefront_vitals_day where store_id = ${t.storeA2}`
     const prior = await live(t.storeA2)
