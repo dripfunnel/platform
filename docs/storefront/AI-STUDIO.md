@@ -273,7 +273,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
     `Translate` names only core's own keys;
   - the **byte budgets** (ARCHITECTURE §9) count the theme's own chunks and CSS, the part a change can move.
     Core's runtime (react, react-dom, core and the boot module; motion only when a theme imports it) is
-    about 172 KB gzipped on its own, so the whole page's weight is the publish gate's to judge;
+    about 172 KB gzipped on its own; the publish gate reports it beside the theme's own JavaScript and counts the
+    whole page's CSS, weight and timings (decided on #483, ARCHITECTURE §9);
   - the bundle's page loads one module by an absolute `/assets/` path and has no inline script; the
     theme's chunks import core's runtime by relative path from `assets/core/`, which the container serves
     from its image and a preview's host maps to `core/{version}/` (PREVIEW §3);

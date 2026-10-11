@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
-import { useStorefront } from '@dripfunnel/storefront-core/theme'
+import { ConsentBanner, PoweredBy, useStorefront } from '@dripfunnel/storefront-core/theme'
 import styles from '../styles/shell.module.css'
 
 export const Shell = ({ title, children }: { title: string; children: ReactNode }) => {
-  const { store, t } = useStorefront()
+  const { store, t, poweredBy } = useStorefront()
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
@@ -16,7 +16,9 @@ export const Shell = ({ title, children }: { title: string; children: ReactNode 
       </main>
       <footer className={styles.footer}>
         <p>{t('common.footer.note')}</p>
+        <PoweredBy brand={poweredBy} t={t} className={styles.powered} />
       </footer>
+      <ConsentBanner t={t} />
     </div>
   )
 }
