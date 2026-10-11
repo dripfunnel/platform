@@ -1,12 +1,12 @@
 {
   "hero": {
-    "title": "Fresh from the market, at your door",
-    "lead": "Picked from growers and bakers we know.",
+    "title": "Fill your basket",
+    "lead": "Search by name and add what you need.",
     "shop": "Start shopping"
   },
   "banner": {
     "title": "Find what you need",
-    "body": "Search by name or browse every aisle.",
+    "body": "Search the shop by name or type.",
     "action": "Start shopping"
   }
 }
