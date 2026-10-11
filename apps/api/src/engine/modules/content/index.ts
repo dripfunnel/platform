@@ -132,7 +132,9 @@ export const createContentService = ({ sql, context, actor, activity, facts, now
       const named = namedIn(clean.body, clean.coverAssetId)
       await checkNamed(tx, named)
       if (!before || before.slug !== clean.slug) await checkPath(tx, kind, clean.slug)
-      const publishAt = kind === 'post' ? (clean.publishAt ?? before?.publish_at ?? at) : null
+      // A draft published with no date of its own goes out dated now, not the day it was first saved.
+      const kept = before && !(before.status === 'draft' && clean.publish) ? before.publish_at : null
+      const publishAt = kind === 'post' ? (clean.publishAt ?? kept ?? at) : null
       const status = statusOf(kind, clean, publishAt, at)
       const write = { ...clean, status, publishAt, assetIds: named.assetIds, productIds: named.productIds }
       let saved: string
