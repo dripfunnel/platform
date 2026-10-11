@@ -8,6 +8,7 @@ import { fill, formatCount, formatTime, messages, plural } from '../../messages'
 import type { ActivityState } from './activityHarness'
 import { ActivityRow } from './ActivityRow'
 import { actionCodes } from './activityText'
+import '../common/chips.css'
 import './activity.css'
 
 const words = messages.activity
