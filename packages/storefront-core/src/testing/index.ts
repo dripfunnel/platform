@@ -21,8 +21,17 @@ const why: Record<VisibilityProblem, (part: keyof typeof minimumSize) => string>
   covered: () => 'something covers its centre',
 }
 
-/** A sealed component's visibility problem in plain words, as the publish gate reports what the page's own check found. */
-export const sealedProblemWords = (page: string, part: keyof typeof minimumSize, problem: VisibilityProblem): string => `The "${part}" component on the ${page} isn't seen: ${why[problem](part)}.`
+const isPart = (part: string): part is keyof typeof minimumSize => Object.hasOwn(minimumSize, part)
+const isProblem = (problem: string | null): problem is VisibilityProblem => problem !== null && Object.hasOwn(why, problem)
+
+/**
+ * A sealed component's visibility problem in plain words, as the publish gate reports what the page's own check found.
+ * The page's script sent the part and the problem, so only core's own names reach the words.
+ */
+export const sealedProblemWords = (page: string, part: string, problem: string | null): string => {
+  if (!isPart(part)) return `A required component on the ${page} isn't seen.`
+  return isProblem(problem) ? `The "${part}" component on the ${page} isn't seen: ${why[problem](part)}.` : `The "${part}" component on the ${page} isn't seen.`
+}
 
 /**
  * Problems with a page as the browser shows it: every required sealed component there, and every one
