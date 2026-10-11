@@ -238,7 +238,7 @@ export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date)
 export const insertAttempt = async (tx: ScopedSql, root: RunRow, attempt: 'repair' | 'bisect', commit: string, at: Date): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into publish_run (store_id, kind, state, commit, template, core_version, uses_allowance, started_by_kind, started_by_id, created_at, started_at, attempt_of, attempt)
-    values (${root.store_id}, ${root.kind}, 'building', ${commit}, ${root.template}, ${root.core_version}, false, 'system', null, ${at}, ${at}, ${root.id}, ${attempt})
+    values (${root.store_id}, ${root.kind}, 'building', ${commit}, ${root.template}, ${root.core_version}, false, ${root.started_by_kind}, ${root.started_by_id}, ${at}, ${at}, ${root.id}, ${attempt})
     returning id`
   if (!row) throw new Error('publish_run: insert returned nothing')
   return row.id

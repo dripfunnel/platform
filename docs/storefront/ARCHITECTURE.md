@@ -509,7 +509,8 @@ core upgrade):
 
 **Step 4 as built on #483** (`saas/storefronts/publish.ts`): a failing report leaves the publish in `checking`. A
 catalogue, staff or upgrade publish is then refused (`gate_failed`). A design publish is first repaired: the studio's change
-loop is asked to fix the failing checks' words, at most three times, each fix a build of its own (`publish_run.attempt`
+loop is asked to fix the last build's failing checks' words, keyed by the publish and the try so a retried step
+never makes a second change, at most three times, each fix a build of its own (`publish_run.attempt`
 `repair`, `attempt_of` the publish), and the first that passes is uploaded, verified and switched in the publish's
 place. Then bisect: the draft's accepted changes up to the publish's commit (`design_draft.commits`, the live version's
 commit standing as good) are halved to the first that fails, each probe a build that is only checked (`checked`), never

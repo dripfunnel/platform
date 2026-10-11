@@ -77,7 +77,11 @@ export interface PublishDeps extends FreezeDeps {
 }
 
 /** The studio's change loop asked to fix the failing checks (AI-STUDIO §6); the draft's new commit, or null. */
-export type PublishRepair = (storeId: string, failing: string[]) => Promise<string | null>
+/**
+ * `key` is the publish and the try (`{run}:{n}`): asked again with the same key, as a retried step does, it answers the
+ * change it already made instead of making a second one.
+ */
+export type PublishRepair = (storeId: string, failing: string[], key: string) => Promise<string | null>
 
 /** What the build's calls wake its publish run with (`step.waitForEvent` types, LIVE-SHOP §4 "The build calls"). */
 export type BuildEvent = 'reported' | 'uploaded'
@@ -240,15 +244,19 @@ const attemptBuild = async (deps: PublishDeps, steps: PublishSteps, p: PublishPa
 const repairs = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams): Promise<string | null> => {
   const repair = deps.repair
   if (!repair) return null
+  // Each try is told what the last build failed: the publish's own first, then the previous repair's.
+  let failed = p.runId
   for (let n = 1; n <= maxRepairs; n += 1) {
+    const from = failed
+    await steps.do(`repair-${n}:count`, () => withSystemScope(deps.sql, (tx) => setRepairAttempts(tx, p.runId, n)).then(() => String(n)))
     const commit = await steps.do(`repair-${n}`, async () => {
-      const failing = await withSystemScope(deps.sql, (tx) => selectFailingChecks(tx, p.storeId, p.runId))
-      await withSystemScope(deps.sql, (tx) => setRepairAttempts(tx, p.runId, n))
-      return (await repair(p.storeId, failing)) ?? 'none'
+      const failing = await withSystemScope(deps.sql, (tx) => selectFailingChecks(tx, p.storeId, from))
+      return (await repair(p.storeId, failing, `${p.runId}:${n}`)) ?? 'none'
     })
     if (commit === 'none') return null
     const built = await attemptBuild(deps, steps, p, 'repair', commit, `repair-${n}:`)
     if (built.passed) return built.id
+    failed = built.id
   }
   return null
 }
