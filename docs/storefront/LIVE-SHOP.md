@@ -341,7 +341,9 @@ What the edge Worker does on each request to a storefront host.
    **Built on #317**, with the build folder's contract decided there (#517 and #483 write it): every object carries the
    headers it is served with in its R2 metadata (`contentType`, `cacheControl`, and the CSP as the custom field `csp`),
    copied from the manifest when the API copies it in (§4 step 9), so the Worker parses nothing per request; and
-   `_edge.json` lists the build's redirects (`from`, `to`: 301), its client-rendered fallbacks (`prefix`, `page`: a path
+   `_edge.json` lists the build's redirects (`from`, `to`: 301; every path in it is plain ASCII names on the store's own
+   host with no query or fragment, the same rule as every path the Worker serves, so a rule like `//host`, `/\host` or
+   `/new/?ref=old` is ignored rather than followed), its client-rendered fallbacks (`prefix`, `page`: a path
    under the prefix with no file gets that page) and its 404 page (`notFound`), read only when a path has no file. A page
    path is `{path}/index.html`; anything that isn't plain names (`..`, an encoded slash or backslash, a control character)
    is a 404 before R2 is asked. A suspended store's degraded page (503) shows only its name; a cancelled store past its
