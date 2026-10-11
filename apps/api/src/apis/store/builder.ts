@@ -1,5 +1,6 @@
 import SchemaBuilder from '@pothos/core'
 import type { PageInfo } from '#core/paging'
+import type { PlanValue } from '#db/scoped/planKeys'
 import type { StoreContext } from './access'
 
 /** One builder per Store API schema; each area file adds its types and fields to it (api/README.md §3). */
@@ -65,5 +66,29 @@ export const moneyInputType = (builder: StoreBuilder) => {
   if (known) return known
   const made = defineMoneyInput(builder)
   moneyInputs.set(builder, made)
+  return made
+}
+
+const planValues = new WeakMap<StoreBuilder, ReturnType<typeof definePlanValue>>()
+
+const definePlanValue = (builder: StoreBuilder) =>
+  builder.objectRef<PlanValue>('BillingPlanValue').implement({
+    fields: (t) => ({
+      key: t.exposeString('key'),
+      // switch, amount or choice (SAAS §6.1)
+      kind: t.exposeString('kind'),
+      enabled: t.exposeBoolean('enabled', { nullable: true }),
+      // Null for a switch, or when unlimited; a choice is its index.
+      amount: t.exposeInt('amount', { nullable: true }),
+      unlimited: t.exposeBoolean('unlimited'),
+    }),
+  })
+
+/** A plan setting by key, as Billing and the public pricing read answer it; one type per builder. */
+export const planValueType = (builder: StoreBuilder) => {
+  const known = planValues.get(builder)
+  if (known) return known
+  const made = definePlanValue(builder)
+  planValues.set(builder, made)
   return made
 }

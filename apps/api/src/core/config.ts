@@ -52,19 +52,32 @@ const configSchema = z.object({
   SHOPIFY_CLIENT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'SHOPIFY_CLIENT_ID must be the app’s 32-character client id').optional(),
   SHOPIFY_CLIENT_SECRET: z.string().min(1).optional(),
   SHOPIFY_LOCAL: z.literal('1').optional(),
+  // The DripFunnel Provisioning GitHub App (THIRD-PARTY-ACCESS.md §2.3): IDs as variables, the PEM a Worker secret.
+  // All three or none; without them store repos aren't created and the request waits in the outbox.
+  GITHUB_APP_ID: z.string().regex(/^\d+$/, 'GITHUB_APP_ID must be the App’s numeric id').optional(),
+  GITHUB_APP_INSTALLATION_ID: z.string().regex(/^\d+$/, 'GITHUB_APP_INSTALLATION_ID must be the numeric installation id').optional(),
+  GITHUB_APP_PRIVATE_KEY: z
+    .string()
+    .transform((value) => value.replaceAll('\\n', '\n').trim())
+    .refine((value) => /^-----BEGIN (RSA )?PRIVATE KEY-----\n[\s\S]+\n-----END (RSA )?PRIVATE KEY-----$/.test(value), 'GITHUB_APP_PRIVATE_KEY must be the App’s PEM private key')
+    .optional(),
+  // The organisation store repos are created in (LIVE-SHOP.md §3).
+  GITHUB_STORE_ORG: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/, 'GITHUB_STORE_ORG must be a GitHub organisation name').default('dripfunnel'),
   // Local stand-ins for the last step of email, SMS, couriers and DNS (docs/setup/local.md §6.1): the outbox, templates,
   // quotes and checks run as on dev, and the message is printed, the rate made up, or the record answered, on this machine.
   EMAIL_LOCAL: z.literal('1').optional(),
   SMS_LOCAL: z.literal('1').optional(),
   DNS_LOCAL: z.literal('1').optional(),
   COURIERS_LOCAL: z.literal('1').optional(),
+  // Store repos in an in-memory GitHub on this machine (docs/setup/local.md §6.1), whatever the GITHUB_APP_* values.
+  GITHUB_LOCAL: z.literal('1').optional(),
   // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
 const devHooksHost = 'dev-hooks.dripfunnel.ai'
 const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
-const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL'] as const
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
 const checkedConfig = configSchema.superRefine((c, ctx) => {
@@ -74,6 +87,8 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   const modeOf = (key: string | undefined) => key?.match(/_(test|live)_/)?.[1]
   if (c.STRIPE_PUBLISHABLE_KEY !== undefined && modeOf(c.STRIPE_PUBLISHABLE_KEY) !== modeOf(c.STRIPE_SECRET_KEY)) ctx.addIssue({ code: 'custom', message: 'STRIPE_PUBLISHABLE_KEY must be in STRIPE_SECRET_KEY’s mode', path: ['STRIPE_PUBLISHABLE_KEY'] })
   if ((c.STRIPE_TEST_SECRET_KEY === undefined) !== (c.STRIPE_TEST_PUBLISHABLE_KEY === undefined)) ctx.addIssue({ code: 'custom', message: 'STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PUBLISHABLE_KEY go together', path: ['STRIPE_TEST_SECRET_KEY'] })
+  const github = [c.GITHUB_APP_ID, c.GITHUB_APP_INSTALLATION_ID, c.GITHUB_APP_PRIVATE_KEY].filter((v) => v !== undefined).length
+  if (github !== 0 && github !== 3) ctx.addIssue({ code: 'custom', message: 'GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID and GITHUB_APP_PRIVATE_KEY go together', path: ['GITHUB_APP_ID'] })
   if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !isLocalhost(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
   if (c.PREVIEW_DOMAIN !== undefined && ourHosts.some((h) => h === c.PREVIEW_DOMAIN || h.endsWith(`.${c.PREVIEW_DOMAIN}`) || c.PREVIEW_DOMAIN?.endsWith(`.${h}`)))

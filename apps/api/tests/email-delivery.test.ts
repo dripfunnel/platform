@@ -284,7 +284,7 @@ describe('email delivery', () => {
 
   it('skips a live-address email queued for a retired preview address, and the outbox moves on (#518)', async () => {
     const [domain] = await db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${northstar.id} and kind = 'shops'`
-    // As queued before 0210 deleted the preview rows: its address is gone and its kind is retired.
+    // As queued before 0232 deleted the preview rows: its address is gone and its kind is retired.
     await queue('partner-domain-live', { partnerId: northstar.id, domainId: crypto.randomUUID(), kind: 'preview' }, { partnerId: northstar.id, storeId: null })
     await queue('partner-domain-live', { partnerId: northstar.id, domainId: domain?.id, kind: 'shops' }, { partnerId: northstar.id, storeId: null })
     const ses = fakeSes()

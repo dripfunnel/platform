@@ -244,7 +244,7 @@ There is no per-store hostname fee.
   - it is specified in ui/store/FIRST-RELEASE (the Storefront studio) and built on #318 (the API)
     and #319 (the screen).
 - ~~The `storefront.preview_key` column and its format.~~ 10 lowercase base32 characters, made
-  with the store (decided 2026-10-09, §2 step 5; built on #518, migration 0210).
+  with the store (decided 2026-10-09, §2 step 5; built on #518, migration 0232).
 - ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,
   `PREVIEW_DOMAIN`, validated at boot: `webpreview.store` in prod, a second cheap domain
   registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`

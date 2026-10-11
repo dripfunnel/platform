@@ -188,7 +188,7 @@ export type JobState = (typeof jobStates)[number]
 export interface JobRow {
   id: string
   store_id: string
-  kind: 'provision-store'
+  kind: 'provision-store' | 'create-storefront'
   state: JobState
   steps: ProvisioningStep[]
   step: ProvisioningStep

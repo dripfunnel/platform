@@ -7,7 +7,7 @@ own guide says what that app is for, who uses it and what it may do.
 **Status: skeleton.** Each app has a sign-in route and a home route; `shared/` has a button,
 design tokens, the GraphQL client and money formatting.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-11.
 
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
@@ -77,6 +77,10 @@ apps/ui/<app>/
 - **The API decides; the UI displays.** Prices, totals, tax, stock, permissions and plan
   limits come from the API. The UI never computes a price or decides whether an action is
   allowed; it hides or disables controls only as a courtesy, the API enforces.
+- **Plan pricing lives in the API.** No app or site hard-codes a plan's price, trial or contents:
+  the partner's live plans come from the Store API's public `pricing(currency)` on its portal host
+  (api/SAAS.md §6.1, #459). No SPA shows a pricing page yet; the partner's own site reads it
+  server-side.
 - **The session is an `httpOnly` cookie** the app never reads. The browser holds no token.
   In the merchant portal the acting store travels with each request and the server checks
   it against the session's memberships (docs/api/ACCESS.md §4); the app may remember the

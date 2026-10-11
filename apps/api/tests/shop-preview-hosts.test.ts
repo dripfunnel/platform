@@ -123,7 +123,7 @@ describe('a preview has guests only (PREVIEW.md §5 step 5)', () => {
   })
 })
 
-describe('the retired partner preview address (0210)', () => {
+describe('the retired partner preview address (0232)', () => {
   it('leaves no preview row, and the check refuses a new one', async () => {
     expect(await db.sql`select 1 from partner_domain where kind = 'preview'`).toEqual([])
     await expect(db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerB}, 'preview', '*.preview.bolt.example', 'waiting', 'CNAME', 'x')`).rejects.toThrow(/partner_domain_kind_check/)

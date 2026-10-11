@@ -38,6 +38,13 @@ export const removeRefusal = (member: TeamMember, team: readonly TeamMember[], r
   return null
 }
 
+// Resend and Revoke on a pending invitation: the API checks only who may manage and touch an Owner (`mayTouch`).
+export const inviteRefusal = (member: TeamMember, role: PartnerRole): string | null => {
+  if (!mayManage(role)) return refused.manage
+  if (member.role === 'partner-owner' && role !== 'partner-owner') return refused.ownerRole
+  return null
+}
+
 // The roles the caller may give: Owner only by an Owner, and never in a staff session.
 export const rolesFor = (role: PartnerRole, all: readonly PartnerRole[], session: StaffSessionKind = null): readonly PartnerRole[] =>
   role === 'partner-owner' && !ownerBlock(session) ? all : all.filter((r) => r !== 'partner-owner')

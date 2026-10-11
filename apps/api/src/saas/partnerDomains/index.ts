@@ -9,7 +9,7 @@ import { withScope } from '#db/scoped/index'
 import { deletePartnerAddress, hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
 import { selectCustomDomains } from '#db/scoped/stores'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
-import { isBareDomain, ownershipRecord, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
+import { isBareDomain, ownershipRecord, queueStoreHostsRemoval, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
@@ -167,6 +167,7 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, edge
       await deletePartnerAddress(tx, domain.id)
       // After commit, so a Cloudflare outage never blocks the removal; the relay retries it.
       if (domain.kind === 'portal') await queueSideEffect(tx, { kind: 'domain.remove', idempotencyKey: `${domain.id}:removed`, payload: { host: domain.host }, partnerId, storeId: null })
+      if (domain.kind === 'shops') await queueStoreHostsRemoval(tx, { partnerId, domainId: domain.id, host: domain.host })
       await activity.record(tx, entry({ action: domainAudit.removePartnerDomain, target: { type: 'domain', id: domain.id, label: domain.host }, reason: null, changes: [{ field: domain.kind, before: domain.host, after: null }] }))
       return { ok: true }
     })

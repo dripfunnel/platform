@@ -2,7 +2,7 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { Report } from '../../api/reports'
+import { reportTabs, type Report } from '../../api/reports'
 import { messages } from '../../messages'
 import { Reports } from './Reports'
 import { reports } from './reportsTestData'
@@ -11,13 +11,14 @@ const words = messages.reports
 const noop = () => undefined
 const textOf = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ')
 const hrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map((match) => (match[1] ?? '').replace(/&amp;/g, '&'))
-const render = async (element: ReactNode) => {
-  const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: ['/reports'] }) })
+const render = async (element: ReactNode, at = '/reports') => {
+  const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: [at] }) })
   await router.load()
   return renderToString(<RouterProvider router={router} />)
 }
-const view = (report: Report, props: Partial<Parameters<typeof Reports>[0]> = {}) =>
-  render(<Reports report={report} filter={{}} plans={[{ id: 'p1', name: 'Growth' }]} countries={[{ code: 'US', name: 'United States' }]} forced={null} exportJob={null} onFilter={noop} onExport={noop} onRetry={noop} {...props} />)
+const view = (report: Report, props: Partial<Parameters<typeof Reports>[0]> = {}, at?: string) =>
+  render(<Reports report={report} filter={{}} plans={[{ id: 'p1', name: 'Growth' }]} countries={[{ code: 'US', name: 'United States' }]} forced={null} exportJob={null} onFilter={noop} onExport={noop} onRetry={noop} {...props} />, at)
+const currentTabs = (html: string) => [...html.matchAll(/<a[^>]*aria-current="page"[^>]*>([^<]*)<\/a>/g)].map((match) => match[1])
 
 describe('Reports', () => {
   it('draws the six tabs, the filters and Export CSV', async () => {
@@ -95,5 +96,14 @@ describe('Reports', () => {
     }
     expect(await view(reports.growth, { forced: 'loading' })).toContain('df-skeleton')
     expect(textOf(await view(reports.growth, { forced: 'error' }))).toContain(words.error.title)
+  })
+})
+
+describe('Reports tabs', () => {
+  it.each(reportTabs)('marks only %s as the open tab, with and without filters', async (tab) => {
+    const search = tab === 'growth' ? '' : `tab=${tab}`
+    expect(currentTabs(await view(reports[tab], {}, `/reports${search ? `?${search}` : ''}`))).toEqual([words.tabs[tab]])
+    const filtered = await view(reports[tab], { filter: { range: '3m', plan: 'p1' } }, `/reports?range=3m&plan=p1${search ? `&${search}` : ''}`)
+    expect(currentTabs(filtered)).toEqual([words.tabs[tab]])
   })
 })

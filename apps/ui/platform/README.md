@@ -150,7 +150,9 @@ out as design.md §7 says: cards on the left (name, description and trial; price
 included), a sticky summary on the right (status, stores on it, Make live, Retire plan), and a
 save bar that appears only when the draft differs from the saved plan. Beside each price the
 fee and margin arrive from the API's `quotePlanPrices` as `Money` ("You keep $31.00 of $49.00", or in red
-"Below DripFunnel's fee: you'd lose $3.00 per store"), re-quoted as prices are typed. The
+"Below DripFunnel's fee: you'd lose $3.00 per store"), re-quoted as prices are typed. A
+partner whose contract names no currency yet gets a note in place of the price rows saying
+DripFunnel sets it, and Make live refused with the same words (§7.2). The
 entitlement matrix has the three kinds of SAAS.md §6.1 and shows DripFunnel's ceiling on every
 row; a value above it is marked "Can't be more than 20,000." and Save is disabled with "Fix the
 highlighted rows first." The API refuses it too (`ABOVE_CEILING`, naming the row); nothing is
@@ -235,7 +237,7 @@ read in every build.
 name and a 10-character password, then 2-factor as step 2 of 2, required when the partner's
 Owner requires it and otherwise skippable. The route loader looks the token up, so a bad link
 is known before anything renders; the 2-factor step asks the API for a secret and shows it as a
-text key (the QR code is still a placeholder). `?state=` substitutes the answer instead:
+QR code of its `otpauth://` URI, drawn in the browser, and as a text key. `?state=` substitutes the answer instead:
 `expired`, `used`, `replaced`, `invalid`, `member` (invited by the Owner), `required` (2-factor
 required), and `twoFactor` for step 2. Codes: `INVITATION_EXPIRED`, `INVITATION_USED`,
 `INVITATION_REPLACED`, `INVITATION_INVALID`, `NAME_REQUIRED`, `WEAK_PASSWORD`,

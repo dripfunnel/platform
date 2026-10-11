@@ -51,6 +51,12 @@ const saveRefusal = (draft: PlanDraft, editor: PlanEditorData, canEdit: boolean,
   return null
 }
 
+// With no currency (no contract yet, FIRST-RELEASE §7.2), only DripFunnel can make a price possible.
+const makeLiveRefusal = (draft: PlanDraft, canEdit: boolean): string | null => {
+  if (!canEdit) return messages.plans.refused.OWNERS_AND_ADMINS_ONLY
+  return Object.keys(draft.prices).length === 0 ? words.noCurrency : null
+}
+
 export const PlanEditor = ({ me, editor, draft, original, quoted, forced, busy, onDraft, onSave, onDiscard, onMakeLive, onRetire, onReload }: PlanEditorProps) => {
   if (forced === 'loading') return <PlanEditorLoading />
   if (forced === 'error') return <PlanEditorError onRetry={onReload} />
@@ -141,7 +147,7 @@ export const PlanEditor = ({ me, editor, draft, original, quoted, forced, busy, 
               <PlanStatusPill status={plan?.status ?? 'draft'} />
               <span className="df-muted">{sub}</span>
             </div>
-            {plan?.status === 'draft' && <ActionControl label={words.makeLive} refusal={canEdit ? null : messages.plans.refused.OWNERS_AND_ADMINS_ONLY} disabled={busy || dirty} onRun={onMakeLive} />}
+            {plan?.status === 'draft' && <ActionControl label={words.makeLive} refusal={makeLiveRefusal(draft, canEdit)} disabled={busy || dirty} onRun={onMakeLive} />}
             {plan?.status === 'live' && <ActionControl label={words.retire} refusal={canEdit ? null : messages.plans.refused.OWNERS_AND_ADMINS_ONLY} disabled={busy || dirty} onRun={onRetire} />}
           </section>
         </aside>

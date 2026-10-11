@@ -469,6 +469,10 @@ export const insertStoreInvitation = async (tx: ScopedSql, i: { storeId: string;
 export const selectCustomDomainById = async (tx: ScopedSql, id: string): Promise<CustomDomainRow | null> =>
   (await tx<CustomDomainRow[]>`select * from custom_domain where id = ${id}`)[0] ?? null
 
+/** Locks the row for the rest of the transaction, so two checks at once agree on what changed. */
+export const selectCustomDomainForUpdate = async (tx: ScopedSql, id: string): Promise<CustomDomainRow | null> =>
+  (await tx<CustomDomainRow[]>`select * from custom_domain where id = ${id} for update`)[0] ?? null
+
 export const updateCustomDomainCheck = async (tx: ScopedSql, id: string, check: { status: HostStatus; foundCname: string | null; ownershipFound: string | null; checkedAt: Date }): Promise<void> => {
   await tx`
     update custom_domain set status = ${check.status}, found_cname = ${check.foundCname}, ownership_found = ${check.ownershipFound}, checked_at = ${check.checkedAt}
