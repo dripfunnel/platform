@@ -24,6 +24,8 @@ export interface LocalGitHub {
   fetch: typeof fetch
   /** Every repo by name, in the one org the stand-in serves. */
   repos: Map<string, Repo>
+  /** Each workflow run the platform started, in order; nothing runs it locally. */
+  dispatches: { repo: string; workflow: string; ref: string; inputs: Record<string, unknown> }[]
   /** The permissions each installation token asked for. */
   grants: Record<string, string>[]
   /** Every request as `METHOD path`, in order. */
@@ -53,6 +55,7 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
   const tokens = new Set<string>()
   const grants: Record<string, string>[] = []
   const calls: string[] = []
+  const dispatches: LocalGitHub['dispatches'] = []
   const failures: { matching: RegExp; status: number; times: number }[] = []
 
   const storeTree = async (repo: Repo, files: Map<string, string>) => {
@@ -154,6 +157,11 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
       const status = base === head ? 'identical' : descends(repo, head, base) ? 'ahead' : descends(repo, base, head) ? 'behind' : 'diverged'
       return reply(200, { status })
     }
+    const dispatch = /^\/actions\/workflows\/([^/]+)\/dispatches$/.exec(rest)
+    if (method === 'POST' && dispatch) {
+      dispatches.push({ repo: repo.name, workflow: decodeURIComponent(dispatch[1] ?? ''), ref: String(body['ref']), inputs: (body['inputs'] ?? {}) as Record<string, unknown> })
+      return reply(204)
+    }
     if (method === 'PATCH' && rest === '/git/refs/heads/main') {
       const sha = String(body['sha'])
       if (!repo.commits.has(sha)) return reply(422, { message: 'Object does not exist' })
@@ -182,6 +190,7 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
   return {
     fetch: fetchImpl as typeof fetch,
     repos,
+    dispatches,
     grants,
     calls,
     fail: (matching, status, times = 1) => {

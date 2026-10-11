@@ -93,9 +93,9 @@ export const selectRun = async (tx: ScopedSql, runId: string): Promise<RunRow | 
       from publish_run r join store s on s.id = r.store_id where r.id = ${runId}`
   )[0] ?? null
 
-/** Queued → deploying, and the console's mirror to building (DATA-MODEL §7.8). */
+/** Queued → building, and the console's mirror with it (DATA-MODEL §7.8); the build id's 2 hours start here. */
 export const startRun = async (tx: ScopedSql, run: RunRow, at: Date): Promise<void> => {
-  await tx`update publish_run set state = 'deploying', started_at = ${at} where id = ${run.id} and state = 'queued'`
+  await tx`update publish_run set state = 'building', started_at = ${at} where id = ${run.id} and state = 'queued'`
   await tx`update store set build_state = 'building', last_build_at = ${at} where id = ${run.store_id}`
 }
 
@@ -287,3 +287,58 @@ export const markStoreFilesDeleted = async (tx: ScopedSql, storeId: string, at: 
   await tx`update storefront set files_deleted_at = ${at} where store_id = ${storeId}`
   await tx`update publish_run set files_deleted_at = ${at} where store_id = ${storeId} and files_deleted_at is null`
 }
+
+export interface BuildInputRow {
+  kind: PublishKind
+  commit: string
+  core_version: string
+  repo: string | null
+  live_build_id: string | null
+  dispatched_at: Date | null
+  reported: boolean
+}
+
+/** What freezing and dispatching a build need (storefront LIVE-SHOP §4 steps 3–4). */
+export const selectBuildInput = async (tx: ScopedSql, storeId: string, runId: string): Promise<BuildInputRow | null> =>
+  (
+    await tx<BuildInputRow[]>`
+      select r.kind, r.commit, r.core_version, f.repo, f.live_build_id, r.dispatched_at, r.gate is not null as reported
+      from publish_run r join storefront f on f.store_id = r.store_id where r.id = ${runId} and r.store_id = ${storeId}`
+  )[0] ?? null
+
+/** Claims the build's one dispatch; false when another attempt already holds it. */
+export const markDispatched = async (tx: ScopedSql, storeId: string, runId: string, at: Date): Promise<boolean> =>
+  (await tx`update publish_run set dispatched_at = ${at} where id = ${runId} and store_id = ${storeId} and dispatched_at is null`).count === 1
+
+/** GitHub refused the dispatch, so no run started and the next attempt may ask again. */
+export const unmarkDispatched = async (tx: ScopedSql, storeId: string, runId: string): Promise<void> => {
+  await tx`update publish_run set dispatched_at = null where id = ${runId} and store_id = ${storeId} and gate is null`
+}
+
+/** The report's verdict, or null before one came (LIVE-SHOP §4 step 7). */
+export const selectGateVerdict = async (tx: ScopedSql, storeId: string, runId: string): Promise<boolean | null> =>
+  (await tx<{ passed: boolean | null }[]>`select (gate->>'passed')::boolean as passed from publish_run where id = ${runId} and store_id = ${storeId}`)[0]?.passed ?? null
+
+export interface SnapshotSourceRow {
+  code: string
+  shops_host: string | null
+  powered_by: string | null
+}
+
+/** The store's address and its partner's "Powered by" brand, beside the Shop API's own store read. */
+export const selectSnapshotSource = async (tx: ScopedSql, storeId: string): Promise<SnapshotSourceRow | null> =>
+  (
+    await tx<SnapshotSourceRow[]>`
+      select s.code, d.host as shops_host, case when p.powered_by = 'off' then null else p.product_name end as powered_by
+      from store s join partner p on p.id = s.partner_id
+        left join partner_domain d on d.partner_id = s.partner_id and d.kind = 'shops' and d.status = 'live'
+      where s.id = ${storeId}`
+  )[0] ?? null
+
+/** "Publish now" presses that went live since `since`; a refused or failed one never counts (SAAS §9.1). */
+export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date): Promise<number> =>
+  (
+    await tx<{ used: number }[]>`
+      select count(*)::int as used from publish_run
+      where store_id = ${storeId} and uses_allowance and state in ('live', 'rolled_back') and created_at >= ${since}`
+  )[0]?.used ?? 0

@@ -16,7 +16,8 @@ the bucket layout (§2), the publish-storefront Workflow's queued → deploying 
 clean-up (§4 steps 1, 9 item 3 and 11), and the edge Worker's live path (§5, `store-proxy/src/live.ts`) with the host
 lookup, its `/shop-api` door and the cache purge. On #517: the OIDC check (§9), the build calls (§4, "The build calls"),
 the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2). On
-#484: the post-deploy checks and the automatic rollback (§4 step 10); the rest is specification.
+#483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
+(§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). The rest is specification.
 
 Last updated: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
@@ -121,9 +122,12 @@ checking, deploying, live, failed, rolled back).
    none is running, queues `storefront.publish`, whose deliverer starts `jobs/workflows/publish-storefront.ts` under the
    run's id. A press while one runs waits as the one queued run (a second press is that run); the run that finishes
    queues it. Partial unique indexes allow one running and one queued run per store. The Workflow claims the run
-   (deploying), waits for the run's "uploaded" for the build id's 2 hours at most (`upload_timed_out`; #483 dispatches
-   the build before it), verifies and copies the upload (step 9, built on #517), then switches only a verified build;
-   any failure leaves the run failed with a code and the live build as it was.
+   (building), freezes its input (step 3) and dispatches the build (step 4), both once, then waits for its report:
+   a pass moves the run to deploying, a failure to checking, where the run decides (built on #483: it fails as
+   `gate_failed`), and no report within the build id's 2 hours fails it as `report_timed_out`. A passing build then
+   waits for its "uploaded" for the same 2 hours at most (`upload_timed_out`), is verified and copied (step 9, built on
+   #517), and only a verified build is switched; any failure leaves the run failed with a code and the live build as
+   it was.
 2. **Nothing reaches GitHub yet.** A design publish builds the draft's head commit from the
    store's private draft (AI-STUDIO §6); other publishes build the **live commit**, read from the
    live build's kept source bundle (step 3), never from GitHub. The repo's `main` gets the draft
@@ -140,10 +144,22 @@ checking, deploying, live, failed, rolled back).
 
    *Why:* the run reads only these, so it needs no network and no repo checkout, and two builds
    of the same commit and snapshot give the same files.
+   **Built on #483** (`saas/storefronts/freeze.ts`): the source is a byte copy of the store's draft bundle for a design
+   publish, or of the live build's own source bundle otherwise (none: `no_source`), and the build checks the run's
+   `commit` out of it. The snapshot is core's `catalogueSnapshotSchema`: the store as the Shop API's `store` reads it,
+   the live address (the store's host under its partner's live shops address: none is `no_address`), the partner's
+   "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
+   `sf-assets.<EDGE_ZONE>`. *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
+   it stays as private as the draft it copies.
 4. **The platform starts the workflow** with `workflow_dispatch`, passing a **single-use build
    id**, through the GitHub App.
    *Why:* the build id ties the run to this `publish_run`, so a run can't upload into another
    build, and an old id is refused.
+   **Built on #483**: `POST /repos/{org}/{repo}/actions/workflows/build.yml/dispatches` on `main` with the inputs
+   `build_id` and `api` (`https://<hooks host>`), at most once: `publish_run.dispatched_at` is set before GitHub is
+   asked and cleared only when GitHub answered no, so a retried step never starts a second run. A repo GitHub doesn't
+   know fails the publish as `no_repo`. The runner sends only the check container's report as a verdict: the build
+   container ran the theme, so its own report can only refuse (its failing checks), and no report is "stopped".
 5. **The workflow is one job**, so the built site never leaves the runner as an artifact. Its
    permissions are `id-token: write` and nothing else.
    - **Networking off:** the AI-written code (the static build, and the theme in the headless
@@ -192,8 +208,8 @@ checking, deploying, live, failed, rolled back).
    are there to catch.
 
    **The image's `build` step, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build`):
-   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`) in its
-   environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
+   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`, `INPUT_*`) in
+   its environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
    bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
    sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
    `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
@@ -319,8 +335,8 @@ checking, deploying, live, failed, rolled back).
 
 | Step | Allowed when | Answers |
 |---|---|---|
-| `start` (step 5) | The build is `building` and has no report | 15-minute links: `source`, `snapshot`, and `live` (each file of the live build by path, or null before the first publish) |
-| `report` (step 7) | No report yet; the body adds `passed`, `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …}`. Kept on `publish_run.gate` once: a pass moves the build to `deploying`, a failure ends it (`failed`, `gate_failed`); the same report again gets the same answer |
+| `start` (step 5) | The build is `building` and has no report | 15-minute links: `source`, `snapshot`, and `live` (each file of the live build by path, or null before the first publish); since #483 also `commit` (what to check out of the source), `core` (the build image's version) and `strictLook` (a core upgrade, whose look mustn't change) |
+| `report` (step 7) | No report yet; the body adds `passed`, `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …, "upload": …}`. Kept on `publish_run.gate` once with `build_minutes` (since the dispatch, rounded up): a pass moves the build to `deploying`, a failure to `checking` for its publish run to decide (#483); each answer wakes that run; the same report again gets the same answer. `upload` says whether the workflow uploads |
 | `credentials` (step 8) | After a passing report and before "uploaded" | `endpoint`, `bucket`, `prefix` (the staging folder) and the 15-minute `accessKeyId`, `secretAccessKey`, `sessionToken` |
 | `uploaded` (step 9) | After a passing report; the same call again gets the same answer | `{"uploaded": true}`, or the refusal when the staged manifest is missing or its digest isn't the report's. Either way the upload is over, and the build's publish run is woken to verify it or fail it |
 
@@ -436,11 +452,13 @@ What the edge Worker does on each request to a storefront host.
   - **A page run** (`publish_run.kind = 'page'`, `render`, no allowance) of the live build's commit, one at a time like
     every run. A waiting page run takes later addresses (the later request wins where two disagree), up to 100, past
     which it becomes an automatic full publish; a press behind it widens it into that publish.
-  - **The build** (#483's dispatch passes `renderInputs`): the workflow builds only those addresses and the sitemap from
-    the full snapshot, with the live build's asset base, since the same commit builds the same JS and CSS byte for byte.
-    The upload is verified as any (§4 step 9); then the API copies every other file of the live build's folder into the
-    new one, 500 a Workflow step, leaving out the moved addresses' folders, and writes the whole manifest last. The run
-    records `assets_build_id`, and clean-up keeps a build while a kept one loads its assets.
+  - **The build**: the frozen snapshot's `assetBase` is the live build's asset folder, since the same commit builds the
+    same JS and CSS byte for byte. *Until the build image takes a page list* (`renderInputs` gives it, with a `pages`
+    input on the locked workflow: a follow-up of #483's build), a page run builds every page of the live commit from a
+    fresh snapshot, so its folder is the same, only slower. The upload is verified as any (§4 step 9); then the API
+    copies every other file of the live build's folder into the new one, 500 a Workflow step, leaving out the moved
+    addresses' folders, and writes the whole manifest last. The run records `assets_build_id`, and clean-up keeps a
+    build while a kept one loads its assets.
   - **The switch** makes the new folder the live version's build (no new version), then the post-deploy checks; a
     rollback gives the version its build back. Once it stays live, `storefront.indexnow` tells IndexNow the pages that
     changed or went.

@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { statSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -22,7 +22,7 @@ export const fileFor = async (roots: readonly string[], path: string): Promise<{
   if (rel.startsWith('..') || rel.includes('\0')) return null
   for (const root of roots) {
     const file = join(root, rel)
-    if (existsSync(file)) return { rel, bytes: await readFile(file).catch(() => Buffer.alloc(0)) }
+    if (statSync(file, { throwIfNoEntry: false })?.isFile()) return { rel, bytes: await readFile(file) }
   }
   return null
 }

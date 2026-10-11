@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { catalogueSnapshotSchema, type CatalogueSnapshot, type GateReport } from '@dripfunnel/storefront-core/guard'
 import { buildRuntime } from '../runtime/build'
 import { buildSite } from './build'
-import { checkSite } from './check'
+import { checkSite, difference } from './check'
 import { refusedEnvironment, runStep } from './main'
 import { checkout } from './source'
 
@@ -90,11 +90,19 @@ describe('step build', () => {
   })
 
   it('refuses to start with a token or any of the runner’s own variables in its environment', async () => {
-    for (const name of ['GITHUB_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_RUNTIME_TOKEN', 'RUNNER_TEMP', 'R2_SECRET']) {
+    for (const name of ['GITHUB_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_RUNTIME_TOKEN', 'RUNNER_TEMP', 'INPUT_BUILD_ID', 'R2_SECRET']) {
       expect(await runStep(['build', '--out', join(root, 'never')], { PATH: '/usr/bin', [name]: 'x' })).toBe(1)
     }
     expect(refusedEnvironment({ PATH: '/usr/bin', HOME: '/tmp', SANDBOX_RUNTIME: '/opt/x', NODE_ENV: 'production' })).toEqual([])
     expect(existsSync(join(root, 'never'))).toBe(false)
+  })
+
+  it('refuses an unknown step and a commit not named by its full id before it reads anything', async () => {
+    await expect(runStep(['deploy', '--out', join(root, 'unknown')], { PATH: '/usr/bin' })).rejects.toThrow('Name the step: build or check.')
+    expect(existsSync(join(root, 'unknown'))).toBe(false)
+    const source = await sourceOf('named')
+    await expect(runStep(['build', '--source', source.bundle, '--commit', 'main', '--snapshot', join(root, 'snapshot.json'), '--out', join(root, 'named')], { PATH: process.env['PATH'] ?? '' })).rejects.toThrow('Name the commit to build by its full id.')
+    expect(existsSync(join(root, 'named/site'))).toBe(false)
   })
 
   it('has no network once the theme renders: a fetch in the build process fails', async () => {
@@ -112,7 +120,19 @@ describe('step build', () => {
     expect(report.checks.find((c) => c.name === 'validator')).toMatchObject({ passed: false })
     expect(existsSync(join(root, 'refused/site'))).toBe(false)
   })
+
+  it('stops at the typecheck too, with the validator’s check failing and naming the file, and no site', async () => {
+    const source = await sourceOf('untyped', { 'src/theme/pages/SearchPage.tsx': 'export const SearchPage = () => {\n  const count: string = 1\n  return count === null ? null : null\n}\n' })
+    await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', join(root, 'untyped')])
+    const report = JSON.parse(readFileSync(join(root, 'untyped/report.json'), 'utf8')) as GateReport
+    expect(report.checks.find((c) => c.name === 'validator')).toMatchObject({ passed: false, detail: expect.stringContaining('src/theme/pages/SearchPage.tsx:2') })
+    expect(existsSync(join(root, 'untyped/site'))).toBe(false)
+  })
 })
+
+// Skipped only off CI, and then said so: in CI a missing Chromium fails the run rather than dropping these tests.
+if (!chrome && process.env['CI']) throw new Error('The check step’s tests need Chromium in CI; set CHROME_PATH.')
+if (!chrome) console.warn('Skipping the check step’s tests: no Chromium here (set CHROME_PATH).')
 
 describe.skipIf(!chrome)('step check', () => {
   let browser: Browser
@@ -129,9 +149,12 @@ describe.skipIf(!chrome)('step check', () => {
     const source = await sourceOf('baseline')
     const built = join(root, 'baseline-built')
     await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', built])
-    await cli(['check', ...stepArgs(source, join(root, 'snapshot.json')), '--built', built, '--out', join(root, 'baseline-checked')])
+    // Its own copy as the live site, in a publish that must keep the look: every page matches.
+    cpSync(join(built, 'site'), join(root, 'baseline-live'), { recursive: true })
+    await cli(['check', ...stepArgs(source, join(root, 'snapshot.json')), '--built', built, '--live', join(root, 'baseline-live'), '--strict-look', '--out', join(root, 'baseline-checked')])
     const report = JSON.parse(readFileSync(join(root, 'baseline-checked/report.json'), 'utf8')) as GateReport
     expect(report.checks.filter((c) => !c.passed)).toEqual([])
+    expect(report.checks.find((c) => c.name === 'visual-diff')).toEqual({ name: 'visual-diff', passed: true })
     expect(report.passed).toBe(true)
     const headers = JSON.parse(readFileSync(join(root, 'baseline-checked/headers.json'), 'utf8')) as Record<string, { 'content-security-policy': string }>
     const pages = listing(join(built, 'site')).map((l) => l.slice(66)).filter((p) => p.endsWith('.html'))
@@ -215,5 +238,41 @@ describe.skipIf(!chrome)('step check', () => {
     const contracts = report.checks.find((c) => c.name === 'contracts')?.detail ?? ''
     expect(contracts).toContain('The cart page at 390 px failed while loading.')
     expect(contracts).not.toContain('tracker.example')
+  })
+
+  it('compares each page with the live site’s, its JS and CSS from the live build’s own files, and fails a page whose script doesn’t hydrate its HTML', async () => {
+    const source = await sourceOf('look')
+    const out = join(root, 'look-built')
+    const theme = await checkout(source.bundle, source.commit, join(root, 'look-src'))
+    await buildSite({ repo: join(root, 'look-src'), theme, snapshot, runtimeDir: runtime, out, work: join(root, 'look-work') })
+    // The live site is this same build with its stylesheet spacing headings out, served from the live build's own files.
+    const live = join(root, 'look-live')
+    cpSync(join(out, 'site'), live, { recursive: true })
+    const css = readdirSync(join(live, 'assets')).find((f) => f.endsWith('.css')) ?? ''
+    writeFileSync(join(live, 'assets', css), `${readFileSync(join(live, 'assets', css), 'utf8')}main h1{letter-spacing:12px}\n`)
+    // This build's search page renders a heading its script doesn't, so its hydration fails.
+    const search = join(out, 'site/search/index.html')
+    writeFileSync(search, readFileSync(search, 'utf8').replace('>Search</h1>', '>Searching</h1>'))
+    const { report } = await checkSite({ site: join(out, 'site'), out, live, snapshot, theme, strictLook: true, browser })
+    const check = (name: string) => report.checks.find((c) => c.name === name)
+    expect(check('visual-diff')).toMatchObject({ passed: false, detail: expect.stringMatching(/^The home page at 390 px looks different from the live site/) })
+    expect(check('contracts')?.detail).toContain('The search page at 390 px failed while loading.')
+  })
+
+  it('counts every pixel when two screenshots differ in size', async () => {
+    const page = await browser.newPage()
+    try {
+      await page.setContent('<body style="margin:0;background:#fff"></body>')
+      await page.setViewportSize({ width: 40, height: 40 })
+      const small = await page.screenshot()
+      expect(await difference(page, small, small)).toBe(0)
+      await page.setViewportSize({ width: 60, height: 40 })
+      expect(await difference(page, small, await page.screenshot())).toBe(1)
+      await page.setContent('<body style="margin:0;background:#000"></body>')
+      await page.setViewportSize({ width: 40, height: 40 })
+      expect(await difference(page, small, await page.screenshot())).toBe(1)
+    } finally {
+      await page.close()
+    }
   })
 })
