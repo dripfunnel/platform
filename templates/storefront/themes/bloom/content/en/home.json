@@ -1,0 +1,26 @@
+{
+  "hero": {
+    "title": "Gentle care, every day",
+    "lead": "Simple formulas, made in small batches.",
+    "shop": "Find your routine"
+  },
+  "features": {
+    "one": {
+      "title": "Kind ingredients",
+      "body": "Short lists you can read."
+    },
+    "two": {
+      "title": "Made in small batches",
+      "body": "Fresh, careful and never rushed."
+    },
+    "three": {
+      "title": "Your routine",
+      "body": "Ask us and we will help you choose."
+    }
+  },
+  "join": {
+    "title": "Join us",
+    "body": "Create an account for routines, early news and your orders in one place.",
+    "action": "Create an account"
+  }
+}
