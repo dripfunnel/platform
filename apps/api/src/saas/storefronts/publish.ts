@@ -82,7 +82,7 @@ export const startPublish = async (tx: ScopedSql, run: Omit<NewRun, 'storeId'> &
   if (!storefront) return { ok: false, reason: 'NO_STOREFRONT' }
   const waiting = await selectQueuedRun(tx, run.storeId)
   if (waiting) {
-    if (waiting.kind === 'page' && run.kind !== 'page') await widenQueuedRun(tx, waiting.id, run)
+    if (waiting.kind === 'page' && run.kind !== 'page') await widenQueuedRun(tx, run.storeId, waiting.id, run)
     return { ok: true, runId: waiting.id }
   }
   const runId = await insertQueuedRun(tx, run)
@@ -105,8 +105,8 @@ export const requestPageRender = (sql: postgres.Sql, request: RenderRequest, now
     const waiting = await selectQueuedRun(tx, request.storeId)
     if (waiting?.kind === 'page' && waiting.render) {
       const merged = mergeRender(waiting.render, render)
-      if (merged.pages.length + merged.drop.length <= maxRenderPages) await setQueuedRender(tx, waiting.id, merged)
-      else await widenQueuedRun(tx, waiting.id, { kind: 'automatic', commit: live.commit, template: live.template, coreVersion: live.core_version, usesAllowance: false, startedBy: { kind: 'system', id: null } })
+      if (merged.pages.length + merged.drop.length <= maxRenderPages) await setQueuedRender(tx, request.storeId, waiting.id, merged)
+      else await widenQueuedRun(tx, request.storeId, waiting.id, { kind: 'automatic', commit: live.commit, template: live.template, coreVersion: live.core_version, usesAllowance: false, startedBy: { kind: 'system', id: null } })
       return { ok: true, runId: waiting.id }
     }
     if (waiting) return { ok: true, runId: waiting.id }
@@ -183,7 +183,7 @@ const claimStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
     if (await hasActiveRun(tx, p.storeId)) throw new Busy('another publish is running')
     // A publish may have gone live while this page run waited: it renders beside that build, with its code and core.
     const live = run.kind === 'page' && storefront.live_build_id ? await selectRun(tx, storefront.live_build_id) : null
-    if (live) await followLiveBuild(tx, run.id, live)
+    if (live) await followLiveBuild(tx, p.storeId, run.id, live)
     await startRun(tx, live ? { ...run, commit: live.commit, template: live.template, core_version: live.core_version } : run, deps.now())
     return claimed
   })

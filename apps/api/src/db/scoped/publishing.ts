@@ -60,21 +60,21 @@ export const selectQueuedRun = async (tx: ScopedSql, storeId: string): Promise<Q
   (await tx<QueuedRun[]>`select id, kind, render from publish_run where store_id = ${storeId} and state = 'queued'`)[0] ?? null
 
 /** A waiting page run takes more addresses (one render for a burst of saves, SAAS §9.1). */
-export const setQueuedRender = async (tx: ScopedSql, runId: string, render: PageRender): Promise<void> => {
-  await tx`update publish_run set render = ${tx.json({ pages: render.pages, drop: render.drop })} where id = ${runId} and state = 'queued' and kind = 'page'`
+export const setQueuedRender = async (tx: ScopedSql, storeId: string, runId: string, render: PageRender): Promise<void> => {
+  await tx`update publish_run set render = ${tx.json({ pages: render.pages, drop: render.drop })} where id = ${runId} and store_id = ${storeId} and state = 'queued' and kind = 'page'`
 }
 
 /** A page run builds the live commit as it is when it starts, not as it was when asked for (LIVE-SHOP §7). */
-export const followLiveBuild = async (tx: ScopedSql, runId: string, live: Pick<RunRow, 'commit' | 'template' | 'core_version'>): Promise<void> => {
-  await tx`update publish_run set commit = ${live.commit}, template = ${live.template}, core_version = ${live.core_version} where id = ${runId} and kind = 'page' and state = 'queued'`
+export const followLiveBuild = async (tx: ScopedSql, storeId: string, runId: string, live: Pick<RunRow, 'commit' | 'template' | 'core_version'>): Promise<void> => {
+  await tx`update publish_run set commit = ${live.commit}, template = ${live.template}, core_version = ${live.core_version} where id = ${runId} and store_id = ${storeId} and kind = 'page' and state = 'queued'`
 }
 
 /** A waiting page run becomes the full publish pressed behind it, which renders every page anyway. */
-export const widenQueuedRun = async (tx: ScopedSql, runId: string, run: Omit<NewRun, 'storeId' | 'at' | 'render'>): Promise<void> => {
+export const widenQueuedRun = async (tx: ScopedSql, storeId: string, runId: string, run: Omit<NewRun, 'storeId' | 'at' | 'render'>): Promise<void> => {
   await tx`
     update publish_run set kind = ${run.kind}, render = null, commit = ${run.commit}, template = ${run.template}, core_version = ${run.coreVersion},
       uses_allowance = ${run.usesAllowance}, started_by_kind = ${run.startedBy.kind}, started_by_id = ${run.startedBy.id}
-    where id = ${runId} and state = 'queued' and kind = 'page'`
+    where id = ${runId} and store_id = ${storeId} and state = 'queued' and kind = 'page'`
 }
 
 export const hasActiveRun = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
@@ -391,7 +391,8 @@ export const selectDraftCommits = async (tx: ScopedSql, storeId: string): Promis
 export const selectBisectedRun = async (tx: ScopedSql, storeId: string, commit: string): Promise<RunRow | null> =>
   (
     await tx<RunRow[]>`
-      select r.id, r.store_id, s.partner_id, r.kind, r.state, r.commit, r.template, r.core_version, r.started_by_kind, r.started_by_id
+      select r.id, r.store_id, s.partner_id, r.kind, r.state, r.commit, r.template, r.core_version, r.started_by_kind, r.started_by_id,
+        r.switched_at, r.previous_build_id, r.render
       from publish_run r join store s on s.id = r.store_id
       where r.store_id = ${storeId} and r.kind = 'design' and r.attempt_of is null and r.state = 'failed' and r.bisect_commit = ${commit}
       order by r.created_at desc limit 1`

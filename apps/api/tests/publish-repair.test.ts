@@ -3,7 +3,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { recordGate } from '#db/scoped/builds'
 import { moveDraft } from '#db/scoped/studio'
 import { digestOf, goBack, publishBefore, runPublish, startPublish, type PublishDeps, type PublishRepair } from '#saas/storefronts/index'
-import { failAttempt, finishRepaired, selectExpiredBuilds, selectFailingChecks, setBisectCommit, setRepairAttempts } from '#db/scoped/publishing'
+import { failAttempt, finishRepaired, followLiveBuild, insertQueuedRun, selectExpiredBuilds, selectFailingChecks, setBisectCommit, setQueuedRender, setRepairAttempts, widenQueuedRun } from '#db/scoped/publishing'
 import { draftBundle, stagingFolder } from '#saas/storefronts/layout'
 import { testProbe } from './support/edgeProbe'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -258,6 +258,17 @@ describe('the attempts’ own writes', () => {
     })
     expect(await root(publish?.id ?? '')).toEqual({ ...kept, state: 'checking' })
     await db.sql`update publish_run set state = 'failed' where id = ${publish?.id ?? ''}`
+    // And so is its waiting page run.
+    const queued = await withSystemScope(db.sql, (tx) => insertQueuedRun(tx, { storeId: t.storeA2, kind: 'page', commit: commit(950), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date(), render: { pages: ['/'], drop: [] } }))
+    const waiting = () => db.sql`select kind, commit, template, core_version, render, uses_allowance, started_by_kind from publish_run where id = ${queued}`
+    const unchanged = await waiting()
+    await withSystemScope(db.sql, async (tx) => {
+      await setQueuedRender(tx, t.storeA1, queued, { pages: ['/', '/cart/'], drop: [] })
+      await followLiveBuild(tx, t.storeA1, queued, { commit: commit(951), template: 'other', core_version: '9.9.9' })
+      await widenQueuedRun(tx, t.storeA1, queued, { kind: 'manual', commit: commit(952), template: 'other', coreVersion: '9.9.9', usesAllowance: true, startedBy: { kind: 'system', id: null } })
+    })
+    expect(await waiting()).toEqual(unchanged)
+    await db.sql`delete from publish_run where id = ${queued}`
   })
 })
 
