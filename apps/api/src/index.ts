@@ -665,96 +665,171 @@ export const wakeOutbox = (request: Request, response: Response, env: Env, ctx: 
   )
 }
 
-// Delivers what is due (api/README.md §5): cron's sweep and each batch of wakes both call it.
-const sweepOutbox = (env: Env): Promise<void> =>
-  relayWith(env, async (sql, config) => {
-    // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
-    const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
-    const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront))
-    for (const [outcome, count] of Object.entries(counts)) {
-      if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
-    }
-  })
+// Delivers what is due (api/README.md §5): the every-minute cron and each batch of wakes both call it.
+const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise<void> => {
+  // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
+  const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
+  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront))
+  for (const [outcome, count] of Object.entries(counts)) {
+    if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
+  }
+}
+const sweepOutbox = (env: Env): Promise<void> => relayWith(env, (sql, config) => relayOutbox(sql, config, env))
 
-// Cron only: schedules and cleanups that nothing waits on, then the sweep above.
-const sweepSchedules = (env: Env): Promise<void> =>
-  relayWith(env, async (sql, config) => {
-    // A scheduling failure is logged and never holds up the outbox sweep below.
-    const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
-      logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return 0
-    })
-    if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
-    await queueRatesRefresh(sql, new Date()).catch((error: unknown) => {
-      logEvent({ event: 'rates_refresh_queue_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-    })
-    const purged = await withSystemScope(sql, async (tx) => {
-      const at = new Date()
-      await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
-      await failDeadCatalogExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
-      await failDeadImports(tx, at, new Date(at.getTime() + exportLifetimeMs))
-      await deleteStalePendingConnections(tx, at)
-      await deleteAbandonedConnections(tx, at)
-      return (await deleteExpiredExports(tx, at)) + (await deleteExpiredCatalogExports(tx, at)) + (await deleteExpiredImports(tx, at))
-    }).catch((error: unknown) => {
-      logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return 0
-    })
-    if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
-    // Bank transfers unpaid after 3 days and card payments not completed in a day are cancelled, their stock released (FIRST-RELEASE §1).
-    const settle = { sql, activity: activityLog, gateways: paymentsFor(config).gateways, secrets: await (secretsFor(config) ?? null), now: () => new Date() }
-    const released = await releaseUnpaidOrders(settle, new Date()).catch((error: unknown) => {
-      logEvent({ event: 'unpaid_orders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return 0
-    })
-    if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
-    // FIRST-RELEASE §3.3: a trial that ended without a plan moves to the free plan, or owes one.
-    const trials = await endTrials(sql, activityLog, new Date()).catch((error: unknown) => {
-      logEvent({ event: 'trial_end_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return { ended: 0, failed: 0 }
-    })
-    if (trials.ended > 0) logEvent({ event: 'trials_ended', api: 'system', code: 'ended', count: trials.ended })
-    if (trials.failed > 0) logEvent({ event: 'trial_end_failed', api: 'system', code: 'store_failed', count: trials.failed })
-    // SAAS §7.3: a store 14 days past due is suspended.
-    const suspended = await suspendOverdueStores(sql, activityLog, new Date()).catch((error: unknown) => {
-      logEvent({ event: 'dunning_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return 0
-    })
-    if (suspended > 0) logEvent({ event: 'stores_suspended', api: 'system', code: 'unpaid', count: suspended })
-    // Old sign-in codes and sessions go, with the addresses they named.
-    await withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), 500)).catch((error: unknown) => {
-      logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-    })
-    // The webhook delivery log keeps a month (LOGGING §8's technical logs); replays reach back a week.
-    await withSystemScope(sql, (tx) => deleteOldDeliveries(tx, new Date(Date.now() - 30 * 86_400_000), 500)).catch((error: unknown) => {
-      logEvent({ event: 'webhook_log_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-    })
-    // Carts past their 30 days go, with whatever address or email a guest left in them.
-    await withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), 500)).catch((error: unknown) => {
-      logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-    })
-    // Carts left in checkout are marked, then each reminder step now due is queued once (FIRST-RELEASE §9).
-    const reminders = { sql, now: () => new Date() }
-    const abandoned = await markAbandonedCarts(reminders, 100).catch((error: unknown) => {
-      logEvent({ event: 'abandoned_carts_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return 0
-    })
-    if (abandoned > 0) logEvent({ event: 'abandoned_carts_marked', api: 'system', code: 'abandoned', count: abandoned })
-    const reminded = await queueDueReminders(reminders, 200).catch((error: unknown) => {
-      logEvent({ event: 'cart_reminders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return 0
-    })
-    if (reminded > 0) logEvent({ event: 'cart_reminders_queued', api: 'system', code: 'due', count: reminded })
-    // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
-    await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
-      logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-    })
-    const expired = await withSystemScope(sql, (tx) => expireUnsentSms(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
-      logEvent({ event: 'sms_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
-      return 0
-    })
-    if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
+// The cron's jobs (api/README.md §5.1). Each catches and logs its own failure, so one never stops the rest of its group.
+type CronJob = (sql: postgres.Sql, config: Config, env: Env) => Promise<void>
+const purgeBatch = 500
+const runsPerHour = 60
+const runsPerDay = 1440
+// A purge capped per batch repeats until a short batch, so a slower cadence deletes as much as every minute did.
+const drained = async (batch: () => Promise<number>, rounds: number): Promise<number> => {
+  let total = 0
+  for (let round = 0; round < rounds; round += 1) {
+    const count = await batch()
+    total += count
+    if (count < purgeBatch) break
+  }
+  return total
+}
+
+const expireSms: CronJob = async (sql) => {
+  const expired = await withSystemScope(sql, (tx) => expireUnsentSms(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
+    logEvent({ event: 'sms_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
   })
+  if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
+}
+
+const queueDomainChecks: CronJob = async (sql) => {
+  const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
+}
+
+const failStuckExports: CronJob = async (sql) => {
+  await withSystemScope(sql, async (tx) => {
+    const at = new Date()
+    await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+    await failDeadCatalogExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+    await failDeadImports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+  }).catch((error: unknown) => {
+    logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
+// Bank transfers unpaid after 3 days and card payments not completed in a day are cancelled, their stock released (FIRST-RELEASE §1).
+const releaseUnpaid: CronJob = async (sql, config) => {
+  const settle = { sql, activity: activityLog, gateways: paymentsFor(config).gateways, secrets: await (secretsFor(config) ?? null), now: () => new Date() }
+  const released = await releaseUnpaidOrders(settle, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'unpaid_orders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
+}
+
+// FIRST-RELEASE §3.3: a trial that ended without a plan moves to the free plan, or owes one.
+const endDueTrials: CronJob = async (sql) => {
+  const trials = await endTrials(sql, activityLog, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'trial_end_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return { ended: 0, failed: 0 }
+  })
+  if (trials.ended > 0) logEvent({ event: 'trials_ended', api: 'system', code: 'ended', count: trials.ended })
+  if (trials.failed > 0) logEvent({ event: 'trial_end_failed', api: 'system', code: 'store_failed', count: trials.failed })
+}
+
+// SAAS §7.3: a store 14 days past due is suspended.
+const suspendOverdue: CronJob = async (sql) => {
+  const suspended = await suspendOverdueStores(sql, activityLog, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'dunning_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (suspended > 0) logEvent({ event: 'stores_suspended', api: 'system', code: 'unpaid', count: suspended })
+}
+
+// Carts left in checkout are marked, then each reminder step now due is queued once (FIRST-RELEASE §9).
+const markAbandoned: CronJob = async (sql) => {
+  const abandoned = await markAbandonedCarts({ sql, now: () => new Date() }, 100).catch((error: unknown) => {
+    logEvent({ event: 'abandoned_carts_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (abandoned > 0) logEvent({ event: 'abandoned_carts_marked', api: 'system', code: 'abandoned', count: abandoned })
+}
+
+const queueReminders: CronJob = async (sql) => {
+  const reminded = await queueDueReminders({ sql, now: () => new Date() }, 200).catch((error: unknown) => {
+    logEvent({ event: 'cart_reminders_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (reminded > 0) logEvent({ event: 'cart_reminders_queued', api: 'system', code: 'due', count: reminded })
+}
+
+const refreshRates: CronJob = async (sql) => {
+  await queueRatesRefresh(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'rates_refresh_queue_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
+const purgeExpiredExports: CronJob = async (sql) => {
+  const purged = await withSystemScope(sql, async (tx) => {
+    const at = new Date()
+    await deleteStalePendingConnections(tx, at)
+    await deleteAbandonedConnections(tx, at)
+    return (await deleteExpiredExports(tx, at)) + (await deleteExpiredCatalogExports(tx, at)) + (await deleteExpiredImports(tx, at))
+  }).catch((error: unknown) => {
+    logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
+}
+
+// Old sign-in codes and sessions go, with the addresses they named.
+const purgeShopperSignIns: CronJob = async (sql) => {
+  await drained(() => withSystemScope(sql, (tx) => purgeShopperIdentity(tx, new Date(), purgeBatch)), runsPerHour).catch((error: unknown) => {
+    logEvent({ event: 'shopper_identity_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
+// Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
+const purgeSignups: CronJob = async (sql) => {
+  await drained(() => withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), purgeBatch)), runsPerHour).catch((error: unknown) => {
+    logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
+// Carts past their 30 days go, with whatever address or email a guest left in them.
+const purgeCarts: CronJob = async (sql) => {
+  await drained(() => withSystemScope(sql, (tx) => deleteExpiredCarts(tx, new Date(), purgeBatch)), runsPerDay).catch((error: unknown) => {
+    logEvent({ event: 'cart_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
+// The webhook delivery log keeps a month (LOGGING §8's technical logs); replays reach back a week.
+const purgeWebhookLog: CronJob = async (sql) => {
+  await drained(() => withSystemScope(sql, (tx) => deleteOldDeliveries(tx, new Date(Date.now() - 30 * 86_400_000), purgeBatch)), runsPerDay).catch((error: unknown) => {
+    logEvent({ event: 'webhook_log_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
+/** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
+export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
+  '* * * * *': [expireSms, relayOutbox],
+  '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders],
+  '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
+  '0 3 * * *': [purgeCarts, purgeWebhookLog],
+}
+
+const runCron = async (cron: string, env: Env): Promise<void> => {
+  const jobs = Object.hasOwn(cronGroups, cron) ? cronGroups[cron] : undefined
+  if (!jobs) {
+    logEvent({ event: 'cron_unknown', api: 'system', code: 'no_group' })
+    return
+  }
+  await relayWith(env, async (sql, config) => {
+    for (const job of jobs) await job(sql, config, env)
+  })
+}
 
 const serve = async (request: Request, env: Env, ctx: ExecutionContext, entry: Entry): Promise<Response> => {
   const started = Date.now()
@@ -785,10 +860,9 @@ export const CreateStorefront = createStorefrontWorkflow(getClient)
 export default {
   fetch: (request, env, ctx) => serve(request, env, ctx, 'public'),
 
-  // Every minute from wrangler.jsonc's cron trigger, and the backstop for any wake that never arrives.
-  async scheduled(_controller, env) {
-    await sweepSchedules(env)
-    await sweepOutbox(env)
+  // Each of wrangler.jsonc's crons runs its own group; the every-minute one is the backstop for any wake that never arrives.
+  async scheduled(controller, env) {
+    await runCron(controller.cron, env)
   },
 
   // One wake per mutating request (wakeOutbox): a batch of them is one sweep.

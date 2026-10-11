@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import worker, { guarded, PortalProxy, wakeOutbox } from './index'
+import worker, { cronGroups, guarded, PortalProxy, wakeOutbox } from './index'
 
 const env = {
   ADMIN_HOST: 'admin.dripfunnel.com',
@@ -347,6 +348,9 @@ describe('the outbox wake', () => {
   })
 })
 
+// Every query fails here, so each job that runs logs its own failure event: the events name the jobs that ran.
+const unreachable = { ...env, HYPERDRIVE: { connectionString: 'postgres://u:p@127.0.0.1:1/none?connect_timeout=1' } }
+
 describe('the outbox wake consumer', () => {
   const batchOf = (n: number) => {
     const acked: string[] = []
@@ -374,20 +378,60 @@ describe('the outbox wake consumer', () => {
     const log = console.log
     console.log = (line: string) => void lines.push(line)
     try {
-      await worker.queue(batchOf(1).batch as never, { ...env, HOOKS_HOST: undefined } as never)
-      const afterQueue = sweeps(lines).length
-      await worker.scheduled({} as never, { ...env, HOOKS_HOST: undefined } as never)
-      expect(afterQueue).toBe(1)
-      expect(sweeps(lines).length - afterQueue).toBe(2)
+      await expect(worker.queue(batchOf(1).batch as never, unreachable as never)).rejects.toThrow()
     } finally {
       console.log = log
     }
+    expect(lines.filter((l) => l.includes('_failed"'))).toEqual([])
   })
 
   it('leaves the batch unacked when the sweep throws, so the queue redelivers it and cron is the backstop', async () => {
     const { batch, acked } = batchOf(2)
-    const unreachable = { ...env, HYPERDRIVE: { connectionString: 'postgres://u:p@127.0.0.1:1/none?connect_timeout=1' } }
     await expect(worker.queue(batch as never, unreachable as never)).rejects.toThrow()
     expect(acked).toEqual([])
+  })
+})
+
+describe('the cron', () => {
+  const failures = async (cron: string) => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    let threw = false
+    try {
+      await worker.scheduled({ cron } as never, unreachable as never)
+    } catch {
+      threw = true
+    } finally {
+      console.log = log
+    }
+    return { events: lines.map((l) => (JSON.parse(l) as { event: string }).event), threw }
+  }
+
+  it('has a group for each of the crons in wrangler.jsonc, and no other', () => {
+    const crons = /"crons":\s*\[([^\]]*)\]/.exec(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'))?.[1] ?? ''
+    expect(JSON.parse(`[${crons}]`)).toEqual(Object.keys(cronGroups))
+  })
+
+  it('puts each job in exactly one group', () => {
+    const jobs = Object.values(cronGroups).flat()
+    expect(new Set(jobs).size).toBe(jobs.length)
+  })
+
+  it('runs only the expired texts and the outbox relay every minute, the relay last', async () => {
+    expect(await failures('* * * * *')).toEqual({ events: ['sms_expiry_failed'], threw: true })
+  })
+
+  it('runs every job of a group although each one fails', async () => {
+    expect(await failures('*/5 * * * *')).toEqual({
+      events: ['domain_checks_failed', 'exports_purge_failed', 'unpaid_orders_failed', 'trial_end_failed', 'dunning_failed', 'abandoned_carts_failed', 'cart_reminders_failed'],
+      threw: false,
+    })
+    expect(await failures('0 * * * *')).toEqual({ events: ['rates_refresh_queue_failed', 'exports_purge_failed', 'shopper_identity_purge_failed', 'signup_purge_failed'], threw: false })
+    expect(await failures('0 3 * * *')).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed'], threw: false })
+  })
+
+  it('logs one event and runs nothing for an expression it has no group for', async () => {
+    expect(await failures('*/7 * * * *')).toEqual({ events: ['cron_unknown'], threw: false })
   })
 })
