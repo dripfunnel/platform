@@ -44,8 +44,20 @@ describe('core_release', () => {
     expect(await withSystemScope(db.sql, (tx) => selectSandboxImage(tx, '1.10.0'))).toBe(image('c'))
   })
 
+  it('names a backport by the newest version below it, not the newest of all', async () => {
+    await withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '2.0.0', image('e')))
+    await withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '1.10.1', image('f')))
+    await withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '1.11.0', image('a')))
+    const kinds = await db.sql<{ version: string; kind: string }[]>`select version, kind from core_release where version in ('2.0.0', '1.10.1', '1.11.0') order by version`
+    expect(kinds).toEqual([
+      { version: '1.10.1', kind: 'patch' },
+      { version: '1.11.0', kind: 'minor' },
+      { version: '2.0.0', kind: 'major' },
+    ])
+  })
+
   it('refuses an image that is not pinned by digest in Cloudflare’s registry', async () => {
-    await expect(withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '1.11.0', 'ghcr.io/dripfunnel/storefront-build:1.11.0'))).rejects.toThrow(/core_release_sandbox_image_check/)
+    await expect(withSystemScope(db.sql, (tx) => recordCoreRelease(tx, '1.12.0', 'ghcr.io/dripfunnel/storefront-build:1.12.0'))).rejects.toThrow(/core_release_sandbox_image_check/)
   })
 
   it('is read by staff and written only by the platform’s own jobs', async () => {
