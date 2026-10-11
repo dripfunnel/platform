@@ -25,8 +25,10 @@ afterAll(async () => {
 
 const store = { partnerId: 'partner-1', storeId: 'store-1', sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
 
+const person: CallerContext = { ...store, caller: { kind: 'person', userId: 'user-1', sessionId: 'session-1' } }
+
 const callers: [string, CallerContext][] = [
-  ['a store person', { ...store, caller: { kind: 'person', userId: 'user-1', sessionId: 'session-1' } }],
+  ['a store person', person],
   ['a supplier user', { ...store, sellerScope: { kind: 'seller', sellerId: 'seller-1' }, caller: { kind: 'person', userId: 'user-2', sessionId: 'session-2' } }],
   ['an API key', { ...store, caller: { kind: 'api-key', keyId: 'key-1', createdByUserId: 'user-3' } }],
   ['an app', { ...store, caller: { kind: 'app', grantId: 'grant-1', appId: 'app-1' } }],
@@ -40,8 +42,8 @@ const callers: [string, CallerContext][] = [
   ['a staff member', { caller: { kind: 'staff', staffId: 'staff-4' } }],
 ]
 
-const inScope = async (context: CallerContext): Promise<{ role: string; settings: Record<string, string> }> =>
-  withScope(db.sql, context, async (tx) => {
+const inScope = async (context: CallerContext, sql: postgres.Sql = db.sql): Promise<{ role: string; settings: Record<string, string> }> =>
+  withScope(sql, context, async (tx) => {
     const [who] = await tx<{ role: string }[]>`select current_user::text as role`
     const settings: Record<string, string> = {}
     for (const name of Object.keys(settingsFor(context))) {
@@ -57,7 +59,7 @@ describe('withScope', () => {
   })
 
   it('sends the settings in one statement, between the role and the work', async () => {
-    const context = callers[0]?.[1] ?? store
+    const context = person
     sent.length = 0
     await withScope(counted, context, async (tx) => tx`select 'work'`)
     const queries = sent.map(({ query }) => query.replaceAll(/\s+/g, ' '))
@@ -67,7 +69,7 @@ describe('withScope', () => {
   })
 
   it('passes every name and value as a parameter, never in the SQL text', async () => {
-    const context = callers[0]?.[1] ?? store
+    const context = person
     sent.length = 0
     await withScope(counted, context, async () => undefined)
     const statement = sent.find(({ query }) => query.includes('set_config'))
@@ -82,9 +84,9 @@ describe('withScope', () => {
     expect(settings).toMatchObject({ 'app.store_id': awkward, 'app.customer_id': 'NULL', 'app.order_token_hash': '' } satisfies Partial<RlsSettings>)
   })
 
-  it('keeps the settings to the transaction', async () => {
-    await inScope(callers[0]?.[1] ?? store)
-    const [row] = await db.sql<{ scope: string | null }[]>`select current_setting('app.scope', true) as scope`
+  it('keeps the settings to the transaction, on the same connection', async () => {
+    await inScope(person, counted)
+    const [row] = await counted<{ scope: string | null }[]>`select current_setting('app.scope', true) as scope`
     expect(row?.scope ?? '').toBe('')
   })
 })
