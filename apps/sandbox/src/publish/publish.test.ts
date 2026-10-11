@@ -301,18 +301,26 @@ describe.skipIf(!chrome)('step check', () => {
     expect(report.checks.find((c) => c.name === 'validator')).toEqual({ name: 'validator', passed: true })
   })
 
-  it('fails a page that reaches outside the store, and keeps the request from leaving', async () => {
+  it('fails a page that reaches outside the store, with JavaScript on or off, and serves the build’s assets from its asset host', async () => {
+    // The pages load their JS and CSS from the asset host, which the check step answers from the build's own files.
+    const hosted = catalogueSnapshotSchema.parse({ ...snapshot, csp: { ...snapshot.csp, assetOrigin: 'https://sf-assets.example.com' }, assetBase: 'https://sf-assets.example.com/stores/s1/builds/b1/assets/' })
     const source = await sourceOf('reaching')
     const out = join(root, 'reaching-built')
     const theme = await checkout(source.bundle, source.commit, join(root, 'reaching-src'))
-    await buildSite({ repo: join(root, 'reaching-src'), theme, snapshot, runtimeDir: runtime, out, work: join(root, 'reaching-work') })
+    await buildSite({ repo: join(root, 'reaching-src'), theme, snapshot: hosted, runtimeDir: runtime, out, work: join(root, 'reaching-work') })
+    expect(readFileSync(join(out, 'site/index.html'), 'utf8')).toContain('src="https://sf-assets.example.com/stores/s1/builds/b1/assets/assets/entry-')
     // As if something slipped past the validator: the built cart page asks another host for an image.
     const cart = join(out, 'site/cart/index.html')
     writeFileSync(cart, readFileSync(cart, 'utf8').replace('<div id="root">', '<div id="root"><img alt="" src="https://tracker.example/pixel.gif">'))
-    const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser })
+    const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot: hosted, theme, strictLook: false, browser })
     const contracts = report.checks.find((c) => c.name === 'contracts')?.detail ?? ''
+    // With JavaScript on the page's CSP stops it; with JavaScript off the CSP is bypassed and the routing refuses it.
     expect(contracts).toContain('The cart page at 390 px failed while loading.')
+    expect(contracts).toContain('The cart page failed to load without JavaScript.')
     expect(contracts).not.toContain('tracker.example')
+    // Only the cart failed: every other page loaded its scripts and styles from the asset host.
+    expect(contracts).not.toMatch(/home page|search page|checkout page/)
+    expect(report.checks.find((c) => c.name === 'sealed')).toEqual({ name: 'sealed', passed: true })
   })
 
   it('compares each page with the live site’s, its JS and CSS from the live build’s own files, and fails a page whose script doesn’t hydrate its HTML', async () => {

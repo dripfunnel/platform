@@ -3,7 +3,7 @@ export { coreRoutes, defineTheme, missingRoutes, requiredParts, type CoreRoute, 
 export { createAnalytics, ga4, ga4Params, googleTagManager, metaPixel, type AnalyticsProvider, type CommerceEvent } from './platform/analytics/analytics'
 export { contrastRatio, minContrast, readableOn } from './guard/contrast'
 export { createShopClient, ShopApiError, shopHeaders, type ShopClient, type ShopClientOptions, type ShopState } from './platform/api/client'
-export { readConsent, writeConsent, type ConsentChoice } from './platform/consent/consent'
+export { consentStorageKey, readConsent, writeConsent, type ConsentChoice } from './platform/consent/consent'
 export { createI18n, type Translate } from './platform/i18n/i18n'
 export { catalogues, en, type Catalogue, type MessageKey } from './platform/i18n/messages'
 export { fontNames, fonts, fontStack, type Font } from './platform/media/fonts'
@@ -20,3 +20,4 @@ export { hashSource, inlineHashes, pageHeaders, storeCsp, storeCspSchema, studio
 export { installTrustedTypes } from './platform/csp/trustedTypes'
 export { SectionBoundary } from './platform/render/boundary'
 export { connectHotReload, studioBasePath, studioPagePath, studioShopEndpoint, type BundleNotice, type HotReloadOptions } from './platform/render/studio'
+export { settleMs } from './sealed/visibility'

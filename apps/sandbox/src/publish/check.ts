@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import type { Browser, BrowserContext, Page, Route } from 'playwright-core'
-import { pageHeaders, storeCsp, themeRoutesSchema, type ThemeRoutes } from '@dripfunnel/storefront-core'
+import { consentStorageKey, pageHeaders, settleMs, storeCsp, themeRoutesSchema, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
 import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
@@ -29,8 +29,8 @@ export type CheckInput = {
 
 export type CheckOutcome = { report: GateReport; headers: Record<string, { 'content-security-policy': string }> }
 
-const consentKey = 'df-consent-v1'
-const settle = 1100
+// A sealed component's own check looks again `settleMs` after a failure; the step waits a little past that.
+const settle = settleMs + 100
 const height = 900
 const parallel = 6
 
@@ -141,12 +141,16 @@ export const sealedWords = (reports: readonly ShopReport[], p: { path: string; r
     // The page's script sent these; core's words keep only its own part and problem names.
     .map((r) => sealedProblemWords(pageName(p), r.subject, r.detail))
 
+/** A shopper who has answered consent, as core's own `writeConsent` records it, so the open banner covers nothing. */
+const returningShopper = (context: BrowserContext) =>
+  context.addInitScript(([key]) => localStorage.setItem(key ?? '', JSON.stringify({ analytics: false, marketing: false, at: '2026-01-01T00:00:00.000Z' })), [consentStorageKey])
+
 type Contexts = { returning: BrowserContext; first: BrowserContext }
 
 const contextsFor = async (browser: Browser, width: number): Promise<Contexts> => {
   const returning = await browser.newContext({ viewport: { width, height } })
   // A returning shopper who has answered, so the open banner doesn't cover the page; `first` checks the banner itself.
-  await returning.addInitScript(([key]) => localStorage.setItem(key ?? '', JSON.stringify({ analytics: false, marketing: false, at: '2026-01-01T00:00:00.000Z' })), [consentKey])
+  await returningShopper(returning)
   return { returning, first: await browser.newContext({ viewport: { width, height } }) }
 }
 
@@ -297,7 +301,7 @@ export const difference = async (page: Page, a: Buffer, b: Buffer): Promise<numb
 const liveShot = async (browser: Browser, served: Served, live: string, s: CatalogueSnapshot, path: string, width: number): Promise<Buffer | null> => {
   if (!(await fileFor([live], path))) return null
   const context = await browser.newContext({ viewport: { width, height } })
-  await context.addInitScript(([key]) => localStorage.setItem(key ?? '', JSON.stringify({ analytics: false, marketing: false, at: '2026-01-01T00:00:00.000Z' })), [consentKey])
+  await returningShopper(context)
   const page = await context.newPage()
   try {
     await page.route('**/*', async (route) => {
