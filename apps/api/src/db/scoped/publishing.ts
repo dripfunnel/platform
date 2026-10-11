@@ -118,10 +118,6 @@ export const switchLive = async (tx: ScopedSql, run: RunRow, previous: string | 
     return kept.number
   }
   await tx`update design_version set state = 'kept' where store_id = ${run.store_id} and state = 'live'`
-  // The draft's changes up to the published one are live now; later ones stay to publish (ARCHITECTURE §4.2 step 4).
-  await tx`
-    update design_draft set commits = coalesce(commits[array_position(commits, ${run.commit}::text) + 1:], commits)
-    where store_id = ${run.store_id} and array_position(commits, ${run.commit}::text) is not null`
   const [version] = await tx<{ number: number }[]>`
     insert into design_version (store_id, number, commit, template, core_version, build_id, published_by, published_at, state)
     select ${run.store_id}, coalesce(max(number), 0) + 1, ${run.commit}, ${run.template}, ${run.core_version}, ${run.id},
@@ -135,6 +131,11 @@ export const switchLive = async (tx: ScopedSql, run: RunRow, previous: string | 
 /** The switched build passed its post-deploy checks: the run and the console's mirror say live. */
 export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise<void> => {
   await tx`update publish_run set state = 'live', finished_at = ${at} where id = ${run.id} and state = 'deploying'`
+  // The draft's changes up to the published one stayed live; later ones stay to publish (ARCHITECTURE §4.2 step 4). Not
+  // at the switch: a rollback must leave them all still to publish.
+  await tx`
+    update design_draft set commits = coalesce(commits[array_position(commits, ${run.commit}::text) + 1:], commits)
+    where store_id = ${run.store_id} and array_position(commits, ${run.commit}::text) is not null`
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${run.core_version} where id = ${run.store_id}`
 }
 
@@ -179,14 +180,16 @@ export const rollBackRun = async (tx: ScopedSql, run: RunRow, error: string, at:
     await tx`update design_version set build_id = ${previous} where build_id = ${run.id}`
     return { withdrawn: null, back: withdrawn }
   }
-  await tx`update design_draft set base_version_id = null where base_version_id in (select id from design_version where build_id = ${run.id})`
-  await tx`delete from design_version where build_id = ${run.id}`
+  await tx`update design_version set state = 'kept' where build_id = ${run.id}`
   const [back] = previous
-    ? await tx<{ number: number }[]>`
+    ? await tx<{ id: string; number: number }[]>`
         update design_version set state = 'live'
         where id = (select id from design_version where store_id = ${run.store_id} and build_id = ${previous} order by number desc limit 1)
-        returning number`
+        returning id, number`
     : []
+  // A draft based on the withdrawn version is based on the one live again.
+  await tx`update design_draft set base_version_id = ${back?.id ?? null} where base_version_id in (select id from design_version where build_id = ${run.id})`
+  await tx`delete from design_version where build_id = ${run.id}`
   await tx`
     update store set build_state = case when ${previous}::uuid is null then 'failed' else 'live' end,
       core_version = coalesce((select core_version from publish_run where id = ${previous}), core_version)
@@ -356,7 +359,7 @@ export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date)
 export const insertAttempt = async (tx: ScopedSql, root: RunRow, attempt: 'repair' | 'bisect', commit: string, at: Date): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into publish_run (store_id, kind, state, commit, template, core_version, uses_allowance, started_by_kind, started_by_id, created_at, started_at, attempt_of, attempt)
-    values (${root.store_id}, ${root.kind}, 'building', ${commit}, ${root.template}, ${root.core_version}, false, 'system', null, ${at}, ${at}, ${root.id}, ${attempt})
+    values (${root.store_id}, ${root.kind}, 'building', ${commit}, ${root.template}, ${root.core_version}, false, ${root.started_by_kind}, ${root.started_by_id}, ${at}, ${at}, ${root.id}, ${attempt})
     returning id`
   if (!row) throw new Error('publish_run: insert returned nothing')
   return row.id
@@ -405,3 +408,12 @@ export const selectFailingChecks = async (tx: ScopedSql, storeId: string, runId:
 /** When the build id's lifetime started (its claim), which every wait for the build counts down from. */
 export const selectStartedAt = async (tx: ScopedSql, storeId: string, runId: string): Promise<Date | null> =>
   (await tx<{ started_at: Date | null }[]>`select started_at from publish_run where id = ${runId} and store_id = ${storeId}`)[0]?.started_at ?? null
+
+/** A publish ending ends its repair and bisect builds still open, so none holds the store's slot (one running per store). */
+export const failOpenAttempts = async (tx: ScopedSql, storeId: string, rootId: string, error: string, at: Date): Promise<string[]> =>
+  (
+    await tx<{ id: string }[]>`
+      update publish_run set state = 'failed', error = ${error}, finished_at = ${at}
+      where attempt_of = ${rootId} and store_id = ${storeId} and state in ('building', 'checking', 'deploying')
+      returning id`
+  ).map((r) => r.id)

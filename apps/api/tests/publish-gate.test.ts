@@ -185,6 +185,28 @@ describe('the dispatch', () => {
     await db.sql`update publish_run set state = 'failed' where id = ${run}`
   })
 
+  it('fails a publish whose repo GitHub doesn’t know as no_repo, at once, asking GitHub once per try', async () => {
+    const runId = await start(t.storeA1, 'design', 25)
+    let asked = 0
+    const missing = { ...deps(), dispatch: async () => {
+      asked += 1
+      return false
+    } }
+    // The Workflow's own retries of the step, played here: each try asks again and fails the same way.
+    const retried = { do: async (name: string, work: () => Promise<string>) => {
+      for (let tries = 1; ; tries += 1) {
+        try {
+          return await work()
+        } catch (error) {
+          if (name !== 'dispatch' || tries >= 3) throw error
+        }
+      }
+    }, waitFor: async () => Promise.reject(new Error('waitForEvent timed out')) }
+    expect(await runPublish(missing, { runId, storeId: t.storeA1 }, retried)).toBe('failed')
+    expect(await runOf(runId)).toMatchObject({ state: 'failed', error: 'no_repo', dispatched_at: null })
+    expect(asked).toBe(3)
+  })
+
   it('waits for the report and the upload only until the build id’s 2 hours from its claim run out', async () => {
     const runId = await start(t.storeA1, 'design', 24)
     const waits: number[] = []

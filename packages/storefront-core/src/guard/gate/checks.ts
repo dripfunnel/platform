@@ -59,10 +59,13 @@ export type GateInput = {
    * (DESIGN §3). Left out, product, cart and checkout all must.
    */
   priced?: ReadonlySet<PageRoute>
+  /** The store's markets require legal and compliance notices, which product, checkout and policy pages then place. */
+  legal: boolean
   /** A publish that mustn't change the look (a core patch or minor, ARCHITECTURE §7): any page that looks different fails. */
   strictLook: boolean
-  /** The theme rendered against the edge-case catalogue (§10), by case. */
+  /** The theme rendered against the edge-case catalogue (§10), by case, and the cases `edgeCases` gave, all of which must be. */
   edge: readonly { name: string; pages: readonly PageRead[]; visits: readonly PageVisit[] }[]
+  edgeNames: readonly string[]
 }
 
 /** The pages search engines are told about (ARCHITECTURE §8): content a shopper lands on, never a cart or an account. */
@@ -79,17 +82,27 @@ const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 const pricedRoutes: ReadonlySet<PageRoute> = new Set<PageRoute>(['product', 'cart', 'checkout'])
 
-type Shape = { poweredBy: boolean; priced: ReadonlySet<PageRoute> }
-const shapeOf = (input: Pick<GateInput, 'poweredBy' | 'priced'>): Shape => ({ poweredBy: input.poweredBy, priced: input.priced ?? pricedRoutes })
+type Shape = { poweredBy: boolean; legal: boolean; priced: ReadonlySet<PageRoute> }
+const shapeOf = (input: Pick<GateInput, 'poweredBy' | 'priced' | 'legal'>): Shape => ({ poweredBy: input.poweredBy, legal: input.legal, priced: input.priced ?? pricedRoutes })
 
 const partsFor = (route: PageRoute, shape: Shape) =>
-  requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy: shape.poweredBy, legal: false, priced: shape.priced.has(route) })
+  requiredParts(route === 'custom' ? 'home' : route, { preview: false, poweredBy: shape.poweredBy, legal: shape.legal, priced: shape.priced.has(route) })
+
+/** ARCHITECTURE §9 budgets these page types. */
+export const budgetedRoutes: ReadonlySet<PageRoute> = new Set<PageRoute>(['home', 'collection', 'product', 'custom', 'cart'])
+
+type Coverage = Pick<GateInput, 'pages' | 'visits' | 'site'>
+/** The main language's pages, which the check step visits at every width (other languages are read without JavaScript). */
+const mainPages = (input: Pick<GateInput, 'pages' | 'site'>) => input.pages.filter((p) => !input.site.prefixes.some((x) => p.path.startsWith(`${x}/`)))
+/** A page or width the check step skipped fails the check that needed it, so a step that stopped part-way never passes. */
+const unvisited = (input: Coverage): string[] =>
+  mainPages(input).flatMap((p) => gateWidths.filter((w) => !input.visits.some((v) => v.path === p.path && v.width === w)).map((w) => `The ${pageName(p)} wasn't visited at ${w} px.`))
 
 export const checkValidator = (problems: readonly Problem[]): GateCheck =>
   gateCheck('validator', problems.map((p) => `${p.file ?? 'The theme'}${p.line ? `:${p.line}` : ''}: ${p.message}`))
 
 /** ARCHITECTURE §3.1–§3.2: every route has its page, each page has its required parts, one h1 and a main, and none crashes. */
-export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visits' | 'poweredBy' | 'priced'>): GateCheck => {
+export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visits' | 'poweredBy' | 'priced' | 'legal'>): GateCheck => {
   const built = new Set(input.pages.map((p) => p.path))
   const problems: string[] = []
   for (const route of coreRoutes) {
@@ -120,8 +133,8 @@ const pageShape = (page: PageRead, shape: Shape): string[] => [
 /** A check with nothing to judge fails: a check step that stopped part-way never reads as a pass. */
 const sawNothing = (what: string) => [`This check saw no ${what}.`]
 
-export const checkSealed = (visits: readonly PageVisit[]): GateCheck =>
-  gateCheck('sealed', visits.length === 0 ? sawNothing('pages') : visits.flatMap((v) => v.sealed.map((p) => `At ${v.width} px: ${p}`)))
+export const checkSealed = (input: Coverage): GateCheck =>
+  gateCheck('sealed', input.visits.length === 0 ? sawNothing('pages') : [...unvisited(input), ...input.visits.flatMap((v) => v.sealed.map((p) => `At ${v.width} px: ${p}`))])
 
 /** The checkout smoke test against the offline Shop API fixture: the cart and checkout open, are seen and work at every width. */
 export const checkCheckout = (visits: readonly PageVisit[]): GateCheck => {
@@ -138,8 +151,8 @@ export const checkCheckout = (visits: readonly PageVisit[]): GateCheck => {
   return gateCheck('checkout', problems)
 }
 
-export const checkAxe = (visits: readonly PageVisit[]): GateCheck =>
-  gateCheck('axe', visits.length === 0 ? sawNothing('pages') : visits.filter((v) => v.axe.length > 0).map((v) => `The ${at(v)} breaks accessibility rules: ${[...new Set(v.axe)].join(', ')}.`))
+export const checkAxe = (input: Coverage): GateCheck =>
+  gateCheck('axe', input.visits.length === 0 ? sawNothing('pages') : [...unvisited(input), ...input.visits.filter((v) => v.axe.length > 0).map((v) => `The ${at(v)} breaks accessibility rules: ${[...new Set(v.axe)].join(', ')}.`)])
 
 const median = (values: readonly number[]) => {
   const sorted = [...values].sort((a, b) => a - b)
@@ -147,9 +160,12 @@ const median = (values: readonly number[]) => {
 }
 const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`
 
-export const checkBudgets = (weights: readonly PageWeight[]): GateCheck => {
+/** ARCHITECTURE §9: checkout is outside the JavaScript budget ("checkout excluded"), and inside every other one. */
+export const checkBudgets = (input: Pick<GateInput, 'pages' | 'weights' | 'site'>): GateCheck => {
   const b = pageBudgets
-  const problems = weights.length === 0 ? sawNothing('pages weighed') : weights.flatMap((w) => {
+  const weights = input.weights
+  const unweighed = mainPages(input).filter((p) => budgetedRoutes.has(p.route) && !weights.some((w) => w.path === p.path)).map((p) => `The ${pageName(p)} wasn't weighed.`)
+  const problems = weights.length === 0 ? sawNothing('pages weighed') : [...unweighed, ...weights.flatMap((w) => {
     const name = upper(pageName(w))
     const found: string[] = []
     if (w.route !== 'checkout' && w.jsGzip > b.jsGzip) found.push(`${name} loads ${kb(w.jsGzip)} of JavaScript gzipped, over the ${kb(b.jsGzip)} budget.`)
@@ -159,7 +175,7 @@ export const checkBudgets = (weights: readonly PageWeight[]): GateCheck => {
     if (median(w.cls) > b.cls) found.push(`${name} shifts its layout by ${median(w.cls).toFixed(3)}, over ${b.cls}.`)
     if (median(w.tbtMs) > b.tbtMs) found.push(`${name} blocks for ${Math.round(median(w.tbtMs))} ms while loading, over ${b.tbtMs} ms.`)
     return found
-  })
+  })]
   const runtime = Math.max(0, ...weights.map((w) => w.runtimeJsGzip))
   return gateCheck('budgets', problems, runtime > 0 ? `Core's runtime adds ${kb(runtime)} of JavaScript gzipped to a page, outside the theme's budget.` : undefined)
 }
@@ -173,6 +189,8 @@ const withoutJs = (p: PageRead): string[] => [
 export const checkNoJs = (pages: readonly PageRead[]): GateCheck => gateCheck('no-js', pages.length === 0 ? sawNothing('pages') : pages.flatMap(withoutJs))
 
 const internal = (href: string) => href.startsWith('/') && !href.startsWith('//')
+/** Plain names only: no `..`, encoded character, backslash, empty segment, query or fragment can pass for an address. */
+const plainPath = (path: string) => /^\/(?:[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)?\/?)*$/.test(path) && !path.includes('//')
 
 const sitemapLocs = (xml: string) => [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1] ?? '')
 
@@ -188,7 +206,7 @@ export const checkCrawl = (input: Pick<GateInput, 'pages' | 'site'>): GateCheck 
   const unprefixed = (path: string) => [path, ...input.site.prefixes.filter((p) => path.startsWith(`${p}/`)).map((p) => path.slice(p.length))]
   const leads = (href: string) => {
     const path = href.split(/[?#]/)[0] ?? ''
-    return pages.has(path) || files.has(path) || unprefixed(path).some((u) => prefixes.some((p) => u.startsWith(p) && u.length > p.length))
+    return pages.has(path) || files.has(path) || (plainPath(path) && unprefixed(path).some((u) => prefixes.some((p) => u.startsWith(p) && u.length > p.length)))
   }
   const problems = input.pages.flatMap((p) => p.links.filter((href) => internal(href) && !leads(href)).map((href) => `The link ${href} on the ${pageName(p)} leads nowhere.`))
   const sitemap = `${input.site.origin}/sitemap.xml`
@@ -202,7 +220,10 @@ export const checkCrawl = (input: Pick<GateInput, 'pages' | 'site'>): GateCheck 
       const a = routeAddresses[r]
       return indexable(r) && 'prefix' in a ? [a.prefix] : []
     })
-    const item = (url: string) => url.startsWith(`${input.site.origin}/`) && unprefixed(url.slice(input.site.origin.length)).some((u) => itemPrefixes.some((p) => u.startsWith(p) && u.length > p.length))
+    const item = (url: string) => {
+      const path = url.startsWith(`${input.site.origin}/`) ? url.slice(input.site.origin.length) : ''
+      return plainPath(path) && unprefixed(path).some((u) => itemPrefixes.some((p) => u.startsWith(p) && u.length > p.length))
+    }
     for (const url of listed) if (!wanted.includes(url) && !item(url)) problems.push(`The sitemap lists ${url}, which isn't a page search engines should see.`)
   }
   if (!input.site.robots?.split('\n').includes(`Sitemap: ${sitemap}`)) problems.push('robots.txt doesn’t name the sitemap.')
@@ -228,30 +249,42 @@ export const checkVisualDiff = (visits: readonly PageVisit[], strict: boolean): 
 }
 
 /** ARCHITECTURE §10: the theme against the edge-case catalogue renders whole, fits the screen and keeps its required parts. */
-export const checkEdgeCases = (edge: GateInput['edge'], shape: Pick<GateInput, 'poweredBy' | 'priced'>): GateCheck =>
-  gateCheck(
+export const checkEdgeCases = (input: Pick<GateInput, 'edge' | 'edgeNames' | 'poweredBy' | 'priced' | 'legal' | 'pages' | 'site'>): GateCheck => {
+  const { edge } = input
+  const expected = mainPages(input)
+  // Every case renders every page of the main build, each read and seen at phone width.
+  const missing = input.edgeNames.flatMap((n) => {
+    const c = edge.find((x) => x.name === n)
+    if (!c) return [`The edge case "${n}" wasn't rendered and seen.`]
+    return expected.flatMap((p) => [
+      ...(c.pages.some((r) => r.path === p.path) ? [] : [`With ${n}: the ${pageName(p)} wasn't rendered.`]),
+      ...(c.visits.some((v) => v.path === p.path && v.width === gateWidths[0]) ? [] : [`With ${n}: the ${pageName(p)} wasn't seen at ${gateWidths[0]} px.`]),
+    ])
+  })
+  return gateCheck(
     'edge-cases',
-    edge.length === 0 || edge.some((c) => c.pages.length === 0 || c.visits.length === 0) ? sawNothing('edge-case renders') : edge.flatMap(({ name, pages, visits }) => [
-      ...pages.flatMap((p) => [...pageShape(p, shapeOf(shape)), ...withoutJs(p)].map((d) => `With ${name}: ${d}`)),
+    edge.length === 0 ? sawNothing('edge-case renders') : [...missing, ...edge.flatMap(({ name, pages, visits }) => [
+      ...pages.flatMap((p) => [...pageShape(p, shapeOf(input)), ...withoutJs(p)].map((d) => `With ${name}: ${d}`)),
       ...visits.flatMap((v) => [
         ...(v.errors.length > 0 ? [`With ${name}: the ${at(v)} failed while loading.`] : []),
         ...v.sealed.map((s) => `With ${name}, at ${v.width} px: ${s}`),
         ...(v.overflow ? [`With ${name}: the ${at(v)} is wider than the screen.`] : []),
       ]),
-    ]),
+    ])],
   )
+}
 
 export const runGate = (input: GateInput): GateReport =>
   gateReport([
     checkValidator(input.validator),
     checkContracts(input),
-    checkSealed(input.visits),
+    checkSealed(input),
     checkCheckout(input.visits),
-    checkAxe(input.visits),
-    checkBudgets(input.weights),
+    checkAxe(input),
+    checkBudgets(input),
     checkNoJs(input.pages),
     checkCrawl(input),
     checkClaims(input.pages, input.data),
     checkVisualDiff(input.visits, input.strictLook),
-    checkEdgeCases(input.edge, input),
+    checkEdgeCases(input),
   ])
