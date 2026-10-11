@@ -46,7 +46,7 @@ type BuildInput = { repo: string; theme: readonly ThemeFile[]; snapshot: Catalog
 /** Builds `theme` (already checked out at `repo`) into `out`; the same theme and snapshot always give the same files. */
 export const buildSite = async (input: BuildInput): Promise<BuildOutcome> => {
   const outcome = await buildInto(input)
-  // A refusal leaves the failing report and nothing else: no part of a site, no edge-case render.
+  // A refusal leaves no part of a site and no edge-case render; the runner reads only site/ and report.json, never .work/.
   if (!outcome.ok) for (const folder of ['site', 'edge']) await rm(join(input.out, folder), { recursive: true, force: true })
   return outcome
 }
