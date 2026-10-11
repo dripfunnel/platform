@@ -829,6 +829,22 @@ built and gated per store, and the upgrade bot must exist from day one.
   (`store_busy`); a build is waited for four hours at most (`build_timed_out`).
 - **Canaries, then waves**: a canary group first, then percentages, with pause and roll back
   per rollout; per-store gate result shown (L2). A rollout is a platform-level `job`.
+  **Built on #485** (`saas/fleet/rollout.ts`, `saas/fleet/admin.ts`; the Admin API's `coreRollouts`, `coreRollout`,
+  `startCoreRollout`, `pauseCoreRollout`, `resumeCoreRollout` and `rollBackCoreRollout`, `fleet.read` and `fleet.manage`,
+  each write audited with its reason as `core_rollout.*`): a rollout is a `core_rollout` row, not a `job`, and the
+  every-minute cron moves it. Its first tick enrols every store not closed whose live build is on an older core (and
+  that has no passed major at or past the version waiting); five stores, picked by a hash of the store and the rollout,
+  are the canaries (`position` 0), the rest get a place from 1 to 100. Each tick starts pending stores, lowest place
+  first, while upgrades running across every rollout stay under the org's Actions jobs at once
+  (`GITHUB_ACTIONS_JOBS`, 20 unless set; storefront LIVE-SHOP §10): half of them for a rollout, all of them for a
+  security fix, which so goes ahead of merchants' own and automatic publishes. Once the canaries end, a canary
+  pinned or on the baseline pauses the rollout (`core_rollout.paused`, `canary_failed`, for an engineer to look);
+  otherwise the waves reach 10, 25, 50 and 100 stores in a hundred, each once the one before has ended, and the rollout
+  is done. Pause stops new starts (running upgrades finish); resume goes back to the phase it left. Roll back stops
+  new starts and puts back, twenty a minute, every store it took live: the pointer moves back to the build before the
+  upgrade (`storefront.rolled_back`, `core_rolled_back`), and a passed major's waiting upgrade is dropped; a store
+  whose live build moved on since (a publish or a page render) keeps it, marked `moved_on`. *Decided on #485:* one
+  rollout at a time, so no store is upgraded by two at once.
 - **Majors** may change the look or the theme contract and ship **upgrade notes** and
   codemods. Each published version is **pinned** to the core version it was built with
   (decided 2026-10-08 on #470); a major's new look reaches a store only at its merchant's next
