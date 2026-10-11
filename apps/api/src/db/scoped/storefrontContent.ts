@@ -49,7 +49,7 @@ const doc = (tx: ScopedSql, value: unknown) => tx.json(value as postgres.JSONVal
 
 const columns = (tx: ScopedSql) => tx`
   c.id, c.kind, c.slug, c.title, c.body, c.seo_title, c.seo_description, c.status, c.publish_at, c.published_at, c.in_menu,
-  c.author, c.tags, c.cover_asset_id, c.revision, c.updated_at,
+  c.author, to_json(c.tags) as tags, c.cover_asset_id, c.revision, c.updated_at,
   (c.published_at is not null and (r.created_at is null or c.changed_at > r.created_at)) as waiting`
 
 // The live build's run was made before its snapshot was read, so anything changed after it may not be on the live site.
@@ -110,9 +110,9 @@ export interface NamespaceRow {
 export const selectNamespace = async (tx: ScopedSql, storeId: string): Promise<NamespaceRow> =>
   (
     await tx<NamespaceRow[]>`
-      select coalesce(f.custom_paths, '{}') as custom_paths,
-        array(select l.language from store_language l where l.store_id = s.id and l.status = 'active' union select s.main_language) as languages,
-        array(select m.path_prefix from market m where m.store_id = s.id and m.path_prefix is not null and m.deleted_at is null) as market_prefixes
+      select to_json(coalesce(f.custom_paths, '{}')) as custom_paths,
+        to_json(array(select l.language from store_language l where l.store_id = s.id and l.status = 'active' union select s.main_language)) as languages,
+        to_json(array(select m.path_prefix from market m where m.store_id = s.id and m.path_prefix is not null and m.deleted_at is null)) as market_prefixes
       from store s left join storefront f on f.store_id = s.id where s.id = ${storeId}`
   )[0] ?? { custom_paths: [], languages: [], market_prefixes: [] }
 

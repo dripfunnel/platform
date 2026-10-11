@@ -58,6 +58,7 @@ export class ContentInvalid extends Error {
 export const slugOf = (title: string): string =>
   title
     .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
