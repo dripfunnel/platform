@@ -354,7 +354,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   and nothing checks it until the feature ships. Enforced today: the original 13 and badges,
   FAQs and related products, product video, spreadsheet import and Shopify import, and since #320 `live_offers`, `group_offers` (customer-group and chosen-customer offers,
   tiers, single-use codes) and `offer_results`; since #321 `cart_reminders` (decided there: `youSend` sends by hand only,
-  one a cart; `onePerCart` sends the first reminder automatically; `automatic` sends all three, with codes and WhatsApp); a version
+  one a cart; `onePerCart` sends the first reminder automatically; `automatic` sends all three, with codes and WhatsApp); since #338 `blog` (writing a post; without it the Shop API shows no posts, paused and never deleted, and a post kept through a downgrade can still be deleted, and plan versions 0070 wrote keep its stored off until the partner turns it on); a version
   written before the five catalogue rows existed starts with them on, and one written before `live_offers` with it
   unlimited, so no store loses a section or an offer.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
