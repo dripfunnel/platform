@@ -160,6 +160,17 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    #520). One push per publish stays far below GitHub's limit of 6 pushes a minute per
    repo.
 
+   **The push API** (`saas/storefronts/push.ts`, built on #316): the caller names the reason
+   (`publish` with the version and build id, `template`, or the upgrade bot's `upgrade`) and the
+   platform writes the message from it, so no caller's text reaches the repo. A publish or a
+   template change sends the whole theme and replaces it; only ARCHITECTURE §3.4's paths are
+   accepted, and the upgrade bot may write anywhere but `.github/**`. The commit's parent is
+   `storefront.repo_head`, and `main` moves only as a fast-forward from it, so a push finding
+   `main` elsewhere is refused (`MAIN_MOVED`) and nothing changes. Each push has the caller's key
+   (`storefront_push`): a retry returns the first push's commit, and one retried after a crash
+   rebuilds the identical commit (the same tree, parent and date) and finds it on `main`, so a
+   push never lands twice. Commits are authored as `DripFunnel <noreply@dripfunnel.com>`.
+
 ---
 
 ## 7. Idle, crashes and capacity

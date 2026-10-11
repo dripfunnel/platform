@@ -1722,7 +1722,7 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                      allowed_origins text[], checkout_url NULL, account_url NULL,
                      has_unpublished_changes boolean, changes_since NULL, changed_kinds text[],
                      changed_count integer, next_auto_publish_at, template NULL,
-                     repo_state ('none'|'creating'|'ready'|'failed'),
+                     repo_state ('none'|'creating'|'ready'|'failed'), repo_head NULL,
                      custom_paths text[], theme_mode ('own'|'baseline'), baseline_reason NULL,
                      core_pinned_reason NULL,
                      setup_service_state ('booked'|'done') NULL)
@@ -1745,10 +1745,17 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                     -- preview_url: the host is derived from preview_key and PREVIEW_DOMAIN, and a
                     -- preview opens only through a signed link (PREVIEW §8). All
                     -- (proposed; live_build_id and preview_epoch on #317, preview_key on #518);
-                    -- repo is the public repo's opaque name
+                    -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
+                    -- repo_head the commit its main is at, which a push must find there (built on
+                    -- #316, migration 0230; storefront AI-STUDIO §6)
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
                     -- and catalog_version (moved by triggers on every change a storefront shows; the
                     -- Shop API's edge cache keys on it); the rest comes with publishing (SAPI 17)
+storefront_push     (store_id, key, parent_sha, commit_sha NULL, state ('pending'|'done'), created_at,
+                     finished_at NULL)  PRIMARY KEY (store_id, key)
+                    -- each push the platform makes to a store repo's main, by the caller's key, so a
+                    -- retried push never pushes twice: created_at is the commit's date, so a retry
+                    -- rebuilds the same commit and finds it on main (built on #316). System scope only
 publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'page'|'upgrade'
                      |'security'|'rollback'), state ('queued'|'building'|'checking'|'deploying'
                      |'live'|'failed'|'rolled_back'), commit, core_version, uses_allowance boolean,

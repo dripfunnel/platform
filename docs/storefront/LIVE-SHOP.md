@@ -85,6 +85,9 @@ template.
    so every store builds the same way.
 3. **No secrets and no variables are added.** The repo accepts no outside contributions, and
    the workflow runs only on `workflow_dispatch`.
+   The App sets the repo's Actions to GitHub's own actions only, a read-only default workflow
+   token, and approval before any outside contributor's run (built on #316); #517 widens the
+   actions list if the build needs more.
    *Why:* there is nothing in the repo to steal, and nothing but the platform can start a run.
 4. **The AI can never change the workflow.** `.github/**` is outside the file allowlist
    (ARCHITECTURE §3.4), and the GitHub App is the only writer.

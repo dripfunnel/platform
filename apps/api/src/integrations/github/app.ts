@@ -86,7 +86,7 @@ export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl =
 
   const send = async (method: Method, path: string, authorization: string, body: unknown, allow: readonly number[]): Promise<Answer> => {
     for (let attempt = 0; ; attempt++) {
-      let response: Response | null = null
+      let response: Response | null
       try {
         response = await fetchImpl(`${githubApi}${path}`, {
           method,
