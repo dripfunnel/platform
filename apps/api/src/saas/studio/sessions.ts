@@ -3,7 +3,7 @@ import type { TenantContext } from '#core/tenancy'
 import { storeRoleHas, type StoreRole } from '#auth/storePermissions'
 import { idleMs, rememberIdleMs } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
-import { deleteStudioSession, insertStudioSession, renewStudioSession, selectLiveStudioSession } from '#db/scoped/studio'
+import { deleteStudioSession, deleteUserStudioSession, insertStudioSession, renewStudioSession, selectLiveStudioSession } from '#db/scoped/studio'
 
 // The studio frame's session id (storefront AI-STUDIO §3 step 6, §8): 128 random bits in the frame's path, kept only as
 // its SHA-256, bound to the store, the user and the portal session, and live 5 minutes unless renewed with a re-check.
@@ -61,6 +61,13 @@ export const renewStudio = async (sql: postgres.Sql, context: TenantContext, rol
     renewStudioSession(tx, { idHash, storeId: context.storeId, userId: caller.userId, userSessionHash: caller.sessionId, canChange: access === 'change', at: now, expiresAt }),
   )
   return renewed ? expiresAt : null
+}
+
+/** A renewal from someone who no longer acts in the store (removed, or another store chosen): the session ends at once. */
+export const endStudioSession = async (sql: postgres.Sql, userId: string, id: string): Promise<void> => {
+  if (!studioSessionPattern.test(id)) return
+  const idHash = await hashStudioSession(id)
+  await withSystemScope(sql, (tx) => deleteUserStudioSession(tx, userId, idHash))
 }
 
 /** By the hash a frame's WebSocket is tagged with: the alarm closes it once this answers null. */

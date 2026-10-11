@@ -4,8 +4,8 @@ import { parseConfig } from '#core/config'
 import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
-import { selectStudioPortalHost } from '#db/scoped/studio'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant, type StudioAnswer, type StudioApi, type StudioState, studioAnswer } from '#saas/studio/index'
+import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type StudioAnswer, type StudioApi, type StudioState, studioAnswer } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -137,12 +137,34 @@ export const studioSessionClass = (connect: Connect) =>
     }
 
     /** One change, after the ones before it (AI-STUDIO §4); `model` is the Worker's, called back over RPC. */
-    async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel): Promise<ChangeOutcome> {
-      return (await this.active(storeId)).change({ ...input, model })
+    async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel): Promise<StudioAnswer> {
+      const runner = await this.active(storeId)
+      return studioAnswer(() => runner.change({ ...input, model }))
     }
 
-    async undo(storeId: string, commit: string, userId: string): Promise<ChangeOutcome> {
-      return (await this.active(storeId)).undo(commit, userId)
+    async undo(storeId: string, input: { commit: string; userId: string }): Promise<StudioAnswer> {
+      const runner = await this.active(storeId)
+      return studioAnswer(() => runner.undo(input.commit, input.userId))
+    }
+
+    async texts(storeId: string, input: { page: string; locale: string }): Promise<{ key: string; text: string }[] | null> {
+      const runner = await this.active(storeId)
+      return runner.texts(input.page, input.locale).catch((error: unknown) => {
+        if (error instanceof StudioQueued || error instanceof StudioUnavailable) return null
+        throw error
+      })
+    }
+
+    async editText(storeId: string, input: { locale: string; key: string; text: string; userId: string }): Promise<StudioAnswer | { outcome: 'missing' }> {
+      const runner = await this.active(storeId)
+      return studioAnswer(() => runner.editText(input.locale, input.key, input.text, input.userId))
+    }
+
+    async discard(storeId: string): Promise<void> {
+      const runner = await this.runnerFor(storeId)
+      const db = this.db
+      if (!db) throw new StudioUnavailable('studio: unconfigured')
+      await runner.reset(() => db((sql) => withSystemScope(sql, (tx) => deleteDraft(tx, storeId))))
     }
 
     /** "Finishing your previous change…" (AI-STUDIO §4 step 1). */

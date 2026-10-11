@@ -64,7 +64,7 @@ export interface MessageRow {
 /** A page of the chat, newest first, before the cursor's message (keyset on created_at and id). */
 export const selectDesignChat = (tx: ScopedSql, storeId: string, limit: number, before: { at: Date; id: string } | null): Promise<MessageRow[]> =>
   tx<MessageRow[]>`
-    select id, role, text, changed, image_asset_id, sample_url, page, commit, undone, created_at
+    select id, role, text, to_jsonb(changed) as changed, image_asset_id, sample_url, page, commit, undone, created_at
     from design_message
     where store_id = ${storeId} ${before ? tx`and (created_at, id) < (${before.at}, ${before.id})` : tx``}
     order by created_at desc, id desc limit ${limit}`
@@ -111,3 +111,56 @@ export const selectVersionHistory = (tx: ScopedSql, storeId: string, since: Date
     select id, number, template, core_version, label, state, published_at from design_version
     where store_id = ${storeId} and (state = 'live' or published_at >= ${since})
     order by number desc`
+
+/** The merchant's last requests, newest first, for the model's context (storefront ARCHITECTURE §6.2: the last four). */
+export const selectRecentRequests = async (tx: ScopedSql, storeId: string, limit: number): Promise<string[]> =>
+  (await tx<{ text: string }[]>`select text from design_message where store_id = ${storeId} and role = 'user' order by created_at desc, id desc limit ${limit}`).map((r) => r.text)
+
+export interface SampleProductRow {
+  name: string
+  currency: string | null
+  amount: string | null
+}
+
+/** A sample of the store's visible products with their lowest price in the store's currency: names and prices, no photos. */
+export const selectProductSample = (tx: ScopedSql, storeId: string, limit: number): Promise<SampleProductRow[]> =>
+  tx<SampleProductRow[]>`
+    select p.name, s.pricing_currency as currency,
+      (select min(vp.amount)::text from product_version v join version_price vp on vp.version_id = v.id and vp.currency = s.pricing_currency
+       where v.product_id = p.id) as amount
+    from product p join store s on s.id = p.store_id
+    where p.store_id = ${storeId} and p.visibility = 'visible' and p.deleted_at is null
+    order by p.created_at desc, p.id desc limit ${limit}`
+
+export interface BriefStoreRow {
+  name: string
+  city: string | null
+  primary_colour: string | null
+  secondary_colour: string | null
+  tagline: string | null
+  description: string | null
+  voice: string | null
+}
+
+/** The store and its brand as the model reads them: the colours only as a hint (storefront ARCHITECTURE §6.2). */
+export const selectBriefStore = async (tx: ScopedSql, storeId: string): Promise<BriefStoreRow | null> =>
+  (
+    await tx<BriefStoreRow[]>`
+      select s.name, s.address->>'city' as city, b.primary_colour, b.secondary_colour, b.tagline, coalesce(b.description, s.description) as description, b.voice
+      from store s left join storefront_brand b on b.store_id = s.id where s.id = ${storeId}`
+  )[0] ?? null
+
+export const selectMessage = async (tx: ScopedSql, storeId: string, id: string): Promise<MessageRow | null> =>
+  (await tx<MessageRow[]>`select id, role, text, to_jsonb(changed) as changed, image_asset_id, sample_url, page, commit, undone, created_at from design_message where store_id = ${storeId} and id = ${id}`)[0] ?? null
+
+/** The store's latest accepted change still in place: the only one "Undo this change" takes back (AI-STUDIO §5). */
+export const selectLatestChange = async (tx: ScopedSql, storeId: string): Promise<MessageRow | null> =>
+  (
+    await tx<MessageRow[]>`
+      select id, role, text, to_jsonb(changed) as changed, image_asset_id, sample_url, page, commit, undone, created_at from design_message
+      where store_id = ${storeId} and role = 'ai' and commit is not null and not undone order by created_at desc, id desc limit 1`
+  )[0] ?? null
+
+export const markUndone = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
+  await tx`update design_message set undone = true where store_id = ${storeId} and id = ${id}`
+}

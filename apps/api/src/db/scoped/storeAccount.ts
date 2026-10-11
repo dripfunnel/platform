@@ -103,6 +103,20 @@ export const setUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, u
   `
 }
 
+/** A monthly meter moved by `n` atomically; a row from an earlier month starts again (SAAS §6.2). */
+export const addUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, n: number, periodStart: Date, at: Date): Promise<void> => {
+  await tx`
+    insert into store_usage (store_id, key, used, period_start, updated_at) values (${storeId}, ${key}, ${n}, ${periodStart.toISOString().slice(0, 10)}::date, ${at})
+    on conflict (store_id, key) do update set
+      used = case when store_usage.period_start = excluded.period_start then store_usage.used + excluded.used else excluded.used end,
+      period_start = excluded.period_start, updated_at = excluded.updated_at
+  `
+}
+
+/** A monthly meter's count in the month starting `periodStart`; 0 when it has counted nothing since. */
+export const usedThisMonth = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date): Promise<number> =>
+  (await tx<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = ${key} and period_start = ${periodStart.toISOString().slice(0, 10)}::date`)[0]?.used ?? 0
+
 export interface StoreAccount {
   subscription: SubscriptionRow | null
   usage: { key: AmountKey; used: number; period_start: Date | null }[]

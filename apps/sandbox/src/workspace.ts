@@ -39,14 +39,18 @@ export class Workspace {
     this.git = gitIn(this.repo, dir)
   }
 
-  /** Replaces the working copy with a git bundle of the draft (or the live build's source), then bundles it. */
-  async loadBundle(bytes: Buffer): Promise<Loaded> {
+  /**
+   * Replaces the working copy with a git bundle of the draft (or the live build's source), then bundles it. `at` resets
+   * the branch to that commit, which must be in the bundle: a live build's source may hold commits past the build's own.
+   */
+  async loadBundle(bytes: Buffer, at: string | null = null): Promise<Loaded> {
     await this.reset()
     const file = join(this.dir, 'incoming.bundle')
     await writeFile(file, bytes)
     await gitIn(this.dir, this.dir)(['clone', '--quiet', '--branch', branch, file, this.repo])
     await rm(file, { force: true })
     await this.git(['remote', 'remove', 'origin'])
+    if (at) await this.git(['reset', '--quiet', '--hard', `${at}^{commit}`])
     return this.afterLoad()
   }
 

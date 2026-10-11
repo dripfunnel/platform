@@ -88,6 +88,14 @@ const configSchema = z.object({
   GITHUB_LOCAL: z.literal('1').optional(),
   // The studio's sandbox on this machine instead of a container (docs/setup/local.md): `pnpm --filter ./apps/sandbox start:local`.
   SANDBOX_LOCAL_URL: z.string().regex(/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/, 'SANDBOX_LOCAL_URL must be http://127.0.0.1:<port>').optional(),
+  // The designer's model key on plans that include AI (THIRD-PARTY-ACCESS.md §2.6): a Worker secret standing in for the
+  // partner's own key until partner credentials exist (#275). Unset, a request on the plan answers AI_NOT_CONNECTED.
+  AI_PROVIDER_KEY: z.string().regex(/^sk-ant-[A-Za-z0-9_-]{20,}$/, 'AI_PROVIDER_KEY must be an Anthropic API key').optional(),
+  // The designer's model on this machine (docs/setup/local.md §6.1): it answers every request with no change.
+  AI_LOCAL: z.literal('1').optional(),
+  // A sample site's screenshot for the designer (storefront ARCHITECTURE §6.2): Cloudflare Browser Rendering, both or none.
+  BROWSER_RENDERING_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'BROWSER_RENDERING_ACCOUNT_ID must be the 32-character account id').optional(),
+  BROWSER_RENDERING_TOKEN: z.string().min(20).optional(),
   // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue. Unset: 5,000.
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),
   // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
@@ -96,7 +104,7 @@ const configSchema = z.object({
 
 const devHooksHost = 'dev-hooks.dripfunnel.ai'
 export const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
-const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL'] as const
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL', 'AI_LOCAL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
 const checkedConfig = configSchema.superRefine((c, ctx) => {
@@ -110,6 +118,7 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   if (github !== 0 && github !== 3) ctx.addIssue({ code: 'custom', message: 'GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID and GITHUB_APP_PRIVATE_KEY go together', path: ['GITHUB_APP_ID'] })
   const r2 = [c.R2_STOREFRONT_ACCOUNT_ID, c.R2_STOREFRONT_ACCESS_KEY_ID, c.R2_STOREFRONT_SECRET_ACCESS_KEY, c.R2_STOREFRONT_API_TOKEN, c.STOREFRONT_SITES_BUCKET, c.STOREFRONT_DRAFTS_BUCKET].filter((v) => v !== undefined).length
   if (r2 !== 0 && r2 !== 6) ctx.addIssue({ code: 'custom', message: 'The four R2_STOREFRONT_* values and the two STOREFRONT_*_BUCKET names go together', path: ['R2_STOREFRONT_ACCOUNT_ID'] })
+  if ((c.BROWSER_RENDERING_ACCOUNT_ID === undefined) !== (c.BROWSER_RENDERING_TOKEN === undefined)) ctx.addIssue({ code: 'custom', message: 'BROWSER_RENDERING_ACCOUNT_ID and BROWSER_RENDERING_TOKEN go together', path: ['BROWSER_RENDERING_ACCOUNT_ID'] })
   if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !isLocalhost(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
   if (c.PREVIEW_DOMAIN !== undefined && ourHosts.some((h) => h === c.PREVIEW_DOMAIN || h.endsWith(`.${c.PREVIEW_DOMAIN}`) || c.PREVIEW_DOMAIN?.endsWith(`.${h}`)))

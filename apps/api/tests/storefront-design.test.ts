@@ -37,6 +37,7 @@ const memoryDrafts = () => {
       return bytes ? { arrayBuffer: async () => bytes } : null
     },
     put: async (key, value) => void objects.set(key, value),
+    delete: async (key) => objects.delete(key),
   }
   return { bucket, objects }
 }
@@ -67,7 +68,7 @@ const runnerOf = (storeId: string): StudioRunner => {
   runners.set(storeId, runner)
   return runner
 }
-const local = localStudio(runnerOf)
+const local = localStudio(() => db.sql, runnerOf)
 
 const choose = (who: Parameters<StoreWorld['gql']>[0], key: string, keepWords: boolean) =>
   w.gql(who, 'mutation C($key: String!, $keep: Boolean!) { chooseTemplate(key: $key, keepWords: $keep) }', { key, keep: keepWords })

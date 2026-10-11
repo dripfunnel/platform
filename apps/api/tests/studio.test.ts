@@ -42,6 +42,7 @@ const memoryDrafts = () => {
       puts.push(key)
       objects.set(key, { bytes: value })
     },
+    delete: async (key) => objects.delete(key),
   }
   return { bucket, objects, puts }
 }

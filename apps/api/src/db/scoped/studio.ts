@@ -9,6 +9,10 @@ export interface StudioDraftRow {
   core_version: string | null
   preview_deploy_ref: string | null
   live_build_id: string | null
+  /** The live build's commit, which the live source bundle is checked out at (its main may be ahead of it). */
+  live_commit: string | null
+  live_template: string | null
+  live_core_version: string | null
   store_core_version: string | null
   storefront_template: string | null
 }
@@ -17,9 +21,10 @@ export interface StudioDraftRow {
 export const selectStudioStart = async (tx: ScopedSql, storeId: string): Promise<StudioDraftRow | null> =>
   (
     await tx<StudioDraftRow[]>`
-      select d.head_commit, d.template, d.core_version, d.preview_deploy_ref, f.live_build_id,
+      select d.head_commit, d.template, d.core_version, d.preview_deploy_ref, f.live_build_id, r.commit as live_commit, r.template as live_template, r.core_version as live_core_version,
         s.core_version as store_core_version, f.template as storefront_template
       from storefront f join store s on s.id = f.store_id left join design_draft d on d.store_id = f.store_id
+        left join publish_run r on r.id = f.live_build_id
       where f.store_id = ${storeId}`
   )[0] ?? null
 
@@ -29,12 +34,17 @@ export const moveDraft = async (
   d: { storeId: string; head: string; template: string; coreVersion: string; previewRef: string; userId: string; at: Date; customPaths: readonly string[] },
 ): Promise<void> => {
   await tx`
-    insert into design_draft (store_id, head_commit, template, core_version, changed_at, changed_by, preview_deploy_ref)
-    values (${d.storeId}, ${d.head}, ${d.template}, ${d.coreVersion}, ${d.at}, ${d.userId}, ${d.previewRef})
+    insert into design_draft (store_id, head_commit, template, core_version, changed_at, changed_by, preview_deploy_ref, commits)
+    values (${d.storeId}, ${d.head}, ${d.template}, ${d.coreVersion}, ${d.at}, ${d.userId}, ${d.previewRef}, ${pgArray([d.head])}::text[])
     on conflict (store_id) do update set head_commit = excluded.head_commit, template = excluded.template, changed_at = excluded.changed_at,
       changed_by = excluded.changed_by, preview_deploy_ref = excluded.preview_deploy_ref,
       commits = case when design_draft.head_commit = excluded.head_commit then design_draft.commits else array_append(design_draft.commits, excluded.head_commit) end`
   await tx`update storefront set custom_paths = ${pgArray(d.customPaths)}::text[] where store_id = ${d.storeId}`
+}
+
+/** Discard (AI-STUDIO §5): the draft row goes, so the preview shows the live code (PREVIEW §3) and the studio loads it. */
+export const deleteDraft = async (tx: ScopedSql, storeId: string): Promise<void> => {
+  await tx`delete from design_draft where store_id = ${storeId}`
 }
 
 /** The partner's live portal host: the only page that may frame the studio (ARCHITECTURE §3.5 `frame-ancestors`). */
@@ -136,6 +146,11 @@ export const renewStudioSession = async (
       where id_hash = ${s.idHash} and store_id = ${s.storeId} and user_id = ${s.userId} and user_session_hash = ${s.userSessionHash}
         and expires_at > ${s.at}`
   ).count === 1
+
+/** Ends a frame session its own user asks to renew after losing the store: whatever store it was for. */
+export const deleteUserStudioSession = async (tx: ScopedSql, userId: string, idHash: string): Promise<void> => {
+  await tx`delete from studio_session where id_hash = ${idHash} and user_id = ${userId}`
+}
 
 export const deleteStudioSession = async (tx: ScopedSql, storeId: string, idHash: string): Promise<void> => {
   await tx`delete from studio_session where id_hash = ${idHash} and store_id = ${storeId}`

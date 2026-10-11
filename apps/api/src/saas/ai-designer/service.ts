@@ -26,7 +26,25 @@ export interface DesignerDeps {
 }
 
 export type DesignRefusal =
-  | { reason: 'BRAND_NOT_READY' | 'INVALID_TEMPLATE' | 'IN_PROGRESS' | 'NOT_CONNECTED' | 'STUDIO_UNAVAILABLE' | 'NOT_FOUND' }
+  | {
+      reason:
+        | 'BRAND_NOT_READY'
+        | 'INVALID_TEMPLATE'
+        | 'IN_PROGRESS'
+        | 'NOT_CONNECTED'
+        | 'STUDIO_UNAVAILABLE'
+        | 'NOT_FOUND'
+        | 'INVALID_INPUT'
+        | 'INVALID_IMAGE'
+        | 'INVALID_URL'
+        | 'INVALID_LANGUAGE'
+        | 'SAMPLE_UNAVAILABLE'
+        | 'AI_BUDGET_REACHED'
+        | 'AI_NOT_CONNECTED'
+        | 'SESSION_ENDED'
+        | 'NOT_LATEST'
+        | 'NOTHING_TO_DISCARD'
+    }
   | { reason: 'STUDIO_QUEUED'; place: number }
   | { reason: 'CHANGE_REFUSED'; problems: number }
 

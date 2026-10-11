@@ -42,6 +42,7 @@ import { registerPreview } from './preview'
 import { registerContent } from './content'
 import { registerStorefrontSettings } from './storefrontSettings'
 import { registerStorefront } from './storefront'
+import { registerStudio } from './studio'
 
 export type { StoreContext } from './access'
 
@@ -92,5 +93,6 @@ registerPreview(builder)
 registerContent(builder)
 registerStorefrontSettings(builder, storeAddress)
 registerStorefront(builder)
+registerStudio(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)
