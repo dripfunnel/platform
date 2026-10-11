@@ -137,6 +137,10 @@ export const setAssetsBuild = async (tx: ScopedSql, runId: string, assetsBuildId
   await tx`update publish_run set assets_build_id = ${assetsBuildId} where id = ${runId}`
 }
 
+/** Whether a build's folders are still in the buckets (clean-up hasn't removed them, LIVE-SHOP §4 step 11). */
+export const buildFilesKept = async (tx: ScopedSql, buildId: string): Promise<boolean> =>
+  (await tx<{ id: string }[]>`select id from publish_run where id = ${buildId} and files_deleted_at is null`).length > 0
+
 /** The number of the version a build is, if it is one. */
 export const versionOfBuild = async (tx: ScopedSql, buildId: string): Promise<number | null> =>
   (await tx<{ number: number }[]>`select number from design_version where build_id = ${buildId} order by number desc limit 1`)[0]?.number ?? null

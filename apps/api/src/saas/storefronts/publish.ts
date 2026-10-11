@@ -14,6 +14,7 @@ import {
   rollBackRun,
   selectQueuedRun,
   selectRun,
+  buildFilesKept,
   setQueuedRender,
   widenQueuedRun,
   selectStorefrontHost,
@@ -278,8 +279,7 @@ export const rollBackLiveBuild = (sql: postgres.Sql, input: { storeId: string; r
     const run = await selectRun(tx, input.runId)
     if (!storefront || !run || run.store_id !== input.storeId || run.state !== 'live' || storefront.live_build_id !== run.id || !run.previous_build_id) return false
     if (await hasActiveRun(tx, input.storeId)) return false
-    const [previous] = await tx<{ files_deleted_at: Date | null }[]>`select files_deleted_at from publish_run where id = ${run.previous_build_id}`
-    if (!previous || previous.files_deleted_at) return false
+    if (!(await buildFilesKept(tx, run.previous_build_id))) return false
     const versions = await rollBackRun(tx, run, input.code, input.now)
     await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `rollback:${run.id}`, payload: { storeId: run.store_id, reason: 'rollback' }, partnerId: run.partner_id, storeId: run.store_id })
     await activityLog.record(tx, {
