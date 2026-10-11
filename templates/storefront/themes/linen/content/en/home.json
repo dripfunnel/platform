@@ -1,0 +1,16 @@
+{
+  "hero": {
+    "title": "The {store} edit",
+    "lead": "Made to last, chosen with care.",
+    "shop": "Shop now"
+  },
+  "story": {
+    "title": "Made slowly, worn for years",
+    "body": "Natural fabrics, simple cuts and seams that hold. We make fewer things and make them well."
+  },
+  "join": {
+    "title": "Hear about new pieces first",
+    "body": "Create an account and follow your orders in one place.",
+    "action": "Create an account"
+  }
+}
