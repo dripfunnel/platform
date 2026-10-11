@@ -9,7 +9,8 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
+Last updated: 2026-10-11 (#518: `storefront.preview_key` built, `partner_domain`'s preview kind
+dropped, migration 0210). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
 preview key, build ids).
 
@@ -87,11 +88,12 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   the first record's. A partner inserts its own address (waiting and unchecked only, by a
   restrictive policy) and records but holds no `update` on
   `partner_domain`, so only the check (`app_system`) and staff write a status. A trigger keeps
-  a record on its address's partner. `partner_domain` is (id, partner, `kind` portal | preview |
-  shops | email, `host`, `status`, `record_type`, `expected`, `found`, `checked_at`), one per
+  a record on its address's partner. `partner_domain` is (id, partner, `kind` portal | shops |
+  email, `host`, `status`, `record_type`, `expected`, `found`, `checked_at`), one per
   partner and kind; a partner may delete its own address and records (`0061`, #429). **The
-  `preview` kind is retired by the 2026-10-09 plan** (previews on `{key}.webpreview.store`,
-  storefront PREVIEW.md); it stays in the schema until the card that moves previews drops it.
+  `preview` kind is gone** (#518, migration 0210: its rows and records deleted, the check
+  narrowed): previews are on `{key}.webpreview.store` (storefront PREVIEW.md), keyed by
+  `storefront.preview_key` (§7.8).
 - **Store**: `name`, `code` (unique per partner, used in hostnames), `country`, `status`
   (SAAS.md §4.2 plus `closed`) with its facts (`trial_ends_at`, `past_due_since`, the
   suspension's time, reason, who and **the status it had before**, so Restore returns to it),
@@ -1744,11 +1746,13 @@ storefront          (store_id PK, repo, live_build_id NULL, preview_key, preview
                     -- (integer, proposed) ends every preview link when moved (PREVIEW §5 step 4); no
                     -- preview_url: the host is derived from preview_key and PREVIEW_DOMAIN, and a
                     -- preview opens only through a signed link (PREVIEW §8). All
-                    -- (proposed; live_build_id and preview_epoch on #317, preview_key on #518);
+                    -- (proposed; live_build_id and preview_epoch on #317);
                     -- repo is the public repo's opaque name
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
                     -- and catalog_version (moved by triggers on every change a storefront shows; the
-                    -- Shop API's edge cache keys on it); the rest comes with publishing (SAPI 17)
+                    -- Shop API's edge cache keys on it); preview_key built on #518 (0210): 10 lowercase
+                    -- base32 characters, unique, not null, drawn by storefront_for_store() with the store
+                    -- and drawn again on a clash; the rest comes with publishing (SAPI 17)
 publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'page'|'upgrade'
                      |'security'|'rollback'), state ('queued'|'building'|'checking'|'deploying'
                      |'live'|'failed'|'rolled_back'), commit, core_version, uses_allowance boolean,

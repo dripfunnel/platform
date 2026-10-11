@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-10-11 (#518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -220,7 +220,7 @@ Never reuse a value from local or production.
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token | Profile › API Tokens (§2.8 item 1) |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
-| `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §8); `preview.localhost` locally |
+| `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §8); `preview.localhost` locally. Read since #518: without it no preview host answers |
 | `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Needed from ST 1a |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers

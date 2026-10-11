@@ -24,7 +24,7 @@ live, draft, awaiting and sent-back cases. The prototype decides **behaviour**, 
 **scope and rules** ([../../README.md](../../README.md) §3); FIRST-RELEASE.md §17 lists where
 they differ and which wins.
 
-Last updated: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-10-11 (#518: the preview address removed). Before: 2026-10-09 (the preview wildcard retired).
 
 ---
 
@@ -38,9 +38,9 @@ Last updated: 2026-10-09 (the preview wildcard retired).
   name, support contacts, legal pages, "Powered by" line), and email templates.
 - **Addresses**: its one portal host (`store.<partnerdomain>`), the shop wildcard
   (`*.shops.<partnerdomain>`) and the email sender domain, each with the DNS records to add and
-  live verification. The preview wildcard is retired: previews are on `{key}.webpreview.store`
-  (decided 2026-10-09, `../../storefront/PREVIEW.md`); the console stops showing a store's preview address, and the
-  built address card goes with #518 (decided 2026-10-09).
+  live verification. There is no preview address: previews are on `{key}.webpreview.store`
+  (decided 2026-10-09, `../../storefront/PREVIEW.md`), and the console shows no store's preview
+  address (removed on #518).
 - **Offer**: its plans, prices and entitlements for its merchants, within DripFunnel's
   platform ceilings; allowed templates, regions, currencies, languages and providers.
 - **Merchants, at account level**: list and search its merchants; create a merchant (the
@@ -79,7 +79,7 @@ this table is the same rules by screen area and must stay in step with it.
 | Dashboard and Reports | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Onboarding checklist, submit for approval | ✓ | ✓ | view | view | view |
 | Branding, words, email templates | ✓ | ✓ | view | view | view |
-| Portal host, preview and shop domains, email sender | ✓ | ✓ | view | view | view |
+| Portal host, shop domain, email sender | ✓ | ✓ | view | view | view |
 | Plans and prices offered to merchants | ✓ | ✓ | view | prices only | view |
 | Merchants: accounts, plans, billing status, domains, provisioning, publishing, usage | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Merchants: create (Owner invitation) | ✓ | ✓ | | | |
@@ -110,7 +110,7 @@ names each permission.
 | Stores | List, create, detail with eight tabs, account-level actions | I (scoped) |
 | Plans | Plan catalogue within platform ceilings, compare plans, defaults for new stores | G (within ceilings) |
 | Branding | Look, words and legal pages, email templates, publishing and history | F |
-| Domains | Portal host, preview and shop wildcards, email sender, merchants' own domains | M (scoped) |
+| Domains | Portal host, shop wildcard, email sender, merchants' own domains | M (scoped) |
 | Reports | Growth, revenue, plans, store performance, usage, setup health | N (scoped) |
 | Billing | Merchants' payments, payouts, DripFunnel's invoices, who bills the merchants | H (payer side) |
 | Support | Users, start a session, sessions | J (scoped) |

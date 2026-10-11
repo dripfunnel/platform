@@ -9,9 +9,10 @@ draft theme, with live catalogue data, `noindex`, a signed link and test-mode ch
 document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files, and
 [LIVE-SHOP.md](LIVE-SHOP.md) runs the same edge Worker for live sites.
 
-**Status: specification only.** Nothing below is built.
+**Status: specification only**, except the preview key (§2 step 5) and the Shop API's side of §5 step 5 and §6, built on #518.
 
-Last updated: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
+Last updated: 2026-10-11 (#518: `storefront.preview_key` and the Shop API on preview hosts built).
+Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
 studio's fast gate, served from R2 by the edge Worker).
 
 ---
@@ -172,6 +173,10 @@ container.
    key isn't secret, so the key alone opens nothing: no test-mode cart or checkout either). The
    API Worker finds the store from the preview key in the hostname
    ([../ARCHITECTURE.md](../ARCHITECTURE.md) §8). The SPA reads products, prices and stock live.
+   *Built on #518:* the API Worker reads `{key}.<PREVIEW_DOMAIN>` only; a key that names no
+   store, or a closed partner's store, finds nothing, whatever public key comes with it. There
+   the API ignores any shopper session and refuses sign-in, code requests and sign-out
+   (`NOT_IN_PREVIEW`), so every caller is a guest.
    **What a link holder can do there** is exactly what a shopper can do on the live site, in
    test mode, and nothing more:
    - read the same public store-key surface: the published catalogue, prices and stock as
@@ -239,7 +244,7 @@ There is no per-store hostname fee.
   - it is specified in ui/store/FIRST-RELEASE (the Storefront studio) and built on #318 (the API)
     and #319 (the screen).
 - ~~The `storefront.preview_key` column and its format.~~ 10 lowercase base32 characters, made
-  with the store (decided 2026-10-09, §2 step 5).
+  with the store (decided 2026-10-09, §2 step 5; built on #518, migration 0210).
 - ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,
   `PREVIEW_DOMAIN`, validated at boot: `webpreview.store` in prod, a second cheap domain
   registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`

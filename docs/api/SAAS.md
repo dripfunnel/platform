@@ -13,7 +13,8 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
+Last updated: 2026-10-11 (#518: the partner preview address retired in the code, previews found by
+`storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
 
@@ -102,7 +103,7 @@ Invite only (USERS-AND-DOMAINS §3); `platform.dripfunnel.com` has no sign-up:
    password and 2-factor, and signs in. Admin can resend the invitation; the old link stops
    working.
 2. It works through a **checklist that can be saved and resumed** (CONSOLE-DESIGN E1): partner
-   details, look, words, portal host, preview and shop wildcard domains, email sender domain,
+   details, look, words, portal host, shop wildcard domain, email sender domain,
    plans and prices, billing with DripFunnel. Each domain shows the records to add and live
    status. It can start from a copy of the house partner's offer (E2).
 3. It submits for approval. **Go-live checks** run first and each failure links to its fix
@@ -155,7 +156,7 @@ A partner owns three kinds of hostname (USERS-AND-DOMAINS §2), all verified thr
 | Hostname | Example | Records |
 |---|---|---|
 | Portal host | `store.<partnerdomain>` | CNAME to our Cloudflare for SaaS target, plus verification |
-| ~~Preview wildcard~~ | ~~`*.preview.<partnerdomain>`~~ | Retired: previews are on `{key}.webpreview.store` (decided 2026-10-09, [../storefront/PREVIEW.md](../storefront/PREVIEW.md)). Built on #197 and #306 as a domain kind; it goes with #518 |
+| ~~Preview wildcard~~ | ~~`*.preview.<partnerdomain>`~~ | Retired: previews are on `{key}.webpreview.store` (decided 2026-10-09, [../storefront/PREVIEW.md](../storefront/PREVIEW.md)). Removed on #518: migration 0210 deleted every preview row and narrowed `partner_domain.kind` to portal, shops and email, and the Platform and Admin APIs refuse kind `preview` as `INVALID_INPUT` |
 | Shop wildcard | `*.shops.<partnerdomain>` | One wildcard record |
 | Email sender domain | `mail.<partnerdomain>` | SES DKIM, SPF, DMARC (§3.6) |
 
@@ -180,7 +181,7 @@ receives uses the partner of the store (or portal host) it concerns, never anoth
   until brand files have a public address.
 - **From.** Until partners' own domains get SES identities (slice 11), the fallback
   `no-reply@<label>.<SES_SENDER_DOMAIN>` (THIRD-PARTY-ACCESS §2.4); the label is that of the
-  partner's portal host, else its shops, preview or email host.
+  partner's portal host, else its shops or email host.
 - **Recipients.** Domain live: the Owner. Card declined and payout account failed: the Owner
   and every active Finance user. Store notices: the store's Owners.
 - **Links** are minted when the email is sent, in the transaction that sends it.
@@ -299,8 +300,8 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   #290** (`saas/provisioning/provisionStore.ts`): all three are database writes today, so they
   run in one transaction with the texted code that starts them, and a failure anywhere leaves
   nothing (tested at each step); step 2's defaults arrive with each settings table's card, and
-  step 3's hostnames are the store's code under the partner's wildcards (built for both the
-  preview and shops wildcards; the preview one goes with #518). Signup ends there:
+  step 3's hostname is the store's code under the partner's shops wildcard, and the store's
+  preview key comes with its `storefront` row in step 1 (#518). Signup ends there:
   `store.provisioned`, the welcome email through the outbox, the `signup` row deleted.
 - Steps 4–8 make the storefront **when the merchant first picks a template** (decided
   2026-10-08 on #470), as the `create-storefront` Workflow with their compensations (INF 1).
@@ -556,6 +557,9 @@ failed; a live hostname can become expiring or broken if its records change.
    schedule and removal are data facts in DATA-MODEL.md §7.2.
 5. The hostname and its state live in `custom_domain` (merchant) or `partner_domain`
    (partner), never on the store row.
+6. **A preview host is none of these** (#518): `{key}.<PREVIEW_DOMAIN>` is on our own zone
+   with no custom hostname, and the Shop API finds its store by `storefront.preview_key`
+   ([../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2, §6).
 
 A merchant's custom domain is an entitlement (§6). Until one is connected the live site is at
 `{shop}.shops.<partnerdomain>`.

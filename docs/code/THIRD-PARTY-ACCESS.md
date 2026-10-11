@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-10-11 (#518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -426,7 +426,7 @@ never shown again once saved (**#275** builds the table, the APIs and both scree
 
 | Item | What it is for | Credential | Instead of |
 |---|---|---|---|
-| Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email (DripFunnel's SES sends from it) | DNS records only; no credential | — |
+| Portal host, shop wildcard, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5; previews are on our own `webpreview.store`) | White-label hosts and email (DripFunnel's SES sends from it) | DNS records only; no credential | — |
 | **AI provider key** (Anthropic; optionally a second provider) | AI on the partner's plans that include it (§2.6); merchants on other plans bring their own (§3.3) | API key, with the partner's own spend limit | A DripFunnel platform key, which no longer exists |
 | **Shiprocket** (India) | Rates, labels, pickups and tracking for the partner's Indian stores (§3.2) | API user email + password | A key per merchant |
 | **US courier aggregator** (**EasyPost**, #337) | USPS, UPS and FedEx rates, labels and tracking (§3.2) | API key | A DripFunnel key |
@@ -584,6 +584,7 @@ Where it is kept:
 |---|---|---|---|---|
 | `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST` | Which hostname is which API; the router answers 404 elsewhere (ARCHITECTURE §2) | Fixed per environment: `*.localhost`, `dev-*.dripfunnel.ai`, `*.dripfunnel.com` | `.env.local` · Worker variable · Worker variable | `core/config.ts` |
 | `HYPERDRIVE_REQUIRED` | `"1"` where a Hyperdrive binding exists, so losing it turns `/health` red (#30) | — | `.env.local` · Worker variable · Worker variable once prod's binding exists | `core/config.ts` |
+| `PREVIEW_DOMAIN` | The domain every store's preview is on, `{key}.<domain>` (PREVIEW.md §8): the Shop API finds the store by its preview key there (#518). Validated at boot: a domain apart from the consoles' hosts and `EDGE_ZONE`, and `preview.localhost` only locally; absent, no preview host answers | Fixed per environment: `preview.localhost`, the dev preview domain registered on #287, `webpreview.store` | `.env.local` · Worker variable · Worker variable | `core/config.ts`, `auth/shopCaller.ts` |
 | `HYPERDRIVE` *(binding)* | Postgres through Hyperdrive. Holds the Neon **pooled** string of the app role, without `BYPASSRLS` (§2.2) | `wrangler hyperdrive create <name> --connection-string=<pooled url>`, then its id in `wrangler.jsonc` | Cloudflare; `wrangler.jsonc` names it | `index.ts`, `db/client.ts` |
 | `ASSETS` *(binding)* | R2 bucket for uploads, exports and invoices (§2.1) | `wrangler r2 bucket create dripfunnel-assets-dev` (and `dripfunnel-assets`) | `wrangler.jsonc` | `index.ts` (brand uploads) |
 | `IMAGES` *(binding)* | Cloudflare Images transformations for brand files (§2.1); billed per unique transformation after 5,000 a month | Nothing to create; declared at the top level of `wrangler.jsonc` | `wrangler.jsonc` | `index.ts` (brand files) |
@@ -637,7 +638,6 @@ generation are in the section it cites. *First needed* names a slice (§6) for t
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
 | ~~`CF_PAGES_POOL`~~ | **Not needed** (decided 2026-10-09): no Pages project per store. Replaced by the R2 storefront upload credential (§2.1), names decided on #317 | — | §2.1 | — |
 | `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |
-| `PREVIEW_DOMAIN` | The domain preview addresses are built on, `{key}.<domain>` (PREVIEW.md §8): `webpreview.store` in prod, the dev preview domain registered on #287, `preview.localhost` locally. Validated at boot | Worker variable, per environment | §2.1 | ST 1a / INF 2 |
 | `PREVIEW_LINK_KEY` | Signs and checks the preview storefront's links (#284, storefront ARCHITECTURE §4.1; HMAC-SHA-256 with the expiry in the link *(proposed, ST 1a confirms)*). One per environment (named on #287) | Worker secret | §5 | ST 1a / INF 2 |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | **Not needed** (decided on #309): connected merchant accounts' events arrive on the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts (`STRIPE_WEBHOOK_SECRET`); only a separate merchant endpoint would need it | — | §2.7, §3.1 | — |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |

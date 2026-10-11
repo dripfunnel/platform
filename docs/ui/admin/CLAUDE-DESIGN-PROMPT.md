@@ -7,7 +7,7 @@ prompt should be updated.
 
 Paste everything below the line.
 
-Last updated: 2026-10-09 (previews off the partner domain).
+Last updated: 2026-10-11 (#518: no preview link on a store's Storefront tab). Before: 2026-10-09 (previews off the partner domain).
 
 ---
 
@@ -169,7 +169,7 @@ often confused: make them look clearly different.
 | Tab | Contents |
 |---|---|
 | Overview | Name, code, partner, owner, country, created; plan and status with history; counts of people by role, suppliers, products, orders |
-| Storefront | AI or own storefront, last build and publish, live and preview links, version |
+| Storefront | AI or own storefront, last build and publish, the live link (no preview address), version |
 | Domains | Custom domain, expected vs found DNS records, "Re-check now" |
 | Setup | The signup steps and their result (account, store, defaults, hostnames, repo, first build, done), with Retry on a failed step |
 | Users | Everyone in the store: the merchant's Owner, Managers and Staff, and each supplier's users (grouped by supplier), with role, last sign-in, status and an **Impersonate** button |

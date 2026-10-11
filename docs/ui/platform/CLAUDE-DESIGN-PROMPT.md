@@ -17,7 +17,7 @@ non-production hosts only.
 
 Paste everything below the line.
 
-Last updated: 2026-10-09 (the preview address card removed).
+Last updated: 2026-10-11 (#518: no preview address in the checklist or a store's Storefront tab). Before: 2026-10-09 (the preview address card removed).
 
 ---
 
@@ -190,7 +190,7 @@ up {product}" with "You can leave and come back; your progress is saved."
 
 - **The checklist**, nine items plus Submit ("4 of 10 done" and a progress bar), each Done · In
   progress · To do with one line of detail, a link to its screen, and when done, who did it:
-  company details → branding → portal address → preview and shop addresses → email sender → at
+  company details → branding → portal address → shop address → email sender → at
   least one priced plan → legal pages → payment method → payout details.
   Payment method and payout details are **the partner's own**: in a staff setup session they read
   "{partner} enters this itself" with a lock; to the Owner "Your turn"; to any other role "Owner
@@ -271,7 +271,7 @@ retry the card on {date}." Tabs:
 | Overview | "You see this store's account. Its orders, customers and products are the merchant's; open a support session to view them." Account (owner, country, created, plan and price with who charges, people and suppliers count, sales last month and orders as totals), Contacts (the merchant-side users), Plan and status history (before → after, who) |
 | Plan and limits | The plan and price with Change plan; usage bars (products, staff seats, suppliers, AI design prompts, "Publish now" presses) with "Near the limit" at 80% and "At the limit" at 100%; Overrides for this store (what, reason, who, when) and Add override |
 | Billing | Subscription, price, next charge ("First charge 11 Oct, when the trial ends"), payment status (Paid · Failed · No card yet), card ending 4417, "Charged by DripFunnel for Northstar" or "You bill this merchant yourself"; Invoices; a Billing status select when the partner bills itself |
-| Storefront | Live · Building · Failed · Own storefront; live and preview links; last publish; "Read-only. The merchant designs and publishes their shop." |
+| Storefront | Live · Building · Failed · Own storefront; the live link (no preview address); last publish; "Read-only. The merchant designs and publishes their shop." |
 | Domains | The custom domain, status, "Waiting since {date}", the CNAME record with Copy and what we found, Re-check now |
 | Setup | The five signup steps with Done · Working · "Taking longer than usual" · Failed · Waiting, and **Retry this step** (Owner, Admin) |
 | Support | "{store} allows {partner} support to sign in as its users." or "{owner} has turned partner support off for {store}."; the people in the store (name, email, role, status, last sign-in) with Open support session or Return to session; past sessions |
@@ -353,7 +353,7 @@ Failed), "Waiting since {date}" or "Checked 12 min ago", **Re-check now** (every
 record table: Type, Name, Value to add (Copy, and a plain-words line: "DKIM: signs every
 email so inboxes trust it."), What we see.
 
-**Add an address** (Owner, Admin, while fewer than four exist), three steps: what it is for
+**Add an address** (Owner, Admin, while fewer than three exist), three steps: what it is for
 and the hostname (refused: not an address, a DripFunnel domain, already yours, a bare domain
 for a wildcard or the sender — "Use a subdomain, like mail.northstar.com"; a root domain for
 the portal is allowed with a warning that the website would stop working) → the DNS records
