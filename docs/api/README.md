@@ -229,7 +229,7 @@ runs hourly or less often.
 | `* * * * *` | expired SMS, then the outbox relay (the backstop for any wake that never arrived) |
 | `*/5 * * * *` | due domain checks, stuck exports and imports failed, unpaid orders released, ended trials, overdue stores suspended, abandoned carts marked, due cart reminders queued |
 | `0 * * * *` | exchange-rate refresh, expired exports and imports deleted with stale and abandoned Shopify connections, shopper sign-in codes and sessions purged, unfinished sign-ups purged |
-| `0 3 * * *` (UTC) | expired carts purged, webhook delivery log past a month purged, the storefront buckets cleaned (old builds, preview folders a publish made old, stores closed 90 days; storefront LIVE-SHOP.md §4 step 11, #317) |
+| `0 3 * * *` (UTC) | expired carts purged, webhook delivery log past a month purged, the storefront buckets cleaned (old builds, preview folders a publish made old, stores closed 90 days; storefront LIVE-SHOP.md §4 step 11, #317), the real-user vitals regression rule (storefront ARCHITECTURE §9, #484) |
 
 A purge that deletes a batch of 500 at a time repeats its batch until one comes back short, up to 60 times an hour
 or 1440 times a day, so it can delete as much as it did when it ran every minute. Rows a job queues in the outbox

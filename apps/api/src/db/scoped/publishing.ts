@@ -147,6 +147,10 @@ export const setAssetsBuild = async (tx: ScopedSql, runId: string, assetsBuildId
   await tx`update publish_run set assets_build_id = ${assetsBuildId} where id = ${runId}`
 }
 
+/** Whether a build's folders are still in the buckets (clean-up hasn't removed them, LIVE-SHOP §4 step 11). */
+export const buildFilesKept = async (tx: ScopedSql, buildId: string): Promise<boolean> =>
+  (await tx<{ id: string }[]>`select id from publish_run where id = ${buildId} and files_deleted_at is null`).length > 0
+
 /** The store's live build, the pointer itself (LIVE-SHOP §4 step 9), unlocked. */
 export const selectLiveBuildId = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
   (await tx<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${storeId}`)[0]?.live_build_id ?? null

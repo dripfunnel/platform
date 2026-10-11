@@ -1,6 +1,7 @@
 export { reservedPathSegments, routeAddresses, themeRoutesSchema, type ThemeRoutes } from './contracts/routes'
 export { coreRoutes, defineTheme, missingRoutes, requiredParts, type CoreRoute, type PageFacts, type RequiredPart, type ThemeManifest } from './contracts/theme'
 export { createAnalytics, ga4, ga4Params, googleTagManager, metaPixel, type AnalyticsProvider, type CommerceEvent } from './platform/analytics/analytics'
+export { reportVitals, vitalsEndpoint, type VitalsHooks, type VitalsPage, type VitalsReport } from './platform/analytics/vitals'
 export { contrastRatio, minContrast, readableOn } from './guard/contrast'
 export { createShopClient, ShopApiError, shopHeaders, type ShopClient, type ShopClientOptions, type ShopState } from './platform/api/client'
 export { readConsent, writeConsent, type ConsentChoice } from './platform/consent/consent'

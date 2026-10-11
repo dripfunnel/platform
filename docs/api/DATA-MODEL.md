@@ -1808,7 +1808,8 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- passed, failed or skipped, and plain words) and rolled_back_at (the pointer moved back to
                     -- previous_build_id; error names the failed check, LIVE-SHOP §4 step 10); migration 0287: render (a
                     -- page run's addresses and those it leaves out, only on kind 'page') and assets_build_id (the build
-                    -- whose JS and CSS its pages load: the live build's for a page run, LIVE-SHOP §7)
+                    -- whose JS and CSS its pages load: the live build's for a page run, LIVE-SHOP §7); migration 0288:
+                    -- vitals (the regression rule's verdict: severe, regressed or ok, and the p75s it compared)
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
                      changed_at, changed_by, preview_deploy_ref NULL)
                     -- the one unpublished design per store: the draft's head (decided
@@ -1911,6 +1912,12 @@ storefront_vitals_day (store_id, day, page_kind, device ('phone'|'desktop'), sam
                     -- real-user Core Web Vitals, recorded only after the shopper's consent
                     -- (decided 2026-10-08 on #470), aggregated per day; no visitor id, address
                     -- or URL beyond the page kind; PRIMARY KEY (store_id, day, page_kind, device)
+                    -- Built on #484 (migration 0288) with histograms instead of the p75 columns (decided there: a p75
+                    -- can't be summed over days): lcp_hist (250 ms buckets), inp_hist (25 ms) and cls_hist (0.01), the
+                    -- last bucket taking everything above (db/scoped/vitals.ts); page_kind is home, collection,
+                    -- product, custom, cart, checkout or other. System scope writes it (the Shop API's intake, the
+                    -- store from the host); the merchant side reads its own; partners and staff have no grant until
+                    -- a console reads it. publish_run.vitals (0288) is the regression rule's verdict on a live build
 store_usage         (store_id, key, used, period_start NULL, updated_at)
                     PRIMARY KEY (store_id, key)                 -- built on #212 (§2.4)
                     -- one row per limit and per monthly allowance (the plan keys of §2.3);
