@@ -26,7 +26,8 @@
     "migrate": "tsx --env-file-if-exists=.env.local scripts/migrate/main.ts",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed/main.ts",
     "dev-env:attach": "tsx --env-file-if-exists=.env.local scripts/dev-env/main.ts",
-    "session": "tsx --env-file-if-exists=.env.local scripts/session/main.ts"
+    "session": "tsx --env-file-if-exists=.env.local scripts/session/main.ts",
+    "release:record": "tsx scripts/release/record.ts"
   },
   "dependencies": {
     "@pothos/core": "^4.15.1",
