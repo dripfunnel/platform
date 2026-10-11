@@ -6,7 +6,7 @@ export type ReleaseKind = 'major' | 'minor' | 'patch'
 
 const parts = (version: string) => version.split('.').map(Number)
 
-/** How far `version` moved from the newest release before it; the first release counts as a major. */
+/** How far `version` moved from the newest release below it; the first release counts as a major. */
 export const releaseKind = (version: string, previous: string | null): ReleaseKind => {
   if (previous === null) return 'major'
   const [a = 0, b = 0] = parts(version)
@@ -17,7 +17,7 @@ export const releaseKind = (version: string, previous: string | null): ReleaseKi
 /** Recorded once its image is in both registries; recording it again only moves the image to the new digest. */
 export const recordCoreRelease = async (tx: ScopedSql, version: string, sandboxImage: string): Promise<void> => {
   const [previous] = await tx<{ version: string }[]>`
-    select version from core_release where version <> ${version}
+    select version from core_release where string_to_array(version, '.')::int[] < string_to_array(${version}, '.')::int[]
     order by string_to_array(version, '.')::int[] desc limit 1`
   await tx`
     insert into core_release (version, kind, sandbox_image) values (${version}, ${releaseKind(version, previous?.version ?? null)}, ${sandboxImage})
