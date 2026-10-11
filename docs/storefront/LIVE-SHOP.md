@@ -11,9 +11,11 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 `../api/SAAS.md` owns the state and rules: provisioning (§5), domains (§8) and publishing
 (§9.1).
 
-**Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9); the rest is specification.
+**Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9). On #317:
+the bucket layout (§2), the edge Worker's host lookup and its `/shop-api` door, and the cache purge (§5 step 1); the rest
+is specification.
 
-Last updated: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-11 (#317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -62,11 +64,17 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 |---|---|---|
 | **Store repo** | The published theme code, the generated files and the locked workflow (ARCHITECTURE §2.2) | The public, free place to build. It holds only what is already live. |
 | **API Worker** | Starts builds, checks OIDC tokens, mints R2 credentials, records `publish_run`, moves the live pointer | Every credential and every decision stays on the platform, never in a repo or a runner. |
-| **`storefront-sites` bucket** *(proposed name)* | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Never public. The edge Worker reads build and preview folders; the API reads staging folders and writes build folders (§4 step 9); the studio's Durable Object writes preview folders (PREVIEW §4); an upload credential writes one staging folder only. |
-| **`storefront-assets` bucket** *(proposed name)* | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
-| **A private drafts bucket** *(proposed name `storefront-drafts`)* | `drafts/{store}.bundle`, unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3); `sources/{store}/{build id}.bundle`, each build's source (§4 step 3); the snapshots | Source code that isn't public yet must never share a bucket with files that are served. Only the platform touches it: the studio's Durable Object reads and writes `drafts/` and reads `sources/`; the API writes `sources/` and the snapshots and hands a run 15-minute read links to its own build's files; nothing else reads it. |
+| **`storefront-sites` bucket** (decided on #317: `storefront-sites` on prod, `-dev` and `-local` elsewhere) | Each build's HTML and data files, the preview files ([PREVIEW.md](PREVIEW.md) §3), and the short-lived staging folders every upload lands in, its JS and CSS included (§4 step 8) | Never public. The edge Worker reads build and preview folders; the API reads staging folders and writes build folders (§4 step 9); the studio's Durable Object writes preview folders (PREVIEW §4); an upload credential writes one staging folder only. |
+| **`storefront-assets` bucket** (decided on #317, named as above; served at `sf-assets.<EDGE_ZONE>`) | Each build's content-hashed JS and CSS under its own build folder (`stores/{id}/builds/{b}/assets/`), and each core version's shared runtime (`core/{version}/`, written only by the release workflow) | Public and immutable, so the asset host serves it straight from cache with no Worker. |
+| **`storefront-drafts` bucket** (decided on #317, named as above), private | `drafts/{store}.bundle`, unpublished drafts ([AI-STUDIO.md](AI-STUDIO.md) §3); `sources/{store}/{build id}.bundle`, each build's source (§4 step 3); the snapshots | Source code that isn't public yet must never share a bucket with files that are served. Only the platform touches it: the studio's Durable Object reads and writes `drafts/` and reads `sources/`; the API writes `sources/` and the snapshots and hands a run 15-minute read links to its own build's files; nothing else reads it. |
 | **Edge Worker** | Answers every storefront request | One code path for every store; nothing per store to deploy. |
 | **Postgres** | `storefront`, `publish_run`, `design_version`: which build is live, and the history (DATA-MODEL §7) | The live pointer is state the consoles show, not a file. |
+
+**The keys** (built on #317, `apps/api/src/saas/storefronts/layout.ts`): in `storefront-sites`,
+`stores/{store}/builds/{build}/`, `stores/{store}/uploads/{build}/` (staging) and `stores/{store}/preview/{change}/`; in
+`storefront-assets`, `stores/{store}/builds/{build}/assets/` and `core/{version}/`; in `storefront-drafts`,
+`drafts/{store}.bundle`, `sources/{store}/{build}.bundle` and `snapshots/{store}/{build}.json`. The build id is the
+`publish_run` id. A build folder holds `_manifest.json`, the manifest of §4 step 8.
 
 ---
 
@@ -238,15 +246,28 @@ What the edge Worker does on each request to a storefront host.
    Postgres through Hyperdrive). A publish, a domain change or a state change also sends a purge
    by the store's cache tag, which makes the change show sooner where it reaches. Nothing depends
    on that purge: the Cache API is per data centre, and Cloudflare doesn't promise every purge
-   reaches its entries *(to verify on #317)*. So a switch, a rollback or a suspension is atomic
+   reaches its entries. *Checked 2026-10-11 on #317:* Cloudflare's "How the cache works" says a
+   Worker's cache tags can purge Cache API entries selectively, and also that "not all cache purge
+   endpoints function for purging assets stored by the Cache API"; `cache.delete` reaches only the
+   data centre it runs in. So the purge stays a speed-up. A switch, a rollback or a suspension is atomic
    in each data centre and reaches every data centre **within 60 seconds**.
+   **Built on #317:** on a miss the edge Worker calls the API's `StorefrontEdge` entrypoint
+   (`liveHost`, through a service binding: the store, its partner, `storefront.live_build_id` and
+   how it is served) and stores the answer under the tags `df-store-{store}`, `df-host-{host}` and
+   `df-partner-{partner}`. The `cache.purge` rows that publishing, domains (#468) and a store's or
+   partner's state queue are delivered by `jobs/queues/deliverers/cachePurge.ts`, purging those tags on
+   `CF_SAAS_ZONE_ID` with `CF_CACHE_PURGE_TOKEN`; without the token they wait in the outbox, and the
+   60 seconds do the work. A lookup that can't reach the database is an error, never "unknown", so
+   nothing wrong is cached.
    *Why:* the store comes **only from the hostname**, never from the path or the client. A KV
    read on every request would cost more than the requests themselves; a cache lookup costs
    nothing extra. A miss happens at most once a minute per store per data centre, roughly once
    per visit at 1,000 visits a day, which the API and Postgres take easily. A strongly consistent
    lookup on every request (a Durable Object) would cost a call per page for a minute's gain.
-2. **A past-due or suspended store** gets its degraded page from the Worker, with no rebuild
-   (ARCHITECTURE §4.2, DESIGN-BRIEF fact 9).
+2. **A suspended store** gets its degraded page from the Worker, with no rebuild
+   (ARCHITECTURE §4.2, DESIGN-BRIEF fact 9). *Decided on #317:* a past-due store keeps selling as
+   normal, as SAAS §4.2 decided on #284 (core's `useStorefront()` has the state for a notice); a
+   cancelled store past its paid period, or a closed one, is offline and gets a 404.
 3. **`/shop-api/*` goes to the API Worker** through a service binding, keeping the shopper's
    own hostname ([../ARCHITECTURE.md](../ARCHITECTURE.md) §2).
    *Why:* same origin, so the shopper's cookies stay first-party and there is no CORS.
@@ -398,6 +419,10 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   each unique transformation again every calendar month. For 5,000 stores with 1,000 images in 4
   sizes, that is about 20 million transformations, roughly $10,000 a month at list price.
   Resizing once at upload and storing the sizes in R2 would cost a small fraction of that.
-- How many builds a store keeps (20 proposed), and the bucket names *(decide on #317)*; ~~the repo names~~ `sf-` and ten letters or digits (decided on #316).
+- How many builds a store keeps (20 proposed) *(decide on #317)*; ~~the bucket names~~ `storefront-sites`, `storefront-assets`
+  and `storefront-drafts`, with `-dev` and `-local` on dev and locally (decided on #317: the environments are separate
+  Cloudflare accounts, and prod's names match `ASSETS`' unsuffixed `dripfunnel-assets`); the asset host is
+  `sf-assets.<EDGE_ZONE>`, an R2 custom domain on `storefront-assets` (decided on #317: on the zone that already has the
+  certificate, with the catch-all route excluded for it); ~~the repo names~~ `sf-` and ten letters or digits (decided on #316).
 - Rendering pages on request instead of building them all (Workers for Platforms, a Worker per
   store) is a later option for very large catalogues. It isn't planned.

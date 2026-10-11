@@ -25,8 +25,6 @@ const manifestSchema = z.strictObject({ files: z.array(z.strictObject({ path: z.
 
 export const lockedWorkflowPath = '.github/workflows/build.yml'
 const templateRoot = (core: string, template: string) => `templates/${core}/themes/${template}/`
-export const storePrefix = (storeId: string) => `stores/${storeId}/`
-export const previewFolder = (storeId: string, ref: string) => `${storePrefix(storeId)}preview/${ref}/`
 
 const readJson = async <S extends z.ZodType>(bucket: SitesBucket, key: string, schema: S): Promise<z.infer<S>> => {
   const object = await bucket.get(key)
