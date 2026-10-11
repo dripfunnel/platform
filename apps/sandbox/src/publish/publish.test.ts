@@ -158,6 +158,27 @@ describe('step build', () => {
     expect(contracts).toMatchObject({ passed: false, detail: expect.stringContaining('The search page (/search/) failed while rendering.') })
     expect(contracts?.detail).not.toMatch(/JSON|SyntaxError|Unexpected/)
     expect(existsSync(join(root, 'throwing/site'))).toBe(false)
+    expect(existsSync(join(root, 'throwing/edge'))).toBe(false)
+  })
+
+  it('refuses a theme that only breaks on the edge-case catalogue, naming the case, with no site or edge render left', async () => {
+    const source = await sourceOf('edge-throwing', {
+      'src/theme/pages/SearchPage.tsx': [
+        "import { useStorefront } from '@dripfunnel/storefront-core/theme'",
+        '',
+        'export const SearchPage = () => {',
+        '  const { store } = useStorefront()',
+        "  const parsed: number = store.name.length > 150 ? (JSON.parse('{') as number) : 0",
+        '  return parsed === 1 ? null : null',
+        '}',
+        '',
+      ].join('\n'),
+    })
+    await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', join(root, 'edge-throwing')])
+    const report = JSON.parse(readFileSync(join(root, 'edge-throwing/report.json'), 'utf8')) as GateReport
+    expect(report.checks.find((c) => c.name === 'edge-cases')).toMatchObject({ passed: false, detail: 'With very long names and no logo or contact details: The search page (/search/) failed while rendering.' })
+    expect(existsSync(join(root, 'edge-throwing/site'))).toBe(false)
+    expect(existsSync(join(root, 'edge-throwing/edge'))).toBe(false)
   })
 
   it('stops at the typecheck too, with the validator’s check failing and naming the file, and no site', async () => {
