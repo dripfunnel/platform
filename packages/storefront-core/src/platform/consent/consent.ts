@@ -1,6 +1,8 @@
 export type ConsentChoice = { analytics: boolean; marketing: boolean; at: string }
 
-const key = 'df-consent-v1'
+/** Where the shopper's choice is kept; the publish gate seeds it to visit pages as a shopper who has answered. */
+export const consentStorageKey = 'df-consent-v1'
+const key = consentStorageKey
 
 /** The shopper's saved choice, or null when they haven't chosen (or storage is unavailable). */
 export const readConsent = (): ConsentChoice | null => {

@@ -525,7 +525,9 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
   main heading is what a tap reaches, and no sealed part is hidden. Until core's cart and checkout (#313) exist it can't
   take a product to a test payment;
 - `axe`: WCAG 2.0–2.2 A and AA rules on every page at each width;
-- `budgets`: §9 on a phone (390 px, CPU slowed 4×) for home, collection, product, custom pages and cart;
+- `budgets`: §9 on a phone (390 px) for home, collection, product, custom pages and cart, one page at a time. *Decided on
+  #483:* the CPU is slowed to a mid-range phone's speed calibrated against the runner's own, as Lighthouse does, instead
+  of a fixed 4×, since a fixed rate on a busy or fast runner measures a different phone each time;
 - `no-js`, `crawl`: §8, with every internal link leading to a page or an item prefix, and `sitemap.xml` and
   `robots.txt` naming the pages search engines should see: every built home and custom page, and any product, collection
   or policy address, in each of the store's languages; never a cart, checkout or account page;
