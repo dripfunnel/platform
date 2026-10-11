@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { parseConfig } from './config'
 
@@ -56,5 +57,12 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...hosts, STRIPE_TEST_SECRET_KEY: 'sk_test_a' })).toThrow(/go together/)
     expect(() => parseConfig({ ...hosts, STRIPE_TEST_SECRET_KEY: 'sk_live_a', STRIPE_TEST_PUBLISHABLE_KEY: 'pk_test_b' })).toThrow()
     expect(() => parseConfig({ ...hosts, STRIPE_CONNECT_CLIENT_ID: 'acct_1' })).toThrow(/Connect client id/)
+  })
+
+  it('reads past every Durable Object binding wrangler.jsonc declares, so no binding shares a setting’s name (#638)', () => {
+    const wrangler = readFileSync(new URL('../../wrangler.jsonc', import.meta.url), 'utf8')
+    const bindings = [...wrangler.matchAll(/\{\s*"name":\s*"([A-Z_]+)",\s*"class_name"/g)].map(([, name]) => name)
+    expect(bindings.length).toBeGreaterThan(0)
+    expect(() => parseConfig({ ...hosts, ...Object.fromEntries(bindings.map((name) => [name, {}])) })).not.toThrow()
   })
 })
