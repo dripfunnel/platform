@@ -63,13 +63,6 @@ const shopperOf = (row: StorefrontRow, request: Request, orderTokenHash: string 
   }
 }
 
-/** The preview key of `{key}.<previewDomain>`, or null; any other name under the preview domain is no store's. */
-const previewKeyOf = (host: string, previewDomain: string | null): string | null | undefined => {
-  if (!previewDomain || !host.endsWith(`.${previewDomain}`)) return undefined
-  const label = host.slice(0, -previewDomain.length - 1)
-  return /^[a-z2-7]{10}$/.test(label) ? label : null
-}
-
 /**
  * The host decides when it is a storefront's own; a key sent with it must be that store's, so store X is never served
  * on store Y's host. Anywhere else the key alone decides (a merchant's own frontend, PLATFORM-PROMPT §5.6).
@@ -78,13 +71,16 @@ export const resolveShopper = async (sql: postgres.Sql, request: Request, host: 
   const key = request.headers.get(shopKeyHeader)?.trim() ?? ''
   const validKey = /^pk_[0-9a-f]{32}$/.test(key)
   const name = host.toLowerCase()
-  const previewKey = previewKeyOf(name, previewDomain?.toLowerCase() ?? null)
+  const suffix = previewDomain ? `.${previewDomain.toLowerCase()}` : null
+  const onPreviewHost = suffix !== null && name.endsWith(suffix)
+  const label = suffix && onPreviewHost ? name.slice(0, -suffix.length) : ''
+  const previewKey = /^[a-z2-7]{10}$/.test(label) ? label : null
   const { byHost, byKey } = await withSystemScope(sql, async (tx) => ({
-    byHost: previewKey === undefined ? await selectStorefrontByHost(tx, name) : previewKey ? await selectStorefrontByPreviewKey(tx, previewKey) : null,
+    byHost: !onPreviewHost ? await selectStorefrontByHost(tx, name) : previewKey ? await selectStorefrontByPreviewKey(tx, previewKey) : null,
     byKey: validKey ? await selectStorefrontByKey(tx, key) : null,
   }))
-  // A preview host names its store by its key alone (storefront PREVIEW.md §6).
-  if (previewKey !== undefined && !byHost) return { kind: 'unknown' }
+  // A preview host names its store by its key alone, never by a public key (storefront PREVIEW.md §6).
+  if (onPreviewHost && !byHost) return { kind: 'unknown' }
   if (byHost && key !== '' && byKey?.store_id !== byHost.store_id) return { kind: 'key-mismatch' }
   const row = byHost ?? byKey
   const cartToken = request.headers.get(shopCartHeader)?.trim() ?? ''
