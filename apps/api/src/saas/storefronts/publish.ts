@@ -17,6 +17,7 @@ import {
   selectFailingChecks,
   selectGateVerdict,
   selectQueuedRun,
+  selectStartedAt,
   setBisectCommit,
   setRepairAttempts,
   selectRun,
@@ -198,15 +199,20 @@ class Bisected extends Error {
   override name = 'Bisected'
 }
 
-const minutesLeft = buildLifetimeMs / 60_000
+/** One deadline per build: the build id's 2 hours from its claim, which its report and its upload share (LIVE-SHOP §9). */
+const deadlineOf = (deps: PublishDeps, storeId: string, buildId: string): Promise<string> =>
+  withSystemScope(deps.sql, async (tx) => new Date(((await selectStartedAt(tx, storeId, buildId)) ?? deps.now()).getTime() + buildLifetimeMs).toISOString())
+
+const minutesBefore = (deps: PublishDeps, deadline: string) => Math.max(1, Math.ceil((new Date(deadline).getTime() - deps.now().getTime()) / 60_000))
 
 /** One build through the gate: frozen, dispatched, then its report; `label` keeps each build's steps apart. */
 const gateBuild = async (deps: PublishDeps, steps: PublishSteps, storeId: string, buildId: string, label: string): Promise<boolean> => {
   await steps.do(`${label}freeze`, () => freezeBuild(deps, storeId, buildId))
   await steps.do(`${label}dispatch`, () => dispatchBuild(deps, storeId, buildId))
+  const deadline = await steps.do(`${label}deadline`, () => deadlineOf(deps, storeId, buildId))
   // The build's "report" and "uploaded" calls wake this run; a DB check comes first, so one that came early isn't missed.
   if ((await steps.do(`${label}reported`, () => reportedStep(deps, storeId, buildId))) === 'waiting') {
-    await steps.waitFor(`${label}report`, 'reported', minutesLeft).catch(() => {
+    await steps.waitFor(`${label}report`, 'reported', minutesBefore(deps, deadline)).catch(() => {
       throw new ReportTimedOut('no report within the build id’s lifetime')
     })
   }
@@ -285,7 +291,8 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
       liveId = repaired
     }
     if ((await steps.do('uploaded', () => uploadedStep(deps, p.storeId, liveId))) === 'waiting') {
-      await steps.waitFor('upload', 'uploaded', minutesLeft).catch(() => {
+      const deadline = await steps.do('upload-deadline', () => deadlineOf(deps, p.storeId, liveId))
+      await steps.waitFor('upload', 'uploaded', minutesBefore(deps, deadline)).catch(() => {
         throw new UploadTimedOut('no upload within the build id’s lifetime')
       })
     }

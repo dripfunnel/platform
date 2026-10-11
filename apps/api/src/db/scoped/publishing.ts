@@ -284,3 +284,6 @@ export const selectFailingChecks = async (tx: ScopedSql, storeId: string, runId:
       from publish_run r, jsonb_array_elements(coalesce(r.gate->'checks', '[]'::jsonb)) c
       where r.id = ${runId} and r.store_id = ${storeId} and (c->>'passed')::boolean is false`
   ).map((r) => r.words)
+/** When the build id's lifetime started (its claim), which every wait for the build counts down from. */
+export const selectStartedAt = async (tx: ScopedSql, storeId: string, runId: string): Promise<Date | null> =>
+  (await tx<{ started_at: Date | null }[]>`select started_at from publish_run where id = ${runId} and store_id = ${storeId}`)[0]?.started_at ?? null
