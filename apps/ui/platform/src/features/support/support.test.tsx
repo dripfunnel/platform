@@ -8,8 +8,8 @@ import { storeAs } from '../stores/storesTestData'
 import { SupportTab } from '../stores/tabs/SupportTab'
 import { SessionsTab } from './SessionsTab'
 import { afterOutcome, blockingSession, codeComplete, firstStep, openIn, startWith, type OpeningTab } from './startFlow'
-import { searchState } from './supportHarness'
-import { SupportRefused } from './Support'
+import { searchState, supportTabs } from './supportHarness'
+import { Support, SupportRefused } from './Support'
 import { session, target } from './supportTestData'
 import { reauthText, refusalText, supportAllowed, supportStartOffered } from './supportText'
 import { UsersTab } from './UsersTab'
@@ -17,14 +17,16 @@ import { UsersTab } from './UsersTab'
 const words = messages.support
 const noop = () => undefined
 const textOf = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '’').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ')
-const render = async (element: ReactNode) => {
-  const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: ['/support'] }) })
+const render = async (element: ReactNode, at = '/support') => {
+  const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: [at] }) })
   await router.load()
   return renderToString(<RouterProvider router={router} />)
 }
 const more = { show: false, busy: false, failed: false }
 const usersTab = (users: Parameters<typeof UsersTab>[0]['users'], search?: string, state: Parameters<typeof UsersTab>[0]['state'] = 'ready') =>
   render(<UsersTab users={users} state={state} search={search} partner="Northstar Commerce" me="Priya Shah" more={more} onSearch={noop} onMore={noop} onOpen={noop} />)
+
+const currentTabs = (html: string) => [...html.matchAll(/<a[^>]*aria-current="page"[^>]*>([^<]*)<\/a>/g)].map((match) => match[1])
 
 describe('Support access', () => {
   it('is for Owners, Admins and Support only', () => {
@@ -214,5 +216,12 @@ describe('A store’s Support tab', () => {
     expect(textOf(await tab(true, noop))).toContain(words.open)
     expect(textOf(await tab(true))).toContain(messages.store.support.readOnly)
     expect(textOf(await tab(false, noop))).not.toContain(words.open)
+  })
+})
+
+describe('Support tabs', () => {
+  it.each(supportTabs)('marks only %s as the open tab', async (tab) => {
+    const html = await render(<Support tab={tab} openCount={2}>{null}</Support>, tab === 'users' ? '/support' : `/support?tab=${tab}`)
+    expect(currentTabs(html)).toEqual([tab === 'users' ? words.tabs.users : fill(words.tabs.sessions, { count: '2' })])
   })
 })

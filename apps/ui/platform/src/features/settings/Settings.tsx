@@ -35,7 +35,7 @@ export const Settings = ({ tab, readOnly, children }: { tab: SettingsTab; readOn
       tabs={settingsTabs}
       labels={words.tabs}
       current={tab}
-      link={(target, props) => <Link to="/settings" search={target === 'company' ? {} : { tab: target }} {...props} />}
+      link={(target, props) => <Link to="/settings" search={{ tab: target === 'company' ? undefined : target }} activeOptions={{ explicitUndefined: true }} {...props} />}
     />
     {readOnly && <ReadOnlyNotice title={messages.states.readonly.title} body={messages.states.readonly.body} />}
     {children}
