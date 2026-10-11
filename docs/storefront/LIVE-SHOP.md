@@ -13,8 +13,8 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 
 **Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9). On #317:
 the bucket layout (§2), the publish-storefront Workflow's queued → deploying → live | failed, the switch, go back and
-clean-up (§4 steps 1, 9 item 3 and 11), the edge Worker's host lookup and its `/shop-api` door, and the cache purge (§5
-step 1); the rest is specification.
+clean-up (§4 steps 1, 9 item 3 and 11), and the edge Worker's live path (§5, `store-proxy/src/live.ts`) with the host
+lookup, its `/shop-api` door and the cache purge; the rest is specification.
 
 Last updated: 2026-10-11 (#317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
@@ -301,6 +301,15 @@ What the edge Worker does on each request to a storefront host.
    through keeps it at about 1–2 ms a request.
 6. **Unknown or removed product addresses** get a client-rendered fallback, a 404 or a
    redirect (ARCHITECTURE §4.2, "Staying current").
+   **Built on #317**, with the build folder's contract decided there (#517 and #483 write it): every object carries the
+   headers it is served with in its R2 metadata (`contentType`, `cacheControl`, and the CSP as the custom field `csp`),
+   copied from the manifest when the API copies it in (§4 step 9), so the Worker parses nothing per request; and
+   `_edge.json` lists the build's redirects (`from`, `to`: 301), its client-rendered fallbacks (`prefix`, `page`: a path
+   under the prefix with no file gets that page) and its 404 page (`notFound`), read only when a path has no file. A page
+   path is `{path}/index.html`; anything that isn't plain names (`..`, an encoded slash or backslash, a control character)
+   is a 404 before R2 is asked. A suspended store's degraded page (503) shows only its name; a cancelled store past its
+   period, a closed one or one never published gets a 404. Each file is cached under the host, the store, the build and
+   the path, kept immutably (a build never changes) and sent with the build's own cache rules.
 7. **JS, CSS and images** load from the shared asset host (`storefront-assets` through its own
    domain, outside the catch-all route; it holds only verified build folders and `core/`) and from Cloudflare image resizing, never through this
    Worker.

@@ -38,6 +38,7 @@ import { registerWebhooks } from './webhooks'
 import { registerApps } from './apps'
 import { registerBilling } from './billing'
 import { registerPricing } from './planPricing'
+import { registerPreview } from './preview'
 
 export type { StoreContext } from './access'
 
@@ -84,5 +85,6 @@ registerDevelopers(builder)
 registerWebhooks(builder)
 registerApps(builder)
 registerBilling(builder)
+registerPreview(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

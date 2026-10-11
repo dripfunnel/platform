@@ -9,9 +9,11 @@ draft theme, with live catalogue data, `noindex`, a signed link and test-mode ch
 document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files, and
 [LIVE-SHOP.md](LIVE-SHOP.md) runs the same edge Worker for live sites.
 
-**Status: specification only**, except the preview key (§2 step 5) and the Shop API's side of §5 step 5 and §6, built on #518.
+**Status:** the preview key (§2 step 5) and the Shop API's side of §5 step 5 and §6 are built on #518; §5 steps 1–5 and
+§6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
+(`/__studio/`) is #482's.
 
-Last updated: 2026-10-11 (#317: preview folder retention decided; before it #518: `storefront.preview_key` and the Shop
+Last updated: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
 studio's fast gate, served from R2 by the edge Worker).
@@ -111,18 +113,24 @@ container.
 1. **The merchant presses "Open preview"** in the portal. The Store API checks the session and
    the store (ACCESS §3) and signs a link: `https://{key}.webpreview.store/__open?t=<token>`.
    The token names the store and the user, is signed with a Worker secret, and expires
-   *(decide the lifetime: 7 days proposed)*.
+   after **7 days** (decided on #317, as proposed).
+   **Built on #317:** the Store API's `openStorefrontPreview` (the `publish` capability; refused to support and staff
+   sessions, which act as someone else) answers the link and records `storefront.preview_opened`. The token is sealed with
+   AES-GCM under `PREVIEW_LINK_KEY`, so its holder can't read who issued it, and carries the store, the user,
+   `storefront.preview_epoch` and the expiry.
    *Why:* only the portal can hand out a preview, and every link runs out.
 2. **The edge Worker checks the token**: its signature, its expiry, and that **the token's store
    is the store the hostname's preview key resolves to**. Any mismatch gets the same "This
    preview link has expired" page as an expired link. On a match, and after the same access re-check as step 4, it
    sets a `__Host-df_preview` cookie (HttpOnly, Secure, SameSite=Lax, signed, naming the store and
    the user) and redirects to `/` without the token.
+   **Built on #317:** the edge Worker passes `__open` to the API's `StorefrontEdge.openPreview`, which opens the token and
+   runs step 4's re-check against the host's key; the cookie is sealed by the edge Worker with its own `PREVIEW_SESSION_KEY`
+   and also names the preview key and the change folder its chunks come from (step 4).
    **Lifetimes:**
-   - the **cookie is a 15-minute sliding session** *(proposed)*, renewed by every HTML or
+   - the **cookie is a 15-minute sliding session** (decided on #317, as proposed), renewed by every HTML or
      `/shop-api` request that passes the re-check (step 4);
-   - the **link is only the way in**: valid for its own lifetime *(decide on #317, 7 days
-     proposed)*, and opening it again starts a new session as long as its issuer still has
+   - the **link is only the way in**: valid for its own lifetime (7 days), and opening it again starts a new session as long as its issuer still has
      access and the store hasn't ended its links.
    The `__open` response, like every response on a preview host, carries
    `Referrer-Policy: no-referrer`, and the token is never logged: the edge Worker writes
@@ -144,7 +152,7 @@ container.
      - the user the cookie names must still have an active membership of the store with the right
        to see its storefront (ACCESS §5);
      - the cookie's revocation number must equal the store's current one
-       (`storefront.preview_epoch` *(proposed, #317)*, which "End all preview links" or a team
+       (`storefront.preview_epoch`, built on #317, which "End all preview links" or a team
        member's removal moves on).
 
      On a pass, the Worker **renews the 15-minute session cookie**. Otherwise it serves the page
@@ -154,8 +162,13 @@ container.
      the change folder and the path. The copy it stores carries `Cache-Control: max-age=31536000,
      immutable`, which the Cache API keeps. The response it sends carries `Cache-Control: private,
      max-age=31536000, immutable`, so no shared cache serves it to a request without the cookie.
-     Whether the Cache API keeps responses marked `private` is to verify on #317; the stored copy
-     never depends on it.
+     Whether the Cache API keeps responses marked `private`: *checked 2026-10-11 on #317*, Cloudflare's Cache API page
+     doesn't say (it refuses `Set-Cookie`, and answers 413 when `Cache-Control` says not to cache), so the stored copy
+     never depends on it, as decided.
+   **Built on #317** (`store-proxy/src/preview.ts`): HTML and `/shop-api` ask `StorefrontEdge.previewAccess` (an active
+   merchant seat whose role holds `publish`, an active user, the same `preview_epoch`, the key still the store's, and
+   neither store nor partner closed) and get the current folder; chunks are any path whose last part has an extension
+   other than `.html`, read from the cookie's folder.
 
    *Why:* a removed team member or vendor, a user whose capability was taken away, or "End all
    preview links" loses the HTML and `/shop-api` at once. Because the session lives 15 minutes and
@@ -233,7 +246,7 @@ There is no per-store hostname fee.
 ## 8. Open questions
 
 - The Public Suffix List submission for `webpreview.store` *(proposed)*.
-- The preview link's lifetime *(decide on #317)*. ~~Whether the merchant can revoke shared
+- ~~The preview link's lifetime~~ 7 days (decided on #317). ~~Whether the merchant can revoke shared
   links.~~ Yes: access is re-checked on every page, and the store's revocation number ends every
   link at once (§5 step 4).
 - ~~Whether a preview link may be passed to someone outside the store's team.~~ **Yes** (decided
