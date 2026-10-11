@@ -19,9 +19,12 @@ export const withScope = async <T>(
   sql.begin(async (tx) => {
     // A role is an identifier, never a parameter; roleFor returns only the literals it names.
     await tx.unsafe(`set local role ${roleFor(context)}`)
-    for (const [name, value] of Object.entries(settingsFor(context))) {
-      await tx`select set_config(${name}, ${value}, true)`
-    }
+    // Every setting in one statement, each still a parameter (#478).
+    const settings = Object.entries(settingsFor(context))
+    await tx`
+      select set_config(name, value, true)
+      from unnest(${pgArray(settings.map(([name]) => name))}::text[], ${pgArray(settings.map(([, value]) => value))}::text[]) as setting(name, value)
+    `
     return work(tx)
   }) as Promise<T>
 
