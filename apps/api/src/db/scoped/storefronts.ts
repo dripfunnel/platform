@@ -86,6 +86,11 @@ export const beginStoreRepo = async (tx: ScopedSql, storeId: string, repo: strin
   return row.id
 }
 
+/** The repo's numeric id, which a build's OIDC token names (storefront LIVE-SHOP.md §9). */
+export const setRepoId = async (tx: ScopedSql, storeId: string, repoId: number): Promise<void> => {
+  await tx`update storefront set repo_id = ${repoId} where store_id = ${storeId}`
+}
+
 /** The commit `create` left on `main`, before the first push builds on it. */
 export const setFirstRepoHead = async (tx: ScopedSql, storeId: string, head: string): Promise<void> => {
   await tx`update storefront set repo_head = ${head} where store_id = ${storeId} and repo_head is null`
@@ -132,7 +137,7 @@ export const finishStoreRepo = async (tx: ScopedSql, d: { storeId: string; jobId
 
 /** Everything the job made is gone: no repo, no pushes, the store free to try again. */
 export const failStoreRepo = async (tx: ScopedSql, d: { storeId: string; jobId: string; error: string; details: string; at: Date }): Promise<void> => {
-  await tx`update storefront set repo = null, repo_head = null, repo_state = 'failed' where store_id = ${d.storeId}`
+  await tx`update storefront set repo = null, repo_id = null, repo_head = null, repo_state = 'failed' where store_id = ${d.storeId}`
   await tx`delete from storefront_push where store_id = ${d.storeId}`
   await tx`update job set state = 'failed', last_error = ${d.error}, finished_at = ${d.at} where id = ${d.jobId}`
   await tx`insert into job_detail (job_id, details) values (${d.jobId}, ${d.details}) on conflict (job_id) do update set details = excluded.details`

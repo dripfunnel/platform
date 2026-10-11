@@ -1,0 +1,44 @@
+import type { ScopedSql } from './index'
+
+// A store build's calls from its repo's workflow (storefront LIVE-SHOP.md §4 steps 5–9; DATA-MODEL §7.8 `publish_run`),
+// always in system scope: the caller is a GitHub Actions run, never a person.
+
+export type BuildState = 'queued' | 'building' | 'checking' | 'deploying' | 'live' | 'failed' | 'rolled_back'
+
+export interface BuildRow {
+  id: string
+  store_id: string
+  partner_id: string
+  state: BuildState
+  started_at: Date | null
+  github_run_id: string | null
+  gate: Record<string, unknown> | null
+  gate_digest: string | null
+  uploaded_at: Date | null
+  verified_at: Date | null
+  repo: string | null
+  repo_id: string | null
+  live_build_id: string | null
+}
+
+/** Locked to the end of the transaction, so two calls of one build see each other's writes in order. */
+export const selectBuildForUpdate = async (tx: ScopedSql, buildId: string): Promise<BuildRow | null> =>
+  (
+    await tx<BuildRow[]>`
+      select r.id, r.store_id, s.partner_id, r.state, r.started_at, r.github_run_id::text as github_run_id, r.gate, r.gate_digest,
+        r.uploaded_at, r.verified_at, f.repo, f.repo_id::text as repo_id, f.live_build_id
+      from publish_run r join storefront f on f.store_id = r.store_id join store s on s.id = r.store_id
+      where r.id = ${buildId} for update of r`
+  )[0] ?? null
+
+/** The first run to use the build id holds it from then on (LIVE-SHOP §9). */
+export const bindBuildRun = async (tx: ScopedSql, buildId: string, runId: string): Promise<void> => {
+  await tx`update publish_run set github_run_id = ${runId} where id = ${buildId} and github_run_id is null`
+}
+
+export const recordGate = async (tx: ScopedSql, b: { buildId: string; gate: Record<string, unknown>; digest: string; passed: boolean; at: Date }): Promise<void> => {
+  await tx`
+    update publish_run set gate = ${tx.json(b.gate as Parameters<typeof tx.json>[0])}, gate_digest = ${b.digest},
+      state = ${b.passed ? 'deploying' : 'failed'}, error = ${b.passed ? null : 'gate_failed'}, finished_at = ${b.passed ? null : b.at}
+    where id = ${b.buildId} and gate is null`
+}
