@@ -67,14 +67,15 @@ const checkPage = async (probe: EdgeProbe, target: CheckTarget, name: CheckName,
   if (!inTime()) return outOfTime(name)
   const url = new URL(path, `https://${target.host}`)
   const page: ProbeAnswer | null = await probe.get(url.href)
-  if (!page) return skip(name, 'The store’s address can’t be reached from here.')
+  // No answer at all (DNS, TLS, timeouts) is the address's trouble, which the build before had too: never the build's.
+  if (!page || page.status === 0) return skip(name, 'The store’s address didn’t answer.')
   if (page.status === 200 && page.build !== target.buildId) throw new Stale(name)
   if (page.status !== 200) return fail(name, `${path} answered ${page.status}.`)
   if (!page.contentType.startsWith('text/html')) return fail(name, `${path} isn’t a page.`)
   for (const asset of assetUrls(page.body, url, target.assetHost)) {
     if (!inTime()) break
     const loaded = await probe.get(asset.href)
-    if (loaded && loaded.status !== 200) return fail(name, `A script or stylesheet of ${path} answered ${loaded.status}.`)
+    if (loaded && loaded.status !== 0 && loaded.status !== 200) return fail(name, `A script or stylesheet of ${path} answered ${loaded.status}.`)
   }
   return pass(name, `${path} opens.`)
 }
@@ -87,7 +88,7 @@ const record = (value: unknown): Record<string, unknown> => (typeof value === 'o
 const checkCart = async (probe: EdgeProbe, target: CheckTarget, slug: string | null): Promise<CheckResult> => {
   if (slug === null) return skip('cart', 'The build has no product page.')
   const answer = await probe.shop(target.host, productQuery, { slug })
-  if (!answer) return skip('cart', 'The Shop API can’t be reached from here.')
+  if (!answer || answer.status === 0) return skip('cart', 'The Shop API didn’t answer on the store’s address.')
   if (answer.status !== 200 || answer.errors) return fail('cart', `The Shop API answered ${answer.status} on the store’s address.`)
   const product = record(answer.data)['product']
   const versions = record(product)['versions']
@@ -97,7 +98,7 @@ const checkCart = async (probe: EdgeProbe, target: CheckTarget, slug: string | n
 
 const checkPayment = async (probe: EdgeProbe, target: CheckTarget): Promise<CheckResult> => {
   const answer = await probe.shop(target.host, paymentQuery, {})
-  if (!answer) return skip('payment', 'The Shop API can’t be reached from here.')
+  if (!answer || answer.status === 0) return skip('payment', 'The Shop API didn’t answer on the store’s address.')
   if (answer.status !== 200 || answer.errors) return fail('payment', `The Shop API answered ${answer.status} on the store’s address.`)
   const options = record(answer.data)['paymentOptions']
   if (!Array.isArray(options) || options.length === 0) return skip('payment', 'The store takes no payment yet.')
