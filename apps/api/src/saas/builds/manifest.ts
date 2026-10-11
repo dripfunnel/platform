@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { manifestName } from './keys'
+import { manifestName } from '#saas/storefronts/layout'
 
 // The manifest an upload ends with (storefront LIVE-SHOP.md §4 step 8): every built file with its SHA-256 and size, and
 // an HTML file's headers. Its digest is the check step's (§4 step 7), so the report and the bytes are one.

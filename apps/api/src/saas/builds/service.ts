@@ -7,7 +7,7 @@ import { acceptRun, TokenRefused, verifyActionsToken, type TokenRefusal } from '
 import type { StorefrontR2 } from '#integrations/cloudflare/r2'
 import type { SitesBucket } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
-import { buildFolder, manifestName, snapshotFile, sourceBundle, stagingFolder } from './keys'
+import { buildFolder, manifestName, snapshotFile, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
 import { manifestSchema } from './manifest'
 
 // The build endpoints' rules (storefront LIVE-SHOP.md §4 steps 5–8, §9): each call proves its run by OIDC, names its
