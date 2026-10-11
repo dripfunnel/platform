@@ -13,6 +13,7 @@ import { withScope } from '#db/scoped/index'
 import { machineScopes } from '#auth/apiKeys'
 import type { MachineCaller } from '#auth/machineCaller'
 import type { TenantContext } from '#core/tenancy'
+import type { StudioApi } from '#saas/studio/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { accessErrorCode, forbidden, unauthenticated, type Access, type AccessPolicy } from '../graphql/scope'
 import type { CourierDirectory } from '#core/couriers'
@@ -53,6 +54,8 @@ export interface StoreContext extends Record<string, unknown> {
   preview?: { domain: string; links: PreviewLinks } | null
   /** Site settings › Domains: the zone domains point at (EDGE_ZONE) and whether `*.localhost` names are taken (DNS_LOCAL). */
   domains?: { edgeZone: string; localHosts: boolean } | null
+  /** The store's StudioSession, by the session's TenantContext only (AI-STUDIO §3 step 2); null where none is bound. */
+  studio?: ((context: TenantContext) => StudioApi) | null
   now: () => Date
 }
 

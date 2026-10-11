@@ -350,6 +350,7 @@ describe('the backstop itself', () => {
       'store_billing_details', 'invoice', 'invoice_line', 'storefront_push', 'design_draft', 'publish_run', 'design_version', 'core_release', 'studio_session', 'ai_run',
       'storefront_content', 'storefront_redirect', 'storefront_content_translation', 'storefront_vitals_day',
       'storefront_brand', 'storefront_seo',
+      'storefront_template', 'design_message',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -630,6 +631,18 @@ describe('the backstop itself', () => {
     await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA2), (tx) => tx`insert into storefront_seo (store_id, title) values (${t.storeB1}, 'forged')`)).rejects.toThrow(/row-level security/)
     await expect(withScope(db.sql, supportSession(t.partnerA, t.storeA2, 'read'), (tx) => tx`insert into storefront_seo (store_id, title) values (${t.storeA2}, 'support')`)).rejects.toThrow(/row-level security/)
     await expect(withScope(db.sql, supportSession(t.partnerA, t.storeA1, 'read'), (tx) => tx`select save_store_name('Renamed')`)).rejects.toThrow(/merchant side of a store only/)
+  })
+
+  it('holds the studio’s chat to the merchant side of its own store; only the platform writes it (#318)', async () => {
+    await db.sql`insert into design_message (store_id, role, text) values (${t.storeA1}, 'note', 'template:linen'), (${t.storeB1}, 'note', 'template:bloom')`
+    const count = (context: CallerContext) => withScope(db.sql, context, async (tx) => (await tx<{ n: number }[]>`select count(*)::int as n from design_message`)[0]?.n)
+    for (const [context, n] of [[storeCaller(t.partnerA, t.storeA1), 1], [storeCaller(t.partnerA, t.storeA2), 0], [storeCaller(t.partnerB, t.storeB1), 1], [supportSession(t.partnerA, t.storeA1, 'read'), 1]] as const) {
+      expect(await count(context)).toBe(n)
+    }
+    // A supplier, a partner, staff and a shopper hold no grant on it.
+    for (const context of [storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), partnerCaller(t.partnerA), staff, shopper(t.partnerA, t.storeA1, null)]) await expect(count(context)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA1), (tx) => tx`insert into design_message (store_id, role, text) values (${t.storeA1}, 'user', 'forged')`)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA1), (tx) => tx`select key from storefront_template`)).rejects.toThrow(/permission denied/)
   })
 
   it('lets only the merchant side of a store remove its own domain (#471)', async () => {

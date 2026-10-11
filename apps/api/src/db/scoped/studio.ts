@@ -31,7 +31,7 @@ export const moveDraft = async (
   await tx`
     insert into design_draft (store_id, head_commit, template, core_version, changed_at, changed_by, preview_deploy_ref)
     values (${d.storeId}, ${d.head}, ${d.template}, ${d.coreVersion}, ${d.at}, ${d.userId}, ${d.previewRef})
-    on conflict (store_id) do update set head_commit = excluded.head_commit, changed_at = excluded.changed_at,
+    on conflict (store_id) do update set head_commit = excluded.head_commit, template = excluded.template, changed_at = excluded.changed_at,
       changed_by = excluded.changed_by, preview_deploy_ref = excluded.preview_deploy_ref,
       commits = case when design_draft.head_commit = excluded.head_commit then design_draft.commits else array_append(design_draft.commits, excluded.head_commit) end`
   await tx`update storefront set custom_paths = ${pgArray(d.customPaths)}::text[] where store_id = ${d.storeId}`

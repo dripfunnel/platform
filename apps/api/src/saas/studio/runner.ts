@@ -6,6 +6,7 @@ import { insertAiRun, moveDraft, selectGuardContext, selectStudioStart, type AiR
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, sourceBundle, templateFiles, type SitesBucket } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal } from './model'
+import { templateChange } from './template'
 
 // One store's studio (storefront AI-STUDIO.md §3–§7): the Durable Object holds one of these, and runs one change at a
 // time through it. Every outside call is here or in the Worker; the container gets files and gives files back.
@@ -104,17 +105,17 @@ export class StudioRunner {
 
   /** "Undo this change" (AI-STUDIO §5): a new change, through the same gate, saved and previewed the same way. */
   undo(commit: string, userId: string): Promise<ChangeOutcome> {
+    return this.inTurn(() => this.commitStep((client, context) => client.undo(commit, `Undo ${commit.slice(0, 12)}`, context), userId))
+  }
+
+  /** "Change template" (SAAS §9.2): the template's theme as one change to the draft, through the same gate; nothing is pushed. */
+  useTemplate(template: string, keep: boolean, userId: string): Promise<ChangeOutcome> {
     return this.inTurn(async () => {
-      const context = await this.guardContext()
-      const done = await this.recovering(async (client) => {
-        const result = await client.undo(commit, `Undo ${commit.slice(0, 12)}`, context)
-        return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
-      })
-      const { result } = done
-      if (!result.ok) return { outcome: 'refused', problems: result.problems, repairs: 0, runId: null }
-      if (!done.saved) return { outcome: 'unchanged', commit: result.commit, repairs: 0, runId: null }
-      const previewRef = await this.save(done.saved, result, userId, await this.themeNow())
-      return { outcome: 'changed', commit: result.commit, previewRef, repairs: 0, runId: null }
+      await this.ensureLoaded()
+      if (!this.start) throw new StudioUnavailable('Nothing is loaded to change.')
+      const { theme } = await templateFiles(this.deps.sites, this.start.coreVersion, template)
+      const files = templateChange(await this.themeNow(), theme, (await this.guardContext()).locales, keep)
+      return this.commitStep((client, context) => client.change(files, `Use the ${template} template`, context), userId, template)
     })
   }
 
@@ -261,14 +262,29 @@ export class StudioRunner {
     return previewRef ? { outcome: 'changed', commit: last.commit, previewRef, repairs, runId } : { outcome: 'unchanged', commit: last.commit, repairs, runId }
   }
 
+  /** One step of the sandbox without the model (undo, a template, edited words): saved and previewed when it changed something. */
+  private async commitStep(step: (client: SandboxClient, context: GuardContext) => Promise<ChangeResult>, userId: string, template?: string): Promise<ChangeOutcome> {
+    const context = await this.guardContext()
+    const done = await this.recovering(async (client) => {
+      const result = await step(client, context)
+      return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
+    })
+    const { result } = done
+    if (!result.ok) return { outcome: 'refused', problems: result.problems, repairs: 0, runId: null }
+    if (!done.saved) return { outcome: 'unchanged', commit: result.commit, repairs: 0, runId: null }
+    const previewRef = await this.save(done.saved, result, userId, await this.themeNow(), template)
+    return { outcome: 'changed', commit: result.commit, previewRef, repairs: 0, runId: null }
+  }
+
   /** What an accepted change leaves to save: the repo as a git bundle and the gate's bundle for the preview. */
   private async collect(client: SandboxClient) {
     return { bundle: await client.exportBundle(), preview: await client.previewFiles() }
   }
 
   /** AI-STUDIO §4 steps 5–7: the draft bundle, then the preview folder, then the pointers, then the frame's reload. */
-  private async save(saved: Awaited<ReturnType<StudioRunner['collect']>>, result: Extract<ChangeResult, { ok: true }>, userId: string, theme: ReadonlyMap<string, string>): Promise<string> {
+  private async save(saved: Awaited<ReturnType<StudioRunner['collect']>>, result: Extract<ChangeResult, { ok: true }>, userId: string, theme: ReadonlyMap<string, string>, template?: string): Promise<string> {
     if (!this.start) throw new StudioUnavailable('Nothing is loaded to save.')
+    if (template) this.start = { ...this.start, template }
     const { storeId } = this.deps
     await this.deps.drafts.put(draftBundle(storeId), saved.bundle)
     const ref = this.deps.newId()

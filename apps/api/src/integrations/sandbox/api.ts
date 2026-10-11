@@ -44,7 +44,7 @@ export type SandboxFetch = (request: Request) => Promise<Response>
 const timeoutMs = 120_000
 
 export const sandboxClient = (send: SandboxFetch, slot: string) => {
-  const call = async (method: string, path: string, body?: BodyInit, type = 'application/json'): Promise<Response> => {
+  const call = async (method: string, path: string, body?: ArrayBuffer | string, type = 'application/json'): Promise<Response> => {
     let response: Response
     try {
       response = await send(new Request(`http://sandbox/slots/${slot}/${path}`, { method, ...(body === undefined ? {} : { body, headers: { 'content-type': type } }), signal: AbortSignal.timeout(timeoutMs) }))

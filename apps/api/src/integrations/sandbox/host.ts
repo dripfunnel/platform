@@ -31,7 +31,15 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  * The store's container, with no network and no variable but what the image sets (AI-STUDIO §8): `env` is empty on
  * purpose, and `enableInternet` is false. `image` is core_release.sandbox_image, pinned by digest.
  */
-export const containerHost = (container: Container, image: string): SandboxHost => {
+/** The parts of a Durable Object's `ctx.container` this host uses, so the type needs no Workers globals. */
+export interface SandboxContainer {
+  readonly running: boolean
+  start(options: { image: string; enableInternet: boolean; env: Record<string, string>; instance: typeof studioInstance }): void
+  destroy(): Promise<void>
+  getTcpPort(port: number): { fetch(request: Request): Promise<Response> }
+}
+
+export const containerHost = (container: SandboxContainer, image: string): SandboxHost => {
   const port = () => container.getTcpPort(sandboxPort)
   const send: SandboxFetch = (request) => port().fetch(request)
   return {

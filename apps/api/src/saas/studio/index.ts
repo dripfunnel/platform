@@ -5,3 +5,5 @@ export { StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type
 export { closeEndedSockets, dressFrameResponse, frameClosed, frameOpening, serveFrame, studioFrameOf, studioStoreHeader, type FrameServer, type FrameSocket } from './frame'
 export { hashStudioSession, liveStudioSession, liveStudioSessionHash, openStudioSession, renewStudio, studioAccess, studioRenewEveryMs, studioSessionMs, studioSessionPattern, type OpenedStudioSession, type StudioAccess } from './sessions'
 export { studioOf } from './stub'
+export { templateChange } from './template'
+export { studioAnswer, type StudioAnswer, type StudioApi, type StudioState } from './api'

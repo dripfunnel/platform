@@ -969,6 +969,7 @@ type Mutation {
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   checkDomain(id: ID!): Boolean
+  chooseTemplate(keepWords: Boolean!, key: String!): String
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
   connectCourier(provider: String!): String
   connectDomain(host: String!): StorefrontDomain
@@ -2080,9 +2081,11 @@ type Query {
   storeInfo: StoreInfo
   storeLocale: StoreLocale
   storeState: StoreState
+  storefront: Storefront
   storefrontBrand: StorefrontBrand
   storefrontDomains: StorefrontDomains
   storefrontSeo: StorefrontSeo
+  storefrontTemplates: [StorefrontTemplate!]
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
   subscription: BillingSubscription
@@ -2778,6 +2781,14 @@ type StoreSupportSessions {
   pageInfo: PageInfo
 }
 
+type Storefront {
+  draft: StorefrontDraft
+  history: [StorefrontVersion!]
+  live: StorefrontLiveVersion
+  status: String
+  template: String
+}
+
 type StorefrontBrand {
   brandReady: Boolean
   contactAddress: StoreAddress
@@ -2831,6 +2842,18 @@ type StorefrontDomains {
   domains: [StorefrontDomain!]
 }
 
+type StorefrontDraft {
+  changedAt: String
+  previewReady: Boolean
+  template: String
+}
+
+type StorefrontLiveVersion {
+  number: Int
+  publishedAt: String
+  template: String
+}
+
 type StorefrontSeo {
   description: String
   shareImageAssetId: ID
@@ -2859,6 +2882,25 @@ type StorefrontSocialLinks {
   whatsapp: String
   x: String
   youtube: String
+}
+
+type StorefrontTemplate {
+  current: Boolean
+  demoUrl: String
+  description: String
+  key: String
+  name: String
+  tag: String
+}
+
+type StorefrontVersion {
+  coreVersion: String
+  id: ID
+  label: String
+  live: Boolean
+  number: Int
+  publishedAt: String
+  template: String
 }
 
 type StoryBlock {
