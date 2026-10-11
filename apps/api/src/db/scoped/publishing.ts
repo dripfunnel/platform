@@ -98,6 +98,7 @@ export interface VersionRow {
   id: string
   number: number
   commit: string
+  core_version: string
   build_id: string
   state: 'live' | 'kept'
   files_deleted: boolean
@@ -106,7 +107,7 @@ export interface VersionRow {
 export const selectVersion = async (tx: ScopedSql, storeId: string, versionId: string): Promise<VersionRow | null> =>
   (
     await tx<VersionRow[]>`
-      select v.id, v.number, v.commit, v.build_id, v.state, r.files_deleted_at is not null as files_deleted
+      select v.id, v.number, v.commit, v.core_version, v.build_id, v.state, r.files_deleted_at is not null as files_deleted
       from design_version v join publish_run r on r.id = v.build_id
       where v.store_id = ${storeId} and v.id = ${versionId}`
   )[0] ?? null
@@ -117,7 +118,7 @@ export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: Versio
   await tx`update design_version set state = 'kept' where store_id = ${storeId} and state = 'live'`
   await tx`update design_version set state = 'live' where id = ${version.id}`
   await tx`update design_draft set head_commit = ${version.commit}, base_version_id = ${version.id}, changed_at = ${at}, changed_by = ${by} where store_id = ${storeId}`
-  await tx`update store set build_state = 'live', last_publish_at = ${at} where id = ${storeId}`
+  await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${version.core_version} where id = ${storeId}`
 }
 
 /** Builds whose folders clean-up deletes: past the newest `keep` that went live, never live, never a version's (LIVE-SHOP §4 step 11). */
