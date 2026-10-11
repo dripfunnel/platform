@@ -12,8 +12,11 @@ alter table publish_run
   add column gate_digest text check (gate_digest ~ '^[0-9a-f]{64}$'),
   -- "Uploaded": from here on no credential is issued and the staging folder is read once, then ignored (§4 step 9).
   add column uploaded_at timestamptz,
+  -- The manifest as read once at "uploaded", its digest the report's; null with uploaded_at when it was refused.
+  add column upload_manifest jsonb check (upload_manifest is null or jsonb_typeof(upload_manifest) = 'object'),
   -- Every staged object hashed to its manifest entry and was copied into the build's folders.
   add column verified_at timestamptz,
   add constraint publish_run_gate_whole check ((gate is null) = (gate_digest is null)),
   add constraint publish_run_uploaded_after_gate check (uploaded_at is null or gate is not null),
-  add constraint publish_run_verified_after_upload check (verified_at is null or uploaded_at is not null);
+  add constraint publish_run_manifest_at_upload check (upload_manifest is null or uploaded_at is not null),
+  add constraint publish_run_verified_after_upload check (verified_at is null or upload_manifest is not null);

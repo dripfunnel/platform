@@ -1791,8 +1791,9 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- running and one queued per store (partial unique indexes). Built on #517 (migration 0240):
                     -- github_run_id; gate (the check step's report: passed, and each check's name, pass or fail
                     -- and plain words) with gate_digest (the digest of the files it checked, LIVE-SHOP §4 step 7);
-                    -- uploaded_at ("uploaded": no credential after it) and verified_at (every staged object
-                    -- hashed to its manifest entry and was copied, §4 step 9)
+                    -- uploaded_at ("uploaded": no credential after it), upload_manifest (the manifest as read
+                    -- once then, null when refused) and verified_at (every staged object hashed to its manifest
+                    -- entry and was copied, §4 step 9)
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
                      changed_at, changed_by, preview_deploy_ref NULL)
                     -- the one unpublished design per store: the draft's head (decided
