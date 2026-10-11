@@ -163,6 +163,16 @@ checking, deploying, live, failed, rolled back).
    and the AI's code can reach neither the network nor a token.
 6. **Step `build`:** the container runs the validator over the whole theme (ARCHITECTURE §3.4),
    then the static build (SSG), into its output folder.
+
+   **The image's `build` step, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build`):
+   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`, `INPUT_*`) in
+   its environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
+   bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
+   sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
+   `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
+   failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
+   same tree. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
+   and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
 7. **Step `check`:** the gate suite of ARCHITECTURE §4.2 step 3 runs **inside the workflow**
    (decided 2026-10-09 with Gaurav), in a fresh container of the same image with the browser and
    gate tools preinstalled. The built files are mounted read-only, and the container serves them
@@ -190,16 +200,6 @@ checking, deploying, live, failed, rolled back).
    bytes (step 9). A theme that behaves differently under checks is what the validator's ban on
    environment sniffing (ARCHITECTURE §3.4) and the post-deploy checks from the edge (step 10)
    are there to catch.
-
-   **The image's `build` step, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build`):
-   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`, `INPUT_*`) in
-   its environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
-   bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
-   sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
-   `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
-   failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
-   same tree. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
-   and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
 8. **Step `upload`:**
    - **After a passing report**, the API mints **an R2 temporary credential for the private
      `storefront-sites` bucket only, limited to a staging folder `stores/{id}/uploads/{build id}/`
