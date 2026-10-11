@@ -1,27 +1,27 @@
 {
   "hero": {
-    "title": "Gear that just works",
-    "lead": "Clear specs and honest advice before you buy.",
+    "title": "Find the right gear",
+    "lead": "Browse, compare and pick what fits.",
     "shop": "Shop all"
   },
   "features": {
-    "title": "Why buy here",
+    "title": "Shopping here",
     "one": {
-      "title": "Clear specs",
-      "body": "Every detail on every product page."
+      "title": "Search the range",
+      "body": "Find a product by its name or type."
     },
     "two": {
-      "title": "Real support",
-      "body": "People, not bots, answer your questions."
+      "title": "Track your orders",
+      "body": "Every order is in your account."
     },
     "three": {
-      "title": "Track every order",
-      "body": "Your orders and addresses in your account."
+      "title": "Get in touch",
+      "body": "Questions come straight to us."
     }
   },
   "join": {
-    "title": "New releases",
-    "body": "Create an account to hear about new gear and follow your orders.",
+    "title": "Your account",
+    "body": "Create an account to follow your orders and check out faster.",
     "action": "Create an account"
   }
 }
