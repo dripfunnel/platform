@@ -1,7 +1,9 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers'
 import type postgres from 'postgres'
 import { parseConfig } from '#core/config'
-import { runPublish, type PublishParams } from '#saas/storefronts/index'
+import { httpEdgeProbe, type EdgeProbe } from '#integrations/http/edgeProbe'
+import { localEdgeProbe } from '#integrations/local/edgeProbe'
+import { lookupLiveHost, runPublish, type PublishParams } from '#saas/storefronts/index'
 
 export interface PublishStorefrontEnv extends Record<string, unknown> {
   STOREFRONT_SITES?: R2Bucket | undefined
@@ -20,8 +22,22 @@ export const publishStorefrontWorkflow = (connect: (hyperdrive: { connectionStri
       // The deliverer starts a run only where all three exist, so this is a deploy that lost one since.
       if (!config.HYPERDRIVE || !sites || !assets) throw new Error('publish-storefront: unconfigured')
       const sql = connect(config.HYPERDRIVE)
+      // With GITHUB_LOCAL no store host resolves, so the checks read the build as the edge would (docs/setup/local.md §6.1).
+      const probe: EdgeProbe =
+        config.GITHUB_LOCAL === '1'
+          ? localEdgeProbe({
+              sites,
+              assets,
+              assetHost: `sf-assets.${config.EDGE_ZONE}`,
+              liveBuild: async (host) => {
+                const found = await lookupLiveHost(sql, host, { localhost: true })
+                return found.kind === 'store' && found.buildId ? { storeId: found.storeId, buildId: found.buildId } : null
+              },
+            })
+          : httpEdgeProbe()
+      const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
       try {
-        return await runPublish({ sql, sites, assets, now: () => new Date() }, event.payload, {
+        return await runPublish({ sql, sites, assets, now: () => new Date(), probe, wait }, event.payload, {
           do: (name, work) => step.do(name, stepConfig, work),
           waitForUpload: async (name, timeoutMinutes) => {
             await step.waitForEvent(name, { type: 'uploaded', timeout: `${timeoutMinutes} minutes` })

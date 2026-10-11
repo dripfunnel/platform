@@ -11,6 +11,7 @@ import { localActions } from '#integrations/local/builds'
 import { BuildRefused, BuildUnavailable, buildLifetimeMs, digestOf, issueCredentials, reportBuild, reportUploaded, runPublish, startBuild, UploadRefused, verifyUpload, type BuildDeps, type GateReport } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
+import { testProbe } from './support/edgeProbe'
 import { fakeSites, putText, type FakeSites } from './support/sites'
 
 // INF 2b (#517) part 1: a store build's calls (storefront LIVE-SHOP.md §4 steps 5–8, §9) against the real database, fake
@@ -374,7 +375,7 @@ const swelled = (key: string, size: number) => {
   return () => bodyReads
 }
 
-const verifyDeps = () => ({ sql: db.sql, sites, assets, now: () => now })
+const verifyDeps = () => ({ sql: db.sql, sites, assets, now: () => now, probe: testProbe(db.sql, { sites, assets }), wait: async () => undefined })
 const uploadOf = (id: string) => db.sql<{ uploaded_at: Date | null; upload_manifest: unknown; verified_at: Date | null; state: string; error: string | null }[]>`
   select uploaded_at, upload_manifest, verified_at, state, error from publish_run where id = ${id}`.then((r) => r[0])
 const verifyRefusal = (work: Promise<unknown>) =>
@@ -477,10 +478,10 @@ describe('a build from its report to live', () => {
     const waiting = await newBuild(t.storeA1)
     await db.sql`update publish_run set state = 'deploying' where id = ${waiting}`
     const timeout = { ...steps, waitForUpload: async () => Promise.reject(new Error('timed out')) }
-    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: waiting, storeId: t.storeA1 }, timeout)).toBe('failed')
+    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now, probe: testProbe(db.sql, { sites, assets }), wait: async () => undefined }, { runId: waiting, storeId: t.storeA1 }, timeout)).toBe('failed')
     expect(await uploadOf(waiting)).toMatchObject({ state: 'failed', error: 'upload_timed_out' })
     await reportUploaded(deps, auth, id)
-    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: id, storeId: t.storeA2 }, steps)).toBe('live')
+    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now, probe: testProbe(db.sql, { sites, assets }), wait: async () => undefined }, { runId: id, storeId: t.storeA2 }, steps)).toBe('live')
     expect((await db.sql<{ live_build_id: string }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`)[0]?.live_build_id).toBe(id)
     expect(sites.keys(`stores/${t.storeA2}/uploads/${id}/`)).toEqual([])
   })
@@ -490,7 +491,7 @@ describe('a build from its report to live', () => {
     const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7701')
     await reportUploaded(deps, auth, id)
     await putText(sites, `stores/${t.storeA2}/uploads/${id}/_next/static/app.3f2a.js`, 'fetch("https://evil.example")')
-    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: id, storeId: t.storeA2 }, steps)).toBe('failed')
+    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now, probe: testProbe(db.sql, { sites, assets }), wait: async () => undefined }, { runId: id, storeId: t.storeA2 }, steps)).toBe('failed')
     expect(await uploadOf(id)).toMatchObject({ state: 'failed', error: 'file_mismatch', verified_at: null })
     expect((await db.sql<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`)[0]?.live_build_id).toBe(before)
   })

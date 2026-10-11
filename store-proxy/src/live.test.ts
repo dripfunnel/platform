@@ -69,6 +69,7 @@ describe('the live site', () => {
     const second = await get(`https://${hostA}/`)
     expect(await second.text()).toBe('A one')
     expect(second.headers.get('cache-control')).toBe('no-cache')
+    expect([first.headers.get('x-df-build'), second.headers.get('x-df-build')]).toEqual([build1, build1])
     expect(sites.asked.length).toBe(asked)
     expect(await text(`https://${hostA}/about/`)).toBe('A about')
     expect(await text(`https://${hostA}/about`)).toBe('A about')

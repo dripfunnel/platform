@@ -40,6 +40,8 @@ const buildObject = async (host: string, store: Store & { buildId: string }, rel
   const object = await deps.sites.get(`${folderOf(store)}${rel}`)
   if (!object) return null
   const headers = fileHeaders(object)
+  // The post-deploy checks wait until the edge serves the build they check (LIVE-SHOP §4 step 10).
+  headers.set('x-df-build', store.buildId)
   const sent = new Response(object.body, { headers })
   // A build folder never changes, so the stored copy lives long; the build's own cache rules go to the browser.
   const stored = new Headers(headers)
