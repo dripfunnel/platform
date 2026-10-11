@@ -27,7 +27,7 @@ const entryName = 'df:entry'
 // routes.json as the generated entry reads it; the validator checked it against core's themeRoutesSchema, and the page
 // names are held to its pattern again because they become import paths (a loaded draft hasn't met the validator).
 const page = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9_-]{0,63}){0,4}$/)
-const routesSchema = z.object({ routes: z.record(z.string().regex(/^[A-Za-z]+$/), page), custom: z.record(z.string().regex(/^\/[a-z0-9/-]+$/), page).optional() })
+export const routesSchema = z.object({ routes: z.record(z.string().regex(/^[A-Za-z]+$/), page), custom: z.record(z.string().regex(/^\/[a-z0-9/-]+$/), page).optional() })
 
 /** Each language's words, flattened to the `file.key` names `t()` takes (ARCHITECTURE §3.4 "t()"). */
 export type Content = Record<string, Record<string, string>>
@@ -67,7 +67,7 @@ const flatten = (value: unknown, prefix: string, into: Record<string, string>) =
   else if (value && typeof value === 'object') for (const [k, v] of Object.entries(value)) flatten(v, `${prefix}.${k}`, into)
 }
 
-const readContent = async (repo: string): Promise<Content> => {
+export const readContent = async (repo: string): Promise<Content> => {
   const content: Content = {}
   const languages = await readdir(join(repo, 'content')).catch(() => [])
   for (const language of languages) {

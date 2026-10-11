@@ -25,3 +25,7 @@ export const validateChange = (files: readonly ThemeFile[], context: GuardContex
   const problems = [...checked.problems, ...codeProblems, ...css, ...checkContent(checked.files, keys, store), ...checkRoutes(checked.files, store)].sort(byPlace)
   return { ok: problems.length === 0, problems }
 }
+export { checkAxe, checkBudgets, checkCheckout, checkClaims, checkContracts, checkCrawl, checkEdgeCases, checkNoJs, checkSealed, checkValidator, checkVisualDiff, fallbackPath, gateWidths, indexable, lookTolerance, pageBudgets, pageName, runGate, type GateInput, type PageRead, type PageRoute, type PageVisit, type PageWeight } from './gate/checks.js'
+export { edgeCases, type EdgeCase } from './gate/edgeCases.js'
+export { gateCheck, gateChecks, gateReport, maxDetail, type GateCheck, type GateCheckName, type GateReport } from './gate/report.js'
+export { catalogueSnapshotSchema, snapshotStoreSchema, type CatalogueSnapshot } from './gate/snapshot.js'
