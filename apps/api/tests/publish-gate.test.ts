@@ -120,8 +120,9 @@ describe('a publish’s build', () => {
     expect(sites.keys(stagingFolder(t.storeA2, runId))).toEqual([])
     expect(await db.sql`select 1 from storefront_push where store_id = ${t.storeA2}`).toHaveLength(0)
     expect((await db.sql<{ payload: { runId: string } }[]>`select payload from outbox where kind = 'storefront.publish' and store_id = ${t.storeA2}`).map((r) => r.payload.runId)).toContain(next)
-    const [entry] = await db.sql<{ action: string; changes: unknown }[]>`select action, changes from activity_log where store_id = ${t.storeA2} and action = 'storefront.publish_failed'`
-    expect(entry?.action).toBe('storefront.publish_failed')
+    // A design the gate refused is recorded as refused, naming the failing check (#318, LOGGING §3).
+    const [entry] = await db.sql<{ action: string; changes: unknown }[]>`select action, changes from activity_log where store_id = ${t.storeA2} and action = 'storefront.publish_refused'`
+    expect(entry?.action).toBe('storefront.publish_refused')
     await db.sql`update publish_run set state = 'failed' where id = ${next}`
   })
 

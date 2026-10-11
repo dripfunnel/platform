@@ -282,7 +282,8 @@ describe('the draft’s changes', () => {
     await draftWith(t.storeA1, [commit(801), commit(802)])
     const actor = { actorKind: 'person' as const, actorId: null, actorLabel: 'Owner', api: 'store' as const, requestId: null, ip: null, userAgent: null }
     expect(await goBack(db.sql, { storeId: t.storeA1, versionId: kept?.id ?? '', by: null, actor, now: new Date() })).toEqual({ ok: true })
-    expect((await db.sql<{ commits: string[] }[]>`select to_jsonb(commits) as commits from design_draft where store_id = ${t.storeA1}`)[0]?.commits).toEqual([])
+    // The draft is the version gone back to: no row, as after Discard (#318).
+    expect(await db.sql`select 1 from design_draft where store_id = ${t.storeA1}`).toHaveLength(0)
   })
 
   it('are listed as the studio accepts them', async () => {
