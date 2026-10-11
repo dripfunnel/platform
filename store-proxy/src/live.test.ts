@@ -73,6 +73,9 @@ describe('the live site', () => {
     expect(sites.asked.length).toBe(asked)
     expect(await text(`https://${hostA}/about/`)).toBe('A about')
     expect(await text(`https://${hostA}/about`)).toBe('A about')
+    // Any answer on a store's host is marked as the edge's, a 404 or a 301 too, so the checks can tell it from a proxy's.
+    expect((await get(`https://${hostA}/nowhere/`)).headers.get('x-df-build')).toBe(build1)
+    expect((await get(`https://${hostA}/products/old`)).headers.get('x-df-build')).toBe(build1)
   })
 
   it('caches the lookup for at most a minute, under the store’s, host’s and partner’s tags, and asks the API on a miss', async () => {

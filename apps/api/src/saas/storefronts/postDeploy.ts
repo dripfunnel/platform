@@ -61,6 +61,9 @@ const assetUrls = (html: string, base: URL, assetHost: string): URL[] => {
   }).slice(0, maxAssetsPerPage)
 }
 
+const notOurs = 'The store’s address isn’t answered by the platform’s edge (its DNS or a proxy in front).'
+const unreachable = 'The store’s address didn’t answer.'
+
 const outOfTime = (name: CheckName) => skip(name, 'Not checked: the checks ran out of time.')
 
 const checkPage = async (probe: EdgeProbe, target: CheckTarget, name: CheckName, path: string, inTime: () => boolean): Promise<CheckResult> => {
@@ -68,8 +71,10 @@ const checkPage = async (probe: EdgeProbe, target: CheckTarget, name: CheckName,
   const url = new URL(path, `https://${target.host}`)
   const page: ProbeAnswer | null = await probe.get(url.href)
   // No answer at all (DNS, TLS, timeouts) is the address's trouble, which the build before had too: never the build's.
-  if (!page || page.status === 0) return skip(name, 'The store’s address didn’t answer.')
-  if (page.status === 200 && page.build !== target.buildId) throw new Stale(name)
+  if (!page || page.status === 0) return skip(name, unreachable)
+  // An answer the edge Worker didn't give (a parked domain, a proxy in front) says nothing about the build.
+  if (page.build === null) return skip(name, notOurs)
+  if (page.build !== target.buildId) throw new Stale(name)
   if (page.status !== 200) return fail(name, `${path} answered ${page.status}.`)
   if (!page.contentType.startsWith('text/html')) return fail(name, `${path} isn’t a page.`)
   for (const asset of assetUrls(page.body, url, target.assetHost)) {
@@ -111,8 +116,11 @@ const checkOnce = async (probe: EdgeProbe, target: CheckTarget, inTime: () => bo
   const product = target.files.find((f) => productPage.test(f)) ?? null
   const checkout = target.files.find((f) => checkoutPage.test(f)) ?? null
   const slug = product ? (productPage.exec(product)?.[1] ?? null) : null
+  const home = await checkPage(probe, target, 'home', '/', inTime)
+  // An address that isn't ours, or doesn't answer, tells nothing more on any other path.
+  if (home.result === 'skipped' && (home.detail === notOurs || home.detail === unreachable)) return (['home', 'product', 'cart', 'checkout', 'payment'] as const).map((name) => skip(name, home.detail))
   return [
-    await checkPage(probe, target, 'home', '/', inTime),
+    home,
     product ? await checkPage(probe, target, 'product', pathOf(product), inTime) : skip('product', 'The build has no product page.'),
     inTime() ? await checkCart(probe, target, slug) : outOfTime('cart'),
     checkout ? await checkPage(probe, target, 'checkout', pathOf(checkout), inTime) : fail('checkout', 'The build has no checkout page.'),
