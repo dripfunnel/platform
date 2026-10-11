@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import worker from '../src/index'
+import { PortalProxy } from '../src/index'
 import { hashPassword } from '#auth/password'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { hashSessionId } from '#auth/session'
@@ -40,7 +40,7 @@ const env = () => ({
 })
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise, passThroughOnException: () => undefined } as unknown as ExecutionContext
 const call = (href: string, init: RequestInit = {}) =>
-  worker.fetch(new Request(href, { ...init, headers: { 'cf-connecting-ip': '203.0.113.7', ...init.headers } }) as Parameters<typeof worker.fetch>[0], env() as never, ctx)
+  new PortalProxy(ctx, env() as never).fetch(new Request(href, { ...init, headers: { 'cf-connecting-ip': '203.0.113.7', ...init.headers } }))
 
 /** A browser sends Origin and the cookie; the app sends neither, and its session as a bearer token. */
 type Way = 'browser' | 'app'

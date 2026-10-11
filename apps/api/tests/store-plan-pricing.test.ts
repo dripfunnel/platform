@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import worker from '../src/index'
+import { PortalProxy } from '../src/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -46,7 +46,7 @@ interface Plan {
 /** A server-side GET, as a partner's own site would make it: no Origin, no cookie. */
 const ask = async (args = '', h = host, e = env(), headers: Record<string, string> = { 'cf-connecting-ip': ip }): Promise<Answer> => {
   const query = encodeURIComponent(`{ pricing${args} ${fields} }`)
-  const response = await worker.fetch(new Request(`https://${h}/api?query=${query}`, { headers }) as Parameters<typeof worker.fetch>[0], e as never, ctx)
+  const response = await new PortalProxy(ctx, e as never).fetch(new Request(`https://${h}/api?query=${query}`, { headers }))
   return { status: response.status, body: response.headers.get('content-type')?.includes('json') ? ((await response.json()) as Answer['body']) : null }
 }
 
@@ -139,7 +139,7 @@ describe('pricing on a partner’s portal host', () => {
     const text = JSON.stringify(body)
     expect(body?.data?.pricing?.map((p) => p.name)).toEqual(['Basic', 'Growth'])
     for (const hidden of ['Coming soon', 'Legacy', 'B only', String(fee), String(ceiling), '0.8']) expect(text).not.toContain(hidden)
-    const asked = await worker.fetch(new Request(`https://${host}/api?query=${encodeURIComponent('{ pricing { name fee } }')}`, { headers: { 'cf-connecting-ip': ip } }) as Parameters<typeof worker.fetch>[0], env() as never, ctx)
+    const asked = await new PortalProxy(ctx, env() as never).fetch(new Request(`https://${host}/api?query=${encodeURIComponent('{ pricing { name fee } }')}`, { headers: { 'cf-connecting-ip': ip } }))
     expect(((await asked.json()) as { errors: { message: string }[] }).errors[0]?.message).toMatch(/Cannot query field "fee"/)
   })
 
@@ -151,10 +151,8 @@ describe('pricing on a partner’s portal host', () => {
   })
 
   it('answers the portal itself too: a POST from the host’s own origin', async () => {
-    const response = await worker.fetch(
-      new Request(`https://${host}/api`, { method: 'POST', headers: { origin: `https://${host}`, 'content-type': 'application/json', 'cf-connecting-ip': ip }, body: JSON.stringify({ query: '{ pricing { name } }' }) }) as Parameters<typeof worker.fetch>[0],
-      env() as never,
-      ctx,
+    const response = await new PortalProxy(ctx, env() as never).fetch(
+      new Request(`https://${host}/api`, { method: 'POST', headers: { origin: `https://${host}`, 'content-type': 'application/json', 'cf-connecting-ip': ip }, body: JSON.stringify({ query: '{ pricing { name } }' }) }),
     )
     expect(await response.json()).toEqual({ data: { pricing: [{ name: 'Basic' }, { name: 'Growth' }] } })
   })

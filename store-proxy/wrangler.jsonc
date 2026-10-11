@@ -10,7 +10,8 @@
     "dev": {
       "name": "dripfunnel-store-proxy-dev",
       "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev" },
-      "services": [{ "binding": "API", "service": "dripfunnel-api-dev" }],
+      // The API serves a partner's own host only on this entrypoint (SAAS.md §8, #426).
+      "services": [{ "binding": "API", "service": "dripfunnel-api-dev", "entrypoint": "PortalProxy" }],
       "routes": [{ "pattern": "*/*", "zone_name": "dripfunnel.ai" }]
     }
   }

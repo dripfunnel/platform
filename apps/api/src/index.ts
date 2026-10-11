@@ -1,4 +1,5 @@
 import type postgres from 'postgres'
+import { WorkerEntrypoint } from 'cloudflare:workers'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { createServer } from '#apis/graphql/server'
@@ -117,7 +118,7 @@ import { createCustomersService } from '#saas/customers/index'
 import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { createAppRegistryService } from '#saas/apps/index'
-import { resolveArea, type Area } from './router'
+import { resolveArea, type Area, type Entry } from './router'
 
 const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
@@ -462,10 +463,10 @@ const tooManyRequests = (retryAfterSeconds: number) =>
 
 // A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
 // caller is the session's person acting in the store the request names (ACCESS.md §4).
-const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext, entry: Entry): Promise<Response> => {
   if (!isStoreAuthPath(url.pathname) && !storeOriginAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
   const hyperdrive = config.HYPERDRIVE
-  if (!hyperdrive) return servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
+  if (!hyperdrive) return entry === 'portal' ? notFound() : servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const partnerId = await resolvePortalPartner(sql, url.hostname)
@@ -597,7 +598,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
   })
 }
 
-const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise<{ response: Response; area: Area | null }> => {
+const route = async (request: Request, env: Env, ctx: ExecutionContext, entry: Entry): Promise<{ response: Response; area: Area | null }> => {
   const url = new URL(request.url)
   let config
   try {
@@ -606,15 +607,16 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
     console.error(JSON.stringify({ code: 'config_invalid' }))
     return { response: new Response(null, { status: 500 }), area: null }
   }
-  const area = resolveArea(url, config)
+  const area = resolveArea(url, config, entry)
   if (!area) return { response: notFound(), area: null }
   if (area === 'hooks') return { response: await handleHooks(request, url, config, env, ctx), area }
-  if (isHealthPath(area, url.pathname)) {
+  // Through PortalProxy nothing answers before the host is found among the live portal rows.
+  if (entry === 'public' && isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id, env.ASSETS !== undefined), area }
   }
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
   if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
-  if (area === 'store') return { response: await handleStore(request, url, config, env, ctx), area }
+  if (area === 'store') return { response: await handleStore(request, url, config, env, ctx, entry), area }
   return { response: await handleShop(request, url, config, env, ctx), area }
 }
 
@@ -829,25 +831,34 @@ const runCron = async (cron: string, env: Env): Promise<void> => {
   })
 }
 
+const serve = async (request: Request, env: Env, ctx: ExecutionContext, entry: Entry): Promise<Response> => {
+  const started = Date.now()
+  const { response, area } = await guarded(request, () => route(request, env, ctx, entry))
+  wakeOutbox(request, response, env, ctx)
+  // LOGGING.md §9: ids, codes and timings only; the hostname carries no personal data.
+  logEvent({
+    event: 'request',
+    requestId: request.headers.get('cf-ray'),
+    api: area,
+    host: new URL(request.url).hostname,
+    status: response.status,
+    durationMs: Date.now() - started,
+  })
+  return response
+}
+
+/** A partner's own portal host, reached only through store-proxy's service binding (SAAS.md §8). */
+export class PortalProxy extends WorkerEntrypoint<Env> {
+  override fetch(request: Request): Promise<Response> {
+    return serve(request, this.env, this.ctx, 'portal')
+  }
+}
+
 // Wrangler finds a Workflow's class among the Worker's exports (wrangler.jsonc `workflows`).
 export const CreateStorefront = createStorefrontWorkflow(getClient)
 
 export default {
-  async fetch(request, env, ctx) {
-    const started = Date.now()
-    const { response, area } = await guarded(request, () => route(request, env, ctx))
-    wakeOutbox(request, response, env, ctx)
-    // LOGGING.md §9: ids, codes and timings only; the hostname carries no personal data.
-    logEvent({
-      event: 'request',
-      requestId: request.headers.get('cf-ray'),
-      api: area,
-      host: new URL(request.url).hostname,
-      status: response.status,
-      durationMs: Date.now() - started,
-    })
-    return response
-  },
+  fetch: (request, env, ctx) => serve(request, env, ctx, 'public'),
 
   // Each of wrangler.jsonc's crons runs its own group; the every-minute one is the backstop for any wake that never arrives.
   async scheduled(controller, env) {

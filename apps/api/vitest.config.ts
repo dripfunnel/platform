@@ -9,7 +9,7 @@ export default defineConfig({
   // Node loads Pothos and Yoga with the production build of graphql; without this, Vite gives
   // our own imports the development one, and graphql refuses types from a second copy.
   ssr: { resolve: { conditions: ['module', 'node'] } },
-  // The Workers runtime's own module, which Node lacks: the Workflow class's base, for tests that import the Worker.
+  // The Workers runtime's own module, which Node lacks: the entrypoint base classes for tests that import the Worker.
   resolve: { alias: { 'cloudflare:workers': fileURLToPath(new URL('./tests/support/cloudflareWorkers.ts', import.meta.url)) } },
   test: {
     // tests/ is the integration suite, which creates a database of its own per run and has
