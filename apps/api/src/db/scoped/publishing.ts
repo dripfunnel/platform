@@ -89,9 +89,11 @@ export const switchLive = async (tx: ScopedSql, run: RunRow, previous: string | 
 /** A failed run leaves the live build as it was; the mirror says live again when there is one (SAAS §9.1). */
 export const failRun = async (tx: ScopedSql, run: RunRow, error: string, at: Date): Promise<void> => {
   await tx`update publish_run set state = 'failed', error = ${error}, finished_at = ${at} where id = ${run.id} and state not in ('live', 'failed', 'rolled_back')`
+  // While another run builds, the mirror keeps saying so.
   await tx`
     update store set build_state = case when (select live_build_id from storefront where store_id = ${run.store_id}) is null then 'failed' else 'live' end
-    where id = ${run.store_id}`
+    where id = ${run.store_id}
+      and not exists (select 1 from publish_run where store_id = ${run.store_id} and id <> ${run.id} and state in ('building', 'checking', 'deploying'))`
 }
 
 export interface VersionRow {
@@ -124,31 +126,40 @@ export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: Versio
 /** Builds whose folders clean-up deletes: past the newest `keep` that went live, never live, never a version's (LIVE-SHOP §4 step 11). */
 export const selectExpiredBuilds = async (tx: ScopedSql, keep: number, limit: number): Promise<{ id: string; store_id: string }[]> =>
   tx<{ id: string; store_id: string }[]>`
-    select r.id, r.store_id from (
-      select id, store_id, state, files_deleted_at,
-        row_number() over (partition by store_id order by finished_at desc nulls last, created_at desc) as rank
-      from publish_run where state in ('live', 'rolled_back')
-    ) r
-    where r.rank > ${keep} and r.files_deleted_at is null
-      and not exists (select 1 from storefront f where f.live_build_id = r.id)
-      and not exists (select 1 from design_version v where v.build_id = r.id)
-    union all
-    select id, store_id from publish_run where state = 'failed' and files_deleted_at is null
+    select id, store_id from (
+      select r.id, r.store_id, r.created_at from (
+        select id, store_id, created_at, files_deleted_at,
+          row_number() over (partition by store_id order by finished_at desc nulls last, created_at desc) as rank
+        from publish_run where state in ('live', 'rolled_back')
+      ) r
+      where r.rank > ${keep} and r.files_deleted_at is null
+        and not exists (select 1 from storefront f where f.live_build_id = r.id)
+        and not exists (select 1 from design_version v where v.build_id = r.id)
+      union all
+      select id, store_id, created_at from publish_run where state = 'failed' and files_deleted_at is null
+    ) due
+    order by created_at, id
     limit ${limit}`
 
 export const markFilesDeleted = async (tx: ScopedSql, runId: string, at: Date): Promise<void> => {
   await tx`update publish_run set files_deleted_at = ${at} where id = ${runId}`
 }
 
-/** Stores whose latest live switch came after their preview folders were written: those folders, bar the current one, go. */
-export const selectPreviewCleanups = async (tx: ScopedSql, since: Date, limit: number): Promise<{ store_id: string; current: string | null; published_at: Date }[]> =>
+/** Stores with a live publish their preview folders haven't been tidied against yet, the longest waiting first. */
+export const selectPreviewCleanups = async (tx: ScopedSql, limit: number): Promise<{ store_id: string; current: string | null; published_at: Date }[]> =>
   tx<{ store_id: string; current: string | null; published_at: Date }[]>`
-    select f.store_id, d.preview_deploy_ref as current, max(r.finished_at) as published_at
-    from storefront f join publish_run r on r.store_id = f.store_id and r.state = 'live'
-    left join design_draft d on d.store_id = f.store_id
-    where r.finished_at >= ${since}
-    group by f.store_id, d.preview_deploy_ref
+    select store_id, current, published_at from (
+      select f.store_id, d.preview_deploy_ref as current, f.previews_tidied_at,
+        (select max(r.finished_at) from publish_run r where r.store_id = f.store_id and r.state = 'live') as published_at
+      from storefront f left join design_draft d on d.store_id = f.store_id
+    ) s
+    where published_at is not null and (previews_tidied_at is null or previews_tidied_at < published_at)
+    order by published_at, store_id
     limit ${limit}`
+
+export const markPreviewsTidied = async (tx: ScopedSql, storeId: string, publishedAt: Date): Promise<void> => {
+  await tx`update storefront set previews_tidied_at = ${publishedAt} where store_id = ${storeId}`
+}
 
 /** Stores closed for longer than SAAS §4.2's 90 days whose files are still in the buckets. */
 export const selectClosedStoresToErase = async (tx: ScopedSql, closedBefore: Date, limit: number): Promise<string[]> =>
