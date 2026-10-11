@@ -191,17 +191,21 @@ checking, deploying, live, failed, rolled back).
    environment sniffing (ARCHITECTURE §3.4) and the post-deploy checks from the edge (step 10)
    are there to catch.
 
-   **The image's steps, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build|check`):
-   each refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`) in its
-   environment, and checks the commit out of the source bundle itself. `build` runs the validator and the typecheck,
+   **The image's `build` step, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build`):
+   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`) in its
+   environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
    bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
    sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
    `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
    failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
-   same tree. `check` serves the site on 127.0.0.1 with each page's CSP and core's offline Shop API, drives the image's
-   Chromium, and writes the report and each HTML file's headers; any request leaving the machine is refused and fails
-   the page. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
+   same tree. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
    and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
+
+   **The image's `check` step, built on #483** (`node /opt/sandbox/dist/publish.js check`), in a fresh container with
+   the same refusals and its own checkout of the commit: it serves the built site on 127.0.0.1 with each page's CSP
+   and core's offline Shop API, drives the image's Chromium, and writes the gate's report and each HTML file's
+   headers. Any request leaving the machine is refused and fails its page, whether the routing or the page's own CSP
+   stops it; the page's error text stays out of the report.
 8. **Step `upload`:**
    - **After a passing report**, the API mints **an R2 temporary credential for the private
      `storefront-sites` bucket only, limited to a staging folder `stores/{id}/uploads/{build id}/`
