@@ -13,6 +13,7 @@ import {
   type CoreRoute,
   type ShopStoreSettings,
 } from '@dripfunnel/storefront-core'
+import { routeAt } from './routes'
 
 /** The theme's pages as the bundle's entry exports them, from routes.json (gate/bundle.ts). */
 export type ThemePages = { routes: Partial<Record<CoreRoute, ComponentType>>; custom: Record<string, ComponentType>; content: Record<string, Record<string, string>> }
@@ -23,7 +24,10 @@ const client = createShopClient(base ? { endpoint: studioShopEndpoint(base) } : 
 let root: Root | null = null
 let store: Promise<ShopStoreSettings | null> | null = null
 
-const pageFor = (pages: ThemePages, path: string): ComponentType | undefined => (path === '/' ? pages.routes.home : (pages.custom[path] ?? pages.routes.notFound))
+const pageFor = (pages: ThemePages, path: string): ComponentType | undefined => {
+  const found = routeAt(path, Object.keys(pages.custom))
+  return 'custom' in found ? pages.custom[found.custom] : (pages.routes[found.route] ?? pages.routes.notFound)
+}
 
 const render = async (pages: ThemePages): Promise<void> => {
   const element = document.getElementById('root')

@@ -1,0 +1,131 @@
+.page {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 1240px);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  margin-inline: auto;
+  padding: 40px 16px 8px;
+}
+
+.title {
+  max-width: 22ch;
+  margin: 0;
+  font-family: var(--heading-font);
+  font-size: 32px;
+  font-weight: var(--heading-weight);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-transform: var(--heading-case);
+}
+
+.lead {
+  max-width: 56ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 16px;
+}
+
+.action {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  padding: 0 22px;
+  border-radius: var(--button-radius);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.action:hover {
+  filter: brightness(0.94);
+}
+
+.action:focus-visible,
+.choice:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.choices {
+  display: grid;
+  width: 100%;
+  max-width: 560px;
+  gap: 12px;
+}
+
+.choice {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.split {
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr);
+  width: min(100%, 1240px);
+  gap: 24px;
+  margin-inline: auto;
+}
+
+.picture {
+  min-height: 280px;
+  margin-inline: 16px;
+  border-radius: var(--radius);
+  background: var(--picture-alt);
+}
+
+.details {
+  display: grid;
+  gap: 14px;
+  margin: 8px 0 0;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.term {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.value {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 900px) {
+  .page {
+    padding: 56px 32px 8px;
+  }
+
+  .title {
+    font-size: 40px;
+  }
+
+  .split {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .picture {
+    min-height: 480px;
+    margin: 56px 32px 0 0;
+  }
+}

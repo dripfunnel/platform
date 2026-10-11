@@ -1,0 +1,20 @@
+{
+  "hero": {
+    "eyebrow": "Welcome",
+    "title": "Welcome to {store}",
+    "lead": "Everyday things, chosen with care.",
+    "shop": "Shop now",
+    "story": "Our story"
+  },
+  "story": {
+    "eyebrow": "Our story",
+    "title": "Who we are",
+    "body": "Write a few lines about who you are, what you make and why you started.",
+    "more": "Read more"
+  },
+  "signup": {
+    "title": "Keep in touch",
+    "body": "Create an account to follow your orders and check out faster.",
+    "action": "Create an account"
+  }
+}
