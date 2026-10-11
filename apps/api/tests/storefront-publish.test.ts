@@ -3,6 +3,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { storefrontPublishDeliverer } from '#jobs/queues/deliverers/storefrontPublish'
 import { GiveUp, type Effect } from '#jobs/queues/outbox-relay'
 import { cleanStorefronts, goBack, keptBuilds, lookupLiveHost, runPublish, startPublish, type GoBackActor, type PublishDeps } from '#saas/storefronts/index'
+import { digestOf } from '#saas/builds/index'
 import { buildFolder, previewFolder, sourceBundle, stagingFolder, draftBundle, snapshotFile } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -18,8 +19,14 @@ let assets: FakeSites
 let drafts: FakeSites
 const shopsA1 = 'store-a1.shops.acme.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
-const steps = { do: (_: string, work: () => Promise<string>) => work() }
-const deps = (): PublishDeps => ({ sql: db.sql, sites, now: () => new Date() })
+// No "uploaded" ever arrives in these tests while a run waits: the wait ends as the Workflow's timeout does.
+const steps = {
+  do: (_: string, work: () => Promise<string>) => work(),
+  waitForUpload: async () => {
+    throw new Error('waitForEvent timed out')
+  },
+}
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, now: () => new Date() })
 const actor: GoBackActor = { actorKind: 'person', actorId: null, actorLabel: 'Owner', api: 'store', requestId: null, ip: null, userAgent: null }
 
 beforeAll(async () => {
@@ -46,11 +53,13 @@ const start = (storeId: string, n: number) =>
     startPublish(tx, { storeId, kind: 'design', commit: commit(n), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date() }),
   )
 const runIdOf = (r: Awaited<ReturnType<typeof start>>) => (r.ok ? r.runId : '')
-/** What #517's copy leaves in the build's folder. */
+/** A run's passing report and its upload, as #517's build calls leave them: one staged file under a frozen manifest. */
 const uploaded = async (storeId: string, runId: string) => {
-  await putText(sites, `${buildFolder(storeId, runId)}_manifest.json`, '{"files":[]}')
-  await putText(sites, `${buildFolder(storeId, runId)}index.html`, `<p>${runId}</p>`)
-  await putText(sites, `${stagingFolder(storeId, runId)}index.html`, 'staged')
+  const html = `<p>${runId}</p>`
+  const files = [{ path: 'index.html', sha256: await putText(sites, `${stagingFolder(storeId, runId)}index.html`, html), size: html.length }]
+  await db.sql`
+    update publish_run set gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(files)}, uploaded_at = now(),
+      upload_manifest = ${db.sql.json({ files })} where id = ${runId}`
 }
 const publishQueue = (storeId: string) => db.sql<{ payload: { runId: string } }[]>`select payload from outbox where kind = 'storefront.publish' and store_id = ${storeId} order by created_at`
 const live = async (storeId: string) => (await db.sql<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${storeId}`)[0]?.live_build_id ?? null
@@ -119,7 +128,7 @@ describe('a publish', () => {
     const runId = runIdOf(await start(t.storeA1, 3))
     await putText(sites, `${stagingFolder(t.storeA1, runId)}index.html`, 'staged')
     expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, steps)).toBe('failed')
-    expect(await runState(runId)).toEqual({ state: 'failed', error: 'build_missing' })
+    expect(await runState(runId)).toEqual({ state: 'failed', error: 'upload_timed_out' })
     expect(await live(t.storeA1)).toBe(before)
     expect(await lookupLiveHost(db.sql, shopsA1, { localhost: false })).toMatchObject({ buildId: before })
     expect(sites.keys(stagingFolder(t.storeA1, runId))).toEqual([])

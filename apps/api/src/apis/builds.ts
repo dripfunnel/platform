@@ -1,10 +1,10 @@
 import { z } from 'zod'
 import { json, readCapped } from '#core/http'
 import { logEvent } from '#core/log'
-import { BuildRefused, BuildUnavailable, gateReport, issueCredentials, reportBuild, startBuild, type BuildDeps } from '#saas/builds/index'
+import { BuildRefused, BuildUnavailable, gateReport, issueCredentials, reportBuild, reportUploaded, startBuild, type BuildDeps } from '#saas/builds/index'
 
 // `hooks.<host>/builds/*`: a store repo's locked workflow, and nothing else, calls these (storefront LIVE-SHOP.md §4
-// steps 5–8). No browser, no cookie: a GitHub OIDC token in `Authorization` and the build id in the body.
+// steps 5–9). No browser, no cookie: a GitHub OIDC token in `Authorization` and the build id in the body.
 
 export const buildsPrefix = '/builds/'
 
@@ -24,6 +24,7 @@ const steps: Record<string, Step> = {
   start: (deps, token, body) => startBuild(deps, token, buildOnly.parse(body).build),
   report: (deps, token, body) => reportBuild(deps, token, gateReport.parse(body)),
   credentials: (deps, token, body) => issueCredentials(deps, token, buildOnly.parse(body).build),
+  uploaded: (deps, token, body) => reportUploaded(deps, token, buildOnly.parse(body).build),
 }
 
 const bearer = (request: Request): string | null => /^Bearer ([A-Za-z0-9_\-.]{20,8192})$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? null

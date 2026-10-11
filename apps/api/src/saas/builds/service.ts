@@ -2,13 +2,13 @@ import type postgres from 'postgres'
 import type { JWTVerifyGetKey } from 'jose'
 import { z } from 'zod'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { bindBuildRun, recordGate, selectBuildForUpdate, type BuildRow } from '#db/scoped/builds'
+import { bindBuildRun, markUploaded, recordGate, selectBuildForUpdate, type BuildRow } from '#db/scoped/builds'
 import { acceptRun, TokenRefused, verifyActionsToken, type TokenRefusal } from '#integrations/github/oidc'
 import type { StorefrontR2 } from '#integrations/cloudflare/r2'
-import type { SitesBucket } from '#saas/storefronts/index'
+import type { SitesBucket } from '#saas/storefronts/templates'
 import { activityLog } from '#saas/activity/index'
 import { buildFolder, manifestName, snapshotFile, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
-import { manifestSchema } from './manifest'
+import { digestOf, manifestSchema, maxBuildFiles, type Manifest } from './manifest'
 
 // The build endpoints' rules (storefront LIVE-SHOP.md §4 steps 5–8, §9): each call proves its run by OIDC, names its
 // build id, and finds that build in the one state its step belongs to. Anything else is refused the same way.
@@ -18,7 +18,7 @@ export const buildLifetimeMs = 2 * 60 * 60 * 1000
 /** Every link and credential a run is given lasts 15 minutes (LIVE-SHOP §4 steps 3 and 8). */
 export const handoutSeconds = 15 * 60
 
-export type BuildRefusal = TokenRefusal | 'unknown_build' | 'no_repo' | 'expired_build' | 'other_run' | 'wrong_state' | 'bad_report'
+export type BuildRefusal = TokenRefusal | 'unknown_build' | 'no_repo' | 'expired_build' | 'other_run' | 'wrong_state' | 'manifest_refused'
 
 export class BuildRefused extends Error {
   override name = 'BuildRefused'
@@ -41,6 +41,8 @@ export interface BuildDeps {
   r2: StorefrontR2
   buckets: { sites: string; drafts: string }
   sites: SitesBucket
+  /** Tells the build's publish-storefront Workflow that "uploaded" was answered (LIVE-SHOP §4 step 9). */
+  wake: (buildId: string) => Promise<void>
   now: () => Date
 }
 
@@ -211,3 +213,41 @@ export const issueCredentials = (deps: BuildDeps, token: string, buildId: string
     await record(tx, build, build.runId, 'storefront.build_credentials_issued', 'success', null)
     return { endpoint: deps.r2.endpoint, bucket: deps.buckets.sites, prefix, ...credential, expiresAt: expiresAt(deps.now()) }
   })
+
+// The manifest's own size: a path, a hash, a size and a CSP per file at most.
+const maxManifestBytes = maxBuildFiles * 9_000
+
+/** The staged manifest, read once; null when it is missing, too large or not one. */
+const stagedManifest = async (sites: SitesBucket, key: string): Promise<Manifest | null> => {
+  const object = await sites.get(key)
+  if (!object) return null
+  const bytes = await object.arrayBuffer()
+  if (bytes.byteLength > maxManifestBytes) return null
+  try {
+    const parsed = manifestSchema.safeParse(JSON.parse(new TextDecoder().decode(bytes)))
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * "Uploaded" (LIVE-SHOP §4 step 9 item 1): the staged manifest is read once and kept only if its digest is the passing
+ * report's. Either way the upload is over: no credential after it, and the Workflow verifies or fails the build.
+ */
+export const reportUploaded = async (deps: BuildDeps, token: string, buildId: string): Promise<{ uploaded: true }> => {
+  const outcome = await withBuild(deps, token, buildId, async (tx, build) => {
+    if (build.uploaded_at !== null) return build.manifest_ok
+    if (build.state !== 'deploying' || build.gate?.['passed'] !== true) throw new BuildRefused('wrong_state')
+    const manifest = await stagedManifest(deps.sites, `${stagingFolder(build.store_id, build.id)}${manifestName}`)
+    const accepted = manifest !== null && (await digestOf(manifest.files)) === build.gate_digest ? manifest : null
+    await markUploaded(tx, build.id, accepted, deps.now())
+    await record(tx, build, build.runId, accepted ? 'storefront.build_uploaded' : 'storefront.build_failed', accepted ? 'success' : 'failed', accepted ? `${accepted.files.length} files` : 'manifest')
+    return accepted !== null
+  })
+  await deps.wake(buildId).catch(() => {
+    throw new BuildUnavailable('workflow_unavailable')
+  })
+  if (!outcome) throw new BuildRefused('manifest_refused')
+  return { uploaded: true }
+}

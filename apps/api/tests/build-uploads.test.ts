@@ -4,7 +4,8 @@ import worker from '../src/index'
 import { actionsIssuer, actionsKeys } from '#integrations/github/oidc'
 import { storefrontR2 } from '#integrations/cloudflare/r2'
 import { localActions } from '#integrations/local/builds'
-import { BuildRefused, buildLifetimeMs, issueCredentials, reportBuild, startBuild, type BuildDeps, type GateReport } from '#saas/builds/index'
+import { BuildRefused, buildLifetimeMs, digestOf, issueCredentials, reportBuild, reportUploaded, startBuild, UploadRefused, verifyUpload, type BuildDeps, type GateReport } from '#saas/builds/index'
+import { runPublish } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { fakeSites, putText, type FakeSites } from './support/sites'
@@ -31,6 +32,8 @@ const fakeCloudflare = (async (_: RequestInfo | URL, init?: RequestInit) => {
 }) as typeof fetch
 
 let deps: BuildDeps
+let assets: FakeSites
+const woken: string[] = []
 
 const claimsFor = (repo: { repo: string; id: number }, runId = '5001') => ({
   repository: `dripfunnel/${repo.repo}`,
@@ -105,7 +108,8 @@ beforeAll(async () => {
     await db.sql`update storefront set repo = ${repo.repo}, repo_id = ${repo.id}, repo_state = 'ready' where store_id = ${storeId}`
   }
   sites = fakeSites()
-  deps = { sql: db.sql, keys: actionsKeys(fakeGitHub), audience, org: 'dripfunnel', r2: storefrontR2(parent, fakeCloudflare), buckets: { sites: 'storefront-sites', drafts: 'storefront-drafts' }, sites, now: () => now }
+  assets = fakeSites()
+  deps = { sql: db.sql, keys: actionsKeys(fakeGitHub), audience, org: 'dripfunnel', r2: storefrontR2(parent, fakeCloudflare), buckets: { sites: 'storefront-sites', drafts: 'storefront-drafts' }, sites, wake: async (id) => void woken.push(id), now: () => now }
 }, 60_000)
 
 afterAll(async () => {
@@ -252,6 +256,7 @@ describe('the build calls through the Worker', () => {
     BUILD_RATE_LIMITER: { limit: async () => ({ success: true }) },
     CF_VERSION_METADATA: { id: 'test', tag: '' },
     STOREFRONT_SITES: sites,
+    PUBLISH_STOREFRONT: { get: async () => ({ sendEvent: async () => undefined }) },
     ...o,
   })
   const ctx = { waitUntil: (promise: Promise<unknown>) => promise, passThroughOnException: () => undefined } as unknown as ExecutionContext
@@ -268,17 +273,21 @@ describe('the build calls through the Worker', () => {
   const localToken = async (claims: Record<string, unknown>) => (await localActions()).mint(claims, 'https://hooks.localhost', new Date())
   const freshBuild = (storeId: string) => newBuild(storeId, { startedAt: new Date(Date.now() - 60_000) })
 
-  it('runs start, report and credentials for a verified run, and keeps no token or credential in logs or rows', async () => {
+  it('runs start, report, credentials and uploaded for a verified run, and keeps no token or credential in logs or rows', async () => {
     const logs = [vi.spyOn(console, 'log'), vi.spyOn(console, 'error'), vi.spyOn(console, 'warn')]
     const id = await freshBuild(t.storeA1)
     const auth = await localToken(claimsFor(repos.a1, '5901'))
+    const manifest = await manifestOf(site)
     expect((await call('start', auth, { build: id })).status).toBe(200)
-    expect((await call('report', auth, report(id))).status).toBe(200)
+    expect((await call('report', auth, { ...report(id), digest: await digestOf(manifest.files) })).status).toBe(200)
     const answer = await call('credentials', auth, { build: id })
     expect(answer.status).toBe(200)
     expect(answer.headers.get('cache-control')).toBe('no-store')
     const credential = (await answer.json()) as { secretAccessKey: string; sessionToken: string; prefix: string }
     expect(credential.prefix).toBe(`stores/${t.storeA1}/uploads/${id}/`)
+    for (const [path, text] of Object.entries(site)) await putText(sites, `${credential.prefix}${path}`, text)
+    await putText(sites, `${credential.prefix}_manifest.json`, JSON.stringify(manifest))
+    expect(await (await call('uploaded', auth, { build: id })).json()).toEqual({ uploaded: true })
     const logged = logs.flatMap((spy) => spy.mock.calls.map((c) => c.map(String).join(' ')))
     expect(logged.some((l) => l.includes('"event":"build_call"') && l.includes('credentials:accepted'))).toBe(true)
     const rows = (await db.sql<{ text: string }[]>`
@@ -312,8 +321,136 @@ describe('the build calls through the Worker', () => {
     const auth = await localToken(claimsFor(repos.a1, '6201'))
     expect((await call('start', auth, { build: crypto.randomUUID() }, env({ STOREFRONT_SITES: undefined }))).status).toBe(404)
     expect((await call('start', auth, { build: crypto.randomUUID() }, env({ GITHUB_LOCAL: undefined }))).status).toBe(404)
+    expect((await call('start', auth, { build: crypto.randomUUID() }, env({ PUBLISH_STOREFRONT: undefined }))).status).toBe(404)
     expect((await call('publish', auth, {})).status).toBe(404)
     const get = await worker.fetch(new Request('https://hooks.localhost/builds/start', { headers: { 'cf-connecting-ip': '203.0.113.7' } }) as Parameters<typeof worker.fetch>[0], env() as never, ctx)
     expect(get.status).toBe(404)
+  })
+})
+
+/** A built site: two pages, a hashed script and stylesheet, as the runner hands them to the check step. */
+const site = { 'index.html': '<!doctype html><title>Home</title>', 'p/blue/index.html': '<!doctype html><title>Blue</title>', '_next/static/app.3f2a.js': 'console.log(1)', '_next/static/app.9c1d.css': 'body{}' }
+const sha = async (text: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, '0')).join('')
+const manifestOf = async (files: Record<string, string>) => ({ files: await Promise.all(Object.entries(files).map(async ([path, text]) => ({ path, sha256: await sha(text), size: new TextEncoder().encode(text).length }))) })
+
+/** A build that passed with the digest of `files`, and the upload step's work: the files and the manifest staged. */
+const stagedBuild = async (storeId: string, repo: { repo: string; id: number }, runId: string, files: Record<string, string> = site) => {
+  const id = await newBuild(storeId)
+  const auth = await token(claimsFor(repo, runId))
+  const manifest = await manifestOf(files)
+  await reportBuild(deps, auth, { ...report(id), digest: await digestOf(manifest.files) })
+  await issueCredentials(deps, auth, id)
+  for (const [path, text] of Object.entries(files)) await putText(sites, `stores/${storeId}/uploads/${id}/${path}`, text)
+  await putText(sites, `stores/${storeId}/uploads/${id}/_manifest.json`, JSON.stringify(manifest))
+  return { id, auth, manifest }
+}
+
+const reads = (prefix: string) => {
+  const get = vi.spyOn(sites, 'get')
+  return () => get.mock.calls.map(([key]) => key).filter((key) => key.startsWith(prefix))
+}
+
+const verifyDeps = () => ({ sql: db.sql, sites, assets, now: () => now })
+const uploadOf = (id: string) => db.sql<{ uploaded_at: Date | null; upload_manifest: unknown; verified_at: Date | null; state: string; error: string | null }[]>`
+  select uploaded_at, upload_manifest, verified_at, state, error from publish_run where id = ${id}`.then((r) => r[0])
+const verifyRefusal = (work: Promise<unknown>) =>
+  work.then(
+    () => 'verified',
+    (error: unknown) => (error instanceof UploadRefused ? error.code : String(error)),
+  )
+
+describe('"uploaded"', () => {
+  it('keeps the manifest whose digest is the passing report’s, ends the credentials and wakes the run', async () => {
+    const { id, auth, manifest } = await stagedBuild(t.storeA1, repos.a1, '7001')
+    woken.length = 0
+    expect(await reportUploaded(deps, auth, id)).toEqual({ uploaded: true })
+    expect(await uploadOf(id)).toMatchObject({ upload_manifest: manifest, verified_at: null, state: 'deploying' })
+    expect(woken).toEqual([id])
+    expect(await refusal(issueCredentials(deps, auth, id))).toBe('wrong_state')
+    // A retry is answered the same and wakes the run again; nothing is read twice into the row.
+    expect(await reportUploaded(deps, auth, id)).toEqual({ uploaded: true })
+    expect(woken).toEqual([id, id])
+  })
+
+  it('refuses a manifest whose digest isn’t the report’s, and a missing one, and the build never verifies', async () => {
+    const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7101')
+    await putText(sites, `stores/${t.storeA2}/uploads/${id}/_manifest.json`, JSON.stringify(await manifestOf({ ...site, 'index.html': 'something else' })))
+    expect(await refusal(reportUploaded(deps, auth, id))).toBe('manifest_refused')
+    expect(await uploadOf(id)).toMatchObject({ upload_manifest: null })
+    expect((await uploadOf(id))?.uploaded_at).not.toBeNull()
+    expect(await refusal(reportUploaded(deps, auth, id))).toBe('manifest_refused')
+    expect(await verifyRefusal(verifyUpload(verifyDeps(), t.storeA2, id))).toBe('manifest_refused')
+    const missing = await stagedBuild(t.storeA2, repos.a2, '7102')
+    await sites.delete([`stores/${t.storeA2}/uploads/${missing.id}/_manifest.json`])
+    expect(await refusal(reportUploaded(deps, missing.auth, missing.id))).toBe('manifest_refused')
+  })
+
+  it('is refused before a passing report and to another run', async () => {
+    const id = await newBuild(t.storeA1)
+    const auth = await token(claimsFor(repos.a1, '7201'))
+    expect(await refusal(reportUploaded(deps, auth, id))).toBe('wrong_state')
+    const staged = await stagedBuild(t.storeA1, repos.a1, '7202')
+    expect(await refusal(reportUploaded(deps, await token(claimsFor(repos.a1, '7203')), staged.id))).toBe('other_run')
+  })
+})
+
+describe('the copy into the build’s folders', () => {
+  it('reads each staged object once and copies it only when it hashes to its entry; JS and CSS reach the public bucket from the private folder', async () => {
+    const { id, auth, manifest } = await stagedBuild(t.storeA1, repos.a1, '7301')
+    await reportUploaded(deps, auth, id)
+    const staged = reads(`stores/${t.storeA1}/uploads/${id}/`)
+    await verifyUpload(verifyDeps(), t.storeA1, id)
+    expect(staged().sort()).toEqual(Object.keys(site).map((p) => `stores/${t.storeA1}/uploads/${id}/${p}`).sort())
+    expect(sites.keys(`stores/${t.storeA1}/builds/${id}/`)).toEqual([...Object.keys(site), '_manifest.json'].map((p) => `stores/${t.storeA1}/builds/${id}/${p}`).sort())
+    expect(assets.keys('')).toEqual([`stores/${t.storeA1}/builds/${id}/assets/_next/static/app.3f2a.js`, `stores/${t.storeA1}/builds/${id}/assets/_next/static/app.9c1d.css`])
+    expect(JSON.parse(new TextDecoder().decode(sites.objects.get(`stores/${t.storeA1}/builds/${id}/_manifest.json`)?.bytes))).toEqual(manifest)
+    expect(sites.objects.get(`stores/${t.storeA1}/builds/${id}/index.html`)?.contentType).toBe('text/html; charset=utf-8')
+    expect((await uploadOf(id))?.verified_at).not.toBeNull()
+  })
+
+  it('never uses a file swapped in the staging folder after "uploaded", nor one added there', async () => {
+    const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7401')
+    await reportUploaded(deps, auth, id)
+    await putText(sites, `stores/${t.storeA2}/uploads/${id}/index.html`, '<script>steal()</script>')
+    await putText(sites, `stores/${t.storeA2}/uploads/${id}/extra.html`, 'not in the manifest')
+    expect(await verifyRefusal(verifyUpload(verifyDeps(), t.storeA2, id))).toBe('file_mismatch')
+    expect(sites.keys(`stores/${t.storeA2}/builds/${id}/`)).toEqual([])
+    expect(assets.keys(`stores/${t.storeA2}/builds/${id}/`)).toEqual([])
+    expect((await uploadOf(id))?.verified_at).toBeNull()
+  })
+
+  it('refuses a staged file that is missing', async () => {
+    const { id, auth } = await stagedBuild(t.storeA1, repos.a1, '7501')
+    await reportUploaded(deps, auth, id)
+    await sites.delete([`stores/${t.storeA1}/uploads/${id}/p/blue/index.html`])
+    expect(await verifyRefusal(verifyUpload(verifyDeps(), t.storeA1, id))).toBe('file_missing')
+  })
+})
+
+describe('a build from its report to live', () => {
+  const steps = { do: (_: string, work: () => Promise<string>) => work(), waitForUpload: async () => undefined }
+
+  it('goes live only after its upload is verified, through #317’s switch', async () => {
+    const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7601')
+    // Before "uploaded" the run waits, and with no upload the wait ends in a failure that leaves the live build alone.
+    const waiting = await newBuild(t.storeA1)
+    await db.sql`update publish_run set state = 'deploying' where id = ${waiting}`
+    const timeout = { ...steps, waitForUpload: async () => Promise.reject(new Error('timed out')) }
+    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: waiting, storeId: t.storeA1 }, timeout)).toBe('failed')
+    expect(await uploadOf(waiting)).toMatchObject({ state: 'failed', error: 'upload_timed_out' })
+    await reportUploaded(deps, auth, id)
+    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: id, storeId: t.storeA2 }, steps)).toBe('live')
+    expect((await db.sql<{ live_build_id: string }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`)[0]?.live_build_id).toBe(id)
+    expect(sites.keys(`stores/${t.storeA2}/uploads/${id}/`)).toEqual([])
+  })
+
+  it('fails a publish whose upload was swapped, and the pointer never moves', async () => {
+    const before = (await db.sql<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`)[0]?.live_build_id
+    const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7701')
+    await reportUploaded(deps, auth, id)
+    await putText(sites, `stores/${t.storeA2}/uploads/${id}/_next/static/app.3f2a.js`, 'fetch("https://evil.example")')
+    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: id, storeId: t.storeA2 }, steps)).toBe('failed')
+    expect(await uploadOf(id)).toMatchObject({ state: 'failed', error: 'file_mismatch', verified_at: null })
+    expect((await db.sql<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`)[0]?.live_build_id).toBe(before)
   })
 })
