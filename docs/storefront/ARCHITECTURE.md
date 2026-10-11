@@ -797,6 +797,16 @@ fits (suggested on #483).
   is read too. A p75 regression after a deploy starts a repair and is flagged in the admin
   console; a severe one (LCP or INP doubled, CLS above 0.25) also rolls back automatically.
   Without consent the field data is thinner, so the lab gates carry most of the weight.
+  **Built on #484:** core's `reportVitals` measures LCP, CLS (the largest session window) and INP (the slowest
+  interaction, one in fifty set aside) on every page and, when the page is left, sends one beacon to the store's own
+  `/shop-api/vitals` only if the shopper has agreed to analytics by then: the page kind, phone or desktop, and the
+  three measures, nothing else (the intake refuses any other field). The Shop API keeps them as each day's histograms
+  (`storefront_vitals_day`), never for a preview host. *Decided on #484:* the rule runs daily at 03:00 UTC and reads a
+  build once, after its first whole day live and within a week: the days after its switch day against the seven days
+  before it, per page kind and device, each side with at least 50 samples. Severe rolls back (the pointer move of
+  LIVE-SHOP §4 step 10, `vitals_regressed`, refused while a publish runs or once the build before is gone); a p75 a
+  fifth worse (CLS 0.02 more) is `regressed`, kept on `publish_run.vitals` for the admin console and the repair loop
+  (#483). Reading Google's CrUX data is a follow-up.
 
 ---
 

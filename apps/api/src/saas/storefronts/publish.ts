@@ -268,6 +268,27 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string): Prom
   return 'failed'
 }
 
+/**
+ * The regression rule's rollback of a build already live (ARCHITECTURE §9): the same pointer move back, refused while a
+ * publish runs, once the build moved on, or when clean-up removed the build before it.
+ */
+export const rollBackLiveBuild = (sql: postgres.Sql, input: { storeId: string; runId: string; code: string; now: Date }): Promise<boolean> =>
+  withSystemScope(sql, async (tx) => {
+    const storefront = await lockStorefront(tx, input.storeId)
+    const run = await selectRun(tx, input.runId)
+    if (!storefront || !run || run.store_id !== input.storeId || run.state !== 'live' || storefront.live_build_id !== run.id || !run.previous_build_id) return false
+    if (await hasActiveRun(tx, input.storeId)) return false
+    const [previous] = await tx<{ files_deleted_at: Date | null }[]>`select files_deleted_at from publish_run where id = ${run.previous_build_id}`
+    if (!previous || previous.files_deleted_at) return false
+    const versions = await rollBackRun(tx, run, input.code, input.now)
+    await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `rollback:${run.id}`, payload: { storeId: run.store_id, reason: 'rollback' }, partnerId: run.partner_id, storeId: run.store_id })
+    await activityLog.record(tx, {
+      ...systemEntry(run, 'storefront.rolled_back', 'failed', [{ field: 'version', before: versions.withdrawn === null ? null : String(versions.withdrawn), after: versions.back === null ? null : String(versions.back) }]),
+      reason: input.code,
+    })
+    return true
+  })
+
 const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing', UploadTimedOut: 'upload_timed_out' }
 // A step's error may come back from the Workflow runtime as a plain Error, so a refused upload's code travels as its message.
 const codeOf = (error: unknown): string => {

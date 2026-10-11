@@ -11,6 +11,7 @@ import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
 import { handleDownload, isDownloadPath } from '#apis/shop/downloads'
+import { handleVitals, vitalsPath } from '#apis/shop/vitals'
 import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache'
 import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
@@ -110,7 +111,7 @@ import { handleStudioFrame } from '#apis/studio/frame'
 import { frameClosed } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
-import { checkPreview, cleanStorefronts, lookupLiveHost, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
+import { checkPreview, cleanStorefronts, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
@@ -679,6 +680,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
+    if (url.pathname === vitalsPath) return handleVitals(request, context)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
   })
@@ -930,12 +932,19 @@ const cleanStorefrontFiles: CronJob = async (sql, _config, env) => {
   if (cleaned && cleaned.builds + cleaned.previews + cleaned.stores > 0) logEvent({ event: 'storefront_cleaned', api: 'system', code: 'cleaned', count: cleaned.builds + cleaned.previews + cleaned.stores })
 }
 
+// The real-user vitals regression rule (storefront ARCHITECTURE §9), once a day after the day's samples are in.
+const readStorefrontVitals: CronJob = async (sql) => {
+  await readVitalsRegressions(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'storefront_vitals_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [expireSms, relayOutbox],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
-  '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles],
+  '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles, readStorefrontVitals],
 }
 
 const runCron = async (cron: string, env: Env): Promise<void> => {
