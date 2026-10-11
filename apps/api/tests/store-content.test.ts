@@ -169,6 +169,13 @@ describe('blog posts', () => {
     expect(now.entry).toMatchObject({ status: 'published', waitingForPublish: true })
     expect(new Date(now.entry?.publishAt ?? '') <= clock).toBe(true)
     expect((await w.gql('owner', '{ blogPosts { nodes { slug } } }')).data?.['blogPosts']).toEqual({ nodes: [{ slug: 'a-capsule-for-fall' }, { slug: 'caring-for-linen' }] })
+    // A draft published later with no date of its own is dated when it goes out; a live one keeps its date on an edit.
+    const draft = await savePost('owner', { title: 'Linen care', publish: false })
+    const published = await savePost('owner', { title: 'Linen care' }, draft.entry?.id, 1)
+    expect(new Date(published.entry?.publishAt ?? '') > new Date(draft.entry?.publishAt ?? '')).toBe(true)
+    expect((await savePost('owner', { title: 'Linen care, again' }, draft.entry?.id, 2)).entry?.publishAt).toBe(published.entry?.publishAt)
+    expect((await savePost('owner', { title: 'A capsule for fall', publishAt: later, body: [] }, scheduled.entry?.id, 1)).entry?.status).toBe('scheduled')
+    await w.gql('owner', `mutation { deleteBlogPost(id: "${draft.entry?.id}") }`)
     // A post shares the store's paths with its pages, never another post's.
     expect((await savePost('owner', { title: 'Caring for linen' })).code).toBe('PATH_TAKEN')
     expect((await savePost('owner', { title: 'Contact', body: [{ kind: 'form' }] })).code).toBe('INVALID_INPUT')
@@ -181,7 +188,7 @@ describe('blog posts', () => {
       await db.sql`update plan_entitlement set enabled = true where plan_id = ${plan?.plan_id ?? ''} and key = 'blog'`
     }
     const logged = await db.sql<{ action: string }[]>`select action from activity_log where store_id = ${t.storeA1} and action like 'blog_post.%' order by occurred_at`
-    expect(logged.map((l) => l.action)).toEqual(['blog_post.saved', 'blog_post.saved', 'blog_post.deleted'])
+    expect(logged.map((l) => l.action)).toEqual([...Array<string>(6).fill('blog_post.saved'), 'blog_post.deleted', 'blog_post.deleted'])
   })
 })
 
