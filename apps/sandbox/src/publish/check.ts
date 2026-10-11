@@ -52,22 +52,20 @@ const pool = async <T, R>(items: readonly T[], work: (item: T) => Promise<R>): P
   return results
 }
 
-const htmlFiles = async (root: string, prefix = ''): Promise<string[]> =>
+/** Every file under `root`, by its path relative to it. */
+const allFiles = async (root: string, prefix = ''): Promise<string[]> =>
   (
     await Promise.all(
       (await readdir(join(root, prefix), { withFileTypes: true })).map((e) => {
         const rel = prefix ? `${prefix}/${e.name}` : e.name
-        return e.isDirectory() ? htmlFiles(root, rel) : Promise.resolve(rel.endsWith('.html') ? [rel] : [])
+        return e.isDirectory() ? allFiles(root, rel) : Promise.resolve([rel])
       }),
     )
   ).flat()
 
-const allFiles = async (root: string, prefix = ''): Promise<string[]> =>
-  (await Promise.all((await readdir(join(root, prefix), { withFileTypes: true })).map((e) => (e.isDirectory() ? allFiles(root, prefix ? `${prefix}/${e.name}` : e.name) : Promise.resolve([prefix ? `${prefix}/${e.name}` : e.name]))))).flat()
-
 /** Each HTML file's CSP header (ARCHITECTURE §3.5), from the store's sources and the file's own inline hashes. */
 const headersOf = async (root: string, snapshot: CatalogueSnapshot) => {
-  const pages = await Promise.all((await htmlFiles(root)).sort().map(async (path) => ({ path, html: await readFile(join(root, path), 'utf8') })))
+  const pages = await Promise.all((await allFiles(root)).filter((f) => f.endsWith('.html')).sort().map(async (path) => ({ path, html: await readFile(join(root, path), 'utf8') })))
   return pageHeaders(pages, (hashes) => storeCsp(snapshot.csp, hashes))
 }
 
