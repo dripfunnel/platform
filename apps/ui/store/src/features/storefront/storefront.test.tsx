@@ -249,6 +249,21 @@ describe('site settings › domains', () => {
     expect(domains.queryByLabelText(d.connectLabel)).toBeNull()
   })
 
+  it('sends one connect however often Enter is pressed while it is on its way', async () => {
+    let answer: (value: unknown) => void = () => undefined
+    api.connectDomain.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)))
+    await show({ tab: 'settings' })
+    const input = card(d.title).getByLabelText(d.connectLabel)
+    fireEvent.change(input, { target: { value: 'www.kesari.in' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(api.connectDomain).toHaveBeenCalledTimes(1)
+    api.loadDomains.mockResolvedValue(waiting)
+    await act(async () => answer(waiting.domains[1]))
+    await settle()
+    expect(card(d.title).queryByRole('alert')).toBeNull()
+  })
+
   it('waits for DNS with the records to copy, Check now and Cancel', async () => {
     api.loadDomains.mockResolvedValue(waiting)
     const writeText = vi.fn().mockResolvedValue(undefined)

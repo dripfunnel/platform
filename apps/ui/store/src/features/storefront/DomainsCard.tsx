@@ -46,7 +46,11 @@ export const DomainsCard = ({ domains, onDomains, canEdit, canUpgrade, api, onTo
   const pending = inProgress(domains.domains)
   useEffect(() => (pending ? pollWhileVisible(() => void reload(), sessionPollMs, { doc: document, win: window }) : undefined), [pending, reload])
 
+  // One action at a time: Enter in the host field reaches here without the disabled button.
+  const running = useRef(false)
   const act = async (key: string, work: () => Promise<void>, done?: string) => {
+    if (running.current) return
+    running.current = true
     setBusy(key)
     setProblem(null)
     try {
@@ -56,6 +60,7 @@ export const DomainsCard = ({ domains, onDomains, canEdit, canUpgrade, api, onTo
     } catch (error) {
       setProblem(domainRefusal(error))
     } finally {
+      running.current = false
       setBusy(null)
     }
   }
