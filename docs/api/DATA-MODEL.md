@@ -837,7 +837,8 @@ first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the relea
   highlights, warranty and returns text, badge labels, `seo_title` and `seo_description`,
   policies, compliance fields, and a promotion's shopper-facing name and description. The
   main-language text stays on the row itself and is required; other languages fall back to
-  it (facts 19–20). Compliance fields may be translated into a language the store does not
+  it (facts 19–20). A content page's or post's other languages are the exception, in
+  `storefront_content_translation` (§7.8), since its body is a document of blocks. Compliance fields may be translated into a language the store does not
   offer (fact 47).
 - **Snapshots, not references, on orders**: a line records the name, SKU, price, tax class,
   tax rate and zone, and classification code as sold; a discount records the promotion's
@@ -1879,7 +1880,15 @@ storefront_content  (id, store_id, kind ('page'|'post'), slug, title (≤200), b
                     -- asset_ids and product_ids are what it names. publish_at is a post's date (when a
                     -- scheduled one goes live) and null on a page; published_at is when it first went
                     -- live, so renaming one never live leaves no redirect; changed_at newer than the live
-                    -- build's publish_run.created_at means it waits for the next publish (SAAS §9.1)
+                    -- build's publish_run.created_at means it waits for the next publish (SAAS §9.1).
+                    -- Part 2 (0271): app_shop reads it by column while published, or scheduled and due;
+                    -- a cron job marks a due scheduled post published (FIRST-RELEASE §14)
+storefront_content_translation (content_id, store_id, language, title, body jsonb, seo_title NULL,
+                     seo_description NULL, asset_ids uuid[], product_ids uuid[], source_hash, updated_at)
+                    PRIMARY KEY (content_id, language)
+                    -- a page's or post's other languages (built on #338, migration 0271): its body is
+                    -- a document of blocks, so it doesn't fit §7.1's `translation` text rows; source_hash is
+                    -- the md5 of the main words it translated, as `translation`'s; the slug is the page's own
 storefront_vitals_day (store_id, day, page_kind, device ('phone'|'desktop'), samples,
                      lcp_p75_ms, inp_p75_ms, cls_p75)
                     -- real-user Core Web Vitals, recorded only after the shopper's consent
@@ -2258,11 +2267,12 @@ decide which columns and which tables each caller kind may select at all**. `app
   supplier branch.
 - **Storefront design, inside the store, merchant side only** (no supplier branch, and
   `app_supplier` has no grant on any of them): `design_draft`, `design_message` (the merchant's
-  prompts and pasted images), `storefront_brand`, `storefront_seo`, `storefront_content` and `storefront_redirect`.
+  prompts and pasted images), `storefront_brand`, `storefront_seo`, `storefront_content`, `storefront_content_translation` and `storefront_redirect`.
   Written through `app_request` under the `publish` capability (ACCESS §5: the Owner; the
   Manager reads; read-only in a support session); `storefront_redirect` is written by the
   engine and read at the edge in `system` scope; `storefront_brand` and `storefront_seo` also
-  have the shop read branch, by column, above.
+  have the shop read branch, by column, above, and so do `storefront_content` (live rows only) and its
+  translations (#338).
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version`, `core_rollout_store`, `storefront_vitals_day` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
