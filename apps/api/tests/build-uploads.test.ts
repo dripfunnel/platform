@@ -4,7 +4,7 @@ import worker from '../src/index'
 import { actionsIssuer, actionsKeys } from '#integrations/github/oidc'
 import { storefrontR2 } from '#integrations/cloudflare/r2'
 import { localActions } from '#integrations/local/builds'
-import { BuildRefused, buildLifetimeMs, issueCredentials, reportBuild, startBuild, type BuildDeps, type GateReport } from '#saas/builds/index'
+import { BuildRefused, BuildUnavailable, buildLifetimeMs, issueCredentials, reportBuild, startBuild, type BuildDeps, type GateReport } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { fakeSites, putText, type FakeSites } from './support/sites'
@@ -140,6 +140,15 @@ describe('the OIDC check on every call', () => {
       ['index.html', `/storefront-sites/stores/${t.storeA2}/builds/${live}/index.html`],
       ['assets/app.js', `/storefront-sites/stores/${t.storeA2}/builds/${live}/assets/app.js`],
     ])
+    await db.sql`update storefront set live_build_id = null where store_id = ${t.storeA2}`
+  })
+
+  it('says it is unavailable, never refused or a 500, when the live build’s manifest can’t be read', async () => {
+    const live = await newBuild(t.storeA2, { state: 'live' })
+    await db.sql`update storefront set live_build_id = ${live} where store_id = ${t.storeA2}`
+    await putText(sites, `stores/${t.storeA2}/builds/${live}/_manifest.json`, '{not json')
+    const id = await newBuild(t.storeA2)
+    expect(await startBuild(deps, await token(claimsFor(repos.a2, '6051')), id).catch((e: unknown) => e)).toBeInstanceOf(BuildUnavailable)
     await db.sql`update storefront set live_build_id = null where store_id = ${t.storeA2}`
   })
 
