@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { insertAiRun, moveDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
-import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type SandboxClient, type SandboxHost } from '#integrations/sandbox/index'
+import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost } from '#integrations/sandbox/index'
 import { draftBundle, previewFolder, sourceBundle, templateFiles, type SitesBucket } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal } from './model'
 
@@ -155,17 +155,28 @@ export class StudioRunner {
     if (!row || !template || !coreVersion) throw new StudioUnavailable('The store has no storefront to design yet.')
     const grant = await this.deps.capacity.acquire()
     if (!grant.granted) throw new StudioQueued(grant.place)
-    const host = await this.deps.host(coreVersion)
-    await host.start()
+    const host = await this.deps.host(coreVersion).catch(async (error: unknown) => {
+      await this.deps.capacity.release()
+      throw error
+    })
+    let loaded: Loaded
     const client = sandboxClient(host.send, storeId)
-    const saved = (await this.deps.drafts.get(draftBundle(storeId))) ?? (row.live_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.live_build_id)) : null)
-    if (!saved && row.live_build_id) throw new StudioUnavailable('The live build’s source is missing.')
-    const loaded = saved
-      ? await client.loadBundle(await saved.arrayBuffer())
-      : await (async () => {
-          const { skeleton, theme } = await templateFiles(this.deps.sites, coreVersion, template)
-          return client.loadFiles([...skeleton, ...theme], `Start from the ${template} template`)
-        })()
+    try {
+      await host.start()
+      const saved = (await this.deps.drafts.get(draftBundle(storeId))) ?? (row.live_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.live_build_id)) : null)
+      if (!saved && row.live_build_id) throw new StudioUnavailable('The live build’s source is missing.')
+      loaded = saved
+        ? await client.loadBundle(await saved.arrayBuffer())
+        : await (async () => {
+            const { skeleton, theme } = await templateFiles(this.deps.sites, coreVersion, template)
+            return client.loadFiles([...skeleton, ...theme], `Start from the ${template} template`)
+          })()
+    } catch (error) {
+      // A container this object can't use must not keep running, nor hold a place the next studio needs.
+      await host.stop().catch(() => undefined)
+      await this.deps.capacity.release()
+      throw error
+    }
     this.host = host
     this.client = client
     this.start = { template, coreVersion }
