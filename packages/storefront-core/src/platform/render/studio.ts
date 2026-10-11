@@ -38,20 +38,28 @@ export type HotReloadOptions<T> = {
   apply: (loaded: T) => void | Promise<void>
   open?: (url: string) => WebSocket
   scroll?: { read: () => [number, number]; restore: (x: number, y: number) => void }
+  /** Runs `run` after `ms`; a test's clock in tests. */
+  wait?: (ms: number, run: () => void) => void
 }
+
+/** A dropped socket is opened again after 1 second, doubling to at most 30 (a deploy, a network change, a sleep). */
+export const reconnectMs = { first: 1_000, most: 30_000 } as const
 
 /**
  * The hot-swap entry point (AI-STUDIO §4 step 5): each notice loads the new theme modules and puts the scroll back, so
  * the merchant keeps the page, the scroll and the width. Only the newest notice's bundle is applied, whatever order
- * the loads finish in.
+ * the loads finish in; a load that fails is tried again on the next notice, and a dropped socket is opened again.
  */
-export const connectHotReload = <T>({ base, origin, load, apply, open = (url) => new WebSocket(url), scroll }: HotReloadOptions<T>): (() => void) => {
+export const connectHotReload = <T>({ base, origin, load, apply, open = (url) => new WebSocket(url), scroll, wait = (ms, run) => void setTimeout(run, ms) }: HotReloadOptions<T>): (() => void) => {
   const socketUrl = new URL(`${base}__hot`, origin)
   socketUrl.protocol = socketUrl.protocol === 'https:' ? 'wss:' : 'ws:'
-  const socket = open(socketUrl.toString())
   let latest = ''
   let sequence = 0
-  socket.addEventListener('message', (event: MessageEvent) => {
+  let stopped = false
+  let delay: number = reconnectMs.first
+  let socket: WebSocket
+
+  const onMessage = (event: MessageEvent) => {
     let notice: unknown
     try {
       notice = JSON.parse(String(event.data))
@@ -59,14 +67,38 @@ export const connectHotReload = <T>({ base, origin, load, apply, open = (url) =>
       return
     }
     if (!isNotice(notice) || notice.id === latest) return
-    latest = notice.id
+    const id = notice.id
+    latest = id
     const mine = (sequence += 1)
-    void load(new URL(`${base}${notice.entry}`, origin).toString()).then(async (loaded) => {
-      if (mine !== sequence) return
-      const at = scroll?.read()
-      await apply(loaded)
-      if (at) scroll?.restore(at[0], at[1])
+    void load(new URL(`${base}${notice.entry}`, origin).toString())
+      .then(async (loaded) => {
+        if (mine !== sequence) return
+        const at = scroll?.read()
+        await apply(loaded)
+        if (at) scroll?.restore(at[0], at[1])
+      })
+      .catch(() => {
+        // The frame keeps the theme it shows; the same bundle is loaded again when it is announced again.
+        if (latest === id) latest = ''
+      })
+  }
+
+  const connect = () => {
+    socket = open(socketUrl.toString())
+    socket.addEventListener('open', () => {
+      delay = reconnectMs.first
     })
-  })
-  return () => socket.close()
+    socket.addEventListener('message', onMessage)
+    socket.addEventListener('close', () => {
+      if (stopped) return
+      wait(delay, connect)
+      delay = Math.min(delay * 2, reconnectMs.most)
+    })
+  }
+
+  connect()
+  return () => {
+    stopped = true
+    socket.close()
+  }
 }

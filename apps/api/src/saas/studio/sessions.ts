@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import type { TenantContext } from '#core/tenancy'
 import { storeRoleHas, type StoreRole } from '#auth/storePermissions'
+import { idleMs, rememberIdleMs } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { deleteStudioSession, insertStudioSession, renewStudioSession, selectLiveStudioSession } from '#db/scoped/studio'
 
@@ -64,7 +65,7 @@ export const renewStudio = async (sql: postgres.Sql, context: TenantContext, rol
 
 /** By the hash a frame's WebSocket is tagged with: the alarm closes it once this answers null. */
 export const liveStudioSessionHash = async (sql: postgres.Sql, storeId: string, idHash: string, now: Date): Promise<{ userId: string; access: StudioAccess } | null> => {
-  const row = await withSystemScope(sql, (tx) => selectLiveStudioSession(tx, storeId, idHash, now))
+  const row = await withSystemScope(sql, (tx) => selectLiveStudioSession(tx, storeId, idHash, now, { idleMs, rememberIdleMs }))
   return row ? { userId: row.user_id, access: row.can_change ? 'change' : 'view' } : null
 }
 

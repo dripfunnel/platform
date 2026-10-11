@@ -5,7 +5,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { selectStudioPortalHost } from '#db/scoped/studio'
-import { capacityLedger, defaultStudioCapacity, frameClosed, hashStudioSession, studioStoreHeader, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type DesignModel, type Grant } from '#saas/studio/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -16,8 +16,7 @@ export interface StudioEnv extends Record<string, unknown> {
   STUDIO_CAPACITY?: CapacityNamespace | undefined
 }
 
-/** AI-STUDIO §9: a container stops after 10 idle minutes; the alarm looks every minute while it runs. */
-export const studioIdleMs = 10 * 60 * 1000
+/** The alarm looks every minute while a container may run (AI-STUDIO §7). */
 const tickMs = 60 * 1000
 
 export type StudioState = { state: 'ready' } | { state: 'queued'; place: number } | { state: 'unavailable' }
@@ -170,17 +169,26 @@ export const studioSessionClass = (connect: Connect) =>
     override async alarm(): Promise<void> {
       await this.closeEndedSockets()
       const runner = this.runner
-      if (!runner?.loaded) {
+      const storeId = await this.ctx.storage.get<string>('store')
+      const capacity = this.env.STUDIO_CAPACITY
+      const ledger = capacity ? capacity.get(capacity.idFromName('account')) : null
+      const step = alarmStep({ loaded: runner?.loaded ?? false, containerRunning: this.ctx.container?.running ?? false, pending: runner?.pending ?? 0, idleForMs: Date.now() - this.lastActive })
+      if (step === 'rest') {
+        // Open frames still need their sockets closed when their sessions end.
         if (this.ctx.getWebSockets().length > 0) await this.ctx.storage.setAlarm(Date.now() + tickMs)
         return
       }
-      if (runner.pending === 0 && Date.now() - this.lastActive >= studioIdleMs) {
+      if (step === 'stop-orphan') {
+        await this.ctx.container?.destroy()
+        if (storeId && ledger) await ledger.release(storeId)
+        return
+      }
+      if (!runner) return
+      if (step === 'idle-stop') {
         await runner.stop()
         return
       }
-      const storeId = await this.ctx.storage.get<string>('store')
-      const capacity = this.env.STUDIO_CAPACITY
-      const lease = storeId && capacity ? await capacity.get(capacity.idFromName('account')).acquire(storeId) : null
+      const lease = storeId && ledger ? await ledger.acquire(storeId) : null
       // A lease that lapsed while the account filled up isn't renewed: the container stops rather than run over the limit.
       if (lease && !lease.granted) {
         await runner.stop()
@@ -191,13 +199,16 @@ export const studioSessionClass = (connect: Connect) =>
 
     /** A removed user's or signed-out frame stops within a minute of its session ending (AI-STUDIO §8 "Short-lived"). */
     private async closeEndedSockets(): Promise<void> {
+      const sockets = this.ctx.getWebSockets()
+      if (sockets.length === 0) return
       const storeId = await this.ctx.storage.get<string>('store')
+      // After an eviction the sockets outlive the runner: rebuild it to ask, rather than close every frame unasked.
+      if (storeId) await this.runnerFor(storeId).catch(() => null)
       const db = this.db
-      for (const socket of this.ctx.getWebSockets()) {
-        const [hash] = this.ctx.getTags(socket)
-        const live = storeId && db && hash ? await db((sql) => liveStudioSessionHash(sql, storeId, hash, new Date())) : null
-        if (!live) socket.close(1008, 'closed')
-      }
+      await closeEndedSockets(
+        sockets.map((socket) => ({ tag: this.ctx.getTags(socket)[0], close: () => socket.close(1008, 'closed') })),
+        async (hash) => (storeId && db ? (await db((sql) => liveStudioSessionHash(sql, storeId, hash, new Date()))) !== null : false),
+      )
     }
 
     /** The frame's hot reload (AI-STUDIO §4 step 5) to every open frame of this store. */

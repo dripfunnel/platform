@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { TenantContext } from '#core/tenancy'
 import { handleStudioFrame, type StudioFrameStub } from '#apis/studio/frame'
-import { liveStudioSession, openStudioSession, serveFrame } from '#saas/studio/index'
+import { closeEndedSockets, hashStudioSession, studioStoreHeader, liveStudioSession, liveStudioSessionHash, openStudioSession, serveFrame } from '#saas/studio/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -134,5 +134,45 @@ describe('the studio frame', () => {
     await frame(`${keys['A1']}.${domain}`, `/__studio/${session}/shop-api`)
     await frame(`${keys['B1']}.${domain}`, `/__studio/${session}/`)
     expect(lines.filter((l) => l.includes(session))).toEqual([])
+  })
+
+  it('closes the hot-reload socket of a session that ended, and leaves a live one open (AI-STUDIO §8)', async () => {
+    const [user] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'socket.a1@studio.example', 'Socket', 'active') returning id`
+    const hash = 'e'.repeat(64)
+    await db.sql`insert into user_session (id_hash, user_id, partner_id, absolute_expires_at) values (${hash}, ${user?.id ?? ''}, ${t.partnerA}, now() + interval '1 day')`
+    const context: TenantContext = { caller: { kind: 'person', userId: user?.id ?? '', sessionId: hash }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    const ending = (await openStudioSession(db.sql, context, owner, new Date()))?.id ?? ''
+    const closed: string[] = []
+    const sockets = [
+      { tag: await hashStudioSession(session), close: () => void closed.push('live') },
+      { tag: await hashStudioSession(ending), close: () => void closed.push('ending') },
+      { tag: undefined, close: () => void closed.push('untagged') },
+    ]
+    const live = async (idHash: string) => (await liveStudioSessionHash(db.sql, t.storeA1, idHash, new Date())) !== null
+    expect(await closeEndedSockets(sockets, live)).toBe(1)
+    expect(closed).toEqual(['untagged'])
+    // Signing out ends the session at once; the next sweep closes its socket and only its socket.
+    await db.sql`delete from user_session where id_hash = ${hash}`
+    closed.length = 0
+    expect(await closeEndedSockets(sockets, live)).toBe(2)
+    expect(closed).toEqual(['ending', 'untagged'])
+  })
+
+  it('refuses, before any check or read, a frame request naming a store other than the object’s own', async () => {
+    const asked: string[] = []
+    const server = {
+      storeId: t.storeA1,
+      live: async () => (asked.push('live'), true),
+      loaded: () => true,
+      open: () => undefined,
+      origins: async () => ({ media: 'https://a.example', portal: 'https://p.example' }),
+      file: async () => (asked.push('file'), new Response('x')),
+      socket: async () => (asked.push('socket'), new Response('x')),
+    }
+    for (const header of [t.storeB1, '']) {
+      const r = await serveFrame(new Request(`https://${keys['A1']}.${domain}/__studio/${session}/`, { headers: header ? { [studioStoreHeader]: header } : {} }), server)
+      expect(r.status).toBe(404)
+    }
+    expect(asked).toEqual([])
   })
 })

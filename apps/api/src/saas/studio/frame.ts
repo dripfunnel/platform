@@ -85,3 +85,17 @@ export const serveFrame = async (request: Request, server: FrameServer): Promise
   if (!response || !response.ok) return frameClosed()
   return dressFrameResponse(response, base)
 }
+
+/** A frame's hot-reload socket as the sweep sees it: the tag it was accepted with, its session's hash. */
+export type FrameSocket = { tag: string | undefined; close: () => void }
+
+/** AI-STUDIO §8 "Short-lived": every socket whose session is no longer live is closed; the others stay open. */
+export const closeEndedSockets = async (sockets: readonly FrameSocket[], live: (idHash: string) => Promise<boolean>): Promise<number> => {
+  let closed = 0
+  for (const socket of sockets) {
+    if (socket.tag && (await live(socket.tag))) continue
+    socket.close()
+    closed += 1
+  }
+  return closed
+}

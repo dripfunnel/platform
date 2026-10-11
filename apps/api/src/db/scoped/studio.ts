@@ -108,12 +108,20 @@ export const insertStudioSession = async (
     values (${s.idHash}, ${s.storeId}, ${s.userId}, ${s.userSessionHash}, ${s.canChange}, ${s.at}, ${s.expiresAt})`
 }
 
-/** Live: unexpired, for this store, and its portal session still signed in (AI-STUDIO §8 "Bound"). */
-export const selectLiveStudioSession = async (tx: ScopedSql, storeId: string, idHash: string, at: Date): Promise<StudioSessionRow | null> =>
+/** How long a portal session may sit idle (ACCESS §4), given by the caller: auth/storeSession owns the numbers. */
+export type PortalIdle = { idleMs: number; rememberIdleMs: number }
+
+/**
+ * Live: unexpired, for this store, and its portal session still signed in by readUserSession's own test (AI-STUDIO §8
+ * "Bound"): a full session, inside its absolute and idle bounds. The idle window isn't slid here: only the portal does.
+ */
+export const selectLiveStudioSession = async (tx: ScopedSql, storeId: string, idHash: string, at: Date, portal: PortalIdle): Promise<StudioSessionRow | null> =>
   (
     await tx<StudioSessionRow[]>`
       select t.user_id, t.can_change from studio_session t join user_session u on u.id_hash = t.user_session_hash
-      where t.id_hash = ${idHash} and t.store_id = ${storeId} and t.expires_at > ${at} and u.absolute_expires_at > ${at}`
+      where t.id_hash = ${idHash} and t.store_id = ${storeId} and t.expires_at > ${at}
+        and u.stage = 'full' and u.absolute_expires_at > ${at}
+        and u.last_seen_at > ${at}::timestamptz - case when u.remember then ${`${portal.rememberIdleMs} milliseconds`}::interval else ${`${portal.idleMs} milliseconds`}::interval end`
   )[0] ?? null
 
 /** Renewed only for the user and portal session that opened it, with the access the re-check just found. */
