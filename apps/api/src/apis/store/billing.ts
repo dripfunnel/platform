@@ -5,7 +5,7 @@ import type { CatalogExportDto } from '#engine/modules/catalog/index'
 import { createStoreBillingService, createStoreDataExport, storeBillingAudit, storeDataAudit, type BillingSubscriptionDto, type StoreBillingRefusal, type StoreBillingResult } from '#saas/storeBilling/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
-import { moneyType, pageInfoType, type StoreBuilder } from './builder'
+import { moneyType, pageInfoType, planValueType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
 // Billing (FIRST-RELEASE §16, PortalBilling, PortalKeep; SAAS §7): the Owner's (`billing`; the data export `store.export`).
@@ -82,17 +82,7 @@ export const registerBilling = (builder: StoreBuilder) => {
   })
 
   type PlanDto = Awaited<ReturnType<ReturnType<typeof createStoreBillingService>['planCatalogue']>>[number]
-  const PlanValue = builder.objectRef<PlanDto['values'][number]>('BillingPlanValue').implement({
-    fields: (t) => ({
-      key: t.exposeString('key'),
-      // switch, amount or choice (SAAS §6.1)
-      kind: t.exposeString('kind'),
-      enabled: t.exposeBoolean('enabled', { nullable: true }),
-      // Null for a switch, or when unlimited; a choice is its index.
-      amount: t.exposeInt('amount', { nullable: true }),
-      unlimited: t.exposeBoolean('unlimited'),
-    }),
-  })
+  const PlanValue = planValueType(builder)
   const Plan = builder.objectRef<PlanDto>('BillingPlan').implement({
     fields: (t) => ({
       id: t.exposeID('id'),

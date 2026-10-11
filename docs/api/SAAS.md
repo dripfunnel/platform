@@ -359,6 +359,20 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 - Allowed storefront templates, regions, currencies, languages, payment and courier providers,
   whether vendors are offered, and defaults for new stores are partner-level settings within
   platform limits (fact 19, G4–G5).
+- **The partner's pricing page reads its live plans from the Store API** (decided 2026-10-08 with
+  Gaurav on #459; built there, API only, no screen): `pricing(currency)`, public, on the partner's
+  portal host. The partner is the host's, found as `brand` finds it, never an argument. It answers
+  the partner's **live** plans by name (the portal's plan order), up to 100, each with its name,
+  description, the current version's trial days, its monthly and yearly price per currency as minor
+  units with the currency (a currency with neither is left out), and its settings by key as Billing
+  reads them (`BillingPlanValue`: a switch's `enabled`, a number's `amount`, `unlimited`, a choice as
+  its index in `planKeys.ts`). Asked for a currency, a plan keeps only that currency's prices and is
+  listed with none when it has none: nothing is converted. Never a draft or retired plan,
+  DripFunnel's fee, the ceilings or the contract. Rate-limited per host and address on
+  `SHOP_RATE_LIMITER`, `RATE_LIMITED` with no address or no limiter. A partner's own site reads it
+  server-side, with a GET (no Origin needed) or from the portal host; there is no CORS. *Decided
+  here*: name order, since plans hold no display order; no gate on the partner's state, as `brand`
+  has none and a closed partner's host already answers 404.
 
 ### 6.2 Enforcement
 
@@ -792,7 +806,7 @@ store (§5.5 there).
 | **Approve** or send back a partner; pause, offboard, close | | Request only | Partner manager, Super admin |
 | Look, words, email templates, email sender | | Own | Any |
 | Partner domains (portal host, wildcards) | | Own | Any; re-check |
-| Plans, prices, entitlement values, "Publish now" allowance | Read own plan and usage | **Edit own**, within ceilings | Any; set ceilings |
+| Plans, prices, entitlement values, "Publish now" allowance | Read own plan and usage; public: the host partner's live plans (`pricing`, §6.1) | **Edit own**, within ceilings | Any; set ceilings |
 | Automatic publish interval | Read next run | Set per plan, never more often than hourly (decided 2026-10-05 on #337) | Set default and per-plan overrides |
 | Merchant signup | Sign-up on the portal host | Create a merchant (invitation) | Create for any partner |
 | Store state: trial extension, suspend, restore, close | Owner: cancel own | Own stores, account level *(ask suspend)* | Any; move to another partner (second approver) |

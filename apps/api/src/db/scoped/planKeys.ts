@@ -107,3 +107,21 @@ export const backfillOf = (def: PlanKeyDef): { enabled: boolean | null; amount: 
 /** Every key at its backfill value; a plan's own values go over it. A new plan in the console starts from the editor's blanks, not from this. */
 export const defaultEntitlements = (): Entitlements =>
   Object.fromEntries(planKeyDefs.map((d) => [d.key, d.kind === 'switch' ? backfillOf(d).enabled : backfillOf(d).amount])) as Entitlements
+
+/** One setting as a plan's reader sees it: a switch's `enabled`, a number's `amount`, and Unlimited said rather than shown. */
+export interface PlanValue {
+  key: PlanKey
+  kind: PlanKeyDef['kind']
+  enabled: boolean | null
+  amount: number | null
+  unlimited: boolean
+}
+
+/** A version's stored values in the registry's order; a key the version doesn't hold is left out. */
+export const planValuesOf = (values: Partial<Entitlements>): PlanValue[] =>
+  planKeyDefs.flatMap((d) => {
+    const value = (values as Partial<Record<PlanKey, boolean | number>>)[d.key]
+    if (value === undefined) return []
+    const amount = typeof value === 'number' ? value : null
+    return [{ key: d.key, kind: d.kind, enabled: typeof value === 'boolean' ? value : null, amount: amount === UNLIMITED ? null : amount, unlimited: amount === UNLIMITED }]
+  })
