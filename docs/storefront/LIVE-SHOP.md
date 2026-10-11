@@ -380,7 +380,8 @@ What the edge Worker does on each request to a storefront host.
    `/new/?ref=old` is ignored rather than followed), its client-rendered fallbacks (`prefix`, `page`: a path
    under the prefix with no file gets that page) and its 404 page (`notFound`), read only when a path has no file. A page
    path is `{path}/index.html`; anything that isn't plain names (`..`, an encoded slash or backslash, a control character)
-   is a 404 before R2 is asked. **Built on #484:** a path with no file and no `_edge.json` redirect is asked of the API's
+   is a 404 before R2 is asked. **Built on #484:** a product address (`/products/{slug}` or `/{lang}/products/{slug}`, the
+   only kind with a row, so no other missing path costs a database read) with no file and no `_edge.json` redirect is asked of the API's
    `StorefrontEdge.redirect` for the hostname's store (`storefront_redirect`, DATA-MODEL §7.8: a renamed product's old
    address, without its trailing slash), cached like the lookup, at most 60 seconds under the store's tag; its answer
    is a plain path on the store's own host or nothing, so a rename's 301 needs no rebuild. Every answer from a build

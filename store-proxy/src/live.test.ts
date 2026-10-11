@@ -144,6 +144,9 @@ describe('the live site', () => {
     edge.redirects.set(`${storeA}/about`, { to: '/elsewhere' })
     expect(await text(`https://${hostA}/about`)).toBe('A about')
     expect(edge.calls).not.toContain(`redirect ${storeA}/about`)
+    // Any other missing path is answered without asking the API, so it can't be used to load the database.
+    for (const path of ['/a1', '/nowhere/x', '/products/Upper', '/products/a/b', '/en-in/products/x.html']) await get(`https://${hostA}${path}`)
+    expect(edge.calls.filter((c) => c.startsWith(`redirect ${storeA}`))).toEqual([`redirect ${storeA}/en-in/products/old-mug`])
   })
 
   it('serves the store’s own IndexNow key at its key file, and no other store’s', async () => {
