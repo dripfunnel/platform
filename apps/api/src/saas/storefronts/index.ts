@@ -1,7 +1,7 @@
 export { createFailedMessage, runCreateStorefront, type CreateDeps, type CreateParams, type StepRunner } from './create'
 export { commitToMain, pushToRepo, type PushDeps, type PushReason, type PushResult, type RepoFile } from './push'
 export { templateFiles, type SitesBucket } from './templates'
-export { draftBundle, previewFolder, sourceBundle } from './layout'
+export { draftBundle, previewFolder, publishedTheme, sourceBundle } from './layout'
 export { dispatchBuild, freezeBuild, FreezeRefused, freezeRefusals, guardContextFor, type FreezeDeps } from './freeze'
 export { createStorefrontParams, startStorefront, storefrontCreateKind, type CreateStorefrontParams, type StartResult } from './start'
 export { edgeCacheTags, lookupLiveHost, lookupRedirects, maxEdgeRedirects, type EdgeState, type LiveHost } from './edge'

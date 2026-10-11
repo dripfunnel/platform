@@ -30,6 +30,7 @@ import {
   selectStorefrontHost,
   selectVersion,
   setBisectCommit,
+  selectNewerSecurityCore,
   setRepairAttempts,
   startRun,
   switchLive,
@@ -45,7 +46,8 @@ import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'
 import { maxRepairs } from '#saas/studio/index'
 import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
-import { buildFolder, manifestName, stagingFolder } from './layout'
+import { buildFolder, manifestName, publishedTheme, stagingFolder } from './layout'
+import type { PushResult, RepoFile } from './push'
 import { manifestSchema } from './manifest'
 import { failedCheck, runPostDeployChecks, type CheckResult } from './postDeploy'
 import { deletePrefix, type SitesBucket } from './templates'
@@ -125,6 +127,8 @@ export interface PublishDeps extends FreezeDeps {
   /** `sf-assets.<EDGE_ZONE>` (LIVE-SHOP §2): with the store's own host, the only one whose scripts the checks load. */
   assetHost: string
   wait: (ms: number) => Promise<void>
+  /** The push API (`push.ts`) through the GitHub App; absent where GitHub isn't configured, and then nothing is pushed. */
+  push?: (input: { storeId: string; buildId: string; version: number; files: RepoFile[] }) => Promise<PushResult>
 }
 
 /**
@@ -270,6 +274,29 @@ const confirmStep = async (deps: PublishDeps, p: PublishParams, buildId: string)
   return confirmed ? 'live' : 'stopped'
 }
 
+const themeSchema = z.object({ files: z.array(z.object({ path: z.string(), content: z.string() })).max(1000) })
+
+/**
+ * A design publish that stayed live reaches the public repo's main as one squashed commit with a platform-written message
+ * (AI-STUDIO §6 step 4), from the theme the studio kept for that commit; a failed push leaves the live site as it is.
+ */
+const pushStep = async (deps: PublishDeps, p: PublishParams, buildId: string): Promise<string> => {
+  const run = await withSystemScope(deps.sql, async (tx) => {
+    const found = await selectRun(tx, buildId)
+    return found ? { ...found, version: await versionOfBuild(tx, found.id) } : null
+  })
+  if (!deps.push || !run || run.store_id !== p.storeId || run.kind !== 'design' || run.version === null) return 'skipped'
+  const kept = await deps.drafts.get(publishedTheme(p.storeId, run.commit))
+  const theme = kept ? themeSchema.safeParse(JSON.parse(await kept.text())) : null
+  if (!theme?.success) {
+    logEvent({ event: 'storefront_push_skipped', api: 'system', storeId: p.storeId, code: 'no_theme' })
+    return 'no_theme'
+  }
+  const pushed = await deps.push({ storeId: p.storeId, buildId, version: run.version, files: theme.data.files })
+  if (!pushed.ok) logEvent({ event: 'storefront_push_refused', api: 'system', storeId: p.storeId, code: pushed.code })
+  return pushed.ok ? 'pushed' : pushed.code
+}
+
 /**
  * The automatic rollback (LIVE-SHOP §4 step 10): the pointer moves back to the build `buildId` replaced; a repaired
  * publish fails with it. Idempotent: a replay finds the build rolled back and changes nothing.
@@ -305,7 +332,15 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string, build
     if (!run || run.store_id !== p.storeId || run.switched_at || run.state === 'live' || run.state === 'failed' || run.state === 'rolled_back') return []
     const ended = await failOpenAttempts(tx, p.storeId, p.runId, code, deps.now())
     await failRun(tx, run, code, deps.now())
-    await activityLog.record(tx, systemEntry(run, 'storefront.publish_failed', 'failed', [{ field: 'error', before: null, after: code }]))
+    // A design the gate refused is the merchant's to fix in the studio: refused, naming the failing check (LOGGING §3).
+    const refused = run.kind === 'design' && (code === 'gate_failed' || code === 'bisected')
+    const check = refused ? ((await selectFailingChecks(tx, p.storeId, p.runId))[0]?.split(':')[0] ?? null) : null
+    await activityLog.record(
+      tx,
+      refused
+        ? systemEntry(run, 'storefront.publish_refused', 'failed', [{ field: 'error', before: null, after: code }, { field: 'check', before: null, after: check }])
+        : systemEntry(run, 'storefront.publish_failed', 'failed', [{ field: 'error', before: null, after: code }]),
+    )
     await queueNext(tx, run.store_id, run.partner_id)
     return ended
   })
@@ -464,7 +499,9 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
     if ((await steps.do('switch', () => switchStep(deps, p, liveId))) === 'stopped') return 'stopped'
     const verdict = await steps.do('checks', () => checksStep(deps, p.storeId, liveId), 'long')
     if (verdict !== 'passed') return (await steps.do('rollback', () => rollbackStep(deps, p, liveId, verdict))) === 'rolled_back' ? 'rolled_back' : 'stopped'
-    return (await steps.do('confirm', () => confirmStep(deps, p, liveId))) === 'live' ? 'live' : 'stopped'
+    if ((await steps.do('confirm', () => confirmStep(deps, p, liveId))) !== 'live') return 'stopped'
+    await steps.do('push', () => pushStep(deps, p, liveId))
+    return 'live'
   } catch (error) {
     const code = codeOf(error)
     logEvent({ event: 'storefront_publish_failed', api: 'system', storeId: p.storeId, code: `${code}:${failureCode(error)}` })
@@ -487,7 +524,8 @@ export const publishBefore = async (tx: ScopedSql, input: { storeId: string; com
   return startPublish(tx, { storeId: input.storeId, kind: 'design', commit: before, template: bisected.template, coreVersion: bisected.core_version, usesAllowance: false, startedBy: { kind: input.by ? 'user' : 'system', id: input.by }, at: input.at })
 }
 
-export type GoBackResult = { ok: true } | { ok: false; reason: 'NOT_FOUND' | 'ALREADY_LIVE' | 'PUBLISH_RUNNING' | 'BUILD_GONE' }
+/** `rebuild` is the publish that rebuilds the version on a newer security release of core, when one applies. */
+export type GoBackResult = { ok: true; rebuild?: string } | { ok: false; reason: 'NOT_FOUND' | 'ALREADY_LIVE' | 'PUBLISH_RUNNING' | 'BUILD_GONE' }
 
 /** Who asked, as the Store API knows them (#318 calls this); the entry's action and target are filled in here. */
 export type GoBackActor = Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'onBehalfOf' | 'access' | 'api' | 'host' | 'requestId' | 'ip' | 'userAgent'>
@@ -504,20 +542,28 @@ export const goBack = (sql: postgres.Sql, input: { storeId: string; versionId: s
     if (!version) return { ok: false, reason: 'NOT_FOUND' }
     if (version.state === 'live') return { ok: false, reason: 'ALREADY_LIVE' }
     if (await hasActiveRun(tx, input.storeId)) return { ok: false, reason: 'PUBLISH_RUNNING' }
-    if (version.files_deleted) return { ok: false, reason: 'BUILD_GONE' }
-    await moveLiveTo(tx, input.storeId, version, input.by, input.now)
-    await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `go-back:${input.storeId}:${input.now.toISOString()}`, payload: { storeId: input.storeId, reason: 'go-back' }, partnerId: storefront.partner_id, storeId: input.storeId })
-    await activityLog.record(tx, {
+    const reverted = {
       ...input.actor,
-      category: 'write',
+      category: 'write' as const,
       action: 'storefront.reverted',
-      result: 'success',
+      result: 'success' as const,
       partnerId: storefront.partner_id,
       storeId: input.storeId,
       target: { type: 'storefront', id: input.storeId, label: 'storefront' },
       changes: [{ field: 'version', before: null, after: String(version.number) }],
-      reason: null,
-      visibility: 'store',
-    })
+      visibility: 'store' as const,
+    }
+    // A newer security release is never undone (SAAS §9.2): the version is rebuilt on it, free, and goes live if it passes.
+    const security = await selectNewerSecurityCore(tx, version.core_version)
+    if (security) {
+      const rebuild = await startPublish(tx, { storeId: input.storeId, kind: 'security', commit: version.commit, template: version.template, coreVersion: security, usesAllowance: false, startedBy: { kind: input.by ? 'user' : 'system', id: input.by }, at: input.now, sourceBuildId: version.build_id })
+      if (!rebuild.ok) return { ok: false, reason: 'NOT_FOUND' }
+      await activityLog.record(tx, { ...reverted, reason: `rebuilt on ${security}` })
+      return { ok: true, rebuild: rebuild.runId }
+    }
+    if (version.files_deleted) return { ok: false, reason: 'BUILD_GONE' }
+    await moveLiveTo(tx, input.storeId, version, input.now)
+    await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `go-back:${input.storeId}:${input.now.toISOString()}`, payload: { storeId: input.storeId, reason: 'go-back' }, partnerId: storefront.partner_id, storeId: input.storeId })
+    await activityLog.record(tx, { ...reverted, reason: null })
     return { ok: true }
   })

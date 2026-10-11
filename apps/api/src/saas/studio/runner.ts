@@ -2,9 +2,9 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
-import { insertAiRun, moveDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
+import { insertAiRun, moveDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost } from '#integrations/sandbox/index'
-import { draftBundle, guardContextFor, previewFolder, sourceBundle, templateFiles, type SitesBucket } from '../storefronts/index'
+import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
 import { pageTexts, withText } from './texts'
 import { templateChange } from './template'
@@ -56,7 +56,8 @@ export type ChangeOutcome =
   | { outcome: 'unchanged'; commit: string; repairs: number; runId: string | null; summary?: ProposalSummary | null }
   | { outcome: 'refused'; problems: GateProblem[]; repairs: number; runId: string | null }
 
-export type ChangeRequest = { request: string; userId: string; billedTo: 'plan' | 'own_key'; model: DesignModel }
+/** A merchant's request on its plan or own key, or the platform's own repair of a publish (`userId` null, SAAS §9.1). */
+export type ChangeRequest = { request: string; userId: string | null; billedTo: 'plan' | 'own_key' | 'platform'; model: DesignModel }
 
 const routesSchema = z.object({ custom: z.record(z.string(), z.string()).optional() })
 
@@ -136,14 +137,60 @@ export class StudioRunner {
   }
 
   /**
-   * Discard (AI-STUDIO §5), or the draft after Go back: `forget` drops the draft's row first, then its bundle goes and the
-   * sandbox unloads, so the next open starts from the live build's source at the live commit. In turn, so no change interleaves.
+   * Discard (AI-STUDIO §5), or the draft after Go back: `forget` drops the draft's row first (false: nothing to reset), then
+   * its bundle goes and the sandbox unloads, so the next open starts from the live build's source at the live commit.
    */
-  reset(forget: () => Promise<void>): Promise<void> {
+  reset(forget: () => Promise<boolean>): Promise<boolean> {
     return this.inTurn(async () => {
-      await forget()
+      if (!(await forget())) return false
       await this.deps.drafts.delete(draftBundle(this.deps.storeId))
       await this.unload()
+      return true
+    })
+  }
+
+  /**
+   * The hand-off to a publish (AI-STUDIO §6 steps 1–3): in turn, so a change in progress finishes first; the draft's head,
+   * or `commit` (one of its changes), with its theme kept privately for the push once that publish is live (§6 step 4).
+   */
+  prepare(commit: string | null): Promise<{ outcome: 'ready'; commit: string; template: string; coreVersion: string } | { outcome: 'nothing' }> {
+    return this.inTurn(async () => {
+      const { storeId } = this.deps
+      const row = await this.system((tx) => selectStudioStart(tx, storeId))
+      if (!row?.head_commit) return { outcome: 'nothing' as const }
+      const { client } = await this.ensureLoaded()
+      const start = this.start
+      if (!start) throw new StudioUnavailable('Nothing is loaded to publish.')
+      // A draft the create-storefront Workflow left has no bundle yet: the loaded template becomes its first one.
+      if (!(await this.deps.drafts.get(draftBundle(storeId)))) {
+        const head = (await client.theme()).head
+        await this.deps.drafts.put(draftBundle(storeId), await client.exportBundle())
+        await this.system((tx) => restartDraft(tx, storeId, head))
+      }
+      const target = commit ?? (await this.system((tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
+      if (!target) return { outcome: 'nothing' as const }
+      await this.keepTheme(client, target)
+      return { outcome: 'ready' as const, commit: target, template: start.template, coreVersion: start.coreVersion }
+    })
+  }
+
+  /** The theme at `commit`, kept privately as JSON for the push once a publish of it is live (AI-STUDIO §6 step 4). */
+  private async keepTheme(client: SandboxClient, commit: string): Promise<void> {
+    const theme = await client.theme(commit)
+    const bytes = new TextEncoder().encode(JSON.stringify({ files: theme.files }))
+    await this.deps.drafts.put(publishedTheme(this.deps.storeId, commit), bytes.buffer)
+  }
+
+  /**
+   * The publish's repair (ARCHITECTURE §4.2 step 4): one change from the failing checks' words, the platform's cost, its
+   * theme kept for the push; the new commit, or null when the gate refused it or nothing changed.
+   */
+  repairPublish(failing: readonly string[], model: DesignModel): Promise<string | null> {
+    return this.inTurn(async () => {
+      const outcome = await this.runChange({ request: `Fix what the publish checks found:\n${failing.map((f) => `- ${f}`).join('\n')}`, userId: null, billedTo: 'platform', model })
+      if (outcome.outcome !== 'changed' || !this.client) return null
+      await this.keepTheme(this.client, outcome.commit)
+      return outcome.commit
     })
   }
 
@@ -317,7 +364,7 @@ export class StudioRunner {
   }
 
   /** AI-STUDIO §4 steps 5–7: the draft bundle, then the preview folder, then the pointers, then the frame's reload. */
-  private async save(saved: Awaited<ReturnType<StudioRunner['collect']>>, result: Extract<ChangeResult, { ok: true }>, userId: string, theme: ReadonlyMap<string, string>, template?: string): Promise<string> {
+  private async save(saved: Awaited<ReturnType<StudioRunner['collect']>>, result: Extract<ChangeResult, { ok: true }>, userId: string | null, theme: ReadonlyMap<string, string>, template?: string): Promise<string> {
     if (!this.start) throw new StudioUnavailable('Nothing is loaded to save.')
     if (template) this.start = { ...this.start, template }
     const { storeId } = this.deps

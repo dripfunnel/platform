@@ -5,7 +5,8 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type StudioAnswer, type StudioApi, type StudioState, studioAnswer } from '#saas/studio/index'
+import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -23,6 +24,7 @@ type Connect = (hyperdrive: { connectionString: string }) => postgres.Sql
 
 /** The RPC the API makes of a store's StudioSession for the frame. */
 export interface StudioSessionObject extends Rpc.DurableObjectBranded, StudioApi {
+  repair: (storeId: string, input: { failing: string[]; key: string }, model: DesignModel) => Promise<string | null>
   check: (storeId: string, session: string) => Promise<boolean>
 }
 
@@ -164,7 +166,39 @@ export const studioSessionClass = (connect: Connect) =>
       const runner = await this.runnerFor(storeId)
       const db = this.db
       if (!db) throw new StudioUnavailable('studio: unconfigured')
-      await runner.reset(() => db((sql) => withSystemScope(sql, (tx) => deleteDraft(tx, storeId))))
+      await runner.reset(() => db((sql) => withSystemScope(sql, (tx) => deleteDraft(tx, storeId))).then(() => true))
+    }
+
+    async prepare(storeId: string, input: { commit: string | null }): Promise<Prepared> {
+      const runner = await this.active(storeId)
+      return preparedAnswer(() => runner.prepare(input.commit))
+    }
+
+    async goBack(storeId: string, input: { versionId: string; by: string; actor: GoBackActor }): Promise<GoBackResult> {
+      const runner = await this.runnerFor(storeId)
+      const db = this.db
+      if (!db) throw new StudioUnavailable('studio: unconfigured')
+      let result: GoBackResult = { ok: false, reason: 'NOT_FOUND' }
+      await runner.reset(async () => {
+        result = await db((sql) => goBack(sql, { storeId, versionId: input.versionId, by: input.by, actor: input.actor, now: new Date() }))
+        return result.ok
+      })
+      return result
+    }
+
+    /**
+     * A publish's repair (ARCHITECTURE §4.2 step 4), asked by its Workflow with `key` = `{run}:{n}`: a retried step gets the
+     * commit already made, never a second change.
+     */
+    async repair(storeId: string, input: { failing: string[]; key: string }, model: DesignModel): Promise<string | null> {
+      const done = await this.ctx.storage.get<string | null>(`repair:${input.key}`)
+      if (done !== undefined) return done
+      const commit = await (await this.active(storeId)).repairPublish(input.failing, model).catch((error: unknown) => {
+        if (error instanceof StudioQueued || error instanceof StudioUnavailable) return null
+        throw error
+      })
+      await this.ctx.storage.put(`repair:${input.key}`, commit)
+      return commit
     }
 
     /** "Finishing your previous change…" (AI-STUDIO §4 step 1). */

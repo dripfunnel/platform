@@ -63,6 +63,9 @@ const briefText = (brief: DesignBrief, request: string, theme: readonly { path: 
     .filter((part) => part !== '')
     .join('\n\n')
 
+/** A publish's repair asks from the failing checks alone, with no merchant's context (ARCHITECTURE §4.2 step 4). */
+export const repairBrief: DesignBrief = { page: 'home', device: 'desktop', recent: [], store: { name: '', city: null, languages: [] }, brand: { tagline: null, description: null, voice: null, colours: [] }, products: [], image: null, screenshot: null }
+
 /** The JSON object in the model's text, if it is one in the shape asked for. */
 export const readAnswer = (text: string): z.infer<typeof answerSchema> | null => {
   const start = text.indexOf('{')

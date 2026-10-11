@@ -15,6 +15,8 @@ export const assetsFolder = (storeId: string, buildId: string) => `${buildFolder
 export const draftBundle = (storeId: string) => `drafts/${storeId}.bundle`
 export const sourcesPrefix = (storeId: string) => `sources/${storeId}/`
 export const sourceBundle = (storeId: string, buildId: string) => `${sourcesPrefix(storeId)}${buildId}.bundle`
+/** A published commit's theme, kept by the studio for the push once that publish is live (AI-STUDIO §6 step 4). */
+export const publishedTheme = (storeId: string, commit: string) => `${sourcesPrefix(storeId)}themes/${commit}.json`
 export const snapshotsPrefix = (storeId: string) => `snapshots/${storeId}/`
 export const snapshotFile = (storeId: string, buildId: string) => `${snapshotsPrefix(storeId)}${buildId}.json`
 

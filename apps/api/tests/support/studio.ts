@@ -2,7 +2,8 @@ import type { TenantContext } from '#core/tenancy'
 import { withSystemScope } from '#db/scoped/index'
 import { deleteDraft } from '#db/scoped/studio'
 import type postgres from 'postgres'
-import { StudioQueued, StudioUnavailable, studioAnswer, type StudioApi, type StudioRunner, type StudioState } from '#saas/studio/index'
+import { goBack, type GoBackResult } from '#saas/storefronts/index'
+import { preparedAnswer, StudioQueued, StudioUnavailable, studioAnswer, type StudioApi, type StudioRunner, type StudioState } from '#saas/studio/index'
 
 // The StudioSession's RPC shape (jobs/durable/studio.ts) over StudioRunners in this process, one per store, named by the
 // TenantContext's store as `studioOf` names the Durable Object. `calls` records which store each call reached.
@@ -46,7 +47,21 @@ export const localStudio = (sql: () => postgres.Sql, runnerOf: (storeId: string)
         const r = runner(storeId)
         return studioAnswer(() => r.editText(input.locale, input.key, input.text, input.userId))
       },
-      discard: async (storeId) => runner(storeId).reset(() => withSystemScope(sql(), (tx) => deleteDraft(tx, storeId))),
+      discard: async (storeId) => {
+        await runner(storeId).reset(() => withSystemScope(sql(), (tx) => deleteDraft(tx, storeId)).then(() => true))
+      },
+      prepare: async (storeId, input) => {
+        const r = runner(storeId)
+        return preparedAnswer(() => r.prepare(input.commit))
+      },
+      goBack: async (storeId, input) => {
+        let result: GoBackResult = { ok: false, reason: 'NOT_FOUND' }
+        await runner(storeId).reset(async () => {
+          result = await goBack(sql(), { storeId, versionId: input.versionId, by: input.by, actor: input.actor, now: new Date() })
+          return result.ok
+        })
+        return result
+      },
     }
   }
   return { studio, calls }

@@ -99,7 +99,8 @@ export const freezeBuild = async (deps: FreezeDeps, storeId: string, buildId: st
     return { input: found, snapshot: found.reported ? null : await snapshotOf(tx, storeId, assetsBuild, deps.assetOrigin) }
   })
   if (input.reported || snapshot === null) return 'reported'
-  const from = input.kind === 'design' ? draftBundle(storeId) : input.live_build_id ? sourceBundle(storeId, input.live_build_id) : null
+  const kept = input.source_build_id ?? input.live_build_id
+  const from = input.kind === 'design' ? draftBundle(storeId) : kept ? sourceBundle(storeId, kept) : null
   const source = from ? await deps.drafts.get(from) : null
   if (!source) throw new FreezeRefused('no_source')
   const bundle = await source.arrayBuffer()
