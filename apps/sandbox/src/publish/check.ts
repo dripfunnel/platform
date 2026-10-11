@@ -8,7 +8,7 @@ import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
 import { edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
 import { edgeFolder } from './build'
-import { fileOf, plan, type PlannedPage } from './pages'
+import { fileOf, languagePrefix, plan, type PlannedPage } from './pages'
 import { fileFor, serveFolders, shopFixture, type Served, type ShopReport } from './serve'
 
 // Step `check` (storefront LIVE-SHOP §4 step 7): a fresh process serves the built files to its own headless browser and
@@ -71,7 +71,9 @@ const headersOf = async (root: string, snapshot: CatalogueSnapshot) => {
   return pageHeaders(pages, (hashes) => storeCsp(snapshot.csp, hashes))
 }
 
-type Network = { errors: string[]; reports: ShopReport[]; js: { url: string; gzip: number }[]; css: number; bytes: number }
+/** What a page asked for and was answered; `reading` holds each body still being read, awaited before the totals. */
+type Network = { errors: string[]; reports: ShopReport[]; js: { url: string; gzip: number }[]; css: number; bytes: number; reading: Promise<void>[] }
+const network = (): Network => ({ errors: [], reports: [], js: [], css: 0, bytes: 0, reading: [] })
 
 /** Requests stay on this machine: the page's own server, the build's assets and the offline Shop API; anything else fails. */
 const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { assets: string }, net: Network) => {
@@ -98,7 +100,8 @@ const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { a
     })
   })
   page.on('response', (response) => {
-    void response.body().then(
+    net.reading.push(
+      response.body().then(
       (body) => {
         const type = response.request().resourceType()
         net.bytes += body.byteLength
@@ -106,6 +109,7 @@ const wire = async (page: Page, served: Served, s: CatalogueSnapshot, roots: { a
         if (type === 'stylesheet') net.css += gzipSync(body).byteLength
       },
       () => undefined,
+      ),
     )
   })
 }
@@ -148,11 +152,11 @@ const contextsFor = async (browser: Browser, width: number): Promise<Contexts> =
 }
 
 const visit = async (c: Contexts, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage, width: number, axe: string | null): Promise<{ visit: PageVisit; shot: Buffer }> => {
-  const net: Network = { errors: [], reports: [], js: [], css: 0, bytes: 0 }
+  const net: Network = network()
   const page = await c.returning.newPage()
   try {
     await wire(page, served, s, { assets }, net)
-    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'load' })
+    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
     await settled(page, net)
     const seen = await mainSeen(page)
     const wide = await overflows(page)
@@ -168,11 +172,12 @@ const visit = async (c: Contexts, served: Served, s: CatalogueSnapshot, assets: 
 
 /** A shopper's first visit, where the consent banner itself must be seen. */
 const firstVisit = async (c: Contexts, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage) => {
-  const net: Network = { errors: [], reports: [], js: [], css: 0, bytes: 0 }
+  const net: Network = network()
   const page = await c.first.newPage()
   try {
     await wire(page, served, s, { assets }, net)
-    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'load' })
+    // Hydrated first, then a sealed component's own check needs its second look (sealed/visibility.ts `settleMs`).
+    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(settle)
     return sealedWords(net.reports, p, 'consent')
   } finally {
@@ -213,13 +218,14 @@ const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, ass
       new PerformanceObserver((l) => l.getEntries().forEach((e) => (m.tbt += Math.max(0, e.duration - 50)))).observe({ type: 'longtask', buffered: true })
     })
     const page = await context.newPage()
-    const net: Network = { errors: [], reports: [], js: [], css: 0, bytes: 0 }
+    const net: Network = network()
     try {
       const cdp = await context.newCDPSession(page)
       await cdp.send('Emulation.setCPUThrottlingRate', { rate })
       await wire(page, served, s, { assets }, net)
-      await page.goto(`${served.origin}${p.path}`, { waitUntil: 'load' })
-      await page.waitForTimeout(800)
+      // Every request settled and every body read before anything is counted, however slow the runner.
+      await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+      await Promise.all(net.reading)
       const m = (await page.evaluate('window.__dfMetrics')) as { lcp: number; cls: number; tbt: number }
       w.lcpMs.push(m.lcp)
       w.cls.push(m.cls)
@@ -256,21 +262,24 @@ const readFacts = `(() => {
 })()`
 
 /** A page without JavaScript, as a crawler and a shopper with scripts off see it (ARCHITECTURE §8). */
-const readPage = async (context: BrowserContext, served: Served, root: string, p: PlannedPage, prefix = ''): Promise<PageRead | null> => {
-  const found = await fileFor([root], `${prefix}${p.path}`)
+const readPage = async (context: BrowserContext, served: Served, s: CatalogueSnapshot, roots: { page: string; assets: string }, p: PlannedPage): Promise<PageRead | null> => {
+  const found = await fileFor([roots.page], p.path)
   if (!found) return null
   const page = await context.newPage()
+  const net = network()
   try {
-    await page.goto(`${served.origin}${prefix}${p.path}`, { waitUntil: 'load' })
+    // The same refusal as with JavaScript on: a request leaving the machine fails the page (the context skips the CSP).
+    await wire(page, served, s, { assets: roots.assets }, net)
+    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
     const facts = (await page.evaluate(readFacts)) as Pick<PageRead, 'h1s' | 'mainText' | 'text' | 'links'>
-    return { path: p.path, route: p.route, html: found.bytes.toString('utf8'), ...facts }
+    return { path: p.path, route: p.route, html: found.bytes.toString('utf8'), ...facts, errors: net.errors }
   } finally {
     await page.close()
   }
 }
 
 /** The share of pixels that differ between two screenshots, compared in a blank page of the browser. */
-const difference = async (page: Page, a: Buffer, b: Buffer): Promise<number> =>
+export const difference = async (page: Page, a: Buffer, b: Buffer): Promise<number> =>
   (await page.evaluate(`(async () => {
     const load = async (b64) => createImageBitmap(await (await fetch('data:image/png;base64,' + b64)).blob())
     const [one, two] = await Promise.all([load('${a.toString('base64')}'), load('${b.toString('base64')}')])
@@ -303,7 +312,7 @@ const liveShot = async (browser: Browser, served: Served, live: string, s: Catal
       return found ? route.fulfill({ status: 200, body: found.bytes }) : route.abort('blockedbyclient')
     })
     await page.goto(`${served.origin}${path}`, { waitUntil: 'load' })
-    await settled(page, { errors: [], reports: [], js: [], css: 0, bytes: 0 })
+    await settled(page, network())
     return await page.screenshot()
   } finally {
     await context.close()
@@ -325,10 +334,11 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
   const edgeHeaders = await Promise.all(edgeRoots.map((root, n) => headersOf(root, cases[n]?.snapshot ?? s)))
   const edgeServed = await Promise.all(edgeRoots.map((root, n) => serveFolders([root, site], (rel) => edgeHeaders[n]?.[rel]?.['content-security-policy'] ?? null)))
   const liveServed = input.live ? await serveFolders([input.live], () => null) : null
-  const scripts = await browser.newContext({ javaScriptEnabled: false })
+  // Without JavaScript the CSP is bypassed, so every request the page makes reaches the routing that refuses and records it.
+  const scripts = await browser.newContext({ javaScriptEnabled: false, bypassCSP: true })
   const blank = await (await browser.newContext()).newPage()
   try {
-    const reads = (await pool(pages, (p) => readPage(scripts, served, site, p))).filter((r): r is PageRead => r !== null)
+    const reads = (await pool(pages, (p) => readPage(scripts, served, s, { page: site, assets: site }, p))).filter((r): r is PageRead => r !== null)
     const axe = await axeSource()
     const visits: PageVisit[] = []
     for (const width of gateWidths) {
@@ -357,7 +367,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
         const c = await contextsFor(browser, gateWidths[0])
         try {
           const casePages = main.map((p) => ({ ...p, language: edgeCase.snapshot.store.language }))
-          const edgeReads = (await pool(casePages, (p) => readPage(scripts, servedEdge, root, p))).filter((r): r is PageRead => r !== null)
+          const edgeReads = (await pool(casePages, (p) => readPage(scripts, servedEdge, edgeCase.snapshot, { page: root, assets: site }, p))).filter((r): r is PageRead => r !== null)
           const edgeVisits = (await pool(casePages, (p) => visit(c, servedEdge, edgeCase.snapshot, site, p, gateWidths[0], null))).map((v) => v.visit)
           return { name: edgeCase.name, pages: edgeReads, visits: edgeVisits }
         } finally {
@@ -374,11 +384,13 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
       pages: reads,
       visits,
       weights,
-      site: { origin: s.origin, sitemap: await text('sitemap.xml'), robots: await text('robots.txt'), files },
+      site: { origin: s.origin, sitemap: await text('sitemap.xml'), robots: await text('robots.txt'), files, prefixes: s.store.languages.map((l) => languagePrefix(s.store, l)).filter((x) => x !== '') },
       data: [s.store.name, s.store.description ?? '', s.poweredBy ?? '', s.store.contactEmail ?? '', s.store.contactPhone ?? ''],
       poweredBy: s.poweredBy !== null,
       strictLook: input.strictLook,
       edge,
+      // A static cart has no lines, and core's product hooks don't reach a built page yet (ARCHITECTURE §4.2).
+      priced: new Set(),
     })
     return { report, headers }
   } finally {

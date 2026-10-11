@@ -41,8 +41,8 @@ export interface BuildDeps {
   r2: StorefrontR2
   buckets: { sites: string; drafts: string }
   sites: SitesBucket
-  /** Tells the build's publish-storefront Workflow that "uploaded" was answered (LIVE-SHOP §4 step 9). */
-  wake: (buildId: string) => Promise<void>
+  /** Tells the build's publish-storefront Workflow that its report or "uploaded" was answered (LIVE-SHOP §4 steps 7–9). */
+  wake: (buildId: string, event: 'reported' | 'uploaded') => Promise<void>
   now: () => Date
 }
 
@@ -122,6 +122,11 @@ const expiresAt = (now: Date) => new Date(now.getTime() + handoutSeconds * 1000)
 
 export interface StartAnswer {
   source: string
+  /** The commit in the source bundle to build, and the core version whose build image builds it. */
+  commit: string
+  core: string
+  /** A publish that mustn't change the look: a core upgrade (ARCHITECTURE §7). */
+  strictLook: boolean
   snapshot: string
   /** The live build's files for the visual diff, by path; null before the store's first publish. */
   live: { path: string; url: string }[] | null
@@ -142,6 +147,9 @@ export const startBuild = (deps: BuildDeps, token: string, buildId: string): Pro
     }
     const answer = {
       source: await link(deps.buckets.drafts, sourceBundle(build.store_id, build.id)),
+      commit: build.commit,
+      core: build.core_version,
+      strictLook: build.kind === 'upgrade',
       snapshot: await link(deps.buckets.drafts, snapshotFile(build.store_id, build.id)),
       live,
       expiresAt: expiresAt(now),
@@ -175,20 +183,28 @@ export type GateReport = z.infer<typeof gateReport>
 const checksOf = (gate: Record<string, unknown>) => JSON.stringify((Array.isArray(gate['checks']) ? (gate['checks'] as Record<string, unknown>[]) : []).map((c) => [c['name'], c['passed'], c['detail'] ?? null]))
 const sameGate = (stored: Record<string, unknown>, sent: Record<string, unknown>) => stored['passed'] === sent['passed'] && checksOf(stored) === checksOf(sent)
 
-/** Step `check` (LIVE-SHOP §4 step 7): the report, once; a retry of the same report is answered as the first was. */
-export const reportBuild = (deps: BuildDeps, token: string, report: GateReport): Promise<{ passed: boolean }> =>
-  withBuild(deps, token, report.build, async (tx, build) => {
+/**
+ * Step `check` (LIVE-SHOP §4 step 7): the report, once; a retry of the same report is answered as the first was, and wakes
+ * the publish run again. `upload` tells the workflow whether to upload the site.
+ */
+export const reportBuild = async (deps: BuildDeps, token: string, report: GateReport): Promise<{ passed: boolean; upload: boolean }> => {
+  const answer = await withBuild(deps, token, report.build, async (tx, build) => {
     const gate = { passed: report.passed, checks: report.checks }
     if (build.gate !== null) {
-      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { passed: report.passed }
+      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { passed: report.passed, upload: report.passed }
       throw new BuildRefused('wrong_state')
     }
     if (build.state !== 'building' && build.state !== 'checking') throw new BuildRefused('wrong_state')
     await recordGate(tx, { buildId: build.id, gate, digest: report.digest, passed: report.passed, at: deps.now() })
     const failed = report.checks.filter((c) => !c.passed).map((c) => c.name)
     await record(tx, build, build.runId, report.passed ? 'storefront.build_passed' : 'storefront.build_failed', report.passed ? 'success' : 'failed', failed.length > 0 ? failed.join(', ') : null)
-    return { passed: report.passed }
+    return { passed: report.passed, upload: report.passed }
   })
+  await deps.wake(report.build, 'reported').catch(() => {
+    throw new BuildUnavailable('workflow_unavailable')
+  })
+  return answer
+}
 
 export interface UploadCredential {
   endpoint: string
@@ -245,7 +261,7 @@ export const reportUploaded = async (deps: BuildDeps, token: string, buildId: st
     await record(tx, build, build.runId, accepted ? 'storefront.build_uploaded' : 'storefront.build_failed', accepted ? 'success' : 'failed', accepted ? `${accepted.files.length} files` : 'manifest')
     return accepted !== null
   })
-  await deps.wake(buildId).catch(() => {
+  await deps.wake(buildId, 'uploaded').catch(() => {
     throw new BuildUnavailable('workflow_unavailable')
   })
   if (!outcome) throw new BuildRefused('manifest_refused')
