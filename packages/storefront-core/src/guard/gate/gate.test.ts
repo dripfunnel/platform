@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { sealedProblemWords } from '../../testing/index'
 import { routeAddresses, type ThemeRoutes } from '../../contracts/routes'
 import { coreRoutes, requiredParts, type CoreRoute } from '../../contracts/theme'
 import { catalogueSnapshotSchema, edgeCases, fallbackPath, gateChecks, gateReport, gateWidths, maxDetail, pageBudgets, runGate, type CatalogueSnapshot, type GateCheckName, type GateInput, type PageRead, type PageVisit, type PageWeight } from '../index'
@@ -184,5 +185,14 @@ describe('the edge-case catalogue', () => {
     expect(long?.store.name.length).toBe(200)
     expect([long?.store.logo, long?.store.contactEmail, long?.poweredBy === null]).toEqual([null, null, false])
     for (const c of cases) expect(catalogueSnapshotSchema.safeParse(c.snapshot).success).toBe(true)
+  })
+})
+
+describe('the words for a sealed component the page reported', () => {
+  it('keep to core’s own part and problem names, whatever the page sent', () => {
+    expect(sealedProblemWords('cart page', 'price', 'too-small')).toBe('The "price" component on the cart page isn\'t seen: it is smaller than 24×12 px.')
+    expect(sealedProblemWords('cart page', 'Buy now, only 2 left!', 'too-small')).toBe("A required component on the cart page isn't seen.")
+    expect(sealedProblemWords('cart page', 'constructor', 'hidden')).toBe("A required component on the cart page isn't seen.")
+    expect(sealedProblemWords('cart page', 'powered', 'anything at all')).toBe('The "powered" component on the cart page isn\'t seen.')
   })
 })
