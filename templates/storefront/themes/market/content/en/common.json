@@ -1,0 +1,25 @@
+{
+  "announce": "Good food from people nearby",
+  "nav": {
+    "label": "Main",
+    "menu": "Menu",
+    "shop": "Shop",
+    "about": "About",
+    "contact": "Contact"
+  },
+  "tools": {
+    "search": "Search",
+    "account": "Account",
+    "cart": "Cart"
+  },
+  "footer": {
+    "note": "Local food, delivered.",
+    "shop": "Shop",
+    "all": "Shop all",
+    "help": "Help",
+    "shipping": "Shipping",
+    "returns": "Returns",
+    "privacy": "Privacy",
+    "terms": "Terms"
+  }
+}
