@@ -180,11 +180,28 @@ const firstVisit = async (c: Contexts, served: Served, s: CatalogueSnapshot, ass
   }
 }
 
+// A fixed loop takes about this long on the mid-range phone ARCHITECTURE §9 means; the CPU is slowed to match, so a
+// busy or fast runner measures the same phone (as Lighthouse calibrates its throttling).
+const phoneLoopMs = 360
+const loop = `(() => { const t = performance.now(); let x = 0; for (let i = 0; i < 2e7; i += 1) x = (x * 31 + i) % 1000003; return x < 0 ? 0 : performance.now() - t })()`
+
+const phoneRate = async (browser: Browser): Promise<number> => {
+  const page = await browser.newPage()
+  try {
+    const times: number[] = []
+    for (let i = 0; i < 3; i += 1) times.push((await page.evaluate(loop)) as number)
+    const host = times.sort((a, b) => a - b)[1] ?? phoneLoopMs
+    return Math.min(6, Math.max(1, phoneLoopMs / Math.max(host, 1)))
+  } finally {
+    await page.close()
+  }
+}
+
 /** ARCHITECTURE §9 budgets these page types. */
 const weighed: ReadonlySet<PlannedPage['route']> = new Set(['home', 'collection', 'product', 'custom', 'cart'])
 
 /** ARCHITECTURE §9 on a mid-range phone: the first load's bytes, and its timings three times. */
-const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage): Promise<PageWeight> => {
+const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, assets: string, p: PlannedPage, rate: number): Promise<PageWeight> => {
   const w: PageWeight = { path: p.path, route: p.route, jsGzip: 0, runtimeJsGzip: 0, cssGzip: 0, bytes: 0, lcpMs: [], cls: [], tbtMs: [] }
   for (let run = 0; run < 3; run += 1) {
     const context = await browser.newContext({ viewport: { width: gateWidths[0], height }, isMobile: true, hasTouch: true })
@@ -199,7 +216,7 @@ const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, ass
     const net: Network = { errors: [], reports: [], js: [], css: 0, bytes: 0 }
     try {
       const cdp = await context.newCDPSession(page)
-      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate })
       await wire(page, served, s, { assets }, net)
       await page.goto(`${served.origin}${p.path}`, { waitUntil: 'load' })
       await page.waitForTimeout(800)
@@ -328,7 +345,10 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
         await c.first.close()
       }
     }
-    const weights = await pool(main.filter((p) => weighed.has(p.route) && fileOf(p.path) in headers), (p) => weigh(browser, served, s, site, p))
+    // One page at a time: timings taken side by side would slow each other down.
+    const weights: PageWeight[] = []
+    const rate = await phoneRate(browser)
+    for (const p of main.filter((x) => weighed.has(x.route) && fileOf(x.path) in headers)) weights.push(await weigh(browser, served, s, site, p, rate))
     const edge = await Promise.all(
       cases.map(async (edgeCase, n) => {
         const servedEdge = edgeServed[n]
