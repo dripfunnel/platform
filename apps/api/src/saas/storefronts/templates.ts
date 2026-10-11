@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isRepoPath, isThemePath, themeOwns } from './paths'
+import { isRepoPath, isThemePath } from './paths'
 
 // Where the Worker reads the templates (storefront ARCHITECTURE §2.3): the release workflow writes each core version's
 // skeleton, themes and prebuilt preview bundles under `templates/{core}/` in the sites bucket, then points
@@ -51,7 +51,7 @@ export const templateFiles = async (bucket: SitesBucket, core: string, template:
   const skeleton = (await readJson(bucket, `templates/${core}/skeleton.json`, sourceSchema)).files
   const theme = (await readJson(bucket, `${templateRoot(core, template)}source.json`, sourceSchema)).files
   const paths = new Set(skeleton.map((f) => f.path))
-  if (!paths.has(lockedWorkflowPath) || !paths.has('package.json') || skeleton.some((f) => themeOwns(f.path))) throw new TemplateMissing('the skeleton lacks its workflow or package.json, or carries a theme')
+  if (!paths.has(lockedWorkflowPath) || !paths.has('package.json') || skeleton.some((f) => isThemePath(f.path))) throw new TemplateMissing('the skeleton lacks its workflow or package.json, or carries a theme')
   if (theme.length === 0 || !theme.every((f) => isThemePath(f.path))) throw new TemplateMissing(`the ${template} theme writes outside ARCHITECTURE §3.4's paths`)
   return { skeleton, theme }
 }

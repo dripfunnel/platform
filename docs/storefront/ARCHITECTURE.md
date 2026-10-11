@@ -170,8 +170,8 @@ confirms the path)*.
 **Where the Worker reads them** (decided on #316): not from this repo, which the App can't and
 mustn't read, but from the `storefront-sites` bucket, where the release workflow puts each core
 version's files as it builds the templates' preview bundles (PREVIEW §4):
-`templates/{core}/skeleton.json` (every file of `templates/storefront/` outside the theme, the
-locked workflow and `package.json` included), `templates/{core}/themes/{key}/source.json` (the
+`templates/{core}/skeleton.json` (every file of `templates/storefront/` but the theme's §3.4
+paths, the locked workflow and `package.json` included), `templates/{core}/themes/{key}/source.json` (the
 theme's files), `templates/{core}/themes/{key}/preview/manifest.json` (each preview file's path
 and SHA-256) with the files under `preview/files/`, and last `templates/current.json`
 (`{"core": "x.y.z"}`), which names the core new stores pin. The `create-storefront` Workflow
