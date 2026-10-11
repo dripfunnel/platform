@@ -19,7 +19,7 @@ as customised by us, now removed from the workspace); §11 records what was take
 
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
-components with the branded commerce types (#481); everything else below is to build.
+components with the branded commerce types (#481), and the publish gate's suites with the edge-case catalogue (#483); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
@@ -512,6 +512,39 @@ A refused or rolled-back publish leaves the live site as it was, says so in plai
 never the merchant's meters (decided 2026-10-08 on #470). What can't be repaired goes to the
 ops queue in the admin console (CONSOLE-DESIGN L3), with the live site untouched.
 
+**The gate's suites as built on #483** (`./guard`'s `runGate`, run by the build image's check step: LIVE-SHOP §4
+step 7). Each check reports pass or fail in plain words, at most 500 characters, never code; one that didn't run fails:
+- `validator`: §3.4 over the whole theme (the build step runs it first and stops there; the check runs it again);
+- `contracts`: every route of `routes.json` has its page (`routeAddresses`: a page core prerenders, or the
+  client-rendered page an item prefix such as `/products/` falls back to), each page places its required sealed parts,
+  has exactly one `h1`, a `main` and its language, and no page throws or reaches outside the store while it loads;
+- `sealed`: what each sealed component's own visibility check reported to the offline Shop API, on every page at 390,
+  768 and 1440 px, as a shopper who answered consent, and the consent banner itself on a first visit;
+- `checkout`: the checkout smoke test against core's offline Shop API fixture *(decided on #483, as proposed: the
+  real checkout is the post-deploy check)*: the checkout and cart pages open at the three widths with no error, their
+  main heading is what a tap reaches, and no sealed part is hidden. Until core's cart and checkout (#313) exist it can't
+  take a product to a test payment;
+- `axe`: WCAG 2.0–2.2 A and AA rules on every page at each width;
+- `budgets`: §9 on a phone (390 px, CPU slowed 4×) for home, collection, product, custom pages and cart;
+- `no-js`, `crawl`: §8, with every internal link leading to a page or an item prefix, and `sitemap.xml` and
+  `robots.txt` naming the pages search engines should see: every built home and custom page, and any product, collection
+  or policy address, in each of the store's languages; never a cart, checkout or account page;
+- `content`: the words a shopper reads, outside sealed parts and the store's own data, through the validator's claim scan;
+- `visual-diff`: each page's first screen at each width against the live build's; it reports, and fails only a publish
+  that mustn't change the look (`strictLook`, a core patch or minor: §7) when more than 0.5% of a page changed, or when
+  no live page could be compared;
+- `edge-cases`: the theme rendered against the edge-case catalogue (§10) at phone width: whole, no wider than the
+  screen, its required parts seen, its heading and words there without JavaScript.
+
+*Decided on #483:* until core's product hooks exist (§2.1 `products`), the static build prerenders the routes core can
+fill today (home, search, cart, checkout, the account and sign-in pages, 404, the degraded page and the custom pages),
+and each item route's client-rendered page. `runGate` requires the sealed price on the routes core gave a price to show
+(`priced`; product, cart and checkout when the input leaves it out), and the check step names none until core's
+product and cart hooks put a price on a built page: a static cart has no lines. Legal notices are required the same way when the
+input says the store's markets need them (`legal`). A page or width the check step skipped, an unweighed budgeted page
+or an edge case it didn't render fails the check that needed it, and an address with `..`, an encoded character, a
+query or an empty segment never passes for a page or an item.
+
 **Staying current without full rebuilds on every edit** *(the platform's rule that catalogue
 changes don't rebuild, adapted to SSG)*:
 
@@ -753,6 +786,11 @@ decides whether to tighten them)*:
 publish.** Timing budgets vary run to run: they are measured three times at publish and the
 median counts.
 
+*Decided on #483:* the publish gate's JavaScript budget counts the theme's own chunks, as the fast gate does, and
+reports core's runtime beside it (about 170 KB gzipped today, so counting it would refuse every store, the baseline
+theme included); the CSS, page-weight and timing budgets count the whole page. Core's runtime joins the count once it
+fits (suggested on #483).
+
 - **How core keeps them**: theme components are server-only unless they are interactive
   islands; payment SDKs load only on checkout and only the store's provider; images, video,
   fonts and third-party scripts go through core (§2.1); third-party tags load after consent and
@@ -776,6 +814,9 @@ median counts.
 - **The edge-case catalogue**: a store of fixture data every theme is rendered against at
   publish: very long names, no photos, 100 versions, everything out of stock, no products,
   every language the store offers, a right-to-left language, the largest prices.
+  *As built on #483* (`edgeCases`): the store's own snapshot with a 200-character name and long description, no logo
+  or contact details and a long "Powered by" brand; each other language it offers; and its main language laid out
+  right to left. The product cases join it with core's product hooks.
 - **Per store**: the full gate of §4.2 on every publish (inside the build workflow: LIVE-SHOP §4 step 7), plus the
   architecture tests carried from the reference (`tests/architecture/boundaries.test.mjs`: app
   files are only re-exports; feature internals aren't imported from outside).

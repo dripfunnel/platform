@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { coreRoutes } from './theme.js'
+import { coreRoutes, type CoreRoute } from './theme.js'
 
 /** A page under src/theme/pages without its .tsx, such as "HomePage" or "account/OrdersPage". */
 const themePage = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9_-]{0,63}){0,4}$/, 'Name a page under src/theme/pages without .tsx, such as "HomePage".')
@@ -25,3 +25,29 @@ export const themeRoutesSchema = z.strictObject({
 })
 
 export type ThemeRoutes = z.infer<typeof themeRoutesSchema>
+
+/**
+ * Where each core route lives on a live site (ARCHITECTURE §3.1): a page the build writes, or a prefix whose addresses get
+ * that route's client-rendered page until it has a file of its own (LIVE-SHOP §5 step 6).
+ */
+export const routeAddresses: Readonly<Record<CoreRoute, { page: string } | { prefix: string }>> = {
+  home: { page: '/' },
+  collection: { prefix: '/collections/' },
+  product: { prefix: '/products/' },
+  search: { page: '/search/' },
+  cart: { page: '/cart/' },
+  checkout: { page: '/checkout/' },
+  orderConfirmation: { prefix: '/order/' },
+  signIn: { page: '/sign-in/' },
+  register: { page: '/register/' },
+  verify: { page: '/verify/' },
+  forgotPassword: { page: '/forgot-password/' },
+  resetPassword: { page: '/reset-password/' },
+  account: { page: '/account/' },
+  accountAddresses: { page: '/account/addresses/' },
+  accountOrders: { page: '/account/orders/' },
+  accountOrder: { prefix: '/account/orders/' },
+  policy: { prefix: '/policies/' },
+  notFound: { page: '/404/' },
+  degraded: { page: '/degraded/' },
+}

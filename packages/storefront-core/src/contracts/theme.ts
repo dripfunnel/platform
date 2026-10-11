@@ -37,12 +37,15 @@ export const missingRoutes = (manifest: ThemeManifest): CoreRoute[] => coreRoute
 
 export type RequiredPart = 'price' | 'consent' | 'preview' | 'legal' | 'powered'
 
+/** `priced: false` is a page core gave no price to show, such as one built before the store's products reach the theme. */
+export type PageFacts = { preview: boolean; poweredBy: boolean; legal: boolean; priced?: boolean }
+
 /** The sealed components each route must render (DESIGN §3), by their data-df-sealed mark. */
-export const requiredParts = (route: CoreRoute, page: { preview: boolean; poweredBy: boolean; legal: boolean }): RequiredPart[] => {
+export const requiredParts = (route: CoreRoute, page: PageFacts): RequiredPart[] => {
   const parts: RequiredPart[] = ['consent']
   if (page.preview) parts.push('preview')
   if (page.poweredBy) parts.push('powered')
   if (page.legal && (route === 'product' || route === 'checkout' || route === 'policy')) parts.push('legal')
-  if (route === 'product' || route === 'cart' || route === 'checkout') parts.push('price')
+  if (page.priced !== false && (route === 'product' || route === 'cart' || route === 'checkout')) parts.push('price')
   return parts
 }
