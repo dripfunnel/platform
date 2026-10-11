@@ -55,8 +55,6 @@ export const studioSessionClass = (connect: Connect) =>
       const own = await this.ctx.storage.get<string>('store')
       if (own !== undefined && own !== storeId) throw new Error('studio: a call for another store')
       if (own === undefined) await this.ctx.storage.put('store', storeId)
-      this.lastActive = Date.now()
-      await this.ctx.storage.setAlarm(Date.now() + tickMs)
       if (this.runner) return this.runner
       const config = parseConfig(this.env)
       const { STOREFRONT_SITES: sites, STOREFRONT_DRAFTS: drafts, STUDIO_CAPACITY: capacity } = this.env
@@ -93,10 +91,18 @@ export const studioSessionClass = (connect: Connect) =>
       return containerHost(container, image)
     }
 
+    /** Only opening, changing and undoing keep the container from its idle stop; a status poll doesn't (AI-STUDIO §7). */
+    private async active(storeId: string): Promise<StudioRunner> {
+      const runner = await this.runnerFor(storeId)
+      this.lastActive = Date.now()
+      await this.ctx.storage.setAlarm(Date.now() + tickMs)
+      return runner
+    }
+
     /** AI-STUDIO §3: start the store's sandbox from its saved draft, or say its place in the queue. */
     async open(storeId: string): Promise<StudioState> {
       try {
-        await (await this.runnerFor(storeId)).open()
+        await (await this.active(storeId)).open()
         return { state: 'ready' }
       } catch (error) {
         if (error instanceof StudioQueued) return { state: 'queued', place: error.place }
@@ -107,11 +113,11 @@ export const studioSessionClass = (connect: Connect) =>
 
     /** One change, after the ones before it (AI-STUDIO §4); `model` is the Worker's, called back over RPC. */
     async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel): Promise<ChangeOutcome> {
-      return (await this.runnerFor(storeId)).change({ ...input, model })
+      return (await this.active(storeId)).change({ ...input, model })
     }
 
     async undo(storeId: string, commit: string, userId: string): Promise<ChangeOutcome> {
-      return (await this.runnerFor(storeId)).undo(commit, userId)
+      return (await this.active(storeId)).undo(commit, userId)
     }
 
     /** "Finishing your previous change…" (AI-STUDIO §4 step 1). */
@@ -128,7 +134,12 @@ export const studioSessionClass = (connect: Connect) =>
       }
       const storeId = await this.ctx.storage.get<string>('store')
       const capacity = this.env.STUDIO_CAPACITY
-      if (storeId && capacity) await capacity.get(capacity.idFromName('account')).acquire(storeId)
+      const lease = storeId && capacity ? await capacity.get(capacity.idFromName('account')).acquire(storeId) : null
+      // A lease that lapsed while the account filled up isn't renewed: the container stops rather than run over the limit.
+      if (lease && !lease.granted) {
+        await runner.stop()
+        return
+      }
       await this.ctx.storage.setAlarm(Date.now() + tickMs)
     }
 

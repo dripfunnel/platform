@@ -200,6 +200,18 @@ describe('one change', () => {
   })
 })
 
+describe('a failed load', () => {
+  it('stops the container it started and gives back its place', async () => {
+    const empty = fakeSites()
+    const { runner, host, released } = await runnerFor(t.storeA2, { sites: empty })
+    await expect(runner.open()).rejects.toThrow(/missing/)
+    expect(host.starts()).toBe(1)
+    expect(host.running()).toBe(false)
+    expect(released).toEqual([t.storeA2])
+    expect(runner.loaded).toBe(false)
+  })
+})
+
 describe('one change at a time', () => {
   it('runs two requests for one store one after the other, and two stores side by side', async () => {
     let releaseA: () => void = () => undefined
