@@ -1,0 +1,25 @@
+{
+  "announce": "Simple routines, gentle on your skin",
+  "nav": {
+    "label": "Main",
+    "menu": "Menu",
+    "shop": "Shop",
+    "about": "About",
+    "contact": "Contact"
+  },
+  "tools": {
+    "search": "Search",
+    "account": "Account",
+    "cart": "Cart"
+  },
+  "footer": {
+    "note": "Made in small batches.",
+    "shop": "Shop",
+    "all": "Shop all",
+    "help": "Help",
+    "shipping": "Shipping",
+    "returns": "Returns",
+    "privacy": "Privacy",
+    "terms": "Terms"
+  }
+}
