@@ -19,6 +19,11 @@ export const en = {
   'powered.by': 'Powered by {brand}',
   'legal.title': 'Legal information',
   'breadcrumbs.label': 'Breadcrumb',
+  'legal.fibre': 'Fibre content',
+  'legal.origin': 'Country of origin',
+  'legal.care': 'Care instructions',
+  'preview.closed.title': 'This preview has closed',
+  'preview.closed.body': 'Open it again from your link or from the portal.',
 } as const
 
 export type MessageKey = keyof typeof en

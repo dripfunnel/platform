@@ -23,7 +23,7 @@ components with the branded commerce types (#481), and the publish gate's suites
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#307: the browse behaviour as built).
 
 ---
 
@@ -116,6 +116,26 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 2. **Headless components** with render props or slots render nothing visual of their own.
 3. **Sealed components** render something that must exist and be seen: the theme places and
    styles them through tokens and `::part`, and can't omit, cover, replace or reword them.
+
+*The browse behaviour as built on #307* *(decided there)*:
+- **The browser side** in `./theme`: `useLocation`, `navigate`, `useMediaQuery`, `useReducedMotion`, `useInView`,
+  `useScrollProgress` and `usePointer` (`platform/browser`); `<Image>` and `<Video>` (`platform/media`); `useHead`
+  (`platform/seo`); and the headless `Checkbox`, `Select` and `SearchField` (`ui/headless`).
+- **Loading, in both render modes**: a hook renders its loading state in the static build and in the browser's first
+  render alike, so hydration matches, then asks the Shop API (`platform/render`'s `useShopData`). A question is asked once
+  per page however many components ask it, and only the latest question's answer is kept.
+- **`navigate()`** changes the query in place, in history; another path loads whole, since each live page is its own
+  file, unless the caller says the same page shows it (`inPlace`).
+- **`<Image>`** takes only a picture core decoded (`Photo`), with the width over height (`ratio`) that sets its width and
+  height; on the live site it is resized through Cloudflare's `/cdn-cgi/image/` (320 to 1920 px), and a preview shows the
+  original. Only the picture core marks as the page's main one loads eagerly. **`<Video>`** needs a poster, never
+  preloads, plays muted only while on screen and never under reduced motion; the size cap is the media library's, not
+  the browser's.
+- **The head**: core keeps the title, description, canonical, Open Graph and robots in step in the browser, the page's
+  over the store's, and `noindex` holds in the preview and the studio. JSON-LD is only ever in the static HTML: Trusted
+  Types forbid writing a script's text at run time.
+- **A closed preview**: on `PREVIEW_CLOSED` from `/shop-api`, core's runtime replaces the page with "This preview has
+  closed. Open it again from your link or from the portal." and no store data (PREVIEW §5 step 3).
 
 ### 2.2 The store repo
 

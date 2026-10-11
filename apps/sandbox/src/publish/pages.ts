@@ -7,7 +7,7 @@ import { fallbackPath, indexable, type CatalogueSnapshot, type PageRoute } from 
 export type PlannedPage = { path: string; route: PageRoute; language: string; custom: string | null }
 
 /** What the page's script reads to hydrate the same tree the build rendered (runtime/boot.tsx). */
-export type LivePage = { route: CoreRoute | null; custom: string | null; store: CatalogueSnapshot['store']; poweredBy: string | null }
+export type LivePage = { route: CoreRoute | null; custom: string | null; path: string; store: CatalogueSnapshot['store']; poweredBy: string | null }
 
 export const livePageId = 'df-page'
 
@@ -43,7 +43,7 @@ export type PageAssets = { entry: string; css: readonly string[] }
 /** The document around a rendered page: core owns the head (ARCHITECTURE §8), the theme the body. */
 export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body: string; assets: PageAssets; dir: 'ltr' | 'rtl'; store: CatalogueSnapshot['store'] }) => {
   const asset = (file: string) => escapeHtml(`${s.assetBase ?? '/'}${file}`)
-  const live: LivePage = { route: page.route === 'custom' ? null : page.route, custom: page.custom, store: o.store, poweredBy: s.poweredBy }
+  const live: LivePage = { route: page.route === 'custom' ? null : page.route, custom: page.custom, path: page.path, store: o.store, poweredBy: s.poweredBy }
   return [
     '<!doctype html>',
     `<html lang="${escapeHtml(page.language)}" dir="${o.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">`,

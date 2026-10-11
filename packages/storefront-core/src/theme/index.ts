@@ -1,7 +1,13 @@
 // What a theme may import (storefront ARCHITECTURE §3.4 "Imports"): core's hooks and components, never its internals.
+export { useInView, useMediaQuery, usePointer, useReducedMotion, useScrollProgress } from '../platform/browser/hooks'
 export { Link } from '../platform/browser/link'
+export { navigate, useLocation, type Address } from '../platform/browser/router'
 export { type Translate } from '../platform/i18n/i18n'
+export { Image, Video, type ImageProps, type Photo, type VideoFile, type VideoProps } from '../platform/media/media'
+export { type Loaded } from '../platform/render/data'
+export { useHead, type Head } from '../platform/seo/head'
 export { type Badge, type Rating, type Stock } from '../pricing/brand'
 export { type Money } from '../pricing/money'
 export { Breadcrumbs, ConsentBanner, ConsentSettingsButton, LegalNotices, PoweredBy, PreviewBanner, Price, type Crumb, type LegalNotice, type PriceProps } from '../sealed/components'
 export { useStorefront, type RenderMode, type Storefront } from '../platform/store/context'
+export { Checkbox, SearchField, Select } from '../ui/headless/fields'
