@@ -7,6 +7,13 @@
 --      partner is emailed. A queued "address live" email for one finds no address and is skipped (saas/email/compose.ts).
 --   3. partner_domain.kind's check narrows to portal, shops and email, so no preview row can come back.
 -- partner_setup_item's 'wildcards' item keeps its key; it now follows the shops address alone (saas/partnerConsole).
+-- Between this migration and the promotion of the build that ships with it (ARCHITECTURE §6), the old build still runs.
+-- The window is harmless:
+--   - Adding a preview address fails on the narrowed check, as a 500 rather than INVALID_INPUT. Such an address never did
+--     anything: no preview host was registered or served.
+--   - The old build's {code}.preview.<partner domain> lookup finds nothing. No traffic reached those hosts.
+--   - The old build's store page shows no preview address, its queued live-address emails for a preview find no address and
+--     are skipped, and its store inserts get a key from the new trigger.
 
 -- Base32 (RFC 4648, lowercase) from a v4 UUID's random bytes; bytes 6 and 8 carry its version and variant, so they are skipped.
 create function new_preview_key() returns text
