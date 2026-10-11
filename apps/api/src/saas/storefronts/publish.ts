@@ -22,6 +22,10 @@ import {
   selectGateVerdict,
   selectQueuedRun,
   selectRun,
+  buildFilesKept,
+  followLiveBuild,
+  setQueuedRender,
+  widenQueuedRun,
   selectStartedAt,
   selectStorefrontHost,
   selectVersion,
@@ -31,6 +35,7 @@ import {
   switchLive,
   versionOfBuild,
   type NewRun,
+  type QueuedRun,
   type RunRow,
 } from '#db/scoped/publishing'
 import { isUploaded, isVerified } from '#db/scoped/builds'
@@ -44,6 +49,7 @@ import { buildFolder, manifestName, stagingFolder } from './layout'
 import { manifestSchema } from './manifest'
 import { failedCheck, runPostDeployChecks, type CheckResult } from './postDeploy'
 import { deletePrefix, type SitesBucket } from './templates'
+import { copyInherited, inheritBatch, inheritPlan, maxRenderPages, mergeRender, sealRender, type RenderRequest } from './render'
 import { uploadRefusals, verifyUpload } from './verify'
 
 // The publish-storefront Workflow (SAAS §9.1; storefront LIVE-SHOP.md §4): queued → building (frozen, dispatched) →
@@ -51,11 +57,15 @@ import { uploadRefusals, verifyUpload } from './verify'
 // a failing report → checking → failed.
 
 export const storefrontPublishKind = 'storefront.publish'
+/** A page run's own Workflow (`jobs/workflows/render-page.ts`), started the same way. */
+export const storefrontRenderPageKind = 'storefront.render_page'
+/** IndexNow for a build that stayed live (ARCHITECTURE §8), delivered by `jobs/queues/deliverers/indexNow.ts`. */
+export const storefrontIndexNowKind = 'storefront.indexnow'
 export const publishParams = z.strictObject({ runId: z.uuid(), storeId: z.uuid() })
 export type PublishParams = z.infer<typeof publishParams>
 
-const queueRun = (tx: ScopedSql, storeId: string, partnerId: string, runId: string) =>
-  queueSideEffect(tx, { kind: storefrontPublishKind, idempotencyKey: `publish:${runId}`, payload: { runId, storeId }, partnerId, storeId })
+const queueRun = (tx: ScopedSql, storeId: string, partnerId: string, run: Pick<QueuedRun, 'id' | 'kind'>) =>
+  queueSideEffect(tx, { kind: run.kind === 'page' ? storefrontRenderPageKind : storefrontPublishKind, idempotencyKey: `publish:${run.id}`, payload: { runId: run.id, storeId }, partnerId, storeId })
 
 /** The next waiting run, once the running one has finished (one build at a time per store, SAAS §9.1). */
 const queueNext = async (tx: ScopedSql, storeId: string, partnerId: string): Promise<void> => {
@@ -71,11 +81,38 @@ export const startPublish = async (tx: ScopedSql, run: Omit<NewRun, 'storeId'> &
   const storefront = await lockStorefront(tx, run.storeId)
   if (!storefront) return { ok: false, reason: 'NO_STOREFRONT' }
   const waiting = await selectQueuedRun(tx, run.storeId)
-  if (waiting) return { ok: true, runId: waiting }
+  if (waiting) {
+    if (waiting.kind === 'page' && run.kind !== 'page') await widenQueuedRun(tx, waiting.id, run)
+    return { ok: true, runId: waiting.id }
+  }
   const runId = await insertQueuedRun(tx, run)
-  if (!(await hasActiveRun(tx, run.storeId))) await queueRun(tx, run.storeId, storefront.partner_id, runId)
+  if (!(await hasActiveRun(tx, run.storeId))) await queueRun(tx, run.storeId, storefront.partner_id, { id: runId, kind: run.kind })
   return { ok: true, runId }
 }
+
+export type RenderResult = { ok: true; runId: string } | { ok: false; reason: 'NO_LIVE_BUILD' }
+
+/**
+ * A single-page render (LIVE-SHOP §7): a page run of the live commit, with no allowance. A waiting page run takes the
+ * addresses too, up to `maxRenderPages`, past which it becomes an automatic full publish; a waiting full publish covers them.
+ */
+export const requestPageRender = (sql: postgres.Sql, request: RenderRequest, now: Date): Promise<RenderResult> =>
+  withSystemScope(sql, async (tx) => {
+    const storefront = await lockStorefront(tx, request.storeId)
+    const live = storefront?.live_build_id ? await selectRun(tx, storefront.live_build_id) : null
+    if (!storefront || !live) return { ok: false, reason: 'NO_LIVE_BUILD' }
+    const render = { pages: request.pages, drop: request.drop.filter((d) => !request.pages.includes(d)) }
+    const waiting = await selectQueuedRun(tx, request.storeId)
+    if (waiting?.kind === 'page' && waiting.render) {
+      const merged = mergeRender(waiting.render, render)
+      if (merged.pages.length + merged.drop.length <= maxRenderPages) await setQueuedRender(tx, waiting.id, merged)
+      else await widenQueuedRun(tx, waiting.id, { kind: 'automatic', commit: live.commit, template: live.template, coreVersion: live.core_version, usesAllowance: false, startedBy: { kind: 'system', id: null } })
+      return { ok: true, runId: waiting.id }
+    }
+    if (waiting) return { ok: true, runId: waiting.id }
+    const started = await startPublish(tx, { storeId: request.storeId, kind: 'page', commit: live.commit, template: live.template, coreVersion: live.core_version, usesAllowance: false, startedBy: { kind: 'system', id: null }, at: now, render })
+    return started.ok ? started : { ok: false, reason: 'NO_LIVE_BUILD' }
+  })
 
 export interface PublishDeps extends FreezeDeps {
   /** Absent until the designer's model reaches the Workflow (#318): a failing design publish then goes straight to bisect. */
@@ -135,20 +172,41 @@ const systemEntry = (run: RunRow, action: string, result: 'success' | 'failed', 
 
 const claimStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
   withSystemScope(deps.sql, async (tx) => {
-    if (!(await lockStorefront(tx, p.storeId))) return 'stopped'
+    const storefront = await lockStorefront(tx, p.storeId)
+    if (!storefront) return 'stopped'
     const run = await selectRun(tx, p.runId)
     if (!run || run.store_id !== p.storeId) return 'stopped'
-    if (run.state !== 'queued') return run.state === 'building' || run.state === 'checking' || run.state === 'deploying' ? 'claimed' : 'stopped'
+    // A page run renders some pages; a waiting one a press widened is a full publish (LIVE-SHOP §7).
+    const claimed = run.kind === 'page' ? 'claimed:page' : 'claimed'
+    if (run.state !== 'queued') return run.state === 'building' || run.state === 'checking' || run.state === 'deploying' ? claimed : 'stopped'
     // The partial unique index refuses a second running build anyway; this says why, and the Workflow tries again.
     if (await hasActiveRun(tx, p.storeId)) throw new Busy('another publish is running')
-    await startRun(tx, run, deps.now())
-    return 'claimed'
+    // A publish may have gone live while this page run waited: it renders beside that build, with its code and core.
+    const live = run.kind === 'page' && storefront.live_build_id ? await selectRun(tx, storefront.live_build_id) : null
+    if (live) await followLiveBuild(tx, run.id, live)
+    await startRun(tx, live ? { ...run, commit: live.commit, template: live.template, core_version: live.core_version } : run, deps.now())
+    return claimed
   })
 
 /** Every staged object hashed to the manifest whose digest the passing report sent, and copied (LIVE-SHOP §4 step 9). */
-const verifyStep = async (deps: PublishDeps, storeId: string, buildId: string): Promise<string> => {
-  await verifyUpload(deps, storeId, buildId)
+const verifyStep = async (deps: PublishDeps, storeId: string, buildId: string, seal = true): Promise<string> => {
+  await verifyUpload(deps, storeId, buildId, { seal })
   return 'verified'
+}
+
+/** A page run's folder completed from the live build's, a batch per step, then sealed (LIVE-SHOP §7). */
+const inheritSteps = async (deps: PublishDeps, p: PublishParams, steps: PublishSteps): Promise<void> => {
+  const count = Number(await steps.do('inherit', async () => String((await inheritPlan(deps, p.storeId, p.runId)).files.length)))
+  for (let batch = 0; batch * inheritBatch < count; batch++) {
+    await steps.do(`inherit:${batch}`, async () => {
+      await copyInherited(deps, p.storeId, p.runId, await inheritPlan(deps, p.storeId, p.runId), batch)
+      return 'copied'
+    })
+  }
+  await steps.do('seal', async () => {
+    await sealRender(deps, p.storeId, p.runId, await inheritPlan(deps, p.storeId, p.runId))
+    return 'sealed'
+  })
 }
 
 /** The report's verdict once it came (LIVE-SHOP §4 step 7). */
@@ -203,6 +261,7 @@ const confirmStep = async (deps: PublishDeps, p: PublishParams, buildId: string)
     await confirmLive(tx, run, at)
     if (buildId !== p.runId) await finishRepaired(tx, p.storeId, p.runId, at)
     const version = await versionOfBuild(tx, run.id)
+    await queueSideEffect(tx, { kind: storefrontIndexNowKind, idempotencyKey: `indexnow:${run.id}`, payload: { storeId: run.store_id, buildId: run.id, previousBuildId: run.previous_build_id }, partnerId: run.partner_id, storeId: run.store_id })
     await activityLog.record(tx, systemEntry(run, 'storefront.published', 'success', [{ field: 'version', before: null, after: version === null ? null : String(version) }]))
     await queueNext(tx, run.store_id, run.partner_id)
     return true
@@ -253,6 +312,26 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string, build
   for (const id of [p.runId, ...attempts]) await deletePrefix(deps.sites, stagingFolder(p.storeId, id))
   return 'failed'
 }
+
+/**
+ * The regression rule's rollback of a build already live (ARCHITECTURE §9): the same pointer move back, refused while a
+ * publish runs, once the build moved on, or when clean-up removed the build before it.
+ */
+export const rollBackLiveBuild = (sql: postgres.Sql, input: { storeId: string; runId: string; code: string; now: Date }): Promise<'rolled_back' | 'busy' | 'refused'> =>
+  withSystemScope(sql, async (tx) => {
+    const storefront = await lockStorefront(tx, input.storeId)
+    const run = await selectRun(tx, input.runId)
+    if (!storefront || !run || run.store_id !== input.storeId || run.state !== 'live' || storefront.live_build_id !== run.id || !run.previous_build_id) return 'refused'
+    if (await hasActiveRun(tx, input.storeId)) return 'busy'
+    if (!(await buildFilesKept(tx, run.previous_build_id))) return 'refused'
+    const versions = await rollBackRun(tx, run, input.code, input.now)
+    await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `rollback:${run.id}`, payload: { storeId: run.store_id, reason: 'rollback' }, partnerId: run.partner_id, storeId: run.store_id })
+    await activityLog.record(tx, {
+      ...systemEntry(run, 'storefront.rolled_back', 'failed', [{ field: 'version', before: versions.withdrawn === null ? null : String(versions.withdrawn), after: versions.back === null ? null : String(versions.back) }]),
+      reason: input.code,
+    })
+    return 'rolled_back'
+  })
 
 const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing', UploadTimedOut: 'upload_timed_out', ReportTimedOut: 'report_timed_out', GateFailed: 'gate_failed', Bisected: 'bisected' }
 // A step's error may come back from the Workflow runtime as a plain Error, so a refusal's code travels as its message.
@@ -360,10 +439,13 @@ const bisect = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams):
   return bad > 0 ? first : null
 }
 
+/** A publish of any kind; a page run completes its folder from the live build's before the switch (LIVE-SHOP §7). */
 export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: PublishSteps): Promise<'live' | 'failed' | 'rolled_back' | 'stopped'> => {
   let liveId = p.runId
   try {
-    if ((await steps.do('claim', () => claimStep(deps, p))) === 'stopped') return 'stopped'
+    const claimed = await steps.do('claim', () => claimStep(deps, p))
+    if (claimed === 'stopped') return 'stopped'
+    const render = claimed === 'claimed:page'
     if (!(await gateBuild(deps, steps, p.storeId, p.runId, ''))) {
       const kind = await steps.do('kind', () => withSystemScope(deps.sql, async (tx) => (await selectRun(tx, p.runId))?.kind ?? 'gone'))
       if (kind !== 'design') throw new GateFailed('the gate refused the build')
@@ -377,7 +459,8 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
         throw new UploadTimedOut('no upload within the build id’s lifetime')
       })
     }
-    await steps.do('verify', () => verifyStep(deps, p.storeId, liveId))
+    await steps.do('verify', () => verifyStep(deps, p.storeId, liveId, !render))
+    if (render) await inheritSteps(deps, p, steps)
     if ((await steps.do('switch', () => switchStep(deps, p, liveId))) === 'stopped') return 'stopped'
     const verdict = await steps.do('checks', () => checksStep(deps, p.storeId, liveId), 'long')
     if (verdict !== 'passed') return (await steps.do('rollback', () => rollbackStep(deps, p, liveId, verdict))) === 'rolled_back' ? 'rolled_back' : 'stopped'

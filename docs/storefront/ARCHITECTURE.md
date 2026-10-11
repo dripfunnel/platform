@@ -567,7 +567,8 @@ changes don't rebuild, adapted to SSG)*:
    **single-page render** builds that product's page (and its version URLs) with the store's
    live theme, adds it to the sitemap, redirects the old address (§8), stores it as a new build
    into which the API copies the live build's other files (LIVE-SHOP §7) and notifies IndexNow. It takes seconds and uses no allowance. Until it lands,
-   and for any other unknown catalogue URL, the edge serves a client-rendered fallback.
+   and for any other unknown catalogue URL, the edge serves a client-rendered fallback. *Built on #484* in the store's
+   workflow, about a minute rather than seconds (decided there: LIVE-SHOP §7).
 2. **Catalogue publishing**:
    - **Change detection**: engine events (product, version, collection, filter, menu,
      content, store settings that appear on the storefront) mark the store's live site
@@ -766,7 +767,8 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
     consistent; the root redirects to the default locale.
   - **Breadcrumbs** are sealed on product and collection pages.
   - **Telling search engines**: IndexNow on every publish and single-page render (Bing,
-    Yandex); Google through the sitemap named in `robots.txt`. A Search Console verification
+    Yandex; built on #484: the pages whose bytes changed or went since the build before, once the build passed its
+    post-deploy checks, with the store's own key served by the edge at `/{key}.txt`); Google through the sitemap named in `robots.txt`. A Search Console verification
     tag can be set in Site settings.
   - **What the theme must do**: one `<h1>` per page and headings in order; the main content
     in the HTML without JavaScript (the gate renders every page with JavaScript off and checks
@@ -815,6 +817,27 @@ fits (suggested on #483).
   is read too. A p75 regression after a deploy starts a repair and is flagged in the admin
   console; a severe one (LCP or INP doubled, CLS above 0.25) also rolls back automatically.
   Without consent the field data is thinner, so the lab gates carry most of the weight.
+  **Built on #484:** core's `reportVitals` measures LCP, CLS (the largest session window) and INP (the slowest
+  interaction, one in fifty set aside) on every page and, when the page is left, sends one beacon to the store's own
+  `/shop-api/vitals` only if the shopper has agreed to analytics by then: the page kind, phone or desktop, and the
+  three measures (INP null for a visit with no interaction), nothing else; the intake refuses any other field and a
+  body over 1 KB before reading it, and sits behind the Shop API's per-address limiter. The Shop API keeps them as each
+  day's histograms (`storefront_vitals_day`), never for a preview host. *Decided on #484:* the rule runs daily at 03:00 UTC and reads a build once, after its first two whole days live
+  and within a week: the days after its switch day against the seven days before it, per page kind and device, each
+  side with at least 50 samples (INP with at least 50 visits that had an interaction). **Severe** rolls back (the pointer move of LIVE-SHOP §4 step 10, `vitals_regressed`;
+  held while a publish runs and read again the next day, refused once the build before is gone) only when each of the
+  two days is severe on its own: LCP or INP p75 doubled and now above Google's "good" (2.5 s, 200 ms), or CLS p75 above
+  0.25 from under it.
+  **Regressed** is a p75 a fifth worse; either needs a move of at least two histogram buckets, the data's resolution.
+  It is kept on `publish_run.vitals` for the admin console and the repair loop (#483). The beacons are unauthenticated,
+  so the rule asks for two days in a row, and a day with more than three times the week before's daily samples (at
+  least 50) is a flood that can only flag, never roll back. No day's samples are capped, so a sender can't crowd genuine ones out.
+  Faking a rollback then means replacing over a quarter of a store's genuine traffic, at its usual volume, for two days;
+  what it buys is a pointer move back to the build before, recorded and undone by the next publish. The other way round,
+  a sender can dilute a real regression with fast samples, or flood a day so it only flags: a regression then waits for
+  the merchant, the admin console's flag and the next publish's lab gates, which carry most of the weight anyway. Both
+  are accepted (raised on #484's review). Reading Google's
+  CrUX data is a follow-up.
 
 ---
 

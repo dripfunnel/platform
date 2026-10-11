@@ -12,11 +12,12 @@ export interface EdgeHostRow {
   status: 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled' | 'closed'
   selling_out: boolean
   live_build_id: string | null
+  indexnow_key: string
 }
 
 export const selectEdgeHost = async (tx: ScopedSql, host: string): Promise<EdgeHostRow | null> => {
   const rows = await tx<EdgeHostRow[]>`
-    select s.id as store_id, s.partner_id, s.name, s.main_language, s.status, f.live_build_id,
+    select s.id as store_id, s.partner_id, s.name, s.main_language, s.status, f.live_build_id, f.indexnow_key,
       (s.status = 'cancelled' and exists (select 1 from store_subscription x where x.store_id = s.id and x.cancel_at > now())) as selling_out
     from store s join storefront f on f.store_id = s.id
     where ${storefrontHostMatch(tx, host)}

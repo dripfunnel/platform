@@ -12,7 +12,7 @@ export type EdgeState = 'open' | 'suspended' | 'offline'
 
 export type LiveHost =
   | { kind: 'none' }
-  | { kind: 'store'; storeId: string; partnerId: string; buildId: string | null; state: EdgeState; name: string; language: string }
+  | { kind: 'store'; storeId: string; partnerId: string; buildId: string | null; state: EdgeState; name: string; language: string; indexNowKey: string }
 
 const stateOf = (row: EdgeHostRow): EdgeState => {
   switch (row.status) {
@@ -34,7 +34,7 @@ export const lookupLiveHost = async (sql: postgres.Sql, rawHost: string, options
   if (!parsed.ok || parsed.wildcard) return { kind: 'none' }
   const row = await withSystemScope(sql, (tx) => selectEdgeHost(tx, parsed.host))
   if (!row) return { kind: 'none' }
-  return { kind: 'store', storeId: row.store_id, partnerId: row.partner_id, buildId: row.live_build_id, state: stateOf(row), name: row.name, language: row.main_language }
+  return { kind: 'store', storeId: row.store_id, partnerId: row.partner_id, buildId: row.live_build_id, state: stateOf(row), name: row.name, language: row.main_language, indexNowKey: row.indexnow_key }
 }
 
 /** The newest renamed addresses the edge holds per store; an older one answers the build's fallback (decided on #484). */

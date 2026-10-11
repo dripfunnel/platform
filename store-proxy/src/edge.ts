@@ -2,7 +2,7 @@
 
 export type LiveHost =
   | { kind: 'none' }
-  | { kind: 'store'; storeId: string; partnerId: string; buildId: string | null; state: 'open' | 'suspended' | 'offline'; name: string; language: string }
+  | { kind: 'store'; storeId: string; partnerId: string; buildId: string | null; state: 'open' | 'suspended' | 'offline'; name: string; language: string; indexNowKey: string }
 
 export type PreviewAccess = { ok: true; storeId: string; userId: string; epoch: number; folder: string | null } | { ok: false }
 
@@ -42,9 +42,11 @@ export const parseLiveHost = (value: unknown): LiveHost => {
     (v['buildId'] === null || isId(v['buildId'])) &&
     (state === 'open' || state === 'suspended' || state === 'offline') &&
     typeof v['name'] === 'string' &&
-    typeof v['language'] === 'string'
+    typeof v['language'] === 'string' &&
+    typeof v['indexNowKey'] === 'string' &&
+    /^[a-f0-9]{32}$/.test(v['indexNowKey'])
   )
-    return { kind: 'store', storeId: v['storeId'], partnerId: v['partnerId'], buildId: v['buildId'], state, name: v['name'], language: v['language'] }
+    return { kind: 'store', storeId: v['storeId'], partnerId: v['partnerId'], buildId: v['buildId'], state, name: v['name'], language: v['language'], indexNowKey: v['indexNowKey'] }
   throw new EdgeAnswerInvalid('liveHost')
 }
 
