@@ -43,7 +43,9 @@ describe('worker', () => {
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], { ...env, HYPERDRIVE: { connectionString } }, ctx)
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'ok', dbLatencyMs: expect.any(Number), version: 'test-version' })
+    const body = (await response.json()) as { dbLatencyMs: number }
+    expect(body).toEqual({ ok: true, area: 'platform', db: 'ok', dbLatencyMs: expect.any(Number), version: 'test-version' })
+    expect(Number.isInteger(body.dbLatencyMs) && body.dbLatencyMs >= 0).toBe(true)
   })
 
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
