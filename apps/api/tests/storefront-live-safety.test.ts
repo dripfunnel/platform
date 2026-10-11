@@ -317,3 +317,23 @@ describe('a rolled-back press', () => {
     expect(await withSystemScope(db.sql, (tx) => allowanceUsed(tx, t.storeA1, since))).toBe(used)
   })
 })
+
+describe('a rolled-back design publish', () => {
+  it('leaves the draft’s changes still to publish, and the draft based on the version live again', async () => {
+    const [liveVersion] = await db.sql<{ id: string }[]>`select id from design_version where store_id = ${t.storeA1} and state = 'live'`
+    await db.sql`delete from design_draft where store_id = ${t.storeA1}`
+    await db.sql`insert into design_draft (store_id, head_commit, template, core_version, commits, base_version_id) values (${t.storeA1}, ${commit(61)}, 'linen', '1.0.0', ${`{${commit(60)},${commit(61)}}`}::text[], ${liveVersion?.id ?? null})`
+    const runId = await staged(t.storeA1, 61)
+    probe.breakPath(/^\/checkout$/, { status: 500 })
+    expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, steps)).toBe('rolled_back')
+    const [draft] = await db.sql<{ commits: string[]; base_version_id: string | null }[]>`select to_jsonb(commits) as commits, base_version_id from design_draft where store_id = ${t.storeA1}`
+    expect(draft).toEqual({ commits: [commit(60), commit(61)], base_version_id: liveVersion?.id ?? null })
+    // The same publish passing its checks trims them, as #483's switch did.
+    probe = testProbe(db.sql, { sites, assets })
+    const again = await staged(t.storeA1, 61)
+    expect(await runPublish(deps(), { runId: again, storeId: t.storeA1 }, steps)).toBe('live')
+    const [after] = await db.sql<{ commits: string[] }[]>`select to_jsonb(commits) as commits from design_draft where store_id = ${t.storeA1}`
+    expect(after?.commits).toEqual([])
+  })
+})
+

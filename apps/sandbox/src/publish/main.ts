@@ -62,7 +62,9 @@ export const runStep = async (argv: readonly string[], env: NodeJS.ProcessEnv): 
   const built = required(values.built, 'built')
   const executablePath = browserPaths.find((p): p is string => p !== undefined && p !== '' && existsSync(p))
   if (!executablePath) throw new Error('The check step needs Chromium; set CHROME_PATH.')
-  const browser = await chromium.launch({ executablePath, headless: true })
+  // The container is the boundary (no network, no capabilities, a non-root user): Chromium's own sandbox can't create
+  // its namespaces there, so it is off, as Playwright launches it by default; said here so nobody turns it on unawares.
+  const browser = await chromium.launch({ executablePath, headless: true, chromiumSandbox: false })
   try {
     const checked = await checkSite({ site: join(built, 'site'), out: built, live: values.live ?? null, snapshot, theme, strictLook: values['strict-look'] ?? false, browser })
     await writeFile(join(out, 'report.json'), JSON.stringify(checked.report))
