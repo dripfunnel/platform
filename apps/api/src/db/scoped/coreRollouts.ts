@@ -6,6 +6,9 @@ import type { ScopedSql } from './index'
 export type RolloutState = 'canary' | 'waves' | 'paused' | 'done' | 'rolled_back'
 export type StoreUpgradeState = 'pending' | 'running' | 'passed' | 'migrated' | 'pinned' | 'baseline' | 'live' | 'reverted'
 
+export const hasActiveRollout = async (tx: ScopedSql): Promise<boolean> =>
+  (await tx`select 1 from core_rollout where state in ('canary', 'waves', 'paused')`).length > 0
+
 export const insertRollout = async (tx: ScopedSql, r: { version: string; security: boolean; by: string | null; reason: string; at: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
     insert into core_rollout (version, security, started_by, reason, started_at) values (${r.version}, ${r.security}, ${r.by}, ${r.reason}, ${r.at}) returning id`

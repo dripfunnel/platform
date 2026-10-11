@@ -114,7 +114,8 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   the release workflow's `sandbox-image` job builds after publishing and pushes to Cloudflare's registry (studios)
   and **publicly to `ghcr.io`** as `ghcr.io/dripfunnel/storefront-build:<version>` (store repos' builds on GitHub
   Actions pull it with no token; decided 2026-10-09, `../storefront/LIVE-SHOP.md` §4), then records its
-  Cloudflare digest in `core_release` (built on #482), with core, the allowed libraries
+  Cloudflare digest in `core_release` (built on #482; old versions' images are retired by AI-STUDIO §9's rule, and
+  `.github/workflows/retire-images.yml` deletes them from Cloudflare's registry, #485), with core, the allowed libraries
   and the gate tools preinstalled. A store repo's `package.json` only pins the version, which
   picks the image. No store repo holds a token or an `.npmrc` with one, and no secret or
   grant is needed for store repos (decided on #470, which replaced #303's org secret).
