@@ -88,3 +88,8 @@ export const recordsFor = (kind: DomainKind, host: string, apex: boolean, edgeZo
       ]
   }
 }
+
+const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.com']
+
+/** DripFunnel's own names and the environment's zone, which no partner or merchant may claim (FIRST-RELEASE §9.2). */
+export const isDripfunnelHost = (host: string, edgeZone: string): boolean => [...dripfunnelDomains, edgeZone].some((d) => host === d || host.endsWith(`.${d}`))

@@ -349,6 +349,7 @@ describe('the backstop itself', () => {
       'product_story', 'story_block', 'warehouse', 'stock_level', 'stock_movement', 'licence_key', 'order_download', 'gift_card', 'gift_card_movement', 'api_key', 'api_usage', 'webhook_endpoint', 'webhook_delivery', 'app', 'app_grant',
       'store_billing_details', 'invoice', 'invoice_line', 'storefront_push', 'design_draft', 'publish_run', 'design_version', 'core_release', 'studio_session', 'ai_run',
       'storefront_content', 'storefront_redirect', 'storefront_content_translation', 'storefront_vitals_day',
+      'storefront_brand', 'storefront_seo',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -605,6 +606,51 @@ describe('the backstop itself', () => {
     expect(await withScope(db.sql, storeCaller(t.partnerA, t.storeA1), async (tx) => (await tx`update storefront_content set title = 'taken' where store_id = ${t.storeB1}`).count)).toBe(0)
   })
 
+  it('holds the brand and the home page’s search words to their own store: the merchant side writes, a shopper reads its shop’s (#471)', async () => {
+    const image = async (storeId: string) =>
+      (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    const a1Logo = await image(t.storeA1)
+    const b1Logo = await image(t.storeB1)
+    await db.sql`insert into storefront_brand (store_id, logo_asset_id, primary_colour) values (${t.storeA1}, ${a1Logo}, '#000000'), (${t.storeB1}, ${b1Logo}, '#ffffff')`
+    await db.sql`insert into storefront_seo (store_id, title) values (${t.storeA1}, 'A1'), (${t.storeB1}, 'B1')`
+    const count = (context: CallerContext, table: string) => withScope(db.sql, context, async (tx) => (await tx.unsafe(`select count(store_id)::int as n from ${table}`))[0]?.['n'] as number)
+    for (const table of ['storefront_brand', 'storefront_seo']) {
+      for (const [context, n] of [[storeCaller(t.partnerA, t.storeA1), 1], [storeCaller(t.partnerA, t.storeA2), 0], [supportSession(t.partnerA, t.storeA1, 'read'), 1], [shopper(t.partnerA, t.storeA1, null), 1], [shopper(t.partnerA, t.storeA2, null), 0]] as const) {
+        expect({ [table]: await count(context, table) }).toEqual({ [table]: n })
+      }
+      // A supplier, a partner and staff hold no grant on them: they can't even ask.
+      for (const context of [storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), partnerCaller(t.partnerA), staff]) {
+        await expect(count(context, table)).rejects.toThrow(/permission denied/)
+      }
+      await expect(withScope(db.sql, shopper(t.partnerA, t.storeA1, null), (tx) => tx.unsafe(`update ${table} set updated_at = now()`))).rejects.toThrow(/permission denied/)
+      expect(await withScope(db.sql, storeCaller(t.partnerA, t.storeA1), async (tx) => (await tx.unsafe(`update ${table} set updated_at = now() where store_id = '${t.storeB1}'`)).count)).toBe(0)
+    }
+    // A shopper never reads the colours or the voice; nobody writes into another store; a read-only support session writes nothing.
+    await expect(withScope(db.sql, shopper(t.partnerA, t.storeA1, null), (tx) => tx`select primary_colour from storefront_brand`)).rejects.toThrow(/permission denied/)
+    await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA2), (tx) => tx`insert into storefront_seo (store_id, title) values (${t.storeB1}, 'forged')`)).rejects.toThrow(/row-level security/)
+    await expect(withScope(db.sql, supportSession(t.partnerA, t.storeA2, 'read'), (tx) => tx`insert into storefront_seo (store_id, title) values (${t.storeA2}, 'support')`)).rejects.toThrow(/row-level security/)
+    await expect(withScope(db.sql, supportSession(t.partnerA, t.storeA1, 'read'), (tx) => tx`select save_store_name('Renamed')`)).rejects.toThrow(/merchant side of a store only/)
+  })
+
+  it('lets only the merchant side of a store remove its own domain (#471)', async () => {
+    const domain = async (storeId: string, host: string) =>
+      (await db.sql<{ id: string }[]>`insert into custom_domain (store_id, host, status, expected_cname, ownership_token) values (${storeId}, ${host}, 'live', 'x', 'y') returning id`)[0]?.id ?? ''
+    const a1 = await domain(t.storeA1, 'www.iso-a1.example')
+    const b1 = await domain(t.storeB1, 'www.iso-b1.example')
+    const removed = (context: CallerContext, id: string) => withScope(db.sql, context, async (tx) => (await tx`delete from custom_domain where id = ${id}`).count)
+    expect(await removed(storeCaller(t.partnerA, t.storeA1), b1)).toBe(0)
+    expect(await removed(storeCaller(t.partnerA, t.storeA2), a1)).toBe(0)
+    expect(await removed(supportSession(t.partnerA, t.storeA1, 'read'), a1)).toBe(0)
+    await expect(removed(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), a1)).rejects.toThrow(/permission denied/)
+    await expect(removed(partnerCaller(t.partnerA), a1)).rejects.toThrow(/permission denied/)
+    await expect(removed(staff, a1)).rejects.toThrow(/permission denied/)
+    // A store asking whether a host is taken learns only yes or no, and its own domain is not "taken".
+    const taken = (storeId: string, host: string) => withScope(db.sql, storeCaller(storeId === t.storeB1 ? t.partnerB : t.partnerA, storeId), async (tx) => (await tx<{ t: boolean }[]>`select merchant_host_taken(${host}) as t`)[0]?.t)
+    expect([await taken(t.storeA1, 'www.iso-a1.example'), await taken(t.storeA1, 'WWW.ISO-B1.example'), await taken(t.storeB1, 'www.iso-a1.example')]).toEqual([false, true, true])
+    expect(await removed(storeCaller(t.partnerA, t.storeA1), a1)).toBe(1)
+    await db.sql`delete from custom_domain where id = ${b1}`
+  })
+
   it('runs staff as app_platform, partner callers as app_partner, suppliers as app_supplier, shoppers as app_shop and other store callers as app_request (#205, #155, #295, #306)', async () => {
     const roleOf = async (context: CallerContext) =>
       withScope(db.sql, context, async (tx) => (await tx<{ role: string }[]>`select current_user as role`)[0]?.role)
@@ -725,6 +771,7 @@ describe('the backstop itself', () => {
       'end_staff_user_sessions',
       'latest_job_of',
       'membership_check_parents',
+      'merchant_host_taken',
       'open_support_banner',
       'partner_domain_record_owner',
       'partner_host_claimed',
@@ -734,6 +781,7 @@ describe('the backstop itself', () => {
       'plan_entitlement_within_ceiling',
       'plan_first_version',
       'save_store_info',
+      'save_store_name',
       'set_store_main_language',
       'set_store_support_access',
       'set_store_tax_inclusive',

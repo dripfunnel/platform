@@ -152,6 +152,8 @@ export interface CustomDomainRow {
   ownership_found: string | null
   checked_at: Date | null
   created_at: Date
+  /** The address the store's others redirect to, once live (migration 0291; SAAS §8). */
+  is_primary: boolean
 }
 
 export interface UserRow {

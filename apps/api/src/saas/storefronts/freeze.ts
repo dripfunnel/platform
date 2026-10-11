@@ -7,6 +7,7 @@ import { selectGuardContext, type GuardContextRow } from '#db/scoped/studio'
 import type { GuardContext } from '#integrations/sandbox/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { shopsHostOf } from '#saas/domains/storeHosts'
+import { socialNetworks } from '#saas/storefrontSettings/index'
 import { assetsFolder, draftBundle, snapshotFile, sourceBundle } from './layout'
 import type { SitesBucket } from './templates'
 
@@ -56,7 +57,8 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string,
   const languages = store.languages.length > 0 ? store.languages : [store.main_language]
   return {
     version: 1,
-    origin: `https://${shopsHostOf(source.shops_host, source.code)}`,
+    // The primary address, which canonical links and the sitemap name (SAAS §8): the store's own domain once made so.
+    origin: `https://${source.primary_host ?? shopsHostOf(source.shops_host, source.code)}`,
     store: {
       name: store.name,
       description: store.description,
@@ -72,6 +74,10 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string,
       contactPhone: store.contact_phone,
       logo: store.logo_asset_id ? { url: `/shop-api/assets/${store.logo_asset_id}` } : null,
       address: { street: store.address.street ?? null, city: store.address.city ?? null, region: store.address.region ?? null, postal: store.address.postal ?? null, country: store.country },
+      favicon: store.favicon_asset_id ? { url: `/shop-api/assets/${store.favicon_asset_id}` } : null,
+      tagline: store.tagline,
+      social: socialNetworks.flatMap((network) => (store.social[network] ? [{ network, url: store.social[network] }] : [])),
+      seo: store.seo && { title: store.seo.title, description: store.seo.description, image: store.seo.share_asset_id ? { url: `/shop-api/assets/${store.seo.share_asset_id}` } : null },
     },
     poweredBy: source.powered_by,
     guard: guardContextFor(guard, await storeContentPaths(tx, storeId)),

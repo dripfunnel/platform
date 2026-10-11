@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Deps } from './deps'
-import type { LiveHost } from './edge'
+import { EdgeAnswerInvalid, parseLiveHost, type LiveHost } from './edge'
 import { route } from './index'
 import { lookupSeconds } from './live'
 import { depsWith, fakeCache, fakeEdge, fakeSites, type Clock, type FakeEdge } from './testSupport'
@@ -16,7 +16,7 @@ const buildB = '00000000-0000-4000-8000-0000000000b1'
 const hostA = 'a.shops.acme.example'
 const hostB = 'www.b-shop.example'
 const folder = (store: string, build: string) => `stores/${store}/builds/${build}/`
-const store = (storeId: string, buildId: string | null, state: 'open' | 'suspended' | 'offline' = 'open', name = 'Shop'): LiveHost => ({ kind: 'store', storeId, partnerId: partner, buildId, state, name, language: 'en', indexNowKey: storeId.replace(/-/g, '') })
+const store = (storeId: string, buildId: string | null, state: 'open' | 'suspended' | 'offline' = 'open', name = 'Shop', primaryHost: string | null = null): LiveHost => ({ kind: 'store', storeId, partnerId: partner, buildId, state, name, language: 'en', indexNowKey: storeId.replace(/-/g, ''), primaryHost })
 
 const objects = {
   [`${folder(storeA, build1)}index.html`]: { body: 'A one', contentType: 'text/html', cacheControl: 'no-cache', csp: "script-src 'sha256-x'" },
@@ -191,5 +191,22 @@ describe('the live site', () => {
 
   it('refuses writes to the built files', async () => {
     expect((await get(`https://${hostA}/`, { method: 'POST' })).status).toBe(405)
+  })
+  it('redirects every other address of the store to its primary one, keeping the path and query, but never /shop-api (#471)', async () => {
+    const own = 'www.a-shop.example'
+    edge.hosts.set(hostA, store(storeA, build1, 'open', 'Shop', own))
+    edge.hosts.set(own, store(storeA, build1, 'open', 'Shop', own))
+    const moved = await get(`https://${hostA}/about/?ref=ad`)
+    expect([moved.status, moved.headers.get('location'), moved.headers.get('x-df-build')]).toEqual([301, `https://${own}/about/?ref=ad`, build1])
+    expect(await text(`https://${own}/about/`)).toBe('A about')
+    await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}' })
+    expect(edge.forwarded.map((r) => r.url)).toEqual([`https://${hostA}/shop-api/graphql`])
+  })
+
+  it('takes a lookup with no primary address as no redirect, and refuses one that isn’t a plain host', () => {
+    const answer = { kind: 'store', storeId: storeA, partnerId: partner, buildId: null, state: 'open', name: 'A', language: 'en', indexNowKey: 'a'.repeat(32) }
+    expect(parseLiveHost(answer)).toMatchObject({ primaryHost: null })
+    expect(parseLiveHost({ ...answer, primaryHost: 'www.a-shop.example' })).toMatchObject({ primaryHost: 'www.a-shop.example' })
+    for (const bad of ['evil.example/x', 'evil.example@x', 'EVIL.example', '', 7]) expect(() => parseLiveHost({ ...answer, primaryHost: bad })).toThrow(EdgeAnswerInvalid)
   })
 })

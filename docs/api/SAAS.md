@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -595,7 +595,7 @@ failed; a live hostname can become expiring or broken if its records change.
    best-effort purge of LIVE-SHOP §5 step 1. **Delivered on #317** (`jobs/queues/deliverers/cachePurge.ts`): it purges
    the edge lookup's tags for the store, the host and the partner the payload names, where `CF_CACHE_PURGE_TOKEN` is set,
    and otherwise waits in the outbox; the lookup's 60-second limit is what guarantees the change. Made primary
-   queues the same purge once #471 builds primary. *Decided here (#468): the purge names the
+   queues the same purge with `reason: 'domain-primary'` (#471). *Decided here (#468): the purge names the
    host and its store, so #317 can purge by either; the removal is a function #471 calls in its
    own transaction, since the row's removal (DATA-MODEL §7.2's planned `removed_at`) is #471's.*
    **Each store's shops host (#519).** Wildcard custom hostnames need Enterprise, so the
@@ -647,6 +647,17 @@ secure*. A connected domain can be made **primary** (the other addresses redirec
 domain waits for DNS at a time. Domain changes need no publish. The records shown are this
 partner's (`EDGE_ZONE`, above); the prototype's values are examples. Built on #471 (the Store
 API) and #468 (registration through Cloudflare for SaaS).
+**Built on #471** (`saas/storefrontSettings/domains.ts`): the records are the CNAME to `shops.edge.<EDGE_ZONE>`
+and the TXT `_df-verify.<host>`; *Check now* queues `custom_domain.recheck` at most once a minute (`TOO_SOON`), and
+connecting queues the first. Refused: a plan without `custom_domain` (`PLAN_LIMIT`), a domain while one waits
+(`DOMAIN_PENDING`) or once one is connected (`DOMAIN_LIMIT`), DripFunnel's names and `EDGE_ZONE`
+(`DRIPFUNNEL_DOMAIN`), another store's domain or a partner's address or a name under one, a store's free address
+included (`DOMAIN_TAKEN`), and a bare domain (`APEX_NOT_AVAILABLE`, suggesting `www.`). The primary address is the
+store's own domain once made so while live or expiring, else its free address; the edge Worker redirects every other
+address of the store to it with a 301 keeping the path and query (`/shop-api/*` excepted), canonical links and the
+sitemap name it from the next publish, and the post-deploy checks probe it. *Decided here (#471): an apex waits on
+"Apex" below, as a partner's portal does; domains already live when primary was built stay the main address, and one
+going live from now on becomes primary only when the Owner makes it so; removing a domain deletes its row.*
 
 **Verify before building** (USERS-AND-DOMAINS §5):
 - ~~**Wildcards**: can `*.preview.<partnerdomain>` and `*.shops.<partnerdomain>` be wildcard

@@ -33,7 +33,7 @@ export interface MerchantHost {
 }
 
 /** The edge Worker's best-effort purge of a host's lookup (LIVE-SHOP §5 step 1); delivered by #317's `cache.purge`. */
-export const queueHostPurge = (tx: ScopedSql, domain: MerchantHost, change: 'live' | 'removed', at: Date): Promise<string | null> =>
+export const queueHostPurge = (tx: ScopedSql, domain: MerchantHost, change: 'live' | 'removed' | 'primary', at: Date): Promise<string | null> =>
   queueSideEffect(tx, {
     kind: 'cache.purge',
     idempotencyKey: `custom-domain-${change}:${domain.id}:${at.toISOString()}`,
