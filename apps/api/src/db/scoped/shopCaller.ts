@@ -39,15 +39,13 @@ const storefrontColumns = (tx: ScopedSql) => tx`
  * A store's own storefront host: `{code}.` under its partner's shops wildcard, or its live custom domain.
  * A partner's wildcard is held as `*.shops.example.com` (partner_domain), live or on its way to it.
  */
-export const selectStorefrontByHost = async (tx: ScopedSql, host: string): Promise<StorefrontRow | null> => {
+/** The condition on `store s` that its storefront answers on `host`; shared with the edge Worker's lookup (storefrontEdge.ts). */
+export const storefrontHostMatch = (tx: ScopedSql, host: string) => {
   const name = host.toLowerCase()
   const dot = name.indexOf('.')
   const code = dot > 0 ? name.slice(0, dot) : ''
   const wildcard = dot > 0 ? `*${name.slice(dot)}` : ''
-  const rows = await tx<StorefrontRow[]>`
-    select ${storefrontColumns(tx)}, false as preview
-    from store s join storefront f on f.store_id = s.id
-    where (
+  return tx`(
       s.code = ${code} and exists (
         select 1 from partner_domain d join partner p on p.id = d.partner_id
         where d.partner_id = s.partner_id and d.kind = 'shops' and lower(d.host) = ${wildcard}
@@ -56,7 +54,14 @@ export const selectStorefrontByHost = async (tx: ScopedSql, host: string): Promi
     ) or exists (
       select 1 from custom_domain c join partner p on p.id = s.partner_id
       where c.store_id = s.id and lower(c.host) = ${name} and c.status in ('live', 'expiring') and p.state <> 'closed'
-    )
+    )`
+}
+
+export const selectStorefrontByHost = async (tx: ScopedSql, host: string): Promise<StorefrontRow | null> => {
+  const rows = await tx<StorefrontRow[]>`
+    select ${storefrontColumns(tx)}, false as preview
+    from store s join storefront f on f.store_id = s.id
+    where ${storefrontHostMatch(tx, host)}
     limit 2
   `
   // Two stores claiming one host is a data fault: neither is served.

@@ -47,6 +47,16 @@ describe('resolveArea', () => {
     expect(area('https://acme.shops.partner.com/shop-api')).toBe('shop')
   })
 
+  it('serves only the Shop API through StorefrontEdge, and never on our own hosts', () => {
+    const throughEdge = (href: string) => resolveArea(new URL(href), config, 'edge')
+    expect(throughEdge('https://acme.shops.partner.com/shop-api')).toBe('shop')
+    expect(throughEdge('https://abcdefghij.webpreview.store/shop-api/graphql')).toBe('shop')
+    expect(throughEdge('https://acme.shops.partner.com/api')).toBeUndefined()
+    expect(throughEdge('https://acme.shops.partner.com/')).toBeUndefined()
+    expect(throughEdge('https://admin.dripfunnel.com/shop-api')).toBeUndefined()
+    expect(throughEdge('https://hooks.dripfunnel.com/stripe')).toBeUndefined()
+  })
+
   it('serves webhooks only on the hooks host', () => {
     expect(area('https://hooks.dripfunnel.com/stripe')).toBe('hooks')
     expect(area('https://store.partner.com/stripe')).toBeUndefined()

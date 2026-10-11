@@ -203,7 +203,8 @@ to `https://hooks.localhost/couriers/shiprocket/<partner id>` with `x-api-key: l
 with the same secret.
 - **GitHub** (`GITHUB_LOCAL`): store repos are made in an in-memory GitHub that the App's real client talks to (#316), so
   a store's first template choice runs the whole `create-storefront` Workflow without the App. The repos last until
-  `pnpm dev` restarts. The templates come from the local `storefront-sites` bucket, which stays empty until the release
+  `pnpm dev` restarts. The templates come from the local `storefront-sites-local` bucket (bound with `storefront-assets-local` and
+  `storefront-drafts-local`, storefront LIVE-SHOP.md §2), which stays empty until the release
   uploads them (storefront ARCHITECTURE §2.3, #486), so until then the run stops at its first step and undoes itself.
 
 Check that it's up:
