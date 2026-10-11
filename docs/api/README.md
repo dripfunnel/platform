@@ -297,7 +297,11 @@ that fixes it, rather than failing on Postgres's bare "must be owner".
 `app_platform`; partner users and staff setup sessions run as `app_partner` (#155);
 merchant-side people and support sessions run as `app_request`; supplier users as `app_supplier`
 (#295); shoppers as `app_shop` (#306), which `request_scope` holds to `shop` scope on the tables it reads;
-jobs run as `app_system` through `withSystemScope`. Every policy names the roles that may use
+jobs run as `app_system` through `withSystemScope`. After the role, `withScope` sets every
+`app.*` setting of `settingsFor` in one statement, the names and values passed as two `pgArray`
+parameters to `unnest`, never spliced into the SQL (#478). A scoped transaction therefore sends
+four statements besides its work (`begin`, the role, the settings, `commit`), as `withSystemScope`
+does; `tests/scoped-settings.test.ts` holds both the count and every caller kind's values. Every policy names the roles that may use
 it, and on every tenant table four restrictive policies (`request_scope`, `partner_scope`,
 `platform_scope`, `system_scope`) hold each role to its own values of `app.scope`, so a role never passes another
 role's branch. A card that adds a role adds, in one migration, the role, its grants, the
