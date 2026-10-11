@@ -13,10 +13,11 @@ export interface PreviewCheck {
   epoch: number
 }
 
-/** The service binding to the API's `StorefrontEdge` entrypoint: `/shop-api/*`, and its three questions. */
+/** The service binding to the API's `StorefrontEdge` entrypoint: `/shop-api/*`, and its four questions. */
 export interface EdgeApi {
   fetch: (request: Request) => Promise<Response>
   liveHost: (host: string) => Promise<unknown>
+  redirects: (storeId: string) => Promise<unknown>
   openPreview: (key: string, token: string) => Promise<unknown>
   previewAccess: (check: PreviewCheck) => Promise<unknown>
 }
@@ -45,6 +46,30 @@ export const parseLiveHost = (value: unknown): LiveHost => {
   )
     return { kind: 'store', storeId: v['storeId'], partnerId: v['partnerId'], buildId: v['buildId'], state, name: v['name'], language: v['language'] }
   throw new EdgeAnswerInvalid('liveHost')
+}
+
+// The same rule as `_edge.json`'s paths (live.ts): plain names on the store's own host, never `//host` or `/\host`.
+const isRedirectPath = (value: unknown): value is string => typeof value === 'string' && value.length <= 2048 && /^(\/[A-Za-z0-9._~@+,=-]+)+$/.test(value)
+
+export interface Redirects {
+  /** Old path to new, as recorded. */
+  exact: Map<string, string>
+  /** The ones recorded for every language, which also apply under another language's prefix. */
+  everyLanguage: Map<string, string>
+}
+
+/** A store's renamed addresses (storefront ARCHITECTURE §8); one that would leave the host refuses the answer. */
+export const parseRedirects = (value: unknown): Redirects => {
+  const list = record(value)?.['redirects']
+  if (!Array.isArray(list) || list.length > 5_000) throw new EdgeAnswerInvalid('redirects')
+  const found: Redirects = { exact: new Map(), everyLanguage: new Map() }
+  for (const entry of list as unknown[]) {
+    const r = record(entry)
+    if (!isRedirectPath(r?.['from']) || !isRedirectPath(r?.['to']) || typeof r['everyLanguage'] !== 'boolean') throw new EdgeAnswerInvalid('redirects')
+    found.exact.set(r['from'], r['to'])
+    if (r['everyLanguage']) found.everyLanguage.set(r['from'], r['to'])
+  }
+  return found
 }
 
 export const parsePreviewAccess = (value: unknown): PreviewAccess => {

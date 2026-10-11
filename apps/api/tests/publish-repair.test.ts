@@ -5,6 +5,7 @@ import { moveDraft } from '#db/scoped/studio'
 import { digestOf, goBack, publishBefore, runPublish, startPublish, type PublishDeps, type PublishRepair } from '#saas/storefronts/index'
 import { failAttempt, finishRepaired, selectExpiredBuilds, selectFailingChecks, setBisectCommit, setRepairAttempts } from '#db/scoped/publishing'
 import { draftBundle, stagingFolder } from '#saas/storefronts/layout'
+import { testProbe } from './support/edgeProbe'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { fakeSites, putText, type FakeSites } from './support/sites'
@@ -32,6 +33,9 @@ const deps = (repair?: PublishRepair): PublishDeps => ({
     return true
   },
   now: () => new Date(),
+  probe: testProbe(db.sql, { sites, assets }),
+  assetHost: 'sf-assets.dripfunnel.com',
+  wait: async () => undefined,
   ...(repair ? { repair } : {}),
 })
 
@@ -51,7 +55,8 @@ const workflow = (bad: ReadonlySet<string>) => ({
     }
     const [run] = await db.sql<{ store_id: string }[]>`select store_id from publish_run where id = ${id}`
     const html = `<h1>${id}</h1>`
-    const files = [{ path: 'index.html', sha256: await putText(sites, `${stagingFolder(run?.store_id ?? '', id)}index.html`, html), size: html.length }]
+    // A home page and a checkout page, which the post-deploy checks open (#484).
+    const files = await Promise.all(['index.html', 'checkout/index.html'].map(async (path) => ({ path, sha256: await putText(sites, `${stagingFolder(run?.store_id ?? '', id)}${path}`, html), size: html.length })))
     await db.sql`update publish_run set gate_digest = ${await digestOf(files)}, uploaded_at = now(), upload_manifest = ${db.sql.json({ files })} where id = ${id}`
   },
 })
@@ -171,6 +176,19 @@ describe('a design publish that fails the gate', () => {
     ])
     const [pointer] = await db.sql<{ live_build_id: string }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`
     expect((await buildOf(pointer?.live_build_id ?? ''))?.commit).toBe(repaired)
+  })
+
+  it('rolls a repair’s build that fails its post-deploy checks back, and the publish fails with it (#484)', async () => {
+    const before = await live(t.storeA2)
+    const chain = [commit(501), commit(502)]
+    await draftWith(t.storeA2, chain)
+    const runId = await publishDesign(t.storeA2, chain[1] ?? '')
+    const probe = testProbe(db.sql, { sites, assets })
+    probe.breakPath(/^\/checkout$/, { status: 500 })
+    expect(await runPublish({ ...deps(async () => commit(503)), probe }, { runId, storeId: t.storeA2 }, workflow(new Set([chain[1] ?? ''])))).toBe('rolled_back')
+    expect(await live(t.storeA2)).toBe(before)
+    expect(await root(runId)).toMatchObject({ state: 'failed', error: 'check_checkout' })
+    expect((await attemptsOf(runId)).map((x) => [x.commit, x.state])).toEqual([[commit(503), 'rolled_back']])
   })
 
   it('stops repairing after three tries, then bisects', async () => {

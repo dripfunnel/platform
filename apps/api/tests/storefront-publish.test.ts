@@ -6,6 +6,7 @@ import { cleanStorefronts, digestOf, goBack, keptBuilds, lookupLiveHost, runPubl
 import { buildFolder, previewFolder, sourceBundle, stagingFolder, draftBundle, snapshotFile } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
+import { testProbe, type TestProbe } from './support/edgeProbe'
 import { fakeSites, putText, type FakeSites } from './support/sites'
 
 // Card #317 part 2: the publish-storefront Workflow's queued → deploying → live | failed, the switch of the live pointer,
@@ -25,7 +26,8 @@ const steps = {
     throw new Error('waitForEvent timed out')
   },
 }
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts, assetOrigin: null, dispatch: async () => true, now: () => new Date() })
+let probe: TestProbe
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts, assetOrigin: null, dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
 const actor: GoBackActor = { actorKind: 'person', actorId: null, actorLabel: 'Owner', api: 'store', requestId: null, ip: null, userAgent: null }
 
 beforeAll(async () => {
@@ -45,6 +47,7 @@ beforeEach(() => {
   sites = fakeSites()
   assets = fakeSites()
   drafts = fakeSites()
+  probe = testProbe(db.sql, { sites, assets })
 })
 
 const start = (storeId: string, n: number) =>
@@ -55,7 +58,9 @@ const runIdOf = (r: Awaited<ReturnType<typeof start>>) => (r.ok ? r.runId : '')
 /** A run's passing report and its upload, as #517's build calls leave them: one staged file under a frozen manifest. */
 const uploaded = async (storeId: string, runId: string) => {
   const html = `<p>${runId}</p>`
-  const files = [{ path: 'index.html', sha256: await putText(sites, `${stagingFolder(storeId, runId)}index.html`, html), size: html.length }]
+  const files = await Promise.all(
+    ['index.html', 'checkout/index.html'].map(async (path) => ({ path, sha256: await putText(sites, `${stagingFolder(storeId, runId)}${path}`, html), size: html.length })),
+  )
   await db.sql`
     update publish_run set state = 'deploying', started_at = now(), gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(files)},
       uploaded_at = now(), upload_manifest = ${db.sql.json({ files })} where id = ${runId}`

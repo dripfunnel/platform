@@ -222,7 +222,9 @@ with the same secret.
   uploads them (storefront ARCHITECTURE §2.3, #486), so until then the run stops at its first step and undoes itself.
   A store build's calls on `https://hooks.localhost/builds/*` (#517) take tokens from a local OIDC issuer whose key
   lives as long as the Worker, and answer with credentials and links that name nothing real: no runner reaches this
-  machine, so the integration tests are what drive them (`apps/api/tests/build-uploads.test.ts`).
+  machine, so the integration tests are what drive them (`apps/api/tests/build-uploads.test.ts`). A publish's post-deploy
+  checks (#484) read the switched build's pages from the bucket as the edge Worker would serve them, and skip the Shop
+  API checks, since no store host resolves here.
 
 Check that it's up:
 

@@ -10,6 +10,7 @@ import { createGitHubApp, GitHubRefused, GitHubUnavailable, noAnswer, storeRepos
 import { localGitHub } from '#integrations/local/github'
 import { digestOf, dispatchBuild, runPublish, startPublish, type PublishDeps } from '#saas/storefronts/index'
 import { draftBundle, snapshotFile, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
+import { testProbe } from './support/edgeProbe'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { fakeSites, type FakeSites } from './support/sites'
@@ -37,6 +38,9 @@ const deps = (): PublishDeps => ({
     return true
   },
   now: () => new Date(),
+  probe: testProbe(db.sql, { sites, assets }),
+  assetHost: 'sf-assets.dripfunnel.com',
+  wait: async () => undefined,
 })
 
 /** The workflow's report arrives while the run waits, as the build's `report` call records it (builds.ts). */

@@ -18,6 +18,9 @@ export interface RunRow {
   core_version: string
   started_by_kind: 'user' | 'staff' | 'system'
   started_by_id: string | null
+  /** Set once the pointer moved to this build; the run stays deploying until its post-deploy checks pass (LIVE-SHOP §4 step 10). */
+  switched_at: Date | null
+  previous_build_id: string | null
 }
 
 export interface NewRun {
@@ -57,7 +60,8 @@ export const insertQueuedRun = async (tx: ScopedSql, run: NewRun): Promise<strin
 export const selectRun = async (tx: ScopedSql, runId: string): Promise<RunRow | null> =>
   (
     await tx<RunRow[]>`
-      select r.id, r.store_id, s.partner_id, r.kind, r.state, r.commit, r.template, r.core_version, r.started_by_kind, r.started_by_id
+      select r.id, r.store_id, s.partner_id, r.kind, r.state, r.commit, r.template, r.core_version, r.started_by_kind, r.started_by_id,
+        r.switched_at, r.previous_build_id
       from publish_run r join store s on s.id = r.store_id where r.id = ${runId}`
   )[0] ?? null
 
@@ -68,17 +72,13 @@ export const startRun = async (tx: ScopedSql, run: RunRow, at: Date): Promise<vo
 }
 
 /**
- * The switch (LIVE-SHOP §4 step 9 item 3): the pointer, the run, the new version and the mirror in one transaction.
- * Returns the version's number.
+ * The switch (LIVE-SHOP §4 step 9 item 3): the pointer and the new version in one transaction; the run stays deploying
+ * until its post-deploy checks pass (`confirmLive`) or fail (`rollBackRun`). Returns the version's number.
  */
 export const switchLive = async (tx: ScopedSql, run: RunRow, previous: string | null, at: Date): Promise<number> => {
   await tx`update storefront set live_build_id = ${run.id} where store_id = ${run.store_id}`
-  await tx`update publish_run set state = 'live', finished_at = ${at}, previous_build_id = ${previous} where id = ${run.id}`
+  await tx`update publish_run set switched_at = ${at}, previous_build_id = ${previous} where id = ${run.id}`
   await tx`update design_version set state = 'kept' where store_id = ${run.store_id} and state = 'live'`
-  // The draft's changes up to the published one are live now; later ones stay to publish (ARCHITECTURE §4.2 step 4).
-  await tx`
-    update design_draft set commits = coalesce(commits[array_position(commits, ${run.commit}::text) + 1:], commits)
-    where store_id = ${run.store_id} and array_position(commits, ${run.commit}::text) is not null`
   const [version] = await tx<{ number: number }[]>`
     insert into design_version (store_id, number, commit, template, core_version, build_id, published_by, published_at, state)
     select ${run.store_id}, coalesce(max(number), 0) + 1, ${run.commit}, ${run.template}, ${run.core_version}, ${run.id},
@@ -86,8 +86,52 @@ export const switchLive = async (tx: ScopedSql, run: RunRow, previous: string | 
     from design_version where store_id = ${run.store_id}
     returning number`
   if (!version) throw new Error('design_version: insert returned nothing')
-  await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${run.core_version} where id = ${run.store_id}`
   return version.number
+}
+
+/** The switched build passed its post-deploy checks: the run and the console's mirror say live. */
+export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise<void> => {
+  await tx`update publish_run set state = 'live', finished_at = ${at} where id = ${run.id} and state = 'deploying'`
+  // The draft's changes up to the published one stayed live; later ones stay to publish (ARCHITECTURE §4.2 step 4). Not
+  // at the switch: a rollback must leave them all still to publish.
+  await tx`
+    update design_draft set commits = coalesce(commits[array_position(commits, ${run.commit}::text) + 1:], commits)
+    where store_id = ${run.store_id} and array_position(commits, ${run.commit}::text) is not null`
+  await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${run.core_version} where id = ${run.store_id}`
+}
+
+/** The number of the version a build is, if it is one. */
+export const versionOfBuild = async (tx: ScopedSql, buildId: string): Promise<number | null> =>
+  (await tx<{ number: number }[]>`select number from design_version where build_id = ${buildId} order by number desc limit 1`)[0]?.number ?? null
+
+export const recordChecks = async (tx: ScopedSql, runId: string, checks: readonly { name: string; result: string; detail: string }[]): Promise<void> => {
+  await tx`update publish_run set checks = ${tx.json(checks.map((c) => ({ name: c.name, result: c.result, detail: c.detail })))} where id = ${runId}`
+}
+
+/**
+ * The automatic rollback (LIVE-SHOP §4 step 10): the pointer moves back to the build this run replaced, with no rebuild;
+ * the run's version is withdrawn and the one before it is live again. Returns both versions' numbers, where there are any.
+ */
+export const rollBackRun = async (tx: ScopedSql, run: RunRow, error: string, at: Date): Promise<{ withdrawn: number | null; back: number | null }> => {
+  const previous = run.previous_build_id
+  const withdrawn = await versionOfBuild(tx, run.id)
+  await tx`update storefront set live_build_id = ${previous} where store_id = ${run.store_id}`
+  await tx`update publish_run set state = 'rolled_back', error = ${error}, rolled_back_at = ${at}, finished_at = ${at} where id = ${run.id}`
+  await tx`update design_version set state = 'kept' where build_id = ${run.id}`
+  const [back] = previous
+    ? await tx<{ id: string; number: number }[]>`
+        update design_version set state = 'live'
+        where id = (select id from design_version where store_id = ${run.store_id} and build_id = ${previous} order by number desc limit 1)
+        returning id, number`
+    : []
+  // A draft based on the withdrawn version is based on the one live again.
+  await tx`update design_draft set base_version_id = ${back?.id ?? null} where base_version_id in (select id from design_version where build_id = ${run.id})`
+  await tx`delete from design_version where build_id = ${run.id}`
+  await tx`
+    update store set build_state = case when ${previous}::uuid is null then 'failed' else 'live' end,
+      core_version = coalesce((select core_version from publish_run where id = ${previous}), core_version)
+    where id = ${run.store_id}`
+  return { withdrawn, back: back?.number ?? null }
 }
 
 /** A failed run leaves the live build as it was; the mirror says live again when there is one (SAAS §9.1). */
@@ -125,6 +169,18 @@ export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: Versio
   await tx`update design_version set state = 'live' where id = ${version.id}`
   await tx`update design_draft set head_commit = ${version.commit}, base_version_id = ${version.id}, commits = '{}', changed_at = ${at}, changed_by = ${by} where store_id = ${storeId}`
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${version.core_version} where id = ${storeId}`
+}
+
+/** The store's own address a shopper reaches it on: its oldest live custom domain, else its shops host (SAAS §8). */
+export const selectStorefrontHost = async (tx: ScopedSql, storeId: string): Promise<string | null> => {
+  const [row] = await tx<{ host: string | null }[]>`
+    select coalesce(
+      (select lower(c.host) from custom_domain c where c.store_id = s.id and c.status = 'live' order by c.created_at, c.id limit 1),
+      (select s.code || substr(lower(d.host), 2) from partner_domain d
+        where d.partner_id = s.partner_id and d.kind = 'shops' and d.status not in ('waiting', 'failed') limit 1)
+    ) as host
+    from store s where s.id = ${storeId}`
+  return row?.host ?? null
 }
 
 /** Builds whose folders clean-up deletes: past the newest `keep` that went live, never live, never a version's; every failed run and bisect probe (LIVE-SHOP §4 step 11). */
@@ -226,12 +282,12 @@ export const selectSnapshotSource = async (tx: ScopedSql, storeId: string): Prom
       where s.id = ${storeId}`
   )[0] ?? null
 
-/** "Publish now" presses that went live since `since`; a refused or failed one never counts (SAAS §9.1). #318 reads it. */
+/** "Publish now" presses that went live since `since`; a refused, failed or rolled-back one never counts (SAAS §9.1). #318 reads it. */
 export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date): Promise<number> =>
   (
     await tx<{ used: number }[]>`
       select count(*)::int as used from publish_run
-      where store_id = ${storeId} and uses_allowance and state in ('live', 'rolled_back') and created_at >= ${since}`
+      where store_id = ${storeId} and uses_allowance and state = 'live' and created_at >= ${since}`
   )[0]?.used ?? 0
 
 /** A repair's or a bisect's build for the publish `root`, building at once beside it (ARCHITECTURE §4.2 step 4). */
