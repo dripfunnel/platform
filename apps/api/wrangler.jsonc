@@ -60,7 +60,16 @@
         "consumers": [{ "queue": "dripfunnel-outbox-wake-local", "max_batch_size": 100, "max_batch_timeout": 1 }]
       },
       // SAAS §5 steps 4–8 (jobs/workflows/create-storefront.ts).
-      "workflows": [{ "name": "dripfunnel-create-storefront-local", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" }]
+      "workflows": [{ "name": "dripfunnel-create-storefront-local", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" }],
+      // The studio (storefront AI-STUDIO.md §2, jobs/durable/studio.ts). Locally its sandbox is apps/sandbox on this machine
+      // (SANDBOX_LOCAL_URL), never a container; dev gains these with a `containers` entry once Containers is on (docs/setup/dev.md).
+      "durable_objects": {
+        "bindings": [
+          { "name": "STUDIO_SESSION", "class_name": "StudioSession" },
+          { "name": "STUDIO_CAPACITY", "class_name": "StudioCapacity" }
+        ]
+      },
+      "migrations": [{ "tag": "studio-v1", "new_sqlite_classes": ["StudioSession", "StudioCapacity"] }]
     },
     // `wrangler deploy --env dev`, from .github/workflows/dev.yml, on every push to `dev`
     // (ARCHITECTURE.md §6). Same dev Cloudflare account as feature environments (selected

@@ -103,6 +103,7 @@ import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
+import { studioCapacityClass, studioSessionClass, type CapacityNamespace } from '#jobs/durable/studio'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
 import { lookupLiveHost, type LiveHost } from '#saas/storefronts/index'
@@ -159,6 +160,9 @@ interface Env extends Record<string, unknown> {
   // The other two storefront buckets (storefront LIVE-SHOP.md §2): built JS and CSS behind the asset host, and the private drafts.
   STOREFRONT_ASSETS?: R2Bucket | undefined
   STOREFRONT_DRAFTS?: R2Bucket | undefined
+  // The studio (storefront AI-STUDIO.md §2): a StudioSession per store, holding its container, and the account's StudioCapacity.
+  STUDIO_SESSION?: DurableObjectNamespace | undefined
+  STUDIO_CAPACITY?: CapacityNamespace | undefined
 }
 
 // Built once per isolate from configuration, like Stripe's client below.
@@ -882,6 +886,9 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
 
 // Wrangler finds a Workflow's class among the Worker's exports (wrangler.jsonc `workflows`).
 export const CreateStorefront = createStorefrontWorkflow(getClient)
+// Wrangler finds the studio's Durable Object classes among the exports too (wrangler.jsonc `durable_objects`).
+export const StudioSession = studioSessionClass(getClient)
+export const StudioCapacity = studioCapacityClass()
 
 export default {
   fetch: (request, env, ctx) => serve(request, env, ctx, 'public'),

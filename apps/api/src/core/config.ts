@@ -73,13 +73,17 @@ const configSchema = z.object({
   COURIERS_LOCAL: z.literal('1').optional(),
   // Store repos in an in-memory GitHub on this machine (docs/setup/local.md §6.1), whatever the GITHUB_APP_* values.
   GITHUB_LOCAL: z.literal('1').optional(),
+  // The studio's sandbox on this machine instead of a container (docs/setup/local.md): `pnpm --filter ./apps/sandbox start:local`.
+  SANDBOX_LOCAL_URL: z.string().regex(/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/, 'SANDBOX_LOCAL_URL must be http://127.0.0.1:<port>').optional(),
+  // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue.
+  STUDIO_CAPACITY: z.coerce.number().int().min(1).max(100_000).default(5000),
   // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
 
 const devHooksHost = 'dev-hooks.dripfunnel.ai'
 export const isLocalhost = (host: string): boolean => /(^|\.)localhost$/.test(host)
-const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL'] as const
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL', 'SANDBOX_LOCAL_URL'] as const
 
 // The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
 const checkedConfig = configSchema.superRefine((c, ctx) => {
