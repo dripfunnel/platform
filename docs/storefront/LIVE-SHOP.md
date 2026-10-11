@@ -282,14 +282,16 @@ checking, deploying, live, failed, rolled back).
     waits. Every answer of the edge Worker names the build it came from (`x-df-build`), and the checks wait, 10 seconds
     at a time, until it is the new one, for two minutes at most. Then, decided here as plain HTTP from the API Worker:
     - **home**, **product** (the first `products/{slug}/index.html` of the build's manifest) and **checkout** (its
-      `checkout/index.html`) open: 200, HTML, and each of their scripts and stylesheets answers 200. A build with no
+      `checkout/index.html`) open: 200, HTML, and each of their scripts and stylesheets on the store's own host or the
+      asset host answers 200 (a theme loads nothing from elsewhere, so no other host a page names is fetched). A build with no
       checkout page fails; one with no product page skips the product and cart checks;
     - **cart**: the Shop API, through the store's own `/shop-api`, answers that product with a version to add. No cart
       is created on a merchant's live store;
     - **payment**: the Shop API's `paymentOptions` answer, and every card provider among them has the public key its
       payment element needs. A store that takes no payment yet skips it.
 
-    A failure is tried once more 10 seconds later before it counts. Then the run is live (`storefront.published`), or the
+    A failure is tried once more 10 seconds later before it counts. No call starts after five minutes: what is left is
+    skipped, never failed, so a slow store isn't rolled back for slowness; the step has its own 10-minute limit. Then the run is live (`storefront.published`), or the
     pointer moves back to `previous_build_id` in one transaction: the run reads `rolled_back` with the failed check as
     its error (`check_home`, `check_product`, `check_cart`, `check_checkout`, `check_payment`), its version is
     withdrawn and the one before is live again, the lookup is purged and `storefront.rolled_back` is recorded. A store's

@@ -106,12 +106,15 @@ export interface PublishDeps {
   now: () => Date
   /** The edge as a shopper reaches it, for the post-deploy checks (LIVE-SHOP §4 step 10). */
   probe: EdgeProbe
+  /** `sf-assets.<EDGE_ZONE>` (LIVE-SHOP §2): with the store's own host, the only one whose scripts the checks load. */
+  assetHost: string
   wait: (ms: number) => Promise<void>
 }
 
 /** A Workflow's `step.do`: a step's answer is kept, so a replay skips what already finished. */
 export interface PublishSteps {
-  do: (name: string, work: () => Promise<string>) => Promise<string>
+  /** `long` is the post-deploy checks' step, bounded by `checksLimitMs` rather than the usual five minutes. */
+  do: (name: string, work: () => Promise<string>, long?: 'long') => Promise<string>
   /** `step.waitForEvent` for the build's "uploaded" (#517); throws once `timeoutMinutes` pass without it. */
   waitForUpload: (name: string, timeoutMinutes: number) => Promise<void>
 }
@@ -205,7 +208,7 @@ const buildFiles = async (deps: PublishDeps, p: PublishParams): Promise<string[]
 const checksStep = async (deps: PublishDeps, p: PublishParams): Promise<string> => {
   const host = await withSystemScope(deps.sql, (tx) => selectStorefrontHost(tx, p.storeId))
   const results: CheckResult[] = host
-    ? await runPostDeployChecks(deps.probe, { host, buildId: p.runId, files: await buildFiles(deps, p) }, { wait: deps.wait, now: () => deps.now().getTime() })
+    ? await runPostDeployChecks(deps.probe, { host, assetHost: deps.assetHost, buildId: p.runId, files: await buildFiles(deps, p) }, { wait: deps.wait, now: () => deps.now().getTime() })
     : [{ name: 'home', result: 'skipped', detail: 'The store has no address yet.' }]
   await withSystemScope(deps.sql, (tx) => recordChecks(tx, p.runId, results))
   return failedCheck(results) ?? 'passed'
@@ -292,7 +295,7 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
     await steps.do('verify', () => verifyStep(deps, p, !render))
     if (render) await inheritSteps(deps, p, steps)
     if ((await steps.do('switch', () => switchStep(deps, p))) === 'stopped') return 'stopped'
-    const verdict = await steps.do('checks', () => checksStep(deps, p))
+    const verdict = await steps.do('checks', () => checksStep(deps, p), 'long')
     if (verdict !== 'passed') return (await steps.do('rollback', () => rollbackStep(deps, p, verdict))) === 'rolled_back' ? 'rolled_back' : 'stopped'
     return (await steps.do('confirm', () => confirmStep(deps, p))) === 'live' ? 'live' : 'stopped'
   } catch (error) {

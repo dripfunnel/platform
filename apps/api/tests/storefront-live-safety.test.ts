@@ -21,7 +21,7 @@ const hostA1 = 'store-a1.shops.acme.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 const steps: PublishSteps = { do: (_, work) => work(), waitForUpload: async () => undefined }
 // The checks' waits move this clock instead of sleeping.
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, now: () => new Date(clock), probe, wait: async (ms) => void (clock += ms) })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, now: () => new Date(clock), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async (ms) => void (clock += ms) })
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -237,6 +237,9 @@ describe('storefront_redirect', () => {
       [`/products/big-blue-mug`, `/products/mug`],
       [`/products/blue-mug`, `/products/mug`],
     ])
+    // A new product taking an address a renamed one left holds it again: no redirect hides its page.
+    await product(t.storeB1, 'blue-mug')
+    expect((await redirects(t.storeB1)).map((r) => r.from_path)).toEqual([`/products/big-blue-mug`])
     await db.sql`delete from storefront_redirect where store_id = ${t.storeB1}`
   })
 

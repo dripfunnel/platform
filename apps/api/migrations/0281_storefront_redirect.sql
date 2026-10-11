@@ -51,6 +51,21 @@ begin
 end
 $$;
 
+-- A new product holds its addresses again: a redirect left there by a renamed one would hide its page before it renders.
+create function storefront_redirect_product_added() returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from storefront_redirect r
+  using store_language l
+  where l.store_id = new.store_id and l.status = 'active' and r.store_id = new.store_id
+    and r.from_path = storefront_product_path(new.store_id, l.language, new.slug);
+  return null;
+end
+$$;
+
 -- A translated slug replaces the main one in its language, and removing it brings the main one back.
 create function storefront_redirect_translated_slug() returns trigger
 language plpgsql
@@ -86,8 +101,10 @@ grant select, insert, update, delete on storefront_redirect to app_definer;
 grant select on product, store_language, translation to app_definer;
 grant select (id, main_language) on store to app_definer;
 alter function storefront_redirect_product_slug() owner to app_definer;
+alter function storefront_redirect_product_added() owner to app_definer;
 alter function storefront_redirect_translated_slug() owner to app_definer;
 create trigger storefront_redirect_product_slug after update of slug on product for each row execute function storefront_redirect_product_slug();
+create trigger storefront_redirect_product_added after insert on product for each row execute function storefront_redirect_product_added();
 create trigger storefront_redirect_translated_slug after insert or update of text or delete on translation for each row execute function storefront_redirect_translated_slug();
 
 -- The edge reads a store's newest redirects as one list (LIVE-SHOP §5 step 6).

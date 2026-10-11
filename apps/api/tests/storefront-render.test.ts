@@ -22,7 +22,7 @@ let probe: TestProbe
 const host = 'store-a1.shops.acme.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 const steps: PublishSteps = { do: (_, work) => work(), waitForUpload: async () => undefined }
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, now: () => new Date(), probe, wait: async () => undefined })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
 const signal = new AbortController().signal
 const effect = (kind: string, payload: unknown): Effect => ({ id: 'e', kind, idempotencyKey: 'k', payload, partnerId: null, storeId: null, attempt: 1 })
 

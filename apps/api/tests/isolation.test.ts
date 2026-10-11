@@ -743,6 +743,7 @@ describe('the backstop itself', () => {
       'store_webhook_partner',
       'storefront_catalog_touched',
       'storefront_for_store',
+      'storefront_redirect_product_added',
       'storefront_redirect_product_slug',
       'storefront_redirect_translated_slug',
       'storefront_render_product',
