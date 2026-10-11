@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TenantContext } from '#core/tenancy'
 import type { StoreRole } from '#auth/storePermissions'
@@ -311,6 +312,32 @@ describe('GitHub', () => {
   })
 })
 
+describe('ai_run isolation (DATA-MODEL §7.8, §5.3)', () => {
+  const as = (role: string, scope: string, store: string, seller: string, work: (tx: postgres.TransactionSql) => Promise<unknown>) =>
+    db.sql.begin(async (tx: postgres.TransactionSql) => {
+      await tx.unsafe(`set local role ${role}`)
+      await tx`select set_config('app.scope', ${scope}, true)`
+      await tx`select set_config('app.store_id', ${store}, true)`
+      await tx`select set_config('app.partner_id', ${t.partnerA}, true)`
+      await tx`select set_config('app.seller_id', ${seller}, true)`
+      return work(tx)
+    })
+  const count = async (role: string, scope: string, store: string, seller = '') => ((await as(role, scope, store, seller, (tx) => tx`select count(*)::int as n from ai_run`)) as { n: number }[])[0]?.n
+
+  it('is read by its own store’s merchant side only: never by another store, a supplier, a partner or staff', async () => {
+    const { runner } = await runnerFor(t.storeA1)
+    await runner.change({ request: 'A prompt only store A reads', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Metered for store A.')]]).model })
+    expect(await count('app_request', 'store', t.storeA1)).toBe(1)
+    expect(await count('app_request', 'store', t.storeB1)).toBe(0)
+    expect(await count('app_request', 'store', t.storeA1, t.sellerA1First)).toBe(0)
+    await expect(as('app_supplier', 'store', t.storeA1, t.sellerA1First, (tx) => tx`select prompt from ai_run`)).rejects.toThrow(/permission denied/)
+    // No grant at all until the metering view (DATA-MODEL §5.3), so not even a count reaches a partner or staff.
+    await expect(as('app_partner', 'partner', t.storeA1, '', (tx) => tx`select count(*) from ai_run`)).rejects.toThrow(/permission denied/)
+    await expect(as('app_platform', 'platform', t.storeA1, '', (tx) => tx`select count(*) from ai_run`)).rejects.toThrow(/permission denied/)
+    await expect(as('app_request', 'store', t.storeA1, '', (tx) => tx`insert into ai_run (store_id, kind, prompt, model, tokens_in, tokens_out, cost_amount, cost_currency, billed_to, outcome) values (${t.storeA1}, 'design', 'x', 'm', 0, 0, 0, 'USD', 'plan', 'changed')`)).rejects.toThrow(/permission denied/)
+  })
+})
+
 describe('studio sessions (AI-STUDIO §8)', () => {
   it('lets the Owner change and a Manager view, and opens nothing for staff or a supplier', async () => {
     const now = new Date()
@@ -335,6 +362,17 @@ describe('studio sessions (AI-STUDIO §8)', () => {
     expect(await liveStudioSession(db.sql, t.storeA2, id, now)).toBeNull()
     expect(await liveStudioSession(db.sql, t.storeA1, id, new Date(now.getTime() + 5 * 60 * 1000 + 1))).toBeNull()
     await db.sql`delete from user_session where id_hash = ${user.sessionHash}`
+    expect(await liveStudioSession(db.sql, t.storeA1, id, now)).toBeNull()
+  })
+
+  it('ends with a portal session that is no longer fully signed in: idle past its bound, or sent back a step', async () => {
+    const now = new Date()
+    const user = await seedUser(t.storeA1, t.partnerA, 'owner', 'idle.a1@studio.example')
+    const id = (await openStudioSession(db.sql, contextFor(t.storeA1, t.partnerA, user.userId, user.sessionHash), owner, now))?.id ?? ''
+    expect(await liveStudioSession(db.sql, t.storeA1, id, now)).not.toBeNull()
+    await db.sql`update user_session set last_seen_at = ${new Date(now.getTime() - 2 * 60 * 60 * 1000 - 1000)} where id_hash = ${user.sessionHash}`
+    expect(await liveStudioSession(db.sql, t.storeA1, id, now)).toBeNull()
+    await db.sql`update user_session set last_seen_at = ${now}, stage = 'enrol' where id_hash = ${user.sessionHash}`
     expect(await liveStudioSession(db.sql, t.storeA1, id, now)).toBeNull()
   })
 

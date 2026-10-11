@@ -248,7 +248,14 @@ export class StudioRunner {
       if (f.content === null) after.delete(f.path)
       else after.set(f.path, f.content)
     }
-    const previewRef = saved ? await this.save(saved, last, input.userId, after) : null
+    let previewRef: string | null
+    try {
+      previewRef = saved ? await this.save(saved, last, input.userId, after) : null
+    } catch (error) {
+      // A pass that couldn't be saved changed nothing the merchant can see, but its asks were still spent.
+      await this.record(input, attempts, 'failed')
+      throw error
+    }
     const runId = await this.record(input, attempts, previewRef ? 'changed' : 'unchanged')
     return previewRef ? { outcome: 'changed', commit: last.commit, previewRef, repairs, runId } : { outcome: 'unchanged', commit: last.commit, repairs, runId }
   }

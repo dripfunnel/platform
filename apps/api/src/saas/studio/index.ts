@@ -1,3 +1,4 @@
+export { alarmStep, studioIdleMs, type AlarmStep } from './alarm'
 export { capacityLedger, defaultStudioCapacity, leaseMs, queueMs, type Grant, type LedgerStorage } from './capacity'
 export { maxRepairs, type DesignModel, type Proposal, type ProposalInput } from './model'
 export { StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type ChangeRequest, type DraftsBucket, type StudioCapacity, type StudioDeps } from './runner'

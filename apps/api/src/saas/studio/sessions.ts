@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import type { TenantContext } from '#core/tenancy'
 import { storeRoleHas, type StoreRole } from '#auth/storePermissions'
+import { idleMs, rememberIdleMs } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { deleteStudioSession, insertStudioSession, renewStudioSession, selectLiveStudioSession } from '#db/scoped/studio'
 
@@ -65,6 +66,6 @@ export const renewStudio = async (sql: postgres.Sql, context: TenantContext, rol
 /** Asked by the store's Durable Object on every frame request, before anything is read (AI-STUDIO §8 "Checked"). */
 export const liveStudioSession = async (sql: postgres.Sql, storeId: string, id: string, now: Date): Promise<{ userId: string; access: StudioAccess } | null> => {
   if (!studioSessionPattern.test(id)) return null
-  const row = await withSystemScope(sql, async (tx) => selectLiveStudioSession(tx, storeId, await hashStudioSession(id), now))
+  const row = await withSystemScope(sql, async (tx) => selectLiveStudioSession(tx, storeId, await hashStudioSession(id), now, { idleMs, rememberIdleMs }))
   return row ? { userId: row.user_id, access: row.can_change ? 'change' : 'view' } : null
 }
