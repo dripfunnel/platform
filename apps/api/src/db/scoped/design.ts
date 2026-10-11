@@ -13,17 +13,23 @@ export interface TemplateRow {
   demo_host: string | null
 }
 
+/** #486's table (migration 0300); until that card merges there is no gallery, so none is offered. */
+const galleryExists = async (tx: ScopedSql): Promise<boolean> =>
+  (await tx<{ found: boolean }[]>`select to_regclass('public.storefront_template') is not null as found`)[0]?.found ?? false
+
 /** The gallery in a fixed order: "Start from scratch" first, as ST 0 lists it (storefront ARCHITECTURE §2.3). */
-export const selectOfferedTemplates = (tx: ScopedSql): Promise<TemplateRow[]> =>
-  tx<TemplateRow[]>`
+export const selectOfferedTemplates = async (tx: ScopedSql): Promise<TemplateRow[]> => {
+  if (!(await galleryExists(tx))) return []
+  return tx<TemplateRow[]>`
     select t.key, t.name, t.tag, t.description, case when s.id is null then null else ${storefrontHostOf(tx)} end as demo_host
     from storefront_template t left join store s on s.id = t.demo_store_id
     where t.state = 'offered'
     order by t.key = 'baseline' desc, case t.key when 'linen' then 1 when 'concrete' then 2 when 'bloom' then 3 when 'circuit' then 4
       when 'market' then 5 when 'atelier' then 6 else 7 end, t.key`
+}
 
 export const isOfferedTemplate = async (tx: ScopedSql, key: string): Promise<boolean> =>
-  (await tx`select 1 from storefront_template where key = ${key} and state = 'offered'`).length > 0
+  (await galleryExists(tx)) && (await tx`select 1 from storefront_template where key = ${key} and state = 'offered'`).length > 0
 
 export type MessageRole = 'user' | 'ai' | 'note' | 'error'
 

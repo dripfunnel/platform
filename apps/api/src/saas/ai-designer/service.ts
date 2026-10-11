@@ -137,7 +137,9 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     const was = before.state.draft_template ?? before.state.live_template ?? before.state.storefront_template
     const record = async (tx: ScopedSql) => {
       await note(tx, designNotes.templateChosen(key))
-      await activity.record(tx, entry(designAudit.templateChosen, [{ field: 'template', before: was, after: key }, { field: 'words', before: null, after: keep ? 'kept' : 'template' }]))
+      // The first choice has no draft to keep words from, so it records none (LOGGING §3: whether the words were kept).
+      const words = before.state.repo_state === 'ready' ? [{ field: 'words', before: null, after: keep ? 'kept' : 'template' }] : []
+      await activity.record(tx, entry(designAudit.templateChosen, [{ field: 'template', before: was, after: key }, ...words]))
     }
     if (before.state.repo_state === 'creating') return { ok: false, reason: 'IN_PROGRESS' }
     if (before.state.repo_state !== 'ready') {

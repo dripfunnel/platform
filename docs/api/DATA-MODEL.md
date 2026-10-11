@@ -1962,9 +1962,8 @@ storefront_template (key PK, name, tag, description, demo_store_id NULL, core_mi
                      state ('offered'|'retired'))
                     -- the template gallery (storefront ARCHITECTURE §2.3); the code itself is
                     -- in templates/storefront/themes/{key}; a partner offers a subset (G4)
-                    -- #318's migration 0310 makes the same table and rows as #486's 0300 where 0300
-                    -- hasn't run, so the gallery exists whichever merges first; the Store API reads the
-                    -- offered rows in system scope (`storefrontTemplates`)
+                    -- #318: the Store API reads the offered rows in system scope (`storefrontTemplates`,
+                    -- `chooseTemplate`); until #486's 0300 makes the table, none is offered
 core_rollout        (id, version, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
                      percent, started_by, started_at, finished_at)
 core_rollout_store  (rollout_id, store_id, state ('pending'|'passed'|'migrated'|'pinned'
