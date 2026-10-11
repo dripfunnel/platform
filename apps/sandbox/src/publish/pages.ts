@@ -1,8 +1,8 @@
 import { coreRoutes, routeAddresses, type CoreRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { fallbackPath, indexable, type CatalogueSnapshot, type PageRoute } from '@dripfunnel/storefront-core/guard'
 
-// The live site's pages and the files around them (storefront ARCHITECTURE §4.2, §8; LIVE-SHOP §5 step 6): the build
-// writes them and the check step reads the same plan, so a page the build left out is one the gate names.
+// The live site's pages and the files around them (storefront ARCHITECTURE §4.2, §8; LIVE-SHOP §4 step 6, and §5 step 6
+// for `_edge.json`): the build writes them and the check step reads the same plan, so a missing page is one the gate names.
 
 export type PlannedPage = { path: string; route: PageRoute; language: string; custom: string | null }
 
