@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import type { Browser, BrowserContext, Page, Route } from 'playwright-core'
-import { pageHeaders, storeCsp, themeRoutesSchema, type ThemeRoutes } from '@dripfunnel/storefront-core'
+import { consentStorageKey, pageHeaders, settleMs, storeCsp, themeRoutesSchema, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { sealedProblemWords } from '@dripfunnel/storefront-core/testing'
 import { budgetedRoutes, edgeCases, gateWidths, pageName, runGate, validateChange, type CatalogueSnapshot, type GateReport, type PageRead, type PageVisit, type PageWeight, type ThemeFile } from '@dripfunnel/storefront-core/guard'
 import { runtimeFolder } from '../gate/bundle'
@@ -29,8 +29,8 @@ export type CheckInput = {
 
 export type CheckOutcome = { report: GateReport; headers: Record<string, { 'content-security-policy': string }> }
 
-const consentKey = 'df-consent-v1'
-const settle = 1100
+// A sealed component's own check looks again `settleMs` after a failure; the step waits a little past that.
+const settle = settleMs + 100
 const height = 900
 const parallel = 6
 
@@ -119,6 +119,18 @@ const settled = async (page: Page, net: Network) => {
   for (const origin of new Set((await page.evaluate('window.__dfRefused ?? []')) as string[])) net.errors.push(`It tried to reach ${origin}, which its content security policy refused.`)
 }
 
+/** How long a page may take to settle; one that never does (a script polling forever) fails, never the whole step. */
+const navigationMs = 15_000
+
+/** Opens a page and lets it settle; a page that doesn't is the page's failure, and what it did show is still checked. */
+const open = async (page: Page, url: string, net: Network): Promise<void> => {
+  try {
+    await page.goto(url, { waitUntil: 'networkidle', timeout: navigationMs })
+  } catch {
+    net.errors.push('It never finished loading.')
+  }
+}
+
 /** The page's main heading is shown inside its main landmark, on screen, and is what a tap at its centre reaches. */
 const mainSeen = (page: Page) =>
   page.evaluate(() => {
@@ -141,12 +153,16 @@ export const sealedWords = (reports: readonly ShopReport[], p: { path: string; r
     // The page's script sent these; core's words keep only its own part and problem names.
     .map((r) => sealedProblemWords(pageName(p), r.subject, r.detail))
 
+/** A shopper who has answered consent, as core's own `writeConsent` records it, so the open banner covers nothing. */
+const returningShopper = (context: BrowserContext) =>
+  context.addInitScript(([key]) => localStorage.setItem(key ?? '', JSON.stringify({ analytics: false, marketing: false, at: '2026-01-01T00:00:00.000Z' })), [consentStorageKey])
+
 type Contexts = { returning: BrowserContext; first: BrowserContext }
 
 const contextsFor = async (browser: Browser, width: number): Promise<Contexts> => {
   const returning = await browser.newContext({ viewport: { width, height } })
   // A returning shopper who has answered, so the open banner doesn't cover the page; `first` checks the banner itself.
-  await returning.addInitScript(([key]) => localStorage.setItem(key ?? '', JSON.stringify({ analytics: false, marketing: false, at: '2026-01-01T00:00:00.000Z' })), [consentKey])
+  await returningShopper(returning)
   return { returning, first: await browser.newContext({ viewport: { width, height } }) }
 }
 
@@ -155,7 +171,7 @@ const visit = async (c: Contexts, served: Served, s: CatalogueSnapshot, assets: 
   const page = await c.returning.newPage()
   try {
     await wire(page, served, s, { assets }, net)
-    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+    await open(page, `${served.origin}${p.path}`, net)
     await settled(page, net)
     const seen = await mainSeen(page)
     const wide = await overflows(page)
@@ -176,7 +192,7 @@ const firstVisit = async (c: Contexts, served: Served, s: CatalogueSnapshot, ass
   try {
     await wire(page, served, s, { assets }, net)
     // Hydrated first, then a sealed component's own check needs its second look (sealed/visibility.ts `settleMs`).
-    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+    await open(page, `${served.origin}${p.path}`, net)
     await page.waitForTimeout(settle)
     return sealedWords(net.reports, p, 'consent')
   } finally {
@@ -221,7 +237,7 @@ const weigh = async (browser: Browser, served: Served, s: CatalogueSnapshot, ass
       await cdp.send('Emulation.setCPUThrottlingRate', { rate })
       await wire(page, served, s, { assets }, net)
       // Every request settled and every body read before anything is counted, however slow the runner.
-      await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+      await open(page, `${served.origin}${p.path}`, net)
       await Promise.all(net.reading)
       const m = (await page.evaluate('window.__dfMetrics')) as { lcp: number; cls: number; tbt: number }
       w.lcpMs.push(m.lcp)
@@ -267,7 +283,7 @@ const readPage = async (context: BrowserContext, served: Served, s: CatalogueSna
   try {
     // The same refusal as with JavaScript on: a request leaving the machine fails the page (the context skips the CSP).
     await wire(page, served, s, { assets: roots.assets }, net)
-    await page.goto(`${served.origin}${p.path}`, { waitUntil: 'networkidle' })
+    await open(page, `${served.origin}${p.path}`, net)
     const facts = (await page.evaluate(readFacts)) as Pick<PageRead, 'h1s' | 'mainText' | 'text' | 'links'>
     return { path: p.path, route: p.route, html: found.bytes.toString('utf8'), ...facts, errors: net.errors }
   } finally {
@@ -297,7 +313,7 @@ export const difference = async (page: Page, a: Buffer, b: Buffer): Promise<numb
 const liveShot = async (browser: Browser, served: Served, live: string, s: CatalogueSnapshot, path: string, width: number): Promise<Buffer | null> => {
   if (!(await fileFor([live], path))) return null
   const context = await browser.newContext({ viewport: { width, height } })
-  await context.addInitScript(([key]) => localStorage.setItem(key ?? '', JSON.stringify({ analytics: false, marketing: false, at: '2026-01-01T00:00:00.000Z' })), [consentKey])
+  await returningShopper(context)
   const page = await context.newPage()
   try {
     await page.route('**/*', async (route) => {
@@ -308,7 +324,7 @@ const liveShot = async (browser: Browser, served: Served, live: string, s: Catal
       const found = asset ? await fileFor([live], asset) : null
       return found ? route.fulfill({ status: 200, body: found.bytes }) : route.abort('blockedbyclient')
     })
-    await page.goto(`${served.origin}${path}`, { waitUntil: 'load' })
+    await open(page, `${served.origin}${path}`, network())
     await settled(page, network())
     return await page.screenshot()
   } finally {
