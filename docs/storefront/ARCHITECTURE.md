@@ -498,6 +498,18 @@ core upgrade):
    then the repair loop on the candidate
 ```
 
+**Step 4 as built on #483** (`saas/storefronts/publish.ts`): a failing report leaves the publish in `checking`. A
+catalogue, staff or upgrade publish is then refused (`gate_failed`). A design publish is first repaired: the studio's change
+loop is asked to fix the failing checks' words, at most three times, each fix a build of its own (`publish_run.attempt`
+`repair`, `attempt_of` the publish), and the first that passes is uploaded, verified and switched in the publish's
+place. Then bisect: the draft's accepted changes up to the publish's commit (`design_draft.commits`, the live version's
+commit standing as good) are halved to the first that fails, each probe a build that is only checked (`checked`), never
+uploaded. The publish then fails as `bisected` with that change on `bisect_commit`, and `publishBefore` (SAPI 17 passes
+the change's commit) starts a design publish of the change before it, with no allowance; a draft's first change leaves
+nothing before it, and the publish is refused (`gate_failed`). *Decided on #483:* the repair is a seam (`PublishDeps.repair`)
+until the designer's model reaches the Workflow with #318, so until then a failing design publish goes straight to
+bisect; and `publishBefore` takes the change's commit, since `design_message` comes with SAPI 17.
+
 A refused or rolled-back publish leaves the live site as it was, says so in plain words, and
 **never uses an allowance** (SAAS §6.2). Repair attempts and gate runs are the platform's cost,
 never the merchant's meters (decided 2026-10-08 on #470). What can't be repaired goes to the

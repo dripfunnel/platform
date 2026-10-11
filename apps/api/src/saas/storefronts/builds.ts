@@ -41,7 +41,7 @@ export interface BuildDeps {
   r2: StorefrontR2
   buckets: { sites: string; drafts: string }
   sites: SitesBucket
-  /** Tells the build's publish-storefront Workflow that its report or "uploaded" was answered (LIVE-SHOP §4 steps 7–9). */
+  /** Wakes the publish-storefront Workflow, named by the publish's own build id, on a build's report or "uploaded" (LIVE-SHOP §4 steps 7–9). */
   wake: (buildId: string, event: 'reported' | 'uploaded') => Promise<void>
   now: () => Date
 }
@@ -191,20 +191,23 @@ export const reportBuild = async (deps: BuildDeps, token: string, report: GateRe
   const answer = await withBuild(deps, token, report.build, async (tx, build) => {
     const gate = { passed: report.passed, checks: report.checks }
     if (build.gate !== null) {
-      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { passed: report.passed, upload: report.passed }
+      if (build.gate_digest === report.digest && sameGate(build.gate, gate)) return { answer: answerTo(build, report.passed), wake: build.attempt_of ?? build.id }
       throw new BuildRefused('wrong_state')
     }
     if (build.state !== 'building' && build.state !== 'checking') throw new BuildRefused('wrong_state')
     await recordGate(tx, { buildId: build.id, gate, digest: report.digest, passed: report.passed, at: deps.now() })
     const failed = report.checks.filter((c) => !c.passed).map((c) => c.name)
     await record(tx, build, build.runId, report.passed ? 'storefront.build_passed' : 'storefront.build_failed', report.passed ? 'success' : 'failed', failed.length > 0 ? failed.join(', ') : null)
-    return { passed: report.passed, upload: report.passed }
+    return { answer: answerTo(build, report.passed), wake: build.attempt_of ?? build.id }
   })
-  await deps.wake(report.build, 'reported').catch(() => {
+  await deps.wake(answer.wake, 'reported').catch(() => {
     throw new BuildUnavailable('workflow_unavailable')
   })
-  return answer
+  return answer.answer
 }
+
+/** A bisect's build is only checked, never uploaded (ARCHITECTURE §4.2 step 4). */
+const answerTo = (build: Pick<BuildRow, 'attempt'>, passed: boolean) => ({ passed, upload: passed && build.attempt !== 'bisect' })
 
 export interface UploadCredential {
   endpoint: string
@@ -253,17 +256,18 @@ const stagedManifest = async (sites: SitesBucket, key: string): Promise<Manifest
  */
 export const reportUploaded = async (deps: BuildDeps, token: string, buildId: string): Promise<{ uploaded: true }> => {
   const outcome = await withBuild(deps, token, buildId, async (tx, build) => {
-    if (build.uploaded_at !== null) return build.manifest_ok
+    const wake = build.attempt_of ?? build.id
+    if (build.uploaded_at !== null) return { ok: build.manifest_ok, wake }
     if (build.state !== 'deploying' || build.gate?.['passed'] !== true) throw new BuildRefused('wrong_state')
     const manifest = await stagedManifest(deps.sites, `${stagingFolder(build.store_id, build.id)}${manifestName}`)
     const accepted = manifest !== null && (await digestOf(manifest.files)) === build.gate_digest ? manifest : null
     await markUploaded(tx, build.id, accepted, deps.now())
     await record(tx, build, build.runId, accepted ? 'storefront.build_uploaded' : 'storefront.build_failed', accepted ? 'success' : 'failed', accepted ? `${accepted.files.length} files` : 'manifest')
-    return accepted !== null
+    return { ok: accepted !== null, wake }
   })
-  await deps.wake(buildId, 'uploaded').catch(() => {
+  await deps.wake(outcome.wake, 'uploaded').catch(() => {
     throw new BuildUnavailable('workflow_unavailable')
   })
-  if (!outcome) throw new BuildRefused('manifest_refused')
+  if (!outcome.ok) throw new BuildRefused('manifest_refused')
   return { uploaded: true }
 }

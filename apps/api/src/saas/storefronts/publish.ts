@@ -9,8 +9,16 @@ import {
   insertQueuedRun,
   lockStorefront,
   moveLiveTo,
+  failAttempt,
+  finishRepaired,
+  insertAttempt,
+  selectBisectedRun,
+  selectDraftCommits,
+  selectFailingChecks,
   selectGateVerdict,
   selectQueuedRun,
+  setBisectCommit,
+  setRepairAttempts,
   selectRun,
   selectVersion,
   startRun,
@@ -22,6 +30,7 @@ import { isUploaded, isVerified } from '#db/scoped/builds'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'
+import { maxRepairs } from '#saas/studio/model'
 import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
 import { stagingFolder } from './layout'
 import { deletePrefix, type SitesBucket } from './templates'
@@ -58,10 +67,15 @@ export const startPublish = async (tx: ScopedSql, run: Omit<NewRun, 'storeId'> &
 }
 
 export interface PublishDeps extends FreezeDeps {
+  /** Absent until the designer's model reaches the Workflow (#318): a failing design publish then goes straight to bisect. */
+  repair?: PublishRepair
   sites: SitesBucket
   /** The public bucket the verified JS and CSS are copied into (LIVE-SHOP §4 step 9). */
   assets: SitesBucket
 }
+
+/** The studio's change loop asked to fix the failing checks (AI-STUDIO §6); the draft's new commit, or null. */
+export type PublishRepair = (storeId: string, failing: string[]) => Promise<string | null>
 
 /** What the build's calls wake its publish run with (`step.waitForEvent` types, LIVE-SHOP §4 "The build calls"). */
 export type BuildEvent = 'reported' | 'uploaded'
@@ -112,37 +126,39 @@ const claimStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
   })
 
 /** Every staged object hashed to the manifest whose digest the passing report sent, and copied (LIVE-SHOP §4 step 9). */
-const verifyStep = async (deps: PublishDeps, p: PublishParams): Promise<string> => {
-  await verifyUpload(deps, p.storeId, p.runId)
+const verifyStep = async (deps: PublishDeps, storeId: string, buildId: string): Promise<string> => {
+  await verifyUpload(deps, storeId, buildId)
   return 'verified'
 }
 
 /** The report's verdict once it came (LIVE-SHOP §4 step 7). */
-const reportedStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
+const reportedStep = (deps: PublishDeps, storeId: string, buildId: string): Promise<string> =>
   withSystemScope(deps.sql, async (tx) => {
-    const passed = await selectGateVerdict(tx, p.storeId, p.runId)
+    const passed = await selectGateVerdict(tx, storeId, buildId)
     return passed === null ? 'waiting' : passed ? 'passed' : 'failed'
   })
 
-const uploadedStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
-  withSystemScope(deps.sql, async (tx) => ((await isUploaded(tx, p.storeId, p.runId)) ? 'uploaded' : 'waiting'))
+const uploadedStep = (deps: PublishDeps, storeId: string, buildId: string): Promise<string> =>
+  withSystemScope(deps.sql, async (tx) => ((await isUploaded(tx, storeId, buildId)) ? 'uploaded' : 'waiting'))
 
-const switchStep = async (deps: PublishDeps, p: PublishParams): Promise<string> => {
+/** The pointer moves to `buildId`, the publish's own build or its repair's, which then ends the publish too. */
+const switchStep = async (deps: PublishDeps, p: PublishParams, buildId: string): Promise<string> => {
   const switched = await withSystemScope(deps.sql, async (tx) => {
     const storefront = await lockStorefront(tx, p.storeId)
-    const run = await selectRun(tx, p.runId)
+    const run = await selectRun(tx, buildId)
     if (!storefront || !run || run.store_id !== p.storeId || run.state !== 'deploying') return null
     // The pointer moves only to a build whose every file was verified, whoever runs this step (LIVE-SHOP §4 step 9).
     if (!(await isVerified(tx, run.store_id, run.id))) throw new BuildMissing('the build is not verified')
     const at = deps.now()
     const version = await switchLive(tx, run, storefront.live_build_id, at)
+    if (buildId !== p.runId) await finishRepaired(tx, p.runId, at)
     await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `publish:${run.id}`, payload: { storeId: run.store_id, reason: 'publish' }, partnerId: run.partner_id, storeId: run.store_id })
     await activityLog.record(tx, systemEntry(run, 'storefront.published', 'success', [{ field: 'version', before: null, after: String(version) }]))
     await queueNext(tx, run.store_id, run.partner_id)
     return version
   })
   if (switched === null) return 'stopped'
-  await deletePrefix(deps.sites, stagingFolder(p.storeId, p.runId))
+  await deletePrefix(deps.sites, stagingFolder(p.storeId, buildId))
   return `live:${switched}`
 }
 
@@ -160,7 +176,7 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string): Prom
   return 'failed'
 }
 
-const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing', UploadTimedOut: 'upload_timed_out', ReportTimedOut: 'report_timed_out', GateFailed: 'gate_failed' }
+const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing', UploadTimedOut: 'upload_timed_out', ReportTimedOut: 'report_timed_out', GateFailed: 'gate_failed', Bisected: 'bisected' }
 // A step's error may come back from the Workflow runtime as a plain Error, so a refusal's code travels as its message.
 const codeOf = (error: unknown): string => {
   if (!(error instanceof Error)) return 'deploy_failed'
@@ -177,34 +193,125 @@ class ReportTimedOut extends Error {
 class GateFailed extends Error {
   override name = 'GateFailed'
 }
+/** The gate refused the publish, and bisect found the change that broke it: "publish everything before this change". */
+class Bisected extends Error {
+  override name = 'Bisected'
+}
 
 const minutesLeft = buildLifetimeMs / 60_000
+
+/** One build through the gate: frozen, dispatched, then its report; `label` keeps each build's steps apart. */
+const gateBuild = async (deps: PublishDeps, steps: PublishSteps, storeId: string, buildId: string, label: string): Promise<boolean> => {
+  await steps.do(`${label}freeze`, () => freezeBuild(deps, storeId, buildId))
+  await steps.do(`${label}dispatch`, () => dispatchBuild(deps, storeId, buildId))
+  // The build's "report" and "uploaded" calls wake this run; a DB check comes first, so one that came early isn't missed.
+  if ((await steps.do(`${label}reported`, () => reportedStep(deps, storeId, buildId))) === 'waiting') {
+    await steps.waitFor(`${label}report`, 'reported', minutesLeft).catch(() => {
+      throw new ReportTimedOut('no report within the build id’s lifetime')
+    })
+  }
+  return (await steps.do(`${label}verdict`, () => reportedStep(deps, storeId, buildId))) === 'passed'
+}
+
+/** A repair's or a bisect's build of `commit`, gated as the publish's own was; a failing one ends at once. */
+const attemptBuild = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams, attempt: 'repair' | 'bisect', commit: string, label: string): Promise<{ id: string; passed: boolean }> => {
+  const id = await steps.do(`${label}start`, () =>
+    withSystemScope(deps.sql, async (tx) => {
+      const root = await selectRun(tx, p.runId)
+      if (!root) throw new GateFailed('the publish is gone')
+      return insertAttempt(tx, root, attempt, commit, deps.now())
+    }),
+  )
+  const passed = await gateBuild(deps, steps, p.storeId, id, label)
+  if (!passed) await steps.do(`${label}end`, async () => withSystemScope(deps.sql, (tx) => failAttempt(tx, p.storeId, id, deps.now())).then(() => 'failed'))
+  return { id, passed }
+}
+
+/** ARCHITECTURE §4.2 step 4, a design publish only: the AI repairs its own code from the report, at most three times. */
+const repairs = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams): Promise<string | null> => {
+  const repair = deps.repair
+  if (!repair) return null
+  for (let n = 1; n <= maxRepairs; n += 1) {
+    const commit = await steps.do(`repair-${n}`, async () => {
+      const failing = await withSystemScope(deps.sql, (tx) => selectFailingChecks(tx, p.storeId, p.runId))
+      await withSystemScope(deps.sql, (tx) => setRepairAttempts(tx, p.runId, n))
+      return (await repair(p.storeId, failing)) ?? 'none'
+    })
+    if (commit === 'none') return null
+    const built = await attemptBuild(deps, steps, p, 'repair', commit, `repair-${n}:`)
+    if (built.passed) return built.id
+  }
+  return null
+}
+
+/**
+ * Then bisect the draft's changes up to the publish's commit, the live version's commit standing as good, to the first
+ * that fails the gate; each probe is a build of its own that is checked, never uploaded.
+ */
+const bisect = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams): Promise<string | null> => {
+  const chain = JSON.parse(
+    await steps.do('bisect-commits', async () =>
+      withSystemScope(deps.sql, async (tx) => {
+        const root = await selectRun(tx, p.runId)
+        const commits = await selectDraftCommits(tx, p.storeId)
+        const at = root ? commits.indexOf(root.commit) : -1
+        return JSON.stringify(at < 0 ? [] : commits.slice(0, at + 1))
+      }),
+    ),
+  ) as string[]
+  if (chain.length === 0) return null
+  let good = -1
+  let bad = chain.length - 1
+  while (bad - good > 1) {
+    const mid = Math.floor((good + bad) / 2)
+    const commit = chain[mid] ?? ''
+    if ((await attemptBuild(deps, steps, p, 'bisect', commit, `bisect-${commit}:`)).passed) good = mid
+    else bad = mid
+  }
+  const first = chain[bad] ?? ''
+  await steps.do('bisect-found', () => withSystemScope(deps.sql, (tx) => setBisectCommit(tx, p.runId, first)).then(() => first))
+  return bad > 0 ? first : null
+}
 
 export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: PublishSteps): Promise<'live' | 'failed' | 'stopped'> => {
   try {
     if ((await steps.do('claim', () => claimStep(deps, p))) === 'stopped') return 'stopped'
-    await steps.do('freeze', () => freezeBuild(deps, p.storeId, p.runId))
-    await steps.do('dispatch', () => dispatchBuild(deps, p.storeId, p.runId))
-    // The build's "report" and "uploaded" calls wake this run; a DB check comes first, so one that came early isn't missed.
-    if ((await steps.do('reported', () => reportedStep(deps, p))) === 'waiting') {
-      await steps.waitFor('report', 'reported', minutesLeft).catch(() => {
-        throw new ReportTimedOut('no report within the build id’s lifetime')
-      })
+    let liveId = p.runId
+    if (!(await gateBuild(deps, steps, p.storeId, p.runId, ''))) {
+      const kind = await steps.do('kind', () => withSystemScope(deps.sql, async (tx) => (await selectRun(tx, p.runId))?.kind ?? 'gone'))
+      if (kind !== 'design') throw new GateFailed('the gate refused the build')
+      const repaired = await repairs(deps, steps, p)
+      if (!repaired) throw (await bisect(deps, steps, p)) ? new Bisected('publish everything before this change') : new GateFailed('the gate refused the build')
+      liveId = repaired
     }
-    if ((await steps.do('verdict', () => reportedStep(deps, p))) !== 'passed') throw new GateFailed('the gate refused the build')
-    if ((await steps.do('uploaded', () => uploadedStep(deps, p))) === 'waiting') {
+    if ((await steps.do('uploaded', () => uploadedStep(deps, p.storeId, liveId))) === 'waiting') {
       await steps.waitFor('upload', 'uploaded', minutesLeft).catch(() => {
         throw new UploadTimedOut('no upload within the build id’s lifetime')
       })
     }
-    await steps.do('verify', () => verifyStep(deps, p))
-    return (await steps.do('switch', () => switchStep(deps, p))) === 'stopped' ? 'stopped' : 'live'
+    await steps.do('verify', () => verifyStep(deps, p.storeId, liveId))
+    return (await steps.do('switch', () => switchStep(deps, p, liveId))) === 'stopped' ? 'stopped' : 'live'
   } catch (error) {
     const code = codeOf(error)
     logEvent({ event: 'storefront_publish_failed', api: 'system', storeId: p.storeId, code: `${code}:${failureCode(error)}` })
     await steps.do('fail', () => failStep(deps, p, code))
     return 'failed'
   }
+}
+
+export type PublishBeforeResult = { ok: true; runId: string } | { ok: false; reason: 'NOT_BISECTED' | 'NOTHING_BEFORE' | 'NO_STOREFRONT' }
+
+/**
+ * "Publish everything before this change" (ARCHITECTURE §4.2 step 4), which SAPI 17's Store API offers with the change's
+ * commit: a design publish of the draft's change just before the one bisect found, using no allowance.
+ */
+export const publishBefore = async (tx: ScopedSql, input: { storeId: string; commit: string; by: string | null; at: Date }): Promise<PublishBeforeResult> => {
+  const bisected = await selectBisectedRun(tx, input.storeId, input.commit)
+  if (!bisected) return { ok: false, reason: 'NOT_BISECTED' }
+  const commits = await selectDraftCommits(tx, input.storeId)
+  const before = commits[commits.indexOf(input.commit) - 1]
+  if (!before) return { ok: false, reason: 'NOTHING_BEFORE' }
+  return startPublish(tx, { storeId: input.storeId, kind: 'design', commit: before, template: bisected.template, coreVersion: bisected.core_version, usesAllowance: false, startedBy: { kind: input.by ? 'user' : 'system', id: input.by }, at: input.at })
 }
 
 export type GoBackResult = { ok: true } | { ok: false; reason: 'NOT_FOUND' | 'ALREADY_LIVE' | 'PUBLISH_RUNNING' | 'BUILD_GONE' }
