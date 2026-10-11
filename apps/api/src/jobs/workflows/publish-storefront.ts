@@ -12,6 +12,8 @@ export interface PublishStorefrontEnv extends Record<string, unknown> {
 
 // A step's own retries before the run fails and the live build stays (SAAS §9.1).
 const stepConfig = { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' }, timeout: '5 minutes' } as const
+// The post-deploy checks stop starting calls after checksLimitMs, and a call ends within about 32 s (edgeProbe.ts).
+const checksConfig = { retries: { limit: 1, delay: '10 seconds', backoff: 'constant' }, timeout: '10 minutes' } as const
 
 /** One run per publish, started by the `storefront.publish` deliverer; index.ts, which alone opens connections, passes `connect`. */
 export const publishStorefrontWorkflow = (connect: (hyperdrive: { connectionString: string }) => postgres.Sql) =>
@@ -37,8 +39,8 @@ export const publishStorefrontWorkflow = (connect: (hyperdrive: { connectionStri
           : httpEdgeProbe()
       const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
       try {
-        return await runPublish({ sql, sites, assets, now: () => new Date(), probe, wait }, event.payload, {
-          do: (name, work) => step.do(name, stepConfig, work),
+        return await runPublish({ sql, sites, assets, now: () => new Date(), probe, assetHost: `sf-assets.${config.EDGE_ZONE}`, wait }, event.payload, {
+          do: (name, work, long) => step.do(name, long ? checksConfig : stepConfig, work),
           waitForUpload: async (name, timeoutMinutes) => {
             await step.waitForEvent(name, { type: 'uploaded', timeout: `${timeoutMinutes} minutes` })
           },

@@ -13,6 +13,8 @@ export interface CheckResult {
 
 export interface CheckTarget {
   host: string
+  /** The shared asset host; scripts on any other host but the store's own are not ours to fetch. */
+  assetHost: string
   buildId: string
   /** Every file of the build, from its `_manifest.json`; the product and checkout pages are found among them. */
   files: readonly string[]
@@ -25,6 +27,8 @@ export interface CheckTiming {
 
 /** ARCHITECTURE §4.2 step 5: the checks finish within about two minutes of the switch. */
 export const checksWindowMs = 120_000
+/** No call starts after this; what is left counts as skipped, so a slow store is never rolled back for slowness. */
+export const checksLimitMs = 300_000
 const retryMs = 10_000
 const maxAssetsPerPage = 20
 
@@ -44,27 +48,31 @@ class Stale extends Error {
   }
 }
 
-/** The scripts and stylesheets a page loads, which must come from the new build's assets too. */
-const assetUrls = (html: string, base: URL): URL[] => {
+/** The scripts and stylesheets a page loads from its own host or the asset host; a theme loads nothing else (AGENTS.md). */
+const assetUrls = (html: string, base: URL, assetHost: string): URL[] => {
   const found = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g), ...html.matchAll(/<link\b(?=[^>]*\brel="stylesheet")[^>]*\bhref="([^"]+)"/g)]
   return found.flatMap((m) => {
     try {
       const url = new URL((m[1] ?? '').replaceAll('&amp;', '&'), base)
-      return url.protocol === 'https:' ? [url] : []
+      return url.protocol === 'https:' && (url.host === base.host || url.host === assetHost) ? [url] : []
     } catch {
       return []
     }
   }).slice(0, maxAssetsPerPage)
 }
 
-const checkPage = async (probe: EdgeProbe, target: CheckTarget, name: CheckName, path: string): Promise<CheckResult> => {
+const outOfTime = (name: CheckName) => skip(name, 'Not checked: the checks ran out of time.')
+
+const checkPage = async (probe: EdgeProbe, target: CheckTarget, name: CheckName, path: string, inTime: () => boolean): Promise<CheckResult> => {
+  if (!inTime()) return outOfTime(name)
   const url = new URL(path, `https://${target.host}`)
   const page: ProbeAnswer | null = await probe.get(url.href)
   if (!page) return skip(name, 'The store’s address can’t be reached from here.')
   if (page.status === 200 && page.build !== target.buildId) throw new Stale(name)
   if (page.status !== 200) return fail(name, `${path} answered ${page.status}.`)
   if (!page.contentType.startsWith('text/html')) return fail(name, `${path} isn’t a page.`)
-  for (const asset of assetUrls(page.body, url)) {
+  for (const asset of assetUrls(page.body, url, target.assetHost)) {
+    if (!inTime()) break
     const loaded = await probe.get(asset.href)
     if (loaded && loaded.status !== 200) return fail(name, `A script or stylesheet of ${path} answered ${loaded.status}.`)
   }
@@ -98,16 +106,16 @@ const checkPayment = async (probe: EdgeProbe, target: CheckTarget): Promise<Chec
   return pass('payment', `${options.length} way${options.length === 1 ? '' : 's'} to pay.`)
 }
 
-const checkOnce = async (probe: EdgeProbe, target: CheckTarget): Promise<CheckResult[]> => {
+const checkOnce = async (probe: EdgeProbe, target: CheckTarget, inTime: () => boolean): Promise<CheckResult[]> => {
   const product = target.files.find((f) => productPage.test(f)) ?? null
   const checkout = target.files.find((f) => checkoutPage.test(f)) ?? null
   const slug = product ? (productPage.exec(product)?.[1] ?? null) : null
   return [
-    await checkPage(probe, target, 'home', '/'),
-    product ? await checkPage(probe, target, 'product', pathOf(product)) : skip('product', 'The build has no product page.'),
-    await checkCart(probe, target, slug),
-    checkout ? await checkPage(probe, target, 'checkout', pathOf(checkout)) : fail('checkout', 'The build has no checkout page.'),
-    await checkPayment(probe, target),
+    await checkPage(probe, target, 'home', '/', inTime),
+    product ? await checkPage(probe, target, 'product', pathOf(product), inTime) : skip('product', 'The build has no product page.'),
+    inTime() ? await checkCart(probe, target, slug) : outOfTime('cart'),
+    checkout ? await checkPage(probe, target, 'checkout', pathOf(checkout), inTime) : fail('checkout', 'The build has no checkout page.'),
+    inTime() ? await checkPayment(probe, target) : outOfTime('payment'),
   ]
 }
 
@@ -116,12 +124,14 @@ const checkOnce = async (probe: EdgeProbe, target: CheckTarget): Promise<CheckRe
  * tried once more before it counts, so one dropped request never rolls a store back.
  */
 export const runPostDeployChecks = async (probe: EdgeProbe, target: CheckTarget, timing: CheckTiming): Promise<CheckResult[]> => {
-  const deadline = timing.now() + checksWindowMs
+  const started = timing.now()
+  const deadline = started + checksWindowMs
+  const inTime = () => timing.now() < started + checksLimitMs
   let retried = false
   for (;;) {
     let results: CheckResult[]
     try {
-      results = await checkOnce(probe, target)
+      results = await checkOnce(probe, target, inTime)
     } catch (error) {
       if (!(error instanceof Stale)) throw error
       if (timing.now() + retryMs > deadline) return [fail(error.check, 'The store’s address still serves the build before this one.')]
