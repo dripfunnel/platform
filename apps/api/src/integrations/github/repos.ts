@@ -36,7 +36,12 @@ export interface StoreRepos {
   advance: (name: string, commit: string) => Promise<boolean>
   /** Whether `commit` is `head` or in its history. */
   reaches: (name: string, head: string, commit: string) => Promise<boolean>
+  /** Starts the locked workflow on `main` (storefront LIVE-SHOP §4 step 4); a repo GitHub doesn't know is false. */
+  dispatchBuild: (name: string, inputs: { build_id: string; api: string }) => Promise<boolean>
 }
+
+/** The store repo's one workflow (LIVE-SHOP §3). */
+export const buildWorkflow = 'build.yml'
 
 const sha = z.string().regex(/^[0-9a-f]{40}$/)
 const repoSchema = z.object({ id: z.number() }).loose()
@@ -114,5 +119,6 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
       const answer = await call('GET', `${repo(name)}/compare/${commit}...${head}`, undefined, [404])
       return answer.status !== 404 && ['ahead', 'identical'].includes(read(compareSchema, answer.body).status)
     },
+    dispatchBuild: async (name, inputs) => (await call('POST', `${repo(name)}/actions/workflows/${buildWorkflow}/dispatches`, { ref: 'main', inputs }, [404], { once: true })).status !== 404,
   }
 }

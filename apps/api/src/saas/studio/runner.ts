@@ -4,7 +4,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { insertAiRun, moveDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost } from '#integrations/sandbox/index'
-import { draftBundle, previewFolder, sourceBundle, templateFiles, type SitesBucket } from '../storefronts/index'
+import { draftBundle, guardContextFor, previewFolder, sourceBundle, templateFiles, type SitesBucket } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal } from './model'
 
 // One store's studio (storefront AI-STUDIO.md §3–§7): the Durable Object holds one of these, and runs one change at a
@@ -306,9 +306,7 @@ export class StudioRunner {
   private async guardContext(): Promise<GuardContext> {
     const { row, usedPaths } = await this.system(async (tx) => ({ row: await selectGuardContext(tx, this.deps.storeId), usedPaths: await storeContentPaths(tx, this.deps.storeId) }))
     if (!row) throw new StudioUnavailable('The store is gone.')
-    // A theme writes one content folder per language (`content/en`), which core's i18n reads for en-US and en-IN alike.
-    const locales = [...new Set([row.main_language, ...row.languages].map((l) => l.split('-')[0] ?? l))]
-    return { locales, usedPaths, mediaIds: row.media_ids, brand: { name: row.name, tagline: null, email: null, phone: null, address: [], socialLinks: [] } }
+    return guardContextFor(row, usedPaths)
   }
 }
 

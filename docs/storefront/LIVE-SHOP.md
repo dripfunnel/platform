@@ -15,8 +15,9 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 the bucket layout (§2), the publish-storefront Workflow's queued → deploying → live | failed, the switch, go back and
 clean-up (§4 steps 1, 9 item 3 and 11), and the edge Worker's live path (§5, `store-proxy/src/live.ts`) with the host
 lookup, its `/shop-api` door and the cache purge. On #517: the OIDC check (§9), the build calls (§4, "The build calls"),
-the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2); the
-rest is specification.
+the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2). On
+#483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
+(§4 steps 3–7). The rest is specification.
 
 Last updated: 2026-10-11 (#517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
@@ -121,9 +122,12 @@ checking, deploying, live, failed, rolled back).
    none is running, queues `storefront.publish`, whose deliverer starts `jobs/workflows/publish-storefront.ts` under the
    run's id. A press while one runs waits as the one queued run (a second press is that run); the run that finishes
    queues it. Partial unique indexes allow one running and one queued run per store. The Workflow claims the run
-   (deploying), waits for the run's "uploaded" for the build id's 2 hours at most (`upload_timed_out`; #483 dispatches
-   the build before it), verifies and copies the upload (step 9, built on #517), then switches only a verified build;
-   any failure leaves the run failed with a code and the live build as it was.
+   (building), freezes its input (step 3) and dispatches the build (step 4), both once, then waits for its report:
+   a pass moves the run to deploying, a failure to checking, where the run decides (built on #483: it fails as
+   `gate_failed`), and no report within the build id's 2 hours fails it as `report_timed_out`. A passing build then
+   waits for its "uploaded" for the same 2 hours at most (`upload_timed_out`), is verified and copied (step 9, built on
+   #517), and only a verified build is switched; any failure leaves the run failed with a code and the live build as
+   it was.
 2. **Nothing reaches GitHub yet.** A design publish builds the draft's head commit from the
    store's private draft (AI-STUDIO §6); other publishes build the **live commit**, read from the
    live build's kept source bundle (step 3), never from GitHub. The repo's `main` gets the draft
@@ -140,10 +144,24 @@ checking, deploying, live, failed, rolled back).
 
    *Why:* the run reads only these, so it needs no network and no repo checkout, and two builds
    of the same commit and snapshot give the same files.
+   **Built on #483** (`saas/storefronts/freeze.ts`): the source is a byte copy of the store's draft bundle for a design
+   publish, or of the live build's own source bundle otherwise (none: `no_source`), and the build checks the run's
+   `commit` out of it. The snapshot is core's `catalogueSnapshotSchema`: the store as the Shop API's `store` reads it,
+   the live address (the store's host under its partner's live shops address: none is `no_address`), the partner's
+   "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
+   `sf-assets.<EDGE_ZONE>`. *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
+   it stays as private as the draft it copies.
 4. **The platform starts the workflow** with `workflow_dispatch`, passing a **single-use build
    id**, through the GitHub App.
    *Why:* the build id ties the run to this `publish_run`, so a run can't upload into another
    build, and an old id is refused.
+   **Built on #483**: `POST /repos/{org}/{repo}/actions/workflows/build.yml/dispatches` on `main` with the inputs
+   `build_id` and `api` (`https://<hooks host>`), at most once: `publish_run.dispatched_at` is set before GitHub is
+   asked, the request is sent once (again only after a 401), and the claim is cleared only on a definite refusal (a
+   4xx, 401 or 429); a 5xx or no answer may hide a started run, so it stands. The report and the upload share one
+   deadline, the build id's 2 hours from its claim. A repo GitHub doesn't
+   know fails the publish as `no_repo`. The runner sends only the check container's report as a verdict: the build
+   container ran the theme, so its own report can only refuse (its failing checks), and no report is "stopped".
 5. **The workflow is one job**, so the built site never leaves the runner as an artifact. Its
    permissions are `id-token: write` and nothing else.
    - **Networking off:** the AI-written code (the static build, and the theme in the headless
@@ -295,8 +313,8 @@ checking, deploying, live, failed, rolled back).
 
 | Step | Allowed when | Answers |
 |---|---|---|
-| `start` (step 5) | The build is `building` and has no report | 15-minute links: `source`, `snapshot`, and `live` (each file of the live build by path, or null before the first publish) |
-| `report` (step 7) | No report yet; the body adds `passed`, `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …}`. Kept on `publish_run.gate` once: a pass moves the build to `deploying`, a failure ends it (`failed`, `gate_failed`); the same report again gets the same answer |
+| `start` (step 5) | The build is `building` and has no report | 15-minute links: `source`, `snapshot`, and `live` (each file of the live build by path, or null before the first publish); since #483 also `commit` (what to check out of the source), `core` (the build image's version) and `strictLook` (a core upgrade, whose look mustn't change) |
+| `report` (step 7) | No report yet; the body adds `passed`, `digest` and `checks` (each a `name`, `passed` and at most 500 characters of plain words) | `{"passed": …, "upload": …}`. Kept on `publish_run.gate` once with `build_minutes` (since the dispatch, rounded up): a pass moves the build to `deploying`, a failure to `checking` for its publish run to decide (#483); each answer wakes that run; the same report again gets the same answer. `upload` says whether the workflow uploads |
 | `credentials` (step 8) | After a passing report and before "uploaded" | `endpoint`, `bucket`, `prefix` (the staging folder) and the 15-minute `accessKeyId`, `secretAccessKey`, `sessionToken` |
 | `uploaded` (step 9) | After a passing report; the same call again gets the same answer | `{"uploaded": true}`, or the refusal when the staged manifest is missing or its digest isn't the report's. Either way the upload is over, and the build's publish run is woken to verify it or fail it |
 

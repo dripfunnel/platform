@@ -1796,7 +1796,9 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- and plain words) with gate_digest (the digest of the files it checked, LIVE-SHOP §4 step 7);
                     -- uploaded_at ("uploaded": no credential after it), upload_manifest (the manifest as read
                     -- once then, null when refused) and verified_at (every staged object hashed to its manifest
-                    -- entry and was copied, §4 step 9)
+                    -- entry and was copied, §4 step 9). Built on #483 (migration 0280): dispatched_at (the workflow was
+                    -- started, once) and build_minutes (dispatch to report, rounded up); building is claimed and
+                    -- dispatched, checking is a failing report the publish run decides on
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
                      changed_at, changed_by, preview_deploy_ref NULL)
                     -- the one unpublished design per store: the draft's head (decided

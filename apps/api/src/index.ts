@@ -563,8 +563,8 @@ const buildDepsFor = (config: Config, env: Env): Omit<BuildDeps, 'sql'> | null =
   const sites = env.STOREFRONT_SITES
   const publish = env.PUBLISH_STOREFRONT
   if (!sites || !publish) return null
-  // "Uploaded" wakes the build's own publish run, whose instance is named by the build id (jobs/workflows/publish-storefront.ts).
-  const wake = async (buildId: string) => (await publish.get(buildId)).sendEvent({ type: 'uploaded', payload: null })
+  // The report and "uploaded" wake the build's own publish run, whose instance is named by the build id (jobs/workflows/publish-storefront.ts).
+  const wake = async (buildId: string, event: 'reported' | 'uploaded') => (await publish.get(buildId)).sendEvent({ type: event, payload: null })
   const common = { audience: `https://${config.HOOKS_HOST}`, org: config.GITHUB_STORE_ORG, sites, wake, now: () => new Date() }
   if (config.GITHUB_LOCAL === '1') return { ...common, keys: localActionsKeys, r2: localStorefrontR2(), buckets: { sites: 'storefront-sites-local', drafts: 'storefront-drafts-local' } }
   const { R2_STOREFRONT_ACCOUNT_ID: accountId, R2_STOREFRONT_ACCESS_KEY_ID: accessKeyId, R2_STOREFRONT_SECRET_ACCESS_KEY: secretAccessKey, R2_STOREFRONT_API_TOKEN: apiToken } = config
@@ -758,8 +758,8 @@ export const wakeOutbox = (request: Request, response: Response, env: Env, ctx: 
 const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise<void> => {
   // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
   const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
-  // A publish reads the build's folder, so without the bucket it waits too.
-  const publishStorefront = env.PUBLISH_STOREFRONT && env.STOREFRONT_SITES && env.STOREFRONT_ASSETS ? env.PUBLISH_STOREFRONT : null
+  // A publish freezes its input in the drafts bucket, starts the build through GitHub and reads the build's folders.
+  const publishStorefront = env.PUBLISH_STOREFRONT && env.STOREFRONT_SITES && env.STOREFRONT_ASSETS && env.STOREFRONT_DRAFTS && githubConfigured(config) ? env.PUBLISH_STOREFRONT : null
   const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishStorefront))
   for (const [outcome, count] of Object.entries(counts)) {
     if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
