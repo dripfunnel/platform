@@ -2819,7 +2819,7 @@ type StoreSupportSessions {
 
 type Storefront {
   draft: StorefrontDraft
-  history: [StorefrontVersion!]
+  history(before: Int): [StorefrontVersion!]
   live: StorefrontLiveVersion
   status: String
   template: String

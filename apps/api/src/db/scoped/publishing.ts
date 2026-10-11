@@ -237,12 +237,13 @@ export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: Versio
 
 /** The address a shopper reaches the store on: its primary one (SAAS §8), else a live domain of its own. */
 export const selectStorefrontHost = async (tx: ScopedSql, storeId: string): Promise<string | null> => {
-  const [row] = await tx<{ host: string | null }[]>`
-    select coalesce(${primaryHostOf(tx)},
-      (select lower(c.host) from custom_domain c where c.store_id = s.id and c.status = 'live' order by c.created_at, c.id limit 1)) as host
-    from store s where s.id = ${storeId}`
+  const [row] = await tx<{ host: string | null }[]>`select ${storefrontHostOf(tx)} as host from store s where s.id = ${storeId}`
   return row?.host ?? null
 }
+
+/** `selectStorefrontHost`'s answer for the store `s` in the query around it, so a list asks once for every row. */
+export const storefrontHostOf = (tx: ScopedSql) =>
+  tx`coalesce(${primaryHostOf(tx)}, (select lower(c.host) from custom_domain c where c.store_id = s.id and c.status = 'live' order by c.created_at, c.id limit 1))`
 
 /** Builds whose folders clean-up deletes: past the newest `keep` that went live, never live, never a version's; every failed run and bisect probe (LIVE-SHOP §4 step 11). */
 export const selectExpiredBuilds = async (tx: ScopedSql, keep: number, limit: number): Promise<{ id: string; store_id: string }[]> =>

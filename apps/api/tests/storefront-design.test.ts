@@ -117,6 +117,25 @@ describe('the template gallery', () => {
   })
 })
 
+describe('the version history', () => {
+  it('comes newest first, 50 at a time, the live version always and the rest within the plan’s days', async () => {
+    await db.sql`
+      with runs as (
+        insert into publish_run (store_id, kind, state, commit, template, core_version, uses_allowance, started_by_kind, created_at)
+        select ${t.storeA2}, 'design', 'live', lpad(to_hex(n), 40, '0'), 'linen', ${core}, false, 'system', now() from generate_series(1, 53) n
+        returning id, commit)
+      insert into design_version (store_id, number, commit, template, core_version, build_id, published_at, state)
+      select ${t.storeA2}, ('x' || right(commit, 8))::bit(32)::int, commit, 'linen', ${core}, id,
+        case when commit = lpad(to_hex(1), 40, '0') then now() - interval '400 days' else now() end, case when commit = lpad(to_hex(1), 40, '0') then 'live' else 'kept' end
+      from runs`
+    const page = async (before?: number) => ((await w.gql('a2Owner', 'query H($b: Int) { storefront { history(before: $b) { number live } } }', { b: before ?? null })).data?.['storefront'] as { history: { number: number; live: boolean }[] }).history
+    const first = await page()
+    expect(first.map((v) => v.number)).toEqual(Array.from({ length: 50 }, (_, i) => 53 - i))
+    const rest = await page(first.at(-1)?.number)
+    expect(rest).toEqual([{ number: 3, live: false }, { number: 2, live: false }, { number: 1, live: true }])
+  })
+})
+
 describe('choosing a template', () => {
   it('is refused until the brand is ready, and for a template that isn’t offered', async () => {
     expect((await choose('a2Owner', 'linen', false)).code).toBe('BRAND_NOT_READY')

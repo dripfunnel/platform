@@ -16,7 +16,7 @@ import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
 import { openStudioSession, renewStudio, studioAccess, type StudioState } from '#saas/studio/index'
 import { designModel, type DesignBrief, type Device } from './model'
-import type { DesignerDeps, DesignResult } from './service'
+import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { designAudit, designErrors, designNotes } from './words'
 
 // The studio through the Store API (storefront AI-STUDIO §3–§5; SAAS §9.2): the Worker builds the model's context and
@@ -172,7 +172,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     const summary = 'summary' in answer ? answer.summary : null
     const outcome: AskAnswer['outcome'] = answer.outcome === 'changed' || answer.outcome === 'unchanged' ? (summary ? answer.outcome : 'failed') : answer.outcome
-    const message = await withSystemScope(sql, async (tx) => {
+    const message = await recordAfter(sql, storeId, async (tx) => {
       await record(tx, { role: 'user', text, imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl, page: input.page, at: asked })
       const runId = 'runId' in answer ? answer.runId : null
       const id =
@@ -197,7 +197,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
-    const message = await withSystemScope(sql, async (tx) => {
+    const message = await recordAfter(sql, storeId, async (tx) => {
       await markUndone(tx, storeId, latest.id)
       await record(tx, { role: 'note', text: designNotes.undone })
       await activity.record(tx, entry(designAudit.changeUndone, [{ field: 'change', before: latest.commit, after: answer.outcome === 'changed' ? answer.commit : null }]))
@@ -212,7 +212,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const had = await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId))
     if (!had?.head_commit || !had.live_build_id) return { ok: false, reason: 'NOTHING_TO_DISCARD' }
     await studio.discard(storeId)
-    await withSystemScope(sql, async (tx) => {
+    await recordAfter(sql, storeId, async (tx) => {
       await record(tx, { role: 'note', text: designNotes.discarded })
       await activity.record(tx, entry(designAudit.discarded, []))
     })
@@ -239,7 +239,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
-    await withSystemScope(sql, (tx) => activity.record(tx, entry(designAudit.textEdited, [{ field: 'text', before: null, after: `${locale} ${key}` }])))
+    await recordAfter(sql, storeId, (tx) => activity.record(tx, entry(designAudit.textEdited, [{ field: 'text', before: null, after: `${locale} ${key}` }])))
     return { ok: true, value: true }
   }
 
