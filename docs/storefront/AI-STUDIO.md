@@ -14,7 +14,7 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7), and the frame
 on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
-Last updated: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -149,7 +149,10 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 1. **The merchant presses Publish.** The Durable Object finishes any change in progress first.
 2. **If the live commit moved since the draft started** (the upgrade bot's commits touch only
    `package.json` and codemods, never the theme), the container rebases the draft onto it first
-   and runs the fast gate again.
+   and runs the fast gate again. **Built on #485** (the sandbox's `PUT /slots/{slot}/onto` and `POST /slots/{slot}/rebase`):
+   the draft's own commits are replayed onto the upgrade's commit, then the validator and the fast gate run; a conflict
+   (`rebase/conflict`) or a refusal leaves the draft exactly as it was, and rebasing onto a commit the draft already has
+   changes nothing.
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
    workflow fetches through a 15-minute link. Nothing is pushed yet.

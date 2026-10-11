@@ -23,7 +23,7 @@ components with the branded commerce types (#481), and the publish gate's suites
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built). 2026-10-12 (#485: the upgrade notes and codemods, §7.1).
 
 ---
 
@@ -739,6 +739,28 @@ Merchant C's studio ─┘   (model calls, keys)    └─ Durable Object "studi
   plainly (decided 2026-10-08 on #470).
 - The admin console shows core-version drift, pinned stores and rollout state (CONSOLE-DESIGN
   part L).
+
+### 7.1 Upgrade notes and codemods
+
+**Built on #485** (`./guard`'s `upgrade/`): core's release notes are structured data, `coreUpgradeNotes`, one entry per
+release that changes anything for themes, added by its release card beside the changelog:
+
+- `version`, `kind` (`major`, `minor`, `patch`) and `security` (a fix forced on every store, above);
+- `notes`: what a theme has to change, in plain words, which the migration agent is given with the build's failing checks;
+- `codemods`, applied in order, each a pure edit of theme files only (§3.4's paths; the schema refuses any other):
+  - `replace`: every literal occurrence of `find` becomes `replace` in the files the `paths` globs match (`*` within a
+    segment, `**` across segments);
+  - `rename`: a theme file moves; nothing happens when the file is missing or the new path is taken.
+
+*Decided on #485:* codemods are data, not scripts: the same release makes the same edit in every store, runs nothing a
+person didn't write into core, and needs no network. A change no data edit can make is the migration agent's, from the
+notes. The upgrade bot's commit (`POST /slots/{slot}/upgrade` in the sandbox of the new version) is the live commit with
+core pinned exactly to the new version in `package.json` and the codemods of every release after the store's version up
+to the new one applied, in version order; no gate runs there, since the publish's full gate judges the commit. The same
+operation with the baseline theme's files writes the security fallback instead: the baseline's code, styles and routes,
+each CSS custom property the store's own styles also declare set to the store's value (its colours and fonts), and the
+baseline's words in each of the store's languages with the store's own text wherever its content has the same key
+(`baselineWithOwn`).
 
 ---
 
