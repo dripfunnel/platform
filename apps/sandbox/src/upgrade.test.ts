@@ -55,15 +55,15 @@ const call = async (method: string, path: string, body?: unknown): Promise<{ sta
   const res = await fetch(`${base}${path}`, { method, headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
   return { status: res.status, body: (await res.json()) as Json }
 }
-const exportBundle = async (slot: string) => Buffer.from(await (await fetch(`${base}/slots/${slot}/bundle`)).arrayBuffer())
-const loadBundle = async (slot: string, bytes: Buffer) => (await fetch(`${base}/slots/${slot}/draft`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: bytes })).json() as Promise<Json>
+const exportBundle = async (slot: string) => (await fetch(`${base}/slots/${slot}/bundle`)).arrayBuffer()
+const loadBundle = async (slot: string, bytes: ArrayBuffer) => (await fetch(`${base}/slots/${slot}/draft`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: bytes })).json() as Promise<Json>
 const theme = async (slot: string) => new Map(((await call('GET', `/slots/${slot}/theme`)).body['files'] as { path: string; content: string }[]).map((f) => [f.path, f.content]))
 const head = async (slot: string) => (await call('GET', `/slots/${slot}/theme`)).body['head'] as string
 const repoFile = (slot: string, path: string) => readFile(join(root, 'work', slot, 'repo', path), 'utf8')
 const pages = () => template.find((f) => f.path === 'content/en/pages.json')?.content ?? ''
 
-let live: Buffer
-let upgraded: { commit: string; bundle: Buffer }
+let live: ArrayBuffer
+let upgraded: { commit: string; bundle: ArrayBuffer }
 
 describe('the upgrade bot’s commit', () => {
   it('pins the new core and applies only the codemods of the releases it crosses, as one commit on the live one', async () => {
