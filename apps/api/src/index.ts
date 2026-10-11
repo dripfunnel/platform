@@ -996,7 +996,7 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
   }
 
   /** The renamed addresses of the store its hostname named (storefront ARCHITECTURE §8), as one list the edge caches. */
-  redirects(storeId: string): Promise<{ redirects: { from: string; to: string }[] }> {
+  redirects(storeId: string): Promise<{ redirects: { from: string; to: string; everyLanguage: boolean }[] }> {
     return edgeQuery(this.env, this.ctx, (sql) => lookupRedirects(sql, storeId))
   }
 

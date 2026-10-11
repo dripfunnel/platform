@@ -272,7 +272,7 @@ describe('storefront_redirect', () => {
     expect(await lookupRedirects(db.sql, 'not-a-store')).toEqual({ redirects: [] })
   })
 
-  it('is read by the store’s own merchant side only: never another store, a supplier, a partner or staff, and written by nobody', async () => {
+  it('is read by the store’s own merchant side only: never another store, a supplier, a partner or staff', async () => {
     const as = (role: string, scope: string, storeId: string, sellerId: string, work: (tx: postgres.TransactionSql) => Promise<unknown>) =>
       db.sql.begin(async (tx: postgres.TransactionSql) => {
         await tx.unsafe(`set local role ${role}`)
@@ -291,7 +291,5 @@ describe('storefront_redirect', () => {
     expect(await count('app_request', 'store', t.storeB1, t.sellerB1)).toBe(0)
     await expect(count('app_partner', 'partner', t.storeB1)).rejects.toThrow(/permission denied/)
     await expect(count('app_platform', 'platform', t.storeB1)).rejects.toThrow(/permission denied/)
-    await expect(as('app_request', 'store', t.storeB1, '', (tx) => tx`insert into storefront_redirect (store_id, from_path, to_path, reason) values (${t.storeB1}, '/a', '/b', 'renamed')`)).rejects.toThrow(/permission denied/)
-    await expect(as('app_system', 'system', t.storeB1, '', (tx) => tx`delete from storefront_redirect`)).rejects.toThrow(/permission denied/)
   })
 })

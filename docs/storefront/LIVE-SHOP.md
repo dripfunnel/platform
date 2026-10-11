@@ -384,10 +384,10 @@ What the edge Worker does on each request to a storefront host.
    `/new/?ref=old` is ignored rather than followed), its client-rendered fallbacks (`prefix`, `page`: a path
    under the prefix with no file gets that page) and its 404 page (`notFound`), read only when a path has no file. A page
    path is `{path}/index.html`; anything that isn't plain names (`..`, an encoded slash or backslash, a control character)
-   is a 404 before R2 is asked. **Built on #484:** a product address (`/products/{slug}` or `/{lang}/products/{slug}`,
-   the only kind with a row) with no file and no `_edge.json` redirect is looked up in the store's renamed addresses
-   (`storefront_redirect`, DATA-MODEL §7.8, without the trailing slash). The edge reads them as one list, the newest 5,000,
-   from the API's `StorefrontEdge.redirects` and caches it like the lookup, at most 60 seconds under the store's tag, so a
+   is a 404 before R2 is asked. **Built on #484:** a path with no file and no `_edge.json` redirect is looked up in the store's
+   renamed addresses (`storefront_redirect`, DATA-MODEL §7.8, without the trailing slash; one recorded for every language
+   also answers under another language's prefix, keeping it). The edge reads them as one list, the newest 5,000, from
+   the API's `StorefrontEdge.redirects` and caches it like the lookup, at most 60 seconds under the store's tag, so a
    rename's 301 needs no rebuild and no shopper's path is ever a database read; a list naming anything but plain paths on
    the store's own host is refused. Every answer from a build names it in `x-df-build` (§4 step 10). A suspended store's degraded page (503) shows only its name; a cancelled store past its
    period, a closed one or one never published gets a 404. Each file is cached under the host, the store, the build and

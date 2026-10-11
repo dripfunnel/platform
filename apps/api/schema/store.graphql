@@ -200,6 +200,19 @@ type BillingUsage {
   used: Int
 }
 
+input BlogPostInput {
+  author: String
+  body: [ContentBlockInput!]!
+  coverAssetId: ID
+  publish: Boolean!
+  publishAt: String
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  tags: [String!]
+  title: String!
+}
+
 type Brand {
   accentColor: String
   background: String
@@ -419,6 +432,69 @@ type CollectionSummary {
   rules: [CollectionRule!]
   slug: String
   visible: Boolean
+}
+
+type ContentBlock {
+  alt: String
+  assetId: ID
+  items: [ContentQuestion!]
+  kind: String
+  productIds: [ID!]
+  text: String
+}
+
+input ContentBlockInput {
+  alt: String
+  assetId: ID
+  items: [ContentQuestionInput!]
+  kind: String!
+  productIds: [ID!]
+  text: String
+}
+
+type ContentEntry {
+  author: String
+  body: [ContentBlock!]
+  coverAssetId: ID
+  id: ID
+  inMenu: Boolean
+  kind: String
+  path: String
+  publishAt: String
+  revision: Int
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  status: String
+  tags: [String!]
+  title: String
+  updatedAt: String
+  waitingForPublish: Boolean
+}
+
+type ContentEntryPage {
+  nodes: [ContentEntry!]
+  pageInfo: PageInfo
+}
+
+input ContentPageInput {
+  body: [ContentBlockInput!]!
+  inMenu: Boolean
+  publish: Boolean!
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  title: String!
+}
+
+type ContentQuestion {
+  answer: String
+  question: String
+}
+
+input ContentQuestionInput {
+  answer: String!
+  question: String!
 }
 
 type ConversionExample {
@@ -885,7 +961,9 @@ type Mutation {
   createApiKey(expiresInDays: Int, name: String!, scopes: [String!]!, supplierId: ID): IssuedApiKey
   createGroup(description: String, name: String!): ID
   deleteBadge(id: ID!): Boolean
+  deleteBlogPost(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
+  deleteContentPage(id: ID!): Boolean
   deleteFacet(id: ID!): Boolean
   deleteGroup(id: ID!): Boolean
   deleteMarket(id: ID!): Boolean
@@ -949,9 +1027,11 @@ type Mutation {
   rotateApiKey(id: ID!): IssuedApiKey
   saveBadge(id: ID, input: BadgeInput!): ID
   saveBillingDetails(input: BillingDetailsInput!): BillingDetails
+  saveBlogPost(id: ID, input: BlogPostInput!, revision: Int): ContentEntry
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
+  saveContentPage(id: ID, input: ContentPageInput!, revision: Int): ContentEntry
   saveCourierOptions(input: CourierOptionsInput!, provider: String!): Boolean
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveCustomerAccounts(mode: String!): CustomerAccounts
@@ -1890,6 +1970,7 @@ type Query {
   apiKeys(after: String, before: String, first: Int): ApiKeyPage
   apps(after: String, before: String, first: Int): InstalledAppPage
   billingDetails: BillingDetails
+  blogPosts(after: String, before: String, first: Int): ContentEntryPage
   brand: Brand
   cartSummary(days: Int): CartSummary
   catalogExport(id: ID!): CatalogExport
@@ -1904,6 +1985,9 @@ type Query {
   collectionPreview(inheritParent: Boolean, match: String, parentId: ID, rules: [CollectionRuleInput!]!): CollectionPreview
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
+  contentEntry(id: ID!): ContentEntry
+  contentPages(after: String, before: String, first: Int): ContentEntryPage
+  customPagePaths: [String!]
   customer(id: ID!): Customer
   customerAccounts: CustomerAccounts
   customerCount: Int

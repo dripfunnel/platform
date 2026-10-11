@@ -157,7 +157,7 @@ describe('a single-page render', () => {
 
   it('answers the renamed product’s old address with a 301 to the new one', async () => {
     const { redirects } = await lookupRedirects(db.sql, t.storeA1)
-    expect(redirects).toEqual(expect.arrayContaining([{ from: '/products/mug', to: '/products/blue-mug' }, { from: '/hi-in/products/mug', to: '/hi-in/products/blue-mug' }]))
+    expect(redirects).toEqual(expect.arrayContaining([{ from: '/products/mug', to: '/products/blue-mug', everyLanguage: false }, { from: '/hi-in/products/mug', to: '/hi-in/products/blue-mug', everyLanguage: false }]))
   })
 
   it('tells IndexNow the pages that changed or went, on the store’s own address', async () => {

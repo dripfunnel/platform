@@ -44,10 +44,11 @@ export const maxEdgeRedirects = 5_000
  * The renamed addresses of the store its hostname named, as one list (LIVE-SHOP §5 step 6): the edge Worker caches it per
  * data centre for at most 60 seconds and answers every path from it, so no shopper's path is a database read.
  */
-export const lookupRedirects = async (sql: postgres.Sql, storeId: string): Promise<{ redirects: { from: string; to: string }[] }> => {
+export const lookupRedirects = async (sql: postgres.Sql, storeId: string): Promise<{ redirects: { from: string; to: string; everyLanguage: boolean }[] }> => {
   if (!isUuid(storeId)) return { redirects: [] }
   const rows = await withSystemScope(sql, (tx) => selectRedirects(tx, storeId, maxEdgeRedirects))
-  return { redirects: rows.map((r) => ({ from: r.from_path, to: r.to_path })) }
+  // A null language is every language (DATA-MODEL §7.8): the edge also answers it under another language's prefix.
+  return { redirects: rows.map((r) => ({ from: r.from_path, to: r.to_path, everyLanguage: r.language === null })) }
 }
 
 /** The tags the edge Worker stores each lookup under, and the ones `cache.purge` names (LIVE-SHOP §5 step 1). */
