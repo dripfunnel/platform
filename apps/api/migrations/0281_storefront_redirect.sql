@@ -6,8 +6,6 @@
 -- #483), under the language tag lowercased in any other (decided on #484). Kept without a trailing slash.
 create function storefront_product_path(store uuid, language text, slug text) returns text
 language sql stable
-security definer
-set search_path = public
 as $$
   select case when language = (select s.main_language from store s where s.id = store) then '' else '/' || lower(language) end || '/products/' || slug
 $$;
@@ -28,9 +26,9 @@ create unique index storefront_redirect_from_key on storefront_redirect (store_i
 
 -- Moves an address: the redirects that pointed at the old one follow it (no chains), and one away from the new address
 -- goes, since that address is live again.
+-- Called only from the triggers below, so it runs as their owner.
 create function storefront_redirect_move(store uuid, lang text, old_path text, new_path text) returns void
 language plpgsql
-security definer
 set search_path = public
 as $$
 begin
@@ -101,8 +99,6 @@ $$;
 grant select, insert, update, delete on storefront_redirect to app_definer;
 grant select on product, store_language, translation to app_definer;
 grant select (id, main_language) on store to app_definer;
-alter function storefront_product_path(uuid, text, text) owner to app_definer;
-alter function storefront_redirect_move(uuid, text, text, text) owner to app_definer;
 alter function storefront_redirect_product_slug() owner to app_definer;
 alter function storefront_redirect_translated_slug() owner to app_definer;
 create trigger storefront_redirect_product_slug after update of slug on product for each row execute function storefront_redirect_product_slug();
