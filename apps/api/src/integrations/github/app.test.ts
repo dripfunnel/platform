@@ -38,6 +38,16 @@ describe('the GitHub App client', () => {
     expect(github.calls.filter((c) => c.endsWith('/access_tokens'))).toHaveLength(2)
   })
 
+  it('mints a fresh token when a session’s own expires or is revoked, rather than retrying the dead one', async () => {
+    const { github, app, waits } = await setup()
+    const repos = storeRepos(app.session(), 'dripfunnel')
+    await repos.create('sf-abcdefghij')
+    github.revokeTokens()
+    expect(await repos.find('sf-abcdefghij')).toEqual({ id: expect.any(Number) })
+    expect(github.grants).toHaveLength(2)
+    expect(waits).toEqual([500])
+  })
+
   it('retries an outage with growing waits, then gives up as unavailable', async () => {
     const { github, app, waits } = await setup()
     const repos = storeRepos(app.session(), 'dripfunnel')

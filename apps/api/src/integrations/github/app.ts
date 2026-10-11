@@ -84,8 +84,11 @@ const retryAfter = (response: Response | null, attempt: number): number => {
 export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl = fetch, now = () => new Date(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }: GitHubAppOptions): GitHubApp => {
   let key: Promise<CryptoKey> | undefined
 
-  const send = async (method: Method, path: string, authorization: string, body: unknown, allow: readonly number[]): Promise<Answer> => {
+  /** `authorize(true)` after a 401: an installation token can expire or be revoked mid-session, so the retry gets a fresh one. */
+  const send = async (method: Method, path: string, authorize: (renew: boolean) => Promise<string>, body: unknown, allow: readonly number[]): Promise<Answer> => {
+    let renew = false
     for (let attempt = 0; ; attempt++) {
+      const authorization = await authorize(renew)
       let response: Response | null
       try {
         response = await fetchImpl(`${githubApi}${path}`, {
@@ -101,6 +104,7 @@ export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl =
         if (response.ok || allow.includes(response.status)) return { status: response.status, body: response.status === 204 ? null : await response.json().catch(() => null) }
         throw new GitHubRefused(response.status)
       }
+      renew = response?.status === 401
       if (attempt + 1 >= attempts) throw new GitHubUnavailable(response ? `GitHub answered ${response.status}` : 'GitHub did not answer')
       await sleep(retryAfter(response, attempt))
     }
@@ -114,7 +118,7 @@ export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl =
   }
 
   const installationToken = async (): Promise<string> => {
-    const answer = await send('POST', `/app/installations/${installationId}/access_tokens`, `Bearer ${await appJwt()}`, { permissions: appPermissions }, [])
+    const answer = await send('POST', `/app/installations/${installationId}/access_tokens`, async () => `Bearer ${await appJwt()}`, { permissions: appPermissions }, [])
     const token = (answer.body as { token?: unknown } | null)?.token
     if (typeof token !== 'string' || token.length === 0) throw new GitHubUnavailable('GitHub answered without a token')
     return token
@@ -123,15 +127,17 @@ export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl =
   return {
     session: () => {
       let token: Promise<string> | undefined
-      return async (method, path, body, allow = []) => {
+      const authorize = async (renew: boolean) => {
+        if (renew) token = undefined
         token ??= installationToken()
         // A failed exchange isn't kept: the next call asks again.
         const current = await token.catch((error: unknown) => {
           token = undefined
           throw error
         })
-        return send(method, path, `Bearer ${current}`, body, allow)
+        return `Bearer ${current}`
       }
+      return (method, path, body, allow = []) => send(method, path, authorize, body, allow)
     },
   }
 }

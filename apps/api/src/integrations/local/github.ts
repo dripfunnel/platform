@@ -33,6 +33,8 @@ export interface LocalGitHub {
   /** The files at `main`, or null when the repo doesn't exist. */
   files: (name: string) => Map<string, string> | null
   history: (name: string) => Commit[]
+  /** Every installation token stops working, as at expiry or revocation. */
+  revokeTokens: () => void
 }
 
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
@@ -184,6 +186,9 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
       const repo = repos.get(name)
       const main = repo?.main ? repo.commits.get(repo.main) : undefined
       return repo && main ? new Map(repo.trees.get(main.tree)) : null
+    },
+    revokeTokens: () => {
+      tokens.clear()
     },
     history: (name) => {
       const repo = repos.get(name)
