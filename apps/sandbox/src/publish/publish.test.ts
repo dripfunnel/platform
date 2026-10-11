@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -82,6 +82,35 @@ describe('step build', () => {
     expect(first.length).toBeGreaterThan(40)
     expect(listing(join(root, 'same-2/site'))).toEqual(first)
     expect(listing(join(root, 'same-2/edge'))).toEqual(listing(join(root, 'same-1/edge')))
+    // What the build writes around the pages: the other language under its code, the sitemap, robots.txt and the edge rules.
+    const site = (path: string) => readFileSync(join(root, 'same-1/site', path), 'utf8')
+    expect(site('hi/index.html')).toContain('<html lang="hi" dir="ltr">')
+    expect(site('sitemap.xml')).toContain('<loc>https://shop.northstar.example/hi/our-story/</loc>')
+    expect(site('sitemap.xml')).not.toContain('/cart/')
+    expect(site('robots.txt')).toBe('User-agent: *\nAllow: /\nSitemap: https://shop.northstar.example/sitemap.xml\n')
+    expect(JSON.parse(site('_edge.json'))).toMatchObject({ notFound: '/404/', fallbacks: expect.arrayContaining([{ prefix: '/products/', page: '/_fallback/product/' }, { prefix: '/hi/products/', page: '/hi/_fallback/product/' }]) })
+    // Every edge case has every page of the main language, the right-to-left one laid out so.
+    for (const n of [0, 1, 2]) expect(listing(join(root, `same-1/edge/${n}`)).filter((l) => l.endsWith('index.html'))).toHaveLength(first.filter((l) => l.endsWith('index.html') && !l.includes('  hi/')).length)
+    expect(readFileSync(join(root, 'same-1/edge/2/index.html'), 'utf8')).toContain('dir="rtl"')
+  })
+
+  it('builds with the image’s own packages, never ones the store repo carries', async () => {
+    const source = await sourceOf('shadowed', {
+      'node_modules/clsx/package.json': '{ "name": "clsx", "main": "index.js" }\n',
+      'node_modules/clsx/index.js': "module.exports = { clsx: () => 'REPO-CLSX' }\n",
+      'node_modules/react/package.json': '{ "name": "react", "main": "index.js" }\n',
+      'node_modules/react/index.js': "throw new Error('REPO-REACT')\n",
+    })
+    await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', join(root, 'shadowed')])
+    expect(existsSync(join(root, 'shadowed/report.json'))).toBe(false)
+    const built = execSync(`grep -rl "REPO-" ${join(root, 'shadowed')} || true`, { encoding: 'utf8' }).trim()
+    expect(built.split('\n').filter((f) => f !== '' && !f.includes('/.work/source/'))).toEqual([])
+  })
+
+  it('fetches the source only from a local bundle: another transport runs nothing', async () => {
+    const marker = join(root, 'transport-ran')
+    await expect(runStep(['build', '--source', `ext::sh -c touch% ${marker}`, '--commit', 'a'.repeat(40), '--snapshot', join(root, 'snapshot.json'), '--out', join(root, 'transport')], { PATH: process.env['PATH'] ?? '' })).rejects.toThrow()
+    expect(existsSync(marker)).toBe(false)
   })
 
   it('refuses to start with a token or any of the runner’s own variables in its environment', async () => {
