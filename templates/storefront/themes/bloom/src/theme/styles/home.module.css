@@ -79,7 +79,7 @@
   font-size: 16px;
 }
 
-.join {
+.section {
   display: flex;
   box-sizing: border-box;
   width: min(100%, 1240px);
@@ -145,7 +145,7 @@
     font-size: 34px;
   }
 
-  .join {
+  .section {
     padding: 80px 56px;
   }
 
