@@ -3,7 +3,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { markVerified, selectUpload } from '#db/scoped/builds'
 import { assetsFolder, buildFolder, manifestName, stagingFolder } from './layout'
 import type { SitesBucket } from './templates'
-import { digestOf, manifestSchema } from './manifest'
+import { digestOf, manifestSchema, type Manifest } from './manifest'
 
 // LIVE-SHOP.md §4 step 9 item 2: each staged object is read once, and the same bytes are hashed and written to the
 // private build folder only when they match the manifest. Nothing in staging is read again; the JS and CSS then go to
@@ -51,13 +51,16 @@ const contentTypeOf = (path: string) => types[path.slice(path.lastIndexOf('.') +
 /** The hashed JS and CSS the asset host serves (LIVE-SHOP §2); everything stays in the private folder too. */
 export const isPublicAsset = (path: string) => /\.(js|css)$/.test(path)
 
-const copy = async (to: SitesBucket, key: string, bytes: ArrayBuffer, sha256: string, path: string) => {
+export const copyObject = async (to: SitesBucket, key: string, bytes: ArrayBuffer, sha256: string, path: string) => {
   // R2 refuses bytes whose SHA-256 isn't the one given, a second check on the write itself.
   await to.put(key, bytes, { sha256, httpMetadata: { contentType: contentTypeOf(path) } })
 }
 
-/** Idempotent: a retry copies again from the frozen manifest, and a verified build answers at once. */
-export const verifyUpload = async (deps: VerifyDeps, storeId: string, buildId: string): Promise<void> => {
+/**
+ * Idempotent: a retry copies again from the frozen manifest, and a verified build answers at once. A page render passes
+ * `seal: false` and seals the folder itself once the live build's other files are in (LIVE-SHOP §7).
+ */
+export const verifyUpload = async (deps: VerifyDeps, storeId: string, buildId: string, options: { seal: boolean } = { seal: true }): Promise<void> => {
   const row = await withSystemScope(deps.sql, (tx) => selectUpload(tx, storeId, buildId))
   if (row?.verified_at) return
   if (!row?.uploaded_at) throw new UploadRefused('not_uploaded')
@@ -72,14 +75,19 @@ export const verifyUpload = async (deps: VerifyDeps, storeId: string, buildId: s
     if (staged.size !== file.size) throw new UploadRefused('file_mismatch')
     const bytes = await staged.arrayBuffer()
     if (bytes.byteLength !== file.size || hex(await crypto.subtle.digest('SHA-256', bytes)) !== file.sha256) throw new UploadRefused('file_mismatch')
-    await copy(deps.sites, `${folder}${file.path}`, bytes, file.sha256, file.path)
+    await copyObject(deps.sites, `${folder}${file.path}`, bytes, file.sha256, file.path)
   }
   for (const file of parsed.data.files.filter((f) => isPublicAsset(f.path))) {
     const kept = await deps.sites.get(`${folder}${file.path}`)
     if (!kept) throw new UploadRefused('file_missing')
-    await copy(deps.assets, `${assetsFolder(storeId, buildId)}${file.path}`, await kept.arrayBuffer(), file.sha256, file.path)
+    await copyObject(deps.assets, `${assetsFolder(storeId, buildId)}${file.path}`, await kept.arrayBuffer(), file.sha256, file.path)
   }
-  const manifest = new TextEncoder().encode(JSON.stringify(parsed.data))
-  await deps.sites.put(`${folder}${manifestName}`, manifest.buffer, { sha256: hex(await crypto.subtle.digest('SHA-256', manifest)), httpMetadata: { contentType: 'application/json' } })
+  if (options.seal) await sealBuild(deps, storeId, buildId, parsed.data)
+}
+
+/** The manifest goes last, so a build folder with one is whole; then the switch may take it (LIVE-SHOP §4 step 9). */
+export const sealBuild = async (deps: VerifyDeps, storeId: string, buildId: string, manifest: Manifest): Promise<void> => {
+  const bytes = new TextEncoder().encode(JSON.stringify(manifest))
+  await deps.sites.put(`${buildFolder(storeId, buildId)}${manifestName}`, bytes.buffer, { sha256: hex(await crypto.subtle.digest('SHA-256', bytes)), httpMetadata: { contentType: 'application/json' } })
   await withSystemScope(deps.sql, (tx) => markVerified(tx, storeId, buildId, deps.now()))
 }

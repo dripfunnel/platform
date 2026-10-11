@@ -65,7 +65,9 @@
       "workflows": [
         { "name": "dripfunnel-create-storefront-local", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" },
         // SAAS §9.1 (jobs/workflows/publish-storefront.ts); dev and prod gain it with the buckets (docs/setup/dev.md §2.8).
-        { "name": "dripfunnel-publish-storefront-local", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" }
+        { "name": "dripfunnel-publish-storefront-local", "binding": "PUBLISH_STOREFRONT", "class_name": "PublishStorefront" },
+        // Storefront LIVE-SHOP §7 (jobs/workflows/render-page.ts): a page run, woken by its build's "uploaded" like a publish.
+        { "name": "dripfunnel-render-page-local", "binding": "RENDER_PAGE", "class_name": "RenderPage" }
       ],
       // The studio (storefront AI-STUDIO.md §2, jobs/durable/studio.ts). Locally its sandbox is apps/sandbox on this machine
       // (SANDBOX_LOCAL_URL), never a container; dev gains these with a `containers` entry once Containers is on (docs/setup/dev.md).

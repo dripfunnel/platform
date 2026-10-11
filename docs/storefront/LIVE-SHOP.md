@@ -17,9 +17,9 @@ clean-up (§4 steps 1, 9 item 3 and 11), and the edge Worker's live path (§5, `
 lookup, its `/shop-api` door and the cache purge. On #517: the OIDC check (§9), the build calls (§4, "The build calls"),
 the workflow's `upload` step (§4 step 8) and the one-read verify and copy before the switch (§4 step 9 items 1–2). On
 #483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
-(§4 steps 3–7). The rest is specification.
+(§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). The rest is specification.
 
-Last updated: 2026-10-11 (#517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -293,6 +293,33 @@ checking, deploying, live, failed, rolled back).
 10. **Post-deploy checks and automatic rollback**, from the edge, run by the platform, follow
     ARCHITECTURE §4.2 steps 5–6. A rollback is the same pointer move back to the previous build:
     no rebuild, live everywhere within a minute (§5 step 1).
+    **Built on #484** (`saas/storefronts/postDeploy.ts`, the run's `checks`, `rollback` and `confirm` steps): the switch
+    moves the pointer and numbers the version, and the run stays `deploying`, so a press waits and go back is refused,
+    until the checks end. They run on the store's own address (its oldest live custom domain, else its shops host),
+    through `integrations/http/edgeProbe.ts`: every call has a 10-second timeout and up to three tries with growing
+    waits. Every answer of the edge Worker names the build it came from (`x-df-build`), and the checks wait, 10 seconds
+    at a time, until it is the new one, for two minutes at most. Then, decided here as plain HTTP from the API Worker:
+    - **home**, **product** (the first `products/{slug}/index.html` of the build's manifest) and **checkout** (its
+      `checkout/index.html`) open: 200, HTML, and each of their scripts and stylesheets on the store's own host or the
+      asset host answers 200 (a theme loads nothing from elsewhere, so no other host a page names is fetched). A build with no
+      checkout page fails; one with no product page skips the product and cart checks;
+    - **cart**: the Shop API, through the store's own `/shop-api`, answers that product with a version to add. No cart
+      is created on a merchant's live store;
+    - **payment**: the Shop API's `paymentOptions` answer, and every card provider among them has the public key its
+      payment element needs. A store that takes no payment yet skips it.
+
+    store-proxy marks every answer on a store's host with `x-df-build` (`none` before a first publish). An address that
+    doesn't answer at all (DNS, TLS, timeouts), or whose answer the edge Worker didn't give (a parked domain, a proxy in
+    front), skips every check rather than failing the build, which can't cause that. A failure is tried once more 10 seconds later before it counts. No call starts after five minutes: what is left is
+    skipped, never failed, so a slow store isn't rolled back for slowness; the step has its own 10-minute limit. Then the run is live (`storefront.published`), or the
+    pointer moves back to `previous_build_id` in one transaction: the run reads `rolled_back` with the failed check as
+    its error (`check_home`, `check_product`, `check_cart`, `check_checkout`, `check_payment`), its version is
+    withdrawn and the one before is live again, the lookup is purged and `storefront.rolled_back` is recorded. A store's
+    first publish rolls back to no build. When a repair's build (#483) went live in the publish's place, it is that build
+    that is checked and rolled back, and the publish fails with the check's code. Anything that breaks after the switch rolls back the same way, and a replayed
+    rollback changes nothing. Its build folder stays as it was, for the repair loop (#483). Checking the theme's own
+    behaviour in a browser (pressing Add to cart, the payment element drawn) needs a headless browser; *proposed* as a
+    follow-up with Cloudflare Browser Rendering.
 11. **Clean-up:** a store keeps its last **20** builds (decided on #317, as proposed) and every build a kept
     version in the history refers to (SAAS §9.2). Older build folders are deleted, along with
     each build's snapshot and its source bundle (`sources/{store}/{build id}.bundle`). Staging
@@ -301,8 +328,9 @@ checking, deploying, live, failed, rolled back).
     the draft, every source bundle and every snapshot (SAAS §5).
     **Built on #317** (`saas/storefronts/cleanup.ts`, the daily `0 3 * * *` cron, 50 of each a day, oldest first; one item
     that fails is logged and retried the next day, never stopping the rest): a build past the
-    newest 20 that went live, named by no version and not live, and every failed run's build, lose their build and staging
-    folders, their assets folder, source bundle and snapshot, marked `files_deleted_at`. *Decided on #317:* deleting a
+    newest 20 that went live, named by no version, not live and whose assets no kept page run loads (#484), every failed
+    run's build and every bisect probe that passed (`checked`, never uploaded) lose their build and staging folders,
+    their assets folder, source bundle and snapshot, marked `files_deleted_at`. *Decided on #317:* deleting a
     store is SAAS §4.2's "closed, then deleted after 90 days", so a store closed for 90 days loses all its files in the
     three buckets once (`storefront.files_deleted_at`); a deletion request reaches the same function when that flow is
     built.
@@ -380,7 +408,12 @@ What the edge Worker does on each request to a storefront host.
    `/new/?ref=old` is ignored rather than followed), its client-rendered fallbacks (`prefix`, `page`: a path
    under the prefix with no file gets that page) and its 404 page (`notFound`), read only when a path has no file. A page
    path is `{path}/index.html`; anything that isn't plain names (`..`, an encoded slash or backslash, a control character)
-   is a 404 before R2 is asked. A suspended store's degraded page (503) shows only its name; a cancelled store past its
+   is a 404 before R2 is asked. **Built on #484:** a path with no file and no `_edge.json` redirect is looked up in the store's
+   renamed addresses (`storefront_redirect`, DATA-MODEL §7.8, without the trailing slash; one recorded for every language
+   also answers under another language's prefix, keeping it). The edge reads them as one list, the newest 5,000, from
+   the API's `StorefrontEdge.redirects` and caches it like the lookup, at most 60 seconds under the store's tag, so a
+   rename's 301 needs no rebuild and no shopper's path is ever a database read; a list naming anything but plain paths on
+   the store's own host is refused. Every answer from a build names it in `x-df-build` (§4 step 10). A suspended store's degraded page (503) shows only its name; a cancelled store past its
    period, a closed one or one never published gets a 404. Each file is cached under the host, the store, the build and
    the path, kept immutably (a build never changes) and sent with the build's own cache rules.
 7. **JS, CSS and images** load from the shared asset host (`storefront-assets` through its own
@@ -409,16 +442,32 @@ What the edge Worker does on each request to a storefront host.
 ## 7. Updates between publishes
 
 - **A new or renamed product** gets its page at once with a **single-page render** (decided
-  2026-10-08 on #470: page, sitemap, redirect, IndexNow, no allowance). Where it runs is open
-  *(decide on #484)*:
-  - the store's workflow with a one-page input: about a minute, and free;
-  - or a small render in a Cloudflare container: seconds, as decided, but billed.
+  2026-10-08 on #470: page, sitemap, redirect, IndexNow, no allowance). **Where it runs: the store's workflow with a
+  one-page input** (decided on #484): about a minute, free, and through the same checks as every publish (§4 steps 5–10),
+  rather than a container render in seconds that is billed and would need its own gate path.
 - **Saving the home page's search and sharing** re-renders the home page the same way (SAAS
   §9.2).
 - Either way, the new files go into a **new build folder**, the API copies the live build's
   other files into it server-side (§4 step 9), and the pointer moves. Every build folder stays
   complete on its own.
   *Why:* a live build is never changed in place, so it can always be gone back to.
+- **Built on #484** (`saas/storefronts/render.ts`, `jobs/workflows/render-page.ts`):
+  - **Asked for** through the outbox (`storefront.render`: the store, the addresses to render and those to leave out),
+    by triggers when a product becomes visible or a visible one's address changes in any language (migration 0287), and by
+    #471's home page save with `/`. A store with no live build waits for its first publish.
+  - **A page run** (`publish_run.kind = 'page'`, `render`, no allowance) of the live build's commit, one at a time like
+    every run. A waiting page run takes later addresses (the later request wins where two disagree), up to 100, past
+    which it becomes an automatic full publish; a press behind it widens it into that publish.
+  - **The build**: the frozen snapshot's `assetBase` is the live build's asset folder, since the same commit builds the
+    same JS and CSS byte for byte. *Until the build image takes a page list* (`renderInputs` gives it, with a `pages`
+    input on the locked workflow: a follow-up of #483's build), a page run builds every page of the live commit from a
+    fresh snapshot, so its folder is the same, only slower. The upload is verified as any (§4 step 9); then the API
+    copies every other file of the live build's folder into the new one, 500 a Workflow step, leaving out the moved
+    addresses' folders, and writes the whole manifest last. The run records `assets_build_id`, and clean-up keeps a
+    build while a kept one loads its assets.
+  - **The switch** makes the new folder the live version's build (no new version), then the post-deploy checks; a
+    rollback gives the version its build back. Once it stays live, `storefront.indexnow` tells IndexNow the pages that
+    changed or went.
 
 ---
 
@@ -515,8 +564,7 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   checkout to the post-deploy check (decided on #483, ARCHITECTURE §4.2).
 - The GitHub org's plan for Actions concurrency *(decide on #287)*.
 - A fallback build runner if GitHub limits Actions on the org *(decide)*.
-- Where single-page renders run: the workflow (about a minute, free) or a container (seconds,
-  billed) *(decide on #484)*.
+- ~~Where single-page renders run~~: the store's workflow with a one-page input (decided on #484, §7).
 - **Image resizing cost** *(ask)*. Cloudflare image resizing (decided 2026-10-05 on #337) bills
   each unique transformation again every calendar month. For 5,000 stores with 1,000 images in 4
   sizes, that is about 20 million transformations, roughly $10,000 a month at list price.

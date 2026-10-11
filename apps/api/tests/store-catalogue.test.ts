@@ -187,6 +187,20 @@ describe('the merchant side', () => {
     expect(renamed.data?.['saveProduct']).toMatchObject({ slug: 'wool-hat' })
     const moved = await gql(save, 'owner', { id: saved?.id, revision: 2, input: simple('Warm wool hat', { slug: 'warm-wool-hat' }) })
     expect(moved.data?.['saveProduct']).toMatchObject({ slug: 'warm-wool-hat' })
+    // The old address answers 301 to the new one in every language the store offers (storefront ARCHITECTURE §8, #484).
+    const redirects = await db.sql<{ from_path: string; to_path: string }[]>`select from_path, to_path from storefront_redirect where store_id = ${t.storeA1} and to_path like '%/warm-wool-hat'`
+    expect(redirects).toEqual([{ from_path: '/products/wool-hat', to_path: '/products/warm-wool-hat' }])
+  })
+
+  it('records a supplier’s rename of its own product as the merchant’s does', async () => {
+    const { saved } = await create('supplier', simple('Clay jug'))
+    const moved = await gql(save, 'supplier', { id: saved?.id, revision: 1, input: simple('Clay jug', { slug: 'stoneware-jug' }) })
+    const slug = (moved.data?.['saveProduct'] as { slug: string } | undefined)?.slug ?? ''
+    expect(slug).toMatch(/^stoneware-jug/)
+    const redirects = await db.sql<{ from_path: string }[]>`select from_path from storefront_redirect where store_id = ${t.storeA1} and to_path like ${`%/${slug}`}`
+    expect(redirects.map((r) => r.from_path.split('/').at(-1))).toEqual([saved?.slug])
+    // The supplier's own list below starts from its one product.
+    await db.sql`update product set deleted_at = now() where id = ${saved?.id ?? ''}`
   })
 
   it('logs a bulk delete and a bulk hide as one entry per product', async () => {

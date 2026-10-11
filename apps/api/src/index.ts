@@ -11,6 +11,7 @@ import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema, type ShopContext } from '#apis/shop/schema'
 import { handleShopAsset, isShopAssetPath } from '#apis/shop/assets'
 import { handleDownload, isDownloadPath } from '#apis/shop/downloads'
+import { handleVitals, vitalsPath } from '#apis/shop/vitals'
 import { shopCacheKey, throughShopCache, type ShopCache } from '#apis/shop/cache'
 import { resolveShopper, shopSessionHeader } from '#auth/shopCaller'
 import { signedOutStoreContext } from '#apis/store/access'
@@ -111,9 +112,13 @@ import { handleStudioFrame } from '#apis/studio/frame'
 import { frameClosed } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
-import { checkPreview, cleanStorefronts, lookupLiveHost, openPreview, storefrontPublishKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
+import { checkPreview, cleanStorefronts, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
+import { renderPageWorkflow } from '#jobs/workflows/render-page'
+import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
+import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
+import { indexNowClient } from '#integrations/indexnow/client'
 import { githubConfigured } from '#integrations/github/index'
 import { actionsKeys } from '#integrations/github/oidc'
 import { storefrontR2, type StorefrontR2 } from '#integrations/cloudflare/r2'
@@ -175,6 +180,7 @@ interface Env extends Record<string, unknown> {
   STOREFRONT_DRAFTS?: R2Bucket | undefined
   // SAAS §9.1's publish-storefront Workflow; unbound, a publish waits in the outbox.
   PUBLISH_STOREFRONT?: Workflow<PublishParams> | undefined
+  RENDER_PAGE?: Workflow<PublishParams> | undefined
   // The studio (storefront AI-STUDIO.md §2): a StudioSession per store, holding its container, and the account's StudioCapacity.
   STUDIO_SESSION?: DurableObjectNamespace | undefined
   STUDIO_CAPACITY?: CapacityNamespace | undefined
@@ -234,7 +240,7 @@ const emailFor = (config: Config) => {
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
-const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null, publishStorefront: PublishWorkflow | null): Deliverers => {
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null, publishing: { publish: PublishWorkflow; render: PublishWorkflow; sites: R2Bucket } | null): Deliverers => {
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
@@ -268,7 +274,14 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [webhookReleaseKind]: webhookReleaseDeliverer(sql),
     [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
     ...(createStorefront ? { [storefrontCreateKind]: storefrontCreateDeliverer(createStorefront) } : {}),
-    ...(publishStorefront ? { [storefrontPublishKind]: storefrontPublishDeliverer(publishStorefront) } : {}),
+    ...(publishing
+      ? {
+          [storefrontPublishKind]: storefrontPublishDeliverer(publishing.publish),
+          [storefrontRenderPageKind]: storefrontPublishDeliverer(publishing.render),
+          [storefrontRenderKind]: storefrontRenderDeliverer(sql, () => new Date()),
+          [storefrontIndexNowKind]: indexNowDeliverer(sql, publishing.sites, indexNowClient()),
+        }
+      : {}),
     ...(config.CF_CACHE_PURGE_TOKEN && config.CF_SAAS_ZONE_ID ? { [cachePurgeKind]: cachePurgeDeliverer(cachePurgeClient({ token: config.CF_CACHE_PURGE_TOKEN, zoneId: config.CF_SAAS_ZONE_ID })) } : {}),
   }
 }
@@ -563,8 +576,13 @@ const buildDepsFor = (config: Config, env: Env): Omit<BuildDeps, 'sql'> | null =
   const sites = env.STOREFRONT_SITES
   const publish = env.PUBLISH_STOREFRONT
   if (!sites || !publish) return null
-  // The report and "uploaded" wake the build's own publish run, whose instance is named by the build id (jobs/workflows/publish-storefront.ts).
-  const wake = async (buildId: string, event: 'reported' | 'uploaded') => (await publish.get(buildId)).sendEvent({ type: event, payload: null })
+  // The report and "uploaded" wake the build's own run, whose instance is named by the build id: a publish's, or a page
+  // run's (jobs/workflows/render-page.ts).
+  const render = env.RENDER_PAGE
+  const wake = async (buildId: string, event: 'reported' | 'uploaded') => {
+    const instance = await publish.get(buildId).catch((error: unknown) => (render ? render.get(buildId) : Promise.reject(error)))
+    await instance.sendEvent({ type: event, payload: null })
+  }
   const common = { audience: `https://${config.HOOKS_HOST}`, org: config.GITHUB_STORE_ORG, sites, wake, now: () => new Date() }
   if (config.GITHUB_LOCAL === '1') return { ...common, keys: localActionsKeys, r2: localStorefrontR2(), buckets: { sites: 'storefront-sites-local', drafts: 'storefront-drafts-local' } }
   const { R2_STOREFRONT_ACCOUNT_ID: accountId, R2_STOREFRONT_ACCESS_KEY_ID: accessKeyId, R2_STOREFRONT_SECRET_ACCESS_KEY: secretAccessKey, R2_STOREFRONT_API_TOKEN: apiToken } = config
@@ -664,6 +682,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isShopAssetPath(url.pathname)) return handleShopAsset(request, context, env.ASSETS ?? null)
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
+    if (url.pathname === vitalsPath) return handleVitals(request, context)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
   })
@@ -759,8 +778,11 @@ const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise
   // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
   const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
   // A publish freezes its input in the drafts bucket, starts the build through GitHub and reads the build's folders.
-  const publishStorefront = env.PUBLISH_STOREFRONT && env.STOREFRONT_SITES && env.STOREFRONT_ASSETS && env.STOREFRONT_DRAFTS && githubConfigured(config) ? env.PUBLISH_STOREFRONT : null
-  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishStorefront))
+  const publishing =
+    env.PUBLISH_STOREFRONT && env.RENDER_PAGE && env.STOREFRONT_SITES && env.STOREFRONT_ASSETS && env.STOREFRONT_DRAFTS && githubConfigured(config)
+      ? { publish: env.PUBLISH_STOREFRONT, render: env.RENDER_PAGE, sites: env.STOREFRONT_SITES }
+      : null
+  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishing))
   for (const [outcome, count] of Object.entries(counts)) {
     if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
   }
@@ -923,12 +945,19 @@ const cleanStorefrontFiles: CronJob = async (sql, _config, env) => {
   if (cleaned && cleaned.builds + cleaned.previews + cleaned.stores > 0) logEvent({ event: 'storefront_cleaned', api: 'system', code: 'cleaned', count: cleaned.builds + cleaned.previews + cleaned.stores })
 }
 
+// The real-user vitals regression rule (storefront ARCHITECTURE §9), once a day after the day's samples are in.
+const readStorefrontVitals: CronJob = async (sql) => {
+  await readVitalsRegressions(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'storefront_vitals_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [expireSms, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
-  '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles],
+  '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles, readStorefrontVitals],
 }
 
 const runCron = async (cron: string, env: Env): Promise<void> => {
@@ -988,6 +1017,11 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
     return edgeQuery(this.env, this.ctx, (sql, config) => lookupLiveHost(sql, host, { localhost: isLocalhost(config.HOOKS_HOST) }))
   }
 
+  /** The renamed addresses of the store its hostname named (storefront ARCHITECTURE §8), as one list the edge caches. */
+  redirects(storeId: string): Promise<{ redirects: { from: string; to: string; everyLanguage: boolean }[] }> {
+    return edgeQuery(this.env, this.ctx, (sql) => lookupRedirects(sql, storeId))
+  }
+
   /** `__open?t=` on a preview host (PREVIEW.md §5 step 2); without the link's key no link opens. */
   openPreview(key: string, token: string): Promise<PreviewAccess> {
     return edgeQuery(this.env, this.ctx, async (sql, config) => {
@@ -1005,6 +1039,7 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
 // Wrangler finds a Workflow's class among the Worker's exports (wrangler.jsonc `workflows`).
 export const CreateStorefront = createStorefrontWorkflow(getClient)
 export const PublishStorefront = publishStorefrontWorkflow(getClient)
+export const RenderPage = renderPageWorkflow(getClient)
 // Wrangler finds the studio's Durable Object classes among the exports too (wrangler.jsonc `durable_objects`).
 export const StudioSession = studioSessionClass(getClient)
 export const StudioCapacity = studioCapacityClass()

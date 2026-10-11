@@ -348,7 +348,7 @@ describe('the backstop itself', () => {
       'store_feature', 'badge', 'size_chart', 'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag', 'product_compliance', 'product_market_rule',
       'product_story', 'story_block', 'warehouse', 'stock_level', 'stock_movement', 'licence_key', 'order_download', 'gift_card', 'gift_card_movement', 'api_key', 'api_usage', 'webhook_endpoint', 'webhook_delivery', 'app', 'app_grant',
       'store_billing_details', 'invoice', 'invoice_line', 'storefront_push', 'design_draft', 'publish_run', 'design_version', 'core_release', 'studio_session', 'ai_run',
-      'storefront_content', 'storefront_redirect', 'storefront_content_translation',
+      'storefront_content', 'storefront_redirect', 'storefront_content_translation', 'storefront_vitals_day',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -757,6 +757,11 @@ describe('the backstop itself', () => {
       'store_webhook_partner',
       'storefront_catalog_touched',
       'storefront_for_store',
+      'storefront_redirect_product_added',
+      'storefront_redirect_product_slug',
+      'storefront_redirect_translated_slug',
+      'storefront_render_product',
+      'storefront_render_translated_slug',
       'storefront_store_touched',
       'version_price_history',
     ])

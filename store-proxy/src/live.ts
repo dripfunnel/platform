@@ -1,6 +1,6 @@
 import type { Deps } from './deps'
 import { remember } from './deps'
-import { parseLiveHost, type LiveHost } from './edge'
+import { parseLiveHost, parseRedirects, type LiveHost, type Redirects } from './edge'
 import { fileHeaders, relativeKey } from './files'
 import { page } from './pages'
 
@@ -40,6 +40,8 @@ const buildObject = async (host: string, store: Store & { buildId: string }, rel
   const object = await deps.sites.get(`${folderOf(store)}${rel}`)
   if (!object) return null
   const headers = fileHeaders(object)
+  // The post-deploy checks wait until the edge serves the build they check (LIVE-SHOP §4 step 10).
+  headers.set('x-df-build', store.buildId)
   const sent = new Response(object.body, { headers })
   // A build folder never changes, so the stored copy lives long; the build's own cache rules go to the browser.
   const stored = new Headers(headers)
@@ -87,11 +89,38 @@ const edgeRules = async (host: string, store: Store & { buildId: string }, deps:
   }
 }
 
+const languageSegment = /^\/([a-z]{2,3}-[a-z]{2})(\/.+)$/
+
+/** `/hi-in/pages/old` matches a redirect recorded for every language at `/pages/old`, and keeps its prefix. */
+const redirectFor = (redirects: Redirects, path: string): string | null => {
+  const exact = redirects.exact.get(path)
+  if (exact) return exact
+  const [, language, rest] = languageSegment.exec(path) ?? []
+  const shared = rest ? redirects.everyLanguage.get(rest) : undefined
+  return language && shared ? `/${language}${shared}` : null
+}
+
+/**
+ * A renamed address the store recorded (`storefront_redirect`, ARCHITECTURE §8). The store's whole list is cached like the
+ * lookup (per data centre, at most a minute, under the store's tag), so no shopper's path is a database read.
+ */
+const storedRedirect = async (url: URL, store: Store, deps: Deps): Promise<string | null> => {
+  // Recorded without a trailing slash, as a page answers either way.
+  const path = url.pathname.replace(/(.)\/+$/, '$1')
+  const key = `https://${url.hostname}/__df/redirects/${store.storeId}`
+  const hit = await deps.cache.match(key)
+  if (hit) return redirectFor(parseRedirects(await hit.json()), path)
+  const answer: unknown = await deps.edge.redirects(store.storeId)
+  const redirects = parseRedirects(answer)
+  remember(deps, key, new Response(JSON.stringify(answer), { headers: { 'content-type': 'application/json', 'cache-control': `max-age=${lookupSeconds}`, 'cache-tag': `df-store-${store.storeId}` } }))
+  return redirectFor(redirects, path)
+}
+
 /** A path the build has no file for: a recorded redirect, a fallback page the browser fills in, or the build's 404. */
 const missing = async (url: URL, store: Store & { buildId: string }, deps: Deps): Promise<Response> => {
   const rules = await edgeRules(url.hostname, store, deps)
-  const redirect = rules.redirects.find((r) => r.from === url.pathname)
-  if (redirect) return new Response(null, { status: 301, headers: { location: redirect.to } })
+  const redirect = rules.redirects.find((r) => r.from === url.pathname)?.to ?? (await storedRedirect(url, store, deps))
+  if (redirect) return new Response(null, { status: 301, headers: { location: redirect } })
   const fallback = rules.fallbacks.find((f) => url.pathname.startsWith(f.prefix))
   const fallbackKey = fallback ? relativeKey(fallback.page) : null
   if (fallbackKey) {
@@ -104,12 +133,23 @@ const missing = async (url: URL, store: Store & { buildId: string }, deps: Deps)
   return page('missing', 404, { language: store.language })
 }
 
+/** Every answer on a store's host names the build it came from, or `none` (LIVE-SHOP §4 step 10): the checks know it's ours. */
 export const serveLive = async (request: Request, url: URL, store: Store, deps: Deps): Promise<Response> => {
-  if (store.state === 'offline') return page('missing', 404, { language: store.language })
   if (url.pathname === '/shop-api' || url.pathname.startsWith('/shop-api/')) return deps.edge.fetch(request)
+  const answer = await serveStore(request, url, store, deps)
+  if (answer.headers.get('x-df-build')) return answer
+  const headers = new Headers(answer.headers)
+  headers.set('x-df-build', store.buildId ?? 'none')
+  return new Response(answer.body, { status: answer.status, statusText: answer.statusText, headers })
+}
+
+const serveStore = async (request: Request, url: URL, store: Store, deps: Deps): Promise<Response> => {
+  if (store.state === 'offline') return page('missing', 404, { language: store.language })
   // SAAS §4.2: a suspended store's page tells shoppers to contact the shop, with no DripFunnel route.
   if (store.state === 'suspended') return page('degraded', 503, { language: store.language, heading: store.name, headers: { 'retry-after': '3600' } })
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } })
+  // IndexNow's proof that the key is this host's (ARCHITECTURE §8); the key is public by design.
+  if (url.pathname === `/${store.indexNowKey}.txt`) return new Response(store.indexNowKey, { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'max-age=3600' } })
   if (store.buildId === null) return page('missing', 404, { language: store.language })
   const live = { ...store, buildId: store.buildId }
   const rel = relativeKey(url.pathname)

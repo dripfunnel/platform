@@ -680,7 +680,9 @@ SaaS layer owns the state and the rules:
   the allowance. Stores with no changes aren't rebuilt.
 - **New and renamed products** get a **single-page render** at once (the page, its sitemap
   entry, the old address's redirect, IndexNow), using no allowance (decided 2026-10-08 on #470;
-  storefront ARCHITECTURE §4.2).
+  storefront ARCHITECTURE §4.2). **Built on #484** (storefront LIVE-SHOP §7): a page run (`kind = 'page'`) of the live
+  commit in the store's workflow; a waiting page run takes later addresses, and a press behind it widens it into that
+  publish. Saving the home page's search and sharing queues `storefront.render` with `/` (#471 calls it).
 - **Staff publishes**: Admin can run a publish without using the allowance, for example after a
   failure on our side (L5).
 - **One build at a time per store**: a press during a build queues the next; changes made
@@ -691,8 +693,9 @@ SaaS layer owns the state and the rules:
   `publish_run` from the Workflow (`jobs/workflows/publish-storefront.ts`), the build's run and
   the switch of the live pointer, with the gate's report. **Built on #317:** queued → deploying → live | failed, the
   switch, one running and one queued run per store, and go back (storefront LIVE-SHOP §4 steps 1 and 9); **on #483**
-  building (frozen and dispatched) and checking (a failing report the run decides on), `build_minutes`, and
-  `allowanceUsed`, which counts only presses that went live (#318's Publish now reads it; nothing does yet); rolled back comes with #484. A refused or rolled-back publish keeps the previous
+  building (frozen and dispatched) and checking (a failing report the run decides on: repair and bisect for a design
+  publish, then refuse), `build_minutes`, `publishBefore`, and `allowanceUsed`, which counts only presses that went live (#318's Publish now reads it; nothing does yet); **Built on #484:** the post-deploy checks and rolled back
+  (LIVE-SHOP §4 step 10); a switched run stays deploying until its checks end, and a rolled-back press uses no allowance. A refused or rolled-back publish keeps the previous
   live site, says so plainly, and **never uses an allowance**.
 - **Who pays for checking**: repair attempts and gate runs are the platform's cost, recorded
   for §12 and never counted on the merchant's meters (decided 2026-10-08 on #470).

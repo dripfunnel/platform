@@ -16,7 +16,7 @@ const buildB = '00000000-0000-4000-8000-0000000000b1'
 const hostA = 'a.shops.acme.example'
 const hostB = 'www.b-shop.example'
 const folder = (store: string, build: string) => `stores/${store}/builds/${build}/`
-const store = (storeId: string, buildId: string | null, state: 'open' | 'suspended' | 'offline' = 'open', name = 'Shop'): LiveHost => ({ kind: 'store', storeId, partnerId: partner, buildId, state, name, language: 'en' })
+const store = (storeId: string, buildId: string | null, state: 'open' | 'suspended' | 'offline' = 'open', name = 'Shop'): LiveHost => ({ kind: 'store', storeId, partnerId: partner, buildId, state, name, language: 'en', indexNowKey: storeId.replace(/-/g, '') })
 
 const objects = {
   [`${folder(storeA, build1)}index.html`]: { body: 'A one', contentType: 'text/html', cacheControl: 'no-cache', csp: "script-src 'sha256-x'" },
@@ -69,9 +69,13 @@ describe('the live site', () => {
     const second = await get(`https://${hostA}/`)
     expect(await second.text()).toBe('A one')
     expect(second.headers.get('cache-control')).toBe('no-cache')
+    expect([first.headers.get('x-df-build'), second.headers.get('x-df-build')]).toEqual([build1, build1])
     expect(sites.asked.length).toBe(asked)
     expect(await text(`https://${hostA}/about/`)).toBe('A about')
     expect(await text(`https://${hostA}/about`)).toBe('A about')
+    // Any answer on a store's host is marked as the edge's, a 404 or a 301 too, so the checks can tell it from a proxy's.
+    expect((await get(`https://${hostA}/nowhere/`)).headers.get('x-df-build')).toBe(build1)
+    expect((await get(`https://${hostA}/products/old`)).headers.get('x-df-build')).toBe(build1)
   })
 
   it('caches the lookup for at most a minute, under the store’s, host’s and partner’s tags, and asks the API on a miss', async () => {
@@ -128,6 +132,40 @@ describe('the live site', () => {
     const missing = await get(`https://${hostA}/nowhere/`)
     expect([missing.status, await missing.text()]).toEqual([404, 'A not found'])
     expect((await get(`https://${hostB}/nowhere/`)).status).toBe(404)
+  })
+
+  it('answers a renamed product’s old address with the store’s recorded 301, from its list cached like the lookup', async () => {
+    edge.renamed.set(storeA, [
+      { from: '/en-in/products/old-mug', to: '/en-in/products/blue-mug', everyLanguage: false },
+      { from: '/about', to: '/elsewhere', everyLanguage: false },
+      { from: '/our-story', to: '/about-us', everyLanguage: true },
+    ])
+    const moved = await get(`https://${hostA}/en-in/products/old-mug`)
+    expect([moved.status, moved.headers.get('location')]).toEqual([301, '/en-in/products/blue-mug'])
+    expect((await get(`https://${hostA}/en-in/products/old-mug/`)).headers.get('location')).toBe('/en-in/products/blue-mug')
+    // One recorded for every language answers under each language's prefix too, keeping it.
+    expect((await get(`https://${hostA}/hi-in/our-story`)).headers.get('location')).toBe('/hi-in/about-us')
+    // Unknown addresses of any shape are answered from the same cached list: distinct paths never reach the API or the database.
+    for (let n = 0; n < 20; n++) await get(`https://${hostA}/${n % 2 ? 'products/unknown' : 'x'}-${n}`)
+    expect(edge.calls.filter((c) => c.startsWith('redirects '))).toEqual([`redirects ${storeA}`])
+    // Store B's host asks only for store B's list, which recorded nothing there.
+    expect((await get(`https://${hostB}/en-in/products/old-mug`)).status).toBe(404)
+    expect(edge.calls.filter((c) => c.startsWith('redirects '))).toEqual([`redirects ${storeA}`, `redirects ${storeB}`])
+    // A file of the live build always wins.
+    expect(await text(`https://${hostA}/about`)).toBe('A about')
+  })
+
+  it('serves the store’s own IndexNow key at its key file, and no other store’s', async () => {
+    const key = storeA.replace(/-/g, '')
+    const file = await get(`https://${hostA}/${key}.txt`)
+    expect([file.status, await file.text()]).toEqual([200, key])
+    expect((await get(`https://${hostB}/${key}.txt`)).status).toBe(404)
+  })
+
+  it('refuses a recorded redirect that would leave the store’s host, caching nothing', async () => {
+    edge.renamed.set(storeA, [{ from: '/en-in/products/x', to: '//evil.example/', everyLanguage: false }])
+    expect((await get(`https://${hostA}/en-in/products/x`)).status).toBe(503)
+    expect(cache.keys().filter((k) => k.includes('/__df/redirects/'))).toEqual([])
   })
 
   it('sends /shop-api/* to the API, keeping the shopper’s host', async () => {

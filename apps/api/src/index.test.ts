@@ -136,6 +136,9 @@ describe('worker', () => {
     const limited = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: false }) }, CART_RATE_LIMITER: carts }
     const asked = (headers: Record<string, string>) => new Request('https://acme.shops.partner.com/shop-api', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ query: '{ health }' }) })
     expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], limited, ctx)).status).toBe(429)
+    // The vitals intake sits behind the same limiter (#484).
+    const beacon = new Request('https://acme.shops.partner.com/shop-api/vitals', { method: 'POST', headers: { 'cf-connecting-ip': '203.0.113.1' }, body: '{}' })
+    expect((await worker.fetch(beacon as Parameters<typeof worker.fetch>[0], limited, ctx)).status).toBe(429)
     const open = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: true }) }, CART_RATE_LIMITER: carts }
     expect((await worker.fetch(asked({}) as Parameters<typeof worker.fetch>[0], open, ctx)).status).toBe(429)
     expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], env, ctx)).status).toBe(500)
@@ -428,16 +431,16 @@ describe('the cron', () => {
       threw: false,
     })
     expect(await failures('0 * * * *')).toEqual({ events: ['rates_refresh_queue_failed', 'exports_purge_failed', 'shopper_identity_purge_failed', 'signup_purge_failed'], threw: false })
-    expect(await failures('0 3 * * *')).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed'], threw: false })
+    expect(await failures('0 3 * * *')).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_vitals_failed'], threw: false })
   })
 
   it('cleans the storefront buckets daily only where all three are bound', async () => {
     const bucket = {}
     expect(await failures('0 3 * * *', { STOREFRONT_SITES: bucket, STOREFRONT_ASSETS: bucket, STOREFRONT_DRAFTS: bucket })).toEqual({
-      events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_cleanup_failed'],
+      events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_cleanup_failed', 'storefront_vitals_failed'],
       threw: false,
     })
-    expect(await failures('0 3 * * *', { STOREFRONT_SITES: bucket, STOREFRONT_ASSETS: bucket })).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed'], threw: false })
+    expect(await failures('0 3 * * *', { STOREFRONT_SITES: bucket, STOREFRONT_ASSETS: bucket })).toEqual({ events: ['cart_purge_failed', 'webhook_log_purge_failed', 'storefront_vitals_failed'], threw: false })
   })
 
   it('logs one event and runs nothing for an expression it has no group for', async () => {
