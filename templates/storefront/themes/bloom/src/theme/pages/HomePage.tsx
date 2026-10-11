@@ -30,7 +30,7 @@ export const HomePage = () => {
           </div>
         </div>
       </section>
-      <section className={styles.join}>
+      <section className={styles.section}>
         <h2 className={styles.heading}>{t('home.join.title')}</h2>
         <p className={styles.body}>{t('home.join.body')}</p>
         <Link href="/register/" className={styles.button}>
