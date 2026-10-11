@@ -71,7 +71,8 @@ const decode = (base64: string): ArrayBuffer => {
 
 const contentTypes: Record<string, string> = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' }
 
-type Attempt = { proposal: Proposal; ms: number; result: ChangeResult }
+/** One ask of the model and what the gate said; `result` is null when the sandbox failed before it could say. */
+type Attempt = { proposal: Proposal; ms: number; result: ChangeResult | null }
 
 export class StudioRunner {
   private host: SandboxHost | null = null
@@ -212,19 +213,29 @@ export class StudioRunner {
     const attempts: Attempt[] = []
     let problems: GateProblem[] = []
     let saved: Awaited<ReturnType<StudioRunner['collect']>> | null = null
-    for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
-      const proposal = await input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems })
-      const startedAt = this.deps.now().getTime()
-      const done = await this.recovering(async (client) => {
-        const result = await client.change(proposal.files, input.request, context)
-        return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
-      })
-      attempts.push({ proposal, ms: this.deps.now().getTime() - startedAt, result: done.result })
-      if (done.result.ok) {
-        saved = done.saved
-        break
+    try {
+      for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
+        const proposal = await input.model.propose({ request: input.request, theme: [...theme].map(([path, content]) => ({ path, content })), problems })
+        const startedAt = this.deps.now().getTime()
+        const made: Attempt = { proposal, ms: 0, result: null }
+        attempts.push(made)
+        const done = await this.recovering(async (client) => {
+          const result = await client.change(proposal.files, input.request, context)
+          return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
+        }).finally(() => {
+          made.ms = this.deps.now().getTime() - startedAt
+        })
+        made.result = done.result
+        if (done.result.ok) {
+          saved = done.saved
+          break
+        }
+        problems = done.result.problems
       }
-      problems = done.result.problems
+    } catch (error) {
+      // The asks already made cost tokens and repairs are the platform's (SAAS §9.2), so they're metered as `failed`.
+      await this.record(input, attempts, 'failed')
+      throw error
     }
     const last = attempts.at(-1)?.result
     const repairs = attempts.length - 1
@@ -274,7 +285,7 @@ export class StudioRunner {
     const run = (a: Attempt) => ({ model: a.proposal.model, tokensIn: a.proposal.tokensIn, tokensOut: a.proposal.tokensOut, costAmount: a.proposal.costAmount, costCurrency: a.proposal.costCurrency, sandboxMs: Math.max(0, a.ms) })
     return this.system(async (tx) => {
       const id = await insertAiRun(tx, { ...base, ...run(first), kind: 'design', billedTo: input.billedTo, repairAttempts: repairs.length, parentRunId: null, outcome })
-      for (const r of repairs) await insertAiRun(tx, { ...base, ...run(r), kind: 'repair', billedTo: 'platform', repairAttempts: 0, parentRunId: id, outcome: r.result.ok ? outcome : 'refused' })
+      for (const r of repairs) await insertAiRun(tx, { ...base, ...run(r), kind: 'repair', billedTo: 'platform', repairAttempts: 0, parentRunId: id, outcome: r.result === null ? 'failed' : r.result.ok ? outcome : 'refused' })
       return id
     })
   }
