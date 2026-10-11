@@ -64,7 +64,8 @@ interface EdgeRules {
   notFound: string | null
 }
 
-const isPath = (value: unknown): value is string => typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') && value.length <= 2048
+// A path on the store's own host, plain names only: `//host` or `/\host` would send shoppers elsewhere (LIVE-SHOP §9).
+const isPath = (value: unknown): value is string => typeof value === 'string' && value.startsWith('/') && value.length <= 2048 && relativeKey(value) !== null
 
 /** The build's `_edge.json` (LIVE-SHOP §5 steps 5–6): the 301s it recorded, client-rendered fallbacks and its 404 page. */
 const edgeRules = async (host: string, store: Store & { buildId: string }, deps: Deps): Promise<EdgeRules> => {
