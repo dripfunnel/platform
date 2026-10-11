@@ -19,9 +19,9 @@ let probe: TestProbe
 let clock: number
 const hostA1 = 'store-a1.shops.acme.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
-const steps: PublishSteps = { do: (_, work) => work(), waitForUpload: async () => undefined }
+const steps: PublishSteps = { do: (_, work) => work(), waitFor: async () => undefined }
 // The checks' waits move this clock instead of sleeping.
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, now: () => new Date(clock), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async (ms) => void (clock += ms) })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, dispatch: async () => true, now: () => new Date(clock), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async (ms) => void (clock += ms) })
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -49,7 +49,7 @@ const fullSite = (runId: string): Record<string, string> => ({
   'checkout/index.html': page(runId),
 })
 
-/** A run that passed its gate and whose upload is staged, as #517's build calls leave it. */
+/** A run that passed its gate and whose upload is staged, as #483's and #517's build calls leave it. */
 const staged = async (storeId: string, n: number, files: Record<string, string> = {}) => {
   const started = await withSystemScope(db.sql, (tx) =>
     startPublish(tx, { storeId, kind: 'design', commit: commit(n), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date() }),
@@ -59,7 +59,7 @@ const staged = async (storeId: string, n: number, files: Record<string, string> 
   const manifest = await Promise.all(Object.entries(all).map(async ([path, text]) => ({ path, sha256: await putText(sites, `${stagingFolder(storeId, runId)}${path}`, text), size: new TextEncoder().encode(text).length })))
   await putText(assets, `stores/x/builds/${runId}/assets/app.js`, 'console.log(1)')
   await db.sql`
-    update publish_run set gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(manifest)}, uploaded_at = now(),
+    update publish_run set state = 'deploying', started_at = now(), gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(manifest)}, uploaded_at = now(),
       upload_manifest = ${db.sql.json({ files: manifest })} where id = ${runId}`
   return runId
 }

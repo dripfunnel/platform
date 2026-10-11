@@ -5,7 +5,8 @@ import { storefrontRenderDeliverer } from '#jobs/queues/deliverers/storefrontRen
 import { GiveUp, type Effect } from '#jobs/queues/outbox-relay'
 import { IndexNowRefused, type IndexNow } from '#integrations/indexnow/client'
 import { cleanStorefronts, digestOf, indexNowSubmission, lookupRedirects, renderInputs, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
-import { buildFolder, stagingFolder } from '#saas/storefronts/layout'
+import { buildFolder, snapshotFile, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
+import { freezeBuild } from '#saas/storefronts/freeze'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { testProbe, type TestProbe } from './support/edgeProbe'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -21,8 +22,8 @@ let assets: FakeSites
 let probe: TestProbe
 const host = 'store-a1.shops.acme.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
-const steps: PublishSteps = { do: (_, work) => work(), waitForUpload: async () => undefined }
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
+const steps: PublishSteps = { do: (_, work) => work(), waitFor: async () => undefined }
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
 const signal = new AbortController().signal
 const effect = (kind: string, payload: unknown): Effect => ({ id: 'e', kind, idempotencyKey: 'k', payload, partnerId: null, storeId: null, attempt: 1 })
 
@@ -50,7 +51,7 @@ const html = (text: string) => `<!doctype html><title>${text}</title>`
 const stage = async (storeId: string, runId: string, files: Record<string, string>) => {
   const manifest = await Promise.all(Object.entries(files).map(async ([path, text]) => ({ path, sha256: await putText(sites, `${stagingFolder(storeId, runId)}${path}`, text), size: new TextEncoder().encode(text).length })))
   await db.sql`
-    update publish_run set gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(manifest)}, uploaded_at = now(),
+    update publish_run set state = 'deploying', started_at = now(), gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(manifest)}, uploaded_at = now(),
       upload_manifest = ${db.sql.json({ files: manifest })} where id = ${runId}`
 }
 const renderOutbox = (storeId: string) =>
@@ -250,5 +251,24 @@ describe('isolation', () => {
     expect(submission?.urls.every((u) => u.startsWith(`https://${host}/`))).toBe(true)
     const forged = await indexNowSubmission({ sql: db.sql, sites }, { storeId: t.storeA1, buildId: baseB, previousBuildId: null })
     expect(forged).toBeNull()
+  })
+})
+
+describe('a page run’s frozen input', () => {
+  it('points its pages at the live build’s JS and CSS', async () => {
+    const liveA = (await live(t.storeA1)) ?? ''
+    const [assetsOf] = await db.sql<{ id: string }[]>`select coalesce(assets_build_id, id) as id from publish_run where id = ${liveA}`
+    const started = await withSystemScope(db.sql, (tx) =>
+      startPublish(tx, { storeId: t.storeA1, kind: 'page', commit: commit(1), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date(), render: { pages: ['/'], drop: [] } }),
+    )
+    const runId = started.ok ? started.runId : ''
+    const drafts = fakeSites()
+    await putText(drafts, sourceBundle(t.storeA1, liveA), 'bundle')
+    const frozen = { sql: db.sql, drafts, assetOrigin: 'https://sf-assets.dripfunnel.com', dispatch: async () => true, now: () => new Date() }
+    expect(await freezeBuild(frozen, t.storeA1, runId)).toBe('frozen')
+    const snapshot = JSON.parse((await (await drafts.get(snapshotFile(t.storeA1, runId)))?.text()) ?? '{}') as { assetBase: string }
+    expect(snapshot.assetBase).toBe(`https://sf-assets.dripfunnel.com/stores/${t.storeA1}/builds/${assetsOf?.id ?? ''}/assets/`)
+    await db.sql`delete from outbox where payload->>'runId' = ${runId}`
+    await db.sql`delete from publish_run where id = ${runId}`
   })
 })

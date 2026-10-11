@@ -2,6 +2,7 @@ export { createFailedMessage, runCreateStorefront, type CreateDeps, type CreateP
 export { commitToMain, pushToRepo, type PushDeps, type PushReason, type PushResult, type RepoFile } from './push'
 export { templateFiles, type SitesBucket } from './templates'
 export { draftBundle, previewFolder, sourceBundle } from './layout'
+export { dispatchBuild, freezeBuild, FreezeRefused, freezeRefusals, guardContextFor, type FreezeDeps } from './freeze'
 export { createStorefrontParams, startStorefront, storefrontCreateKind, type CreateStorefrontParams, type StartResult } from './start'
 export { edgeCacheTags, lookupLiveHost, lookupRedirects, maxEdgeRedirects, type EdgeState, type LiveHost } from './edge'
 export { goBack, publishParams, requestPageRender, runPublish, startPublish, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type RenderResult, type GoBackActor, type GoBackResult, type PublishDeps, type PublishParams, type PublishSteps } from './publish'

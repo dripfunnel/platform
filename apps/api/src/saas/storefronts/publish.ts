@@ -10,6 +10,7 @@ import {
   insertQueuedRun,
   lockStorefront,
   moveLiveTo,
+  selectGateVerdict,
   recordChecks,
   rollBackRun,
   selectQueuedRun,
@@ -30,6 +31,7 @@ import type { EdgeProbe } from '#integrations/http/edgeProbe'
 import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'
+import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
 import { buildFolder, manifestName, stagingFolder } from './layout'
 import { manifestSchema } from './manifest'
 import { failedCheck, runPostDeployChecks, type CheckResult } from './postDeploy'
@@ -37,8 +39,9 @@ import { deletePrefix, type SitesBucket } from './templates'
 import { copyInherited, inheritBatch, inheritPlan, maxRenderPages, mergeRender, sealRender, type RenderRequest } from './render'
 import { uploadRefusals, verifyUpload } from './verify'
 
-// The publish-storefront Workflow's steps (SAAS §9.1; storefront LIVE-SHOP.md §4 steps 1, 9 and 10): queued → deploying →
-// live | failed | rolled_back. INF 4 (#483) puts building and checking before deploying.
+// The publish-storefront Workflow (SAAS §9.1; storefront LIVE-SHOP.md §4): queued → building (frozen, dispatched) →
+// deploying on a passing report (uploaded, verified, switched, checked from the edge: §4 step 10) → live | rolled_back;
+// a failing report → checking → failed.
 
 export const storefrontPublishKind = 'storefront.publish'
 /** A page run's own Workflow (`jobs/workflows/render-page.ts`), started the same way. */
@@ -98,12 +101,10 @@ export const requestPageRender = (sql: postgres.Sql, request: RenderRequest, now
     return started.ok ? started : { ok: false, reason: 'NO_LIVE_BUILD' }
   })
 
-export interface PublishDeps {
-  sql: postgres.Sql
+export interface PublishDeps extends FreezeDeps {
   sites: SitesBucket
   /** The public bucket the verified JS and CSS are copied into (LIVE-SHOP §4 step 9). */
   assets: SitesBucket
-  now: () => Date
   /** The edge as a shopper reaches it, for the post-deploy checks (LIVE-SHOP §4 step 10). */
   probe: EdgeProbe
   /** `sf-assets.<EDGE_ZONE>` (LIVE-SHOP §2): with the store's own host, the only one whose scripts the checks load. */
@@ -111,12 +112,15 @@ export interface PublishDeps {
   wait: (ms: number) => Promise<void>
 }
 
+/** What the build's calls wake its publish run with (`step.waitForEvent` types, LIVE-SHOP §4 "The build calls"). */
+export type BuildEvent = 'reported' | 'uploaded'
+
 /** A Workflow's `step.do`: a step's answer is kept, so a replay skips what already finished. */
 export interface PublishSteps {
   /** `long` is the post-deploy checks' step, bounded by `checksLimitMs` rather than the usual five minutes. */
   do: (name: string, work: () => Promise<string>, long?: 'long') => Promise<string>
-  /** `step.waitForEvent` for the build's "uploaded" (#517); throws once `timeoutMinutes` pass without it. */
-  waitForUpload: (name: string, timeoutMinutes: number) => Promise<void>
+  /** `step.waitForEvent` for the build's report or upload; throws once `timeoutMinutes` pass without it. */
+  waitFor: (name: string, event: BuildEvent, timeoutMinutes: number) => Promise<void>
 }
 
 class Busy extends Error {
@@ -152,7 +156,7 @@ const claimStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
     if (!run || run.store_id !== p.storeId) return 'stopped'
     // A page run renders some pages; a waiting one a press widened is a full publish (LIVE-SHOP §7).
     const claimed = run.kind === 'page' ? 'claimed:page' : 'claimed'
-    if (run.state !== 'queued') return run.state === 'deploying' ? claimed : 'stopped'
+    if (run.state !== 'queued') return run.state === 'building' || run.state === 'checking' || run.state === 'deploying' ? claimed : 'stopped'
     // The partial unique index refuses a second running build anyway; this says why, and the Workflow tries again.
     if (await hasActiveRun(tx, p.storeId)) throw new Busy('another publish is running')
     await startRun(tx, run, deps.now())
@@ -179,6 +183,13 @@ const inheritSteps = async (deps: PublishDeps, p: PublishParams, steps: PublishS
     return 'sealed'
   })
 }
+
+/** The report's verdict once it came (LIVE-SHOP §4 step 7). */
+const reportedStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
+  withSystemScope(deps.sql, async (tx) => {
+    const passed = await selectGateVerdict(tx, p.storeId, p.runId)
+    return passed === null ? 'waiting' : passed ? 'passed' : 'failed'
+  })
 
 const uploadedStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
   withSystemScope(deps.sql, async (tx) => ((await isUploaded(tx, p.storeId, p.runId)) ? 'uploaded' : 'waiting'))
@@ -268,17 +279,25 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string): Prom
   return 'failed'
 }
 
-const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing', UploadTimedOut: 'upload_timed_out' }
-// A step's error may come back from the Workflow runtime as a plain Error, so a refused upload's code travels as its message.
+const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing', UploadTimedOut: 'upload_timed_out', ReportTimedOut: 'report_timed_out', GateFailed: 'gate_failed' }
+// A step's error may come back from the Workflow runtime as a plain Error, so a refusal's code travels as its message.
 const codeOf = (error: unknown): string => {
   if (!(error instanceof Error)) return 'deploy_failed'
-  if (error.name === 'UploadRefused' || uploadRefusals.has(error.message)) return error.message
+  if (uploadRefusals.has(error.message) || freezeRefusals.has(error.message)) return error.message
   return errorCodes[error.name] ?? 'deploy_failed'
 }
 
 class UploadTimedOut extends Error {
   override name = 'UploadTimedOut'
 }
+class ReportTimedOut extends Error {
+  override name = 'ReportTimedOut'
+}
+class GateFailed extends Error {
+  override name = 'GateFailed'
+}
+
+const minutesLeft = buildLifetimeMs / 60_000
 
 /** A publish of any kind; a page run completes its folder from the live build's before the switch (LIVE-SHOP §7). */
 export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: PublishSteps): Promise<'live' | 'failed' | 'rolled_back' | 'stopped'> => {
@@ -286,9 +305,17 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
     const claimed = await steps.do('claim', () => claimStep(deps, p))
     if (claimed === 'stopped') return 'stopped'
     const render = claimed === 'claimed:page'
-    // INF 4 (#483) dispatches the build here; its upload step's "uploaded" wakes this run (LIVE-SHOP §4 steps 4–9).
+    await steps.do('freeze', () => freezeBuild(deps, p.storeId, p.runId))
+    await steps.do('dispatch', () => dispatchBuild(deps, p.storeId, p.runId))
+    // The build's "report" and "uploaded" calls wake this run; a DB check comes first, so one that came early isn't missed.
+    if ((await steps.do('reported', () => reportedStep(deps, p))) === 'waiting') {
+      await steps.waitFor('report', 'reported', minutesLeft).catch(() => {
+        throw new ReportTimedOut('no report within the build id’s lifetime')
+      })
+    }
+    if ((await steps.do('verdict', () => reportedStep(deps, p))) !== 'passed') throw new GateFailed('the gate refused the build')
     if ((await steps.do('uploaded', () => uploadedStep(deps, p))) === 'waiting') {
-      await steps.waitForUpload('upload', buildLifetimeMs / 60_000).catch(() => {
+      await steps.waitFor('upload', 'uploaded', minutesLeft).catch(() => {
         throw new UploadTimedOut('no upload within the build id’s lifetime')
       })
     }

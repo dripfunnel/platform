@@ -1796,7 +1796,9 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- and plain words) with gate_digest (the digest of the files it checked, LIVE-SHOP §4 step 7);
                     -- uploaded_at ("uploaded": no credential after it), upload_manifest (the manifest as read
                     -- once then, null when refused) and verified_at (every staged object hashed to its manifest
-                    -- entry and was copied, §4 step 9). Built on #484 (migration 0280): switched_at (the pointer moved
+                    -- entry and was copied, §4 step 9). Built on #483 (migration 0260): dispatched_at (the workflow was
+                    -- started, once) and build_minutes (dispatch to report, rounded up); building is claimed and
+                    -- dispatched, checking is a failing report the publish run decides on. Built on #484 (migration 0280): switched_at (the pointer moved
                     -- to it; the run stays deploying until its post-deploy checks end), checks (each check's name,
                     -- passed, failed or skipped, and plain words) and rolled_back_at (the pointer moved back to
                     -- previous_build_id; error names the failed check, LIVE-SHOP §4 step 10); migration 0282: render (a
