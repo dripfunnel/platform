@@ -1,5 +1,5 @@
 {
-  "announce": "Simple routines, gentle on your skin",
+  "announce": "Welcome. Take a moment and look around",
   "nav": {
     "label": "Main",
     "menu": "Menu",
@@ -13,7 +13,7 @@
     "cart": "Cart"
   },
   "footer": {
-    "note": "Made in small batches.",
+    "note": "Thank you for visiting.",
     "shop": "Shop",
     "all": "Shop all",
     "help": "Help",
