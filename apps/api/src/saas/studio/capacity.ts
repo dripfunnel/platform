@@ -9,6 +9,9 @@ export interface LedgerStorage {
   list: <T>(options: { prefix: string }) => Promise<Map<string, T>>
 }
 
+/** STUDIO_CAPACITY when unset: short of the ~6,000 `basic` containers the account's 1,500 vCPU allow (AI-STUDIO §9). */
+export const defaultStudioCapacity = 5000
+
 /** A lease not renewed for this long is a container that stopped without saying so. */
 export const leaseMs = 3 * 60 * 1000
 /** A waiting studio that stopped asking (its tab closed) leaves the queue after this. */

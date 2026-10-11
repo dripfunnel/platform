@@ -4,7 +4,7 @@ import { parseConfig } from '#core/config'
 import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
-import { capacityLedger, StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type DesignModel, type Grant } from '#saas/studio/index'
+import { capacityLedger, defaultStudioCapacity, StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type DesignModel, type Grant } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -33,7 +33,7 @@ export type CapacityNamespace = DurableObjectNamespace<StudioCapacityObject & Rp
 export const studioCapacityClass = () =>
   class StudioCapacity extends DurableObject<StudioEnv> implements StudioCapacityObject {
     private ledger() {
-      return capacityLedger(this.ctx.storage, parseConfig(this.env).STUDIO_CAPACITY)
+      return capacityLedger(this.ctx.storage, parseConfig(this.env).STUDIO_CAPACITY ?? defaultStudioCapacity)
     }
 
     acquire(storeId: string): Promise<Grant> {

@@ -75,8 +75,8 @@ const configSchema = z.object({
   GITHUB_LOCAL: z.literal('1').optional(),
   // The studio's sandbox on this machine instead of a container (docs/setup/local.md): `pnpm --filter ./apps/sandbox start:local`.
   SANDBOX_LOCAL_URL: z.string().regex(/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/, 'SANDBOX_LOCAL_URL must be http://127.0.0.1:<port>').optional(),
-  // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue.
-  STUDIO_CAPACITY: z.coerce.number().int().min(1).max(100_000).default(5000),
+  // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue. Unset: 5,000.
+  STUDIO_CAPACITY: z.coerce.number().int().min(1).max(100_000).optional(),
   // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
