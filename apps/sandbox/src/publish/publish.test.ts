@@ -90,11 +90,19 @@ describe('step build', () => {
   })
 
   it('refuses to start with a token or any of the runner’s own variables in its environment', async () => {
-    for (const name of ['GITHUB_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_RUNTIME_TOKEN', 'RUNNER_TEMP', 'R2_SECRET']) {
+    for (const name of ['GITHUB_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_RUNTIME_TOKEN', 'RUNNER_TEMP', 'INPUT_BUILD_ID', 'R2_SECRET']) {
       expect(await runStep(['build', '--out', join(root, 'never')], { PATH: '/usr/bin', [name]: 'x' })).toBe(1)
     }
     expect(refusedEnvironment({ PATH: '/usr/bin', HOME: '/tmp', SANDBOX_RUNTIME: '/opt/x', NODE_ENV: 'production' })).toEqual([])
     expect(existsSync(join(root, 'never'))).toBe(false)
+  })
+
+  it('refuses an unknown step and a commit not named by its full id before it reads anything', async () => {
+    await expect(runStep(['deploy', '--out', join(root, 'unknown')], { PATH: '/usr/bin' })).rejects.toThrow('Name the step: build or check.')
+    expect(existsSync(join(root, 'unknown'))).toBe(false)
+    const source = await sourceOf('named')
+    await expect(runStep(['build', '--source', source.bundle, '--commit', 'main', '--snapshot', join(root, 'snapshot.json'), '--out', join(root, 'named')], { PATH: process.env['PATH'] ?? '' })).rejects.toThrow('Name the commit to build by its full id.')
+    expect(existsSync(join(root, 'named/site'))).toBe(false)
   })
 
   it('has no network once the theme renders: a fetch in the build process fails', async () => {
@@ -111,6 +119,14 @@ describe('step build', () => {
     expect(report.passed).toBe(false)
     expect(report.checks.find((c) => c.name === 'validator')).toMatchObject({ passed: false })
     expect(existsSync(join(root, 'refused/site'))).toBe(false)
+  })
+
+  it('stops at the typecheck too, with the validator’s check failing and naming the file, and no site', async () => {
+    const source = await sourceOf('untyped', { 'src/theme/pages/SearchPage.tsx': 'export const SearchPage = () => {\n  const count: string = 1\n  return count === null ? null : null\n}\n' })
+    await cli(['build', ...stepArgs(source, join(root, 'snapshot.json')), '--out', join(root, 'untyped')])
+    const report = JSON.parse(readFileSync(join(root, 'untyped/report.json'), 'utf8')) as GateReport
+    expect(report.checks.find((c) => c.name === 'validator')).toMatchObject({ passed: false, detail: expect.stringContaining('src/theme/pages/SearchPage.tsx:2') })
+    expect(existsSync(join(root, 'untyped/site'))).toBe(false)
   })
 })
 
