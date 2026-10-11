@@ -27,8 +27,8 @@ using (app_setting_text('app.scope') = 'system') with check (app_setting_text('a
 insert into storefront_template (key, name, tag, description, core_min_version) values
   ('baseline', 'Start from scratch', 'Blank', 'A plain header, banner, story and footer. Describe your shop and the AI styles it.', '0.0.0'),
   ('linen', 'Linen', 'Minimal fashion', 'Light, roomy and quiet. Big photos, small type, nothing in the way.', '0.0.0'),
-  ('concrete', 'Concrete', 'Bold streetwear', 'Loud type, hard edges and a bright accent. Built around drops.', '0.0.0'),
+  ('concrete', 'Concrete', 'Bold streetwear', 'Loud type, hard edges and a bright accent.', '0.0.0'),
   ('bloom', 'Bloom', 'Beauty & wellness', 'Soft colour, rounded shapes and calm serif headings.', '0.0.0'),
   ('circuit', 'Circuit', 'Electronics & tech', 'Dark, sharp and spec-led. Clear details and help up front.', '0.0.0'),
-  ('market', 'Market', 'Food & grocery', 'Warm, friendly and easy to browse. Fresh food first.', '0.0.0'),
+  ('market', 'Market', 'Food & grocery', 'Warm, friendly and easy to browse.', '0.0.0'),
   ('atelier', 'Atelier', 'Luxury editorial', 'Magazine-like pacing. Large serif type, muted tones, lots of space.', '0.0.0');
