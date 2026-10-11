@@ -66,6 +66,8 @@ describe('the partner Store detail', () => {
     const storefront = textOf(await detail(get('st-copperline'), 'storefront'))
     expect(storefront).toContain('This merchant runs its own storefront')
     expect(storefront).toContain(words.storefront.readOnly)
+    // Previews open only through the merchant's signed link (storefront PREVIEW.md §8; #518).
+    for (const id of ['st-copperline', 'st-harbor']) expect(textOf(await detail(get(id), 'storefront'))).not.toMatch(/preview/i)
     const domains = await detail(get('st-maple'), 'domains')
     expect(textOf(domains)).toContain('Waiting since Sep 26, 2026')
     expect(textOf(domains)).toContain('shops.edge.dripfunnel.net')

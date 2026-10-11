@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { checkRecords } from './check'
-import { emailRecords, isBareDomain, recordMatches, zoneOf } from './records'
+import { edgeTargets, emailRecords, isBareDomain, recordMatches, recordsFor, senderLabel, zoneOf } from './records'
+
+describe('the partner addresses (#518: no preview kind)', () => {
+  it('points the portal and shops addresses at their edge targets only', () => {
+    expect(edgeTargets('dripfunnel.net')).toEqual({ portal: 'portal.edge.dripfunnel.net', shops: 'shops.edge.dripfunnel.net' })
+    expect(recordsFor('shops', '*.shops.northstar.com', false, 'dripfunnel.net')).toEqual([{ purpose: 'pointer', recordType: 'CNAME', name: 'df-probe.shops.northstar.com', expected: 'shops.edge.dripfunnel.net' }])
+  })
+
+  it('takes the fallback sender’s label from the portal, then the shops, then the email address', () => {
+    expect(senderLabel([{ kind: 'email', host: 'mail.other.com' }, { kind: 'shops', host: '*.shops.northstar.com' }])).toBe('northstar')
+    expect(senderLabel([{ kind: 'shops', host: '*.shops.northstar.com' }, { kind: 'portal', host: 'store.first.co.uk' }])).toBe('first')
+  })
+})
 
 describe('recordMatches', () => {
   it.each([
@@ -36,7 +48,7 @@ describe('isBareDomain', () => {
     ['northstar.co.uk', true],
     ['northstar.com.sg', true],
     ['mail.northstar.com', false],
-    ['preview.northstar.co.uk', false],
+    ['shops.northstar.co.uk', false],
   ])('%s → %s', (host, bare) => expect(isBareDomain(host)).toBe(bare))
 })
 

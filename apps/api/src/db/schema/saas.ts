@@ -59,7 +59,7 @@ export interface PartnerInvitationRow {
   created_at: Date
 }
 
-export const domainKinds = ['portal', 'preview', 'shops', 'email'] as const
+export const domainKinds = ['portal', 'shops', 'email'] as const
 export type DomainKind = (typeof domainKinds)[number]
 
 /** SAAS.md §8. */

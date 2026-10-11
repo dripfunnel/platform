@@ -982,7 +982,6 @@ type StoreSite {
   lastBuildAt: String
   lastPublishAt: String
   liveHost: String
-  previewHost: String
   version: String
 }
 

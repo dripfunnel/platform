@@ -114,7 +114,7 @@ describe('the fields the admin console shows', () => {
     const row = await as(staff, (tx) => selectPartner(tx, id))
     expect(row).toMatchObject({ product_name: 'Kaufladen Shops', primary_color: '#2A2F8F', powered_by: 'on', country: 'DE', fallback_sender_accepted: true })
     const domains = await as(staff, (tx) => tx`select kind, status, record_type, expected, found from partner_domain where partner_id = ${id} order by kind`)
-    expect(domains).toHaveLength(4)
+    expect(domains.map((d) => d['kind'])).toEqual(['email', 'portal', 'shops'])
     expect(domains.find((d) => d['kind'] === 'email')).toMatchObject({ status: 'waiting', record_type: 'TXT', found: null })
     const plans = await as(staff, (tx) => selectPlans(tx, id))
     expect(plans.map((p) => [p.name, p.status, p.store_count])).toEqual([

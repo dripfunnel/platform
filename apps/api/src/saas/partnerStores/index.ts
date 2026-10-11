@@ -155,7 +155,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
       const domains = await selectCustomDomains(tx, id)
       const partner = await selectPartner(tx, partnerId)
       const partnerDomains = await selectPartnerDomainsFor(tx, [partnerId])
-      const wildcard = (kind: 'preview' | 'shops') => partnerDomains.find((d) => d.kind === kind)?.host.replace(/^\*\./, '') ?? null
+      const shops = partnerDomains.find((d) => d.kind === 'shops')?.host.replace(/^\*\./, '') ?? null
       const activityPage = await listActivity(sql, context, { storeId: id }, { first: detailListSize })
       const overrides = await selectOverrides(tx, id, undefined, detailListSize + 1)
       const extensions = await selectTrialExtensions(tx, id, undefined, detailListSize + 1)
@@ -185,8 +185,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
           partnerName: partner?.name ?? caller.partner.name,
         },
         site: {
-          liveHost: domains.find((d) => d.status === 'live')?.host ?? (wildcard('shops') ? `${row.code}.${wildcard('shops')}` : null),
-          previewHost: wildcard('preview') ? `${row.code}.${wildcard('preview')}` : null,
+          liveHost: domains.find((d) => d.status === 'live')?.host ?? (shops ? `${row.code}.${shops}` : null),
           lastPublishAt: row.last_publish_at,
         },
         records: domains.map((d) => ({ host: d.host, status: d.status, type: 'CNAME', value: d.expected_cname, found: d.found_cname, since: d.created_at })),

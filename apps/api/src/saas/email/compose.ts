@@ -83,7 +83,8 @@ const payloads = {
   'signup-code': z.object({ signupId: id }),
   'shopper-code': z.object({ customerCodeId: id }),
   'user-email-changing': z.object({ emailChangeId: id }),
-  'partner-domain-live': z.object({ partnerId: id, domainId: id, kind: z.enum(['portal', 'preview', 'shops', 'email']) }),
+  // Rows queued before #518 also carry a kind, which may be the retired 'preview': the address row says what it is.
+  'partner-domain-live': z.object({ partnerId: id, domainId: id }),
   'partner-card-declined': z.object({ invoiceId: z.string().max(255) }),
   'partner-payout-account-failed': z.object({}),
   'plan-change-at-renewal': z.object({ storeId: id, planId: id, changeAt: z.iso.datetime() }),
@@ -343,7 +344,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!domain) return { send: false, reason: 'no_recipient' }
       if (domain.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const w = en.partnerDomainLive
-      return fromDripfunnel(await owner(tx, p.partnerId), { subject: w.subject(domain.host), heading: w.heading, paragraphs: [w.body(domain.host, w.kinds[p.kind])] })
+      return fromDripfunnel(await owner(tx, p.partnerId), { subject: w.subject(domain.host), heading: w.heading, paragraphs: [w.body(domain.host, w.kinds[domain.kind])] })
     }
     case 'partner-card-declined':
     case 'partner-payout-account-failed': {

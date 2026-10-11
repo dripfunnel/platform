@@ -91,7 +91,7 @@ const allDone = (by: string, portal: string, mail: string): SeedSetupItem[] => [
   { item: 'company', status: 'done', detail: 'Legal name, address and tax id present', by },
   { item: 'branding', status: 'done', detail: 'Logo, colours and font saved', by },
   { item: 'portalHost', status: 'done', detail: `${portal} is live`, by },
-  { item: 'wildcards', status: 'done', detail: 'Both are live', by },
+  { item: 'wildcards', status: 'done', detail: 'Live', by },
   { item: 'emailSender', status: 'done', detail: `${mail} is live`, by },
   { item: 'plan', status: 'done', detail: 'Plans are priced', by },
   { item: 'legal', status: 'done', detail: 'Terms, privacy and data-processing agreement added', by },
@@ -216,7 +216,7 @@ export const partners: readonly SeedPartner[] = [
       { item: 'company', status: 'done', detail: 'Kaufladen Digital GmbH, Berlin', by: 'Jonas Weber' },
       { item: 'branding', status: 'done', detail: 'Logo, colours and font saved', by: 'Priya Shah' },
       { item: 'portalHost', status: 'done', detail: 'shop.kaufladen.example is live', by: 'Jonas Weber' },
-      { item: 'wildcards', status: 'done', detail: 'Both are live', by: 'Jonas Weber' },
+      { item: 'wildcards', status: 'done', detail: 'Live', by: 'Jonas Weber' },
       { item: 'emailSender', status: 'progress', detail: 'mail.kaufladen.example: verifying (DKIM, SPF). Emails use a fallback sender until then.' },
       { item: 'plan', status: 'done', detail: 'Basis and Plus are priced', by: 'Priya Shah' },
       { item: 'legal', status: 'done', detail: 'Terms, privacy, Impressum and data-processing agreement added', by: 'Jonas Weber' },
@@ -275,7 +275,6 @@ export const partners: readonly SeedPartner[] = [
     portalHost: 'shops.tallis.example',
     domains: [
       { kind: 'portal', host: 'shops.tallis.example', status: 'waiting', found: null },
-      { kind: 'preview', host: '*.preview.tallis.example', status: 'waiting', found: null },
       { kind: 'shops', host: '*.shops.tallis.example', status: 'waiting', found: null },
       { kind: 'email', host: 'mail.tallis.example', status: 'waiting', found: null },
     ],
@@ -285,7 +284,7 @@ export const partners: readonly SeedPartner[] = [
       { item: 'company', status: 'done', detail: 'Tallis Studio Pty Ltd, Melbourne', by: 'Maya Ortiz' },
       { item: 'branding', status: 'missing', detail: 'Logo, colours and font' },
       { item: 'portalHost', status: 'progress', detail: 'shops.tallis.example: waiting for DNS' },
-      { item: 'wildcards', status: 'missing', detail: 'Preview and shop addresses' },
+      { item: 'wildcards', status: 'missing', detail: 'Shop address' },
       { item: 'emailSender', status: 'missing', detail: 'mail.tallis.example' },
       { item: 'plan', status: 'missing', detail: 'No plans yet' },
       { item: 'legal', status: 'missing', detail: 'Terms, privacy and data-processing agreement' },
@@ -310,7 +309,6 @@ export const partners: readonly SeedPartner[] = [
     domain: 'nordlicht.example',
     portalHost: 'shops.nordlicht.example',
     domains: [
-      { kind: 'preview', host: '*.preview.nordlicht.example', status: 'waiting', found: null },
       { kind: 'shops', host: '*.shops.nordlicht.example', status: 'waiting', found: null },
       { kind: 'email', host: 'mail.nordlicht.example', status: 'waiting', found: null },
     ],
@@ -320,7 +318,7 @@ export const partners: readonly SeedPartner[] = [
       { item: 'company', status: 'done', detail: 'Nordlicht Media AB, Stockholm', by: 'Priya Shah' },
       { item: 'branding', status: 'done', detail: 'Logo, colours and font saved', by: 'Priya Shah' },
       { item: 'portalHost', status: 'done', detail: 'shops.nordlicht.example is live', by: 'Priya Shah' },
-      { item: 'wildcards', status: 'progress', detail: '*.preview.nordlicht.example: waiting for DNS' },
+      { item: 'wildcards', status: 'progress', detail: '*.shops.nordlicht.example: waiting for DNS' },
       { item: 'emailSender', status: 'progress', detail: 'mail.nordlicht.example: verifying (DKIM, SPF). Emails use a fallback sender until then.' },
       { item: 'plan', status: 'missing', detail: 'No plans yet' },
       { item: 'legal', status: 'missing', detail: 'Terms, privacy and data-processing agreement' },
@@ -410,11 +408,10 @@ export const partners: readonly SeedPartner[] = [
   },
 ]
 
-/** The four hostnames every partner has (SAAS.md §3.5), live unless the partner says otherwise. */
+/** The three hostnames every partner has (SAAS.md §3.5), live unless the partner says otherwise. */
 export const domainsFor = (p: SeedPartner): SeedDomain[] => {
   const standard: SeedDomain[] = [
     { kind: 'portal', host: p.portalHost, status: 'live' },
-    { kind: 'preview', host: `*.preview.${p.domain}`, status: 'live' },
     { kind: 'shops', host: `*.shops.${p.domain}`, status: 'live' },
     { kind: 'email', host: `mail.${p.domain}`, status: 'live' },
   ]

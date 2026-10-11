@@ -282,6 +282,18 @@ describe('email delivery', () => {
     expect(ses.sent.map((m) => m.to)).toEqual([['second.owner@northstar.example']])
   })
 
+  it('skips a live-address email queued for a retired preview address, and the outbox moves on (#518)', async () => {
+    const [domain] = await db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${northstar.id} and kind = 'shops'`
+    // As queued before 0232 deleted the preview rows: its address is gone and its kind is retired.
+    await queue('partner-domain-live', { partnerId: northstar.id, domainId: crypto.randomUUID(), kind: 'preview' }, { partnerId: northstar.id, storeId: null })
+    await queue('partner-domain-live', { partnerId: northstar.id, domainId: domain?.id, kind: 'shops' }, { partnerId: northstar.id, storeId: null })
+    const ses = fakeSes()
+    expect(await relay(ses.api)).toMatchObject({ delivered: 2, retry: 0, dead: 0 })
+    expect(ses.sent).toHaveLength(1)
+    expect(ses.sent[0]?.text).toContain(`${domain?.host ?? ''} now works as your shops address.`)
+    expect(await db.sql`select delivered_at is not null as settled, failed_at from outbox where payload->>'kind' = 'preview'`).toEqual([{ settled: true, failed_at: null }])
+  })
+
   it('names at most 50 Owners on a store notice, the live ones first in line', async () => {
     await db.sql`delete from email_suppression`
     for (let n = 0; n < 60; n += 1) {

@@ -16,7 +16,7 @@ export interface StorefrontRow {
   markets: { id: string; currency: string; language: string | null }[]
   /** Settings › Catalogue's section switches the store has set (catalogListing.ts has the defaults). */
   features: Record<string, boolean>
-  /** Reached on its partner's preview wildcard: checkout there is in each provider's test mode (storefront ARCHITECTURE §4.1). */
+  /** Reached on its preview host, `{key}.<PREVIEW_DOMAIN>`: checkout there is in each provider's test mode (storefront PREVIEW.md §5). */
   preview: boolean
   /** Closed by its Owner with paid time left: it sells until the period ends (SAAS §4.2). */
   selling_out: boolean
@@ -36,7 +36,7 @@ const storefrontColumns = (tx: ScopedSql) => tx`
 `
 
 /**
- * A store's own storefront host: `{code}.` under its partner's preview or shops wildcard, or its live custom domain.
+ * A store's own storefront host: `{code}.` under its partner's shops wildcard, or its live custom domain.
  * A partner's wildcard is held as `*.shops.example.com` (partner_domain), live or on its way to it.
  */
 export const selectStorefrontByHost = async (tx: ScopedSql, host: string): Promise<StorefrontRow | null> => {
@@ -45,14 +45,12 @@ export const selectStorefrontByHost = async (tx: ScopedSql, host: string): Promi
   const code = dot > 0 ? name.slice(0, dot) : ''
   const wildcard = dot > 0 ? `*${name.slice(dot)}` : ''
   const rows = await tx<StorefrontRow[]>`
-    select ${storefrontColumns(tx)}, exists (
-        select 1 from partner_domain d where d.partner_id = s.partner_id and d.kind = 'preview' and lower(d.host) = ${wildcard} and s.code = ${code}
-      ) as preview
+    select ${storefrontColumns(tx)}, false as preview
     from store s join storefront f on f.store_id = s.id
     where (
       s.code = ${code} and exists (
         select 1 from partner_domain d join partner p on p.id = d.partner_id
-        where d.partner_id = s.partner_id and d.kind in ('preview', 'shops') and lower(d.host) = ${wildcard}
+        where d.partner_id = s.partner_id and d.kind = 'shops' and lower(d.host) = ${wildcard}
           and d.status not in ('waiting', 'failed') and p.state <> 'closed'
       )
     ) or exists (
@@ -70,5 +68,14 @@ export const selectStorefrontByKey = async (tx: ScopedSql, key: string): Promise
     await tx<StorefrontRow[]>`
       select ${storefrontColumns(tx)}, false as preview from store s join storefront f on f.store_id = s.id join partner p on p.id = s.partner_id
       where f.public_store_key = ${key} and p.state <> 'closed'
+    `
+  )[0] ?? null
+
+/** A preview host's store, by the key its hostname carries (storefront PREVIEW.md §2 step 5, §6). */
+export const selectStorefrontByPreviewKey = async (tx: ScopedSql, previewKey: string): Promise<StorefrontRow | null> =>
+  (
+    await tx<StorefrontRow[]>`
+      select ${storefrontColumns(tx)}, true as preview from store s join storefront f on f.store_id = s.id join partner p on p.id = s.partner_id
+      where f.preview_key = ${previewKey} and p.state <> 'closed'
     `
   )[0] ?? null

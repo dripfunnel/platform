@@ -7,6 +7,8 @@ const configSchema = z.object({
   CF_CUSTOM_HOSTNAMES_TOKEN: z.string().min(1).optional(),
   CF_SAAS_ZONE_ID: z.string().min(1).optional(),
   EDGE_ZONE: z.string().min(1).default('dripfunnel.com'),
+  // Every store's preview is `{key}.<it>` (storefront PREVIEW.md §8): its own registrable domain, never a console's.
+  PREVIEW_DOMAIN: z.string().regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'PREVIEW_DOMAIN must be a domain such as webpreview.store').optional(),
   HYPERDRIVE: z.object({ connectionString: z.string().min(1) }).optional(),
   // Set where the binding exists (#30): a missing binding is then `missing` (503), not `unconfigured`.
   HYPERDRIVE_REQUIRED: z.literal('1').optional(),
@@ -88,7 +90,11 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   const github = [c.GITHUB_APP_ID, c.GITHUB_APP_INSTALLATION_ID, c.GITHUB_APP_PRIVATE_KEY].filter((v) => v !== undefined).length
   if (github !== 0 && github !== 3) ctx.addIssue({ code: 'custom', message: 'GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID and GITHUB_APP_PRIVATE_KEY go together', path: ['GITHUB_APP_ID'] })
   if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !isLocalhost(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
+  const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
+  if (c.PREVIEW_DOMAIN !== undefined && ourHosts.some((h) => h === c.PREVIEW_DOMAIN || h.endsWith(`.${c.PREVIEW_DOMAIN}`) || c.PREVIEW_DOMAIN?.endsWith(`.${h}`)))
+    ctx.addIssue({ code: 'custom', message: 'PREVIEW_DOMAIN must be apart from the consoles’ hosts and EDGE_ZONE', path: ['PREVIEW_DOMAIN'] })
   if (isLocalhost(c.HOOKS_HOST)) return
+  if (c.PREVIEW_DOMAIN !== undefined && isLocalhost(c.PREVIEW_DOMAIN)) ctx.addIssue({ code: 'custom', message: 'PREVIEW_DOMAIN on localhost is for local development only', path: ['PREVIEW_DOMAIN'] })
   for (const key of localOnly) {
     if (c[key] !== undefined) ctx.addIssue({ code: 'custom', message: `${key} is for local development only (HOOKS_HOST on localhost)`, path: [key] })
   }

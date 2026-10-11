@@ -47,10 +47,10 @@ const openFor = async (host: string) => {
 }
 
 describe('Remove on the Domains screen', () => {
-  it.each(['partner-owner', 'partner-admin'])('shows %s a Remove on each of the four cards', (role) => {
+  it.each(['partner-owner', 'partner-admin'])('shows %s a Remove on each of the three cards', (role) => {
     state.role = role
     render(<DomainsScreen />)
-    expect(removeButtons()).toHaveLength(4)
+    expect(removeButtons()).toHaveLength(3)
   })
 
   it.each(['partner-support', 'partner-finance', 'partner-read-only'])('shows %s no Remove', (role) => {
@@ -67,7 +67,6 @@ describe('Remove on the Domains screen', () => {
 
   it.each([
     ['portal', 'store.northstar.com', 'Merchants can no longer sign in at store.northstar.com. Their stores keep working.'],
-    ['preview', '*.preview.northstar.com', 'Store previews stop working at this address.'],
     ['shops', '*.shops.northstar.com', 'Shops stop answering at this address until you add another.'],
     ['email', 'mail.northstar.com', 'Emails go from no-reply@northstar.dripfunnel-mail.com until you add another sender.'],
   ])('asks before removing the %s address, naming what stops', async (_kind, host, consequence) => {

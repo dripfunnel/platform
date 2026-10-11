@@ -4,7 +4,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { hashSessionId } from './session'
 import { resolveShopperSession } from './shopperAuth'
 import { defaultFeatures, featureKeys, type FeatureKey } from '#db/scoped/catalogListing'
-import { selectStorefrontByHost, selectStorefrontByKey, type StorefrontRow } from '#db/scoped/shopCaller'
+import { selectStorefrontByHost, selectStorefrontByKey, selectStorefrontByPreviewKey, type StorefrontRow } from '#db/scoped/shopCaller'
 
 // A Shop API request's store (ACCESS §3, PLATFORM-PROMPT §5.5): from the storefront's host or its public store key,
 // never a secret or an argument; and what it reads in: a language, currency and market the store offers.
@@ -67,20 +67,27 @@ const shopperOf = (row: StorefrontRow, request: Request, orderTokenHash: string 
  * The host decides when it is a storefront's own; a key sent with it must be that store's, so store X is never served
  * on store Y's host. Anywhere else the key alone decides (a merchant's own frontend, PLATFORM-PROMPT §5.6).
  */
-export const resolveShopper = async (sql: postgres.Sql, request: Request, host: string): Promise<ShopResolution> => {
+export const resolveShopper = async (sql: postgres.Sql, request: Request, host: string, previewDomain: string | null = null): Promise<ShopResolution> => {
   const key = request.headers.get(shopKeyHeader)?.trim() ?? ''
   const validKey = /^pk_[0-9a-f]{32}$/.test(key)
+  const name = host.toLowerCase()
+  const suffix = previewDomain ? `.${previewDomain.toLowerCase()}` : null
+  const onPreviewHost = suffix !== null && name.endsWith(suffix)
+  const label = suffix && onPreviewHost ? name.slice(0, -suffix.length) : ''
+  const previewKey = /^[a-z2-7]{10}$/.test(label) ? label : null
   const { byHost, byKey } = await withSystemScope(sql, async (tx) => ({
-    byHost: await selectStorefrontByHost(tx, host),
+    byHost: !onPreviewHost ? await selectStorefrontByHost(tx, name) : previewKey ? await selectStorefrontByPreviewKey(tx, previewKey) : null,
     byKey: validKey ? await selectStorefrontByKey(tx, key) : null,
   }))
+  // A preview host names its store by its key alone, never by a public key (storefront PREVIEW.md §6).
+  if (onPreviewHost && !byHost) return { kind: 'unknown' }
   if (byHost && key !== '' && byKey?.store_id !== byHost.store_id) return { kind: 'key-mismatch' }
   const row = byHost ?? byKey
   const cartToken = request.headers.get(shopCartHeader)?.trim() ?? ''
   // Only the shape a token is handed out in is hashed; anything else holds no cart.
   const orderTokenHash = /^[0-9a-f]{64}$/.test(cartToken) ? await hashSessionId(cartToken) : null
-  // A session names a shopper of this store only; any other is ignored, as if signed out.
-  const session = request.headers.get(shopSessionHeader)?.trim() ?? ''
+  // A session names a shopper of this store only; any other is ignored, as if signed out. A preview has guests only (PREVIEW.md §5 step 5).
+  const session = row?.preview ? '' : (request.headers.get(shopSessionHeader)?.trim() ?? '')
   const customerId = row && session !== '' ? await resolveShopperSession(sql, row.store_id, session, new Date()) : null
   const shopper = row ? shopperOf(row, request, orderTokenHash, customerId) : null
   return shopper ? { kind: 'found', shopper } : { kind: 'unknown' }

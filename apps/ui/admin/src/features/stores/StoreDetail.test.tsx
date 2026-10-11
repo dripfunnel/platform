@@ -48,6 +48,12 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
 }
 
 describe('Store detail', () => {
+  it('shows the live address on the Storefront tab, and no preview address (#518)', async () => {
+    const text = await render({ tab: 'storefront' })
+    expect(text).toContain(words.storefront.live)
+    expect(text).not.toMatch(/preview/i)
+  })
+
   it('has the tabs decided on #20, with the Customers tab #42 adds after Users', async () => {
     const text = await render()
     for (const label of Object.values(words.tabs)) expect(text).toContain(label)

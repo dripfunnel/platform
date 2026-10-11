@@ -95,7 +95,7 @@ describe('navBadges', () => {
     const [store] = await db.sql<{ id: string }[]>`select id from store s where partner_id = ${ids.bz} and not exists (select 1 from job j where j.store_id = s.id and j.state <> 'done') limit 1`
     await db.sql`insert into job (store_id, kind, state, steps, step) values (${store?.id ?? ''}, 'provision-store', 'failed', '{accountAndStore}'::text[], 'accountAndStore')`
     await db.sql`update partner_domain set status = 'broken' where partner_id = ${ids.bz} and kind = 'portal'`
-    await db.sql`update partner_domain set status = 'waiting' where partner_id = ${ids.bz} and kind = 'preview'`
+    await db.sql`update partner_domain set status = 'waiting' where partner_id = ${ids.bz} and kind = 'email'`
     await db.sql`update partner set approved_at = null where id = ${ids.bz}`
     await db.sql`update partner_setup_item set status = 'missing', done_at = null, done_by_kind = null, done_by_label = null where partner_id = ${ids.bz} and item = 'branding'`
 
@@ -188,11 +188,11 @@ describe('onboarding and submitForApproval', () => {
       db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${partner}, ${kind}, ${host}, ${status}, 'CNAME', 'x.example')`
     expect(await domainItems()).toEqual({ portalHost: 'missing', wildcards: 'missing', emailSender: 'missing' })
     await address('portal', 'store.checklist.example', 'waiting')
-    await address('preview', '*.preview.checklist.example', 'live')
+    await address('shops', '*.shops.checklist.example', 'waiting')
     await address('email', 'mail.checklist.example', 'live')
-    // Both wildcards must be live: one alone is in progress (FIRST-RELEASE §4, item 4).
+    // The shops address alone decides the item (FIRST-RELEASE §4, item 4; #518).
     expect(await domainItems()).toEqual({ portalHost: 'progress', wildcards: 'progress', emailSender: 'done' })
-    await address('shops', '*.shops.checklist.example', 'live')
+    await db.sql`update partner_domain set status = 'live' where partner_id = ${partner} and kind = 'shops'`
     await db.sql`update partner_domain set status = 'live' where partner_id = ${partner} and kind = 'portal'`
     await db.sql`update partner_domain set status = 'broken' where partner_id = ${partner} and kind = 'email'`
     expect(await domainItems()).toEqual({ portalHost: 'done', wildcards: 'done', emailSender: 'progress' })

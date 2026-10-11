@@ -16,7 +16,6 @@ export const StorefrontTab = ({ store }: { store: Store }) => {
     [words.lastBuild, site.lastBuildAt ? formatTime(site.lastBuildAt) : words.none],
     [words.lastPublish, site.lastPublishAt ? formatTime(site.lastPublishAt) : words.none],
     [words.live, address(store.domain.host)],
-    ...(site.previewHost ? [[words.preview, address(site.previewHost)] as [string, ReactNode]] : []),
   ]
   return (
     <div className="df-panels">

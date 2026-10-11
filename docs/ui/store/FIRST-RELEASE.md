@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -992,8 +992,9 @@ public store key, never a secret; a store id in an argument is never authority. 
 shopper's `order(id)`, `orderHistory`, `account` and `addresses` read only that shopper's own
 `customer_id`; a guest reads one order only through its order token (DATA-MODEL §5.1
 `app.order_token_hash`). Each is held by SAPI 9's isolation tests.
-**Built on #306 (SAPI 8), part 1:** the store comes from the host (`{code}.` under the partner's shops or preview wildcard,
-or the live custom domain) or the `X-Shop-Key` header (the public store key, `storefront.public_store_key`); a key naming
+**Built on #306 (SAPI 8), part 1:** the store comes from the host (`{code}.` under the partner's shops wildcard,
+or the live custom domain; a preview host `{key}.<PREVIEW_DOMAIN>` by its `storefront.preview_key`, in test mode with
+guests only, since #518, which removed the partner's preview wildcard) or the `X-Shop-Key` header (the public store key, `storefront.public_store_key`); a key naming
 another store on a store's own host is refused (`WRONG_STORE_KEY`), an unknown host answers 404. The language, currency
 and market come from `X-Shop-Language`, `X-Shop-Currency` and `X-Shop-Market`, falling back to the store's own when it
 doesn't offer them. Every call is rate-limited per host and address (600 a minute); a suspended or closed store answers

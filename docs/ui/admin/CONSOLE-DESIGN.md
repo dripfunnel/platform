@@ -29,7 +29,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > the partner console shows instead: nothing, or a counterpart scoped to that partner's own
 > merchants, with Admin-only controls left out.
 >
-> Last updated: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
+> Last updated: 2026-10-11 (#518: no preview address in either console). Before: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
 
 ---
 
@@ -73,7 +73,8 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 >   whether "Powered by DripFunnel" shows.
 > - **Addresses**: the portal host (e.g. `store.northstarcommerce.com`), the email sender
 >   domain, and the storefront shop wildcard (`*.shops.northstar.com`). Previews are on
->   DripFunnel's own `{key}.webpreview.store`, not the partner's domain (2026-10-09).
+>   DripFunnel's own `{key}.webpreview.store`, not the partner's domain (2026-10-09); neither
+>   console shows a store's preview address (removed on #518).
 > - **Messages**: emails (verification, invitations, billing receipts, alerts), legal pages,
 >   and support contacts.
 > - **Offer**: which plans its merchants can buy, at what prices, with which features, limits,
@@ -159,7 +160,7 @@ why it shapes the interface. The engine is specified in
    resumable. The admin console is where a stuck or failed signup is seen and retried.
 3. **Every hostname is a Cloudflare for SaaS custom hostname** with an automatic certificate
    (USERS-AND-DOMAINS §5): DNS records to add, verification, certificate, live. Partner
-   domains (portal host, preview and shop wildcards, email sender domain) and merchants'
+   domains (portal host, shop wildcard, email sender domain) and merchants'
    own domains follow the same verify → certificate → live pattern, so one set of status
    words serves every domain screen. Wildcard and apex support are still to be verified
    (release: decide).
@@ -573,12 +574,12 @@ rollouts and no build internals. First release:
 
 ### M. Domains
 
-**Partner console:** scoped counterpart: its own brand's domains (portal host, preview and
-shop wildcards, email sender domain) with the records to add and "Re-check now", and its
+**Partner console:** scoped counterpart: its own brand's domains (portal host, shop wildcard,
+email sender domain) with the records to add and "Re-check now", and its
 merchants' custom domain status, read-only. First release:
 [FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §9.
 
-- M1. All domains: brand portal hosts, email domains, storefront preview and shop wildcards,
+- M1. All domains: brand portal hosts, email domains, storefront shop wildcards,
   merchant custom domains, with status (waiting for DNS · verifying · issuing certificate ·
   live · failed · expiring).
 - M2. A stuck domain: the exact record expected vs what DNS returns, and "Re-check now".
@@ -717,9 +718,9 @@ USERS-AND-DOMAINS §4); how partners take part in personal-data requests is *(as
 - ~~Can a partner own several brands?~~ **Settled**: no; one partner has exactly one brand,
   one look and one portal host (USERS-AND-DOMAINS §2). Still open: can a brand span several
   countries and currencies?
-- Storefront preview and shop wildcards per brand (`*.shops.partner.com`) depend on
-  Cloudflare for SaaS wildcard support (USERS-AND-DOMAINS §5): verify, then decide the
-  release.
+- ~~Storefront preview and shop wildcards per brand depend on Cloudflare for SaaS wildcard
+  support.~~ Wildcard custom hostnames are Enterprise only (checked 2026-10-09, SAAS §8): each
+  store's shops hostname is registered on its own, and previews are on `{key}.webpreview.store`.
 - Which email templates and languages are editable per brand?
 - Dunning policy: when does past due become suspended? What does a suspended storefront show?
 - Which actions need a second approver? ~~Is the merchant told about "sign in as"?~~

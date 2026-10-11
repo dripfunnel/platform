@@ -112,7 +112,7 @@ export const en = {
     subject: (host: string) => `${host} is live`,
     heading: 'Your address is live',
     body: (host: string, kind: string) => `${host} now works as your ${kind}. Nothing more to do.`,
-    kinds: { portal: 'portal address', preview: 'preview address', shops: 'shops address', email: 'email sender' },
+    kinds: { portal: 'portal address', shops: 'shops address', email: 'email sender' },
   },
   partnerCardDeclined: {
     subject: 'DripFunnel couldn’t charge your card',
