@@ -73,6 +73,7 @@ import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActiv
 import { cloudflareClient } from '#integrations/cloudflare/api'
 import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
+import { storeHostSyncDeliverer, storeHostsRegisterDeliverer, storeHostsRemoveDeliverer } from '#jobs/queues/deliverers/storeHost'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
@@ -94,10 +95,15 @@ import { storeEventKind } from '#db/scoped/storeEvents'
 import { deleteOldDeliveries } from '#db/scoped/webhooks'
 import { webhookDeliveryKind, webhookReleaseKind } from '#saas/webhooks/index'
 import { appNoticeKind } from '#saas/apps/index'
+import { storeHostSyncKind, storeHostsRegisterKind, storeHostsRemoveKind } from '#saas/domains/index'
 import { webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDeliverer } from '#jobs/queues/deliverers/webhooks'
 import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
+import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
+import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
+import { githubConfigured } from '#integrations/github/index'
+import { storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
 import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
@@ -143,6 +149,9 @@ interface Env extends Record<string, unknown> {
   IMAGES?: ImagesBinding | undefined
   // Wakes the outbox relay after a request (api/README.md §5); unbound, cron delivers.
   OUTBOX_WAKE?: Queue<OutboxWake> | undefined
+  // SAAS §5 steps 4–8 and the bucket its templates and previews are in; unbound, a store's first template choice waits in the outbox.
+  CREATE_STOREFRONT?: Workflow<CreateStorefrontParams> | undefined
+  STOREFRONT_SITES?: R2Bucket | undefined
 }
 
 // Built once per isolate from configuration, like Stripe's client below.
@@ -199,7 +208,7 @@ const emailFor = (config: Config) => {
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
-const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null): Deliverers => {
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null): Deliverers => {
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
@@ -213,7 +222,10 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
-    'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
+    ...(cloudflare ? { [storeHostSyncKind]: storeHostSyncDeliverer(sql, cloudflare) } : {}),
+    [storeHostsRegisterKind]: storeHostsRegisterDeliverer(sql),
+    [storeHostsRemoveKind]: storeHostsRemoveDeliverer(sql),
+    'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
@@ -229,6 +241,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [webhookDeliveryKind]: webhookDeliveryDeliverer(sql, { lookup, secrets }),
     [webhookReleaseKind]: webhookReleaseDeliverer(sql),
     [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
+    ...(createStorefront ? { [storefrontCreateKind]: storefrontCreateDeliverer(createStorefront) } : {}),
   }
 }
 
@@ -488,7 +501,8 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
     if (standing.kind === 'limited') return tooManyRequests(standing.retryAfterSeconds)
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
-      allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
+      allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
+      allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
@@ -651,7 +665,9 @@ export const wakeOutbox = (request: Request, response: Response, env: Env, ctx: 
 
 // Delivers what is due (api/README.md §5): the every-minute cron and each batch of wakes both call it.
 const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise<void> => {
-  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null)))
+  // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
+  const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
+  const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront))
   for (const [outcome, count] of Object.entries(counts)) {
     if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
   }
@@ -812,6 +828,9 @@ const runCron = async (cron: string, env: Env): Promise<void> => {
     for (const job of jobs) await job(sql, config, env)
   })
 }
+
+// Wrangler finds a Workflow's class among the Worker's exports (wrangler.jsonc `workflows`).
+export const CreateStorefront = createStorefrontWorkflow(getClient)
 
 export default {
   async fetch(request, env, ctx) {

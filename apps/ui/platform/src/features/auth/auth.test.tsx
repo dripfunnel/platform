@@ -2,9 +2,11 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import { groupedKey } from '../../api/auth'
 import { messages } from '../../messages'
 import { AcceptInvite } from './AcceptInvite'
-import { acceptInviteStates, credentialsView, sampleInvitation, signInReducer, signInStates, type AcceptInviteState } from './authStates'
+import { acceptInviteStates, credentialsView, sampleInvitation, sampleSecret, sampleUri, signInReducer, signInStates, type AcceptInviteState } from './authStates'
+import { qrPath } from './QrCode'
 import { ResetPassword } from './ResetPassword'
 import { refusalWords, SignIn } from './SignIn'
 
@@ -113,6 +115,15 @@ describe('accepting an invitation', () => {
     const required = textOf(await inviteAt('required'))
     expect(required).toContain(invite.twoFactor.bodyRequired)
     expect(required).not.toContain(invite.twoFactor.skip)
+  })
+
+  it('draws the QR code of the issued otpauth URI, with its label, beside the typed key', async () => {
+    const html = await inviteAt('twoFactor')
+    const { d } = qrPath(sampleUri)
+    expect(html).toMatch(new RegExp(`<svg[^>]*role="img"[^>]*aria-label="${invite.twoFactor.qrLabel}"`))
+    expect(html).toContain(`d="${d}"`)
+    expect(textOf(html)).toContain(invite.twoFactor.keyLabel)
+    expect(textOf(html)).toContain(groupedKey(sampleSecret))
   })
 
   it('says sign-in is not connected rather than blaming the link', async () => {

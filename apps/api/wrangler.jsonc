@@ -47,11 +47,18 @@
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }],
       // Wrangler's local R2. dev has its own bucket and binding; prod gains one once its bucket exists
       // (THIRD-PARTY-ACCESS.md §2.1): a binding to a missing bucket fails the deploy.
-      "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "dripfunnel-assets-local" }],
+      "r2_buckets": [
+        { "binding": "ASSETS", "bucket_name": "dripfunnel-assets-local" },
+        // The templates and every store's preview and build folders (storefront LIVE-SHOP.md §2). dev and prod gain
+        // it and the Workflow below once the bucket and the GitHub App exist (#287, #317).
+        { "binding": "STOREFRONT_SITES", "bucket_name": "storefront-sites-local" }
+      ],
       "queues": {
         "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-local" }],
         "consumers": [{ "queue": "dripfunnel-outbox-wake-local", "max_batch_size": 100, "max_batch_timeout": 1 }]
-      }
+      },
+      // SAAS §5 steps 4–8 (jobs/workflows/create-storefront.ts).
+      "workflows": [{ "name": "dripfunnel-create-storefront-local", "binding": "CREATE_STOREFRONT", "class_name": "CreateStorefront" }]
     },
     // `wrangler deploy --env dev`, from .github/workflows/dev.yml, on every push to `dev`
     // (ARCHITECTURE.md §6). Same dev Cloudflare account as feature environments (selected

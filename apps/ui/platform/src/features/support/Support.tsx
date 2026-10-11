@@ -44,7 +44,7 @@ export const Support = ({ tab, openCount, children }: { tab: SupportTab; openCou
       tabs={supportTabs}
       labels={{ users: words.tabs.users, sessions: fill(words.tabs.sessions, { count: String(openCount) }) }}
       current={tab}
-      link={(target, props) => <Link to="/support" search={target === 'users' ? {} : { tab: target }} {...props} />}
+      link={(target, props) => <Link to="/support" search={{ tab: target === 'users' ? undefined : target }} activeOptions={{ explicitUndefined: true }} {...props} />}
     />
     {children}
   </div>

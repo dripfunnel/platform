@@ -6,19 +6,22 @@ import { messages } from '../../messages'
 import { CompanyTab } from './CompanyTab'
 import { PayoutTab } from './PayoutTab'
 import { SecurityTab } from './SecurityTab'
+import { Settings } from './Settings'
+import { settingsTabs } from './settingsHarness'
 import { company, team } from './settingsTestData'
 import { actionOnConfirm, dialogFor, TeamTab } from './TeamTab'
-import { inviteFrom, isLastOwner, removeRefusal, roleRefusal, rolesFor, transferCandidates } from './teamRules'
+import { inviteFrom, inviteRefusal, isLastOwner, removeRefusal, roleRefusal, rolesFor, transferCandidates } from './teamRules'
 import { partnerRoles } from '../shell/partnerRoles'
 
 const words = messages.settings
 const noop = () => undefined
 const textOf = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ')
-const render = async (element: ReactNode) => {
-  const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: ['/settings'] }) })
+const render = async (element: ReactNode, at = '/settings') => {
+  const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: [at] }) })
   await router.load()
   return renderToString(<RouterProvider router={router} />)
 }
+const currentTabs = (html: string) => [...html.matchAll(/<a[^>]*aria-current="page"[^>]*>([^<]*)<\/a>/g)].map((match) => match[1])
 const byId = (id: string) => {
   const found = team.find((m) => m.id === id)
   if (!found) throw new Error(id)
@@ -58,6 +61,9 @@ describe('Team', () => {
     expect(roleRefusal({ ...byId('u1'), you: false }, team, 'partner-admin')).toBe(words.team.refused.ownerRole)
     expect(roleRefusal({ ...byId('u1'), you: false }, team, 'partner-owner')).toBe(words.team.refused.lastOwner)
     expect(removeRefusal(byId('u3'), team, 'partner-support')).toBe(words.team.refused.manage)
+    expect(inviteRefusal(byId('u4'), 'partner-admin')).toBeNull()
+    expect(inviteRefusal({ ...byId('u4'), role: 'partner-owner' }, 'partner-admin')).toBe(words.team.refused.ownerRole)
+    expect(inviteRefusal(byId('u4'), 'partner-finance')).toBe(words.team.refused.manage)
     expect(rolesFor('partner-admin', partnerRoles)).not.toContain('partner-owner')
     expect(rolesFor('partner-owner', partnerRoles)).toContain('partner-owner')
     expect(transferCandidates(team).map((m) => m.id)).toEqual(['u2', 'u3'])
@@ -73,6 +79,25 @@ describe('Team', () => {
     expect(support).toContain(words.team.refused.manage)
     expect(support).not.toContain(words.team.resend)
     expect(textOf(await teamTab('partner-owner', true))).toContain(words.team.refused.manage)
+  })
+
+  it('offers a pending invitation Resend and Revoke, never Remove, and an accepted member Remove, all one size', async () => {
+    const rowOf = (html: string, id: string) => html.split('<tr').find((row) => row.includes(team.find((m) => m.id === id)?.email ?? id)) ?? ''
+    const buttons = (row: string) => [...row.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((match) => match[1])
+    const owner = await teamTab('partner-owner')
+    expect(buttons(rowOf(owner, 'u4'))).toEqual([words.team.resend, words.team.revoke])
+    expect(buttons(rowOf(owner, 'u2'))).toEqual([words.team.remove])
+    const actions = [...owner.matchAll(/<span class="df-settings-row-actions">([\s\S]*?)<\/span><\/td>/g)].map((match) => match[1] ?? '').join('')
+    expect([...new Set([...actions.matchAll(/<button[^>]*class="([^"]*)"/g)].map((match) => match[1]))]).toEqual(['df-button'])
+    const support = rowOf(await teamTab('partner-support'), 'u4')
+    expect(buttons(support)).toEqual([words.team.revoke])
+    expect(textOf(support)).toContain(words.team.refused.manage)
+    const ownerInvite = await render(<TeamTab team={team.map((m) => (m.id === 'u4' ? { ...m, role: 'partner-owner' as const } : m))} role="partner-admin" session={null} readOnly={false} busy={false} more={{ show: false, busy: false, failed: false }} onRun={() => Promise.resolve(true)} onMore={noop} />)
+    expect(buttons(rowOf(ownerInvite, 'u4'))).toEqual([words.team.revoke])
+    expect(textOf(rowOf(ownerInvite, 'u4'))).toContain(words.team.refused.ownerRole)
+    const staffSession = await render(<TeamTab team={team.map((m) => (m.id === 'u4' ? { ...m, role: 'partner-owner' as const } : m))} role="partner-owner" session="impersonation" readOnly={false} busy={false} more={{ show: false, busy: false, failed: false }} onRun={() => Promise.resolve(true)} onMore={noop} />)
+    expect(buttons(rowOf(staffSession, 'u4'))).toEqual([words.team.resend, words.team.revoke])
+    expect(buttons(rowOf(await teamTab('partner-owner', true), 'u4'))).toEqual([words.team.revoke])
   })
 
   it('shows a staff session up front that it never changes who is Owner', async () => {
@@ -152,5 +177,12 @@ describe('Security', () => {
     const html = await render(<SecurityTab required={false} team={team} complete blocked={words.team.refusals.BLOCKED_WHILE_IMPERSONATING} isOwner busy={false} session={null} onChange={noop} />)
     expect(html).toMatch(/<input[^>]*disabled=""/)
     expect(textOf(html)).toContain(words.team.refusals.BLOCKED_WHILE_IMPERSONATING)
+  })
+})
+
+describe('Settings tabs', () => {
+  it.each(settingsTabs)('marks only %s as the open tab', async (tab) => {
+    const html = await render(<Settings tab={tab} readOnly={false}>{null}</Settings>, tab === 'company' ? '/settings' : `/settings?tab=${tab}`)
+    expect(currentTabs(html)).toEqual([words.tabs[tab]])
   })
 })

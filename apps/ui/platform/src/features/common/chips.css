@@ -1,0 +1,32 @@
+/* The active-filter chips of the Stores list and the Activity log, link or button alike
+   (designs/DF Platform Prototype.dc.html). Outranks list.css's `.df-list a` on specificity. */
+
+.df-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-list .df-chips .df-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  height: 28px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-info-border);
+  border-radius: 999px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.df-list .df-chips .df-chip:hover {
+  border-color: var(--df-color-info);
+  color: var(--df-color-info);
+  text-decoration: none;
+}

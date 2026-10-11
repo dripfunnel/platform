@@ -1,6 +1,7 @@
 import type { StoreRow, StoreStatus } from '#db/schema/saas'
 import { updateStoreStatus } from '#db/scoped/stores'
 import type { ScopedSql } from '#db/scoped/index'
+import { queueStoreHostSync } from '#saas/domains/index'
 
 // SAAS.md §4.2. Suspended keeps the status it had, so Restore puts it back exactly (decided on
 // #20); only a person suspends, with a reason.
@@ -60,6 +61,8 @@ export const transitionStore = async (tx: ScopedSql, store: StoreRow, change: St
       break
     case 'closed':
       await updateStoreStatus(tx, store.id, { status: 'closed', closedAt: now })
+      // Each hostname past the first 100 is billed (LIVE-SHOP §6), so a closed store's goes.
+      await queueStoreHostSync(tx, { partnerId: store.partner_id, storeId: store.id }, 'closed')
       break
   }
   return { ok: true, status: change.to }

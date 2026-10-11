@@ -37,6 +37,7 @@ import { registerDevelopers } from './developers'
 import { registerWebhooks } from './webhooks'
 import { registerApps } from './apps'
 import { registerBilling } from './billing'
+import { registerPricing } from './planPricing'
 
 export type { StoreContext } from './access'
 
@@ -47,6 +48,7 @@ builder.queryFields((t) => ({
   health: t.string({ extensions: { access: { api: 'store', scope: 'public', permission: null } }, resolve: () => 'ok' }),
 }))
 registerShell(builder)
+registerPricing(builder)
 registerProfile(builder)
 registerPeople(builder)
 registerProducts(builder)

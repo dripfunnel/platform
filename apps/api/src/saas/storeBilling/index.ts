@@ -11,7 +11,7 @@ import { countStoreProducts } from '#db/scoped/catalog'
 import { countStaffSeats } from '#db/scoped/people'
 import { countLiveSuppliers } from '#db/scoped/suppliers'
 import { selectCurrentVersions } from '#db/scoped/partnerPlans'
-import { planKeyDefs, UNLIMITED } from '#db/scoped/planKeys'
+import { planValuesOf, UNLIMITED } from '#db/scoped/planKeys'
 import { selectStoreAccount } from '#db/scoped/storeAccount'
 import { selectStoreForUpdate } from '#db/scoped/stores'
 import {
@@ -205,7 +205,6 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
         const monthly = priceOf(v?.prices ?? [], sub.currency, 'month')
         const yearly = priceOf(v?.prices ?? [], sub.currency, 'year')
         if (monthly === null && yearly === null) return []
-        const values = v?.entitlements ?? {}
         return [
           {
             id: p.id,
@@ -214,12 +213,7 @@ export const createStoreBillingService = ({ sql, caller, facts, activity, stripe
             current: p.id === sub.plan_id,
             monthly: monthly === null ? null : money(monthly, sub.currency),
             yearly: yearly === null ? null : money(yearly, sub.currency),
-            values: planKeyDefs.flatMap((d) => {
-              const value = (values as Record<string, boolean | number | undefined>)[d.key]
-              if (value === undefined) return []
-              const amount = typeof value === 'number' ? value : null
-              return [{ key: d.key, kind: d.kind, enabled: typeof value === 'boolean' ? value : null, amount: amount === UNLIMITED ? null : amount, unlimited: amount === UNLIMITED }]
-            }),
+            values: planValuesOf(v?.entitlements ?? {}),
           },
         ]
       })

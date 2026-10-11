@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
@@ -90,6 +91,18 @@ describe('Branding', () => {
     expect(text).toContain(words.fixContrast)
     const passing = await view({ draft: { ...original, look: { ...original.look, productName: 'Northstar Stores' } } })
     expect(passing).toMatch(/<button[^>]*class="df-button df-button--primary"(?! disabled)[^>]*>Publish…<\/button>/)
+  })
+
+  it('keeps Discard and a refused Publish… on one line, with the reason announced on a row of its own beneath them', async () => {
+    const original = draftOf(northstarBranding['partner-owner'])
+    const html = await view({ draft: { ...original, look: { ...original.look, productName: '' } } })
+    const bar = /<div role="status" class="df-brand-unpublished">([\s\S]*?)<\/div><div class="df-brand-layout">/.exec(html)?.[1] ?? ''
+    const reasonId = /<button[^>]*disabled=""[^>]*aria-describedby="([^"]+)"[^>]*>Publish…<\/button>/.exec(bar)?.[1]
+    expect(bar).toContain(`<p id="${reasonId}">${words.fixFields}</p>`)
+    // jsdom has no layout: the bar's grid gives the denied control's reason its own row (#366).
+    const css = readFileSync(new URL('./branding.css', import.meta.url), 'utf8').replace(/\s+/g, ' ')
+    expect(css).toContain('.df-brand-unpublished .df-denied { display: contents; }')
+    expect(css).toMatch(/\.df-brand-unpublished \.df-denied p \{ grid-column: 1 \/ -1;/)
   })
 
   it('states what a publish changes, and words each refusal with the API’s fix where it has one', () => {

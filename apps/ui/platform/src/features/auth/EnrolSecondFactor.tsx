@@ -4,8 +4,9 @@ import { enrolSecondFactor, groupedKey, skipSecondFactor, startEnrolment, type A
 import { messages } from '../../messages'
 import './auth.css'
 import { AuthFrame } from './AuthFrame'
-import { sampleSecret } from './authStates'
+import { sampleSecret, sampleUri } from './authStates'
 import { CodeField } from './CodeField'
+import { QrCode } from './QrCode'
 
 const words = messages.acceptInvite.twoFactor
 
@@ -30,7 +31,8 @@ const codeWords = (code: AuthCode): string => {
 // Set up an authenticator app: the API issues the secret once, then checks a code from it
 // (apps/api src/apis/platform/auth.ts `enrol`). The session it belongs to is the cookie's.
 export const EnrolSecondFactor = ({ required, step, finishLabel, sample, onDone }: EnrolSecondFactorProps) => {
-  const [secret, setSecret] = useState<string | null>(sample ? sampleSecret : null)
+  const [issuedKey, setIssuedKey] = useState<{ secret: string; uri: string } | null>(sample ? { secret: sampleSecret, uri: sampleUri } : null)
+  const secret = issuedKey?.secret ?? null
   // The enrol session lapsed or never existed: only signing in again starts a new one.
   const [stale, setStale] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +47,7 @@ export const EnrolSecondFactor = ({ required, step, finishLabel, sample, onDone 
     issued.current ??= startEnrolment()
     void issued.current.then((result) => {
       if (!isCurrent()) return
-      if (result.ok) return setSecret(result.secret)
+      if (result.ok) return setIssuedKey({ secret: result.secret, uri: result.uri })
       issued.current = null
       if (result.code === 'INVALID_CREDENTIALS') return setStale(true)
       setUnloaded(true)
@@ -101,9 +103,13 @@ export const EnrolSecondFactor = ({ required, step, finishLabel, sample, onDone 
     <AuthFrame title={words.title} body={required ? words.bodyRequired : words.bodyOptional} error={error}>
       {step && <p className="df-auth-step">{step}</p>}
       <div className="df-auth-enrol">
-        <div className="df-auth-qr" role="img" aria-label={words.qrLabel}>
-          {words.qrPlaceholder}
-        </div>
+        {issuedKey ? (
+          <QrCode value={issuedKey.uri} label={words.qrLabel} />
+        ) : (
+          <div className="df-auth-qr" aria-hidden="true">
+            {!unloaded && <div className="df-skeleton" />}
+          </div>
+        )}
         <div className="df-auth-key">
           <span>{words.keyLabel}</span>
           {secret ? <code>{groupedKey(secret)}</code> : !unloaded && <div className="df-skeleton" aria-hidden="true" />}
