@@ -90,3 +90,15 @@
 .df-sign-in-card .df-skeleton {
   height: 44px;
 }
+
+.df-sign-in-card .df-auth-qr .df-skeleton {
+  width: 100%;
+  height: 100%;
+}
+
+/* Dark modules on white in either theme: authenticator apps can't read an inverted code. */
+.df-auth-qr--code {
+  border: 0;
+  background: #ffffff;
+  fill: var(--df-color-ink);
+}
