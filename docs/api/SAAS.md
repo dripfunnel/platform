@@ -354,7 +354,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   and nothing checks it until the feature ships. Enforced today: the original 13 and badges,
   FAQs and related products, product video, spreadsheet import and Shopify import, and since #320 `live_offers`, `group_offers` (customer-group and chosen-customer offers,
   tiers, single-use codes) and `offer_results`; since #321 `cart_reminders` (decided there: `youSend` sends by hand only,
-  one a cart; `onePerCart` sends the first reminder automatically; `automatic` sends all three, with codes and WhatsApp); since #338 `blog` (writing a post; a post kept through a downgrade can still be deleted, and plan versions 0070 wrote keep its stored off until the partner turns it on); a version
+  one a cart; `onePerCart` sends the first reminder automatically; `automatic` sends all three, with codes and WhatsApp); since #338 `blog` (writing a post; without it the Shop API shows no posts, paused and never deleted, and a post kept through a downgrade can still be deleted, and plan versions 0070 wrote keep its stored off until the partner turns it on); a version
   written before the five catalogue rows existed starts with them on, and one written before `live_offers` with it
   unlimited, so no store loses a section or an offer.
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
@@ -693,9 +693,9 @@ SaaS layer owns the state and the rules:
   `publish_run` from the Workflow (`jobs/workflows/publish-storefront.ts`), the build's run and
   the switch of the live pointer, with the gate's report. **Built on #317:** queued → deploying → live | failed, the
   switch, one running and one queued run per store, and go back (storefront LIVE-SHOP §4 steps 1 and 9); **on #483**
-  building (frozen and dispatched) and checking (a failing report the run decides on), `build_minutes`, and
-  `allowanceUsed`, which counts only presses that went live. **Built on #484:** the post-deploy checks and rolled back
-  (LIVE-SHOP §4 step 10); a switched run stays deploying until its checks end. A refused or rolled-back publish keeps the previous
+  building (frozen and dispatched) and checking (a failing report the run decides on: repair and bisect for a design
+  publish, then refuse), `build_minutes`, `publishBefore`, and `allowanceUsed`, which counts only presses that went live. **Built on #484:** the post-deploy checks and rolled back
+  (LIVE-SHOP §4 step 10); a switched run stays deploying until its checks end, and a rolled-back press uses no allowance. A refused or rolled-back publish keeps the previous
   live site, says so plainly, and **never uses an allowance**.
 - **Who pays for checking**: repair attempts and gate runs are the platform's cost, recorded
   for §12 and never counted on the merchant's meters (decided 2026-10-08 on #470).

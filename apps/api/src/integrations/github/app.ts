@@ -11,6 +11,13 @@ export const appPermissions = { administration: 'write', contents: 'write', work
 /** GitHub didn't answer, answered 5xx, throttled us, or refused our credentials: nothing to fix in the request, try later. */
 export class GitHubUnavailable extends Error {
   override name = 'GitHubUnavailable'
+  /** GitHub's own status when it answered, so a caller can tell a refusal it may repeat from no answer at all. */
+  constructor(
+    message: string,
+    readonly status: number | null = null,
+  ) {
+    super(message)
+  }
 }
 
 /** GitHubUnavailable's words when no answer came at all, so a caller can tell it from a 5xx. */
@@ -41,7 +48,10 @@ export interface Answer {
 }
 
 /** One installation token's worth of calls; `allow` names the 4xx statuses the caller reads instead of a refusal. */
-export type GitHubCall = (method: Method, path: string, body?: unknown, allow?: readonly number[]) => Promise<Answer>
+export type GitHubCall = (method: Method, path: string, body?: unknown, allow?: readonly number[], options?: CallOptions) => Promise<Answer>
+
+/** `once`: a request that mustn't happen twice (a workflow dispatch), sent again only after a 401, which GitHub never acted on. */
+export type CallOptions = { once?: boolean }
 
 export interface GitHubApp {
   session: () => GitHubCall
@@ -88,7 +98,7 @@ export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl =
   let key: Promise<CryptoKey> | undefined
 
   /** `authorize(true)` after a 401: an installation token can expire or be revoked mid-session, so the retry gets a fresh one. */
-  const send = async (method: Method, path: string, authorize: (renew: boolean) => Promise<string>, body: unknown, allow: readonly number[]): Promise<Answer> => {
+  const send = async (method: Method, path: string, authorize: (renew: boolean) => Promise<string>, body: unknown, allow: readonly number[], once = false): Promise<Answer> => {
     let renew = false
     for (let attempt = 0; ; attempt++) {
       const authorization = await authorize(renew)
@@ -108,7 +118,8 @@ export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl =
         throw new GitHubRefused(response.status)
       }
       renew = response?.status === 401
-      if (attempt + 1 >= attempts) throw new GitHubUnavailable(response ? `GitHub answered ${response.status}` : noAnswer)
+      const last = once ? !(attempt === 0 && response?.status === 401) : attempt + 1 >= attempts
+      if (last) throw new GitHubUnavailable(response ? `GitHub answered ${response.status}` : noAnswer, response?.status ?? null)
       await sleep(retryAfter(response, attempt))
     }
   }
@@ -140,7 +151,7 @@ export const createGitHubApp = ({ appId, installationId, privateKey, fetchImpl =
         })
         return `Bearer ${current}`
       }
-      return (method, path, body, allow = []) => send(method, path, authorize, body, allow)
+      return (method, path, body, allow = [], options = {}) => send(method, path, authorize, body, allow, options.once ?? false)
     },
   }
 }

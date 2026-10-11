@@ -26,6 +26,8 @@ describe('the Shop API’s edge cache', () => {
   it('caches only a query of catalogue fields', () => {
     expect(readsCatalogueOnly('{ products { nodes { id } } menu { label } }', null)).toBe(true)
     expect(readsCatalogueOnly('{ health }', null)).toBe(false)
+    // Content pages and posts are cached with the catalogue, whose version their writes move (#338).
+    expect(readsCatalogueOnly('{ contentPages { nodes { slug } } contentPage(slug: "faq") { title } blogPosts { nodes { slug } } blogPost(slug: "x") { title } }', null)).toBe(true)
     expect(readsCatalogueOnly('{ store { name } __typename }', null)).toBe(false)
     expect(readsCatalogueOnly('mutation { addToCart }', null)).toBe(false)
     expect(readsCatalogueOnly('{ cart { id } }', null)).toBe(false)

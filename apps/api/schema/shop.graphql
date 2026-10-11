@@ -38,9 +38,13 @@ type PageInfo {
 
 type Query {
   account: ShopAccount
+  blogPost(slug: String!): ShopBlogPost
+  blogPosts(after: String, before: String, first: Int, tag: String): ShopBlogPostPage
   cart: ShopCart
   collection(slug: String!): ShopCollection
   collections(after: String, before: String, first: Int): ShopCollectionPage
+  contentPage(slug: String!): ShopContentPage
+  contentPages(after: String, before: String, first: Int, inMenu: Boolean): ShopContentPagePage
   giftCardBalance(number: String!): ShopGiftCardBalance
   health: String
   menu: [ShopMenuItem!]
@@ -103,6 +107,25 @@ type ShopAppliedGiftCard {
 type ShopBadge {
   label: String
   tone: String
+}
+
+type ShopBlogPost {
+  author: String
+  body: [ShopContentBlock!]
+  cover: Image
+  id: ID
+  path: String
+  publishedAt: String
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  tags: [String!]
+  title: String
+}
+
+type ShopBlogPostPage {
+  nodes: [ShopBlogPost!]
+  pageInfo: PageInfo
 }
 
 type ShopCart {
@@ -194,6 +217,37 @@ type ShopCompliance {
   field: String
   region: String
   value: String
+}
+
+type ShopContentBlock {
+  alt: String
+  image: Image
+  items: [ShopContentQuestion!]
+  kind: String
+  productSlugs: [String!]
+  text: String
+}
+
+type ShopContentPage {
+  body: [ShopContentBlock!]
+  id: ID
+  inMenu: Boolean
+  path: String
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  title: String
+  updatedAt: String
+}
+
+type ShopContentPagePage {
+  nodes: [ShopContentPage!]
+  pageInfo: PageInfo
+}
+
+type ShopContentQuestion {
+  answer: String
+  question: String
 }
 
 type ShopCurrency {

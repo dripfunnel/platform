@@ -48,6 +48,13 @@ const inputSchema = z.strictObject({
   coverAssetId: z.uuid().nullish(),
 })
 
+const translationSchema = z.strictObject({
+  title: words(200).pipe(z.string().min(1)),
+  body: z.array(blockSchema).max(maxBlocks),
+  seoTitle: optionalWords(60),
+  seoDescription: optionalWords(160),
+})
+
 export class ContentInvalid extends Error {
   constructor(readonly field: string) {
     super(`content: ${field}`)
@@ -104,6 +111,21 @@ export const cleanContent = (kind: ContentKind, input: unknown): CleanContent =>
     tags: [...new Set(v.tags ?? [])],
     coverAssetId: v.coverAssetId ?? null,
   }
+}
+
+export interface CleanTranslation {
+  title: string
+  body: ContentBlock[]
+  seoTitle: string | null
+  seoDescription: string | null
+}
+
+/** Another language's words for a page or post: its own blocks, held to the kind as the main language's are. */
+export const cleanTranslation = (kind: ContentKind, input: unknown): CleanTranslation => {
+  const parsed = translationSchema.safeParse(input)
+  if (!parsed.success) throw new ContentInvalid(parsed.error.issues[0]?.path.join('.') || 'input')
+  if (kind === 'post' && parsed.data.body.some((b) => b.kind === 'form')) throw new ContentInvalid('kind')
+  return parsed.data
 }
 
 /** The files and products a body and cover name, each once. */

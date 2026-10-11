@@ -1,10 +1,11 @@
 import type postgres from 'postgres'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { markDispatched, selectAssetsBuild, selectBuildInput, selectSnapshotSource, unmarkDispatched } from '#db/scoped/publishing'
-import { GitHubRefused, GitHubUnavailable, noAnswer } from '#integrations/github/index'
+import { GitHubRefused, GitHubUnavailable } from '#integrations/github/index'
 import { selectShopStore } from '#db/scoped/shop'
 import { selectGuardContext, type GuardContextRow } from '#db/scoped/studio'
 import type { GuardContext } from '#integrations/sandbox/index'
+import { storeContentPaths } from '#engine/modules/content/index'
 import { shopsHostOf } from '#saas/domains/storeHosts'
 import { assetsFolder, draftBundle, snapshotFile, sourceBundle } from './layout'
 import type { SitesBucket } from './templates'
@@ -35,10 +36,9 @@ export interface FreezeDeps {
 }
 
 /** A theme writes one content folder per language (`content/en`), which core's i18n reads for en-US and en-IN alike. */
-export const guardContextFor = (row: GuardContextRow): GuardContext => ({
+export const guardContextFor = (row: GuardContextRow, usedPaths: string[]): GuardContext => ({
   locales: [...new Set([row.main_language, ...row.languages].map((l) => l.split('-')[0] ?? l))],
-  // Content pages and posts (SAPI 24) don't exist yet, so no path is taken but core's (ARCHITECTURE §3.1).
-  usedPaths: [],
+  usedPaths,
   mediaIds: row.media_ids,
   brand: { name: row.name, tagline: null, email: null, phone: null, address: [], socialLinks: [] },
 })
@@ -74,7 +74,7 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string,
       address: { street: store.address.street ?? null, city: store.address.city ?? null, region: store.address.region ?? null, postal: store.address.postal ?? null, country: store.country },
     },
     poweredBy: source.powered_by,
-    guard: guardContextFor(guard),
+    guard: guardContextFor(guard, await storeContentPaths(tx, storeId)),
     csp: { assetOrigin, mediaOrigins: [], analytics: [], payments: [] },
     assetBase: assetOrigin ? `${assetOrigin}/${assetsFolder(storeId, assetsBuildId)}` : null,
   }
@@ -117,10 +117,10 @@ export const dispatchBuild = async (deps: FreezeDeps, storeId: string, buildId: 
   try {
     started = await deps.dispatch(repo, buildId)
   } catch (error) {
-    // GitHub answered with a failure, so no run started and the step's retry may ask again; with no answer at all a run
-    // may have started, so the start stands and the report, or the build id's 2 hours, decides.
-    const answered = error instanceof GitHubRefused || (error instanceof GitHubUnavailable && error.message !== noAnswer)
-    if (answered) await withSystemScope(deps.sql, (tx) => unmarkDispatched(tx, storeId, buildId))
+    // Only a definite refusal (a 4xx, or a 401 or 429 GitHub never acted on) means no run started, so the retry may ask
+    // again; a 5xx or no answer at all may hide a started run, so the start stands and the report, or the 2 hours, decides.
+    const refused = error instanceof GitHubRefused || (error instanceof GitHubUnavailable && (error.status === 401 || error.status === 429))
+    if (refused) await withSystemScope(deps.sql, (tx) => unmarkDispatched(tx, storeId, buildId))
     throw error
   }
   if (!started) throw new FreezeRefused('no_repo')
