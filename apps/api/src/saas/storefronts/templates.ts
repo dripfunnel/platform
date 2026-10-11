@@ -8,7 +8,7 @@ import { isRepoPath, isThemePath } from './paths'
 
 /** The parts of an R2 binding the storefront steps use; R2Bucket is one. */
 export interface SitesBucket {
-  get: (key: string) => Promise<{ text: () => Promise<string>; arrayBuffer: () => Promise<ArrayBuffer>; httpMetadata?: { contentType?: string } } | null>
+  get: (key: string) => Promise<{ size: number; text: () => Promise<string>; arrayBuffer: () => Promise<ArrayBuffer>; httpMetadata?: { contentType?: string } } | null>
   put: (key: string, value: ArrayBuffer, options: { sha256: string; httpMetadata?: { contentType?: string } }) => Promise<{ checksums: { sha256?: ArrayBuffer } } | null>
   list: (options: { prefix: string; cursor?: string }) => Promise<{ objects: { key: string; uploaded: Date }[]; truncated: boolean; cursor?: string }>
   delete: (keys: string[]) => Promise<void>

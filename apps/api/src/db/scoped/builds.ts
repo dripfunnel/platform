@@ -66,13 +66,13 @@ export const selectUpload = async (tx: ScopedSql, storeId: string, buildId: stri
       select state, gate_digest, uploaded_at, upload_manifest, verified_at from publish_run where id = ${buildId} and store_id = ${storeId}`
   )[0] ?? null
 
-export const markVerified = async (tx: ScopedSql, buildId: string, at: Date): Promise<void> => {
-  await tx`update publish_run set verified_at = ${at} where id = ${buildId} and upload_manifest is not null and verified_at is null`
+export const markVerified = async (tx: ScopedSql, storeId: string, buildId: string, at: Date): Promise<void> => {
+  await tx`update publish_run set verified_at = ${at} where id = ${buildId} and store_id = ${storeId} and upload_manifest is not null and verified_at is null`
 }
 
-export const isUploaded = async (tx: ScopedSql, buildId: string): Promise<boolean> =>
-  (await tx<{ id: string }[]>`select id from publish_run where id = ${buildId} and uploaded_at is not null`).length > 0
+export const isUploaded = async (tx: ScopedSql, storeId: string, buildId: string): Promise<boolean> =>
+  (await tx<{ id: string }[]>`select id from publish_run where id = ${buildId} and store_id = ${storeId} and uploaded_at is not null`).length > 0
 
 /** The switch's guard: only a build whose every file was verified and copied goes live (LIVE-SHOP §4 step 9). */
-export const isVerified = async (tx: ScopedSql, buildId: string): Promise<boolean> =>
-  (await tx<{ id: string }[]>`select id from publish_run where id = ${buildId} and verified_at is not null`).length > 0
+export const isVerified = async (tx: ScopedSql, storeId: string, buildId: string): Promise<boolean> =>
+  (await tx<{ id: string }[]>`select id from publish_run where id = ${buildId} and store_id = ${storeId} and verified_at is not null`).length > 0

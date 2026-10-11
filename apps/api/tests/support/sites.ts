@@ -31,7 +31,7 @@ export const fakeSites = (): FakeSites => {
       const found = objects.get(key)
       if (!found) return null
       const copy = found.bytes.slice()
-      return { text: async () => new TextDecoder().decode(copy), arrayBuffer: async () => copy.buffer, ...(found.contentType ? { httpMetadata: { contentType: found.contentType } } : {}) }
+      return { size: copy.byteLength, text: async () => new TextDecoder().decode(copy), arrayBuffer: async () => copy.buffer, ...(found.contentType ? { httpMetadata: { contentType: found.contentType } } : {}) }
     },
     put: async (key, value, options) => {
       const digest = await sha256(value)

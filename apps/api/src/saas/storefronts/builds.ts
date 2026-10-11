@@ -221,9 +221,8 @@ const maxManifestBytes = maxBuildFiles * 9_000
 /** The staged manifest, read once; null when it is missing, too large or not one. */
 const stagedManifest = async (sites: SitesBucket, key: string): Promise<Manifest | null> => {
   const object = await sites.get(key)
-  if (!object) return null
+  if (!object || object.size > maxManifestBytes) return null
   const bytes = await object.arrayBuffer()
-  if (bytes.byteLength > maxManifestBytes) return null
   try {
     const parsed = manifestSchema.safeParse(JSON.parse(new TextDecoder().decode(bytes)))
     return parsed.success ? parsed.data : null

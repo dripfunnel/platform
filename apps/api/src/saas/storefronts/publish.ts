@@ -115,7 +115,7 @@ const verifyStep = async (deps: PublishDeps, p: PublishParams): Promise<string> 
 }
 
 const uploadedStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
-  withSystemScope(deps.sql, async (tx) => ((await isUploaded(tx, p.runId)) ? 'uploaded' : 'waiting'))
+  withSystemScope(deps.sql, async (tx) => ((await isUploaded(tx, p.storeId, p.runId)) ? 'uploaded' : 'waiting'))
 
 const switchStep = async (deps: PublishDeps, p: PublishParams): Promise<string> => {
   const switched = await withSystemScope(deps.sql, async (tx) => {
@@ -123,7 +123,7 @@ const switchStep = async (deps: PublishDeps, p: PublishParams): Promise<string> 
     const run = await selectRun(tx, p.runId)
     if (!storefront || !run || run.store_id !== p.storeId || run.state !== 'deploying') return null
     // The pointer moves only to a build whose every file was verified, whoever runs this step (LIVE-SHOP §4 step 9).
-    if (!(await isVerified(tx, run.id))) throw new BuildMissing('the build is not verified')
+    if (!(await isVerified(tx, run.store_id, run.id))) throw new BuildMissing('the build is not verified')
     const at = deps.now()
     const version = await switchLive(tx, run, storefront.live_build_id, at)
     await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `publish:${run.id}`, payload: { storeId: run.store_id, reason: 'publish' }, partnerId: run.partner_id, storeId: run.store_id })

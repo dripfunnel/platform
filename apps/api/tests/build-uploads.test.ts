@@ -362,6 +362,18 @@ const reads = (prefix: string) => {
   return () => get.mock.calls.map(([key]) => key).filter((key) => key.startsWith(prefix))
 }
 
+/** The staged object at `key` claims `size` bytes, as one swapped for a huge file would; counts reads of its body. */
+const swelled = (key: string, size: number) => {
+  const get = sites.get.bind(sites)
+  let bodyReads = 0
+  vi.spyOn(sites, 'get').mockImplementation(async (k) => {
+    const found = await get(k)
+    if (k !== key || !found) return found
+    return { ...found, size, arrayBuffer: async () => ((bodyReads += 1), found.arrayBuffer()) }
+  })
+  return () => bodyReads
+}
+
 const verifyDeps = () => ({ sql: db.sql, sites, assets, now: () => now })
 const uploadOf = (id: string) => db.sql<{ uploaded_at: Date | null; upload_manifest: unknown; verified_at: Date | null; state: string; error: string | null }[]>`
   select uploaded_at, upload_manifest, verified_at, state, error from publish_run where id = ${id}`.then((r) => r[0])
@@ -397,6 +409,14 @@ describe('"uploaded"', () => {
     expect(await refusal(reportUploaded(deps, missing.auth, missing.id))).toBe('manifest_refused')
   })
 
+  it('refuses a staged manifest too large to be one without reading it', async () => {
+    const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7103')
+    const bodyReads = swelled(`stores/${t.storeA2}/uploads/${id}/_manifest.json`, 500_000_000)
+    expect(await refusal(reportUploaded(deps, auth, id))).toBe('manifest_refused')
+    expect(bodyReads()).toBe(0)
+    expect(await uploadOf(id)).toMatchObject({ upload_manifest: null })
+  })
+
   it('is refused before a passing report and to another run', async () => {
     const id = await newBuild(t.storeA1)
     const auth = await token(claimsFor(repos.a1, '7201'))
@@ -428,6 +448,15 @@ describe('the copy into the build’s folders', () => {
     expect(await verifyRefusal(verifyUpload(verifyDeps(), t.storeA2, id))).toBe('file_mismatch')
     expect(sites.keys(`stores/${t.storeA2}/builds/${id}/`)).toEqual([])
     expect(assets.keys(`stores/${t.storeA2}/builds/${id}/`)).toEqual([])
+    expect((await uploadOf(id))?.verified_at).toBeNull()
+  })
+
+  it('refuses a staged file swapped for a larger one without reading it', async () => {
+    const { id, auth } = await stagedBuild(t.storeA1, repos.a1, '7402')
+    await reportUploaded(deps, auth, id)
+    const bodyReads = swelled(`stores/${t.storeA1}/uploads/${id}/index.html`, 500_000_000)
+    expect(await verifyRefusal(verifyUpload(verifyDeps(), t.storeA1, id))).toBe('file_mismatch')
+    expect(bodyReads()).toBe(0)
     expect((await uploadOf(id))?.verified_at).toBeNull()
   })
 

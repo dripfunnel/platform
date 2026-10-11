@@ -68,6 +68,8 @@ export const verifyUpload = async (deps: VerifyDeps, storeId: string, buildId: s
   for (const file of parsed.data.files) {
     const staged = await deps.sites.get(`${staging}${file.path}`)
     if (!staged) throw new UploadRefused('file_missing')
+    // Checked before reading: the credential outlives "uploaded", so a staged object can be swapped for a huge one.
+    if (staged.size !== file.size) throw new UploadRefused('file_mismatch')
     const bytes = await staged.arrayBuffer()
     if (bytes.byteLength !== file.size || hex(await crypto.subtle.digest('SHA-256', bytes)) !== file.sha256) throw new UploadRefused('file_mismatch')
     await copy(deps.sites, `${folder}${file.path}`, bytes, file.sha256, file.path)
@@ -79,5 +81,5 @@ export const verifyUpload = async (deps: VerifyDeps, storeId: string, buildId: s
   }
   const manifest = new TextEncoder().encode(JSON.stringify(parsed.data))
   await deps.sites.put(`${folder}${manifestName}`, manifest.buffer, { sha256: hex(await crypto.subtle.digest('SHA-256', manifest)), httpMetadata: { contentType: 'application/json' } })
-  await withSystemScope(deps.sql, (tx) => markVerified(tx, buildId, deps.now()))
+  await withSystemScope(deps.sql, (tx) => markVerified(tx, storeId, buildId, deps.now()))
 }
