@@ -112,7 +112,7 @@ beforeAll(async () => {
   }
   sites = fakeSites()
   assets = fakeSites()
-  deps = { sql: db.sql, keys: actionsKeys(fakeGitHub), audience, org: 'dripfunnel', r2: storefrontR2(parent, fakeCloudflare), buckets: { sites: 'storefront-sites', drafts: 'storefront-drafts' }, sites, wake: async (id) => void woken.push(id), now: () => now }
+  deps = { sql: db.sql, keys: actionsKeys(fakeGitHub), audience, org: 'dripfunnel', r2: storefrontR2(parent, fakeCloudflare), buckets: { sites: 'storefront-sites', drafts: 'storefront-drafts' }, sites, wake: async (id, event) => void woken.push(`${id}:${event}`), now: () => now }
 }, 60_000)
 
 afterAll(async () => {
@@ -132,6 +132,8 @@ describe('the OIDC check on every call', () => {
     expect(source.searchParams.get('X-Amz-Expires')).toBe('900')
     expect(new URL(answer.snapshot).pathname).toBe(`/storefront-drafts/snapshots/${t.storeA1}/${id}.json`)
     expect(answer.live).toBeNull()
+    // The commit and the build image the workflow needs (#483); a manual publish may change the look.
+    expect([answer.commit, answer.core, answer.strictLook]).toEqual(['a'.repeat(40), '1.4.0', false])
     expect(answer.expiresAt).toBe('2026-10-11T10:15:00.000Z')
     expect((await run(id))?.github_run_id).toBe('5001')
   })
@@ -201,8 +203,11 @@ describe('the report', () => {
   it('is kept once on the build, from the verified run only, and a retry of it is answered the same', async () => {
     const id = await newBuild(t.storeA1)
     const auth = await token(claimsFor(repos.a1, '5401'))
-    expect(await reportBuild(deps, auth, report(id))).toEqual({ passed: true })
-    expect(await reportBuild(deps, auth, report(id))).toEqual({ passed: true })
+    woken.length = 0
+    expect(await reportBuild(deps, auth, report(id))).toEqual({ passed: true, upload: true })
+    expect(await reportBuild(deps, auth, report(id))).toEqual({ passed: true, upload: true })
+    // Each answer wakes the build's publish run, which reads the verdict from the row.
+    expect(woken).toEqual([`${id}:reported`, `${id}:reported`])
     expect(await run(id)).toMatchObject({ state: 'deploying', github_run_id: '5401', gate_digest: 'd'.repeat(64), gate: { passed: true, checks: [{ name: 'contract', passed: true }, { name: 'axe', passed: true }] } })
     expect(await refusal(reportBuild(deps, auth, { ...report(id), digest: '0'.repeat(64) }))).toBe('wrong_state')
     expect(await refusal(reportBuild(deps, await token(claimsFor(repos.a1, '5402')), report(id)))).toBe('other_run')
@@ -214,11 +219,11 @@ describe('the report', () => {
     expect(await run(id)).toMatchObject({ state: 'building', gate: null, github_run_id: null })
   })
 
-  it('ends the build on a failing report, naming the checks that failed', async () => {
+  it('leaves a failing report to the publish run to decide (checking), naming the checks that failed', async () => {
     const id = await newBuild(t.storeA1)
     const auth = await token(claimsFor(repos.a1, '5501'))
-    expect(await reportBuild(deps, auth, report(id, false))).toEqual({ passed: false })
-    expect(await run(id)).toMatchObject({ state: 'failed', error: 'gate_failed' })
+    expect(await reportBuild(deps, auth, report(id, false))).toEqual({ passed: false, upload: false })
+    expect(await run(id)).toMatchObject({ state: 'checking', error: null })
     const [entry] = await db.sql<{ action: string; reason: string }[]>`select action, reason from activity_log where target_id = ${id} and action like 'storefront.build_%ed'`
     expect(entry).toEqual({ action: 'storefront.build_failed', reason: 'axe' })
   })
@@ -389,11 +394,11 @@ describe('"uploaded"', () => {
     woken.length = 0
     expect(await reportUploaded(deps, auth, id)).toEqual({ uploaded: true })
     expect(await uploadOf(id)).toMatchObject({ upload_manifest: manifest, verified_at: null, state: 'deploying' })
-    expect(woken).toEqual([id])
+    expect(woken).toEqual([`${id}:uploaded`])
     expect(await refusal(issueCredentials(deps, auth, id))).toBe('wrong_state')
     // A retry is answered the same and wakes the run again; nothing is read twice into the row.
     expect(await reportUploaded(deps, auth, id)).toEqual({ uploaded: true })
-    expect(woken).toEqual([id, id])
+    expect(woken).toEqual([`${id}:uploaded`, `${id}:uploaded`])
   })
 
   it('refuses a manifest whose digest isn’t the report’s, and a missing one, and the build never verifies', async () => {
@@ -469,18 +474,19 @@ describe('the copy into the build’s folders', () => {
 })
 
 describe('a build from its report to live', () => {
-  const steps = { do: (_: string, work: () => Promise<string>) => work(), waitForUpload: async () => undefined }
+  const steps = { do: (_: string, work: () => Promise<string>) => work(), waitFor: async () => undefined }
+  const publishDeps = () => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, dispatch: async () => true, now: () => now })
 
   it('goes live only after its upload is verified, through #317’s switch', async () => {
     const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7601')
     // Before "uploaded" the run waits, and with no upload the wait ends in a failure that leaves the live build alone.
     const waiting = await newBuild(t.storeA1)
-    await db.sql`update publish_run set state = 'deploying' where id = ${waiting}`
-    const timeout = { ...steps, waitForUpload: async () => Promise.reject(new Error('timed out')) }
-    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: waiting, storeId: t.storeA1 }, timeout)).toBe('failed')
+    await db.sql`update publish_run set state = 'deploying', gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${'d'.repeat(64)} where id = ${waiting}`
+    const timeout = { ...steps, waitFor: async () => Promise.reject(new Error('timed out')) }
+    expect(await runPublish(publishDeps(), { runId: waiting, storeId: t.storeA1 }, timeout)).toBe('failed')
     expect(await uploadOf(waiting)).toMatchObject({ state: 'failed', error: 'upload_timed_out' })
     await reportUploaded(deps, auth, id)
-    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: id, storeId: t.storeA2 }, steps)).toBe('live')
+    expect(await runPublish(publishDeps(), { runId: id, storeId: t.storeA2 }, steps)).toBe('live')
     expect((await db.sql<{ live_build_id: string }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`)[0]?.live_build_id).toBe(id)
     expect(sites.keys(`stores/${t.storeA2}/uploads/${id}/`)).toEqual([])
   })
@@ -490,7 +496,7 @@ describe('a build from its report to live', () => {
     const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7701')
     await reportUploaded(deps, auth, id)
     await putText(sites, `stores/${t.storeA2}/uploads/${id}/_next/static/app.3f2a.js`, 'fetch("https://evil.example")')
-    expect(await runPublish({ sql: db.sql, sites, assets, now: () => now }, { runId: id, storeId: t.storeA2 }, steps)).toBe('failed')
+    expect(await runPublish(publishDeps(), { runId: id, storeId: t.storeA2 }, steps)).toBe('failed')
     expect(await uploadOf(id)).toMatchObject({ state: 'failed', error: 'file_mismatch', verified_at: null })
     expect((await db.sql<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${t.storeA2}`)[0]?.live_build_id).toBe(before)
   })

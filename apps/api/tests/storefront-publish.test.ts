@@ -21,11 +21,11 @@ const commit = (n: number) => n.toString(16).padStart(40, '0')
 // No "uploaded" ever arrives in these tests while a run waits: the wait ends as the Workflow's timeout does.
 const steps = {
   do: (_: string, work: () => Promise<string>) => work(),
-  waitForUpload: async () => {
+  waitFor: async () => {
     throw new Error('waitForEvent timed out')
   },
 }
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, now: () => new Date() })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts, assetOrigin: null, dispatch: async () => true, now: () => new Date() })
 const actor: GoBackActor = { actorKind: 'person', actorId: null, actorLabel: 'Owner', api: 'store', requestId: null, ip: null, userAgent: null }
 
 beforeAll(async () => {
@@ -57,8 +57,8 @@ const uploaded = async (storeId: string, runId: string) => {
   const html = `<p>${runId}</p>`
   const files = [{ path: 'index.html', sha256: await putText(sites, `${stagingFolder(storeId, runId)}index.html`, html), size: html.length }]
   await db.sql`
-    update publish_run set gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(files)}, uploaded_at = now(),
-      upload_manifest = ${db.sql.json({ files })} where id = ${runId}`
+    update publish_run set state = 'deploying', started_at = now(), gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(files)},
+      uploaded_at = now(), upload_manifest = ${db.sql.json({ files })} where id = ${runId}`
 }
 const publishQueue = (storeId: string) => db.sql<{ payload: { runId: string } }[]>`select payload from outbox where kind = 'storefront.publish' and store_id = ${storeId} order by created_at`
 const live = async (storeId: string) => (await db.sql<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${storeId}`)[0]?.live_build_id ?? null
@@ -139,6 +139,8 @@ describe('a publish', () => {
     const before = await live(t.storeA1)
     const runId = runIdOf(await start(t.storeA1, 3))
     await putText(sites, `${stagingFolder(t.storeA1, runId)}index.html`, 'staged')
+    // Its report passed, then nothing was uploaded.
+    await db.sql`update publish_run set state = 'deploying', started_at = now(), gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${'d'.repeat(64)} where id = ${runId}`
     expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, steps)).toBe('failed')
     expect(await runState(runId)).toEqual({ state: 'failed', error: 'upload_timed_out' })
     expect(await live(t.storeA1)).toBe(before)
