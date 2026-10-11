@@ -66,7 +66,8 @@ export const indexable = (route: PageRoute): boolean => route === 'home' || rout
 export const fallbackPath = (route: CoreRoute) => `/_fallback/${route}/`
 
 const routeNames: Partial<Record<PageRoute, string>> = { orderConfirmation: 'order confirmation', signIn: 'sign-in', forgotPassword: 'forgot password', resetPassword: 'reset password', accountAddresses: 'addresses', accountOrders: 'orders', accountOrder: 'order', notFound: 'not found' }
-const pageName = (p: { path: string; route: PageRoute }) => (p.route === 'custom' ? `page ${p.path}` : `${routeNames[p.route] ?? p.route} page`)
+/** How the gate names a page in its words. */
+export const pageName = (p: { path: string; route: PageRoute }) => (p.route === 'custom' ? `page ${p.path}` : `${routeNames[p.route] ?? p.route} page`)
 const at = (v: PageVisit) => `${pageName(v)} at ${v.width} px`
 const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -165,16 +166,18 @@ export const checkCrawl = (input: Pick<GateInput, 'pages' | 'site'>): GateCheck 
     const a = routeAddresses[r]
     return 'prefix' in a ? [a.prefix] : []
   })
+  // An item address in another language keeps its route's prefix after the language's code (`/hi/products/…`).
+  const unprefixed = (path: string) => [path, path.replace(/^\/[a-z]{2,3}(?:-[a-z]{2})?(?=\/)/, '')]
   const leads = (href: string) => {
     const path = href.split(/[?#]/)[0] ?? ''
-    return pages.has(path) || files.has(path) || prefixes.some((p) => path.startsWith(p) && path.length > p.length)
+    return pages.has(path) || files.has(path) || unprefixed(path).some((u) => prefixes.some((p) => u.startsWith(p) && u.length > p.length))
   }
   const problems = input.pages.flatMap((p) => p.links.filter((href) => internal(href) && !leads(href)).map((href) => `The link ${href} on the ${pageName(p)} leads nowhere.`))
   const sitemap = `${input.site.origin}/sitemap.xml`
   if (input.site.sitemap === null) problems.push('The build has no sitemap.xml.')
   else {
     const listed = new Set(sitemapLocs(input.site.sitemap))
-    const wanted = input.pages.filter((p) => indexable(p.route) && !p.path.startsWith('/_fallback/')).map((p) => `${input.site.origin}${p.path}`)
+    const wanted = input.pages.filter((p) => indexable(p.route) && !p.path.includes('/_fallback/')).map((p) => `${input.site.origin}${p.path}`)
     for (const url of wanted) if (!listed.has(url)) problems.push(`The sitemap leaves out ${url}.`)
     for (const url of listed) if (!wanted.includes(url)) problems.push(`The sitemap lists ${url}, which isn't a page search engines should see.`)
   }

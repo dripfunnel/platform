@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
+import { createRoot, hydrateRoot, type Root } from 'react-dom/client'
 import {
   connectHotReload,
   createI18n,
@@ -42,12 +42,33 @@ const render = async (pages: ThemePages): Promise<void> => {
   )
 }
 
+/** A live page carries the store it was built with and its route (publish/pages.ts), so it hydrates the same tree. */
+const livePage = (): { route: CoreRoute | null; custom: string | null; store: ShopStoreSettings; poweredBy: string | null } | null => {
+  const text = document.getElementById('df-page')?.textContent
+  return text ? (JSON.parse(text) as ReturnType<typeof livePage>) : null
+}
+
+const hydrate = (pages: ThemePages, live: NonNullable<ReturnType<typeof livePage>>): void => {
+  const element = document.getElementById('root')
+  const Page = live.custom ? pages.custom[live.custom] : live.route ? pages.routes[live.route] : undefined
+  if (!element || !Page) return
+  const { t } = createI18n(live.store.language, pages.content as Record<string, Catalogue>)
+  hydrateRoot(
+    element,
+    <StorefrontProvider value={{ client, store: live.store, locale: live.store.language, t, mode: 'live', poweredBy: live.poweredBy }}>
+      <Page />
+    </StorefrontProvider>,
+  )
+}
+
 let booted = false
 
 /** Mounts the first bundle's pages; in the studio frame, later bundles arrive by the hot reload and render in place. */
 export const boot = (pages: ThemePages): void => {
   if (booted) return
   booted = true
+  const live = livePage()
+  if (live) return hydrate(pages, live)
   void render(pages)
   if (!base) return
   connectHotReload<ThemePages>({
