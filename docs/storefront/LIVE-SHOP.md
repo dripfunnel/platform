@@ -191,17 +191,21 @@ checking, deploying, live, failed, rolled back).
    environment sniffing (ARCHITECTURE §3.4) and the post-deploy checks from the edge (step 10)
    are there to catch.
 
-   **The image's steps, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build|check`):
-   each refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`) in its
-   environment, and checks the commit out of the source bundle itself. `build` runs the validator and the typecheck,
+   **The image's `build` step, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build`):
+   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`) in its
+   environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
    bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
    sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
    `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
    failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
-   same tree. `check` serves the site on 127.0.0.1 with each page's CSP and core's offline Shop API, drives the image's
-   Chromium, and writes the report and each HTML file's headers; any request leaving the machine is refused and fails
-   the page. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
+   same tree. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
    and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
+
+   **The image's `check` step, built on #483** (`node /opt/sandbox/dist/publish.js check`), in a fresh container with
+   the same refusals and its own checkout of the commit: it serves the built site on 127.0.0.1 with each page's CSP
+   and core's offline Shop API, drives the image's Chromium, and writes the gate's report and each HTML file's
+   headers. Any request leaving the machine is refused and fails its page, whether the routing or the page's own CSP
+   stops it; the page's error text stays out of the report.
 8. **Step `upload`:**
    - **After a passing report**, the API mints **an R2 temporary credential for the private
      `storefront-sites` bucket only, limited to a staging folder `stores/{id}/uploads/{build id}/`
@@ -380,12 +384,12 @@ What the edge Worker does on each request to a storefront host.
    `/new/?ref=old` is ignored rather than followed), its client-rendered fallbacks (`prefix`, `page`: a path
    under the prefix with no file gets that page) and its 404 page (`notFound`), read only when a path has no file. A page
    path is `{path}/index.html`; anything that isn't plain names (`..`, an encoded slash or backslash, a control character)
-   is a 404 before R2 is asked. **Built on #484:** a product address (`/products/{slug}` or `/{lang}/products/{slug}`, the
-   only kind with a row, so no other missing path costs a database read) with no file and no `_edge.json` redirect is asked of the API's
-   `StorefrontEdge.redirect` for the hostname's store (`storefront_redirect`, DATA-MODEL §7.8: a renamed product's old
-   address, without its trailing slash), cached like the lookup, at most 60 seconds under the store's tag; its answer
-   is a plain path on the store's own host or nothing, so a rename's 301 needs no rebuild. Every answer from a build
-   names it in `x-df-build` (§4 step 10). A suspended store's degraded page (503) shows only its name; a cancelled store past its
+   is a 404 before R2 is asked. **Built on #484:** a product address (`/products/{slug}` or `/{lang}/products/{slug}`,
+   the only kind with a row) with no file and no `_edge.json` redirect is looked up in the store's renamed addresses
+   (`storefront_redirect`, DATA-MODEL §7.8, without the trailing slash). The edge reads them as one list, the newest 5,000,
+   from the API's `StorefrontEdge.redirects` and caches it like the lookup, at most 60 seconds under the store's tag, so a
+   rename's 301 needs no rebuild and no shopper's path is ever a database read; a list naming anything but plain paths on
+   the store's own host is refused. Every answer from a build names it in `x-df-build` (§4 step 10). A suspended store's degraded page (503) shows only its name; a cancelled store past its
    period, a closed one or one never published gets a 404. Each file is cached under the host, the store, the build and
    the path, kept immutably (a build never changes) and sent with the build's own cache rules.
 7. **JS, CSS and images** load from the shared asset host (`storefront-assets` through its own

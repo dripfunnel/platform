@@ -4,7 +4,7 @@ import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer } from '#jobs/queues/deliverers/storefrontRender'
 import { GiveUp, type Effect } from '#jobs/queues/outbox-relay'
 import { IndexNowRefused, type IndexNow } from '#integrations/indexnow/client'
-import { cleanStorefronts, digestOf, indexNowSubmission, lookupRedirect, renderInputs, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
+import { cleanStorefronts, digestOf, indexNowSubmission, lookupRedirects, renderInputs, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
 import { buildFolder, stagingFolder } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { testProbe, type TestProbe } from './support/edgeProbe'
@@ -156,8 +156,8 @@ describe('a single-page render', () => {
   })
 
   it('answers the renamed product’s old address with a 301 to the new one', async () => {
-    expect(await lookupRedirect(db.sql, t.storeA1, '/products/mug')).toEqual({ to: '/products/blue-mug' })
-    expect(await lookupRedirect(db.sql, t.storeA1, '/hi-in/products/mug')).toEqual({ to: '/hi-in/products/blue-mug' })
+    const { redirects } = await lookupRedirects(db.sql, t.storeA1)
+    expect(redirects).toEqual(expect.arrayContaining([{ from: '/products/mug', to: '/products/blue-mug' }, { from: '/hi-in/products/mug', to: '/hi-in/products/blue-mug' }]))
   })
 
   it('tells IndexNow the pages that changed or went, on the store’s own address', async () => {

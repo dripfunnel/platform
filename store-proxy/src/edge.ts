@@ -17,7 +17,7 @@ export interface PreviewCheck {
 export interface EdgeApi {
   fetch: (request: Request) => Promise<Response>
   liveHost: (host: string) => Promise<unknown>
-  redirect: (storeId: string, path: string) => Promise<unknown>
+  redirects: (storeId: string) => Promise<unknown>
   openPreview: (key: string, token: string) => Promise<unknown>
   previewAccess: (check: PreviewCheck) => Promise<unknown>
 }
@@ -53,12 +53,17 @@ export const parseLiveHost = (value: unknown): LiveHost => {
 // The same rule as `_edge.json`'s paths (live.ts): plain names on the store's own host, never `//host` or `/\host`.
 const isRedirectPath = (value: unknown): value is string => typeof value === 'string' && value.length <= 2048 && /^(\/[A-Za-z0-9._~@+,=-]+)+$/.test(value)
 
-/** A renamed address's new one, or null (storefront ARCHITECTURE §8). */
-export const parseRedirect = (value: unknown): string | null => {
-  const to = record(value)?.['to']
-  if (to === null) return null
-  if (isRedirectPath(to)) return to
-  throw new EdgeAnswerInvalid('redirect')
+/** A store's renamed addresses, old to new (storefront ARCHITECTURE §8); one that would leave the host refuses the answer. */
+export const parseRedirects = (value: unknown): Map<string, string> => {
+  const list = record(value)?.['redirects']
+  if (!Array.isArray(list) || list.length > 5_000) throw new EdgeAnswerInvalid('redirects')
+  const map = new Map<string, string>()
+  for (const entry of list as unknown[]) {
+    const r = record(entry)
+    if (!isRedirectPath(r?.['from']) || !isRedirectPath(r?.['to'])) throw new EdgeAnswerInvalid('redirects')
+    map.set(r['from'], r['to'])
+  }
+  return map
 }
 
 export const parsePreviewAccess = (value: unknown): PreviewAccess => {

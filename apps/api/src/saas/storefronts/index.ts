@@ -3,7 +3,7 @@ export { commitToMain, pushToRepo, type PushDeps, type PushReason, type PushResu
 export { templateFiles, type SitesBucket } from './templates'
 export { draftBundle, previewFolder, sourceBundle } from './layout'
 export { createStorefrontParams, startStorefront, storefrontCreateKind, type CreateStorefrontParams, type StartResult } from './start'
-export { edgeCacheTags, lookupLiveHost, lookupRedirect, type EdgeState, type LiveHost } from './edge'
+export { edgeCacheTags, lookupLiveHost, lookupRedirects, maxEdgeRedirects, type EdgeState, type LiveHost } from './edge'
 export { goBack, publishParams, requestPageRender, runPublish, startPublish, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type RenderResult, type GoBackActor, type GoBackResult, type PublishDeps, type PublishParams, type PublishSteps } from './publish'
 export { BuildRefused, BuildUnavailable, buildLifetimeMs, gateReport, handoutSeconds, issueCredentials, reportBuild, reportUploaded, startBuild, type BuildDeps, type BuildRefusal, type GateReport } from './builds'
 export { digestOf, manifestSchema, maxBuildFiles, maxFileBytes, type Manifest } from './manifest'

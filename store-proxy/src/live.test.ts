@@ -131,22 +131,24 @@ describe('the live site', () => {
     expect((await get(`https://${hostB}/nowhere/`)).status).toBe(404)
   })
 
-  it('answers a renamed product’s old address with the store’s recorded 301, cached like the lookup', async () => {
-    edge.redirects.set(`${storeA}/en-in/products/old-mug`, { to: '/en-in/products/blue-mug' })
+  it('answers a renamed product’s old address with the store’s recorded 301, from its list cached like the lookup', async () => {
+    edge.renamed.set(storeA, [{ from: '/en-in/products/old-mug', to: '/en-in/products/blue-mug' }, { from: '/about', to: '/elsewhere' }])
     const moved = await get(`https://${hostA}/en-in/products/old-mug`)
     expect([moved.status, moved.headers.get('location')]).toEqual([301, '/en-in/products/blue-mug'])
-    await get(`https://${hostA}/en-in/products/old-mug/`)
-    expect(edge.calls.filter((c) => c.startsWith('redirect '))).toEqual([`redirect ${storeA}/en-in/products/old-mug`])
-    // Store B's host asks only for store B, which recorded nothing there.
+    expect((await get(`https://${hostA}/en-in/products/old-mug/`)).headers.get('location')).toBe('/en-in/products/blue-mug')
+    // Unknown product addresses are answered from the same cached list: distinct paths never reach the API or the database.
+    for (let n = 0; n < 20; n++) expect((await get(`https://${hostA}/products/unknown-${n}`)).status).toBe(200)
+    expect(edge.calls.filter((c) => c.startsWith('redirects '))).toEqual([`redirects ${storeA}`])
+    // Store B's host asks only for store B's list, which recorded nothing there.
     expect((await get(`https://${hostB}/en-in/products/old-mug`)).status).toBe(404)
-    expect(edge.calls).toContain(`redirect ${storeB}/en-in/products/old-mug`)
-    // A file of the live build always wins, and nothing is asked for it.
-    edge.redirects.set(`${storeA}/about`, { to: '/elsewhere' })
+    expect(edge.calls.filter((c) => c.startsWith('redirects '))).toEqual([`redirects ${storeA}`, `redirects ${storeB}`])
+    // A file of the live build always wins.
     expect(await text(`https://${hostA}/about`)).toBe('A about')
-    expect(edge.calls).not.toContain(`redirect ${storeA}/about`)
-    // Any other missing path is answered without asking the API, so it can't be used to load the database.
+  })
+
+  it('reads no list for a missing path that isn’t a product address', async () => {
     for (const path of ['/a1', '/nowhere/x', '/products/Upper', '/products/a/b', '/en-in/products/x.html']) await get(`https://${hostA}${path}`)
-    expect(edge.calls.filter((c) => c.startsWith(`redirect ${storeA}`))).toEqual([`redirect ${storeA}/en-in/products/old-mug`])
+    expect(edge.calls.filter((c) => c.startsWith('redirects '))).toEqual([])
   })
 
   it('serves the store’s own IndexNow key at its key file, and no other store’s', async () => {
@@ -157,9 +159,9 @@ describe('the live site', () => {
   })
 
   it('refuses a recorded redirect that would leave the store’s host, caching nothing', async () => {
-    edge.redirects.set(`${storeA}/en-in/products/x`, { to: '//evil.example/' })
+    edge.renamed.set(storeA, [{ from: '/en-in/products/x', to: '//evil.example/' }])
     expect((await get(`https://${hostA}/en-in/products/x`)).status).toBe(503)
-    expect(cache.keys().filter((k) => k.includes('/__df/redirect/'))).toEqual([])
+    expect(cache.keys().filter((k) => k.includes('/__df/redirects/'))).toEqual([])
   })
 
   it('sends /shop-api/* to the API, keeping the shopper’s host', async () => {

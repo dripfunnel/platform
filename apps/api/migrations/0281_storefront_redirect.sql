@@ -121,3 +121,5 @@ create policy system_scope on storefront_redirect as restrictive for all to app_
 using (app_setting_text('app.scope') = 'system') with check (app_setting_text('app.scope') = 'system');
 
 create index storefront_redirect_to_idx on storefront_redirect (store_id, to_path);
+-- The edge reads a store's newest redirects as one list (LIVE-SHOP §5 step 6).
+create index storefront_redirect_newest_idx on storefront_redirect (store_id, created_at desc);
