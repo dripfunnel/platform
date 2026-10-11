@@ -129,7 +129,10 @@ describe('a publish', () => {
 })
 
 describe('go back', () => {
-  it('moves the pointer to a kept build with no build of its own, and resets the draft to it', async () => {
+  it('moves the pointer to a kept build with no build of its own, and resets the draft and the store’s core version to it', async () => {
+    // Version 2 was built on a newer core, so going back must bring the mirror back to version 1's.
+    await db.sql`update design_version set core_version = '1.2.0' where store_id = ${t.storeA1} and number = 2`
+    await db.sql`update store set core_version = '1.2.0' where id = ${t.storeA1}`
     const [v1] = await db.sql<{ id: string; build_id: string; commit: string }[]>`select id, build_id, commit from design_version where store_id = ${t.storeA1} and number = 1`
     const runsBefore = (await db.sql`select id from publish_run where store_id = ${t.storeA1}`).length
     expect(await goBack(db.sql, { storeId: t.storeA1, versionId: v1?.id ?? '', by: null, actor, now: new Date() })).toEqual({ ok: true })
@@ -140,6 +143,8 @@ describe('go back', () => {
       [1, 'live'],
       [2, 'kept'],
     ])
+    const [mirror] = await db.sql<{ core_version: string }[]>`select core_version from store where id = ${t.storeA1}`
+    expect(mirror?.core_version).toBe('1.0.0')
     const [draft] = await db.sql<{ head_commit: string; base_version_id: string }[]>`select head_commit, base_version_id from design_draft where store_id = ${t.storeA1}`
     expect(draft).toEqual({ head_commit: v1?.commit, base_version_id: v1?.id })
     const [entry] = await db.sql<{ visibility: string }[]>`select visibility from activity_log where store_id = ${t.storeA1} and action = 'storefront.reverted'`
@@ -196,7 +201,9 @@ describe('clean-up', () => {
     await db.sql`update publish_run set state = 'failed', error = 'deploy_failed' where id = ${failed}`
     await putText(sites, `${buildFolder(t.storeA1, (await live(t.storeA1)) ?? '')}keep.html`, 'other store')
 
-    expect((await cleanStorefronts(db.sql, { sites, assets, drafts }, new Date())).builds).toBeGreaterThanOrEqual(3)
+    await cleanStorefronts(db.sql, { sites, assets, drafts }, new Date())
+    const deleted = await db.sql<{ id: string }[]>`select id from publish_run where store_id = ${storeId} and files_deleted_at is not null`
+    expect(deleted.map((r) => r.id).sort()).toEqual([second, third, failed].sort())
     for (const gone of [second, third]) {
       expect(sites.keys(buildFolder(storeId, gone ?? ''))).toEqual([])
       expect(assets.keys(buildFolder(storeId, gone ?? ''))).toEqual([])
