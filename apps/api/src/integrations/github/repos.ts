@@ -34,6 +34,8 @@ export interface StoreRepos {
   commit: (name: string, commit: NewCommit) => Promise<string>
   /** Moves `main` to `commit` only as a fast-forward; false when `main` has moved on. */
   advance: (name: string, commit: string) => Promise<boolean>
+  /** Whether `commit` is `head` or in its history. */
+  reaches: (name: string, head: string, commit: string) => Promise<boolean>
 }
 
 const sha = z.string().regex(/^[0-9a-f]{40}$/)
@@ -42,6 +44,7 @@ const refSchema = z.object({ object: z.object({ sha }).loose() }).loose()
 const commitSchema = z.object({ sha, tree: z.object({ sha }).loose() }).loose()
 const treeSchema = z.object({ sha, truncated: z.boolean().optional(), tree: z.array(z.object({ path: z.string(), type: z.string() }).loose()) }).loose()
 const created = z.object({ sha }).loose()
+const compareSchema = z.object({ status: z.string() }).loose()
 
 // The platform's own name on every commit; never a merchant's (AI-STUDIO.md §6).
 const author = { name: 'DripFunnel', email: 'noreply@dripfunnel.com' }
@@ -106,6 +109,10 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
     advance: async (name, commit) => {
       const answer = await call('PATCH', `${repo(name)}/git/refs/heads/main`, { sha: commit, force: false }, [422])
       return answer.status !== 422
+    },
+    reaches: async (name, head, commit) => {
+      const answer = await call('GET', `${repo(name)}/compare/${commit}...${head}`, undefined, [404])
+      return answer.status !== 404 && ['ahead', 'identical'].includes(read(compareSchema, answer.body).status)
     },
   }
 }

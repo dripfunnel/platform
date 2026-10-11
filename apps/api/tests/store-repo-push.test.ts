@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
-import { createGitHubApp, GitHubUnavailable } from '#integrations/github/app'
-import { storeRepos, type StoreRepos } from '#integrations/github/repos'
+import { createGitHubApp, GitHubUnavailable, storeRepos, type StoreRepos } from '#integrations/github/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
 import { pushToRepo, type PushDeps } from '#saas/storefronts/index'
 import { commitToMain } from '#saas/storefronts/push'
@@ -107,6 +106,28 @@ describe('the push API', () => {
     const retried = await pushToRepo(deps, publish('publish:2'))
     expect(retried).toEqual({ ok: true, commit: github.repos.get(repoOf.A1)?.main })
     expect(github.history(repoOf.A1).filter((c) => c.message.startsWith('Publish version 2'))).toHaveLength(1)
+  })
+
+  it('finishes a push whose advance landed even after main moved on, never pushing it a second time', async () => {
+    const lost: StoreRepos = {
+      ...deps.repos,
+      advance: async (name, commit) => {
+        await deps.repos.advance(name, commit)
+        throw new GitHubUnavailable('GitHub did not answer')
+      },
+    }
+    await expect(pushToRepo({ ...deps, repos: lost }, publish('publish:2'))).rejects.toBeInstanceOf(GitHubUnavailable)
+    const landed = github.repos.get(repoOf.A1)?.main ?? ''
+    const tree = await deps.repos.writeTree(repoOf.A1, await deps.repos.treeOf(repoOf.A1, landed), [{ path: 'README.md', content: 'edited on GitHub' }])
+    const later = await deps.repos.commit(repoOf.A1, { tree, parent: landed, message: 'Someone else', at: clock })
+    await deps.repos.advance(repoOf.A1, later)
+
+    expect(await pushToRepo(deps, publish('publish:2'))).toEqual({ ok: true, commit: landed })
+    expect(github.history(repoOf.A1).filter((c) => c.message.startsWith('Publish version 2'))).toHaveLength(1)
+    const [row] = await db.sql<{ state: string }[]>`select state from storefront_push where key = 'publish:2'`
+    expect(row?.state).toBe('done')
+    // main moved past what the platform pushed, so the next push is refused rather than built on someone else's commit.
+    expect(await pushToRepo(deps, publish('publish:3', 3))).toEqual({ ok: false, code: 'MAIN_MOVED' })
   })
 
   it('retries a GitHub outage, and a push that gave up makes the same commit when tried again', async () => {

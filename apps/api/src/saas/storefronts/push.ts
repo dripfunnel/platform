@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { deletePendingPush, finishPush, insertPush, selectPush, selectStoreRepoForUpdate, setPushCommit, type PushRow, type RepoState } from '#db/scoped/storefronts'
-import type { RepoChange, StoreRepos } from '#integrations/github/repos'
+import type { RepoChange, StoreRepos } from '#integrations/github/index'
 import { isLockedPath, isRepoPath, isThemePath, themeOwns } from './paths'
 
 // The push API (storefront AI-STUDIO.md §6, LIVE-SHOP.md §4 step 9): one squashed commit on `main` per call, with a
@@ -77,8 +77,10 @@ export const commitToMain = async (deps: PushDeps, storeId: string, key: string,
     return { ok: false, code: 'MAIN_MOVED' }
   }
 
+  // An earlier attempt's commit already on main, even if main has moved on since, is this push done (never a second).
+  const landed = async (commit: string, head: string | null) => head !== null && (head === commit || (await deps.repos.reaches(repo, head, commit)))
   const head = await deps.repos.head(repo)
-  if (push.commit_sha && head === push.commit_sha) return finish(push.commit_sha)
+  if (push.commit_sha && head !== push.parent_sha && (await landed(push.commit_sha, head))) return finish(push.commit_sha)
   if (head !== push.parent_sha) return refuse()
 
   const parentTree = await deps.repos.treeOf(repo, push.parent_sha)
@@ -88,7 +90,7 @@ export const commitToMain = async (deps: PushDeps, storeId: string, key: string,
   await withSystemScope(deps.sql, (tx) => setPushCommit(tx, storeId, key, commit))
   if (await deps.repos.advance(repo, commit)) return finish(commit)
   // A lost answer to an advance that landed reads as a refusal the second time.
-  return (await deps.repos.head(repo)) === commit ? finish(commit) : refuse()
+  return (await landed(commit, await deps.repos.head(repo))) ? finish(commit) : refuse()
 }
 
 /** The push API: a publish or template change replaces the theme; the upgrade bot changes what it names. Never `.github/**`. */
