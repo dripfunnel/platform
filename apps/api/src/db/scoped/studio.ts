@@ -11,6 +11,12 @@ export interface StudioDraftRow {
   live_build_id: string | null
   store_core_version: string | null
   storefront_template: string | null
+  /** The build whose source a store without a draft starts from: its own theme's, while the baseline is served. */
+  own_build_id: string | null
+  /** What a draft moves onto before it publishes (AI-STUDIO §6 step 2): a major's passed upgrade, else the live commit. */
+  onto_commit: string | null
+  onto_version: string | null
+  onto_upgrade: boolean
 }
 
 /** What the studio starts from (AI-STUDIO §3 step 4): the draft if there is one, else the live build, else the template. */
@@ -18,8 +24,13 @@ export const selectStudioStart = async (tx: ScopedSql, storeId: string): Promise
   (
     await tx<StudioDraftRow[]>`
       select d.head_commit, d.template, d.core_version, d.preview_deploy_ref, f.live_build_id,
-        s.core_version as store_core_version, f.template as storefront_template
+        s.core_version as store_core_version, f.template as storefront_template,
+        case when f.theme_mode = 'baseline' then coalesce(f.baseline_from_build_id, f.live_build_id) else f.live_build_id end as own_build_id,
+        coalesce(f.core_upgrade_commit, case when f.theme_mode = 'own' then r.commit end) as onto_commit,
+        coalesce(f.core_upgrade_version, case when f.theme_mode = 'own' then r.core_version end) as onto_version,
+        f.core_upgrade_commit is not null as onto_upgrade
       from storefront f join store s on s.id = f.store_id left join design_draft d on d.store_id = f.store_id
+        left join publish_run r on r.id = f.live_build_id
       where f.store_id = ${storeId}`
   )[0] ?? null
 
@@ -35,6 +46,12 @@ export const moveDraft = async (
       changed_by = excluded.changed_by, preview_deploy_ref = excluded.preview_deploy_ref,
       commits = case when design_draft.head_commit = excluded.head_commit then design_draft.commits else array_append(design_draft.commits, excluded.head_commit) end`
   await tx`update storefront set custom_paths = ${pgArray(d.customPaths)}::text[] where store_id = ${d.storeId}`
+}
+
+/** The draft moved onto an upgrade (AI-STUDIO §6 step 2): its new head, on the upgrade's core. */
+export const rebaseDraft = async (tx: ScopedSql, d: { storeId: string; head: string; coreVersion: string; at: Date }): Promise<void> => {
+  // The replayed changes have new ids, so the bisect chain starts again from the new head (ARCHITECTURE §4.2 step 4).
+  await tx`update design_draft set head_commit = ${d.head}, core_version = ${d.coreVersion}, commits = ${pgArray([d.head])}::text[], changed_at = ${d.at} where store_id = ${d.storeId}`
 }
 
 /** The partner's live portal host: the only page that may frame the studio (ARCHITECTURE §3.5 `frame-ancestors`). */
@@ -63,13 +80,13 @@ export const selectGuardContext = async (tx: ScopedSql, storeId: string): Promis
       from store s where s.id = ${storeId}`
   )[0] ?? null
 
-export type AiRunKind = 'design' | 'repair'
+export type AiRunKind = 'design' | 'repair' | 'migration'
 export type AiRunOutcome = 'changed' | 'unchanged' | 'refused' | 'failed'
 
 export interface AiRunInput {
   storeId: string
   kind: AiRunKind
-  requestedBy: string
+  requestedBy: string | null
   prompt: string
   model: string
   tokensIn: number

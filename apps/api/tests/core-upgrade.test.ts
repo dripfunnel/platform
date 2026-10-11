@@ -6,7 +6,8 @@ import { recordCoreRelease } from '#db/scoped/coreReleases'
 import { enrolStores, insertRollout, startStores } from '#db/scoped/coreRollouts'
 import { createGitHubApp, storeRepos } from '#integrations/github/index'
 import { localGitHub } from '#integrations/local/github'
-import { pushUpgrade, runStoreUpgrade, type Prepared, type PrepareInput, type UpgradeDeps, type UpgradeSteps } from '#saas/fleet/index'
+import { pushUpgrade, runStoreUpgrade, type MigrateInput, type Prepared, type PrepareInput, type UpgradeDeps, type UpgradeSteps } from '#saas/fleet/index'
+import { prepareEmail } from '#saas/email/index'
 import { digestOf, runPublish, startPublish, upgradeBundle, upgradeFiles, type PublishDeps } from '#saas/storefronts/index'
 import { draftBundle, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
 import { testProbe } from './support/edgeProbe'
@@ -158,7 +159,7 @@ beforeEach(async () => {
   made = 0
   await publishLive(t.storeA1, commit(1))
   await publishLive(t.storeA2, commit(2))
-  await db.sql`update storefront set core_pinned_reason = null, core_upgrade_version = null, core_upgrade_commit = null`
+  await db.sql`update storefront set core_pinned_reason = null, core_upgrade_version = null, core_upgrade_commit = null, theme_mode = 'own', baseline_reason = null, baseline_from_build_id = null`
 })
 
 describe('a patch or minor upgrade', () => {
@@ -224,6 +225,87 @@ describe('a patch or minor upgrade', () => {
     await db.sql`update core_rollout_store set state = 'reverted' where id = ${p.upgradeId}`
     expect(await runStoreUpgrade(upgradeDeps(sandbox().prepare), p, steps(t.storeA1))).toBe('stopped')
     expect(await runStoreUpgrade(upgradeDeps(sandbox().prepare), { ...p, storeId: t.storeA2 }, steps(t.storeA2))).toBe('stopped')
+  })
+})
+
+describe('a store whose theme fails the upgrade', () => {
+  /** The migration agent, played by the test: a new commit on the upgrade's, kept privately like it. */
+  const agent = (answer: 'commit' | null) => {
+    const asked: MigrateInput[] = []
+    const migrate = async (storeId: string, input: MigrateInput) => {
+      asked.push(input)
+      if (answer === null) return null
+      const c = commit(9500 + (made += 1))
+      await putText(drafts, upgradeBundle(storeId, c), `migrated ${c}`)
+      await putText(drafts, upgradeFiles(storeId, c), JSON.stringify({ files: [{ path: 'package.json', content: '{}' }] }))
+      return c
+    }
+    return { migrate, asked }
+  }
+
+  it('is migrated by the agent from its failing checks, and the migrated commit goes live and is pushed', async () => {
+    const p = await rolloutOf('1.1.0', t.storeA1)
+    const ai = agent('commit')
+    expect(await runStoreUpgrade({ ...upgradeDeps(sandbox().prepare), migrate: ai.migrate }, p, steps(t.storeA1, new Set([commit(9001)])))).toBe('migrated')
+    expect(ai.asked).toEqual([{ commit: commit(9001), to: '1.1.0', failing: ['visual-diff: The home page looks different at 390 px.'], notes: [] }])
+    const row = await rowOf(p.upgradeId)
+    expect(row).toMatchObject({ state: 'migrated', commit: commit(9502) })
+    expect(await live(t.storeA1)).toBe(row?.publish_run_id)
+    expect(drafts.keys(upgradeBundle(t.storeA1, commit(9001)))).toEqual([])
+    const [push] = await db.sql<{ payload: { commit: string } }[]>`select payload from outbox where kind = 'storefront.upgrade_push' and store_id = ${t.storeA1} order by created_at desc limit 1`
+    expect(push?.payload.commit).toBe(commit(9502))
+  })
+
+  it('is pinned when the agent can’t fix it either, never left broken live', async () => {
+    const before = await live(t.storeA2)
+    const p = await rolloutOf('1.1.0', t.storeA2)
+    expect(await runStoreUpgrade({ ...upgradeDeps(sandbox().prepare), migrate: agent(null).migrate }, p, steps(t.storeA2, new Set([commit(9001)])))).toBe('pinned')
+    expect(await rowOf(p.upgradeId)).toMatchObject({ state: 'pinned', error: 'gate_failed' })
+    expect(await live(t.storeA2)).toBe(before)
+  })
+})
+
+describe('a forced security fix', () => {
+  it('serves the baseline theme to a store whose own theme can’t build, and tells the merchant once', async () => {
+    const own = await live(t.storeA1)
+    const p = await rolloutOf('1.1.0', t.storeA1, true)
+    const box = sandbox()
+    expect(await runStoreUpgrade(upgradeDeps(box.prepare), p, steps(t.storeA1, new Set([commit(9001)])))).toBe('baseline')
+    expect(box.asks.map((a) => a.baseline)).toEqual([false, true])
+    const row = await rowOf(p.upgradeId)
+    expect(row).toMatchObject({ state: 'baseline', error: 'gate_failed', commit: commit(9002) })
+    const served = await db.sql<{ kind: string; baseline: boolean; core_version: string }[]>`select kind, baseline, core_version from publish_run where id = ${row?.publish_run_id ?? ''}`
+    expect(served).toEqual([{ kind: 'security', baseline: true, core_version: '1.1.0' }])
+    expect(await live(t.storeA1)).toBe(row?.publish_run_id)
+    expect(await db.sql`select theme_mode, baseline_reason, baseline_from_build_id from storefront where store_id = ${t.storeA1}`).toEqual([{ theme_mode: 'baseline', baseline_reason: 'gate_failed', baseline_from_build_id: own }])
+    const notices = await db.sql<{ payload: { template: string } }[]>`select payload from outbox where kind = 'email' and store_id = ${t.storeA1} and payload->>'template' = 'storefront-baseline'`
+    expect(notices).toHaveLength(1)
+    // Replayed, the step finds the store's upgrade already ended and tells no one again.
+    expect(await runStoreUpgrade(upgradeDeps(box.prepare), p, steps(t.storeA1))).toBe('stopped')
+    expect(await db.sql`select 1 from outbox where kind = 'email' and store_id = ${t.storeA1} and payload->>'template' = 'storefront-baseline'`).toHaveLength(1)
+    const [entry] = await db.sql<{ reason: string }[]>`select reason from activity_log where store_id = ${t.storeA1} and action = 'storefront.baseline_served'`
+    expect(entry?.reason).toBe('gate_failed')
+    // The baseline is never pushed, and it is in plain words for the merchant.
+    expect(await db.sql`select 1 from outbox where kind = 'storefront.upgrade_push' and payload->>'commit' = ${commit(9002)}`).toHaveLength(0)
+    const [owner] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'owner.baseline@example.com', 'Owner', 'active') returning id`
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner?.id ?? ''}, ${t.storeA1}, 'owner', 'active')`
+    const [email] = await db.sql<{ payload: unknown; partner_id: string | null }[]>`select payload, partner_id from outbox where kind = 'email' and store_id = ${t.storeA1}`
+    const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: email?.payload, partnerId: email?.partner_id ?? null, storeId: t.storeA1 }, { adminHost: 'admin.localhost', platformHost: 'platform.localhost' }, new Date()))
+    expect(prepared.send ? prepared.content.subject : prepared.reason).toMatch(/simpler design/)
+  })
+
+  it('gives the store its own theme back when the merchant republishes', async () => {
+    await db.sql`update storefront set theme_mode = 'baseline', baseline_reason = 'gate_failed' where store_id = ${t.storeA2}`
+    await publishLive(t.storeA2, commit(3))
+    expect(await db.sql`select theme_mode, baseline_reason from storefront where store_id = ${t.storeA2}`).toEqual([{ theme_mode: 'own', baseline_reason: null }])
+  })
+
+  it('pins a store whose baseline build fails too', async () => {
+    const before = await live(t.storeA2)
+    const p = await rolloutOf('1.1.0', t.storeA2, true)
+    expect(await runStoreUpgrade(upgradeDeps(sandbox().prepare), p, steps(t.storeA2, new Set([commit(9001), commit(9002)])))).toBe('pinned')
+    expect(await live(t.storeA2)).toBe(before)
+    expect(await db.sql`select theme_mode from storefront where store_id = ${t.storeA2}`).toEqual([{ theme_mode: 'own' }])
   })
 })
 

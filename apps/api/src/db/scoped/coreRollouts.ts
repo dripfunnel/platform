@@ -93,6 +93,15 @@ export const setCorePinned = async (tx: ScopedSql, storeId: string, reason: stri
   await tx`update storefront set core_pinned_reason = ${reason} where store_id = ${storeId}`
 }
 
+/** The baseline theme is served (ARCHITECTURE §7): why, and the build of the store's own theme it replaced. */
+export const setBaseline = async (tx: ScopedSql, storeId: string, b: { reason: string; fromBuildId: string }): Promise<void> => {
+  await tx`update storefront set theme_mode = 'baseline', baseline_reason = ${b.reason}, baseline_from_build_id = ${b.fromBuildId} where store_id = ${storeId}`
+}
+
+export const clearBaseline = async (tx: ScopedSql, storeId: string): Promise<void> => {
+  await tx`update storefront set theme_mode = 'own', baseline_reason = null, baseline_from_build_id = null where store_id = ${storeId}`
+}
+
 /** A major's passed upgrade, which the merchant's next publish takes (ARCHITECTURE §7). */
 export const setPendingUpgrade = async (tx: ScopedSql, storeId: string, pending: { version: string; commit: string } | null): Promise<void> => {
   await tx`update storefront set core_upgrade_version = ${pending?.version ?? null}, core_upgrade_commit = ${pending?.commit ?? null} where store_id = ${storeId}`

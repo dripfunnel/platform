@@ -492,7 +492,8 @@ What the edge Worker does on each request to a storefront host.
   half of it for an upgrade and all of it for a security fix.
 - **The baseline-theme fallback** for a store whose theme can't take a security fix
   (ARCHITECTURE §7) is a build of the baseline theme with the store's words and colours. It is
-  stored and switched like any other build.
+  stored and switched like any other build. **Built on #485** (SAAS §10): a `security` run with `baseline`, never
+  pushed to the repo.
 
 ---
 

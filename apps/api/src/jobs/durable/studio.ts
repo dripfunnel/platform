@@ -5,7 +5,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { selectStudioPortalHost } from '#db/scoped/studio'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant, type PublishReady, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -127,6 +127,11 @@ export const studioSessionClass = (connect: Connect) =>
     /** The upgrade bot's commit (storefront ARCHITECTURE §7.1), asked by the core-upgrade Workflow with the store id it read. */
     async prepareUpgrade(storeId: string, ask: UpgradeAsk): Promise<UpgradeAnswer> {
       return (await this.runnerFor(storeId)).prepareUpgrade(ask)
+    }
+
+    /** AI-STUDIO §6 steps 1–2: the draft moved onto any newer core first; #318's Publish builds what this answers. */
+    async prepareToPublish(storeId: string): Promise<PublishReady> {
+      return (await this.active(storeId)).prepareToPublish()
     }
 
     async undo(storeId: string, commit: string, userId: string): Promise<ChangeOutcome> {
