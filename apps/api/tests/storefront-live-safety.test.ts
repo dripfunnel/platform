@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
-import { digestOf, lookupLiveHost, lookupRedirect, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
+import { digestOf, lookupLiveHost, lookupRedirects, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
 import { buildFolder, stagingFolder } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { testProbe, type TestProbe } from './support/edgeProbe'
@@ -264,12 +264,12 @@ describe('storefront_redirect', () => {
     ])
   })
 
-  it('answers the edge only for the store its host named, and only for a plain path', async () => {
-    const [row] = await redirects(t.storeB1)
-    expect(await lookupRedirect(db.sql, t.storeB1, row?.from_path ?? '')).toEqual({ to: row?.to_path })
-    expect(await lookupRedirect(db.sql, t.storeA1, row?.from_path ?? '')).toEqual({ to: null })
-    expect(await lookupRedirect(db.sql, t.storeB1, `${row?.from_path ?? ''}/../x`)).toEqual({ to: null })
-    expect(await lookupRedirect(db.sql, 'not-a-store', '/x')).toEqual({ to: null })
+  it('answers the edge with only the store its host named, as one list', async () => {
+    const rows = await redirects(t.storeB1)
+    const listed = (await lookupRedirects(db.sql, t.storeB1)).redirects
+    expect(listed.map((r) => [r.from, r.to]).sort()).toEqual(rows.map((r) => [r.from_path, r.to_path]).sort())
+    expect((await lookupRedirects(db.sql, t.storeA1)).redirects.some((r) => rows.some((b) => b.from_path === r.from))).toBe(false)
+    expect(await lookupRedirects(db.sql, 'not-a-store')).toEqual({ redirects: [] })
   })
 
   it('is read by the store’s own merchant side only: never another store, a supplier, a partner or staff, and written by nobody', async () => {
