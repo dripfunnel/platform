@@ -3,7 +3,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { recordGate } from '#db/scoped/builds'
 import { moveDraft } from '#db/scoped/studio'
 import { digestOf, goBack, publishBefore, runPublish, startPublish, type PublishDeps, type PublishRepair } from '#saas/storefronts/index'
-import { failAttempt, selectFailingChecks } from '#db/scoped/publishing'
+import { failAttempt, finishRepaired, selectFailingChecks, setBisectCommit, setRepairAttempts } from '#db/scoped/publishing'
 import { draftBundle, stagingFolder } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -224,6 +224,17 @@ describe('the attempts’ own writes', () => {
     await withSystemScope(db.sql, (tx) => failAttempt(tx, t.storeA1, other?.id ?? '', new Date()))
     expect(await buildOf(other?.id ?? '')).toEqual(before)
     expect(await withSystemScope(db.sql, (tx) => selectFailingChecks(tx, t.storeA1, other?.id ?? ''))).toEqual([])
+    // The publish's own record, named with the wrong store, is left alone too.
+    const [publish] = await db.sql<{ id: string }[]>`select id from publish_run where store_id = ${t.storeA2} and attempt_of is null and state = 'failed' limit 1`
+    const kept = await root(publish?.id ?? '')
+    await withSystemScope(db.sql, async (tx) => {
+      await setRepairAttempts(tx, t.storeA1, publish?.id ?? '', 3)
+      await setBisectCommit(tx, t.storeA1, publish?.id ?? '', commit(999))
+      await db.sql`update publish_run set state = 'checking' where id = ${publish?.id ?? ''}`
+      await finishRepaired(tx, t.storeA1, publish?.id ?? '', new Date())
+    })
+    expect(await root(publish?.id ?? '')).toEqual({ ...kept, state: 'checking' })
+    await db.sql`update publish_run set state = 'failed' where id = ${publish?.id ?? ''}`
   })
 })
 

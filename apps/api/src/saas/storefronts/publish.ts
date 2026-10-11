@@ -157,7 +157,7 @@ const switchStep = async (deps: PublishDeps, p: PublishParams, buildId: string):
     if (!(await isVerified(tx, run.store_id, run.id))) throw new BuildMissing('the build is not verified')
     const at = deps.now()
     const version = await switchLive(tx, run, storefront.live_build_id, at)
-    if (buildId !== p.runId) await finishRepaired(tx, p.runId, at)
+    if (buildId !== p.runId) await finishRepaired(tx, p.storeId, p.runId, at)
     await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `publish:${run.id}`, payload: { storeId: run.store_id, reason: 'publish' }, partnerId: run.partner_id, storeId: run.store_id })
     await activityLog.record(tx, systemEntry(run, 'storefront.published', 'success', [{ field: 'version', before: null, after: String(version) }]))
     await queueNext(tx, run.store_id, run.partner_id)
@@ -248,7 +248,7 @@ const repairs = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams)
   let failed = p.runId
   for (let n = 1; n <= maxRepairs; n += 1) {
     const from = failed
-    await steps.do(`repair-${n}:count`, () => withSystemScope(deps.sql, (tx) => setRepairAttempts(tx, p.runId, n)).then(() => String(n)))
+    await steps.do(`repair-${n}:count`, () => withSystemScope(deps.sql, (tx) => setRepairAttempts(tx, p.storeId, p.runId, n)).then(() => String(n)))
     const commit = await steps.do(`repair-${n}`, async () => {
       const failing = await withSystemScope(deps.sql, (tx) => selectFailingChecks(tx, p.storeId, from))
       return (await repair(p.storeId, failing, `${p.runId}:${n}`)) ?? 'none'
@@ -286,7 +286,7 @@ const bisect = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams):
     else bad = mid
   }
   const first = chain[bad] ?? ''
-  await steps.do('bisect-found', () => withSystemScope(deps.sql, (tx) => setBisectCommit(tx, p.runId, first)).then(() => first))
+  await steps.do('bisect-found', () => withSystemScope(deps.sql, (tx) => setBisectCommit(tx, p.storeId, p.runId, first)).then(() => first))
   return bad > 0 ? first : null
 }
 
