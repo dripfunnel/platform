@@ -27,28 +27,7 @@
   font-size: 11px;
 }
 
-/* Chips */
-
-.df-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--df-space-2);
-}
-
-.df-list a.df-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--df-space-2);
-  height: 28px;
-  padding: 0 var(--df-space-3);
-  border: 1px solid var(--df-color-info-border);
-  border-radius: 999px;
-  background: var(--df-color-info-surface);
-  color: var(--df-color-info);
-  font-size: 12px;
-  font-weight: 700;
-}
+/* Chips: common/chips.css */
 
 .df-list a.df-chips-clear {
   font-size: 12px;
