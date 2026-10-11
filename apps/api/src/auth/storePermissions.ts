@@ -46,6 +46,7 @@ export const storePermissions = [
   'manage-vendors',
   'approve',
   'publish',
+  'storefront.read',
   'billing',
   'settings',
   'supplier.team',
@@ -72,6 +73,7 @@ const managerSet: readonly StorePermission[] = [
   'reports.read',
   'activity.read',
   'support.allow_write',
+  'storefront.read',
 ]
 
 const supplierOnly: readonly StorePermission[] = ['exports.products', 'exports.orders', 'sales.read', 'supplier.team', 'catalog.propose']

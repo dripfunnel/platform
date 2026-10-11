@@ -64,7 +64,7 @@ export const planKeyDefs = [
   amount('history_days', 'storefront'),
   // You send one a cart by hand; the first goes automatically; all three, with codes and WhatsApp (SAPI 15, #321).
   choice('cart_reminders', 'storefront', ['youSend', 'onePerCart', 'automatic'], true),
-  sw('blog', 'storefront'),
+  sw('blog', 'storefront', true),
   sw('reports_sales', 'reports', true),
   sw('reports_export', 'reports', true),
   sw('reports_custom', 'reports', true),
@@ -93,7 +93,7 @@ export const choiceKeys = keysOf('choice')
 export const numberKeys: NumberKey[] = [...amountKeys, ...choiceKeys]
 
 /** Rows added after the first catalogue that are checked on the server: plans written before them keep today's behaviour, so they start on (migration 0070). */
-export const permissiveBackfill: readonly SwitchKey[] = ['badges', 'faqs_related', 'product_video', 'import_spreadsheet', 'import_shopify']
+export const permissiveBackfill: readonly SwitchKey[] = ['badges', 'faqs_related', 'product_video', 'import_spreadsheet', 'import_shopify', 'blog']
 
 /** Limits added after the first catalogue that are checked on the server: plans written before them stay unlimited (migration 0076). */
 export const permissiveLimits: readonly AmountKey[] = ['live_offers']

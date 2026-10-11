@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-11 (#317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -837,7 +837,8 @@ first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the relea
   highlights, warranty and returns text, badge labels, `seo_title` and `seo_description`,
   policies, compliance fields, and a promotion's shopper-facing name and description. The
   main-language text stays on the row itself and is required; other languages fall back to
-  it (facts 19–20). Compliance fields may be translated into a language the store does not
+  it (facts 19–20). A content page's or post's other languages are the exception, in
+  `storefront_content_translation` (§7.8), since its body is a document of blocks. Compliance fields may be translated into a language the store does not
   offer (fact 47).
 - **Snapshots, not references, on orders**: a line records the name, SKU, price, tax class,
   tax rate and zone, and classification code as sold; a discount records the promotion's
@@ -1795,7 +1796,7 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- and plain words) with gate_digest (the digest of the files it checked, LIVE-SHOP §4 step 7);
                     -- uploaded_at ("uploaded": no credential after it), upload_manifest (the manifest as read
                     -- once then, null when refused) and verified_at (every staged object hashed to its manifest
-                    -- entry and was copied, §4 step 9). Built on #483 (migration 0260): dispatched_at (the workflow was
+                    -- entry and was copied, §4 step 9). Built on #483 (migration 0280): dispatched_at (the workflow was
                     -- started, once) and build_minutes (dispatch to report, rounded up); building is claimed and
                     -- dispatched, checking is a failing report the publish run decides on
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
@@ -1865,6 +1866,31 @@ storefront_redirect (id, store_id, from_path, to_path, language NULL, reason ('r
                     -- the 301s of storefront ARCHITECTURE §8: written by the engine when a
                     -- product, collection, content page or custom page changes address; the
                     -- edge reads them per store; unique (store_id, from_path, language)
+                    -- Built on #338 (migration 0270), nulls not distinct, so a null language (every
+                    -- language) is one row; a rename points older redirects to the old path at the new
+                    -- one and deletes any starting at the new path, which a page holds again
+storefront_content  (id, store_id, kind ('page'|'post'), slug, title (≤200), body jsonb, seo_title NULL (≤60),
+                     seo_description NULL (≤160), status ('draft'|'scheduled'|'published'),
+                     publish_at NULL, published_at NULL, in_menu boolean, author NULL, tags text[],
+                     cover_asset_id NULL, asset_ids uuid[], product_ids uuid[], changed_at,
+                     deleted_at NULL)
+                    -- SAPI 24's content pages (FAQ, lookbook, the merchant's own) at /{slug} and blog
+                    -- posts at /blog/{slug} (storefront ARCHITECTURE §3.1), in the main language; built
+                    -- on #338 (migration 0270). UNIQUE (store_id, kind, slug) WHERE deleted_at IS NULL:
+                    -- every row's path is taken, drafts included. body is the StorefrontContent blocks
+                    -- (heading, text, image, faq, products, and a page's contact form), plain text only;
+                    -- asset_ids and product_ids are what it names. publish_at is a post's date (when a
+                    -- scheduled one goes live) and null on a page; published_at is when it first went
+                    -- live, so renaming one never live leaves no redirect; changed_at newer than the live
+                    -- build's publish_run.created_at means it waits for the next publish (SAAS §9.1).
+                    -- Part 2 (0271): app_shop reads it by column while published, or scheduled and due;
+                    -- a cron job marks a due scheduled post published (FIRST-RELEASE §14)
+storefront_content_translation (content_id, store_id, language, title, body jsonb, seo_title NULL,
+                     seo_description NULL, asset_ids uuid[], product_ids uuid[], source_hash, updated_at)
+                    PRIMARY KEY (content_id, language)
+                    -- a page's or post's other languages (built on #338, migration 0271): its body is
+                    -- a document of blocks, so it doesn't fit §7.1's `translation` text rows; source_hash is
+                    -- the md5 of the main words it translated, as `translation`'s; the slug is the page's own
 storefront_vitals_day (store_id, day, page_kind, device ('phone'|'desktop'), samples,
                      lcp_p75_ms, inp_p75_ms, cls_p75)
                     -- real-user Core Web Vitals, recorded only after the shopper's consent
@@ -2243,11 +2269,12 @@ decide which columns and which tables each caller kind may select at all**. `app
   supplier branch.
 - **Storefront design, inside the store, merchant side only** (no supplier branch, and
   `app_supplier` has no grant on any of them): `design_draft`, `design_message` (the merchant's
-  prompts and pasted images), `storefront_brand`, `storefront_seo` and `storefront_redirect`.
+  prompts and pasted images), `storefront_brand`, `storefront_seo`, `storefront_content`, `storefront_content_translation` and `storefront_redirect`.
   Written through `app_request` under the `publish` capability (ACCESS §5: the Owner; the
   Manager reads; read-only in a support session); `storefront_redirect` is written by the
   engine and read at the edge in `system` scope; `storefront_brand` and `storefront_seo` also
-  have the shop read branch, by column, above.
+  have the shop read branch, by column, above, and so do `storefront_content` (live rows only) and its
+  translations (#338).
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version`, `core_rollout_store`, `storefront_vitals_day` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a

@@ -3,6 +3,7 @@ import { shopPolicy } from './access'
 import { createShopBuilder } from './builder'
 import { registerCatalog } from './catalog'
 import { registerProducts } from './products'
+import { registerContent } from './content'
 import { registerCart } from './cart'
 import { registerReminderLinks } from './reminders'
 import { registerAccounts } from './accounts'
@@ -16,6 +17,7 @@ shop.builder.queryFields((t) => ({
 }))
 registerCatalog(shop)
 registerProducts(shop)
+registerContent(shop)
 shop.builder.mutationType({})
 const { Cart } = registerCart(shop)
 registerReminderLinks(shop, Cart)

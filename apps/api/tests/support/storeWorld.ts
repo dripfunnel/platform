@@ -27,9 +27,9 @@ export interface StoreWorld {
   people: Record<Who, string>
   storeOf: (who: Who) => string
   partnerOf: (who: Who) => string
-  gql: (who: Who, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined }>
+  gql: (who: Who, source: string, variables?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
   /** A bearer credential (an API key or an app's token) on a partner's portal host. */
-  bearer: (secret: string, source: string, partnerId: string) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined }>
+  bearer: (secret: string, source: string, partnerId: string) => Promise<{ data: Record<string, unknown> | null | undefined; code: string | undefined; extensions: Record<string, unknown> | undefined }>
 }
 
 export interface WorldOptions {
@@ -65,7 +65,7 @@ export const seedStoreWorld = async (sql: postgres.Sql, t: Tenants, o: WorldOpti
     const standing = await resolveStoreStanding(sql, new Request('https://store.example/api/', { headers }), partnerId, o.now(), activityLog, facts)
     const contextValue: StoreContext = { standing, partnerId, sql, activity: activityLog, facts, secrets: o.secrets, lookup: o.lookup, now: o.now }
     const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
-    return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
+    return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, extensions: result.errors?.[0]?.extensions }
   }
   return {
     people,
