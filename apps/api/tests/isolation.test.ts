@@ -348,7 +348,7 @@ describe('the backstop itself', () => {
       'store_feature', 'badge', 'size_chart', 'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag', 'product_compliance', 'product_market_rule',
       'product_story', 'story_block', 'warehouse', 'stock_level', 'stock_movement', 'licence_key', 'order_download', 'gift_card', 'gift_card_movement', 'api_key', 'api_usage', 'webhook_endpoint', 'webhook_delivery', 'app', 'app_grant',
       'store_billing_details', 'invoice', 'invoice_line', 'storefront_push', 'design_draft', 'publish_run', 'design_version', 'core_release', 'studio_session', 'ai_run',
-      'storefront_content', 'storefront_redirect',
+      'storefront_content', 'storefront_redirect', 'storefront_content_translation',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -568,19 +568,33 @@ describe('the backstop itself', () => {
   })
 
   it('holds content pages, posts and their redirects to the merchant side of their own store (#338)', async () => {
-    const entry = async (storeId: string, slug: string) =>
-      db.sql`insert into storefront_content (store_id, kind, slug, title, status) values (${storeId}, 'page', ${slug}, ${slug}, 'published')`
-    await entry(t.storeA1, 'iso-faq')
+    const entry = async (storeId: string, slug: string, status = 'published') =>
+      (await db.sql<{ id: string }[]>`insert into storefront_content (store_id, kind, slug, title, status) values (${storeId}, 'page', ${slug}, ${slug}, ${status}) returning id`)[0]?.id ?? ''
+    const a1 = await entry(t.storeA1, 'iso-faq')
+    const draft = await entry(t.storeA1, 'iso-draft', 'draft')
     await entry(t.storeB1, 'iso-faq')
+    await db.sql`insert into store_language (store_id, language) values (${t.storeA1}, 'hi-IN') on conflict do nothing`
+    await db.sql`insert into storefront_content_translation (content_id, store_id, language, title, source_hash) values (${a1}, ${t.storeA1}, 'hi-IN', 'x', ${'0'.repeat(32)}), (${draft}, ${t.storeA1}, 'hi-IN', 'x', ${'0'.repeat(32)})`
     await db.sql`insert into storefront_redirect (store_id, from_path, to_path, reason) values (${t.storeA1}, '/iso-old', '/iso-faq', 'renamed'), (${t.storeB1}, '/iso-old', '/iso-faq', 'renamed')`
     const count = (context: CallerContext, table: string) => withScope(db.sql, context, async (tx) => (await tx.unsafe(`select count(*)::int as n from ${table}`))[0]?.['n'] as number)
-    for (const table of ['storefront_content', 'storefront_redirect']) {
-      expect({ [table]: await count(storeCaller(t.partnerA, t.storeA1), table) }).toEqual({ [table]: 1 })
+    // The merchant side reads its own store's rows, drafts included; a shopper only what is live, and never a redirect.
+    const merchant = { storefront_content: 2, storefront_redirect: 1, storefront_content_translation: 2 }
+    const shopperSees = { storefront_content: 1, storefront_content_translation: 1 }
+    for (const [table, n] of Object.entries(merchant)) {
+      expect({ [table]: await count(storeCaller(t.partnerA, t.storeA1), table) }).toEqual({ [table]: n })
       expect({ [table]: await count(storeCaller(t.partnerA, t.storeA2), table) }).toEqual({ [table]: 0 })
-      expect({ [table]: await count(storeCaller(t.partnerB, t.storeB1), table) }).toEqual({ [table]: 1 })
-      expect({ [table]: await count(supportSession(t.partnerA, t.storeA1, 'read'), table) }).toEqual({ [table]: 1 })
-      // A supplier, a shopper, a partner and staff hold no grant on them: they can't even ask.
-      for (const context of [storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), shopper(t.partnerA, t.storeA1, null), partnerCaller(t.partnerA), staff]) {
+      expect({ [table]: await count(storeCaller(t.partnerB, t.storeB1), table) }).toEqual({ [table]: table === 'storefront_content_translation' ? 0 : 1 })
+      expect({ [table]: await count(supportSession(t.partnerA, t.storeA1, 'read'), table) }).toEqual({ [table]: n })
+      if (table in shopperSees) {
+        expect({ [table]: await count(shopper(t.partnerA, t.storeA1, null), table) }).toEqual({ [table]: shopperSees[table as keyof typeof shopperSees] })
+        expect({ [table]: await count(shopper(t.partnerA, t.storeA2, null), table) }).toEqual({ [table]: 0 })
+        // A shopper reads by the shop's own scope only, and writes nothing.
+        await expect(withScope(db.sql, shopper(t.partnerA, t.storeA1, null), (tx) => tx.unsafe(`delete from ${table}`))).rejects.toThrow(/permission denied/)
+      } else {
+        await expect(count(shopper(t.partnerA, t.storeA1, null), table)).rejects.toThrow(/permission denied/)
+      }
+      // A supplier, a partner and staff hold no grant on them: they can't even ask.
+      for (const context of [storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), partnerCaller(t.partnerA), staff]) {
         await expect(count(context, table)).rejects.toThrow(/permission denied/)
       }
     }

@@ -306,7 +306,7 @@ export class StudioRunner {
   private async guardContext(): Promise<GuardContext> {
     const { row, usedPaths } = await this.system(async (tx) => ({ row: await selectGuardContext(tx, this.deps.storeId), usedPaths: await storeContentPaths(tx, this.deps.storeId) }))
     if (!row) throw new StudioUnavailable('The store is gone.')
-    return { ...guardContextFor(row), usedPaths }
+    return guardContextFor(row, usedPaths)
   }
 }
 

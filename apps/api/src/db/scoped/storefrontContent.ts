@@ -144,3 +144,123 @@ export const redirectRenamed = async (tx: ScopedSql, storeId: string, from: stri
 export const clearRedirectFrom = async (tx: ScopedSql, storeId: string, path: string): Promise<void> => {
   await tx`delete from storefront_redirect where store_id = ${storeId} and from_path = ${path}`
 }
+
+export interface ShopContentRow {
+  id: string
+  kind: ContentKind
+  slug: string
+  title: string
+  body: unknown[]
+  seo_title: string | null
+  seo_description: string | null
+  publish_at: Date | null
+  in_menu: boolean
+  author: string | null
+  tags: string[]
+  cover_asset_id: string | null
+  updated_at: Date
+}
+
+// The shopper's language where the page has it, the main language's words otherwise (CATALOG facts 19–20).
+const shopColumns = (tx: ScopedSql) => tx`
+  c.id, c.kind, c.slug, coalesce(t.title, c.title) as title, coalesce(t.body, c.body) as body,
+  case when t.content_id is null then c.seo_title else t.seo_title end as seo_title,
+  case when t.content_id is null then c.seo_description else t.seo_description end as seo_description,
+  c.publish_at, c.in_menu, c.author, to_json(c.tags) as tags, c.cover_asset_id, c.updated_at`
+
+/** Live pages newest edit first, or posts newest date first, as the shopper reads them; RLS keeps out drafts and posts not yet due. */
+export const selectShopContentList = async (tx: ScopedSql, storeId: string, kind: ContentKind, language: string, window: PageWindow, filter: { inMenu: boolean | null; tag: string | null }): Promise<ShopContentRow[]> => {
+  const at = kind === 'page' ? 'c.updated_at' : 'c.publish_at'
+  return tx<ShopContentRow[]>`
+    select ${shopColumns(tx)} from storefront_content c
+    left join storefront_content_translation t on t.content_id = c.id and t.language = ${language}
+    where c.store_id = ${storeId} and c.kind = ${kind}
+      and ${filter.inMenu === null ? tx`true` : tx`c.in_menu = ${filter.inMenu}`}
+      and ${filter.tag === null ? tx`true` : tx`${filter.tag} = any(c.tags)`}
+      and ${keysetWhere(tx, window, at, 'c.id')}
+    ${keysetOrder(tx, window, at, 'c.id')}`
+}
+
+export const selectShopContent = async (tx: ScopedSql, storeId: string, kind: ContentKind, slug: string, language: string): Promise<ShopContentRow | null> =>
+  (
+    await tx<ShopContentRow[]>`
+      select ${shopColumns(tx)} from storefront_content c
+      left join storefront_content_translation t on t.content_id = c.id and t.language = ${language}
+      where c.store_id = ${storeId} and c.kind = ${kind} and c.slug = ${slug}`
+  )[0] ?? null
+
+/** The web addresses of the products among `ids` the shopper may see, by id. */
+export const selectShopProductSlugs = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<Map<string, string>> =>
+  ids.length === 0
+    ? new Map()
+    : new Map((await tx<{ id: string; slug: string }[]>`select id, slug from product where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[])`).map((r) => [r.id, r.slug]))
+
+export interface DuePost {
+  id: string
+  store_id: string
+  partner_id: string
+  title: string
+}
+
+/** A scheduled post whose time has come is published (FIRST-RELEASE §14), a batch at a time; system scope. */
+export const publishDuePosts = async (tx: ScopedSql, now: Date, limit: number): Promise<DuePost[]> =>
+  tx<DuePost[]>`
+    with due as (
+      select id from storefront_content where status = 'scheduled' and deleted_at is null and publish_at <= ${now}
+      order by publish_at limit ${limit} for update skip locked
+    )
+    update storefront_content c set status = 'published', published_at = coalesce(c.published_at, c.publish_at), changed_at = ${now}
+    from due, store s where c.id = due.id and s.id = c.store_id
+    returning c.id, c.store_id, s.partner_id, c.title`
+
+// A translation is out of date when the main-language words it translated have changed since.
+const mainHash = (tx: ScopedSql) => tx`md5(c.title || chr(10) || c.body::text || chr(10) || coalesce(c.seo_title, '') || chr(10) || coalesce(c.seo_description, ''))`
+
+export interface ContentTranslationRow {
+  language: string
+  title: string
+  body: unknown[]
+  seo_title: string | null
+  seo_description: string | null
+  changed: boolean
+}
+
+export const selectContentTranslation = async (tx: ScopedSql, storeId: string, id: string, language: string): Promise<ContentTranslationRow | null> =>
+  (
+    await tx<ContentTranslationRow[]>`
+      select t.language, t.title, t.body, t.seo_title, t.seo_description, t.source_hash <> ${mainHash(tx)} as changed
+      from storefront_content_translation t join storefront_content c on c.id = t.content_id
+      where t.content_id = ${id} and t.store_id = ${storeId} and t.language = ${language} and c.deleted_at is null`
+  )[0] ?? null
+
+export interface ContentTranslationWrite {
+  title: string
+  body: unknown[]
+  seoTitle: string | null
+  seoDescription: string | null
+  assetIds: readonly string[]
+  productIds: readonly string[]
+}
+
+export const upsertContentTranslation = async (tx: ScopedSql, storeId: string, id: string, language: string, w: ContentTranslationWrite, now: Date): Promise<void> => {
+  await tx`
+    insert into storefront_content_translation (content_id, store_id, language, title, body, seo_title, seo_description, asset_ids, product_ids, source_hash, updated_at)
+    select c.id, c.store_id, ${language}, ${w.title}, ${doc(tx, w.body)}, ${w.seoTitle}, ${w.seoDescription}, ${pgArray(w.assetIds)}::uuid[], ${pgArray(w.productIds)}::uuid[], ${mainHash(tx)}, ${now}
+    from storefront_content c where c.id = ${id} and c.store_id = ${storeId}
+    on conflict (content_id, language) do update set title = excluded.title, body = excluded.body, seo_title = excluded.seo_title,
+      seo_description = excluded.seo_description, asset_ids = excluded.asset_ids, product_ids = excluded.product_ids,
+      source_hash = excluded.source_hash, updated_at = excluded.updated_at`
+}
+
+/** Another language's words changed what a shopper sees: it waits for the next publish like any edit. */
+export const touchContent = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<void> => {
+  await tx`update storefront_content set changed_at = ${now} where id = ${id} and store_id = ${storeId}`
+}
+
+export const deleteContentTranslation = async (tx: ScopedSql, storeId: string, id: string, language: string): Promise<void> => {
+  await tx`delete from storefront_content_translation where content_id = ${id} and store_id = ${storeId} and language = ${language}`
+}
+
+/** The store's languages a page can be translated into: those it offers but its main one. */
+export const selectTranslationLanguages = async (tx: ScopedSql, storeId: string): Promise<string[]> =>
+  (await tx<{ language: string }[]>`select l.language from store_language l join store s on s.id = l.store_id where l.store_id = ${storeId} and l.status = 'active' and l.language <> s.main_language`).map((r) => r.language)

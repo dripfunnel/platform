@@ -119,6 +119,6 @@ export const storeRepos = (call: GitHubCall, org: string): StoreRepos => {
       const answer = await call('GET', `${repo(name)}/compare/${commit}...${head}`, undefined, [404])
       return answer.status !== 404 && ['ahead', 'identical'].includes(read(compareSchema, answer.body).status)
     },
-    dispatchBuild: async (name, inputs) => (await call('POST', `${repo(name)}/actions/workflows/${buildWorkflow}/dispatches`, { ref: 'main', inputs }, [404])).status !== 404,
+    dispatchBuild: async (name, inputs) => (await call('POST', `${repo(name)}/actions/workflows/${buildWorkflow}/dispatches`, { ref: 'main', inputs }, [404], { once: true })).status !== 404,
   }
 }

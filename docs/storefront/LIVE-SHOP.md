@@ -157,7 +157,9 @@ checking, deploying, live, failed, rolled back).
    build, and an old id is refused.
    **Built on #483**: `POST /repos/{org}/{repo}/actions/workflows/build.yml/dispatches` on `main` with the inputs
    `build_id` and `api` (`https://<hooks host>`), at most once: `publish_run.dispatched_at` is set before GitHub is
-   asked and cleared only when GitHub answered no, so a retried step never starts a second run. A repo GitHub doesn't
+   asked, the request is sent once (again only after a 401), and the claim is cleared only on a definite refusal (a
+   4xx, 401 or 429); a 5xx or no answer may hide a started run, so it stands. The report and the upload share one
+   deadline, the build id's 2 hours from its claim. A repo GitHub doesn't
    know fails the publish as `no_repo`. The runner sends only the check container's report as a verdict: the build
    container ran the theme, so its own report can only refuse (its failing checks), and no report is "stopped".
 5. **The workflow is one job**, so the built site never leaves the runner as an artifact. Its
@@ -311,7 +313,8 @@ checking, deploying, live, failed, rolled back).
     pointer moves back to `previous_build_id` in one transaction: the run reads `rolled_back` with the failed check as
     its error (`check_home`, `check_product`, `check_cart`, `check_checkout`, `check_payment`), its version is
     withdrawn and the one before is live again, the lookup is purged and `storefront.rolled_back` is recorded. A store's
-    first publish rolls back to no build. Anything that breaks after the switch rolls back the same way, and a replayed
+    first publish rolls back to no build. When a repair's build (#483) went live in the publish's place, it is that build
+    that is checked and rolled back, and the publish fails with the check's code. Anything that breaks after the switch rolls back the same way, and a replayed
     rollback changes nothing. Its build folder stays as it was, for the repair loop (#483). Checking the theme's own
     behaviour in a browser (pressing Add to cart, the payment element drawn) needs a headless browser; *proposed* as a
     follow-up with Cloudflare Browser Rendering.

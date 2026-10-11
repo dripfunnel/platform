@@ -497,6 +497,22 @@ input ContentQuestionInput {
   question: String!
 }
 
+type ContentTranslation {
+  body: [ContentBlock!]
+  changed: Boolean
+  language: String
+  seoDescription: String
+  seoTitle: String
+  title: String
+}
+
+input ContentTranslationInput {
+  body: [ContentBlockInput!]!
+  seoDescription: String
+  seoTitle: String
+  title: String!
+}
+
 type ConversionExample {
   currency: String
   ends99: ConvertedAmount
@@ -1028,10 +1044,12 @@ type Mutation {
   saveBadge(id: ID, input: BadgeInput!): ID
   saveBillingDetails(input: BillingDetailsInput!): BillingDetails
   saveBlogPost(id: ID, input: BlogPostInput!, revision: Int): ContentEntry
+  saveBlogPostTranslation(id: ID!, input: ContentTranslationInput, language: String!): ContentTranslation
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
   saveContentPage(id: ID, input: ContentPageInput!, revision: Int): ContentEntry
+  saveContentPageTranslation(id: ID!, input: ContentTranslationInput, language: String!): ContentTranslation
   saveCourierOptions(input: CourierOptionsInput!, provider: String!): Boolean
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveCustomerAccounts(mode: String!): CustomerAccounts
@@ -1987,6 +2005,7 @@ type Query {
   collections(after: String, before: String, first: Int): CollectionPage
   contentEntry(id: ID!): ContentEntry
   contentPages(after: String, before: String, first: Int): ContentEntryPage
+  contentTranslation(id: ID!, language: String!): ContentTranslation
   customPagePaths: [String!]
   customer(id: ID!): Customer
   customerAccounts: CustomerAccounts

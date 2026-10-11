@@ -4,7 +4,7 @@ import type { ScopedSql } from './index'
 // only the publish-storefront Workflow and the jobs around it write them.
 
 export type PublishKind = 'manual' | 'automatic' | 'staff' | 'design' | 'page' | 'upgrade' | 'security' | 'rollback'
-export type RunState = 'queued' | 'building' | 'checking' | 'deploying' | 'live' | 'failed' | 'rolled_back'
+export type RunState = 'queued' | 'building' | 'checking' | 'checked' | 'deploying' | 'live' | 'failed' | 'rolled_back'
 export const activeStates = ['building', 'checking', 'deploying'] as const satisfies readonly RunState[]
 
 export interface RunRow {
@@ -79,6 +79,10 @@ export const switchLive = async (tx: ScopedSql, run: RunRow, previous: string | 
   await tx`update storefront set live_build_id = ${run.id} where store_id = ${run.store_id}`
   await tx`update publish_run set switched_at = ${at}, previous_build_id = ${previous} where id = ${run.id}`
   await tx`update design_version set state = 'kept' where store_id = ${run.store_id} and state = 'live'`
+  // The draft's changes up to the published one are live now; later ones stay to publish (ARCHITECTURE §4.2 step 4).
+  await tx`
+    update design_draft set commits = coalesce(commits[array_position(commits, ${run.commit}::text) + 1:], commits)
+    where store_id = ${run.store_id} and array_position(commits, ${run.commit}::text) is not null`
   const [version] = await tx<{ number: number }[]>`
     insert into design_version (store_id, number, commit, template, core_version, build_id, published_by, published_at, state)
     select ${run.store_id}, coalesce(max(number), 0) + 1, ${run.commit}, ${run.template}, ${run.core_version}, ${run.id},
@@ -160,7 +164,7 @@ export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: Versio
   await tx`update storefront set live_build_id = ${version.build_id} where store_id = ${storeId}`
   await tx`update design_version set state = 'kept' where store_id = ${storeId} and state = 'live'`
   await tx`update design_version set state = 'live' where id = ${version.id}`
-  await tx`update design_draft set head_commit = ${version.commit}, base_version_id = ${version.id}, changed_at = ${at}, changed_by = ${by} where store_id = ${storeId}`
+  await tx`update design_draft set head_commit = ${version.commit}, base_version_id = ${version.id}, commits = '{}', changed_at = ${at}, changed_by = ${by} where store_id = ${storeId}`
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${version.core_version} where id = ${storeId}`
 }
 
@@ -282,3 +286,57 @@ export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date)
       select count(*)::int as used from publish_run
       where store_id = ${storeId} and uses_allowance and state = 'live' and created_at >= ${since}`
   )[0]?.used ?? 0
+
+/** A repair's or a bisect's build for the publish `root`, building at once beside it (ARCHITECTURE §4.2 step 4). */
+export const insertAttempt = async (tx: ScopedSql, root: RunRow, attempt: 'repair' | 'bisect', commit: string, at: Date): Promise<string> => {
+  const [row] = await tx<{ id: string }[]>`
+    insert into publish_run (store_id, kind, state, commit, template, core_version, uses_allowance, started_by_kind, started_by_id, created_at, started_at, attempt_of, attempt)
+    values (${root.store_id}, ${root.kind}, 'building', ${commit}, ${root.template}, ${root.core_version}, false, 'system', null, ${at}, ${at}, ${root.id}, ${attempt})
+    returning id`
+  if (!row) throw new Error('publish_run: insert returned nothing')
+  return row.id
+}
+
+/** An attempt whose report failed ends here; its publish goes on deciding. */
+export const failAttempt = async (tx: ScopedSql, storeId: string, id: string, at: Date): Promise<void> => {
+  await tx`update publish_run set state = 'failed', error = 'gate_failed', finished_at = ${at} where id = ${id} and store_id = ${storeId} and attempt_of is not null and state in ('building', 'checking')`
+}
+
+export const setRepairAttempts = async (tx: ScopedSql, rootId: string, attempts: number): Promise<void> => {
+  await tx`update publish_run set repair_attempts = ${attempts} where id = ${rootId}`
+}
+
+export const setBisectCommit = async (tx: ScopedSql, rootId: string, commit: string): Promise<void> => {
+  await tx`update publish_run set bisect_commit = ${commit} where id = ${rootId}`
+}
+
+/** The publish went live through its repair's build, which the pointer names; the publish itself is done. */
+export const finishRepaired = async (tx: ScopedSql, rootId: string, at: Date): Promise<void> => {
+  await tx`update publish_run set state = 'live', finished_at = ${at} where id = ${rootId} and state = 'checking'`
+}
+
+/** The draft's accepted changes since the live version, oldest first. */
+export const selectDraftCommits = async (tx: ScopedSql, storeId: string): Promise<string[]> =>
+  (await tx<{ commits: string[] }[]>`select to_jsonb(commits) as commits from design_draft where store_id = ${storeId}`)[0]?.commits ?? []
+
+/** The store's latest design publish that bisect stopped at `commit`, the change "publish everything before" leaves out. */
+export const selectBisectedRun = async (tx: ScopedSql, storeId: string, commit: string): Promise<RunRow | null> =>
+  (
+    await tx<RunRow[]>`
+      select r.id, r.store_id, s.partner_id, r.kind, r.state, r.commit, r.template, r.core_version, r.started_by_kind, r.started_by_id
+      from publish_run r join store s on s.id = r.store_id
+      where r.store_id = ${storeId} and r.kind = 'design' and r.attempt_of is null and r.state = 'failed' and r.bisect_commit = ${commit}
+      order by r.created_at desc limit 1`
+  )[0] ?? null
+
+/** The failing checks' words of a build's report, for the repair (never code: LIVE-SHOP §4 step 7). */
+export const selectFailingChecks = async (tx: ScopedSql, storeId: string, runId: string): Promise<string[]> =>
+  (
+    await tx<{ words: string }[]>`
+      select concat(c->>'name', ': ', coalesce(c->>'detail', '')) as words
+      from publish_run r, jsonb_array_elements(coalesce(r.gate->'checks', '[]'::jsonb)) c
+      where r.id = ${runId} and r.store_id = ${storeId} and (c->>'passed')::boolean is false`
+  ).map((r) => r.words)
+/** When the build id's lifetime started (its claim), which every wait for the build counts down from. */
+export const selectStartedAt = async (tx: ScopedSql, storeId: string, runId: string): Promise<Date | null> =>
+  (await tx<{ started_at: Date | null }[]>`select started_at from publish_run where id = ${runId} and store_id = ${storeId}`)[0]?.started_at ?? null

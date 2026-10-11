@@ -141,10 +141,10 @@ describe('a publish’s build', () => {
 })
 
 describe('the dispatch', () => {
-  it('starts at most one run however often its step is retried, and asks again only when GitHub said no', async () => {
+  it('starts at most one run however often its step is retried, and asks again only when GitHub definitely said no', async () => {
     const runId = await start(t.storeA2, 'design', 20)
     await db.sql`update publish_run set state = 'building', started_at = now() where id = ${runId}`
-    let answers: (() => Promise<boolean>)[] = [async () => Promise.reject(new GitHubRefused(422)), async () => Promise.reject(new GitHubUnavailable('GitHub answered 502')), async () => true]
+    let answers: (() => Promise<boolean>)[] = [async () => Promise.reject(new GitHubRefused(422)), async () => Promise.reject(new GitHubUnavailable('GitHub answered 429', 429)), async () => true]
     const asked: string[] = []
     const retrying = { ...deps(), dispatch: async (repo: string) => {
       asked.push(repo)
@@ -156,15 +156,51 @@ describe('the dispatch', () => {
     // The step failing after GitHub started the run: its retry finds the start recorded and starts nothing.
     expect(await dispatchBuild(retrying, t.storeA2, runId)).toBe('skipped')
     expect(asked).toHaveLength(3)
-    // No answer at all: a run may have started, so the start stands and nothing is asked again.
-    const silent = await start(t.storeA2, 'design', 21)
+    // A 5xx or no answer at all may hide a started run: the start stands and nothing is asked again.
     await db.sql`update publish_run set state = 'failed' where id = ${runId}`
-    await db.sql`update publish_run set state = 'building', started_at = now() where id = ${silent}`
-    answers = [async () => Promise.reject(new GitHubUnavailable(noAnswer))]
-    await expect(dispatchBuild(retrying, t.storeA2, silent)).rejects.toThrow(GitHubUnavailable)
-    expect(await dispatchBuild(retrying, t.storeA2, silent)).toBe('skipped')
-    expect(asked).toHaveLength(4)
-    await db.sql`update publish_run set state = 'failed' where id = ${silent}`
+    for (const [n, unclear] of [[21, new GitHubUnavailable('GitHub answered 502', 502)], [22, new GitHubUnavailable(noAnswer)]] as const) {
+      const run = await start(t.storeA2, 'design', n)
+      await db.sql`update publish_run set state = 'building', started_at = now() where id = ${run}`
+      answers = [async () => Promise.reject(unclear)]
+      await expect(dispatchBuild(retrying, t.storeA2, run)).rejects.toThrow(GitHubUnavailable)
+      expect(await dispatchBuild(retrying, t.storeA2, run)).toBe('skipped')
+      await db.sql`update publish_run set state = 'failed' where id = ${run}`
+    }
+    expect(asked).toHaveLength(5)
+  })
+
+  it('is sent to GitHub once: a 5xx isn’t sent again by the client, and the step’s retry starts nothing', async () => {
+    const github = localGitHub({ org: 'dripfunnel', installationId: '42', appId: '7' })
+    const keys = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify'])
+    const pem = `-----BEGIN PRIVATE KEY-----\n${btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.exportKey('pkcs8', keys.privateKey))))}\n-----END PRIVATE KEY-----`
+    const repos = storeRepos(createGitHubApp({ appId: '7', installationId: '42', privateKey: pem, fetchImpl: github.fetch, sleep: async () => undefined }).session(), 'dripfunnel')
+    await repos.create('sf-a2a2a2a2a2')
+    const run = await start(t.storeA2, 'design', 23)
+    await db.sql`update publish_run set state = 'building', started_at = now() where id = ${run}`
+    github.fail(/dispatches$/, 502, 3)
+    const real = { ...deps(), dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api: 'https://hooks.dripfunnel.com' }) }
+    await expect(dispatchBuild(real, t.storeA2, run)).rejects.toThrow(GitHubUnavailable)
+    expect(await dispatchBuild(real, t.storeA2, run)).toBe('skipped')
+    expect(github.calls.filter((c) => c.endsWith('/dispatches'))).toHaveLength(1)
+    await db.sql`update publish_run set state = 'failed' where id = ${run}`
+  })
+
+  it('waits for the report and the upload only until the build id’s 2 hours from its claim run out', async () => {
+    const runId = await start(t.storeA1, 'design', 24)
+    const waits: number[] = []
+    const claimedLate = {
+      do: async (name: string, work: () => Promise<string>) => {
+        const done = await work()
+        if (name === 'claim') await db.sql`update publish_run set started_at = now() - interval '110 minutes' where id = ${runId}`
+        return done
+      },
+      waitFor: async (_: string, __: string, minutes: number) => {
+        waits.push(minutes)
+        throw new Error('waitForEvent timed out')
+      },
+    }
+    expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, claimedLate)).toBe('failed')
+    expect(waits).toEqual([10])
   })
 })
 

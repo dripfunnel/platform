@@ -85,6 +85,7 @@ import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
 import { releaseUnpaidOrders, type PaymentWiring } from '#engine/modules/checkout/index'
+import { publishScheduledPosts } from '#engine/modules/content/index'
 import type { PaymentMode } from '#core/payments'
 import { stripeConnect } from '#integrations/stripe/connect'
 import { stripePayments, type StripeKeys } from '#integrations/stripe/payments'
@@ -819,6 +820,15 @@ const releaseUnpaid: CronJob = async (sql, config) => {
   if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
 }
 
+// A scheduled post goes live at its time (FIRST-RELEASE §14); its change waits for the next publish like any edit.
+const publishDuePosts: CronJob = async (sql) => {
+  const published = await publishScheduledPosts(sql, activityLog, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'scheduled_posts_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (published > 0) logEvent({ event: 'scheduled_posts_published', api: 'system', code: 'due', count: published })
+}
+
 // FIRST-RELEASE §3.3: a trial that ended without a plan moves to the free plan, or owes one.
 const endDueTrials: CronJob = async (sql) => {
   const trials = await endTrials(sql, activityLog, new Date()).catch((error: unknown) => {
@@ -915,7 +925,7 @@ const cleanStorefrontFiles: CronJob = async (sql, _config, env) => {
 
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [expireSms, relayOutbox],
+  '* * * * *': [expireSms, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles],
