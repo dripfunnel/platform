@@ -347,7 +347,7 @@ export const selectSnapshotSource = async (tx: ScopedSql, storeId: string): Prom
       where s.id = ${storeId}`
   )[0] ?? null
 
-/** "Publish now" presses that went live since `since`; a refused, failed or rolled-back one never counts (SAAS §9.1). */
+/** "Publish now" presses that went live since `since`; a refused, failed or rolled-back one never counts (SAAS §9.1). #318 reads it. */
 export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date): Promise<number> =>
   (
     await tx<{ used: number }[]>`
@@ -370,17 +370,17 @@ export const failAttempt = async (tx: ScopedSql, storeId: string, id: string, at
   await tx`update publish_run set state = 'failed', error = 'gate_failed', finished_at = ${at} where id = ${id} and store_id = ${storeId} and attempt_of is not null and state in ('building', 'checking')`
 }
 
-export const setRepairAttempts = async (tx: ScopedSql, rootId: string, attempts: number): Promise<void> => {
-  await tx`update publish_run set repair_attempts = ${attempts} where id = ${rootId}`
+export const setRepairAttempts = async (tx: ScopedSql, storeId: string, rootId: string, attempts: number): Promise<void> => {
+  await tx`update publish_run set repair_attempts = ${attempts} where id = ${rootId} and store_id = ${storeId}`
 }
 
-export const setBisectCommit = async (tx: ScopedSql, rootId: string, commit: string): Promise<void> => {
-  await tx`update publish_run set bisect_commit = ${commit} where id = ${rootId}`
+export const setBisectCommit = async (tx: ScopedSql, storeId: string, rootId: string, commit: string): Promise<void> => {
+  await tx`update publish_run set bisect_commit = ${commit} where id = ${rootId} and store_id = ${storeId}`
 }
 
 /** The publish went live through its repair's build, which the pointer names; the publish itself is done. */
-export const finishRepaired = async (tx: ScopedSql, rootId: string, at: Date): Promise<void> => {
-  await tx`update publish_run set state = 'live', finished_at = ${at} where id = ${rootId} and state = 'checking'`
+export const finishRepaired = async (tx: ScopedSql, storeId: string, rootId: string, at: Date): Promise<void> => {
+  await tx`update publish_run set state = 'live', finished_at = ${at} where id = ${rootId} and store_id = ${storeId} and state = 'checking'`
 }
 
 /** The draft's accepted changes since the live version, oldest first. */

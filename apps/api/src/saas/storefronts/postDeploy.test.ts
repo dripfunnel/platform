@@ -96,3 +96,19 @@ describe('an address that doesn’t answer', () => {
   })
 })
 
+describe('an address the edge doesn’t answer', () => {
+  it('skips every check when a proxy or parked page answers instead of the edge Worker, whatever its status', async () => {
+    for (const status of [200, 403]) {
+      const parked: EdgeProbe = { get: async () => ({ status, contentType: 'text/html', build: null, body: '' }), shop: async () => ({ status: 403, data: null, errors: true }) }
+      const results = await runPostDeployChecks(parked, target, timing())
+      expect(failedCheck(results)).toBeNull()
+      expect(results.every((r) => r.result === 'skipped')).toBe(true)
+    }
+  })
+
+  it('still fails the edge’s own error from the new build', async () => {
+    const broken = probeWith({ ...healthy, 'https://shop.example/checkout': { status: 500, contentType: 'text/html', build: 'b2', body: '' } }, shopOk)
+    expect(failedCheck(await runPostDeployChecks(broken, target, timing()))).toBe('check_checkout')
+  })
+})
+

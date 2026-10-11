@@ -133,9 +133,18 @@ const missing = async (url: URL, store: Store & { buildId: string }, deps: Deps)
   return page('missing', 404, { language: store.language })
 }
 
+/** Every answer on a store's host names the build it came from, or `none` (LIVE-SHOP §4 step 10): the checks know it's ours. */
 export const serveLive = async (request: Request, url: URL, store: Store, deps: Deps): Promise<Response> => {
-  if (store.state === 'offline') return page('missing', 404, { language: store.language })
   if (url.pathname === '/shop-api' || url.pathname.startsWith('/shop-api/')) return deps.edge.fetch(request)
+  const answer = await serveStore(request, url, store, deps)
+  if (answer.headers.get('x-df-build')) return answer
+  const headers = new Headers(answer.headers)
+  headers.set('x-df-build', store.buildId ?? 'none')
+  return new Response(answer.body, { status: answer.status, statusText: answer.statusText, headers })
+}
+
+const serveStore = async (request: Request, url: URL, store: Store, deps: Deps): Promise<Response> => {
+  if (store.state === 'offline') return page('missing', 404, { language: store.language })
   // SAAS §4.2: a suspended store's page tells shoppers to contact the shop, with no DripFunnel route.
   if (store.state === 'suspended') return page('degraded', 503, { language: store.language, heading: store.name, headers: { 'retry-after': '3600' } })
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } })
