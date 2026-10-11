@@ -23,4 +23,12 @@ describe('the regression rule', () => {
     expect(verdict(base)).toBe('ok')
     expect(verdict({ ...base, lcp: 9000 }, minSamples - 1)).toBeUndefined()
   })
+
+  it('reads a move within the histogram’s resolution, or a doubling still under Google’s “good”, as no regression', () => {
+    const verdict = (from: typeof base, to: typeof base) => compare([days(minSamples, from)], [days(minSamples, to)])[0]?.verdict
+    // INP 10 ms → 30 ms reads 25 → 50 at the bucket bounds: doubled, but a single bucket and far under 200 ms.
+    expect(verdict({ ...base, inp: 10 }, { ...base, inp: 30 })).toBe('ok')
+    expect(verdict({ ...base, lcp: 600 }, { ...base, lcp: 1300 })).toBe('regressed')
+    expect(verdict({ ...base, lcp: 600 }, { ...base, lcp: 800 })).toBe('ok')
+  })
 })

@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
-import { contentAudit, contentPath, createContentService, type ContentBlock, type ContentKind, type ContentRefusal, type ContentResult, type ContentRow } from '#engine/modules/content/index'
+import { contentAudit, contentPath, createContentService, type ContentBlock, type ContentKind, type ContentRefusal, type ContentResult, type ContentRow, type ContentTranslationRow } from '#engine/modules/content/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
@@ -77,6 +77,18 @@ export const registerContent = (builder: StoreBuilder) => {
     fields: (t) => ({ nodes: t.field({ type: [EntryType], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
 
+  const TranslationType = builder.objectRef<ContentTranslationRow>('ContentTranslation').implement({
+    fields: (t) => ({
+      language: t.exposeString('language'),
+      title: t.exposeString('title'),
+      body: t.field({ type: [BlockType], resolve: (e) => e.body as ContentBlock[] }),
+      seoTitle: t.exposeString('seo_title', { nullable: true }),
+      seoDescription: t.exposeString('seo_description', { nullable: true }),
+      // The main language's words changed since this was written.
+      changed: t.exposeBoolean('changed'),
+    }),
+  })
+
   const QuestionInput = builder.inputType('ContentQuestionInput', { fields: (t) => ({ question: t.string({ required: true }), answer: t.string({ required: true }) }) })
   const BlockInput = builder.inputType('ContentBlockInput', {
     fields: (t) => ({ kind: t.string({ required: true }), text: t.string(), assetId: t.id(), alt: t.string(), items: t.field({ type: [QuestionInput] }), productIds: t.idList() }),
@@ -110,6 +122,10 @@ export const registerContent = (builder: StoreBuilder) => {
     }),
   })
 
+  const TranslationInput = builder.inputType('ContentTranslationInput', {
+    fields: (t) => ({ title: t.string({ required: true }), body: t.field({ type: [BlockInput], required: true }), seoTitle: t.string(), seoDescription: t.string() }),
+  })
+
   const read = { api: 'store', scope: 'store', permission: 'storefront.read', target: 'none' } as const
   const write = { api: 'store', scope: 'store', permission: 'publish', target: 'none' } as const
   const idOf = (id: string | number | null | undefined) => (id === null || id === undefined ? null : String(id))
@@ -136,6 +152,14 @@ export const registerContent = (builder: StoreBuilder) => {
       // Pages by when they were edited, posts by their date; newest first.
       contentPages: list('page'),
       blogPosts: list('post'),
+      // A page's or post's words in another language the store offers; null until written.
+      contentTranslation: t.field({
+        type: TranslationType,
+        nullable: true,
+        args: { id: t.arg.id({ required: true }), language: t.arg.string({ required: true }) },
+        extensions: { access: read },
+        resolve: (_, args, ctx) => service(ctx).translation(String(args.id), args.language),
+      }),
       contentEntry: t.field({ type: EntryType, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, args, ctx) => service(ctx).get(String(args.id)) }),
       // The theme's own pages, which the Pages tab lists to open in the studio (decided on #338).
       customPagePaths: t.stringList({ extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).customPaths() }),
@@ -162,6 +186,24 @@ export const registerContent = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx) => {
         await requireBlog(ctx)
         return answered(await service(ctx).save('post', idOf(args.id), args.revision ?? null, inputOf(args.input)))
+      },
+    }),
+    // A null input removes the language's words, and the shop shows the main language's.
+    saveContentPageTranslation: t.field({
+      type: TranslationType,
+      nullable: true,
+      args: { id: t.arg.id({ required: true }), language: t.arg.string({ required: true }), input: t.arg({ type: TranslationInput }) },
+      extensions: { access: { ...write, audit: contentAudit.translated } },
+      resolve: async (_, args, ctx) => answered(await service(ctx).saveTranslation('page', String(args.id), args.language, args.input ? inputOf(args.input) : null)),
+    }),
+    saveBlogPostTranslation: t.field({
+      type: TranslationType,
+      nullable: true,
+      args: { id: t.arg.id({ required: true }), language: t.arg.string({ required: true }), input: t.arg({ type: TranslationInput }) },
+      extensions: { access: { ...write, audit: contentAudit.translated } },
+      resolve: async (_, args, ctx) => {
+        await requireBlog(ctx)
+        return answered(await service(ctx).saveTranslation('post', String(args.id), args.language, args.input ? inputOf(args.input) : null))
       },
     }),
     // Deleting needs no plan: a post kept through a downgrade can still be taken off (SAAS §6.2).

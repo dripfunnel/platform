@@ -136,6 +136,9 @@ describe('worker', () => {
     const limited = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: false }) }, CART_RATE_LIMITER: carts }
     const asked = (headers: Record<string, string>) => new Request('https://acme.shops.partner.com/shop-api', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ query: '{ health }' }) })
     expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], limited, ctx)).status).toBe(429)
+    // The vitals intake sits behind the same limiter (#484).
+    const beacon = new Request('https://acme.shops.partner.com/shop-api/vitals', { method: 'POST', headers: { 'cf-connecting-ip': '203.0.113.1' }, body: '{}' })
+    expect((await worker.fetch(beacon as Parameters<typeof worker.fetch>[0], limited, ctx)).status).toBe(429)
     const open = { ...env, SHOP_RATE_LIMITER: { limit: async () => ({ success: true }) }, CART_RATE_LIMITER: carts }
     expect((await worker.fetch(asked({}) as Parameters<typeof worker.fetch>[0], open, ctx)).status).toBe(429)
     expect((await worker.fetch(asked({ 'cf-connecting-ip': '203.0.113.1' }) as Parameters<typeof worker.fetch>[0], env, ctx)).status).toBe(500)

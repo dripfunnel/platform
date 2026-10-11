@@ -176,6 +176,21 @@ describe('a single-page render', () => {
     await expect(indexNowDeliverer(db.sql, sites, refusing).deliver(effect('storefront.indexnow', queuedNow?.payload), signal)).rejects.toBeInstanceOf(GiveUp)
   })
 
+  it('never tells IndexNow about the pages a build serves for missing addresses, wherever its `_edge.json` puts them', async () => {
+    const [a, b] = [crypto.randomUUID(), crypto.randomUUID()]
+    const write = async (build: string, files: Record<string, string>, edge: unknown) => {
+      for (const [path, text] of Object.entries(files)) await putText(sites, `${buildFolder(t.storeA1, build)}${path}`, text)
+      const manifest = await Promise.all(Object.entries(files).map(async ([path, text]) => ({ path, sha256: await putText(sites, `${buildFolder(t.storeA1, build)}${path}`, text), size: text.length })))
+      await putText(sites, `${buildFolder(t.storeA1, build)}_manifest.json`, JSON.stringify({ files: manifest }))
+      await putText(sites, `${buildFolder(t.storeA1, build)}_edge.json`, JSON.stringify(edge))
+    }
+    const edge = { redirects: [], fallbacks: [{ prefix: '/products/', page: '/products/_/' }], notFound: '/not-found.html' }
+    await write(a, { 'index.html': 'one', 'not-found.html': 'missing one', 'products/_/index.html': 'shell one' }, edge)
+    await write(b, { 'index.html': 'two', 'not-found.html': 'missing two', 'products/_/index.html': 'shell two' }, edge)
+    const submission = await indexNowSubmission({ sql: db.sql, sites }, { storeId: t.storeA1, buildId: b, previousBuildId: a })
+    expect(submission?.urls).toEqual([`https://${host}/`])
+  })
+
   it('keeps the build whose JS and CSS its pages load through clean-up', async () => {
     await db.sql`update publish_run set finished_at = now() - interval '30 days' where id = ${base}`
     // Twenty newer builds would push the first past the kept ones; only the render still names it.

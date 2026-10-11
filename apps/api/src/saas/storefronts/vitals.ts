@@ -13,7 +13,8 @@ export const vitalsBeacon = z.strictObject({
   page: z.enum(pageKinds),
   device: z.enum(['phone', 'desktop']),
   lcp: z.number().finite().min(0).max(60_000),
-  inp: z.number().finite().min(0).max(60_000),
+  // Null when the shopper never interacted with the page: there is no INP to count.
+  inp: z.number().finite().min(0).max(60_000).nullable(),
   cls: z.number().finite().min(0).max(10),
 })
 export type VitalsBeacon = z.infer<typeof vitalsBeacon>
@@ -28,6 +29,10 @@ const dayMs = 86_400_000
 export const minSamples = 50
 /** A p75 this much worse than the week before is a regression to flag; doubled (or CLS above 0.25) rolls back (§9). */
 const flagRatio = 1.2
+/** Google's "good" LCP and INP: a doubling that stays under them rolls nothing back (decided on #484). */
+const good = { lcp: 2500, inp: 200 }
+/** A change smaller than two buckets is the histogram's resolution, never a regression. */
+const moved = (measure: Measure, before: number, after: number) => after - before >= 2 * buckets[measure].width
 
 /** The upper bound of the bucket where the 75th percentile falls, in ms (CLS in thousandths). */
 export const p75 = (hist: readonly number[], measure: Measure): number => {
@@ -70,8 +75,10 @@ export const compare = (before: VitalsDays[], after: VitalsDays[]): Comparison[]
     if (!b || a.samples < minSamples || b.samples < minSamples) return []
     const m = (h: { lcp: number[]; inp: number[]; cls: number[] }) => ({ lcp: p75(h.lcp, 'lcp'), inp: p75(h.inp, 'inp'), cls: p75(h.cls, 'cls') })
     const [x, y] = [m(b), m(a)]
-    const severe = y.lcp >= 2 * x.lcp || y.inp >= 2 * x.inp || (y.cls > 250 && x.cls <= 250)
-    const regressed = y.lcp > flagRatio * x.lcp || y.inp > flagRatio * x.inp || y.cls > flagRatio * x.cls + 20
+    const doubled = (m: 'lcp' | 'inp') => y[m] >= 2 * x[m] && y[m] > good[m] && moved(m, x[m], y[m])
+    const severe = doubled('lcp') || doubled('inp') || (y.cls > 250 && x.cls <= 250)
+    const worse = (m: Measure) => y[m] > flagRatio * x[m] && moved(m, x[m], y[m])
+    const regressed = worse('lcp') || worse('inp') || worse('cls')
     return [{ page, before: x, after: y, verdict: severe ? 'severe' : regressed ? 'regressed' : 'ok' }]
   })
 }

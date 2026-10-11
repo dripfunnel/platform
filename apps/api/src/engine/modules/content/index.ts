@@ -7,6 +7,7 @@ import { uniqueViolation, withScope, type ScopedSql } from '#db/scoped/index'
 import {
   clearRedirectFrom,
   deleteContent,
+  deleteContentTranslation,
   insertContent,
   redirectRenamed,
   selectContent,
@@ -15,13 +16,18 @@ import {
   selectNamespace,
   selectStoreImages,
   selectStoreProducts,
+  selectContentTranslation,
+  selectTranslationLanguages,
   updateContent,
+  touchContent,
+  upsertContentTranslation,
   type ContentKind,
   type ContentStatus,
 } from '#db/scoped/storefrontContent'
-import { cleanContent, ContentInvalid, contentPath, namedIn, pathHolder, type CleanContent, type PathHolder } from './rules'
+import { cleanContent, cleanTranslation, ContentInvalid, contentPath, namedIn, pathHolder, type CleanContent, type PathHolder } from './rules'
 
-export type { ContentKind, ContentRow, ContentStatus } from '#db/scoped/storefrontContent'
+export type { ContentKind, ContentRow, ContentStatus, ContentTranslationRow } from '#db/scoped/storefrontContent'
+export { contentPublishedAction, createShopContent, maxShopContentPage, publishScheduledPosts, type ShopContentBlock, type ShopContentView } from './shop'
 export type { ContentBlock, PathHolder } from './rules'
 export { contentPath } from './rules'
 
@@ -31,6 +37,7 @@ export { contentPath } from './rules'
 export const contentAudit = {
   saved: { page: 'content_page.saved', post: 'blog_post.saved' },
   deleted: { page: 'content_page.deleted', post: 'blog_post.deleted' },
+  translated: 'content.translated',
 } as const
 
 export type ContentRefusal =
@@ -154,7 +161,34 @@ export const createContentService = ({ sql, context, actor, activity, facts, now
       return true
     })
 
-  return { list, get, customPaths, save, remove }
+  /** Null when it has no words in that language yet: the shop shows the main language's. */
+  const translation = (id: string, language: string) =>
+    inScope(async (tx) => {
+      const row = isUuid(id) ? await selectContent(tx, storeId, id) : null
+      return row ? selectContentTranslation(tx, storeId, row.id, language) : null
+    })
+
+  /** Another offered language's words, or none (null), when the shop falls back to the main language's. */
+  const saveTranslation = (kind: ContentKind, id: string, language: string, input: unknown) =>
+    run(kind, () => '', async (tx) => {
+      const row = isUuid(id) ? await selectContent(tx, storeId, id) : null
+      if (!row || row.kind !== kind) throw new Refused({ reason: 'NOT_FOUND' })
+      if (!(await selectTranslationLanguages(tx, storeId)).includes(language)) throw new Refused({ reason: 'INVALID_INPUT', field: 'language' })
+      const at = now()
+      if (input === null) {
+        await deleteContentTranslation(tx, storeId, row.id, language)
+      } else {
+        const clean = cleanTranslation(kind, input)
+        const named = namedIn(clean.body, null)
+        await checkNamed(tx, named)
+        await upsertContentTranslation(tx, storeId, row.id, language, { ...clean, ...named }, at)
+      }
+      await touchContent(tx, storeId, row.id, at)
+      await activity.record(tx, entry(contentAudit.translated, kind, row.id, row.title, input === null ? `${language} removed` : language))
+      return selectContentTranslation(tx, storeId, row.id, language)
+    })
+
+  return { list, get, customPaths, save, remove, translation, saveTranslation }
 }
 
 /**

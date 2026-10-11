@@ -5,7 +5,8 @@ import type { ConsentChoice } from '../consent/consent'
 
 export type VitalsPage = 'home' | 'collection' | 'product' | 'custom' | 'cart' | 'checkout' | 'other'
 
-export type VitalsReport = { page: VitalsPage; device: 'phone' | 'desktop'; lcp: number; inp: number; cls: number }
+/** `inp` is null for a visit with no interaction, which has no INP. */
+export type VitalsReport = { page: VitalsPage; device: 'phone' | 'desktop'; lcp: number; inp: number | null; cls: number }
 
 type Entry = { startTime: number; duration: number; value?: number; hadRecentInput?: boolean; interactionId?: number }
 
@@ -66,8 +67,8 @@ export const reportVitals = (options: { page: VitalsPage; consent: () => Consent
     if (options.consent()?.analytics !== true || lcp === 0) return
     // INP: the slowest interaction, one in fifty set aside as an outlier (web.dev/inp).
     const slowest = [...interactions.values()].sort((a, b) => b - a)
-    const inp = slowest[Math.min(slowest.length - 1, Math.floor(slowest.length / 50))] ?? 0
-    const report: VitalsReport = { page: options.page, device: hooks.isPhone() ? 'phone' : 'desktop', lcp: Math.round(lcp), inp: Math.round(inp), cls: Math.round(cls * 1000) / 1000 }
+    const inp = slowest[Math.min(slowest.length - 1, Math.floor(slowest.length / 50))] ?? null
+    const report: VitalsReport = { page: options.page, device: hooks.isPhone() ? 'phone' : 'desktop', lcp: Math.round(lcp), inp: inp === null ? null : Math.round(inp), cls: Math.round(cls * 1000) / 1000 }
     hooks.send(vitalsEndpoint, JSON.stringify(report))
   })
 }

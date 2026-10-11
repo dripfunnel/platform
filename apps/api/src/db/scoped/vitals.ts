@@ -19,7 +19,8 @@ export interface VitalsSample {
   pageKind: PageKind
   device: Device
   lcpMs: number
-  inpMs: number
+  /** Null for a page view with no interaction, which adds nothing to INP. */
+  inpMs: number | null
   clsThousandths: number
 }
 
@@ -28,14 +29,15 @@ const zeros = (measure: Measure) => `{${Array.from({ length: buckets[measure].co
 /** One sample added to its day's histograms, atomically, so concurrent beacons never lose one. */
 export const recordVitals = async (tx: ScopedSql, s: VitalsSample): Promise<void> => {
   // Postgres arrays count from 1.
-  const [lcp, inp, cls] = [bucketOf('lcp', s.lcpMs) + 1, bucketOf('inp', s.inpMs) + 1, bucketOf('cls', s.clsThousandths) + 1]
+  const [lcp, cls] = [bucketOf('lcp', s.lcpMs) + 1, bucketOf('cls', s.clsThousandths) + 1]
+  const inp = s.inpMs === null ? null : bucketOf('inp', s.inpMs) + 1
   await tx`
     insert into storefront_vitals_day (store_id, day, page_kind, device, samples, lcp_hist, inp_hist, cls_hist)
     values (${s.storeId}, ${s.day}, ${s.pageKind}, ${s.device}, 0, ${zeros('lcp')}::int[], ${zeros('inp')}::int[], ${zeros('cls')}::int[])
     on conflict (store_id, day, page_kind, device) do nothing`
   await tx`
     update storefront_vitals_day set samples = samples + 1,
-      lcp_hist[${lcp}] = lcp_hist[${lcp}] + 1, inp_hist[${inp}] = inp_hist[${inp}] + 1, cls_hist[${cls}] = cls_hist[${cls}] + 1
+      lcp_hist[${lcp}] = lcp_hist[${lcp}] + 1, cls_hist[${cls}] = cls_hist[${cls}] + 1${inp === null ? tx`` : tx`, inp_hist[${inp}] = inp_hist[${inp}] + 1`}
     where store_id = ${s.storeId} and day = ${s.day} and page_kind = ${s.pageKind} and device = ${s.device}`
 }
 

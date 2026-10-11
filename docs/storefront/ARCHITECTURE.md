@@ -507,6 +507,18 @@ core upgrade):
    then the repair loop on the candidate
 ```
 
+**Step 4 as built on #483** (`saas/storefronts/publish.ts`): a failing report leaves the publish in `checking`. A
+catalogue, staff or upgrade publish is then refused (`gate_failed`). A design publish is first repaired: the studio's change
+loop is asked to fix the failing checks' words, at most three times, each fix a build of its own (`publish_run.attempt`
+`repair`, `attempt_of` the publish), and the first that passes is uploaded, verified and switched in the publish's
+place. Then bisect: the draft's accepted changes up to the publish's commit (`design_draft.commits`, the live version's
+commit standing as good) are halved to the first that fails, each probe a build that is only checked (`checked`), never
+uploaded. The publish then fails as `bisected` with that change on `bisect_commit`, and `publishBefore` (SAPI 17 passes
+the change's commit) starts a design publish of the change before it, with no allowance; a draft's first change leaves
+nothing before it, and the publish is refused (`gate_failed`). *Decided on #483:* the repair is a seam (`PublishDeps.repair`)
+until the designer's model reaches the Workflow with #318, so until then a failing design publish goes straight to
+bisect; and `publishBefore` takes the change's commit, since `design_message` comes with SAPI 17.
+
 A refused or rolled-back publish leaves the live site as it was, says so in plain words, and
 **never uses an allowance** (SAAS §6.2). Repair attempts and gate runs are the platform's cost,
 never the merchant's meters (decided 2026-10-08 on #470). What can't be repaired goes to the
@@ -529,7 +541,8 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
   #483:* the CPU is slowed to a mid-range phone's speed calibrated against the runner's own, as Lighthouse does, instead
   of a fixed 4×, since a fixed rate on a busy or fast runner measures a different phone each time;
 - `no-js`, `crawl`: §8, with every internal link leading to a page or an item prefix, and `sitemap.xml` and
-  `robots.txt` naming exactly the pages search engines should see (home, custom pages, products, collections, policies);
+  `robots.txt` naming the pages search engines should see: every built home and custom page, and any product, collection
+  or policy address, in each of the store's languages; never a cart, checkout or account page;
 - `content`: the words a shopper reads, outside sealed parts and the store's own data, through the validator's claim scan;
 - `visual-diff`: each page's first screen at each width against the live build's; it reports, and fails only a publish
   that mustn't change the look (`strictLook`, a core patch or minor: §7) when more than 0.5% of a page changed, or when
@@ -803,13 +816,18 @@ fits (suggested on #483).
   **Built on #484:** core's `reportVitals` measures LCP, CLS (the largest session window) and INP (the slowest
   interaction, one in fifty set aside) on every page and, when the page is left, sends one beacon to the store's own
   `/shop-api/vitals` only if the shopper has agreed to analytics by then: the page kind, phone or desktop, and the
-  three measures, nothing else (the intake refuses any other field). The Shop API keeps them as each day's histograms
-  (`storefront_vitals_day`), never for a preview host. *Decided on #484:* the rule runs daily at 03:00 UTC and reads a
-  build once, after its first whole day live and within a week: the days after its switch day against the seven days
-  before it, per page kind and device, each side with at least 50 samples. Severe rolls back (the pointer move of
-  LIVE-SHOP §4 step 10, `vitals_regressed`, refused while a publish runs or once the build before is gone); a p75 a
-  fifth worse (CLS 0.02 more) is `regressed`, kept on `publish_run.vitals` for the admin console and the repair loop
-  (#483). Reading Google's CrUX data is a follow-up.
+  three measures (INP null for a visit with no interaction), nothing else; the intake refuses any other field and a
+  body over 1 KB before reading it, and sits behind the Shop API's per-address limiter. The Shop API keeps them as each
+  day's histograms (`storefront_vitals_day`), never for a preview host. *Decided on #484:* the rule runs daily at 03:00
+  UTC and reads a build once, after its first whole day live and within a week: the days after its switch day against
+  the seven days before it, per page kind and device, each side with at least 50 samples. **Severe** rolls back (the
+  pointer move of LIVE-SHOP §4 step 10, `vitals_regressed`, refused while a publish runs or once the build before is
+  gone): LCP or INP p75 doubled and now above Google's "good" (2.5 s, 200 ms), or CLS p75 above 0.25 from under it.
+  **Regressed** is a p75 a fifth worse; either needs a move of at least two histogram buckets, the data's resolution.
+  It is kept on `publish_run.vitals` for the admin console and the repair loop (#483). The beacons are unauthenticated,
+  so a determined sender from many addresses could fake a severe regression; what it buys is a pointer move back to the
+  build before, recorded and undone by the next publish, which we accept (raised on #484's review). Reading Google's
+  CrUX data is a follow-up.
 
 ---
 

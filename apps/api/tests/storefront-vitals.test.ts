@@ -49,11 +49,42 @@ describe('the vitals intake', () => {
     expect(columns.map((c) => c.column_name)).toEqual(['store_id', 'day', 'page_kind', 'device', 'samples', 'lcp_hist', 'inp_hist', 'cls_hist'])
   })
 
+  it('keeps nothing for a preview host, a store that isn’t selling, or with no database, and counts no INP for a visit with no interaction', async () => {
+    const found = await resolveShopper(db.sql, new Request(`https://${hostA1}/shop-api/vitals`), hostA1)
+    if (found.kind !== 'found') throw new Error('no store')
+    const body = JSON.stringify({ page: 'cart', device: 'desktop', lcp: 900, inp: 40, cls: 0 })
+    const send = (ctx: Partial<ShopContext>) =>
+      handleVitals(new Request(`https://${hostA1}/shop-api/vitals`, { method: 'POST', body }), { sql: db.sql, shopper: found.shopper, origin: '', activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, allowNewCart: async () => false, now: () => new Date(), ...ctx })
+    expect((await send({ shopper: { ...found.shopper, preview: true } })).status).toBe(204)
+    expect((await send({ shopper: { ...found.shopper, available: false } })).status).toBe(204)
+    expect((await send({ sql: null })).status).toBe(204)
+    expect((await rows(t.storeA1)).filter((r) => r.page_kind === 'cart')).toEqual([])
+    expect(await beacon(hostA1, JSON.stringify({ page: 'cart', device: 'desktop', lcp: 900, inp: null, cls: 0 }))).toBe(204)
+    const [cart] = await db.sql<{ inp_hist: number[]; samples: number }[]>`select array_to_json(inp_hist) as inp_hist, samples from storefront_vitals_day where store_id = ${t.storeA1} and page_kind = 'cart'`
+    expect([cart?.samples, cart?.inp_hist.reduce((a, b) => a + b, 0)]).toEqual([1, 0])
+    await db.sql`delete from storefront_vitals_day where store_id = ${t.storeA1} and page_kind = 'cart'`
+  })
+
+  it('refuses a body over 1 KB before reading it, by its declared length or as it streams', async () => {
+    const found = await resolveShopper(db.sql, new Request(`https://${hostA1}/shop-api/vitals`), hostA1)
+    if (found.kind !== 'found') throw new Error('no store')
+    const ctx: ShopContext = { sql: db.sql, shopper: found.shopper, origin: '', activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, allowNewCart: async () => false, now: () => new Date() }
+    const declared = new Request(`https://${hostA1}/shop-api/vitals`, { method: 'POST', headers: { 'content-length': '5000000' }, body: 'x' })
+    expect((await handleVitals(declared, ctx)).status).toBe(413)
+    let pulled = 0
+    const endless = new ReadableStream<Uint8Array>({ pull: (c) => void (pulled += 1, c.enqueue(new Uint8Array(512))) })
+    const streamed = new Request(`https://${hostA1}/shop-api/vitals`, { method: 'POST', body: endless, duplex: 'half' } as RequestInit)
+    expect((await handleVitals(streamed, ctx)).status).toBe(413)
+    expect(pulled).toBeLessThan(10)
+    // Bytes, not characters: 400 three-byte characters are over the limit.
+    expect(await beacon(hostA1, JSON.stringify({ page: 'home', device: 'desktop', lcp: 900, inp: 40, cls: 0, x: '€'.repeat(400) }))).toBe(413)
+  })
+
   it('refuses anything else in the body: an id, an address, a page kind it doesn’t know, a body too large', async () => {
     const ok = { page: 'home', device: 'desktop', lcp: 900, inp: 40, cls: 0 }
     for (const body of [{ ...ok, visitor: 'v-1' }, { ...ok, url: 'https://x/' }, { ...ok, page: 'secret' }, { ...ok, lcp: -1 }]) expect(await beacon(hostA1, JSON.stringify(body))).toBe(400)
     expect(await beacon(hostA1, 'not json')).toBe(400)
-    expect(await beacon(hostA1, JSON.stringify({ ...ok, pad: 'x'.repeat(2000) }))).toBe(400)
+    expect(await beacon(hostA1, JSON.stringify({ ...ok, pad: 'x'.repeat(2000) }))).toBe(413)
     expect(await rows(t.storeA1)).toEqual([{ page_kind: 'product', device: 'phone', samples: 2 }])
   })
 

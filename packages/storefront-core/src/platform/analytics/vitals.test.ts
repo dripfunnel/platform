@@ -44,7 +44,8 @@ describe('reportVitals', () => {
     page.emit('largest-contentful-paint', [{ startTime: 700, duration: 0 }])
     consent = agreed
     page.leave()
-    expect(page.sent).toHaveLength(1)
+    // No interaction during the visit: no INP, rather than a zero that would pull the store's INP down.
+    expect(page.sent).toEqual([{ url: vitalsEndpoint, body: { page: 'home', device: 'phone', lcp: 700, inp: null, cls: 0 } }])
     const blank = fake()
     reportVitals({ page: 'home', consent: () => agreed, hooks: blank.hooks })
     blank.leave()
