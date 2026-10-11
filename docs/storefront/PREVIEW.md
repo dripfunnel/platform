@@ -69,7 +69,8 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 - Preview folders are deleted once a publish has made the draft live, except the current one.
   *Decided on #317:* nothing older is kept: undo and discard make new changes (§4), so an old folder is never shown again.
   The daily clean-up deletes every folder but `design_draft.preview_deploy_ref` whose files were written before the store's
-  latest live publish, looking at each store for a week after it publishes (LIVE-SHOP §4 step 11).
+  latest live publish, once per publish and the longest-waiting store first (`storefront.previews_tidied_at`, LIVE-SHOP §4
+  step 11).
 - The theme's chunks stay behind the edge Worker, never on the public asset host.
   *Why:* a draft's code and words are private until published.
 

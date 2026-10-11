@@ -121,7 +121,7 @@ const switchStep = async (deps: PublishDeps, p: PublishParams): Promise<string> 
   const switched = await withSystemScope(deps.sql, async (tx) => {
     const storefront = await lockStorefront(tx, p.storeId)
     const run = await selectRun(tx, p.runId)
-    if (!storefront || !run || run.state !== 'deploying') return null
+    if (!storefront || !run || run.store_id !== p.storeId || run.state !== 'deploying') return null
     // The pointer moves only to a build whose every file was verified, whoever runs this step (LIVE-SHOP §4 step 9).
     if (!(await isVerified(tx, run.id))) throw new BuildMissing('the build is not verified')
     const at = deps.now()
@@ -141,7 +141,7 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string): Prom
   await withSystemScope(deps.sql, async (tx) => {
     if (!(await lockStorefront(tx, p.storeId))) return
     const run = await selectRun(tx, p.runId)
-    if (!run || run.state === 'live' || run.state === 'failed' || run.state === 'rolled_back') return
+    if (!run || run.store_id !== p.storeId || run.state === 'live' || run.state === 'failed' || run.state === 'rolled_back') return
     await failRun(tx, run, code, deps.now())
     await activityLog.record(tx, systemEntry(run, 'storefront.publish_failed', 'failed', [{ field: 'error', before: null, after: code }]))
     await queueNext(tx, run.store_id, run.partner_id)
