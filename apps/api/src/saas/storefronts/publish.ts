@@ -19,10 +19,11 @@ import {
 } from '#db/scoped/publishing'
 import { isUploaded, isVerified } from '#db/scoped/builds'
 import { activityLog } from '#saas/activity/index'
-import { buildLifetimeMs, uploadRefusals, verifyUpload } from '#saas/builds/index'
 import { queueSideEffect } from '#saas/outbox/index'
+import { buildLifetimeMs } from './builds'
 import { stagingFolder } from './layout'
 import { deletePrefix, type SitesBucket } from './templates'
+import { uploadRefusals, verifyUpload } from './verify'
 
 // The publish-storefront Workflow's steps this card reaches (SAAS §9.1; storefront LIVE-SHOP.md §4 steps 1 and 9):
 // queued → deploying → live | failed. INF 4 (#483) puts building and checking before deploying, and #517 the copy.

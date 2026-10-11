@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { json, readCapped } from '#core/http'
 import { logEvent } from '#core/log'
-import { BuildRefused, BuildUnavailable, gateReport, issueCredentials, reportBuild, reportUploaded, startBuild, type BuildDeps } from '#saas/builds/index'
+import { BuildRefused, BuildUnavailable, gateReport, issueCredentials, reportBuild, reportUploaded, startBuild, type BuildDeps } from '#saas/storefronts/index'
 
 // `hooks.<host>/builds/*`: a store repo's locked workflow, and nothing else, calls these (storefront LIVE-SHOP.md §4
 // steps 5–9). No browser, no cookie: a GitHub OIDC token in `Authorization` and the build id in the body.

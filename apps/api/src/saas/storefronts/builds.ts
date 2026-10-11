@@ -5,9 +5,9 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { bindBuildRun, markUploaded, recordGate, selectBuildForUpdate, type BuildRow } from '#db/scoped/builds'
 import { acceptRun, TokenRefused, verifyActionsToken, type TokenRefusal } from '#integrations/github/oidc'
 import type { StorefrontR2 } from '#integrations/cloudflare/r2'
-import type { SitesBucket } from '#saas/storefronts/templates'
+import type { SitesBucket } from './templates'
 import { activityLog } from '#saas/activity/index'
-import { buildFolder, manifestName, snapshotFile, sourceBundle, stagingFolder } from '#saas/storefronts/layout'
+import { buildFolder, manifestName, snapshotFile, sourceBundle, stagingFolder } from './layout'
 import { digestOf, manifestSchema, maxBuildFiles, type Manifest } from './manifest'
 
 // The build endpoints' rules (storefront LIVE-SHOP.md §4 steps 5–8, §9): each call proves its run by OIDC, names its
@@ -151,10 +151,11 @@ export const startBuild = (deps: BuildDeps, token: string, buildId: string): Pro
   })
 
 const liveFiles = async (sites: SitesBucket, key: string): Promise<string[]> => {
-  const object = await sites.get(key)
-  const parsed = object ? manifestSchema.safeParse(JSON.parse(await object.text())) : null
   // The live build's manifest is the API's own copy (§4 step 9): missing or unreadable is ours to fix, not the run's.
-  if (!parsed?.success) throw new BuildUnavailable('live_manifest')
+  const object = await sites.get(key)
+  const json: unknown = object ? await object.text().then((text) => JSON.parse(text) as unknown).catch(() => null) : null
+  const parsed = manifestSchema.safeParse(json)
+  if (!parsed.success) throw new BuildUnavailable('live_manifest')
   return parsed.data.files.map((f) => f.path)
 }
 

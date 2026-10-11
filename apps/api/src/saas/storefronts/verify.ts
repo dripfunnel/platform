@@ -1,8 +1,8 @@
 import type postgres from 'postgres'
 import { withSystemScope } from '#db/scoped/index'
 import { markVerified, selectUpload } from '#db/scoped/builds'
-import { assetsFolder, buildFolder, manifestName, stagingFolder } from '#saas/storefronts/layout'
-import type { SitesBucket } from '#saas/storefronts/templates'
+import { assetsFolder, buildFolder, manifestName, stagingFolder } from './layout'
+import type { SitesBucket } from './templates'
 import { digestOf, manifestSchema } from './manifest'
 
 // LIVE-SHOP.md §4 step 9 item 2: each staged object is read once, and the same bytes are hashed and written to the
