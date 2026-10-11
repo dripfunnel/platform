@@ -2,7 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
 import { recordGate } from '#db/scoped/builds'
 import { moveDraft } from '#db/scoped/studio'
-import { digestOf, publishBefore, runPublish, startPublish, type PublishDeps, type PublishRepair } from '#saas/storefronts/index'
+import { digestOf, goBack, publishBefore, runPublish, startPublish, type PublishDeps, type PublishRepair } from '#saas/storefronts/index'
+import { failAttempt, selectFailingChecks } from '#db/scoped/publishing'
 import { draftBundle, stagingFolder } from '#saas/storefronts/layout'
 import { testProbe } from './support/edgeProbe'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -139,14 +140,29 @@ describe('a design publish that fails the gate', () => {
     const chain = [commit(301), commit(302)]
     await draftWith(t.storeA2, chain)
     const asked: string[][] = []
+    const keys: string[] = []
     const repaired = commit(303)
-    const repair: PublishRepair = async (_store, failing) => {
+    const repair: PublishRepair = async (_store, failing, key) => {
       asked.push(failing)
+      keys.push(key)
       return asked.length === 1 ? commit(399) : repaired
     }
-    const runId = await publishDesign(t.storeA2, chain[1] ?? '')
-    expect(await runPublish(deps(repair), { runId, storeId: t.storeA2 }, workflow(new Set([chain[1] ?? '', commit(399)])))).toBe('live')
+    const [user] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'publisher@example.com', 'Publisher', 'active') returning id`
+    const runId = await withSystemScope(db.sql, (tx) => startPublish(tx, { storeId: t.storeA2, kind: 'design', commit: chain[1] ?? '', template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'user', id: user?.id ?? null }, at: new Date() })).then((r) => (r.ok ? r.runId : ''))
+    // The first repair's build fails another check, which is what the second try is told.
+    const failing = new Set([chain[1] ?? '', commit(399)])
+    const play = workflow(failing)
+    const otherCheck = { ...play, waitFor: async (name: string, event: string) => {
+      await play.waitFor(name, event)
+      if (name === 'repair-1:report') await db.sql`update publish_run set gate = ${db.sql.json({ passed: false, checks: [{ name: 'no-js', passed: false, detail: 'The home page shows no main text without JavaScript.' }] })} where attempt_of = ${runId} and commit = ${commit(399)}`
+    } }
+    expect(await runPublish(deps(repair), { runId, storeId: t.storeA2 }, otherCheck)).toBe('live')
     expect(asked[0]).toEqual(['axe: The home page at 390 px breaks accessibility rules: image-alt.'])
+    expect(asked[1]).toEqual(['no-js: The home page shows no main text without JavaScript.'])
+    expect(keys).toEqual([`${runId}:1`, `${runId}:2`])
+    // The version and the publish record keep the person who pressed Publish, though the repair's build went live.
+    const [version] = await db.sql<{ published_by: string | null }[]>`select published_by from design_version where store_id = ${t.storeA2} and state = 'live'`
+    expect(version?.published_by).toBe(user?.id)
     expect(await root(runId)).toMatchObject({ state: 'live', repair_attempts: 2, bisect_commit: null })
     const tries = await attemptsOf(runId)
     expect(tries.map((x) => [x.attempt, x.commit, x.state])).toEqual([
@@ -186,8 +202,63 @@ describe('a design publish that fails the gate', () => {
   })
 })
 
+describe('a publish whose repair never reports', () => {
+  it('ends with its open repair build, so the store can publish again', async () => {
+    const chain = [commit(601)]
+    await draftWith(t.storeA2, chain)
+    const runId = await publishDesign(t.storeA2, chain[0] ?? '')
+    const silentRepair = {
+      ...workflow(new Set(chain)),
+      waitFor: async (name: string, event: string) => {
+        if (name.startsWith('repair-')) throw new Error('waitForEvent timed out')
+        return workflow(new Set(chain)).waitFor(name, event)
+      },
+    }
+    expect(await runPublish(deps(async () => commit(602)), { runId, storeId: t.storeA2 }, silentRepair)).toBe('failed')
+    expect(await root(runId)).toMatchObject({ state: 'failed', error: 'report_timed_out' })
+    expect((await attemptsOf(runId)).map((a) => a.state)).toEqual(['failed'])
+    expect(await db.sql`select 1 from publish_run where store_id = ${t.storeA2} and state in ('building', 'checking', 'deploying')`).toHaveLength(0)
+    expect((await db.sql<{ build_state: string }[]>`select build_state from store where id = ${t.storeA2}`)[0]?.build_state).not.toBe('building')
+  })
+})
+
+describe('a catalogue publish that fails the gate', () => {
+  it('is refused at once: no repair, no bisect, no build beside it', async () => {
+    let asked = 0
+    const runId = await withSystemScope(db.sql, (tx) => startPublish(tx, { storeId: t.storeA1, kind: 'manual', commit: commit(701), template: 'linen', coreVersion: '1.0.0', usesAllowance: true, startedBy: { kind: 'system', id: null }, at: new Date() })).then((r) => (r.ok ? r.runId : ''))
+    const liveId = await live(t.storeA1)
+    await drafts.put(`sources/${t.storeA1}/${liveId ?? ''}.bundle`, new TextEncoder().encode('live').buffer, { sha256: await hex('live') })
+    expect(await runPublish(deps(async () => (asked += 1, commit(702))), { runId, storeId: t.storeA1 }, workflow(new Set([commit(701)])))).toBe('failed')
+    expect(await root(runId)).toMatchObject({ state: 'failed', error: 'gate_failed', repair_attempts: 0, bisect_commit: null })
+    expect(await attemptsOf(runId)).toHaveLength(0)
+    expect(asked).toBe(0)
+  })
+})
+
+describe('the attempts’ own writes', () => {
+  it('never touch another store’s builds', async () => {
+    const [other] = await db.sql<{ id: string }[]>`select id from publish_run where store_id = ${t.storeA2} and attempt_of is not null limit 1`
+    const before = await buildOf(other?.id ?? '')
+    await withSystemScope(db.sql, (tx) => failAttempt(tx, t.storeA1, other?.id ?? '', new Date()))
+    expect(await buildOf(other?.id ?? '')).toEqual(before)
+    expect(await withSystemScope(db.sql, (tx) => selectFailingChecks(tx, t.storeA1, other?.id ?? ''))).toEqual([])
+  })
+})
+
 describe('the draft’s changes', () => {
-  it('are listed as the studio accepts them, and cleared when the store goes back to a version', async () => {
+  it('are cleared when the store goes back to a version', async () => {
+    // A kept version to go back to, on the store's live build.
+    const liveId = await live(t.storeA1)
+    const [kept] = await db.sql<{ id: string }[]>`
+      insert into design_version (store_id, number, commit, template, core_version, build_id, published_at, state)
+      values (${t.storeA1}, 99, ${commit(800)}, 'linen', '1.0.0', ${liveId}, now(), 'kept') returning id`
+    await draftWith(t.storeA1, [commit(801), commit(802)])
+    const actor = { actorKind: 'person' as const, actorId: null, actorLabel: 'Owner', api: 'store' as const, requestId: null, ip: null, userAgent: null }
+    expect(await goBack(db.sql, { storeId: t.storeA1, versionId: kept?.id ?? '', by: null, actor, now: new Date() })).toEqual({ ok: true })
+    expect((await db.sql<{ commits: string[] }[]>`select to_jsonb(commits) as commits from design_draft where store_id = ${t.storeA1}`)[0]?.commits).toEqual([])
+  })
+
+  it('are listed as the studio accepts them', async () => {
     await draftWith(t.storeA2, [])
     const [user] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'draft-owner@example.com', 'Owner', 'active') returning id`
     for (const n of [501, 502, 502, 503]) {

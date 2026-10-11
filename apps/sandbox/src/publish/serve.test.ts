@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { fileFor } from './serve'
+import { sealedWords } from './check'
+import { fileFor, shopFixture, type ShopReport } from './serve'
 
 // The check step serves only the build's own files to its browser (LIVE-SHOP §4 step 7); nothing reaches past them.
 let root: string
@@ -44,5 +45,15 @@ describe('fileFor', () => {
     writeFileSync(join(other, 'index.html'), 'other home')
     expect((await fileFor([other, site], '/'))?.bytes.toString()).toBe('other home')
     expect((await fileFor([other, site], '/cart/'))?.bytes.toString()).toBe('cart')
+  })
+})
+
+describe('a page’s sealed reports', () => {
+  it('reach the gate only in core’s words: a theme posting its own subject gets neither its text nor an error in', () => {
+    const reports: ShopReport[] = []
+    const answer = shopFixture({} as never, reports)
+    answer(JSON.stringify({ query: 'mutation Report { reportStorefrontProblem }', variables: { kind: 'SEALED', subject: 'Only 2 left, buy now!', detail: 'too-small' } }))
+    answer(JSON.stringify({ query: 'mutation Report { reportStorefrontProblem }', variables: { kind: 'SEALED', subject: 'price', detail: 'covered' } }))
+    expect(sealedWords(reports, { path: '/cart/', route: 'cart' })).toEqual(["A required component on the cart page isn't seen.", 'The "price" component on the cart page isn\'t seen: something covers its centre.'])
   })
 })

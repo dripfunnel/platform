@@ -123,6 +123,10 @@ export const dispatchBuild = async (deps: FreezeDeps, storeId: string, buildId: 
     if (refused) await withSystemScope(deps.sql, (tx) => unmarkDispatched(tx, storeId, buildId))
     throw error
   }
-  if (!started) throw new FreezeRefused('no_repo')
+  if (!started) {
+    // GitHub answered that the repo doesn't exist: no run started, and the publish fails as such, not by waiting.
+    await withSystemScope(deps.sql, (tx) => unmarkDispatched(tx, storeId, buildId))
+    throw new FreezeRefused('no_repo')
+  }
   return 'dispatched'
 }
