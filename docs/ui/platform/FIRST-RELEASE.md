@@ -705,7 +705,8 @@ ownership** (Owner) and **Invite** (Owner, Admin).
 | **Remove** | Owner; Admin (not an Owner) | Not yourself ("You can't remove yourself."), not the last Owner | "{name} is signed out now and can't sign in again. What they did stays in the activity log." |
 | **Transfer ownership** | Owner | An active non-Owner; "TRANSFER" typed | "The new Owner can manage billing, payouts and the team. You become an Admin." |
 
-Resend and Revoke on a pending invitation work as ACCESS §6.3 (a new link; the old stops).
+Resend and Revoke on a pending invitation work as ACCESS §6.3 (a new link; the old stops). A
+pending invitation offers those two in place of Remove, under Remove's rules of who may.
 Refusals: `LAST_OWNER`, `OWNERS_ONLY`, `CANNOT_REMOVE_SELF`, `ALREADY_ON_TEAM` (the one case
 the response may name, ACCESS §6.2). An invitation never reveals whether an email has an
 account elsewhere.
