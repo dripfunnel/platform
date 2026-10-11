@@ -23,7 +23,7 @@ components with the branded commerce types (#481), and the publish gate's suites
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-12 (#486: the starting themes as built).
 
 ---
 
@@ -164,13 +164,30 @@ Decided on #316:
 
 The six templates and "Start from scratch" live in this repo as complete starting themes,
 `templates/storefront/themes/{key}/` (`src/theme/**`, `content/**`, `routes.json`, a
-`template.json` with the name, description and demo store) *(proposed, the baseline-theme card
-confirms the path)*.
+`template.json` with the name, description and demo store) *(path confirmed on #486)*.
+
+*As built on #486* *(decided there)*:
+- The keys are `baseline` ("Start from scratch", the D1 look) and `linen`, `concrete`, `bloom`, `circuit`,
+  `market` and `atelier`. `template.json` is `{ key, name, tag, description, demoStore, coreMinVersion }`, and the
+  `storefront_template` rows (DATA-MODEL §7.8) mirror it.
+- Words are in English only, the one language the seed stores offer: the validator refuses words in a language the
+  store doesn't offer (`files/locale-not-offered`) as firmly as missing ones, so a store in other languages gets
+  them written in the studio.
+- Each theme draws its look with what core gives a theme today: the store's own name, description and contact details
+  through `useStorefront()`, `<Link>` to core's routes and two custom pages (`/about`, `/contact`), and the sealed
+  consent banner, Cookie settings, "Powered by" and preview banner. The product grids, collection tiles and cart lines
+  the prototype draws join each theme with core's browse and cart hooks (#307, #313); until then their pages show
+  their frame and words. Pictures are the template's own CSS surfaces, never a product's.
+- The prototype's sample words that state a fact about a store (a returns window, a warranty, delivery times, a
+  discount, a certification, "bestsellers") and its testimonials (§12, DESIGN §9) are left out or rewritten as mood.
+- `apps/sandbox/src/themes.test.ts` gates every theme on each change: the validator, the preview bundle within the
+  byte budgets with every route rendered from it in preview mode, and the whole publish gate (§4.2) against the
+  edge-case catalogue.
 
 **Where the Worker reads them** (decided on #316): not from this repo, which the App can't and
 mustn't read, but from the `storefront-sites` bucket, where the release workflow puts each core
 version's files as it builds the templates' preview bundles (PREVIEW §4):
-`templates/{core}/skeleton.json` (every file of `templates/storefront/` but the theme's §3.4
+`templates/{core}/skeleton.json` (every file of `templates/storefront/` but `themes/` and the theme's §3.4
 paths, the locked workflow and `package.json` included), `templates/{core}/themes/{key}/source.json` (the
 theme's files), `templates/{core}/themes/{key}/preview/manifest.json` (each preview file's path
 and SHA-256) with the files under `preview/files/`, and last `templates/current.json`

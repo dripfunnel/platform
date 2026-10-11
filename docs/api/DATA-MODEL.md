@@ -1941,10 +1941,13 @@ core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), se
                     -- sandbox_image is Cloudflare's registry reference pinned by @sha256, which the
                     -- studio's Durable Object starts; written by release.yml's sandbox-image job
                     -- (built on #482, migration 0250); staff read it, system scope writes it
-storefront_template (key PK, name, description, demo_store_id NULL, core_min_version,
+storefront_template (key PK, name, tag, description, demo_store_id NULL, core_min_version,
                      state ('offered'|'retired'))
                     -- the template gallery (storefront ARCHITECTURE §2.3); the code itself is
-                    -- in templates/storefront/themes/{key}; a partner offers a subset (G4)
+                    -- in templates/storefront/themes/{key}, whose template.json each row
+                    -- mirrors (built on #486, migration 0300; `tag` is the gallery's short
+                    -- label, "Minimal fashion"); staff read it, system scope writes it; a
+                    -- partner offers a subset (G4)
 core_rollout        (id, version, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
                      percent, started_by, started_at, finished_at)
 core_rollout_store  (rollout_id, store_id, state ('pending'|'passed'|'migrated'|'pinned'

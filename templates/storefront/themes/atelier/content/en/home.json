@@ -1,0 +1,16 @@
+{
+  "hero": {
+    "title": "The Collection",
+    "lead": "Cut and finished by hand.",
+    "shop": "Discover"
+  },
+  "story": {
+    "title": "A quieter kind of luxury",
+    "body": "Each piece is made to order, from cloth chosen for how it ages."
+  },
+  "contact": {
+    "title": "Get in touch",
+    "body": "Questions about a piece or its making? Write to us.",
+    "action": "Contact us"
+  }
+}
