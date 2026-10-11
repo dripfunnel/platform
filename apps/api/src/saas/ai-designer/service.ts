@@ -26,7 +26,7 @@ export interface DesignerDeps {
 }
 
 export type DesignRefusal =
-  | { reason: 'BRAND_NOT_READY' | 'INVALID_TEMPLATE' | 'IN_PROGRESS' | 'NOT_CONNECTED' | 'STUDIO_UNAVAILABLE' | 'NOT_FOUND' }
+  | { reason: 'BRAND_NOT_READY' | 'INVALID_TEMPLATE' | 'OWN_FRONTEND' | 'IN_PROGRESS' | 'NOT_CONNECTED' | 'STUDIO_UNAVAILABLE' | 'NOT_FOUND' }
   | { reason: 'STUDIO_QUEUED'; place: number }
   | { reason: 'CHANGE_REFUSED'; problems: number }
 
@@ -135,21 +135,22 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     const before = { state: await withScope(sql, context, state) }
     if (!(await withSystemScope(sql, (tx) => isOfferedTemplate(tx, key)))) return { ok: false, reason: 'INVALID_TEMPLATE' }
     const was = before.state.draft_template ?? before.state.live_template ?? before.state.storefront_template
-    const record = async (tx: ScopedSql) => {
+    const record = async (tx: ScopedSql, draft: boolean) => {
       await note(tx, designNotes.templateChosen(key))
       // The first choice has no draft to keep words from, so it records none (LOGGING §3: whether the words were kept).
-      const words = before.state.repo_state === 'ready' ? [{ field: 'words', before: null, after: keep ? 'kept' : 'template' }] : []
+      const words = draft ? [{ field: 'words', before: null, after: keep ? 'kept' : 'template' }] : []
       await activity.record(tx, entry(designAudit.templateChosen, [{ field: 'template', before: was, after: key }, ...words]))
     }
     if (before.state.repo_state === 'creating') return { ok: false, reason: 'IN_PROGRESS' }
     if (before.state.repo_state !== 'ready') {
       const started = await withSystemScope(sql, async (tx) => {
         const result = await startStorefront(tx, storeId, key, now())
-        if (result.ok) await record(tx)
+        if (result.ok) await record(tx, false)
         return result
       })
-      if (!started.ok) return started.code === 'INVALID_TEMPLATE' ? { ok: false, reason: 'INVALID_TEMPLATE' } : { ok: false, reason: 'IN_PROGRESS' }
-      return { ok: true, value: 'creating' }
+      if (started.ok) return { ok: true, value: 'creating' }
+      if (started.code !== 'ALREADY_CREATED') return { ok: false, reason: started.code }
+      // ALREADY_CREATED: the repo became ready since the read above, so this choice is a change to the draft after all.
     }
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     const answer = await studio.useTemplate(storeId, { template: key, keep, userId: actor.id })
@@ -157,7 +158,7 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
     // The template the draft already uses changes nothing, so nothing is recorded as chosen.
-    if (answer.outcome === 'changed') await recordAfter(record)
+    if (answer.outcome === 'changed') await recordAfter((tx) => record(tx, true))
     return { ok: true, value: (await overview()).status }
   }
 
