@@ -169,8 +169,9 @@ container.
    **Built on #317** (`store-proxy/src/preview.ts`): HTML and `/shop-api` ask `StorefrontEdge.previewAccess` (an active
    merchant seat whose role holds `publish`, an active user, the same `preview_epoch`, the key still the store's, and
    neither store nor partner closed) and get the current folder; chunks are any path whose last part has an extension
-   other than `.html`, read from the cookie's folder. A preview host only reads: any method but GET and HEAD gets 405
-   before the re-check, except `/shop-api`, which the API judges.
+   other than `.html`, read from the cookie's folder. Pages are only read: any method but GET and HEAD gets 405 before the
+   re-check. `/shop-api` takes writes (the cart) and renews the session as step 2 says; a cross-site post never carries
+   the `SameSite=Lax` cookie, so it gets the closed answer.
 
    *Why:* a removed team member or vendor, a user whose capability was taken away, or "End all
    preview links" loses the HTML and `/shop-api` at once. Because the session lives 15 minutes and

@@ -64,7 +64,8 @@ const previewObject = async (url: URL, session: PreviewSession, folder: string, 
 }
 
 export const servePreview = async (request: Request, url: URL, key: string, deps: Deps): Promise<Response> => {
-  // Only reading: a cross-site form post must not renew a session (`/shop-api` is the API's to judge).
+  // Pages are only read, so a write to one never reaches the re-check. Cross-site posts don't carry the SameSite=Lax cookie;
+  // `/shop-api` writes (the SPA's cart) renew it as PREVIEW §5 step 2 says, and the API judges them.
   if (request.method !== 'GET' && request.method !== 'HEAD' && !isShopApi(url.pathname)) return withPreviewHeaders(new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } }))
   if (url.pathname === '/robots.txt') return withPreviewHeaders(new Response(robots, { headers: { 'content-type': 'text/plain' } }))
   if (url.pathname === '/__open') return open(url, key, deps)
