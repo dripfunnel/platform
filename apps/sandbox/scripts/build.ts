@@ -8,8 +8,12 @@ import { buildRuntime } from '../src/runtime/build'
 const dist = fileURLToPath(new URL('../dist/', import.meta.url))
 await rm(dist, { recursive: true, force: true })
 await build({
-  entryPoints: [fileURLToPath(new URL('../src/main.ts', import.meta.url))],
-  outfile: `${dist}main.js`,
+  // main.js is the studio's server; publish.js the store repos' publish steps (LIVE-SHOP §4 steps 6–7).
+  entryPoints: [
+    { in: fileURLToPath(new URL('../src/main.ts', import.meta.url)), out: 'main' },
+    { in: fileURLToPath(new URL('../src/publish/cli.ts', import.meta.url)), out: 'publish' },
+  ],
+  outdir: dist,
   bundle: true,
   platform: 'node',
   format: 'esm',

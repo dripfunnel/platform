@@ -163,6 +163,16 @@ checking, deploying, live, failed, rolled back).
    and the AI's code can reach neither the network nor a token.
 6. **Step `build`:** the container runs the validator over the whole theme (ARCHITECTURE §3.4),
    then the static build (SSG), into its output folder.
+
+   **The image's `build` step, built on #483** (`apps/sandbox/src/publish`, `node /opt/sandbox/dist/publish.js build`):
+   it refuses to start with a credential-like or a runner variable (`GITHUB_*`, `ACTIONS_*`, `RUNNER_*`, `INPUT_*`) in
+   its environment, and checks the commit out of the source bundle itself. It runs the validator and the typecheck,
+   bundles the theme, then renders every page with React on the server from the snapshot, inside a process whose
+   sockets, HTTP and DNS are blocked, into `site/` (the pages, `assets/` with core's runtime under `assets/core/`,
+   `sitemap.xml`, `robots.txt` and `_edge.json`) and the edge-case renders into `edge/{n}/`; a refusal writes the
+   failing report instead. Each page carries its route and the store it was built with, so the client hydrates the
+   same tree. *Decided on #483:* the main language at the root and every other one under its code (`/hi/…`); the JS
+   and CSS stay in each build's own `assets/`, so a build folder needs nothing outside it.
 7. **Step `check`:** the gate suite of ARCHITECTURE §4.2 step 3 runs **inside the workflow**
    (decided 2026-10-09 with Gaurav), in a fresh container of the same image with the browser and
    gate tools preinstalled. The built files are mounted read-only, and the container serves them
@@ -478,7 +488,7 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   workflow; the API switches on an OIDC-verified passing report (decided 2026-10-09, §4 steps
   7–9).
 - Whether the checkout smoke test can run offline against core's Shop API fixture, leaving the
-  real checkout to the post-deploy check *(proposed, decide on #483)*.
+  real checkout to the post-deploy check *(proposed, decide on #483 with the check step)*.
 - The GitHub org's plan for Actions concurrency *(decide on #287)*.
 - A fallback build runner if GitHub limits Actions on the org *(decide)*.
 - Where single-page renders run: the workflow (about a minute, free) or a container (seconds,
