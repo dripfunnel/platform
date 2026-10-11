@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { deletePendingPush, finishPush, insertPush, selectPush, selectStoreRepoForUpdate, setPushCommit, type PushRow, type RepoState } from '#db/scoped/storefronts'
 import type { RepoChange, StoreRepos } from '#integrations/github/index'
-import { isLockedPath, isRepoPath, isThemePath, themeOwns } from './paths'
+import { isLockedPath, isRepoPath, isThemePath } from './paths'
 
 // The push API (storefront AI-STUDIO.md §6, LIVE-SHOP.md §4 step 9): one squashed commit on `main` per call, with a
 // message the platform writes, fast-forward only. Callers: the publish pipeline, the upgrade bot, a template change.
@@ -106,7 +106,7 @@ export const pushToRepo = async (deps: PushDeps, input: unknown): Promise<PushRe
 
   const written = new Set(files.map((f) => f.path))
   const plan: TreePlan = async (parentPaths) => {
-    const deleted = theme ? (await parentPaths()).filter((p) => themeOwns(p) && !written.has(p)) : removed
+    const deleted = theme ? (await parentPaths()).filter((p) => isThemePath(p) && !written.has(p)) : removed
     return { replace: false, changes: [...deleted.map((path) => ({ path, content: null })), ...files] }
   }
   return commitToMain(deps, storeId, key, messageOf(why), ['ready'], plan)

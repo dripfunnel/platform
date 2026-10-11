@@ -9,9 +9,7 @@ const themePaths = [
   /^routes\.json$/,
 ]
 
-/** What the theme owns, and what a template change or a publish replaces as a whole. */
-export const themeOwns = (path: string): boolean => path === 'routes.json' || path.startsWith('src/theme/') || path.startsWith('content/')
-
+/** The theme: what a publish or a template change writes and replaces as a whole; anything else under src/theme stays. */
 export const isThemePath = (path: string): boolean => themePaths.some((p) => p.test(path))
 
 /** The locked workflow's folder (LIVE-SHOP.md §3 step 4): written once, with the repo, and never pushed to. */
