@@ -205,6 +205,15 @@ sandbox needs no network to check them. A custom page may show catalogue data th
 core's hooks and may hold core's commerce components (add to cart, buy now), but never
 performs commerce of its own: no cart, checkout or pricing pages.
 
+*As built on #338:* a content page lives at `/{slug}` and a post at `/blog/{slug}`, one lower-case
+hyphenated segment each, the same address in every language. Every page and post holds its path
+while it exists, drafts included. A page's slug is refused when it is one of core's reserved segments,
+a language code the store offers (`hi`, `en-in`), a market's path prefix or a custom path; a post's
+when its path is a custom path; either when another of its kind has it. The refusal is `PATH_TAKEN`
+with the `path` and what holds it (`heldBy`: `core`, `language`, `market`, `custom_page`,
+`content_page` or `blog_post`). `storeContentPaths` (the engine's `content` module) answers the
+validator's `usedPaths`: the studio reads it for each change, and INF 4 freezes it into a build's input.
+
 `routes.json` must map every required route to a page. A missing mapping fails the gate.
 
 ### 3.2 What the theme receives and must render

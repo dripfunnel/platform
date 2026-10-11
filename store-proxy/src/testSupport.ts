@@ -65,7 +65,7 @@ export interface FakeEdge extends EdgeApi {
   tokens: Map<string, { key: string; access: PreviewAccess }>
   access: Map<string, PreviewAccess>
   /** Each store's renamed addresses, old to new, as `redirects` answers them. */
-  renamed: Map<string, { from: string; to: string }[]>
+  renamed: Map<string, { from: string; to: string; everyLanguage: boolean }[]>
   calls: string[]
   forwarded: Request[]
 }

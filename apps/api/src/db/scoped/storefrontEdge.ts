@@ -26,5 +26,5 @@ export const selectEdgeHost = async (tx: ScopedSql, host: string): Promise<EdgeH
 }
 
 /** A store's renamed addresses (storefront ARCHITECTURE §8), newest first, read in system scope for the edge Worker. */
-export const selectRedirects = (tx: ScopedSql, storeId: string, limit: number): Promise<{ from_path: string; to_path: string }[]> =>
-  tx<{ from_path: string; to_path: string }[]>`select from_path, to_path from storefront_redirect where store_id = ${storeId} order by created_at desc, from_path limit ${limit}`
+export const selectRedirects = (tx: ScopedSql, storeId: string, limit: number): Promise<{ from_path: string; to_path: string; language: string | null }[]> =>
+  tx<{ from_path: string; to_path: string; language: string | null }[]>`select from_path, to_path, language from storefront_redirect where store_id = ${storeId} order by created_at desc, from_path limit ${limit}`

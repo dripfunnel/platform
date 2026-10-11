@@ -132,12 +132,18 @@ describe('the live site', () => {
   })
 
   it('answers a renamed product’s old address with the store’s recorded 301, from its list cached like the lookup', async () => {
-    edge.renamed.set(storeA, [{ from: '/en-in/products/old-mug', to: '/en-in/products/blue-mug' }, { from: '/about', to: '/elsewhere' }])
+    edge.renamed.set(storeA, [
+      { from: '/en-in/products/old-mug', to: '/en-in/products/blue-mug', everyLanguage: false },
+      { from: '/about', to: '/elsewhere', everyLanguage: false },
+      { from: '/our-story', to: '/about-us', everyLanguage: true },
+    ])
     const moved = await get(`https://${hostA}/en-in/products/old-mug`)
     expect([moved.status, moved.headers.get('location')]).toEqual([301, '/en-in/products/blue-mug'])
     expect((await get(`https://${hostA}/en-in/products/old-mug/`)).headers.get('location')).toBe('/en-in/products/blue-mug')
-    // Unknown product addresses are answered from the same cached list: distinct paths never reach the API or the database.
-    for (let n = 0; n < 20; n++) expect((await get(`https://${hostA}/products/unknown-${n}`)).status).toBe(200)
+    // One recorded for every language answers under each language's prefix too, keeping it.
+    expect((await get(`https://${hostA}/hi-in/our-story`)).headers.get('location')).toBe('/hi-in/about-us')
+    // Unknown addresses of any shape are answered from the same cached list: distinct paths never reach the API or the database.
+    for (let n = 0; n < 20; n++) await get(`https://${hostA}/${n % 2 ? 'products/unknown' : 'x'}-${n}`)
     expect(edge.calls.filter((c) => c.startsWith('redirects '))).toEqual([`redirects ${storeA}`])
     // Store B's host asks only for store B's list, which recorded nothing there.
     expect((await get(`https://${hostB}/en-in/products/old-mug`)).status).toBe(404)
@@ -146,13 +152,8 @@ describe('the live site', () => {
     expect(await text(`https://${hostA}/about`)).toBe('A about')
   })
 
-  it('reads no list for a missing path that isn’t a product address', async () => {
-    for (const path of ['/a1', '/nowhere/x', '/products/Upper', '/products/a/b', '/en-in/products/x.html']) await get(`https://${hostA}${path}`)
-    expect(edge.calls.filter((c) => c.startsWith('redirects '))).toEqual([])
-  })
-
   it('refuses a recorded redirect that would leave the store’s host, caching nothing', async () => {
-    edge.renamed.set(storeA, [{ from: '/en-in/products/x', to: '//evil.example/' }])
+    edge.renamed.set(storeA, [{ from: '/en-in/products/x', to: '//evil.example/', everyLanguage: false }])
     expect((await get(`https://${hostA}/en-in/products/x`)).status).toBe(503)
     expect(cache.keys().filter((k) => k.includes('/__df/redirects/'))).toEqual([])
   })

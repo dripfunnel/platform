@@ -1,6 +1,6 @@
 import type { Deps } from './deps'
 import { remember } from './deps'
-import { parseLiveHost, parseRedirects, type LiveHost } from './edge'
+import { parseLiveHost, parseRedirects, type LiveHost, type Redirects } from './edge'
 import { fileHeaders, relativeKey } from './files'
 import { page } from './pages'
 
@@ -89,24 +89,31 @@ const edgeRules = async (host: string, store: Store & { buildId: string }, deps:
   }
 }
 
-// Only a product's address ever has a row (migration 0281): no other path even reads the list.
-const productAddress = /^(?:\/[a-z]{2,3}(?:-[a-z0-9]{2,8})?)?\/products\/[a-z0-9][a-z0-9-]{0,119}$/
+const languageSegment = /^\/([a-z]{2,3}-[a-z]{2})(\/.+)$/
+
+/** `/hi-in/pages/old` matches a redirect recorded for every language at `/pages/old`, and keeps its prefix. */
+const redirectFor = (redirects: Redirects, path: string): string | null => {
+  const exact = redirects.exact.get(path)
+  if (exact) return exact
+  const [, language, rest] = languageSegment.exec(path) ?? []
+  const shared = rest ? redirects.everyLanguage.get(rest) : undefined
+  return language && shared ? `/${language}${shared}` : null
+}
 
 /**
  * A renamed address the store recorded (`storefront_redirect`, ARCHITECTURE §8). The store's whole list is cached like the
- * lookup (per data centre, at most a minute, under the store's tag), so unknown paths never reach the API or the database.
+ * lookup (per data centre, at most a minute, under the store's tag), so no shopper's path is a database read.
  */
 const storedRedirect = async (url: URL, store: Store, deps: Deps): Promise<string | null> => {
   // Recorded without a trailing slash, as a page answers either way.
   const path = url.pathname.replace(/(.)\/+$/, '$1')
-  if (!productAddress.test(path)) return null
   const key = `https://${url.hostname}/__df/redirects/${store.storeId}`
   const hit = await deps.cache.match(key)
-  if (hit) return parseRedirects(await hit.json()).get(path) ?? null
+  if (hit) return redirectFor(parseRedirects(await hit.json()), path)
   const answer: unknown = await deps.edge.redirects(store.storeId)
   const redirects = parseRedirects(answer)
   remember(deps, key, new Response(JSON.stringify(answer), { headers: { 'content-type': 'application/json', 'cache-control': `max-age=${lookupSeconds}`, 'cache-tag': `df-store-${store.storeId}` } }))
-  return redirects.get(path) ?? null
+  return redirectFor(redirects, path)
 }
 
 /** A path the build has no file for: a recorded redirect, a fallback page the browser fills in, or the build's 404. */
