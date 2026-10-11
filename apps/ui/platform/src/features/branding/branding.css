@@ -135,8 +135,8 @@
 }
 
 .df-brand-unpublished {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--df-space-2) var(--df-space-3);
   padding: var(--df-space-3) var(--df-space-4);
@@ -147,8 +147,35 @@
   font-size: 14px;
 }
 
-.df-brand-unpublished > span {
-  flex: 1 1 14rem;
+/* A refused Publish puts its reason on a row of its own under both buttons, so neither moves. */
+.df-brand-unpublished .df-denied {
+  display: contents;
+}
+
+.df-brand-unpublished .df-denied p {
+  grid-column: 1 / -1;
+  justify-self: end;
+  text-align: end;
+}
+
+@media (max-width: 639px) {
+  .df-brand-unpublished {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .df-brand-unpublished > span {
+    grid-column: 1 / -1;
+  }
+
+  .df-brand-unpublished > :last-child,
+  .df-brand-unpublished .df-denied > button {
+    justify-self: start;
+  }
+
+  .df-brand-unpublished .df-denied p {
+    justify-self: start;
+    text-align: start;
+  }
 }
 
 /* The preview frame */

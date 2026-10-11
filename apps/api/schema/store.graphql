@@ -1538,6 +1538,20 @@ type PlanKeep {
   waiting: [ID!]
 }
 
+type PricingPlan {
+  description: String
+  name: String
+  prices: [PricingPrice!]
+  settings: [BillingPlanValue!]
+  trialDays: Int
+}
+
+type PricingPrice {
+  currency: String
+  monthly: Money
+  yearly: Money
+}
+
 type Product {
   approval: String
   category: String
@@ -1931,6 +1945,7 @@ type Query {
   planCatalogue: [BillingPlan!]
   planChangeQuote(interval: BillingInterval!, planId: ID!, when: PlanChangeWhen!): PlanChangeQuote
   planKeep: PlanKeep
+  pricing(currency: String): [PricingPlan!]
   product(id: ID!): Product
   productCollections(productId: ID!): [ProductCollection!]
   productCounts: ProductCounts

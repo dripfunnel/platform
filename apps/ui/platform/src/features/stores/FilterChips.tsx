@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { StoreFilter } from '../../api/stores'
 import { fill, messages } from '../../messages'
+import '../common/chips.css'
 import { filterKeys, withoutFilter, type FilterKey } from './storeSearch'
 
 const words = messages.stores.filters

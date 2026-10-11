@@ -33,10 +33,12 @@ const samples =
         owner: { partner: 'Kaufladen Digital', role: 'partner-owner', email: 'jonas@kaufladen.de', invitedBy: 'DripFunnel', secondFactorRequired: false } satisfies Invitation,
         member: { partner: 'Kaufladen Digital', role: 'partner-admin', email: 'petra@kaufladen.de', invitedBy: 'Jonas Weber, the Owner', secondFactorRequired: false } satisfies Invitation,
         secret: 'JBSWY3DPEHPK3PXP',
+        uri: 'otpauth://totp/DripFunnel%20Partners%3Ajonas%40kaufladen.de?secret=JBSWY3DPEHPK3PXP&issuer=DripFunnel%20Partners',
       }
     : null
 
 export const sampleSecret = samples?.secret ?? ''
+export const sampleUri = samples?.uri ?? ''
 
 const linkCodes = { expired: 'INVITATION_EXPIRED', used: 'INVITATION_USED', replaced: 'INVITATION_REPLACED', invalid: 'INVITATION_INVALID' } as const
 

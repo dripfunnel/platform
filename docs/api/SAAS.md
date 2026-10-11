@@ -290,9 +290,9 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 | 2 | **Defaults**: store settings from the partner's defaults for new stores (region, currency, languages, tax behaviour, units, sample product), default warehouse, shipping and payment placeholders. **Per-store rows only**, never a shared one (the first platform's `TaxRate` lesson) | Deleted with the store |
 | 3 | **Hostnames**: reserve `{shop}` and register `{shop}.shops.<partnerdomain>` under the partner's wildcard as its own custom hostname (wildcard custom hostnames need Enterprise). The preview needs none: `{key}.webpreview.store` ([../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2) | Release the reservation and routes |
 | 4 | **Repo** (when the merchant first picks a template): the GitHub App creates an empty **public** repo with an opaque name in the `dripfunnel` org and copies `templates/storefront/` with the chosen template's theme and the locked build workflow into it through the GitHub API ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §3) | Delete the repo |
-| 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version. **The repo holds no secret or variable, and one locked workflow** that builds inside the public build image and uploads through GitHub OIDC ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4); every Cloudflare credential stays with the platform | Revert the commit (removed with the repo) |
+| 5 | **Store config**: generate `store.config.ts` (the public store key and the Shop API's path; hostnames, locales and currencies come from the Shop API at build, so a settings change needs no commit, decided on #316) and pin the current `@dripfunnel/storefront-core` version in `package.json`; the route shims are generated at build from `routes.json` (storefront ARCHITECTURE §2.2, decided on #316). **The repo holds no secret or variable, and one locked workflow** that builds inside the public build image and uploads through GitHub OIDC ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4); every Cloudflare credential stays with the platform | Revert the commit (removed with the repo) |
 | 6 | **Hosting target**: the store's folder in R2, served by the edge Worker; nothing to create (decided 2026-10-09, replacing a Pages project per store: 100 projects per account; [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1) | Delete the store's folders in both storefront buckets, and its draft, source bundles and snapshots in the drafts bucket (storefront LIVE-SHOP §4 step 11) |
-| 7 | **First preview**: the template's ready-made preview bundle copied into the store's preview folder in R2 (seconds, no container; [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §4), **confirmed complete** from the copy's result, not assumed (the first platform's gap at this step). The first live build is the merchant's first Publish (§9) | Nothing to undo; a failed first preview leaves the store usable and shows "storefront build failed, retrying" |
+| 7 | **First preview**: the template's ready-made preview bundle copied into the store's preview folder in R2 (seconds, no container; [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §4), **confirmed complete** from the copy's result, not assumed (the first platform's gap at this step). The first live build is the merchant's first Publish (§9) | Delete the copied folder and the `design_draft` row: a failure at any of steps 4–8 undoes them all, so the store can try again (decided on #316) |
 | 8 | **Done**: write `storefront.core_version`, `template` and the repo name, `repo_state = 'ready'`, emit `storefront.created` | n/a |
 
 - Steps 1–3 make a usable store: the merchant can enter the portal once they finish. **Built on
@@ -302,11 +302,24 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   step 3's hostnames are the store's code under the partner's wildcards (built for both the
   preview and shops wildcards; the preview one goes with #518). Signup ends there:
   `store.provisioned`, the welcome email through the outbox, the `signup` row deleted.
+  **Step 3's registration is built on #519**: the signup transaction, and the partner console's
+  Create store, queue `store_host.sync` through the outbox; after commit it registers
+  `{code}.shops.<partnerdomain>` with Cloudflare for SaaS, and does nothing while the partner's
+  shops address isn't live (§8 has the rest). Its compensation is the transaction's: a failed
+  signup leaves no row, so nothing is registered.
 - Steps 4–8 make the storefront **when the merchant first picks a template** (decided
   2026-10-08 on #470), as the `create-storefront` Workflow with their compensations (INF 1).
   They **never run for a store that uses its own frontend** (it gets a public store key and
   allowed origins instead; PLATFORM-PROMPT §5.6), and run whenever such a store first picks a
-  template.
+  template. **Built on #316**: `saas/storefronts/start.ts` names the repo (`sf-` and ten letters
+  or digits), starts a `create-storefront` job and queues `storefront.create` in the choosing
+  transaction; its deliverer starts `jobs/workflows/create-storefront.ts` under the job's id after
+  commit. Each step moves the job, registers its compensation in `job_detail` before acting, and
+  is retried by the Workflow; a step that still fails undoes every step before it, newest first,
+  and leaves `storefront.repo_state = 'failed'` and the job failed with plain words (staff see the
+  step and an error code in its details), so choosing again starts afresh; a store left
+  `creating` with no job keeps its repo's name, so the next run reuses that repo. Until dev has the GitHub App (#287) and the sites bucket (#317), the
+  choice waits in the outbox.
 - **A custom domain is not part of signup**; the merchant connects it whenever they like (§8).
 - "Under two minutes" means a **usable portal and preview** (decided 2026-10-05 on #337): the
   portal at signup, the preview within seconds of picking a template (steps 4–8); the first
@@ -359,6 +372,20 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 - Allowed storefront templates, regions, currencies, languages, payment and courier providers,
   whether vendors are offered, and defaults for new stores are partner-level settings within
   platform limits (fact 19, G4–G5).
+- **The partner's pricing page reads its live plans from the Store API** (decided 2026-10-08 with
+  Gaurav on #459; built there, API only, no screen): `pricing(currency)`, public, on the partner's
+  portal host. The partner is the host's, found as `brand` finds it, never an argument. It answers
+  the partner's **live** plans by name (the portal's plan order), up to 100, each with its name,
+  description, the current version's trial days, its monthly and yearly price per currency as minor
+  units with the currency (a currency with neither is left out), and its settings by key as Billing
+  reads them (`BillingPlanValue`: a switch's `enabled`, a number's `amount`, `unlimited`, a choice as
+  its index in `planKeys.ts`). Asked for a currency, a plan keeps only that currency's prices and is
+  listed with none when it has none: nothing is converted. Never a draft or retired plan,
+  DripFunnel's fee, the ceilings or the contract. Rate-limited per host and address on
+  `SHOP_RATE_LIMITER`, `RATE_LIMITED` with no address or no limiter. A partner's own site reads it
+  server-side, with a GET (no Origin needed) or from the portal host; there is no CORS. *Decided
+  here*: name order, since plans hold no display order; no gate on the partner's state, as `brand`
+  has none and a closed partner's host already answers 404.
 
 ### 6.2 Enforcement
 
@@ -525,9 +552,13 @@ failed; a live hostname can become expiring or broken if its records change.
    outbox and `jobs/queues/deliverers/domainRecheck.ts` asks one fixed DNS-over-HTTPS resolver
    for the record after commit, so a user's hostname never becomes a host the Worker connects
    to; it moves waiting → live, or failed, or broken once a live record changes. **Merchant
-   domains the same way on #34** (`custom_domain.recheck`): the CNAME decides the status and
-   the ownership TXT is recorded for the certificate step. For the portal host, once
-   DNS passes, the status is Cloudflare's own: verifying, issuing, live (`hostStatusOf`).
+   domains the same way on #34** (`custom_domain.recheck`): the CNAME decides the status until
+   it passes, and the ownership TXT is recorded. For the portal host (#422) and **a merchant
+   domain (#468)**, once DNS passes the hostname is registered as a Cloudflare for SaaS custom
+   hostname and the status is Cloudflare's own: verifying, issuing, live (`hostStatusOf`, through
+   `saas/domains` `registerHostname`, shared by both deliverers). Cloudflare being down rethrows,
+   so the outbox retries; a refusal fails the address; an address removed while it was being
+   registered is taken back out. With no Cloudflare token configured, the DNS answer stands.
    **Edge routing (checked 2026-10-05, dev):** each environment's zone holds a proxied
    fallback-origin record, `portal.edge.<zone>` → the store Pages project, set as the zone's
    Cloudflare for SaaS fallback origin; `EDGE_ZONE` names the zone and so the CNAME targets
@@ -554,7 +585,42 @@ failed; a live hostname can become expiring or broken if its records change.
    environments and `*.localhost` work with no new setting; verifying and issuing hosts are not
    yet live, as the card says.*
    Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the
-   SaaS hostname after commit; the console has no Remove button yet.
+   SaaS hostname after commit; the console has no Remove button yet. Removing a merchant domain
+   queues the same `domain.remove` through `queueMerchantDomainRemoval` (the row change and the
+   endpoint are #471's `removeDomain`). A host another partner or store still holds is left
+   alone, and one Cloudflare doesn't know is already gone.
+   **The edge Worker's lookup (#468):** a merchant domain going live or removed also queues
+   `cache.purge` with `{ storeId, host, reason: 'domain-live' | 'domain-removed' }`, the
+   best-effort purge of LIVE-SHOP §5 step 1. Its deliverer is #317's, so until then the row
+   waits in the outbox; the lookup's 60-second limit is what guarantees the change. Made primary
+   queues the same purge once #471 builds primary. *Decided here (#468): the purge names the
+   host and its store, so #317 can purge by either; the removal is a function #471 calls in its
+   own transaction, since the row's removal (DATA-MODEL §7.2's planned `removed_at`) is #471's.*
+   **Each store's shops host (#519).** Wildcard custom hostnames need Enterprise, so the
+   partner's shops address is only its wildcard DNS record, and each store's
+   `{code}.shops.<partnerdomain>` is registered as its own custom hostname
+   (`saas/domains/storeHosts.ts`, `jobs/queues/deliverers/storeHost.ts`). Its state is
+   Cloudflare's and is kept nowhere of ours. `store_host.sync` (one store) registers the host,
+   through the same `registerHostname`, while the store is open and its partner's shops address
+   is live, and does nothing otherwise; once the store is closed (`transitionStore`) the same job
+   takes the host out. When the shops address goes live, `domain.recheck` queues
+   `store_hosts.register`, which pages through the partner's open stores 100 at a time by code
+   and queues a sync for each, keyed by the address, so a retried page queues none twice. Each
+   time the address goes live starts its own pages, so a store made while it was broken is
+   reached too, and every store already queued is skipped. Removing the shops address queues `store_hosts.remove`, which pages
+   through all the partner's stores, closed ones included, and queues `domain.remove` for each
+   host; `domain.remove` leaves a host an open store holds again because the address was added back.
+   Cloudflare being down rethrows, so the outbox retries; a refusal is recorded as
+   `store.shops_host_refused` (visibility `partner`) and the technical log
+   `store_host.refused`, and is not retried. A store closed or an address removed while its host
+   was being registered is taken back out. With no Cloudflare token configured,
+   `store_host.sync` waits in the outbox, as `domain.remove` does. Stores made before #519 are queued once by
+   migration 0220, with the fan-out's keys, so it registers nothing twice. Hostnames past the
+   first 100 are billed (Verify before building, below), which is why a closed store's goes.
+   *Decided here (#519): the partner console's Create store queues the registration as signup
+   does, since both make a store (§5); a closed store's host and every host of a removed address
+   go, a cancelled or suspended store's stay; the backfill is a migration, so it runs once in
+   each environment with the deploy, before the relay that delivers it is promoted.*
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
    **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check
@@ -798,7 +864,7 @@ store (§5.5 there).
 | **Approve** or send back a partner; pause, offboard, close | | Request only | Partner manager, Super admin |
 | Look, words, email templates, email sender | | Own | Any |
 | Partner domains (portal host, wildcards) | | Own | Any; re-check |
-| Plans, prices, entitlement values, "Publish now" allowance | Read own plan and usage | **Edit own**, within ceilings | Any; set ceilings |
+| Plans, prices, entitlement values, "Publish now" allowance | Read own plan and usage; public: the host partner's live plans (`pricing`, §6.1) | **Edit own**, within ceilings | Any; set ceilings |
 | Automatic publish interval | Read next run | Set per plan, never more often than hourly (decided 2026-10-05 on #337) | Set default and per-plan overrides |
 | Merchant signup | Sign-up on the portal host | Create a merchant (invitation) | Create for any partner |
 | Store state: trial extension, suspend, restore, close | Owner: cancel own | Own stores, account level *(ask suspend)* | Any; move to another partner (second approver) |

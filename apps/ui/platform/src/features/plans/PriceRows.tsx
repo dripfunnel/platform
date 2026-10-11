@@ -1,6 +1,7 @@
 import type { PlanPrice } from '../../api/plans'
 import { fill, formatAmount, messages } from '../../messages'
 import { minorOf } from '@dripfunnel/shared/format'
+import { InfoNote } from '@dripfunnel/shared/ui'
 import type { PlanDraft } from './planDraft'
 
 const words = messages.plans.editor
@@ -26,6 +27,7 @@ export const PriceRows = ({ draft, quoted, disabled, onChange }: PriceRowsProps)
       <h2 id="plan-prices">{words.prices}</h2>
       <span className="df-muted">{words.pricesSub}</span>
     </div>
+    {Object.keys(draft.prices).length === 0 && <InfoNote>{words.noCurrency}</InfoNote>}
     {Object.entries(draft.prices).map(([currency, price]) => {
       const quote = quoted.find((candidate) => candidate.currency === currency)
       const invalid = minorOf(price.monthly, currency) === 'invalid' || minorOf(price.yearly, currency) === 'invalid'

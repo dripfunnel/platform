@@ -11,7 +11,7 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 `../api/SAAS.md` owns the state and rules: provisioning (§5), domains (§8) and publishing
 (§9.1).
 
-**Status: specification only.** Nothing below is built.
+**Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9); the rest is specification.
 
 Last updated: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
@@ -76,7 +76,7 @@ Part of the `create-storefront` Workflow (SAAS §5 steps 4–8), when the mercha
 template.
 
 1. **The GitHub App creates a public repo with an opaque name**, for example
-   `dripfunnel/sf-k7f3q9` *(proposed)*.
+   `dripfunnel/sf-k7f3q9f2xa`: `sf-` and ten letters or digits (decided on #316).
    *Why:* the org's list of public repos would otherwise list every merchant by name.
 2. **It copies `templates/storefront/`** with the chosen template's theme, the generated
    `store.config.ts` and route shims, `package.json` pinning the current core version, and
@@ -85,6 +85,9 @@ template.
    so every store builds the same way.
 3. **No secrets and no variables are added.** The repo accepts no outside contributions, and
    the workflow runs only on `workflow_dispatch`.
+   The App sets the repo's Actions to GitHub's own actions only, a read-only default workflow
+   token, and approval before any outside contributor's run (built on #316); #517 widens the
+   actions list if the build needs more.
    *Why:* there is nothing in the repo to steal, and nothing but the platform can start a run.
 4. **The AI can never change the workflow.** `.github/**` is outside the file allowlist
    (ARCHITECTURE §3.4), and the GitHub App is the only writer.
@@ -272,6 +275,9 @@ What the edge Worker does on each request to a storefront host.
   Cloudflare for SaaS custom hostname (SAAS §5 step 3, §8).
   *Why:* registering each name works on every Cloudflare plan. A wildcard custom hostname
   would need Enterprise.
+  Built on #519: the address is registered after signup once the partner's shops address is
+  live, every store's when that address goes live, and taken out when the store closes or the
+  address is removed (SAAS §8).
 - **A merchant's own domain** is another custom hostname on the same zone (SAAS §8). It reaches
   the same edge Worker, which maps it to the same store.
 - Each hostname costs about $0.10 a month after the first 100, on every plan below Enterprise
@@ -392,6 +398,6 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   each unique transformation again every calendar month. For 5,000 stores with 1,000 images in 4
   sizes, that is about 20 million transformations, roughly $10,000 a month at list price.
   Resizing once at upload and storing the sizes in R2 would cost a small fraction of that.
-- How many builds a store keeps (20 proposed), and the bucket names *(decide on #317)*; the repo names *(decide on #316)*.
+- How many builds a store keeps (20 proposed), and the bucket names *(decide on #317)*; ~~the repo names~~ `sf-` and ten letters or digits (decided on #316).
 - Rendering pages on request instead of building them all (Workers for Platforms, a Worker per
   store) is a later option for very large catalogues. It isn't planned.

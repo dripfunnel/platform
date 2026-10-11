@@ -46,6 +46,8 @@ export interface StoreContext extends Record<string, unknown> {
   lookup?: DnsLookup | null
   /** The offer-code limiter (OFFER_CODE_RATE_LIMITER) by key; "Check a code" refuses everything where it isn't bound. */
   allowCodeCheck?: (key: string) => Promise<boolean>
+  /** The public-read limiter (SHOP_RATE_LIMITER) by key; `pricing` refuses everything where it isn't bound. */
+  allowPublicRead?: (key: string) => Promise<boolean>
   now: () => Date
 }
 

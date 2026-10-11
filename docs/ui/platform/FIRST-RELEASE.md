@@ -334,6 +334,9 @@ every currency has a price), **Retire plan** (Live only), **Save changes**.
   "DripFunnel's fee $18.00 / month" ("converted at the contract rate" for a second currency)
   and the margin — "You keep $31.00 of $49.00", or in red "Below DripFunnel's fee: you'd lose
   $3.00 per store". Fee and margin come from the API as `Money`.
+  With no currency to price in (a partner whose contract staff haven't set yet, admin
+  FIRST-RELEASE §4.3), the card says so and that DripFunnel sets it ("ask your partner
+  manager"), and **Make live** is refused up front with the same words.
 - **What's included**: the entitlement matrix (SAAS §6.1), **grouped as the pricing page
   compares plans** (Catalogue, Getting paid, Team and suppliers, Selling abroad, Shipping and
   stock, Storefront, Reports, Support): **On/off**, **Limit**, **Monthly allowance** and
@@ -705,7 +708,8 @@ ownership** (Owner) and **Invite** (Owner, Admin).
 | **Remove** | Owner; Admin (not an Owner) | Not yourself ("You can't remove yourself."), not the last Owner | "{name} is signed out now and can't sign in again. What they did stays in the activity log." |
 | **Transfer ownership** | Owner | An active non-Owner; "TRANSFER" typed | "The new Owner can manage billing, payouts and the team. You become an Admin." |
 
-Resend and Revoke on a pending invitation work as ACCESS §6.3 (a new link; the old stops).
+Resend and Revoke on a pending invitation work as ACCESS §6.3 (a new link; the old stops). A
+pending invitation offers those two in place of Remove, under Remove's rules of who may.
 Refusals: `LAST_OWNER`, `OWNERS_ONLY`, `CANNOT_REMOVE_SELF`, `ALREADY_ON_TEAM` (the one case
 the response may name, ACCESS §6.2). An invitation never reveals whether an email has an
 account elsewhere.

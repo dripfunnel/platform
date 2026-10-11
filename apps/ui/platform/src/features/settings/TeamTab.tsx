@@ -4,7 +4,7 @@ import { useId, useState, type FormEvent } from 'react'
 import type { TeamMember } from '../../api/settings'
 import { fill, formatTime, messages } from '../../messages'
 import { partnerRoles, type PartnerRole } from '../shell/partnerRoles'
-import { inviteFrom, mayManage, ownerBlock, removeRefusal, roleRefusal, rolesFor, transferCandidates, type StaffSessionKind } from './teamRules'
+import { inviteFrom, inviteRefusal, mayManage, ownerBlock, removeRefusal, roleRefusal, rolesFor, transferCandidates, type StaffSessionKind } from './teamRules'
 
 const words = messages.settings.team
 const roleNames: Record<PartnerRole, string> = messages.shell.roles
@@ -168,6 +168,7 @@ export const TeamTab = ({ team, role, session, readOnly, busy, more, onRun, onMo
             {team.map((member) => {
               const roleWhy = readOnly ? words.refused.manage : roleRefusal(member, team, role, session)
               const removeWhy = readOnly ? words.refused.manage : removeRefusal(member, team, role, session)
+              const inviteWhy = readOnly ? words.refused.manage : inviteRefusal(member, role)
               const roleWhyId = `role-why-${member.id}`
               return (
                 <tr key={member.id}>
@@ -204,17 +205,19 @@ export const TeamTab = ({ team, role, session, readOnly, busy, more, onRun, onMo
                   </td>
                   <td data-label={words.actions}>
                     <span className="df-settings-row-actions">
-                      {member.status === 'invited' && manage && (
+                      {/* A pending invitation is revoked, not removed (FIRST-RELEASE §14.2, ACCESS §6.3). */}
+                      {member.status === 'invited' ? (
                         <>
-                          <button type="button" className="df-button df-button--small" disabled={busy} onClick={() => setPending({ kind: 'resend', member })}>
-                            {words.resend}
-                          </button>
-                          <button type="button" className="df-button df-button--small" disabled={busy} onClick={() => setPending({ kind: 'revoke', member })}>
-                            {words.revoke}
-                          </button>
+                          {inviteWhy === null && (
+                            <button type="button" className="df-button" disabled={busy} onClick={() => setPending({ kind: 'resend', member })}>
+                              {words.resend}
+                            </button>
+                          )}
+                          <ActionControl label={words.revoke} refusal={inviteWhy} disabled={busy} onRun={() => setPending({ kind: 'revoke', member })} />
                         </>
+                      ) : (
+                        <ActionControl label={words.remove} refusal={removeWhy} disabled={busy} onRun={() => setPending({ kind: 'remove', member })} />
                       )}
-                      <ActionControl label={words.remove} refusal={removeWhy} disabled={busy} onRun={() => setPending({ kind: 'remove', member })} />
                     </span>
                   </td>
                 </tr>

@@ -96,6 +96,8 @@ describe('the Activity log', () => {
     const text = textOf(await log({ filter: { who: 'setup', result: 'denied', storeId: 's1', date: '7d', action: 'store.suspended' } }))
     for (const chip of ['Who: DripFunnel setup', 'Result: Denied', 'Store: Lumen Candle Co.', 'Date: Last 7 days', 'Action: Store suspended']) expect(text).toContain(chip)
     expect(text).toContain(words.filters.clear)
+    const html = await log({ filter: { result: 'denied' } })
+    expect(html).toMatch(/<button type="button" class="df-chip" aria-label="Remove filter Result: Denied">/)
   })
 
   it('says nothing matches when filtered, and starts a new partner empty', async () => {

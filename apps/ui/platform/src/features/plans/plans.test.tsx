@@ -135,6 +135,31 @@ describe('the plan editor', () => {
     expect(inputOf({ ...blank, name: 'Scale' })).toBeNull()
   })
 
+  it('says who can add a currency when the contract names none, and refuses Make live with that step, never an empty Prices card', async () => {
+    const live = editorFor('growth')
+    if (!live.plan) throw new Error('no plan')
+    const draftPlan = { ...live.plan, status: 'draft' as const }
+    const uncovered = { ...live, plan: { ...draftPlan, prices: [] }, currencies: [] }
+    const none = draftOf(uncovered.plan, uncovered.currencies, 14)
+    const html = await render(
+      <PlanEditor me={owner} editor={uncovered} draft={none} original={none} quoted={[]} forced={null} busy={false} onDraft={noop} onSave={noop} onDiscard={noop} onMakeLive={noop} onRetire={noop} onReload={noop} />,
+      '/plans/growth',
+    )
+    const prices = /<section[^>]*aria-labelledby="plan-prices"[^>]*>([\s\S]*?)<\/section>/.exec(html)?.[1] ?? ''
+    expect(prices).not.toContain('<input')
+    expect(textOf(prices)).toContain(words.editor.noCurrency)
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Make live<\/button>/)
+    expect(textOf(html.slice(html.indexOf('>Make live<')))).toContain(words.editor.noCurrency)
+    const priced = { ...live, plan: draftPlan }
+    const covered = draftOf(priced.plan, priced.currencies, 14)
+    const ready = await render(
+      <PlanEditor me={owner} editor={priced} draft={covered} original={covered} quoted={[]} forced={null} busy={false} onDraft={noop} onSave={noop} onDiscard={noop} onMakeLive={noop} onRetire={noop} onReload={noop} />,
+      '/plans/growth',
+    )
+    expect(textOf(ready)).not.toContain(words.editor.noCurrency)
+    expect(ready).toMatch(/<button type="button" class="df-button">Make live<\/button>/)
+  })
+
   it('reads prices as money and keeps a half-typed one as text', () => {
     expect(inputOf({ ...original, prices: { ...original.prices, USD: { monthly: 'abc', yearly: '' } } })).toBeNull()
   })

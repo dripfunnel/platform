@@ -1,0 +1,20 @@
+# The store's one workflow, locked (storefront LIVE-SHOP.md §3, §4): only the platform starts it, and only the platform
+# writes this file. Its steps (fetch, build, check, upload) arrive with INF 2b (#517) and INF 4.
+name: build
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: The single-use build id the platform dispatched (LIVE-SHOP.md §4 step 4)
+        required: true
+permissions:
+  id-token: write
+concurrency:
+  group: build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - run: echo "No build steps yet (#517)."

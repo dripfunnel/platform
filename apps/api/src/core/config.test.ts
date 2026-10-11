@@ -12,11 +12,20 @@ describe('parseConfig', () => {
   })
 
   it('refuses the email, SMS and DNS stand-ins anywhere but on localhost', () => {
-    for (const key of ['EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL'] as const) {
+    for (const key of ['EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL', 'COURIERS_LOCAL', 'GITHUB_LOCAL'] as const) {
       expect(() => parseConfig({ ...hosts, [key]: '1' }), key).toThrow(new RegExp(`${key} is for local development only`))
       expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', EMAIL_SUPPRESSION_KEY: key43, [key]: '1' })[key], key).toBe('1')
       expect(() => parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', [key]: 'yes' }), key).toThrow()
     }
+  })
+
+  it('takes the GitHub App’s three values together, its key as PEM with escaped or real newlines', () => {
+    const app = { GITHUB_APP_ID: '123', GITHUB_APP_INSTALLATION_ID: '456', GITHUB_APP_PRIVATE_KEY: '-----BEGIN RSA PRIVATE KEY-----\\nMIIE\\n-----END RSA PRIVATE KEY-----' }
+    expect(parseConfig({ ...hosts, ...app }).GITHUB_APP_PRIVATE_KEY).toBe('-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----')
+    expect(parseConfig({ ...hosts, ...app }).GITHUB_STORE_ORG).toBe('dripfunnel')
+    expect(() => parseConfig({ ...hosts, GITHUB_APP_ID: '123' })).toThrow(/go together/)
+    expect(() => parseConfig({ ...hosts, ...app, GITHUB_APP_PRIVATE_KEY: 'not a key' })).toThrow(/PEM private key/)
+    expect(() => parseConfig({ ...hosts, ...app, GITHUB_APP_ID: 'my-app' })).toThrow(/numeric id/)
   })
 
   it('takes CODE_CHECK=0 on dev and localhost only', () => {
