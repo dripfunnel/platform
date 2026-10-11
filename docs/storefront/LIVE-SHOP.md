@@ -308,7 +308,8 @@ checking, deploying, live, failed, rolled back).
     - **payment**: the Shop API's `paymentOptions` answer, and every card provider among them has the public key its
       payment element needs. A store that takes no payment yet skips it.
 
-    A failure is tried once more 10 seconds later before it counts. No call starts after five minutes: what is left is
+    An address that doesn't answer at all (DNS, TLS, timeouts) skips what it couldn't reach rather than failing the
+    build, which can't cause that. A failure is tried once more 10 seconds later before it counts. No call starts after five minutes: what is left is
     skipped, never failed, so a slow store isn't rolled back for slowness; the step has its own 10-minute limit. Then the run is live (`storefront.published`), or the
     pointer moves back to `previous_build_id` in one transaction: the run reads `rolled_back` with the failed check as
     its error (`check_home`, `check_product`, `check_cart`, `check_checkout`, `check_payment`), its version is
