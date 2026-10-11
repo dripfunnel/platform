@@ -15,7 +15,7 @@ export type AlarmState = {
 
 /**
  * A container still running with no runner to reach it (the object was evicted) is stopped and its place given back,
- * so it never outlives the idle stop or runs past STUDIO_CAPACITY once its lease lapses.
+ * so it never outlives the idle stop or runs past STUDIO_MAX_RUNNING once its lease lapses.
  */
 export const alarmStep = (s: AlarmState): AlarmStep => {
   if (!s.loaded) return s.containerRunning ? 'stop-orphan' : 'rest'

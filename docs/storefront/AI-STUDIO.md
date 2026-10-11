@@ -14,7 +14,7 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7), and the frame
 on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
-Last updated: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -306,11 +306,11 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   - the validator's languages are the store's languages' base codes (`en-IN` → `content/en/`), which core's
     i18n reads for every region of a language; the content and post paths are SAPI 24's `storeContentPaths` (#338), read with the rest of the context;
   - **capacity**: the `durable_object` scheduling policy has no `max_instances`, so one `StudioCapacity` object
-    keeps a ledger of `STUDIO_CAPACITY` running studios (default 5,000, short of the ~6,000 the account's
+    keeps a ledger of `STUDIO_MAX_RUNNING` running studios (default 5,000, short of the ~6,000 the account's
     vCPU allows at `basic`): a running studio's lease is renewed every minute and lapses 3 minutes after the
     last renewal; a waiting studio keeps its place by when it first asked and leaves the queue a minute
     after it stops asking.
-- Whether a plan caps simultaneous studio sessions *(decide on #287; #482 caps only the account, by `STUDIO_CAPACITY`)*.
+- Whether a plan caps simultaneous studio sessions *(decide on #287; #482 caps only the account, by `STUDIO_MAX_RUNNING`)*.
 - ~~The studio session's renewal interval.~~ **Live 5 minutes, renewed every 2** (decided on #482), so one missed
   renewal never closes the frame. The id is 128 random bits (22 base64url characters) kept only as its SHA-256 in
   `studio_session`, which references the portal session: signing out deletes it. A renewal re-checks the caller as

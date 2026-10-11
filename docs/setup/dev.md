@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -172,7 +172,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    Then give `env.dev` in `apps/api/wrangler.jsonc` what `env.local` has for the studio (#482): the
    `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Object bindings, their `studio-v1` migration, and a
    `containers` entry `{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { … } }`
-   naming each core version's image by its `core_release.sandbox_image` digest. `STUDIO_CAPACITY` (a
+   naming each core version's image by its `core_release.sandbox_image` digest. `STUDIO_MAX_RUNNING` (a
    Worker variable, default 5000) caps studios running at once.
 4. **GitHub**: the org's plan is still to be decided on #287 (20 Actions jobs at once on Free, 60 Team,
    500 Enterprise; main's protection needs Team, ARCHITECTURE §6). Create
