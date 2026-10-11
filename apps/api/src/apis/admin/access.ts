@@ -10,7 +10,7 @@ import type { StaffSessionsService } from '#saas/staffSessions/index'
 import type { CustomersService } from '#saas/customers/index'
 import type { StaffMembersService } from '#saas/staffMembers/index'
 import type { AppRegistryService } from '#saas/apps/index'
-import type { FleetService } from '#saas/fleet/index'
+import type { FleetService } from '#saas/fleet/admin'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface AdminContext extends Record<string, unknown> {

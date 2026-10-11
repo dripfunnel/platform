@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { fleetAudit, type FleetResult, type RolloutView } from '#saas/fleet/index'
+import { fleetAudit, type FleetResult, type RolloutView } from '#saas/fleet/admin'
 import { builder } from './builder'
 import { iso, PageInfoType, signedIn } from './types'
 
