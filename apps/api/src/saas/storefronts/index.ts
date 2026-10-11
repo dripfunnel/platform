@@ -3,3 +3,5 @@ export { commitToMain, pushToRepo, type PushDeps, type PushReason, type PushResu
 export { type SitesBucket } from './templates'
 export { createStorefrontParams, startStorefront, storefrontCreateKind, type CreateStorefrontParams, type StartResult } from './start'
 export { edgeCacheTags, lookupLiveHost, type EdgeState, type LiveHost } from './edge'
+export { goBack, publishParams, runPublish, startPublish, storefrontPublishKind, type GoBackActor, type GoBackResult, type PublishDeps, type PublishParams } from './publish'
+export { cleanStorefronts, keptBuilds, type StorefrontBuckets } from './cleanup'

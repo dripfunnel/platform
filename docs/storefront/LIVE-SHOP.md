@@ -12,9 +12,10 @@ suite every publish passes (§4.2). [PREVIEW.md](PREVIEW.md) covers the preview 
 (§9.1).
 
 **Status:** §3 is built (#316: the GitHub App client, the `create-storefront` Workflow and the push API of §4 step 9). On #317:
-the bucket layout (§2), the edge Worker's host lookup and its `/shop-api` door, and the cache purge (§5 step 1). On #517:
-the OIDC check (§9) and the build calls `start`, `report` and `credentials` (§4, "The build calls"); the rest is
-specification.
+the bucket layout (§2), the publish-storefront Workflow's queued → deploying → live | failed, the switch, go back and
+clean-up (§4 steps 1, 9 item 3 and 11), the edge Worker's host lookup and its `/shop-api` door, and the cache purge (§5
+step 1). On #517: the OIDC check (§9) and the build calls `start`, `report` and `credentials` (§4, "The build calls");
+the rest is specification.
 
 Last updated: 2026-10-11 (#517: the build calls, the digest's form, the build id's lifetime; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
@@ -115,6 +116,12 @@ checking, deploying, live, failed, rolled back).
 1. **A publish starts** and the `publish-storefront` Workflow creates the store's
    `publish_run`, one at a time per store.
    *Why:* two builds racing for one store could put the older one live.
+   **Built on #317** (`saas/storefronts/publish.ts`): `startPublish` creates the run in its caller's transaction and, when
+   none is running, queues `storefront.publish`, whose deliverer starts `jobs/workflows/publish-storefront.ts` under the
+   run's id. A press while one runs waits as the one queued run (a second press is that run); the run that finishes
+   queues it. Partial unique indexes allow one running and one queued run per store. The Workflow claims the run
+   (deploying), checks the build's folder has its `_manifest.json` (#517 adds the digest check of step 9), then
+   switches; any failure leaves the run failed with a code and the live build as it was.
 2. **Nothing reaches GitHub yet.** A design publish builds the draft's head commit from the
    store's private draft (AI-STUDIO §6); other publishes build the **live commit**, read from the
    live build's kept source bundle (step 3), never from GitHub. The repo's `main` gets the draft
@@ -211,7 +218,12 @@ checking, deploying, live, failed, rolled back).
       build;
    3. deletes the staging folder, moves the live pointer, records the new build as live
       (`publish_run` with the report as its `gate`, `design_version`) and refreshes the edge
-      Worker's lookup (§5 step 1);
+      Worker's lookup (§5 step 1). **Built on #317**: one transaction moves `storefront.live_build_id`, marks the run
+      live with the build it replaced (`previous_build_id`), numbers the new `design_version` (the old live one becomes
+      kept), updates the store's mirror, queues `cache.purge` and records `storefront.published`; the staging folder
+      goes after it. **Go back** (`goBack`, which #318's Store API calls) is the same pointer move to a kept version's
+      build in one transaction, with no run of its own: refused while a publish runs or once clean-up removed the build,
+      and the draft is reset to that version's commit;
    4. for a design publish, pushes the published tree to the repo's `main` as **one squashed
       commit with a platform-written message** ("Publish version N" and the build id), through
       the GitHub App ([AI-STUDIO.md](AI-STUDIO.md) §6). The merchant's requests, the per-change
@@ -231,12 +243,18 @@ checking, deploying, live, failed, rolled back).
 10. **Post-deploy checks and automatic rollback**, from the edge, run by the platform, follow
     ARCHITECTURE §4.2 steps 5–6. A rollback is the same pointer move back to the previous build:
     no rebuild, live everywhere within a minute (§5 step 1).
-11. **Clean-up:** a store keeps its last builds *(decide: 20 proposed)* and every build a kept
+11. **Clean-up:** a store keeps its last **20** builds (decided on #317, as proposed) and every build a kept
     version in the history refers to (SAAS §9.2). Older build folders are deleted, along with
     each build's snapshot and its source bundle (`sources/{store}/{build id}.bundle`). Staging
     folders are deleted at the switch or when a run fails. **Deleting a store** (or a deletion
     request) deletes all its folders in both buckets and everything of its in the drafts bucket:
     the draft, every source bundle and every snapshot (SAAS §5).
+    **Built on #317** (`saas/storefronts/cleanup.ts`, the daily `0 3 * * *` cron, 50 of each a day): a build past the
+    newest 20 that went live, named by no version and not live, and every failed run's build, lose their build and staging
+    folders, their assets folder, source bundle and snapshot, marked `files_deleted_at`. *Decided on #317:* deleting a
+    store is SAAS §4.2's "closed, then deleted after 90 days", so a store closed for 90 days loses all its files in the
+    three buckets once (`storefront.files_deleted_at`); a deletion request reaches the same function when that flow is
+    built.
 
 **The build calls** (built on #517, `apps/api/src/apis/builds.ts`). The workflow's runner steps call
 `POST https://<hooks host>/builds/<step>` with a fresh OIDC token for the audience `https://<hooks host>` in
@@ -440,7 +458,7 @@ Checked against the providers' pages on 2026-10-09. The estimates are ours, not 
   each unique transformation again every calendar month. For 5,000 stores with 1,000 images in 4
   sizes, that is about 20 million transformations, roughly $10,000 a month at list price.
   Resizing once at upload and storing the sizes in R2 would cost a small fraction of that.
-- How many builds a store keeps (20 proposed) *(decide on #317)*; ~~the bucket names~~ `storefront-sites`, `storefront-assets`
+- ~~How many builds a store keeps~~ 20, beyond any a kept version names (decided on #317, §4 step 11); ~~the bucket names~~ `storefront-sites`, `storefront-assets`
   and `storefront-drafts`, with `-dev` and `-local` on dev and locally (decided on #317: the environments are separate
   Cloudflare accounts, and prod's names match `ASSETS`' unsuffixed `dripfunnel-assets`); the asset host is
   `sf-assets.<EDGE_ZONE>`, an R2 custom domain on `storefront-assets` (decided on #317: on the zone that already has the

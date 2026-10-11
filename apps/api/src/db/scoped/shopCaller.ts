@@ -35,10 +35,6 @@ const storefrontColumns = (tx: ScopedSql) => tx`
   coalesce((select json_object_agg(sf.key, sf.enabled) from store_feature sf where sf.store_id = s.id), '{}'::json) as features
 `
 
-/**
- * A store's own storefront host: `{code}.` under its partner's shops wildcard, or its live custom domain.
- * A partner's wildcard is held as `*.shops.example.com` (partner_domain), live or on its way to it.
- */
 /** The condition on `store s` that its storefront answers on `host`; shared with the edge Worker's lookup (storefrontEdge.ts). */
 export const storefrontHostMatch = (tx: ScopedSql, host: string) => {
   const name = host.toLowerCase()
@@ -57,6 +53,10 @@ export const storefrontHostMatch = (tx: ScopedSql, host: string) => {
     )`
 }
 
+/**
+ * A store's own storefront host: `{code}.` under its partner's shops wildcard, or its live custom domain.
+ * A partner's wildcard is held as `*.shops.example.com` (partner_domain), live or on its way to it.
+ */
 export const selectStorefrontByHost = async (tx: ScopedSql, host: string): Promise<StorefrontRow | null> => {
   const rows = await tx<StorefrontRow[]>`
     select ${storefrontColumns(tx)}, false as preview

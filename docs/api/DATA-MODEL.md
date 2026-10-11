@@ -1748,6 +1748,7 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                     -- preview_url: the host is derived from preview_key and PREVIEW_DOMAIN, and a
                     -- preview opens only through a signed link (PREVIEW §8). live_build_id (the publish_run
                     -- id, null until the first publish) and preview_epoch (integer, 0) built on #317, migration 0233;
+                    -- files_deleted_at (0234) is when clean-up erased a store closed 90 days from the three buckets;
                     -- repo_id is the repo's numeric GitHub id, which a build's OIDC token names as
                     -- repository_id (LIVE-SHOP §9; built on #517, migration 0240, written with the repo);
                     -- repo is the public repo's opaque name (sf- and 10 letters or digits) and
