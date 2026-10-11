@@ -1813,7 +1813,9 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- previous_build_id; error names the failed check, LIVE-SHOP §4 step 10); migration 0287: render (a
                     -- page run's addresses and those it leaves out, only on kind 'page') and assets_build_id (the build
                     -- whose JS and CSS its pages load: the live build's for a page run, LIVE-SHOP §7); migration 0288:
-                    -- vitals (the regression rule's verdict: severe, regressed or ok, and the p75s it compared)
+                    -- vitals (the regression rule's verdict: severe, regressed or ok, and the p75s it compared); #318
+                    -- (migration 0311): source_build_id, the kept build whose source a `security` rebuild of a version
+                    -- gone back to freezes, instead of the live build's
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
                      changed_at, changed_by, preview_deploy_ref NULL)
                     -- the one unpublished design per store: the draft's head (decided
@@ -1823,6 +1825,7 @@ design_draft        (store_id PK, head_commit, base_version_id NULL, template, c
                     -- the public repo (decided 2026-10-09, storefront AI-STUDIO §4, §6);
                     -- preview_deploy_ref is the preview's folder (PREVIEW §3);
                     -- discard resets it to the live version's commit; deleted on publish.
+                    -- #318: deleted when a design publish of its head goes live, and when going back to a version
                     -- Built on #316 (migration 0231) without base_version_id, which comes with
                     -- design_version: the create-storefront Workflow writes the first, its head
                     -- the repo's main and its preview the template's bundle (SAAS §5 step 7)
