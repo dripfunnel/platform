@@ -99,6 +99,21 @@ describe('step build', () => {
     expect(readFileSync(join(root, 'same-1/edge/2/index.html'), 'utf8')).toContain('dir="rtl"')
   })
 
+  it('escapes the store’s own words wherever the page carries them: its head, its body and its data for the script', async () => {
+    const name = 'Linen & "Co" </script><script>alert(1)</script>'
+    const hostile = catalogueSnapshotSchema.parse({ ...snapshot, store: { ...snapshot.store, name, description: '<img src=x onerror=alert(1)> & more' } })
+    writeFileSync(join(root, 'hostile.json'), JSON.stringify(hostile))
+    const source = await sourceOf('hostile')
+    await cli(['build', ...stepArgs(source, join(root, 'hostile.json')), '--out', join(root, 'hostile')])
+    const home = readFileSync(join(root, 'hostile/site/index.html'), 'utf8')
+    expect(home).toContain('<title>Linen &amp; &quot;Co&quot; &lt;/script&gt;&lt;script&gt;alert(1)&lt;/script&gt;</title>')
+    expect(home).toContain('<meta name="description" content="&lt;img src=x onerror=alert(1)&gt; &amp; more">')
+    expect(home).toContain('\\u003c/script>\\u003cscript>alert(1)\\u003c/script>')
+    // Exactly the build's own two scripts: the page's module and its data, nothing the name opened.
+    expect(home.match(/<script/g)).toHaveLength(2)
+    expect(home.match(/<\/script>/g)).toHaveLength(2)
+  })
+
   it('builds with the image’s own packages, never ones the store repo carries', async () => {
     const source = await sourceOf('shadowed', {
       'node_modules/clsx/package.json': '{ "name": "clsx", "main": "index.js" }\n',

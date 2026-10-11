@@ -69,7 +69,11 @@ const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
   await cp(input.runtimeDir, join(site, runtimeFolder), { recursive: true })
   const assets = { entry: client.bundle.entry, css: client.bundle.files.filter((f) => f.path.endsWith('.css')).map((f) => f.path) }
 
-  const server = await serverTheme(input.repo, join(work, 'server')).catch(() => null)
+  // esbuild refusing the theme's files is the theme's fault; anything else is the image's, and stops the step instead.
+  const server = await serverTheme(input.repo, join(work, 'server')).catch((error: unknown) => {
+    if (error instanceof Error && Array.isArray((error as { errors?: unknown }).errors)) return null
+    throw error
+  })
   if (!server) return failed(["The theme's pages can't be bundled for the static build."], 'contracts')
   const pages = plan(routes, s.store)
   const thrown = await renderPages(server, pages, s, site, assets)
