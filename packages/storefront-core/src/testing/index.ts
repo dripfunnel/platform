@@ -1,11 +1,9 @@
-import { missingRoutes, requiredParts, type CoreRoute, type ThemeManifest } from '../contracts/theme'
+import { missingRoutes, requiredParts, type CoreRoute, type PageFacts, type ThemeManifest } from '../contracts/theme'
 import { sealedOnPage } from '../sealed/element'
 import { minimumSize, visibilityProblem, type VisibilityProblem } from '../sealed/visibility'
 
 // The contract checks store repos run in CI (storefront ARCHITECTURE §3.2, §10), exported as
 // @dripfunnel/storefront-core/testing.
-
-type PageFacts = { preview: boolean; poweredBy: boolean; legal: boolean }
 
 const missing = (route: CoreRoute, part: string) => `The ${route} page must render the required "${part}" component.`
 
