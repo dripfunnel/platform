@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import { withSystemScope } from '#db/scoped/index'
-import { markFilesDeleted, markStoreFilesDeleted, selectClosedStoresToErase, selectExpiredBuilds, selectPreviewCleanups } from '#db/scoped/publishing'
+import { failureCode, logEvent } from '#core/log'
+import { markFilesDeleted, markPreviewsTidied, markStoreFilesDeleted, selectClosedStoresToErase, selectExpiredBuilds, selectPreviewCleanups } from '#db/scoped/publishing'
 import { buildFolder, draftBundle, previewRoot, snapshotFile, snapshotsPrefix, sourceBundle, sourcesPrefix, stagingFolder, storePrefix } from './layout'
 import { deletePrefix, type SitesBucket } from './templates'
 
@@ -11,8 +12,6 @@ import { deletePrefix, type SitesBucket } from './templates'
 export const keptBuilds = 20
 /** SAAS §4.2: a closed store's files stay 90 days, then go. */
 const closedStoreDays = 90
-/** A store's preview folders are looked at for a week after each publish, so a missed day still tidies them. */
-const previewWindowDays = 7
 const batch = 50
 const dayMs = 86_400_000
 
@@ -55,19 +54,34 @@ const eraseStore = async (b: StorefrontBuckets, storeId: string): Promise<void> 
   await deletePrefix(b.drafts, snapshotsPrefix(storeId))
 }
 
+/** One item's failure is logged and left for the next day; it never stops the rest of the batch. */
+const each = async <T>(items: readonly T[], storeOf: (item: T) => string, work: (item: T) => Promise<number>): Promise<number> => {
+  let done = 0
+  for (const item of items) {
+    try {
+      done += await work(item)
+    } catch (error) {
+      logEvent({ event: 'storefront_cleanup_item_failed', api: 'system', storeId: storeOf(item), code: failureCode(error) })
+    }
+  }
+  return done
+}
+
 export const cleanStorefronts = async (sql: postgres.Sql, b: StorefrontBuckets, now: Date): Promise<{ builds: number; previews: number; stores: number }> => {
-  const builds = await withSystemScope(sql, (tx) => selectExpiredBuilds(tx, keptBuilds, batch))
-  for (const build of builds) {
+  const builds = await each(await withSystemScope(sql, (tx) => selectExpiredBuilds(tx, keptBuilds, batch)), (build) => build.store_id, async (build) => {
     await deleteBuild(b, build.store_id, build.id)
     await withSystemScope(sql, (tx) => markFilesDeleted(tx, build.id, now))
-  }
-  let previews = 0
-  for (const store of await withSystemScope(sql, (tx) => selectPreviewCleanups(tx, new Date(now.getTime() - previewWindowDays * dayMs), batch)))
-    previews += await deleteOldPreviews(b.sites, store.store_id, store.current, store.published_at)
-  const stores = await withSystemScope(sql, (tx) => selectClosedStoresToErase(tx, new Date(now.getTime() - closedStoreDays * dayMs), batch))
-  for (const storeId of stores) {
+    return 1
+  })
+  const previews = await each(await withSystemScope(sql, (tx) => selectPreviewCleanups(tx, batch)), (store) => store.store_id, async (store) => {
+    const deleted = await deleteOldPreviews(b.sites, store.store_id, store.current, store.published_at)
+    await withSystemScope(sql, (tx) => markPreviewsTidied(tx, store.store_id, store.published_at))
+    return deleted
+  })
+  const stores = await each(await withSystemScope(sql, (tx) => selectClosedStoresToErase(tx, new Date(now.getTime() - closedStoreDays * dayMs), batch)), (storeId) => storeId, async (storeId) => {
     await eraseStore(b, storeId)
     await withSystemScope(sql, (tx) => markStoreFilesDeleted(tx, storeId, now))
-  }
-  return { builds: builds.length, previews, stores: stores.length }
+    return 1
+  })
+  return { builds, previews, stores }
 }

@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
+import type { PreviewLinks } from '#auth/previewLink'
 import type { SecretBox } from '#auth/secretBox'
 import type { AssetStore, ShopConnect } from '#engine/modules/catalog/index'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
@@ -48,6 +49,8 @@ export interface StoreContext extends Record<string, unknown> {
   allowCodeCheck?: (key: string) => Promise<boolean>
   /** The public-read limiter (SHOP_RATE_LIMITER) by key; `pricing` refuses everything where it isn't bound. */
   allowPublicRead?: (key: string) => Promise<boolean>
+  /** "Open preview" (storefront PREVIEW.md §5 step 1): the preview domain and the link's key; null where either isn't set. */
+  preview?: { domain: string; links: PreviewLinks } | null
   now: () => Date
 }
 

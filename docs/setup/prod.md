@@ -170,7 +170,7 @@ moment you save.
 | `STRIPE_TEST_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys |
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.com` zone | Purges the store proxy's cached host lookups (storefront LIVE-SHOP.md §5 step 1); read since #317 with `CF_SAAS_ZONE_ID`. The buckets `storefront-sites`, `storefront-assets` (custom domain `sf-assets.dripfunnel.com`, CORS `GET` from any origin, its route excluded from the Worker) and `storefront-drafts` are created and bound as on dev (dev.md §2.8 item 1), without the `-dev` |
 | `PREVIEW_DOMAIN` | Text | `webpreview.store` | Every store's preview, `{key}.webpreview.store` (PREVIEW.md §8). Validated at boot; read since #518: without it no preview host answers |
-| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Needed from ST 1a |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Read since #317 ("Open preview" links). The store proxy (`dripfunnel-store-proxy`) gets its own `PREVIEW_SESSION_KEY`, the `SITES` and `EDGE` bindings, the `*.webpreview.store/*` route and `PREVIEW_DOMAIN` as dev does (dev.md §2.8 item 8) |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
 harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.com`.
