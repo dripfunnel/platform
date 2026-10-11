@@ -158,6 +158,7 @@ describe('step build', () => {
     expect(contracts).toMatchObject({ passed: false, detail: expect.stringContaining('The search page (/search/) failed while rendering.') })
     expect(contracts?.detail).not.toMatch(/JSON|SyntaxError|Unexpected/)
     expect(existsSync(join(root, 'throwing/site'))).toBe(false)
+    expect(existsSync(join(root, 'throwing/edge'))).toBe(false)
   })
 
   it('stops at the typecheck too, with the validator’s check failing and naming the file, and no site', async () => {

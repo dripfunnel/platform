@@ -41,8 +41,17 @@ const renderPages = async (server: ServerTheme, pages: readonly PlannedPage[], s
   return thrown
 }
 
+type BuildInput = { repo: string; theme: readonly ThemeFile[]; snapshot: CatalogueSnapshot; runtimeDir: string; out: string; work: string }
+
 /** Builds `theme` (already checked out at `repo`) into `out`; the same theme and snapshot always give the same files. */
-export const buildSite = async (input: { repo: string; theme: readonly ThemeFile[]; snapshot: CatalogueSnapshot; runtimeDir: string; out: string; work: string }): Promise<BuildOutcome> => {
+export const buildSite = async (input: BuildInput): Promise<BuildOutcome> => {
+  const outcome = await buildInto(input)
+  // A refusal leaves the failing report and nothing else: no part of a site, no edge-case render.
+  if (!outcome.ok) for (const folder of ['site', 'edge']) await rm(join(input.out, folder), { recursive: true, force: true })
+  return outcome
+}
+
+const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
   const { snapshot: s, out, work } = input
   const validator = validateChange(input.theme, s.guard).problems
   if (validator.length > 0) return { ok: false, report: gateReport([checkValidator(validator)]) }
@@ -64,10 +73,7 @@ export const buildSite = async (input: { repo: string; theme: readonly ThemeFile
   if (!server) return failed(["The theme's pages can't be bundled for the static build."], 'contracts')
   const pages = plan(routes, s.store)
   const thrown = await renderPages(server, pages, s, site, assets)
-  if (thrown.length > 0) {
-    await rm(site, { recursive: true, force: true })
-    return failed(thrown, 'contracts')
-  }
+  if (thrown.length > 0) return failed(thrown, 'contracts')
   await write(join(site, 'sitemap.xml'), sitemap(pages, s.origin))
   await write(join(site, 'robots.txt'), robots(s.origin))
   await write(join(site, '_edge.json'), `${JSON.stringify(edgeRules(pages, s.store))}\n`)
@@ -76,10 +82,7 @@ export const buildSite = async (input: { repo: string; theme: readonly ThemeFile
   for (const [n, edge] of edgeCases(s).entries()) {
     const language = edge.snapshot.store.language
     const edgeThrown = await renderPages(server, main.map((p) => ({ ...p, language })), edge.snapshot, join(out, edgeFolder(n)), assets, edge.dir)
-    if (edgeThrown.length > 0) {
-      await rm(site, { recursive: true, force: true })
-      return failed(edgeThrown.map((t) => `With ${edge.name}: ${t}`), 'edge-cases')
-    }
+    if (edgeThrown.length > 0) return failed(edgeThrown.map((t) => `With ${edge.name}: ${t}`), 'edge-cases')
   }
   return { ok: true, pages: pages.length }
 }
