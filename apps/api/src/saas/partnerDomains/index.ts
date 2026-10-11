@@ -13,7 +13,7 @@ import { isBareDomain, ownershipRecord, queueStoreHostsRemoval, recordMatches, r
 import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
-// Domains on the Platform API (ui/platform/FIRST-RELEASE.md §9; card #197): the partner's four
+// Domains on the Platform API (ui/platform/FIRST-RELEASE.md §9; card #197): the partner's three
 // addresses, adding one, re-checking one, and its merchants' own domains.
 
 export const domainAudit = {
@@ -28,7 +28,7 @@ export const merchantDomainPageSize = 25
 // Never a partner's own address (FIRST-RELEASE §9.2 "Use a domain your company owns").
 const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.com']
 const isOurs = (host: string, edgeZone: string): boolean => [...dripfunnelDomains, edgeZone].some((d) => host === d || host.endsWith(`.${d}`))
-const wildcardKinds: readonly DomainKind[] = ['preview', 'shops']
+const wildcardKinds: readonly DomainKind[] = ['shops']
 
 export type AddRefusal =
   | 'INVALID_INPUT'

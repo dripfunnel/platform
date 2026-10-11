@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-11 (#518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -87,6 +87,7 @@ can use your own role and database names, as long as you put them in `.env.local
    | Line | What to put locally |
    |---|---|
    | `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST` | Leave as `admin.localhost`, `platform.localhost`, `hooks.localhost`. |
+   | `PREVIEW_DOMAIN` | Leave `preview.localhost`: a store's preview Shop API answers at `{key}.preview.localhost`, its key in `storefront.preview_key` (storefront PREVIEW.md §8). |
    | `HYPERDRIVE_REQUIRED` | Leave `1`. |
    | `DATABASE_URL` | Your local database from §3, e.g. `postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel`. Change the port if you moved it. |
    | `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` | The same host, port and database as `DATABASE_URL`, **with a password** (any password, if Postgres ignores it). |
@@ -307,11 +308,12 @@ it with the query.
    2-factor if the console asks.
    *Writes* the `partner_user` (active, with its password) and the invitation as accepted.
 3. **The Owner works through setup** in the partner console's checklist:
-   - **Domains** (`/domains`): portal `store.acme.localhost`, preview `preview.acme.localhost`,
-     shops `shops.acme.localhost`, email sender `mail.acme.localhost`. On dev these are the
+   - **Domains** (`/domains`): portal `store.acme.localhost`, shops `shops.acme.localhost`,
+     email sender `mail.acme.localhost`. There is no preview address: previews are on
+     `{key}.preview.localhost` (storefront PREVIEW.md). On dev these are the
      partner's real domains; locally any `<name>.<partner>.localhost` works, as long as it isn't
      a bare `<partner>.localhost` (a portal or wildcard on a bare domain is refused, as on dev).
-     *Writes* four `partner_domain` rows (waiting) and their `partner_domain_record` rows, and a
+     *Writes* three `partner_domain` rows (waiting) and their `partner_domain_record` rows, and a
      `domain.recheck` per address in `outbox`. Within a minute the domain check turns each live
      (§6.1):
      ```sql

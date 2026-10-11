@@ -18,16 +18,6 @@ const portal: Extract<Address, { added: true }> = {
     { purpose: 'ownership', type: 'TXT', name: '_dripfunnel.store', value: 'df-verify=a1b2c3', found: 'df-verify=a1b2c3', matches: true },
   ],
 }
-const preview: Extract<Address, { added: true }> = {
-  kind: 'preview',
-  added: true,
-  host: '*.preview.northstar.com',
-  zone: 'northstar.com',
-  status: 'waiting',
-  since,
-  checkedAt: null,
-  records: [{ purpose: 'pointer', type: 'CNAME', name: '*.preview', value: 'preview.edge.dripfunnel.net', found: null, matches: false }],
-}
 const shops: Extract<Address, { added: true }> = {
   kind: 'shops',
   added: true,
@@ -68,14 +58,14 @@ const none = (kind: Address['kind']): Address => ({ kind, added: false })
 const live = (a: Extract<Address, { added: true }>): Address => ({ ...a, status: 'live', records: a.records.map((r) => ({ ...r, found: r.value, matches: true })) })
 
 export const domainsPages = {
-  none: page([none('portal'), none('preview'), none('shops'), none('email')], {}, []),
-  // One of each status §9.1 draws, the email sender not live yet.
-  mixed: page([portal, preview, shops, email]),
-  allLive: page([portal, live(preview), live(shops), live(email)], { fallbackSender: null, canAdd: false }),
+  none: page([none('portal'), none('shops'), none('email')], {}, []),
+  // Live, failed and verifying, the email sender not live yet.
+  mixed: page([portal, shops, email]),
+  allLive: page([portal, live(shops), live(email)], { fallbackSender: null, canAdd: false }),
   // The DNS failing scenario: the portal and the email sender stopped pointing at DripFunnel.
-  failing: page([{ ...portal, status: 'broken', records: portal.records.map((r) => ({ ...r, found: '192.0.2.10', matches: false })) }, live(preview), live(shops), { ...email, status: 'broken' }], { canAdd: false }),
+  failing: page([{ ...portal, status: 'broken', records: portal.records.map((r) => ({ ...r, found: '192.0.2.10', matches: false })) }, live(shops), { ...email, status: 'broken' }], { canAdd: false }),
   // Support: two added, Add refused by the role.
-  support: page([portal, preview, none('shops'), none('email')], { canAdd: false }),
+  support: page([portal, shops, none('email')], { canAdd: false }),
 }
 
-export const addresses = { portal, preview, shops, email }
+export const addresses = { portal, shops, email }

@@ -113,7 +113,7 @@ export interface HistoryEntry {
   note: string | null
 }
 
-export const domainKinds = ['portal', 'preview', 'shops', 'email'] as const
+export const domainKinds = ['portal', 'shops', 'email'] as const
 export type DomainKind = (typeof domainKinds)[number]
 
 export interface PartnerDomain {

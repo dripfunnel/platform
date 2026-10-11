@@ -167,7 +167,7 @@ describe('stores(filter, after, before) (§5.1)', () => {
 
 describe('store(id) (§5.2, §5.3)', () => {
   const detail = `query($id: ID!) { store(id: $id) {
-    name country history { action by note } counts { owners managers staff suppliers } site { version lastBuildAt previewHost liveHost }
+    name country history { action by note } counts { owners managers staff suppliers } site { version lastBuildAt liveHost }
     provisioning { error details } records { kind host record expected found status } users { name role supplier status impersonate { allowed reason } }
     supportAccess notes { by text } job { id actions { retry { allowed reason } undo { allowed reason } } }
     actions { suspend { allowed reason } restore { allowed reason } extendTrial { allowed reason } resendInvite { allowed reason } addNote { allowed reason } } } }`
@@ -181,7 +181,8 @@ describe('store(id) (§5.2, §5.3)', () => {
     const s = data?.store
     expect(s).toMatchObject({ name: 'Mehta Textiles', country: 'IN', supportAccess: true, counts: { owners: 1, managers: 1, staff: 2, suppliers: 3 } })
     expect((s?.['history'] as { action: string }[]).map((h) => h.action)).toEqual(['store.trial_started', 'store.activated'])
-    expect(s?.['site']).toMatchObject({ version: 'v48', previewHost: 'mehta-textiles.preview.bazaarcloud.example', liveHost: 'mehtatextiles.example' })
+    expect(s?.['site']).toMatchObject({ version: 'v48', liveHost: 'mehtatextiles.example' })
+    expect(s?.['site']).not.toHaveProperty('previewHost')
     // A custom domain still waiting is shown with its status, and the live link is the default address.
     const maple = (await run<Detail>(detail, as('staff-super-admin'), { id: await storeIdOf('Maple & Pine Home') })).data?.store
     expect(maple?.['site']).toMatchObject({ liveHost: 'maple-pine.shops.northstar.example' })

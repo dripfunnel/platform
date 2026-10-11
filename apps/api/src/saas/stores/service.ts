@@ -125,7 +125,7 @@ export interface StoreDto extends StoreRowDto {
   country: string | null
   history: { at: Date; action: string; by: string | null; note: string | null }[]
   counts: { owners: number; managers: number; staff: number; suppliers: number }
-  site: { version: string | null; lastBuildAt: Date | null; lastPublishAt: Date | null; previewHost: string | null; liveHost: string }
+  site: { version: string | null; lastBuildAt: Date | null; lastPublishAt: Date | null; liveHost: string }
   provisioning: { error: string | null; details: string | null }
   records: StoreDnsRecord[]
   users: StoreUserDto[]
@@ -239,7 +239,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     createdAt: row.created_at,
   })
 
-  // For the store's default addresses: `{shop}.shops.<partnerdomain>` and `{shop}.preview.<partnerdomain>`.
+  // For the store's default address, `{shop}.shops.<partnerdomain>`.
   const shopsDomainsFor = (tx: ScopedSql, partnerIds: readonly string[]) => selectPartnerDomainsOf(tx, partnerIds)
 
   const list = async (filter: unknown, page: PageRequest): Promise<Result<{ page: StorePage }>> => {
@@ -357,7 +357,6 @@ export const createStoresService = (deps: StoresServiceDeps) => {
           version: row.core_version,
           lastBuildAt: row.last_build_at,
           lastPublishAt: row.last_publish_at,
-          previewHost: row.storefront_kind === 'own' ? null : `${row.code}.preview.${shopsDomain ?? 'dripfunnel.example'}`,
           liveHost: liveHostOf(row, shopsDomain),
         },
         // Never a secret in either (decided on #43), as on the Provisioning list.

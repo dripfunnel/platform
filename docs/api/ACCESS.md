@@ -510,7 +510,7 @@ prototype's permission table and ui/platform/README.md §2; the first release is
 | Suspend and restore a merchant **(confirmed 2026-09-30)** | ✓ | ✓ | | | |
 | Open a read-only **support session** (§8) | ✓ | ✓ | ✓ | | |
 | Request write elevation inside a support session | ✓ | ✓ | ✓ | | |
-| Branding, portal host, preview and shop domains, email sender domain | ✓ | ✓ | | | |
+| Branding, portal host, shop domain, email sender domain | ✓ | ✓ | | | |
 | Plans and prices offered to merchants | ✓ | ✓ | | ✓ *(prices only)* | |
 | The partner's own billing with DripFunnel: invoices, payment method, payouts | ✓ | view | | ✓ | view |
 | Partner users: invite, change role, remove | ✓ | ✓ *(not Owners)* | | | |

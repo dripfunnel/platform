@@ -16,7 +16,7 @@ const twoLevelSuffixes = ['co.uk', 'org.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz
 
 export const registrableLabels = (host: string): number => (twoLevelSuffixes.includes(host.split('.').slice(-2).join('.')) ? 3 : 2)
 
-const senderKindOrder = ['portal', 'shops', 'preview', 'email']
+const senderKindOrder = ['portal', 'shops', 'email']
 
 /**
  * The label of the partner's fallback sender, `no-reply@<label>.<sender domain>` (SAAS §3.6):
@@ -43,7 +43,7 @@ export const nameToResolve = (host: string): string => (host.startsWith('*.') ? 
 
 /** The Cloudflare for SaaS fallback origins, on the environment's own zone (SAAS §8). */
 export const edgeTargets = (zone: string) =>
-  ({ portal: `portal.edge.${zone}`, preview: `preview.edge.${zone}`, shops: `shops.edge.${zone}` }) as const
+  ({ portal: `portal.edge.${zone}`, shops: `shops.edge.${zone}` }) as const
 export const apexAddress: string | null = null
 export const emailRecords = {
   spf: 'v=spf1 include:spf.dripfunnel.net ~all',
@@ -78,9 +78,8 @@ export const recordsFor = (kind: DomainKind, host: string, apex: boolean, edgeZo
     case 'portal':
       if (!apex) return [{ purpose: 'pointer', recordType: 'CNAME', name: host, expected: targets.portal }]
       return apexAddress === null ? null : [{ purpose: 'pointer', recordType: 'A', name: host, expected: apexAddress }]
-    case 'preview':
     case 'shops':
-      return [{ purpose: 'pointer', recordType: 'CNAME', name: nameToResolve(host), expected: targets[kind] }]
+      return [{ purpose: 'pointer', recordType: 'CNAME', name: nameToResolve(host), expected: targets.shops }]
     case 'email':
       return [
         { purpose: 'spf', recordType: 'TXT', name: host, expected: emailRecords.spf },

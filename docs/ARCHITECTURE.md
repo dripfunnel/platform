@@ -7,7 +7,8 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
+Last updated: 2026-10-11 (#518: the Shop API answers on preview hosts by preview key). Before:
+2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
 Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 
 ---
@@ -42,7 +43,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 
 | Deployable | Kind | Serves | Hostnames |
 |---|---|---|---|
-| `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host; `hooks.dripfunnel.com` |
+| `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host and every preview host, `{key}.<PREVIEW_DOMAIN>` (#518); `hooks.dripfunnel.com` |
 | `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS. Partner portal hosts: `/api/*` to the API Worker's `PortalProxy` entrypoint through a service binding, the rest to the store Pages project. Storefront hosts and `*.webpreview.store`: each store's built files from R2, `/shop-api/*` to the API Worker (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09). Our own hosts pass through (SAAS.md §8). Portal part on dev only so far | every partner portal host; every storefront host; `*.webpreview.store` |
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
@@ -278,10 +279,11 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 
 - ~~The Shop API hostname pattern for storefronts.~~ `/shop-api` on the store's own storefront hosts: `{code}.` under its
   partner's `*.shops.` wildcard, or its live custom domain. Previews are on
-  `{key}.webpreview.store` (decided 2026-10-09, storefront/PREVIEW.md §5): the partner's
-  `*.preview.` wildcard is no longer a preview host, and the code that still resolves it (built on
-  #306) is removed by #518. On any other host the public store key alone
-  names the store, and a key sent on a store's own host must be that store's (decided on #306).
+  `{key}.<PREVIEW_DOMAIN>` (`webpreview.store` in prod; decided 2026-10-09, storefront/PREVIEW.md §5):
+  the store is the one whose `storefront.preview_key` is `{key}`, checkout there is in test mode,
+  and every caller is a guest (built on #518, which removed the partner's `*.preview.` wildcard). On
+  any other host the public store key alone names the store, and a key sent on a store's own or
+  preview host must be that store's (decided on #306).
 - Password hashing choice under Workers CPU limits.
 - Logpush destination, and whether to keep a copy of logs outside Cloudflare.
 - ~~Where the AI designer's sandbox runs (GitHub Actions, Cloudflare Containers, or elsewhere).~~

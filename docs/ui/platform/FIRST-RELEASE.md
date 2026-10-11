@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -168,7 +168,7 @@ progress · To do with one line of detail, a link to its screen, and when done, 
 | 1 | Company details | Settings › Company (§14.1) | Legal name, address, tax id, region present |
 | 2 | Branding | Branding (§8) | Logo, colours and font saved |
 | 3 | Portal address | Domains (§9) | The portal host is Live |
-| 4 | Preview and shop addresses | Domains | Both wildcards Live |
+| 4 | Shop address | Domains | The shop wildcard is Live (the item keeps its key, `wildcards`) |
 | 5 | Email sender | Domains | DKIM, SPF and DMARC verified; until then "Emails use a fallback sender" (SAAS §3.6) |
 | 6 | At least one priced plan | Plans (§7) | A Live plan with a price in every currency |
 | 7 | Legal pages | Branding › Words | Terms, privacy and data-processing agreement set; **Impressum** too for a German partner |
@@ -284,7 +284,7 @@ card on {date}."
 | **Overview** | The sentence "You see this store's account. Its orders, customers and products are the merchant's; open a support session to view them." **Account**: owner, country, created, plan ("Growth · $49.00 / month, charged by DripFunnel for Northstar"), people ("9 people · 3 suppliers"), sales last month ("$18,420.00 · 612 orders (totals)"). **Contacts**: the merchant-side users by name, email and role ("Only the owner so far."). **Plan and status history**: each change with before → after and who |
 | **Plan and limits** | The plan and price with **Change plan**; usage bars for products, staff seats, suppliers, AI design prompts (this month), "Publish now" presses (this month) — "Near the limit" at 80%, "At the limit" at 100%, "not included" when the plan lacks it; **Overrides for this store** ("None. This store gets exactly what its plan includes.") with what, reason, who and when, and **Add override** |
 | **Billing** | Subscription (plan and cycle), price, next charge ("First charge 11 Oct, when the trial ends" · "No upcoming charge"), payment status (Paid · Failed · No card yet), card ("Card ending 4417" · "No card on file"), "Charged by DripFunnel for Northstar" or "You bill this merchant yourself"; **Invoices** (id, date, amount, Paid/Failed, card). When the partner bills itself: a **Billing status** select (Owner, Admin, Finance) |
-| **Storefront** | Live · Building · Failed · Own storefront; live and preview links; last publish ("Not published yet"); "Read-only. The merchant designs and publishes their shop." For an own storefront: "This merchant runs its own storefront and uses {store}'s account for products, orders and checkout behind it." |
+| **Storefront** | Live · Building · Failed · Own storefront; the live link (no preview address: a preview opens only through the merchant's signed link, `../../storefront/PREVIEW.md` §8); last publish ("Not published yet"); "Read-only. The merchant designs and publishes their shop." For an own storefront: "This merchant runs its own storefront and uses {store}'s account for products, orders and checkout behind it." |
 | **Domains** | The custom domain, status, "Waiting since {date}", the CNAME record (type, name, value with Copy, what we found), **Re-check now** |
 | **Setup** | The five signup steps with Done · Working · "Taking longer than usual" ("Running for 43 min. It usually takes under two minutes.") · Failed · Waiting, and **Retry this step** (Owner, Admin — decided 2026-10-01, settling CONSOLE-DESIGN K's *(ask)*: the prototype offers it and nothing it touches is the merchant's data) |
 | **Support** | "{store} allows {partner} support to sign in as its users." or "{owner} has turned partner support off for {store}. Only {owner} can turn it on, in their Settings › Support access."; **People in {store}** — name, email, role (suppliers as "Supplier admin · Loomcraft"), status, last sign-in, **Open support session** (§12.2) or **Return to session**; **Past sessions** (who as whom, reason, when, Ended by staff · Expired · Open now) |
@@ -444,26 +444,25 @@ for every store's portal and emails, right away."). (CONSOLE-DESIGN F8; SAAS §3
 
 "Every address your platform uses." (SAAS §3.5–3.6, §8; CONSOLE-DESIGN M)
 
-### 9.1 The four addresses
+### 9.1 The three addresses
 
 One card each — **Merchant portal** (`store.northstar.com`, "Where your merchants sign in and
-build their shops."), ~~**Preview address, all stores** (`*.preview.…`)~~ (retired 2026-10-09:
-previews are on `{key}.webpreview.store`, `../../storefront/PREVIEW.md`; the built card goes with
-the card that moves previews), **Shop address, all
+build their shops."), **Shop address, all
 stores** (`*.shops.…`), **Email sender** (`mail.…`, "Emails to your merchants and their
 suppliers come from here.") — with status (Waiting for DNS · Verifying · Issuing certificate ·
 Live · Failed), "Waiting since {date}" or "Checked 12 min ago", **Re-check now** (every role),
 **Remove address** (Owner, Admin; never in a support session), and a record table: Type, Name, Value to add (with Copy and a plain-words line — "DKIM: signs
 every email so inboxes trust it."), What we see ("Nothing found yet", or the found value with
 "Doesn't match yet"). The email card adds "Until it's live, emails come from
-no-reply@{partner}.dripfunnel-mail.com with your product name." (SAAS §3.6).
+no-reply@{partner}.dripfunnel-mail.com with your product name." (SAAS §3.6). There is no preview
+address: previews are on `{key}.webpreview.store` (`../../storefront/PREVIEW.md`; removed on #518).
 
 ### 9.2 Add an address
 
-Offered (Owner, Admin) while fewer than four exist; "All four addresses are set up" otherwise.
+Offered (Owner, Admin) while fewer than three exist; "All three addresses are set up" otherwise.
 Three steps:
 
-1. **Address**: what it is for (the four kinds; added ones marked); the hostname, with `*.`
+1. **Address**: what it is for (the three kinds; added ones marked); the hostname, with `*.`
    fixed in front for the wildcards. Refused: not an address; a DripFunnel domain ("Use a
    domain your company owns"); already one of yours; a bare domain for a wildcard or the email
    sender ("Use a subdomain, like mail.northstar.com, so it doesn't clash with your
@@ -478,7 +477,7 @@ Three steps:
    Check again · Go to Domains · Add the next address. When found: "We found the record and
    issued the certificate. Merchants can sign in here now."
 
-**Removing** an address opens a confirmation naming what stops for that kind (portal: merchants can no longer sign in, stores keep working; preview; shops; email: emails go from the fallback sender). On success the card returns to "Add an address" and the add flow offers that kind again. A refused role (`FORBIDDEN`), an address already gone (`NOT_FOUND`) and a failure show in the dialog.
+**Removing** an address opens a confirmation naming what stops for that kind (portal: merchants can no longer sign in, stores keep working; shops; email: emails go from the fallback sender). On success the card returns to "Add an address" and the add flow offers that kind again. A refused role (`FORBIDDEN`), an address already gone (`NOT_FOUND`) and a failure show in the dialog.
 
 Changing a live portal host keeps the old one redirecting for a period still *(ask)* (SAAS
 §3.5).

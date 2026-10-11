@@ -27,7 +27,7 @@ export const DomainsError = ({ onRetry }: { onRetry: () => void }) => (
   </div>
 )
 
-// Owners and Admins add one while fewer than four exist (§9.2); anyone else sees why not.
+// Owners and Admins add one while fewer than three exist (§9.2); anyone else sees why not.
 const AddButton = ({ canAdd, allAdded, kind }: { canAdd: boolean; allAdded: boolean; kind?: DomainKind }) => {
   if (allAdded) return null
   if (!canAdd) return <PermissionDenied actionLabel={words.add} reason={words.addRefused} />

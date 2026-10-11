@@ -46,6 +46,7 @@ export const provisionStore = async (tx: ScopedSql, input: ProvisionInput, at: D
   failAt('defaults')
 
   // 3. Hostnames: the code is the reservation; `{code}.shops` is registered after commit, once the shops address is live.
+  // The preview key came with step 1's storefront row (0232's storefront_for_store()); a preview host needs no registration.
   await moveJobTo(tx, jobId, 'hostnames', at)
   await queueStoreHostSync(tx, { partnerId: input.partnerId, storeId }, 'provisioned')
   failAt('hostnames')

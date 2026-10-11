@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -108,7 +108,7 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 | **Overview** | Partner details and contacts, the contract (fee currency, other currencies, "Powered by" term, or "No contract yet"), state history, setup checklist with each item's status |
 | **Stores** | This partner's stores (the Stores list, pre-filtered) |
 | **Branding** | Read-only preview of its look, words and "Powered by" setting |
-| **Domains** | Portal host, preview and shop wildcards, email sender domain: each with the expected DNS records and status, and "Re-check now" |
+| **Domains** | Portal host, shop wildcard, email sender domain: each with the expected DNS records and status, and "Re-check now" |
 | **Plans** | Read-only list of its plans, prices and entitlements (the partner edits them in its console) |
 | **Team** | Its partner users and roles, last sign-in, with **Impersonate** on each (§8) |
 | **Activity** | Audit entries about this partner |
@@ -172,7 +172,7 @@ Header: name, partner, status, live link, and the actions (§5.3). Tabs:
 | Tab | Contents |
 |---|---|
 | **Overview** | Identity (name, code, partner, owner, country, created), plan and status with history, counts: people by role, vendors, products, orders |
-| **Storefront** | Kind (AI or own), last build and publish, live and preview links, core version |
+| **Storefront** | Kind (AI or own), last build and publish, the live link (no preview address: a preview opens only through the merchant's signed link), core version |
 | **Domains** | Custom domain and its status, expected vs found DNS records, "Re-check now" |
 | **Provisioning** | Signup steps and their results; retry from here (§6) |
 | **Users** | Everyone in the store: merchant side (Owner, Manager, Staff) and each supplier's users, with role, last sign-in, status and **Impersonate** |

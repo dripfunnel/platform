@@ -82,7 +82,6 @@ const Site = builder.objectRef<StoreDto['site']>('StoreSite').implement({
     version: t.exposeString('version', { nullable: true }),
     lastBuildAt: t.string({ nullable: true, resolve: (s) => iso(s.lastBuildAt) }),
     lastPublishAt: t.string({ nullable: true, resolve: (s) => iso(s.lastPublishAt) }),
-    previewHost: t.exposeString('previewHost', { nullable: true }),
     liveHost: t.exposeString('liveHost'),
   }),
 })

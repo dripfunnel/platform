@@ -26,14 +26,15 @@ const render = async (element: ReactNode) => {
 const domains = (page: DomainsPage, forced: Parameters<typeof Domains>[0]['forced'] = null) =>
   render(<Domains page={page} forced={forced} now={testNow} checking={null} merchants={{ items: page.merchants.items, more: false, busy: false }} onRecheck={noop} canRemove={false} onRemove={noop} onMore={noop} onCopy={noop} onRetry={noop} />)
 
-describe('the four addresses', () => {
+describe('the three addresses', () => {
   it('draw a card each with its status, when it was checked, Re-check now and the record table', async () => {
     const text = textOf(await domains(domainsPages.mixed))
-    for (const kind of ['portal', 'preview', 'shops', 'email'] as const) expect(text).toContain(words.kinds[kind].label)
-    for (const status of ['live', 'waiting', 'failed', 'verifying'] as const) expect(text).toContain(words.status[status])
+    for (const kind of ['portal', 'shops', 'email'] as const) expect(text).toContain(words.kinds[kind].label)
+    expect(text).not.toMatch(/preview/i)
+    for (const status of ['live', 'failed', 'verifying'] as const) expect(text).toContain(words.status[status])
     expect(text).toContain('Checked 12 min ago')
     expect(text).toContain('Waiting since Sep 28, 2026')
-    expect(text.match(new RegExp(words.recheck, 'g'))).toHaveLength(4)
+    expect(text.match(new RegExp(words.recheck, 'g'))).toHaveLength(3)
     for (const column of [words.records.type, words.records.name, words.records.value, words.records.found]) expect(text).toContain(column)
     expect(text).toContain(words.purposes.dkim)
     // Each Copy names its record, so a screen reader tells them apart.
@@ -101,11 +102,11 @@ describe('the states', () => {
 })
 
 describe('the three steps', () => {
-  const step1 = (kind: 'portal' | 'preview', error: string | null = null) =>
+  const step1 = (kind: 'portal' | 'shops', error: string | null = null) =>
     render(<AddressStep addresses={domainsPages.support.partner.addresses} zone="northstar.com" kind={kind} typed="" error={error} busy={false} onKind={noop} onType={noop} onContinue={noop} />)
 
   it('asks what the address is for, marks the added ones, and puts *. before a wildcard', async () => {
-    const html = await step1('preview')
+    const html = await step1('shops')
     expect(textOf(html)).toContain(words.new.kindQuestion)
     expect(html.match(/<input type="radio"[^>]*disabled=""/g)).toHaveLength(2)
     expect(textOf(html)).toContain(words.new.added)
@@ -133,7 +134,8 @@ describe('the three steps', () => {
   })
 
   it('ends saved and waiting, or live with the next address to add', async () => {
-    const waiting = textOf(await render(<CheckStep address={addresses.preview} more note={null} busy={false} onCheck={noop} onNext={noop} />))
+    const saved = { ...addresses.shops, status: 'waiting' as const, records: addresses.shops.records.map((r) => ({ ...r, found: null })) }
+    const waiting = textOf(await render(<CheckStep address={saved} more note={null} busy={false} onCheck={noop} onNext={noop} />))
     expect(waiting).toContain(words.new.waiting.one)
     expect(waiting).toContain(words.new.checkAgain)
     const live = await render(<CheckStep address={addresses.portal} more note={null} busy={false} onCheck={noop} onNext={noop} />)
@@ -146,7 +148,7 @@ describe('the three steps', () => {
 describe('the address rules', () => {
   it('take a hostname from what was typed, and name examples under the partner’s domain', () => {
     expect(hostFrom('  https://Store.Northstar.com/sign-in ')).toBe('store.northstar.com')
-    expect(hostFrom('*.preview.northstar.com')).toBe('preview.northstar.com')
+    expect(hostFrom('*.shops.northstar.com')).toBe('shops.northstar.com')
     expect(exampleFor('email', 'northstar.co.uk')).toBe('mail.northstar.co.uk')
     expect(exampleFor('portal', null)).toBe('store.yourcompany.com')
   })
@@ -166,8 +168,8 @@ describe('the address rules', () => {
   it('start on the kind a link asks for while it is free, else the first not added', () => {
     const { addresses: list } = domainsPages.support.partner
     expect(firstKind(list, 'email')).toBe('email')
-    expect(firstKind(list, 'portal')).toBe('shops')
-    expect(firstKind(list, undefined)).toBe('shops')
+    expect(firstKind(list, 'portal')).toBe('email')
+    expect(firstKind(list, undefined)).toBe('email')
   })
 })
 
@@ -183,12 +185,12 @@ describe('Remove an address', () => {
       textOf(
         await render(<Domains page={domainsPages.mixed} forced={null} now={testNow} checking={null} merchants={{ items: [], more: false, busy: false }} onRecheck={noop} canRemove={canRemove} onRemove={noop} onMore={noop} onCopy={noop} onRetry={noop} />),
       )
-    expect((await shown(true)).match(new RegExp(words.remove.button, 'g'))).toHaveLength(4)
+    expect((await shown(true)).match(new RegExp(words.remove.button, 'g'))).toHaveLength(3)
     expect(await shown(false)).not.toContain(words.remove.button)
   })
 
   it('states the consequence for each kind', () => {
-    for (const kind of ['portal', 'preview', 'shops', 'email'] as const) expect(words.remove.body[kind]).toBeTruthy()
+    for (const kind of ['portal', 'shops', 'email'] as const) expect(words.remove.body[kind]).toBeTruthy()
     expect(words.remove.title).toBe('Remove {host}?')
   })
 

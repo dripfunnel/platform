@@ -1,7 +1,7 @@
 (function () {
 const E = 'edge.dripfunnel.net';
 const dm = (k, host, rec, exp, st, found) => ({ k, host, rec, exp, st, found: found || (st === 'waiting' ? 'Nothing found yet' : exp) });
-const doms = (base, portal, o) => { o = o || {}; return [dm('Portal host', portal, 'CNAME', 'portal.' + E, o.portal || 'live'), dm('Preview wildcard', '*.preview.' + base, 'CNAME', 'preview.' + E, o.preview || 'live'), dm('Shop wildcard', '*.shops.' + base, 'CNAME', 'shops.' + E, o.shops || 'live'), dm('Email sender domain', 'mail.' + base, 'TXT', 'v=spf1 include:mail.dripfunnel.net ~all', o.mail || 'live'), ...(o.extra || [])]; };
+const doms = (base, portal, o) => { o = o || {}; return [dm('Portal host', portal, 'CNAME', 'portal.' + E, o.portal || 'live'), dm('Shop wildcard', '*.shops.' + base, 'CNAME', 'shops.' + E, o.shops || 'live'), dm('Email sender domain', 'mail.' + base, 'TXT', 'v=spf1 include:mail.dripfunnel.net ~all', o.mail || 'live'), ...(o.extra || [])]; };
 const PL = (n, price, cur, lim, stores) => ({ n, price, cur, lim, stores });
 const TM = (n, e, role, last) => ({ n, e, role, last });
 const PARTNERS = [
@@ -31,10 +31,10 @@ const PARTNERS = [
 
   hist:[['2025-09-12','Created as draft by Maya Ortiz'],['2025-09-29','Approved by Arjun Menon: contract signed, KYC passed'],['2025-09-29','Live']] },
  { id:'ts', name:'Tallis Studio', kind:'Agency', region:'Australia', country:'Australia', state:'draft', host:'shops.tallis.studio', owner:['Ben Tallis','ben@tallis.studio'], created:'2026-09-25', stores:0, newWeek:0, color:'#3D5A40', ink:'#FFFFFF', accent:'#E3B23C', product:'Tallis Shops', powered:true, setup:[1,'w',0,0,0,0,0,0], inv:'sent', invSent:'2026-09-25T11:03:00Z', legal:false, test:false, sign:[0,0,0], median:'—',
-  domains: doms('tallis.studio','shops.tallis.studio',{portal:'waiting',preview:'waiting',shops:'waiting',mail:'waiting'}), contacts:[['Ben Tallis','Owner (invited)','ben@tallis.studio']], plans:[],
+  domains: doms('tallis.studio','shops.tallis.studio',{portal:'waiting',shops:'waiting',mail:'waiting'}), contacts:[['Ben Tallis','Owner (invited)','ben@tallis.studio']], plans:[],
   hist:[['2026-09-25','Created as draft by Maya Ortiz. Owner invited']] },
  { id:'nl', name:'Nordlicht Media', short:'Nordlicht', kind:'Agency', region:'Sweden, Norway', country:'Sweden', state:'draft', inv:'held', host:'shops.nordlicht.media', owner:['Freya Lind','freya@nordlicht.media'], created:'2026-09-23', stores:0, newWeek:0, color:'#3B2F63', ink:'#FFFFFF', accent:'#7FD1C7', product:'Nordlicht Shops', powered:true, setup:[1,0,1,1,'w',0,0,0], by:{0:['Priya','DripFunnel'],2:['Priya','DripFunnel'],3:['Priya','DripFunnel'],4:['Priya','DripFunnel']}, legal:false, test:false, sign:[0,0,0], median:'—',
-  domains: doms('nordlicht.media','shops.nordlicht.media',{preview:'waiting',shops:'waiting',mail:'waiting'}), contacts:[['Freya Lind','Owner (invitation held)','freya@nordlicht.media']], plans:[],
+  domains: doms('nordlicht.media','shops.nordlicht.media',{shops:'waiting',mail:'waiting'}), contacts:[['Freya Lind','Owner (invitation held)','freya@nordlicht.media']], plans:[],
   hist:[['2026-09-23','Created as draft by Priya Shah. Owner invitation held'],['2026-09-24','Set up by Priya Shah (DripFunnel): company details, branding, portal host, email domain']] },
 ];
 const ST = o => ({ support:true, suppliers:0, setup:'done', sf:'ai-live', people:[1,1,2], ver:'v12', build:'2026-09-26T11:20:00Z', pub:'2026-09-26T11:32:00Z', hist:[], ...o });

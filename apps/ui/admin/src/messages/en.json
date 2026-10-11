@@ -425,7 +425,7 @@
         "company": "Company details",
         "branding": "Branding",
         "portalHost": "Portal host",
-        "wildcards": "Preview and shop addresses",
+        "wildcards": "Shop address",
         "emailSender": "Email sender domain",
         "plan": "Plans and prices",
         "legal": "Legal pages",
@@ -478,7 +478,6 @@
       "note": "Read-only. The partner points these at DripFunnel from their DNS provider. Checked every 10 minutes.",
       "kinds": {
         "portal": "Portal host",
-        "preview": "Preview wildcard",
         "shops": "Shop wildcard",
         "email": "Email sender domain"
       },
@@ -970,7 +969,6 @@
       "lastBuild": "Last build",
       "lastPublish": "Last publish",
       "live": "Live",
-      "preview": "Preview",
       "none": "—"
     },
     "domains": {
