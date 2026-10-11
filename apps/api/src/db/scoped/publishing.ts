@@ -222,7 +222,7 @@ export const selectSnapshotSource = async (tx: ScopedSql, storeId: string): Prom
       where s.id = ${storeId}`
   )[0] ?? null
 
-/** "Publish now" presses that went live since `since`; a refused or failed one never counts (SAAS §9.1). */
+/** "Publish now" presses that went live since `since`; a refused or failed one never counts (SAAS §9.1). #318 reads it. */
 export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date): Promise<number> =>
   (
     await tx<{ used: number }[]>`
