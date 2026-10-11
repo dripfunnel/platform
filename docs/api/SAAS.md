@@ -692,7 +692,8 @@ SaaS layer owns the state and the rules:
   the switch of the live pointer, with the gate's report. **Built on #317:** queued → deploying → live | failed, the
   switch, one running and one queued run per store, and go back (storefront LIVE-SHOP §4 steps 1 and 9); **on #483**
   building (frozen and dispatched) and checking (a failing report the run decides on: repair and bisect for a design
-  publish, then refuse), `build_minutes`, `publishBefore`, and `allowanceUsed`, which counts only presses that went live (#318's Publish now reads it; nothing does yet); rolled back comes with #484. A refused or rolled-back publish keeps the previous
+  publish, then refuse), `build_minutes`, `publishBefore`, and `allowanceUsed`, which counts only presses that went live (#318's Publish now reads it; nothing does yet); **Built on #484:** the post-deploy checks and rolled back
+  (LIVE-SHOP §4 step 10); a switched run stays deploying until its checks end, and a rolled-back press uses no allowance. A refused or rolled-back publish keeps the previous
   live site, says so plainly, and **never uses an allowance**.
 - **Who pays for checking**: repair attempts and gate runs are the platform's cost, recorded
   for §12 and never counted on the merchant's meters (decided 2026-10-08 on #470).

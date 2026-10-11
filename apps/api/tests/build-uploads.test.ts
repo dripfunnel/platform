@@ -11,6 +11,7 @@ import { localActions } from '#integrations/local/builds'
 import { BuildRefused, BuildUnavailable, buildLifetimeMs, digestOf, issueCredentials, reportBuild, reportUploaded, runPublish, startBuild, UploadRefused, verifyUpload, type BuildDeps, type GateReport } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
+import { testProbe } from './support/edgeProbe'
 import { fakeSites, putText, type FakeSites } from './support/sites'
 
 // INF 2b (#517) part 1: a store build's calls (storefront LIVE-SHOP.md §4 steps 5–8, §9) against the real database, fake
@@ -379,7 +380,7 @@ const swelled = (key: string, size: number) => {
   return () => bodyReads
 }
 
-const verifyDeps = () => ({ sql: db.sql, sites, assets, now: () => now })
+const verifyDeps = () => ({ sql: db.sql, sites, assets, now: () => now, probe: testProbe(db.sql, { sites, assets }), assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
 const uploadOf = (id: string) => db.sql<{ uploaded_at: Date | null; upload_manifest: unknown; verified_at: Date | null; state: string; error: string | null }[]>`
   select uploaded_at, upload_manifest, verified_at, state, error from publish_run where id = ${id}`.then((r) => r[0])
 const verifyRefusal = (work: Promise<unknown>) =>
@@ -475,7 +476,7 @@ describe('the copy into the build’s folders', () => {
 
 describe('a build from its report to live', () => {
   const steps = { do: (_: string, work: () => Promise<string>) => work(), waitFor: async () => undefined }
-  const publishDeps = () => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, dispatch: async () => true, now: () => now })
+  const publishDeps = () => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, dispatch: async () => true, now: () => now, probe: testProbe(db.sql, { sites, assets }), assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
 
   it('goes live only after its upload is verified, through #317’s switch', async () => {
     const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7601')

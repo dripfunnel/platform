@@ -8,7 +8,7 @@ import { secretLikeNames } from '../env'
 import { lockdown } from '../lockdown'
 import { buildRuntime } from '../runtime/build'
 import { buildSite } from './build'
-import { checkSite } from './check'
+import { checkSite, type CheckInput } from './check'
 import { checkout } from './source'
 
 // The build image's publish steps (storefront LIVE-SHOP §4 steps 6–7), each run by the locked workflow in its own
@@ -36,7 +36,7 @@ const required = (value: string | undefined, name: string): string => {
   return value
 }
 
-export const runStep = async (argv: readonly string[], env: NodeJS.ProcessEnv): Promise<number> => {
+export const runStep = async (argv: readonly string[], env: NodeJS.ProcessEnv, deps: Pick<CheckInput, 'metrics'> = {}): Promise<number> => {
   const refused = refusedEnvironment(env)
   if (refused.length > 0) {
     console.error(`The build image holds no credential; refusing to run with ${refused.join(', ')} set.`)
@@ -66,7 +66,7 @@ export const runStep = async (argv: readonly string[], env: NodeJS.ProcessEnv): 
   // its namespaces there, so it is off, as Playwright launches it by default; said here so nobody turns it on unawares.
   const browser = await chromium.launch({ executablePath, headless: true, chromiumSandbox: false })
   try {
-    const checked = await checkSite({ site: join(built, 'site'), out: built, live: values.live ?? null, snapshot, theme, strictLook: values['strict-look'] ?? false, browser })
+    const checked = await checkSite({ site: join(built, 'site'), out: built, live: values.live ?? null, snapshot, theme, strictLook: values['strict-look'] ?? false, browser, ...deps })
     await writeFile(join(out, 'report.json'), JSON.stringify(checked.report))
     await writeFile(join(out, 'headers.json'), JSON.stringify(checked.headers))
     return 0
