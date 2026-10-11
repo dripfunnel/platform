@@ -721,6 +721,8 @@ describe('the backstop itself', () => {
       'storefront_for_store',
       'storefront_redirect_product_slug',
       'storefront_redirect_translated_slug',
+      'storefront_render_product',
+      'storefront_render_translated_slug',
       'storefront_store_touched',
       'version_price_history',
     ])

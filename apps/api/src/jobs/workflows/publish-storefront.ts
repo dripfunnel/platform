@@ -13,38 +13,45 @@ export interface PublishStorefrontEnv extends Record<string, unknown> {
 // A step's own retries before the run fails and the live build stays (SAAS §9.1).
 const stepConfig = { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' }, timeout: '5 minutes' } as const
 
-/** One run per publish, started by the `storefront.publish` deliverer; index.ts, which alone opens connections, passes `connect`. */
-export const publishStorefrontWorkflow = (connect: (hyperdrive: { connectionString: string }) => postgres.Sql) =>
-  class PublishStorefront extends WorkflowEntrypoint<PublishStorefrontEnv, PublishParams> {
-    override async run(event: Readonly<WorkflowEvent<PublishParams>>, step: WorkflowStep): Promise<string> {
-      const config = parseConfig(this.env)
-      const { STOREFRONT_SITES: sites, STOREFRONT_ASSETS: assets } = this.env
-      // The deliverer starts a run only where all three exist, so this is a deploy that lost one since.
-      if (!config.HYPERDRIVE || !sites || !assets) throw new Error('publish-storefront: unconfigured')
-      const sql = connect(config.HYPERDRIVE)
-      // With GITHUB_LOCAL no store host resolves, so the checks read the build as the edge would (docs/setup/local.md §6.1).
-      const probe: EdgeProbe =
-        config.GITHUB_LOCAL === '1'
-          ? localEdgeProbe({
-              sites,
-              assets,
-              assetHost: `sf-assets.${config.EDGE_ZONE}`,
-              liveBuild: async (host) => {
-                const found = await lookupLiveHost(sql, host, { localhost: true })
-                return found.kind === 'store' && found.buildId ? { storeId: found.storeId, buildId: found.buildId } : null
-              },
-            })
-          : httpEdgeProbe()
-      const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
-      try {
-        return await runPublish({ sql, sites, assets, now: () => new Date(), probe, wait }, event.payload, {
-          do: (name, work) => step.do(name, stepConfig, work),
-          waitForUpload: async (name, timeoutMinutes) => {
-            await step.waitForEvent(name, { type: 'uploaded', timeout: `${timeoutMinutes} minutes` })
+type Connect = (hyperdrive: { connectionString: string }) => postgres.Sql
+
+/** A publish run of either Workflow: index.ts, which alone opens connections, passes `connect`. */
+export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Connect, event: Readonly<WorkflowEvent<PublishParams>>, step: WorkflowStep): Promise<string> => {
+  const config = parseConfig(env)
+  const { STOREFRONT_SITES: sites, STOREFRONT_ASSETS: assets } = env
+  // The deliverer starts a run only where all three exist, so this is a deploy that lost one since.
+  if (!config.HYPERDRIVE || !sites || !assets) throw new Error('publish-storefront: unconfigured')
+  const sql = connect(config.HYPERDRIVE)
+  // With GITHUB_LOCAL no store host resolves, so the checks read the build as the edge would (docs/setup/local.md §6.1).
+  const probe: EdgeProbe =
+    config.GITHUB_LOCAL === '1'
+      ? localEdgeProbe({
+          sites,
+          assets,
+          assetHost: `sf-assets.${config.EDGE_ZONE}`,
+          liveBuild: async (host) => {
+            const found = await lookupLiveHost(sql, host, { localhost: true })
+            return found.kind === 'store' && found.buildId ? { storeId: found.storeId, buildId: found.buildId } : null
           },
         })
-      } finally {
-        await sql.end()
-      }
+      : httpEdgeProbe()
+  const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+  try {
+    return await runPublish({ sql, sites, assets, now: () => new Date(), probe, wait }, event.payload, {
+      do: (name, work) => step.do(name, stepConfig, work),
+      waitForUpload: async (name, timeoutMinutes) => {
+        await step.waitForEvent(name, { type: 'uploaded', timeout: `${timeoutMinutes} minutes` })
+      },
+    })
+  } finally {
+    await sql.end()
+  }
+}
+
+/** One run per publish, started by the `storefront.publish` deliverer. */
+export const publishStorefrontWorkflow = (connect: Connect) =>
+  class PublishStorefront extends WorkflowEntrypoint<PublishStorefrontEnv, PublishParams> {
+    override run(event: Readonly<WorkflowEvent<PublishParams>>, step: WorkflowStep): Promise<string> {
+      return runPublishWorkflow(this.env, connect, event, step)
     }
   }

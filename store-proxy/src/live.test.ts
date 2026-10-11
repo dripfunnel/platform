@@ -16,7 +16,7 @@ const buildB = '00000000-0000-4000-8000-0000000000b1'
 const hostA = 'a.shops.acme.example'
 const hostB = 'www.b-shop.example'
 const folder = (store: string, build: string) => `stores/${store}/builds/${build}/`
-const store = (storeId: string, buildId: string | null, state: 'open' | 'suspended' | 'offline' = 'open', name = 'Shop'): LiveHost => ({ kind: 'store', storeId, partnerId: partner, buildId, state, name, language: 'en' })
+const store = (storeId: string, buildId: string | null, state: 'open' | 'suspended' | 'offline' = 'open', name = 'Shop'): LiveHost => ({ kind: 'store', storeId, partnerId: partner, buildId, state, name, language: 'en', indexNowKey: storeId.replace(/-/g, '') })
 
 const objects = {
   [`${folder(storeA, build1)}index.html`]: { body: 'A one', contentType: 'text/html', cacheControl: 'no-cache', csp: "script-src 'sha256-x'" },
@@ -144,6 +144,13 @@ describe('the live site', () => {
     edge.redirects.set(`${storeA}/about`, { to: '/elsewhere' })
     expect(await text(`https://${hostA}/about`)).toBe('A about')
     expect(edge.calls).not.toContain(`redirect ${storeA}/about`)
+  })
+
+  it('serves the store’s own IndexNow key at its key file, and no other store’s', async () => {
+    const key = storeA.replace(/-/g, '')
+    const file = await get(`https://${hostA}/${key}.txt`)
+    expect([file.status, await file.text()]).toEqual([200, key])
+    expect((await get(`https://${hostB}/${key}.txt`)).status).toBe(404)
   })
 
   it('refuses a recorded redirect that would leave the store’s host, caching nothing', async () => {
