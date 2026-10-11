@@ -64,6 +64,11 @@ export const setQueuedRender = async (tx: ScopedSql, runId: string, render: Page
   await tx`update publish_run set render = ${tx.json({ pages: render.pages, drop: render.drop })} where id = ${runId} and state = 'queued' and kind = 'page'`
 }
 
+/** A page run builds the live commit as it is when it starts, not as it was when asked for (LIVE-SHOP §7). */
+export const followLiveBuild = async (tx: ScopedSql, runId: string, live: Pick<RunRow, 'commit' | 'template' | 'core_version'>): Promise<void> => {
+  await tx`update publish_run set commit = ${live.commit}, template = ${live.template}, core_version = ${live.core_version} where id = ${runId} and kind = 'page' and state = 'queued'`
+}
+
 /** A waiting page run becomes the full publish pressed behind it, which renders every page anyway. */
 export const widenQueuedRun = async (tx: ScopedSql, runId: string, run: Omit<NewRun, 'storeId' | 'at' | 'render'>): Promise<void> => {
   await tx`
