@@ -219,6 +219,18 @@ describe('a patch or minor upgrade', () => {
     expect((await rowOf(p.upgradeId))?.publish_run_id).not.toBe(own)
   })
 
+  it('fails a build it stopped waiting for before pinning, so the build can’t go live behind the row', async () => {
+    const p = await rolloutOf('1.1.0', t.storeA2)
+    const silent: UpgradeSteps = { do: (_name, work) => work(), sleep: async () => undefined }
+    expect(await runStoreUpgrade(upgradeDeps(sandbox().prepare), p, silent)).toBe('pinned')
+    const row = await rowOf(p.upgradeId)
+    expect(row).toMatchObject({ state: 'pinned', error: 'build_timed_out' })
+    expect(await buildOf(row?.publish_run_id ?? '')).toMatchObject({ state: 'failed' })
+    // The publish Workflow starting late finds nothing to build.
+    expect(await runPublish(publishDeps(), { runId: row?.publish_run_id ?? '', storeId: t.storeA2 }, workflow(new Set()))).toBe('stopped')
+    expect(await db.sql`select 1 from publish_run where store_id = ${t.storeA2} and state = 'queued'`).toHaveLength(0)
+  })
+
   it('stops for a row that isn’t running, and leaves a store already on the version as it is', async () => {
     const p = await rolloutOf('1.1.0', t.storeA1)
     await db.sql`update core_rollout_store set state = 'reverted' where id = ${p.upgradeId}`
