@@ -160,6 +160,16 @@ describe('the regression rule', () => {
     expect(await run(burst)).toMatchObject({ state: 'live', vitals: { verdict: 'regressed', rolledBack: false } })
   })
 
+  it('never rolls back on days flooded with far more beacons than the store usually gets', async () => {
+    await db.sql`delete from storefront_vitals_day where store_id = ${t.storeA2}`
+    const prior = await live(t.storeA2)
+    const flooded = await liveRun(t.storeA2, 6, day(50), prior ?? null)
+    for (const d of [43, 44, 45, 46, 47, 48, 49]) await fill(t.storeA2, day(d), 20, { lcp: 1500, inp: 100, cls: 20 })
+    for (const d of [51, 52]) await fill(t.storeA2, day(d), 200, { lcp: 9000, inp: 100, cls: 20 })
+    expect(await readVitalsRegressions(db.sql, day(53))).toBe(1)
+    expect(await run(flooded)).toMatchObject({ state: 'live', vitals: { verdict: 'regressed', rolledBack: false } })
+  })
+
   it('keeps at most 5,000 samples a day per page kind and device', async () => {
     await db.sql`delete from storefront_vitals_day where store_id = ${t.storeA2}`
     await fill(t.storeA2, day(40), 1, { lcp: 1500, inp: 100, cls: 20 })

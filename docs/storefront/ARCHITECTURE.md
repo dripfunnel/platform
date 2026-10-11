@@ -831,9 +831,11 @@ fits (suggested on #483).
   0.25 from under it.
   **Regressed** is a p75 a fifth worse; either needs a move of at least two histogram buckets, the data's resolution.
   It is kept on `publish_run.vitals` for the admin console and the repair loop (#483). The beacons are unauthenticated,
-  so the rule asks for two days in a row and caps a day's samples; a sender who keeps faking a regression from many
-  addresses for two days buys a pointer move back to the build before, recorded and undone by the next publish, which
-  we accept (raised on #484's review). Reading Google's
+  so the rule asks for two days in a row, and a day with more than three times the week before's daily samples (at
+  least 50) is a flood that can only flag, never roll back; the 5,000-a-day cap only bounds the writes. Faking a rollback
+  then means replacing over a quarter of a store's genuine traffic, at its usual volume, for two days; what it buys is a
+  pointer move back to the build before, recorded and undone by the next publish, which we accept (raised on #484's
+  review). Reading Google's
   CrUX data is a follow-up.
 
 ---

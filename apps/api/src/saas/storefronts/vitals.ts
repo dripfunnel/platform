@@ -87,6 +87,9 @@ export const compare = (before: VitalsDays[], after: VitalsDays[]): Comparison[]
 }
 
 const isoDay = (at: Date) => at.toISOString().slice(0, 10)
+const total = (days: readonly VitalsDays[]) => days.reduce((n, d) => n + d.samples, 0)
+/** A day with more than this many times the week before's daily samples reads as a flood (decided on #484). */
+const floodRatio = 3
 
 /**
  * The regression rule, daily: a build live for two whole days is read once against the week before its switch (the
@@ -108,7 +111,10 @@ export const readVitalsRegressions = async (sql: postgres.Sql, now: Date, limit 
       await selectVitals(tx, build.store_id, day(switchDay, 2), day(switchDay, 2)),
       await selectVitals(tx, build.store_id, day(switchDay, 1), day(startOfToday, -1)),
     ])
-    const severeOn = (days: VitalsDays[]) => new Set(compare(before, days).filter((p) => p.verdict === 'severe').map((p) => p.page))
+    // A day with far more beacons than the store's usual is a flood, which anyone can send: it never rolls back alone.
+    const usual = total(before) / 7
+    const plausible = (days: VitalsDays[]) => total(days) <= floodRatio * Math.max(usual, minSamples)
+    const severeOn = (days: VitalsDays[]) => (plausible(days) ? new Set(compare(before, days).filter((p) => p.verdict === 'severe').map((p) => p.page)) : new Set<string>())
     const [a, b] = [severeOn(first), severeOn(second)]
     const pages = compare(before, after)
     const verdict = [...a].some((page) => b.has(page)) ? 'severe' : pages.some((p) => p.verdict !== 'ok') ? 'regressed' : 'ok'
