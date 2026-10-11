@@ -154,6 +154,10 @@ describe('a preview page', () => {
     expect(posted.headers.get('set-cookie')).toBeNull()
     expect(edge.calls.length).toBe(calls)
     expect((await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}', ...withCookie(cookie) })).status).toBe(200)
+    // A cross-site post: the browser sends no SameSite=Lax cookie with it, so it gets the closed answer and no cookie.
+    const crossSite = await get(`https://${hostA}/shop-api/graphql`, { method: 'POST', body: '{}' })
+    expect(crossSite.status).toBe(401)
+    expect(crossSite.headers.get('set-cookie')).toBeNull()
   })
 
   it('answers a name under the preview domain that is no preview key with nothing', async () => {

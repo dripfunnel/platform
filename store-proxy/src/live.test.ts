@@ -24,7 +24,7 @@ const objects = {
   [`${folder(storeA, build1)}about/index.html`]: { body: 'A about', contentType: 'text/html' },
   [`${folder(storeA, build1)}feed.json`]: { body: '{}', contentType: 'application/json' },
   [`${folder(storeA, build1)}_edge.json`]: {
-    body: JSON.stringify({ redirects: [{ from: '/products/old', to: '/products/new/' }, { from: '/away', to: '/\\evil.example' }, { from: '/away2', to: '//evil.example' }, { from: '/away3', to: '/%5Cevil.example' }], fallbacks: [{ prefix: '/products/', page: '/products/_/index.html' }], notFound: '/404.html' }),
+    body: JSON.stringify({ redirects: [{ from: '/products/old', to: '/products/new/' }, { from: '/away', to: '/\\evil.example' }, { from: '/away2', to: '//evil.example' }, { from: '/away3', to: '/%5Cevil.example' }, { from: '/away4', to: '/products/new/?ref=old' }], fallbacks: [{ prefix: '/products/', page: '/products/_/index.html' }], notFound: '/404.html' }),
   },
   [`${folder(storeA, build1)}products/_/index.html`]: { body: 'A product fallback', contentType: 'text/html' },
   [`${folder(storeA, build1)}404.html`]: { body: 'A not found', contentType: 'text/html' },
@@ -122,7 +122,7 @@ describe('the live site', () => {
   it('answers a removed or unknown product address with the build’s redirect, its fallback page or its 404', async () => {
     const moved = await get(`https://${hostA}/products/old`)
     expect([moved.status, moved.headers.get('location')]).toEqual([301, '/products/new/'])
-    for (const away of ['/away', '/away2', '/away3']) expect((await get(`https://${hostA}${away}`)).status, away).toBe(404)
+    for (const away of ['/away', '/away2', '/away3', '/away4']) expect((await get(`https://${hostA}${away}`)).status, away).toBe(404)
     const fallback = await get(`https://${hostA}/products/brand-new/`)
     expect([fallback.status, await fallback.text()]).toEqual([200, 'A product fallback'])
     const missing = await get(`https://${hostA}/nowhere/`)
