@@ -73,12 +73,11 @@ afterAll(async () => {
   await db?.drop()
 })
 
-describe('the four addresses', () => {
+describe('the three addresses', () => {
   it('shows each address with its records, the email sender’s three, and the fallback sender while it waits', async () => {
     const ns = (await run<Overview>(overview, callerOf(ids.ns, 'partner-read-only'))).data?.partnerDomains
     expect(ns?.addresses.map((a) => [a.kind, a.added, a.status])).toEqual([
       ['portal', true, 'live'],
-      ['preview', true, 'live'],
       ['shops', true, 'live'],
       ['email', true, 'live'],
     ])
@@ -112,7 +111,7 @@ describe('adding an address', () => {
     expect(await refused('portal', 'shop.dripfunnel.com')).toBe('DRIPFUNNEL_DOMAIN')
     expect(await refused('portal', 'x.edge.example')).toBe('DRIPFUNNEL_DOMAIN')
     expect(await refused('portal', 'edge.example')).toBe('DRIPFUNNEL_DOMAIN')
-    expect(await refused('preview', 'freshpartner.example')).toBe('BARE_DOMAIN_FOR_WILDCARD')
+    expect(await refused('shops', 'freshpartner.example')).toBe('BARE_DOMAIN_FOR_WILDCARD')
     expect(await refused('email', 'freshpartner.co.uk')).toBe('BARE_DOMAIN_FOR_WILDCARD')
     expect(await refused('portal', 'freshpartner.example')).toBe('APEX_NOT_AVAILABLE')
     expect(await refused('portal', 'store.northstar.example')).toBe('HOST_TAKEN')
@@ -164,8 +163,19 @@ describe('adding an address', () => {
     await expect(
       withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId: ids.fresh }, (tx) => tx`
         insert into partner_domain (partner_id, kind, host, status, record_type, expected, found)
-        values (${ids.fresh}, 'preview', '*.preview.unclaimed.example', 'live', 'CNAME', 'preview.edge.dripfunnel.net', 'preview.edge.dripfunnel.net')`),
+        values (${ids.fresh}, 'shops', '*.shops.unclaimed.example', 'live', 'CNAME', 'shops.edge.dripfunnel.net', 'shops.edge.dripfunnel.net')`),
     ).rejects.toThrow(/row-level security/i)
+  })
+})
+
+describe('the retired preview kind (#518)', () => {
+  it('refuses kind preview on every add, re-check and remove as INVALID_INPUT', async () => {
+    const owner = callerOf(ids.ns, 'partner-owner')
+    expect((await run<Added>(add, owner, { kind: 'preview', host: 'previews.northstar.example' })).data?.addPartnerDomain).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
+    expect((await run<Record<string, unknown>>(recheck, owner, { kind: 'preview' })).data?.['recheckPartnerDomain']).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    const removed = await run<{ removePartnerDomain: { ok: boolean; reason: string | null } }>(`mutation($kind: String!) { removePartnerDomain(kind: $kind) { ok reason } }`, owner, { kind: 'preview' })
+    expect(removed.data?.removePartnerDomain).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    expect(await db.sql`select 1 from partner_domain where kind = 'preview'`).toEqual([])
   })
 })
 
@@ -243,8 +253,8 @@ describe('checking', () => {
     expect((await db.sql`select 1 from outbox o join partner_domain d on d.id::text = o.payload->>'domainId' where d.partner_id = ${ids.ns} and d.kind = 'portal'`).length).toBe(1)
     // The second press in the same minute folds into the first, and is not logged again.
     expect((await db.sql`select 1 from activity_log where partner_id = ${ids.ns} and action = 'partner.domain_recheck_requested'`).length).toBe(1)
-    await db.sql`update partner_domain set checked_at = ${new Date(now.getTime() - 20_000)} where partner_id = ${ids.ns} and kind = 'preview'`
-    expect((await run<Record<string, unknown>>(recheck, callerOf(ids.ns, 'partner-owner'), { kind: 'preview' })).data?.['recheckPartnerDomain']).toEqual({ ok: false, reason: 'TOO_SOON' })
+    await db.sql`update partner_domain set checked_at = ${new Date(now.getTime() - 20_000)} where partner_id = ${ids.ns} and kind = 'shops'`
+    expect((await run<Record<string, unknown>>(recheck, callerOf(ids.ns, 'partner-owner'), { kind: 'shops' })).data?.['recheckPartnerDomain']).toEqual({ ok: false, reason: 'TOO_SOON' })
     expect((await run<Record<string, unknown>>(recheck, callerOf(ids.fresh, 'partner-owner'), { kind: 'portal' })).data?.['recheckPartnerDomain']).toEqual({ ok: false, reason: 'NOT_FOUND' })
   })
 
@@ -274,7 +284,7 @@ describe('checking', () => {
   it('takes *.localhost addresses only on a local Worker, where the DNS stand-in makes them live through the real check', async () => {
     const [local] = await db.sql<{ id: string }[]>`insert into partner (name, state) values ('Acme Local', 'draft') returning id`
     const owner = callerOf(local?.id ?? '', 'partner-owner')
-    const hosts = { portal: 'store.acme.localhost', preview: 'preview.acme.localhost', shops: 'shops.acme.localhost', email: 'mail.acme.localhost' }
+    const hosts = { portal: 'store.acme.localhost', shops: 'shops.acme.localhost', email: 'mail.acme.localhost' }
     expect((await run<Added>(add, owner, { kind: 'portal', host: hosts.portal })).data?.addPartnerDomain.reason).toBe('NOT_A_HOSTNAME')
     for (const [kind, host] of Object.entries(hosts)) expect((await run<Added>(add, owner, { kind, host }, true)).data?.addPartnerDomain, kind).toMatchObject({ ok: true })
     // Nothing on the internet is asked about a .localhost name: the stand-in answers what each record expects.
@@ -283,7 +293,6 @@ describe('checking', () => {
     expect(await db.sql`select kind, host, status from partner_domain where partner_id = ${local?.id ?? ''} order by kind`).toEqual([
       { kind: 'email', host: 'mail.acme.localhost', status: 'live' },
       { kind: 'portal', host: 'store.acme.localhost', status: 'live' },
-      { kind: 'preview', host: '*.preview.acme.localhost', status: 'live' },
       { kind: 'shops', host: '*.shops.acme.localhost', status: 'live' },
     ])
   })
@@ -308,7 +317,7 @@ describe('checking', () => {
       { partner_id: other?.id, status: 'failed' },
       { partner_id: ids.fresh, status: 'live' },
     ])
-    expect((await run<Added>(add, squatter, { kind: 'preview', host: 'preview.freshpartner.example' })).data?.addPartnerDomain).toMatchObject({ ok: true })
+    expect((await run<Added>(add, squatter, { kind: 'shops', host: 'squat.freshpartner.example' })).data?.addPartnerDomain).toMatchObject({ ok: true })
   })
 
   it('queues the scheduled check for waiting and failed addresses once per ten minutes', async () => {

@@ -32,7 +32,7 @@ let session: string | null = null
 const shop = async (source: string, cart: string | null = null, o: { noLimiter?: boolean; on?: string } = {}) => {
   const on = o.on ?? host
   const headers: Record<string, string> = { ...(cart ? { 'x-shop-cart': cart } : {}), ...(session ? { 'x-shop-session': session } : {}) }
-  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers }), on)
+  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers }), on, 'preview.localhost')
   if (found.kind !== 'found') throw new Error('no store')
   const allowCodeAttempt = async (key: string) => {
     attempts.keys.push(key)
@@ -117,8 +117,7 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x'),
-    (${t.partnerA}, 'preview', '*.preview.acme.example', 'live', 'CNAME', 'x')`
+  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   const make = async (name: string, code: string) =>
     (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status) values (${t.partnerA}, ${name}, ${code}, 'IN', 'INR', 'active') returning id`)[0]?.id ?? ''
   store = await make('Jaipur', 'jaipur')
@@ -430,7 +429,7 @@ describe('the preview storefront (storefront PREVIEW)', () => {
   it('prices offers as the live shop does, and its test order takes no use', async () => {
     await off()
     const id = await offer({ name: 'Preview 10%', code: 'TRYME', limit: 1, singleUse: true, action: { operation: 'order_percentage_discount', percent: 10 } })
-    const preview = 'jaipur.preview.acme.example'
+    const preview = `${(await db.sql<{ k: string }[]>`select preview_key as k from storefront where store_id = ${store}`)[0]?.k ?? ''}.preview.localhost`
     const p = (source: string, token: string | null = null) => shop(source, token, { on: preview })
     const token = ((await p(`mutation { addToCart(versionId: "${kurta}", quantity: 1) { cartToken } }`)).data?.['addToCart'] as { cartToken: string }).cartToken
     expect(((await p('mutation { applyCode(code: "TRYME") { state } }', token)).data?.['applyCode'] as { state: string }).state).toBe('APPLIED')

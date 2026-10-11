@@ -37,7 +37,7 @@ type Page = { stores: { items: { id: string; state: { kind: string }; plan: { id
 const list = async (caller: PartnerCaller, variables: Record<string, unknown> = {}) => (await run<Page>(listQuery, caller, variables)).data?.stores
 
 const detailQuery = `query($id: ID!) { store(id: $id) { row { id name state { kind } } country price { amount currency } people { count suppliers } contacts { email role }
-  usage { limit used cap percent } overrides { limit amount reason by } billing { interval nextChargeAt cardLast4 mode partnerName } site { liveHost previewHost }
+  usage { limit used cap percent } overrides { limit amount reason by } billing { interval nextChargeAt cardLast4 mode partnerName } site { liveHost }
   records { host status value } setup { state } trialExtensions { days } support { allowed people { email role } } activity { action }
   more { overrides trialExtensions people activity } actions { changePlan { allowed reason } extendTrial { allowed reason } addOverride { allowed reason } resendInvite { allowed } restore { allowed } suspend { allowed } retryStep { allowed } } } }`
 type Actions = Record<string, { allowed: boolean; reason: string | null } | null>

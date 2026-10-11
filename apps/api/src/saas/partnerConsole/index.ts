@@ -65,7 +65,7 @@ export interface NavBadges {
 }
 
 /** FIRST-RELEASE §6: these items are done when their addresses are live, so they follow the domain rows. */
-const domainItemKinds: Partial<Record<ChecklistItem, readonly DomainKind[]>> = { portalHost: ['portal'], wildcards: ['preview', 'shops'], emailSender: ['email'] }
+const domainItemKinds: Partial<Record<ChecklistItem, readonly DomainKind[]>> = { portalHost: ['portal'], wildcards: ['shops'], emailSender: ['email'] }
 
 export interface OnboardingItem {
   key: ChecklistItem

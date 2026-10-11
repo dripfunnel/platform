@@ -516,11 +516,17 @@ describe('recheckDomain (SAAS.md §8; no lookup inside the request)', () => {
     expect(await db.sql`select 1 from outbox where partner_id = ${kaufladen} and kind = 'domain.recheck'`).toHaveLength(1)
   })
 
+  it('refuses the retired preview kind as INVALID_INPUT (#518)', async () => {
+    const kaufladen = await partnerIdOf('Kaufladen Digital')
+    expect((await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'preview' })).data?.['recheckDomain']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
+    expect(await db.sql`select 1 from outbox where partner_id = ${kaufladen} and kind = 'domain.recheck' and payload->>'domainId' not in (select id::text from partner_domain)`).toEqual([])
+  })
+
   it('refuses a stored host that is an address or a local name before any lookup', async () => {
     const kaufladen = await partnerIdOf('Kaufladen Digital')
     for (const host of ['10.0.0.1', '169.254.169.254', '[fe80::1]', 'db.localhost']) {
-      await db.sql`update partner_domain set host = ${host} where partner_id = ${kaufladen} and kind = 'preview'`
-      expect([host, (await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'preview' })).data?.['recheckDomain']]).toEqual([host, { ok: false, code: 'INVALID_HOSTNAME', failingChecks: null, state: null, id: null, approvals: null }])
+      await db.sql`update partner_domain set host = ${host} where partner_id = ${kaufladen} and kind = 'shops'`
+      expect([host, (await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'shops' })).data?.['recheckDomain']]).toEqual([host, { ok: false, code: 'INVALID_HOSTNAME', failingChecks: null, state: null, id: null, approvals: null }])
     }
   })
 })

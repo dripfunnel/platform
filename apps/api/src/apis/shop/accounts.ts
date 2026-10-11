@@ -22,6 +22,7 @@ const words: Record<string, string> = {
   SIGNED_OUT: 'Sign in first.',
   NOT_FOUND: 'That is no longer here.',
   TOO_MANY: 'That’s as many addresses as an account keeps.',
+  NOT_IN_PREVIEW: 'Signing in isn’t available on a preview of the shop.',
 }
 
 const refuse = (reason: string) => new GraphQLError(words[reason] ?? words['INVALID_INPUT'] ?? '', { extensions: { code: reason } })
@@ -31,8 +32,10 @@ const answered = <T>(result: AccountResult<T> | { ok: true; value: T } | { ok: f
   throw refuse(result.reason)
 }
 
+// A preview's callers are guests only (storefront PREVIEW.md §5 step 5).
 const signInOf = (ctx: ShopContext) => {
   const { sql, shopper } = shopOf(ctx)
+  if (shopper.preview) throw refuse('NOT_IN_PREVIEW')
   return createShopperSignIn({ sql, storeId: shopper.context.storeId, partnerId: shopper.context.partnerId, activity: ctx.activity, facts: ctx.facts, allowAttempt: ctx.allowAttempt ?? (async () => false), codeCheck: ctx.codeCheck, now: ctx.now })
 }
 

@@ -1170,7 +1170,6 @@ type StoreSetup {
 type StoreSite {
   lastPublishAt: String
   liveHost: String
-  previewHost: String
 }
 
 type StoreState {

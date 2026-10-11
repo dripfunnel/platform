@@ -29,7 +29,7 @@ beforeAll(async () => {
   await db.sql`update store set pricing_currency = 'INR', country = 'IN', status = 'active' where id in (${t.storeA1}, ${t.storeA2}, ${t.storeB1})`
   await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
   await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values
-    (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x'), (${t.partnerA}, 'preview', '*.preview.acme.example', 'live', 'CNAME', 'x'),
+    (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x'),
     (${t.partnerB}, 'shops', '*.shops.bolt.example', 'waiting', 'CNAME', 'x')`
   await db.sql`insert into custom_domain (store_id, host, status, expected_cname, ownership_token) values (${t.storeA2}, 'www.a2-shop.example', 'live', 'x', 'y')`
   for (const [k, id] of [['a1', t.storeA1], ['a2', t.storeA2], ['b1', t.storeB1]] as const) {
@@ -80,9 +80,9 @@ const gql = async (host: string, source: string, headers: Record<string, string>
 const asShopper = (storeId: string, partnerId = t.partnerA): TenantContext => ({ caller: { kind: 'shopper', customerId: null }, partnerId, storeId, sellerScope: { kind: 'all' }, subscription: 'active' })
 
 describe('finding the store', () => {
-  it('takes it from the storefront’s host: its code under the partner’s shops or preview wildcard, or its live domain', async () => {
+  it('takes it from the storefront’s host: its code under the partner’s shops wildcard, or its live domain', async () => {
     expect((await shopperOn('store-a1.shops.acme.example')).context.storeId).toBe(t.storeA1)
-    expect((await shopperOn('STORE-A1.preview.acme.example')).context.storeId).toBe(t.storeA1)
+    expect((await shopperOn('STORE-A1.shops.acme.example')).context.storeId).toBe(t.storeA1)
     expect((await shopperOn('store-a2.shops.acme.example')).context.storeId).toBe(t.storeA2)
     expect((await shopperOn('www.a2-shop.example')).context.storeId).toBe(t.storeA2)
   })

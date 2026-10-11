@@ -44,7 +44,8 @@ export const provisionStore = async (tx: ScopedSql, input: ProvisionInput, at: D
   await moveJobTo(tx, jobId, 'defaults', at)
   failAt('defaults')
 
-  // 3. Hostnames: `{code}.preview` and `{code}.shops` live under the partner's wildcards, so the code is the reservation.
+  // 3. Hostnames: `{code}.shops` lives under the partner's shops wildcard, so the code is the reservation. The preview key
+  // came with the store's storefront row in step 1 (0210's storefront_for_store()), and a preview host needs no registration.
   await moveJobTo(tx, jobId, 'hostnames', at)
   failAt('hostnames')
 

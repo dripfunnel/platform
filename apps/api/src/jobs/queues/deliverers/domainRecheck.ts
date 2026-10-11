@@ -63,7 +63,7 @@ export const domainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLookup, now
         await queueSideEffect(tx, {
           kind: 'email',
           idempotencyKey: `partner-domain-live:${domain.id}:${current.checked_at?.toISOString() ?? 'never'}`,
-          payload: { template: 'partner-domain-live', partnerId: domain.partner_id, domainId: domain.id, kind: domain.kind },
+          payload: { template: 'partner-domain-live', partnerId: domain.partner_id, domainId: domain.id },
           partnerId: domain.partner_id,
           storeId: null,
         })
