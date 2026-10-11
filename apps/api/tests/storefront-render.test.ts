@@ -272,3 +272,30 @@ describe('a page run’s frozen input', () => {
     await db.sql`delete from publish_run where id = ${runId}`
   })
 })
+
+describe('a page run that waited', () => {
+  it('builds the live commit and core as they are when it starts, so a publish that went live meanwhile keeps its core', async () => {
+    // A publish upgrading core runs; a product's render is asked for meanwhile, from the build live then.
+    const upgrade = await withSystemScope(db.sql, (tx) =>
+      startPublish(tx, { storeId: t.storeA1, kind: 'design', commit: commit(77), template: 'linen', coreVersion: '1.1.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date() }),
+    )
+    const upgradeId = upgrade.ok ? upgrade.runId : ''
+    await db.sql`update publish_run set state = 'building' where id = ${upgradeId}`
+    await storefrontRenderDeliverer(db.sql, () => new Date()).deliver(effect('storefront.render', { storeId: t.storeA1, pages: ['/products/late'], drop: [] }), signal)
+    const [waiting] = await queued(t.storeA1)
+    expect(waiting?.kind).toBe('page')
+    await stage(t.storeA1, upgradeId, { 'index.html': html('upgraded'), 'checkout/index.html': html('checkout') })
+    expect(await runPublish(deps(), { runId: upgradeId, storeId: t.storeA1 }, steps)).toBe('live')
+    // The page run starts now, beside the upgraded build: its report and upload are in, and it was never claimed.
+    await stage(t.storeA1, waiting?.id ?? '', { 'products/late/index.html': html('late') })
+    await db.sql`update publish_run set state = 'queued' where id = ${waiting?.id ?? ''}`
+    // Its passing report moves it to deploying, as the build's `report` call does (builds.ts).
+    const reported: PublishSteps = { ...steps, do: async (name, work) => (name === 'verdict' ? (await db.sql`update publish_run set state = 'deploying' where id = ${waiting?.id ?? ''}`, work()) : work()) }
+    expect(await runPublish(deps(), { runId: waiting?.id ?? '', storeId: t.storeA1 }, reported)).toBe('live')
+    const [run] = await db.sql<{ commit: string; core_version: string }[]>`select commit, core_version from publish_run where id = ${waiting?.id ?? ''}`
+    expect(run).toEqual({ commit: commit(77), core_version: '1.1.0' })
+    const [store] = await db.sql<{ core_version: string }[]>`select core_version from store where id = ${t.storeA1}`
+    expect(store?.core_version).toBe('1.1.0')
+  })
+})
+

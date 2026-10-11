@@ -64,6 +64,11 @@ export const setQueuedRender = async (tx: ScopedSql, runId: string, render: Page
   await tx`update publish_run set render = ${tx.json({ pages: render.pages, drop: render.drop })} where id = ${runId} and state = 'queued' and kind = 'page'`
 }
 
+/** A page run builds the live commit as it is when it starts, not as it was when asked for (LIVE-SHOP §7). */
+export const followLiveBuild = async (tx: ScopedSql, runId: string, live: Pick<RunRow, 'commit' | 'template' | 'core_version'>): Promise<void> => {
+  await tx`update publish_run set commit = ${live.commit}, template = ${live.template}, core_version = ${live.core_version} where id = ${runId} and kind = 'page' and state = 'queued'`
+}
+
 /** A waiting page run becomes the full publish pressed behind it, which renders every page anyway. */
 export const widenQueuedRun = async (tx: ScopedSql, runId: string, run: Omit<NewRun, 'storeId' | 'at' | 'render'>): Promise<void> => {
   await tx`
@@ -335,10 +340,10 @@ export const selectSnapshotSource = async (tx: ScopedSql, storeId: string): Prom
       where s.id = ${storeId}`
   )[0] ?? null
 
-/** "Publish now" presses that went live since `since`; a refused or failed one never counts (SAAS §9.1). */
+/** "Publish now" presses that went live since `since`; a refused, failed or rolled-back one never counts (SAAS §9.1). */
 export const allowanceUsed = async (tx: ScopedSql, storeId: string, since: Date): Promise<number> =>
   (
     await tx<{ used: number }[]>`
       select count(*)::int as used from publish_run
-      where store_id = ${storeId} and uses_allowance and state in ('live', 'rolled_back') and created_at >= ${since}`
+      where store_id = ${storeId} and uses_allowance and state = 'live' and created_at >= ${since}`
   )[0]?.used ?? 0

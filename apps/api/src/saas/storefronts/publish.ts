@@ -16,6 +16,7 @@ import {
   selectQueuedRun,
   selectRun,
   buildFilesKept,
+  followLiveBuild,
   setQueuedRender,
   widenQueuedRun,
   selectStorefrontHost,
@@ -152,7 +153,8 @@ const systemEntry = (run: RunRow, action: string, result: 'success' | 'failed', 
 
 const claimStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
   withSystemScope(deps.sql, async (tx) => {
-    if (!(await lockStorefront(tx, p.storeId))) return 'stopped'
+    const storefront = await lockStorefront(tx, p.storeId)
+    if (!storefront) return 'stopped'
     const run = await selectRun(tx, p.runId)
     if (!run || run.store_id !== p.storeId) return 'stopped'
     // A page run renders some pages; a waiting one a press widened is a full publish (LIVE-SHOP §7).
@@ -160,7 +162,10 @@ const claimStep = (deps: PublishDeps, p: PublishParams): Promise<string> =>
     if (run.state !== 'queued') return run.state === 'building' || run.state === 'checking' || run.state === 'deploying' ? claimed : 'stopped'
     // The partial unique index refuses a second running build anyway; this says why, and the Workflow tries again.
     if (await hasActiveRun(tx, p.storeId)) throw new Busy('another publish is running')
-    await startRun(tx, run, deps.now())
+    // A publish may have gone live while this page run waited: it renders beside that build, with its code and core.
+    const live = run.kind === 'page' && storefront.live_build_id ? await selectRun(tx, storefront.live_build_id) : null
+    if (live) await followLiveBuild(tx, run.id, live)
+    await startRun(tx, live ? { ...run, commit: live.commit, template: live.template, core_version: live.core_version } : run, deps.now())
     return claimed
   })
 

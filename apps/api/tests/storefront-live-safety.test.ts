@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
+import { allowanceUsed } from '#db/scoped/publishing'
 import { digestOf, lookupLiveHost, lookupRedirects, runPublish, startPublish, type PublishDeps, type PublishSteps } from '#saas/storefronts/index'
 import { buildFolder, stagingFolder } from '#saas/storefronts/layout'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -294,5 +295,25 @@ describe('storefront_redirect', () => {
     expect(await count('app_request', 'store', t.storeB1, t.sellerB1)).toBe(0)
     await expect(count('app_partner', 'partner', t.storeB1)).rejects.toThrow(/permission denied/)
     await expect(count('app_platform', 'platform', t.storeB1)).rejects.toThrow(/permission denied/)
+  })
+})
+
+describe('a rolled-back press', () => {
+  it('uses no allowance: only a press that stayed live counts (SAAS §9.1)', async () => {
+    const since = new Date(Date.now() - 60_000)
+    const used = await withSystemScope(db.sql, (tx) => allowanceUsed(tx, t.storeA1, since))
+    const started = await withSystemScope(db.sql, (tx) =>
+      startPublish(tx, { storeId: t.storeA1, kind: 'manual', commit: commit(40), template: 'linen', coreVersion: '1.0.0', usesAllowance: true, startedBy: { kind: 'system', id: null }, at: new Date() }),
+    )
+    const runId = started.ok ? started.runId : ''
+    const all = fullSite(runId)
+    const manifest = await Promise.all(Object.entries(all).map(async ([path, text]) => ({ path, sha256: await putText(sites, `${stagingFolder(t.storeA1, runId)}${path}`, text), size: new TextEncoder().encode(text).length })))
+    await putText(assets, `stores/x/builds/${runId}/assets/app.js`, 'console.log(1)')
+    await db.sql`
+      update publish_run set state = 'deploying', started_at = now(), gate = ${db.sql.json({ passed: true, checks: [] })}, gate_digest = ${await digestOf(manifest)}, uploaded_at = now(),
+        upload_manifest = ${db.sql.json({ files: manifest })} where id = ${runId}`
+    probe.breakPath(/^\/checkout$/, { status: 500 })
+    expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, steps)).toBe('rolled_back')
+    expect(await withSystemScope(db.sql, (tx) => allowanceUsed(tx, t.storeA1, since))).toBe(used)
   })
 })
