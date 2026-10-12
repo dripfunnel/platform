@@ -1030,6 +1030,7 @@ type Mutation {
   duplicateOffer(id: ID!): ID
   duplicateProduct(id: ID!): SavedProduct
   endOffer(id: ID!): Boolean
+  endPreviewLinks: Boolean
   exportActivity(filter: StoreActivityFilter): ID
   exportCustomers(groupId: ID, search: String): ID
   exportOfferCodes(batchId: ID!): ID
@@ -1049,11 +1050,12 @@ type Mutation {
   makeDomainPrimary(id: ID): Boolean
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
-  openStorefrontPreview: String
   pauseOffer(id: ID!): Boolean
+  previewLink: String
   proposeProduct(input: ProductInput!): SavedProduct
   publishBefore(messageId: ID!): ID
   publishDesign: ID
+  publishNow: ID
   publishProductStory(productId: ID!, revision: Int!): ProductStory
   receiveReturn(returnId: ID!): Boolean
   recordMarketingStop(id: ID!): Boolean
@@ -2843,11 +2845,13 @@ type StoreSupportSessions {
 }
 
 type Storefront {
+  catalogue: StorefrontCatalogue
   draft: StorefrontDraft
   history(before: Int): [StorefrontVersion!]
   live: StorefrontLiveVersion
   status: String
   template: String
+  usage: StorefrontUsage
 }
 
 type StorefrontBrand {
@@ -2879,6 +2883,16 @@ input StorefrontBrandInput {
   social: StorefrontSocialInput
   tagline: String
   voice: String
+}
+
+type StorefrontCatalogue {
+  changedKinds: [String!]
+  changedProducts: Int
+  nextAutomaticPublishAt: String
+  pressesAllowed: Int
+  pressesLeft: Int
+  since: String
+  waiting: Boolean
 }
 
 type StorefrontDnsRecord {
@@ -2913,6 +2927,14 @@ type StorefrontLiveVersion {
   number: Int
   publishedAt: String
   template: String
+}
+
+type StorefrontRequest {
+  createdAt: String
+  id: ID
+  outcome: String
+  text: String
+  tokens: Int
 }
 
 type StorefrontSeo {
@@ -2952,6 +2974,17 @@ type StorefrontTemplate {
   key: String
   name: String
   tag: String
+}
+
+type StorefrontUsage {
+  aiPromptsAllowed: Int
+  aiPromptsUsed: Int
+  aiRequests: Int
+  aiTokens: Int
+  buildMinutes: Int
+  ownKey: Boolean
+  publishesLast30Days: Int
+  recent: [StorefrontRequest!]
 }
 
 type StorefrontVersion {

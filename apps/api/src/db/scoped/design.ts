@@ -169,3 +169,41 @@ export const selectLatestChange = async (tx: ScopedSql, storeId: string): Promis
 export const markUndone = async (tx: ScopedSql, storeId: string, id: string): Promise<void> => {
   await tx`update design_message set undone = true where store_id = ${storeId} and id = ${id}`
 }
+
+export interface DesignUsageRow {
+  ai_requests: number
+  ai_tokens: number
+  ai_prompts_used: number
+  build_minutes: number
+  publishes: number
+}
+
+/**
+ * The Storefront's meters (FIRST-RELEASE §14 "AI and build minutes"): this month's merchant requests and their tokens
+ * (repairs are the platform's, SAAS §9.2), `ai_prompts` as counted, build minutes of the store's own publishes (never a
+ * repair's or bisect's build), and publishes live in the last 30 days.
+ */
+export const selectDesignUsage = async (tx: ScopedSql, storeId: string, month: Date, since: Date): Promise<DesignUsageRow> =>
+  (
+    await tx<DesignUsageRow[]>`
+      select
+        (select count(*)::int from ai_run where store_id = ${storeId} and kind = 'design' and billed_to <> 'platform' and created_at >= ${month}) as ai_requests,
+        (select coalesce(sum(tokens_in + tokens_out), 0)::int from ai_run where store_id = ${storeId} and kind = 'design' and billed_to <> 'platform' and created_at >= ${month}) as ai_tokens,
+        coalesce((select used from store_usage where store_id = ${storeId} and key = 'ai_prompts' and period_start = ${month.toISOString().slice(0, 10)}::date), 0) as ai_prompts_used,
+        (select coalesce(sum(build_minutes), 0)::int from publish_run where store_id = ${storeId} and attempt_of is null and created_at >= ${month}) as build_minutes,
+        (select count(*)::int from publish_run where store_id = ${storeId} and attempt_of is null and kind <> 'page' and state = 'live' and finished_at >= ${since}) as publishes`
+  )[0] ?? { ai_requests: 0, ai_tokens: 0, ai_prompts_used: 0, build_minutes: 0, publishes: 0 }
+
+export interface RecentRequestRow {
+  id: string
+  prompt: string
+  outcome: string
+  tokens: number
+  created_at: Date
+}
+
+/** The store's last merchant requests, newest first: its own words, which the merchant side may read (DATA-MODEL §5.3). */
+export const selectRecentRuns = (tx: ScopedSql, storeId: string, limit: number): Promise<RecentRequestRow[]> =>
+  tx<RecentRequestRow[]>`
+    select id, prompt, outcome, tokens_in + tokens_out as tokens, created_at from ai_run
+    where store_id = ${storeId} and kind = 'design' and billed_to <> 'platform' order by created_at desc, id desc limit ${limit}`
