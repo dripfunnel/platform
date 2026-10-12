@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { allPages } from './allPages'
 import { query } from './client'
 
 // The AI studio (PortalStorefront › studio; FIRST-RELEASE §14, §19 "Built on #318 (part 2)"; storefront AI-STUDIO §3–§5):
@@ -78,17 +79,22 @@ export interface StudioPages {
   custom: string[]
 }
 
+const contentPageSchema = z.object({ nodes: z.array(z.object({ title: z.string(), path: z.string() })), pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: text }) })
+
+/** Every content page, fifty at a time, so the picker lists them all. */
+const loadContentPages = () =>
+  allPages(async (after) => (await query('query C($after: String) { contentPages(first: 50, after: $after) { nodes { title path } pageInfo { hasNextPage endCursor } } }', z.object({ contentPages: contentPageSchema }), { after })).contentPages)
+
 export const loadStudioPages = async (): Promise<StudioPages> => {
-  const r = await query(
-    '{ products(first: 1, sort: "updated") { nodes { name slug } } contentPages(first: 50) { nodes { title path } } customPagePaths }',
-    z.object({
-      products: z.object({ nodes: z.array(z.object({ name: z.string(), slug: text })) }).nullable(),
-      contentPages: z.object({ nodes: z.array(z.object({ title: z.string(), path: z.string() })) }).nullable(),
-      customPagePaths: z.array(z.string()).nullable(),
-    }),
-  )
+  const [r, content] = await Promise.all([
+    query(
+      '{ products(first: 1, sort: "updated") { nodes { name slug } } customPagePaths }',
+      z.object({ products: z.object({ nodes: z.array(z.object({ name: z.string(), slug: text })) }).nullable(), customPagePaths: z.array(z.string()).nullable() }),
+    ),
+    loadContentPages(),
+  ])
   const first = r.products?.nodes[0]
-  return { product: first?.slug ? { name: first.name, slug: first.slug } : null, content: r.contentPages?.nodes ?? [], custom: r.customPagePaths ?? [] }
+  return { product: first?.slug ? { name: first.name, slug: first.slug } : null, content, custom: r.customPagePaths ?? [] }
 }
 
 /** The languages Edit text offers, the main one first. */

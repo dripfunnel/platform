@@ -565,8 +565,8 @@
   overflow: hidden;
   border: 1px solid var(--df-color-field-border);
   border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 10px 30px rgb(20 24 31 / 0.1);
+  background: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
 }
 
 .df-studio-preview--tablet .df-studio-frame {
@@ -593,7 +593,7 @@
   align-items: flex-start;
   justify-content: center;
   padding: 64px 16px 16px;
-  background: rgb(253 250 247 / 0.55);
+  background: color-mix(in srgb, var(--df-color-page) 55%, transparent);
 }
 
 .df-studio-overlay > div {
@@ -606,7 +606,7 @@
   border: 1px solid var(--df-color-border);
   border-radius: var(--df-radius-card);
   background: var(--df-color-surface);
-  box-shadow: 0 10px 30px rgb(20 24 31 / 0.12);
+  box-shadow: var(--df-shadow-floating);
   font-size: 14px;
   font-weight: 600;
 }
