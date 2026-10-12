@@ -151,8 +151,12 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    `package.json` and apply the release's codemods, which may edit theme files; ARCHITECTURE §7.1), the container
    rebases the draft onto it first and runs the fast gate again. **Built on #485** (the sandbox's `PUT /slots/{slot}/onto` and `POST /slots/{slot}/rebase`):
    the draft's own commits are replayed onto the upgrade's commit, then the validator and the fast gate run; a conflict
-   (`rebase/conflict`; a commit missing from the bundle sent, `rebase/missing-onto`, or with no history in common, `rebase/unrelated`) or a refusal leaves the draft exactly as it was, and rebasing onto a commit the draft already has
-   changes nothing.
+   (`rebase/conflict`; a commit missing from the bundle sent, `rebase/missing-onto`, or with no history in common,
+   `rebase/unrelated`) or a refusal leaves the draft exactly as it was, and rebasing onto a commit the draft already has
+   changes nothing. The Durable Object's `prepareToPublish` (which #318's Publish calls first) moves the draft onto the
+   live commit when that is on a newer core, or onto a major's passed upgrade waiting on the storefront (SAAS §10), in a
+   sandbox of that version, saves the draft at its new head and core (its bisect chain starts again from it), and
+   answers the head to publish; a conflict or a refusal answers the gate's problems and keeps the draft on its own core.
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
    workflow fetches through a 15-minute link. Nothing is pushed yet.

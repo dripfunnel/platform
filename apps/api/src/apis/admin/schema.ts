@@ -11,6 +11,7 @@ import './staffSessions'
 import './customers'
 import './staff'
 import './apps'
+import './fleet'
 
 export type { AdminContext } from './access'
 
