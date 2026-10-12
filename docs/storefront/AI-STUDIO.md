@@ -78,6 +78,10 @@ built from the fast gate's bundle, the frame on the store's preview origin).
      row exists);
    - otherwise from the **live build's source bundle** (LIVE-SHOP §4 step 3), the published code.
 
+   **Built on #318:** the draft bundle is read only while the `design_draft` row exists, and the live build's source
+   bundle is checked out at the live build's own commit (the sandbox's `PUT draft?at=`), since a design publish's
+   source may hold later changes. While a security fix serves the baseline, that is the store's own build instead
+   (ARCHITECTURE §7, #485).
    *Why the Durable Object and not the container:* the container has no network. *Why never
    GitHub:* it doesn't have the unpublished changes, its `main` can lag behind a publish whose push
    is still retrying, and reading R2 doesn't use GitHub's API limits.
@@ -138,6 +142,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **Discard** resets the draft to the live version's commit (the live build's source bundle,
   never GitHub's `main`), deletes the
   draft bundle and the `design_draft` row, and points the preview at the live code.
+  **Built on #318:** Discard runs in the store's Durable Object's turn, so no change lands between: the row goes, then
+  the bundle, then the sandbox unloads and the next open loads the live code. Undo answers `NOT_LATEST` for any change
+  but the latest still in place.
 - **Go back to version N** first makes that version's build live again by moving the pointer
   ([LIVE-SHOP.md](LIVE-SHOP.md) §4 step 10), then resets the draft to that version's commit
   (ARCHITECTURE §6.2, including its security-release exception).
@@ -169,6 +176,15 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    *Why:* the design becomes public only when it is live (decided 2026-10-09 with Gaurav,
    #520). One push per publish stays far below GitHub's limit of 6 pushes a minute per
    repo.
+
+   **Built on #318:** at Publish (and "Publish everything before"), the store's Durable Object, in its turn, keeps the
+   published commit's theme privately (`sources/{store}/themes/{commit}.json` in the drafts bucket; the sandbox's
+   `GET theme?at=`); once the publish is live, its Workflow's last step pushes that theme through the push API under the key
+   `publish:{build}`. A publish's repair is a change by the Durable Object, the platform's cost, its theme kept the same
+   way; a draft published to its head has no row afterwards, as after Discard. Go back runs in the Durable Object's turn
+   and resets the draft to the version (no row); across a newer security release of core it is refused
+   (`SECURITY_RELEASE`), so a forced fix is never undone, and the version's free rebuild on the fixed core is left to the
+   upgrade bot (#485).
 
    **The push API** (`saas/storefronts/push.ts`, built on #316): the caller names the reason
    (`publish` with the version and build id, `template`, or the upgrade bot's `upgrade`) and the

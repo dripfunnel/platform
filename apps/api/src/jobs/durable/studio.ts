@@ -4,8 +4,9 @@ import { parseConfig } from '#core/config'
 import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
-import { selectStudioPortalHost } from '#db/scoped/studio'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant, type PublishReady, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
+import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -19,12 +20,14 @@ export interface StudioEnv extends Record<string, unknown> {
 /** The alarm looks every minute while a container may run (AI-STUDIO §7). */
 const tickMs = 60 * 1000
 
-export type StudioState = { state: 'ready' } | { state: 'queued'; place: number } | { state: 'unavailable' }
+/** How long a status poll waits for the open it started: a queue answer comes back at once, a container start doesn't. */
+const statusWaitMs = 1_000
 
 type Connect = (hyperdrive: { connectionString: string }) => postgres.Sql
 
 /** The RPC the API makes of a store's StudioSession for the frame. */
-export interface StudioSessionObject extends Rpc.DurableObjectBranded {
+export interface StudioSessionObject extends Rpc.DurableObjectBranded, StudioApi {
+  repair: (storeId: string, input: { failing: string[]; key: string }, model: DesignModel) => Promise<string | null>
   check: (storeId: string, session: string) => Promise<boolean>
   prepareUpgrade: (storeId: string, ask: UpgradeAsk) => Promise<UpgradeAnswer>
 }
@@ -52,10 +55,11 @@ export const studioCapacityClass = () =>
   }
 
 export const studioSessionClass = (connect: Connect) =>
-  class StudioSession extends DurableObject<StudioEnv> {
+  class StudioSession extends DurableObject<StudioEnv> implements StudioApi {
     private runner: StudioRunner | null = null
     private lastActive = Date.now()
     private db: (<T>(work: (sql: postgres.Sql) => Promise<T>) => Promise<T>) | null = null
+    private opening: Promise<StudioState> | null = null
 
     /** The object is named by its store's id; it refuses any call for another store, whoever made it. */
     private async runnerFor(storeId: string): Promise<StudioRunner> {
@@ -119,9 +123,29 @@ export const studioSessionClass = (connect: Connect) =>
       }
     }
 
+    /** Where the studio stands: a sandbox not loaded yet starts in the background (AI-STUDIO §3), and is "starting" until it answers. */
+    async status(storeId: string): Promise<StudioState> {
+      const runner = await this.runnerFor(storeId)
+      if (runner.loaded) return runner.pending > 0 ? { state: 'busy' } : { state: 'ready' }
+      if (!this.opening) {
+        this.opening = this.open(storeId).finally(() => {
+          this.opening = null
+        })
+        this.ctx.waitUntil(this.opening)
+      }
+      const waited = new Promise<null>((resolve) => setTimeout(() => resolve(null), statusWaitMs))
+      return (await Promise.race([this.opening, waited])) ?? { state: 'starting' }
+    }
+
+    async useTemplate(storeId: string, input: { template: string; keep: boolean; userId: string }): Promise<StudioAnswer> {
+      const runner = await this.active(storeId)
+      return studioAnswer(() => runner.useTemplate(input.template, input.keep, input.userId))
+    }
+
     /** One change, after the ones before it (AI-STUDIO §4); `model` is the Worker's, called back over RPC. */
-    async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel): Promise<ChangeOutcome> {
-      return (await this.active(storeId)).change({ ...input, model })
+    async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel): Promise<StudioAnswer> {
+      const runner = await this.active(storeId)
+      return studioAnswer(() => runner.change({ ...input, model }))
     }
 
     /** The upgrade bot's commit (storefront ARCHITECTURE §7.1), asked by the core-upgrade Workflow with the store id it read. */
@@ -134,8 +158,59 @@ export const studioSessionClass = (connect: Connect) =>
       return (await this.active(storeId)).prepareToPublish()
     }
 
-    async undo(storeId: string, commit: string, userId: string): Promise<ChangeOutcome> {
-      return (await this.active(storeId)).undo(commit, userId)
+    async undo(storeId: string, input: { commit: string; userId: string }): Promise<StudioAnswer> {
+      const runner = await this.active(storeId)
+      return studioAnswer(() => runner.undo(input.commit, input.userId))
+    }
+
+    async texts(storeId: string, input: { page: string; locale: string }): Promise<{ key: string; text: string }[] | null> {
+      const runner = await this.active(storeId)
+      return runner.texts(input.page, input.locale).catch((error: unknown) => {
+        if (error instanceof StudioQueued || error instanceof StudioUnavailable) return null
+        throw error
+      })
+    }
+
+    async editText(storeId: string, input: { locale: string; key: string; text: string; userId: string }): Promise<StudioAnswer | { outcome: 'missing' }> {
+      const runner = await this.active(storeId)
+      return studioAnswer(() => runner.editText(input.locale, input.key, input.text, input.userId))
+    }
+
+    async discard(storeId: string): Promise<void> {
+      const runner = await this.runnerFor(storeId)
+      const db = this.db
+      if (!db) throw new StudioUnavailable('studio: unconfigured')
+      await runner.reset(() => db((sql) => withSystemScope(sql, (tx) => deleteDraft(tx, storeId))).then(() => true))
+    }
+
+    async prepare(storeId: string, input: { commit: string | null }): Promise<Prepared> {
+      const runner = await this.active(storeId)
+      return preparedAnswer(() => runner.prepare(input.commit))
+    }
+
+    async goBack(storeId: string, input: { versionId: string; by: string; actor: GoBackActor }): Promise<GoBackResult> {
+      const runner = await this.runnerFor(storeId)
+      const db = this.db
+      if (!db) throw new StudioUnavailable('studio: unconfigured')
+      let result: GoBackResult = { ok: false, reason: 'NOT_FOUND' }
+      await runner.reset(async () => {
+        result = await db((sql) => goBack(sql, { storeId, versionId: input.versionId, by: input.by, actor: input.actor, now: new Date() }))
+        return result.ok
+      })
+      return result
+    }
+
+    /**
+     * A publish's repair (ARCHITECTURE §4.2 step 4), asked by its Workflow with `key` = `{run}:{n}`: a retried step gets the
+     * commit already made, never a second change.
+     */
+    async repair(storeId: string, input: { failing: string[]; key: string }, model: DesignModel): Promise<string | null> {
+      const done = await this.ctx.storage.get<string | null>(`repair:${input.key}`)
+      if (done !== undefined) return done
+      // A busy or unavailable studio throws uncached, so the Workflow step's own retries can still repair.
+      const commit = await (await this.active(storeId)).repairPublish(input.failing, model)
+      await this.ctx.storage.put(`repair:${input.key}`, commit)
+      return commit
     }
 
     /** "Finishing your previous change…" (AI-STUDIO §4 step 1). */

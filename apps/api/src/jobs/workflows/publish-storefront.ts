@@ -4,12 +4,16 @@ import { parseConfig } from '#core/config'
 import { githubFor, storeRepos } from '#integrations/github/index'
 import { httpEdgeProbe, type EdgeProbe } from '#integrations/http/edgeProbe'
 import { localEdgeProbe } from '#integrations/local/edgeProbe'
-import { lookupLiveHost, runPublish, type PublishParams } from '#saas/storefronts/index'
+import { anthropicProvider, localAiProvider } from '#integrations/ai/index'
+import { designModel, repairBrief } from '#saas/ai-designer/index'
+import { lookupLiveHost, pushToRepo, runPublish, type PublishParams, type RepoFile } from '#saas/storefronts/index'
+import type { StudioSessionObject } from '#jobs/durable/studio'
 
 export interface PublishStorefrontEnv extends Record<string, unknown> {
   STOREFRONT_SITES?: R2Bucket | undefined
   STOREFRONT_ASSETS?: R2Bucket | undefined
   STOREFRONT_DRAFTS?: R2Bucket | undefined
+  STUDIO_SESSION?: DurableObjectNamespace | undefined
 }
 
 // A step's own retries before the run fails and the live build stays (SAAS §9.1).
@@ -29,6 +33,9 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
   const repos = storeRepos(github.session(), config.GITHUB_STORE_ORG)
   const api = `https://${config.HOOKS_HOST}`
   const sql = connect(config.HYPERDRIVE)
+  // The repair is the platform's cost (SAAS §9.1): the plan's key stands in for it until #275, as in the Store API.
+  const provider = config.AI_LOCAL === '1' ? localAiProvider() : config.AI_PROVIDER_KEY ? anthropicProvider(config.AI_PROVIDER_KEY) : null
+  const studio = env.STUDIO_SESSION as DurableObjectNamespace<StudioSessionObject> | undefined
   // With GITHUB_LOCAL no store host resolves, so the checks read the build as the edge would (docs/setup/local.md §6.1).
   const probe: EdgeProbe =
     config.GITHUB_LOCAL === '1'
@@ -56,6 +63,9 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       probe,
       assetHost: `sf-assets.${config.EDGE_ZONE}`,
       wait,
+      push: (input: { storeId: string; buildId: string; version: number; files: RepoFile[] }) =>
+        pushToRepo({ sql, repos, now: () => new Date() }, { storeId: input.storeId, key: `publish:${input.buildId}`, reason: { kind: 'publish', version: input.version, buildId: input.buildId }, files: input.files }),
+      ...(studio && provider ? { repair: (storeId: string, failing: string[], key: string) => studio.get(studio.idFromName(storeId)).repair(storeId, { failing, key }, designModel(provider, repairBrief)) } : {}),
     }
     return await runPublish(deps, event.payload, {
       do: (name, work, long) => step.do(name, long ? checksConfig : stepConfig, work),

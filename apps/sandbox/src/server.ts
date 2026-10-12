@@ -118,7 +118,9 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
       const type = req.headers['content-type'] ?? ''
       if (type.startsWith('application/x-git-bundle')) {
         const bytes = await read(req, maxBundle)
-        return send(res, 200, await inTurn(slot, () => ws().loadBundle(bytes)))
+        const at = url.searchParams.get('at')
+        if (at !== null && !/^[0-9a-f]{40}$/.test(at)) throw new HttpError(400, 'Name a commit by its full id.')
+        return send(res, 200, await inTurn(slot, () => ws().loadBundle(bytes, at)))
       }
       const body = await json(req, loadFilesSchema)
       return send(res, 200, await inTurn(slot, () => ws().loadFiles(body.files, body.message)))
@@ -145,7 +147,9 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
       return send(res, 200, await inTurn(slot, () => ws().rebase(body.onto, asContext(body.context))))
     }
     if (method === 'GET' && op === 'theme') {
-      const theme = await inTurn(slot, async () => ({ head: await ws().head(), files: [...(await ws().theme())].map(([path, content]) => ({ path, content })) }))
+      const at = url.searchParams.get('at')
+      if (at !== null && !/^[0-9a-f]{40}$/.test(at)) throw new HttpError(400, 'Name a commit by its full id.')
+      const theme = await inTurn(slot, async () => ({ head: at ?? (await ws().head()), files: [...(await (at ? ws().themeAt(at) : ws().theme()))].map(([path, content]) => ({ path, content })) }))
       return send(res, 200, theme)
     }
     if (method === 'GET' && op === 'bundle') {

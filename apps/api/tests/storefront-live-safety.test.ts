@@ -332,8 +332,8 @@ describe('a rolled-back design publish', () => {
     probe = testProbe(db.sql, { sites, assets })
     const again = await staged(t.storeA1, 61)
     expect(await runPublish(deps(), { runId: again, storeId: t.storeA1 }, steps)).toBe('live')
-    const [after] = await db.sql<{ commits: string[] }[]>`select to_jsonb(commits) as commits from design_draft where store_id = ${t.storeA1}`
-    expect(after?.commits).toEqual([])
+    // Published to its head, the draft is the live version: no row (#318).
+    expect(await db.sql`select 1 from design_draft where store_id = ${t.storeA1}`).toHaveLength(0)
   })
 })
 

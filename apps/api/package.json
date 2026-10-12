@@ -30,6 +30,7 @@
     "release:record": "tsx scripts/release/record.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@pothos/core": "^4.15.1",
     "graphql": "^17.0.2",
     "graphql-yoga": "^5.24.1",

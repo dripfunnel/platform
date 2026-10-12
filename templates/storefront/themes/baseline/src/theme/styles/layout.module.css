@@ -192,6 +192,18 @@
   color: var(--footer-muted);
 }
 
+.contact {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.social {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+  text-transform: capitalize;
+}
+
 .links {
   display: flex;
   min-width: 0;
@@ -294,7 +306,7 @@
   }
 
   .columns {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .about {

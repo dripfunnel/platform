@@ -1,17 +1,22 @@
 import { Link, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
-import { PageIntro } from '../components/PageIntro'
-import styles from '../styles/page.module.css'
+import { Notice } from '../components/Notice'
+import styles from '../styles/shop.module.css'
 
 export const NotFoundPage = () => {
   const { t } = useStorefront()
   return (
     <Layout>
-      <PageIntro title={t('pages.notFound.title')} lead={t('pages.notFound.lead')}>
-        <Link href="/" className={styles.action}>
-          {t('pages.notFound.action')}
-        </Link>
-      </PageIntro>
+      <section className={styles.page}>
+        <Notice main title={t('pages.notFound.title')} lead={t('pages.notFound.lead')}>
+          <Link href="/" className={styles.primary}>
+            {t('pages.notFound.action')}
+          </Link>
+          <Link href="/search/" className={styles.secondary}>
+            {t('pages.notFound.search')}
+          </Link>
+        </Notice>
+      </section>
     </Layout>
   )
 }

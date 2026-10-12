@@ -16,5 +16,12 @@
     "title": "Keep in touch",
     "body": "Create an account to follow your orders and check out faster.",
     "action": "Create an account"
+  },
+  "collections": {
+    "title": "Shop by collection"
+  },
+  "newest": {
+    "title": "New in",
+    "all": "See all"
   }
 }
