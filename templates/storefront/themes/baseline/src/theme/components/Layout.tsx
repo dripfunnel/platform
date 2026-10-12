@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, useMenu, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Menu } from './interactive/Menu'
 import styles from '../styles/layout.module.css'
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const { store, t, mode, poweredBy } = useStorefront()
+  const menu = useMenu()
   return (
     <div className={styles.shell}>
       {mode === 'live' ? null : <PreviewBanner t={t} className={styles.preview} />}
@@ -15,9 +16,17 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           </Link>
           <Menu label={t('common.nav.menu')}>
             <nav className={styles.nav} aria-label={t('common.nav.label')}>
-              <Link href="/search/" className={styles.navLink}>
-                {t('common.nav.shop')}
-              </Link>
+              {menu.items.length ? (
+                menu.items.map((item) => (
+                  <Link key={item.id} href={item.href} className={styles.navLink}>
+                    {item.label}
+                  </Link>
+                ))
+              ) : (
+                <Link href="/collections/all/" className={styles.navLink}>
+                  {t('common.nav.shop')}
+                </Link>
+              )}
               <Link href="/about/" className={styles.navLink}>
                 {t('common.nav.about')}
               </Link>
@@ -56,11 +65,22 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         <div className={styles.columns}>
           <div className={styles.about}>
             <p className={styles.footerBrand}>{store.name}</p>
-            <p className={styles.note}>{t('common.footer.note')}</p>
+            <p className={styles.note}>{store.tagline ?? t('common.footer.note')}</p>
+            {store.contactEmail ? <p className={styles.contact}>{store.contactEmail}</p> : null}
+            {store.contactPhone ? <p className={styles.contact}>{store.contactPhone}</p> : null}
+            {store.social.length ? (
+              <div className={styles.social}>
+                {store.social.map((s) => (
+                  <Link key={s.network} href={s.url} className={styles.footerLink}>
+                    {s.network}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className={styles.links}>
             <h2 className={styles.heading}>{t('common.footer.shop')}</h2>
-            <Link href="/search/" className={styles.footerLink}>
+            <Link href="/collections/all/" className={styles.footerLink}>
               {t('common.footer.all')}
             </Link>
             <Link href="/about/" className={styles.footerLink}>
@@ -81,11 +101,17 @@ export const Layout = ({ children }: { children: ReactNode }) => {
             <Link href="/policies/returns/" className={styles.footerLink}>
               {t('common.footer.returns')}
             </Link>
+          </div>
+          <div className={styles.links}>
+            <h2 className={styles.heading}>{t('common.footer.legal')}</h2>
+            <Link href="/policies/terms/" className={styles.footerLink}>
+              {t('common.footer.terms')}
+            </Link>
             <Link href="/policies/privacy/" className={styles.footerLink}>
               {t('common.footer.privacy')}
             </Link>
-            <Link href="/policies/terms/" className={styles.footerLink}>
-              {t('common.footer.terms')}
+            <Link href="/policies/legal/" className={styles.footerLink}>
+              {t('common.footer.notice')}
             </Link>
           </div>
         </div>

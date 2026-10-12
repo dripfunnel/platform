@@ -1,7 +1,5 @@
 {
-  "collection": { "title": "Collection", "lead": "Everything in this collection." },
   "product": { "title": "Product", "lead": "The details of this product." },
-  "search": { "title": "Search the shop", "lead": "Find a product by its name or type." },
   "cart": { "title": "Your cart", "lead": "Check what you picked before you check out.", "action": "Keep shopping" },
   "checkout": { "title": "Checkout", "lead": "A few details and your order is on its way.", "action": "Back to your cart" },
   "confirmation": { "title": "Thank you", "lead": "We have your order and will email you as it moves along." },
@@ -14,8 +12,18 @@
   "addresses": { "title": "Your addresses", "lead": "The addresses you ship to." },
   "orders": { "title": "Your orders", "lead": "Every order you have placed with us." },
   "order": { "title": "Your order", "lead": "Where your order is and what is in it." },
-  "policy": { "title": "Our policies", "lead": "The terms that apply when you shop with us." },
-  "notFound": { "title": "Page not found", "lead": "The page you asked for has moved or never existed.", "action": "Go to the home page" },
+  "policy": {
+    "eyebrow": "Policies",
+    "title": "Our policies",
+    "lead": "The terms that apply when you shop with us.",
+    "terms": "Terms of sale",
+    "privacy": "Privacy policy",
+    "shipping": "Delivery",
+    "returns": "Returns and refunds",
+    "legal": "Legal notice",
+    "ask": "Questions about this policy? Get in touch and we will answer."
+  },
+  "notFound": { "title": "We can’t find that page", "lead": "The link may be old, or the page may have been taken down.", "action": "Go to the home page", "search": "Search the shop" },
   "degraded": { "title": "We will be back soon", "lead": "The shop is closed for now. Please come back later." },
   "about": {
     "title": "About us",

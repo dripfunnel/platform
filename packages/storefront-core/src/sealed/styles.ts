@@ -40,6 +40,7 @@ ${button}`,
   breadcrumbs: `:host{display:block!important}
 [part~=list]{display:flex!important;flex-wrap:wrap;gap:4px 8px;list-style:none;padding:0}
 [part~=link]{color:inherit}
+[part~=item]:not(:last-child)::after{content:'/' / '';margin-left:8px;${muted}}
 [part~=current]{${muted}}`,
 }
 
