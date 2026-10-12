@@ -1814,7 +1814,7 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- page run's addresses and those it leaves out, only on kind 'page') and assets_build_id (the build
                     -- whose JS and CSS its pages load: the live build's for a page run, LIVE-SHOP §7); migration 0288:
                     -- vitals (the regression rule's verdict: severe, regressed or ok, and the p75s it compared); #318
-                    -- (migration 0311): source_build_id, the kept build whose source a `security` rebuild of a version
+                    -- (migration 0333): source_build_id, the kept build whose source a `security` rebuild of a version
                     -- gone back to freezes, instead of the live build's
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
                      changed_at, changed_by, preview_deploy_ref NULL)
