@@ -50,6 +50,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [opened, setOpened] = useState(0)
   const [chat, setChat] = useState<DesignMessage[]>([])
   const [earlier, setEarlier] = useState<string | null>(null)
+  // A later read that fails keeps the conversation already shown.
+  const [chatRead, setChatRead] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pages, setPages] = useState<StudioPages>({ product: null, content: [], custom: [] })
@@ -86,8 +88,9 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         if (ask !== chatAsk.current) return
         setChat([...page.messages].reverse())
         setEarlier(page.next)
+        setChatRead('ready')
       },
-      () => ask === chatAsk.current && setError(words.chat.loadFailed),
+      () => ask === chatAsk.current && setChatRead((was) => (was === 'ready' ? was : 'failed')),
     )
   }, [api])
 
@@ -353,6 +356,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         <div className="df-studio-pane" {...paneProps('chat')}>
           <StudioChat
             chat={chat}
+            chatRead={chatRead}
             hasEarlier={earlier !== null}
             assistant={brand ? fill(words.chat.assistant, { brand }) : words.chat.assistantPlain}
             templateName={nameOf}

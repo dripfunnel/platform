@@ -211,6 +211,22 @@ describe('the chat', () => {
     expect(api.loadDesignChat).toHaveBeenCalledTimes(2)
   })
 
+  it('says the conversation is loading, never that it is empty, until it is read', async () => {
+    let answer: (page: { messages: DesignMessage[]; next: null }) => void = () => undefined
+    await show({ loadDesignChat: vi.fn().mockReturnValue(new Promise((resolve) => (answer = resolve))) })
+    expect(screen.getByText(c.loading)).toBeTruthy()
+    expect(screen.queryByText(c.empty)).toBeNull()
+    await act(async () => answer({ messages: [], next: null }))
+    expect(screen.queryByText(c.loading)).toBeNull()
+    expect(screen.getByText(c.empty)).toBeTruthy()
+  })
+
+  it('says when the conversation couldn’t be read, in the conversation', async () => {
+    await show({ loadDesignChat: vi.fn().mockRejectedValue(new Error('offline')) })
+    expect(screen.getByRole('alert').textContent).toBe(c.loadFailed)
+    expect(screen.queryByText(c.empty)).toBeNull()
+  })
+
   it('says a change failed in the error line, and keeps the words when the request was refused', async () => {
     await show({ askDesign: vi.fn().mockRejectedValue(new ApiError('AI_BUDGET_REACHED', 'No.')), loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('e1', 'error', 'change_failed'), ...chat], next: null }) })
     expect(screen.getByText(c.error)).toBeTruthy()
@@ -310,6 +326,14 @@ describe('Edit text', () => {
     fireEvent.click(dialog.getByRole('button', { name: words.edit.save }))
     await settle()
     expect(save.mock.calls.map((c) => c[0])).toEqual(['en', 'fr', 'fr'])
+  })
+
+  it('says the words are loading while each language is read', async () => {
+    await show({ loadDesignText: vi.fn().mockReturnValue(new Promise(() => undefined)) })
+    fireEvent.click(screen.getByRole('button', { name: words.edit.button }))
+    post({ type: 'df-studio:text', key: 'pages:home.lead' })
+    await settle()
+    expect(within(screen.getByRole('dialog', { name: words.edit.title })).getByRole('status').textContent).toBe(words.edit.loading)
   })
 
   it('turns Edit text off when a page is picked, since the new frame starts without it', async () => {

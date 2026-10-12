@@ -17,6 +17,8 @@ export interface ChatRequest {
 export interface StudioChatProps {
   /** Oldest first. */
   chat: readonly DesignMessage[]
+  /** Until the first read answers, and when it couldn't, the conversation says so instead of looking empty. */
+  chatRead: 'loading' | 'ready' | 'failed'
   hasEarlier: boolean
   assistant: string
   templateName: (key: string) => string
@@ -40,7 +42,7 @@ interface Attached {
 }
 
 /** "Design with AI" (PortalStorefront › studio): the conversation, suggestions and the composer with an image and a website. */
-export const StudioChat = ({ chat, hasEarlier, assistant, templateName, locked, canEdit, busyLine, error, api, onEarlier, onUndo, onSend, notice }: StudioChatProps) => {
+export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, error, api, onEarlier, onUndo, onSend, notice }: StudioChatProps) => {
   const [prompt, setPrompt] = useState('')
   const [image, setImage] = useState<Attached | null>(null)
   const [site, setSite] = useState<string | null>(null)
@@ -116,7 +118,17 @@ export const StudioChat = ({ chat, hasEarlier, assistant, templateName, locked, 
             </button>
           </li>
         )}
-        {chat.length === 0 && <li className="df-studio-ai">{words.empty}</li>}
+        {chatRead === 'loading' && (
+          <li className="df-studio-ai" role="status">
+            {words.loading}
+          </li>
+        )}
+        {chatRead === 'failed' && (
+          <li className="df-sf-failure" role="alert">
+            {words.loadFailed}
+          </li>
+        )}
+        {chatRead === 'ready' && chat.length === 0 && <li className="df-studio-ai">{words.empty}</li>}
         {chat.map((m) => (
           <ChatLine key={m.id} message={m} assistant={assistant} templateName={templateName} canUndo={canEdit && !locked && m.id === undoable} onUndo={() => onUndo(m)} />
         ))}
@@ -148,7 +160,7 @@ export const StudioChat = ({ chat, hasEarlier, assistant, templateName, locked, 
                   <span className="df-studio-chip">
                     <span>{image.assetId ? image.name : words.uploading}</span>
                     <button type="button" aria-label={words.removeImage} onClick={() => ((uploads.current += 1), setImage(null))}>
-                      ×
+                      <RemoveIcon />
                     </button>
                   </span>
                 )}
@@ -156,7 +168,7 @@ export const StudioChat = ({ chat, hasEarlier, assistant, templateName, locked, 
                   <span className="df-studio-chip" title={site}>
                     <span>{new URL(site).hostname}</span>
                     <button type="button" aria-label={words.removeSite} onClick={() => setSite(null)}>
-                      ×
+                      <RemoveIcon />
                     </button>
                   </span>
                 )}
@@ -218,6 +230,12 @@ export const StudioChat = ({ chat, hasEarlier, assistant, templateName, locked, 
     </section>
   )
 }
+
+const RemoveIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+)
 
 const ChatLine = ({ message: m, assistant, templateName, canUndo, onUndo }: { message: DesignMessage; assistant: string; templateName: (key: string) => string; canUndo: boolean; onUndo: () => void }) => {
   if (m.role === 'user')
