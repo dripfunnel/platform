@@ -128,10 +128,14 @@ const PaymentMethodType = builder.objectRef<Awaited<ReturnType<PartnerBillingSer
   }),
 })
 
+const billingRead = { api: 'platform', scope: 'partner', permission: 'billing.read', target: 'none' } as const
+// Payout and card details stay with the partner, so no staff session reads them either (ACCESS §8.1, §8.2).
+const moneyRead = { ...billingRead, blockedFor: ['impersonation', 'setup'] } as const
 const SettingsType = builder.objectRef<Settings>('BillingSettings').implement({
   fields: (t) => ({
     mode: t.exposeString('mode'),
-    payoutAccount: t.field({ type: PayoutAccountType, resolve: (s) => s.payoutAccount }),
+    // Null for a staff session, like the payoutAccount query.
+    payoutAccount: t.field({ type: PayoutAccountType, nullable: true, extensions: { access: moneyRead }, resolve: (s) => s.payoutAccount }),
     asOf: t.string({ nullable: true, resolve: (s) => iso(s.asOf) }),
     staleSince: t.string({ nullable: true, resolve: (s) => iso(s.staleSince) }),
   }),
@@ -149,7 +153,9 @@ const InvoiceLink = builder.objectRef<{ ok: boolean; reason?: string; url?: stri
   }),
 })
 
-const billingRead = { api: 'platform', scope: 'partner', permission: 'billing.read', target: 'none' } as const
+const ClientConfig = builder.objectRef<{ publishableKey: string | null }>('BillingClientConfig').implement({
+  fields: (t) => ({ publishableKey: t.exposeString('publishableKey', { nullable: true }) }),
+})
 const pageArgs = (t: Parameters<Parameters<typeof builder.queryFields>[0]>[0]) => ({ after: t.arg.string(), before: t.arg.string(), first: t.arg.int() })
 
 const page = <T>(found: T | null): T => {
@@ -163,8 +169,9 @@ builder.queryFields((t) => ({
   nextPayout: t.field({ type: NextPayoutType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).nextPayout() }),
   partnerInvoices: t.field({ type: InvoicesPage, args: pageArgs(t), extensions: { access: billingRead }, resolve: async (_, args, ctx) => page(await signedIn(ctx.billing).partnerInvoices(args)) }),
   billingSettings: t.field({ type: SettingsType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).billingSettings() }),
-  payoutAccount: t.field({ type: PayoutAccountType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).payoutAccount() }),
-  paymentMethod: t.field({ type: PaymentMethodType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).paymentMethod() }),
+  billingClientConfig: t.field({ type: ClientConfig, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).billingClientConfig() }),
+  payoutAccount: t.field({ type: PayoutAccountType, extensions: { access: moneyRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).payoutAccount() }),
+  paymentMethod: t.field({ type: PaymentMethodType, extensions: { access: moneyRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).paymentMethod() }),
   // A fresh link to Stripe's PDF; reading it changes nothing, so it is a query.
   downloadInvoice: t.field({ type: InvoiceLink, args: { id: t.arg.id({ required: true }) }, extensions: { access: billingRead }, resolve: (_, { id }, ctx) => signedIn(ctx.billing).downloadInvoice(String(id)) }),
 }))

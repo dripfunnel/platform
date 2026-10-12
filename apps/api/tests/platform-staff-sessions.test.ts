@@ -223,7 +223,7 @@ describe('the blocked lists', () => {
   }
   const support = ['endSupportSession', 'mySupportSession', 'reauthenticate', 'returnToSupportSession', 'startSupportSession', 'supportSessions', 'supportTargets']
   // Payment and payout details stay with the partner (ACCESS §8.1, §8.2; #201).
-  const moneyDetails = ['setPaymentMethod', 'setPayoutAccount']
+  const moneyDetails = ['paymentMethod', 'payoutAccount', 'setPaymentMethod', 'setPayoutAccount']
 
   it('refuses an impersonation ownership, the team’s sign-in rule, and the user’s own second factor and support access', () => {
     expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, 'removePartnerDomain', 'setSecondFactorPolicy', 'transferOwnership'].sort())

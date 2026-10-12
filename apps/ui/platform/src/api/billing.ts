@@ -74,7 +74,7 @@ export interface BillingMoney {
   invoices: Page<Invoice>
   // When the payment provider last answered, and since when it has been slow (the stale strip).
   staleSince: string | null
-  payoutAccount: PayoutAccount
+  payoutAccount: PayoutAccount | null
 }
 
 const paymentFields = `items { id at storeId storeName kind amount { amount currency } status note cardLast4 } ${pageInfoFields}`
@@ -103,7 +103,7 @@ export const loadBilling = async (): Promise<BillingMoney> => {
       nextPayout: nextSchema,
       payouts: page(payoutSchema),
       partnerInvoices: page(invoiceSchema),
-      billingSettings: z.object({ staleSince: z.string().nullable(), payoutAccount: payoutAccountSchema }),
+      billingSettings: z.object({ staleSince: z.string().nullable(), payoutAccount: payoutAccountSchema.nullable() }),
     }),
   )
   const { failed, failedMore, ...payments } = answer.merchantPayments
@@ -115,6 +115,7 @@ export const loadBilling = async (): Promise<BillingMoney> => {
     payouts: answer.payouts,
     invoices: answer.partnerInvoices,
     staleSince: answer.billingSettings.staleSince,
+    // Null for a staff session, which never sees the partner's payout details.
     payoutAccount: answer.billingSettings.payoutAccount,
   }
 }
@@ -131,6 +132,10 @@ export const loadMoreInvoices = async ({ after }: PageRequest): Promise<Page<Inv
 /** Settings › Payout and payment (§14.3): what is on file, last 4 digits only. */
 export const loadPayoutSettings = async (): Promise<{ payoutAccount: PayoutAccount; paymentMethod: PaymentMethod }> =>
   query(`{ payoutAccount { bank last4 status failure } paymentMethod { brand last4 expires status } }`, z.object({ payoutAccount: payoutAccountSchema, paymentMethod: paymentMethodSchema }))
+
+/** The Stripe publishable key the console's Stripe.js acts with; null while the provider isn't switched on (#278). */
+export const loadBillingClientConfig = async (): Promise<string | null> =>
+  (await query(`{ billingClientConfig { publishableKey } }`, z.object({ billingClientConfig: z.object({ publishableKey: z.string().nullable() }) }))).billingClientConfig.publishableKey
 
 export const billingRefusals = ['INVALID_INPUT', 'NOT_FOUND', 'NOT_CONNECTED', 'PROVIDER_UNAVAILABLE', 'TOKEN_REFUSED', 'NO_COUNTRY', 'NO_PDF'] as const
 export type BillingRefusal = (typeof billingRefusals)[number]
@@ -160,3 +165,13 @@ export const invoicePdf = async (id: string): Promise<{ ok: true; url: string } 
   if (!r.url || !/^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(r.url)) throw new ApiError('BAD_RESPONSE', 'The invoice link is not one of Stripe’s.')
   return { ok: true, url: r.url }
 }
+
+// Only Stripe's tokens go up (`btok_` for a bank account, `pm_` for a card); the numbers never reach this API.
+const sendToken = async (field: 'setPayoutAccount' | 'setPaymentMethod', token: string): Promise<{ ok: true } | { ok: false; reason: BillingRefusal }> => {
+  const answer = await query(`mutation Token($token: String!) { ${field}(token: $token) { ok reason } }`, z.object({ [field]: resultSchema }), { token })
+  const r = answer[field]
+  if (!r) throw new ApiError('BAD_RESPONSE', `No ${field} in the answer.`)
+  return r.ok ? { ok: true } : { ok: false, reason: refusalOf(r.reason) }
+}
+export const setPayoutAccount = (token: string) => sendToken('setPayoutAccount', token)
+export const setPaymentMethod = (token: string) => sendToken('setPaymentMethod', token)
