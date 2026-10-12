@@ -41,7 +41,7 @@ const creatingPollMs = 5_000
 /** Storefront (PortalStorefront, FIRST-RELEASE §14): the brand step, the gallery, then Design · Pages · Journal · Site settings. ?state= per storefrontStates.ts. */
 export const StorefrontPage = () => {
   const { acting, state } = shellRoute.useLoaderData()
-  const { tab = 'design', view: shown, run, page } = pageRoute.useSearch()
+  const { tab = 'design', view: shown, run, page, entry } = pageRoute.useSearch()
   const navigate = useNavigate()
   const forced = useScreenState(storefrontStates, harnessEnabled)
   const access = useMemo(() => storefrontAccessOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
@@ -128,6 +128,7 @@ export const StorefrontPage = () => {
   const tabRefs = useRef<Partial<Record<StorefrontTab, HTMLButtonElement | null>>>({})
   const goTab = (next: StorefrontTab) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: next === 'design' ? undefined : next }), replace: true })
   const goView = (next: StorefrontView | undefined, path?: string) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: undefined, view: next, page: path }) })
+  const goEntry = (next: string | undefined) => void navigate({ to: '/storefront', search: (prev) => ({ ...prev, entry: next }) })
   const onTabKey = tabKeyHandler(storefrontTabs, tab, goTab, (next) => tabRefs.current[next]?.focus())
 
   const title = <h1 className="df-sf-title">{words.title}</h1>
@@ -213,7 +214,13 @@ export const StorefrontPage = () => {
         <ContentTab
           kind="page"
           api={api}
+          canEdit={access.canEdit}
           onStudio={access.canEdit && hasSite(overview.status) ? (path) => goView('studio', path) : null}
+          entry={entry}
+          onEntry={goEntry}
+          host={host}
+          shopName={brand?.shopName ?? acting.store.name}
+          onToast={setToast}
         />
       )
     if (tab === 'journal') return <EmptyState title={words.journal.title} body={words.journal.body} />

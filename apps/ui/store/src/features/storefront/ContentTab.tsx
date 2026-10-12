@@ -2,6 +2,7 @@ import { ErrorState, LoadingState, StatusPill } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContentKind, ContentRow, ContentStatus } from '../../api/content'
 import { fill, formatDay, messages } from '../../messages'
+import { ContentEditor } from './ContentEditor'
 import type { StorefrontApi } from './storefrontApi'
 import './content.css'
 
@@ -18,12 +19,19 @@ const pills: Record<ContentStatus, { tone: 'success' | 'neutral' | 'info'; icon:
 export interface ContentTabProps {
   kind: ContentKind
   api: StorefrontApi
+  canEdit: boolean
   /** Opens the studio on one of the AI's pages; null when this seat has no studio (a reader, or no site yet). */
   onStudio: ((path: string) => void) | null
+  /** The page or post open in the editor ('new' for one not saved yet), kept in the address. */
+  entry: string | undefined
+  onEntry: (entry: string | undefined) => void
+  host: string | null
+  shopName: string
+  onToast: (text: string) => void
 }
 
 /** Storefront › Pages (StorefrontContent; FIRST-RELEASE §14): content pages and the AI's own pages, newest edit first. */
-export const ContentTab = ({ kind, api, onStudio }: ContentTabProps) => {
+export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host, shopName, onToast }: ContentTabProps) => {
   const [list, setList] = useState<List>({ kind: 'loading' })
   const latest = useRef(0)
   const load = useCallback(() => {
@@ -47,6 +55,27 @@ export const ContentTab = ({ kind, api, onStudio }: ContentTabProps) => {
   }
 
   const w = words.pages
+  if (entry !== undefined) {
+    const rows = list.kind === 'ready' ? list.rows : []
+    return (
+      <ContentEditor
+        kind={kind}
+        id={entry === 'new' ? null : entry}
+        api={api}
+        canEdit={canEdit}
+        host={host}
+        shopName={shopName}
+        titleAt={(path) => rows.find((r) => r.path === path)?.title ?? null}
+        onBack={() => onEntry(undefined)}
+        onDone={(text) => {
+          onToast(text)
+          onEntry(undefined)
+          load()
+        }}
+      />
+    )
+  }
+
   if (list.kind === 'loading') return <LoadingState label={words.loading} />
   if (list.kind === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
 
@@ -58,6 +87,11 @@ export const ContentTab = ({ kind, api, onStudio }: ContentTabProps) => {
           <h2>{w.title}</h2>
           <p>{w.sub}</p>
         </div>
+        {canEdit && (
+          <button type="button" className="df-button df-button--primary" onClick={() => onEntry('new')}>
+            {w.add}
+          </button>
+        )}
       </div>
       {empty ? (
         <p className="df-sfc-empty">{w.empty}</p>
@@ -65,14 +99,14 @@ export const ContentTab = ({ kind, api, onStudio }: ContentTabProps) => {
         <ul className="df-sfc-rows">
           {list.rows.map((r) => (
             <li key={r.id}>
-              <div className="df-sfc-row">
+              <button type="button" className="df-sfc-row" onClick={() => onEntry(r.id)}>
                 <span className="df-sfc-name">
                   <strong>{r.title}</strong>
                   <span className="df-sfc-path">{r.path}</span>
                 </span>
                 <StatusPill tone={pills[r.status].tone} icon={pills[r.status].icon} label={words.status[r.status]} />
                 <span className="df-sfc-meta">{r.inMenu ? fill(w.inMenu, { meta: fill(w.edited, { date: formatDay(r.updatedAt.slice(0, 10)) }) }) : fill(w.edited, { date: formatDay(r.updatedAt.slice(0, 10)) })}</span>
-              </div>
+              </button>
             </li>
           ))}
           {list.custom.map((path) => {
