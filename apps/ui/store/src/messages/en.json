@@ -6431,9 +6431,6 @@
       "settings": "Site settings"
     },
     "design": {
-      "nextTitle": "Next: choose a starting point",
-      "nextBody": "Your brand is saved. Picking a template and designing your site with AI will happen here; they aren’t open yet. Meanwhile you can connect your domain and set how your shop looks in Google in Site settings.",
-      "toSettings": "Go to Site settings",
       "noSiteTitle": "No storefront yet",
       "noSiteBody": "The store owner picks a template and publishes the site. You’ll see it here once it’s live."
     },
@@ -6647,6 +6644,72 @@
         "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
         "FORBIDDEN": "Only the store owner can change the storefront.",
         "other": "That didn’t save. Check your connection and try again."
+      }
+    },
+    "overview": {
+      "liveLine": "{host} · version {number} is live · {template} template",
+      "notLive": "Not published yet",
+      "custom": "Custom",
+      "viewLive": "View live site ↗",
+      "changeTemplate": "Change template",
+      "draftTitle": "Unpublished changes.",
+      "draftBody": "You’ve changed the design in the studio. Shoppers still see the version below until you publish.",
+      "discard": "Discard",
+      "discardTitle": "Discard unpublished changes?",
+      "discardBody": "The preview goes back to your live site. Your live site doesn’t change.",
+      "discardConfirm": "Discard changes",
+      "cancel": "Cancel",
+      "discarded": "Changes discarded — your live site didn’t change",
+      "liveLabel": "Live now · version {number}",
+      "published": "Published {when}",
+      "liveAt": "Shoppers see this version at {host}.",
+      "powered": "“Powered by {brand}” shows in your footer on {plan}.",
+      "poweredRemove": "Remove it",
+      "creatingTitle": "Setting up your storefront…",
+      "creatingBody": "We’re making your site from the template you picked. It takes a minute or two, and this page updates by itself.",
+      "notPublishedTitle": "Nothing is live yet",
+      "notPublishedBody": "Shoppers see your site once you publish it.",
+      "refused": {
+        "NOTHING_TO_DISCARD": "There are no unpublished changes to discard.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "other": "That didn’t work. Check your connection and try again."
+      }
+    },
+    "gallery": {
+      "first": "Choose a starting point",
+      "change": "Change template",
+      "lede": "Pick a look to start from. You can change everything afterwards — colours, fonts, sections, wording — just by describing it. Nothing goes live until you publish.",
+      "back": "← Back to Storefront",
+      "current": "Your current look",
+      "demo": "View demo ↗",
+      "use": "Use this template",
+      "scratch": "Start from scratch",
+      "choosing": "Starting…",
+      "emptyTitle": "No templates yet",
+      "emptyBody": "There are no templates to pick from yet. Try again later.",
+      "failed": "We couldn’t set up your storefront. Pick a template to try again.",
+      "keepTitle": "Use {name}?",
+      "keepScratchTitle": "Start from scratch?",
+      "keepBody": "Keep your words — headline, menu, footer, About and Contact — or start with the template’s sample text? Your live site doesn’t change until you publish.",
+      "keepWords": "Keep my words",
+      "templateWords": "Use template text",
+      "cancel": "Cancel",
+      "switched": "Switched to {name}",
+      "scratchStarted": "Started from scratch",
+      "refused": {
+        "BRAND_NOT_READY": "Add your shop name and logo first.",
+        "INVALID_TEMPLATE": "That template isn’t offered any more.",
+        "IN_PROGRESS": "Your storefront is still being set up. Try again in a minute.",
+        "STUDIO_QUEUED": "The studio is busy — you’re number {place} in line. Try again in a moment.",
+        "STUDIO_UNAVAILABLE": "The studio couldn’t start. Try again in a minute.",
+        "CHANGE_REFUSED": "That template didn’t pass our checks — nothing on your site changed.",
+        "NOT_CONNECTED": "The studio isn’t set up here yet.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "other": "That didn’t work. Check your connection and try again."
       }
     }
   }

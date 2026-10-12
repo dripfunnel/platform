@@ -694,6 +694,18 @@ through. Your site stays live."), as is a support session.
   a plan without `custom_domain` the card says so and links the Owner to Billing. Search and sharing's counters
   turn red and say "too long" past the limit, which disables Save; the share image is picked from the first photo
   of the five products changed last.
+- **Built on #319 (part 3, on #318's API)**: the Overview's header (the live line, **View live site ↗**, **Change
+  template**), the draft notice with **Discard** (asks first), the live version, "Powered by" with **Remove it**, and the
+  template gallery with "Your current look", **View demo ↗** (an https demo only) and the keep-my-words question. *Decided
+  there:* live pages refuse every frame (`frame-ancestors 'none'`, storefront ARCHITECTURE §3.5, #481), so the Overview
+  shows the live version's number, when it was published and its address instead of framing it at Desktop and Phone; a
+  template's thumbnail is a tile with its name until the API offers a picture with the store's products (ST 0 left it
+  open); the gallery replaces the page for the Owner until a template is picked, and again after the site couldn't be
+  made ("We couldn't set up your storefront. Pick a template to try again."); the first pick asks nothing about words,
+  since there are none to keep; while the site is made the Design tab says "Setting up your storefront…" and reads its
+  status again every 5 seconds; "Start from scratch" reads "Custom" in the live line; "Powered by" shows to the Owner
+  only (it needs the plan, a `billing` read) when the partner shows it and the plan keeps it, with Remove it (to
+  Billing) only when another plan removes it. Open studio and Continue in studio come with the studio (part 4).
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

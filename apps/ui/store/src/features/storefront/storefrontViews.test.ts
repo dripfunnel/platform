@@ -1,10 +1,11 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { describe, expect, it } from 'vitest'
-import type { StorefrontDomain } from '../../api/storefront'
+import type { StorefrontDomain, StorefrontStatus } from '../../api/storefront'
 import { fill, messages } from '../../messages'
 import { brandComplete, brandFormOf, brandProblemOf, pickerValue } from './brandDraft'
 import { canCancel, canMakePrimary, domainRefusal, inProgress, needsRecords } from './domainView'
 import { counterText, googleTitle, seoTooLong } from './seoView'
+import { chooseRefusal, hasSite, liveHost, needsTemplate, templateName } from './overviewView'
 import { storefrontAccessOf } from './storefrontAccess'
 
 const words = messages.storefront
@@ -91,5 +92,38 @@ describe('search and sharing', () => {
   it('previews the shop’s name for an empty title and cuts a long one', () => {
     expect(googleTitle('  ', 'Kesari Threads')).toBe('Kesari Threads')
     expect(googleTitle('x'.repeat(70), 'Kesari')).toBe(`${'x'.repeat(58)}…`)
+  })
+})
+
+describe('the overview and the gallery', () => {
+  const free = { id: null, host: 'kesari.shops.example.com', kind: 'free' as const, status: 'live' as const, checkedAt: null, records: [] }
+
+  it('reaches the live site at the main address once it is live, else at the free one', () => {
+    expect(liveHost({ customDomainAllowed: true, domains: [{ ...free, primary: false }, domain({ primary: true })] })).toBe('www.kesari.in')
+    expect(liveHost({ customDomainAllowed: true, domains: [{ ...free, primary: false }, domain({ primary: true, status: 'broken' })] })).toBe('kesari.shops.example.com')
+    expect(liveHost({ customDomainAllowed: true, domains: [] })).toBeNull()
+  })
+
+  it('names "Start from scratch" as the prototype’s Custom, and an unknown key as itself', () => {
+    const list = [{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]
+    expect(templateName(list, 'linen')).toBe('Linen')
+    expect(templateName(list, 'baseline')).toBe(words.overview.custom)
+    expect(templateName(list, 'gone')).toBe('gone')
+  })
+
+  it('asks about the words only once the site exists, and shows the gallery until then', () => {
+    const before: StorefrontStatus[] = ['not_started', 'creating', 'create_failed']
+    const after: StorefrontStatus[] = ['not_published', 'same_as_live', 'unpublished_changes']
+    expect(before.some(hasSite)).toBe(false)
+    expect(after.every(hasSite)).toBe(true)
+    expect(needsTemplate('create_failed')).toBe(true)
+    expect(needsTemplate('creating')).toBe(false)
+  })
+
+  it('words a refused template, naming the place in the studio queue', () => {
+    expect(chooseRefusal(new ApiError('STUDIO_QUEUED', 'x', { place: 3 }))).toBe(fill(words.gallery.refused.STUDIO_QUEUED, { place: '3' }))
+    expect(chooseRefusal(new ApiError('STUDIO_QUEUED', 'x'))).toBe(words.gallery.refused.STUDIO_UNAVAILABLE)
+    expect(chooseRefusal(new ApiError('BRAND_NOT_READY', 'x'))).toBe(words.gallery.refused.BRAND_NOT_READY)
+    expect(chooseRefusal(new Error('offline'))).toBe(words.gallery.refused.other)
   })
 })

@@ -1,7 +1,7 @@
 import { uploadPhoto } from '../../api/productEditor'
-import { checkDomain, connectDomain, loadBrand, loadDomains, loadSeo, loadShareImages, makeDomainPrimary, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
+import { checkDomain, chooseTemplate, connectDomain, discardDraft, loadBrand, loadDomains, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
 import type { StorefrontDomains } from '../../api/storefront'
-import { sampleBrand, sampleDomains, sampleSeo, type StorefrontState } from './storefrontStates'
+import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
 
 /** What Storefront reads and writes: the Store API, or the harness's sample kept in memory (ui/README.md §6). */
 export interface StorefrontApi {
@@ -16,9 +16,14 @@ export interface StorefrontApi {
   removeDomain: typeof removeDomain
   loadShareImages: typeof loadShareImages
   uploadImage: typeof uploadPhoto
+  loadOverview: typeof loadOverview
+  loadTemplates: typeof loadTemplates
+  chooseTemplate: typeof chooseTemplate
+  discardDraft: typeof discardDraft
+  loadPoweredBy: typeof loadPoweredBy
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -26,6 +31,8 @@ export const sampleApi = (state: StorefrontState): StorefrontApi => {
   let seo = sampleSeo(state)
   let domains: StorefrontDomains = sampleDomains(state)
   let uploads = 0
+  let overview = sampleOverview(state)
+  let templates = sampleTemplates(state)
   const domain = (id: string) => domains.domains.find((d) => d.id === id)
   return {
     loadBrand: () => Promise.resolve(brand),
@@ -62,5 +69,21 @@ export const sampleApi = (state: StorefrontState): StorefrontApi => {
       uploads += 1
       return Promise.resolve({ ok: true, assetId: `sample-upload-${uploads}` })
     },
+    loadOverview: () => Promise.resolve(overview),
+    loadTemplates: () => Promise.resolve(templates),
+    // The first choice reads back as made at once: the harness has no Workflow to wait for.
+    chooseTemplate: (key) => {
+      const first = overview.status === 'not_started' || overview.status === 'create_failed'
+      const draft = { template: key, changedAt: new Date().toISOString(), previewReady: true }
+      overview = { ...overview, status: first ? 'not_published' : 'unpublished_changes', template: key, draft }
+      templates = templates.map((t) => ({ ...t, current: t.key === key }))
+      return Promise.resolve(first ? 'creating' : 'unpublished_changes')
+    },
+    discardDraft: () => {
+      overview = { ...overview, status: 'same_as_live', template: overview.live?.template ?? null, draft: null }
+      templates = templates.map((t) => ({ ...t, current: t.key === overview.template }))
+      return Promise.resolve()
+    },
+    loadPoweredBy: () => Promise.resolve({ removed: false, removable: true }),
   }
 }

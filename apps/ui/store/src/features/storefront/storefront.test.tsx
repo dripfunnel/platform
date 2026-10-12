@@ -6,19 +6,22 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import type { Acting } from '../../api/shell'
-import type { StorefrontBrand, StorefrontDomains, StorefrontSeo } from '../../api/storefront'
+import type { StorefrontBrand, StorefrontDomains, StorefrontOverview, StorefrontSeo, StorefrontTemplate } from '../../api/storefront'
+import { setBrand } from '../../brand/current'
 import { fill, messages } from '../../messages'
 import { storefrontTabs } from './storefrontAccess'
 
-// Storefront driven by each seat (FIRST-RELEASE §14): the brand step, the tabs, and Site settings' three cards.
+// Storefront driven by each seat (FIRST-RELEASE §14): the brand step, the gallery, the overview, the tabs, and Site settings' three cards.
 
 const words = messages.storefront
 const b = words.brand
 const d = words.domains
 const s = words.seo
+const o = words.overview
+const g = words.gallery
 const [warm = ''] = b.voices
 
-const api = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadSeo: vi.fn(), saveSeo: vi.fn(), loadDomains: vi.fn(), connectDomain: vi.fn(), checkDomain: vi.fn(), makeDomainPrimary: vi.fn(), removeDomain: vi.fn(), loadShareImages: vi.fn() }))
+const api = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadSeo: vi.fn(), saveSeo: vi.fn(), loadDomains: vi.fn(), connectDomain: vi.fn(), checkDomain: vi.fn(), makeDomainPrimary: vi.fn(), removeDomain: vi.fn(), loadShareImages: vi.fn(), loadOverview: vi.fn(), loadTemplates: vi.fn(), chooseTemplate: vi.fn(), discardDraft: vi.fn(), loadPoweredBy: vi.fn() }))
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
 const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
 vi.mock('../../api/productEditor', () => upload)
@@ -41,6 +44,13 @@ const records = [
 const onlyFree: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }] }
 const waiting: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { id: 'd1', host: 'www.kesari.in', kind: 'custom', status: 'waiting', primary: false, checkedAt: null, records }] }
 const live: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { id: 'd1', host: 'www.kesari.in', kind: 'custom', status: 'live', primary: false, checkedAt: null, records }] }
+
+const live12 = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen' }
+const sameAsLive: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: live12, draft: null }
+const withDraft: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: live12, draft: { template: 'linen', changedAt: null, previewReady: true } }
+const notStarted: StorefrontOverview = { status: 'not_started', template: null, live: null, draft: null }
+const template = (key: string, name: string, current = false): StorefrontTemplate => ({ key, name, tag: 'Tag', description: `${name} look`, demoUrl: `https://${key}.demo.example.com`, current })
+const templates = [template('baseline', 'Start from scratch'), template('linen', 'Linen', true), template('bloom', 'Bloom'), { ...template('market', 'Market'), demoUrl: 'http://market.demo.example.com' }]
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
@@ -71,6 +81,9 @@ beforeEach(() => {
   api.checkDomain.mockResolvedValue(undefined)
   api.removeDomain.mockResolvedValue(undefined)
   api.makeDomainPrimary.mockResolvedValue(undefined)
+  api.loadOverview.mockResolvedValue(sameAsLive)
+  api.loadTemplates.mockResolvedValue(templates)
+  api.loadPoweredBy.mockResolvedValue({ removed: false, removable: true })
 })
 
 afterEach(() => {
@@ -92,7 +105,7 @@ describe('storefront', () => {
     expect(screen.getByText(words.error.title)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
     await settle()
-    expect(screen.getByRole('heading', { name: words.design.nextTitle })).toBeTruthy()
+    expect(screen.getByRole('region', { name: fill(o.liveLabel, { number: '12' }) })).toBeTruthy()
   })
 
   it('has four tabs in the ARIA pattern: one tab stop, arrows, Home and End', async () => {
@@ -127,8 +140,9 @@ describe('storefront', () => {
 })
 
 describe('the brand step', () => {
-  it('comes first for the Owner, and waits for the name and the logo', async () => {
+  it('comes first for the Owner, waits for the name and the logo, then opens the gallery', async () => {
     api.loadBrand.mockResolvedValue(firstVisit)
+    api.loadOverview.mockResolvedValue(notStarted)
     upload.uploadPhoto.mockResolvedValue({ ok: true, assetId: 'a-new-logo' })
     await show({ tab: 'settings' })
     expect(screen.getByRole('heading', { level: 1, name: b.title })).toBeTruthy()
@@ -149,8 +163,7 @@ describe('the brand step', () => {
     await settle()
     expect(api.saveSeo).toHaveBeenCalledWith({ title: 'Kesari Threads — handloom', description: 'Handloom from Jaipur', shareImageAssetId: null })
     expect(api.saveBrand).toHaveBeenCalledWith(expect.objectContaining({ shopName: 'Kesari Threads', logoAssetId: 'a-new-logo', voice: warm, social: expect.objectContaining({ instagram: '@kesari' }), contactEmail: 'hello@kesari.in' }))
-    expect(screen.getByRole('heading', { name: words.design.nextTitle })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: words.tabs.design }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
   })
 
   it('shows a refusal at the field it names, and keeps the step', async () => {
@@ -186,6 +199,7 @@ describe('the brand step', () => {
 
   it('isn’t the Manager’s: they see the tabs read-only, with the notice', async () => {
     api.loadBrand.mockResolvedValue(firstVisit)
+    api.loadOverview.mockResolvedValue(notStarted)
     await show({ acting: manager, tab: 'settings' })
     expect(screen.queryByRole('heading', { name: b.title })).toBeNull()
     expect(screen.getByText(words.notice.manager)).toBeTruthy()
@@ -205,6 +219,201 @@ describe('the brand step', () => {
     expect(screen.getByText(words.notice.readOnly)).toBeTruthy()
     expect(field(s.pageTitle).readOnly).toBe(true)
     expect(screen.queryByRole('button', { name: d.makePrimary })).toBeNull()
+  })
+})
+
+describe('the overview', () => {
+  const onPlan: Acting = { ...owner, plan: { id: 'p1', name: 'Starter' } }
+  const brandWith = (poweredBy: boolean) => setBrand({ productName: 'Northstar', primaryColor: null, accentColor: null, font: null, corner: null, background: null, files: { logoLight: null, logoDark: null, mark: null, favicon: null }, supportEmail: null, supportUrl: null, helpUrl: null, poweredBy })
+  afterEach(() => setBrand(null))
+
+  it('gives the Owner the live line, View live site, Change template and the live version', async () => {
+    api.loadDomains.mockResolvedValue({ ...live, domains: live.domains.map((x) => ({ ...x, primary: x.kind === 'custom' })) })
+    await show()
+    expect(screen.getByText(fill(o.liveLine, { host: 'www.kesari.in', number: '12', template: 'Linen' }))).toBeTruthy()
+    const site = screen.getByRole('link', { name: o.viewLive })
+    expect(site.getAttribute('href')).toBe('https://www.kesari.in')
+    expect(site.getAttribute('target')).toBe('_blank')
+    expect(site.getAttribute('rel')).toContain('noopener')
+    expect(screen.getByRole('button', { name: o.changeTemplate })).toBeTruthy()
+    expect(screen.getByText(fill(o.liveAt, { host: 'www.kesari.in' }))).toBeTruthy()
+    expect(screen.queryByText(o.draftTitle)).toBeNull()
+  })
+
+  it('says "Not published yet" before the first publish, with nothing to view', async () => {
+    api.loadOverview.mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: { template: 'linen', changedAt: null, previewReady: false } })
+    await show()
+    expect(screen.getByText(o.notLive)).toBeTruthy()
+    expect(screen.queryByRole('link', { name: o.viewLive })).toBeNull()
+    expect(screen.getByRole('heading', { name: o.notPublishedTitle })).toBeTruthy()
+  })
+
+  it('discards unpublished changes only after asking, and reads the design again', async () => {
+    api.loadOverview.mockResolvedValueOnce(withDraft).mockResolvedValue(sameAsLive)
+    api.discardDraft.mockResolvedValue(undefined)
+    await show()
+    expect(screen.getByText(o.draftTitle)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: o.discard }))
+    expect(api.discardDraft).not.toHaveBeenCalled()
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: o.discardConfirm }))
+    await settle()
+    expect(api.discardDraft).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(o.draftTitle)).toBeNull()
+    expect(screen.getByText(o.discarded)).toBeTruthy()
+  })
+
+  it('shows a refused discard in the notice, and only there', async () => {
+    api.loadOverview.mockResolvedValue(withDraft)
+    api.discardDraft.mockRejectedValue(new ApiError('SUPPORT_READ_ONLY', 'No.'))
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: o.discard }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: o.discardConfirm }))
+    await settle()
+    expect(screen.getAllByRole('alert').map((a) => a.textContent)).toEqual([o.refused.SUPPORT_READ_ONLY])
+    fireEvent.click(screen.getByRole('button', { name: o.discard }))
+    expect(screen.queryAllByRole('alert')).toHaveLength(0)
+  })
+
+  it('shows the Manager the draft notice and the live version, with nothing to change', async () => {
+    api.loadOverview.mockResolvedValue(withDraft)
+    await show({ acting: manager })
+    expect(screen.getByText(words.notice.manager)).toBeTruthy()
+    expect(screen.getByText(o.draftTitle)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: o.discard })).toBeNull()
+    expect(screen.queryByRole('button', { name: o.changeTemplate })).toBeNull()
+    expect(screen.getByRole('link', { name: o.viewLive })).toBeTruthy()
+    expect(api.loadPoweredBy).not.toHaveBeenCalled()
+  })
+
+  it('shows a Manager "No storefront yet" before anything is live', async () => {
+    api.loadOverview.mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: null })
+    await show({ acting: manager })
+    expect(screen.getByRole('heading', { name: words.design.noSiteTitle })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: o.viewLive })).toBeNull()
+  })
+
+  it('is view-only while past due: no Discard, no Change template, no gallery', async () => {
+    api.loadOverview.mockResolvedValue({ ...withDraft })
+    await show({ readOnly: true })
+    expect(screen.getByText(words.notice.readOnly)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: o.discard })).toBeNull()
+    expect(screen.queryByRole('button', { name: o.changeTemplate })).toBeNull()
+  })
+
+  it('shows "Powered by" with Remove it on a plan that keeps it, and not on one that removes it', async () => {
+    brandWith(true)
+    await show({ acting: onPlan })
+    expect(screen.getByText(fill(o.powered, { brand: 'Northstar', plan: 'Starter' }))).toBeTruthy()
+    expect(screen.getByRole('link', { name: o.poweredRemove }).getAttribute('href')).toBe('/billing')
+    cleanup()
+    api.loadPoweredBy.mockResolvedValue({ removed: true, removable: true })
+    await show({ acting: onPlan })
+    expect(screen.queryByText(fill(o.powered, { brand: 'Northstar', plan: 'Starter' }))).toBeNull()
+  })
+
+  it('never asks for the plan when the partner shows no "Powered by"', async () => {
+    brandWith(false)
+    await show({ acting: onPlan })
+    expect(api.loadPoweredBy).not.toHaveBeenCalled()
+  })
+
+  it('reads a site being made again until it is ready', async () => {
+    api.loadOverview.mockResolvedValueOnce({ status: 'creating', template: 'linen', live: null, draft: null }).mockResolvedValue({ status: 'not_published', template: 'linen', live: null, draft: null })
+    await show()
+    expect(api.loadOverview.mock.calls.length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByRole('heading', { name: o.notPublishedTitle })).toBeTruthy()
+  })
+
+  it('shows "Setting up your storefront…" while it is made', async () => {
+    api.loadOverview.mockResolvedValue({ status: 'creating', template: 'linen', live: null, draft: null })
+    await show()
+    expect(screen.getByRole('heading', { name: o.creatingTitle })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: o.changeTemplate })).toBeNull()
+  })
+})
+
+describe('the template gallery', () => {
+  it('comes first for the Owner and starts the site with the template picked, without asking about words', async () => {
+    api.loadOverview.mockResolvedValueOnce(notStarted).mockResolvedValue({ status: 'creating', template: 'bloom', live: null, draft: null })
+    api.chooseTemplate.mockResolvedValue('creating')
+    await show()
+    expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
+    expect(screen.queryByRole('tab')).toBeNull()
+    expect(screen.queryByRole('button', { name: g.back })).toBeNull()
+    expect(screen.getAllByRole('listitem')).toHaveLength(4)
+    expect(screen.getByRole('button', { name: g.scratch })).toBeTruthy()
+    // Only an https demo is a link.
+    expect(screen.getAllByRole('link', { name: g.demo }).map((a) => a.getAttribute('href'))).toEqual(['https://baseline.demo.example.com', 'https://linen.demo.example.com', 'https://bloom.demo.example.com'])
+    const bloom = screen.getAllByRole('button', { name: g.use })[1] as HTMLElement
+    fireEvent.click(bloom)
+    fireEvent.click(bloom)
+    await settle()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(api.chooseTemplate).toHaveBeenCalledTimes(1)
+    expect(api.chooseTemplate).toHaveBeenCalledWith('bloom', true)
+    expect(screen.getByRole('heading', { name: o.creatingTitle })).toBeTruthy()
+    expect(screen.getByText(fill(g.switched, { name: 'Bloom' }))).toBeTruthy()
+  })
+
+  it('asks to keep the words when the template changes, and marks the current look', async () => {
+    api.chooseTemplate.mockResolvedValue('unpublished_changes')
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: o.changeTemplate }))
+    await settle()
+    expect(screen.getByRole('heading', { level: 1, name: g.change })).toBeTruthy()
+    const current = screen.getByText(g.current).closest('li') as HTMLElement
+    expect(within(current).getByRole('heading', { name: 'Linen' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: g.scratch }))
+    const ask = screen.getByRole('dialog')
+    expect(within(ask).getByRole('heading', { name: g.keepScratchTitle })).toBeTruthy()
+    fireEvent.click(within(ask).getByRole('button', { name: g.cancel }))
+    expect(api.chooseTemplate).not.toHaveBeenCalled()
+    fireEvent.click(screen.getAllByRole('button', { name: g.use })[1] as HTMLElement)
+    expect(within(screen.getByRole('dialog')).getByRole('heading', { name: fill(g.keepTitle, { name: 'Bloom' }) })).toBeTruthy()
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: g.templateWords }))
+    await settle()
+    expect(api.chooseTemplate).toHaveBeenCalledWith('bloom', false)
+    expect(screen.getByRole('tab', { name: words.tabs.design })).toBeTruthy()
+  })
+
+  it('keeps the words when asked to', async () => {
+    api.chooseTemplate.mockResolvedValue('unpublished_changes')
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: o.changeTemplate }))
+    await settle()
+    fireEvent.click(screen.getAllByRole('button', { name: g.use })[0] as HTMLElement)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: g.keepWords }))
+    await settle()
+    expect(api.chooseTemplate).toHaveBeenCalledWith('linen', true)
+  })
+
+  it('says where the studio queue stands when it refuses, and stays open', async () => {
+    api.chooseTemplate.mockRejectedValue(new ApiError('STUDIO_QUEUED', 'Waiting.', { place: 2 }))
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: o.changeTemplate }))
+    await settle()
+    fireEvent.click(screen.getAllByRole('button', { name: g.use })[1] as HTMLElement)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: g.keepWords }))
+    await settle()
+    expect(screen.getAllByRole('alert').map((a) => a.textContent)).toEqual([fill(g.refused.STUDIO_QUEUED, { place: '2' })])
+    expect(screen.getByRole('heading', { level: 1, name: g.change })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: g.back }))
+    await settle()
+    expect(screen.getByRole('tab', { name: words.tabs.design })).toBeTruthy()
+  })
+
+  it('offers the templates again when the site couldn’t be made', async () => {
+    api.loadOverview.mockResolvedValue({ status: 'create_failed', template: 'linen', live: null, draft: null })
+    await show()
+    expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
+    expect(screen.getByRole('alert').textContent).toBe(g.failed)
+  })
+
+  it('isn’t the Manager’s, even by its address', async () => {
+    api.loadOverview.mockResolvedValue(notStarted)
+    await show({ acting: manager })
+    expect(screen.queryByRole('heading', { name: g.first })).toBeNull()
+    expect(screen.getByRole('heading', { name: words.design.noSiteTitle })).toBeTruthy()
   })
 })
 

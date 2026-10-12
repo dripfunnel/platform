@@ -122,3 +122,42 @@ export const loadShareImages = async (): Promise<string[]> => {
   const photos = await query(`query P(${params}) { ${fields} }`, z.record(z.string(), z.object({ photos: z.array(z.object({ assetId: z.string().nullable() })).nullable() }).nullable()), Object.fromEntries(ids.map((id, i) => [`p${i}`, id])))
   return ids.map((_, i) => photos[`p${i}`]?.photos?.[0]?.assetId ?? null).filter((id): id is string => id !== null)
 }
+
+// The design itself (FIRST-RELEASE §19 "Built on #318"; apps/api/src/apis/store/storefront.ts and studio.ts).
+export const storefrontStatuses = ['not_started', 'creating', 'create_failed', 'not_published', 'same_as_live', 'unpublished_changes'] as const
+export type StorefrontStatus = (typeof storefrontStatuses)[number]
+
+const overviewSchema = z.object({
+  status: z.enum(storefrontStatuses),
+  template: text,
+  live: z.object({ number: z.number().int(), publishedAt: z.string(), template: text }).nullable(),
+  draft: z.object({ template: z.string(), changedAt: text, previewReady: z.boolean() }).nullable(),
+})
+export type StorefrontOverview = z.infer<typeof overviewSchema>
+
+export const loadOverview = async (): Promise<StorefrontOverview> =>
+  (await query('{ storefront { status template live { number publishedAt template } draft { template changedAt previewReady } } }', z.object({ storefront: overviewSchema }))).storefront
+
+const templateSchema = z.object({ key: z.string(), name: z.string(), tag: z.string(), description: z.string(), demoUrl: text, current: z.boolean() })
+export type StorefrontTemplate = z.infer<typeof templateSchema>
+
+/** "Start from scratch" (`baseline`) first, then the six templates. */
+export const loadTemplates = async (): Promise<StorefrontTemplate[]> =>
+  (await query('{ storefrontTemplates { key name tag description demoUrl current } }', z.object({ storefrontTemplates: z.array(templateSchema) }))).storefrontTemplates
+
+export const scratchTemplate = 'baseline'
+
+/** The first choice starts making the store's site (`creating`); a later one changes the draft. Answers the new status. */
+export const chooseTemplate = async (key: string, keepWords: boolean): Promise<StorefrontStatus> =>
+  (await query('mutation T($key: String!, $keep: Boolean!) { chooseTemplate(key: $key, keepWords: $keep) }', z.object({ chooseTemplate: z.enum(storefrontStatuses) }), { key, keep: keepWords })).chooseTemplate
+
+export const discardDraft = async (): Promise<void> => {
+  await query('mutation { discardDraft }', z.object({ discardDraft: z.boolean() }))
+}
+
+/** Whether the plan keeps "Powered by" in the footer, and whether another plan removes it (the `billing` read, Owner only). */
+export const loadPoweredBy = async (): Promise<{ removed: boolean; removable: boolean }> => {
+  const plans = (await query('{ planCatalogue { current values { key enabled } } }', z.object({ planCatalogue: z.array(z.object({ current: z.boolean(), values: z.array(z.object({ key: z.string(), enabled: z.boolean().nullable() })) })).nullable() }))).planCatalogue ?? []
+  const removes = (plan: (typeof plans)[number]) => plan.values.some((v) => v.key === 'powered_by_removal' && v.enabled === true)
+  return { removed: plans.some((p) => p.current && removes(p)), removable: plans.some((p) => !p.current && removes(p)) }
+}
