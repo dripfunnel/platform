@@ -47,6 +47,9 @@ export interface NewRun {
   startedBy: { kind: 'user' | 'staff' | 'system'; id: string | null }
   at: Date
   render?: PageRender | undefined
+  /** The upgrade bot's builds (ARCHITECTURE §7): a major's, checked and never uploaded; the baseline fallback's. */
+  checkOnly?: boolean | undefined
+  baseline?: boolean | undefined
 }
 
 /** The store's storefront row, locked, so two publishes or a publish and a go back take turns. */
@@ -83,9 +86,9 @@ export const hasActiveRun = async (tx: ScopedSql, storeId: string): Promise<bool
 
 export const insertQueuedRun = async (tx: ScopedSql, run: NewRun): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
-    insert into publish_run (store_id, kind, commit, template, core_version, uses_allowance, started_by_kind, started_by_id, created_at, render)
+    insert into publish_run (store_id, kind, commit, template, core_version, uses_allowance, started_by_kind, started_by_id, created_at, render, check_only, baseline)
     values (${run.storeId}, ${run.kind}, ${run.commit}, ${run.template}, ${run.coreVersion}, ${run.usesAllowance}, ${run.startedBy.kind}, ${run.startedBy.id}, ${run.at},
-      ${run.render ? tx.json({ pages: run.render.pages, drop: run.render.drop }) : null})
+      ${run.render ? tx.json({ pages: run.render.pages, drop: run.render.drop }) : null}, ${run.checkOnly ?? false}, ${run.baseline ?? false})
     returning id`
   if (!row) throw new Error('publish_run: insert returned nothing')
   return row.id
@@ -197,6 +200,19 @@ export const rollBackRun = async (tx: ScopedSql, run: RunRow, error: string, at:
     where id = ${run.store_id}`
   return { withdrawn, back: back?.number ?? null }
 }
+
+/** A check-only build passed (ARCHITECTURE §7): nothing went live, so the mirror says what it said before the run. */
+export const finishChecked = async (tx: ScopedSql, run: RunRow, at: Date): Promise<void> => {
+  await tx`update publish_run set finished_at = coalesce(finished_at, ${at}) where id = ${run.id}`
+  await tx`
+    update store set build_state = case when (select live_build_id from storefront where store_id = ${run.store_id}) is null then 'failed' else 'live' end
+    where id = ${run.store_id}
+      and not exists (select 1 from publish_run where store_id = ${run.store_id} and id <> ${run.id} and state in ('building', 'checking', 'deploying'))`
+}
+
+/** Where a run ended, or stands, for the upgrade bot that waits on it. */
+export const selectRunOutcome = async (tx: ScopedSql, storeId: string, runId: string): Promise<{ state: RunState; error: string | null } | null> =>
+  (await tx<{ state: RunState; error: string | null }[]>`select state, error from publish_run where id = ${runId} and store_id = ${storeId}`)[0] ?? null
 
 /** A failed run leaves the live build as it was; the mirror says live again when there is one (SAAS §9.1). */
 export const failRun = async (tx: ScopedSql, run: RunRow, error: string, at: Date): Promise<void> => {

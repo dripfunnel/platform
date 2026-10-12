@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -814,6 +814,19 @@ built and gated per store, and the upgrade bot must exist from day one.
   (below); a store that fails gets the **migration agent**
   (the AI with the errors and the upgrade notes, under the same walls); a store still failing
   **stays on its old version**, pinned, with an alert (CONSOLE-DESIGN L1–L3).
+  **Built on #485** (`saas/fleet/upgrade.ts`, one `jobs/workflows/core-upgrade.ts` instance per store, named by its
+  `core_rollout_store` id): the store's StudioSession makes the upgrade's commit in a sandbox of the new version
+  (storefront ARCHITECTURE §7.1) on the store's own code (its live build's source bundle, or the build of its own theme
+  the baseline replaced), kept privately under `upgrades/{store}/` with the files it changed; then a publish run of kind
+  `upgrade` (`security` for a security fix) with the new core, which starts only when the store has no publish running or
+  waiting, never merged into one. A patch or minor that stays live is `live`, and `storefront.upgrade_push` takes its
+  files to the repo's `main` through the push API; a major is built and gated with `check_only` (checked, never
+  uploaded or switched), `passed`, and waits on `storefront.core_upgrade_version`/`_commit` for the merchant's next
+  publish; anything else is `pinned` with the code on `core_pinned_reason`, `storefront.core_pinned` in the activity log
+  and `core_upgrade_pinned` in the technical log, and the live build as it was. *Decided on #485:* while the merchant's
+  studio is open the sandbox answers busy, and the bot waits 10 minutes at a time, two hours at most, then pins the store
+  as `studio_busy`; a store with a publish running or waiting is waited for 5 minutes at a time, six hours at most
+  (`store_busy`); a build is waited for four hours at most (`build_timed_out`), then its run is failed unless its build already switched, whose post-deploy checks get half an hour more to end, so a build never goes live behind a store marked pinned.
 - **Canaries, then waves**: a canary group first, then percentages, with pause and roll back
   per rollout; per-store gate result shown (L2). A rollout is a platform-level `job`.
 - **Majors** may change the look or the theme contract and ship **upgrade notes** and
