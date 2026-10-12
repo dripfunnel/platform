@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StaffMember } from '#auth/staff'
 import type { Keyset } from '#core/cursor'
+import { isUuid } from '#core/ids'
 import { countStoresByState, insertRollout, phaseCounts, selectReleaseForRollout, selectRollout, selectRollouts, setRolloutState, type RolloutRow, type StoreUpgradeState } from '#db/scoped/coreRollouts'
 import { uniqueViolation, withScope, type ScopedSql } from '#db/scoped/index'
 import { decodePage, pageOf, reasonText, staffEntry, type PageRequest } from '#saas/staff/index'
@@ -56,10 +57,14 @@ export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDe
     })
   }
 
-  const get = (id: string) => asStaff(async (tx) => {
-    const row = await selectRollout(tx, id)
-    return row ? view(tx, row) : null
-  })
+  const get = (rawId: string) => {
+    const id = rawId.toLowerCase()
+    if (!isUuid(id)) return Promise.resolve(null)
+    return asStaff(async (tx) => {
+      const row = await selectRollout(tx, id)
+      return row ? view(tx, row) : null
+    })
+  }
 
   /** One rollout at a time: a second is refused while one is running, paused or not. */
   const start = async (input: { version: string; security: boolean; reason: string }): Promise<FleetResult> => {
@@ -82,7 +87,9 @@ export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDe
   }
 
   type Next = Parameters<typeof setRolloutState>[2] | null
-  const change = (id: string, rawReason: string, action: string, next: (row: RolloutRow, tx: ScopedSql) => Next | Promise<Next>): Promise<FleetResult> => {
+  const change = (rawId: string, rawReason: string, action: string, next: (row: RolloutRow, tx: ScopedSql) => Next | Promise<Next>): Promise<FleetResult> => {
+    const id = rawId.toLowerCase()
+    if (!isUuid(id)) return Promise.resolve({ ok: false, code: 'NOT_FOUND' })
     const reason = reasonText.safeParse(rawReason)
     if (!reason.success) return Promise.resolve({ ok: false, code: 'INVALID_INPUT' })
     return asStaff(async (tx): Promise<FleetResult> => {

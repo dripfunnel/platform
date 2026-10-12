@@ -118,6 +118,8 @@ describe('the Admin API', () => {
     expect((await run(start('9.9.9'), 'staff-engineer')).code).toBe('NOT_FOUND')
     expect((await run('mutation { startCoreRollout(version: "1.1.0", security: false, reason: " ") { id } }', 'staff-engineer')).code).toBe('INVALID_INPUT')
     expect(await db.sql`select 1 from core_rollout where state in ('canary', 'waves', 'paused')`).toHaveLength(0)
+    expect((await run('{ coreRollout(id: "not-a-uuid") { id } }', 'staff-engineer')).data).toEqual({ coreRollout: null })
+    expect((await run(steer('pauseCoreRollout'), 'staff-engineer', { id: 'not-a-uuid', r: 'Pause' })).code).toBe('NOT_FOUND')
   })
 })
 
