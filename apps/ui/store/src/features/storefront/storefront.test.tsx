@@ -8,6 +8,7 @@ import { z } from 'zod'
 import type { Acting } from '../../api/shell'
 import type { StorefrontBrand, StorefrontDomains, StorefrontMeters, StorefrontOverview, StorefrontSeo, StorefrontTemplate, StorefrontVersion } from '../../api/storefront'
 import { setBrand } from '../../brand/current'
+import { historyPageSize } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
 import { storefrontTabs, storefrontViews } from './storefrontAccess'
 
@@ -550,6 +551,29 @@ describe('site settings › AI and build minutes, Version history', () => {
     fireEvent.click(within(screen.getByRole('dialog', { name: fill(h.askTitle, { number: '11' }) })).getByRole('button', { name: h.confirm }))
     await settle()
     expect(card(h.title).getByRole('alert').textContent).toBe(h.refused.SECURITY_RELEASE)
+  })
+
+  it('says the versions are loading, and offers to try again when they couldn’t be read', async () => {
+    api.loadHistory.mockReturnValueOnce(new Promise(() => undefined))
+    await show({ tab: 'settings' })
+    expect(card(h.title).getByRole('status').textContent).toBe(h.loading)
+    cleanup()
+    api.loadHistory.mockRejectedValueOnce(new Error('offline')).mockResolvedValue([version(12, true)])
+    await show({ tab: 'settings' })
+    expect(card(h.title).getByRole('alert').textContent).toBe(h.error)
+    fireEvent.click(card(h.title).getByRole('button', { name: h.retry }))
+    await settle()
+    expect(card(h.title).queryByRole('alert')).toBeNull()
+    expect(card(h.title).getByText(h.live)).toBeTruthy()
+  })
+
+  it('asks for older versions only after a full page', async () => {
+    api.loadHistory.mockResolvedValueOnce(Array.from({ length: historyPageSize }, (_, i) => version(100 - i, i === 0))).mockResolvedValue([version(40)])
+    await show({ tab: 'settings' })
+    fireEvent.click(card(h.title).getByRole('button', { name: h.more }))
+    await settle()
+    expect(api.loadHistory).toHaveBeenLastCalledWith(100 - historyPageSize + 1)
+    expect(card(h.title).queryByRole('button', { name: h.more })).toBeNull()
   })
 
   it('gives the Manager no Go back, and an empty history its words', async () => {

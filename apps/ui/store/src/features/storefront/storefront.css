@@ -385,8 +385,6 @@
   gap: 12px;
 }
 
-/* Site settings: Brand above Domains (FIRST-RELEASE §14); the prototype's second column, AI and build minutes and
-   Version history, comes with #318's operations. */
 /* Site settings: two columns from 820 px (PortalStorefront), Brand, Domains and Search and sharing first. */
 .df-sf-settings-columns {
   display: grid;
@@ -1137,5 +1135,9 @@
 }
 
 .df-sf-history .df-sf-link {
+  align-self: flex-start;
+}
+
+.df-sf .df-sf-history-retry {
   align-self: flex-start;
 }

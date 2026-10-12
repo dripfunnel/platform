@@ -1,6 +1,6 @@
 import { ConfirmDialog } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import type { StorefrontTemplate, StorefrontVersion } from '../../api/storefront'
+import { historyPageSize, type StorefrontTemplate, type StorefrontVersion } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
 import { templateName } from './overviewView'
@@ -32,11 +32,12 @@ export const HistoryCard = ({ templates, canEdit, api, liveNumber, onWent }: His
   const load = useCallback(
     (before: number | null) => {
       const ask = ++latest.current
+      if (before === null) setError(null)
       api.loadHistory(before).then(
         (page) => {
           if (ask !== latest.current) return
           setRows((was) => (before === null ? page : [...(was ?? []), ...page]))
-          setMore(page.length >= 50)
+          setMore(page.length >= historyPageSize)
         },
         () => ask === latest.current && setError(words.error),
       )
@@ -68,10 +69,20 @@ export const HistoryCard = ({ templates, canEdit, api, liveNumber, onWent }: His
         <h2 id={titleId}>{words.title}</h2>
         <p className="df-sf-lede">{words.lede}</p>
       </div>
+      {rows === null && !error && (
+        <p className="df-sf-lede" role="status">
+          {words.loading}
+        </p>
+      )}
       {error && (
         <p className="df-sf-failure" role="alert">
           {error}
         </p>
+      )}
+      {rows === null && error && (
+        <button type="button" className="df-button df-button--small df-sf-history-retry" onClick={() => load(null)}>
+          {words.retry}
+        </button>
       )}
       {rows && rows.length === 0 && <p className="df-sf-lede">{words.empty}</p>}
       {rows && rows.length > 0 && (

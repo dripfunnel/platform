@@ -198,7 +198,10 @@ export const publishNow = async (): Promise<string> => (await query('mutation { 
 const versionSchema = z.object({ id: z.string(), number: z.number().int(), template: z.string(), label: text, live: z.boolean(), publishedAt: z.string() })
 export type StorefrontVersion = z.infer<typeof versionSchema>
 
-/** Version history, newest first, 50 before a version's number. */
+/** The API's page of version history (apps/api saas/ai-designer `historyPage`); it answers no cursor, so a full page may have more. */
+export const historyPageSize = 50
+
+/** Version history, newest first, a page at a time before a version's number. */
 export const loadHistory = async (before: number | null): Promise<StorefrontVersion[]> =>
   (await query('query H($before: Int) { storefront { history(before: $before) { id number template label live publishedAt } } }', z.object({ storefront: z.object({ history: z.array(versionSchema) }) }), { before })).storefront.history
 
