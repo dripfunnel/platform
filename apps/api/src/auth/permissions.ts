@@ -29,6 +29,8 @@ export const staffPermissions = [
   'staff.manage',
   'partners.assign',
   'apps.manage',
+  'fleet.read',
+  'fleet.manage',
 ] as const
 
 export type StaffPermission = (typeof staffPermissions)[number]
@@ -69,6 +71,8 @@ export const rolePermissions: Record<StaffRole, readonly StaffPermission[]> = {
     'provisioning.retry',
     'provisioning.undo',
     'activity.export',
+    'fleet.read',
+    'fleet.manage',
   ],
   'staff-read-only': everyone,
 }

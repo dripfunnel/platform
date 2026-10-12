@@ -11,6 +11,16 @@ export interface StudioDraftRow {
   live_build_id: string | null
   store_core_version: string | null
   storefront_template: string | null
+  /** The build whose source a store without a draft starts from: its own theme's, while the baseline is served. */
+  own_build_id: string | null
+  /** The own build's commit, which its source bundle is checked out at (its main may be ahead of it). */
+  own_commit: string | null
+  own_template: string | null
+  own_core_version: string | null
+  /** What a draft moves onto before it publishes (AI-STUDIO §6 step 2): a major's passed upgrade, else the live commit. */
+  onto_commit: string | null
+  onto_version: string | null
+  onto_upgrade: boolean
 }
 
 /** What the studio starts from (AI-STUDIO §3 step 4): the draft if there is one, else the live build, else the template. */
@@ -18,23 +28,45 @@ export const selectStudioStart = async (tx: ScopedSql, storeId: string): Promise
   (
     await tx<StudioDraftRow[]>`
       select d.head_commit, d.template, d.core_version, d.preview_deploy_ref, f.live_build_id,
-        s.core_version as store_core_version, f.template as storefront_template
+        s.core_version as store_core_version, f.template as storefront_template,
+        o.id as own_build_id, o.commit as own_commit, o.template as own_template, o.core_version as own_core_version,
+        coalesce(f.core_upgrade_commit, case when f.theme_mode = 'own' then r.commit end) as onto_commit,
+        coalesce(f.core_upgrade_version, case when f.theme_mode = 'own' then r.core_version end) as onto_version,
+        f.core_upgrade_commit is not null as onto_upgrade
       from storefront f join store s on s.id = f.store_id left join design_draft d on d.store_id = f.store_id
+        left join publish_run r on r.id = f.live_build_id
+        left join publish_run o on o.id = case when f.theme_mode = 'baseline' then coalesce(f.baseline_from_build_id, f.live_build_id) else f.live_build_id end
       where f.store_id = ${storeId}`
   )[0] ?? null
 
 /** An accepted change moves the draft's head and its preview together (AI-STUDIO §4 steps 6–7, PREVIEW §4 step 3). */
 export const moveDraft = async (
   tx: ScopedSql,
-  d: { storeId: string; head: string; template: string; coreVersion: string; previewRef: string; userId: string; at: Date; customPaths: readonly string[] },
+  d: { storeId: string; head: string; template: string; coreVersion: string; previewRef: string; userId: string | null; at: Date; customPaths: readonly string[] },
 ): Promise<void> => {
   await tx`
-    insert into design_draft (store_id, head_commit, template, core_version, changed_at, changed_by, preview_deploy_ref)
-    values (${d.storeId}, ${d.head}, ${d.template}, ${d.coreVersion}, ${d.at}, ${d.userId}, ${d.previewRef})
-    on conflict (store_id) do update set head_commit = excluded.head_commit, changed_at = excluded.changed_at,
+    insert into design_draft (store_id, head_commit, template, core_version, changed_at, changed_by, preview_deploy_ref, commits)
+    values (${d.storeId}, ${d.head}, ${d.template}, ${d.coreVersion}, ${d.at}, ${d.userId}, ${d.previewRef}, ${pgArray([d.head])}::text[])
+    on conflict (store_id) do update set head_commit = excluded.head_commit, template = excluded.template, changed_at = excluded.changed_at,
       changed_by = excluded.changed_by, preview_deploy_ref = excluded.preview_deploy_ref,
       commits = case when design_draft.head_commit = excluded.head_commit then design_draft.commits else array_append(design_draft.commits, excluded.head_commit) end`
   await tx`update storefront set custom_paths = ${pgArray(d.customPaths)}::text[] where store_id = ${d.storeId}`
+}
+
+/** A draft row whose commit never reached the studio's bundle starts again from the studio's head (its first commit). */
+export const restartDraft = async (tx: ScopedSql, storeId: string, head: string): Promise<void> => {
+  await tx`update design_draft set head_commit = ${head}, commits = ${pgArray([head])}::text[] where store_id = ${storeId}`
+}
+
+/** Discard (AI-STUDIO §5): the draft row goes, so the preview shows the live code (PREVIEW §3) and the studio loads it. */
+export const deleteDraft = async (tx: ScopedSql, storeId: string): Promise<void> => {
+  await tx`delete from design_draft where store_id = ${storeId}`
+}
+
+/** The draft moved onto an upgrade (AI-STUDIO §6 step 2): its new head, on the upgrade's core. */
+export const rebaseDraft = async (tx: ScopedSql, d: { storeId: string; head: string; coreVersion: string; at: Date }): Promise<void> => {
+  // The replayed changes have new ids, so the bisect chain starts again from the new head (ARCHITECTURE §4.2 step 4).
+  await tx`update design_draft set head_commit = ${d.head}, core_version = ${d.coreVersion}, commits = ${pgArray([d.head])}::text[], changed_at = ${d.at} where store_id = ${d.storeId}`
 }
 
 /** The partner's live portal host: the only page that may frame the studio (ARCHITECTURE §3.5 `frame-ancestors`). */
@@ -63,13 +95,13 @@ export const selectGuardContext = async (tx: ScopedSql, storeId: string): Promis
       from store s where s.id = ${storeId}`
   )[0] ?? null
 
-export type AiRunKind = 'design' | 'repair'
+export type AiRunKind = 'design' | 'repair' | 'migration'
 export type AiRunOutcome = 'changed' | 'unchanged' | 'refused' | 'failed'
 
 export interface AiRunInput {
   storeId: string
   kind: AiRunKind
-  requestedBy: string
+  requestedBy: string | null
   prompt: string
   model: string
   tokensIn: number
@@ -136,6 +168,11 @@ export const renewStudioSession = async (
       where id_hash = ${s.idHash} and store_id = ${s.storeId} and user_id = ${s.userId} and user_session_hash = ${s.userSessionHash}
         and expires_at > ${s.at}`
   ).count === 1
+
+/** Ends a frame session its own user asks to renew after losing the store: whatever store it was for. */
+export const deleteUserStudioSession = async (tx: ScopedSql, userId: string, idHash: string): Promise<void> => {
+  await tx`delete from studio_session where id_hash = ${idHash} and user_id = ${userId}`
+}
 
 export const deleteStudioSession = async (tx: ScopedSql, storeId: string, idHash: string): Promise<void> => {
   await tx`delete from studio_session where id_hash = ${idHash} and store_id = ${storeId}`

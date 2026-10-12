@@ -41,7 +41,7 @@ export type StaffSessionKind = 'impersonation' | 'setup'
 export type BlockedSessionKind = StaffSessionKind | 'support'
 
 /** The writes LOGGING.md §3 leaves out of the activity log, each by the rule that says so. */
-export type UnloggedRule = 'cart' | 'payment_return'
+export type UnloggedRule = 'cart' | 'payment_return' | 'studio_renewal'
 
 declare module 'graphql' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- a merge must repeat graphql's own parameter list

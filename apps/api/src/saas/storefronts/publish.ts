@@ -31,6 +31,7 @@ import {
   selectStorefrontHost,
   selectVersion,
   setBisectCommit,
+  selectNewerSecurityCore,
   setRepairAttempts,
   startRun,
   switchLive,
@@ -46,7 +47,8 @@ import { queueSideEffect } from '#saas/outbox/index'
 import { buildLifetimeMs } from './builds'
 import { maxRepairs } from '#saas/studio/index'
 import { dispatchBuild, freezeBuild, freezeRefusals, type FreezeDeps } from './freeze'
-import { buildFolder, manifestName, stagingFolder } from './layout'
+import { buildFolder, manifestName, publishedTheme, stagingFolder } from './layout'
+import type { PushResult, RepoFile } from './push'
 import { manifestSchema } from './manifest'
 import { failedCheck, runPostDeployChecks, type CheckResult } from './postDeploy'
 import { deletePrefix, type SitesBucket } from './templates'
@@ -156,6 +158,8 @@ export interface PublishDeps extends FreezeDeps {
   /** `sf-assets.<EDGE_ZONE>` (LIVE-SHOP §2): with the store's own host, the only one whose scripts the checks load. */
   assetHost: string
   wait: (ms: number) => Promise<void>
+  /** The push API (`push.ts`) through the GitHub App; absent where GitHub isn't configured, and then nothing is pushed. */
+  push?: (input: { storeId: string; buildId: string; version: number; files: RepoFile[] }) => Promise<PushResult>
 }
 
 /**
@@ -311,6 +315,31 @@ const confirmStep = async (deps: PublishDeps, p: PublishParams, buildId: string)
   return confirmed ? 'live' : 'stopped'
 }
 
+const themeSchema = z.object({ files: z.array(z.object({ path: z.string(), content: z.string() })).max(1000) })
+
+/**
+ * A design publish that stayed live reaches the public repo's main as one squashed commit with a platform-written message
+ * (AI-STUDIO §6 step 4), from the theme the studio kept for that commit; a failed push leaves the live site as it is.
+ */
+const pushStep = async (deps: PublishDeps, p: PublishParams, buildId: string): Promise<string> => {
+  const run = await withSystemScope(deps.sql, async (tx) => {
+    const found = await selectRun(tx, buildId)
+    return found ? { ...found, version: await versionOfBuild(tx, found.id) } : null
+  })
+  if (!deps.push || !run || run.store_id !== p.storeId || run.kind !== 'design' || run.version === null) return 'skipped'
+  const kept = await deps.drafts.get(publishedTheme(p.storeId, run.commit))
+  const theme = kept ? themeSchema.safeParse(JSON.parse(await kept.text())) : null
+  if (!theme?.success) {
+    logEvent({ event: 'storefront_push_skipped', api: 'system', storeId: p.storeId, code: 'no_theme' })
+    return 'no_theme'
+  }
+  const pushed = await deps.push({ storeId: p.storeId, buildId, version: run.version, files: theme.data.files })
+  // `publish:{build}` is idempotent, so a main that moved meanwhile is retried by the step.
+  if (!pushed.ok && pushed.code === 'MAIN_MOVED') throw new Error('push: main moved')
+  if (!pushed.ok) logEvent({ event: 'storefront_push_refused', api: 'system', storeId: p.storeId, code: pushed.code })
+  return pushed.ok ? 'pushed' : pushed.code
+}
+
 /**
  * The automatic rollback (LIVE-SHOP §4 step 10): the pointer moves back to the build `buildId` replaced; a repaired
  * publish fails with it. Idempotent: a replay finds the build rolled back and changes nothing.
@@ -346,7 +375,15 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string, build
     if (!run || run.store_id !== p.storeId || run.switched_at || run.state === 'live' || run.state === 'failed' || run.state === 'rolled_back') return []
     const ended = await failOpenAttempts(tx, p.storeId, p.runId, code, deps.now())
     await failRun(tx, run, code, deps.now())
-    await activityLog.record(tx, systemEntry(run, 'storefront.publish_failed', 'failed', [{ field: 'error', before: null, after: code }]))
+    // A design the gate refused is the merchant's to fix in the studio: refused, naming the failing check (LOGGING §3).
+    const refused = run.kind === 'design' && (code === 'gate_failed' || code === 'bisected')
+    const check = refused ? ((await selectFailingChecks(tx, p.storeId, p.runId))[0]?.split(':')[0] ?? null) : null
+    await activityLog.record(
+      tx,
+      refused
+        ? systemEntry(run, 'storefront.publish_refused', 'failed', [{ field: 'error', before: null, after: code }, { field: 'check', before: null, after: check }])
+        : systemEntry(run, 'storefront.publish_failed', 'failed', [{ field: 'error', before: null, after: code }]),
+    )
     await queueNext(tx, run.store_id, run.partner_id)
     return ended
   })
@@ -359,20 +396,23 @@ const failStep = async (deps: PublishDeps, p: PublishParams, code: string, build
  * publish runs, once the build moved on, or when clean-up removed the build before it.
  */
 export const rollBackLiveBuild = (sql: postgres.Sql, input: { storeId: string; runId: string; code: string; now: Date }): Promise<'rolled_back' | 'busy' | 'refused'> =>
-  withSystemScope(sql, async (tx) => {
-    const storefront = await lockStorefront(tx, input.storeId)
-    const run = await selectRun(tx, input.runId)
-    if (!storefront || !run || run.store_id !== input.storeId || run.state !== 'live' || storefront.live_build_id !== run.id || !run.previous_build_id) return 'refused'
-    if (await hasActiveRun(tx, input.storeId)) return 'busy'
-    if (!(await buildFilesKept(tx, run.previous_build_id))) return 'refused'
-    const versions = await rollBackRun(tx, run, input.code, input.now)
-    await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `rollback:${run.id}`, payload: { storeId: run.store_id, reason: 'rollback' }, partnerId: run.partner_id, storeId: run.store_id })
-    await activityLog.record(tx, {
-      ...systemEntry(run, 'storefront.rolled_back', 'failed', [{ field: 'version', before: versions.withdrawn === null ? null : String(versions.withdrawn), after: versions.back === null ? null : String(versions.back) }]),
-      reason: input.code,
-    })
-    return 'rolled_back'
+  withSystemScope(sql, (tx) => rollBackLive(tx, input))
+
+/** The same pointer move in the caller's transaction: a rolled-back core rollout puts its stores back with it (SAAS §10). */
+export const rollBackLive = async (tx: ScopedSql, input: { storeId: string; runId: string; code: string; now: Date }): Promise<'rolled_back' | 'busy' | 'refused'> => {
+  const storefront = await lockStorefront(tx, input.storeId)
+  const run = await selectRun(tx, input.runId)
+  if (!storefront || !run || run.store_id !== input.storeId || run.state !== 'live' || storefront.live_build_id !== run.id || !run.previous_build_id) return 'refused'
+  if (await hasActiveRun(tx, input.storeId)) return 'busy'
+  if (!(await buildFilesKept(tx, run.previous_build_id))) return 'refused'
+  const versions = await rollBackRun(tx, run, input.code, input.now)
+  await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `rollback:${run.id}`, payload: { storeId: run.store_id, reason: 'rollback' }, partnerId: run.partner_id, storeId: run.store_id })
+  await activityLog.record(tx, {
+    ...systemEntry(run, 'storefront.rolled_back', 'failed', [{ field: 'version', before: versions.withdrawn === null ? null : String(versions.withdrawn), after: versions.back === null ? null : String(versions.back) }]),
+    reason: input.code,
   })
+  return 'rolled_back'
+}
 
 const errorCodes: Record<string, string> = { Busy: 'busy', BuildMissing: 'build_missing', UploadTimedOut: 'upload_timed_out', ReportTimedOut: 'report_timed_out', GateFailed: 'gate_failed', Bisected: 'bisected' }
 // A step's error may come back from the Workflow runtime as a plain Error, so a refusal's code travels as its message.
@@ -439,10 +479,13 @@ const repairs = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams)
   for (let n = 1; n <= maxRepairs; n += 1) {
     const from = failed
     await steps.do(`repair-${n}:count`, () => withSystemScope(deps.sql, (tx) => setRepairAttempts(tx, p.storeId, p.runId, n)).then(() => String(n)))
-    const commit = await steps.do(`repair-${n}`, async () => {
-      const failing = await withSystemScope(deps.sql, (tx) => selectFailingChecks(tx, p.storeId, from))
-      return (await repair(p.storeId, failing, `${p.runId}:${n}`)) ?? 'none'
-    })
+    // A repair still out of reach after the step's retries ends the repairs; bisect follows.
+    const commit = await steps
+      .do(`repair-${n}`, async () => {
+        const failing = await withSystemScope(deps.sql, (tx) => selectFailingChecks(tx, p.storeId, from))
+        return (await repair(p.storeId, failing, `${p.runId}:${n}`)) ?? 'none'
+      })
+      .catch(() => 'none')
     if (commit === 'none') return null
     const built = await attemptBuild(deps, steps, p, 'repair', commit, `repair-${n}:`)
     if (built.passed) return built.id
@@ -505,7 +548,10 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
     if ((await steps.do('switch', () => switchStep(deps, p, liveId))) === 'stopped') return 'stopped'
     const verdict = await steps.do('checks', () => checksStep(deps, p.storeId, liveId), 'long')
     if (verdict !== 'passed') return (await steps.do('rollback', () => rollbackStep(deps, p, liveId, verdict))) === 'rolled_back' ? 'rolled_back' : 'stopped'
-    return (await steps.do('confirm', () => confirmStep(deps, p, liveId))) === 'live' ? 'live' : 'stopped'
+    if ((await steps.do('confirm', () => confirmStep(deps, p, liveId))) !== 'live') return 'stopped'
+    // The build is live whatever the push does; one still failing after its retries waits for the next publish's push.
+    await steps.do('push', () => pushStep(deps, p, liveId)).catch((error: unknown) => logEvent({ event: 'storefront_push_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
+    return 'live'
   } catch (error) {
     const code = codeOf(error)
     logEvent({ event: 'storefront_publish_failed', api: 'system', storeId: p.storeId, code: `${code}:${failureCode(error)}` })
@@ -528,7 +574,7 @@ export const publishBefore = async (tx: ScopedSql, input: { storeId: string; com
   return startPublish(tx, { storeId: input.storeId, kind: 'design', commit: before, template: bisected.template, coreVersion: bisected.core_version, usesAllowance: false, startedBy: { kind: input.by ? 'user' : 'system', id: input.by }, at: input.at })
 }
 
-export type GoBackResult = { ok: true } | { ok: false; reason: 'NOT_FOUND' | 'ALREADY_LIVE' | 'PUBLISH_RUNNING' | 'BUILD_GONE' }
+export type GoBackResult = { ok: true } | { ok: false; reason: 'NOT_FOUND' | 'ALREADY_LIVE' | 'PUBLISH_RUNNING' | 'BUILD_GONE' | 'SECURITY_RELEASE' }
 
 /** Who asked, as the Store API knows them (#318 calls this); the entry's action and target are filled in here. */
 export type GoBackActor = Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'onBehalfOf' | 'access' | 'api' | 'host' | 'requestId' | 'ip' | 'userAgent'>
@@ -545,8 +591,10 @@ export const goBack = (sql: postgres.Sql, input: { storeId: string; versionId: s
     if (!version) return { ok: false, reason: 'NOT_FOUND' }
     if (version.state === 'live') return { ok: false, reason: 'ALREADY_LIVE' }
     if (await hasActiveRun(tx, input.storeId)) return { ok: false, reason: 'PUBLISH_RUNNING' }
+    // A newer security release of core is never undone (SAAS §9.2): its rebuild of the version is the upgrade bot's to own (#485).
+    if (await selectNewerSecurityCore(tx, version.core_version)) return { ok: false, reason: 'SECURITY_RELEASE' }
     if (version.files_deleted) return { ok: false, reason: 'BUILD_GONE' }
-    await moveLiveTo(tx, input.storeId, version, input.by, input.now)
+    await moveLiveTo(tx, input.storeId, version, input.now)
     await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `go-back:${input.storeId}:${input.now.toISOString()}`, payload: { storeId: input.storeId, reason: 'go-back' }, partnerId: storefront.partner_id, storeId: input.storeId })
     await activityLog.record(tx, {
       ...input.actor,

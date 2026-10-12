@@ -38,6 +38,13 @@ describe('createShopClient', () => {
     await expect(createShopClient().request('{ health }')).rejects.toMatchObject({ code: 'HTTP_503' })
   })
 
+  it('tells its listener of every refusal, such as a closed preview', async () => {
+    respond({ errors: [{ message: 'This preview has closed.', extensions: { code: 'PREVIEW_CLOSED' } }] }, { status: 403 })
+    const heard: string[] = []
+    await expect(createShopClient({ onError: (e) => heard.push(e.code) }).request('{ health }')).rejects.toMatchObject({ code: 'PREVIEW_CLOSED' })
+    expect(heard).toEqual(['PREVIEW_CLOSED'])
+  })
+
   it('decodes an answer with its schema, and refuses one that drifted', async () => {
     respond({ data: { store: { name: 'Juniper' } } })
     await expect(createShopClient().query('{ store { name } }', z.object({ store: z.object({ name: z.string() }) }))).resolves.toEqual({ store: { name: 'Juniper' } })

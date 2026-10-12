@@ -83,13 +83,16 @@ describe('the sandbox server', () => {
     expect((await fetch(`${base}/slots/store-a/client/../../repo/package.json`)).status).toBe(404)
   })
 
-  it('gives the frame’s page core’s studio CSP for the origins it is sent, and nothing to a page asked without them', async () => {
+  it('gives the frame’s page core’s studio CSP and the portal it names for the origins it is sent, and neither to a page asked without them', async () => {
     const framed = await fetch(`${base}/slots/store-a/client/index.html`, { headers: { 'x-df-frame-media': 'https://k7f3q9f2xa.webpreview.store', 'x-df-frame-portal': 'https://store.partner-a.example' } })
     const csp = framed.headers.get('content-security-policy') ?? ''
     expect(csp).toContain("default-src 'none'")
     expect(csp).toContain("script-src 'self'")
     expect(csp).toContain('frame-ancestors https://store.partner-a.example')
-    expect((await fetch(`${base}/slots/store-a/client/index.html`)).headers.get('content-security-policy')).toBeNull()
+    expect(await framed.text()).toContain('<meta name="df-studio-portal" content="https://store.partner-a.example">')
+    const plain = await fetch(`${base}/slots/store-a/client/index.html`)
+    expect(plain.headers.get('content-security-policy')).toBeNull()
+    expect(await plain.text()).not.toContain('df-studio-portal')
   })
 
   it('exports the theme from the entry and boots it once, so the hot reload can load a later one', async () => {
@@ -143,6 +146,19 @@ describe('the sandbox server', () => {
     const bytes = Buffer.from(await res.arrayBuffer())
     const loaded = await fetch(`${base}/slots/store-b/draft`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: bytes })
     expect(((await loaded.json()) as Json)['head']).toBe(await head('store-a'))
+  })
+
+  it('loads a bundle at an earlier commit of its own, and refuses one it doesn’t hold', async () => {
+    const bytes = Buffer.from(await (await fetch(`${base}/slots/store-a/bundle`)).arrayBuffer())
+    const first = await head('store-a')
+    const next = (await change('store-a', homeWords('A lead past the live one.'), 'Later')).body['commit'] as string
+    expect(next).not.toBe(first)
+    const ahead = Buffer.from(await (await fetch(`${base}/slots/store-a/bundle`)).arrayBuffer())
+    const at = await fetch(`${base}/slots/store-b/draft?at=${first}`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: ahead })
+    expect(((await at.json()) as Json)['head']).toBe(first)
+    const unknown = await fetch(`${base}/slots/store-b/draft?at=${'f'.repeat(40)}`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: bytes })
+    expect(unknown.status).toBe(500)
+    expect((await fetch(`${base}/slots/store-b/draft?at=main`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: bytes })).status).toBe(400)
   })
 
   it('serves the preview files of the current bundle with their hashes, never core', async () => {

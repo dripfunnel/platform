@@ -78,6 +78,10 @@ built from the fast gate's bundle, the frame on the store's preview origin).
      row exists);
    - otherwise from the **live build's source bundle** (LIVE-SHOP §4 step 3), the published code.
 
+   **Built on #318:** the draft bundle is read only while the `design_draft` row exists, and the live build's source
+   bundle is checked out at the live build's own commit (the sandbox's `PUT draft?at=`), since a design publish's
+   source may hold later changes. While a security fix serves the baseline, that is the store's own build instead
+   (ARCHITECTURE §7, #485).
    *Why the Durable Object and not the container:* the container has no network. *Why never
    GitHub:* it doesn't have the unpublished changes, its `main` can lag behind a publish whose push
    is still retrying, and reading R2 doesn't use GitHub's API limits.
@@ -138,6 +142,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **Discard** resets the draft to the live version's commit (the live build's source bundle,
   never GitHub's `main`), deletes the
   draft bundle and the `design_draft` row, and points the preview at the live code.
+  **Built on #318:** Discard runs in the store's Durable Object's turn, so no change lands between: the row goes, then
+  the bundle, then the sandbox unloads and the next open loads the live code. Undo answers `NOT_LATEST` for any change
+  but the latest still in place.
 - **Go back to version N** first makes that version's build live again by moving the pointer
   ([LIVE-SHOP.md](LIVE-SHOP.md) §4 step 10), then resets the draft to that version's commit
   (ARCHITECTURE §6.2, including its security-release exception).
@@ -151,8 +158,12 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    `package.json` and apply the release's codemods, which may edit theme files; ARCHITECTURE §7.1), the container
    rebases the draft onto it first and runs the fast gate again. **Built on #485** (the sandbox's `PUT /slots/{slot}/onto` and `POST /slots/{slot}/rebase`):
    the draft's own commits are replayed onto the upgrade's commit, then the validator and the fast gate run; a conflict
-   (`rebase/conflict`; a commit missing from the bundle sent, `rebase/missing-onto`, or with no history in common, `rebase/unrelated`) or a refusal leaves the draft exactly as it was, and rebasing onto a commit the draft already has
-   changes nothing.
+   (`rebase/conflict`; a commit missing from the bundle sent, `rebase/missing-onto`, or with no history in common,
+   `rebase/unrelated`) or a refusal leaves the draft exactly as it was, and rebasing onto a commit the draft already has
+   changes nothing. The Durable Object's `prepareToPublish` (which #318's Publish calls first) moves the draft onto the
+   live commit when that is on a newer core, or onto a major's passed upgrade waiting on the storefront (SAAS §10), in a
+   sandbox of that version, saves the draft at its new head and core (its bisect chain starts again from it), and
+   answers the head to publish; a conflict or a refusal answers the gate's problems and keeps the draft on its own core.
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
    workflow fetches through a 15-minute link. Nothing is pushed yet.
@@ -165,6 +176,15 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    *Why:* the design becomes public only when it is live (decided 2026-10-09 with Gaurav,
    #520). One push per publish stays far below GitHub's limit of 6 pushes a minute per
    repo.
+
+   **Built on #318:** at Publish (and "Publish everything before"), the store's Durable Object, in its turn, keeps the
+   published commit's theme privately (`sources/{store}/themes/{commit}.json` in the drafts bucket; the sandbox's
+   `GET theme?at=`); once the publish is live, its Workflow's last step pushes that theme through the push API under the key
+   `publish:{build}`. A publish's repair is a change by the Durable Object, the platform's cost, its theme kept the same
+   way; a draft published to its head has no row afterwards, as after Discard. Go back runs in the Durable Object's turn
+   and resets the draft to the version (no row); across a newer security release of core it is refused
+   (`SECURITY_RELEASE`), so a forced fix is never undone, and the version's free rebuild on the fixed core is left to the
+   upgrade bot (#485).
 
    **The push API** (`saas/storefronts/push.ts`, built on #316): the caller names the reason
    (`publish` with the version and build id, `template`, or the upgrade bot's `upgrade`) and the
@@ -215,6 +235,21 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **AI-written code runs only on the store's preview origin**, never on the portal host
   (decision above). The studio and the frame talk by `postMessage`, and each checks the other's
   origin.
+  **Built on #319 (part 4)** *(decided there)*: the studio accepts a frame address only when it is https, under
+  `/__studio/`, and not on the portal's origin. It shows another page by setting the frame's address under the
+  session's path, never by reading or writing the frame's DOM. It hears a message only from the frame's own window and
+  the frame's origin, and only `{ type: 'df-studio:page', path }` (the page the frame moved to) and
+  `{ type: 'df-studio:text', key }` (the words picked for Edit text, keyed like `pages:home.lead`); it posts only
+  `{ type: 'df-studio:edit', on }`, to the frame's origin.
+  **The frame's side, built on #679** *(decided there)*: only in core's `studio` render mode, core's `connectStudioFrame`
+  posts `df-studio:page` with the page's path (the session's prefix taken off) for the first page and after every
+  navigation, and hears `df-studio:edit` only from `window.parent` at the portal's origin. The sandbox writes that origin
+  into the frame's page as `<meta name="df-studio-portal">` from the same value its CSP's `frame-ancestors` lists, and
+  every message goes only to it, never `'*'`; a page with no `<head>` to carry it is refused, so the feature never fails silently. While Edit text is on, core outlines hovered words (a dark dashed ring on a white
+  halo, so one of the two shows at 3:1 on any theme's background) and a click posts `df-studio:text` instead of acting: core's `t()` remembers each string of the theme's own content it renders
+  with its key (`content/en/home.json`'s `hero.title` is `home:hero.title`), and the click's element, or its nearest
+  ancestor with words of its own, is looked up there; identical words resolve to the first key shown. Live and preview
+  pages carry no portal and connect nothing.
 - **The studio-session id** (§3 step 6) is a bearer credential in the frame's path, so it is
   held to these rules:
   - **Bound** to one store, one user and the portal session that opened the studio. It is

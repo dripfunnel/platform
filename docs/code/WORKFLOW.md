@@ -75,7 +75,10 @@ that also closes another issue names that one.
 (`build typecheck lint test`), then `naming` and, beside it, `changesets` (a change to
 `packages/storefront-core` must add a changeset naming it, ARCHITECTURE.md §5; added on #303).
 Each starts only if the one before passed, so a red review leaves the others *skipped* until
-the next push (decided 2026-10-04). A push to `main` runs `gates`, and `release.yml`
+the next push (decided 2026-10-04). `gates` runs only on a pull request into `dev` or `main`; a
+stacked one skips it and runs `naming` and `changesets` after the review. A stacked pull request
+moved onto `dev` gets its gates on its next push or a re-run; until then `gates` shows *skipped*,
+and `dev.yml`'s own gates still stop a broken deploy. A push to `main` runs `gates`, and `release.yml`
 (storefront-core's release, ARCHITECTURE.md §5).
 
 The rules live in one place, [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs), with

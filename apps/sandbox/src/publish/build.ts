@@ -31,7 +31,7 @@ const renderPages = async (server: ServerTheme, pages: readonly PlannedPage[], s
     if (!Page) continue
     let body: string
     try {
-      body = server.render(Page, { store, poweredBy: s.poweredBy })
+      body = server.render(Page, { store, poweredBy: s.poweredBy, path: page.path })
     } catch {
       thrown.push(`The ${pageName(page)} (${page.path}) failed while rendering.`)
       continue

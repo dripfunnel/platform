@@ -1,9 +1,13 @@
-import { Link, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { Image, Link, useCollections, useProducts, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Layout } from '../components/Layout'
+import { GridPlaceholder, ProductGrid } from '../components/ProductCard'
+import shop from '../styles/shop.module.css'
 import styles from '../styles/home.module.css'
 
 export const HomePage = () => {
   const { store, t } = useStorefront()
+  const { collections } = useCollections({ first: 4 })
+  const newest = useProducts({ sort: 'newest', first: 4 })
   return (
     <Layout>
       <section className={styles.hero}>
@@ -12,7 +16,7 @@ export const HomePage = () => {
           <h1 className={styles.title}>{t('home.hero.title', { store: store.name })}</h1>
           <p className={styles.lead}>{store.description ?? t('home.hero.lead')}</p>
           <div className={styles.actions}>
-            <Link href="/search/" className={styles.button}>
+            <Link href="/collections/all/" className={styles.button}>
               {t('home.hero.shop')}
             </Link>
             <Link href="/about/" className={styles.ghost}>
@@ -22,6 +26,32 @@ export const HomePage = () => {
         </div>
         <div className={styles.picture} />
       </section>
+      {collections.length ? (
+        <section className={shop.band}>
+          <h2 className={shop.heading}>{t('home.collections.title')}</h2>
+          <ul className={styles.tiles}>
+            {collections.map((c) => (
+              <li key={c.id}>
+                <Link href={c.href} className={styles.tile}>
+                  {c.image ? <Image image={c.image} alt={c.name} ratio={1} sizes="(min-width: 900px) 25vw, 50vw" className={styles.tileImage} /> : null}
+                  <span className={styles.tileName}>{c.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {newest.status === 'loading' || newest.products.length ? (
+        <section className={shop.band}>
+          <div className={shop.bandHead}>
+            <h2 className={shop.heading}>{t('home.newest.title')}</h2>
+            <Link href="/collections/all/?sort=newest" className={shop.textLink}>
+              {t('home.newest.all')}
+            </Link>
+          </div>
+          {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={newest.products} />}
+        </section>
+      ) : null}
       <section className={styles.story}>
         <div className={styles.storyPicture} />
         <div className={styles.storyCopy}>

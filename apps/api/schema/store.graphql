@@ -648,6 +648,34 @@ type CustomerSummary {
   tags: [String!]
 }
 
+type DesignAnswer {
+  message: DesignMessage
+  outcome: String
+}
+
+type DesignChat {
+  messages: [DesignMessage!]
+  next: String
+}
+
+type DesignMessage {
+  canUndo: Boolean
+  changed: [String!]
+  createdAt: String
+  id: ID
+  imageAssetId: ID
+  page: String
+  role: String
+  sampleUrl: String
+  text: String
+  undone: Boolean
+}
+
+type DesignText {
+  key: String
+  text: String
+}
+
 type DownloadDetails {
   days: Int
   file: DownloadFile
@@ -959,6 +987,7 @@ type Mutation {
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   allowSupportWrite(sessionId: ID!): Boolean
   approveProduct(id: ID!): Boolean
+  askDesign(device: String!, imageAssetId: ID, page: String!, sampleUrl: String, text: String!): DesignAnswer
   bookLabel(courier: String!, lines: [ShipLineInput!]!, orderId: ID!, warehouseId: ID!): ID
   cancelOrder(orderId: ID!, reason: OrderCancelReason!): Boolean
   cancelReturn(returnId: ID!): Boolean
@@ -969,6 +998,7 @@ type Mutation {
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   checkDomain(id: ID!): Boolean
+  chooseTemplate(keepWords: Boolean!, key: String!): String
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
   connectCourier(provider: String!): String
   connectDomain(host: String!): StorefrontDomain
@@ -993,12 +1023,14 @@ type Mutation {
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
   denySupportWrite(sessionId: ID!): Boolean
+  discardDraft: Boolean
   disconnectCourier(provider: String!): String
   disconnectGateway(provider: String!): Boolean
   disconnectShopify: Boolean
   duplicateOffer(id: ID!): ID
   duplicateProduct(id: ID!): SavedProduct
   endOffer(id: ID!): Boolean
+  endPreviewLinks: Boolean
   exportActivity(filter: StoreActivityFilter): ID
   exportCustomers(groupId: ID, search: String): ID
   exportOfferCodes(batchId: ID!): ID
@@ -1008,6 +1040,7 @@ type Mutation {
   finishShopifyConnect(key: String!): String
   finishStripeConnect(key: String!): Boolean
   generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
+  goBackToVersion(number: Int!): Boolean
   installApp(appId: ID!, scopes: [String!]!): ID
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
@@ -1017,9 +1050,12 @@ type Mutation {
   makeDomainPrimary(id: ID): Boolean
   markOrderPaid(orderId: ID!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
-  openStorefrontPreview: String
   pauseOffer(id: ID!): Boolean
+  previewLink: String
   proposeProduct(input: ProductInput!): SavedProduct
+  publishBefore(messageId: ID!): ID
+  publishDesign: ID
+  publishNow: ID
   publishProductStory(productId: ID!, revision: Int!): ProductStory
   receiveReturn(returnId: ID!): Boolean
   recordMarketingStop(id: ID!): Boolean
@@ -1031,6 +1067,7 @@ type Mutation {
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
   removeWebhook(id: ID!): Boolean
+  renewStudioSession(session: String!): String
   replaceDeliveryArea(codes: [String!]!, fileName: String!): Int
   replayDelivery(id: ID!): ID
   requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
@@ -1057,6 +1094,7 @@ type Mutation {
   saveCourierOptions(input: CourierOptionsInput!, provider: String!): Boolean
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveCustomerAccounts(mode: String!): CustomerAccounts
+  saveDesignText(key: String!, locale: String!, text: String!): Boolean
   saveFacet(input: FacetInput!): ID
   saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
   saveLanguages(languages: [String!]!, main: String!): Boolean
@@ -1109,6 +1147,7 @@ type Mutation {
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   testCouriers: [CourierTestResult!]
   turnOnWebhook(id: ID!): Int
+  undoDesignChange(messageId: ID!): DesignMessage
   uninstallApp(id: ID!): Boolean
   updateCustomer(address: CustomerAddressInput, id: ID!, name: String, phone: String): Boolean
   updateGroup(description: String, id: ID!, name: String!): Boolean
@@ -1984,6 +2023,27 @@ type Provisioning {
   step: String
 }
 
+type PublishCheck {
+  name: String
+  passed: Boolean
+  words: String
+}
+
+type PublishRun {
+  bisectMessageId: ID
+  buildMinutes: Int
+  checks: [PublishCheck!]
+  createdAt: String
+  error: String
+  finishedAt: String
+  id: ID
+  kind: String
+  repairAttempts: Int
+  state: String
+  step: String
+  version: Int
+}
+
 type Query {
   abandonedCart(id: ID!): AbandonedCartDetail
   abandonedCartCounts: AbandonedCartCounts
@@ -2020,6 +2080,8 @@ type Query {
   customerExports: [CustomerExport!]
   customerGroups: [CustomerGroup!]
   customers(after: String, before: String, first: Int, groupId: ID, search: String): CustomerPage
+  designChat(after: String): DesignChat
+  designText(locale: String!, page: String!): [DesignText!]
   downloadInvoice(id: ID!): String
   facets(after: String, before: String, first: Int): FacetPage
   gateways: [PaymentGateway!]
@@ -2065,6 +2127,7 @@ type Query {
   productTranslation(language: String!, productId: ID!): [Translation!]
   products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
+  publishRun(id: ID!): PublishRun
   reminderSettings: ReminderSettings
   report(currency: String, days: Int!): StoreReport
   reportExport(id: ID!): ReportExport
@@ -2080,11 +2143,14 @@ type Query {
   storeInfo: StoreInfo
   storeLocale: StoreLocale
   storeState: StoreState
+  storefront: Storefront
   storefrontBrand: StorefrontBrand
   storefrontDomains: StorefrontDomains
   storefrontSeo: StorefrontSeo
+  storefrontTemplates: [StorefrontTemplate!]
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  studioSession(session: String): StudioSession
   subscription: BillingSubscription
   supplier(id: ID!): Supplier
   supplierApprovalRequired: Boolean
@@ -2778,6 +2844,16 @@ type StoreSupportSessions {
   pageInfo: PageInfo
 }
 
+type Storefront {
+  catalogue: StorefrontCatalogue
+  draft: StorefrontDraft
+  history(before: Int): [StorefrontVersion!]
+  live: StorefrontLiveVersion
+  status: String
+  template: String
+  usage: StorefrontUsage
+}
+
 type StorefrontBrand {
   brandReady: Boolean
   contactAddress: StoreAddress
@@ -2809,6 +2885,16 @@ input StorefrontBrandInput {
   voice: String
 }
 
+type StorefrontCatalogue {
+  changedKinds: [String!]
+  changedProducts: Int
+  nextAutomaticPublishAt: String
+  pressesAllowed: Int
+  pressesLeft: Int
+  since: String
+  waiting: Boolean
+}
+
 type StorefrontDnsRecord {
   found: String
   name: String
@@ -2829,6 +2915,26 @@ type StorefrontDomain {
 type StorefrontDomains {
   customDomainAllowed: Boolean
   domains: [StorefrontDomain!]
+}
+
+type StorefrontDraft {
+  changedAt: String
+  previewReady: Boolean
+  template: String
+}
+
+type StorefrontLiveVersion {
+  number: Int
+  publishedAt: String
+  template: String
+}
+
+type StorefrontRequest {
+  createdAt: String
+  id: ID
+  outcome: String
+  text: String
+  tokens: Int
 }
 
 type StorefrontSeo {
@@ -2859,6 +2965,36 @@ type StorefrontSocialLinks {
   whatsapp: String
   x: String
   youtube: String
+}
+
+type StorefrontTemplate {
+  current: Boolean
+  demoUrl: String
+  description: String
+  key: String
+  name: String
+  tag: String
+}
+
+type StorefrontUsage {
+  aiPromptsAllowed: Int
+  aiPromptsUsed: Int
+  aiRequests: Int
+  aiTokens: Int
+  buildMinutes: Int
+  ownKey: Boolean
+  publishesLast30Days: Int
+  recent: [StorefrontRequest!]
+}
+
+type StorefrontVersion {
+  coreVersion: String
+  id: ID
+  label: String
+  live: Boolean
+  number: Int
+  publishedAt: String
+  template: String
 }
 
 type StoryBlock {
@@ -2954,6 +3090,15 @@ type StoryVideo {
 input StoryVideoInput {
   assetId: ID
   url: String
+}
+
+type StudioSession {
+  access: String
+  expiresAt: String
+  frameUrl: String
+  place: Int
+  session: String
+  state: String
 }
 
 type Supplier {

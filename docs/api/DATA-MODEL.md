@@ -1768,6 +1768,11 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                     -- repo is ready (SAAS §5 step 8, migration 0231). Steps 4–8 run as a job of kind
                     -- 'create-storefront', after the signup's 'provision-store' (#316)
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
+                    -- #318 (migration 0334): changes_since, changed_kinds (products, collections, menus, content,
+                    -- settings), changed_count (product rows touched) and change_seq, moved by statement
+                    -- triggers on the catalogue version's tables, the content pages and the store; a full
+                    -- publish freezes change_seq at its claim (publish_run.change_seq) and, live, clears the marks
+                    -- only if it still matches; next_auto_publish_at is set when an automatic publish starts
                     -- and catalog_version (moved by triggers on every change a storefront shows; the
                     -- Shop API's edge cache keys on it); preview_key built on #518 (0232): 10 lowercase
                     -- base32 characters, unique, not null, drawn by storefront_for_store() with the store
@@ -1828,9 +1833,12 @@ design_draft        (store_id PK, head_commit, base_version_id NULL, template, c
                     -- the public repo (decided 2026-10-09, storefront AI-STUDIO §4, §6);
                     -- preview_deploy_ref is the preview's folder (PREVIEW §3);
                     -- discard resets it to the live version's commit; deleted on publish.
+                    -- #318: deleted when a design publish of its head goes live, and when going back to a version
                     -- Built on #316 (migration 0231) without base_version_id, which comes with
                     -- design_version: the create-storefront Workflow writes the first, its head
                     -- the repo's main and its preview the template's bundle (SAAS §5 step 7)
+                    -- #318: a row the studio inserts lists its first commit in commits; Discard deletes the row,
+                    -- and the studio loads the draft bundle only while a row exists (AI-STUDIO §3 step 4)
 design_version      (id, store_id, number, commit, template, core_version, label NULL, build_id,
                      published_by NULL, published_at, state ('live'|'kept'))
                     -- PortalStorefront history: "Go back to version N" makes deploy_ref (the
@@ -1842,13 +1850,16 @@ design_version      (id, store_id, number, commit, template, core_version, label
                     -- clean-up never deletes a build a version names, so it is never null.
                     -- design_draft.base_version_id is built with it
 design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, changed text[],
-                     image_asset_id NULL, sample_url NULL, commit NULL, before_commit NULL,
+                     image_asset_id NULL, sample_url NULL, page NULL, commit NULL, before_commit NULL,
                      undone boolean, ai_run_id NULL, created_by NULL, created_at)
                     -- the studio's chat (PortalStorefront); changed is the plain-words list
                     -- of what changed; commit is the change's commit and before_commit what
                     -- "Undo this change" restores; image_asset_id a pasted image (the store's
                     -- own asset), sample_url a site the merchant gave; the merchant's, like
                     -- ai_run.prompt (§5.3)
+                    -- Built on #318 (migrations 0332, the notes, and 0333) with page (the page the reply shows); a note's or
+                    -- an error's text is a code the portal words, never stored words (`template:{key}`);
+                    -- the studio writes it in system scope, the merchant side reads its own
 storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_colour NULL,
                      secondary_colour NULL, tagline NULL, description NULL, social jsonb,
                      contact_email NULL, contact_phone NULL, contact_address NULL, voice NULL,
@@ -1943,6 +1954,9 @@ store_usage         (store_id, key, used, period_start NULL, updated_at)
                     -- an allowance's period_start says which period it counts, reset per
                     -- billing period (SAAS §6.2). The meters with no plan value
                     -- (ai_tokens, build_minutes, bandwidth_bytes) and a history per period
+                    -- #318 counts `ai_prompts`: a merchant request on the plan takes its unit in one statement
+                    -- before the model is asked (given back when the sandbox never took it), never a repair;
+                    -- period_start is the UTC month, compared as a date
                     -- are added by the card that first writes them. AI cost is not a meter
                     -- but the sum of ai_run.cost_amount for the period (§7.1 Money)
 store_limit_override (id, store_id, key, amount, duration ('month'|'always'), month NULL,
@@ -1967,6 +1981,8 @@ storefront_template (key PK, name, tag, description, demo_store_id NULL, core_mi
                     -- mirrors (built on #486, migration 0331; `tag` is the gallery's short
                     -- label, "Minimal fashion"); staff read it, system scope writes it; a
                     -- partner offers a subset (G4)
+                    -- #318: the Store API reads the offered rows in system scope (`storefrontTemplates`,
+                    -- `chooseTemplate`)
 core_rollout        (id, version, security, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
                      paused_state NULL, percent, started_by NULL, reason, started_at, enrolled_at NULL,
                      finished_at NULL)

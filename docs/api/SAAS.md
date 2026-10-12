@@ -685,6 +685,11 @@ SaaS layer owns the state and the rules:
 - **"Publish now"**: the merchant presses it (a `publish` capability, [ACCESS.md](ACCESS.md));
   it uses one press from the plan's **monthly allowance** (§6). The button shows what is
   waiting, presses left, and the next automatic publish. At zero it explains itself.
+- **Built on #318:** change detection is `storefront.changes_since`, `changed_kinds`, `changed_count`, moved by triggers
+  (DATA-MODEL §7.8); "Publish now" (`publishNow`) takes a press only when changes wait, counting a press queued or
+  running, and `store_usage.publish_now` counts it once live; the automatic publish runs from the five-minute cron
+  (`autoPublish` in `index.ts`, `saas/storefronts/automatic.ts`) for stores whose changes have waited a day, the
+  platform default until the Admin setting exists (R5); the history is pruned daily to the plan's `history_days`.
 - **Automatic publish** (`jobs/cron.ts`): every store with unpublished changes is published on
   the **schedule set in the Admin API**: a platform default interval with per-plan overrides
   (CONSOLE-DESIGN R5, which shows the fleet build-minute cost before saving). It never uses
@@ -829,6 +834,22 @@ built and gated per store, and the upgrade bot must exist from day one.
   (`store_busy`); a build is waited for four hours at most (`build_timed_out`), then its run is failed unless its build already switched, whose post-deploy checks get half an hour more to end, so a build never goes live behind a store marked pinned.
 - **Canaries, then waves**: a canary group first, then percentages, with pause and roll back
   per rollout; per-store gate result shown (L2). A rollout is a platform-level `job`.
+  **Built on #485** (`saas/fleet/rollout.ts`, `saas/fleet/admin.ts`; the Admin API's `coreRollouts`, `coreRollout`,
+  `startCoreRollout`, `pauseCoreRollout`, `resumeCoreRollout` and `rollBackCoreRollout`, `fleet.read` and `fleet.manage`,
+  each write audited with its reason as `core_rollout.*`): a rollout is a `core_rollout` row, not a `job`, and the
+  every-minute cron moves it. Its first tick enrols every store not closed whose live build is on an older core (and
+  that has no passed major at or past the version waiting); five stores, picked by a hash of the store and the rollout,
+  are the canaries (`position` 0), the rest get a place from 1 to 100. Each tick starts pending stores, lowest place
+  first, while upgrades running across every rollout stay under the org's Actions jobs at once
+  (`GITHUB_ACTIONS_JOBS`, 20 unless set; storefront LIVE-SHOP §10): half of them for a rollout, all of them for a
+  security fix, which so goes ahead of merchants' own and automatic publishes. Once the canaries end, a canary
+  pinned or on the baseline pauses the rollout (`core_rollout.paused`, `canary_failed`, for an engineer to look);
+  otherwise the waves reach 10, 25, 50 and 100 stores in a hundred, each once the one before has ended, and the rollout
+  is done. Pause stops new starts (running upgrades finish); resume goes back to the phase it left, except that resuming a rollout whose canaries have all ended (the pause `canary_failed` causes) accepts them and starts the first wave, so it isn't paused again for the same canary. Roll back stops
+  new starts and puts back, twenty a minute, every store it took live: the pointer moves back to the build before the
+  upgrade (`storefront.rolled_back`, `core_rolled_back`), and a passed major's waiting upgrade is dropped; a store
+  whose live build moved on since (a publish or a page render) keeps it, marked `moved_on`. *Decided on #485:* one
+  rollout at a time, so no store is upgraded by two at once.
 - **Majors** may change the look or the theme contract and ship **upgrade notes** and
   codemods. Each published version is **pinned** to the core version it was built with
   (decided 2026-10-08 on #470); a major's new look reaches a store only at its merchant's next
@@ -837,6 +858,22 @@ built and gated per store, and the upgrade bot must exist from day one.
   it, even after the migration agent, is served the **baseline theme** with its own colours,
   fonts and words until repaired or republished, and its merchant is told (decided 2026-10-08
   on #470).
+  **Built on #485**: when the upgrade's build fails the gate, the **migration agent**
+  (`StudioRunner.migrate`) asks the model with the build's failing checks and the releases' notes, on the upgrade's
+  commit in a sandbox of the new version, through the same validator and fast gate with up to three repairs; each ask
+  is an `ai_run` of kind `migration` (its repairs `repair`), billed to `platform`, asked by no one; its commit is built
+  again and, live, the store reads `migrated` (a major's, `migrated` and waiting). *Decided on #485:* the agent repairs
+  only what the gate refused; a build the post-deploy checks rolled back, or one that never ran, is pinned as it is. The
+  Workflow passes no agent until a model reaches it (the partner's AI key, #275; DripFunnel holds none,
+  THIRD-PARTY-ACCESS §2.6), so until then a failing store goes straight to pinned or the baseline. For a security fix
+  still failing, the store's sandbox writes the **baseline fallback** (storefront ARCHITECTURE §7.1) as a commit of its
+  own, built with `baseline` (the look may change) and switched like any build; live, the row reads `baseline` with
+  the failure's code, `storefront.theme_mode` is `baseline` with `baseline_reason` and the own-theme build it replaced,
+  `storefront.baseline_served` is recorded, and the merchant gets the `storefront-baseline` email once (keyed by the
+  store's upgrade). The baseline is **never pushed** to the repo, whose `main` keeps the store's own theme; the studio
+  of a store without a draft opens on its own theme, and a later rollout upgrades that theme, not the baseline. The
+  merchant's next design publish, or that upgrade going live, sets `theme_mode` back to `own`. A baseline build that
+  fails too leaves the store pinned on its old core.
 - Without this, a checkout fix or a dependency CVE becomes 1,000 manual pull requests.
 
 **Templates** are the starting themes of storefront ARCHITECTURE §2.3, and merchants **never

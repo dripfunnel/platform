@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
 import { recordGate } from '#db/scoped/builds'
 import { moveDraft } from '#db/scoped/studio'
-import { digestOf, goBack, publishBefore, runPublish, startPublish, type PublishDeps, type PublishRepair } from '#saas/storefronts/index'
+import { digestOf, goBack, publishBefore, publishedTheme, runPublish, startPublish, type PublishDeps, type PublishRepair, type PushResult } from '#saas/storefronts/index'
 import { failAttempt, finishRepaired, followLiveBuild, insertQueuedRun, selectExpiredBuilds, selectFailingChecks, setBisectCommit, setQueuedRender, setRepairAttempts, widenQueuedRun } from '#db/scoped/publishing'
 import { draftBundle, stagingFolder } from '#saas/storefronts/layout'
 import { testProbe } from './support/edgeProbe'
@@ -207,6 +207,60 @@ describe('a design publish that fails the gate', () => {
   })
 })
 
+describe('a step the Workflow retries', () => {
+  // As step.do with retries: the work runs again on a throw, and the last throw is the step's.
+  const retrying = (play: ReturnType<typeof workflow>) => ({
+    ...play,
+    do: async (_: string, work: () => Promise<string>) => {
+      for (let n = 1; ; n += 1) {
+        try {
+          return await work()
+        } catch (error) {
+          if (n === 3) throw error
+        }
+      }
+    },
+  })
+  const keepTheme = (storeId: string, head: string) => putText(drafts, publishedTheme(storeId, head), JSON.stringify({ files: [{ path: 'src/theme/pages/Home.tsx', content: 'export const Home = () => null' }] }))
+
+  it('ends the repairs when the studio stays out of reach, and bisects as with no repair', async () => {
+    const chain = [commit(1101), commit(1102)]
+    await draftWith(t.storeA2, chain)
+    let asked = 0
+    const busy: PublishRepair = async () => {
+      asked += 1
+      throw new Error('studio: queued')
+    }
+    const runId = await publishDesign(t.storeA2, chain[1] ?? '')
+    expect(await runPublish(deps(busy), { runId, storeId: t.storeA2 }, retrying(workflow(new Set([chain[1] ?? '']))))).toBe('failed')
+    expect(asked).toBe(3)
+    expect(await root(runId)).toMatchObject({ state: 'failed', error: 'bisected', bisect_commit: chain[1] })
+  })
+
+  it('pushes again when main moved meanwhile, and a push that never lands leaves the live build live', async () => {
+    const first = commit(1201)
+    await draftWith(t.storeA1, [first])
+    await keepTheme(t.storeA1, first)
+    const answers: PushResult[] = [{ ok: false, code: 'MAIN_MOVED' }, { ok: true, commit: commit(1290) }]
+    let pushes = 0
+    const push = async (): Promise<PushResult> => answers[pushes++] ?? { ok: false, code: 'MAIN_MOVED' }
+    const runId = await publishDesign(t.storeA1, first)
+    expect(await runPublish({ ...deps(), push }, { runId, storeId: t.storeA1 }, retrying(workflow(new Set())))).toBe('live')
+    expect(pushes).toBe(2)
+
+    const second = commit(1202)
+    await draftWith(t.storeA1, [second])
+    await keepTheme(t.storeA1, second)
+    const down = async (): Promise<PushResult> => {
+      throw new Error('GitHub answered 502')
+    }
+    const nextId = await publishDesign(t.storeA1, second)
+    expect(await runPublish({ ...deps(), push: down }, { runId: nextId, storeId: t.storeA1 }, retrying(workflow(new Set())))).toBe('live')
+    expect(await live(t.storeA1)).toBe(nextId)
+    expect(await root(nextId)).toMatchObject({ state: 'live', error: null })
+  })
+})
+
 describe('a publish whose repair never reports', () => {
   it('ends with its open repair build, so the store can publish again', async () => {
     const chain = [commit(601)]
@@ -282,7 +336,8 @@ describe('the draft’s changes', () => {
     await draftWith(t.storeA1, [commit(801), commit(802)])
     const actor = { actorKind: 'person' as const, actorId: null, actorLabel: 'Owner', api: 'store' as const, requestId: null, ip: null, userAgent: null }
     expect(await goBack(db.sql, { storeId: t.storeA1, versionId: kept?.id ?? '', by: null, actor, now: new Date() })).toEqual({ ok: true })
-    expect((await db.sql<{ commits: string[] }[]>`select to_jsonb(commits) as commits from design_draft where store_id = ${t.storeA1}`)[0]?.commits).toEqual([])
+    // The draft is the version gone back to: no row, as after Discard (#318).
+    expect(await db.sql`select 1 from design_draft where store_id = ${t.storeA1}`).toHaveLength(0)
   })
 
   it('are listed as the studio accepts them', async () => {

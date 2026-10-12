@@ -109,16 +109,19 @@ import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
 import { studioCapacityClass, studioSessionClass, type CapacityNamespace, type StudioSessionObject } from '#jobs/durable/studio'
 import { handleStudioFrame } from '#apis/studio/frame'
-import { frameClosed } from '#saas/studio/index'
+import type { TenantContext } from '#core/tenancy'
+import { anthropicProvider, localAiProvider } from '#integrations/ai/index'
+import { browserScreenshots } from '#integrations/cloudflare/screenshot'
+import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
-import { checkPreview, cleanStorefronts, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
+import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
 import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
 import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
-import { storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
+import { advanceRollouts, createFleetService, defaultActionsJobs, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
 import { indexNowClient } from '#integrations/indexnow/client'
@@ -377,7 +380,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -397,6 +400,7 @@ const handleAdmin = async (
       customers: caller ? createCustomersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffMembers: caller ? createStaffMembersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       apps: caller ? createAppRegistryService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, secrets: await (secretsFor(config) ?? null), lookup: lookupFor(sql, config), now: () => new Date() }) : null,
+      fleet: caller ? createFleetService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
@@ -564,7 +568,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
-      preview: await previewFor(config), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1' }, now: () => new Date() }
+      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1' }, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
@@ -693,6 +697,43 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
   })
+}
+
+// The designer's model, screenshots and pasted images (storefront ARCHITECTURE §6.2). The merchant's own key has nowhere to
+// be kept yet, so a store on its own key answers AI_NOT_CONNECTED; the plan's is AI_PROVIDER_KEY until #275.
+const designFor = (config: Config, env: Env): NonNullable<StoreContext['design']> => {
+  const { BROWSER_RENDERING_ACCOUNT_ID: accountId, BROWSER_RENDERING_TOKEN: token, AI_PROVIDER_KEY: key } = config
+  const assets = env.ASSETS
+  return {
+    ai: (billedTo) => (config.AI_LOCAL === '1' ? localAiProvider() : billedTo === 'plan' && key ? anthropicProvider(key) : null),
+    screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
+    readAsset: assets
+      ? async (r2Key) => {
+          const object = await assets.get(r2Key)
+          return object ? { bytes: new Uint8Array(await object.arrayBuffer()), mime: object.httpMetadata?.contentType ?? '' } : null
+        }
+      : null,
+  }
+}
+
+// The Store API's way to a store's StudioSession, named by the session's TenantContext (AI-STUDIO §3 step 2).
+const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => {
+  const namespace = env.STUDIO_SESSION as DurableObjectNamespace<StudioSessionObject> | undefined
+  if (!namespace) return null
+  return (context) => {
+    const stub = studioOf(namespace, context)
+    return {
+      status: async (storeId) => await stub.status(storeId),
+      useTemplate: async (storeId, input) => await stub.useTemplate(storeId, input),
+      change: async (storeId, input, model) => await stub.change(storeId, input, model),
+      undo: async (storeId, input) => await stub.undo(storeId, input),
+      texts: async (storeId, input) => await stub.texts(storeId, input),
+      editText: async (storeId, input) => await stub.editText(storeId, input),
+      discard: async (storeId) => await stub.discard(storeId),
+      prepare: async (storeId, input) => await stub.prepare(storeId, input),
+      goBack: async (storeId, input) => await stub.goBack(storeId, input),
+    }
+  }
 }
 
 // The studio frame on a preview host (storefront AI-STUDIO §3 step 6): the host's store's Durable Object, or nothing.
@@ -858,6 +899,13 @@ const releaseUnpaid: CronJob = async (sql, config) => {
   if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
 }
 
+// A core rollout's next stores and phase, or a rolled-back one's stores put back (SAAS §10).
+const advanceCoreRollouts: CronJob = async (sql, config) => {
+  await advanceRollouts(sql, { actionsJobs: config.GITHUB_ACTIONS_JOBS ?? defaultActionsJobs, now: new Date() }).catch((error: unknown) => {
+    logEvent({ event: 'core_rollout_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 // A scheduled post goes live at its time (FIRST-RELEASE §14); its change waits for the next publish like any edit.
 const publishDuePosts: CronJob = async (sql) => {
   const published = await publishScheduledPosts(sql, activityLog, new Date()).catch((error: unknown) => {
@@ -968,12 +1016,28 @@ const readStorefrontVitals: CronJob = async (sql) => {
   })
 }
 
+// The automatic publish of stores with catalogue changes waiting (SAAS §9.1); a publish queues through the outbox.
+const autoPublish: CronJob = async (sql) => {
+  const started = await startAutomaticPublishes(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'storefront_auto_publish_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (started > 0) logEvent({ event: 'storefront_auto_published', api: 'system', code: 'due', count: started })
+}
+
+// The version history kept for the plan's days (SAAS §9.2).
+const pruneStorefrontHistory: CronJob = async (sql) => {
+  await pruneHistory(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'storefront_history_prune_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [expireSms, relayOutbox, publishDuePosts],
-  '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders],
+  '* * * * *': [expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
+  '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
-  '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles, readStorefrontVitals],
+  '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals],
 }
 
 const runCron = async (cron: string, env: Env): Promise<void> => {
