@@ -25,6 +25,18 @@ export const en = {
   'legal.other': 'Product information',
   'preview.closed.title': 'This preview has closed',
   'preview.closed.body': 'Open it again from your link or from the portal.',
+  'summary.label': 'Order summary',
+  'summary.quantity': '{name} × {quantity}',
+  'summary.subtotal': 'Subtotal',
+  'summary.delivery': 'Delivery',
+  'summary.deliveryAtCheckout': 'Chosen at checkout',
+  'summary.deliveryNext': 'Next step',
+  'summary.free': 'Free',
+  'summary.minus': '−{amount}',
+  'summary.tax': 'Tax',
+  'summary.taxIncluded': 'Includes {amount} tax.',
+  'summary.estimated': 'Estimated total',
+  'summary.total': 'Total',
 } as const
 
 export type MessageKey = keyof typeof en

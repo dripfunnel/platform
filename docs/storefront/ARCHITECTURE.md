@@ -20,11 +20,11 @@ as customised by us, now removed from the workspace); §11 records what was take
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
-behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307); everything else below is to build.
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), and the cart with buy now and the sealed order summary (#313 part 1); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 part 1: the cart as built).
 
 ---
 
@@ -153,6 +153,22 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   only ever in the static HTML: Trusted Types forbid writing a script's text at run time.
 - **A closed preview**: on `PREVIEW_CLOSED` from `/shop-api`, core's runtime replaces the page with "This preview has
   closed. Open it again from your link or from the portal." and no store data (PREVIEW §5 step 3).
+
+*The cart as built on #313 (part 1)* *(decided there)*:
+- **`useCart()`** in `./theme`: the Shop API's `cart` with its lines (the product's name, address, version, photo, unit
+  price, line total, the offers' discount and what stops a line being bought), codes, offers, delivery, tax and totals, and
+  `add`, `setQuantity`, `remove`, `applyCode`, `removeCode` and `buyNow`. One cart per page however many components show
+  it (the header's count, the cart page), read once in the browser and never in a static build.
+- **A change shows at once**: a line's new quantity and the count change before the engine answers, the line and the cart
+  marked `pending`, their money the last answer's; the answer replaces them, and a refusal takes the change back and keeps
+  its code in `error`. Changes go one at a time, in order. No amount is ever worked out in the browser.
+- **The tokens**: core keeps the cart token the first add hands out in the browser's storage (a cart lives 30 days) and sends
+  it as `X-Shop-Cart`; without a token there is no cart to ask for. An expired cart (`NO_CART`) is forgotten, and an add
+  then makes a new one.
+- **Buy now** adds the version to the active cart and opens checkout, since the active order is the only cart.
+- **`<OrderSummary>`** is sealed (part `summary`, at least 160×48 px): subtotal, each offer, delivery ("Chosen at
+  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too.
+- **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer.
 
 ### 2.2 The store repo
 
@@ -446,15 +462,15 @@ their own cards.
     check, until core renders it in its root.
   - Parts: the price `amount`, `was`, `tax`; the preview banner `banner`; "Powered by" `line`;
     legal notices `section`, `title`, `body`; the consent banner `banner`, `title`, `body`,
-    `choice`, `button`; Cookie settings `button`; breadcrumbs `list`, `item`, `link`, `current`.
-    The payment element and the order summary at review are sealed the same way by the checkout
-    card (#313), which brings their data.
+    `choice`, `button`; Cookie settings `button`; breadcrumbs `list`, `item`, `link`, `current`;
+    the order summary `panel`, `lines`, `line`, `photo`, `name`, `version`, `rows`, `row`, `saving`, `total`, `note`
+    (#313). The payment element is sealed the same way by the checkout card (#313).
   - The banners are `popover="manual"`, so they take no focus; the preview banner's height is held
     in the page.
   - The self-check runs after layout and whenever the component scrolls into view. A failure is
     checked again a second later, so an entrance animation can finish, and only then reported.
     Minimum sizes (`minimumSize`): price 24×12 px, preview banner 200×24, "Powered by" 40×12,
-    legal notices 120×24, consent banner 240×80, Cookie settings 24×24, breadcrumbs 40×12; below
+    legal notices 120×24, consent banner 240×80, Cookie settings 24×24, breadcrumbs 40×12, order summary 160×48; below
     50% opacity, of the component or its text, counts as transparent. "Covered" is a hit test at
     its centre, so an overlay a theme makes ignore the pointer (`pointer-events: none`) isn't seen
     by it; the publish gate's visual checks (§4.2) are the wall there.
