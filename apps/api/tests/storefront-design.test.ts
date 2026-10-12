@@ -183,6 +183,13 @@ describe('choosing a template', () => {
     expect((await choose('owner', 'nope', false)).code).toBe('INVALID_TEMPLATE')
   })
 
+  it('is refused to a store with its own storefront, which never gets a repo (PLATFORM-PROMPT §5.6)', async () => {
+    await db.sql`update store set storefront_kind = 'own' where id = ${t.storeA1}`
+    expect((await choose('owner', 'linen', false)).code).toBe('OWN_FRONTEND')
+    await db.sql`update store set storefront_kind = 'ai' where id = ${t.storeA1}`
+    expect(await db.sql`select 1 from outbox where kind = 'storefront.create' and store_id = ${t.storeA1}`).toHaveLength(0)
+  })
+
   it('is the Owner’s: the Manager, Staff and a supplier are refused', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await choose(who, 'linen', false)).code).toBe('FORBIDDEN')
   })

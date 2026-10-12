@@ -5,7 +5,7 @@ import { toMajor } from '#core/money'
 import { insertDesignMessage, markUndone, selectBriefStore, selectDesignChat, selectLatestChange, selectMessage, selectProductSample, selectRecentRequests, type MessageRow } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
-import { addUsage, usedThisMonth } from '#db/scoped/storeAccount'
+import { addUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { isMerchantImage } from '#db/scoped/storefrontSettings'
 import { selectGuardContext, selectStudioStart } from '#db/scoped/studio'
 import type { AiImage, AiProvider } from '#integrations/ai/index'
@@ -40,6 +40,10 @@ export type StudioSessionView = StudioState & { session: string; frameUrl: strin
 export type TextEntry = { key: string; text: string }
 
 const maxRequest = 2000
+/** design_message.sample_url's limit (migration 0310). */
+const maxUrl = 2048
+/** A page or a text key: names, never words. */
+const maxKey = 200
 const recentRequests = 4
 const sampleSize = 12
 const imageTypes = new Set<AiImage['mediaType']>(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
@@ -97,12 +101,15 @@ export const createStudioService = (deps: StudioDeps) => {
 
   const chat = (limit: number, before: { at: Date; id: string } | null) => withScope(sql, context, (tx) => selectDesignChat(tx, storeId, limit, before))
 
-  /** SAAS §9.2 guardrail 3: on the plan, a reached `ai_prompts` allowance stops new requests, never one running. */
-  const billing = async (): Promise<DesignResult<'plan' | 'own_key'>> => {
-    if ((await allowanceFor(sql, context, 'ai_mode', now())) === ownKeyMode) return { ok: true, value: 'own_key' }
+  const billing = async (): Promise<'plan' | 'own_key'> => ((await allowanceFor(sql, context, 'ai_mode', now())) === ownKeyMode ? 'own_key' : 'plan')
+
+  /**
+   * SAAS §9.2 guardrail 3: on the plan, the request takes one of the month's `ai_prompts` before the model is asked, in
+   * one statement, so two at once can't both take the last; a reached allowance stops new requests, never one running.
+   */
+  const reserve = async (): Promise<boolean> => {
     const allowed = await allowanceFor(sql, context, 'ai_prompts', now())
-    const used = await withScope(sql, context, (tx) => usedThisMonth(tx, storeId, 'ai_prompts', monthStart(now())))
-    return used < allowed ? { ok: true, value: 'plan' } : { ok: false, reason: 'AI_BUDGET_REACHED' }
+    return withSystemScope(sql, (tx) => reserveUsage(tx, storeId, 'ai_prompts', monthStart(now()), allowed, now()))
   }
 
   const imageOf = async (assetId: string): Promise<DesignResult<AiImage>> => {
@@ -149,25 +156,29 @@ export const createStudioService = (deps: StudioDeps) => {
   const ask = async (input: AskInput): Promise<DesignResult<AskAnswer>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     const text = input.text.trim()
-    if (text.length === 0 || text.length > maxRequest || input.page.length > 200) return { ok: false, reason: 'INVALID_INPUT' }
-    const billed = await billing()
-    if (!billed.ok) return billed
-    const provider = deps.ai(billed.value)
+    if (text.length === 0 || text.length > maxRequest || input.page.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
+    if (input.sampleUrl !== null && input.sampleUrl.length > maxUrl) return { ok: false, reason: 'INVALID_URL' }
+    const billedTo = await billing()
+    const provider = deps.ai(billedTo)
     if (!provider) return { ok: false, reason: 'AI_NOT_CONNECTED' }
     const image = input.imageAssetId ? await imageOf(input.imageAssetId) : null
     if (image && !image.ok) return image
     const shot = input.sampleUrl ? await screenshotOf(input.sampleUrl, input.device) : null
     if (shot && !shot.ok) return shot
+    if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
+    // The sandbox never took it, so the model wasn't asked: the request gives its unit back.
+    const giveBack = () => (billedTo === 'plan' ? withSystemScope(sql, (tx) => addUsage(tx, storeId, 'ai_prompts', -1, monthStart(now()), now())) : Promise.resolve())
     const asked = now()
     const before = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     const model = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? null))
     let answer: Awaited<ReturnType<NonNullable<typeof studio>['change']>> | { outcome: 'failed' }
     try {
-      answer = await studio.change(storeId, { request: text, userId: actor.id, billedTo: billed.value }, model)
+      answer = await studio.change(storeId, { request: text, userId: actor.id, billedTo }, model)
     } catch (error) {
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: failureCode(error) })
       answer = { outcome: 'failed' }
     }
+    if (answer.outcome === 'queued' || answer.outcome === 'unavailable') await giveBack()
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     const summary = 'summary' in answer ? answer.summary : null
@@ -179,7 +190,6 @@ export const createStudioService = (deps: StudioDeps) => {
         (outcome === 'changed' || outcome === 'unchanged') && summary
           ? await record(tx, { role: 'ai', text: summary.reply, changed: outcome === 'changed' ? summary.changed : [], page: summary.page, commit: answer.outcome === 'changed' ? answer.commit : null, beforeCommit: outcome === 'changed' ? before : null, aiRunId: runId })
           : await record(tx, { role: 'error', text: outcome === 'refused' ? designErrors.refused : designErrors.failed, aiRunId: runId })
-      if (billed.value === 'plan' && runId) await addUsage(tx, storeId, 'ai_prompts', 1, monthStart(asked), now())
       await activity.record(tx, entry(designAudit.designRequested, [{ field: 'outcome', before: null, after: outcome }]))
       return selectMessage(tx, storeId, id)
     })
@@ -222,6 +232,7 @@ export const createStudioService = (deps: StudioDeps) => {
   /** Edit text: the page's words in one offered language, by key (`file:dotted.path`). */
   const texts = async (page: string, language: string): Promise<DesignResult<TextEntry[]>> => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
+    if (page.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
     const locale = await offeredLocale(language)
     if (!locale) return { ok: false, reason: 'INVALID_LANGUAGE' }
     const answer = await studio.texts(storeId, { page, locale })
@@ -233,7 +244,7 @@ export const createStudioService = (deps: StudioDeps) => {
     if (!studio) return { ok: false, reason: 'NOT_CONNECTED' }
     const locale = await offeredLocale(language)
     if (!locale) return { ok: false, reason: 'INVALID_LANGUAGE' }
-    if (text.length > maxRequest) return { ok: false, reason: 'INVALID_INPUT' }
+    if (text.length > maxRequest || key.length > maxKey) return { ok: false, reason: 'INVALID_INPUT' }
     const answer = await studio.editText(storeId, { locale, key, text, userId: actor.id })
     if (answer.outcome === 'missing') return { ok: false, reason: 'NOT_FOUND' }
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }

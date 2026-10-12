@@ -1943,8 +1943,9 @@ store_usage         (store_id, key, used, period_start NULL, updated_at)
                     -- an allowance's period_start says which period it counts, reset per
                     -- billing period (SAAS §6.2). The meters with no plan value
                     -- (ai_tokens, build_minutes, bandwidth_bytes) and a history per period
-                    -- #318 counts `ai_prompts`: each merchant request on the plan that reached the model,
-                    -- never a repair; period_start is the UTC month, compared as a date
+                    -- #318 counts `ai_prompts`: a merchant request on the plan takes its unit in one statement
+                    -- before the model is asked (given back when the sandbox never took it), never a repair;
+                    -- period_start is the UTC month, compared as a date
                     -- are added by the card that first writes them. AI cost is not a meter
                     -- but the sum of ai_run.cost_amount for the period (§7.1 Money)
 store_limit_override (id, store_id, key, amount, duration ('month'|'always'), month NULL,
