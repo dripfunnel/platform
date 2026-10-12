@@ -121,6 +121,22 @@ describe('the Admin API', () => {
   })
 })
 
+describe('the Admin API’s reads and a late roll back', () => {
+  it('counts each listed rollout’s own stores, and keeps a finished rollout’s finish time when it is rolled back', async () => {
+    const first = (await run<{ startCoreRollout: Rollout }>(start('1.1.0'), 'staff-engineer')).data?.startCoreRollout.id ?? ''
+    await advanceRollouts(db.sql, { actionsJobs: 2, now: new Date() })
+    const finished = new Date('2026-10-01T10:00:00Z')
+    await db.sql`update core_rollout set state = 'done', finished_at = ${finished} where id = ${first}`
+    const second = (await run<{ startCoreRollout: Rollout }>(start('1.2.0'), 'staff-engineer')).data?.startCoreRollout.id ?? ''
+    const listed = await run<{ coreRollouts: { items: Rollout[] } }>(`{ coreRollouts(first: 25) { items { ${fields} } } }`, 'staff-engineer')
+    const byId = new Map((listed.data?.coreRollouts.items ?? []).map((r) => [r.id, r.stores.reduce((n, s) => n + s.count, 0)]))
+    expect(byId.get(first)).toBe(3)
+    expect(byId.get(second)).toBe(0)
+    await run(steer('rollBackCoreRollout'), 'staff-engineer', { id: first, r: 'Late regression' })
+    expect(await db.sql`select state, finished_at from core_rollout where id = ${first}`).toEqual([{ state: 'rolled_back', finished_at: finished }])
+  })
+})
+
 describe('the tick', () => {
   const begin = async (version: string, security = false) => {
     const started = await run<{ startCoreRollout: Rollout }>(start(version, security), 'staff-engineer')
