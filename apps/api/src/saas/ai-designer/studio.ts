@@ -165,12 +165,13 @@ export const createStudioService = (deps: StudioDeps) => {
     if (image && !image.ok) return image
     const shot = input.sampleUrl ? await screenshotOf(input.sampleUrl, input.device) : null
     if (shot && !shot.ok) return shot
-    if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
-    // The sandbox never took it, so the model wasn't asked: the request gives its unit back.
-    const giveBack = () => (billedTo === 'plan' ? withSystemScope(sql, (tx) => addUsage(tx, storeId, 'ai_prompts', -1, monthStart(now()), now())) : Promise.resolve())
     const asked = now()
     const before = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
     const model = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? null))
+    // The unit is taken last, so only the studio's own answer stands between it and the model.
+    if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
+    // The sandbox never took it, so the model wasn't asked: the request gives its unit back.
+    const giveBack = () => (billedTo === 'plan' ? withSystemScope(sql, (tx) => addUsage(tx, storeId, 'ai_prompts', -1, monthStart(now()), now())) : Promise.resolve())
     let answer: Awaited<ReturnType<NonNullable<typeof studio>['change']>> | { outcome: 'failed' }
     try {
       answer = await studio.change(storeId, { request: text, userId: actor.id, billedTo }, model)

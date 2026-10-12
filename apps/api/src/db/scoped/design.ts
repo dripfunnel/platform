@@ -1,4 +1,4 @@
-import { maxPageSize, type ScopedSql } from './index'
+import { maxPageSize, pgArray, type ScopedSql } from './index'
 import { storefrontHostOf } from './publishing'
 
 // The Storefront area's rows as the Store API reads and the studio writes them (DATA-MODEL §7.8): the template gallery
@@ -26,20 +26,28 @@ export const selectOfferedTemplates = (tx: ScopedSql): Promise<TemplateRow[]> =>
 export const isOfferedTemplate = async (tx: ScopedSql, key: string): Promise<boolean> =>
   (await tx`select 1 from storefront_template where key = ${key} and state = 'offered'`).length > 0
 
-export type MessageRole = 'note'
+export type MessageRole = 'user' | 'ai' | 'note' | 'error'
 
 export interface NewMessage {
   storeId: string
   role: MessageRole
   text: string
+  changed?: readonly string[]
+  imageAssetId?: string | null
+  sampleUrl?: string | null
+  page?: string | null
+  commit?: string | null
+  beforeCommit?: string | null
+  aiRunId?: string | null
   createdBy: string | null
   at: Date
 }
 
 export const insertDesignMessage = async (tx: ScopedSql, m: NewMessage): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
-    insert into design_message (store_id, role, text, created_by, created_at)
-    values (${m.storeId}, ${m.role}, ${m.text}, ${m.createdBy}, ${m.at})
+    insert into design_message (store_id, role, text, changed, image_asset_id, sample_url, page, commit, before_commit, ai_run_id, created_by, created_at)
+    values (${m.storeId}, ${m.role}, ${m.text}, ${pgArray(m.changed ?? [])}::text[], ${m.imageAssetId ?? null}, ${m.sampleUrl ?? null},
+      ${m.page ?? null}, ${m.commit ?? null}, ${m.beforeCommit ?? null}, ${m.aiRunId ?? null}, ${m.createdBy}, ${m.at})
     returning id`
   if (!row) throw new Error('design_message: insert returned nothing')
   return row.id

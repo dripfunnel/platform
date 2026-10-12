@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
+import type { Screenshotter } from '#integrations/cloudflare/screenshot'
+import type { DnsLookup } from '#integrations/dns/doh'
 import { draftBundle, previewFolder, sourceBundle } from '#saas/storefronts/index'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -79,6 +81,14 @@ const provider: AiProvider = {
   },
 }
 let aiMode: 'plan' | 'none' = 'plan'
+/** The world's design deps; a test sets the screenshotter, which sits behind the SSRF check (docs/ARCHITECTURE.md §7). */
+const design: { ai: (billedTo: 'plan' | 'own_key') => AiProvider | null; screenshots: Screenshotter | null; readAsset: null } = {
+  ai: (billedTo) => (aiMode === 'plan' && billedTo === 'plan' ? provider : null),
+  screenshots: null,
+  readAsset: null,
+}
+const dns: Record<string, string[]> = { 'shop.example.com A': ['93.184.216.34'], 'inside.example.com A': ['10.1.2.3'] }
+const lookup: DnsLookup = { resolve: async (name, type) => dns[`${name} ${type}`] ?? [] }
 
 const enPages = () => template.find((f) => f.path === 'content/en/pages.json')?.content ?? ''
 const lead = (words: string) => ({ path: 'content/en/pages.json', content: enPages().replace(/"lead": "[^"]*"/, `"lead": "${words}"`) })
@@ -96,9 +106,9 @@ beforeAll(async () => {
   w = await seedStoreWorld(db.sql, t, {
     now,
     secrets: null,
-    lookup: null,
+    lookup,
     studio: local.studio,
-    extra: { preview: { domain: 'webpreview.store', links: { seal: async () => 'x', open: async () => null } }, design: { ai: (billedTo) => (aiMode === 'plan' && billedTo === 'plan' ? provider : null), screenshots: null, readAsset: null } },
+    extra: { preview: { domain: 'webpreview.store', links: { seal: async () => 'x', open: async () => null } }, design },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -194,6 +204,27 @@ describe('asking for a change', () => {
     expect(script.sent.length).toBe(sent + 1)
   })
 
+  it('screenshots a sample site only at a public https address, refused before the budget and the model', async () => {
+    const taken: string[] = []
+    design.screenshots = { take: async (url) => (taken.push(url.href), new Uint8Array([0xff, 0xd8, 0xff, 0xd9])) }
+    try {
+      const sent = script.sent.length
+      const used = await usage(t.storeA1)
+      for (const site of ['http://10.0.0.1/', 'https://10.0.0.1/', 'http://shop.example.com/', 'https://localhost/', 'https://inside.example.com/', 'https://shop.example.com:8443/', 'https://nowhere.example.com/'])
+        expect((await ask('owner', 'Like this', { site })).code, site).toBe('INVALID_URL')
+      expect(taken).toEqual([])
+      expect(script.sent.length).toBe(sent)
+      expect(await usage(t.storeA1)).toBe(used)
+      // The model changes nothing here, so the draft the later tests build on stays as it was.
+      script.answers = [reply([])]
+      expect((await ask('owner', 'Like this', { site: 'https://shop.example.com/' })).code).toBeUndefined()
+      expect(taken).toEqual(['https://shop.example.com/'])
+      expect(script.sent.length).toBe(sent + 1)
+    } finally {
+      design.screenshots = null
+    }
+  })
+
   it('is the Owner’s: the Manager reads the chat and is refused writes; Staff and suppliers are refused; another store’s chat stays its own', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await ask(who, 'Mine')).code).toBe('FORBIDDEN')
     const chat = await w.gql('manager', '{ designChat { messages { role text } next } }')
@@ -202,6 +233,7 @@ describe('asking for a change', () => {
     expect((await w.gql('bOwner', '{ designChat { messages { id } } }')).data?.['designChat']).toEqual({ messages: [] })
     expect((await ask('owner', 'x', { image: crypto.randomUUID() })).code).toBe('INVALID_IMAGE')
     expect((await ask('owner', 'x', { site: 'http://10.0.0.1/' })).code).toBe('NOT_CONNECTED')
+
   })
 })
 

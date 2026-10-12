@@ -1851,7 +1851,7 @@ design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, chan
                     -- "Undo this change" restores; image_asset_id a pasted image (the store's
                     -- own asset), sample_url a site the merchant gave; the merchant's, like
                     -- ai_run.prompt (§5.3)
-                    -- Built on #318 (migration 0332) with page (the page the reply shows); a note's or
+                    -- Built on #318 (migrations 0332, the notes, and 0333) with page (the page the reply shows); a note's or
                     -- an error's text is a code the portal words, never stored words (`template:{key}`);
                     -- the studio writes it in system scope, the merchant side reads its own
 storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_colour NULL,
