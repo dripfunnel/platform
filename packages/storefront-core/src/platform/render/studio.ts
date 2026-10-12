@@ -1,7 +1,22 @@
 // The studio frame's side of core (storefront AI-STUDIO §3 step 6, §4 step 5): every request it makes carries the
 // studio-session id in its path, read from core's own module address, never handed to the theme (ARCHITECTURE §3.4).
 
+import { studioCspSchema } from '../csp/csp'
+
 const studioPrefix = /^\/__studio\/[A-Za-z0-9_-]{22}\//
+
+const portalOrigin = studioCspSchema.shape.portalOrigin
+const portalMeta = 'df-studio-portal'
+
+/** The frame's page naming the portal its CSP lets frame it, the only origin core's studio messages go to and come from (AI-STUDIO §8). */
+export const studioFramePage = (html: string, portal: string): string =>
+  html.replace(/<head>/i, (head) => `${head}<meta name="${portalMeta}" content="${portalOrigin.parse(portal)}">`)
+
+/** The portal's origin from the frame's page; null on a preview or a live page, which carry none. */
+export const studioPortalOrigin = (doc: Document): string | null => {
+  const parsed = portalOrigin.safeParse(doc.querySelector(`meta[name="${portalMeta}"]`)?.getAttribute('content'))
+  return parsed.success ? parsed.data : null
+}
 
 /** `/__studio/{session}/` when `moduleUrl` is under a studio frame, else null (a preview or a live site). */
 export const studioBasePath = (moduleUrl: string): string | null => {

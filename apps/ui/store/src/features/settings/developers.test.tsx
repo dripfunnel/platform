@@ -107,6 +107,7 @@ beforeEach(() => {
     { id: 'v1', name: 'Northwind Textiles', status: 'active' },
     { id: 'v2', name: 'Moradabad Brass', status: 'suspended' },
   ])
+  team.loadPeople.mockResolvedValue([])
 })
 
 afterEach(() => {
