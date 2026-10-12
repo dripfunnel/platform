@@ -81,6 +81,7 @@ export interface DesignStateRow {
   live_number: number | null
   live_published_at: Date | null
   live_template: string | null
+  live_portal_origin: string | null
   draft_template: string | null
   draft_head: string | null
   draft_changed_at: Date | null
@@ -93,7 +94,13 @@ export const selectDesignState = async (tx: ScopedSql, storeId: string): Promise
     await tx<DesignStateRow[]>`
       select f.repo_state, f.template as storefront_template, f.live_build_id, v.number as live_number, v.published_at as live_published_at,
         v.template as live_template, d.template as draft_template, d.head_commit as draft_head, d.changed_at as draft_changed_at,
-        d.preview_deploy_ref as draft_preview
+        d.preview_deploy_ref as draft_preview,
+        -- The live home page's frame-ancestors (ARCHITECTURE §3.5): its own upload's, or for a page run the build it renders beside.
+        (select substring(m.file->'headers'->>'content-security-policy' from 'frame-ancestors (https://[^ ;]+)')
+          from publish_run r cross join jsonb_array_elements(r.upload_manifest->'files') m(file)
+          where r.store_id = f.store_id and r.id in (f.live_build_id, (select assets_build_id from publish_run where id = f.live_build_id))
+            and m.file->>'path' = 'index.html'
+          order by r.id = f.live_build_id desc limit 1) as live_portal_origin
       from storefront f
         left join design_version v on v.store_id = f.store_id and v.state = 'live'
         left join design_draft d on d.store_id = f.store_id

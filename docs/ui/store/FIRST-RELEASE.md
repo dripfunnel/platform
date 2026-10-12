@@ -741,6 +741,15 @@ through. Your site stays live."), as is a support session.
   content. Open preview ↗ opens its tab on the click and sends it to the signed link once made (https only, no
   opener), so a pop-up blocker doesn't stop it; it shows only once the draft's preview is written, and sits in the
   preview's toolbar on a phone.
+- **Built on #680**: the Overview frames the live site at Desktop and Phone, as `PortalStorefront` draws it, now that
+  live pages let the store's portal frame them (storefront ARCHITECTURE §3.5): the card's head has "Live now · version
+  N" and Desktop · Phone; Desktop is the site 1280 px wide scaled to the card (at most 640 px tall), Phone is it 390 px
+  wide in a 620 px panel. The frame is sandboxed (`allow-scripts allow-same-origin`), sends no referrer and opens the
+  live address the header names. *Decided there:* it frames only when the Store API says the live home page lets this
+  portal's origin frame it (`storefront.live.portalOrigin`); a build from before #680, or one made for another portal
+  host, keeps #319's view (the version, when it was published and its address) until the next publish; so does a
+  frame that hasn't loaded in 20 seconds, since a browser tells a page nothing else about a frame it refused. The
+  Manager sees the same frame.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

@@ -1,12 +1,13 @@
 import type { StorefrontBrand, StorefrontDomains, StorefrontOverview, StorefrontSeo, StorefrontTemplate } from '../../api/storefront'
 
 // Storefront's states under ?state= (ui/README.md §6): loading, error, denied (Staff), brand (the Owner's first visit),
-// gallery (then the templates), creating, list (live, own domain live), draft (unpublished changes), manager and readOnly
-// (past due) look only, noSite (a Manager before any publish), waiting and failed (an own domain on its way or refused by
-// DNS), and free (a plan without an own domain); the studio's: studio (ready), opening, queued, finishing (another tab's
-// change) and ended (the session refused); a publish checking, refused (with a change to publish before) or rolled back.
+// gallery (then the templates), creating, list (live, own domain live, framed), oldBuild (live from a build that refuses
+// frames), draft (unpublished changes), manager and readOnly (past due) look only, noSite (a Manager before any publish),
+// waiting and failed (an own domain on its way or refused by DNS), and free (a plan without an own domain); the studio's:
+// studio (ready), opening, queued, finishing (another tab's change) and ended (the session refused); a publish checking,
+// refused (with a change to publish before) or rolled back.
 export const studioHarnessStates = ['studio', 'opening', 'queued', 'finishing', 'ended', 'pubChecking', 'pubRefused', 'rolledBack'] as const
-export const storefrontStates = ['loading', 'error', 'denied', 'brand', 'gallery', 'creating', 'list', 'draft', 'manager', 'readOnly', 'noSite', 'waiting', 'failed', 'free', ...studioHarnessStates] as const
+export const storefrontStates = ['loading', 'error', 'denied', 'brand', 'gallery', 'creating', 'list', 'oldBuild', 'draft', 'manager', 'readOnly', 'noSite', 'waiting', 'failed', 'free', ...studioHarnessStates] as const
 export type StorefrontState = (typeof storefrontStates)[number]
 export const isStudioState = (state: string | null): boolean => studioHarnessStates.some((s) => s === state)
 
@@ -77,7 +78,7 @@ export const sampleTemplates = (state: StorefrontState): StorefrontTemplate[] =>
 export const sampleOverview = (state: StorefrontState): StorefrontOverview => {
   if (!harness || unstarted(state)) return { status: 'not_started', template: null, live: null, draft: null }
   if (state === 'creating') return { status: 'creating', template: 'linen', live: null, draft: null }
-  const live = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen' }
+  const live = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: state === 'oldBuild' ? null : window.location.origin }
   const draft = { template: 'linen', changedAt: '2026-10-12T08:15:00Z', previewReady: true }
   return state === 'draft' || state === 'manager' || isStudioState(state) ? { status: 'unpublished_changes', template: 'linen', live, draft } : { status: 'same_as_live', template: 'linen', live, draft: null }
 }

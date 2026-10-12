@@ -10,6 +10,7 @@ import type { StorefrontBrand, StorefrontDomains, StorefrontMeters, StorefrontOv
 import { setBrand } from '../../brand/current'
 import { historyPageSize } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
+import { frameTimeoutMs, LiveFrame } from './LiveFrame'
 import { storefrontTabs, storefrontViews } from './storefrontAccess'
 
 // Storefront driven by each seat (FIRST-RELEASE §14): the brand step, the gallery, the overview, the tabs, and Site settings' three cards.
@@ -48,7 +49,8 @@ const onlyFree: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...
 const waiting: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { id: 'd1', host: 'www.kesari.in', kind: 'custom', status: 'waiting', primary: false, checkedAt: null, records }] }
 const live: StorefrontDomains = { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { id: 'd1', host: 'www.kesari.in', kind: 'custom', status: 'live', primary: false, checkedAt: null, records }] }
 
-const live12 = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen' }
+// A build from before #680, whose pages refuse every frame.
+const live12 = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }
 const sameAsLive: StorefrontOverview = { status: 'same_as_live', template: 'linen', live: live12, draft: null }
 const withDraft: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: live12, draft: { template: 'linen', changedAt: null, previewReady: true } }
 const notStarted: StorefrontOverview = { status: 'not_started', template: null, live: null, draft: null }
@@ -357,6 +359,83 @@ describe('the overview', () => {
     await show()
     expect(screen.getByRole('heading', { name: o.creatingTitle })).toBeTruthy()
     expect(screen.queryByRole('button', { name: o.changeTemplate })).toBeNull()
+  })
+})
+
+describe('the overview’s live site', () => {
+  const sw = words.studio
+  const framedLive: StorefrontOverview = { ...sameAsLive, live: { ...live12, portalOrigin: window.location.origin } }
+  const frame = () => screen.queryByTitle(fill(o.frameTitle, { host: 'kesari.shops.example.com' }))
+
+  it('frames the live site at Desktop, and at Phone on a press, sandboxed', async () => {
+    api.loadOverview.mockResolvedValue(framedLive)
+    await show()
+    const shown = frame()
+    expect(shown?.getAttribute('src')).toBe('https://kesari.shops.example.com/')
+    expect(shown?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin')
+    expect(shown?.closest('.df-sf-live-frame')?.classList.contains('df-sf-live-frame--desktop')).toBe(true)
+    expect(screen.getByRole('button', { name: sw.devices.desktop }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByText(fill(o.liveAt, { host: 'kesari.shops.example.com' }))).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: sw.devices.phone }))
+    expect(screen.getByRole('button', { name: sw.devices.phone }).getAttribute('aria-pressed')).toBe('true')
+    expect(frame()?.closest('.df-sf-live-frame')?.classList.contains('df-sf-live-frame--phone')).toBe(true)
+    // The same frame, so switching doesn't load the site again.
+    expect(frame()).toBe(shown)
+  })
+
+  it('frames it for the Manager too, who changes nothing', async () => {
+    api.loadOverview.mockResolvedValue(framedLive)
+    await show({ acting: manager })
+    expect(frame()).toBeTruthy()
+    expect(screen.queryByRole('button', { name: o.changeTemplate })).toBeNull()
+    expect(screen.queryByRole('button', { name: o.openStudio })).toBeNull()
+  })
+
+  it('shows the version and its address for a build from before, or one made for another portal', async () => {
+    await show()
+    expect(frame()).toBeNull()
+    expect(screen.queryByRole('group', { name: sw.screen })).toBeNull()
+    expect(screen.getByText(fill(o.liveAt, { host: 'kesari.shops.example.com' }))).toBeTruthy()
+    cleanup()
+    api.loadOverview.mockResolvedValue({ ...sameAsLive, live: { ...live12, portalOrigin: 'https://store.other-partner.example' } })
+    await show()
+    expect(frame()).toBeNull()
+    expect(screen.getByText(fill(o.liveAt, { host: 'kesari.shops.example.com' }))).toBeTruthy()
+  })
+
+  it('gives way to the version and its address when the frame hasn’t loaded in time', async () => {
+    api.loadOverview.mockResolvedValue(framedLive)
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      await show()
+      expect(frame()).toBeTruthy()
+      act(() => vi.advanceTimersByTime(frameTimeoutMs))
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(frame()).toBeNull()
+    expect(screen.getByText(fill(o.liveAt, { host: 'kesari.shops.example.com' }))).toBeTruthy()
+    expect(screen.getByText(fill(o.published, { when: formatTime(live12.publishedAt) }))).toBeTruthy()
+  })
+
+  it('calls the frame failed only when it hasn’t loaded in time', () => {
+    vi.useFakeTimers()
+    try {
+      const failed = vi.fn()
+      render(<LiveFrame host="kesari.shops.example.com" device="desktop" onFail={failed} />)
+      act(() => vi.advanceTimersByTime(frameTimeoutMs))
+      expect(failed).toHaveBeenCalledTimes(1)
+      cleanup()
+      const kept = vi.fn()
+      render(<LiveFrame host="kesari.shops.example.com" device="phone" onFail={kept} />)
+      const shown = frame()
+      if (!shown) throw new Error('no frame')
+      fireEvent.load(shown)
+      act(() => vi.advanceTimersByTime(frameTimeoutMs))
+      expect(kept).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

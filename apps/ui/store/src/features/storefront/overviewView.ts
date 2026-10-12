@@ -15,6 +15,9 @@ export const needsTemplate = (status: StorefrontStatus): boolean => status === '
 export const liveHost = (domains: StorefrontDomains): string | null =>
   (domains.domains.find((d) => d.primary && d.status === 'live') ?? domains.domains.find((d) => d.kind === 'free'))?.host ?? null
 
+/** A build from before #680 refuses every frame, as does one made for another portal (storefront ARCHITECTURE §3.5). */
+export const canFrameLive = (portalOrigin: string | null, here: string): boolean => portalOrigin !== null && portalOrigin === here
+
 /** "Start from scratch" reads as the prototype's "Custom" once it is the store's look. */
 export const templateName = (templates: readonly StorefrontTemplate[], key: string | null): string =>
   key === null || key === scratchTemplate ? words.overview.custom : (templates.find((t) => t.key === key)?.name ?? key)

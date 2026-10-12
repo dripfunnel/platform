@@ -2925,6 +2925,7 @@ type StorefrontDraft {
 
 type StorefrontLiveVersion {
   number: Int
+  portalOrigin: String
   publishedAt: String
   template: String
 }

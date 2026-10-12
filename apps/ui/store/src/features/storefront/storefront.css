@@ -827,6 +827,58 @@
   text-transform: uppercase;
 }
 
+.df-sf-devices {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+}
+
+.df-sf-devices button {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  background: var(--df-color-surface);
+  color: var(--df-color-text-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-sf-devices button[aria-pressed='true'] {
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+}
+
+.df-sf-live-frame {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--df-color-surface);
+}
+
+.df-sf-live-frame--phone {
+  padding: 16px;
+  background: var(--df-color-neutral-border);
+}
+
+.df-sf-live-screen {
+  flex: none;
+  overflow: hidden;
+}
+
+.df-sf-live-frame--phone .df-sf-live-screen {
+  border-radius: 24px;
+}
+
+.df-sf-live-screen iframe {
+  display: block;
+  border: 0;
+  background: var(--df-color-surface);
+  transform-origin: 0 0;
+}
+
 .df-sf-live-body {
   margin: 0;
   padding: 18px 14px;
