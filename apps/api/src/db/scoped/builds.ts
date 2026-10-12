@@ -15,6 +15,9 @@ export interface BuildRow {
   /** A repair's or a bisect's build, and the publish it serves, whose Workflow its calls wake. */
   attempt: 'repair' | 'bisect' | null
   attempt_of: string | null
+  /** A major's upgrade, built and checked, never uploaded; and the baseline fallback, whose look may change (ARCHITECTURE §7). */
+  check_only: boolean
+  baseline: boolean
   state: BuildState
   started_at: Date | null
   github_run_id: string | null
@@ -33,7 +36,7 @@ export interface BuildRow {
 export const selectBuildForUpdate = async (tx: ScopedSql, buildId: string): Promise<BuildRow | null> =>
   (
     await tx<BuildRow[]>`
-      select r.id, r.store_id, s.partner_id, r.kind, r.commit, r.core_version, r.attempt, r.attempt_of, r.state, r.started_at, r.github_run_id::text as github_run_id, r.gate, r.gate_digest,
+      select r.id, r.store_id, s.partner_id, r.kind, r.commit, r.core_version, r.attempt, r.attempt_of, r.check_only, r.baseline, r.state, r.started_at, r.github_run_id::text as github_run_id, r.gate, r.gate_digest,
         r.uploaded_at, r.upload_manifest is not null as manifest_ok, r.verified_at, f.repo, f.repo_id::text as repo_id, f.live_build_id
       from publish_run r join storefront f on f.store_id = r.store_id join store s on s.id = r.store_id
       where r.id = ${buildId} for update of r`
@@ -44,12 +47,12 @@ export const bindBuildRun = async (tx: ScopedSql, buildId: string, runId: string
   await tx`update publish_run set github_run_id = ${runId} where id = ${buildId} and github_run_id is null`
 }
 
-/** A pass goes on to deploying, or ends a bisect's build as checked; a failure waits in checking for the publish run (§4.2 step 4). */
+/** A pass goes on to deploying, or ends a bisect's or a check-only build as checked; a failure waits in checking for the publish run (§4.2 step 4). */
 export const recordGate = async (tx: ScopedSql, b: { buildId: string; gate: Record<string, unknown>; digest: string; passed: boolean; at: Date }): Promise<void> => {
   await tx`
     update publish_run set gate = ${tx.json(b.gate as Parameters<typeof tx.json>[0])}, gate_digest = ${b.digest},
-      state = case when not ${b.passed} then 'checking' when attempt = 'bisect' then 'checked' else 'deploying' end,
-      finished_at = case when ${b.passed} and attempt = 'bisect' then ${b.at}::timestamptz else finished_at end,
+      state = case when not ${b.passed} then 'checking' when attempt = 'bisect' or check_only then 'checked' else 'deploying' end,
+      finished_at = case when ${b.passed} and (attempt = 'bisect' or check_only) then ${b.at}::timestamptz else finished_at end,
       build_minutes = case when dispatched_at is null then null else greatest(0, ceil(extract(epoch from (${b.at}::timestamptz - dispatched_at)) / 60))::int end
     where id = ${b.buildId} and gate is null`
 }

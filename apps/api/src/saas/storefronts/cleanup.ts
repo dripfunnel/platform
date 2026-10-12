@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { withSystemScope } from '#db/scoped/index'
 import { failureCode, logEvent } from '#core/log'
 import { markFilesDeleted, markPreviewsTidied, markStoreFilesDeleted, selectClosedStoresToErase, selectExpiredBuilds, selectPreviewCleanups } from '#db/scoped/publishing'
-import { buildFolder, draftBundle, previewRoot, snapshotFile, snapshotsPrefix, sourceBundle, sourcesPrefix, stagingFolder, storePrefix } from './layout'
+import { buildFolder, draftBundle, previewRoot, snapshotFile, snapshotsPrefix, sourceBundle, sourcesPrefix, stagingFolder, storePrefix, upgradesPrefix } from './layout'
 import { deletePrefix, type SitesBucket } from './templates'
 
 // Clean-up of the storefront buckets (storefront LIVE-SHOP.md §4 step 11, PREVIEW.md §3), run daily by the cron. Each part
@@ -52,6 +52,7 @@ const eraseStore = async (b: StorefrontBuckets, storeId: string): Promise<void> 
   await b.drafts.delete([draftBundle(storeId)])
   await deletePrefix(b.drafts, sourcesPrefix(storeId))
   await deletePrefix(b.drafts, snapshotsPrefix(storeId))
+  await deletePrefix(b.drafts, upgradesPrefix(storeId))
 }
 
 /** One item's failure is logged and left for the next day; it never stops the rest of the batch. */

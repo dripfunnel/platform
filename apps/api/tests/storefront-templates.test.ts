@@ -41,4 +41,22 @@ describe('storefront_template', () => {
     await expect(as('app_request', 'store', (tx) => tx`select key from storefront_template`)).rejects.toThrow(/permission denied/)
     await expect(as('app_partner', 'partner', (tx) => tx`select key from storefront_template`)).rejects.toThrow(/permission denied/)
   })
+
+  it('is written by the system scope, and each role sees nothing outside its own scope', async () => {
+    const rollback = new Error('rollback')
+    await expect(
+      as('app_system', 'system', async (tx) => {
+        await tx`insert into storefront_template (key, name, tag, description, core_min_version) values ('zz-test', 'Test', 'Test', 'A test template.', '0.0.0')`
+        const [row] = await tx`update storefront_template set state = 'retired' where key = 'zz-test' returning state`
+        expect(row?.['state']).toBe('retired')
+        throw rollback
+      }),
+    ).rejects.toBe(rollback)
+
+    expect(await as('app_platform', 'store', (tx) => tx`select key from storefront_template`)).toHaveLength(0)
+    expect(await as('app_system', 'store', (tx) => tx`select key from storefront_template`)).toHaveLength(0)
+    await expect(
+      as('app_system', 'store', (tx) => tx`insert into storefront_template (key, name, tag, description, core_min_version) values ('zz-test', 'Test', 'Test', 'A test template.', '0.0.0')`),
+    ).rejects.toThrow(/row-level security/)
+  })
 })
