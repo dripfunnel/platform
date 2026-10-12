@@ -35,7 +35,7 @@ export interface StudioViewProps {
   api: StorefrontApi
   onExit: () => void
   onOverview: (next: StorefrontOverview) => void
-  usage: StorefrontMeters['usage']
+  usage: StorefrontMeters['usage'] | null
   /** The publish being followed, kept in the address so a reload keeps following it. */
   run: string | null
   onRun: (id: string | null) => void
@@ -452,7 +452,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             onUndo={undo}
             onSend={send}
             notice={notice}
-            aiLine={usage.ownKey ? words.usageOwn : usage.aiPromptsAllowed === null ? null : fill(words.usageLine, { left: formatCount(Math.max(0, usage.aiPromptsAllowed - usage.aiPromptsUsed)) })}
+            aiLine={!usage ? null : usage.ownKey ? words.usageOwn : usage.aiPromptsAllowed === null ? null : fill(words.usageLine, { left: formatCount(Math.max(0, usage.aiPromptsAllowed - usage.aiPromptsUsed)) })}
           />
         </div>
         <div className="df-studio-pane df-studio-pane--preview" {...paneProps('preview')}>

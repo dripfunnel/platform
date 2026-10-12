@@ -29,7 +29,8 @@ interface Reads {
   domains: StorefrontDomains
   overview: StorefrontOverview
   templates: StorefrontTemplate[]
-  meters: StorefrontMeters
+  /** Null when the meters couldn't be read: the bar and the use card are left out, the rest of the page stays. */
+  meters: StorefrontMeters | null
 }
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; reads: Reads }
 
@@ -57,7 +58,7 @@ export const StorefrontPage = () => {
     if (forced === 'error') return setView({ kind: 'error' })
     if (!access.canRead) return
     setView({ kind: 'loading' })
-    void Promise.all([api.loadBrand(), api.loadSeo(), api.loadDomains(), api.loadOverview(), api.loadTemplates(), api.loadMeters()]).then(
+    void Promise.all([api.loadBrand(), api.loadSeo(), api.loadDomains(), api.loadOverview(), api.loadTemplates(), api.loadMeters().catch(() => null)]).then(
       ([brand, seo, domains, overview, templates, meters]) => ask === latest.current && setView({ kind: 'ready', reads: { brand, seo, domains, overview, templates, meters } }),
       () => ask === latest.current && setView({ kind: 'error' }),
     )
@@ -74,7 +75,7 @@ export const StorefrontPage = () => {
     (overview: StorefrontOverview) => {
       update({ overview })
       const ask = ++templatesAsk.current
-      Promise.all([api.loadTemplates(), api.loadMeters()]).then(
+      Promise.all([api.loadTemplates(), api.loadMeters().catch(() => null)]).then(
         ([templates, meters]) => ask === templatesAsk.current && update({ templates, meters }),
         () => undefined,
       )
@@ -198,7 +199,7 @@ export const StorefrontPage = () => {
         api={api}
         onExit={() => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, isStudioState(forced) ? 'draft' : (forced ?? undefined)), view: undefined }) })}
         onOverview={onOverview}
-        usage={meters.usage}
+        usage={meters?.usage ?? null}
         run={run ?? (forced === 'pubChecking' || forced === 'pubRefused' || forced === 'rolledBack' ? 'sample-run' : null)}
         onRun={onRun}
       />
@@ -226,7 +227,7 @@ export const StorefrontPage = () => {
           }}
           onDomains={onDomains}
           onToast={setToast}
-          usage={meters.usage}
+          usage={meters?.usage ?? null}
           templates={templates}
           liveNumber={overview.live?.number ?? null}
           onWent={refresh}
@@ -235,7 +236,7 @@ export const StorefrontPage = () => {
     return (
       <DesignTab
         overview={overview}
-        catalogue={meters.catalogue}
+        catalogue={meters?.catalogue ?? null}
         host={host}
         canEdit={access.canEdit}
         canUpgrade={canUpgrade}

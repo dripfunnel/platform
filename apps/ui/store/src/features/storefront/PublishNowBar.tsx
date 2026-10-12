@@ -1,9 +1,10 @@
+import { isApiError } from '@dripfunnel/shared/graphql'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import type { StorefrontMeters } from '../../api/storefront'
 import { fill, formatTime, messages, plural } from '../../messages'
 import { refusalIn } from '../common/refusal'
-import { publishPollMs, publishProgress } from './studioRules'
+import { publishPollMs, publishProgress, publishReadTries } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.publishNow
@@ -24,30 +25,41 @@ export interface PublishNowBarProps {
 /** The catalogue's "Publish now" bar (FIRST-RELEASE §14, not drawn): styled like the draft notice, shown only while changes wait. */
 export const PublishNowBar = ({ catalogue, canEdit, canUpgrade, api, run, onRun, onDone }: PublishNowBarProps) => {
   const [error, setError] = useState<string | null>(null)
+  const [lost, setLost] = useState(false)
+  const [checks, setChecks] = useState(0)
   const working = useRef(false)
 
   // The press is read again until it ends; only the newest answer for the run followed lands.
   useEffect(() => {
     if (!run) return
     let current = true
+    let failures = 0
     let timer: ReturnType<typeof setTimeout> | undefined
+    setLost(false)
     const read = () =>
       api.loadPublishRun(run).then(
         (answer) => {
           if (!current) return
+          failures = 0
           if (answer && publishProgress(answer.step)) return void (timer = setTimeout(() => void read(), publishPollMs))
           onRun(null)
           if (answer?.step === 'failed' || answer?.step === 'rolled_back') setError(words.failed)
           onDone(answer?.step === 'live' ? words.done : null)
         },
-        () => current && (timer = setTimeout(() => void read(), publishPollMs)),
+        (e: unknown) => {
+          if (!current) return
+          failures += 1
+          // The studio's rule: a refused read, or one that keeps failing, stops asking but keeps the press followed.
+          if (isApiError(e, 'SESSION_ENDED') || isApiError(e, 'FORBIDDEN') || failures >= publishReadTries) return setLost(true)
+          timer = setTimeout(() => void read(), publishPollMs)
+        },
       )
     void read()
     return () => {
       current = false
       clearTimeout(timer)
     }
-  }, [api, run, onRun, onDone])
+  }, [api, run, onRun, onDone, checks])
 
   if (!catalogue.waiting && !run && !error) return null
   const since = catalogue.since ? formatTime(catalogue.since) : ''
@@ -77,7 +89,16 @@ export const PublishNowBar = ({ catalogue, canEdit, canUpgrade, api, run, onRun,
           <span>{what}</span> {presses && <span>{presses}</span>} {catalogue.nextAutomaticPublishAt && <span>{fill(words.next, { time: formatTime(catalogue.nextAutomaticPublishAt) })}</span>}
         </p>
       )}
-      {run ? (
+      {run && lost ? (
+        <>
+          <p className="df-sf-problem" role="alert">
+            {words.lost}
+          </p>
+          <button type="button" className="df-button df-sf-draft-button" onClick={() => setChecks((n) => n + 1)}>
+            {words.checkAgain}
+          </button>
+        </>
+      ) : run ? (
         <span role="status" className="df-sf-publish-now-working">
           {words.working}
         </span>

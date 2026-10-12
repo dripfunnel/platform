@@ -17,7 +17,7 @@ export interface SiteSettingsTabProps {
   onSeo: (seo: StorefrontSeo, toast: string) => void
   onDomains: (domains: StorefrontDomains) => void
   onToast: (text: string) => void
-  usage: StorefrontMeters['usage']
+  usage: StorefrontMeters['usage'] | null
   templates: readonly StorefrontTemplate[]
   liveNumber: number | null
   onWent: (toast: string) => void
@@ -34,7 +34,7 @@ export const SiteSettingsTab = ({ brand, seo, domains, canEdit, canUpgrade, api,
         <SeoCard seo={seo} shopName={brand?.shopName ?? ''} host={primary?.host ?? ''} canEdit={canEdit} api={api} onSaved={onSeo} />
       </div>
       <div className="df-sf-settings">
-        <UsageCard usage={usage} />
+        {usage && <UsageCard usage={usage} />}
         <HistoryCard templates={templates} canEdit={canEdit} api={api} liveNumber={liveNumber} onWent={onWent} />
       </div>
     </div>

@@ -18,7 +18,7 @@ export interface PoweredLine {
 
 export interface DesignTabProps {
   overview: StorefrontOverview
-  catalogue: StorefrontMeters['catalogue']
+  catalogue: StorefrontMeters['catalogue'] | null
   host: string | null
   canEdit: boolean
   canUpgrade: boolean
@@ -70,7 +70,7 @@ export const DesignTab = ({ overview, catalogue, host, canEdit, canUpgrade, run,
   const { live } = overview
   return (
     <div className="df-sf-design">
-      {overview.live && <PublishNowBar catalogue={catalogue} canEdit={canEdit} canUpgrade={canUpgrade} api={api} run={run} onRun={onRun} onDone={onPublished} />}
+      {overview.live && catalogue && <PublishNowBar catalogue={catalogue} canEdit={canEdit} canUpgrade={canUpgrade} api={api} run={run} onRun={onRun} onDone={onPublished} />}
       {overview.status === 'unpublished_changes' && (
         <div className="df-sf-draft">
           <p>

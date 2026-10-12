@@ -6934,7 +6934,9 @@
         "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
         "FORBIDDEN": "Only the store owner can change the storefront.",
         "other": "That didn’t work. Check your connection and try again."
-      }
+      },
+      "lost": "We couldn’t read how your publish is going.",
+      "checkAgain": "Check again"
     },
     "usage": {
       "title": "AI and build minutes",

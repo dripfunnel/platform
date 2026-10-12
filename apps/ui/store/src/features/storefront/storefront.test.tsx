@@ -509,9 +509,55 @@ describe('the Publish now bar', () => {
     expect(screen.getAllByRole('alert').map((a) => a.textContent)).toEqual([pn.refused.PUBLISH_RUNNING])
   })
 
+  it('stops asking about a press it can’t read, says so, and checks again on request', async () => {
+    api.loadMeters.mockResolvedValue({ catalogue: waitingCatalogue, usage })
+    api.publishNow.mockResolvedValue('r1')
+    studio.loadPublishRun.mockRejectedValue(new Error('offline'))
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: pn.button }))
+    await settle()
+    for (let i = 0; i < 4; i += 1) await act(async () => void vi.advanceTimersByTime(2_000))
+    await settle()
+    expect(studio.loadPublishRun).toHaveBeenCalledTimes(5)
+    await act(async () => void vi.advanceTimersByTime(10_000))
+    expect(studio.loadPublishRun).toHaveBeenCalledTimes(5)
+    expect(screen.getByRole('alert').textContent).toBe(pn.lost)
+    studio.loadPublishRun.mockResolvedValue({ id: 'r1', step: 'live', version: 12, repairAttempts: 0, checks: [], bisectMessageId: null })
+    fireEvent.click(screen.getByRole('button', { name: pn.checkAgain }))
+    await settle()
+    expect(screen.getByText(pn.done)).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('stops at once when reading the press is forbidden', async () => {
+    api.loadMeters.mockResolvedValue({ catalogue: waitingCatalogue, usage })
+    api.publishNow.mockResolvedValue('r1')
+    studio.loadPublishRun.mockRejectedValue(new ApiError('FORBIDDEN', 'No.'))
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: pn.button }))
+    await settle()
+    expect(studio.loadPublishRun).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('alert').textContent).toBe(pn.lost)
+  })
+
   it('isn’t there while nothing waits', async () => {
     await show()
     expect(screen.queryByRole('button', { name: pn.button })).toBeNull()
+  })
+})
+
+describe('when the meters can’t be read', () => {
+  it('keeps the page, leaving out only the bar and the use card', async () => {
+    api.loadMeters.mockRejectedValue(new Error('500'))
+    await show()
+    expect(screen.getByRole('region', { name: fill(o.liveLabel, { number: '12' }) })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.publishNow.button })).toBeNull()
+    cleanup()
+    await show({ tab: 'settings' })
+    expect(screen.queryByRole('region', { name: words.usage.title })).toBeNull()
+    expect(screen.getByRole('region', { name: words.history.title })).toBeTruthy()
+    expect(screen.getByRole('region', { name: b.card.title })).toBeTruthy()
   })
 })
 
