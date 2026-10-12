@@ -49,7 +49,17 @@ const show = async (over: Partial<Fake> = {}) => {
   await settle()
   return { onOverview }
 }
-const frame = () => screen.getByTitle(words.frameTitle) as HTMLIFrameElement
+// Test frames never load (vite.config.ts), so each stands in with a window of its own that records what it is sent.
+const frameWindows = new WeakMap<HTMLIFrameElement, { postMessage: ReturnType<typeof vi.fn> }>()
+const frame = () => {
+  const element = screen.getByTitle(words.frameTitle) as HTMLIFrameElement
+  if (!frameWindows.has(element)) {
+    const win = { postMessage: vi.fn() }
+    frameWindows.set(element, win)
+    Object.defineProperty(element, 'contentWindow', { value: win, configurable: true })
+  }
+  return element
+}
 const post = (data: unknown, from = origin, source: unknown = frame().contentWindow) => act(() => void window.dispatchEvent(new MessageEvent('message', { origin: from, data, source: source as Window })))
 const prompt = () => screen.getByRole('textbox', { name: c.prompt }) as HTMLTextAreaElement
 
@@ -228,7 +238,7 @@ describe('the chat', () => {
 describe('Edit text', () => {
   it('opens the words the frame picked, in every language, only in Edit text mode, and saves what changed', async () => {
     await show()
-    const posted = vi.spyOn(frame().contentWindow as Window, 'postMessage')
+    const posted = frameWindows.get(frame())?.postMessage
     post({ type: 'df-studio:text', key: 'pages:home.lead' })
     await settle()
     expect(api.loadDesignText).not.toHaveBeenCalled()
