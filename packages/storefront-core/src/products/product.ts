@@ -98,7 +98,7 @@ const legalNotices = (p: Decoded, store: Answer['store'], t: (key: MessageKey) =
     if (countries.has(c.region)) chosen.set(c.field, c.value)
     else if (c.region === 'ALL' && !chosen.has(c.field)) chosen.set(c.field, c.value)
   }
-  return [...chosen].map(([field, body]) => ({ title: legalTitles[field] ? t(legalTitles[field]) : field, body }))
+  return [...chosen].map(([field, body]) => ({ title: t(legalTitles[field] ?? 'legal.other'), body }))
 }
 
 const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null => {
@@ -228,7 +228,7 @@ export const useProduct = (): ProductPage => {
     compareAt: version ? version.compareAt : (product?.compareAt ?? null),
     from: !version && (product?.from ?? false),
     stock: version ? version.stock : (product?.stock ?? null),
-    photos: [...own, ...(product?.photos.filter((p) => !own.includes(p)) ?? [])],
+    photos: [...own, ...(product?.photos.filter((p) => !own.includes(p)) ?? [])].map((p, i) => ({ ...(i === 0 ? asMain(p) : photoOf(p.url, p.alt)), versionId: p.versionId })),
   }
 }
 
