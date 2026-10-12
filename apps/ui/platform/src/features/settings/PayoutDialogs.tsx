@@ -46,7 +46,7 @@ export const BankDialog = ({ changing, country, currency, stripe, onSaved, onCan
       const client = await stripe
       if (!client) return words.failed
       const { token, error: refused } = await client.createToken('bank_account', bankTokenData(country, currency, fields))
-      return token ? setPayoutAccount(token.id) : (refused?.message ?? words.failed)
+      return token ? setPayoutAccount(token.id) : (refused ? refusals.TOKEN_REFUSED : words.failed)
     })
   return (
     <ConfirmDialog
@@ -108,7 +108,7 @@ export const CardDialog = ({ changing, stripe, onSaved, onCancel }: DialogProps)
     run(async () => {
       if (!element.current) return words.failed
       const { paymentMethod, error: refused } = await element.current.client.createPaymentMethod({ type: 'card', card: element.current.card })
-      return paymentMethod ? setPaymentMethod(paymentMethod.id) : (refused?.message ?? words.failed)
+      return paymentMethod ? setPaymentMethod(paymentMethod.id) : (refused ? refusals.TOKEN_REFUSED : words.failed)
     })
   return (
     <ConfirmDialog

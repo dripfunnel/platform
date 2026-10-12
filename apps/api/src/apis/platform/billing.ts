@@ -153,6 +153,8 @@ const ClientConfig = builder.objectRef<{ publishableKey: string | null }>('Billi
   fields: (t) => ({ publishableKey: t.exposeString('publishableKey', { nullable: true }) }),
 })
 const billingRead = { api: 'platform', scope: 'partner', permission: 'billing.read', target: 'none' } as const
+// Payout and card details stay with the partner, so no staff session reads them either (ACCESS §8.1, §8.2).
+const moneyRead = { ...billingRead, blockedFor: ['impersonation', 'setup'] } as const
 const pageArgs = (t: Parameters<Parameters<typeof builder.queryFields>[0]>[0]) => ({ after: t.arg.string(), before: t.arg.string(), first: t.arg.int() })
 
 const page = <T>(found: T | null): T => {
@@ -167,8 +169,8 @@ builder.queryFields((t) => ({
   partnerInvoices: t.field({ type: InvoicesPage, args: pageArgs(t), extensions: { access: billingRead }, resolve: async (_, args, ctx) => page(await signedIn(ctx.billing).partnerInvoices(args)) }),
   billingSettings: t.field({ type: SettingsType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).billingSettings() }),
   billingClientConfig: t.field({ type: ClientConfig, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).billingClientConfig() }),
-  payoutAccount: t.field({ type: PayoutAccountType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).payoutAccount() }),
-  paymentMethod: t.field({ type: PaymentMethodType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).paymentMethod() }),
+  payoutAccount: t.field({ type: PayoutAccountType, extensions: { access: moneyRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).payoutAccount() }),
+  paymentMethod: t.field({ type: PaymentMethodType, extensions: { access: moneyRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).paymentMethod() }),
   // A fresh link to Stripe's PDF; reading it changes nothing, so it is a query.
   downloadInvoice: t.field({ type: InvoiceLink, args: { id: t.arg.id({ required: true }) }, extensions: { access: billingRead }, resolve: (_, { id }, ctx) => signedIn(ctx.billing).downloadInvoice(String(id)) }),
 }))

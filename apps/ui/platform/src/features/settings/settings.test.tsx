@@ -174,9 +174,10 @@ describe('Payout and payment', () => {
     expect(html.match(/<button[^>]*disabled=""[^>]*>Change (account|card)/g)).toHaveLength(2)
     expect(textOf(html)).toContain(words.payout.mayNot)
   })
-  it('tells a staff setup session these stay with the partner, and loads nothing for it', async () => {
+  it('tells a staff setup session these stay with the partner', async () => {
     const text = textOf(await render(<PayoutTab staffSession partner="Northstar Commerce" mayChange denied={false} country="US" currency="USD" forced={null} onToast={noop} />))
     expect(text).toContain('Payment method and payout details stay with Northstar Commerce. Northstar Commerce enters these itself.')
+    expect(text).not.toContain('Payout account')
   })
 })
 describe('the bank account fields', () => {

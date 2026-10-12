@@ -13,6 +13,7 @@ const stripe = {
 vi.mock('@stripe/stripe-js/pure', () => ({ loadStripe: () => Promise.resolve(stripe) }))
 
 const { BankDialog, CardDialog, stripeFor } = await import('./PayoutDialogs')
+const { PayoutTab } = await import('./PayoutTab')
 
 // What reaches our API: every request body the console sends while a number is typed into Stripe's side.
 const sent: string[] = []
@@ -61,7 +62,8 @@ describe('adding a bank account', () => {
     await user.type(screen.getByLabelText(words.account.routing), '1234')
     await user.type(screen.getByLabelText(words.account.number), '12345678')
     await user.click(screen.getByRole('button', { name: words.account.save }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Invalid routing number')
+    expect((await screen.findByRole('alert')).textContent).toBe(messages.billing.refusals.TOKEN_REFUSED)
+    expect(document.body.textContent).not.toContain('Invalid routing number')
     expect(sent).toHaveLength(0)
   })
 
@@ -89,5 +91,15 @@ describe('adding a card', () => {
     expect(sent).toHaveLength(1)
     expect(sent[0]).toContain('pm_1Abc23XyZ')
     expect(screen.queryByLabelText(/card number/i)).toBeNull()
+  })
+})
+
+describe('a staff session on Payout and payment', () => {
+  it('asks the API for nothing and draws nothing on file', async () => {
+    render(<PayoutTab staffSession partner="Northstar Commerce" mayChange denied={false} country="US" currency="USD" forced={null} onToast={vi.fn()} />)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(sent).toHaveLength(0)
+    expect(document.body.textContent).toContain('stay with Northstar Commerce')
+    expect(document.body.textContent).not.toContain('ending')
   })
 })

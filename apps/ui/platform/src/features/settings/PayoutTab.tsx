@@ -94,7 +94,7 @@ export const PayoutTab = ({ staffSession, partner, mayChange, denied, country, c
   const [attempt, setAttempt] = useState(0)
   const [open, setOpen] = useState<'account' | 'card' | null>(null)
   useEffect(() => {
-    if (denied) return
+    if (denied || staffSession) return
     let current = true
     fetchPayout().then(
       (data) => current && setLoaded({ state: 'ready', data }),
@@ -103,16 +103,21 @@ export const PayoutTab = ({ staffSession, partner, mayChange, denied, country, c
     return () => {
       current = false
     }
-  }, [attempt, denied])
+  }, [attempt, denied, staffSession])
   const key = loaded.state === 'ready' ? loaded.data.publishableKey : null
   const stripe = useMemo(() => (key ? stripeFor(key) : null), [key])
   if (denied) return <PermissionDenied actionLabel={words.title} reason={messages.billing.denied} />
   const retry = () => (setLoaded({ state: 'loading' }), setAttempt((n) => n + 1))
-  const note = staffSession ? fill(words.staffSession, { partner }) : null
+  // Stays with the partner (ACCESS §8.2): a staff session neither loads nor draws it.
+  if (staffSession)
+    return (
+      <div className="df-panels">
+        <InfoNote>{fill(words.staffSession, { partner })}</InfoNote>
+      </div>
+    )
   if (loaded.state !== 'ready')
     return (
       <div className="df-panels">
-        {note && <InfoNote>{note}</InfoNote>}
         {loaded.state === 'loading' ? <LoadingState label={words.loading} rows={3} /> : <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: retry }} />}
       </div>
     )
@@ -130,8 +135,8 @@ export const PayoutTab = ({ staffSession, partner, mayChange, denied, country, c
   }
   return (
     <div className="df-panels">
-      {note ? <InfoNote>{note}</InfoNote> : shown.publishableKey === null && <InfoNote>{words.notConnected}</InfoNote>}
-      <PayoutPanels data={shown} refusal={note ?? (mayChange ? null : words.mayNot)} accountBlock={country && currency ? null : refusals.NO_COUNTRY} onAccount={() => setOpen('account')} onCard={() => setOpen('card')} />
+      {shown.publishableKey === null && <InfoNote>{words.notConnected}</InfoNote>}
+      <PayoutPanels data={shown} refusal={mayChange ? null : words.mayNot} accountBlock={country && currency ? null : refusals.NO_COUNTRY} onAccount={() => setOpen('account')} onCard={() => setOpen('card')} />
       {stripe && open === 'account' && country && currency && <BankDialog changing={shown.account.last4 !== null} country={country} currency={currency} stripe={stripe} onSaved={() => saved('account')} onCancel={() => setOpen(null)} />}
       {stripe && open === 'card' && <CardDialog changing={shown.card.last4 !== null} stripe={stripe} onSaved={() => saved('card')} onCancel={() => setOpen(null)} />}
     </div>
