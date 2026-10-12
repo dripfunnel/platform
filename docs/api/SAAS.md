@@ -853,6 +853,22 @@ built and gated per store, and the upgrade bot must exist from day one.
   it, even after the migration agent, is served the **baseline theme** with its own colours,
   fonts and words until repaired or republished, and its merchant is told (decided 2026-10-08
   on #470).
+  **Built on #485**: when the upgrade's build fails the gate, the **migration agent**
+  (`StudioRunner.migrate`) asks the model with the build's failing checks and the releases' notes, on the upgrade's
+  commit in a sandbox of the new version, through the same validator and fast gate with up to three repairs; each ask
+  is an `ai_run` of kind `migration` (its repairs `repair`), billed to `platform`, asked by no one; its commit is built
+  again and, live, the store reads `migrated` (a major's, `migrated` and waiting). *Decided on #485:* the agent repairs
+  only what the gate refused; a build the post-deploy checks rolled back, or one that never ran, is pinned as it is. The
+  Workflow passes no agent until a model reaches it (the partner's AI key, #275; DripFunnel holds none,
+  THIRD-PARTY-ACCESS §2.6), so until then a failing store goes straight to pinned or the baseline. For a security fix
+  still failing, the store's sandbox writes the **baseline fallback** (storefront ARCHITECTURE §7.1) as a commit of its
+  own, built with `baseline` (the look may change) and switched like any build; live, the row reads `baseline` with
+  the failure's code, `storefront.theme_mode` is `baseline` with `baseline_reason` and the own-theme build it replaced,
+  `storefront.baseline_served` is recorded, and the merchant gets the `storefront-baseline` email once (keyed by the
+  store's upgrade). The baseline is **never pushed** to the repo, whose `main` keeps the store's own theme; the studio
+  of a store without a draft opens on its own theme, and a later rollout upgrades that theme, not the baseline. The
+  merchant's next design publish, or that upgrade going live, sets `theme_mode` back to `own`. A baseline build that
+  fails too leaves the store pinned on its old core.
 - Without this, a checkout fix or a dependency CVE becomes 1,000 manual pull requests.
 
 **Templates** are the starting themes of storefront ARCHITECTURE §2.3, and merchants **never
