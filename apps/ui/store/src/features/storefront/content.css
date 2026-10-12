@@ -449,3 +449,54 @@ strong.df-sfc-path {
     top: 16px;
   }
 }
+
+.df-sfc-cover-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.df-sfc-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  height: 120px;
+  overflow: hidden;
+  border: 2px dashed var(--df-color-field-border);
+  border-radius: 10px;
+  background: var(--df-color-page);
+}
+
+.df-sfc-cover-pick {
+  position: relative;
+  padding: 6px 10px;
+  border-radius: var(--df-radius-small);
+  background: color-mix(in srgb, var(--df-color-surface) 92%, transparent);
+  color: var(--df-color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+label.df-sfc-cover-pick {
+  cursor: pointer;
+}
+
+.df-sfc-cover-pick input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.df-sfc-cover-pick:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-sfc-side .df-sf-field input {
+  box-sizing: border-box;
+  width: 100%;
+}

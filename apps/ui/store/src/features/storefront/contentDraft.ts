@@ -26,13 +26,22 @@ export interface ContentDraft {
   seoTitle: string
   seoDescription: string
   inMenu: boolean
+  /** A post's day (YYYY-MM-DD, UTC), empty until one is picked; `publishAt` is the instant it was read as. */
+  publishDate: string
+  publishAt: string | null
+  author: string
+  coverAssetId: string | null
+  /** Kept as read: the editor doesn't draw tags, and a save without them would clear them. */
+  tags: string[]
 }
 
 let made = 0
 export const newBlock = (kind: BlockKind, more: Partial<DraftBlock> = {}): DraftBlock => ({ key: `b${(made += 1)}`, kind, text: '', assetId: null, alt: '', items: [], productIds: [], ...more })
 
-/** A new page starts with a heading and a paragraph, as StorefrontContent's does. */
-export const draftOf = (entry: ContentEntry | null): ContentDraft =>
+const dayOf = (iso: string | null): string => (iso ? iso.slice(0, 10) : '')
+
+/** A new page starts with a heading and a paragraph, a new post with a paragraph, as StorefrontContent's do. */
+export const draftOf = (entry: ContentEntry | null, kind: ContentKind = 'page'): ContentDraft =>
   entry
     ? {
         title: entry.title,
@@ -41,8 +50,22 @@ export const draftOf = (entry: ContentEntry | null): ContentDraft =>
         seoTitle: entry.seoTitle ?? '',
         seoDescription: entry.seoDescription ?? '',
         inMenu: entry.inMenu,
+        publishDate: dayOf(entry.publishAt),
+        publishAt: entry.publishAt,
+        author: entry.author ?? '',
+        coverAssetId: entry.coverAssetId,
+        tags: entry.tags,
       }
-    : { title: '', slug: '', body: [newBlock('heading'), newBlock('text')], seoTitle: '', seoDescription: '', inMenu: false }
+    : { title: '', slug: '', body: kind === 'page' ? [newBlock('heading'), newBlock('text')] : [newBlock('text')], seoTitle: '', seoDescription: '', inMenu: false, publishDate: '', publishAt: null, author: '', coverAssetId: null, tags: [] }
+
+/** The instant a post's day stands for: the one read while the day is unchanged, else the day's start in UTC. */
+const publishAtOf = (draft: ContentDraft): string | undefined => {
+  if (!draft.publishDate) return undefined
+  return draft.publishAt && dayOf(draft.publishAt) === draft.publishDate ? draft.publishAt : `${draft.publishDate}T00:00:00.000Z`
+}
+
+/** A day after today (UTC) schedules a post. */
+export const schedules = (draft: Pick<ContentDraft, 'publishDate'>, now: Date): boolean => draft.publishDate > now.toISOString().slice(0, 10)
 
 /** What a web address may hold: lower case letters, digits and single hyphens, as the API's slug pattern does. */
 export const cleanSlug = (typed: string): string =>
@@ -63,6 +86,11 @@ const blockInput = (b: DraftBlock): ContentBlockInput | null => {
   return { kind: 'form' }
 }
 
+const postFields = (draft: ContentDraft): Partial<ContentInput> => {
+  const at = publishAtOf(draft)
+  return { ...(at ? { publishAt: at } : {}), author: draft.author.trim() || null, tags: draft.tags, coverAssetId: draft.coverAssetId }
+}
+
 export const inputOf = (kind: ContentKind, draft: ContentDraft, publish: boolean): ContentInput => ({
   title: draft.title.trim(),
   slug: slugShown(draft),
@@ -70,7 +98,7 @@ export const inputOf = (kind: ContentKind, draft: ContentDraft, publish: boolean
   seoTitle: draft.seoTitle.trim() || null,
   seoDescription: draft.seoDescription.trim() || null,
   publish,
-  ...(kind === 'page' ? { inMenu: draft.inMenu } : {}),
+  ...(kind === 'page' ? { inMenu: draft.inMenu } : postFields(draft)),
 })
 
 /** Why a save can't go yet, before asking the API: a title, an address, and nothing past its limit. */

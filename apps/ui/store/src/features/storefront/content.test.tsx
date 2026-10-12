@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ContentEntry, ContentRow } from '../../api/content'
 import type { Acting } from '../../api/shell'
 import type { StorefrontBrand, StorefrontOverview } from '../../api/storefront'
-import { fill, formatTime, messages } from '../../messages'
+import { fill, formatDay, formatTime, messages } from '../../messages'
 import { storefrontSearch } from './storefrontSearch'
 
 // Storefront › Pages driven by each seat (StorefrontContent; FIRST-RELEASE §14): the list with the AI's pages, the editor, the clash.
@@ -49,15 +49,18 @@ const faq: ContentEntry = {
   coverAssetId: null,
   revision: 3,
 }
+const j = c.journal
+const postRow = (over: Partial<ContentRow> = {}): ContentRow => row({ id: '44444444-4444-4444-8444-444444444444', title: 'Caring for linen', path: '/blog/caring-for-linen', inMenu: false, publishAt: '2026-09-14T09:00:00.000Z', author: 'Priya Shah', ...over })
+const linen: ContentEntry = { ...faq, ...postRow(), kind: 'post', slug: 'caring-for-linen', body: [{ kind: 'text', text: 'Wash cool.', assetId: null, alt: null, items: null, productIds: null }], tags: ['care'], coverAssetId: null, seoDescription: null }
 const lookbook = row({ id: '22222222-2222-4222-8222-222222222222', title: 'Lookbook', path: '/lookbook', status: 'draft', inMenu: false })
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
-const show = async ({ acting = owner, entry }: { acting?: Acting; entry?: string } = {}) => {
+const show = async ({ acting = owner, entry, tab = 'pages' }: { acting?: Acting; entry?: string; tab?: 'pages' | 'journal' } = {}) => {
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly: false } }), component: Outlet })
   const page = createRoute({ getParentRoute: () => app, path: '/storefront', validateSearch: storefrontSearch, component: StorefrontPage })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: [`/storefront?tab=pages${entry ? `&entry=${entry}` : ''}`] }) })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: [`/storefront?tab=${tab}${entry ? `&entry=${entry}` : ''}`] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -378,5 +381,94 @@ describe('the page editor', () => {
     content.loadContentEntry.mockResolvedValue(null)
     await show({ entry: faq.id })
     expect(screen.getByText(p.notFound)).toBeTruthy()
+  })
+})
+
+describe('the Journal', () => {
+  it('lists posts by their date with who wrote them, and no AI pages', async () => {
+    content.loadContentList.mockResolvedValue({ rows: [postRow({ id: '55555555-5555-4555-8555-555555555555', title: 'A Jaipur wedding', path: '/blog/jaipur-wedding', status: 'scheduled', publishAt: '2099-11-02T00:00:00.000Z', author: 'Farhan Ali' }), postRow()], next: null })
+    await show({ tab: 'journal' })
+    expect(screen.getByRole('heading', { name: j.title })).toBeTruthy()
+    expect(content.loadContentList).toHaveBeenCalledWith('post', null)
+    expect(content.loadCustomPaths).not.toHaveBeenCalled()
+    expect(screen.getByText(fill(j.byline, { when: fill(j.goesLive, { date: formatTime('2099-11-02T00:00:00.000Z') }), author: 'Farhan Ali' }))).toBeTruthy()
+    expect(screen.getByText(fill(j.byline, { when: formatTime('2026-09-14T09:00:00.000Z'), author: 'Priya Shah' }))).toBeTruthy()
+    expect(screen.getByText(c.status.scheduled)).toBeTruthy()
+    expect(screen.queryByText(p.ai)).toBeNull()
+  })
+
+  it('says so when there are no posts', async () => {
+    content.loadContentList.mockResolvedValue({ rows: [], next: null })
+    await show({ tab: 'journal' })
+    expect(screen.getByText(j.empty)).toBeTruthy()
+  })
+
+  it('schedules a new post for a later day, with its author and cover', async () => {
+    upload.uploadPhoto.mockResolvedValue({ ok: true, assetId: '66666666-6666-4666-8666-666666666666' })
+    await show({ tab: 'journal' })
+    fireEvent.click(screen.getByRole('button', { name: j.add }))
+    await settle()
+    expect(screen.queryByRole('button', { name: e.tools.form })).toBeNull()
+    expect(screen.queryByRole('checkbox', { name: e.inMenu })).toBeNull()
+    fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'A capsule for fall' } })
+    expect(screen.getByText('kesari.shops.example.com/blog/')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText(e.publishOn), { target: { value: '2099-11-02' } })
+    fireEvent.change(screen.getByRole('textbox', { name: e.author }), { target: { value: 'Farhan Ali' } })
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(e.addCover), { target: { files: [new File(['x'], 'cover.png', { type: 'image/png' })] } })
+    })
+    await settle()
+    expect(screen.getByRole('button', { name: e.removeCover })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: e.schedule }))
+    await settle()
+    expect(content.saveContent).toHaveBeenCalledWith('post', null, null, {
+      title: 'A capsule for fall',
+      slug: 'a-capsule-for-fall',
+      body: [{ kind: 'text', text: '' }],
+      seoTitle: null,
+      seoDescription: null,
+      publish: true,
+      publishAt: '2099-11-02T00:00:00.000Z',
+      author: 'Farhan Ali',
+      tags: [],
+      coverAssetId: '66666666-6666-4666-8666-666666666666',
+    })
+    expect(screen.getByText(fill(e.scheduled, { date: formatDay('2099-11-02') }))).toBeTruthy()
+  })
+
+  it('keeps a post’s own date and tags when it’s updated, and dates a new one only when it’s published', async () => {
+    content.loadContentEntry.mockResolvedValue(linen)
+    await show({ tab: 'journal', entry: linen.id })
+    expect((screen.getByLabelText(e.publishOn) as HTMLInputElement).value).toBe('2026-09-14')
+    fireEvent.click(screen.getByRole('button', { name: e.update }))
+    await settle()
+    expect(content.saveContent.mock.calls[0]?.[3]).toMatchObject({ publishAt: '2026-09-14T09:00:00.000Z', tags: ['care'], author: 'Priya Shah' })
+    cleanup()
+    content.saveContent.mockClear()
+    await show({ tab: 'journal', entry: 'new' })
+    fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'Notes' } })
+    fireEvent.click(screen.getByRole('button', { name: e.publish }))
+    await settle()
+    expect(content.saveContent.mock.calls[0]?.[3]).not.toHaveProperty('publishAt')
+  })
+
+  it('says the plan has no Journal when the API refuses it', async () => {
+    content.saveContent.mockRejectedValue(new ApiError('PLAN_LIMIT', 'plan', { key: 'blog' }))
+    await show({ tab: 'journal', entry: 'new' })
+    fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'Notes' } })
+    fireEvent.click(screen.getByRole('button', { name: e.draft }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(e.refused.PLAN_LIMIT)
+  })
+
+  it('deletes a post after restating what happens', async () => {
+    content.loadContentEntry.mockResolvedValue(linen)
+    await show({ tab: 'journal', entry: linen.id })
+    fireEvent.click(screen.getByRole('button', { name: j.delete }))
+    const dialog = screen.getByRole('dialog', { name: fill(j.deleteTitle, { title: 'Caring for linen' }) })
+    expect(within(dialog).getByText(j.deleteBody)).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: j.delete }))
+    await settle()
+    expect(content.deleteContent).toHaveBeenCalledWith('post', linen.id)
   })
 })

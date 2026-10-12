@@ -31,12 +31,22 @@ const pages = (): ContentEntry[] =>
       ]
     : []
 
+const post = (id: string, title: string, slug: string, status: ContentEntry['status'], publishAt: string, author: string, text: string): ContentEntry => ({ ...blank, id, kind: 'post', title, slug, path: pathOf('post', slug), status, publishAt, author, body: [block('text', { text })] })
+const posts = (): ContentEntry[] =>
+  harness
+    ? [
+        post('sample-post-3', 'Dressing for a Jaipur wedding', 'jaipur-wedding', 'scheduled', '2026-11-02T00:00:00.000Z', 'Farhan Ali', 'Five looks, three days, one suitcase.'),
+        post('sample-post-1', 'How a block becomes a print', 'how-a-block-becomes-a-print', 'published', '2026-09-28T09:00:00.000Z', 'Farhan Ali', 'From teak block to finished stole: a morning with our printers in Sanganer.'),
+        post('sample-post-2', 'Caring for linen', 'caring-for-linen', 'published', '2026-09-14T09:00:00.000Z', 'Priya Shah', 'Wash cool, dry flat, and stop ironing.'),
+      ]
+    : []
+
 const customPaths = harness ? ['/about', '/our-story'] : []
 const core = ['account', 'blog', 'cart', 'checkout', 'collections', 'policies', 'products', 'search', 'sign-in']
 
-/** `contentEmpty` has no pages and no AI pages; every other state has the sample. */
+/** `contentEmpty` has no pages, posts or AI pages; every other state has the sample. */
 export const sampleContent = (state: StorefrontState) => {
-  let entries = state === 'contentEmpty' ? [] : pages()
+  let entries = state === 'contentEmpty' ? [] : [...pages(), ...posts()]
   const custom = state === 'contentEmpty' ? [] : customPaths
   let made = 0
   const of = (kind: ContentKind) => entries.filter((e) => e.kind === kind)
@@ -50,7 +60,7 @@ export const sampleContent = (state: StorefrontState) => {
       if (held) return Promise.reject(new ApiError('PATH_TAKEN', 'That web address is already used on your shop.', { path, heldBy: held }))
       const was = entries.find((e) => e.id === id)
       const body = input.body.map((b) => block(b.kind, b))
-      const saved: ContentEntry = { ...blank, ...was, id: id ?? `sample-new-${(made += 1)}`, kind, path, title: input.title, slug: input.slug, body, seoTitle: input.seoTitle, seoDescription: input.seoDescription, inMenu: input.inMenu ?? false, status: input.publish ? 'published' : 'draft', waitingForPublish: true, updatedAt: new Date().toISOString(), revision: (was?.revision ?? 0) + 1 }
+      const saved: ContentEntry = { ...blank, ...was, id: id ?? `sample-new-${(made += 1)}`, kind, path, title: input.title, slug: input.slug, body, seoTitle: input.seoTitle, seoDescription: input.seoDescription, inMenu: input.inMenu ?? false, status: !input.publish ? 'draft' : input.publishAt && input.publishAt > new Date().toISOString() ? 'scheduled' : 'published', publishAt: kind === 'post' ? (input.publishAt ?? was?.publishAt ?? new Date().toISOString()) : null, author: input.author ?? null, coverAssetId: input.coverAssetId ?? null, waitingForPublish: true, updatedAt: new Date().toISOString(), revision: (was?.revision ?? 0) + 1 }
       entries = was ? entries.map((e) => (e.id === id ? saved : e)) : [saved, ...entries]
       return Promise.resolve(saved)
     },

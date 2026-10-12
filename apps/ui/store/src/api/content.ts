@@ -61,6 +61,11 @@ export interface ContentInput {
   /** false keeps a draft, off the shop. */
   publish: boolean
   inMenu?: boolean
+  /** A post's date: later than now schedules it; left out, it is dated when published. */
+  publishAt?: string
+  author?: string | null
+  tags?: string[]
+  coverAssetId?: string | null
 }
 
 /**

@@ -2,10 +2,11 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useState } from 'react'
 import { contentLimits, type ContentEntry, type ContentKind } from '../../api/content'
-import { fill, formatTime, messages } from '../../messages'
+import { fill, formatDay, formatTime, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
 import { ContentBlocks } from './ContentBlocks'
-import { draftOf, draftProblem, inputOf, cleanSlug, pathOf, pathTakenText, slugShown, type ContentDraft } from './contentDraft'
+import { CoverField } from './CoverField'
+import { draftOf, draftProblem, inputOf, cleanSlug, pathOf, pathTakenText, schedules, slugShown, type ContentDraft } from './contentDraft'
 import { counterText } from './seoView'
 import type { StorefrontApi } from './storefrontApi'
 
@@ -35,10 +36,10 @@ export interface ContentEditorProps {
 
 /** One page in StorefrontContent's editor: its words and blocks, how it looks in search, and Publishing. */
 export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactEmail, titleAt, onBack, onDone }: ContentEditorProps) => {
-  const w = all.pages
+  const w = kind === 'page' ? all.pages : all.journal
   const formId = useId()
   const [read, setRead] = useState<Read>(id ? { kind: 'loading' } : { kind: 'ready', entry: null })
-  const [draft, setDraft] = useState<ContentDraft>(() => draftOf(null))
+  const [draft, setDraft] = useState<ContentDraft>(() => draftOf(null, kind))
   const [names, setNames] = useState<Record<string, string | null>>({})
   const [busy, setBusy] = useState<'publish' | 'draft' | 'delete' | null>(null)
   const [problem, setProblem] = useState<Problem | null>(null)
@@ -55,7 +56,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
         if (!live) return
         setRead(entry ? { kind: 'ready', entry } : { kind: 'missing' })
         if (!entry) return
-        setDraft(draftOf(entry))
+        setDraft(draftOf(entry, kind))
         const ids = [...new Set(entry.body.flatMap((b) => b.productIds ?? []))]
         api.loadProductNames(ids).then(
           (found) => live && setNames((was) => ({ ...found, ...was })),
@@ -90,6 +91,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
     setProblem(null)
   }
   const slug = slugShown(draft)
+  const future = kind === 'post' && schedules(draft, new Date())
   const at = (field: Problem['field']) => (problem?.field === field ? problem.text : null)
 
   const save = async (publish: boolean) => {
@@ -99,7 +101,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
     setProblem(null)
     try {
       await api.saveContent(kind, entry?.id ?? null, entry?.revision ?? null, inputOf(kind, draft, publish))
-      onDone(publish ? words.published : words.savedDraft)
+      onDone(!publish ? words.savedDraft : future ? fill(words.scheduled, { date: formatDay(draft.publishDate) }) : words.published)
     } catch (error) {
       if (isApiError(error) && error.code === 'PATH_TAKEN') {
         const path = typeof error.details['path'] === 'string' ? error.details['path'] : pathOf(kind, slug)
@@ -164,6 +166,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
                 </span>
               )}
             </div>
+            {kind === 'post' && <CoverField assetId={draft.coverAssetId} canEdit={canEdit} api={api} onCover={(coverAssetId) => set({ coverAssetId })} />}
           </section>
           <ContentBlocks kind={kind} title={w.body} body={draft.body} onBody={(body) => set({ body })} canEdit={canEdit} api={api} names={names} onName={(p, name) => setNames((was) => ({ ...was, [p]: name }))} contactEmail={contactEmail} />
           <section className="df-sf-card" aria-labelledby={`${formId}-search`}>
@@ -201,14 +204,30 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
           <h2 id={`${formId}-publishing`}>{words.publishing}</h2>
           <span className="df-sfc-status">{entry ? fill(words.nowEdited, { status, date: formatTime(entry.updatedAt) }) : fill(words.now, { status })}</span>
           {entry?.waitingForPublish && <span className="df-sf-help">{words.waiting}</span>}
-          <label className="df-sfc-check">
-            <input type="checkbox" checked={draft.inMenu} disabled={!canEdit} onChange={() => set({ inMenu: !draft.inMenu })} />
-            {words.inMenu}
-          </label>
+          {kind === 'page' ? (
+            <label className="df-sfc-check">
+              <input type="checkbox" checked={draft.inMenu} disabled={!canEdit} onChange={() => set({ inMenu: !draft.inMenu })} />
+              {words.inMenu}
+            </label>
+          ) : (
+            <>
+              <div className="df-sf-field">
+                <label htmlFor={`${formId}-date`}>{words.publishOn}</label>
+                <input id={`${formId}-date`} type="date" value={draft.publishDate} readOnly={!canEdit} aria-describedby={`${formId}-date-help`} onChange={(e) => set({ publishDate: e.target.value })} />
+                <span id={`${formId}-date-help`} className="df-sf-help">
+                  {words.publishOnHelp}
+                </span>
+              </div>
+              <div className="df-sf-field">
+                <label htmlFor={`${formId}-author`}>{words.author}</label>
+                <input id={`${formId}-author`} value={draft.author} maxLength={contentLimits.author} readOnly={!canEdit} onChange={(e) => set({ author: e.target.value })} />
+              </div>
+            </>
+          )}
           {canEdit && (
             <>
               <button type="button" className="df-button df-button--primary" disabled={busy !== null} onClick={() => void save(true)}>
-                {busy === 'publish' ? words.saving : entry?.status === 'published' ? words.update : words.publish}
+                {busy === 'publish' ? words.saving : future ? words.schedule : entry?.status === 'published' ? words.update : words.publish}
               </button>
               <button type="button" className="df-button" disabled={busy !== null} onClick={() => void save(false)}>
                 {busy === 'draft' ? words.saving : words.draft}
@@ -228,7 +247,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
         danger
         title={fill(w.deleteTitle, { title })}
         target={entry ? entry.path : ''}
-        consequence={entry?.inMenu ? w.deleteBodyMenu : w.deleteBody}
+        consequence={kind === 'page' && entry?.inMenu ? all.pages.deleteBodyMenu : w.deleteBody}
         confirmLabel={w.delete}
         cancelLabel={words.cancel}
         error={deleteProblem}
