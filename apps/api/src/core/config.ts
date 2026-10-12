@@ -90,6 +90,8 @@ const configSchema = z.object({
   SANDBOX_LOCAL_URL: z.string().regex(/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/, 'SANDBOX_LOCAL_URL must be http://127.0.0.1:<port>').optional(),
   // Studios running at once across the account (storefront AI-STUDIO §7); the rest wait in the queue. Unset: 5,000.
   STUDIO_MAX_RUNNING: z.coerce.number().int().min(1).max(100_000).optional(),
+  // The org's Actions jobs at once, which a core rollout's waves are sized to (storefront LIVE-SHOP §10). Unset: 20 (Free).
+  GITHUB_ACTIONS_JOBS: z.coerce.number().int().min(1).max(10_000).optional(),
   // `0` accepts any email or text code (docs/setup/dev.md); dev and localhost only.
   CODE_CHECK: z.enum(['1', '0']).optional(),
 })
