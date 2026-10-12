@@ -31,9 +31,12 @@ export const frameAddress = (frameUrl: string, path: string): string => {
   return frameUrl.endsWith('/') && address.startsWith(frameUrl) ? address : frameUrl
 }
 
+/** A path on the shop, as the frame reports one and the studio opens on one (`?page=`). */
+export const studioPathPattern = /^\/[^\s\\]{0,500}$/
+
 // The studio–frame messages (AI-STUDIO §8, "Built on #319"): the frame reports the page it shows and the words picked for Edit text.
 const fromFrame = z.discriminatedUnion('type', [
-  z.strictObject({ type: z.literal('df-studio:page'), path: z.string().regex(/^\/[^\s\\]{0,500}$/) }),
+  z.strictObject({ type: z.literal('df-studio:page'), path: z.string().regex(studioPathPattern) }),
   z.strictObject({ type: z.literal('df-studio:text'), key: z.string().regex(/^[a-z][a-z0-9-]{0,40}:[A-Za-z0-9_.-]{1,200}$/) }),
 ])
 export type FrameMessage = z.infer<typeof fromFrame>
@@ -97,14 +100,6 @@ export const sampleAddress = (raw: string): string | null => {
     return url.protocol === 'https:' && url.hostname.includes('.') ? url.toString() : null
   } catch {
     return null
-  }
-}
-
-export const languageName = (code: string, locale: string): string => {
-  try {
-    return new Intl.DisplayNames([locale], { type: 'language' }).of(code) ?? code
-  } catch {
-    return code
   }
 }
 
