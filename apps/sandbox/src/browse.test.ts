@@ -57,7 +57,10 @@ const tee = {
   seoDescription: null,
   related: summaries.slice(1, 4),
 }
-const collections = [{ id: 'c1', name: 'Cotton Edit', slug: 'cotton-edit', description: 'Soft cotton for every day.', seoTitle: null, seoDescription: null, image: null }]
+const collections = [
+  { id: 'c1', name: 'Cotton Edit', slug: 'cotton-edit', description: 'Soft cotton for every day.', seoTitle: null, seoDescription: null, image: null },
+  { id: 'c2', name: 'Coming Soon', slug: 'coming-soon', description: null, seoTitle: null, seoDescription: null, image: null },
+]
 
 type Request = { query: string; variables: Record<string, unknown> }
 
@@ -76,7 +79,7 @@ const shopApi = (state: { closed: boolean; asked: Request[] }) => (request: Requ
   if (query.startsWith('query Listing')) {
     const filters = (v['filters'] as string[] | null) ?? []
     const words = typeof v['search'] === 'string' ? v['search'].toLowerCase() : null
-    let nodes = summaries.filter((p) => (words ? p.name.toLowerCase().includes(words) : true) && (filters.length ? filters.some((f) => p.name.toLowerCase().includes(f)) : true))
+    let nodes = v['collection'] === 'coming-soon' ? [] : summaries.filter((p) => (words ? p.name.toLowerCase().includes(words) : true) && (filters.length ? filters.some((f) => p.name.toLowerCase().includes(f)) : true))
     if (v['sort'] === 'PRICE_HIGH') nodes = [...nodes].reverse()
     const start = v['after'] === 'page-2' ? 4 : 0
     const page = nodes.slice(start, start + 4)
@@ -158,6 +161,7 @@ describe.skipIf(!chrome)('the baseline theme in preview mode', () => {
       expect(home).toMatchObject({ robots: 'noindex, nofollow', preview: 1 })
       expect(await visit('/collections/cotton-edit/', 'Cotton Edit')).toMatchObject({ robots: 'noindex, nofollow', preview: 1, breadcrumbs: 1, title: 'Cotton Edit' })
       expect(await visit('/collections/all/', 'All products')).toMatchObject({ robots: 'noindex, nofollow', preview: 1 })
+      expect(await visit('/collections/coming-soon/', 'Coming Soon')).toMatchObject({ preview: 1 })
       // Its own price and the three related products'.
       expect(await visit('/products/organic-cotton-tee/', 'Organic Cotton Tee')).toMatchObject({ robots: 'noindex, nofollow', preview: 1, price: 4, breadcrumbs: 1, legal: 1, title: 'Organic Cotton Tee' })
       expect(await visit('/products/organic-cotton-tee/v-sage-m/', 'Organic Cotton Tee')).toMatchObject({ preview: 1, price: 4 })
@@ -168,6 +172,18 @@ describe.skipIf(!chrome)('the baseline theme in preview mode', () => {
       expect(await visit('/policies/returns/', 'Returns and refunds')).toMatchObject({ preview: 1 })
       expect(await visit('/nowhere-at-all/', 'We can’t find that page')).toMatchObject({ robots: 'noindex, nofollow', preview: 1 })
       expect(errors).toEqual([])
+    } finally {
+      await context.close()
+    }
+  })
+
+  it('shows an empty collection its own empty state', async () => {
+    const context = await previewHost({ closed: false, asked: [] })
+    try {
+      const page = await context.newPage()
+      await page.goto(`${origin}/collections/coming-soon/`)
+      await page.getByRole('heading', { level: 2, name: 'Nothing here yet' }).waitFor()
+      expect(await page.locator('main article').count()).toBe(0)
     } finally {
       await context.close()
     }
