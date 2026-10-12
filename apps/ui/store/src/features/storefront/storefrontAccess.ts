@@ -4,8 +4,8 @@
 export const storefrontTabs = ['design', 'pages', 'journal', 'settings'] as const
 export type StorefrontTab = (typeof storefrontTabs)[number]
 
-/** Full-page views over the tabs: the gallery, opened by Change template. */
-export const storefrontViews = ['gallery'] as const
+/** Full-page views over the tabs: the gallery (Change template) and the studio. */
+export const storefrontViews = ['gallery', 'studio'] as const
 
 export interface StorefrontAccess {
   canRead: boolean

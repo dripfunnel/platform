@@ -1,6 +1,7 @@
 import { uploadPhoto } from '../../api/productEditor'
 import { checkDomain, chooseTemplate, connectDomain, discardDraft, loadBrand, loadDomains, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
 import type { StorefrontDomains } from '../../api/storefront'
+import { askDesign, loadDesignChat, loadDesignText, loadStudioLanguages, loadStudioPages, loadStudioSession, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
 import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
 
 /** What Storefront reads and writes: the Store API, or the harness's sample kept in memory (ui/README.md §6). */
@@ -21,9 +22,18 @@ export interface StorefrontApi {
   chooseTemplate: typeof chooseTemplate
   discardDraft: typeof discardDraft
   loadPoweredBy: typeof loadPoweredBy
+  loadStudioSession: typeof loadStudioSession
+  renewStudioSession: typeof renewStudioSession
+  loadDesignChat: typeof loadDesignChat
+  askDesign: typeof askDesign
+  undoDesignChange: typeof undoDesignChange
+  loadDesignText: typeof loadDesignText
+  saveDesignText: typeof saveDesignText
+  loadStudioPages: typeof loadStudioPages
+  loadStudioLanguages: typeof loadStudioLanguages
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
