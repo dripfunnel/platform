@@ -110,6 +110,18 @@ describe('the studio’s frame', () => {
     expect(frame().getAttribute('src')).toBe(`${frameUrl}products/kurta/`)
   })
 
+  it('takes the frame back to a page it left by itself', async () => {
+    await show()
+    const before = frame()
+    post({ type: 'df-studio:page', path: '/cart/' })
+    const picker = screen.getByRole('combobox', { name: words.page }) as HTMLSelectElement
+    expect(picker.value).toBe('/cart/')
+    fireEvent.change(picker, { target: { value: '/' } })
+    expect(frame()).not.toBe(before)
+    expect(frame().getAttribute('src')).toBe(frameUrl)
+    expect(picker.value).toBe('/')
+  })
+
   it('lists every page of the store: core’s, the content pages and the AI’s own', async () => {
     await show()
     const picker = screen.getByRole('combobox', { name: words.page })
@@ -275,6 +287,25 @@ describe('Edit text', () => {
     expect(screen.getByText(words.edit.saved)).toBeTruthy()
   })
 
+  it('keeps what saved when a later language is refused, and reads the studio again', async () => {
+    const save = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new ApiError('CHANGE_REFUSED', 'No.')).mockResolvedValue(undefined)
+    await show({ saveDesignText: save })
+    fireEvent.click(screen.getByRole('button', { name: words.edit.button }))
+    post({ type: 'df-studio:text', key: 'pages:home.lead' })
+    await settle()
+    const dialog = within(screen.getByRole('dialog', { name: words.edit.title }))
+    const [main, other] = dialog.getAllByRole('textbox') as HTMLTextAreaElement[]
+    fireEvent.change(main as HTMLTextAreaElement, { target: { value: 'Cosy layers' } })
+    fireEvent.change(other as HTMLTextAreaElement, { target: { value: 'Couches douillettes' } })
+    fireEvent.click(dialog.getByRole('button', { name: words.edit.save }))
+    await settle()
+    expect(dialog.getByRole('alert').textContent).toBe(words.edit.refused.CHANGE_REFUSED)
+    expect(api.loadDesignChat).toHaveBeenCalledTimes(2)
+    fireEvent.click(dialog.getByRole('button', { name: words.edit.save }))
+    await settle()
+    expect(save.mock.calls.map((c) => c[0])).toEqual(['en', 'fr', 'fr'])
+  })
+
   it('sends the merchant to Products or Store info for words the theme doesn’t hold', async () => {
     await show({ loadDesignText: vi.fn().mockResolvedValue([]) })
     fireEvent.click(screen.getByRole('button', { name: words.edit.button }))
@@ -378,6 +409,21 @@ describe('publishing from the studio', () => {
   it('says so when a publish was rolled back after going live', async () => {
     await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('rolled_back', { checks: [{ name: 'checkout', passed: false, words: 'your new version broke the checkout on phones.' }] })) }, 'r1')
     expect(screen.getByRole('alert').textContent).toBe(fill(p.rolledBack, { number: '12', reason: 'your new version broke the checkout on phones.' }))
+  })
+
+  it('stops following a publish it can’t read, says so, and opens the studio again', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const read = vi.fn().mockRejectedValue(new Error('offline'))
+    const { onRun } = await show({ loadPublishRun: read }, 'r1')
+    expect(prompt().readOnly).toBe(true)
+    for (let i = 0; i < 4; i += 1) await act(async () => void vi.advanceTimersByTime(2_000))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(5)
+    expect(onRun).toHaveBeenCalledWith(null)
+    expect(screen.getByRole('alert').textContent).toBe(p.lost)
+    cleanup()
+    const { onRun: ended } = await show({ loadPublishRun: vi.fn().mockRejectedValue(new ApiError('SESSION_ENDED', 'Ended.')) }, 'r1')
+    expect(ended).toHaveBeenCalledWith(null)
   })
 
   it('stops following a publish that isn’t this store’s', async () => {

@@ -111,6 +111,9 @@ export const languageName = (code: string, locale: string): string => {
 /** How often a running publish is read again. */
 export const publishPollMs = 2_000
 
+/** Reads of a running publish that may fail in a row before the studio stops following it. */
+export const publishReadTries = 5
+
 const progress: Record<'queued' | 'checking' | 'going_live', number> = { queued: 10, checking: 45, going_live: 80 }
 
 /** FIRST-RELEASE §14's steps, with how far the bar has come; null once the publish has ended. */
