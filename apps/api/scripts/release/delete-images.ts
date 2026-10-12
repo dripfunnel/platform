@@ -1,5 +1,6 @@
-/** What wrangler prints for an image the registry no longer holds. */
-export const imageMissing = (stderr: string): boolean => /not found|does not exist|no such|\b404\b/i.test(stderr)
+/** Only a not-found line naming this very image counts: any other failure (an account, a token) is retried, never recorded. */
+export const imageMissing = (stderr: string, version: string): boolean =>
+  stderr.split('\n').some((line) => line.includes(`storefront-build:${version}`) && /\b(not found|does not exist)\b/i.test(line))
 
 export interface DeleteSteps {
   /** Deletes `storefront-build:{version}`; throws with wrangler's stderr when it fails. */
@@ -17,7 +18,7 @@ export const deleteRetiredImages = async (versions: readonly string[], steps: De
   for (const version of versions) {
     try {
       await steps.remove(version).catch((error: unknown) => {
-        if (!imageMissing(stderrOf(error))) throw error
+        if (!imageMissing(stderrOf(error), version)) throw error
       })
       await steps.markDeleted(version)
       deleted.push(version)

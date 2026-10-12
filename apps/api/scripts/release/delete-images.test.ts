@@ -4,6 +4,16 @@ import { deleteRetiredImages, imageMissing } from './delete-images'
 const failure = (stderr: string) => Object.assign(new Error('Command failed'), { stderr })
 
 describe('deleteRetiredImages', () => {
+  it('never records a not-found about something else as deleted', async () => {
+    const marked: string[] = []
+    const result = await deleteRetiredImages(['1.0.0'], {
+      remove: () => Promise.reject(failure('✘ [ERROR] Account not found')),
+      markDeleted: async (version) => void marked.push(version),
+    })
+    expect(result).toEqual({ deleted: [], failed: ['1.0.0'] })
+    expect(marked).toEqual([])
+  })
+
   it('keeps going past a failed delete, and reports it', async () => {
     const marked: string[] = []
     const result = await deleteRetiredImages(['1.0.0', '1.1.0', '1.2.0'], {
@@ -38,11 +48,13 @@ describe('deleteRetiredImages', () => {
 })
 
 describe('imageMissing', () => {
-  it('reads wrangler and registry not-found answers, and nothing else', () => {
-    expect(imageMissing('Image not found')).toBe(true)
-    expect(imageMissing('manifest unknown: 404 Not Found')).toBe(true)
-    expect(imageMissing('repository does not exist')).toBe(true)
-    expect(imageMissing('Authentication error [code: 10000]')).toBe(false)
-    expect(imageMissing('')).toBe(false)
+  it('reads only a not-found that names the image itself', () => {
+    expect(imageMissing('✘ [ERROR] Image storefront-build:1.0.0 not found', '1.0.0')).toBe(true)
+    expect(imageMissing('storefront-build:1.0.0 does not exist', '1.0.0')).toBe(true)
+    expect(imageMissing('Image storefront-build:1.0.1 not found', '1.0.0')).toBe(false)
+    expect(imageMissing('Account not found\nwhile deleting storefront-build:1.0.0', '1.0.0')).toBe(false)
+    expect(imageMissing('Authentication error [code: 10000] storefront-build:1.0.0', '1.0.0')).toBe(false)
+    expect(imageMissing('request 404abc failed for storefront-build:1.0.0', '1.0.0')).toBe(false)
+    expect(imageMissing('', '1.0.0')).toBe(false)
   })
 })
