@@ -467,7 +467,8 @@ export class StudioRunner {
   /** AI-STUDIO §4 steps 5–7: the draft bundle, then the preview folder, then the pointers, then the frame's reload. */
   private async save(saved: Awaited<ReturnType<StudioRunner['collect']>>, result: Extract<ChangeResult, { ok: true }>, userId: string, theme: ReadonlyMap<string, string>, template?: string): Promise<string> {
     if (!this.start) throw new StudioUnavailable('Nothing is loaded to save.')
-    if (template) this.start = { ...this.start, template }
+    // The new template is the object's only once its draft is saved, so a failed save leaves the old one in force.
+    const start = template ? { ...this.start, template } : this.start
     const { storeId } = this.deps
     await this.deps.drafts.put(draftBundle(storeId), saved.bundle)
     const ref = this.deps.newId()
@@ -476,10 +477,10 @@ export class StudioRunner {
       const type = contentTypes[f.path.split('.').at(-1) ?? '']
       await this.deps.sites.put(`${folder}${f.path}`, decode(f.base64), { sha256: f.sha256, ...(type ? { httpMetadata: { contentType: type } } : {}) })
     }
-    const start = this.start
     await this.system((tx) =>
       moveDraft(tx, { storeId, head: result.commit, template: start.template, coreVersion: start.coreVersion, previewRef: ref, userId, at: this.deps.now(), customPaths: customPaths(theme) }),
     )
+    this.start = start
     this.deps.onBundle(result.bundle)
     return ref
   }
