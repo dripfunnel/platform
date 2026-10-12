@@ -7,6 +7,7 @@ import type { TenantContext } from '#core/tenancy'
 import type { StoreRole } from '#auth/storePermissions'
 import { draftBundle, previewFolder, sourceBundle, upgradeBundle, upgradeFiles } from '#saas/storefronts/index'
 import { liveStudioSession, openStudioSession, renewStudio, studioOf, StudioRunner, StudioUnavailable, type DesignModel, type DraftsBucket, type Proposal, type StudioDeps } from '#saas/studio/index'
+import { sandboxClient } from '#integrations/sandbox/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 import { sandboxProcess, type SandboxProcess } from './support/sandboxProcess'
@@ -358,6 +359,127 @@ describe('the upgrade bot’s commit (storefront ARCHITECTURE §7.1, #485)', () 
     const files = filesOf(answer.commit).files
     expect(files.find((f) => f.path === 'src/theme/pages/AboutPage.tsx')).toEqual({ path: 'src/theme/pages/AboutPage.tsx', content: null })
     expect(files.find((f) => f.path === 'content/en/pages.json')?.content ?? '').not.toContain('Baseline lead')
+  })
+})
+
+describe('the migration agent and a draft’s rebase onto an upgrade (#485)', () => {
+  const liveBuild = '5f0c9d1e-2b3a-4c5d-8e7f-0a1b2c3d4e5f'
+  /** A draft whose bundle is also the live build's source, then the upgrade bot's commit on that live code. */
+  const upgradeOfLive = async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    expect((await runner.change({ request: 'The live change', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('The live words.')]]).model })).outcome).toBe('changed')
+    drafts.objects.set(sourceBundle(t.storeA2, liveBuild), { bytes: drafts.objects.get(draftBundle(t.storeA2))?.bytes ?? new ArrayBuffer(0) })
+    await runner.stop()
+    const { runner: bot } = await runnerFor(t.storeA2)
+    const answer = await bot.prepareUpgrade({ from: core, to: '0.5.0', sourceBuildId: liveBuild, baseline: false })
+    if (answer.outcome !== 'prepared') throw new Error('not prepared')
+    return answer.commit
+  }
+  const runsOf = () => db.sql<{ kind: string; billed_to: string; requested_by: string | null; outcome: string; prompt: string; parent_run_id: string | null }[]>`select kind, billed_to, requested_by, outcome, prompt, parent_run_id from ai_run where store_id = ${t.storeA2} and kind in ('migration', 'repair') order by parent_run_id is not null, created_at`
+
+  it('migrates the upgrade’s commit from its failing checks and the notes, on the platform’s bill', async () => {
+    const upgrade = await upgradeOfLive()
+    const { model, asks } = scripted([[lead('Migrated words.')]])
+    const { runner } = await runnerFor(t.storeA2)
+    const answer = await runner.migrate({ commit: upgrade, to: '0.5.0', failing: ['visual-diff: The home page looks different.'], notes: [{ version: '0.5.0', kind: 'minor', notes: 'Leads are shorter.' }], model })
+    expect(answer.outcome).toBe('migrated')
+    if (answer.outcome !== 'migrated') return
+    expect(asks).toEqual([{ problems: 0 }])
+    const files = (JSON.parse(new TextDecoder().decode(drafts.objects.get(upgradeFiles(t.storeA2, answer.commit))?.bytes)) as { files: { path: string; content: string | null }[] }).files
+    expect(files.map((f) => f.path).sort()).toEqual(['content/en/pages.json', 'package.json'])
+    expect(files.find((f) => f.path === 'content/en/pages.json')?.content).toContain('Migrated words.')
+    expect(drafts.objects.has(upgradeBundle(t.storeA2, answer.commit))).toBe(true)
+    const runs = await runsOf()
+    expect(runs).toHaveLength(1)
+    expect(runs[0]).toMatchObject({ kind: 'migration', billed_to: 'platform', requested_by: null, outcome: 'changed', parent_run_id: null })
+    expect(runs[0]?.prompt).toContain('storefront-core 0.5.0')
+    expect(runs[0]?.prompt).toContain('Leads are shorter.')
+  })
+
+  it('gives up after three repairs the gate refuses, recording each on the platform', async () => {
+    const upgrade = await upgradeOfLive()
+    const { runner } = await runnerFor(t.storeA2)
+    expect((await runner.migrate({ commit: upgrade, to: '0.5.0', failing: ['axe: x'], notes: [], model: scripted([[refusedPage]]).model })).outcome).toBe('refused')
+    const runs = await runsOf()
+    expect(runs.map((r) => [r.kind, r.outcome])).toEqual([['migration', 'refused'], ['repair', 'refused'], ['repair', 'refused'], ['repair', 'refused']])
+    expect(runs.every((r) => r.billed_to === 'platform')).toBe(true)
+  })
+
+  it('goes back to the saved draft on its own core when the newer sandbox fails, leaving no container behind', async () => {
+    const upgrade = await upgradeOfLive()
+    const { runner } = await runnerFor(t.storeA2)
+    expect((await runner.change({ request: 'A later change', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Kept words.')]]).model })).outcome).toBe('changed')
+    const head = (await draftRow(t.storeA2))?.head_commit
+    await runner.stop()
+    const [run] = await db.sql<{ id: string }[]>`
+      insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind) values (${t.storeA2}, 'upgrade', 'live', ${upgrade}, 'baseline', '0.5.0', 'system') returning id`
+    drafts.objects.set(sourceBundle(t.storeA2, run?.id ?? ''), { bytes: drafts.objects.get(upgradeBundle(t.storeA2, upgrade))?.bytes ?? new ArrayBuffer(0) })
+    await db.sql`update storefront set live_build_id = ${run?.id ?? ''} where store_id = ${t.storeA2}`
+    const stopped: string[] = []
+    const { runner: studio } = await runnerFor(t.storeA2, {
+      host: async (version) => {
+        const h = await sandboxProcess()
+        processes.push(h)
+        if (version !== '0.5.0') return h
+        return { ...h, start: async () => Promise.reject(new Error('the new image did not start')), stop: async () => void stopped.push(version) }
+      },
+    })
+    await expect(studio.prepareToPublish()).rejects.toThrow('the new image did not start')
+    expect(stopped).toEqual(['0.5.0'])
+    expect(studio.loaded).toBe(true)
+    expect(await db.sql`select head_commit, core_version from design_draft where store_id = ${t.storeA2}`).toEqual([{ head_commit: head, core_version: core }])
+    await studio.stop()
+    await db.sql`update storefront set live_build_id = null where store_id = ${t.storeA2}`
+  })
+
+  it('opens a store served the baseline, with no draft, on its own theme and that theme’s core', async () => {
+    await upgradeOfLive()
+    drafts.objects.delete(draftBundle(t.storeA2))
+    const run = async (kind: string, version: string) =>
+      (await db.sql<{ id: string }[]>`insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind) values (${t.storeA2}, ${kind}, 'live', ${'c'.repeat(40)}, 'baseline', ${version}, 'system') returning id`)[0]?.id ?? ''
+    const own = await run('design', core)
+    const baseline = await run('security', '0.5.0')
+    drafts.objects.set(sourceBundle(t.storeA2, own), { bytes: drafts.objects.get(sourceBundle(t.storeA2, liveBuild))?.bytes ?? new ArrayBuffer(0) })
+    // The baseline build's source isn't there: opening from it would fail.
+    await db.sql`update storefront set live_build_id = ${baseline}, theme_mode = 'baseline', baseline_from_build_id = ${own} where store_id = ${t.storeA2}`
+    const versions: string[] = []
+    const { runner } = await runnerFor(t.storeA2, { host: async (version) => (versions.push(version), await sandboxProcess().then((h) => (processes.push(h), h))) })
+    await runner.open()
+    expect(versions).toEqual([core])
+    await runner.stop()
+    await db.sql`update storefront set live_build_id = null, theme_mode = 'own', baseline_from_build_id = null where store_id = ${t.storeA2}`
+  })
+
+  it('keeps a draft started before the upgrade, and moves it onto the upgrade at its next publish', async () => {
+    const upgrade = await upgradeOfLive()
+    // The merchant goes on designing after the live version; the upgrade bot never touches that draft.
+    const { runner } = await runnerFor(t.storeA2)
+    expect((await runner.change({ request: 'A later change', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('The draft words.')]]).model })).outcome).toBe('changed')
+    const draftBefore = (await draftRow(t.storeA2))?.head_commit
+    await runner.stop()
+    // The upgrade goes live: a build of its commit on 0.5.0, whose source bundle is the upgrade's.
+    const [run] = await db.sql<{ id: string }[]>`
+      insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind, switched_at, finished_at)
+      values (${t.storeA2}, 'upgrade', 'live', ${upgrade}, 'baseline', '0.5.0', 'system', now(), now()) returning id`
+    drafts.objects.set(sourceBundle(t.storeA2, run?.id ?? ''), { bytes: drafts.objects.get(upgradeBundle(t.storeA2, upgrade))?.bytes ?? new ArrayBuffer(0) })
+    await db.sql`update storefront set live_build_id = ${run?.id ?? ''} where store_id = ${t.storeA2}`
+    const versions: string[] = []
+    const { runner: studio } = await runnerFor(t.storeA2, { host: async (version) => (versions.push(version), await sandboxProcess().then((h) => (processes.push(h), h))) })
+    const ready = await studio.prepareToPublish()
+    expect(ready).toMatchObject({ rebased: true, coreVersion: '0.5.0', problems: [] })
+    expect(ready.commit).not.toBe(draftBefore)
+    expect(versions).toEqual([core, '0.5.0'])
+    expect(await db.sql`select head_commit, core_version from design_draft where store_id = ${t.storeA2}`).toEqual([{ head_commit: ready.commit, core_version: '0.5.0' }])
+    // The draft's own change is still there, on top of the upgrade's pin.
+    const check = await sandboxProcess()
+    processes.push(check)
+    await check.start()
+    const client = sandboxClient(check.send, 'rebase-check')
+    await client.loadBundle(drafts.objects.get(draftBundle(t.storeA2))?.bytes ?? new ArrayBuffer(0))
+    expect((await client.theme()).files.find((f) => f.path === 'content/en/pages.json')?.content).toContain('The draft words.')
+    // Asked again, nothing is left to move onto.
+    expect(await studio.prepareToPublish()).toMatchObject({ rebased: false, coreVersion: '0.5.0', commit: ready.commit })
+    await db.sql`update storefront set live_build_id = null where store_id = ${t.storeA2}`
   })
 })
 
