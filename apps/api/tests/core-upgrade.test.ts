@@ -2,6 +2,8 @@ import type postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withSystemScope } from '#db/scoped/index'
 import { recordGate } from '#db/scoped/builds'
+import { clearBaseline, setBaseline } from '#db/scoped/coreRollouts'
+import { rebaseDraft } from '#db/scoped/studio'
 import { recordCoreRelease } from '#db/scoped/coreReleases'
 import { enrolStores, insertRollout, startStores } from '#db/scoped/coreRollouts'
 import { createGitHubApp, storeRepos } from '#integrations/github/index'
@@ -318,6 +320,34 @@ describe('a forced security fix', () => {
     expect(await runStoreUpgrade(upgradeDeps(sandbox().prepare), p, steps(t.storeA2, new Set([commit(9001), commit(9002)])))).toBe('pinned')
     expect(await live(t.storeA2)).toBe(before)
     expect(await db.sql`select theme_mode from storefront where store_id = ${t.storeA2}`).toEqual([{ theme_mode: 'own' }])
+  })
+})
+
+describe('the baseline and the draft’s writes, store by store', () => {
+  const storefronts = () => db.sql`select store_id, theme_mode, baseline_reason, baseline_from_build_id, core_upgrade_version, core_upgrade_commit from storefront order by store_id`
+  const otherThan = async (storeId: string) => (await storefronts()).filter((r) => r['store_id'] !== storeId)
+
+  it('serve, clear and rebase only their own store, and a design publish gives back only its own store’s theme', async () => {
+    await db.sql`insert into design_draft (store_id, head_commit, template, core_version) values (${t.storeA1}, ${commit(71)}, 'linen', '1.0.0'), (${t.storeA2}, ${commit(72)}, 'linen', '1.0.0') on conflict (store_id) do update set head_commit = excluded.head_commit, core_version = excluded.core_version`
+    const before = await otherThan(t.storeA1)
+    const draftsBefore = await db.sql`select store_id, head_commit, core_version from design_draft where store_id <> ${t.storeA1} order by store_id`
+    await withSystemScope(db.sql, async (tx) => {
+      await setBaseline(tx, t.storeA1, { reason: 'gate_failed', fromBuildId: (await live(t.storeA1)) ?? '' })
+      await rebaseDraft(tx, { storeId: t.storeA1, head: commit(73), coreVersion: '1.1.0', at: new Date() })
+    })
+    expect(await otherThan(t.storeA1)).toEqual(before)
+    expect(await db.sql`select store_id, head_commit, core_version from design_draft where store_id <> ${t.storeA1} order by store_id`).toEqual(draftsBefore)
+    expect(await db.sql`select head_commit, core_version from design_draft where store_id = ${t.storeA1}`).toEqual([{ head_commit: commit(73), core_version: '1.1.0' }])
+    // Store A2's merchant republishes: store A1 stays on its baseline.
+    await db.sql`update storefront set theme_mode = 'baseline', baseline_reason = 'gate_failed' where store_id = ${t.storeA2}`
+    await publishLive(t.storeA2, commit(74))
+    expect(await db.sql`select store_id, theme_mode from storefront where store_id in (${t.storeA1}, ${t.storeA2}) order by store_id`).toEqual(
+      [{ store_id: t.storeA1, theme_mode: 'baseline' }, { store_id: t.storeA2, theme_mode: 'own' }].sort((a, b) => a.store_id.localeCompare(b.store_id)),
+    )
+    const aside = await otherThan(t.storeA1)
+    await withSystemScope(db.sql, (tx) => clearBaseline(tx, t.storeA1))
+    expect(await otherThan(t.storeA1)).toEqual(aside)
+    await db.sql`delete from design_draft where store_id in (${t.storeA1}, ${t.storeA2})`
   })
 })
 

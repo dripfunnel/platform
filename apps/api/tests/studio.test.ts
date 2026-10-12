@@ -405,6 +405,33 @@ describe('the migration agent and a draft’s rebase onto an upgrade (#485)', ()
     expect(runs.every((r) => r.billed_to === 'platform')).toBe(true)
   })
 
+  it('goes back to the saved draft on its own core when the newer sandbox fails, leaving no container behind', async () => {
+    const upgrade = await upgradeOfLive()
+    const { runner } = await runnerFor(t.storeA2)
+    expect((await runner.change({ request: 'A later change', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('Kept words.')]]).model })).outcome).toBe('changed')
+    const head = (await draftRow(t.storeA2))?.head_commit
+    await runner.stop()
+    const [run] = await db.sql<{ id: string }[]>`
+      insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind) values (${t.storeA2}, 'upgrade', 'live', ${upgrade}, 'baseline', '0.5.0', 'system') returning id`
+    drafts.objects.set(sourceBundle(t.storeA2, run?.id ?? ''), { bytes: drafts.objects.get(upgradeBundle(t.storeA2, upgrade))?.bytes ?? new ArrayBuffer(0) })
+    await db.sql`update storefront set live_build_id = ${run?.id ?? ''} where store_id = ${t.storeA2}`
+    const stopped: string[] = []
+    const { runner: studio } = await runnerFor(t.storeA2, {
+      host: async (version) => {
+        const h = await sandboxProcess()
+        processes.push(h)
+        if (version !== '0.5.0') return h
+        return { ...h, start: async () => Promise.reject(new Error('the new image did not start')), stop: async () => void stopped.push(version) }
+      },
+    })
+    await expect(studio.prepareToPublish()).rejects.toThrow('the new image did not start')
+    expect(stopped).toEqual(['0.5.0'])
+    expect(studio.loaded).toBe(true)
+    expect(await db.sql`select head_commit, core_version from design_draft where store_id = ${t.storeA2}`).toEqual([{ head_commit: head, core_version: core }])
+    await studio.stop()
+    await db.sql`update storefront set live_build_id = null where store_id = ${t.storeA2}`
+  })
+
   it('opens a store served the baseline, with no draft, on its own theme and that theme’s core', async () => {
     await upgradeOfLive()
     drafts.objects.delete(draftBundle(t.storeA2))
