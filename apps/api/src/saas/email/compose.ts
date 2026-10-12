@@ -92,6 +92,7 @@ const payloads = {
   'store-plan-changed': z.object({ storeId: id, planId: id, when: z.enum(['next', 'now']) }),
   'store-suspended': z.object({ storeId: id, reason: z.string().max(500) }),
   'store-restored': z.object({ storeId: id }),
+  'storefront-baseline': z.object({ storeId: id }),
   'support-session-started': z.object({ supportSessionId: id }),
   'support-write-allowed': z.object({ supportSessionId: id }),
   'webhook-disabled': z.object({ storeId: id, host: z.string().max(253) }),
@@ -567,6 +568,14 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = en.storeRestored
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(m.store.name)] } }
+    }
+    case 'storefront-baseline': {
+      const p = parse(t)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
+      if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
+      const w = en.storefrontBaseline
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(m.store.name), w.kept] } }
     }
     case 'store-cancelled': {
       const p = parse(t)
