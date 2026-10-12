@@ -6598,6 +6598,43 @@
           "named": "Your post “{title}” already uses {path}. Choose another web address.",
           "unnamed": "Another of your posts already uses {path}. Choose another web address."
         }
+      },
+      "translate": {
+        "loading": "Loading the translation",
+        "failed": "We couldn’t load this translation",
+        "failedBody": "Nothing was changed. Try again in a moment.",
+        "retry": "Try again",
+        "title": "In {language}",
+        "notYet": "Not in {language} yet. Shoppers see the {main} words until you add them; nothing is broken.",
+        "hint": "Leave a field empty to show the {main} words.",
+        "changed": "The {main} words changed since this was written. Check it still says the same.",
+        "main": "{language}: {text}",
+        "blocks": "The words of each block",
+        "same": "Same in every language.",
+        "fields": {
+          "title": "Title",
+          "block": "{kind}, block {number}",
+          "seoTitle": "Title in search",
+          "seoDescription": "Description in search"
+        },
+        "save": "Save translation",
+        "saving": "Saving…",
+        "cancel": "Cancel",
+        "saved": "{language} saved",
+        "remove": "Remove the {language} words",
+        "removeTitle": "Remove the {language} words?",
+        "removeBody": "Shoppers reading your shop in {language} see the {main} words here instead.",
+        "removeConfirm": "Remove",
+        "removed": "{language} removed",
+        "refused": {
+          "NOT_FOUND": "This isn’t here any more. Go back to the list.",
+          "INVALID_INPUT": "Something here isn’t valid. Check each field and try again.",
+          "READ_ONLY": "Your store is view-only until the payment goes through.",
+          "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+          "FORBIDDEN": "Only the store owner can change the storefront.",
+          "PLAN_LIMIT": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts.",
+          "other": "That didn’t save. Your words are still here; try again."
+        }
       }
     },
     "brand": {

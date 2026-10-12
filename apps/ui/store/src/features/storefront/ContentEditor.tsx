@@ -3,12 +3,14 @@ import { ConfirmDialog, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useState } from 'react'
 import { contentLimits, type ContentEntry, type ContentKind } from '../../api/content'
 import { fill, formatDay, formatTime, messages } from '../../messages'
+import { LanguageTabs, languageTabId } from '../common/LanguageTabs'
 import { refusalIn } from '../common/refusal'
 import { ContentBlocks } from './ContentBlocks'
 import { CoverField } from './CoverField'
 import { draftOf, draftProblem, inputOf, cleanSlug, pathOf, pathTakenText, schedules, slugShown, type ContentDraft } from './contentDraft'
 import { counterText } from './seoView'
 import type { StorefrontApi } from './storefrontApi'
+import { TranslationPanel } from './TranslationPanel'
 
 const all = messages.storefront.content
 const words = all.editor
@@ -32,10 +34,11 @@ export interface ContentEditorProps {
   titleAt: (path: string) => string | null
   onBack: () => void
   onDone: (toast: string) => void
+  onToast: (text: string) => void
 }
 
 /** One page in StorefrontContent's editor: its words and blocks, how it looks in search, and Publishing. */
-export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactEmail, titleAt, onBack, onDone }: ContentEditorProps) => {
+export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactEmail, titleAt, onBack, onDone, onToast }: ContentEditorProps) => {
   const w = kind === 'page' ? all.pages : all.journal
   const formId = useId()
   const [read, setRead] = useState<Read>(id ? { kind: 'loading' } : { kind: 'ready', entry: null })
@@ -46,6 +49,21 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
   const [asking, setAsking] = useState(false)
   const [deleteProblem, setDeleteProblem] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [languages, setLanguages] = useState<string[]>([])
+  const [language, setLanguage] = useState<string | null>(null)
+  const [translationDirty, setTranslationDirty] = useState(false)
+
+  // The store's languages, the main one first; without the read the editor keeps to the main language.
+  useEffect(() => {
+    let live = true
+    api.loadStudioLanguages().then(
+      (found) => live && setLanguages(found),
+      () => undefined,
+    )
+    return () => {
+      live = false
+    }
+  }, [api])
 
   useEffect(() => {
     if (!id) return
@@ -86,6 +104,11 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
     )
 
   const { entry } = read
+  const [mainLanguage, ...others] = languages
+  const translating = entry && mainLanguage && others.length > 0 ? { main: mainLanguage, others } : null
+  // Another language translates the page as saved, so the tabs wait for unsaved words on either side.
+  const mainDirty = entry !== null && JSON.stringify(inputOf(kind, draft, true)) !== JSON.stringify(inputOf(kind, draftOf(entry, kind), true))
+  const panelId = `${formId}-language`
   const set = (patch: Partial<ContentDraft>) => {
     setDraft((was) => ({ ...was, ...patch }))
     setProblem(null)
@@ -142,7 +165,15 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
           {problem.text}
         </p>
       )}
-      <div className="df-sfc-columns">
+      {translating && (
+        <LanguageTabs main={translating.main} others={translating.others} selected={language} todo={{}} locked={mainDirty || translationDirty} panelId={panelId} onSelect={setLanguage} />
+      )}
+      {translating && entry && language ? (
+        <div id={panelId} role="tabpanel" aria-labelledby={languageTabId(panelId, language)}>
+          <TranslationPanel kind={kind} entry={entry} language={language} mainLanguage={translating.main} canEdit={canEdit} api={api} onDirty={setTranslationDirty} onToast={onToast} />
+        </div>
+      ) : (
+      <div className="df-sfc-columns" {...(translating ? { id: panelId, role: 'tabpanel', 'aria-labelledby': languageTabId(panelId, null) } : {})}>
         <div className="df-sfc-main">
           <section className="df-sf-card" aria-label={w.title}>
             <div className="df-sf-field">
@@ -245,6 +276,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
           )}
         </aside>
       </div>
+      )}
       <ConfirmDialog
         open={asking}
         danger
