@@ -488,10 +488,12 @@ What the edge Worker does on each request to a storefront host.
   sends the files through the push API (`upgrade` reason) and deletes the private copy; a commit that won't go live is
   deleted at once; deleting a store deletes its `upgrades/` too (§4 step 11). SAAS §10 has the rest.
 - **Waves are limited by Actions concurrency** (§10). A security fix is queued ahead of
-  automatic publishes.
+  automatic publishes. **Built on #485** (SAAS §10): upgrades running at once stay under `GITHUB_ACTIONS_JOBS`,
+  half of it for an upgrade and all of it for a security fix.
 - **The baseline-theme fallback** for a store whose theme can't take a security fix
   (ARCHITECTURE §7) is a build of the baseline theme with the store's words and colours. It is
-  stored and switched like any other build.
+  stored and switched like any other build. **Built on #485** (SAAS §10): a `security` run with `baseline`, never
+  pushed to the repo.
 
 ---
 

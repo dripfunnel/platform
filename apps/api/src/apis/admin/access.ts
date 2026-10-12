@@ -10,6 +10,7 @@ import type { StaffSessionsService } from '#saas/staffSessions/index'
 import type { CustomersService } from '#saas/customers/index'
 import type { StaffMembersService } from '#saas/staffMembers/index'
 import type { AppRegistryService } from '#saas/apps/index'
+import type { FleetService } from '#saas/fleet/admin'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface AdminContext extends Record<string, unknown> {
@@ -26,6 +27,8 @@ export interface AdminContext extends Record<string, unknown> {
   dashboard: DashboardService | null
   /** The private-app registry (`apps.manage`); null when signed out, or where it can't seal a secret. */
   apps?: AppRegistryService | null
+  /** Core rollouts (`fleet.read`, `fleet.manage`); null when signed out. */
+  fleet?: FleetService | null
 }
 
 /** ACCESS.md §5.4: the role's permission, then a Partner manager's assignment to the target. */

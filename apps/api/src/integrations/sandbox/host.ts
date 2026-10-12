@@ -27,10 +27,6 @@ const ready = async (send: SandboxFetch, sleep: (ms: number) => Promise<void>): 
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-/**
- * The store's container, with no network and no variable but what the image sets (AI-STUDIO §8): `env` is empty on
- * purpose, and `enableInternet` is false. `image` is core_release.sandbox_image, pinned by digest.
- */
 /** The parts of a Durable Object's `ctx.container` this host uses, so the type needs no Workers globals. */
 export interface SandboxContainer {
   readonly running: boolean
@@ -39,6 +35,10 @@ export interface SandboxContainer {
   getTcpPort(port: number): { fetch(request: Request): Promise<Response> }
 }
 
+/**
+ * The store's container, with no network and no variable but what the image sets (AI-STUDIO §8): `env` is empty on
+ * purpose, and `enableInternet` is false. `image` is core_release.sandbox_image, pinned by digest.
+ */
 export const containerHost = (container: SandboxContainer, image: string): SandboxHost => {
   const port = () => container.getTcpPort(sandboxPort)
   const send: SandboxFetch = (request) => port().fetch(request)

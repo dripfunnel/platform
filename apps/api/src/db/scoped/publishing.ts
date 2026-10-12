@@ -141,6 +141,14 @@ export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise
     update design_draft set commits = coalesce(commits[array_position(commits, ${run.commit}::text) + 1:], commits)
     where store_id = ${run.store_id} and array_position(commits, ${run.commit}::text) is not null`
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${run.core_version} where id = ${run.store_id}`
+  // The merchant republished: their own theme is back, and a major it was waiting for is taken (ARCHITECTURE §7).
+  if (run.kind === 'design') {
+    await tx`
+      update storefront set theme_mode = 'own', baseline_reason = null, baseline_from_build_id = null,
+        core_upgrade_version = case when string_to_array(core_upgrade_version, '.')::int[] <= string_to_array(${run.core_version}, '.')::int[] then null else core_upgrade_version end,
+        core_upgrade_commit = case when string_to_array(core_upgrade_version, '.')::int[] <= string_to_array(${run.core_version}, '.')::int[] then null else core_upgrade_commit end
+      where store_id = ${run.store_id}`
+  }
 }
 
 /** The build whose asset folder a new build's pages load from: the live build's own, or the one it inherited. */
