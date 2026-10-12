@@ -77,6 +77,17 @@ export default tseslint.config(
     },
   },
   {
+    // Expo Router reads each route file's default export (docs/mobile-app/merchant/ARCHITECTURE.md §3).
+    files: ['apps/ui/mobile-app/merchant/src/app/**/*.tsx'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
+  {
+    files: ['apps/ui/mobile-app/merchant/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [{ group: ['@dripfunnel/*', '**/apps/**', '**/shared/**'], message: 'The mobile app shares no code with the SPAs or the API (docs/mobile-app/merchant/REACT-NATIVE.md §2).' }] }],
+    },
+  },
+  {
     files: ['apps/sandbox/**/*.ts'],
     languageOptions: { globals: { ...globals.node } },
   },

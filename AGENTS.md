@@ -33,7 +33,7 @@ document disagrees. Then open only the part your task touches:
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
 | Creating a card (task, bug or feature) on the DF Platform board | [docs/code/HOW-TO-WRITE-A-CARD.md](docs/code/HOW-TO-WRITE-A-CARD.md) |
 | Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
-| Merchant mobile app (`apps/ui/mobile-app/merchant`, planned) | [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md): start with REACT-NATIVE, then DESIGN and ARCHITECTURE |
+| Merchant mobile app (`apps/ui/mobile-app/merchant`) | [docs/mobile-app/merchant/](docs/mobile-app/merchant/REACT-NATIVE.md): start with REACT-NATIVE, then DESIGN and ARCHITECTURE |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 | Storefront builds, hosting, preview, the studio's sandbox | [docs/storefront/LIVE-SHOP.md](docs/storefront/LIVE-SHOP.md), [PREVIEW.md](docs/storefront/PREVIEW.md), [AI-STUDIO.md](docs/storefront/AI-STUDIO.md) |
 
@@ -53,6 +53,7 @@ pnpm dev:https                                   # the same behind https://admin
 pnpm dev:all                                     # those plus the storefront template and
                                                  # storefront-core rebuilding on change
 pnpm dev:<api|store|platform|admin>              # one of the four on its own
+pnpm dev:mobile                                  # the merchant mobile app's Expo dev server (not part of pnpm dev)
 pnpm dev:storefront                              # the storefront template (builds core first)
 pnpm dev:storefront-core                         # storefront-core rebuilding on change
 pnpm --filter ./apps/api schema                  # regenerate apps/api/schema/*.graphql
