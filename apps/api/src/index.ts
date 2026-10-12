@@ -109,7 +109,10 @@ import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
 import { studioCapacityClass, studioSessionClass, type CapacityNamespace, type StudioSessionObject } from '#jobs/durable/studio'
 import { handleStudioFrame } from '#apis/studio/frame'
-import { frameClosed } from '#saas/studio/index'
+import type { TenantContext } from '#core/tenancy'
+import { anthropicProvider, localAiProvider } from '#integrations/ai/index'
+import { browserScreenshots } from '#integrations/cloudflare/screenshot'
+import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
 import { checkPreview, cleanStorefronts, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
@@ -565,7 +568,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
-      preview: await previewFor(config), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1' }, now: () => new Date() }
+      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1' }, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
@@ -694,6 +697,41 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
     return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
   })
+}
+
+// The designer's model, screenshots and pasted images (storefront ARCHITECTURE §6.2). The merchant's own key has nowhere to
+// be kept yet, so a store on its own key answers AI_NOT_CONNECTED; the plan's is AI_PROVIDER_KEY until #275.
+const designFor = (config: Config, env: Env): NonNullable<StoreContext['design']> => {
+  const { BROWSER_RENDERING_ACCOUNT_ID: accountId, BROWSER_RENDERING_TOKEN: token, AI_PROVIDER_KEY: key } = config
+  const assets = env.ASSETS
+  return {
+    ai: (billedTo) => (config.AI_LOCAL === '1' ? localAiProvider() : billedTo === 'plan' && key ? anthropicProvider(key) : null),
+    screenshots: accountId && token ? browserScreenshots({ accountId, token }) : null,
+    readAsset: assets
+      ? async (r2Key) => {
+          const object = await assets.get(r2Key)
+          return object ? { bytes: new Uint8Array(await object.arrayBuffer()), mime: object.httpMetadata?.contentType ?? '' } : null
+        }
+      : null,
+  }
+}
+
+// The Store API's way to a store's StudioSession, named by the session's TenantContext (AI-STUDIO §3 step 2).
+const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => {
+  const namespace = env.STUDIO_SESSION as DurableObjectNamespace<StudioSessionObject> | undefined
+  if (!namespace) return null
+  return (context) => {
+    const stub = studioOf(namespace, context)
+    return {
+      status: async (storeId) => await stub.status(storeId),
+      useTemplate: async (storeId, input) => await stub.useTemplate(storeId, input),
+      change: async (storeId, input, model) => await stub.change(storeId, input, model),
+      undo: async (storeId, input) => await stub.undo(storeId, input),
+      texts: async (storeId, input) => await stub.texts(storeId, input),
+      editText: async (storeId, input) => await stub.editText(storeId, input),
+      discard: async (storeId) => await stub.discard(storeId),
+    }
+  }
 }
 
 // The studio frame on a preview host (storefront AI-STUDIO §3 step 6): the host's store's Durable Object, or nothing.

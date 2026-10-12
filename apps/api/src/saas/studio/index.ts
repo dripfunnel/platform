@@ -3,5 +3,7 @@ export { capacityLedger, defaultStudioCapacity, leaseMs, queueMs, type Grant, ty
 export { maxRepairs, type DesignModel, type Proposal, type ProposalInput } from './model'
 export { baselineTemplate, StudioQueued, StudioRunner, StudioUnavailable, type ChangeOutcome, type ChangeRequest, type DraftsBucket, type StudioCapacity, type StudioDeps, type MigrationAnswer, type MigrationAsk, type PublishReady, type UpgradeAnswer, type UpgradeAsk } from './runner'
 export { closeEndedSockets, dressFrameResponse, frameClosed, frameOpening, serveFrame, studioFrameOf, studioStoreHeader, type FrameServer, type FrameSocket } from './frame'
-export { hashStudioSession, liveStudioSession, liveStudioSessionHash, openStudioSession, renewStudio, studioAccess, studioRenewEveryMs, studioSessionMs, studioSessionPattern, type OpenedStudioSession, type StudioAccess } from './sessions'
+export { endStudioSession, hashStudioSession, liveStudioSession, liveStudioSessionHash, openStudioSession, renewStudio, studioAccess, studioRenewEveryMs, studioSessionMs, studioSessionPattern, type OpenedStudioSession, type StudioAccess } from './sessions'
 export { studioForJob, studioOf } from './stub'
+export { templateChange } from './template'
+export { studioAnswer, type StudioAnswer, type StudioApi, type StudioState } from './api'
