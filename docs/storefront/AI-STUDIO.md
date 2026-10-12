@@ -14,7 +14,7 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7), and the frame
 on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
-Last updated: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -153,9 +153,12 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 ## 6. Publishing from the studio
 
 1. **The merchant presses Publish.** The Durable Object finishes any change in progress first.
-2. **If the live commit moved since the draft started** (the upgrade bot's commits touch only
-   `package.json` and codemods, never the theme), the container rebases the draft onto it first
-   and runs the fast gate again.
+2. **If the live commit moved since the draft started** (the upgrade bot's commits pin core in
+   `package.json` and apply the release's codemods, which may edit theme files; ARCHITECTURE §7.1), the container
+   rebases the draft onto it first and runs the fast gate again. **Built on #485** (the sandbox's `PUT /slots/{slot}/onto` and `POST /slots/{slot}/rebase`):
+   the draft's own commits are replayed onto the upgrade's commit, then the validator and the fast gate run; a conflict
+   (`rebase/conflict`; a commit missing from the bundle sent, `rebase/missing-onto`, or with no history in common, `rebase/unrelated`) or a refusal leaves the draft exactly as it was, and rebasing onto a commit the draft already has
+   changes nothing.
 3. **The live pipeline builds the draft from private storage** ([LIVE-SHOP.md](LIVE-SHOP.md) §4):
    the Durable Object hands the platform the draft's head commit as a git bundle, which the
    workflow fetches through a 15-minute link. Nothing is pushed yet.
@@ -174,8 +177,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    `GET theme?at=`); once the publish is live, its Workflow's last step pushes that theme through the push API under the key
    `publish:{build}`. A publish's repair is a change by the Durable Object, the platform's cost, its theme kept the same
    way; a draft published to its head has no row afterwards, as after Discard. Go back runs in the Durable Object's turn
-   and resets the draft to the version (no row), and across a newer security release of core it queues a `security`
-   rebuild of the version's own kept source instead (`publish_run.source_build_id`).
+   and resets the draft to the version (no row); across a newer security release of core it is refused
+   (`SECURITY_RELEASE`), so a forced fix is never undone, and the version's free rebuild on the fixed core is left to the
+   upgrade bot (#485).
 
    **The push API** (`saas/storefronts/push.ts`, built on #316): the caller names the reason
    (`publish` with the version and build id, `template`, or the upgrade bot's `upgrade`) and the

@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { insertAiRun, moveDraft, restartDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
-import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost } from '#integrations/sandbox/index'
-import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket } from '../storefronts/index'
+import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
+import { draftBundle, guardContextFor, previewFolder, publishedTheme, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
 import { pageTexts, withText } from './texts'
 import { templateChange } from './template'
@@ -55,6 +55,13 @@ export type ChangeOutcome =
   | { outcome: 'changed'; commit: string; previewRef: string; repairs: number; runId: string | null; summary?: ProposalSummary | null }
   | { outcome: 'unchanged'; commit: string; repairs: number; runId: string | null; summary?: ProposalSummary | null }
   | { outcome: 'refused'; problems: GateProblem[]; repairs: number; runId: string | null }
+
+/** The upgrade bot's ask (storefront ARCHITECTURE §7.1): core `to` on `sourceBuildId`'s code, or the baseline theme. */
+export type UpgradeAsk = { from: string; to: string; sourceBuildId: string; baseline: boolean }
+export type UpgradeAnswer = { outcome: 'busy' } | { outcome: 'prepared'; commit: string; notes: Upgraded['notes'] }
+
+/** The baseline fallback is the template of that name (storefront ARCHITECTURE §2.3, §7). */
+export const baselineTemplate = 'baseline'
 
 /** A merchant's request on its plan or own key, or the platform's own repair of a publish (`userId` null, SAAS §9.1). */
 export type ChangeRequest = { request: string; userId: string | null; billedTo: 'plan' | 'own_key' | 'platform'; model: DesignModel }
@@ -191,6 +198,41 @@ export class StudioRunner {
       if (outcome.outcome !== 'changed' || !this.client) return null
       await this.keepTheme(this.client, outcome.commit)
       return outcome.commit
+    })
+  }
+
+  /**
+   * The upgrade bot's commit on the store's own code, in a sandbox of the new version, kept privately under `upgrades/`
+   * with the files it changed until its build is live (LIVE-SHOP §8); `busy` while the merchant's studio is open.
+   */
+  prepareUpgrade(ask: UpgradeAsk): Promise<UpgradeAnswer> {
+    return this.inTurn(async (): Promise<UpgradeAnswer> => {
+      if (this.loaded) return { outcome: 'busy' }
+      const grant = await this.deps.capacity.acquire()
+      if (!grant.granted) return { outcome: 'busy' }
+      const { storeId } = this.deps
+      const host = await this.deps.host(ask.to).catch(async (error: unknown) => {
+        await this.deps.capacity.release()
+        throw error
+      })
+      try {
+        // A container left from the studio runs another version's image: the upgrade starts its own.
+        await host.stop()
+        await host.start()
+        const client = sandboxClient(host.send, storeId)
+        const source = await this.deps.drafts.get(sourceBundle(storeId, ask.sourceBuildId))
+        if (!source) throw new StudioUnavailable('The live build’s source is missing.')
+        await client.loadBundle(await source.arrayBuffer())
+        const baseline = ask.baseline ? (await templateFiles(this.deps.sites, ask.to, baselineTemplate)).theme : null
+        const message = ask.baseline ? `Serve the baseline theme on storefront-core ${ask.to}` : `Upgrade storefront-core to ${ask.to}`
+        const made = await client.upgrade({ from: ask.from, to: ask.to, message, baseline })
+        await this.deps.drafts.put(upgradeBundle(storeId, made.commit), await client.exportBundle())
+        await this.deps.drafts.put(upgradeFiles(storeId, made.commit), new TextEncoder().encode(JSON.stringify({ files: made.files })).buffer)
+        return { outcome: 'prepared', commit: made.commit, notes: made.notes }
+      } finally {
+        await host.stop().catch(() => undefined)
+        await this.deps.capacity.release()
+      }
     })
   }
 

@@ -265,14 +265,13 @@ describe('publishing from the studio', () => {
     expect(repaired.every((r) => r.requested_by === null)).toBe(true)
   })
 
-  it('rebuilds a version gone back to on a newer security release instead of moving the pointer', async () => {
+  it('never goes back across a newer security release of core: the live site and the draft stay', async () => {
     await db.sql`insert into core_release (version, kind, sandbox_image, security) values ('0.4.1', 'patch', ${`registry.cloudflare.com/sandbox@sha256:${'a'.repeat(64)}`}, true) on conflict (version) do update set security = true`
     const live = await liveBuild()
-    expect(await w.gql('owner', 'mutation { goBackToVersion(number: 1) }')).toMatchObject({ code: undefined, data: { goBackToVersion: true } })
+    const runs = (await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${t.storeA1}`)[0]?.n
+    expect((await w.gql('owner', 'mutation { goBackToVersion(number: 1) }')).code).toBe('SECURITY_RELEASE')
     expect(await liveBuild()).toBe(live)
-    const [rebuild] = await db.sql<{ kind: string; core_version: string; uses_allowance: boolean; source_build_id: string | null; state: string }[]>`
-      select kind, core_version, uses_allowance, source_build_id, state from publish_run where store_id = ${t.storeA1} and kind = 'security'`
-    expect(rebuild).toEqual({ kind: 'security', core_version: '0.4.1', uses_allowance: false, source_build_id: firstRun, state: 'queued' })
+    expect((await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${t.storeA1}`)[0]?.n).toBe(runs)
   })
 
   it('shows a store its own publishes only; Staff and suppliers are refused', async () => {

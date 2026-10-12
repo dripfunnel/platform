@@ -2,8 +2,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { join } from 'node:path'
 import { z } from 'zod'
 import { inlineHashes, studioCsp } from '@dripfunnel/storefront-core'
-import type { GuardContext } from '@dripfunnel/storefront-core/guard'
-import { isRepoPath } from './paths'
+import { compareVersions, coreUpgradeNotes, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
+import { isRepoPath, isThemePath } from './paths'
 import { Workspace, NotLoaded } from './workspace'
 
 // The sandbox's operations (storefront AI-STUDIO §2 "Container"): only the store's Durable Object talks to it, over the
@@ -21,6 +21,17 @@ const changeSchema = z.strictObject({
   message: z.string().min(1).max(2000),
   context: z.unknown(),
 })
+const semver = z.string().regex(/^\d+\.\d+\.\d+$/)
+// Core only moves forward; the baseline may be written on the version the store is already on.
+const upgradeSchema = z
+  .strictObject({
+    from: semver,
+    to: semver,
+    message: z.string().min(1).max(2000),
+    baseline: z.array(z.strictObject({ path: z.string().refine(isThemePath), content: z.string().max(1024 * 1024) })).max(500).nullable(),
+  })
+  .refine((u) => compareVersions(u.to, u.from) > 0 || (u.baseline !== null && compareVersions(u.to, u.from) === 0), 'to must be newer than from')
+const rebaseSchema = z.strictObject({ onto: z.string().regex(/^[0-9a-f]{40}$/), context: z.unknown() })
 const undoSchema = z.strictObject({ commit: z.string().regex(/^[0-9a-f]{40}$/), message: z.string().min(1).max(2000), context: z.unknown() })
 
 // validateChange parses the context with core's own schema before anything reads it (guard/rules.ts).
@@ -71,10 +82,11 @@ const send = (res: ServerResponse, status: number, body: unknown) => {
   res.end(JSON.stringify(body))
 }
 
-export type SandboxOptions = { slots: number; workRoot: string; runtimeDir: string }
+/** `notes` are core's own release notes; a test passes its own to exercise codemods core hasn't shipped. */
+export type SandboxOptions = { slots: number; workRoot: string; runtimeDir: string; notes?: readonly UpgradeNote[] }
 
 /** One working copy per slot; a container has one slot (its store), and the local stand-in may hold several. */
-export const sandboxServer = ({ slots, workRoot, runtimeDir }: SandboxOptions): Server => {
+export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgradeNotes }: SandboxOptions): Server => {
   const workspaces = new Map<string, Workspace>()
   const queues = new Map<string, Promise<unknown>>()
 
@@ -120,6 +132,19 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir }: SandboxOptions): 
     if (method === 'POST' && op === 'undo') {
       const body = await json(req, undoSchema)
       return send(res, 200, await inTurn(slot, () => ws().undo(body.commit, body.message, asContext(body.context))))
+    }
+    if (method === 'POST' && op === 'upgrade') {
+      const body = await json(req, upgradeSchema)
+      return send(res, 200, await inTurn(slot, () => ws().upgrade(body, notes)))
+    }
+    if (method === 'PUT' && op === 'onto') {
+      const bytes = await read(req, maxBundle)
+      await inTurn(slot, () => ws().receiveOnto(bytes))
+      return send(res, 200, { ok: true })
+    }
+    if (method === 'POST' && op === 'rebase') {
+      const body = await json(req, rebaseSchema)
+      return send(res, 200, await inTurn(slot, () => ws().rebase(body.onto, asContext(body.context))))
     }
     if (method === 'GET' && op === 'theme') {
       const at = url.searchParams.get('at')

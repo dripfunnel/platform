@@ -1,0 +1,16 @@
+{
+  "hero": {
+    "title": "The Collection",
+    "lead": "Take your time.",
+    "shop": "Discover"
+  },
+  "story": {
+    "title": "A quieter way to shop",
+    "body": "Everything is here when you are ready."
+  },
+  "contact": {
+    "title": "Get in touch",
+    "body": "Questions about a piece? Write to us.",
+    "action": "Contact us"
+  }
+}

@@ -34,6 +34,7 @@ const words: Record<DesignRefusal['reason'], string> = {
   ALREADY_LIVE: 'That version is already live.',
   PUBLISH_RUNNING: 'Wait for the publish in progress to finish.',
   BUILD_GONE: 'That version can’t be restored any more.',
+  SECURITY_RELEASE: 'That version predates a security fix to your storefront, so it can’t be restored.',
 }
 
 export const answered = <T>(result: DesignResult<T>): T => {
