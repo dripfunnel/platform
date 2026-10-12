@@ -385,13 +385,29 @@
   gap: 12px;
 }
 
-/* Site settings: Brand above Domains (FIRST-RELEASE §14); the prototype's second column, AI and build minutes and
-   Version history, comes with #318's operations. */
+/* Site settings: two columns from 820 px (PortalStorefront), Brand, Domains and Search and sharing first. */
+.df-sf-settings-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+@container (min-width: 820px) {
+  .df-sf-settings-columns {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+}
+
+.df-sf-panel {
+  container-type: inline-size;
+}
+
 .df-sf-settings {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 900px;
+  min-width: 0;
 }
 
 /* Domains. */
@@ -718,4 +734,410 @@
     font-family: var(--df-font);
     font-size: 11px;
   }
+}
+
+/* The header over every tab: the live line, View live site and Change template. */
+.df-sf-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.df-sf-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.df-sf-top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.df-sf-top-actions .df-button {
+  font-weight: 400;
+}
+
+/* The Design tab: the draft notice and the live version. */
+.df-sf-design {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.df-sf-draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: 10px;
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 14px;
+}
+
+.df-sf-draft > p:first-child {
+  flex: 1;
+  min-width: min(100%, 220px);
+  margin: 0;
+}
+
+.df-sf .df-sf-draft-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-color: var(--df-color-warning-border);
+  color: var(--df-color-warning);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-sf-draft .df-sf-problem {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.df-sf-live {
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-sf-live-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-sf-eyebrow {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-sf-live-body {
+  margin: 0;
+  padding: 18px 14px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.df-sf-powered {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sf-powered .df-sf-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The template gallery. */
+.df-sf-back {
+  align-self: flex-start;
+  font-size: 14px;
+}
+
+.df-sf-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-sf-template {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-sf-template--scratch {
+  border: 1px dashed var(--df-color-field-border);
+}
+
+.df-sf-template--current {
+  border: 2px solid var(--df-color-heading);
+}
+
+.df-sf-template-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1280 / 794;
+  padding: 16px;
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-page);
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  text-align: center;
+}
+
+.df-sf-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 5px;
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-sf-template-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px 16px;
+}
+
+.df-sf-template-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.df-sf-template-name h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.df-sf-template-name span {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.df-sf-template-body > p {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sf-template-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.df-sf-template-actions .df-sf-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.df-sf .df-sf-use {
+  min-height: 36px;
+  margin-left: auto;
+  padding: 0 14px;
+  border-color: var(--df-color-heading);
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+}
+
+.df-sf .df-sf-draft-button--strong {
+  border-color: var(--df-color-warning);
+  font-weight: 700;
+}
+
+.df-sf-publish-now-working {
+  font-weight: 600;
+}
+
+/* AI and build minutes. */
+.df-sf-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.df-sf-meter > span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.df-sf-meter strong {
+  color: var(--df-color-muted);
+  font-weight: 600;
+}
+
+.df-sf-meter strong.df-sf-meter-high {
+  color: var(--df-color-warning);
+}
+
+.df-sf-meter progress {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  background: var(--df-color-neutral-surface);
+  accent-color: var(--df-color-success);
+  appearance: none;
+}
+
+.df-sf-meter progress::-webkit-progress-bar {
+  background: var(--df-color-neutral-surface);
+}
+
+.df-sf-meter progress::-webkit-progress-value {
+  background: var(--df-color-success);
+}
+
+.df-sf-meter progress::-moz-progress-bar {
+  background: var(--df-color-success);
+}
+
+.df-sf-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.df-sf-stats > div {
+  display: flex;
+  flex-direction: column-reverse;
+  padding: 10px 12px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+}
+
+.df-sf-stats dt {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-sf-stats dd {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.df-sf-recent h3 {
+  margin: 0 0 6px;
+  color: var(--df-color-text-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-sf-recent ul,
+.df-sf-history ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-sf-recent li {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+  font-size: 13px;
+}
+
+.df-sf-recent li span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-sf-recent li span:last-child {
+  color: var(--df-color-muted);
+  white-space: nowrap;
+}
+
+/* Version history. */
+.df-sf-history li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--df-color-neutral-surface);
+  font-size: 13px;
+}
+
+.df-sf-history-what {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-sf-history-what strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-sf-history-what span {
+  color: var(--df-color-muted);
+}
+
+.df-sf-history-live {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-success-border);
+  border-radius: 5px;
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-sf-history .df-sf-link {
+  align-self: flex-start;
+}
+
+.df-sf .df-sf-history-retry {
+  align-self: flex-start;
 }

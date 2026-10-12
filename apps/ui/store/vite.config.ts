@@ -4,8 +4,8 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react()],
-  // The first render through the router in a file can pass 5 s on a cold runner (#189).
-  test: { testTimeout: 20_000 },
+  // The first render through the router in a file can pass 5 s on a cold runner (#189); a test's iframe never loads its address.
+  test: { testTimeout: 20_000, environmentOptions: { happyDOM: { settings: { disableIframePageLoading: true } } } },
   server: {
     // Each partner's portal is its own host (docs/setup/local.md §7.3): Caddy sends https://store.<partner>.localhost here
     // and its host and origin go on to the Worker unchanged, which finds the partner by them (ARCHITECTURE.md §2).

@@ -36,9 +36,11 @@ export type ShopClientOptions = {
   storeKey?: string
   timeoutMs?: number
   state?: () => ShopState
+  /** Hears every refusal, such as the preview host's `PREVIEW_CLOSED` (PREVIEW §5 step 3). */
+  onError?: (error: ShopApiError) => void
 }
 
-export const createShopClient = ({ endpoint = '/shop-api', storeKey, timeoutMs = 10_000, state = () => ({}) }: ShopClientOptions = {}) => {
+export const createShopClient = ({ endpoint = '/shop-api', storeKey, timeoutMs = 10_000, state = () => ({}), onError }: ShopClientOptions = {}) => {
   const headersFor = (): Record<string, string> => {
     const s = state()
     const pairs: [string, string | undefined][] = [
@@ -53,6 +55,15 @@ export const createShopClient = ({ endpoint = '/shop-api', storeKey, timeoutMs =
   }
 
   const request = async <T>(query: string, variables?: Record<string, unknown>): Promise<T> => {
+    try {
+      return await send<T>(query, variables)
+    } catch (error) {
+      if (error instanceof ShopApiError) onError?.(error)
+      throw error
+    }
+  }
+
+  const send = async <T>(query: string, variables?: Record<string, unknown>): Promise<T> => {
     let response: Response
     try {
       response = await fetch(endpoint, {

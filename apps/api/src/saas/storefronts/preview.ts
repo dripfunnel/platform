@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { previewLinkSeconds, type PreviewLinks } from '#auth/previewLink'
 import { merchantRolePermissions, merchantRoles } from '#auth/storePermissions'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { holdsMerchantRole, selectPreviewKey, selectPreviewStore } from '#db/scoped/previewAccess'
+import { holdsMerchantRole, movePreviewEpoch, selectPreviewKey, selectPreviewStore } from '#db/scoped/previewAccess'
 
 // The preview link and the access re-check behind it (storefront PREVIEW.md §5): the API's side of the edge Worker's
 // `__open` and of every HTML and /shop-api request on a preview host. Nothing here is cached (PREVIEW §4 step 4).
@@ -40,6 +40,9 @@ export const checkPreview = async (sql: postgres.Sql, input: unknown): Promise<P
   if (!parsed.success) return refused
   return withSystemScope(sql, (tx) => recheck(tx, parsed.data))
 }
+
+/** "End all preview links" (§5 step 4, §8): the store's revocation number moves, so every link and cookie stops at its next request. */
+export const endPreviewLinks = (tx: ScopedSql, storeId: string): Promise<boolean> => movePreviewEpoch(tx, storeId)
 
 /** "Open preview" (§5 step 1): the store's own link, naming the user who asked; the Store API has checked both. */
 export const previewLinkFor = async (sql: postgres.Sql, links: PreviewLinks, domain: string, storeId: string, userId: string, now: Date): Promise<string | null> => {

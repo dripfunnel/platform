@@ -7,6 +7,7 @@ import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCa
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
+import { openPreview as openPreviewLink } from '#saas/storefronts/index'
 import { StorefrontEdge } from '../src/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -50,14 +51,15 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const openPreview = async (who: Who, preview: StoreContext['preview'] = { domain, links }) => {
+const openPreview = (who: Who, preview: StoreContext['preview'] = { domain, links }) => ask(who, 'mutation { previewLink }', 'previewLink', preview)
+const ask = async (who: Who, source: string, field: string, preview: StoreContext['preview'] = { domain, links }) => {
   const partnerId = who === 'bOwner' ? t.partnerB : t.partnerA
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'bOwner' ? t.storeB1 : t.storeA1, ...(who === 'supplier' ? { [supplierHeader]: t.sellerA1First } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
   const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, preview, now: () => now }
-  const result = await graphql({ schema: storeSchema as GraphQLSchema, source: 'mutation { openStorefrontPreview }', contextValue })
-  return { url: (result.data?.['openStorefrontPreview'] as string | null | undefined) ?? null, code: result.errors?.[0]?.extensions['code'] as string | undefined }
+  const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
+  return { url: (result.data?.[field] as string | null | undefined) ?? null, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
 const tokenOf = (url: string | null) => new URL(url ?? 'https://x/').searchParams.get('t') ?? ''
 
@@ -83,6 +85,24 @@ describe('Open preview', () => {
     expect((await openPreview('manager')).code).toBe('FORBIDDEN')
     expect((await openPreview('supplier')).url).toBeNull()
     expect((await openPreview('owner', null)).code).toBe('NOT_CONNECTED')
+  })
+
+  it('“End all preview links” moves the store’s revocation number, so a link opened before no longer opens; the Owner’s only (#318)', async () => {
+    const { url } = await openPreview('owner')
+    const epoch = async () => (await db.sql<{ preview_epoch: number }[]>`select preview_epoch from storefront where store_id = ${t.storeA1}`)[0]?.preview_epoch
+    const before = await epoch()
+    expect(await openPreviewLink(db.sql, links, keys.a1, tokenOf(url), now)).toMatchObject({ ok: true })
+    for (const who of ['manager', 'supplier'] as const) expect((await ask(who, 'mutation { endPreviewLinks }', 'endPreviewLinks')).code).toBe('FORBIDDEN')
+    expect(await epoch()).toBe(before)
+    expect((await ask('owner', 'mutation { endPreviewLinks }', 'endPreviewLinks')).code).toBeUndefined()
+    expect(await epoch()).toBe((before ?? 0) + 1)
+    expect(await openPreviewLink(db.sql, links, keys.a1, tokenOf(url), now)).toEqual({ ok: false })
+    // Store B1's links are untouched, and the entry names who ended them, never a link.
+    expect((await db.sql<{ preview_epoch: number }[]>`select preview_epoch from storefront where store_id = ${t.storeB1}`)[0]?.preview_epoch).toBe(0)
+    const [entry] = await db.sql<{ actor_id: string; reason: string | null }[]>`select actor_id, reason from activity_log where store_id = ${t.storeA1} and action = 'storefront.preview_links_ended'`
+    expect(entry).toEqual({ actor_id: people.owner, reason: null })
+    // The edge's tests below sign links at the first number.
+    await db.sql`update storefront set preview_epoch = ${before ?? 0} where store_id = ${t.storeA1}`
   })
 })
 

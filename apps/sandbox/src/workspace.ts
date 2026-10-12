@@ -44,14 +44,18 @@ export class Workspace {
     this.git = gitIn(this.repo, dir)
   }
 
-  /** Replaces the working copy with a git bundle of the draft (or the live build's source), then bundles it. */
-  async loadBundle(bytes: Buffer): Promise<Loaded> {
+  /**
+   * Replaces the working copy with a git bundle of the draft (or the live build's source), then bundles it. `at` resets
+   * the branch to that commit, which must be in the bundle: a live build's source may hold commits past the build's own.
+   */
+  async loadBundle(bytes: Buffer, at: string | null = null): Promise<Loaded> {
     await this.reset()
     const file = join(this.dir, 'incoming.bundle')
     await writeFile(file, bytes)
     await gitIn(this.dir, this.dir)(['clone', '--quiet', '--branch', branch, file, this.repo])
     await rm(file, { force: true })
     await this.git(['remote', 'remove', 'origin'])
+    if (at) await this.git(['reset', '--quiet', '--hard', `${at}^{commit}`])
     return this.afterLoad()
   }
 
@@ -77,6 +81,13 @@ export class Workspace {
     this.mustBeLoaded()
     const paths = (await this.git(['ls-files', '-z'])).split('\0').filter(isThemePath)
     return new Map(await Promise.all(paths.map(async (p) => [p, await readFile(join(this.repo, p), 'utf8')] as const)))
+  }
+
+  /** The theme at an earlier commit of the draft, for the push once a publish of it is live (AI-STUDIO §6 step 4). */
+  async themeAt(commit: string): Promise<Map<string, string>> {
+    this.mustBeLoaded()
+    const paths = (await this.git(['ls-tree', '-r', '-z', '--name-only', `${commit}^{commit}`])).split('\0').filter(isThemePath)
+    return new Map(await Promise.all(paths.map(async (p) => [p, await this.git(['show', `${commit}:${p}`])] as const)))
   }
 
   /** Applies a change and runs the fast gate; on a pass it is a local commit, on a failure nothing changed at all. */

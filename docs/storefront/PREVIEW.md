@@ -119,7 +119,7 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    the store (ACCESS §3) and signs a link: `https://{key}.webpreview.store/__open?t=<token>`.
    The token names the store and the user, is signed with a Worker secret, and expires
    after **7 days** (decided on #317, as proposed).
-   **Built on #317:** the Store API's `openStorefrontPreview` (the `publish` capability; refused to support and staff
+   **Built on #317:** the Store API's `openStorefrontPreview`, renamed `previewLink` on #318 (the `publish` capability; refused to support and staff
    sessions, which act as someone else) answers the link and records `storefront.preview_opened`. The token is sealed with
    AES-GCM under `PREVIEW_LINK_KEY`, so its holder can't read who issued it, and carries the store, the user,
    `storefront.preview_epoch` and the expiry.
@@ -150,6 +150,8 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    session has run out (a tab left idle for over 15 minutes), the Worker answers with a plain
    page that shows no store data: "This preview has closed. Open it again from your link or from
    the portal." `/shop-api` answers the SPA with an error that makes it show the same screen.
+   **Built on #307:** that error is `PREVIEW_CLOSED`; core's runtime then replaces the page, on its first request or any
+   later one, with core's own closed screen and no store data.
 4. **Which check runs on which request:**
    - **HTML and `/shop-api/*` requests get the full re-check.** The Worker asks the API for the
      store's current preview folder (no cached lookup, unlike live sites: LIVE-SHOP §5 step 1),
