@@ -5,8 +5,10 @@ import { storeContentPaths } from '#engine/modules/content/index'
 import { isNewerVersion } from '#core/semver'
 import { insertAiRun, moveDraft, rebaseDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
-import { draftBundle, guardContextFor, previewFolder, sourceBundle, templateFiles, upgradeBundle, upgradeFiles, type SitesBucket } from '../storefronts/index'
-import { maxRepairs, type DesignModel, type Proposal } from './model'
+import { draftBundle, guardContextFor, previewFolder, sourceBundle, templateFiles, type SitesBucket, upgradeBundle, upgradeFiles } from '../storefronts/index'
+import { maxRepairs, type DesignModel, type Proposal, type ProposalSummary } from './model'
+import { pageTexts, withText } from './texts'
+import { templateChange } from './template'
 
 // One store's studio (storefront AI-STUDIO.md §3–§7): the Durable Object holds one of these, and runs one change at a
 // time through it. Every outside call is here or in the Worker; the container gets files and gives files back.
@@ -14,6 +16,7 @@ import { maxRepairs, type DesignModel, type Proposal } from './model'
 export interface DraftsBucket {
   get: (key: string) => Promise<{ arrayBuffer: () => Promise<ArrayBuffer> } | null>
   put: (key: string, value: ArrayBuffer) => Promise<unknown>
+  delete: (key: string) => Promise<unknown>
 }
 
 /** At the container limit a studio waits its turn (AI-STUDIO §7). */
@@ -50,8 +53,8 @@ export class StudioUnavailable extends Error {
 }
 
 export type ChangeOutcome =
-  | { outcome: 'changed'; commit: string; previewRef: string; repairs: number; runId: string | null }
-  | { outcome: 'unchanged'; commit: string; repairs: number; runId: string | null }
+  | { outcome: 'changed'; commit: string; previewRef: string; repairs: number; runId: string | null; summary?: ProposalSummary | null }
+  | { outcome: 'unchanged'; commit: string; repairs: number; runId: string | null; summary?: ProposalSummary | null }
   | { outcome: 'refused'; problems: GateProblem[]; repairs: number; runId: string | null }
 
 /** The upgrade bot's ask (storefront ARCHITECTURE §7.1): core `to` on `sourceBuildId`'s code, or the baseline theme. */
@@ -132,17 +135,43 @@ export class StudioRunner {
 
   /** "Undo this change" (AI-STUDIO §5): a new change, through the same gate, saved and previewed the same way. */
   undo(commit: string, userId: string): Promise<ChangeOutcome> {
+    return this.inTurn(() => this.commitStep((client, context) => client.undo(commit, `Undo ${commit.slice(0, 12)}`, context), userId))
+  }
+
+  /** "Change template" (SAAS §9.2): the template's theme as one change to the draft, through the same gate; nothing is pushed. */
+  useTemplate(template: string, keep: boolean, userId: string): Promise<ChangeOutcome> {
     return this.inTurn(async () => {
-      const context = await this.guardContext()
-      const done = await this.recovering(async (client) => {
-        const result = await client.undo(commit, `Undo ${commit.slice(0, 12)}`, context)
-        return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
-      })
-      const { result } = done
-      if (!result.ok) return { outcome: 'refused', problems: result.problems, repairs: 0, runId: null }
-      if (!done.saved) return { outcome: 'unchanged', commit: result.commit, repairs: 0, runId: null }
-      const previewRef = await this.save(done.saved, result, userId, await this.themeNow())
-      return { outcome: 'changed', commit: result.commit, previewRef, repairs: 0, runId: null }
+      await this.ensureLoaded()
+      if (!this.start) throw new StudioUnavailable('Nothing is loaded to change.')
+      const { theme } = await templateFiles(this.deps.sites, this.start.coreVersion, template)
+      const files = templateChange(await this.themeNow(), theme, (await this.guardContext()).locales, keep)
+      return this.commitStep((client, context) => client.change(files, `Use the ${template} template`, context), userId, template)
+    })
+  }
+
+  /** Edit text: the page's words in one language, as the draft holds them (FIRST-RELEASE §14). */
+  texts(page: string, locale: string): Promise<{ key: string; text: string }[]> {
+    return this.inTurn(async () => pageTexts(await this.themeNow(), page, locale))
+  }
+
+  /** One string of the draft's words, through the gate like any change, with no model call (SAAS §9.2 guardrail 1). */
+  editText(locale: string, key: string, text: string, userId: string): Promise<ChangeOutcome | { outcome: 'missing' }> {
+    return this.inTurn(async () => {
+      const file = withText(await this.themeNow(), locale, key, text)
+      if (!file) return { outcome: 'missing' as const }
+      return this.commitStep((client, context) => client.change([file], `Edit text ${locale} ${key}`, context), userId)
+    })
+  }
+
+  /**
+   * Discard (AI-STUDIO §5), or the draft after Go back: `forget` drops the draft's row first, then its bundle goes and the
+   * sandbox unloads, so the next open starts from the live build's source at the live commit. In turn, so no change interleaves.
+   */
+  reset(forget: () => Promise<void>): Promise<void> {
+    return this.inTurn(async () => {
+      await forget()
+      await this.deps.drafts.delete(draftBundle(this.deps.storeId))
+      await this.unload()
     })
   }
 
@@ -307,13 +336,16 @@ export class StudioRunner {
 
   /** Idle stop (AI-STUDIO §7): the draft is already saved, so the next request starts again from it. */
   async stop(): Promise<void> {
-    await this.inTurn(async () => {
-      const host = this.host
-      this.client = null
-      this.host = null
-      if (host) await host.stop()
-      await this.deps.capacity.release()
-    })
+    await this.inTurn(() => this.unload())
+  }
+
+  private async unload(): Promise<void> {
+    const host = this.host
+    this.client = null
+    this.host = null
+    this.start = null
+    if (host) await host.stop()
+    await this.deps.capacity.release()
   }
 
   private system<T>(work: Parameters<typeof withSystemScope<T>>[1]): Promise<T> {
@@ -333,8 +365,9 @@ export class StudioRunner {
     if (this.client && this.host?.running()) return { client: this.client, bundle: null }
     const { storeId } = this.deps
     const row = await this.system((tx) => selectStudioStart(tx, storeId))
-    const template = row?.template ?? row?.storefront_template ?? null
-    const draft = await this.deps.drafts.get(draftBundle(storeId))
+    const template = row?.template ?? row?.own_template ?? row?.storefront_template ?? null
+    // AI-STUDIO §3 step 4: the draft only while its row exists.
+    const draft = row?.head_commit ? await this.deps.drafts.get(draftBundle(storeId)) : null
     // Without a draft the studio opens the store's own theme, never the baseline a security fix serves (ARCHITECTURE §7).
     const coreVersion = (draft ? row?.core_version : row?.own_core_version) ?? row?.core_version ?? row?.store_core_version ?? null
     if (!row || !template || !coreVersion) throw new StudioUnavailable('The store has no storefront to design yet.')
@@ -351,7 +384,7 @@ export class StudioRunner {
       const saved = draft ?? (row.own_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.own_build_id)) : null)
       if (!saved && row.own_build_id) throw new StudioUnavailable('The live build’s source is missing.')
       loaded = saved
-        ? await client.loadBundle(await saved.arrayBuffer())
+        ? await client.loadBundle(await saved.arrayBuffer(), draft ? null : row.own_commit)
         : await (async () => {
             const { skeleton, theme } = await templateFiles(this.deps.sites, coreVersion, template)
             return client.loadFiles([...skeleton, ...theme], `Start from the ${template} template`)
@@ -441,7 +474,22 @@ export class StudioRunner {
       throw error
     }
     const runId = await this.record(input, attempts, previewRef ? 'changed' : 'unchanged')
-    return previewRef ? { outcome: 'changed', commit: last.commit, previewRef, repairs, runId } : { outcome: 'unchanged', commit: last.commit, repairs, runId }
+    const summary = attempts.at(-1)?.proposal.summary ?? null
+    return previewRef ? { outcome: 'changed', commit: last.commit, previewRef, repairs, runId, summary } : { outcome: 'unchanged', commit: last.commit, repairs, runId, summary }
+  }
+
+  /** One step of the sandbox without the model (undo, a template, edited words): saved and previewed when it changed something. */
+  private async commitStep(step: (client: SandboxClient, context: GuardContext) => Promise<ChangeResult>, userId: string, template?: string): Promise<ChangeOutcome> {
+    const context = await this.guardContext()
+    const done = await this.recovering(async (client) => {
+      const result = await step(client, context)
+      return { result, saved: result.ok && result.changed ? await this.collect(client) : null }
+    })
+    const { result } = done
+    if (!result.ok) return { outcome: 'refused', problems: result.problems, repairs: 0, runId: null }
+    if (!done.saved) return { outcome: 'unchanged', commit: result.commit, repairs: 0, runId: null }
+    const previewRef = await this.save(done.saved, result, userId, await this.themeNow(), template)
+    return { outcome: 'changed', commit: result.commit, previewRef, repairs: 0, runId: null }
   }
 
   /** What an accepted change leaves to save: the repo as a git bundle and the gate's bundle for the preview. */
@@ -450,8 +498,10 @@ export class StudioRunner {
   }
 
   /** AI-STUDIO §4 steps 5–7: the draft bundle, then the preview folder, then the pointers, then the frame's reload. */
-  private async save(saved: Awaited<ReturnType<StudioRunner['collect']>>, result: Extract<ChangeResult, { ok: true }>, userId: string, theme: ReadonlyMap<string, string>): Promise<string> {
+  private async save(saved: Awaited<ReturnType<StudioRunner['collect']>>, result: Extract<ChangeResult, { ok: true }>, userId: string, theme: ReadonlyMap<string, string>, template?: string): Promise<string> {
     if (!this.start) throw new StudioUnavailable('Nothing is loaded to save.')
+    // The new template is the object's only once its draft is saved, so a failed save leaves the old one in force.
+    const start = template ? { ...this.start, template } : this.start
     const { storeId } = this.deps
     await this.deps.drafts.put(draftBundle(storeId), saved.bundle)
     const ref = this.deps.newId()
@@ -460,10 +510,10 @@ export class StudioRunner {
       const type = contentTypes[f.path.split('.').at(-1) ?? '']
       await this.deps.sites.put(`${folder}${f.path}`, decode(f.base64), { sha256: f.sha256, ...(type ? { httpMetadata: { contentType: type } } : {}) })
     }
-    const start = this.start
     await this.system((tx) =>
       moveDraft(tx, { storeId, head: result.commit, template: start.template, coreVersion: start.coreVersion, previewRef: ref, userId, at: this.deps.now(), customPaths: customPaths(theme) }),
     )
+    this.start = start
     this.deps.onBundle(result.bundle)
     return ref
   }
