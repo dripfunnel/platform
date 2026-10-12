@@ -220,6 +220,7 @@ export const StorefrontPage = () => {
           onEntry={goEntry}
           host={host}
           shopName={brand?.shopName ?? acting.store.name}
+          contactEmail={brand?.contactEmail ?? null}
           onToast={setToast}
         />
       )

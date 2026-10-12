@@ -26,6 +26,7 @@ export interface ContentEditorProps {
   canEdit: boolean
   host: string | null
   shopName: string
+  contactEmail: string | null
   /** A page or post's title by its path, so a clash names it. */
   titleAt: (path: string) => string | null
   onBack: () => void
@@ -33,11 +34,12 @@ export interface ContentEditorProps {
 }
 
 /** One page in StorefrontContent's editor: its words and blocks, how it looks in search, and Publishing. */
-export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, titleAt, onBack, onDone }: ContentEditorProps) => {
+export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactEmail, titleAt, onBack, onDone }: ContentEditorProps) => {
   const w = all.pages
   const formId = useId()
   const [read, setRead] = useState<Read>(id ? { kind: 'loading' } : { kind: 'ready', entry: null })
   const [draft, setDraft] = useState<ContentDraft>(() => draftOf(null))
+  const [names, setNames] = useState<Record<string, string | null>>({})
   const [busy, setBusy] = useState<'publish' | 'draft' | 'delete' | null>(null)
   const [problem, setProblem] = useState<Problem | null>(null)
   const [asking, setAsking] = useState(false)
@@ -54,6 +56,11 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, titleAt,
         setRead(entry ? { kind: 'ready', entry } : { kind: 'missing' })
         if (!entry) return
         setDraft(draftOf(entry))
+        const ids = [...new Set(entry.body.flatMap((b) => b.productIds ?? []))]
+        api.loadProductNames(ids).then(
+          (found) => live && setNames((was) => ({ ...found, ...was })),
+          () => undefined,
+        )
       },
       () => live && setRead({ kind: 'error' }),
     )
@@ -158,7 +165,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, titleAt,
               )}
             </div>
           </section>
-          <ContentBlocks title={w.body} body={draft.body} onBody={(body) => set({ body })} canEdit={canEdit} />
+          <ContentBlocks kind={kind} title={w.body} body={draft.body} onBody={(body) => set({ body })} canEdit={canEdit} api={api} names={names} onName={(p, name) => setNames((was) => ({ ...was, [p]: name }))} contactEmail={contactEmail} />
           <section className="df-sf-card" aria-labelledby={`${formId}-search`}>
             <h2 id={`${formId}-search`}>{words.search}</h2>
             <div className="df-sf-field">

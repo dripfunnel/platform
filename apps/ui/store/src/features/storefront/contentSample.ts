@@ -27,7 +27,7 @@ const pages = (): ContentEntry[] =>
           body: [block('heading', { text: 'Questions we get asked' }), block('faq', { items: [{ question: 'How long does delivery take?', answer: '3–5 working days anywhere in India.' }, { question: 'Can I return something?', answer: 'Yes, within 14 days of delivery.' }] })],
         },
         { ...blank, id: 'sample-contact', kind: 'page', title: 'Contact', slug: 'contact', path: '/contact', status: 'published', inMenu: true, body: [block('heading', { text: 'Talk to us' }), block('text', { text: 'We reply within a working day.' }), block('form')] },
-        { ...blank, id: 'sample-lookbook', kind: 'page', title: 'Sangeet to pheras', slug: 'lookbook', path: '/lookbook', status: 'draft', updatedAt: '2026-10-12T08:15:00Z', body: [block('heading', { text: 'Sangeet to pheras' }), block('text', { text: 'Five looks for the wedding week.' })] },
+        { ...blank, id: 'sample-lookbook', kind: 'page', title: 'Sangeet to pheras', slug: 'lookbook', path: '/lookbook', status: 'draft', updatedAt: '2026-10-12T08:15:00Z', body: [block('heading', { text: 'Sangeet to pheras' }), block('products', { productIds: ['sample-product-1'] })] },
       ]
     : []
 
@@ -58,5 +58,6 @@ export const sampleContent = (state: StorefrontState) => {
       entries = entries.filter((e) => e.id !== id)
       return Promise.resolve()
     },
+    loadProductNames: (ids: readonly string[]) => Promise.resolve(Object.fromEntries(ids.map((id) => [id, id === 'sample-product-1' ? 'Indigo block-print kurta' : null]))),
   }
 }
