@@ -1,0 +1,68 @@
+{
+  "crumbs": {
+    "home": "Home"
+  },
+  "card": {
+    "from": "From",
+    "soldOut": "Sold out",
+    "noPicture": "No picture yet"
+  },
+  "listing": {
+    "showing": "{count, plural, one {Showing # product} other {Showing # products}}",
+    "filters": "Filters",
+    "filtersShown": "Hide filters",
+    "clear": "Clear filters",
+    "remove": "Remove filter {name}",
+    "sort": "Sort",
+    "sorts": {
+      "featured": "Featured",
+      "newest": "Newest",
+      "priceLow": "Price, low to high",
+      "priceHigh": "Price, high to low",
+      "name": "Name"
+    },
+    "more": "Load more",
+    "moreFailed": "More products didn't load. Try again.",
+    "empty": "No products match these filters",
+    "emptyLead": "Remove a filter or clear them all to see more.",
+    "loading": "Loading products",
+    "failed": "We couldn't load these products",
+    "failedLead": "Check your connection and try again.",
+    "retry": "Try again"
+  },
+  "collection": {
+    "all": "All products",
+    "allLead": "Everything in the shop.",
+    "loading": "Loading the collection",
+    "missing": "We can't find that collection",
+    "missingLead": "It may have moved or been taken down.",
+    "browse": "Browse all products"
+  },
+  "search": {
+    "title": "Search the shop",
+    "lead": "Find a product by its name or type.",
+    "results": "Results for \"{query}\"",
+    "label": "Search products",
+    "placeholder": "What are you looking for?",
+    "button": "Search",
+    "none": "No products match \"{query}\"",
+    "noneLead": "Check the spelling, try a shorter word, or browse a collection."
+  },
+  "product": {
+    "loading": "Loading the product",
+    "missing": "We can't find that product",
+    "missingLead": "The link may be old, or the product may have been taken down.",
+    "failed": "We couldn't load this product",
+    "video": "Play the video",
+    "choose": "Choose a {option} to see stock",
+    "inStock": "In stock",
+    "outOfStock": "Sold out",
+    "unavailable": "{value}, sold out",
+    "details": "Details",
+    "specs": "Specifications",
+    "delivery": "Delivery and returns",
+    "warranty": "Warranty",
+    "questions": "Questions",
+    "related": "You may also like"
+  }
+}
