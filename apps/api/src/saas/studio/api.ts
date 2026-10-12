@@ -3,9 +3,6 @@ import { StudioQueued, StudioUnavailable, type ChangeOutcome } from './runner'
 // What the Store API asks of a store's StudioSession (storefront AI-STUDIO §2–§5), always named by the TenantContext's
 // store (`studioOf`). The Durable Object implements it over RPC; tests drive a StudioRunner through the same shape.
 
-/** FIRST-RELEASE §14's studio states: "Opening your studio…", "You're next", ready, and "Finishing your previous change…". */
-export type StudioState = { state: 'starting' } | { state: 'queued'; place: number } | { state: 'ready' } | { state: 'busy' } | { state: 'unavailable' }
-
 /** A change's outcome, or why the sandbox couldn't take it; RPC keeps no error class, so both travel as values. */
 export type StudioAnswer = ChangeOutcome | { outcome: 'queued'; place: number } | { outcome: 'unavailable' }
 
@@ -20,6 +17,5 @@ export const studioAnswer = async (work: () => Promise<ChangeOutcome>): Promise<
 }
 
 export interface StudioApi {
-  status: (storeId: string) => Promise<StudioState>
   useTemplate: (storeId: string, input: { template: string; keep: boolean; userId: string }) => Promise<StudioAnswer>
 }

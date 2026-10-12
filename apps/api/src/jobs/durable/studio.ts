@@ -5,7 +5,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { selectStudioPortalHost } from '#db/scoped/studio'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant, type StudioAnswer, type StudioApi, type StudioState, studioAnswer, type UpgradeAnswer, type UpgradeAsk, type PublishReady } from '#saas/studio/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant, type StudioAnswer, type StudioApi, studioAnswer, type UpgradeAnswer, type UpgradeAsk, type PublishReady } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -18,6 +18,8 @@ export interface StudioEnv extends Record<string, unknown> {
 
 /** The alarm looks every minute while a container may run (AI-STUDIO §7). */
 const tickMs = 60 * 1000
+
+export type StudioState = { state: 'ready' } | { state: 'queued'; place: number } | { state: 'unavailable' }
 
 type Connect = (hyperdrive: { connectionString: string }) => postgres.Sql
 
@@ -54,8 +56,6 @@ export const studioSessionClass = (connect: Connect) =>
     private runner: StudioRunner | null = null
     private lastActive = Date.now()
     private db: (<T>(work: (sql: postgres.Sql) => Promise<T>) => Promise<T>) | null = null
-    private opening: Promise<StudioState> | null = null
-    private lastOpen: StudioState | null = null
 
     /** The object is named by its store's id; it refuses any call for another store, whoever made it. */
     private async runnerFor(storeId: string): Promise<StudioRunner> {
@@ -117,19 +117,6 @@ export const studioSessionClass = (connect: Connect) =>
         if (error instanceof StudioUnavailable) return { state: 'unavailable' }
         throw error
       }
-    }
-
-    /** Where the studio stands without waiting for it: a sandbox not loaded yet starts in the background (AI-STUDIO §3). */
-    async status(storeId: string): Promise<StudioState> {
-      const runner = await this.runnerFor(storeId)
-      if (runner.loaded) return runner.pending > 0 ? { state: 'busy' } : { state: 'ready' }
-      if (!this.opening) {
-        this.opening = this.open(storeId).finally(() => {
-          this.opening = null
-        })
-        this.ctx.waitUntil(this.opening.then((state) => void (this.lastOpen = state)))
-      }
-      return this.lastOpen && this.lastOpen.state !== 'ready' ? this.lastOpen : { state: 'starting' }
     }
 
     async useTemplate(storeId: string, input: { template: string; keep: boolean; userId: string }): Promise<StudioAnswer> {

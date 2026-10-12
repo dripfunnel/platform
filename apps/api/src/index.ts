@@ -703,7 +703,7 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
   if (!namespace) return null
   return (context) => {
     const stub = studioOf(namespace, context)
-    return { status: (storeId) => stub.status(storeId), useTemplate: (storeId, input) => stub.useTemplate(storeId, input) }
+    return { useTemplate: (storeId, input) => stub.useTemplate(storeId, input) }
   }
 }
 

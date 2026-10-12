@@ -53,27 +53,6 @@ export const insertDesignMessage = async (tx: ScopedSql, m: NewMessage): Promise
   return row.id
 }
 
-export interface MessageRow {
-  id: string
-  role: MessageRole
-  text: string
-  changed: string[]
-  image_asset_id: string | null
-  sample_url: string | null
-  page: string | null
-  commit: string | null
-  undone: boolean
-  created_at: Date
-}
-
-/** A page of the chat, newest first, before the cursor's message (keyset on created_at and id). */
-export const selectDesignChat = (tx: ScopedSql, storeId: string, limit: number, before: { at: Date; id: string } | null): Promise<MessageRow[]> =>
-  tx<MessageRow[]>`
-    select id, role, text, changed, image_asset_id, sample_url, page, commit, undone, created_at
-    from design_message
-    where store_id = ${storeId} ${before ? tx`and (created_at, id) < (${before.at}, ${before.id})` : tx``}
-    order by created_at desc, id desc limit ${limit}`
-
 export interface DesignStateRow {
   repo_state: 'none' | 'creating' | 'ready' | 'failed'
   storefront_template: string | null

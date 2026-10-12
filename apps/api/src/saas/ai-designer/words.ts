@@ -3,11 +3,6 @@
 
 export const designAudit = {
   templateChosen: 'storefront.template_chosen',
-  designRequested: 'storefront.design_requested',
-  changeUndone: 'storefront.change_undone',
-  textEdited: 'storefront.text_edited',
-  discarded: 'storefront.discarded',
-  reverted: 'storefront.reverted',
 } as const
 
 export const designNotes = {
