@@ -78,3 +78,12 @@ export const deleteContent = async (kind: ContentKind, id: string): Promise<void
   const field = kind === 'page' ? 'deleteContentPage' : 'deleteBlogPost'
   await query(`mutation D($id: ID!) { ${field}(id: $id) }`, z.object({ [field]: z.boolean().nullable() }), { id })
 }
+
+/** Product names for a products block, in one request; a product no longer in the catalogue reads as null. */
+export const loadProductNames = async (ids: readonly string[]): Promise<Record<string, string | null>> => {
+  if (ids.length === 0) return {}
+  const fields = ids.map((_, i) => `p${i}: product(id: $p${i}) { name }`).join(' ')
+  const variables = Object.fromEntries(ids.map((id, i) => [`p${i}`, id]))
+  const answer = await query(`query N(${ids.map((_, i) => `$p${i}: ID!`).join(', ')}) { ${fields} }`, z.record(z.string(), z.object({ name: z.string() }).nullable()), variables)
+  return Object.fromEntries(ids.map((id, i) => [id, answer[`p${i}`]?.name ?? null]))
+}

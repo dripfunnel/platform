@@ -27,11 +27,12 @@ export interface ContentTabProps {
   onEntry: (entry: string | undefined) => void
   host: string | null
   shopName: string
+  contactEmail: string | null
   onToast: (text: string) => void
 }
 
 /** Storefront › Pages (StorefrontContent; FIRST-RELEASE §14): content pages and the AI's own pages, newest edit first. */
-export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host, shopName, onToast }: ContentTabProps) => {
+export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host, shopName, contactEmail, onToast }: ContentTabProps) => {
   const [list, setList] = useState<List>({ kind: 'loading' })
   const latest = useRef(0)
   const load = useCallback(() => {
@@ -70,6 +71,7 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
         canEdit={canEdit}
         host={host}
         shopName={shopName}
+        contactEmail={contactEmail}
         titleAt={(path) => rows.find((r) => r.path === path)?.title ?? null}
         onBack={() => onEntry(undefined)}
         onDone={(text) => {

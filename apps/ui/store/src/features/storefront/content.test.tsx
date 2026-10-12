@@ -17,8 +17,13 @@ const p = c.pages
 
 const api = vi.hoisted(() => ({ loadBrand: vi.fn(), loadSeo: vi.fn(), loadDomains: vi.fn(), loadOverview: vi.fn(), loadTemplates: vi.fn(), loadPoweredBy: vi.fn(), loadMeters: vi.fn() }))
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
-const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn() }))
+const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn(), loadProductNames: vi.fn() }))
 vi.mock('../../api/content', async (actual) => ({ ...(await actual<typeof import('../../api/content')>()), ...content }))
+
+const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
+vi.mock('../../api/productEditor', () => upload)
+const products = vi.hoisted(() => ({ loadProducts: vi.fn() }))
+vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...products }))
 
 const { StorefrontPage } = await import('./StorefrontPage')
 
@@ -78,6 +83,7 @@ beforeEach(() => {
   content.loadContentEntry.mockResolvedValue(faq)
   content.saveContent.mockImplementation((_kind: string, id: string | null, _revision: number | null, input: { title: string; slug: string }) => Promise.resolve({ ...faq, id: id ?? 'new-id', title: input.title, slug: input.slug }))
   content.deleteContent.mockResolvedValue(undefined)
+  content.loadProductNames.mockResolvedValue({ p1: 'Indigo kurta', p2: null })
 })
 
 afterEach(() => {
@@ -214,6 +220,57 @@ describe('the page editor', () => {
       publish: true,
       inMenu: true,
     })
+  })
+
+  it('edits questions and products, naming a product no longer in the catalogue', async () => {
+    products.loadProducts.mockResolvedValue({ rows: [{ id: 'p3', name: 'Linen scarf' }] })
+    await show({ entry: faq.id })
+    expect(content.loadProductNames).toHaveBeenCalledWith(['p1', 'p2'])
+    expect(screen.getByText('Indigo kurta')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: fill(e.removeProduct, { name: e.goneProduct }) }))
+    fireEvent.change(screen.getByRole('searchbox', { name: e.findProduct }), { target: { value: 'linen' } })
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 350)))
+    fireEvent.click(screen.getByRole('button', { name: /Linen scarf/ }))
+    fireEvent.click(screen.getByRole('button', { name: e.addQuestion }))
+    fireEvent.change(screen.getByRole('textbox', { name: fill(e.question, { number: '2' }) }), { target: { value: 'Gift wrap?' } })
+    fireEvent.change(screen.getByRole('textbox', { name: fill(e.answer, { number: '2' }) }), { target: { value: 'Yes.' } })
+    fireEvent.click(screen.getByRole('button', { name: fill(e.removeQuestion, { number: '1' }) }))
+    fireEvent.click(screen.getByRole('button', { name: e.update }))
+    await settle()
+    expect(content.saveContent.mock.calls[0]?.[3]).toMatchObject({
+      body: [{ kind: 'heading' }, { kind: 'faq', items: [{ question: 'Gift wrap?', answer: 'Yes.' }] }, { kind: 'products', productIds: ['p1', 'p3'] }],
+    })
+  })
+
+  it('adds a photo block from an upload, with its description', async () => {
+    upload.uploadPhoto.mockResolvedValue({ ok: true, assetId: '33333333-3333-4333-8333-333333333333' })
+    await show({ entry: 'new' })
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(e.tools.image), { target: { files: [new File(['x'], 'photo.png', { type: 'image/png' })] } })
+    })
+    await settle()
+    fireEvent.change(screen.getByRole('textbox', { name: fill(e.photoAlt, { number: '3' }) }), { target: { value: 'Printers at work' } })
+    fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'About' } })
+    fireEvent.click(screen.getByRole('button', { name: e.draft }))
+    await settle()
+    expect(content.saveContent.mock.calls[0]?.[3]).toMatchObject({ publish: false, body: [{ kind: 'heading' }, { kind: 'text' }, { kind: 'image', assetId: '33333333-3333-4333-8333-333333333333', alt: 'Printers at work' }] })
+  })
+
+  it('says why an upload was refused and adds no block', async () => {
+    upload.uploadPhoto.mockResolvedValue({ ok: false, code: 'TOO_LARGE' })
+    await show({ entry: 'new' })
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(e.tools.image), { target: { files: [new File(['x'], 'big.png', { type: 'image/png' })] } })
+    })
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(messages.storefront.brand.uploadRefused.TOO_LARGE)
+    expect(screen.queryByRole('group', { name: fill(e.blockText, { kind: e.kinds.image, number: '3' }) })).toBeNull()
+  })
+
+  it('adds a contact form saying where messages go', async () => {
+    await show({ entry: 'new' })
+    fireEvent.click(screen.getByRole('button', { name: e.tools.form }))
+    expect(screen.getByText(fill(e.form, { email: 'hello@kesari.in' }))).toBeTruthy()
   })
 
   it('removes a block', async () => {
