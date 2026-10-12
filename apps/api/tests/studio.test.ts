@@ -5,7 +5,7 @@ import type postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TenantContext } from '#core/tenancy'
 import type { StoreRole } from '#auth/storePermissions'
-import { draftBundle, previewFolder } from '#saas/storefronts/index'
+import { draftBundle, previewFolder, sourceBundle, upgradeBundle, upgradeFiles } from '#saas/storefronts/index'
 import { liveStudioSession, openStudioSession, renewStudio, studioOf, StudioRunner, StudioUnavailable, type DesignModel, type DraftsBucket, type Proposal, type StudioDeps } from '#saas/studio/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -310,6 +310,55 @@ describe('GitHub', () => {
     const [after] = await db.sql<{ repo_head: string | null }[]>`select repo_head from storefront where store_id = ${t.storeA1}`
     expect(after?.repo_head).toBe(before?.repo_head)
     expect(await db.sql`select 1 from storefront_push where store_id = ${t.storeA1}`).toHaveLength(0)
+  })
+})
+
+describe('the upgrade bot’s commit (storefront ARCHITECTURE §7.1, #485)', () => {
+  const liveBuild = '0b8e4a52-5d7c-4c1e-9f3a-6f1d2e3c4b5a'
+  const filesOf = (commit: string) => JSON.parse(new TextDecoder().decode(drafts.objects.get(upgradeFiles(t.storeA2, commit))?.bytes)) as { files: { path: string; content: string | null }[] }
+
+  /** A draft whose bundle stands as the live build's source too, as after a design publish. */
+  const seedLive = async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    const changed = await runner.change({ request: 'A draft change', userId: ownerA.userId, billedTo: 'plan', model: scripted([[lead('The live words.')]]).model })
+    expect(changed.outcome).toBe('changed')
+    const saved = drafts.objects.get(draftBundle(t.storeA2))?.bytes
+    drafts.objects.set(sourceBundle(t.storeA2, liveBuild), { bytes: saved ?? new ArrayBuffer(0) })
+    await runner.stop()
+    return saved
+  }
+
+  it('is made on the live build’s code in a sandbox of the new version, kept privately, and leaves the draft alone', async () => {
+    const saved = await seedLive()
+    const versions: string[] = []
+    const { runner: bot } = await runnerFor(t.storeA2, { host: async (version) => (versions.push(version), (await sandboxProcess().then((h) => (processes.push(h), h)))) })
+    const answer = await bot.prepareUpgrade({ from: core, to: '0.5.0', sourceBuildId: liveBuild, baseline: false })
+    expect(answer.outcome).toBe('prepared')
+    if (answer.outcome !== 'prepared') return
+    expect(versions).toEqual(['0.5.0'])
+    expect(drafts.objects.has(upgradeBundle(t.storeA2, answer.commit))).toBe(true)
+    expect(JSON.parse(filesOf(answer.commit).files.find((f) => f.path === 'package.json')?.content ?? '{}')).toMatchObject({ dependencies: { '@dripfunnel/storefront-core': '0.5.0' } })
+    expect(drafts.objects.get(draftBundle(t.storeA2))?.bytes).toBe(saved)
+    expect(bot.loaded).toBe(false)
+  })
+
+  it('answers busy while the merchant’s studio is open', async () => {
+    const { runner } = await runnerFor(t.storeA2)
+    await runner.open()
+    expect(await runner.prepareUpgrade({ from: core, to: '0.5.0', sourceBuildId: liveBuild, baseline: false })).toEqual({ outcome: 'busy' })
+    await runner.stop()
+  })
+
+  it('writes the baseline theme with the store’s own words for a security fix’s fallback', async () => {
+    const baseline = template.map((f) => (f.path === 'content/en/pages.json' ? { path: f.path, content: f.content.replace(/"lead": "[^"]*"/, '"lead": "Baseline lead"') } : f)).filter((f) => f.path !== 'src/theme/pages/AboutPage.tsx')
+    await seedLive()
+    await putText(sites, `templates/${core}/themes/baseline/source.json`, JSON.stringify({ files: baseline }))
+    const { runner } = await runnerFor(t.storeA2)
+    const answer = await runner.prepareUpgrade({ from: core, to: core, sourceBuildId: liveBuild, baseline: true })
+    if (answer.outcome !== 'prepared') throw new Error('not prepared')
+    const files = filesOf(answer.commit).files
+    expect(files.find((f) => f.path === 'src/theme/pages/AboutPage.tsx')).toEqual({ path: 'src/theme/pages/AboutPage.tsx', content: null })
+    expect(files.find((f) => f.path === 'content/en/pages.json')?.content ?? '').not.toContain('Baseline lead')
   })
 })
 

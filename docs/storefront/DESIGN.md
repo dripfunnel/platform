@@ -164,8 +164,7 @@ Design floors the gates check, whatever the look:
   (decided 2026-10-08 on #470).
 - ~~Is there a merchant-facing "undo to any earlier version" beyond undoing the last change?~~ Yes: any earlier published version (decided 2026-10-05 on #337).
 - ~~Does the AI design with a fixed schema or with code?~~ Code, inside the walls (decided 2026-10-08 on #470, "Plan A").
-- **Sample words in a template** (raised on #470): the templates carry sample copy, including a
-  testimonial quote and author (Bloom, Atelier). §3 forbids invented reviews, and placeholder
-  copy never ships to live. Should Publish be refused while a template's sample testimonial is
-  unchanged, or the testimonial section start empty? Until decided, the AI never writes a quote
-  attributed to a person, and the studio flags sample text before the first publish.
+- ~~**Sample words in a template** (raised on #470): should Publish be refused while a template's
+  sample testimonial is unchanged, or the testimonial section start empty?~~ Neither applies: no
+  starting theme carries a quote or any fact about a store (decided 2026-10-12 on #486,
+  ARCHITECTURE §2.3). The AI still never writes a quote attributed to a person.

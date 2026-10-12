@@ -1,0 +1,26 @@
+{
+  "hero": {
+    "title": "Take a moment for yourself",
+    "lead": "Find what suits you, at your own pace.",
+    "shop": "Start browsing"
+  },
+  "features": {
+    "one": {
+      "title": "Browse at your pace",
+      "body": "Everything in one place."
+    },
+    "two": {
+      "title": "Your account",
+      "body": "Your orders and addresses together."
+    },
+    "three": {
+      "title": "Questions?",
+      "body": "Write to us from the contact page."
+    }
+  },
+  "join": {
+    "title": "Join us",
+    "body": "Create an account to follow your orders and check out faster.",
+    "action": "Create an account"
+  }
+}

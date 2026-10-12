@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
+Last updated: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
 Before: 2026-10-09 (the sandbox image published publicly on `ghcr.io` for store builds).
 
 ---
@@ -103,7 +103,8 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   carrying such a version and heading. Deleting or hand-bumping never stands in for a changeset,
   and renames count as a delete and an add.
 - **Majors ship upgrade notes** for the fleet (`../storefront/ARCHITECTURE.md` §7) and
-  declare the Shop API versions they support.
+  declare the Shop API versions they support. Any release that changes something for themes adds its entry to
+  `coreUpgradeNotes`, with its codemods, in the release card (`../storefront/ARCHITECTURE.md` §7.1, #485).
 - **Deprecation**: `@deprecated` with the replacement, kept for at least one minor, removed in
   the next major.
 

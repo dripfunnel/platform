@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -1732,7 +1732,8 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                      changed_count integer, next_auto_publish_at, template NULL,
                      repo_state ('none'|'creating'|'ready'|'failed'), repo_head NULL,
                      custom_paths text[], theme_mode ('own'|'baseline'), baseline_reason NULL,
-                     core_pinned_reason NULL,
+                     core_pinned_reason NULL, baseline_from_build_id NULL, core_upgrade_version NULL,
+                     core_upgrade_commit NULL,
                      setup_service_state ('booked'|'done') NULL)
                     -- change detection as a table, not memory (SAAS §9.1); public_store_key
                     -- is the one credential safe in a browser (PLATFORM-PROMPT §5.5);
@@ -1740,7 +1741,9 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                     -- (PLATFORM-PROMPT §5.6); setup_service_state records the one-time
                     -- "storefront setup by our team" (Pricing, PortalBilling); theme_mode
                     -- 'baseline' while a security fix serves the baseline theme, and
-                    -- core_pinned_reason while an upgrade failed (SAAS §10, decided on #470);
+                    -- core_pinned_reason while an upgrade failed (SAAS §10, decided on #470); built on #485
+                    -- (0330) with baseline_from_build_id, the store's own build the baseline replaced, and
+                    -- core_upgrade_version and _commit, a major's passed upgrade its next publish takes;
                     -- custom_paths are the draft theme's own pages (routes.json), which
                     -- SAPI 24 checks a new slug against (storefront ARCHITECTURE §3.1); written by
                     -- the studio on each accepted change (built on #482, migration 0251).
@@ -1813,7 +1816,9 @@ publish_run         (id, store_id, kind ('manual'|'automatic'|'staff'|'design'|'
                     -- previous_build_id; error names the failed check, LIVE-SHOP §4 step 10); migration 0287: render (a
                     -- page run's addresses and those it leaves out, only on kind 'page') and assets_build_id (the build
                     -- whose JS and CSS its pages load: the live build's for a page run, LIVE-SHOP §7); migration 0288:
-                    -- vitals (the regression rule's verdict: severe, regressed or ok, and the p75s it compared)
+                    -- vitals (the regression rule's verdict: severe, regressed or ok, and the p75s it compared);
+                    -- migration 0330 (#485): check_only (a major's upgrade, built and gated, ending checked and never
+                    -- uploaded) and baseline (a security fix's baseline-theme build, whose look may change)
 design_draft        (store_id PK, head_commit, base_version_id NULL, template, core_version,
                      changed_at, changed_by, preview_deploy_ref NULL)
                     -- the one unpublished design per store: the draft's head (decided
@@ -1846,7 +1851,7 @@ design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, chan
                     -- "Undo this change" restores; image_asset_id a pasted image (the store's
                     -- own asset), sample_url a site the merchant gave; the merchant's, like
                     -- ai_run.prompt (§5.3)
-                    -- Built on #318 (migration 0310) with page (the page the reply shows); a note's or
+                    -- Built on #318 (migration 0332) with page (the page the reply shows); a note's or
                     -- an error's text is a code the portal words, never stored words (`template:{key}`);
                     -- the studio writes it in system scope, the merchant side reads its own
 storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_colour NULL,
@@ -1966,15 +1971,25 @@ core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), se
 storefront_template (key PK, name, tag, description, demo_store_id NULL, core_min_version,
                      state ('offered'|'retired'))
                     -- the template gallery (storefront ARCHITECTURE §2.3); the code itself is
-                    -- in templates/storefront/themes/{key}; a partner offers a subset (G4)
+                    -- in templates/storefront/themes/{key}, whose template.json each row
+                    -- mirrors (built on #486, migration 0331; `tag` is the gallery's short
+                    -- label, "Minimal fashion"); staff read it, system scope writes it; a
+                    -- partner offers a subset (G4)
                     -- #318: the Store API reads the offered rows in system scope (`storefrontTemplates`,
-                    -- `chooseTemplate`); until #486's 0300 makes the table, none is offered
-core_rollout        (id, version, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
-                     percent, started_by, started_at, finished_at)
-core_rollout_store  (rollout_id, store_id, state ('pending'|'passed'|'migrated'|'pinned'
-                     |'baseline'|'live'), gate jsonb NULL, publish_run_id NULL)
+                    -- `chooseTemplate`)
+core_rollout        (id, version, security, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
+                     paused_state NULL, percent, started_by NULL, reason, started_at, enrolled_at NULL,
+                     finished_at NULL)
+core_rollout_store  (id, rollout_id, store_id, position, from_version, state ('pending'|'running'
+                     |'passed'|'migrated'|'pinned'|'baseline'|'live'|'reverted'), commit NULL,
+                     publish_run_id NULL, gate jsonb NULL, error NULL, started_at NULL, finished_at NULL)
                     -- per-store result of an upgrade (CONSOLE-DESIGN L2); account level
-                    -- (§7.11): a partner reads its stores' state, never gate
+                    -- (§7.11): a partner reads its stores' state, never gate or commit (granted by
+                    -- column). Built on #485 (migration 0330): one rollout at a time (a partial unique
+                    -- index); `position` 0 is a canary, 1–100 the share of the fleet the waves' percent
+                    -- reaches; `running` while the store's core-upgrade Workflow works, `reverted` once a
+                    -- rolled-back rollout put the store back; staff read both tables and write
+                    -- core_rollout, the tick and the Workflow write in system scope (SAAS §10)
 ```
 
 ### 7.9 Merchant billing

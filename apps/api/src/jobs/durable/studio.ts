@@ -5,7 +5,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type StudioAnswer, type StudioApi, type StudioState, studioAnswer } from '#saas/studio/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type StudioAnswer, type StudioApi, type StudioState, studioAnswer, type ChangeOutcome, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -24,6 +24,7 @@ type Connect = (hyperdrive: { connectionString: string }) => postgres.Sql
 /** The RPC the API makes of a store's StudioSession for the frame. */
 export interface StudioSessionObject extends Rpc.DurableObjectBranded, StudioApi {
   check: (storeId: string, session: string) => Promise<boolean>
+  prepareUpgrade: (storeId: string, ask: UpgradeAsk) => Promise<UpgradeAnswer>
 }
 
 export interface StudioCapacityObject {
@@ -141,6 +142,12 @@ export const studioSessionClass = (connect: Connect) =>
       const runner = await this.active(storeId)
       return studioAnswer(() => runner.change({ ...input, model }))
     }
+
+    /** The upgrade bot's commit (storefront ARCHITECTURE §7.1), asked by the core-upgrade Workflow with the store id it read. */
+    async prepareUpgrade(storeId: string, ask: UpgradeAsk): Promise<UpgradeAnswer> {
+      return (await this.runnerFor(storeId)).prepareUpgrade(ask)
+    }
+
 
     async undo(storeId: string, input: { commit: string; userId: string }): Promise<StudioAnswer> {
       const runner = await this.active(storeId)
