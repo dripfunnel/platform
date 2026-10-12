@@ -334,6 +334,8 @@ const pushStep = async (deps: PublishDeps, p: PublishParams, buildId: string): P
     return 'no_theme'
   }
   const pushed = await deps.push({ storeId: p.storeId, buildId, version: run.version, files: theme.data.files })
+  // `publish:{build}` is idempotent, so a main that moved meanwhile is retried by the step.
+  if (!pushed.ok && pushed.code === 'MAIN_MOVED') throw new Error('push: main moved')
   if (!pushed.ok) logEvent({ event: 'storefront_push_refused', api: 'system', storeId: p.storeId, code: pushed.code })
   return pushed.ok ? 'pushed' : pushed.code
 }
@@ -477,10 +479,13 @@ const repairs = async (deps: PublishDeps, steps: PublishSteps, p: PublishParams)
   for (let n = 1; n <= maxRepairs; n += 1) {
     const from = failed
     await steps.do(`repair-${n}:count`, () => withSystemScope(deps.sql, (tx) => setRepairAttempts(tx, p.storeId, p.runId, n)).then(() => String(n)))
-    const commit = await steps.do(`repair-${n}`, async () => {
-      const failing = await withSystemScope(deps.sql, (tx) => selectFailingChecks(tx, p.storeId, from))
-      return (await repair(p.storeId, failing, `${p.runId}:${n}`)) ?? 'none'
-    })
+    // A repair still out of reach after the step's retries ends the repairs; bisect follows.
+    const commit = await steps
+      .do(`repair-${n}`, async () => {
+        const failing = await withSystemScope(deps.sql, (tx) => selectFailingChecks(tx, p.storeId, from))
+        return (await repair(p.storeId, failing, `${p.runId}:${n}`)) ?? 'none'
+      })
+      .catch(() => 'none')
     if (commit === 'none') return null
     const built = await attemptBuild(deps, steps, p, 'repair', commit, `repair-${n}:`)
     if (built.passed) return built.id
@@ -544,7 +549,8 @@ export const runPublish = async (deps: PublishDeps, p: PublishParams, steps: Pub
     const verdict = await steps.do('checks', () => checksStep(deps, p.storeId, liveId), 'long')
     if (verdict !== 'passed') return (await steps.do('rollback', () => rollbackStep(deps, p, liveId, verdict))) === 'rolled_back' ? 'rolled_back' : 'stopped'
     if ((await steps.do('confirm', () => confirmStep(deps, p, liveId))) !== 'live') return 'stopped'
-    await steps.do('push', () => pushStep(deps, p, liveId))
+    // The build is live whatever the push does; one still failing after its retries waits for the next publish's push.
+    await steps.do('push', () => pushStep(deps, p, liveId)).catch((error: unknown) => logEvent({ event: 'storefront_push_failed', api: 'system', storeId: p.storeId, code: failureCode(error) }))
     return 'live'
   } catch (error) {
     const code = codeOf(error)
