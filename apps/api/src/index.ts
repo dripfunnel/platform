@@ -119,10 +119,13 @@ import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, 
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
+import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
+import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
+import { advanceRollouts, createFleetService, defaultActionsJobs, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
 import { indexNowClient } from '#integrations/indexnow/client'
-import { githubConfigured } from '#integrations/github/index'
+import { githubConfigured, githubFor, storeRepos, type StoreRepos } from '#integrations/github/index'
 import { actionsKeys } from '#integrations/github/oidc'
 import { storefrontR2, type StorefrontR2 } from '#integrations/cloudflare/r2'
 import { localActionsKeys, localStorefrontR2 } from '#integrations/local/builds'
@@ -184,6 +187,8 @@ interface Env extends Record<string, unknown> {
   // SAAS §9.1's publish-storefront Workflow; unbound, a publish waits in the outbox.
   PUBLISH_STOREFRONT?: Workflow<PublishParams> | undefined
   RENDER_PAGE?: Workflow<PublishParams> | undefined
+  // SAAS §10's upgrade bot, one instance per store in a rollout (jobs/workflows/core-upgrade.ts).
+  CORE_UPGRADE?: Workflow<UpgradeParams> | undefined
   // The studio (storefront AI-STUDIO.md §2): a StudioSession per store, holding its container, and the account's StudioCapacity.
   STUDIO_SESSION?: DurableObjectNamespace | undefined
   STUDIO_CAPACITY?: CapacityNamespace | undefined
@@ -243,7 +248,7 @@ const emailFor = (config: Config) => {
 // The DNS every check of a user's address asks: the local stand-in only where asked for (docs/setup/local.md §6).
 const lookupFor = (sql: postgres.Sql, config: Config) => (config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup())
 
-const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null, publishing: { publish: PublishWorkflow; render: PublishWorkflow; sites: R2Bucket } | null): Deliverers => {
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null, downloadLinks: LinkSigner | null, createStorefront: StorefrontWorkflow | null, publishing: { publish: PublishWorkflow; render: PublishWorkflow; sites: R2Bucket; drafts: R2Bucket; repos: StoreRepos; upgrade: UpgradeWorkflow | null } | null): Deliverers => {
   const lookup = lookupFor(sql, config)
   const ses = emailFor(config)
   const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
@@ -282,6 +287,8 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
           [storefrontPublishKind]: storefrontPublishDeliverer(publishing.publish),
           [storefrontRenderPageKind]: storefrontPublishDeliverer(publishing.render),
           [storefrontRenderKind]: storefrontRenderDeliverer(sql, () => new Date()),
+          [storefrontUpgradePushKind]: storefrontUpgradePushDeliverer(sql, publishing.repos, publishing.drafts),
+          ...(publishing.upgrade ? { [storefrontUpgradeKind]: storefrontUpgradeDeliverer(publishing.upgrade) } : {}),
           [storefrontIndexNowKind]: indexNowDeliverer(sql, publishing.sites, indexNowClient()),
         }
       : {}),
@@ -373,7 +380,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -393,6 +400,7 @@ const handleAdmin = async (
       customers: caller ? createCustomersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffMembers: caller ? createStaffMembersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       apps: caller ? createAppRegistryService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, secrets: await (secretsFor(config) ?? null), lookup: lookupFor(sql, config), now: () => new Date() }) : null,
+      fleet: caller ? createFleetService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
@@ -818,9 +826,18 @@ const relayOutbox = async (sql: postgres.Sql, config: Config, env: Env): Promise
   // A run needs GitHub and the templates' bucket, so without either the choice waits rather than fails.
   const createStorefront = env.CREATE_STOREFRONT && env.STOREFRONT_SITES && githubConfigured(config) ? env.CREATE_STOREFRONT : null
   // A publish freezes its input in the drafts bucket, starts the build through GitHub and reads the build's folders.
+  const github = env.PUBLISH_STOREFRONT && env.RENDER_PAGE && env.STOREFRONT_SITES && env.STOREFRONT_ASSETS && env.STOREFRONT_DRAFTS ? await githubFor(config) : null
+  // The upgrade bot also needs the studio's sandbox, so it waits without one (SAAS §10).
   const publishing =
-    env.PUBLISH_STOREFRONT && env.RENDER_PAGE && env.STOREFRONT_SITES && env.STOREFRONT_ASSETS && env.STOREFRONT_DRAFTS && githubConfigured(config)
-      ? { publish: env.PUBLISH_STOREFRONT, render: env.RENDER_PAGE, sites: env.STOREFRONT_SITES }
+    env.PUBLISH_STOREFRONT && env.RENDER_PAGE && env.STOREFRONT_SITES && env.STOREFRONT_DRAFTS && github
+      ? {
+          publish: env.PUBLISH_STOREFRONT,
+          render: env.RENDER_PAGE,
+          sites: env.STOREFRONT_SITES,
+          drafts: env.STOREFRONT_DRAFTS,
+          repos: storeRepos(github.session(), config.GITHUB_STORE_ORG),
+          upgrade: env.CORE_UPGRADE && env.STUDIO_SESSION ? env.CORE_UPGRADE : null,
+        }
       : null
   const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config), await (downloadLinksFor(config) ?? null), createStorefront, publishing))
   for (const [outcome, count] of Object.entries(counts)) {
@@ -880,6 +897,13 @@ const releaseUnpaid: CronJob = async (sql, config) => {
     return 0
   })
   if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
+}
+
+// A core rollout's next stores and phase, or a rolled-back one's stores put back (SAAS §10).
+const advanceCoreRollouts: CronJob = async (sql, config) => {
+  await advanceRollouts(sql, { actionsJobs: config.GITHUB_ACTIONS_JOBS ?? defaultActionsJobs, now: new Date() }).catch((error: unknown) => {
+    logEvent({ event: 'core_rollout_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
 }
 
 // A scheduled post goes live at its time (FIRST-RELEASE §14); its change waits for the next publish like any edit.
@@ -1010,7 +1034,7 @@ const pruneStorefrontHistory: CronJob = async (sql) => {
 
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [expireSms, relayOutbox, publishDuePosts],
+  '* * * * *': [expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals],
@@ -1096,6 +1120,7 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
 export const CreateStorefront = createStorefrontWorkflow(getClient)
 export const PublishStorefront = publishStorefrontWorkflow(getClient)
 export const RenderPage = renderPageWorkflow(getClient)
+export const CoreUpgrade = coreUpgradeWorkflow(getClient)
 // Wrangler finds the studio's Durable Object classes among the exports too (wrangler.jsonc `durable_objects`).
 export const StudioSession = studioSessionClass(getClient)
 export const StudioCapacity = studioCapacityClass()

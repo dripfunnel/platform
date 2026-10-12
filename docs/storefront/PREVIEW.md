@@ -100,6 +100,10 @@ the template ships with a core release (ARCHITECTURE §2.3). Creating the store'
 bundle into the store's first preview folder, a server-side R2 copy (SAAS §5 step 7).
 *Why:* the preview opens seconds after the merchant picks a template, without starting a
 container.
+*As built on #486:* the bundle is the fast gate's bundle step over `templates/storefront/themes/{key}/`. Since the
+preview host answers every page address with the same `index.html` (§5 step 4), the runtime picks the page from the
+address: a core route's page, then the longest item prefix (`/products/…`), then the theme's own paths, else the 404
+page (`apps/sandbox/src/runtime/routes.ts`).
 
 **Other moments:**
 - **Undo** is a new change (a revert), so it gets a new preview by the same steps.
@@ -146,6 +150,8 @@ container.
    session has run out (a tab left idle for over 15 minutes), the Worker answers with a plain
    page that shows no store data: "This preview has closed. Open it again from your link or from
    the portal." `/shop-api` answers the SPA with an error that makes it show the same screen.
+   **Built on #307:** that error is `PREVIEW_CLOSED`; core's runtime then replaces the page, on its first request or any
+   later one, with core's own closed screen and no store data.
 4. **Which check runs on which request:**
    - **HTML and `/shop-api/*` requests get the full re-check.** The Worker asks the API for the
      store's current preview folder (no cached lookup, unlike live sites: LIVE-SHOP §5 step 1),

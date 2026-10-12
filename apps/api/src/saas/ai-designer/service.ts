@@ -53,6 +53,7 @@ export type DesignRefusal =
         | 'NOTHING_LIVE'
         | 'NOTHING_WAITING'
         | 'NO_PRESSES_LEFT'
+        | 'SECURITY_RELEASE'
     }
   | { reason: 'STUDIO_QUEUED'; place: number }
   | { reason: 'CHANGE_REFUSED'; problems: number }

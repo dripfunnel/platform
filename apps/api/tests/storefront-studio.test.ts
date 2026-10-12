@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AiAnswer, AiProvider } from '#integrations/ai/index'
+import type { Screenshotter } from '#integrations/cloudflare/screenshot'
+import type { DnsLookup } from '#integrations/dns/doh'
 import { draftBundle, previewFolder, sourceBundle } from '#saas/storefronts/index'
 import { StudioRunner, type DraftsBucket } from '#saas/studio/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -79,6 +81,20 @@ const provider: AiProvider = {
   },
 }
 let aiMode: 'plan' | 'none' = 'plan'
+/** The studio's RPC fails before it reaches the model (a Durable Object fault). */
+let studioDown = false
+/** The world's design deps; a test sets the screenshotter, which sits behind the SSRF check (docs/ARCHITECTURE.md §7). */
+const design: {
+  ai: (billedTo: 'plan' | 'own_key') => AiProvider | null
+  screenshots: Screenshotter | null
+  readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
+} = {
+  ai: (billedTo) => (aiMode === 'plan' && billedTo === 'plan' ? provider : null),
+  screenshots: null,
+  readAsset: null,
+}
+const dns: Record<string, string[]> = { 'shop.example.com A': ['93.184.216.34'], 'inside.example.com A': ['10.1.2.3'] }
+const lookup: DnsLookup = { resolve: async (name, type) => dns[`${name} ${type}`] ?? [] }
 
 const enPages = () => template.find((f) => f.path === 'content/en/pages.json')?.content ?? ''
 const lead = (words: string) => ({ path: 'content/en/pages.json', content: enPages().replace(/"lead": "[^"]*"/, `"lead": "${words}"`) })
@@ -96,9 +112,12 @@ beforeAll(async () => {
   w = await seedStoreWorld(db.sql, t, {
     now,
     secrets: null,
-    lookup: null,
-    studio: local.studio,
-    extra: { preview: { domain: 'webpreview.store', links: { seal: async () => 'x', open: async () => null } }, design: { ai: (billedTo) => (aiMode === 'plan' && billedTo === 'plan' ? provider : null), screenshots: null, readAsset: null } },
+    lookup,
+    studio: (context) => {
+      const studio = local.studio(context)
+      return { ...studio, change: (storeId, input, model) => (studioDown ? Promise.reject(new Error('the studio is unreachable')) : studio.change(storeId, input, model)) }
+    },
+    extra: { preview: { domain: 'webpreview.store', links: { seal: async () => 'x', open: async () => null } }, design },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -194,6 +213,69 @@ describe('asking for a change', () => {
     expect(script.sent.length).toBe(sent + 1)
   })
 
+  it('gives the unit back when the studio fails before the model is asked', async () => {
+    const used = await usage(t.storeA1)
+    const sent = script.sent.length
+    studioDown = true
+    try {
+      const lost = await ask('owner', 'Lost on the way'); console.log('LOST', JSON.stringify(lost)); expect(lost.data?.['askDesign']).toMatchObject({ outcome: 'failed', message: { role: 'error' } })
+    } finally {
+        studioDown = false
+    }
+    expect(script.sent.length).toBe(sent)
+    expect(await usage(t.storeA1)).toBe(used)
+  })
+
+  it('takes only the store’s own merchant image: another store’s, a supplier’s or a non-id is refused before the model or a unit', async () => {
+    const asset = async (storeId: string, sellerId: string | null = null) =>
+      (await db.sql<{ id: string }[]>`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${sellerId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    const own = await asset(t.storeA1)
+    const others = [await asset(t.storeB1), await asset(t.storeA1, t.sellerA1First), 'https://evil.example/x.png', crypto.randomUUID()]
+    const read: string[] = []
+    design.readAsset = async (key) => (read.push(key), { bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), mime: 'image/png' })
+    try {
+      const sent = script.sent.length
+      const used = await usage(t.storeA1)
+      for (const image of others) expect((await ask('owner', 'Like this', { image })).code, image).toBe('INVALID_IMAGE')
+      expect(read).toEqual([])
+      expect(script.sent.length).toBe(sent)
+      expect(await usage(t.storeA1)).toBe(used)
+      // The model changes nothing here, so the draft the later tests build on stays as it was.
+      script.answers = [reply([])]
+      expect((await ask('owner', 'Like this', { image: own })).code).toBeUndefined()
+      expect(read).toHaveLength(1)
+      expect(script.sent.length).toBe(sent + 1)
+    } finally {
+      design.readAsset = null
+    }
+  })
+
+  it('screenshots a sample site only at a public https address, refused before the budget and the model', async () => {
+    const taken: string[] = []
+    design.screenshots = { take: async (url) => (taken.push(url.href), new Uint8Array([0xff, 0xd8, 0xff, 0xd9])) }
+    try {
+      const sent = script.sent.length
+      const used = await usage(t.storeA1)
+      for (const site of ['http://10.0.0.1/', 'https://10.0.0.1/', 'http://shop.example.com/', 'https://localhost/', 'https://inside.example.com/', 'https://shop.example.com:8443/', 'https://nowhere.example.com/'])
+        expect((await ask('owner', 'Like this', { site })).code, site).toBe('INVALID_URL')
+      expect(taken).toEqual([])
+      expect(script.sent.length).toBe(sent)
+      expect(await usage(t.storeA1)).toBe(used)
+      // A store at its allowance is refused before the screenshot, so it costs the platform nothing.
+      await db.sql`update store_usage set used = 6 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+      expect((await ask('owner', 'Like this', { site: 'https://shop.example.com/' })).code).toBe('AI_BUDGET_REACHED')
+      expect(taken).toEqual([])
+      await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
+      // The model changes nothing here, so the draft the later tests build on stays as it was.
+      script.answers = [reply([])]
+      expect((await ask('owner', 'Like this', { site: 'https://shop.example.com/' })).code).toBeUndefined()
+      expect(taken).toEqual(['https://shop.example.com/'])
+      expect(script.sent.length).toBe(sent + 1)
+    } finally {
+      design.screenshots = null
+    }
+  })
+
   it('is the Owner’s: the Manager reads the chat and is refused writes; Staff and suppliers are refused; another store’s chat stays its own', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await ask(who, 'Mine')).code).toBe('FORBIDDEN')
     const chat = await w.gql('manager', '{ designChat { messages { role text } next } }')
@@ -202,6 +284,7 @@ describe('asking for a change', () => {
     expect((await w.gql('bOwner', '{ designChat { messages { id } } }')).data?.['designChat']).toEqual({ messages: [] })
     expect((await ask('owner', 'x', { image: crypto.randomUUID() })).code).toBe('INVALID_IMAGE')
     expect((await ask('owner', 'x', { site: 'http://10.0.0.1/' })).code).toBe('NOT_CONNECTED')
+
   })
 })
 

@@ -19,7 +19,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 #483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). The rest is specification.
 
-Last updated: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -77,7 +77,8 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 **The keys** (built on #317, `apps/api/src/saas/storefronts/layout.ts`): in `storefront-sites`,
 `stores/{store}/builds/{build}/`, `stores/{store}/uploads/{build}/` (staging) and `stores/{store}/preview/{change}/`; in
 `storefront-assets`, `stores/{store}/builds/{build}/assets/` and `core/{version}/`; in `storefront-drafts`,
-`drafts/{store}.bundle`, `sources/{store}/{build}.bundle` and `snapshots/{store}/{build}.json`. The build id is the
+`drafts/{store}.bundle`, `sources/{store}/{build}.bundle`, `snapshots/{store}/{build}.json` and the upgrade bot's
+`upgrades/{store}/{commit}.bundle` and `.json` (§8, #485). The build id is the
 `publish_run` id. A build folder holds `_manifest.json`, the manifest of §4 step 8.
 
 ---
@@ -480,11 +481,19 @@ What the edge Worker does on each request to a storefront host.
   codemods a commit on top of the live commit, kept privately like a draft. It runs §4 with the
   new build image, and the commit reaches the repo's `main` only once that build is live.
   *Why:* the same pipeline, so an upgrade is checked exactly like a merchant's publish.
+  **Built on #485**: the commit and the files it changed are kept in the drafts bucket as
+  `upgrades/{store}/{commit}.bundle` and `.json`; freezing an `upgrade` or `security` run copies that bundle as the
+  build's source (§4 step 3), and `start` answers `strictLook` for a patch or minor and for a security fix on the store's
+  own theme, never for a major's check-only build or the baseline. Once the build is live, `storefront.upgrade_push`
+  sends the files through the push API (`upgrade` reason) and deletes the private copy; a commit that won't go live is
+  deleted at once; deleting a store deletes its `upgrades/` too (§4 step 11). SAAS §10 has the rest.
 - **Waves are limited by Actions concurrency** (§10). A security fix is queued ahead of
-  automatic publishes.
+  automatic publishes. **Built on #485** (SAAS §10): upgrades running at once stay under `GITHUB_ACTIONS_JOBS`,
+  half of it for an upgrade and all of it for a security fix.
 - **The baseline-theme fallback** for a store whose theme can't take a security fix
   (ARCHITECTURE §7) is a build of the baseline theme with the store's words and colours. It is
-  stored and switched like any other build.
+  stored and switched like any other build. **Built on #485** (SAAS §10): a `security` run with `baseline`, never
+  pushed to the repo.
 
 ---
 

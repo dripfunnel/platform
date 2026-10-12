@@ -9,6 +9,11 @@ locked.
 Specification: [docs/storefront/ARCHITECTURE.md](../../docs/storefront/ARCHITECTURE.md) and
 [docs/storefront/DESIGN.md](../../docs/storefront/DESIGN.md).
 
-**Status: skeleton.** A static export (`next build`) of one baseline page. `src/app/` is the
-locked shim layer; `src/theme/` holds the baseline theme ("Start from scratch"); the six
-starting themes will live in `themes/{key}/` (ST 0).
+**Status: skeleton.** A static export (`next build`) of one placeholder page: `src/app/` is the
+locked shim layer and `src/theme/` its placeholder. The starting themes are in `themes/{key}/`
+(#486): `baseline` ("Start from scratch", from `designs/DF Storefront Prototype`) and `linen`,
+`concrete`, `bloom`, `circuit`, `market` and `atelier` (from `designs/storefront-lib.js`). Each holds
+`src/theme/**`, `content/en/*.json`, `routes.json` and `template.json` (the gallery's name, tag,
+description, demo store and the lowest core it runs on, mirrored by the `storefront_template`
+rows), and passes the validator, the preview bundle and the publish gate in
+`apps/sandbox/src/themes.test.ts`.

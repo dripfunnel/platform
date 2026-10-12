@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -596,6 +596,8 @@ SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call,
 | `staff.manage` | ✓ | | | | | |
 | `partners.assign` (assign and unassign a Partner manager, #60) | ✓ | | | | | |
 | `apps.manage`: register, list, suspend and restore private apps (#330; no console screen yet) | ✓ | | | | | |
+| `fleet.read`: core rollouts and each store's result (SAAS §10, §13; #485; part L's screens are their own card) | ✓ | | | | ✓ | |
+| `fleet.manage`: start, pause, resume and roll back a core rollout, each with a reason (#485) | ✓ | | | | ✓ | |
 
 | Decision (#14) | Rejected | Why |
 |---|---|---|

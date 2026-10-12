@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -819,8 +819,37 @@ built and gated per store, and the upgrade bot must exist from day one.
   (below); a store that fails gets the **migration agent**
   (the AI with the errors and the upgrade notes, under the same walls); a store still failing
   **stays on its old version**, pinned, with an alert (CONSOLE-DESIGN L1–L3).
+  **Built on #485** (`saas/fleet/upgrade.ts`, one `jobs/workflows/core-upgrade.ts` instance per store, named by its
+  `core_rollout_store` id): the store's StudioSession makes the upgrade's commit in a sandbox of the new version
+  (storefront ARCHITECTURE §7.1) on the store's own code (its live build's source bundle, or the build of its own theme
+  the baseline replaced), kept privately under `upgrades/{store}/` with the files it changed; then a publish run of kind
+  `upgrade` (`security` for a security fix) with the new core, which starts only when the store has no publish running or
+  waiting, never merged into one. A patch or minor that stays live is `live`, and `storefront.upgrade_push` takes its
+  files to the repo's `main` through the push API; a major is built and gated with `check_only` (checked, never
+  uploaded or switched), `passed`, and waits on `storefront.core_upgrade_version`/`_commit` for the merchant's next
+  publish; anything else is `pinned` with the code on `core_pinned_reason`, `storefront.core_pinned` in the activity log
+  and `core_upgrade_pinned` in the technical log, and the live build as it was. *Decided on #485:* while the merchant's
+  studio is open the sandbox answers busy, and the bot waits 10 minutes at a time, two hours at most, then pins the store
+  as `studio_busy`; a store with a publish running or waiting is waited for 5 minutes at a time, six hours at most
+  (`store_busy`); a build is waited for four hours at most (`build_timed_out`), then its run is failed unless its build already switched, whose post-deploy checks get half an hour more to end, so a build never goes live behind a store marked pinned.
 - **Canaries, then waves**: a canary group first, then percentages, with pause and roll back
   per rollout; per-store gate result shown (L2). A rollout is a platform-level `job`.
+  **Built on #485** (`saas/fleet/rollout.ts`, `saas/fleet/admin.ts`; the Admin API's `coreRollouts`, `coreRollout`,
+  `startCoreRollout`, `pauseCoreRollout`, `resumeCoreRollout` and `rollBackCoreRollout`, `fleet.read` and `fleet.manage`,
+  each write audited with its reason as `core_rollout.*`): a rollout is a `core_rollout` row, not a `job`, and the
+  every-minute cron moves it. Its first tick enrols every store not closed whose live build is on an older core (and
+  that has no passed major at or past the version waiting); five stores, picked by a hash of the store and the rollout,
+  are the canaries (`position` 0), the rest get a place from 1 to 100. Each tick starts pending stores, lowest place
+  first, while upgrades running across every rollout stay under the org's Actions jobs at once
+  (`GITHUB_ACTIONS_JOBS`, 20 unless set; storefront LIVE-SHOP §10): half of them for a rollout, all of them for a
+  security fix, which so goes ahead of merchants' own and automatic publishes. Once the canaries end, a canary
+  pinned or on the baseline pauses the rollout (`core_rollout.paused`, `canary_failed`, for an engineer to look);
+  otherwise the waves reach 10, 25, 50 and 100 stores in a hundred, each once the one before has ended, and the rollout
+  is done. Pause stops new starts (running upgrades finish); resume goes back to the phase it left, except that resuming a rollout whose canaries have all ended (the pause `canary_failed` causes) accepts them and starts the first wave, so it isn't paused again for the same canary. Roll back stops
+  new starts and puts back, twenty a minute, every store it took live: the pointer moves back to the build before the
+  upgrade (`storefront.rolled_back`, `core_rolled_back`), and a passed major's waiting upgrade is dropped; a store
+  whose live build moved on since (a publish or a page render) keeps it, marked `moved_on`. *Decided on #485:* one
+  rollout at a time, so no store is upgraded by two at once.
 - **Majors** may change the look or the theme contract and ship **upgrade notes** and
   codemods. Each published version is **pinned** to the core version it was built with
   (decided 2026-10-08 on #470); a major's new look reaches a store only at its merchant's next
@@ -829,6 +858,22 @@ built and gated per store, and the upgrade bot must exist from day one.
   it, even after the migration agent, is served the **baseline theme** with its own colours,
   fonts and words until repaired or republished, and its merchant is told (decided 2026-10-08
   on #470).
+  **Built on #485**: when the upgrade's build fails the gate, the **migration agent**
+  (`StudioRunner.migrate`) asks the model with the build's failing checks and the releases' notes, on the upgrade's
+  commit in a sandbox of the new version, through the same validator and fast gate with up to three repairs; each ask
+  is an `ai_run` of kind `migration` (its repairs `repair`), billed to `platform`, asked by no one; its commit is built
+  again and, live, the store reads `migrated` (a major's, `migrated` and waiting). *Decided on #485:* the agent repairs
+  only what the gate refused; a build the post-deploy checks rolled back, or one that never ran, is pinned as it is. The
+  Workflow passes no agent until a model reaches it (the partner's AI key, #275; DripFunnel holds none,
+  THIRD-PARTY-ACCESS §2.6), so until then a failing store goes straight to pinned or the baseline. For a security fix
+  still failing, the store's sandbox writes the **baseline fallback** (storefront ARCHITECTURE §7.1) as a commit of its
+  own, built with `baseline` (the look may change) and switched like any build; live, the row reads `baseline` with
+  the failure's code, `storefront.theme_mode` is `baseline` with `baseline_reason` and the own-theme build it replaced,
+  `storefront.baseline_served` is recorded, and the merchant gets the `storefront-baseline` email once (keyed by the
+  store's upgrade). The baseline is **never pushed** to the repo, whose `main` keeps the store's own theme; the studio
+  of a store without a draft opens on its own theme, and a later rollout upgrades that theme, not the baseline. The
+  merchant's next design publish, or that upgrade going live, sets `theme_mode` back to `own`. A baseline build that
+  fails too leaves the store pinned on its old core.
 - Without this, a checkout fix or a dependency CVE becomes 1,000 manual pull requests.
 
 **Templates** are the starting themes of storefront ARCHITECTURE §2.3, and merchants **never

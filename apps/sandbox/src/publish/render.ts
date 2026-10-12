@@ -10,7 +10,7 @@ import { readContent, routesSchema, runtimeModules } from '../gate/bundle'
 // The static build's renderer (storefront ARCHITECTURE §4.2 "Live"): the theme's pages bundled for Node with the same
 // core and libraries the client bundle loads, then rendered to HTML once per page from the frozen snapshot.
 
-export type PageValue = { store: ShopStoreSettings; poweredBy: string | null }
+export type PageValue = { store: ShopStoreSettings; poweredBy: string | null; path: string }
 
 export interface ServerTheme {
   page: (route: CoreRoute | null, custom: string | null) => ComponentType | undefined
@@ -53,7 +53,7 @@ const entrySource = (routesJson: string, content: unknown): string => {
     `const content = ${JSON.stringify(content)}`,
     `export const page = (route, path) => (path ? custom[path] : routes[route])`,
     // The same provider value the page's script hydrates with (runtime/boot.tsx); no request is made while rendering.
-    `export const render = (Page, { store, poweredBy }) => renderToString(jsx(StorefrontProvider, { value: { client: createShopClient({}), store, locale: store.language, t: createI18n(store.language, content).t, mode: 'live', poweredBy }, children: jsx(Page, {}) }))`,
+    `export const render = (Page, { store, poweredBy, path }) => renderToString(jsx(StorefrontProvider, { value: { client: createShopClient({}), store, locale: store.language, t: createI18n(store.language, content).t, mode: 'live', poweredBy }, address: path, children: jsx(Page, {}) }))`,
   ].join('\n')
 }
 
