@@ -91,6 +91,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     let current = true
     let timer: ReturnType<typeof setTimeout> | undefined
     setSandbox({ kind: 'opening' })
+    setEditing(false)
     const read = (id: string | null) =>
       api.loadStudioSession(id).then(
         (s) => {
@@ -138,7 +139,9 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     return () => window.removeEventListener('message', onMessage)
   }, [session, editing])
 
+  // A new frame starts in its normal mode, so Edit text turns off with every new frame (a page picked, the studio reopened).
   const pick = (path: string) => {
+    setEditing(false)
     setVisit((was) => ({ path, count: was.count + 1 }))
     setShownPath(path)
   }

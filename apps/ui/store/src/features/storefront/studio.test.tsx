@@ -308,6 +308,18 @@ describe('Edit text', () => {
     expect(save.mock.calls.map((c) => c[0])).toEqual(['en', 'fr', 'fr'])
   })
 
+  it('turns Edit text off when a page is picked, since the new frame starts without it', async () => {
+    await show()
+    const toggle = screen.getByRole('button', { name: words.edit.button })
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.change(screen.getByRole('combobox', { name: words.page }), { target: { value: '/cart/' } })
+    expect(screen.getByRole('button', { name: words.edit.button }).getAttribute('aria-pressed')).toBe('false')
+    post({ type: 'df-studio:text', key: 'pages:home.lead' })
+    await settle()
+    expect(api.loadDesignText).not.toHaveBeenCalled()
+  })
+
   it('sends the merchant to Products or Store info for words the theme doesn’t hold', async () => {
     await show({ loadDesignText: vi.fn().mockResolvedValue([]) })
     fireEvent.click(screen.getByRole('button', { name: words.edit.button }))
