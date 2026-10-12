@@ -14,7 +14,8 @@ export const contentPath = /^content\/([a-z]{2,3}(?:-[A-Z]{2})?)\/([A-Za-z0-9][A
 export const routesPath = 'routes.json'
 export const interactiveFolder = 'src/theme/components/interactive/'
 
-const allowed = (path: string) => codePath.test(path) || cssPath.test(path) || contentPath.test(path) || path === routesPath
+/** A path a theme may write (ARCHITECTURE §3.4 "Files"). */
+export const isThemePath = (path: string) => codePath.test(path) || cssPath.test(path) || contentPath.test(path) || path === routesPath
 
 const allowedMessage =
   'A theme may write only src/theme/pages/**/*.tsx, src/theme/components/**/*.tsx, src/theme/styles/**/*.module.css, content/{language}/*.json and routes.json.'
@@ -41,7 +42,7 @@ export const checkFiles = (input: readonly ThemeFile[], context: GuardContext): 
       continue
     }
     seen.add(folded)
-    if (!allowed(f.path)) {
+    if (!isThemePath(f.path)) {
       problems.push(problem(f.path, null, 'files/path-not-allowed', lockedMessage(f.path)))
       continue
     }

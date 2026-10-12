@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 
-// #486's storefront_template (migration 0300, ST 0) as the tests make it until that card merges: the same table and the
-// same seven rows, created only where 0300 hasn't run.
+// #486's storefront_template (migration 0331, ST 0) as the tests make it until it merges: the same table and the
+// same seven rows, created only where 0331 hasn't run.
 export const ensureTemplateGallery = async (sql: postgres.Sql): Promise<void> => {
   await sql.unsafe(String.raw`
 do $$

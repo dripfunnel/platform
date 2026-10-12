@@ -5,7 +5,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { selectStudioPortalHost } from '#db/scoped/studio'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant, type StudioAnswer, type StudioApi, type StudioState, studioAnswer } from '#saas/studio/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type ChangeOutcome, type DesignModel, type Grant, type StudioAnswer, type StudioApi, type StudioState, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -24,6 +24,7 @@ type Connect = (hyperdrive: { connectionString: string }) => postgres.Sql
 /** The RPC the API makes of a store's StudioSession for the frame. */
 export interface StudioSessionObject extends Rpc.DurableObjectBranded, StudioApi {
   check: (storeId: string, session: string) => Promise<boolean>
+  prepareUpgrade: (storeId: string, ask: UpgradeAsk) => Promise<UpgradeAnswer>
 }
 
 export interface StudioCapacityObject {
@@ -139,6 +140,11 @@ export const studioSessionClass = (connect: Connect) =>
     /** One change, after the ones before it (AI-STUDIO §4); `model` is the Worker's, called back over RPC. */
     async change(storeId: string, input: { request: string; userId: string; billedTo: 'plan' | 'own_key' }, model: DesignModel): Promise<ChangeOutcome> {
       return (await this.active(storeId)).change({ ...input, model })
+    }
+
+    /** The upgrade bot's commit (storefront ARCHITECTURE §7.1), asked by the core-upgrade Workflow with the store id it read. */
+    async prepareUpgrade(storeId: string, ask: UpgradeAsk): Promise<UpgradeAnswer> {
+      return (await this.runnerFor(storeId)).prepareUpgrade(ask)
     }
 
     async undo(storeId: string, commit: string, userId: string): Promise<ChangeOutcome> {

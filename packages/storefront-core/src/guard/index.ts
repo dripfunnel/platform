@@ -6,7 +6,7 @@ import { checkRoutes } from './routes.js'
 import { guardContextSchema, themeFileSchema, type GuardContext, type GuardResult, type Problem, type ThemeFile } from './rules.js'
 
 export { maxThemeZIndex } from './css.js'
-export { maxFileBytes, maxFiles, maxThemeBytes } from './files.js'
+export { isThemePath, maxFileBytes, maxFiles, maxThemeBytes } from './files.js'
 export { ruleIds, type GuardContext, type GuardResult, type Problem, type RuleId, type ThemeFile } from './rules.js'
 
 const byPlace = (a: Problem, b: Problem) => (a.file ?? '').localeCompare(b.file ?? '') || (a.line ?? 0) - (b.line ?? 0) || a.rule.localeCompare(b.rule)
@@ -29,3 +29,5 @@ export { budgetedRoutes, checkAxe, checkBudgets, checkCheckout, checkClaims, che
 export { edgeCases, type EdgeCase } from './gate/edgeCases.js'
 export { gateCheck, gateChecks, gateReport, maxDetail, type GateCheck, type GateCheckName, type GateReport } from './gate/report.js'
 export { catalogueSnapshotSchema, snapshotStoreSchema, type CatalogueSnapshot } from './gate/snapshot.js'
+export { applyCodemods, baselineWithOwn, changesBetween, pinCore, type FileChange, type ThemeFiles } from './upgrade/apply.js'
+export { codemodSchema, compareVersions, coreUpgradeNotes, notesBetween, upgradeNoteSchema, type Codemod, type UpgradeNote } from './upgrade/notes.js'

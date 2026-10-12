@@ -1,4 +1,4 @@
--- SAPI 17 (#318), part 1: the studio's chat (DATA-MODEL §7.8). The template gallery is #486's storefront_template (0300).
+-- SAPI 17 (#318), part 1: the studio's chat (DATA-MODEL §7.8). The template gallery is #486's storefront_template (0331).
 
 -- The studio's chat (PortalStorefront): the merchant's requests, the AI's replies and the notes between them. A note's
 -- and an error's text is a code the portal words (FIRST-RELEASE §14), never stored words.

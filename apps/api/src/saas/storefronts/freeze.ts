@@ -8,7 +8,7 @@ import type { GuardContext } from '#integrations/sandbox/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { shopsHostOf } from '#saas/domains/storeHosts'
 import { socialNetworks } from '#saas/storefrontSettings/index'
-import { assetsFolder, draftBundle, snapshotFile, sourceBundle } from './layout'
+import { assetsFolder, draftBundle, snapshotFile, sourceBundle, upgradeBundle } from './layout'
 import type { SitesBucket } from './templates'
 
 // The frozen input of storefront LIVE-SHOP §4 steps 2–4: the source as a git bundle and the catalogue snapshot, kept
@@ -99,7 +99,9 @@ export const freezeBuild = async (deps: FreezeDeps, storeId: string, buildId: st
     return { input: found, snapshot: found.reported ? null : await snapshotOf(tx, storeId, assetsBuild, deps.assetOrigin) }
   })
   if (input.reported || snapshot === null) return 'reported'
-  const from = input.kind === 'design' ? draftBundle(storeId) : input.live_build_id ? sourceBundle(storeId, input.live_build_id) : null
+  // An upgrade or a security fix builds the upgrade bot's private commit (LIVE-SHOP §8), never the live one.
+  const upgrade = input.kind === 'upgrade' || input.kind === 'security'
+  const from = input.kind === 'design' ? draftBundle(storeId) : upgrade ? upgradeBundle(storeId, input.commit) : input.live_build_id ? sourceBundle(storeId, input.live_build_id) : null
   const source = from ? await deps.drafts.get(from) : null
   if (!source) throw new FreezeRefused('no_source')
   const bundle = await source.arrayBuffer()

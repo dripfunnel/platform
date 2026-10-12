@@ -13,7 +13,7 @@ export interface TemplateRow {
   demo_host: string | null
 }
 
-/** #486's table (migration 0300); until that card merges there is no gallery, so none is offered. */
+/** #486's table (migration 0331); until that part merges there is no gallery, so none is offered. */
 const galleryExists = async (tx: ScopedSql): Promise<boolean> =>
   (await tx<{ found: boolean }[]>`select to_regclass('public.storefront_template') is not null as found`)[0]?.found ?? false
 
