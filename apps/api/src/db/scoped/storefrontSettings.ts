@@ -82,6 +82,10 @@ export const saveStoreName = async (tx: ScopedSql, name: string): Promise<void> 
 export const isMerchantImage = async (tx: ScopedSql, storeId: string, assetId: string): Promise<boolean> =>
   (await tx`select 1 from asset where id = ${assetId} and store_id = ${storeId} and seller_id is null and kind = 'image'`).length > 0
 
+/** The R2 key of one of the store's own merchant-side images, by the same rule as `isMerchantImage`. */
+export const selectMerchantImageKey = async (tx: ScopedSql, storeId: string, assetId: string): Promise<string | null> =>
+  (await tx<{ r2_key: string }[]>`select r2_key from asset where id = ${assetId} and store_id = ${storeId} and seller_id is null and kind = 'image'`)[0]?.r2_key ?? null
+
 export interface SeoRow {
   title: string | null
   description: string | null

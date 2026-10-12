@@ -43,6 +43,7 @@ const memoryDrafts = () => {
       puts.push(key)
       objects.set(key, { bytes: value })
     },
+    delete: async (key) => objects.delete(key),
   }
   return { bucket, objects, puts }
 }
@@ -434,11 +435,13 @@ describe('the migration agent and a draft’s rebase onto an upgrade (#485)', ()
 
   it('opens a store served the baseline, with no draft, on its own theme and that theme’s core', async () => {
     await upgradeOfLive()
+    // The own build's source is the live change's bundle, opened at that change's commit.
+    const ownCommit = (await draftRow(t.storeA2))?.head_commit ?? ''
     drafts.objects.delete(draftBundle(t.storeA2))
-    const run = async (kind: string, version: string) =>
-      (await db.sql<{ id: string }[]>`insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind) values (${t.storeA2}, ${kind}, 'live', ${'c'.repeat(40)}, 'baseline', ${version}, 'system') returning id`)[0]?.id ?? ''
-    const own = await run('design', core)
-    const baseline = await run('security', '0.5.0')
+    const run = async (kind: string, version: string, commit: string) =>
+      (await db.sql<{ id: string }[]>`insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind) values (${t.storeA2}, ${kind}, 'live', ${commit}, 'baseline', ${version}, 'system') returning id`)[0]?.id ?? ''
+    const own = await run('design', core, ownCommit)
+    const baseline = await run('security', '0.5.0', 'c'.repeat(40))
     drafts.objects.set(sourceBundle(t.storeA2, own), { bytes: drafts.objects.get(sourceBundle(t.storeA2, liveBuild))?.bytes ?? new ArrayBuffer(0) })
     // The baseline build's source isn't there: opening from it would fail.
     await db.sql`update storefront set live_build_id = ${baseline}, theme_mode = 'baseline', baseline_from_build_id = ${own} where store_id = ${t.storeA2}`
