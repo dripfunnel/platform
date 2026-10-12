@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { recordCoreRelease, selectImagesToDelete, selectSandboxImage, markImageDeleted } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
 import { imageBudget, keptImages, retireCoreImages } from '#saas/fleet/index'
@@ -6,7 +6,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 // Card #485 part 5: old core versions' studio images (storefront AI-STUDIO §9). The newest 20 always keep theirs; an
-// older one is retired once no store needs it, after a forced rollout moved the stores still on it.
+// older one is retired once no store needs it, after a forced rollout moved the stores it can.
 
 let db: TestDatabase
 let t: Tenants
@@ -67,5 +67,39 @@ describe('the retirement of old core images', () => {
     expect(await withSystemScope(db.sql, selectImagesToDelete)).not.toContain(version(2))
     // The newest twenty are never retired, whatever uses them.
     expect(await db.sql`select 1 from core_release where retired_at is not null and string_to_array(version, '.')::int[] >= '{1,3,0}'::int[]`).toHaveLength(0)
+  })
+
+  it('starts no rollout for stores one cannot move, and alerts past the budget', async () => {
+    await db.sql`update core_rollout set state = 'done'`
+    await withSystemScope(db.sql, async (tx) => {
+      for (let minor = 23; minor < 29; minor += 1) await recordCoreRelease(tx, version(minor), image(minor + 1))
+    })
+    // Pinned on 1.3, its own theme under the baseline on 1.8 and a major waiting on 1.4; a draft on 1.5; live on 1.6 with a major waiting on 1.7.
+    await liveOn(t.storeA1, version(8))
+    await db.sql`update storefront set baseline_from_build_id = live_build_id where store_id = ${t.storeA1}`
+    await liveOn(t.storeA1, version(3))
+    await db.sql`update storefront set core_pinned_reason = 'gate_failed', core_upgrade_version = ${version(4)}, core_upgrade_commit = ${'c'.repeat(40)} where store_id = ${t.storeA1}`
+    await db.sql`update design_draft set core_version = ${version(5)} where store_id = ${t.storeA2}`
+    await liveOn(t.storeA2, version(6))
+    await db.sql`update storefront set core_upgrade_version = ${version(7)}, core_upgrade_commit = ${'d'.repeat(40)} where store_id = ${t.storeA2}`
+    const lines: string[] = []
+    const spy = vi.spyOn(console, 'log').mockImplementation((line: unknown) => void lines.push(String(line)))
+    try {
+      const pinned = await retireCoreImages(db.sql, new Date())
+      expect(pinned).toEqual({ retired: [], rolloutId: null, kept: 26 })
+    } finally {
+      spy.mockRestore()
+    }
+    expect(lines.map((l) => JSON.parse(l) as unknown)).toContainEqual({ event: 'core_images_over_budget', api: 'system', code: 'over_budget', count: 26 })
+  })
+
+  it('moves an unpinned store with one rollout per release, never again after it ran', async () => {
+    await db.sql`update storefront set core_pinned_reason = null, core_upgrade_version = null, core_upgrade_commit = null where store_id = ${t.storeA1}`
+    const started = await retireCoreImages(db.sql, new Date())
+    const [rollout] = await db.sql<{ version: string }[]>`select version from core_rollout where id = ${started.rolloutId ?? ''}`
+    expect(rollout).toEqual({ version: version(28) })
+    // Rolled back by staff: the job doesn't start the same release again the next day.
+    await db.sql`update core_rollout set state = 'rolled_back' where id = ${started.rolloutId ?? ''}`
+    expect((await retireCoreImages(db.sql, new Date())).rolloutId).toBeNull()
   })
 })

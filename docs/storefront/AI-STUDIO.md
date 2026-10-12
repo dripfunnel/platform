@@ -386,10 +386,11 @@ built from the fast gate's bundle, the frame on the store's preview origin).
     no own-theme build under the baseline, no draft and no waiting major on it. Nothing starts a retired image, and the
     scheduled workflow deletes it with `wrangler containers images delete` (the only documented way), marking
     `image_deleted_at`; ghcr.io's public copy stays, so a store repo's build of an old pin still runs;
-  - while stores still need an older version, the job **starts a forced rollout** to the newest release first (system
-    actor, `core_rollout.started` with `retire_images`), when no other rollout is active: patches and minors move those
+  - while stores a rollout can move still need an older version (their own code is on it, not pinned, no major
+    waiting), the job **starts a forced rollout** to the newest release first (system actor, `core_rollout.started` with
+    `retire_images`), when no other rollout is active and none to that release has run: patches and minors move those
     stores; a major moves them only at their next publish (ARCHITECTURE §7), and a store left pinned keeps its version's
-    image;
+    image, as does a draft until it is published;
   - more than **25** images kept alerts the engineer on call (`core_images_over_budget`), who repairs or moves the
     stores holding them.
   *Why:* a store is never left without the image its studio and its upgrade need, and the account stays under 50 GB.

@@ -6,8 +6,9 @@ import { pgArray, type ScopedSql } from './index'
 export type RolloutState = 'canary' | 'waves' | 'paused' | 'done' | 'rolled_back'
 export type StoreUpgradeState = 'pending' | 'running' | 'passed' | 'migrated' | 'pinned' | 'baseline' | 'live' | 'reverted'
 
-export const hasActiveRollout = async (tx: ScopedSql): Promise<boolean> =>
-  (await tx`select 1 from core_rollout where state in ('canary', 'waves', 'paused')`).length > 0
+/** A rollout is still running, or one to `version` has already run. */
+export const hasRolloutActiveOrTo = async (tx: ScopedSql, version: string): Promise<boolean> =>
+  (await tx`select 1 from core_rollout where state in ('canary', 'waves', 'paused') or version = ${version} limit 1`).length > 0
 
 export const insertRollout = async (tx: ScopedSql, r: { version: string; security: boolean; by: string | null; reason: string; at: Date }): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`

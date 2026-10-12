@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { logEvent } from '#core/log'
 import { retireRelease, selectReleaseUse } from '#db/scoped/coreReleases'
-import { hasActiveRollout, insertRollout } from '#db/scoped/coreRollouts'
+import { hasRolloutActiveOrTo, insertRollout } from '#db/scoped/coreRollouts'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 
@@ -17,16 +17,16 @@ export type Retirement = { retired: string[]; rolloutId: string | null; kept: nu
 
 /**
  * The daily job: an older version no store needs is retired (its image is deleted by `retire-images.yml`); while stores
- * still need one, a forced rollout to the newest version moves them first, one rollout at a time.
+ * a rollout can move still need one, a forced rollout to the newest version moves them first, once per version.
  */
 export const retireCoreImages = (sql: postgres.Sql, now: Date): Promise<Retirement> =>
   withSystemScope(sql, async (tx) => {
     const releases = await selectReleaseUse(tx)
     const retired: string[] = []
-    let needed = false
+    let movable = false
     for (const release of releases.slice(keptImages)) {
       if (release.retired_at) continue
-      if (release.stores > 0) needed = true
+      if (release.stores > 0) movable ||= release.movable > 0
       else {
         await retireRelease(tx, release.version, now)
         retired.push(release.version)
@@ -34,7 +34,7 @@ export const retireCoreImages = (sql: postgres.Sql, now: Date): Promise<Retireme
     }
     const newest = releases[0]
     let rolloutId: string | null = null
-    if (needed && newest && !(await hasActiveRollout(tx))) {
+    if (movable && newest && !(await hasRolloutActiveOrTo(tx, newest.version))) {
       rolloutId = await insertRollout(tx, { version: newest.version, security: false, by: null, reason: 'Retire old core images (AI-STUDIO §9)', at: now })
       await activityLog.record(tx, {
         category: 'system',
