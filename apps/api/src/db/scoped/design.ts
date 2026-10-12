@@ -1,4 +1,4 @@
-import { pgArray, type ScopedSql } from './index'
+import { maxPageSize, pgArray, type ScopedSql } from './index'
 import { storefrontHostOf } from './publishing'
 
 // The Storefront area's rows as the Store API reads and the studio writes them (DATA-MODEL §7.8): the template gallery
@@ -17,7 +17,7 @@ export interface TemplateRow {
 const galleryExists = async (tx: ScopedSql): Promise<boolean> =>
   (await tx<{ found: boolean }[]>`select to_regclass('public.storefront_template') is not null as found`)[0]?.found ?? false
 
-/** The gallery in a fixed order: "Start from scratch" first, as ST 0 lists it (storefront ARCHITECTURE §2.3). */
+/** The gallery in a fixed order, "Start from scratch" first, as ST 0 lists it (storefront ARCHITECTURE §2.3); one page of at most `maxPageSize`. */
 export const selectOfferedTemplates = async (tx: ScopedSql): Promise<TemplateRow[]> => {
   if (!(await galleryExists(tx))) return []
   return tx<TemplateRow[]>`
@@ -25,7 +25,8 @@ export const selectOfferedTemplates = async (tx: ScopedSql): Promise<TemplateRow
     from storefront_template t left join store s on s.id = t.demo_store_id
     where t.state = 'offered'
     order by t.key = 'baseline' desc, case t.key when 'linen' then 1 when 'concrete' then 2 when 'bloom' then 3 when 'circuit' then 4
-      when 'market' then 5 when 'atelier' then 6 else 7 end, t.key`
+      when 'market' then 5 when 'atelier' then 6 else 7 end, t.key
+    limit ${maxPageSize}`
 }
 
 export const isOfferedTemplate = async (tx: ScopedSql, key: string): Promise<boolean> =>
