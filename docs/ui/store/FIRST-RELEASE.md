@@ -725,7 +725,7 @@ through. Your site stays live."), as is a support session.
   followed is kept in the address (`?run=`), so a reload keeps following it; the question says "uses a few build
   minutes", since the API gives no estimate; the refusal's words are the failed checks' own, with "We tried to fix it
   and couldn't." only after a repair; the studio takes no change while a publish runs; Publish everything before this change is offered only when the
-  change to blame is in the conversation shown, and a change accepted after a refused publish clears its notice; a rollback is told in the
+  change to blame is in the conversation shown, and a change accepted after a refused publish clears its notice; a publish the studio can't read (five failed reads in a row, or a refused read) keeps the studio waiting and says so, with Check again, since it may still be running; a rollback is told in the
   studio that followed the publish, and the Overview's notice waits for a read of the last publish, which `storefront`
   doesn't give.
 - **Not in the first release**: the own storefront (AI or own, flow 75).

@@ -68,6 +68,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [toast, setToast] = useState<string | null>(null)
   const [published, setPublished] = useState<PublishRun | null>(null)
   const [publishing, setPublishing] = useState<{ before: string | null } | null>(null)
+  const [lost, setLost] = useState(false)
+  const [checks, setChecks] = useState(0)
   const nameOf = useCallback((key: string) => templateName(templates, key), [templates])
   const notHere = useCallback(() => {
     setTextKey(null)
@@ -152,6 +154,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     if (!run) return
     let current = true
     let failures = 0
+    setLost(false)
     let timer: ReturnType<typeof setTimeout> | undefined
     const read = () =>
       api.loadPublishRun(run).then(
@@ -171,11 +174,9 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         (e: unknown) => {
           if (!current) return
           failures += 1
-          // A refused read, or one that keeps failing, stops the following: the studio opens again and says so.
-          if (isApiError(e, 'SESSION_ENDED') || isApiError(e, 'FORBIDDEN') || failures >= publishReadTries) {
-            setError(words.publish.lost)
-            return onRun(null)
-          }
+          // A refused read, or one that keeps failing, stops asking but keeps the publish and the lock: it may still be running.
+          if (isApiError(e, 'SESSION_ENDED')) setSandbox({ kind: 'ended' })
+          if (isApiError(e, 'SESSION_ENDED') || isApiError(e, 'FORBIDDEN') || failures >= publishReadTries) return setLost(true)
           timer = setTimeout(() => void read(), publishPollMs)
         },
       )
@@ -184,7 +185,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
       current = false
       clearTimeout(timer)
     }
-  }, [api, run, onRun, loadChat, onOverview])
+  }, [api, run, onRun, loadChat, onOverview, checks, opened])
 
   const publish = async (before: string | null) => {
     setPublishing(null)
@@ -264,8 +265,14 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const next = (overview.live?.number ?? 0) + 1
   const ended = published && published.id === run ? published : null
   const culprit = ended?.bisectMessageId ? chat.find((m) => m.id === ended.bisectMessageId) : undefined
-  const notice =
-    ended?.step === 'failed' ? (
+  const notice = lost ? (
+    <li className="df-studio-refused" role="alert">
+      <span>{words.publish.lost}</span>
+      <button type="button" className="df-button" onClick={() => setChecks((n) => n + 1)}>
+        {words.publish.checkAgain}
+      </button>
+    </li>
+  ) : ended?.step === 'failed' ? (
       <li className="df-studio-refused" role="alert">
         <strong>{fill(words.publish.refusedTitle, { number: String(ended.version ?? next) })}</strong>
         <span>{refusedText(ended)}</span>

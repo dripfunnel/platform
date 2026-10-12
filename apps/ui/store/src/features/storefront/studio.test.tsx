@@ -469,19 +469,29 @@ describe('publishing from the studio', () => {
     expect(screen.getByRole('alert').textContent).toBe(fill(p.rolledBack, { number: '12', reason: 'your new version broke the checkout on phones.' }))
   })
 
-  it('stops following a publish it can’t read, says so, and opens the studio again', async () => {
+  it('stops asking after five failed reads but keeps the publish and the lock, and checks again on request', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const read = vi.fn().mockRejectedValue(new Error('offline'))
     const { onRun } = await show({ loadPublishRun: read }, 'r1')
-    expect(prompt().readOnly).toBe(true)
     for (let i = 0; i < 4; i += 1) await act(async () => void vi.advanceTimersByTime(2_000))
     await settle()
     expect(read).toHaveBeenCalledTimes(5)
+    await act(async () => void vi.advanceTimersByTime(10_000))
+    expect(read).toHaveBeenCalledTimes(5)
+    expect(onRun).not.toHaveBeenCalled()
+    expect(prompt().readOnly).toBe(true)
+    expect(screen.getByRole('alert').textContent).toContain(p.lost)
+    read.mockResolvedValue(runOf('live'))
+    fireEvent.click(screen.getByRole('button', { name: p.checkAgain }))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(6)
     expect(onRun).toHaveBeenCalledWith(null)
-    expect(screen.getByRole('alert').textContent).toBe(p.lost)
-    cleanup()
-    const { onRun: ended } = await show({ loadPublishRun: vi.fn().mockRejectedValue(new ApiError('SESSION_ENDED', 'Ended.')) }, 'r1')
-    expect(ended).toHaveBeenCalledWith(null)
+  })
+
+  it('ends the session at once when a read of the publish is refused, keeping the publish to check after Reopen', async () => {
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockRejectedValue(new ApiError('SESSION_ENDED', 'Ended.')) }, 'r1')
+    expect(screen.getByText(words.sandbox.ended)).toBeTruthy()
+    expect(onRun).not.toHaveBeenCalled()
   })
 
   it('stops following a publish that isn’t this store’s', async () => {
