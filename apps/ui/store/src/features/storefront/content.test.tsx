@@ -17,9 +17,11 @@ const p = c.pages
 
 const api = vi.hoisted(() => ({ loadBrand: vi.fn(), loadSeo: vi.fn(), loadDomains: vi.fn(), loadOverview: vi.fn(), loadTemplates: vi.fn(), loadPoweredBy: vi.fn(), loadMeters: vi.fn() }))
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
-const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn(), loadProductNames: vi.fn() }))
+const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn() }))
 vi.mock('../../api/content', async (actual) => ({ ...(await actual<typeof import('../../api/content')>()), ...content }))
 
+const offers = vi.hoisted(() => ({ loadProductNames: vi.fn() }))
+vi.mock('../../api/offers', async (actual) => ({ ...(await actual<typeof import('../../api/offers')>()), ...offers }))
 const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
 vi.mock('../../api/productEditor', () => upload)
 const products = vi.hoisted(() => ({ loadProducts: vi.fn() }))
@@ -86,7 +88,7 @@ beforeEach(() => {
   content.loadContentEntry.mockResolvedValue(faq)
   content.saveContent.mockImplementation((_kind: string, id: string | null, _revision: number | null, input: { title: string; slug: string }) => Promise.resolve({ ...faq, id: id ?? 'new-id', title: input.title, slug: input.slug }))
   content.deleteContent.mockResolvedValue(undefined)
-  content.loadProductNames.mockResolvedValue({ p1: 'Indigo kurta', p2: null })
+  offers.loadProductNames.mockResolvedValue(new Map([['p1', 'Indigo kurta']]))
 })
 
 afterEach(() => {
@@ -228,7 +230,7 @@ describe('the page editor', () => {
   it('edits questions and products, naming a product no longer in the catalogue', async () => {
     products.loadProducts.mockResolvedValue({ rows: [{ id: 'p3', name: 'Linen scarf' }] })
     await show({ entry: faq.id })
-    expect(content.loadProductNames).toHaveBeenCalledWith(['p1', 'p2'])
+    expect(offers.loadProductNames).toHaveBeenCalledWith(['p1', 'p2'])
     expect(screen.getByText('Indigo kurta')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: fill(e.removeProduct, { name: e.goneProduct }) }))
     fireEvent.change(screen.getByRole('searchbox', { name: e.findProduct }), { target: { value: 'linen' } })
@@ -276,7 +278,7 @@ describe('the page editor', () => {
   })
 
   it('names a product while its name loads', async () => {
-    content.loadProductNames.mockReturnValue(new Promise(() => undefined))
+    offers.loadProductNames.mockReturnValue(new Promise(() => undefined))
     await show({ entry: faq.id })
     expect(screen.getAllByText(e.loadingProduct)).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: fill(e.removeProduct, { name: e.loadingProduct }) })).toHaveLength(2)

@@ -784,7 +784,8 @@ through. Your site stays live."), as is a support session.
   description for people who can't see it), questions and answers (each question and answer typed in place, up to
   50), products (picked by name, up to 24, shown by name, "A product no longer in your catalogue" for one deleted
   since) and, on a page, the contact form, which says where messages go (the brand's public email). *Decided there:*
-  product names are read in one request of aliased `product(id)` reads, since the Store API has no read by ids.
+  product names are read as Offers reads them (`loadProductNames`, aliased `product(id)` reads fifty at a time), since
+  the Store API has no read by ids.
 - **Built on #339 (part 4)**: the Journal tab: posts by their date ("Goes live {date}" while scheduled) and who wrote
   them, **Write a post**, and the editor as for a page with a cover photo (the drawing's dashed box), **Publish on**
   and **Written by** in Publishing, no contact form and no footer menu, and **Schedule** in place of Publish for a later

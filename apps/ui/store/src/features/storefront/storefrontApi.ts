@@ -1,4 +1,5 @@
-import { deleteContent, loadContentEntry, loadContentList, loadCustomPaths, loadProductNames, saveContent } from '../../api/content'
+import { deleteContent, loadContentEntry, loadContentList, loadCustomPaths, saveContent } from '../../api/content'
+import { loadProductNames } from '../../api/offers'
 import { uploadPhoto } from '../../api/productEditor'
 import { checkDomain, chooseTemplate, connectDomain, discardDraft, endPreviewLinks, goBackToVersion, loadBrand, loadDomains, loadHistory, loadMeters, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, previewLink, publishNow, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
 import { ApiError } from '@dripfunnel/shared/graphql'

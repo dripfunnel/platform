@@ -59,7 +59,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
         setDraft(draftOf(entry, kind))
         const ids = [...new Set(entry.body.flatMap((b) => b.productIds ?? []))]
         api.loadProductNames(ids).then(
-          (found) => live && setNames((was) => ({ ...found, ...was })),
+          (found) => live && setNames((was) => ({ ...Object.fromEntries(ids.map((p) => [p, found.get(p) ?? null])), ...was })),
           () => undefined,
         )
       },
