@@ -217,6 +217,17 @@ describe('the chat', () => {
     expect(prompt().value).toBe('Bigger logo')
   })
 
+  it('never calls a change that went through refused when the read after it fails', async () => {
+    await show({ loadOverview: vi.fn().mockRejectedValue(new Error('offline')) })
+    fireEvent.change(prompt(), { target: { value: 'Bigger logo' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(prompt().value).toBe('')
+    expect(prompt().readOnly).toBe(false)
+  })
+
   it('sends an uploaded image and a website address with the words', async () => {
     await show()
     fireEvent.change(document.querySelector('input[type=file]') as HTMLInputElement, { target: { files: [new File(['x'], 'mood.png', { type: 'image/png' })] } })
