@@ -62,11 +62,11 @@ const version = (number: number, live = false): StorefrontVersion => ({ id: `v${
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
-const show = async ({ acting = owner, readOnly = false, tab, view }: { acting?: Acting; readOnly?: boolean; tab?: string; view?: string } = {}) => {
+const show = async ({ acting = owner, readOnly = false, tab, view, entry }: { acting?: Acting; readOnly?: boolean; tab?: string; view?: string; entry?: string } = {}) => {
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
   const page = createRoute({ getParentRoute: () => app, path: '/storefront', validateSearch: z.looseObject({ tab: optionalParam(z.enum(storefrontTabs)), view: optionalParam(z.enum(storefrontViews)) }), component: StorefrontPage })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: [view ? `/storefront?view=${view}` : tab ? `/storefront?tab=${tab}` : '/storefront'] }) })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: [entry ?? (view ? `/storefront?view=${view}` : tab ? `/storefront?tab=${tab}` : '/storefront')] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -435,6 +435,18 @@ describe('the template gallery', () => {
     await show()
     expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
     expect(screen.getByRole('alert').textContent).toBe(g.failed)
+  })
+
+  it('leaves a publish followed in the studio behind when the studio closes', async () => {
+    api.loadMeters.mockResolvedValue({ catalogue: waitingCatalogue, usage })
+    studio.loadPublishRun.mockResolvedValue({ id: 'r1', step: 'failed', version: 13, repairAttempts: 0, checks: [], bisectMessageId: null })
+    await show({ entry: '/storefront?view=studio&run=r1' })
+    expect(studio.loadPublishRun).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: words.studio.back }))
+    await settle()
+    expect(screen.getByRole('button', { name: words.publishNow.button })).toBeTruthy()
+    expect(studio.loadPublishRun).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(words.publishNow.failed)).toBeNull()
   })
 
   it('opens the studio for the Owner by its address', async () => {
