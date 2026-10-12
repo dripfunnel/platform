@@ -216,6 +216,22 @@ describe('the chat', () => {
     expect(api.loadDesignChat).toHaveBeenCalledTimes(2)
   })
 
+  it('says the conversation is loading, never that it is empty, until it is read', async () => {
+    let answer: (page: { messages: DesignMessage[]; next: null }) => void = () => undefined
+    await show({ loadDesignChat: vi.fn().mockReturnValue(new Promise((resolve) => (answer = resolve))) })
+    expect(screen.getByText(c.loading)).toBeTruthy()
+    expect(screen.queryByText(c.empty)).toBeNull()
+    await act(async () => answer({ messages: [], next: null }))
+    expect(screen.queryByText(c.loading)).toBeNull()
+    expect(screen.getByText(c.empty)).toBeTruthy()
+  })
+
+  it('says when the conversation couldn’t be read, in the conversation', async () => {
+    await show({ loadDesignChat: vi.fn().mockRejectedValue(new Error('offline')) })
+    expect(screen.getByRole('alert').textContent).toBe(c.loadFailed)
+    expect(screen.queryByText(c.empty)).toBeNull()
+  })
+
   it('says a change failed in the error line, and keeps the words when the request was refused', async () => {
     await show({ askDesign: vi.fn().mockRejectedValue(new ApiError('AI_BUDGET_REACHED', 'No.')), loadDesignChat: vi.fn().mockResolvedValue({ messages: [line('e1', 'error', 'change_failed'), ...chat], next: null }) })
     expect(screen.getByText(c.error)).toBeTruthy()
@@ -315,6 +331,14 @@ describe('Edit text', () => {
     fireEvent.click(dialog.getByRole('button', { name: words.edit.save }))
     await settle()
     expect(save.mock.calls.map((c) => c[0])).toEqual(['en', 'fr', 'fr'])
+  })
+
+  it('says the words are loading while each language is read', async () => {
+    await show({ loadDesignText: vi.fn().mockReturnValue(new Promise(() => undefined)) })
+    fireEvent.click(screen.getByRole('button', { name: words.edit.button }))
+    post({ type: 'df-studio:text', key: 'pages:home.lead' })
+    await settle()
+    expect(within(screen.getByRole('dialog', { name: words.edit.title })).getByRole('status').textContent).toBe(words.edit.loading)
   })
 
   it('turns Edit text off when a page is picked, since the new frame starts without it', async () => {
@@ -450,19 +474,29 @@ describe('publishing from the studio', () => {
     expect(screen.getByRole('alert').textContent).toBe(fill(p.rolledBack, { number: '12', reason: 'your new version broke the checkout on phones.' }))
   })
 
-  it('stops following a publish it can’t read, says so, and opens the studio again', async () => {
+  it('stops asking after five failed reads but keeps the publish and the lock, and checks again on request', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const read = vi.fn().mockRejectedValue(new Error('offline'))
     const { onRun } = await show({ loadPublishRun: read }, 'r1')
-    expect(prompt().readOnly).toBe(true)
     for (let i = 0; i < 4; i += 1) await act(async () => void vi.advanceTimersByTime(2_000))
     await settle()
     expect(read).toHaveBeenCalledTimes(5)
+    await act(async () => void vi.advanceTimersByTime(10_000))
+    expect(read).toHaveBeenCalledTimes(5)
+    expect(onRun).not.toHaveBeenCalled()
+    expect(prompt().readOnly).toBe(true)
+    expect(screen.getByRole('alert').textContent).toContain(p.lost)
+    read.mockResolvedValue(runOf('live'))
+    fireEvent.click(screen.getByRole('button', { name: p.checkAgain }))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(6)
     expect(onRun).toHaveBeenCalledWith(null)
-    expect(screen.getByRole('alert').textContent).toBe(p.lost)
-    cleanup()
-    const { onRun: ended } = await show({ loadPublishRun: vi.fn().mockRejectedValue(new ApiError('SESSION_ENDED', 'Ended.')) }, 'r1')
-    expect(ended).toHaveBeenCalledWith(null)
+  })
+
+  it('ends the session at once when a read of the publish is refused, keeping the publish to check after Reopen', async () => {
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockRejectedValue(new ApiError('SESSION_ENDED', 'Ended.')) }, 'r1')
+    expect(screen.getByText(words.sandbox.ended)).toBeTruthy()
+    expect(onRun).not.toHaveBeenCalled()
   })
 
   it('stops following a publish that isn’t this store’s', async () => {
@@ -522,7 +556,16 @@ describe('the studio’s AI line and preview links', () => {
   it('ends every preview link only after asking', async () => {
     await show()
     fireEvent.click(screen.getByRole('button', { name: pv.more }))
-    fireEvent.click(screen.getByRole('menuitem', { name: pv.end }))
+    expect(screen.getByRole('button', { name: pv.more }).getAttribute('aria-expanded')).toBe('true')
+    fireEvent.keyDown(screen.getByRole('button', { name: pv.end }), { key: 'Escape' })
+    expect(screen.queryByRole('button', { name: pv.end })).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: pv.more }))
+    fireEvent.click(screen.getByRole('button', { name: pv.more }))
+    fireEvent.blur(screen.getByRole('button', { name: pv.end }), { relatedTarget: prompt() })
+    expect(screen.queryByRole('button', { name: pv.end })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: pv.more }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: pv.end }))
+    fireEvent.click(screen.getByRole('button', { name: pv.end }))
     expect(api.endPreviewLinks).not.toHaveBeenCalled()
     fireEvent.click(within(screen.getByRole('dialog', { name: pv.endTitle })).getByRole('button', { name: pv.endConfirm }))
     await settle()

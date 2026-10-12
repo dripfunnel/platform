@@ -6823,7 +6823,8 @@
           "SESSION_ENDED": "Your studio session ended. Reopen the studio to keep designing.",
           "other": "That didn’t work. Check your connection and try again."
         },
-        "sitePlaceholder": "https://"
+        "sitePlaceholder": "https://",
+        "loading": "Loading your conversation…"
       },
       "edit": {
         "button": "Edit text",
@@ -6847,7 +6848,8 @@
           "FORBIDDEN": "Only the store owner can change the storefront.",
           "SESSION_ENDED": "Your studio session ended. Reopen the studio to keep designing.",
           "other": "That didn’t work. Check your connection and try again."
-        }
+        },
+        "loading": "Loading the words in each language…"
       },
       "publish": {
         "button": "Publish",
@@ -6871,7 +6873,7 @@
         "before": "Publish everything before this change",
         "rolledBack": "We put version {number} back: {reason} We’re fixing it.",
         "rolledBackFallback": "your new version didn’t pass our checks once it was live.",
-        "lost": "We couldn’t read how your publish is going. Reopen the studio to check.",
+        "lost": "We couldn’t read how your publish is going. The studio waits until we can, so nothing changes under it.",
         "refused": {
           "NOTHING_TO_PUBLISH": "There are no changes to publish.",
           "NOT_BISECTED": "That change isn’t the one the refused publish named.",
@@ -6882,7 +6884,8 @@
           "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
           "FORBIDDEN": "Only the store owner can change the storefront.",
           "other": "That didn’t work. Check your connection and try again."
-        }
+        },
+        "checkAgain": "Check again"
       },
       "preview": {
         "open": "Open preview ↗",

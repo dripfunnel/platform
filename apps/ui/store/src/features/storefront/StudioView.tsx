@@ -54,6 +54,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [opened, setOpened] = useState(0)
   const [chat, setChat] = useState<DesignMessage[]>([])
   const [earlier, setEarlier] = useState<string | null>(null)
+  // A later read that fails keeps the conversation already shown.
+  const [chatRead, setChatRead] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pages, setPages] = useState<StudioPages>({ product: null, content: [], custom: [] })
@@ -72,6 +74,9 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [publishing, setPublishing] = useState<{ before: string | null } | null>(null)
   const [previewMenu, setPreviewMenu] = useState(false)
   const [ending, setEnding] = useState(false)
+  const [lost, setLost] = useState(false)
+  const [checks, setChecks] = useState(0)
+  const moreRef = useRef<HTMLButtonElement>(null)
   const nameOf = useCallback((key: string) => templateName(templates, key), [templates])
   const notHere = useCallback(() => {
     setTextKey(null)
@@ -92,8 +97,9 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         if (ask !== chatAsk.current) return
         setChat([...page.messages].reverse())
         setEarlier(page.next)
+        setChatRead('ready')
       },
-      () => ask === chatAsk.current && setError(words.chat.loadFailed),
+      () => ask === chatAsk.current && setChatRead((was) => (was === 'ready' ? was : 'failed')),
     )
   }, [api])
 
@@ -155,6 +161,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     if (!run) return
     let current = true
     let failures = 0
+    setLost(false)
     let timer: ReturnType<typeof setTimeout> | undefined
     const read = () =>
       api.loadPublishRun(run).then(
@@ -174,11 +181,9 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         (e: unknown) => {
           if (!current) return
           failures += 1
-          // A refused read, or one that keeps failing, stops the following: the studio opens again and says so.
-          if (isApiError(e, 'SESSION_ENDED') || isApiError(e, 'FORBIDDEN') || failures >= publishReadTries) {
-            setError(words.publish.lost)
-            return onRun(null)
-          }
+          // A refused read, or one that keeps failing, stops asking but keeps the publish and the lock: it may still be running.
+          if (isApiError(e, 'SESSION_ENDED')) setSandbox({ kind: 'ended' })
+          if (isApiError(e, 'SESSION_ENDED') || isApiError(e, 'FORBIDDEN') || failures >= publishReadTries) return setLost(true)
           timer = setTimeout(() => void read(), publishPollMs)
         },
       )
@@ -187,7 +192,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
       current = false
       clearTimeout(timer)
     }
-  }, [api, run, onRun, loadChat, onOverview])
+  }, [api, run, onRun, loadChat, onOverview, checks, opened])
 
   const publish = async (before: string | null) => {
     setPublishing(null)
@@ -290,25 +295,52 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const next = (overview.live?.number ?? 0) + 1
   const ended = published && published.id === run ? published : null
   const culprit = ended?.bisectMessageId ? chat.find((m) => m.id === ended.bisectMessageId) : undefined
+  const closeMenu = () => {
+    setPreviewMenu(false)
+    moreRef.current?.focus()
+  }
   const previewButtons = overview.draft?.previewReady ? (
-              <div className="df-studio-preview-buttons">
-                <button type="button" className="df-button" onClick={openPreview}>
-                  {words.preview.open}
-                </button>
-                <button type="button" className="df-button" aria-label={words.preview.more} aria-haspopup="menu" aria-expanded={previewMenu} onClick={() => setPreviewMenu((o) => !o)}>
-                  ▾
-                </button>
-                {previewMenu && (
-                  <div className="df-studio-menu" role="menu" aria-label={words.preview.more} onKeyDown={(e) => e.key === 'Escape' && setPreviewMenu(false)}>
-                    <button type="button" role="menuitem" autoFocus onClick={() => (setPreviewMenu(false), setEnding(true))}>
-                      {words.preview.end}
-                    </button>
-                  </div>
-                )}
-              </div>
+    <div
+      className="df-studio-preview-buttons"
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget instanceof Node ? e.relatedTarget : null) && setPreviewMenu(false)}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' || !previewMenu) return
+        e.preventDefault()
+        closeMenu()
+      }}
+    >
+      <button type="button" className="df-button" onClick={openPreview}>
+        {words.preview.open}
+      </button>
+      <button ref={moreRef} type="button" className="df-button" aria-label={words.preview.more} aria-expanded={previewMenu} aria-controls={`${panesId}-preview-menu`} onClick={() => setPreviewMenu((o) => !o)}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {previewMenu && (
+        <div id={`${panesId}-preview-menu`} className="df-studio-menu">
+          <button
+            type="button"
+            ref={(el) => el?.focus()}
+            onClick={() => {
+              closeMenu()
+              setEnding(true)
+            }}
+          >
+            {words.preview.end}
+          </button>
+        </div>
+      )}
+    </div>
   ) : null
-  const notice =
-    ended?.step === 'failed' ? (
+  const notice = lost ? (
+    <li className="df-studio-refused" role="alert">
+      <span>{words.publish.lost}</span>
+      <button type="button" className="df-button" onClick={() => setChecks((n) => n + 1)}>
+        {words.publish.checkAgain}
+      </button>
+    </li>
+  ) : ended?.step === 'failed' ? (
       <li className="df-studio-refused" role="alert">
         <strong>{fill(words.publish.refusedTitle, { number: String(ended.version ?? next) })}</strong>
         <span>{refusedText(ended)}</span>
@@ -400,6 +432,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         <div className="df-studio-pane" {...paneProps('chat')}>
           <StudioChat
             chat={chat}
+            chatRead={chatRead}
             hasEarlier={earlier !== null}
             assistant={brand ? fill(words.chat.assistant, { brand }) : words.chat.assistantPlain}
             templateName={nameOf}
