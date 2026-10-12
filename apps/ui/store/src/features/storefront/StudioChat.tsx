@@ -34,6 +34,8 @@ export interface StudioChatProps {
   onSend: (request: ChatRequest) => Promise<boolean>
   /** A refused or rolled-back publish, after the conversation. */
   notice: ReactNode
+  /** "AI requests: N left" or "On your own AI key". */
+  aiLine: string | null
 }
 
 interface Attached {
@@ -42,7 +44,7 @@ interface Attached {
 }
 
 /** "Design with AI" (PortalStorefront › studio): the conversation, suggestions and the composer with an image and a website. */
-export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, error, api, onEarlier, onUndo, onSend, notice }: StudioChatProps) => {
+export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName, locked, canEdit, busyLine, error, api, onEarlier, onUndo, onSend, notice, aiLine }: StudioChatProps) => {
   const [prompt, setPrompt] = useState('')
   const [image, setImage] = useState<Attached | null>(null)
   const [site, setSite] = useState<string | null>(null)
@@ -109,6 +111,7 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
     <section className="df-studio-chat" aria-labelledby={`${siteId}-title`}>
       <header className="df-studio-chat-head">
         <h2 id={`${siteId}-title`}>{words.title}</h2>
+        {aiLine && <span className="df-sf-lede">{aiLine}</span>}
       </header>
       <ol className="df-studio-messages" aria-live="polite">
         {hasEarlier && (

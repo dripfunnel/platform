@@ -1,7 +1,7 @@
 import { uploadPhoto } from '../../api/productEditor'
-import { checkDomain, chooseTemplate, connectDomain, discardDraft, loadBrand, loadDomains, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
+import { checkDomain, chooseTemplate, connectDomain, discardDraft, endPreviewLinks, goBackToVersion, loadBrand, loadDomains, loadHistory, loadMeters, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, previewLink, publishNow, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
 import { ApiError } from '@dripfunnel/shared/graphql'
-import type { StorefrontDomains } from '../../api/storefront'
+import type { StorefrontDomains, StorefrontMeters, StorefrontVersion } from '../../api/storefront'
 import { askDesign, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
 import type { DesignMessage, PublishRun } from '../../api/studio'
 import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
@@ -36,9 +36,15 @@ export interface StorefrontApi {
   publishDesign: typeof publishDesign
   publishBefore: typeof publishBefore
   loadPublishRun: typeof loadPublishRun
+  loadMeters: typeof loadMeters
+  publishNow: typeof publishNow
+  loadHistory: typeof loadHistory
+  goBackToVersion: typeof goBackToVersion
+  previewLink: typeof previewLink
+  endPreviewLinks: typeof endPreviewLinks
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -101,6 +107,7 @@ export const sampleApi = (state: StorefrontState): StorefrontApi => {
     },
     loadPoweredBy: () => Promise.resolve({ removed: false, removable: true }),
     ...sampleStudio(state),
+    ...sampleMeters(state),
   }
 }
 
@@ -146,4 +153,26 @@ const samplePublish = (state: StorefrontState, id: string): PublishRun => {
   if (state === 'pubRefused') return { id, step: 'failed', version: 13, repairAttempts: 3, checks: [failed], bisectMessageId: 'm2' }
   if (state === 'rolledBack') return { id, step: 'rolled_back', version: 13, repairAttempts: 0, checks: [{ ...failed, words: 'Your new version broke the checkout on phones.' }], bisectMessageId: null }
   return { id, step: state === 'pubChecking' ? 'checking' : 'live', version: 13, repairAttempts: 0, checks: [], bisectMessageId: null }
+}
+
+/** `waiting` has catalogue changes for the Publish now bar; `list` has none; every state has a short history. */
+const sampleMeters = (state: StorefrontState) => {
+  let live = 12
+  const versions = (): StorefrontVersion[] =>
+    [12, 11, 10].map((number) => ({ id: `v${number}`, number, template: 'linen', label: number === 12 ? 'Autumn colours and headline' : number === 11 ? 'Add a reviews section' : null, live: number === live, publishedAt: `2026-10-0${number - 3}T10:40:00Z` }))
+  return {
+    loadMeters: (): Promise<StorefrontMeters> =>
+      Promise.resolve({
+        catalogue: { waiting: state === 'draft' || state === 'manager', since: '2026-10-12T08:40:00Z', changedKinds: ['products'], changedProducts: 12, pressesAllowed: 10, pressesLeft: 7, nextAutomaticPublishAt: '2026-10-12T14:40:00Z' },
+        usage: { ownKey: false, aiRequests: 42, aiPromptsUsed: 42, aiPromptsAllowed: 1000, buildMinutes: 18, publishesLast30Days: 3, recent: [{ id: 'r1', text: 'Make the colours warmer and give the home page an autumn headline', createdAt: '2026-10-12T08:15:00Z' }] },
+      }),
+    publishNow: () => Promise.resolve('sample-run'),
+    loadHistory: (before: number | null) => Promise.resolve(before === null ? versions() : []),
+    goBackToVersion: (number: number) => {
+      live = number
+      return Promise.resolve()
+    },
+    previewLink: () => Promise.resolve('https://kesari-threads.webpreview.store/?preview=sample'),
+    endPreviewLinks: () => Promise.resolve(),
+  }
 }

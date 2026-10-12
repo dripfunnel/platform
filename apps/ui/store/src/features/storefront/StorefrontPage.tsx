@@ -2,7 +2,7 @@ import { EmptyState, ErrorState, LoadingState, pollWhileVisible, Toast, useScree
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { scratchTemplate, type StorefrontBrand, type StorefrontDomains, type StorefrontOverview, type StorefrontSeo, type StorefrontTemplate } from '../../api/storefront'
+import { scratchTemplate, type StorefrontBrand, type StorefrontDomains, type StorefrontOverview, type StorefrontMeters, type StorefrontSeo, type StorefrontTemplate } from '../../api/storefront'
 import { currentBrand } from '../../brand/current'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, messages } from '../../messages'
@@ -29,6 +29,7 @@ interface Reads {
   domains: StorefrontDomains
   overview: StorefrontOverview
   templates: StorefrontTemplate[]
+  meters: StorefrontMeters
 }
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; reads: Reads }
 
@@ -56,8 +57,8 @@ export const StorefrontPage = () => {
     if (forced === 'error') return setView({ kind: 'error' })
     if (!access.canRead) return
     setView({ kind: 'loading' })
-    void Promise.all([api.loadBrand(), api.loadSeo(), api.loadDomains(), api.loadOverview(), api.loadTemplates()]).then(
-      ([brand, seo, domains, overview, templates]) => ask === latest.current && setView({ kind: 'ready', reads: { brand, seo, domains, overview, templates } }),
+    void Promise.all([api.loadBrand(), api.loadSeo(), api.loadDomains(), api.loadOverview(), api.loadTemplates(), api.loadMeters()]).then(
+      ([brand, seo, domains, overview, templates, meters]) => ask === latest.current && setView({ kind: 'ready', reads: { brand, seo, domains, overview, templates, meters } }),
       () => ask === latest.current && setView({ kind: 'error' }),
     )
   }, [forced, access.canRead, api])
@@ -67,18 +68,25 @@ export const StorefrontPage = () => {
   const onDomains = useCallback((domains: StorefrontDomains) => update({ domains }), [update])
   const onRun = useCallback((next: string | null) => void navigate({ to: '/storefront', search: (prev) => ({ ...prev, run: next ?? undefined }), replace: true }), [navigate])
 
-  // A changed design can change which template is the current look, so the gallery's list is read again with it.
+  // A changed design can change the current look, what waits for a publish and this month's use, so they are read again with it.
   const templatesAsk = useRef(0)
   const onOverview = useCallback(
     (overview: StorefrontOverview) => {
       update({ overview })
       const ask = ++templatesAsk.current
-      api.loadTemplates().then(
-        (templates) => ask === templatesAsk.current && update({ templates }),
+      Promise.all([api.loadTemplates(), api.loadMeters()]).then(
+        ([templates, meters]) => ask === templatesAsk.current && update({ templates, meters }),
         () => undefined,
       )
     },
     [update, api],
+  )
+  const refresh = useCallback(
+    (text: string | null) => {
+      if (text) setToast(text)
+      api.loadOverview().then(onOverview, () => undefined)
+    },
+    [api, onOverview],
   )
 
   // The footer's "Powered by" needs the plan, which only the Owner reads (`billing`); a failed read just leaves the line out.
@@ -136,7 +144,7 @@ export const StorefrontPage = () => {
       </div>
     )
 
-  const { brand, seo, domains, overview, templates } = view.reads
+  const { brand, seo, domains, overview, templates, meters } = view.reads
   if (access.canEdit && !brand?.brandReady)
     return (
       <div className="df-sf">
@@ -190,6 +198,7 @@ export const StorefrontPage = () => {
         api={api}
         onExit={() => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, isStudioState(forced) ? 'draft' : (forced ?? undefined)), view: undefined }) })}
         onOverview={onOverview}
+        usage={meters.usage}
         run={run ?? (forced === 'pubChecking' || forced === 'pubRefused' || forced === 'rolledBack' ? 'sample-run' : null)}
         onRun={onRun}
       />
@@ -217,9 +226,29 @@ export const StorefrontPage = () => {
           }}
           onDomains={onDomains}
           onToast={setToast}
+          usage={meters.usage}
+          templates={templates}
+          liveNumber={overview.live?.number ?? null}
+          onWent={refresh}
         />
       )
-    return <DesignTab overview={overview} host={host} canEdit={access.canEdit} powered={powered} api={api} onOverview={onOverview} onToast={setToast} onStudio={() => goView('studio')} />
+    return (
+      <DesignTab
+        overview={overview}
+        catalogue={meters.catalogue}
+        host={host}
+        canEdit={access.canEdit}
+        canUpgrade={canUpgrade}
+        powered={powered}
+        api={api}
+        run={run ?? null}
+        onRun={onRun}
+        onPublished={refresh}
+        onOverview={onOverview}
+        onToast={setToast}
+        onStudio={() => goView('studio')}
+      />
+    )
   }
 
   return (
