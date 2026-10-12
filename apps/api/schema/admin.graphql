@@ -147,6 +147,28 @@ type AttentionStore {
   reason: AttentionReason
 }
 
+type CoreRollout {
+  finishedAt: String
+  id: ID
+  percent: Int
+  reason: String
+  security: Boolean
+  startedAt: String
+  state: String
+  stores: [CoreRolloutStoreCount!]
+  version: String
+}
+
+type CoreRolloutPage {
+  items: [CoreRollout!]
+  pageInfo: PageInfo
+}
+
+type CoreRolloutStoreCount {
+  count: Int
+  state: String
+}
+
 input CreatePartnerInput {
   contract: PartnerContractInput
   country: String!
@@ -374,6 +396,7 @@ type Mutation {
   extendImpersonation(id: ID!): StaffSessionExtend
   extendTrial(id: ID!, trialEndsAt: String!): StoreMutationOutcome
   inviteStaff(email: String!, role: String!): StaffResult
+  pauseCoreRollout(id: ID!, reason: String!): CoreRollout
   pausePartner(id: ID!, reason: String!): PartnerMutationOutcome
   recheckDomain(id: ID!, kind: String!): PartnerMutationOutcome
   recheckStoreDomain(id: ID!): StoreMutationOutcome
@@ -383,14 +406,17 @@ type Mutation {
   resendStaffInvite(id: ID!): StaffResult
   resendStoreOwnerInvite(id: ID!): StoreMutationOutcome
   restoreStore(id: ID!, reason: String!): StoreMutationOutcome
+  resumeCoreRollout(id: ID!, reason: String!): CoreRollout
   resumePartner(id: ID!, reason: String!): PartnerMutationOutcome
   retryJob(id: ID!): JobActionResult
   returnToSession(id: ID!): StaffSessionStart
   revokeStaffInvite(id: ID!): StaffResult
+  rollBackCoreRollout(id: ID!, reason: String!): CoreRollout
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   setAppStatus(id: ID!, suspended: Boolean!): Boolean
   setPartnerContract(id: ID!, input: PartnerContractInput!, reason: String!): PartnerMutationOutcome
+  startCoreRollout(reason: String!, security: Boolean!, version: String!): CoreRollout
   startImpersonation(membershipId: ID!, reason: String!, targetId: ID!, ticket: String): StaffSessionStart
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
@@ -660,6 +686,8 @@ type Query {
   activityLog(after: String, before: String, filter: ActivityFilter, first: Int): ActivityPage
   activityPeople(query: String!): [ActivityPersonMatch!]
   activityPerson(person: String!): ActivityPerson
+  coreRollout(id: ID!): CoreRollout
+  coreRollouts(after: String, first: Int): CoreRolloutPage
   customer(id: ID!): Customer
   customers(after: String, before: String, filter: CustomerFilter, first: Int, search: String): CustomerPage
   dashboard(partnerId: ID): Dashboard

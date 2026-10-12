@@ -2,7 +2,8 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { storeContentPaths } from '#engine/modules/content/index'
-import { insertAiRun, moveDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
+import { isNewerVersion } from '#core/semver'
+import { insertAiRun, moveDraft, rebaseDraft, selectGuardContext, selectStudioStart, type AiRunOutcome } from '#db/scoped/studio'
 import { SandboxDown, sandboxClient, type ChangeResult, type ClientBundle, type GateProblem, type GuardContext, type Loaded, type SandboxClient, type SandboxHost, type Upgraded } from '#integrations/sandbox/index'
 import { draftBundle, guardContextFor, previewFolder, sourceBundle, templateFiles, upgradeBundle, upgradeFiles, type SitesBucket } from '../storefronts/index'
 import { maxRepairs, type DesignModel, type Proposal } from './model'
@@ -56,6 +57,26 @@ export type ChangeOutcome =
 /** The upgrade bot's ask (storefront ARCHITECTURE §7.1): core `to` on `sourceBuildId`'s code, or the baseline theme. */
 export type UpgradeAsk = { from: string; to: string; sourceBuildId: string; baseline: boolean }
 export type UpgradeAnswer = { outcome: 'busy' } | { outcome: 'prepared'; commit: string; notes: Upgraded['notes'] }
+
+/** The migration agent's ask (ARCHITECTURE §7): the upgrade's commit, what its build failed, and the releases' notes. */
+export type MigrationAsk = { commit: string; to: string; failing: string[]; notes: Upgraded['notes']; model: DesignModel }
+export type MigrationAnswer = { outcome: 'busy' } | { outcome: 'refused' } | { outcome: 'migrated'; commit: string }
+
+/** Where a publish from the studio starts (AI-STUDIO §6 steps 1–2): the draft's head, and the core it is on. */
+export type PublishReady = { commit: string; coreVersion: string; rebased: boolean; problems: GateProblem[] }
+
+const filesSchema = z.object({ files: z.array(z.object({ path: z.string(), content: z.string().nullable() })) })
+
+/** The migration agent's request: the notes and the failing checks, never a merchant's words (SAAS §9.2). */
+const migrationRequest = (ask: Pick<MigrationAsk, 'to' | 'failing' | 'notes'>): string =>
+  [
+    `Update this theme for storefront-core ${ask.to}, changing as little as possible and keeping its look.`,
+    ...ask.notes.map((n) => `Release ${n.version} (${n.kind}): ${n.notes}`),
+    'The build failed these checks:',
+    ...ask.failing,
+  ]
+    .join('\n')
+    .slice(0, 4000)
 
 /** The baseline fallback is the template of that name (storefront ARCHITECTURE §2.3, §7). */
 export const baselineTemplate = 'baseline'
@@ -160,6 +181,124 @@ export class StudioRunner {
     })
   }
 
+  /**
+   * The migration agent (ARCHITECTURE §7): the AI, under the same walls and fast gate, given the upgrade's failing checks
+   * and the releases' notes, on the upgrade's commit in a sandbox of the new version; its runs are the platform's.
+   */
+  migrate(ask: MigrationAsk): Promise<MigrationAnswer> {
+    return this.inTurn(async (): Promise<MigrationAnswer> => {
+      if (this.loaded) return { outcome: 'busy' }
+      const grant = await this.deps.capacity.acquire()
+      if (!grant.granted) return { outcome: 'busy' }
+      const { storeId } = this.deps
+      const host = await this.deps.host(ask.to).catch(async (error: unknown) => {
+        await this.deps.capacity.release()
+        throw error
+      })
+      const attempts: Attempt[] = []
+      const request = migrationRequest(ask)
+      const input: ChangeRequest = { request, userId: '', billedTo: 'plan', model: ask.model }
+      try {
+        await host.stop()
+        await host.start()
+        const client = sandboxClient(host.send, storeId)
+        const [bundle, files] = await Promise.all([this.deps.drafts.get(upgradeBundle(storeId, ask.commit)), this.deps.drafts.get(upgradeFiles(storeId, ask.commit))])
+        if (!bundle || !files) throw new StudioUnavailable('The upgrade’s commit is missing.')
+        await client.loadBundle(await bundle.arrayBuffer())
+        const context = await this.guardContext()
+        const theme = new Map((await client.theme()).files.map((f) => [f.path, f.content]))
+        let problems: GateProblem[] = []
+        for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
+          const proposal = await ask.model.propose({ request, theme: [...theme].map(([path, content]) => ({ path, content })), problems })
+          const startedAt = this.deps.now().getTime()
+          const made: Attempt = { proposal, ms: 0, result: null }
+          attempts.push(made)
+          made.result = await client.change(proposal.files, `Migrate to storefront-core ${ask.to}`, context)
+          made.ms = this.deps.now().getTime() - startedAt
+          if (!made.result.ok) {
+            problems = made.result.problems
+            continue
+          }
+          // The push once live carries the upgrade's files and the agent's, each file as it ends up.
+          const changed = new Map(filesSchema.parse(JSON.parse(new TextDecoder().decode(await files.arrayBuffer()))).files.map((f) => [f.path, f.content]))
+          for (const f of proposal.files) changed.set(f.path, f.content)
+          await this.deps.drafts.put(upgradeBundle(storeId, made.result.commit), await client.exportBundle())
+          await this.deps.drafts.put(upgradeFiles(storeId, made.result.commit), new TextEncoder().encode(JSON.stringify({ files: [...changed].map(([path, content]) => ({ path, content })) })).buffer)
+          await this.recordMigration(input, attempts, 'changed')
+          return { outcome: 'migrated', commit: made.result.commit }
+        }
+        await this.recordMigration(input, attempts, 'refused')
+        return { outcome: 'refused' }
+      } catch (error) {
+        await this.recordMigration(input, attempts, 'failed')
+        throw error
+      } finally {
+        await host.stop().catch(() => undefined)
+        await this.deps.capacity.release()
+      }
+    })
+  }
+
+  /**
+   * AI-STUDIO §6 steps 1–2, before #318's Publish builds the draft: a draft behind a newer live commit, or a major's
+   * passed upgrade, moves onto it in a sandbox of that version; a conflict or a refusal leaves it on its own core.
+   */
+  prepareToPublish(): Promise<PublishReady> {
+    return this.inTurn(async (): Promise<PublishReady> => {
+      const { storeId } = this.deps
+      const { client } = await this.ensureLoaded()
+      const start = this.start
+      const row = await this.system((tx) => selectStudioStart(tx, storeId))
+      const head = (await client.theme()).head
+      if (!start || !row?.onto_commit || !row.onto_version || !isNewerVersion(row.onto_version, start.coreVersion)) return { commit: head, coreVersion: start?.coreVersion ?? '', rebased: false, problems: [] }
+      const ontoKey = row.onto_upgrade ? upgradeBundle(storeId, row.onto_commit) : row.live_build_id ? sourceBundle(storeId, row.live_build_id) : null
+      const onto = ontoKey ? await this.deps.drafts.get(ontoKey) : null
+      if (!onto) return { commit: head, coreVersion: start.coreVersion, rebased: false, problems: [] }
+      const draft = await client.exportBundle()
+      const context = await this.guardContext()
+      const own = this.host
+      this.client = null
+      this.host = null
+      await own?.stop()
+      const version = row.onto_version
+      const ontoCommit = row.onto_commit
+      let host: SandboxHost | null = null
+      // Whatever fails on the way, the studio goes back to the saved draft on its own core, and no new container is left.
+      const restore = async () => {
+        await host?.stop().catch(() => undefined)
+        this.client = null
+        this.host = null
+        this.start = start
+        await this.ensureLoaded()
+      }
+      let result: ChangeResult
+      try {
+        host = await this.deps.host(version)
+        await host.start()
+        const next = sandboxClient(host.send, storeId)
+        await next.loadBundle(draft)
+        result = await next.rebase({ commit: ontoCommit, bundle: await onto.arrayBuffer() }, context)
+        if (result.ok) {
+          await this.deps.drafts.put(draftBundle(storeId), await next.exportBundle())
+          const rebased = result
+          await this.system((tx) => rebaseDraft(tx, { storeId, head: rebased.commit, coreVersion: version, at: this.deps.now() }))
+          this.host = host
+          this.client = next
+          this.start = { template: start.template, coreVersion: version }
+        }
+      } catch (error) {
+        await restore()
+        throw error
+      }
+      if (!result.ok) {
+        await restore()
+        return { commit: head, coreVersion: start.coreVersion, rebased: false, problems: result.problems }
+      }
+      this.deps.onBundle(result.bundle)
+      return { commit: result.commit, coreVersion: version, rebased: true, problems: [] }
+    })
+  }
+
   /** A file of the frame's current bundle, or null while the sandbox isn't loaded (the frame shows the preview). */
   async frameFile(path: string, frame: { media: string; portal: string }): Promise<Response | null> {
     if (!this.loaded || !this.client) return null
@@ -195,7 +334,9 @@ export class StudioRunner {
     const { storeId } = this.deps
     const row = await this.system((tx) => selectStudioStart(tx, storeId))
     const template = row?.template ?? row?.storefront_template ?? null
-    const coreVersion = row?.core_version ?? row?.store_core_version ?? null
+    const draft = await this.deps.drafts.get(draftBundle(storeId))
+    // Without a draft the studio opens the store's own theme, never the baseline a security fix serves (ARCHITECTURE §7).
+    const coreVersion = (draft ? row?.core_version : row?.own_core_version) ?? row?.core_version ?? row?.store_core_version ?? null
     if (!row || !template || !coreVersion) throw new StudioUnavailable('The store has no storefront to design yet.')
     const grant = await this.deps.capacity.acquire()
     if (!grant.granted) throw new StudioQueued(grant.place)
@@ -207,8 +348,8 @@ export class StudioRunner {
     const client = sandboxClient(host.send, storeId)
     try {
       await host.start()
-      const saved = (await this.deps.drafts.get(draftBundle(storeId))) ?? (row.live_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.live_build_id)) : null)
-      if (!saved && row.live_build_id) throw new StudioUnavailable('The live build’s source is missing.')
+      const saved = draft ?? (row.own_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.own_build_id)) : null)
+      if (!saved && row.own_build_id) throw new StudioUnavailable('The live build’s source is missing.')
       loaded = saved
         ? await client.loadBundle(await saved.arrayBuffer())
         : await (async () => {
@@ -335,6 +476,19 @@ export class StudioRunner {
     const run = (a: Attempt) => ({ model: a.proposal.model, tokensIn: a.proposal.tokensIn, tokensOut: a.proposal.tokensOut, costAmount: a.proposal.costAmount, costCurrency: a.proposal.costCurrency, sandboxMs: Math.max(0, a.ms) })
     return this.system(async (tx) => {
       const id = await insertAiRun(tx, { ...base, ...run(first), kind: 'design', billedTo: input.billedTo, repairAttempts: repairs.length, parentRunId: null, outcome })
+      for (const r of repairs) await insertAiRun(tx, { ...base, ...run(r), kind: 'repair', billedTo: 'platform', repairAttempts: 0, parentRunId: id, outcome: r.result === null ? 'failed' : r.result.ok ? outcome : 'refused' })
+      return id
+    })
+  }
+
+  /** SAAS §9.2: a migration and its repairs are the platform's, asked by no one. */
+  private async recordMigration(input: ChangeRequest, attempts: readonly Attempt[], outcome: AiRunOutcome): Promise<string | null> {
+    const [first, ...repairs] = attempts
+    if (!first) return null
+    const base = { storeId: this.deps.storeId, requestedBy: null, prompt: input.request }
+    const run = (a: Attempt) => ({ model: a.proposal.model, tokensIn: a.proposal.tokensIn, tokensOut: a.proposal.tokensOut, costAmount: a.proposal.costAmount, costCurrency: a.proposal.costCurrency, sandboxMs: Math.max(0, a.ms) })
+    return this.system(async (tx) => {
+      const id = await insertAiRun(tx, { ...base, ...run(first), kind: 'migration', billedTo: 'platform', repairAttempts: repairs.length, parentRunId: null, outcome })
       for (const r of repairs) await insertAiRun(tx, { ...base, ...run(r), kind: 'repair', billedTo: 'platform', repairAttempts: 0, parentRunId: id, outcome: r.result === null ? 'failed' : r.result.ok ? outcome : 'refused' })
       return id
     })
