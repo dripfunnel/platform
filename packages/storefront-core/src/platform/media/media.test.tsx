@@ -34,12 +34,15 @@ describe('Image', () => {
 })
 
 describe('Video', () => {
-  it('needs a poster, never preloads, and offers controls when it waits for a press', () => {
+  it('needs a poster, never preloads, and always offers its controls, playing on its own or not', () => {
     if (!photo || !video) throw new Error('no media')
     const out = html('preview', <Video video={video} poster={photo} label="How it drapes" ratio={1.5} />)
     expect(out).toContain('preload="none"')
     expect(out).toContain('poster="https://shop.example/shop-api/assets/a"')
     expect(out).toContain('controls')
     expect(out).toContain('aria-label="How it drapes"')
+    const playing = html('preview', <Video video={video} poster={photo} label="How it drapes" ratio={1.5} autoPlay />)
+    expect(playing).toContain('controls')
+    expect(playing).toContain('muted')
   })
 })
