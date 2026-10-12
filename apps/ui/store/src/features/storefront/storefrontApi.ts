@@ -2,8 +2,8 @@ import { uploadPhoto } from '../../api/productEditor'
 import { checkDomain, chooseTemplate, connectDomain, discardDraft, loadBrand, loadDomains, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
 import { ApiError } from '@dripfunnel/shared/graphql'
 import type { StorefrontDomains } from '../../api/storefront'
-import { askDesign, loadDesignChat, loadDesignText, loadStudioLanguages, loadStudioPages, loadStudioSession, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
-import type { DesignMessage } from '../../api/studio'
+import { askDesign, loadDesignChat, loadDesignText, loadPublishRun, loadStudioLanguages, loadStudioPages, loadStudioSession, publishBefore, publishDesign, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
+import type { DesignMessage, PublishRun } from '../../api/studio'
 import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
 
 /** What Storefront reads and writes: the Store API, or the harness's sample kept in memory (ui/README.md §6). */
@@ -33,9 +33,12 @@ export interface StorefrontApi {
   saveDesignText: typeof saveDesignText
   loadStudioPages: typeof loadStudioPages
   loadStudioLanguages: typeof loadStudioLanguages
+  publishDesign: typeof publishDesign
+  publishBefore: typeof publishBefore
+  loadPublishRun: typeof loadPublishRun
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -131,5 +134,16 @@ const sampleStudio = (state: StorefrontState) => {
     saveDesignText: () => Promise.resolve(),
     loadStudioPages: () => Promise.resolve({ product: { name: 'Indigo block-print kurta', slug: 'indigo-block-print-kurta' }, content: [{ title: 'Questions we get asked', path: '/faq' }], custom: ['/about', '/contact'] }),
     loadStudioLanguages: () => Promise.resolve(['en', 'hi']),
+    publishDesign: () => Promise.resolve('sample-run'),
+    publishBefore: () => Promise.resolve('sample-run'),
+    loadPublishRun: (id: string) => Promise.resolve(samplePublish(state, id)),
   }
+}
+
+/** pubChecking stays on its checks; pubRefused names a change to publish before; rolledBack went live and was put back. */
+const samplePublish = (state: StorefrontState, id: string): PublishRun => {
+  const failed = { name: 'price-visible', passed: false, words: 'On phones, the new buy bar covers the price and its tax label, so shoppers can’t see what they’d pay.' }
+  if (state === 'pubRefused') return { id, step: 'failed', version: 13, repairAttempts: 3, checks: [failed], bisectMessageId: 'm2' }
+  if (state === 'rolledBack') return { id, step: 'rolled_back', version: 13, repairAttempts: 0, checks: [{ ...failed, words: 'Your new version broke the checkout on phones.' }], bisectMessageId: null }
+  return { id, step: state === 'pubChecking' ? 'checking' : 'live', version: 13, repairAttempts: 0, checks: [], bisectMessageId: null }
 }

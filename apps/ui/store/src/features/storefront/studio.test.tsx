@@ -3,7 +3,7 @@ import { ApiError } from '@dripfunnel/shared/graphql'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StorefrontOverview } from '../../api/storefront'
-import type { DesignMessage, StudioSession } from '../../api/studio'
+import type { DesignMessage, PublishRun, StudioSession } from '../../api/studio'
 import { fill, messages } from '../../messages'
 import type { StorefrontApi } from './storefrontApi'
 import { StudioView } from './StudioView'
@@ -34,22 +34,36 @@ const fakeApi = () =>
     loadOverview: vi.fn().mockResolvedValue(overview),
     discardDraft: vi.fn().mockResolvedValue(undefined),
     uploadImage: vi.fn().mockResolvedValue({ ok: true, assetId: 'a-photo' }),
+    publishDesign: vi.fn().mockResolvedValue('r1'),
+    publishBefore: vi.fn().mockResolvedValue('r2'),
+    loadPublishRun: vi.fn(),
   }) satisfies Partial<StorefrontApi>
 
 type Fake = ReturnType<typeof fakeApi>
 let api: Fake
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
-const show = async (over: Partial<Fake> = {}) => {
+const show = async (over: Partial<Fake> = {}, run: string | null = null) => {
   Object.assign(api, over)
   const onOverview = vi.fn()
+  const onRun = vi.fn()
   await act(async () => {
-    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} />)
+    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} run={run} onRun={onRun} />)
   })
   await settle()
-  return { onOverview }
+  return { onOverview, onRun }
 }
-const frame = () => screen.getByTitle(words.frameTitle) as HTMLIFrameElement
+// Test frames never load (vite.config.ts), so each stands in with a window of its own that records what it is sent.
+const frameWindows = new WeakMap<HTMLIFrameElement, { postMessage: ReturnType<typeof vi.fn> }>()
+const frame = () => {
+  const element = screen.getByTitle(words.frameTitle) as HTMLIFrameElement
+  if (!frameWindows.has(element)) {
+    const win = { postMessage: vi.fn() }
+    frameWindows.set(element, win)
+    Object.defineProperty(element, 'contentWindow', { value: win, configurable: true })
+  }
+  return element
+}
 const post = (data: unknown, from = origin, source: unknown = frame().contentWindow) => act(() => void window.dispatchEvent(new MessageEvent('message', { origin: from, data, source: source as Window })))
 const prompt = () => screen.getByRole('textbox', { name: c.prompt }) as HTMLTextAreaElement
 
@@ -228,7 +242,7 @@ describe('the chat', () => {
 describe('Edit text', () => {
   it('opens the words the frame picked, in every language, only in Edit text mode, and saves what changed', async () => {
     await show()
-    const posted = vi.spyOn(frame().contentWindow as Window, 'postMessage')
+    const posted = frameWindows.get(frame())?.postMessage
     post({ type: 'df-studio:text', key: 'pages:home.lead' })
     await settle()
     expect(api.loadDesignText).not.toHaveBeenCalled()
@@ -292,5 +306,87 @@ describe('discarding in the studio', () => {
     await settle()
     expect(api.discardDraft).toHaveBeenCalledTimes(1)
     expect(onOverview).toHaveBeenCalledWith(overview)
+  })
+})
+
+describe('publishing from the studio', () => {
+  const p = words.publish
+  const runOf = (step: PublishRun['step'], more: Partial<PublishRun> = {}): PublishRun => ({ id: 'r1', step, version: 13, repairAttempts: 0, checks: [], bisectMessageId: null, ...more })
+
+  it('asks first, naming the version, the address and the way back, then follows the publish', async () => {
+    const { onRun } = await show()
+    fireEvent.click(screen.getByRole('button', { name: p.button }))
+    expect(api.publishDesign).not.toHaveBeenCalled()
+    const ask = within(screen.getByRole('dialog', { name: fill(p.title, { number: '13' }) }))
+    expect(ask.getByText(`${fill(p.body, { host: 'www.kesari.in' })} ${fill(p.back, { number: '12' })}`)).toBeTruthy()
+    fireEvent.click(ask.getByRole('button', { name: p.confirm }))
+    await settle()
+    expect(api.publishDesign).toHaveBeenCalledTimes(1)
+    expect(onRun).toHaveBeenCalledWith('r1')
+  })
+
+  it('shows a refusal to publish in the error line', async () => {
+    await show({ publishDesign: vi.fn().mockRejectedValue(new ApiError('NOTHING_TO_PUBLISH', 'No.')) })
+    fireEvent.click(screen.getByRole('button', { name: p.button }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: fill(p.title, { number: '13' }) })).getByRole('button', { name: p.confirm }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(p.refused.NOTHING_TO_PUBLISH)
+  })
+
+  it('shows the steps while it runs, locks the studio, and says when the version is live', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { onRun, onOverview } = await show({ loadPublishRun: vi.fn().mockResolvedValueOnce(runOf('queued')).mockResolvedValueOnce(runOf('checking')).mockResolvedValueOnce(runOf('going_live')).mockResolvedValue(runOf('live')) }, 'r1')
+    expect(screen.getByText(p.steps.queued)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: p.button })).toBeNull()
+    expect(prompt().readOnly).toBe(true)
+    await act(async () => void vi.advanceTimersByTime(2_000))
+    expect(screen.getByText(p.steps.checking)).toBeTruthy()
+    await act(async () => void vi.advanceTimersByTime(2_000))
+    expect(screen.getByText(p.steps.going_live)).toBeTruthy()
+    await act(async () => void vi.advanceTimersByTime(2_000))
+    await settle()
+    expect(screen.getByText(fill(p.live, { number: '13' }))).toBeTruthy()
+    expect(onRun).toHaveBeenCalledWith(null)
+    expect(onOverview).toHaveBeenCalled()
+  })
+
+  it('says what failed in a refused publish, and offers to publish everything before the change to blame', async () => {
+    const checks = [{ name: 'price', passed: false, words: 'On phones the buy bar covers the price.' }, { name: 'a11y', passed: true, words: null }]
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { checks, repairAttempts: 3, bisectMessageId: 'm2' })) }, 'r1')
+    const card = within(screen.getByRole('alert'))
+    expect(card.getByText(fill(p.refusedTitle, { number: '13' }))).toBeTruthy()
+    expect(card.getByText(`On phones the buy bar covers the price. ${p.tried} ${p.unchanged}`)).toBeTruthy()
+    expect(card.getByText(fill(p.culprit, { text: 'Make it warmer' }))).toBeTruthy()
+    fireEvent.click(card.getByRole('button', { name: p.before }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: fill(p.title, { number: '13' }) })).getByRole('button', { name: p.confirm }))
+    await settle()
+    expect(api.publishBefore).toHaveBeenCalledWith('m2')
+    expect(onRun).toHaveBeenCalledWith('r2')
+  })
+
+  it('offers nothing to publish before when no one change is to blame', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed')) }, 'r1')
+    expect(within(screen.getByRole('alert')).getByText(`${p.refusedFallback} ${p.unchanged}`)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: p.before })).toBeNull()
+  })
+
+  it('says so when a publish was rolled back after going live', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('rolled_back', { checks: [{ name: 'checkout', passed: false, words: 'your new version broke the checkout on phones.' }] })) }, 'r1')
+    expect(screen.getByRole('alert').textContent).toBe(fill(p.rolledBack, { number: '12', reason: 'your new version broke the checkout on phones.' }))
+  })
+
+  it('stops following a publish that isn’t this store’s', async () => {
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockResolvedValue(null) }, 'r9')
+    expect(onRun).toHaveBeenCalledWith(null)
+  })
+
+  it('has nothing to publish without a draft', async () => {
+    cleanup()
+    api.loadOverview.mockResolvedValue(overview)
+    await act(async () => {
+      render(<StudioView overview={{ ...overview, status: 'same_as_live', draft: null }} templates={[]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} run={null} onRun={vi.fn()} />)
+    })
+    await settle()
+    expect((screen.getByRole('button', { name: p.button }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

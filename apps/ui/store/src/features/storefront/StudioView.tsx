@@ -2,14 +2,14 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, Toast, usePhone } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { StorefrontOverview, StorefrontTemplate } from '../../api/storefront'
-import { studioDevices, type DesignMessage, type StudioDevice, type StudioPages } from '../../api/studio'
+import { studioDevices, type DesignMessage, type PublishRun, type StudioDevice, type StudioPages } from '../../api/studio'
 import { currentBrand } from '../../brand/current'
 import { fill, messages } from '../../messages'
 import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
 import { EditTextDialog } from './EditTextDialog'
 import { StudioChat, type ChatRequest } from './StudioChat'
-import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, renewEveryMs, secondsPerPlace, textPageOf } from './studioRules'
+import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishPollMs, publishProgress, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 import './studio.css'
 
@@ -32,13 +32,16 @@ export interface StudioViewProps {
   api: StorefrontApi
   onExit: () => void
   onOverview: (next: StorefrontOverview) => void
+  /** The publish being followed, kept in the address so a reload keeps following it. */
+  run: string | null
+  onRun: (id: string | null) => void
 }
 
 const sandboxOf = (state: string, place: number | null): Sandbox =>
   state === 'ready' ? { kind: 'ready' } : state === 'queued' ? { kind: 'queued', place: place ?? 1 } : state === 'busy' ? { kind: 'finishing' } : state === 'unavailable' ? { kind: 'failed', text: words.sandbox.unavailable } : { kind: 'opening' }
 
 /** The full-screen AI studio (PortalStorefront › studio; FIRST-RELEASE §14; storefront AI-STUDIO §1, §3, §8). */
-export const StudioView = ({ overview, templates, storeName, host, api, onExit, onOverview }: StudioViewProps) => {
+export const StudioView = ({ overview, templates, storeName, host, api, onExit, onOverview, run, onRun }: StudioViewProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const phone = usePhone()
@@ -60,6 +63,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [textKey, setTextKey] = useState<string | null>(null)
   const [discarding, setDiscarding] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [published, setPublished] = useState<PublishRun | null>(null)
+  const [publishing, setPublishing] = useState<{ before: string | null } | null>(null)
   const nameOf = useCallback((key: string) => templateName(templates, key), [templates])
   const notHere = useCallback(() => {
     setTextKey(null)
@@ -137,18 +142,58 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     return () => window.removeEventListener('message', onMessage)
   }, [session, editing])
 
+  // A publish is read again until it ends; only the newest answer for the run followed lands.
+  useEffect(() => {
+    if (!run) return
+    let current = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const read = () =>
+      api.loadPublishRun(run).then(
+        (answer) => {
+          if (!current) return
+          if (!answer) return onRun(null)
+          setPublished(answer)
+          if (publishProgress(answer.step)) return void (timer = setTimeout(() => void read(), publishPollMs))
+          if (answer.step === 'live') {
+            setToast(fill(words.publish.live, { number: String(answer.version ?? '') }))
+            onRun(null)
+          }
+          void loadChat()
+          void api.loadOverview().then(onOverview, () => undefined)
+        },
+        () => current && (timer = setTimeout(() => void read(), publishPollMs)),
+      )
+    void read()
+    return () => {
+      current = false
+      clearTimeout(timer)
+    }
+  }, [api, run, onRun, loadChat, onOverview])
+
+  const publish = async (before: string | null) => {
+    setPublishing(null)
+    if (locked) return
+    setError(null)
+    try {
+      onRun(before ? await api.publishBefore(before) : await api.publishDesign())
+    } catch (e) {
+      setError(publishRefusal(e))
+    }
+  }
+
   const postEdit = (on: boolean) => {
     setEditing(on)
     if (session) frameRef.current?.contentWindow?.postMessage(editModeMessage(on), session.origin)
   }
 
-  const locked = sandbox.kind !== 'ready' || busy
+  const progress = run !== null && (published === null || published.id !== run) ? publishProgress('queued') : published && published.id === run ? publishProgress(published.step) : null
+  const locked = sandbox.kind !== 'ready' || busy || progress !== null
   const shownDevice = phone ? 'phone' : device
   const after = async () => {
     await loadChat()
     onOverview(await api.loadOverview())
   }
-  const run = async (work: () => Promise<unknown>, refusal: (e: unknown) => string): Promise<boolean> => {
+  const perform = async (work: () => Promise<unknown>, refusal: (e: unknown) => string): Promise<boolean> => {
     if (locked) return false
     setBusy(true)
     setError(null)
@@ -165,11 +210,11 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     }
   }
   // An accepted change reaches the frame by its own hot reload, so the frame's address never changes here (AI-STUDIO §4 step 5).
-  const send = (request: ChatRequest) => run(() => api.askDesign({ ...request, page: shownPath, device: shownDevice }), askRefusal)
-  const undo = (message: DesignMessage) => void run(() => api.undoDesignChange(message.id), askRefusal)
+  const send = (request: ChatRequest) => perform(() => api.askDesign({ ...request, page: shownPath, device: shownDevice }), askRefusal)
+  const undo = (message: DesignMessage) => void perform(() => api.undoDesignChange(message.id), askRefusal)
   const discard = () => {
     setDiscarding(false)
-    void run(() => api.discardDraft(), discardRefusal)
+    void perform(() => api.discardDraft(), discardRefusal)
   }
   const more = () => {
     if (!earlier) return
@@ -189,6 +234,27 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const brand = currentBrand()?.productName
   const status = overview.status === 'unpublished_changes' || overview.status === 'same_as_live' || overview.status === 'not_published' ? words.status[overview.status] : null
   const canDiscard = overview.status === 'unpublished_changes'
+  const hasDraft = canDiscard || overview.status === 'not_published'
+  const next = (overview.live?.number ?? 0) + 1
+  const ended = published && published.id === run ? published : null
+  const culprit = ended?.bisectMessageId ? chat.find((m) => m.id === ended.bisectMessageId) : undefined
+  const notice =
+    ended?.step === 'failed' ? (
+      <li className="df-studio-refused" role="alert">
+        <strong>{fill(words.publish.refusedTitle, { number: String(ended.version ?? next) })}</strong>
+        <span>{refusedText(ended)}</span>
+        {culprit && <span className="df-sf-lede">{fill(words.publish.culprit, { text: culprit.text })}</span>}
+        {ended.bisectMessageId && (
+          <button type="button" className="df-button" disabled={locked} onClick={() => setPublishing({ before: ended.bisectMessageId })}>
+            {words.publish.before}
+          </button>
+        )}
+      </li>
+    ) : ended?.step === 'rolled_back' ? (
+      <li className="df-studio-refused" role="alert">
+        <span>{rolledBackText(ended, Math.max(1, (ended.version ?? next) - 1))}</span>
+      </li>
+    ) : null
   const paneProps = (p: StudioPane) => (phone ? { id: `${panesId}-${p}-panel`, role: 'tabpanel', 'aria-labelledby': `${panesId}-${p}`, hidden: pane !== p } : {})
 
   return (
@@ -230,10 +296,24 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             </select>
           </>
         )}
-        {canDiscard && (
-          <button type="button" className="df-sf-link" disabled={locked} onClick={() => setDiscarding(true)}>
-            {messages.storefront.overview.discard}
-          </button>
+        {progress ? (
+          <div className="df-studio-progress" role="status">
+            <span className="df-studio-progress-bar" aria-hidden="true">
+              <span style={{ width: `${progress.percent}%` }} />
+            </span>
+            <span>{progress.text}</span>
+          </div>
+        ) : (
+          <>
+            {canDiscard && (
+              <button type="button" className="df-sf-link" disabled={locked} onClick={() => setDiscarding(true)}>
+                {messages.storefront.overview.discard}
+              </button>
+            )}
+            <button type="button" className="df-button df-button--primary df-studio-publish" disabled={locked || !hasDraft} onClick={() => setPublishing({ before: null })}>
+              {overview.live ? words.publish.button : words.publish.firstButton}
+            </button>
+          </>
         )}
       </header>
       {phone && (
@@ -261,6 +341,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             onEarlier={more}
             onUndo={undo}
             onSend={send}
+            notice={notice}
           />
         </div>
         <div className="df-studio-pane df-studio-pane--preview" {...paneProps('preview')}>
@@ -307,6 +388,16 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
           setToast(words.edit.saved)
           void after()
         }}
+      />
+      <ConfirmDialog
+        open={publishing !== null}
+        title={fill(words.publish.title, { number: String(next) })}
+        target={host ?? storeName}
+        consequence={overview.live ? `${fill(words.publish.body, { host: host ?? storeName })} ${fill(words.publish.back, { number: String(overview.live.number) })}` : fill(words.publish.body, { host: host ?? storeName })}
+        confirmLabel={words.publish.confirm}
+        cancelLabel={words.publish.cancel}
+        onCancel={() => setPublishing(null)}
+        onConfirm={() => void publish(publishing?.before ?? null)}
       />
       <ConfirmDialog
         open={discarding}

@@ -38,7 +38,7 @@ const creatingPollMs = 5_000
 /** Storefront (PortalStorefront, FIRST-RELEASE §14): the brand step, the gallery, then Design · Pages · Journal · Site settings. ?state= per storefrontStates.ts. */
 export const StorefrontPage = () => {
   const { acting, state } = shellRoute.useLoaderData()
-  const { tab = 'design', view: shown } = pageRoute.useSearch()
+  const { tab = 'design', view: shown, run } = pageRoute.useSearch()
   const navigate = useNavigate()
   const forced = useScreenState(storefrontStates, harnessEnabled)
   const access = useMemo(() => storefrontAccessOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
@@ -65,6 +65,8 @@ export const StorefrontPage = () => {
 
   const update = useCallback((patch: Partial<Reads>) => setView((v) => (v.kind === 'ready' ? { kind: 'ready', reads: { ...v.reads, ...patch } } : v)), [])
   const onDomains = useCallback((domains: StorefrontDomains) => update({ domains }), [update])
+  const onRun = useCallback((next: string | null) => void navigate({ to: '/storefront', search: (prev) => ({ ...prev, run: next ?? undefined }), replace: true }), [navigate])
+
   // A changed design can change which template is the current look, so the gallery's list is read again with it.
   const templatesAsk = useRef(0)
   const onOverview = useCallback(
@@ -188,6 +190,8 @@ export const StorefrontPage = () => {
         api={api}
         onExit={() => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, isStudioState(forced) ? 'draft' : (forced ?? undefined)), view: undefined }) })}
         onOverview={onOverview}
+        run={run ?? (forced === 'pubChecking' || forced === 'pubRefused' || forced === 'rolledBack' ? 'sample-run' : null)}
+        onRun={onRun}
       />
     )
 

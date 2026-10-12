@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { scratchTemplate } from '../../api/storefront'
-import type { StudioPages } from '../../api/studio'
+import type { PublishRun, PublishStep, StudioPages } from '../../api/studio'
 import { fill, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
 
@@ -104,3 +104,25 @@ export const languageName = (code: string, locale: string): string => {
     return code
   }
 }
+
+/** How often a running publish is read again. */
+export const publishPollMs = 2_000
+
+const progress: Record<'queued' | 'checking' | 'going_live', number> = { queued: 10, checking: 45, going_live: 80 }
+
+/** FIRST-RELEASE §14's steps, with how far the bar has come; null once the publish has ended. */
+export const publishProgress = (step: PublishStep): { text: string; percent: number } | null =>
+  step === 'queued' || step === 'checking' || step === 'going_live' ? { text: words.publish.steps[step], percent: progress[step] } : null
+
+const failedWords = (run: PublishRun): string[] => run.checks.filter((c) => !c.passed && c.words).map((c) => c.words ?? '')
+
+/** A refused publish in plain words: what failed, whether a repair was tried, and that the live site is unchanged. */
+export const refusedText = (run: PublishRun): string => {
+  const what = failedWords(run)
+  return [what.length > 0 ? what.join(' ') : words.publish.refusedFallback, ...(run.repairAttempts > 0 ? [words.publish.tried] : []), words.publish.unchanged].join(' ')
+}
+
+/** "We put version N−1 back: …": what broke once the new version was live. */
+export const rolledBackText = (run: PublishRun, back: number): string => fill(words.publish.rolledBack, { number: String(back), reason: failedWords(run)[0] ?? words.publish.rolledBackFallback })
+
+export const publishRefusal = refusalIn(words.publish.refused)

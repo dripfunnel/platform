@@ -4,8 +4,8 @@ import type { StorefrontBrand, StorefrontDomains, StorefrontOverview, Storefront
 // gallery (then the templates), creating, list (live, own domain live), draft (unpublished changes), manager and readOnly
 // (past due) look only, noSite (a Manager before any publish), waiting and failed (an own domain on its way or refused by
 // DNS), and free (a plan without an own domain); the studio's: studio (ready), opening, queued, finishing (another tab's
-// change) and ended (the session refused).
-export const studioHarnessStates = ['studio', 'opening', 'queued', 'finishing', 'ended'] as const
+// change) and ended (the session refused); a publish checking, refused (with a change to publish before) or rolled back.
+export const studioHarnessStates = ['studio', 'opening', 'queued', 'finishing', 'ended', 'pubChecking', 'pubRefused', 'rolledBack'] as const
 export const storefrontStates = ['loading', 'error', 'denied', 'brand', 'gallery', 'creating', 'list', 'draft', 'manager', 'readOnly', 'noSite', 'waiting', 'failed', 'free', ...studioHarnessStates] as const
 export type StorefrontState = (typeof storefrontStates)[number]
 export const isStudioState = (state: string | null): boolean => studioHarnessStates.some((s) => s === state)

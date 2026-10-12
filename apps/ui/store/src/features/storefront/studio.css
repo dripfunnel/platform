@@ -670,3 +670,63 @@
 .df-studio-edit textarea {
   min-height: 60px;
 }
+
+/* Publish: the button, its progress in the top bar, and a refused or rolled-back publish in the chat. */
+.df-studio .df-studio-publish {
+  min-height: 36px;
+  padding: 0 16px;
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.df-studio-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+  color: var(--df-color-text-strong);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.df-studio-progress-bar {
+  flex: 1;
+  min-width: 60px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--df-color-neutral-surface);
+}
+
+.df-studio-progress-bar span {
+  display: block;
+  height: 100%;
+  background: var(--df-color-success);
+}
+
+.df-studio-refused {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: 10px;
+  background: var(--df-color-danger-surface);
+  font-size: 13px;
+}
+
+.df-studio-refused strong {
+  color: var(--df-color-danger);
+  font-size: 14px;
+}
+
+.df-studio-refused .df-button {
+  min-height: 34px;
+  border-color: var(--df-color-heading);
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  text-align: left;
+}

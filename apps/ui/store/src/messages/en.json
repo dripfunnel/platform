@@ -6847,6 +6847,41 @@
           "SESSION_ENDED": "Your studio session ended. Reopen the studio to keep designing.",
           "other": "That didn’t work. Check your connection and try again."
         }
+      },
+      "publish": {
+        "button": "Publish",
+        "firstButton": "Publish site",
+        "title": "Publish version {number}?",
+        "body": "We check your whole site first, then it goes live on {host} in a few minutes and uses a few build minutes.",
+        "back": "You can go back to version {number} any time, for free.",
+        "confirm": "Publish",
+        "cancel": "Cancel",
+        "steps": {
+          "queued": "Building your site…",
+          "checking": "Checking your site…",
+          "going_live": "Checking it went live…"
+        },
+        "live": "Version {number} is live — we checked your site and it changed",
+        "refusedTitle": "Version {number} wasn’t published",
+        "refusedFallback": "Something on your site didn’t pass our checks.",
+        "tried": "We tried to fix it and couldn’t.",
+        "unchanged": "Your live site hasn’t changed.",
+        "culprit": "It started with this change: “{text}”.",
+        "before": "Publish everything before this change",
+        "rolledBack": "We put version {number} back: {reason} We’re fixing it.",
+        "rolledBackFallback": "your new version didn’t pass our checks once it was live.",
+        "lost": "We couldn’t read how your publish is going. Reopen the studio to check.",
+        "refused": {
+          "NOTHING_TO_PUBLISH": "There are no changes to publish.",
+          "NOT_BISECTED": "That change isn’t the one the refused publish named.",
+          "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
+          "STUDIO_QUEUED": "The studio is waiting for room. Try again in a moment.",
+          "STUDIO_UNAVAILABLE": "The studio couldn’t start. Try again in a minute.",
+          "READ_ONLY": "Your store is view-only until the payment goes through.",
+          "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+          "FORBIDDEN": "Only the store owner can change the storefront.",
+          "other": "That didn’t work. Check your connection and try again."
+        }
       }
     }
   }
