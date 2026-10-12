@@ -14,7 +14,8 @@ export interface ContentBlocksProps {
   kind: ContentKind
   title: string
   body: DraftBlock[]
-  onBody: (body: DraftBlock[]) => void
+  /** Each change is made to the blocks as they are then, so one an upload brings lands on edits made meanwhile. */
+  onBody: (change: (was: DraftBlock[]) => DraftBlock[]) => void
   canEdit: boolean
   api: StorefrontApi
   /** Product names by id: null for one no longer in the catalogue, absent while unknown. */
@@ -28,7 +29,7 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
   const id = useId()
   const [uploading, setUploading] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
-  const set = (index: number, patch: Partial<DraftBlock>) => onBody(body.map((b, i) => (i === index ? { ...b, ...patch } : b)))
+  const set = (index: number, patch: Partial<DraftBlock>) => onBody((was) => was.map((b, i) => (i === index ? { ...b, ...patch } : b)))
   const tools = blockKinds.filter((k) => k !== 'form' || kind === 'page')
   const full = body.length >= contentLimits.blocks
 
@@ -38,7 +39,7 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
     api.uploadImage(file).then(
       (r) => {
         setUploading(false)
-        if (r.ok) onBody([...body, newBlock('image', { assetId: r.assetId })])
+        if (r.ok) onBody((was) => [...was, newBlock('image', { assetId: r.assetId })])
         else setProblem(uploadWords[r.code])
       },
       () => {
@@ -71,7 +72,7 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
                   />
                 </label>
               ) : (
-                <button key={k} type="button" className="df-sfc-tool" title={words.tools[k]} aria-label={words.tools[k]} disabled={full} onClick={() => onBody([...body, newBlock(k)])}>
+                <button key={k} type="button" className="df-sfc-tool" title={words.tools[k]} aria-label={words.tools[k]} disabled={full} onClick={() => onBody((was) => [...was, newBlock(k)])}>
                   <span aria-hidden="true">{toolMarks[k]}</span>
                 </button>
               ),
@@ -93,13 +94,13 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
               <span className="df-sfc-kind">{words.kinds[b.kind]}</span>
               {canEdit && (
                 <span className="df-sfc-mini">
-                  <button type="button" aria-label={fill(words.moveUp, { number })} disabled={i === 0} onClick={() => onBody(moveBlock(body, i, -1))}>
+                  <button type="button" aria-label={fill(words.moveUp, { number })} disabled={i === 0} onClick={() => onBody((was) => moveBlock(was, i, -1))}>
                     ↑
                   </button>
-                  <button type="button" aria-label={fill(words.moveDown, { number })} disabled={i === body.length - 1} onClick={() => onBody(moveBlock(body, i, 1))}>
+                  <button type="button" aria-label={fill(words.moveDown, { number })} disabled={i === body.length - 1} onClick={() => onBody((was) => moveBlock(was, i, 1))}>
                     ↓
                   </button>
-                  <button type="button" aria-label={fill(words.remove, { number })} onClick={() => onBody(body.filter((_, j) => j !== i))}>
+                  <button type="button" aria-label={fill(words.remove, { number })} onClick={() => onBody((was) => was.filter((_, j) => j !== i))}>
                     ✕
                   </button>
                 </span>
@@ -150,7 +151,7 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
               <div className="df-sfc-products">
                 <ul className="df-sfc-chips">
                   {b.productIds.map((p) => {
-                    const name = names[p] === undefined ? '…' : (names[p] ?? words.goneProduct)
+                    const name = names[p] === undefined ? words.loadingProduct : (names[p] ?? words.goneProduct)
                     return (
                       <li key={p}>
                         {name}
