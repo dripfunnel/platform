@@ -23,10 +23,11 @@ export interface DesignTabProps {
   api: StorefrontApi
   onOverview: (next: StorefrontOverview) => void
   onToast: (text: string) => void
+  onStudio: () => void
 }
 
 /** The Design tab's overview (PortalStorefront › Overview; FIRST-RELEASE §14). */
-export const DesignTab = ({ overview, host, canEdit, powered, api, onOverview, onToast }: DesignTabProps) => {
+export const DesignTab = ({ overview, host, canEdit, powered, api, onOverview, onToast, onStudio }: DesignTabProps) => {
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +75,11 @@ export const DesignTab = ({ overview, host, canEdit, powered, api, onOverview, o
                 setAsking(true)
               }}>
               {words.discard}
+            </button>
+          )}
+          {canEdit && (
+            <button type="button" className="df-button df-sf-draft-button df-sf-draft-button--strong" onClick={onStudio}>
+              {words.continueStudio}
             </button>
           )}
           {error && (

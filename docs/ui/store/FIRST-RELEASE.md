@@ -706,6 +706,18 @@ through. Your site stays live."), as is a support session.
   status again every 5 seconds; "Start from scratch" reads "Custom" in the live line; "Powered by" shows to the Owner
   only (it needs the plan, a `billing` read) when the partner shows it and the plan keeps it, with Remove it (to
   Billing) only when another plan removes it. Open studio and Continue in studio come with the studio (part 4).
+- **Built on #319 (part 4)**: the studio, full screen over the portal (a modal dialog, so the header and menu are
+  inert): the top bar (← Storefront, template and store, address, status, the page picker, Desktop · Tablet · Phone as
+  a select below 1180 px, Discard), Chat and Preview tabs on a phone, the sandbox's states, the chat (words, an uploaded
+  or pasted image, a website address, suggestions, what changed, Undo this change, notes, the error line) and Edit
+  text; Open studio and Continue in studio on the Overview, and the gallery opening the studio after a pick. *Decided
+  there:* the Manager gets no studio, as the prototype draws (the Overview shows them the draft notice); the session is
+  renewed every 2 minutes (storefront AI-STUDIO §9); "You're next — about N seconds" counts 20 seconds per studio ahead
+  *(proposed)*; "Checking your change…" covers the whole request, which answers once checked and repaired; the page
+  picker is a select grouped Shop, Policies, Content pages and Pages the AI made, its product page the product changed
+  last; the four suggestions are the prototype's, since the API proposes none; the AI signs as "{partner} AI"; Edit text
+  saves only the languages changed and never leaves the main one empty. Publish, its gate and the AI tokens line come in
+  part 5 and 6.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

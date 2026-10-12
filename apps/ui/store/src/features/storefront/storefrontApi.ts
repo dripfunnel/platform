@@ -1,6 +1,9 @@
 import { uploadPhoto } from '../../api/productEditor'
 import { checkDomain, chooseTemplate, connectDomain, discardDraft, loadBrand, loadDomains, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
+import { ApiError } from '@dripfunnel/shared/graphql'
 import type { StorefrontDomains } from '../../api/storefront'
+import { askDesign, loadDesignChat, loadDesignText, loadStudioLanguages, loadStudioPages, loadStudioSession, renewStudioSession, saveDesignText, undoDesignChange } from '../../api/studio'
+import type { DesignMessage } from '../../api/studio'
 import { sampleBrand, sampleDomains, sampleOverview, sampleSeo, sampleTemplates, type StorefrontState } from './storefrontStates'
 
 /** What Storefront reads and writes: the Store API, or the harness's sample kept in memory (ui/README.md §6). */
@@ -21,9 +24,18 @@ export interface StorefrontApi {
   chooseTemplate: typeof chooseTemplate
   discardDraft: typeof discardDraft
   loadPoweredBy: typeof loadPoweredBy
+  loadStudioSession: typeof loadStudioSession
+  renewStudioSession: typeof renewStudioSession
+  loadDesignChat: typeof loadDesignChat
+  askDesign: typeof askDesign
+  undoDesignChange: typeof undoDesignChange
+  loadDesignText: typeof loadDesignText
+  saveDesignText: typeof saveDesignText
+  loadStudioPages: typeof loadStudioPages
+  loadStudioLanguages: typeof loadStudioLanguages
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {
@@ -85,5 +97,39 @@ export const sampleApi = (state: StorefrontState): StorefrontApi => {
       return Promise.resolve()
     },
     loadPoweredBy: () => Promise.resolve({ removed: false, removable: true }),
+    ...sampleStudio(state),
+  }
+}
+
+const sampleSession = { session: 'sampleStudioSession0000', frameUrl: 'https://kesari-threads.webpreview.store/__studio/sampleStudioSession0000/', access: 'change' as const, expiresAt: '2026-10-12T09:05:00Z' }
+const sessionStates: Partial<Record<StorefrontState, { state: 'starting' | 'queued' | 'busy'; place: number | null }>> = { opening: { state: 'starting', place: null }, queued: { state: 'queued', place: 1 }, finishing: { state: 'busy', place: null } }
+
+/** The studio's sample: a short conversation, and every change accepted at once. */
+const sampleStudio = (state: StorefrontState) => {
+  const at = '2026-10-12T08:15:00Z'
+  const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: at, ...more })
+  let chat: DesignMessage[] = [
+    line('m3', 'ai', 'I warmed up the background and buttons and gave the home page an autumn headline.', { changed: ['Colours', 'Hero headline'], canUndo: true }),
+    line('m2', 'user', 'Make the colours warmer and give the home page an autumn headline'),
+    line('m1', 'note', 'template:linen'),
+  ]
+  let n = 3
+  return {
+    loadStudioSession: () => (state === 'ended' ? Promise.reject(new ApiError('SESSION_ENDED', 'Ended.')) : Promise.resolve({ ...sampleSession, ...(sessionStates[state] ?? { state: 'ready' as const, place: null }) })),
+    renewStudioSession: () => Promise.resolve(),
+    loadDesignChat: () => Promise.resolve({ messages: chat, next: null }),
+    askDesign: (input: { text: string; imageAssetId: string | null; sampleUrl: string | null }) => {
+      n += 2
+      chat = [line(`m${n}`, 'ai', 'Done — the preview shows it now.', { changed: ['Layout'], canUndo: true }), line(`m${n - 1}`, 'user', input.text, { imageAssetId: input.imageAssetId, sampleUrl: input.sampleUrl }), ...chat.map((m) => ({ ...m, canUndo: false }))]
+      return Promise.resolve('changed')
+    },
+    undoDesignChange: (id: string) => {
+      chat = [line(`m${(n += 1)}`, 'note', 'undone'), ...chat.map((m) => (m.id === id ? { ...m, undone: true, canUndo: false } : m))]
+      return Promise.resolve()
+    },
+    loadDesignText: (_page: string, locale: string) => Promise.resolve([{ key: 'pages:home.lead', text: locale === 'en' ? 'Warm layers for cooler days' : '' }]),
+    saveDesignText: () => Promise.resolve(),
+    loadStudioPages: () => Promise.resolve({ product: { name: 'Indigo block-print kurta', slug: 'indigo-block-print-kurta' }, content: [{ title: 'Questions we get asked', path: '/faq' }], custom: ['/about', '/contact'] }),
+    loadStudioLanguages: () => Promise.resolve(['en', 'hi']),
   }
 }

@@ -12,9 +12,10 @@ import { BrandStep } from './BrandStep'
 import { DesignTab, type PoweredLine } from './DesignTab'
 import { hasSite, liveHost, needsTemplate, templateName } from './overviewView'
 import { SiteSettingsTab } from './SiteSettingsTab'
-import { storefrontAccessOf, storefrontTabs, type StorefrontTab } from './storefrontAccess'
+import { StudioView } from './StudioView'
+import { storefrontAccessOf, storefrontTabs, type StorefrontTab, type StorefrontView } from './storefrontAccess'
 import { sampleApi, storeApi } from './storefrontApi'
-import { storefrontStates } from './storefrontStates'
+import { isStudioState, storefrontStates } from './storefrontStates'
 import { TemplateGallery } from './TemplateGallery'
 import './storefront.css'
 
@@ -114,7 +115,7 @@ export const StorefrontPage = () => {
   const tabsId = useId()
   const tabRefs = useRef<Partial<Record<StorefrontTab, HTMLButtonElement | null>>>({})
   const goTab = (next: StorefrontTab) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: next === 'design' ? undefined : next }), replace: true })
-  const goView = (next: 'gallery' | undefined) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: undefined, view: next }) })
+  const goView = (next: StorefrontView | undefined) => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, forced ?? undefined), tab: undefined, view: next }) })
   const onTabKey = tabKeyHandler(storefrontTabs, tab, goTab, (next) => tabRefs.current[next]?.focus())
 
   const title = <h1 className="df-sf-title">{words.title}</h1>
@@ -166,7 +167,7 @@ export const StorefrontPage = () => {
               ([next, list]) => ask === latest.current && update({ overview: next, templates: list }),
               () => ask === latest.current && update({ overview: { ...overview, status } }),
             )
-            goView(undefined)
+            goView('studio')
           }}
         />
         <Toast message={toast} onDone={() => setToast(null)} />
@@ -176,6 +177,19 @@ export const StorefrontPage = () => {
   const host = liveHost(domains)
   const { live } = overview
   const liveUrl = live && host && isHttps(`https://${host}`) ? `https://${host}` : null
+
+  if (access.canEdit && (shown === 'studio' || isStudioState(forced)) && hasSite(overview.status))
+    return (
+      <StudioView
+        overview={overview}
+        templates={templates}
+        storeName={brand?.shopName ?? acting.store.name}
+        host={host}
+        api={api}
+        onExit={() => void navigate({ to: '/storefront', search: (prev) => ({ ...harnessSearch(prev, isStudioState(forced) ? 'draft' : (forced ?? undefined)), view: undefined }) })}
+        onOverview={onOverview}
+      />
+    )
 
   const panel = () => {
     if (tab === 'pages') return <EmptyState title={words.pages.title} body={words.pages.body} />
@@ -201,7 +215,7 @@ export const StorefrontPage = () => {
           onToast={setToast}
         />
       )
-    return <DesignTab overview={overview} host={host} canEdit={access.canEdit} powered={powered} api={api} onOverview={onOverview} onToast={setToast} />
+    return <DesignTab overview={overview} host={host} canEdit={access.canEdit} powered={powered} api={api} onOverview={onOverview} onToast={setToast} onStudio={() => goView('studio')} />
   }
 
   return (
@@ -220,6 +234,11 @@ export const StorefrontPage = () => {
           {access.canEdit && hasSite(overview.status) && (
             <button type="button" className="df-button" onClick={() => goView('gallery')}>
               {words.overview.changeTemplate}
+            </button>
+          )}
+          {access.canEdit && hasSite(overview.status) && (
+            <button type="button" className="df-button df-button--primary" onClick={() => goView('studio')}>
+              {overview.status === 'unpublished_changes' ? words.overview.continueStudio : words.overview.openStudio}
             </button>
           )}
         </div>

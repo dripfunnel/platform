@@ -235,6 +235,13 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 - **AI-written code runs only on the store's preview origin**, never on the portal host
   (decision above). The studio and the frame talk by `postMessage`, and each checks the other's
   origin.
+  **Built on #319 (part 4)** *(decided there)*: the studio accepts a frame address only when it is https, under
+  `/__studio/`, and not on the portal's origin. It shows another page by setting the frame's address under the
+  session's path, never by reading or writing the frame's DOM. It hears a message only from the frame's own window and
+  the frame's origin, and only `{ type: 'df-studio:page', path }` (the page the frame moved to) and
+  `{ type: 'df-studio:text', key }` (the words picked for Edit text, keyed like `pages:home.lead`); it posts only
+  `{ type: 'df-studio:edit', on }`, to the frame's origin. The frame's side of these messages (in core's studio
+  render mode) isn't built yet.
 - **The studio-session id** (§3 step 6) is a bearer credential in the frame's path, so it is
   held to these rules:
   - **Bound** to one store, one user and the portal session that opened the studio. It is
