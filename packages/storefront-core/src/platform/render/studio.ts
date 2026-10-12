@@ -9,8 +9,12 @@ const portalOrigin = studioCspSchema.shape.portalOrigin
 const portalMeta = 'df-studio-portal'
 
 /** The frame's page naming the portal its CSP lets frame it, the only origin core's studio messages go to and come from (AI-STUDIO §8). */
-export const studioFramePage = (html: string, portal: string): string =>
-  html.replace(/<head>/i, (head) => `${head}<meta name="${portalMeta}" content="${portalOrigin.parse(portal)}">`)
+export const studioFramePage = (html: string, portal: string): string => {
+  const head = /<head\b[^>]*>/i.exec(html)
+  if (!head) throw new Error('The frame’s page has no <head> to name its portal in.')
+  const at = head.index + head[0].length
+  return `${html.slice(0, at)}<meta name="${portalMeta}" content="${portalOrigin.parse(portal)}">${html.slice(at)}`
+}
 
 /** The portal's origin from the frame's page; null on a preview or a live page, which carry none. */
 export const studioPortalOrigin = (doc: Document): string | null => {

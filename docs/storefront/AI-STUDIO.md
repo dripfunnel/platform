@@ -245,8 +245,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   posts `df-studio:page` with the page's path (the session's prefix taken off) for the first page and after every
   navigation, and hears `df-studio:edit` only from `window.parent` at the portal's origin. The sandbox writes that origin
   into the frame's page as `<meta name="df-studio-portal">` from the same value its CSP's `frame-ancestors` lists, and
-  every message goes only to it, never `'*'`. While Edit text is on, core outlines hovered words with its own style and a
-  click posts `df-studio:text` instead of acting: core's `t()` remembers each string of the theme's own content it renders
+  every message goes only to it, never `'*'`; a page with no `<head>` to carry it is refused, so the feature never fails silently. While Edit text is on, core outlines hovered words (a dark dashed ring on a white
+  halo, so one of the two shows at 3:1 on any theme's background) and a click posts `df-studio:text` instead of acting: core's `t()` remembers each string of the theme's own content it renders
   with its key (`content/en/home.json`'s `hero.title` is `home:hero.title`), and the click's element, or its nearest
   ancestor with words of its own, is looked up there; identical words resolve to the first key shown. Live and preview
   pages carry no portal and connect nothing.

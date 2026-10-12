@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTextKeys } from '../i18n/i18n'
 import { studioFramePage, studioPortalOrigin } from '../render/studio'
 import { navigate, setRouterBase } from './router'
-import { connectStudioFrame } from './studio'
+import { contrastRatio } from '../../guard/contrast'
+import { connectStudioFrame, studioHoverColors } from './studio'
 
 const base = '/__studio/Ab3_9-xYz0Ab3_9-xYz0Ab/'
 const portal = 'https://store.partner-a.example'
@@ -93,8 +94,10 @@ describe('the studio frame’s messages (AI-STUDIO §8)', () => {
     expect(byId('title').style.getPropertyValue('outline')).toBe(own)
     expect(byId('title').style.getPropertyPriority('outline')).toBe('')
     expect(byId('tie').style.getPropertyPriority('outline')).toBe('important')
+    expect(byId('tie').style.getPropertyPriority('box-shadow')).toBe('important')
     from({ type: 'df-studio:edit', on: false })
     expect(byId('tie').style.getPropertyValue('outline')).toBe('')
+    expect(byId('tie').style.getPropertyValue('box-shadow')).toBe('')
     parent.postMessage.mockClear()
     const event = click(byId('title'))
     expect(event.defaultPrevented).toBe(false)
@@ -110,6 +113,11 @@ describe('the studio frame’s messages (AI-STUDIO §8)', () => {
     parent.postMessage.mockClear()
     expect(click(byId('title')).defaultPrevented).toBe(false)
     expect(posted()).toEqual([])
+  })
+
+  it('draws a hover that one of its two colours shows at 3:1 on any background', () => {
+    const backgrounds = Array.from({ length: 256 }, (_, v) => `#${v.toString(16).padStart(2, '0').repeat(3)}`).concat(['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff', '#0a2a4a'])
+    for (const bg of backgrounds) expect(Math.max(contrastRatio(studioHoverColors.ring, bg), contrastRatio(studioHoverColors.halo, bg))).toBeGreaterThanOrEqual(3)
   })
 
   it.each([
@@ -136,6 +144,13 @@ describe('the portal the frame’s page names', () => {
     expect(framed).toContain(`<head><meta name="df-studio-portal" content="${portal}">`)
     expect(studioPortalOrigin(parse(framed))).toBe(portal)
     expect(studioPortalOrigin(parse(page))).toBeNull()
+  })
+
+  it('finds a head with attributes, and refuses a page without one rather than connect nothing', () => {
+    const framed = studioFramePage('<html><head lang="en" data-build="1"><title>x</title></head></html>', portal)
+    expect(studioPortalOrigin(parse(framed))).toBe(portal)
+    expect(framed).toContain(`<head lang="en" data-build="1"><meta name="df-studio-portal"`)
+    expect(() => studioFramePage('<html><header></header></html>', portal)).toThrow()
   })
 
   it('is only ever an origin', () => {

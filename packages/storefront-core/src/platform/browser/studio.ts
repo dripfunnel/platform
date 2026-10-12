@@ -7,7 +7,9 @@ import { watchAddress } from './router'
 
 const editMessage = z.strictObject({ type: z.literal('df-studio:edit'), on: z.boolean() })
 
-const hover = { outline: '2px dashed #2e7bd1', 'outline-offset': '2px' } as const
+/** Edit text's hover: a dark dashed ring on a white halo, so one of them shows at 3:1 on any theme (AI-STUDIO §8). */
+export const studioHoverColors = { ring: '#0a2a4a', halo: '#ffffff' } as const
+const hover = { outline: `2px dashed ${studioHoverColors.ring}`, 'outline-offset': '2px', 'box-shadow': `0 0 0 2px ${studioHoverColors.halo}` } as const
 
 export type StudioFrameOptions = {
   /** The frame's `/__studio/{session}/`; null outside the studio, where nothing is connected. */
