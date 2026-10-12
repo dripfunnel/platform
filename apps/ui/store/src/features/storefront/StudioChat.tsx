@@ -2,7 +2,7 @@ import { useId, useRef, useState, type ClipboardEvent, type KeyboardEvent } from
 import type { DesignMessage } from '../../api/studio'
 import { messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
-import { noteText, sampleAddress } from './studioView'
+import { noteText, sampleAddress } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.studio.chat
@@ -187,7 +187,7 @@ export const StudioChat = ({ chat, hasEarlier, assistant, templateName, locked, 
               </div>
             )}
             <textarea aria-label={words.prompt} rows={3} placeholder={words.placeholder} value={prompt} readOnly={locked} onChange={(e) => setPrompt(e.target.value)} onKeyDown={onKey} onPaste={onPaste} />
-            <div className="df-studio-tools">
+            <div className="df-studio-actions">
               <input ref={fileRef} type="file" accept={imageTypes.join(',')} hidden tabIndex={-1} onChange={(e) => (take(e.target.files?.[0]), (e.target.value = ''))} />
               <button type="button" className="df-studio-icon" aria-label={words.addImage} title={words.addImageTitle} disabled={locked} onClick={() => fileRef.current?.click()}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

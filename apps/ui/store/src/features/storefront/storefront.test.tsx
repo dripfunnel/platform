@@ -23,6 +23,8 @@ const [warm = ''] = b.voices
 
 const api = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadSeo: vi.fn(), saveSeo: vi.fn(), loadDomains: vi.fn(), connectDomain: vi.fn(), checkDomain: vi.fn(), makeDomainPrimary: vi.fn(), removeDomain: vi.fn(), loadShareImages: vi.fn(), loadOverview: vi.fn(), loadTemplates: vi.fn(), chooseTemplate: vi.fn(), discardDraft: vi.fn(), loadPoweredBy: vi.fn() }))
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
+const studio = vi.hoisted(() => ({ loadStudioSession: vi.fn(), renewStudioSession: vi.fn(), loadDesignChat: vi.fn(), askDesign: vi.fn(), undoDesignChange: vi.fn(), loadDesignText: vi.fn(), saveDesignText: vi.fn(), loadStudioPages: vi.fn(), loadStudioLanguages: vi.fn() }))
+vi.mock('../../api/studio', async (actual) => ({ ...(await actual<typeof import('../../api/studio')>()), ...studio }))
 const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
 vi.mock('../../api/productEditor', () => upload)
 
@@ -84,6 +86,10 @@ beforeEach(() => {
   api.loadOverview.mockResolvedValue(sameAsLive)
   api.loadTemplates.mockResolvedValue(templates)
   api.loadPoweredBy.mockResolvedValue({ removed: false, removable: true })
+  studio.loadStudioSession.mockReturnValue(new Promise(() => undefined))
+  studio.loadDesignChat.mockResolvedValue({ messages: [], next: null })
+  studio.loadStudioPages.mockResolvedValue({ product: null, content: [], custom: [] })
+  studio.loadStudioLanguages.mockResolvedValue(['en'])
 })
 
 afterEach(() => {
@@ -373,7 +379,7 @@ describe('the template gallery', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: g.templateWords }))
     await settle()
     expect(api.chooseTemplate).toHaveBeenCalledWith('bloom', false)
-    expect(screen.getByRole('tab', { name: words.tabs.design })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: words.studio.label })).toBeTruthy()
   })
 
   it('keeps the words when asked to', async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { fill, locale, messages } from '../../messages'
-import { editRefusal, languageName } from './studioView'
+import { editRefusal, languageName } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.studio.edit

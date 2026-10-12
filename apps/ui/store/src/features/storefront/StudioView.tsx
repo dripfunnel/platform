@@ -1,18 +1,22 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, Toast, usePhone } from '@dripfunnel/shared/ui'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { StorefrontOverview, StorefrontTemplate } from '../../api/storefront'
 import { studioDevices, type DesignMessage, type StudioDevice, type StudioPages } from '../../api/studio'
 import { currentBrand } from '../../brand/current'
 import { fill, messages } from '../../messages'
+import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
 import { EditTextDialog } from './EditTextDialog'
 import { StudioChat, type ChatRequest } from './StudioChat'
-import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, renewEveryMs, secondsPerPlace, textPageOf } from './studioView'
+import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, renewEveryMs, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
+import './studio.css'
 
 const words = messages.storefront.studio
 
+const studioPanes = ['chat', 'preview'] as const
+type StudioPane = (typeof studioPanes)[number]
 type Sandbox = { kind: 'opening' } | { kind: 'queued'; place: number } | { kind: 'ready' } | { kind: 'finishing' } | { kind: 'ended' } | { kind: 'failed'; text: string }
 interface Session {
   id: string
@@ -48,7 +52,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [pages, setPages] = useState<StudioPages>({ product: null, content: [], custom: [] })
   const [languages, setLanguages] = useState<string[]>([])
   const [device, setDevice] = useState<StudioDevice>('desktop')
-  const [pane, setPane] = useState<'chat' | 'preview'>('chat')
+  const [pane, setPane] = useState<StudioPane>('chat')
+  const panesId = useId()
   const [framePath, setFramePath] = useState('/')
   const [shownPath, setShownPath] = useState('/')
   const [editing, setEditing] = useState(false)
@@ -184,6 +189,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const brand = currentBrand()?.productName
   const status = overview.status === 'unpublished_changes' || overview.status === 'same_as_live' || overview.status === 'not_published' ? words.status[overview.status] : null
   const canDiscard = overview.status === 'unpublished_changes'
+  const paneProps = (p: StudioPane) => (phone ? { id: `${panesId}-${p}-panel`, role: 'tabpanel', 'aria-labelledby': `${panesId}-${p}`, hidden: pane !== p } : {})
 
   return (
     <dialog
@@ -225,22 +231,23 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
           </>
         )}
         {canDiscard && (
-          <button type="button" className="df-sf-link df-sf-link--danger" disabled={locked} onClick={() => setDiscarding(true)}>
+          <button type="button" className="df-sf-link" disabled={locked} onClick={() => setDiscarding(true)}>
             {messages.storefront.overview.discard}
           </button>
         )}
       </header>
       {phone && (
-        <div className="df-studio-panes" role="tablist" aria-label={words.label}>
-          {(['chat', 'preview'] as const).map((p) => (
-            <button key={p} type="button" role="tab" aria-selected={pane === p} onClick={() => setPane(p)}>
+        <div className="df-studio-panes" role="tablist" aria-label={words.label} onKeyDown={tabKeyHandler(studioPanes, pane, setPane, (p) => document.getElementById(`${panesId}-${p}`)?.focus())}>
+          {studioPanes.map((p) => (
+            <button key={p} id={`${panesId}-${p}`} type="button" role="tab" aria-selected={pane === p} aria-controls={`${panesId}-${p}-panel`} tabIndex={pane === p ? 0 : -1} onClick={() => setPane(p)}>
               {words.panes[p]}
             </button>
           ))}
         </div>
       )}
+      {/* On a phone both panes stay mounted, so the frame keeps its page while the chat shows. */}
       <div className="df-studio-body">
-        {(!phone || pane === 'chat') && (
+        <div className="df-studio-pane" {...paneProps('chat')}>
           <StudioChat
             chat={chat}
             hasEarlier={earlier !== null}
@@ -255,10 +262,10 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             onUndo={undo}
             onSend={send}
           />
-        )}
-        {(!phone || pane === 'preview') && (
+        </div>
+        <div className="df-studio-pane df-studio-pane--preview" {...paneProps('preview')}>
           <div className={`df-studio-preview df-studio-preview--${shownDevice}`}>
-            <div className="df-studio-tools">
+            <div className="df-studio-toolbar">
               {phone && <PagePicker groups={groups} value={shownPath} onChange={(path) => (setFramePath(path), setShownPath(path))} />}
               <span className="df-studio-gap" />
               {editing && !phone && <span className="df-studio-hint">{words.edit.hint}</span>}
@@ -271,8 +278,10 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
               {overlay && (
                 <div className="df-studio-overlay">
                   <div role="status">
-                    {sandbox.kind !== 'ended' && sandbox.kind !== 'failed' && <span className="df-studio-spin" aria-hidden="true" />}
-                    <span>{overlay}</span>
+                    <span className="df-studio-overlay-line">
+                      {sandbox.kind !== 'ended' && sandbox.kind !== 'failed' && <span className="df-studio-spin" aria-hidden="true" />}
+                      <span>{overlay}</span>
+                    </span>
                     {(sandbox.kind === 'ended' || sandbox.kind === 'failed') && (
                       <button type="button" className="df-button df-button--primary" onClick={() => setOpened((n) => n + 1)}>
                         {words.sandbox.reopen}
@@ -283,7 +292,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
               )}
             </div>
           </div>
-        )}
+        </div>
       </div>
       <EditTextDialog
         textKey={textKey}

@@ -6,6 +6,7 @@ import { brandComplete, brandFormOf, brandProblemOf, pickerValue } from './brand
 import { canCancel, canMakePrimary, domainRefusal, inProgress, needsRecords } from './domainView'
 import { counterText, googleTitle, seoTooLong } from './seoView'
 import { chooseRefusal, hasSite, liveHost, needsTemplate, templateName } from './overviewView'
+import { frameAddress, frameMessage, frameOriginOf, noteText, pageGroups, sampleAddress, textPageOf } from './studioRules'
 import { storefrontAccessOf } from './storefrontAccess'
 
 const words = messages.storefront
@@ -125,5 +126,53 @@ describe('the overview and the gallery', () => {
     expect(chooseRefusal(new ApiError('STUDIO_QUEUED', 'x'))).toBe(words.gallery.refused.STUDIO_UNAVAILABLE)
     expect(chooseRefusal(new ApiError('BRAND_NOT_READY', 'x'))).toBe(words.gallery.refused.BRAND_NOT_READY)
     expect(chooseRefusal(new Error('offline'))).toBe(words.gallery.refused.other)
+  })
+})
+
+describe('the studio’s rules', () => {
+  const frame = 'https://k7.webpreview.store/__studio/abcdefghijklmnopqrstuv/'
+
+  it('takes a frame only on https, under /__studio/, away from the portal’s origin', () => {
+    expect(frameOriginOf(frame, 'https://shop.partner.com')).toBe('https://k7.webpreview.store')
+    expect(frameOriginOf(frame.replace('https', 'http'), 'https://shop.partner.com')).toBeNull()
+    expect(frameOriginOf('https://k7.webpreview.store/other/', 'https://shop.partner.com')).toBeNull()
+    expect(frameOriginOf(frame, 'https://k7.webpreview.store')).toBeNull()
+    expect(frameOriginOf('not a url', 'https://shop.partner.com')).toBeNull()
+  })
+
+  it('keeps the session in the path of every page it shows', () => {
+    expect(frameAddress(frame, '/')).toBe(frame)
+    expect(frameAddress(frame, '/policies/terms/')).toBe(`${frame}policies/terms/`)
+    expect(frameAddress(frame, '//evil.example.com/')).toBe(`${frame}evil.example.com/`)
+  })
+
+  it('hears only the frame’s window from its origin, and only the protocol’s messages', () => {
+    const win = {}
+    const ok = { origin: 'https://k7.webpreview.store', source: win }
+    expect(frameMessage({ ...ok, data: { type: 'df-studio:page', path: '/faq' } }, ok.origin, win)).toEqual({ type: 'df-studio:page', path: '/faq' })
+    expect(frameMessage({ ...ok, origin: 'https://evil.example.com', data: { type: 'df-studio:page', path: '/faq' } }, ok.origin, win)).toBeNull()
+    expect(frameMessage({ ...ok, source: {}, data: { type: 'df-studio:page', path: '/faq' } }, ok.origin, win)).toBeNull()
+    expect(frameMessage({ ...ok, data: { type: 'df-studio:page', path: 'https://evil.example.com' } }, ok.origin, win)).toBeNull()
+    expect(frameMessage({ ...ok, data: { type: 'df-studio:text', key: 'pages:home.lead', extra: 1 } }, ok.origin, win)).toBeNull()
+    expect(frameMessage({ ...ok, data: { type: 'df-studio:page', path: '/faq' } }, ok.origin, null)).toBeNull()
+  })
+
+  it('reads a text key’s page, and shared words with the page shown', () => {
+    expect(textPageOf('pages:about.lead', 'home')).toBe('about')
+    expect(textPageOf('common:footer.note', 'home')).toBe('home')
+  })
+
+  it('lists empty groups out, and names notes it knows only', () => {
+    expect(pageGroups({ product: null, content: [], custom: [] }).map((g) => g.label)).toEqual([words.studio.groups.shop, words.studio.groups.policies])
+    expect(noteText('template:baseline', (k) => k)).toBe(words.studio.chat.notes.scratch)
+    expect(noteText('template:bloom', () => 'Bloom')).toBe(fill(words.studio.chat.notes.template, { name: 'Bloom' }))
+    expect(noteText('something:new', (k) => k)).toBeNull()
+  })
+
+  it('takes a website only as a full https address', () => {
+    expect(sampleAddress(' https://www.example.com/a ')).toBe('https://www.example.com/a')
+    expect(sampleAddress('http://www.example.com')).toBeNull()
+    expect(sampleAddress('https://localhost')).toBeNull()
+    expect(sampleAddress('example.com')).toBeNull()
   })
 })

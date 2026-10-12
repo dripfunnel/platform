@@ -6,6 +6,7 @@ export type StorefrontTab = (typeof storefrontTabs)[number]
 
 /** Full-page views over the tabs: the gallery (Change template) and the studio. */
 export const storefrontViews = ['gallery', 'studio'] as const
+export type StorefrontView = (typeof storefrontViews)[number]
 
 export interface StorefrontAccess {
   canRead: boolean

@@ -3,9 +3,12 @@ import type { StorefrontBrand, StorefrontDomains, StorefrontOverview, Storefront
 // Storefront's states under ?state= (ui/README.md §6): loading, error, denied (Staff), brand (the Owner's first visit),
 // gallery (then the templates), creating, list (live, own domain live), draft (unpublished changes), manager and readOnly
 // (past due) look only, noSite (a Manager before any publish), waiting and failed (an own domain on its way or refused by
-// DNS), and free (a plan without an own domain).
-export const storefrontStates = ['loading', 'error', 'denied', 'brand', 'gallery', 'creating', 'list', 'draft', 'manager', 'readOnly', 'noSite', 'waiting', 'failed', 'free'] as const
+// DNS), and free (a plan without an own domain); the studio's: studio (ready), opening, queued, finishing (another tab's
+// change) and ended (the session refused).
+export const studioHarnessStates = ['studio', 'opening', 'queued', 'finishing', 'ended'] as const
+export const storefrontStates = ['loading', 'error', 'denied', 'brand', 'gallery', 'creating', 'list', 'draft', 'manager', 'readOnly', 'noSite', 'waiting', 'failed', 'free', ...studioHarnessStates] as const
 export type StorefrontState = (typeof storefrontStates)[number]
+export const isStudioState = (state: string | null): boolean => studioHarnessStates.some((s) => s === state)
 
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
 const harness = import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
@@ -76,5 +79,5 @@ export const sampleOverview = (state: StorefrontState): StorefrontOverview => {
   if (state === 'creating') return { status: 'creating', template: 'linen', live: null, draft: null }
   const live = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen' }
   const draft = { template: 'linen', changedAt: '2026-10-12T08:15:00Z', previewReady: true }
-  return state === 'draft' || state === 'manager' ? { status: 'unpublished_changes', template: 'linen', live, draft } : { status: 'same_as_live', template: 'linen', live, draft: null }
+  return state === 'draft' || state === 'manager' || isStudioState(state) ? { status: 'unpublished_changes', template: 'linen', live, draft } : { status: 'same_as_live', template: 'linen', live, draft: null }
 }
