@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import type { StorefrontMeters, StorefrontOverview } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
 import { LiveFrame, liveDevices, type LiveDevice } from './LiveFrame'
-import { canFrameLive, discardRefusal } from './overviewView'
+import { canFrameLive, discardRefusal, rolledBackNotice } from './overviewView'
 import { PublishNowBar } from './PublishNowBar'
 import type { StorefrontApi } from './storefrontApi'
 
@@ -75,8 +75,14 @@ export const DesignTab = ({ overview, catalogue, host, canEdit, canUpgrade, run,
     )
   const { live } = overview
   const framed = live !== null && host !== null && host !== failedHost && canFrameLive(live.portalOrigin, window.location.origin)
+  const rolledBack = rolledBackNotice(overview)
   return (
     <div className="df-sf-design">
+      {rolledBack && (
+        <p className="df-sf-rolled-back" role="alert">
+          {rolledBack}
+        </p>
+      )}
       {overview.live && catalogue && <PublishNowBar catalogue={catalogue} canEdit={canEdit} canUpgrade={canUpgrade} api={api} run={run} onRun={onRun} onDone={onPublished} />}
       {overview.status === 'unpublished_changes' && (
         <div className="df-sf-draft">
