@@ -115,7 +115,7 @@ import { browserScreenshots } from '#integrations/cloudflare/screenshot'
 import { frameClosed, studioOf, type StudioApi } from '#saas/studio/index'
 import { cachePurgeDeliverer, cachePurgeKind } from '#jobs/queues/deliverers/cachePurge'
 import { cachePurgeClient } from '#integrations/cloudflare/purge'
-import { checkPreview, cleanStorefronts, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
+import { checkPreview, cleanStorefronts, pruneHistory, startAutomaticPublishes, lookupLiveHost, readVitalsRegressions, lookupRedirects, openPreview, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type LiveHost, type PreviewAccess, type PublishParams } from '#saas/storefronts/index'
 import { storefrontPublishDeliverer, type PublishWorkflow } from '#jobs/queues/deliverers/storefrontPublish'
 import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
@@ -992,12 +992,28 @@ const readStorefrontVitals: CronJob = async (sql) => {
   })
 }
 
+// The automatic publish of stores with catalogue changes waiting (SAAS §9.1); a publish queues through the outbox.
+const autoPublish: CronJob = async (sql) => {
+  const started = await startAutomaticPublishes(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'storefront_auto_publish_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return 0
+  })
+  if (started > 0) logEvent({ event: 'storefront_auto_published', api: 'system', code: 'due', count: started })
+}
+
+// The version history kept for the plan's days (SAAS §9.2).
+const pruneStorefrontHistory: CronJob = async (sql) => {
+  await pruneHistory(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'storefront_history_prune_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [expireSms, relayOutbox, publishDuePosts],
-  '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders],
+  '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
-  '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles, readStorefrontVitals],
+  '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals],
 }
 
 const runCron = async (cron: string, env: Env): Promise<void> => {

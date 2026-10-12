@@ -113,6 +113,10 @@ export const addUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, n
   `
 }
 
+/** A monthly meter's count in the month starting `periodStart`; 0 when it has counted nothing since. */
+export const usedThisPeriod = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date): Promise<number> =>
+  (await tx<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = ${key} and period_start = ${periodStart.toISOString().slice(0, 10)}::date`)[0]?.used ?? 0
+
 /** One unit of a monthly allowance taken in one statement while fewer than `allowed` are used; false when none is left. */
 export const reserveUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date, allowed: number, at: Date): Promise<boolean> => {
   if (allowed <= 0) return false

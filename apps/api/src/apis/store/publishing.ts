@@ -1,9 +1,9 @@
 import type { PublishRunView } from '#db/scoped/publishing'
-import { createPublishingService, designAudit } from '#saas/ai-designer/index'
+import { createPublishingService, designAudit, type CatalogueView, type UsageView } from '#saas/ai-designer/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import type { StoreBuilder } from './builder'
-import { answered, designWrite } from './storefront'
+import { answered, designWrite, type registerStorefront } from './storefront'
 
 // Publishing from the studio (PortalStorefront's Publish and Version history; FIRST-RELEASE §14, §19; storefront
 // AI-STUDIO §6): the Owner publishes and goes back; the Manager reads a run's steps and checks.
@@ -32,7 +32,50 @@ const stepOf = (state: PublishRunView['state']): string => {
   return state
 }
 
-export const registerPublishing = (builder: StoreBuilder) => {
+export const registerPublishing = (builder: StoreBuilder, storefront: ReturnType<typeof registerStorefront>) => {
+  const Catalogue = builder.objectRef<CatalogueView>('StorefrontCatalogue').implement({
+    fields: (t) => ({
+      // Catalogue changes wait for a publish (the "Publish now" bar shows only then).
+      waiting: t.exposeBoolean('waiting'),
+      since: t.string({ nullable: true, resolve: (c) => c.since?.toISOString() ?? null }),
+      // products, collections, menus, content or settings.
+      changedKinds: t.exposeStringList('changedKinds'),
+      changedProducts: t.exposeInt('changedProducts'),
+      // Null when the plan's presses are unlimited.
+      pressesAllowed: t.exposeInt('pressesAllowed', { nullable: true }),
+      pressesLeft: t.exposeInt('pressesLeft', { nullable: true }),
+      nextAutomaticPublishAt: t.string({ nullable: true, resolve: (c) => c.nextAutomaticPublishAt?.toISOString() ?? null }),
+    }),
+  })
+  const Recent = builder.objectRef<UsageView['recent'][number]>('StorefrontRequest').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      // The merchant's own words.
+      text: t.exposeString('prompt'),
+      outcome: t.exposeString('outcome'),
+      tokens: t.exposeInt('tokens'),
+      createdAt: t.string({ resolve: (r) => r.created_at.toISOString() }),
+    }),
+  })
+  const Usage = builder.objectRef<UsageView>('StorefrontUsage').implement({
+    fields: (t) => ({
+      // "On your own AI key": no plan meter for requests.
+      ownKey: t.exposeBoolean('ownKey'),
+      aiRequests: t.exposeInt('aiRequests'),
+      aiTokens: t.exposeInt('aiTokens'),
+      aiPromptsUsed: t.exposeInt('aiPromptsUsed'),
+      aiPromptsAllowed: t.exposeInt('aiPromptsAllowed', { nullable: true }),
+      // This month's, the store's own publishes; plans set no build-minute limit, so none is answered.
+      buildMinutes: t.exposeInt('buildMinutes'),
+      publishesLast30Days: t.exposeInt('publishesLast30Days'),
+      recent: t.field({ type: [Recent], resolve: (u) => u.recent }),
+    }),
+  })
+  builder.objectFields(storefront.Storefront, (t) => ({
+    catalogue: t.field({ type: Catalogue, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).catalogue() }),
+    usage: t.field({ type: Usage, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).usage() }),
+  }))
+
   type Check = { name: string; passed: boolean; words: string | null }
   const CheckRef = builder.objectRef<Check>('PublishCheck').implement({
     fields: (t) => ({
@@ -91,6 +134,11 @@ export const registerPublishing = (builder: StoreBuilder) => {
       args: { messageId: t.arg.id({ required: true }) },
       extensions: { access: designWrite(designAudit.publishStarted) },
       resolve: async (_, args, ctx: StoreContext) => answered(await publishingFor(ctx).publishEverythingBefore(String(args.messageId))),
+    }),
+    // The live code rebuilt with the catalogue as it is, using one of the month's presses once it goes live.
+    publishNow: t.id({
+      extensions: { access: designWrite(designAudit.publishStarted) },
+      resolve: async (_, __, ctx: StoreContext) => answered(await publishingFor(ctx).publishNow()),
     }),
     // Moves the live site to the version's kept build (no build minutes) and resets the draft to it.
     goBackToVersion: t.boolean({

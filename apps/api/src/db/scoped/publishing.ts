@@ -1,4 +1,5 @@
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
+import { addUsage } from './storeAccount'
 import { primaryHostOf } from './shopCaller'
 
 // Publish runs, the live pointer and the versions (DATA-MODEL §7.8, storefront LIVE-SHOP.md §4), always in system scope:
@@ -104,6 +105,8 @@ export const selectRun = async (tx: ScopedSql, runId: string): Promise<RunRow | 
 /** Queued → building, and the console's mirror with it (DATA-MODEL §7.8); the build id's 2 hours start here. */
 export const startRun = async (tx: ScopedSql, run: RunRow, at: Date): Promise<void> => {
   await tx`update publish_run set state = 'building', started_at = ${at} where id = ${run.id} and state = 'queued'`
+  // What a full publish froze: going live, it clears the store's change marks only if nothing changed since (#318).
+  if (run.kind !== 'page') await tx`update publish_run set change_seq = (select change_seq from storefront where store_id = ${run.store_id}) where id = ${run.id}`
   await tx`update store set build_state = 'building', last_build_at = ${at} where id = ${run.store_id}`
 }
 
@@ -142,6 +145,15 @@ export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise
   // A draft published to its head is the live version now: no draft, as after Discard (#318, AI-STUDIO §6 step 4).
   if (run.kind === 'design') await tx`delete from design_draft where store_id = ${run.store_id} and head_commit = ${run.commit}`
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${run.core_version} where id = ${run.store_id}`
+  if (run.kind === 'page') return
+  // SAAS §9.1: the changes the publish carried are no longer waiting, unless more came after it froze them (#318).
+  await tx`
+    update storefront set changes_since = null, changed_kinds = '{}', changed_count = 0, next_auto_publish_at = null
+    where store_id = ${run.store_id}
+      and change_seq = (select r.change_seq from publish_run r where r.id = (select coalesce(attempt_of, id) from publish_run where id = ${run.id}))`
+  // A "Publish now" press counts once it is live, never when refused, failed or rolled back (SAAS §6.2).
+  const [press] = await tx<{ uses_allowance: boolean }[]>`select uses_allowance from publish_run where id = ${run.id}`
+  if (press?.uses_allowance) await addUsage(tx, run.store_id, 'publish_now', 1, monthStart(at), at)
 }
 
 /** The build whose asset folder a new build's pages load from: the live build's own, or the one it inherited. */
@@ -465,3 +477,61 @@ export const selectPublishRun = async (tx: ScopedSql, storeId: string, id: strin
 
 export const selectVersionByNumber = async (tx: ScopedSql, storeId: string, number: number): Promise<{ id: string } | null> =>
   (await tx<{ id: string }[]>`select id from design_version where store_id = ${storeId} and number = ${number}`)[0] ?? null
+
+/** The UTC month a monthly meter counts in (DATA-MODEL §7.8 `store_usage`). */
+export const monthStart = (at: Date): Date => new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1))
+
+export interface CatalogueStateRow {
+  live_build_id: string | null
+  live_commit: string | null
+  live_template: string | null
+  live_core_version: string | null
+  changes_since: Date | null
+  changed_kinds: string[]
+  changed_count: number
+  next_auto_publish_at: Date | null
+}
+
+/** What waits for a catalogue publish (SAAS §9.1) and the live build it would rebuild. */
+export const selectCatalogueState = async (tx: ScopedSql, storeId: string): Promise<CatalogueStateRow | null> =>
+  (
+    await tx<CatalogueStateRow[]>`
+      select f.live_build_id, r.commit as live_commit, r.template as live_template, r.core_version as live_core_version, f.changes_since,
+        to_jsonb(f.changed_kinds) as changed_kinds, f.changed_count, f.next_auto_publish_at
+      from storefront f left join publish_run r on r.id = f.live_build_id where f.store_id = ${storeId}`
+  )[0] ?? null
+
+/** "Publish now" presses queued or running, which hold a press until they end (SAAS §9.1). */
+export const pressesInFlight = async (tx: ScopedSql, storeId: string): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from publish_run where store_id = ${storeId} and uses_allowance and state in ('queued', 'building', 'checking', 'deploying')`)[0]?.n ?? 0
+
+/** Stores with changes waiting whose automatic publish is due, a live build to rebuild and no publish queued or running. */
+export const selectDueAutomatic = (tx: ScopedSql, now: Date, intervalMs: number, limit: number): Promise<{ store_id: string }[]> =>
+  tx<{ store_id: string }[]>`
+    select f.store_id from storefront f join store s on s.id = f.store_id
+    where f.changes_since is not null and f.live_build_id is not null and s.status not in ('closed', 'suspended')
+      and coalesce(f.next_auto_publish_at, f.changes_since + ${`${intervalMs} milliseconds`}::interval) <= ${now}
+      and not exists (select 1 from publish_run r where r.store_id = f.store_id and r.state in ('queued', 'building', 'checking', 'deploying'))
+    order by f.changes_since limit ${limit}`
+
+export const setNextAutoPublish = async (tx: ScopedSql, storeId: string, at: Date): Promise<void> => {
+  await tx`update storefront set next_auto_publish_at = ${at} where store_id = ${storeId}`
+}
+
+/**
+ * The history the plan keeps (SAAS §9.2): versions older than the store's `history_days` go, never the live one, and with
+ * them the hold they kept on their builds (clean-up's to remove, LIVE-SHOP §4 step 11). Answers how many went.
+ */
+export const pruneVersionHistory = async (tx: ScopedSql, now: Date, limit: number): Promise<number> => {
+  const old = await tx<{ id: string }[]>`
+    select v.id from design_version v
+      join store_subscription sub on sub.store_id = v.store_id
+      left join plan_entitlement e on e.plan_id = sub.plan_id and e.version = sub.plan_version and e.key = 'history_days'
+    where v.state <> 'live' and v.published_at < ${now}::timestamptz - make_interval(days => least(coalesce(e.amount, 0), 36500))
+    order by v.published_at limit ${limit}`
+  if (old.length === 0) return 0
+  const ids = old.map((v) => v.id)
+  await tx`update design_draft set base_version_id = null where base_version_id = any(${pgArray(ids)}::uuid[])`
+  await tx`delete from design_version where id = any(${pgArray(ids)}::uuid[])`
+  return ids.length
+}

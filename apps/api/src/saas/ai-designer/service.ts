@@ -50,6 +50,9 @@ export type DesignRefusal =
         | 'ALREADY_LIVE'
         | 'PUBLISH_RUNNING'
         | 'BUILD_GONE'
+        | 'NOTHING_LIVE'
+        | 'NOTHING_WAITING'
+        | 'NO_PRESSES_LEFT'
     }
   | { reason: 'STUDIO_QUEUED'; place: number }
   | { reason: 'CHANGE_REFUSED'; problems: number }
