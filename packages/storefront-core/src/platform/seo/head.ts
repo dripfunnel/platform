@@ -15,13 +15,13 @@ export type Head = {
   hidden?: boolean | undefined
 }
 
-/** The store's own head (0) under a page's (1), whatever order their effects run in. */
 /** The store's head for a page: the home page's search and sharing on `/` (SAAS §9.2), the name and description elsewhere. */
 export const storeHead = (store: { name: string; description?: string | null | undefined; seo?: { title: string | null; description: string | null; image: { url: string } | null } | null }, path: string): Head => {
   const home = path === '/' ? store.seo : null
   return { title: home?.title ?? store.name, description: home?.description ?? store.description ?? null, image: home?.image?.url ?? null }
 }
 
+/** The store's own head (0) under a page's (1), whatever order their effects run in. */
 type Entry = { level: 0 | 1; head: Head }
 const entries: Entry[] = []
 const mark = 'data-df-head'

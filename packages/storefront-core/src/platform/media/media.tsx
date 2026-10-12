@@ -82,7 +82,7 @@ export type VideoProps = {
   className?: string
 }
 
-/** Never preloaded, paused off screen and under reduced motion, with its poster as its picture. */
+/** Never preloaded, paused off screen and under reduced motion, with its poster as its picture; its controls always show, so a playing video can be paused (WCAG 2.2.2). */
 export const Video = ({ video, poster, label, autoPlay = false, ratio, className }: VideoProps) => {
   const element = useRef<HTMLVideoElement>(null)
   const seen = useInView(element)
@@ -102,7 +102,7 @@ export const Video = ({ video, poster, label, autoPlay = false, ratio, className
       muted={autoPlay}
       loop={autoPlay}
       playsInline
-      controls={!autoPlay || still}
+      controls
       width={1200}
       height={Math.round(1200 / (ratio > 0 ? ratio : 1))}
       aria-label={label}
