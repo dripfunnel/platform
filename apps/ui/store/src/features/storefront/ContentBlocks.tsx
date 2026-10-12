@@ -39,7 +39,8 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
     api.uploadImage(file).then(
       (r) => {
         setUploading(false)
-        if (r.ok) onBody((was) => [...was, newBlock('image', { assetId: r.assetId })])
+        // Tools wait while a photo uploads, so it takes the place counted when it was picked.
+        if (r.ok) onBody((was) => (was.length < contentLimits.blocks ? [...was, newBlock('image', { assetId: r.assetId })] : was))
         else setProblem(uploadWords[r.code])
       },
       () => {
@@ -72,7 +73,7 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
                   />
                 </label>
               ) : (
-                <button key={k} type="button" className="df-sfc-tool" title={words.tools[k]} aria-label={words.tools[k]} disabled={full} onClick={() => onBody((was) => [...was, newBlock(k)])}>
+                <button key={k} type="button" className="df-sfc-tool" title={words.tools[k]} aria-label={words.tools[k]} disabled={full || uploading} onClick={() => onBody((was) => [...was, newBlock(k)])}>
                   <span aria-hidden="true">{toolMarks[k]}</span>
                 </button>
               ),
