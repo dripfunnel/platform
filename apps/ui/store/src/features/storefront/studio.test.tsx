@@ -486,12 +486,32 @@ describe('publishing from the studio', () => {
     expect(read).toHaveBeenCalledTimes(5)
     expect(onRun).not.toHaveBeenCalled()
     expect(prompt().readOnly).toBe(true)
-    expect(screen.getByRole('alert').textContent).toContain(p.lost)
+    expect(within(screen.getByRole('alert')).getByText(p.lost)).toBeTruthy()
     read.mockResolvedValue(runOf('live'))
     fireEvent.click(screen.getByRole('button', { name: p.checkAgain }))
     await settle()
     expect(read).toHaveBeenCalledTimes(6)
     expect(onRun).toHaveBeenCalledWith(null)
+  })
+
+  // FORBIDDEN means the seat no longer publishes: reading stops at once, and the renewal (not this read) ends the session.
+  it('stops reading at once when a read is forbidden, keeping the publish and the lock', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const read = vi.fn().mockRejectedValue(new ApiError('FORBIDDEN', 'No.'))
+    const { onRun } = await show({ loadPublishRun: read }, 'r1')
+    await act(async () => void vi.advanceTimersByTime(10_000))
+    expect(read).toHaveBeenCalledTimes(1)
+    expect(within(screen.getByRole('alert')).getByText(p.lost)).toBeTruthy()
+    expect(prompt().readOnly).toBe(true)
+    expect(onRun).not.toHaveBeenCalled()
+    expect(screen.queryByText(words.sandbox.ended)).toBeNull()
+  })
+
+  it('keeps the chat a list with a publish notice in it', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { bisectMessageId: 'm2' })) }, 'r1')
+    const list = screen.getAllByRole('list')[0] as HTMLElement
+    expect([...list.children].every((item) => item.tagName === 'LI' && !item.hasAttribute('role'))).toBe(true)
+    expect(within(list).getByRole('alert')).toBeTruthy()
   })
 
   it('ends the session at once when a read of the publish is refused, keeping the publish to check after Reopen', async () => {

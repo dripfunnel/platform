@@ -265,15 +265,19 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const next = (overview.live?.number ?? 0) + 1
   const ended = published && published.id === run ? published : null
   const culprit = ended?.bisectMessageId ? chat.find((m) => m.id === ended.bisectMessageId) : undefined
+  // In the chat's list, so each notice is a list item holding the alert (WCAG 4.1.2).
   const notice = lost ? (
-    <li className="df-studio-refused" role="alert">
-      <span>{words.publish.lost}</span>
-      <button type="button" className="df-button" onClick={() => setChecks((n) => n + 1)}>
-        {words.publish.checkAgain}
-      </button>
+    <li>
+      <div className="df-studio-refused" role="alert">
+        <span>{words.publish.lost}</span>
+        <button type="button" className="df-button" onClick={() => setChecks((n) => n + 1)}>
+          {words.publish.checkAgain}
+        </button>
+      </div>
     </li>
   ) : ended?.step === 'failed' ? (
-      <li className="df-studio-refused" role="alert">
+    <li>
+      <div className="df-studio-refused" role="alert">
         <strong>{fill(words.publish.refusedTitle, { number: String(ended.version ?? next) })}</strong>
         <span>{refusedText(ended)}</span>
         {culprit && <span className="df-sf-lede">{fill(words.publish.culprit, { text: culprit.text })}</span>}
@@ -282,12 +286,15 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             {words.publish.before}
           </button>
         )}
-      </li>
-    ) : ended?.step === 'rolled_back' ? (
-      <li className="df-studio-refused" role="alert">
+      </div>
+    </li>
+  ) : ended?.step === 'rolled_back' ? (
+    <li>
+      <div className="df-studio-refused" role="alert">
         <span>{rolledBackText(ended, Math.max(1, (ended.version ?? next) - 1))}</span>
-      </li>
-    ) : null
+      </div>
+    </li>
+  ) : null
   const paneProps = (p: StudioPane) => (phone ? { id: `${panesId}-${p}-panel`, role: 'tabpanel', 'aria-labelledby': `${panesId}-${p}`, hidden: pane !== p } : {})
 
   return (
