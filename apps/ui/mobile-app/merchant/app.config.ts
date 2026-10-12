@@ -63,7 +63,8 @@ export function buildConfig(config: Partial<ExpoConfig>, env: PartnerEnv): ExpoC
     scheme: env.APP_SCHEME,
     orientation: 'portrait',
     icon: env.ICON_IMAGE,
-    userInterfaceStyle: 'automatic',
+    // Light only until the theme exists: dark mode comes from the brand query (BUILDS-AND-STORE-ACCOUNTS.md §2, #497).
+    userInterfaceStyle: 'light',
     runtimeVersion: { policy: 'appVersion' },
     ios: { bundleIdentifier: env.IOS_BUNDLE_ID, supportsTablet: false },
     android: {

@@ -11,6 +11,6 @@ export function PlaceholderScreen({ title }: { title: string }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFFFFF' },
+  screen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
   title: { fontSize: 20, fontWeight: '700' },
 })
