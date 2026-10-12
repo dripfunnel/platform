@@ -40,7 +40,7 @@ export type StudioSessionView = StudioState & { session: string; frameUrl: strin
 export type TextEntry = { key: string; text: string }
 
 const maxRequest = 2000
-/** design_message.sample_url's limit (migration 0310). */
+/** design_message.sample_url's limit (migration 0333). */
 const maxUrl = 2048
 /** A page or a text key: names, never words. */
 const maxKey = 200
