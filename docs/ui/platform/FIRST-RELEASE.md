@@ -717,12 +717,13 @@ account elsewhere.
 
 **Payout account**: "Chase ending 1180 · Verified" (or Verifying · Verification failed ·
 Missing), "Only the last 4 digits are ever shown. Payouts go out on the 1st of each month in
-USD."; **Add / Change account** (Owner, Finance): account holder, account number or IBAN in
-Stripe's own field, so only a token reaches DripFunnel (#201) —
+USD."; **Add / Change account** (Owner, Finance): account holder, account number or IBAN, and a
+routing number where the country uses one. Stripe.js reads them in the browser and hands back a
+`btok_` token, so only the token reaches DripFunnel (#201, #278) —
 "DripFunnel checks it with a small test deposit. Payouts pause until it's verified (1–2
 business days)." **Payment method**: "Visa ending 3009 · On file" (or Declined · Missing),
 "DripFunnel charges this card for its invoices, such as priority support."; **Add / Change
-card** (Owner, Finance) through a hosted payment field — **the card number never touches
+card** (Owner, Finance) through Stripe's card Element — **the card number never touches
 DripFunnel** (THIRD-PARTY-ACCESS §2.7; the prototype's plain field is a drawing, §17). In a
 staff setup session both read "Payment method and payout details stay with {partner}. {partner}
 enters these itself." (ACCESS §8.2).
@@ -739,9 +740,11 @@ sign-in." Turning it off never removes anyone's 2-factor.
   consequence stated.
 - **The Owner role** is offered only to Owners. The last Owner's row and the caller's own row are
   disabled with the reason.
-- **Payout and payment** says nothing can be added until the payment provider is connected (#201).
-  No account or card is drawn as on file, and the card form is a slot for the provider's hosted
-  field, with no input of ours.
+- **Payout and payment** (wired in #278) shows what is on file with its status, and the add and
+  change dialogs: Stripe.js makes the `btok_` or `pm_` token and only that is sent
+  (`setPayoutAccount`, `setPaymentMethod`). Without `STRIPE_PUBLISHABLE_KEY` the tab says the
+  provider isn't switched on, as before, and Add stays off. The `?state=` harness adds
+  `notconnected`, `verifying` and `declined` on this tab.
 - **The 2-factor-off list** names the team members loaded so far.
 - **"Your account"** (what a staff session can't change, #46) sits under Security.
 
@@ -1105,6 +1108,10 @@ secrets and the same code runs.
   stale strip's `asOf` and `staleSince` from the last Stripe event and since when Stripe has been
   slow); `payoutAccount`, `paymentMethod`; and `downloadInvoice(id)`, Stripe's fresh PDF link,
   **a query** because reading it changes nothing.
+- `billingClientConfig` (`billing.read`) answers `publishableKey`, the Stripe `pk_` read from the
+  `STRIPE_PUBLISHABLE_KEY` Worker variable at request time, or null while it is unset (#278). The
+  console loads Stripe.js from `js.stripe.com` only when Settings › Payout and payment opens; no
+  `VITE_*` variable (#272 rule 4).
 - `setBillingMode(mode)` (`billing.write`: Owner, Finance) is audited and flips only what the
   Stores list shows and what `setStoreBillingStatus` allows (#159).
 - `setPayoutAccount(token)` (`payout.write`) and `setPaymentMethod(token)` (`card.write`): Owner
@@ -1150,7 +1157,8 @@ what is not drawn.
 | The prototype | This release | Kind |
 |---|---|---|
 | Support sessions are full access as the user ("Impersonate"; "Changes you save are logged as Priya as Jenna") | **Read-only, with write access only after the merchant allows it for that session** (ACCESS §8, USERS-AND-DOMAINS §4.1). The flow, the banner and the blocked list are kept (§12) | rule |
-| The payment-method dialog takes a raw card number | A **hosted payment field**; the card number never touches DripFunnel (§14.3; THIRD-PARTY-ACCESS §2.7) | rule |
+| The payment-method dialog takes a raw card number and expiry | **Stripe's card Element**; the card number never touches DripFunnel (§14.3; THIRD-PARTY-ACCESS §2.7) | rule |
+| The payout-account dialog has holder and number only | Adds a **routing number** where the country has one (not for IBAN countries): Stripe refuses a US bank account without it. Read by Stripe.js, never sent to the API (decided on #278) | behaviour, decided |
 | No environment marker | A marker on non-production hosts only (§2.3) | behaviour, decided |
 | Everyone sets up an authenticator app when accepting an invitation; the Owner's Security switch also exists | 2-factor optional, offered at acceptance; required at acceptance and at the next sign-in when the Owner's switch is on (§3, §14.4) | behaviour, decided |
 | Retrying a stuck setup step is a partner action | Kept — **decided 2026-10-01**, settling CONSOLE-DESIGN K's *(ask)*: Owner and Admin may retry (§6.3, §6.4) | behaviour, decided |

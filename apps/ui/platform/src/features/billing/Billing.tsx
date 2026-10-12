@@ -211,7 +211,7 @@ const Invoices = ({ invoices, onPdf }: { invoices: Paged<Invoice>; onPdf: (invoi
 
 // Who bills your merchants (§11.4): the prototype's two choices, changed on selection by Owners and
 // Finance (the API refuses everyone else and audits the change); the others see why they can't.
-const WhoBills = ({ mode, mayChange, changing, accountLast4, onChange }: { mode: BillingMode; mayChange: boolean; changing: boolean; accountLast4: string | null; onChange: (mode: BillingMode) => void }) => {
+const WhoBills = ({ mode, mayChange, changing, account, onChange }: { mode: BillingMode; mayChange: boolean; changing: boolean; account: { last4: string | null } | null; onChange: (mode: BillingMode) => void }) => {
   const w = words.settings
   return (
     <section className="df-panel df-panel--wide" aria-labelledby="billing-settings">
@@ -234,12 +234,15 @@ const WhoBills = ({ mode, mayChange, changing, accountLast4, onChange }: { mode:
           <PermissionDenied actionLabel={w.title} reason={w.ownersAndFinance} />
         </div>
       )}
-      <p>
-        <strong>{w.payoutAccount}</strong> <span>{accountLast4 ? fill(w.accountEnding, { last4: accountLast4 }) : w.noAccount}</span> ·{' '}
-        <Link to="/settings" search={{ tab: 'payout' }} className="df-row-link">
-          {w.payoutLink}
-        </Link>
-      </p>
+      {/* Nothing for a staff session: payout details stay with the partner (ACCESS §8.2). */}
+      {account && (
+        <p>
+          <strong>{w.payoutAccount}</strong> <span>{account.last4 ? fill(w.accountEnding, { last4: account.last4 }) : w.noAccount}</span> ·{' '}
+          <Link to="/settings" search={{ tab: 'payout' }} className="df-row-link">
+            {w.payoutLink}
+          </Link>
+        </p>
+      )}
     </section>
   )
 }
@@ -284,7 +287,7 @@ export const Billing = ({ mode, live, money, payments, payouts, invoices, partne
         </>
       )}
       <Invoices invoices={invoices} onPdf={onPdf} />
-      <WhoBills mode={mode} mayChange={mayChange} changing={changing} accountLast4={money.payoutAccount.last4} onChange={onChangeMode} />
+      <WhoBills mode={mode} mayChange={mayChange} changing={changing} account={money.payoutAccount} onChange={onChangeMode} />
     </div>
   )
 }

@@ -503,11 +503,65 @@
     "payout": {
       "title": "Payout and payment",
       "notConnected": "Payouts and the payment method connect with DripFunnel’s payment provider, which isn’t switched on yet. Nothing can be added here until it is.",
+      "loading": "Loading your payout account and payment method",
+      "error": {
+        "title": "Payout and payment couldn’t be loaded",
+        "body": "Nothing was changed. Try again.",
+        "retry": "Try again"
+      },
       "payoutAccount": "Payout account",
       "payoutNote": "Only the last 4 digits are ever shown. DripFunnel checks a new account with a small test deposit, and payouts pause until it’s verified (1–2 business days).",
+      "noAccount": "No payout account yet",
+      "accountEnding": "{bank} ending {last4}",
+      "accountEndingPlain": "Account ending {last4}",
+      "addAccount": "Add account",
+      "changeAccount": "Change account",
       "paymentMethod": "Payment method",
       "paymentNote": "DripFunnel charges this card for its invoices, such as priority support.",
-      "slot": "The card form opens here, from the payment provider. The card number never touches DripFunnel.",
+      "noCard": "No payment method yet",
+      "cardEnding": "{brand} ending {last4}",
+      "cardExpires": "Expires {date}",
+      "addCard": "Add card",
+      "changeCard": "Change card",
+      "statuses": {
+        "missing": "Missing",
+        "verifying": "Verifying",
+        "verified": "Verified",
+        "failed": "Verification failed",
+        "on_file": "On file",
+        "declined": "Declined"
+      },
+      "mayNot": "Only Owners and Finance change this.",
+      "account": {
+        "addTitle": "Add a payout account",
+        "changeTitle": "Change the payout account?",
+        "target": "Payout account",
+        "consequence": "DripFunnel checks it with a small test deposit. Payouts pause until it’s verified (1–2 business days).",
+        "holder": "Account holder",
+        "routing": "Routing number",
+        "number": "Account number",
+        "iban": "IBAN",
+        "hint": "Stripe reads these in your browser. Only a token reaches DripFunnel, and only the last 4 digits are shown after saving.",
+        "save": "Save account",
+        "incomplete": "Fill in every field to save."
+      },
+      "card": {
+        "addTitle": "Add a payment method",
+        "changeTitle": "Change the payment method?",
+        "target": "Payment method",
+        "consequence": "DripFunnel charges this card for its invoices, such as priority support.",
+        "field": "Card details",
+        "hint": "Stripe’s own field takes the card. The number never touches DripFunnel.",
+        "save": "Save card",
+        "incomplete": "Fill in the card details to save.",
+        "unavailable": "Stripe’s card field couldn’t load. Check your connection and try again."
+      },
+      "cancel": "Cancel",
+      "saved": {
+        "account": "Saved. DripFunnel will send a small test deposit; payouts resume once it’s verified.",
+        "card": "Card saved."
+      },
+      "failed": "That didn’t go through. Nothing was changed. Try again.",
       "staffSession": "Payment method and payout details stay with {partner}. {partner} enters these itself."
     },
     "security": {
