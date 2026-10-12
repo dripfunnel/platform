@@ -548,7 +548,13 @@ export const pruneVersionHistory = async (tx: ScopedSql, now: Date, limit: numbe
     select v.id from design_version v
       join store_subscription sub on sub.store_id = v.store_id
       left join plan_entitlement e on e.plan_id = sub.plan_id and e.version = sub.plan_version and e.key = 'history_days'
-    where v.state <> 'live' and v.published_at < ${now}::timestamptz - make_interval(days => least(coalesce(e.amount, 0), 36500))
+      -- The store's live override first, as selectStoreEntitlement reads it (SAAS §6.4).
+      left join lateral (
+        select o.amount from store_limit_override o
+        where o.store_id = v.store_id and o.key = 'history_days' and o.removed_at is null
+          and (o.duration = 'always' or o.month = date_trunc('month', ${now}::timestamptz)::date)
+        order by o.created_at desc limit 1) o on true
+    where v.state <> 'live' and v.published_at < ${now}::timestamptz - make_interval(days => least(coalesce(o.amount, e.amount, 0), 36500))
     order by v.published_at limit ${limit}`
   if (old.length === 0) return 0
   const ids = old.map((v) => v.id)

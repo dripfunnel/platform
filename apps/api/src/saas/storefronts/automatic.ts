@@ -19,8 +19,8 @@ export const startAutomaticPublishes = async (sql: postgres.Sql, now: Date): Pro
       if (!(await lockStorefront(tx, storeId))) return false
       const state = await selectCatalogueState(tx, storeId)
       if (!state?.changes_since || !state.live_commit || !state.live_template || !state.live_core_version) return false
-      await setNextAutoPublish(tx, storeId, new Date(now.getTime() + autoPublishIntervalMs))
       const run = await startPublish(tx, { storeId, kind: 'automatic', commit: state.live_commit, template: state.live_template, coreVersion: state.live_core_version, usesAllowance: false, startedBy: { kind: 'system', id: null }, at: now })
+      if (run.ok) await setNextAutoPublish(tx, storeId, new Date(now.getTime() + autoPublishIntervalMs))
       return run.ok
     })
     if (ok) started += 1

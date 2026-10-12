@@ -64,10 +64,13 @@ describe('catalogue changes waiting', () => {
     expect((await catalogue('owner'))?.catalogue).toMatchObject({ waiting: false, changedKinds: [], pressesAllowed: 2, pressesLeft: 2, nextAutomaticPublishAt: null })
     await product(t.storeA1, 'Kurta')
     await product(t.storeA1, 'Dupatta')
-    await db.sql`insert into menu (store_id, name) values (${t.storeA1}, 'Main')`.catch(() => undefined)
+    await db.sql`insert into collection (store_id, name, slug, kind) values (${t.storeA1}, 'Linen', 'linen', 'manual')`
+    await db.sql`insert into menu (store_id, key, name) values (${t.storeA1}, 'main', 'Main') on conflict (store_id, key) do update set name = 'Main menu'`
+    await db.sql`insert into storefront_content (store_id, kind, slug, title, status) values (${t.storeA1}, 'page', 'faq', 'FAQ', 'published')`
+    await db.sql`update store set description = 'Handwoven linen' where id = ${t.storeA1}`
     const read = (await catalogue('manager'))?.catalogue
     expect(read).toMatchObject({ waiting: true, changedProducts: 2 })
-    expect(read?.['changedKinds']).toContain('products')
+    expect([...((read?.['changedKinds'] as string[] | undefined) ?? [])].sort()).toEqual(['collections', 'content', 'menus', 'products', 'settings'])
     expect(read?.['nextAutomaticPublishAt']).toBe(new Date(Date.parse(String(read?.['since'])) + autoPublishIntervalMs).toISOString())
     expect((await catalogue('bOwner'))?.catalogue).toMatchObject({ waiting: false })
     for (const who of ['staff', 'supplier'] as const) expect((await w.gql(who, '{ storefront { catalogue { waiting } } }')).code).toBe('FORBIDDEN')
@@ -124,6 +127,7 @@ describe('the automatic publish', () => {
     expect(await startAutomaticPublishes(db.sql, new Date(Date.now() + 2 * autoPublishIntervalMs))).toBe(1)
     expect(await runs(t.storeB1)).toHaveLength(1)
   })
+
 })
 
 describe('the meters and the history', () => {
@@ -160,5 +164,11 @@ describe('the meters and the history', () => {
     expect((await db.sql<{ number: number }[]>`select number from design_version where store_id = ${t.storeA2} order by number`).map((v) => v.number)).toEqual([1, 3])
     // Other stores' recent versions stay.
     expect(await db.sql`select 1 from design_version where store_id = ${t.storeA1}`).toHaveLength(1)
+    // A partner's override raising the days keeps what the plan's 30 alone would prune (SAAS §6.4).
+    await add(4, 45, 'kept')
+    await db.sql`insert into store_limit_override (store_id, key, amount, duration, reason, created_by_kind, created_by_label, created_at)
+      values (${t.storeA2}, 'history_days', 365, 'always', 'Keeps a year', 'partner_user', 'Partner', now())`
+    await pruneHistory(db.sql, new Date())
+    expect((await db.sql<{ number: number }[]>`select number from design_version where store_id = ${t.storeA2} order by number`).map((v) => v.number)).toEqual([1, 3, 4])
   })
 })
