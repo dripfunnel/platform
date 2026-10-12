@@ -9,6 +9,7 @@ export const Gallery = ({ photos, video, name }: { photos: readonly Photo[]; vid
   const { t } = useStorefront()
   const [shown, setShown] = useState(0)
   const first = photos[0]
+  // Core's <Video> needs a poster (storefront ARCHITECTURE §2.1), so a product with no photo shows no video either.
   if (!first) return <div className={styles.noPicture} />
   const playing = video !== null && shown === photos.length
   const photo = photos[Math.min(shown, photos.length - 1)] ?? first
