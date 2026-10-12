@@ -33,3 +33,6 @@ export const holdsMerchantRole = async (tx: ScopedSql, userId: string, storeId: 
 /** The store's preview key and revocation number, for signing its link. */
 export const selectPreviewKey = async (tx: ScopedSql, storeId: string): Promise<{ preview_key: string; preview_epoch: number } | null> =>
   (await tx<{ preview_key: string; preview_epoch: number }[]>`select preview_key, preview_epoch from storefront where store_id = ${storeId}`)[0] ?? null
+
+export const movePreviewEpoch = async (tx: ScopedSql, storeId: string): Promise<boolean> =>
+  (await tx`update storefront set preview_epoch = preview_epoch + 1 where store_id = ${storeId}`).count === 1

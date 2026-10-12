@@ -76,7 +76,8 @@ export const sandboxClient = (send: SandboxFetch, slot: string) => {
     /** `at` checks the bundle out at that commit: a live build's source bundle may hold commits past its own. */
     loadBundle: async (bytes: ArrayBuffer, at: string | null = null): Promise<Loaded> => json(await call('PUT', at ? `draft?at=${at}` : 'draft', bytes, 'application/x-git-bundle'), loadedSchema),
     loadFiles: async (files: readonly { path: string; content: string }[], message: string): Promise<Loaded> => json(await call('PUT', 'draft', JSON.stringify({ files, message })), loadedSchema),
-    theme: async () => json(await call('GET', 'theme'), themeSchema),
+    /** The theme at the head, or at `at`, an earlier commit of the draft. */
+    theme: async (at: string | null = null) => json(await call('GET', at ? `theme?at=${at}` : 'theme'), themeSchema),
     change: async (files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'changes', JSON.stringify({ files, message, context })), changeSchema),
     undo: async (commit: string, message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'undo', JSON.stringify({ commit, message, context })), changeSchema),
     upgrade: async (request: UpgradeRequest): Promise<Upgraded> => json(await call('POST', 'upgrade', JSON.stringify(request)), upgradedSchema),

@@ -83,6 +83,13 @@ export class Workspace {
     return new Map(await Promise.all(paths.map(async (p) => [p, await readFile(join(this.repo, p), 'utf8')] as const)))
   }
 
+  /** The theme at an earlier commit of the draft, for the push once a publish of it is live (AI-STUDIO §6 step 4). */
+  async themeAt(commit: string): Promise<Map<string, string>> {
+    this.mustBeLoaded()
+    const paths = (await this.git(['ls-tree', '-r', '-z', '--name-only', `${commit}^{commit}`])).split('\0').filter(isThemePath)
+    return new Map(await Promise.all(paths.map(async (p) => [p, await this.git(['show', `${commit}:${p}`])] as const)))
+  }
+
   /** Applies a change and runs the fast gate; on a pass it is a local commit, on a failure nothing changed at all. */
   async change(files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> {
     const theme = await this.theme()

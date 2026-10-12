@@ -177,6 +177,15 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    #520). One push per publish stays far below GitHub's limit of 6 pushes a minute per
    repo.
 
+   **Built on #318:** at Publish (and "Publish everything before"), the store's Durable Object, in its turn, keeps the
+   published commit's theme privately (`sources/{store}/themes/{commit}.json` in the drafts bucket; the sandbox's
+   `GET theme?at=`); once the publish is live, its Workflow's last step pushes that theme through the push API under the key
+   `publish:{build}`. A publish's repair is a change by the Durable Object, the platform's cost, its theme kept the same
+   way; a draft published to its head has no row afterwards, as after Discard. Go back runs in the Durable Object's turn
+   and resets the draft to the version (no row); across a newer security release of core it is refused
+   (`SECURITY_RELEASE`), so a forced fix is never undone, and the version's free rebuild on the fixed core is left to the
+   upgrade bot (#485).
+
    **The push API** (`saas/storefronts/push.ts`, built on #316): the caller names the reason
    (`publish` with the version and build id, `template`, or the upgrade bot's `upgrade`) and the
    platform writes the message from it, so no caller's text reaches the repo. A publish or a

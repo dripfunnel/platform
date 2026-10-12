@@ -1768,6 +1768,11 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                     -- repo is ready (SAAS §5 step 8, migration 0231). Steps 4–8 run as a job of kind
                     -- 'create-storefront', after the signup's 'provision-store' (#316)
                     -- Built on #306 (migration 0064) with store_id, public_store_key ('pk_' and 32 hex)
+                    -- #318 (migration 0334): changes_since, changed_kinds (products, collections, menus, content,
+                    -- settings), changed_count (product rows touched) and change_seq, moved by statement
+                    -- triggers on the catalogue version's tables, the content pages and the store; a full
+                    -- publish freezes change_seq at its claim (publish_run.change_seq) and, live, clears the marks
+                    -- only if it still matches; next_auto_publish_at is set when an automatic publish starts
                     -- and catalog_version (moved by triggers on every change a storefront shows; the
                     -- Shop API's edge cache keys on it); preview_key built on #518 (0232): 10 lowercase
                     -- base32 characters, unique, not null, drawn by storefront_for_store() with the store
@@ -1828,6 +1833,7 @@ design_draft        (store_id PK, head_commit, base_version_id NULL, template, c
                     -- the public repo (decided 2026-10-09, storefront AI-STUDIO §4, §6);
                     -- preview_deploy_ref is the preview's folder (PREVIEW §3);
                     -- discard resets it to the live version's commit; deleted on publish.
+                    -- #318: deleted when a design publish of its head goes live, and when going back to a version
                     -- Built on #316 (migration 0231) without base_version_id, which comes with
                     -- design_version: the create-storefront Workflow writes the first, its head
                     -- the repo's main and its preview the template's bundle (SAAS §5 step 7)
