@@ -152,8 +152,9 @@ export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise
     update storefront set changes_since = null, changed_kinds = '{}', changed_count = 0, next_auto_publish_at = null
     where store_id = ${run.store_id}
       and change_seq = (select r.change_seq from publish_run r where r.id = (select coalesce(attempt_of, id) from publish_run where id = ${run.id}))`
-  // A "Publish now" press counts once it is live, never when refused, failed or rolled back (SAAS §6.2).
-  const [press] = await tx<{ uses_allowance: boolean }[]>`select uses_allowance from publish_run where id = ${run.id}`
+  // A "Publish now" press counts once it is live, never when refused, failed or rolled back (SAAS §6.2); an attempt
+  // that went live in its place counts as its press.
+  const [press] = await tx<{ uses_allowance: boolean }[]>`select uses_allowance from publish_run where id = (select coalesce(attempt_of, id) from publish_run where id = ${run.id})`
   if (press?.uses_allowance) await addUsage(tx, run.store_id, 'publish_now', 1, monthStart(at), at)
   // The merchant republished: their own theme is back, and a major it was waiting for is taken (ARCHITECTURE §7).
   if (run.kind === 'design') {

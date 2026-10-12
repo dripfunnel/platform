@@ -111,6 +111,21 @@ describe('Publish now', () => {
     expect((await catalogue('owner'))?.catalogue).toMatchObject({ waiting: true, pressesLeft: 0 })
     expect((await press()).code).toBe('NO_PRESSES_LEFT')
   })
+
+  it('counts a press once when an attempt goes live in its place', async () => {
+    const [root] = await db.sql<{ id: string }[]>`
+      insert into publish_run (store_id, kind, state, commit, template, core_version, uses_allowance, started_by_kind, created_at)
+      values (${t.storeA1}, 'manual', 'failed', ${'c'.repeat(40)}, 'linen', '1.0.0', true, 'system', now()) returning id`
+    const [attempt] = await db.sql<{ id: string }[]>`
+      insert into publish_run (store_id, kind, state, commit, template, core_version, uses_allowance, started_by_kind, created_at, attempt_of, attempt)
+      values (${t.storeA1}, 'manual', 'deploying', ${'e'.repeat(40)}, 'linen', '1.0.0', false, 'system', now(), ${root?.id ?? ''}, 'repair') returning id`
+    const before = await usage(t.storeA1, 'publish_now')
+    await withSystemScope(db.sql, async (tx) => {
+      const run = await selectRun(tx, attempt?.id ?? '')
+      if (run) await confirmLive(tx, run, new Date())
+    })
+    expect(await usage(t.storeA1, 'publish_now')).toBe(before + 1)
+  })
 })
 
 describe('the automatic publish', () => {
