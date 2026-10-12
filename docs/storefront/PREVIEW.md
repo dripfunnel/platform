@@ -115,7 +115,7 @@ container.
    the store (ACCESS §3) and signs a link: `https://{key}.webpreview.store/__open?t=<token>`.
    The token names the store and the user, is signed with a Worker secret, and expires
    after **7 days** (decided on #317, as proposed).
-   **Built on #317:** the Store API's `openStorefrontPreview` (the `publish` capability; refused to support and staff
+   **Built on #317:** the Store API's `openStorefrontPreview`, renamed `previewLink` on #318 (the `publish` capability; refused to support and staff
    sessions, which act as someone else) answers the link and records `storefront.preview_opened`. The token is sealed with
    AES-GCM under `PREVIEW_LINK_KEY`, so its holder can't read who issued it, and carries the store, the user,
    `storefront.preview_epoch` and the expiry.
