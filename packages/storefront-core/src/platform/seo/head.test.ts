@@ -22,6 +22,16 @@ describe('the head', () => {
     expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex, nofollow')
     expect(document.head.querySelector('meta[name="description"]')).toBeNull()
   })
+
+  it("keeps the build's canonical on the page it was written for, and drops it once the address moves on", () => {
+    document.head.innerHTML = `<link rel="canonical" href="${location.origin}/about/">`
+    history.replaceState(null, '', '/about/')
+    applyHead(document, { title: 'About' }, location.origin)
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(`${location.origin}/about/`)
+    history.pushState(null, '', '/cart/')
+    applyHead(document, { title: 'Cart' }, location.origin)
+    expect(document.head.querySelector('link[rel="canonical"]')).toBeNull()
+  })
 })
 
 describe('storeHead', () => {
