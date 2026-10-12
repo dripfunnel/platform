@@ -1,0 +1,95 @@
+{
+  "collection": {
+    "title": "Collection",
+    "lead": "Everything in this collection."
+  },
+  "product": {
+    "title": "Product",
+    "lead": "The details of this product."
+  },
+  "search": {
+    "title": "Search the shop",
+    "lead": "Find a product by its name or type."
+  },
+  "cart": {
+    "title": "Your cart",
+    "lead": "Check what you picked before you check out.",
+    "action": "Keep shopping"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "lead": "A few details and your order is on its way.",
+    "action": "Back to your cart"
+  },
+  "confirmation": {
+    "title": "Thank you",
+    "lead": "We have your order and will email you as it moves along."
+  },
+  "signIn": {
+    "title": "Sign in",
+    "lead": "Sign in to follow your orders and use your saved addresses.",
+    "action": "New here? Create an account"
+  },
+  "register": {
+    "title": "Create an account",
+    "lead": "An account keeps your orders and addresses in one place.",
+    "action": "Already have an account? Sign in"
+  },
+  "verify": {
+    "title": "Check your email",
+    "lead": "We sent you a code to confirm your email address."
+  },
+  "forgotPassword": {
+    "title": "Forgot your password?",
+    "lead": "We will email you a link to set a new one.",
+    "action": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "lead": "Choose a new password for your account.",
+    "action": "Back to sign in"
+  },
+  "account": {
+    "title": "Your account",
+    "lead": "Your orders and addresses in one place.",
+    "orders": "Your orders",
+    "addresses": "Your addresses"
+  },
+  "addresses": {
+    "title": "Your addresses",
+    "lead": "The addresses you ship to."
+  },
+  "orders": {
+    "title": "Your orders",
+    "lead": "Every order you have placed with us."
+  },
+  "order": {
+    "title": "Your order",
+    "lead": "Where your order is and what is in it."
+  },
+  "policy": {
+    "title": "Our policies",
+    "lead": "The terms that apply when you shop with us."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "lead": "The page you asked for has moved or never existed.",
+    "action": "Go to the home page"
+  },
+  "degraded": {
+    "title": "We will be back soon",
+    "lead": "The shop is closed for now. Please come back later."
+  },
+  "about": {
+    "title": "About {store}",
+    "first": "Tell shoppers who you are and why you started {store}.",
+    "second": "Say what you make and how. The studio can help you write it."
+  },
+  "contact": {
+    "title": "Get in touch",
+    "lead": "Questions about an order or anything else? Write to us and we will reply.",
+    "email": "Email",
+    "phone": "Phone",
+    "visit": "Visit"
+  }
+}
