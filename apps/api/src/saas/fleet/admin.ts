@@ -2,9 +2,10 @@ import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StaffMember } from '#auth/staff'
 import type { Keyset } from '#core/cursor'
-import { countStoresByState, insertRollout, selectReleaseForRollout, selectRollout, selectRollouts, setRolloutState, type RolloutRow, type StoreUpgradeState } from '#db/scoped/coreRollouts'
+import { countStoresByState, insertRollout, phaseCounts, selectReleaseForRollout, selectRollout, selectRollouts, setRolloutState, type RolloutRow, type StoreUpgradeState } from '#db/scoped/coreRollouts'
 import { uniqueViolation, withScope, type ScopedSql } from '#db/scoped/index'
 import { decodePage, pageOf, reasonText, staffEntry, type PageRequest } from '#saas/staff/index'
+import { wavePercents } from './waves'
 
 // The fleet on the Admin API (SAAS §10, §13: Engineer on call and Super admin): core rollouts started, paused, resumed
 // and rolled back, each audited with its reason; the cron's tick does the work (rollout.ts).
@@ -76,13 +77,14 @@ export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDe
     }
   }
 
-  const change = (id: string, rawReason: string, action: string, next: (row: RolloutRow) => Parameters<typeof setRolloutState>[2] | null): Promise<FleetResult> => {
+  type Next = Parameters<typeof setRolloutState>[2] | null
+  const change = (id: string, rawReason: string, action: string, next: (row: RolloutRow, tx: ScopedSql) => Next | Promise<Next>): Promise<FleetResult> => {
     const reason = reasonText.safeParse(rawReason)
     if (!reason.success) return Promise.resolve({ ok: false, code: 'INVALID_INPUT' })
     return asStaff(async (tx): Promise<FleetResult> => {
       const row = await selectRollout(tx, id, true)
       if (!row) return { ok: false, code: 'NOT_FOUND' }
-      const to = next(row)
+      const to = await next(row, tx)
       if (!to) return { ok: false, code: 'WRONG_STATE' }
       await setRolloutState(tx, row.id, to)
       const after = await selectRollout(tx, row.id)
@@ -96,7 +98,14 @@ export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDe
   const pause = (id: string, reason: string) =>
     change(id, reason, fleetAudit.paused, (r) => (r.state === 'canary' || r.state === 'waves' ? { state: 'paused', pausedState: r.state } : null))
 
-  const resume = (id: string, reason: string) => change(id, reason, fleetAudit.resumed, (r) => (r.state === 'paused' && r.paused_state ? { state: r.paused_state } : null))
+  /** Back to the phase it left; resumed after its canaries all ended, the engineer accepts them and the waves begin. */
+  const resume = (id: string, reason: string) =>
+    change(id, reason, fleetAudit.resumed, async (r, tx) => {
+      if (r.state !== 'paused' || !r.paused_state) return null
+      if (r.paused_state !== 'canary' || !r.enrolled_at) return { state: r.paused_state }
+      const canaries = await phaseCounts(tx, r.id, 0)
+      return canaries.pending === 0 && canaries.running === 0 ? { state: 'waves', percent: wavePercents[0] } : { state: 'canary' }
+    })
 
   /** No new store starts, and the tick puts every store that went live on this version back on the build before it. */
   const rollBack = (id: string, reason: string) =>

@@ -175,6 +175,13 @@ describe('the tick', () => {
     expect(await rolloutRow(id)).toMatchObject({ state: 'paused', paused_state: 'canary' })
     const [alert] = await db.sql<{ reason: string; actor_kind: string }[]>`select reason, actor_kind from activity_log where target_id = ${id} and action = 'core_rollout.paused'`
     expect(alert).toMatchObject({ reason: 'canary_failed', actor_kind: 'job' })
+    await tick(10)
+    expect(await rolloutRow(id)).toMatchObject({ state: 'paused', paused_state: 'canary' })
+    // Resumed, the engineer accepts the canaries as they ended: the waves begin, and it isn't paused again.
+    expect((await run<{ resumeCoreRollout: Rollout }>(steer('resumeCoreRollout'), 'staff-engineer', { id, r: 'The pinned canary is a theme we know' })).data?.resumeCoreRollout).toMatchObject({ state: 'waves', percent: 10 })
+    await tick(10)
+    expect(await rolloutRow(id)).toMatchObject({ state: 'waves' })
+    expect(await db.sql`select 1 from activity_log where target_id = ${id} and action = 'core_rollout.paused'`).toHaveLength(1)
   })
 
   it('lets a security fix take every job', async () => {

@@ -7,14 +7,11 @@ import { activityLog } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { rollBackLive } from '#saas/storefronts/index'
 import { storefrontUpgradeKind } from './upgrade'
+import { canaryStores, wavePercents } from './waves'
 
 // The rollout's tick (SAAS §10), every minute from the cron: canaries first, then waves of a growing share of the fleet,
 // never more upgrades building at once than the org's Actions jobs allow (storefront LIVE-SHOP §10).
 
-/** Stores upgraded before anyone else's, chosen by a hash of the store and the rollout. */
-export const canaryStores = 5
-/** How far each wave reaches, in stores per hundred, after the canaries. */
-export const wavePercents = [10, 25, 50, 100] as const
 /** The Free plan's jobs at once, until GITHUB_ACTIONS_JOBS says the org's (LIVE-SHOP §10, decided on #287). */
 export const defaultActionsJobs = 20
 /** Stores a rolled-back rollout puts back each minute. */
