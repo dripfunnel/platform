@@ -694,6 +694,53 @@ through. Your site stays live."), as is a support session.
   a plan without `custom_domain` the card says so and links the Owner to Billing. Search and sharing's counters
   turn red and say "too long" past the limit, which disables Save; the share image is picked from the first photo
   of the five products changed last.
+- **Built on #319 (part 3, on #318's API)**: the Overview's header (the live line, **View live site ↗**, **Change
+  template**), the draft notice with **Discard** (asks first), the live version, "Powered by" with **Remove it**, and the
+  template gallery with "Your current look", **View demo ↗** (an https demo only) and the keep-my-words question. *Decided
+  there:* live pages refuse every frame (`frame-ancestors 'none'`, storefront ARCHITECTURE §3.5, #481), so the Overview
+  shows the live version's number, when it was published and its address instead of framing it at Desktop and Phone; a
+  template's thumbnail is a tile with its name until the API offers a picture with the store's products (ST 0 left it
+  open); the gallery replaces the page for the Owner until a template is picked, and again after the site couldn't be
+  made ("We couldn't set up your storefront. Pick a template to try again."); the first pick asks nothing about words,
+  since there are none to keep; while the site is made the Design tab says "Setting up your storefront…" and reads its
+  status again every 5 seconds; "Start from scratch" reads "Custom" in the live line; "Powered by" shows to the Owner
+  only (it needs the plan, a `billing` read) when the partner shows it and the plan keeps it, with Remove it (to
+  Billing) only when another plan removes it. Open studio and Continue in studio come with the studio (part 4).
+- **Built on #319 (part 4)**: the studio, full screen over the portal (a modal dialog, so the header and menu are
+  inert): the top bar (← Storefront, template and store, address, status, the page picker, Desktop · Tablet · Phone as
+  a select below 1180 px, Discard), Chat and Preview tabs on a phone, the sandbox's states, the chat (words, an uploaded
+  or pasted image, a website address, suggestions, what changed, Undo this change, notes, the error line) and Edit
+  text; Open studio and Continue in studio on the Overview, and the gallery opening the studio after a pick. *Decided
+  there:* the Manager gets no studio, as the prototype draws (the Overview shows them the draft notice); the session is
+  renewed every 2 minutes (storefront AI-STUDIO §9); "You're next — about N seconds" counts 20 seconds per studio ahead
+  *(proposed)*; "Checking your change…" covers the whole request, which answers once checked and repaired; the page
+  picker is a select grouped Shop, Policies, Content pages and Pages the AI made, its product page the product changed
+  last; the four suggestions are the prototype's, since the API proposes none; the AI signs as "{partner} AI"; Edit text
+  saves only the languages changed and never leaves the main one empty. Publish and its gate are part 5's; the AI
+  tokens line comes in part 6.
+- **Built on #319 (part 5)**: Publish in the studio's top bar ("Publish site" before the first), its question, the
+  gate's steps in the top bar ("Building your site…", "Checking your site…", "Checking it went live…"), "Version N is
+  live — we checked your site and it changed", a refused publish in the chat with what failed and **Publish
+  everything before this change** when one change is to blame, and a rolled-back publish. *Decided there:* the publish
+  followed is kept in the address (`?run=`), so a reload keeps following it; the question says "uses a few build
+  minutes", since the API gives no estimate; the refusal's words are the failed checks' own, with "We tried to fix it
+  and couldn't." only after a repair; the studio takes no change while a publish runs; Publish everything before this change is offered only when the
+  change to blame is in the conversation shown, and a change accepted after a refused publish clears its notice; a publish the studio can't read (five failed reads in a row, or a refused read) keeps the studio waiting and says so, with Check again, since it may still be running; a rollback is told in the
+  studio that followed the publish, and the Overview's notice waits for a read of the last publish, which `storefront`
+  doesn't give.
+- **Built on #319 (part 6)**: the catalogue Publish now bar, Site settings › AI and build minutes and Version history
+  with Go back to this, Open preview ↗ with End all preview links, and the chat's AI line. *Decided there:* the bar
+  shows only on a live site while changes wait: "12 products changed since …" (or "Your catalogue changed since …" for
+  other kinds), the presses left, the next automatic publish and **Publish now** for the Owner; at zero it says "No
+  'Publish now' presses left this month. Your changes go live with the next automatic publish, or upgrade for more."
+  with See plans; the Manager sees the bar without its button; a press is followed like a studio publish (`?run=`).
+  AI and build minutes meters AI requests (the plan's allowance is requests, not the prototype's tokens), shows build
+  minutes as a count (plans set no limit) and the five latest requests; the chat says "AI requests: N left" or "On your
+  own AI key". Version history names each version by the merchant's last request, else "{template} template"; it
+  shows no author and no rolled-back badge, which the API doesn't give. Site settings has two columns from 820 px of
+  content. Open preview ↗ opens its tab on the click and sends it to the signed link once made (https only, no
+  opener), so a pop-up blocker doesn't stop it; it shows only once the draft's preview is written, and sits in the
+  preview's toolbar on a phone.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

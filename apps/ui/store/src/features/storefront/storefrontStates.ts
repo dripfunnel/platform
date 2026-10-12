@@ -1,10 +1,14 @@
-import type { StorefrontBrand, StorefrontDomains, StorefrontSeo } from '../../api/storefront'
+import type { StorefrontBrand, StorefrontDomains, StorefrontOverview, StorefrontSeo, StorefrontTemplate } from '../../api/storefront'
 
 // Storefront's states under ?state= (ui/README.md §6): loading, error, denied (Staff), brand (the Owner's first visit),
-// list (brand saved, own domain live), manager and readOnly (past due) look only, waiting and failed (an own domain on its
-// way or refused by DNS), and free (a plan without an own domain).
-export const storefrontStates = ['loading', 'error', 'denied', 'brand', 'list', 'manager', 'readOnly', 'waiting', 'failed', 'free'] as const
+// gallery (then the templates), creating, list (live, own domain live), draft (unpublished changes), manager and readOnly
+// (past due) look only, noSite (a Manager before any publish), waiting and failed (an own domain on its way or refused by
+// DNS), and free (a plan without an own domain); the studio's: studio (ready), opening, queued, finishing (another tab's
+// change) and ended (the session refused); a publish checking, refused (with a change to publish before) or rolled back.
+export const studioHarnessStates = ['studio', 'opening', 'queued', 'finishing', 'ended', 'pubChecking', 'pubRefused', 'rolledBack'] as const
+export const storefrontStates = ['loading', 'error', 'denied', 'brand', 'gallery', 'creating', 'list', 'draft', 'manager', 'readOnly', 'noSite', 'waiting', 'failed', 'free', ...studioHarnessStates] as const
 export type StorefrontState = (typeof storefrontStates)[number]
+export const isStudioState = (state: string | null): boolean => studioHarnessStates.some((s) => s === state)
 
 // A build-time constant Vite folds, so a production bundle carries none of these literals.
 const harness = import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
@@ -51,4 +55,29 @@ export const sampleDomains = (state: StorefrontState): StorefrontDomains => {
   if (state === 'waiting') return { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { ...own, status: 'waiting', primary: false, checkedAt, records: records(null) }] }
   if (state === 'failed') return { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: true }, { ...own, status: 'failed', primary: false, checkedAt, records: records('kesarithreads.wixdns.net') }] }
   return { customDomainAllowed: true, domains: [{ ...free, status: 'live', primary: false }, { ...own, status: 'live', primary: true, checkedAt, records: records('shops.edge.dripfunnel.com') }] }
+}
+
+const templateRows: readonly (readonly [string, string, string, string])[] = harness
+  ? [
+      ['baseline', 'Start from scratch', 'Blank', 'A plain header, banner, story and footer. Describe your shop and the AI styles it.'],
+      ['linen', 'Linen', 'Minimal fashion', 'Light, roomy and quiet. Big photos, small type, nothing in the way.'],
+      ['concrete', 'Concrete', 'Bold streetwear', 'Loud type, hard edges and a bright accent.'],
+      ['bloom', 'Bloom', 'Beauty & wellness', 'Soft colour, rounded shapes and calm serif headings.'],
+      ['circuit', 'Circuit', 'Electronics & tech', 'Dark, sharp and spec-led. Clear details and help up front.'],
+      ['market', 'Market', 'Food & grocery', 'Warm, friendly and easy to browse.'],
+      ['atelier', 'Atelier', 'Luxury editorial', 'Magazine-like pacing. Large serif type, muted tones, lots of space.'],
+    ]
+  : []
+
+const unstarted = (state: StorefrontState) => state === 'brand' || state === 'gallery' || state === 'noSite'
+
+export const sampleTemplates = (state: StorefrontState): StorefrontTemplate[] =>
+  templateRows.map(([key, name, tag, description]) => ({ key, name, tag, description, demoUrl: key === 'baseline' ? null : `https://${key}-demo.shops.dripfunnel.com`, current: !unstarted(state) && state !== 'creating' && key === 'linen' }))
+
+export const sampleOverview = (state: StorefrontState): StorefrontOverview => {
+  if (!harness || unstarted(state)) return { status: 'not_started', template: null, live: null, draft: null }
+  if (state === 'creating') return { status: 'creating', template: 'linen', live: null, draft: null }
+  const live = { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen' }
+  const draft = { template: 'linen', changedAt: '2026-10-12T08:15:00Z', previewReady: true }
+  return state === 'draft' || state === 'manager' || isStudioState(state) ? { status: 'unpublished_changes', template: 'linen', live, draft } : { status: 'same_as_live', template: 'linen', live, draft: null }
 }
