@@ -38,7 +38,7 @@ export type CapacityNamespace = DurableObjectNamespace<StudioCapacityObject & Rp
 export const studioCapacityClass = () =>
   class StudioCapacity extends DurableObject<StudioEnv> implements StudioCapacityObject {
     private ledger() {
-      return capacityLedger(this.ctx.storage, parseConfig(this.env).STUDIO_CAPACITY ?? defaultStudioCapacity)
+      return capacityLedger(this.ctx.storage, parseConfig(this.env).STUDIO_MAX_RUNNING ?? defaultStudioCapacity)
     }
 
     acquire(storeId: string): Promise<Grant> {

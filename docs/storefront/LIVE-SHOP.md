@@ -19,7 +19,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 #483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). The rest is specification.
 
-Last updated: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -381,6 +381,9 @@ What the edge Worker does on each request to a storefront host.
    nothing extra. A miss happens at most once a minute per store per data centre, roughly once
    per visit at 1,000 visits a day, which the API and Postgres take easily. A strongly consistent
    lookup on every request (a Durable Object) would cost a call per page for a minute's gain.
+   **Built on #471:** the lookup also answers the store's primary address (SAAS §8), and a page request on any other
+   address of the store gets a 301 to it, keeping the path and query; `/shop-api/*` and the IndexNow key are answered
+   on every address. A lookup without the field (an older API) redirects nothing.
 2. **A suspended store** gets its degraded page from the Worker, with no rebuild
    (ARCHITECTURE §4.2, DESIGN-BRIEF fact 9). *Decided on #317:* a past-due store keeps selling as
    normal, as SAAS §4.2 decided on #284 (core's `useStorefront()` has the state for a notice); a

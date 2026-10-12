@@ -53,6 +53,12 @@ export const storefrontHostMatch = (tx: ScopedSql, host: string) => {
     )`
 }
 
+/** The address a store's others redirect to (SAAS §8): its own domain once made primary and live, else its free address. */
+export const primaryHostOf = (tx: ScopedSql) => tx`coalesce(
+  (select lower(c.host) from custom_domain c where c.store_id = s.id and c.is_primary and c.status in ('live', 'expiring') order by c.created_at, c.id limit 1),
+  (select s.code || substr(lower(d.host), 2) from partner_domain d where d.partner_id = s.partner_id and d.kind = 'shops' and d.status not in ('waiting', 'failed') limit 1)
+)`
+
 /**
  * A store's own storefront host: `{code}.` under its partner's shops wildcard, or its live custom domain.
  * A partner's wildcard is held as `*.shops.example.com` (partner_domain), live or on its way to it.

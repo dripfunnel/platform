@@ -579,6 +579,11 @@ type ShopSizeChartRow {
   values: [String!]
 }
 
+type ShopSocialLink {
+  network: String
+  url: String
+}
+
 type ShopSpec {
   name: String
   value: String
@@ -592,6 +597,7 @@ type ShopStore {
   currencies: [ShopCurrency!]
   currency: String
   description: String
+  favicon: Image
   language: String
   languages: [String!]
   logo: Image
@@ -601,8 +607,17 @@ type ShopStore {
   name: String
   pricesIncludeTax: Boolean
   pricingCurrency: String
+  seo: ShopStoreSeo
+  social: [ShopSocialLink!]
+  tagline: String
   timeZone: String
   unitSystem: String
+}
+
+type ShopStoreSeo {
+  description: String
+  image: Image
+  title: String
 }
 
 type ShopStoryBlock {

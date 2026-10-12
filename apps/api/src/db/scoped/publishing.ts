@@ -1,4 +1,5 @@
 import type { ScopedSql } from './index'
+import { primaryHostOf } from './shopCaller'
 
 // Publish runs, the live pointer and the versions (DATA-MODEL §7.8, storefront LIVE-SHOP.md §4), always in system scope:
 // only the publish-storefront Workflow and the jobs around it write them.
@@ -234,14 +235,11 @@ export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: Versio
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${version.core_version} where id = ${storeId}`
 }
 
-/** The store's own address a shopper reaches it on: its oldest live custom domain, else its shops host (SAAS §8). */
+/** The address a shopper reaches the store on: its primary one (SAAS §8), else a live domain of its own. */
 export const selectStorefrontHost = async (tx: ScopedSql, storeId: string): Promise<string | null> => {
   const [row] = await tx<{ host: string | null }[]>`
-    select coalesce(
-      (select lower(c.host) from custom_domain c where c.store_id = s.id and c.status = 'live' order by c.created_at, c.id limit 1),
-      (select s.code || substr(lower(d.host), 2) from partner_domain d
-        where d.partner_id = s.partner_id and d.kind = 'shops' and d.status not in ('waiting', 'failed') limit 1)
-    ) as host
+    select coalesce(${primaryHostOf(tx)},
+      (select lower(c.host) from custom_domain c where c.store_id = s.id and c.status = 'live' order by c.created_at, c.id limit 1)) as host
     from store s where s.id = ${storeId}`
   return row?.host ?? null
 }
@@ -334,6 +332,7 @@ export const selectGateVerdict = async (tx: ScopedSql, storeId: string, runId: s
 export interface SnapshotSourceRow {
   code: string
   shops_host: string | null
+  primary_host: string | null
   powered_by: string | null
 }
 
@@ -341,7 +340,8 @@ export interface SnapshotSourceRow {
 export const selectSnapshotSource = async (tx: ScopedSql, storeId: string): Promise<SnapshotSourceRow | null> =>
   (
     await tx<SnapshotSourceRow[]>`
-      select s.code, d.host as shops_host, case when p.powered_by = 'off' then null else p.product_name end as powered_by
+      select s.code, d.host as shops_host, case when p.powered_by = 'off' then null else p.product_name end as powered_by,
+        ${primaryHostOf(tx)} as primary_host
       from store s join partner p on p.id = s.partner_id
         left join partner_domain d on d.partner_id = s.partner_id and d.kind = 'shops' and d.status = 'live'
       where s.id = ${storeId}`

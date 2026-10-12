@@ -2,7 +2,7 @@
 
 export type LiveHost =
   | { kind: 'none' }
-  | { kind: 'store'; storeId: string; partnerId: string; buildId: string | null; state: 'open' | 'suspended' | 'offline'; name: string; language: string; indexNowKey: string }
+  | { kind: 'store'; storeId: string; partnerId: string; buildId: string | null; state: 'open' | 'suspended' | 'offline'; name: string; language: string; indexNowKey: string; primaryHost: string | null }
 
 export type PreviewAccess = { ok: true; storeId: string; userId: string; epoch: number; folder: string | null } | { ok: false }
 
@@ -27,6 +27,9 @@ const isId = (value: unknown): value is string => typeof value === 'string' && /
 // The folder names R2 keys under the store's prefix, so it must be one plain name (PREVIEW.md §3).
 const isFolder = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(value)
 
+// A redirect target must be a plain lowercase hostname, never something that would rewrite the location's meaning.
+const isHost = (value: unknown): value is string => typeof value === 'string' && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(value) && value.length <= 253
+
 export class EdgeAnswerInvalid extends Error {
   override name = 'EdgeAnswerInvalid'
 }
@@ -44,9 +47,11 @@ export const parseLiveHost = (value: unknown): LiveHost => {
     typeof v['name'] === 'string' &&
     typeof v['language'] === 'string' &&
     typeof v['indexNowKey'] === 'string' &&
-    /^[a-f0-9]{32}$/.test(v['indexNowKey'])
+    /^[a-f0-9]{32}$/.test(v['indexNowKey']) &&
+    // An API from before #471 sends none: no redirect then.
+    (v['primaryHost'] === undefined || v['primaryHost'] === null || isHost(v['primaryHost']))
   )
-    return { kind: 'store', storeId: v['storeId'], partnerId: v['partnerId'], buildId: v['buildId'], state, name: v['name'], language: v['language'], indexNowKey: v['indexNowKey'] }
+    return { kind: 'store', storeId: v['storeId'], partnerId: v['partnerId'], buildId: v['buildId'], state, name: v['name'], language: v['language'], indexNowKey: v['indexNowKey'], primaryHost: isHost(v['primaryHost']) ? v['primaryHost'] : null }
   throw new EdgeAnswerInvalid('liveHost')
 }
 

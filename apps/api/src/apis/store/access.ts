@@ -51,6 +51,8 @@ export interface StoreContext extends Record<string, unknown> {
   allowPublicRead?: (key: string) => Promise<boolean>
   /** "Open preview" (storefront PREVIEW.md §5 step 1): the preview domain and the link's key; null where either isn't set. */
   preview?: { domain: string; links: PreviewLinks } | null
+  /** Site settings › Domains: the zone domains point at (EDGE_ZONE) and whether `*.localhost` names are taken (DNS_LOCAL). */
+  domains?: { edgeZone: string; localHosts: boolean } | null
   now: () => Date
 }
 

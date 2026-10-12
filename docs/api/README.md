@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
+Last updated: 2026-10-12 (#639: `dbLatencyMs` in the `/health` answer). Before: 2026-10-11 (#317: the storefront clean-up in the daily cron). Before: 2026-10-08 (#470: the sandbox Durable Objects; no GitHub webhook).
 
 | Document | Covers |
 |---|---|
@@ -416,6 +416,9 @@ can confirm prod is serving the version it just promoted. This is intentional: t
 identifies a build, not a secret, and knowing it grants no access. On dev and local hosts it also returns
 `integrations` (which of Entra, Stripe, SES and assets are `configured` or `missing`, never a value); a production
 host leaves it out, since which integration is missing would tell a caller where a check is off.
+When `db` is `"ok"` it also returns `dbLatencyMs`, how long that database check took, on every host:
+a timing grants no access, and prod is where it's worth watching (#639). Any other `db` leaves it
+out, since nothing answered.
 
 ### Local, the same as dev
 

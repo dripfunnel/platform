@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -432,7 +432,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
 | `support.allow_write`: Allow or Deny a support agent's write request inside an open session (§8) (decided 2026-10-05 on #337) | ✓ | ✓ | |
-| `storefront.read`: the Storefront read-only, its Pages and Journal first (content pages, posts and the theme's own pages; decided on #338, since `publish` is the Owner's alone) | ✓ | ✓ | |
+| `storefront.read`: the Storefront read-only, its Pages and Journal first (content pages, posts and the theme's own pages; decided on #338, since `publish` is the Owner's alone), then Site settings' brand, search and sharing and domains (#471) | ✓ | ✓ | |
 
 **Owner-only capabilities**, checked for the acting store; someone may be an Owner in one
 store and a vendor in another:

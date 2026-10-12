@@ -38,9 +38,11 @@ export const handleHealthCheck = async (
   if (!ip) return new Response('Bad request', { status: 400 })
   const { success } = await rateLimiter.limit({ key: `${area}:${ip}` })
   if (!success) return new Response('Too many requests', { status: 429 })
+  const started = Date.now()
   const db = await checkHealth(config, ctx)
+  const dbLatencyMs = Date.now() - started
   const ok = db === 'ok' || db === 'unconfigured'
   // Public, so integrations only where a missing value helps whoever sets the environment up (README §7).
-  const body = { ok, area, db, version }
+  const body = { ok, area, db, ...(db === 'ok' && { dbLatencyMs }), version }
   return Response.json(isDevOrLocal(config) ? { ...body, integrations: integrationsOf(config, hasAssets) } : body, { status: ok ? 200 : 503 })
 }

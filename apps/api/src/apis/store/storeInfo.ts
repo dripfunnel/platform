@@ -94,4 +94,5 @@ export const registerStoreInfo = (builder: StoreBuilder) => {
       },
     }),
   }))
+  return { Address, AddressInput }
 }
