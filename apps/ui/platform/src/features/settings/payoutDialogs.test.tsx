@@ -79,6 +79,20 @@ describe('adding a bank account', () => {
   })
 })
 
+describe('saving twice', () => {
+  it('sends one token and one request however fast Save is clicked', async () => {
+    stripe.createToken.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ token: { id: 'btok_1Abc23XyZ' } }), 30)))
+    const user = userEvent.setup()
+    render(<BankDialog changing={false} country="DE" currency="EUR" stripe={stripeFor('pk_test_a')} onSaved={vi.fn()} onCancel={vi.fn()} />)
+    await user.type(screen.getByLabelText(words.account.holder), 'Kappa GmbH')
+    await user.type(screen.getByLabelText(words.account.iban), 'DE89370400440532013000')
+    const save = screen.getByRole('button', { name: words.account.save })
+    await user.dblClick(save)
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(stripe.createToken).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('adding a card', () => {
   it('sends only the payment method Stripe’s field made', async () => {
     stripe.createPaymentMethod.mockResolvedValue({ paymentMethod: { id: 'pm_1Abc23XyZ' } })

@@ -50,6 +50,11 @@ describe('billing', () => {
     expect(await invoicePdf('i1')).toEqual({ ok: false, reason: 'NO_PDF' })
   })
 
+  it('carries a null payout account through, as a staff session gets it', async () => {
+    answer.mockReturnValueOnce({ data: { ...billing, billingSettings: { staleSince: null, payoutAccount: null } } })
+    expect((await loadBilling()).payoutAccount).toBeNull()
+  })
+
   it('reads the publishable key at runtime, null while the provider is off', async () => {
     answer.mockReturnValueOnce({ data: { billingClientConfig: { publishableKey: 'pk_test_a' } } })
     expect(await loadBillingClientConfig()).toBe('pk_test_a')

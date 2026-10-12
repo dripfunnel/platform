@@ -74,7 +74,7 @@ export interface BillingMoney {
   invoices: Page<Invoice>
   // When the payment provider last answered, and since when it has been slow (the stale strip).
   staleSince: string | null
-  payoutAccount: PayoutAccount
+  payoutAccount: PayoutAccount | null
 }
 
 const paymentFields = `items { id at storeId storeName kind amount { amount currency } status note cardLast4 } ${pageInfoFields}`
@@ -116,7 +116,7 @@ export const loadBilling = async (): Promise<BillingMoney> => {
     invoices: answer.partnerInvoices,
     staleSince: answer.billingSettings.staleSince,
     // Null for a staff session, which never sees the partner's payout details.
-    payoutAccount: answer.billingSettings.payoutAccount ?? { bank: null, last4: null, status: 'missing', failure: null },
+    payoutAccount: answer.billingSettings.payoutAccount,
   }
 }
 
