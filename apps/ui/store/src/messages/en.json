@@ -6823,7 +6823,8 @@
           "SESSION_ENDED": "Your studio session ended. Reopen the studio to keep designing.",
           "other": "That didn’t work. Check your connection and try again."
         },
-        "sitePlaceholder": "https://"
+        "sitePlaceholder": "https://",
+        "loading": "Loading your conversation…"
       },
       "edit": {
         "button": "Edit text",
@@ -6847,7 +6848,8 @@
           "FORBIDDEN": "Only the store owner can change the storefront.",
           "SESSION_ENDED": "Your studio session ended. Reopen the studio to keep designing.",
           "other": "That didn’t work. Check your connection and try again."
-        }
+        },
+        "loading": "Loading the words in each language…"
       }
     }
   }

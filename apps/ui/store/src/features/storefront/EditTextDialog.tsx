@@ -95,6 +95,11 @@ export const EditTextDialog = ({ textKey, page, pageLabel, languages, api, onCan
     >
       <h2 id={titleId}>{words.title}</h2>
       <p className="df-sf-lede">{fill(words.where, { page: pageLabel })}</p>
+      {loaded.kind === 'loading' && !error && (
+        <p className="df-sf-lede" role="status">
+          {words.loading}
+        </p>
+      )}
       {loaded.kind === 'ready' &&
         languages.map((l) => {
           const value = loaded.now[l] ?? ''
