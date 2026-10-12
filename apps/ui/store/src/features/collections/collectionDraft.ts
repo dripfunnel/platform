@@ -139,17 +139,6 @@ export const nested = (all: readonly CollectionSummary[]): { c: CollectionSummar
   return all.filter((c) => c.parentId === null || !ids.has(c.parentId)).flatMap((top) => under(top, 0, new Set()))
 }
 
-/** The web address a new collection gets from its name, as the API makes it (rules.ts slugFrom). */
-export const slugOf = (text: string): string =>
-  text
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 100)
-    .replace(/-+$/, '')
-
 /** Who may do what here (FIRST-RELEASE §12): the merchant side reads; `catalog.write` changes, unless the store is read-only. */
 export const collectionsAccess = (acting: { permissions: readonly string[]; seller: unknown }, readOnly: boolean) => ({
   canRead: acting.seller === null && acting.permissions.includes('catalog.read'),
