@@ -5,8 +5,8 @@ import { toMajor } from '#core/money'
 import { insertDesignMessage, markUndone, selectBriefStore, selectDesignChat, selectLatestChange, selectMessage, selectProductSample, selectRecentRequests, type MessageRow } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
-import { addUsage, reserveUsage } from '#db/scoped/storeAccount'
-import { isMerchantImage } from '#db/scoped/storefrontSettings'
+import { addUsage, hasUsageLeft, reserveUsage } from '#db/scoped/storeAccount'
+import { selectMerchantImageKey } from '#db/scoped/storefrontSettings'
 import { selectGuardContext, selectStudioStart } from '#db/scoped/studio'
 import type { AiImage, AiProvider } from '#integrations/ai/index'
 import { maxScreenshotBytes, type Screenshotter } from '#integrations/cloudflare/screenshot'
@@ -112,10 +112,16 @@ export const createStudioService = (deps: StudioDeps) => {
     return withSystemScope(sql, (tx) => reserveUsage(tx, storeId, 'ai_prompts', monthStart(now()), allowed, now()))
   }
 
+  /** The same allowance read without taking a unit, so a store at its allowance costs no image read or screenshot. */
+  const budgetLeft = async (): Promise<boolean> => {
+    const allowed = await allowanceFor(sql, context, 'ai_prompts', now())
+    return withSystemScope(sql, (tx) => hasUsageLeft(tx, storeId, 'ai_prompts', monthStart(now()), allowed))
+  }
+
   const imageOf = async (assetId: string): Promise<DesignResult<AiImage>> => {
-    const asset = await withScope(sql, context, async (tx) => ((await isMerchantImage(tx, storeId, assetId)) ? (await tx<{ r2_key: string }[]>`select r2_key from asset where id = ${assetId}`)[0] ?? null : null))
-    if (!asset) return { ok: false, reason: 'INVALID_IMAGE' }
-    const file = deps.readAsset ? await deps.readAsset(asset.r2_key) : null
+    const key = await withScope(sql, context, (tx) => selectMerchantImageKey(tx, storeId, assetId))
+    if (!key) return { ok: false, reason: 'INVALID_IMAGE' }
+    const file = deps.readAsset ? await deps.readAsset(key) : null
     if (!file || file.bytes.byteLength > maxScreenshotBytes || !imageTypes.has(file.mime as AiImage['mediaType'])) return { ok: false, reason: 'INVALID_IMAGE' }
     return { ok: true, value: { mediaType: file.mime as AiImage['mediaType'], base64: toBase64(file.bytes) } }
   }
@@ -161,6 +167,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const billedTo = await billing()
     const provider = deps.ai(billedTo)
     if (!provider) return { ok: false, reason: 'AI_NOT_CONNECTED' }
+    if (billedTo === 'plan' && !(await budgetLeft())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
     const image = input.imageAssetId ? await imageOf(input.imageAssetId) : null
     if (image && !image.ok) return image
     const shot = input.sampleUrl ? await screenshotOf(input.sampleUrl, input.device) : null

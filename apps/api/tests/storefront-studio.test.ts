@@ -215,6 +215,11 @@ describe('asking for a change', () => {
       expect(taken).toEqual([])
       expect(script.sent.length).toBe(sent)
       expect(await usage(t.storeA1)).toBe(used)
+      // A store at its allowance is refused before the screenshot, so it costs the platform nothing.
+      await db.sql`update store_usage set used = 6 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+      expect((await ask('owner', 'Like this', { site: 'https://shop.example.com/' })).code).toBe('AI_BUDGET_REACHED')
+      expect(taken).toEqual([])
+      await db.sql`update store_usage set used = ${used} where store_id = ${t.storeA1} and key = 'ai_prompts'`
       // The model changes nothing here, so the draft the later tests build on stays as it was.
       script.answers = [reply([])]
       expect((await ask('owner', 'Like this', { site: 'https://shop.example.com/' })).code).toBeUndefined()

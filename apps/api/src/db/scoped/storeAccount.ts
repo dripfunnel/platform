@@ -114,6 +114,14 @@ export const addUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, n
 }
 
 /** One unit of a monthly allowance taken in one statement while fewer than `allowed` are used; false when none is left. */
+/** Whether one more fits this period's allowance, without taking it (`reserveUsage` takes it). */
+export const hasUsageLeft = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date, allowed: number): Promise<boolean> => {
+  if (allowed <= 0) return false
+  const month = periodStart.toISOString().slice(0, 10)
+  const [row] = await tx<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = ${key} and period_start = ${month}::date`
+  return (row?.used ?? 0) < allowed
+}
+
 export const reserveUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date, allowed: number, at: Date): Promise<boolean> => {
   if (allowed <= 0) return false
   const month = periodStart.toISOString().slice(0, 10)
