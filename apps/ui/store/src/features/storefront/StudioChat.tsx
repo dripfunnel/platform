@@ -119,13 +119,15 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
           </li>
         )}
         {chatRead === 'loading' && (
-          <li className="df-studio-ai" role="status">
-            {words.loading}
+          <li className="df-studio-ai">
+            <span role="status">{words.loading}</span>
           </li>
         )}
         {chatRead === 'failed' && (
-          <li className="df-sf-failure" role="alert">
-            {words.loadFailed}
+          <li>
+            <p className="df-sf-failure" role="alert">
+              {words.loadFailed}
+            </p>
           </li>
         )}
         {chatRead === 'ready' && chat.length === 0 && <li className="df-studio-ai">{words.empty}</li>}
@@ -134,9 +136,9 @@ export const StudioChat = ({ chat, chatRead, hasEarlier, assistant, templateName
         ))}
         {notice}
         {busyLine && (
-          <li className="df-studio-ai" role="status">
+          <li className="df-studio-ai">
             <span className="df-sf-eyebrow">{assistant}</span>
-            <span>{busyLine}</span>
+            <span role="status">{busyLine}</span>
           </li>
         )}
       </ol>
