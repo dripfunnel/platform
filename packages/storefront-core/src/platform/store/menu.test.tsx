@@ -20,6 +20,11 @@ describe('useMenu', () => {
           { id: '3', label: 'Hidden', kind: 'collection', collectionSlug: null, url: null, children: [] },
           { id: '4', label: 'Blog', kind: 'url', collectionSlug: null, url: 'https://blog.example' },
           { id: '5', label: 'Sneaky', kind: 'page', collectionSlug: null, url: '//elsewhere.example' },
+          { id: '6', label: 'Backslash', kind: 'page', collectionSlug: null, url: '/\\elsewhere.example' },
+          { id: '7', label: 'Tab', kind: 'page', collectionSlug: null, url: '/%09/elsewhere.example' },
+          { id: '8', label: 'Control', kind: 'page', collectionSlug: null, url: '/\u0009/elsewhere.example' },
+          { id: '9', label: 'Script', kind: 'url', collectionSlug: null, url: 'javascript:alert(1)' },
+          { id: '10', label: 'Backslash host', kind: 'url', collectionSlug: null, url: 'https://a.example\\@evil.example' },
         ],
       },
     }))

@@ -13,10 +13,22 @@ const menuSchema = z.object({ menu: z.array(rowSchema).nullable() })
 
 export type MenuItem = { id: string; label: string; href: string; children: MenuItem[] }
 
+// The engine's own rule for a page link (catalog/structure.ts cleanMenu): a path of plain characters, so no `//`, `\`,
+// escape or control character can make a browser leave the store.
+const pagePath = /^\/(?:[a-z0-9_-][a-z0-9/_-]*)?$/
+const isHttps = (url: string) => {
+  if ([...url].some((c) => c <= ' ' || c === '\u007f' || c === '\\' || /\s/.test(c))) return false
+  try {
+    return new URL(url).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 const hrefOf = (row: Row): string | null => {
   if (row.kind === 'collection') return row.collectionSlug ? collectionPath(row.collectionSlug) : null
-  if (row.kind === 'page') return row.url && /^\/(?!\/)/.test(row.url) ? row.url : null
-  if (row.kind === 'url') return row.url && /^https:\/\//.test(row.url) ? row.url : null
+  if (row.kind === 'page') return row.url && pagePath.test(row.url) && !row.url.includes('//') ? row.url : null
+  if (row.kind === 'url') return row.url && isHttps(row.url) ? row.url : null
   return null
 }
 
