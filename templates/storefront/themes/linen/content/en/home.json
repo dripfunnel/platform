@@ -1,0 +1,16 @@
+{
+  "hero": {
+    "title": "The {store} edit",
+    "lead": "Take your time and find something you love.",
+    "shop": "Shop now"
+  },
+  "story": {
+    "title": "Simple by design",
+    "body": "A quiet place to browse, with nothing in the way of what you came for."
+  },
+  "join": {
+    "title": "Make it yours",
+    "body": "Create an account to follow your orders and check out faster.",
+    "action": "Create an account"
+  }
+}

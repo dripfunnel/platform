@@ -1,0 +1,12 @@
+{
+  "hero": {
+    "title": "Fill your basket",
+    "lead": "Search by name and add what you need.",
+    "shop": "Start shopping"
+  },
+  "banner": {
+    "title": "Find what you need",
+    "body": "Search the shop by name or type.",
+    "action": "Start shopping"
+  }
+}
