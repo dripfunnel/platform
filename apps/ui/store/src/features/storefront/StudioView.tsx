@@ -9,7 +9,7 @@ import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
 import { EditTextDialog } from './EditTextDialog'
 import { StudioChat, type ChatRequest } from './StudioChat'
-import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishPollMs, publishProgress, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
+import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishPollMs, publishProgress, publishReadTries, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 import './studio.css'
 
@@ -147,11 +147,13 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   useEffect(() => {
     if (!run) return
     let current = true
+    let failures = 0
     let timer: ReturnType<typeof setTimeout> | undefined
     const read = () =>
       api.loadPublishRun(run).then(
         (answer) => {
           if (!current) return
+          failures = 0
           if (!answer) return onRun(null)
           setPublished(answer)
           if (publishProgress(answer.step)) return void (timer = setTimeout(() => void read(), publishPollMs))
@@ -162,7 +164,16 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
           void loadChat()
           void api.loadOverview().then(onOverview, () => undefined)
         },
-        () => current && (timer = setTimeout(() => void read(), publishPollMs)),
+        (e: unknown) => {
+          if (!current) return
+          failures += 1
+          // A refused read, or one that keeps failing, stops the following: the studio opens again and says so.
+          if (isApiError(e, 'SESSION_ENDED') || isApiError(e, 'FORBIDDEN') || failures >= publishReadTries) {
+            setError(words.publish.lost)
+            return onRun(null)
+          }
+          timer = setTimeout(() => void read(), publishPollMs)
+        },
       )
     void read()
     return () => {

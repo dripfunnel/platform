@@ -406,6 +406,21 @@ describe('publishing from the studio', () => {
     expect(screen.getByRole('alert').textContent).toBe(fill(p.rolledBack, { number: '12', reason: 'your new version broke the checkout on phones.' }))
   })
 
+  it('stops following a publish it can’t read, says so, and opens the studio again', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const read = vi.fn().mockRejectedValue(new Error('offline'))
+    const { onRun } = await show({ loadPublishRun: read }, 'r1')
+    expect(prompt().readOnly).toBe(true)
+    for (let i = 0; i < 4; i += 1) await act(async () => void vi.advanceTimersByTime(2_000))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(5)
+    expect(onRun).toHaveBeenCalledWith(null)
+    expect(screen.getByRole('alert').textContent).toBe(p.lost)
+    cleanup()
+    const { onRun: ended } = await show({ loadPublishRun: vi.fn().mockRejectedValue(new ApiError('SESSION_ENDED', 'Ended.')) }, 'r1')
+    expect(ended).toHaveBeenCalledWith(null)
+  })
+
   it('stops following a publish that isn’t this store’s', async () => {
     const { onRun } = await show({ loadPublishRun: vi.fn().mockResolvedValue(null) }, 'r9')
     expect(onRun).toHaveBeenCalledWith(null)
