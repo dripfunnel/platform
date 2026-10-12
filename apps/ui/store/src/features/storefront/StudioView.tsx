@@ -1,10 +1,12 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, Toast, usePhone } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import type { StorefrontOverview, StorefrontTemplate } from '../../api/storefront'
+import type { StorefrontMeters, StorefrontOverview, StorefrontTemplate } from '../../api/storefront'
 import { studioDevices, type DesignMessage, type PublishRun, type StudioDevice, type StudioPages } from '../../api/studio'
 import { currentBrand } from '../../brand/current'
-import { fill, messages } from '../../messages'
+import { fill, formatCount, messages } from '../../messages'
+import { isHttps } from '../common/https'
+import { refusalIn } from '../common/refusal'
 import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
 import { EditTextDialog } from './EditTextDialog'
@@ -14,6 +16,7 @@ import type { StorefrontApi } from './storefrontApi'
 import './studio.css'
 
 const words = messages.storefront.studio
+const previewRefusal = refusalIn(words.preview.refused)
 
 const studioPanes = ['chat', 'preview'] as const
 type StudioPane = (typeof studioPanes)[number]
@@ -32,6 +35,7 @@ export interface StudioViewProps {
   api: StorefrontApi
   onExit: () => void
   onOverview: (next: StorefrontOverview) => void
+  usage: StorefrontMeters['usage']
   /** The publish being followed, kept in the address so a reload keeps following it. */
   run: string | null
   onRun: (id: string | null) => void
@@ -41,7 +45,7 @@ const sandboxOf = (state: string, place: number | null): Sandbox =>
   state === 'ready' ? { kind: 'ready' } : state === 'queued' ? { kind: 'queued', place: place ?? 1 } : state === 'busy' ? { kind: 'finishing' } : state === 'unavailable' ? { kind: 'failed', text: words.sandbox.unavailable } : { kind: 'opening' }
 
 /** The full-screen AI studio (PortalStorefront › studio; FIRST-RELEASE §14; storefront AI-STUDIO §1, §3, §8). */
-export const StudioView = ({ overview, templates, storeName, host, api, onExit, onOverview, run, onRun }: StudioViewProps) => {
+export const StudioView = ({ overview, templates, storeName, host, api, onExit, onOverview, usage, run, onRun }: StudioViewProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const phone = usePhone()
@@ -65,6 +69,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [toast, setToast] = useState<string | null>(null)
   const [published, setPublished] = useState<PublishRun | null>(null)
   const [publishing, setPublishing] = useState<{ before: string | null } | null>(null)
+  const [previewMenu, setPreviewMenu] = useState(false)
+  const [ending, setEnding] = useState(false)
   const nameOf = useCallback((key: string) => templateName(templates, key), [templates])
   const notHere = useCallback(() => {
     setTextKey(null)
@@ -181,6 +187,29 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     }
   }
 
+  // The window opens on the click, before the link is signed, so no pop-up blocker stops it; it carries nothing back.
+  const openPreview = () => {
+    const tab = window.open('', '_blank')
+    if (tab) tab.opener = null
+    api.previewLink().then(
+      (link) => {
+        if (tab && isHttps(link)) tab.location.href = link
+        else tab?.close()
+      },
+      (e: unknown) => {
+        tab?.close()
+        setError(previewRefusal(e))
+      },
+    )
+  }
+  const endLinks = () => {
+    setEnding(false)
+    api.endPreviewLinks().then(
+      () => setToast(words.preview.ended),
+      (e: unknown) => setError(previewRefusal(e)),
+    )
+  }
+
   const postEdit = (on: boolean) => {
     setEditing(on)
     if (session) frameRef.current?.contentWindow?.postMessage(editModeMessage(on), session.origin)
@@ -238,6 +267,23 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const next = (overview.live?.number ?? 0) + 1
   const ended = published && published.id === run ? published : null
   const culprit = ended?.bisectMessageId ? chat.find((m) => m.id === ended.bisectMessageId) : undefined
+  const previewButtons = overview.draft?.previewReady ? (
+              <div className="df-studio-preview-buttons">
+                <button type="button" className="df-button" onClick={openPreview}>
+                  {words.preview.open}
+                </button>
+                <button type="button" className="df-button" aria-label={words.preview.more} aria-haspopup="menu" aria-expanded={previewMenu} onClick={() => setPreviewMenu((o) => !o)}>
+                  ▾
+                </button>
+                {previewMenu && (
+                  <div className="df-studio-menu" role="menu" aria-label={words.preview.more} onKeyDown={(e) => e.key === 'Escape' && setPreviewMenu(false)}>
+                    <button type="button" role="menuitem" autoFocus onClick={() => (setPreviewMenu(false), setEnding(true))}>
+                      {words.preview.end}
+                    </button>
+                  </div>
+                )}
+              </div>
+  ) : null
   const notice =
     ended?.step === 'failed' ? (
       <li className="df-studio-refused" role="alert">
@@ -305,6 +351,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
           </div>
         ) : (
           <>
+            {!phone && previewButtons}
             {canDiscard && (
               <button type="button" className="df-sf-link" disabled={locked} onClick={() => setDiscarding(true)}>
                 {messages.storefront.overview.discard}
@@ -342,12 +389,14 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
             onUndo={undo}
             onSend={send}
             notice={notice}
+            aiLine={usage.ownKey ? words.usageOwn : usage.aiPromptsAllowed === null ? null : fill(words.usageLine, { left: formatCount(Math.max(0, usage.aiPromptsAllowed - usage.aiPromptsUsed)) })}
           />
         </div>
         <div className="df-studio-pane df-studio-pane--preview" {...paneProps('preview')}>
           <div className={`df-studio-preview df-studio-preview--${shownDevice}`}>
             <div className="df-studio-toolbar">
               {phone && <PagePicker groups={groups} value={shownPath} onChange={(path) => (setFramePath(path), setShownPath(path))} />}
+              {phone && previewButtons}
               <span className="df-studio-gap" />
               {editing && !phone && <span className="df-studio-hint">{words.edit.hint}</span>}
               <button type="button" className="df-button df-studio-edit-toggle" aria-pressed={editing} disabled={locked} onClick={() => postEdit(!editing)}>
@@ -388,6 +437,17 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
           setToast(words.edit.saved)
           void after()
         }}
+      />
+      <ConfirmDialog
+        open={ending}
+        danger
+        title={words.preview.endTitle}
+        target={host ?? storeName}
+        consequence={words.preview.endBody}
+        confirmLabel={words.preview.endConfirm}
+        cancelLabel={words.preview.cancel}
+        onCancel={() => setEnding(false)}
+        onConfirm={endLinks}
       />
       <ConfirmDialog
         open={publishing !== null}

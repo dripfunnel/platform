@@ -727,6 +727,19 @@ through. Your site stays live."), as is a support session.
   and couldn't." only after a repair; the studio takes no change while a publish runs; a rollback is told in the
   studio that followed the publish, and the Overview's notice waits for a read of the last publish, which `storefront`
   doesn't give.
+- **Built on #319 (part 6)**: the catalogue Publish now bar, Site settings › AI and build minutes and Version history
+  with Go back to this, Open preview ↗ with End all preview links, and the chat's AI line. *Decided there:* the bar
+  shows only on a live site while changes wait: "12 products changed since …" (or "Your catalogue changed since …" for
+  other kinds), the presses left, the next automatic publish and **Publish now** for the Owner; at zero it says "No
+  'Publish now' presses left this month. Your changes go live with the next automatic publish, or upgrade for more."
+  with See plans; the Manager sees the bar without its button; a press is followed like a studio publish (`?run=`).
+  AI and build minutes meters AI requests (the plan's allowance is requests, not the prototype's tokens), shows build
+  minutes as a count (plans set no limit) and the five latest requests; the chat says "AI requests: N left" or "On your
+  own AI key". Version history names each version by the merchant's last request, else "{template} template"; it
+  shows no author and no rolled-back badge, which the API doesn't give. Site settings has two columns from 820 px of
+  content. Open preview ↗ opens its tab on the click and sends it to the signed link once made (https only, no
+  opener), so a pop-up blocker doesn't stop it; it shows only once the draft's preview is written, and sits in the
+  preview's toolbar on a phone.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

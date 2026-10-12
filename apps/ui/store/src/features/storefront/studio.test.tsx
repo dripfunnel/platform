@@ -2,7 +2,7 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { StorefrontOverview } from '../../api/storefront'
+import type { StorefrontMeters, StorefrontOverview } from '../../api/storefront'
 import type { DesignMessage, PublishRun, StudioSession } from '../../api/studio'
 import { fill, messages } from '../../messages'
 import type { StorefrontApi } from './storefrontApi'
@@ -37,18 +37,22 @@ const fakeApi = () =>
     publishDesign: vi.fn().mockResolvedValue('r1'),
     publishBefore: vi.fn().mockResolvedValue('r2'),
     loadPublishRun: vi.fn(),
+    previewLink: vi.fn().mockResolvedValue('https://k7f3q9f2xa.webpreview.store/?preview=signed'),
+    endPreviewLinks: vi.fn().mockResolvedValue(undefined),
   }) satisfies Partial<StorefrontApi>
 
 type Fake = ReturnType<typeof fakeApi>
 let api: Fake
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
+const usageOf = (over: Partial<StorefrontMeters['usage']> = {}): StorefrontMeters['usage'] => ({ ownKey: false, aiRequests: 40, aiPromptsUsed: 40, aiPromptsAllowed: 1000, buildMinutes: 12, publishesLast30Days: 2, recent: [], ...over })
+let usage = usageOf()
 const show = async (over: Partial<Fake> = {}, run: string | null = null) => {
   Object.assign(api, over)
   const onOverview = vi.fn()
   const onRun = vi.fn()
   await act(async () => {
-    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} run={run} onRun={onRun} />)
+    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} usage={usage} run={run} onRun={onRun} />)
   })
   await settle()
   return { onOverview, onRun }
@@ -69,6 +73,7 @@ const prompt = () => screen.getByRole('textbox', { name: c.prompt }) as HTMLText
 
 beforeEach(() => {
   api = fakeApi()
+  usage = usageOf()
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })))
 })
 
@@ -384,9 +389,68 @@ describe('publishing from the studio', () => {
     cleanup()
     api.loadOverview.mockResolvedValue(overview)
     await act(async () => {
-      render(<StudioView overview={{ ...overview, status: 'same_as_live', draft: null }} templates={[]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} run={null} onRun={vi.fn()} />)
+      render(<StudioView overview={{ ...overview, status: 'same_as_live', draft: null }} templates={[]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} />)
     })
     await settle()
     expect((screen.getByRole('button', { name: p.button }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('the studio’s AI line and preview links', () => {
+  const pv = words.preview
+
+  it('says how many AI requests are left, or that the store uses its own key', async () => {
+    await show()
+    expect(screen.getByText(fill(words.usageLine, { left: '960' }))).toBeTruthy()
+    cleanup()
+    usage = usageOf({ ownKey: true, aiPromptsAllowed: null })
+    await show()
+    expect(screen.getByText(words.usageOwn)).toBeTruthy()
+  })
+
+  it('opens the signed preview link in a new tab that carries nothing back', async () => {
+    const tab = { opener: {} as unknown, location: { href: '' }, close: vi.fn() }
+    const open = vi.fn().mockReturnValue(tab)
+    vi.stubGlobal('open', open)
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: pv.open }))
+    await settle()
+    expect(open).toHaveBeenCalledWith('', '_blank')
+    expect(tab.opener).toBeNull()
+    expect(tab.location.href).toBe('https://k7f3q9f2xa.webpreview.store/?preview=signed')
+  })
+
+  it('never follows a link that isn’t https, and says why a link couldn’t be made', async () => {
+    const tab = { opener: {} as unknown, location: { href: '' }, close: vi.fn() }
+    vi.stubGlobal('open', vi.fn().mockReturnValue(tab))
+    await show({ previewLink: vi.fn().mockResolvedValueOnce('javascript:alert(1)').mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'No.')) })
+    fireEvent.click(screen.getByRole('button', { name: pv.open }))
+    await settle()
+    expect(tab.close).toHaveBeenCalledTimes(1)
+    expect(tab.location.href).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: pv.open }))
+    await settle()
+    expect(tab.close).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('alert').textContent).toBe(pv.refused.NOT_CONNECTED)
+  })
+
+  it('ends every preview link only after asking', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: pv.more }))
+    fireEvent.click(screen.getByRole('menuitem', { name: pv.end }))
+    expect(api.endPreviewLinks).not.toHaveBeenCalled()
+    fireEvent.click(within(screen.getByRole('dialog', { name: pv.endTitle })).getByRole('button', { name: pv.endConfirm }))
+    await settle()
+    expect(api.endPreviewLinks).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(pv.ended)).toBeTruthy()
+  })
+
+  it('offers no preview before the draft has one', async () => {
+    cleanup()
+    await act(async () => {
+      render(<StudioView overview={{ ...overview, draft: { template: 'linen', changedAt: null, previewReady: false } }} templates={[]} storeName="Kesari" host={null} api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} />)
+    })
+    await settle()
+    expect(screen.queryByRole('button', { name: pv.open })).toBeNull()
   })
 })

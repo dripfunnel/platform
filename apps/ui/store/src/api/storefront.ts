@@ -161,3 +161,56 @@ export const loadPoweredBy = async (): Promise<{ removed: boolean; removable: bo
   const removes = (plan: (typeof plans)[number]) => plan.values.some((v) => v.key === 'powered_by_removal' && v.enabled === true)
   return { removed: plans.some((p) => p.current && removes(p)), removable: plans.some((p) => !p.current && removes(p)) }
 }
+
+const catalogueSchema = z.object({
+  waiting: z.boolean(),
+  since: text,
+  changedKinds: z.array(z.string()),
+  changedProducts: z.number().int(),
+  pressesAllowed: z.number().int().nullable(),
+  pressesLeft: z.number().int().nullable(),
+  nextAutomaticPublishAt: text,
+})
+const usageSchema = z.object({
+  ownKey: z.boolean(),
+  aiRequests: z.number().int(),
+  aiPromptsUsed: z.number().int(),
+  aiPromptsAllowed: z.number().int().nullable(),
+  buildMinutes: z.number().int(),
+  publishesLast30Days: z.number().int(),
+  recent: z.array(z.object({ id: z.string(), text: z.string(), createdAt: z.string() })),
+})
+const meterSchema = z.object({ catalogue: catalogueSchema, usage: usageSchema })
+/** Catalogue changes waiting for a publish, and this month's AI and build use (FIRST-RELEASE §19 "Built on #318 (part 4)"). */
+export type StorefrontMeters = z.infer<typeof meterSchema>
+
+export const loadMeters = async (): Promise<StorefrontMeters> =>
+  (
+    await query(
+      '{ storefront { catalogue { waiting since changedKinds changedProducts pressesAllowed pressesLeft nextAutomaticPublishAt } usage { ownKey aiRequests aiPromptsUsed aiPromptsAllowed buildMinutes publishesLast30Days recent { id text createdAt } } } }',
+      z.object({ storefront: meterSchema }),
+    )
+  ).storefront
+
+/** "Publish now": the live code rebuilt with the catalogue as it is, one of the month's presses; answers the publish's id. */
+export const publishNow = async (): Promise<string> => (await query('mutation { publishNow }', z.object({ publishNow: z.string() }))).publishNow
+
+const versionSchema = z.object({ id: z.string(), number: z.number().int(), template: z.string(), label: text, live: z.boolean(), publishedAt: z.string() })
+export type StorefrontVersion = z.infer<typeof versionSchema>
+
+/** Version history, newest first, 50 before a version's number. */
+export const loadHistory = async (before: number | null): Promise<StorefrontVersion[]> =>
+  (await query('query H($before: Int) { storefront { history(before: $before) { id number template label live publishedAt } } }', z.object({ storefront: z.object({ history: z.array(versionSchema) }) }), { before })).storefront.history
+
+/** "Go back to this": the version's kept build goes live again, using no build minutes, and the draft becomes it. */
+export const goBackToVersion = async (number: number): Promise<void> => {
+  await query('mutation G($n: Int!) { goBackToVersion(number: $n) }', z.object({ goBackToVersion: z.boolean() }), { n: number })
+}
+
+/** A signed link to the draft on the store's preview host (PREVIEW §5), recorded as opened. */
+export const previewLink = async (): Promise<string> => (await query('mutation { previewLink }', z.object({ previewLink: z.string() }))).previewLink
+
+/** Every preview link and its cookies stop at their next request (PREVIEW §5 step 4). */
+export const endPreviewLinks = async (): Promise<void> => {
+  await query('mutation { endPreviewLinks }', z.object({ endPreviewLinks: z.boolean() }))
+}
