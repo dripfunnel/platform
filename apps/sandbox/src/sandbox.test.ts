@@ -145,6 +145,19 @@ describe('the sandbox server', () => {
     expect(((await loaded.json()) as Json)['head']).toBe(await head('store-a'))
   })
 
+  it('loads a bundle at an earlier commit of its own, and refuses one it doesn’t hold', async () => {
+    const bytes = Buffer.from(await (await fetch(`${base}/slots/store-a/bundle`)).arrayBuffer())
+    const first = await head('store-a')
+    const next = (await change('store-a', homeWords('A lead past the live one.'), 'Later')).body['commit'] as string
+    expect(next).not.toBe(first)
+    const ahead = Buffer.from(await (await fetch(`${base}/slots/store-a/bundle`)).arrayBuffer())
+    const at = await fetch(`${base}/slots/store-b/draft?at=${first}`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: ahead })
+    expect(((await at.json()) as Json)['head']).toBe(first)
+    const unknown = await fetch(`${base}/slots/store-b/draft?at=${'f'.repeat(40)}`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: bytes })
+    expect(unknown.status).toBe(500)
+    expect((await fetch(`${base}/slots/store-b/draft?at=main`, { method: 'PUT', headers: { 'content-type': 'application/x-git-bundle' }, body: bytes })).status).toBe(400)
+  })
+
   it('serves the preview files of the current bundle with their hashes, never core', async () => {
     const preview = (await call('GET', '/slots/store-a/preview')).body as { id: string; files: { path: string; sha256: string }[] }
     expect(preview.files.map((f) => f.path)).toContain('index.html')
