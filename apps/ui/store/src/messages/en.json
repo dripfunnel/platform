@@ -6518,6 +6518,7 @@
         "addQuestion": "+ Add a question",
         "findProduct": "Find a product to add",
         "removeProduct": "Remove {name}",
+        "loadingProduct": "Loading the product’s name…",
         "goneProduct": "A product no longer in your catalogue",
         "productsHelp": "Shown with their live price and stock. A sold-out product shows as sold out, never removed.",
         "form": "Name, email, order number (optional) and message. Messages go to {email} and a copy goes to the shopper.",

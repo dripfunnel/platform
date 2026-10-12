@@ -259,6 +259,29 @@ describe('the page editor', () => {
     expect(content.saveContent.mock.calls[0]?.[3]).toMatchObject({ publish: false, body: [{ kind: 'heading' }, { kind: 'text' }, { kind: 'image', assetId: '33333333-3333-4333-8333-333333333333', alt: 'Printers at work' }] })
   })
 
+  it('keeps edits made while a photo uploads', async () => {
+    let finish: (value: { ok: true; assetId: string }) => void = () => undefined
+    upload.uploadPhoto.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    await show({ entry: 'new' })
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(e.tools.image), { target: { files: [new File(['x'], 'photo.png', { type: 'image/png' })] } })
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: fill(e.blockText, { kind: e.kinds.heading, number: '1' }) }), { target: { value: 'Our story' } })
+    fireEvent.click(screen.getByRole('button', { name: fill(e.remove, { number: '2' }) }))
+    await act(async () => finish({ ok: true, assetId: '33333333-3333-4333-8333-333333333333' }))
+    fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'About' } })
+    fireEvent.click(screen.getByRole('button', { name: e.draft }))
+    await settle()
+    expect(content.saveContent.mock.calls[0]?.[3]).toMatchObject({ body: [{ kind: 'heading', text: 'Our story' }, { kind: 'image', assetId: '33333333-3333-4333-8333-333333333333' }] })
+  })
+
+  it('names a product while its name loads', async () => {
+    content.loadProductNames.mockReturnValue(new Promise(() => undefined))
+    await show({ entry: faq.id })
+    expect(screen.getAllByText(e.loadingProduct)).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: fill(e.removeProduct, { name: e.loadingProduct }) })).toHaveLength(2)
+  })
+
   it('says why an upload was refused and adds no block', async () => {
     upload.uploadPhoto.mockResolvedValue({ ok: false, code: 'TOO_LARGE' })
     await show({ entry: 'new' })
