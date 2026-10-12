@@ -11,8 +11,9 @@ import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
 import { EditTextDialog } from './EditTextDialog'
 import { StudioChat, type ChatRequest } from './StudioChat'
-import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishPollMs, publishProgress, publishReadTries, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
+import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishProgress, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
+import { usePublishRun } from './usePublishRun'
 import './studio.css'
 
 const words = messages.storefront.studio
@@ -74,8 +75,6 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [publishing, setPublishing] = useState<{ before: string | null } | null>(null)
   const [previewMenu, setPreviewMenu] = useState(false)
   const [ending, setEnding] = useState(false)
-  const [lost, setLost] = useState(false)
-  const [checks, setChecks] = useState(0)
   const moreRef = useRef<HTMLButtonElement>(null)
   const nameOf = useCallback((key: string) => templateName(templates, key), [templates])
   const notHere = useCallback(() => {
@@ -156,43 +155,23 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     return () => window.removeEventListener('message', onMessage)
   }, [session, editing])
 
-  // A publish is read again until it ends; only the newest answer for the run followed lands.
-  useEffect(() => {
-    if (!run) return
-    let current = true
-    let failures = 0
-    setLost(false)
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const read = () =>
-      api.loadPublishRun(run).then(
-        (answer) => {
-          if (!current) return
-          failures = 0
-          if (!answer) return onRun(null)
-          setPublished(answer)
-          if (publishProgress(answer.step)) return void (timer = setTimeout(() => void read(), publishPollMs))
-          if (answer.step === 'live') {
-            setToast(fill(words.publish.live, { number: String(answer.version ?? '') }))
-            onRun(null)
-          }
-          void loadChat()
-          void api.loadOverview().then(onOverview, () => undefined)
-        },
-        (e: unknown) => {
-          if (!current) return
-          failures += 1
-          // A refused read, or one that keeps failing, stops asking but keeps the publish and the lock: it may still be running.
-          if (isApiError(e, 'SESSION_ENDED')) setSandbox({ kind: 'ended' })
-          if (isApiError(e, 'SESSION_ENDED') || isApiError(e, 'FORBIDDEN') || failures >= publishReadTries) return setLost(true)
-          timer = setTimeout(() => void read(), publishPollMs)
-        },
-      )
-    void read()
-    return () => {
-      current = false
-      clearTimeout(timer)
-    }
-  }, [api, run, onRun, loadChat, onOverview, checks, opened])
+  const publishEnded = useCallback(
+    (answer: PublishRun | null) => {
+      if (!answer) return onRun(null)
+      setPublished(answer)
+      if (answer.step === 'live') {
+        setToast(fill(words.publish.live, { number: String(answer.version ?? '') }))
+        onRun(null)
+      }
+      void loadChat()
+      void api.loadOverview().then(onOverview, () => undefined)
+    },
+    [api, onRun, loadChat, onOverview],
+  )
+  const publishReadFailed = useCallback((e: unknown) => {
+    if (isApiError(e, 'SESSION_ENDED')) setSandbox({ kind: 'ended' })
+  }, [])
+  const { lost, checkAgain } = usePublishRun(api, run, { onProgress: setPublished, onEnd: publishEnded, onReadError: publishReadFailed, restart: opened })
 
   const publish = async (before: string | null) => {
     setPublishing(null)
@@ -338,7 +317,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     <li>
       <div className="df-studio-refused" role="alert">
         <span>{words.publish.lost}</span>
-        <button type="button" className="df-button" onClick={() => setChecks((n) => n + 1)}>
+        <button type="button" className="df-button" onClick={checkAgain}>
           {words.publish.checkAgain}
         </button>
       </div>
