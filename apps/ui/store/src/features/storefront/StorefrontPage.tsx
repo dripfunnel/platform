@@ -64,7 +64,19 @@ export const StorefrontPage = () => {
 
   const update = useCallback((patch: Partial<Reads>) => setView((v) => (v.kind === 'ready' ? { kind: 'ready', reads: { ...v.reads, ...patch } } : v)), [])
   const onDomains = useCallback((domains: StorefrontDomains) => update({ domains }), [update])
-  const onOverview = useCallback((overview: StorefrontOverview) => update({ overview }), [update])
+  // A changed design can change which template is the current look, so the gallery's list is read again with it.
+  const templatesAsk = useRef(0)
+  const onOverview = useCallback(
+    (overview: StorefrontOverview) => {
+      update({ overview })
+      const ask = ++templatesAsk.current
+      api.loadTemplates().then(
+        (templates) => ask === templatesAsk.current && update({ templates }),
+        () => undefined,
+      )
+    },
+    [update, api],
+  )
 
   // The footer's "Powered by" needs the plan, which only the Owner reads (`billing`); a failed read just leaves the line out.
   const brandName = currentBrand()?.poweredBy ? (currentBrand()?.productName ?? null) : null
@@ -90,14 +102,14 @@ export const StorefrontPage = () => {
       () => {
         const ask = ++asked
         api.loadOverview().then(
-          (overview) => ask === asked && onOverview(overview),
+          (overview) => ask === asked && update({ overview }),
           () => undefined,
         )
       },
       creatingPollMs,
       { doc: document, win: window },
     )
-  }, [creating, api, onOverview])
+  }, [creating, api, update])
 
   const tabsId = useId()
   const tabRefs = useRef<Partial<Record<StorefrontTab, HTMLButtonElement | null>>>({})

@@ -262,6 +262,20 @@ describe('the overview', () => {
     expect(screen.getByText(o.discarded)).toBeTruthy()
   })
 
+  it('moves "Your current look" back to the live template after a discard', async () => {
+    api.loadOverview.mockResolvedValueOnce({ ...withDraft, template: 'bloom', draft: { template: 'bloom', changedAt: null, previewReady: true } }).mockResolvedValue(sameAsLive)
+    api.loadTemplates.mockResolvedValueOnce(templates.map((t) => ({ ...t, current: t.key === 'bloom' }))).mockResolvedValue(templates)
+    api.discardDraft.mockResolvedValue(undefined)
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: o.discard }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: o.discardConfirm }))
+    await settle()
+    fireEvent.click(screen.getByRole('button', { name: o.changeTemplate }))
+    await settle()
+    const current = screen.getByText(g.current).closest('li') as HTMLElement
+    expect(within(current).getByRole('heading', { name: 'Linen' })).toBeTruthy()
+  })
+
   it('shows a refused discard in the notice, and only there', async () => {
     api.loadOverview.mockResolvedValue(withDraft)
     api.discardDraft.mockRejectedValue(new ApiError('SUPPORT_READ_ONLY', 'No.'))
