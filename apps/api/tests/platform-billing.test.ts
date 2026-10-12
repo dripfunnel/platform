@@ -307,6 +307,9 @@ describe('payout account and card', () => {
       expect((await run(q.card, staffed(kind))).code).toBeDefined()
     }
     expect((await run(q.account, owner)).code).toBeUndefined()
+    const inSettings = async (caller: PartnerCaller) => (await run<{ billingSettings: { payoutAccount: unknown } }>(q.settings, caller)).data?.billingSettings.payoutAccount
+    expect(await inSettings(owner)).not.toBeNull()
+    for (const kind of ['impersonation', 'setup'] as const) expect(await inSettings(staffed(kind))).toBeNull()
   })
 
   it('answer the publishable key at runtime to whoever reads billing, and null while there is none', async () => {

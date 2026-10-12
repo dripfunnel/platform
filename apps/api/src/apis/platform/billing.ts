@@ -128,10 +128,14 @@ const PaymentMethodType = builder.objectRef<Awaited<ReturnType<PartnerBillingSer
   }),
 })
 
+const billingRead = { api: 'platform', scope: 'partner', permission: 'billing.read', target: 'none' } as const
+// Payout and card details stay with the partner, so no staff session reads them either (ACCESS §8.1, §8.2).
+const moneyRead = { ...billingRead, blockedFor: ['impersonation', 'setup'] } as const
 const SettingsType = builder.objectRef<Settings>('BillingSettings').implement({
   fields: (t) => ({
     mode: t.exposeString('mode'),
-    payoutAccount: t.field({ type: PayoutAccountType, resolve: (s) => s.payoutAccount }),
+    // Null for a staff session, like the payoutAccount query.
+    payoutAccount: t.field({ type: PayoutAccountType, nullable: true, extensions: { access: moneyRead }, resolve: (s) => s.payoutAccount }),
     asOf: t.string({ nullable: true, resolve: (s) => iso(s.asOf) }),
     staleSince: t.string({ nullable: true, resolve: (s) => iso(s.staleSince) }),
   }),
@@ -152,9 +156,6 @@ const InvoiceLink = builder.objectRef<{ ok: boolean; reason?: string; url?: stri
 const ClientConfig = builder.objectRef<{ publishableKey: string | null }>('BillingClientConfig').implement({
   fields: (t) => ({ publishableKey: t.exposeString('publishableKey', { nullable: true }) }),
 })
-const billingRead = { api: 'platform', scope: 'partner', permission: 'billing.read', target: 'none' } as const
-// Payout and card details stay with the partner, so no staff session reads them either (ACCESS §8.1, §8.2).
-const moneyRead = { ...billingRead, blockedFor: ['impersonation', 'setup'] } as const
 const pageArgs = (t: Parameters<Parameters<typeof builder.queryFields>[0]>[0]) => ({ after: t.arg.string(), before: t.arg.string(), first: t.arg.int() })
 
 const page = <T>(found: T | null): T => {

@@ -103,7 +103,7 @@ export const loadBilling = async (): Promise<BillingMoney> => {
       nextPayout: nextSchema,
       payouts: page(payoutSchema),
       partnerInvoices: page(invoiceSchema),
-      billingSettings: z.object({ staleSince: z.string().nullable(), payoutAccount: payoutAccountSchema }),
+      billingSettings: z.object({ staleSince: z.string().nullable(), payoutAccount: payoutAccountSchema.nullable() }),
     }),
   )
   const { failed, failedMore, ...payments } = answer.merchantPayments
@@ -115,7 +115,8 @@ export const loadBilling = async (): Promise<BillingMoney> => {
     payouts: answer.payouts,
     invoices: answer.partnerInvoices,
     staleSince: answer.billingSettings.staleSince,
-    payoutAccount: answer.billingSettings.payoutAccount,
+    // Null for a staff session, which never sees the partner's payout details.
+    payoutAccount: answer.billingSettings.payoutAccount ?? { bank: null, last4: null, status: 'missing', failure: null },
   }
 }
 
