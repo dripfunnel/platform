@@ -19,6 +19,16 @@ const words: Record<DesignRefusal['reason'], string> = {
   STUDIO_QUEUED: 'The studio is waiting for room.',
   CHANGE_REFUSED: 'That change didn’t pass our checks — nothing on your site changed.',
   NOT_FOUND: 'That isn’t here any more.',
+  INVALID_INPUT: 'Something here isn’t valid.',
+  INVALID_IMAGE: 'Use an image you uploaded to this store.',
+  INVALID_URL: 'Use a public website address starting with https://.',
+  INVALID_LANGUAGE: 'Your shop doesn’t offer that language.',
+  SAMPLE_UNAVAILABLE: 'We couldn’t open that website. Try another address.',
+  AI_BUDGET_REACHED: 'You’ve used this month’s AI requests.',
+  AI_NOT_CONNECTED: 'Add your AI key to design with AI.',
+  SESSION_ENDED: 'Your studio session ended. Reopen the studio to keep designing.',
+  NOT_LATEST: 'Only your latest change can be undone.',
+  NOTHING_TO_DISCARD: 'There are no unpublished changes to discard.',
 }
 
 export const answered = <T>(result: DesignResult<T>): T => {

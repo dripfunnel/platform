@@ -26,7 +26,26 @@ export interface DesignerDeps {
 }
 
 export type DesignRefusal =
-  | { reason: 'BRAND_NOT_READY' | 'INVALID_TEMPLATE' | 'OWN_FRONTEND' | 'IN_PROGRESS' | 'NOT_CONNECTED' | 'STUDIO_UNAVAILABLE' | 'NOT_FOUND' }
+  | {
+      reason:
+        | 'BRAND_NOT_READY'
+        | 'INVALID_TEMPLATE'
+        | 'OWN_FRONTEND'
+        | 'IN_PROGRESS'
+        | 'NOT_CONNECTED'
+        | 'STUDIO_UNAVAILABLE'
+        | 'NOT_FOUND'
+        | 'INVALID_INPUT'
+        | 'INVALID_IMAGE'
+        | 'INVALID_URL'
+        | 'INVALID_LANGUAGE'
+        | 'SAMPLE_UNAVAILABLE'
+        | 'AI_BUDGET_REACHED'
+        | 'AI_NOT_CONNECTED'
+        | 'SESSION_ENDED'
+        | 'NOT_LATEST'
+        | 'NOTHING_TO_DISCARD'
+    }
   | { reason: 'STUDIO_QUEUED'; place: number }
   | { reason: 'CHANGE_REFUSED'; problems: number }
 
@@ -63,6 +82,24 @@ const historyPage = 50
 /** Tries for an entry that follows a change made outside its transaction (`recordAfter`). */
 const recordTries = 3
 
+/**
+ * The studio changed the draft in its Durable Object and R2, outside any transaction here, so the entry that follows is
+ * retried: a passing change is never left unlogged by a passing fault (AGENTS.md "Security": every write logged).
+ */
+export const recordAfter = async <T>(sql: postgres.Sql, storeId: string, work: (tx: ScopedSql) => Promise<T>): Promise<T> => {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await withSystemScope(sql, work)
+    } catch (error) {
+      if (attempt >= recordTries) {
+        logEvent({ event: 'storefront_entry_failed', api: 'store', storeId, code: failureCode(error) })
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200 * attempt))
+    }
+  }
+}
+
 export const createDesignerService = ({ sql, context, actor, activity, facts, studio, now }: DesignerDeps) => {
   const { storeId } = context
 
@@ -83,24 +120,6 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     visibility: 'store',
     ...facts,
   })
-
-  /**
-   * The studio changed the draft in its Durable Object and R2, outside any transaction here, so the entry that follows is
-   * retried: a passing change is never left unlogged by a passing fault (AGENTS.md "Security": every write logged).
-   */
-  const recordAfter = async <T>(work: (tx: ScopedSql) => Promise<T>): Promise<T> => {
-    for (let attempt = 1; ; attempt += 1) {
-      try {
-        return await withSystemScope(sql, work)
-      } catch (error) {
-        if (attempt >= recordTries) {
-          logEvent({ event: 'storefront_entry_failed', api: 'store', storeId, code: failureCode(error) })
-          throw error
-        }
-        await new Promise((resolve) => setTimeout(resolve, 200 * attempt))
-      }
-    }
-  }
 
   const note = (tx: ScopedSql, text: string) => insertDesignMessage(tx, { storeId, role: 'note', text, createdBy: actor.id, at: now() } satisfies NewMessage)
 
@@ -158,7 +177,7 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     if (answer.outcome === 'refused') return { ok: false, reason: 'CHANGE_REFUSED', problems: answer.problems.length }
     // The template the draft already uses changes nothing, so nothing is recorded as chosen.
-    if (answer.outcome === 'changed') await recordAfter((tx) => record(tx, true))
+    if (answer.outcome === 'changed') await recordAfter(sql, storeId, (tx) => record(tx, true))
     return { ok: true, value: (await overview()).status }
   }
 

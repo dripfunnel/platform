@@ -11,7 +11,11 @@ export type Proposal = {
   /** Minor units of costCurrency (DATA-MODEL §7.1). */
   costAmount: number
   costCurrency: string
+  /** What changed in plain words and the page to show (FIRST-RELEASE §14); null when the answer had no usable shape. */
+  summary?: ProposalSummary | null
 }
+
+export type ProposalSummary = { reply: string; changed: string[]; page: string | null }
 
 export type ProposalInput = {
   request: string

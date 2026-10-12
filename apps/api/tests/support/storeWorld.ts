@@ -40,6 +40,8 @@ export interface WorldOptions {
   secrets: SecretBox | null
   lookup: DnsLookup | null
   studio?: StoreContext['studio']
+  /** More of the Store API's dependencies, as the Worker passes them (`preview`, `design`). */
+  extra?: Partial<StoreContext>
 }
 
 /** The seats, a plan with room for products and staff in each store, and a session each; the supplier works at Catalogue. */
@@ -67,7 +69,7 @@ export const seedStoreWorld = async (sql: postgres.Sql, t: Tenants, o: WorldOpti
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const run = async (headers: Record<string, string>, partnerId: string, source: string, variables: Record<string, unknown> = {}) => {
     const standing = await resolveStoreStanding(sql, new Request('https://store.example/api/', { headers }), partnerId, o.now(), activityLog, facts)
-    const contextValue: StoreContext = { standing, partnerId, sql, activity: activityLog, facts, secrets: o.secrets, lookup: o.lookup, domains: { edgeZone: 'dripfunnel.example', localHosts: false }, studio: o.studio ?? null, now: o.now }
+    const contextValue: StoreContext = { standing, partnerId, sql, activity: activityLog, facts, secrets: o.secrets, lookup: o.lookup, domains: { edgeZone: 'dripfunnel.example', localHosts: false }, studio: o.studio ?? null, ...o.extra, now: o.now }
     const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
     return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, extensions: result.errors?.[0]?.extensions }
   }

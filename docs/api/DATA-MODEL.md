@@ -1831,6 +1831,8 @@ design_draft        (store_id PK, head_commit, base_version_id NULL, template, c
                     -- Built on #316 (migration 0231) without base_version_id, which comes with
                     -- design_version: the create-storefront Workflow writes the first, its head
                     -- the repo's main and its preview the template's bundle (SAAS §5 step 7)
+                    -- #318: a row the studio inserts lists its first commit in commits; Discard deletes the row,
+                    -- and the studio loads the draft bundle only while a row exists (AI-STUDIO §3 step 4)
 design_version      (id, store_id, number, commit, template, core_version, label NULL, build_id,
                      published_by NULL, published_at, state ('live'|'kept'))
                     -- PortalStorefront history: "Go back to version N" makes deploy_ref (the
@@ -1849,7 +1851,7 @@ design_message      (id, store_id, role ('user'|'ai'|'note'|'error'), text, chan
                     -- "Undo this change" restores; image_asset_id a pasted image (the store's
                     -- own asset), sample_url a site the merchant gave; the merchant's, like
                     -- ai_run.prompt (§5.3)
-                    -- Built on #318 (migration 0332) with page (the page the reply shows); a note's or
+                    -- Built on #318 (migrations 0332, the notes, and 0333) with page (the page the reply shows); a note's or
                     -- an error's text is a code the portal words, never stored words (`template:{key}`);
                     -- the studio writes it in system scope, the merchant side reads its own
 storefront_brand    (store_id PK, logo_asset_id, favicon_asset_id NULL, primary_colour NULL,
@@ -1946,6 +1948,9 @@ store_usage         (store_id, key, used, period_start NULL, updated_at)
                     -- an allowance's period_start says which period it counts, reset per
                     -- billing period (SAAS §6.2). The meters with no plan value
                     -- (ai_tokens, build_minutes, bandwidth_bytes) and a history per period
+                    -- #318 counts `ai_prompts`: a merchant request on the plan takes its unit in one statement
+                    -- before the model is asked (given back when the sandbox never took it), never a repair;
+                    -- period_start is the UTC month, compared as a date
                     -- are added by the card that first writes them. AI cost is not a meter
                     -- but the sum of ai_run.cost_amount for the period (§7.1 Money)
 store_limit_override (id, store_id, key, amount, duration ('month'|'always'), month NULL,
