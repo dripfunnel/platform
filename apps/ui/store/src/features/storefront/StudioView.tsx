@@ -235,9 +235,10 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const progress = run !== null && (published === null || published.id !== run) ? publishProgress('queued') : published && published.id === run ? publishProgress(published.step) : null
   const locked = sandbox.kind !== 'ready' || busy || progress !== null
   const shownDevice = phone ? 'phone' : device
+  // Reads after a change never throw: the chat says when it couldn't load, and the design keeps its last answer.
   const after = async () => {
     await loadChat()
-    onOverview(await api.loadOverview())
+    await api.loadOverview().then(onOverview, () => undefined)
   }
   const perform = async (work: () => Promise<unknown>, refusal: (e: unknown) => string): Promise<boolean> => {
     if (locked) return false
@@ -245,15 +246,15 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     setError(null)
     try {
       await work()
-      await after()
-      return true
     } catch (e) {
       if (isApiError(e, 'SESSION_ENDED')) setSandbox({ kind: 'ended' })
       setError(refusal(e))
-      return false
-    } finally {
       setBusy(false)
+      return false
     }
+    await after()
+    setBusy(false)
+    return true
   }
   // An accepted change reaches the frame by its own hot reload, so the frame's address never changes here (AI-STUDIO §4 step 5).
   const send = (request: ChatRequest) => perform(() => api.askDesign({ ...request, page: shownPath, device: shownDevice }), askRefusal)
