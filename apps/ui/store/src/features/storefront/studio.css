@@ -682,17 +682,23 @@
 
 .df-studio-progress {
   display: flex;
+  flex: 0 1 240px;
   align-items: center;
   gap: 8px;
-  min-width: 150px;
+  min-width: 0;
   color: var(--df-color-text-strong);
   font-size: 12px;
   white-space: nowrap;
 }
 
+.df-studio-progress > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .df-studio-progress-bar {
   flex: 1;
-  min-width: 60px;
+  min-width: 40px;
   height: 6px;
   overflow: hidden;
   border-radius: 3px;
