@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-13 (#681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -615,7 +615,8 @@ through. Your site stays live."), as is a support session.
   Store info), and a tone of voice. "Continue to templates" stays disabled until the name and
   logo are set; everything else can be skipped.
 - **Template gallery**: "Choose a starting point" (first time) or "Change template"; the six
-  templates and "Start from scratch" previewed with the store's products, **View demo ↗** (a
+  templates and "Start from scratch", each shown by one picture of its look, the same for every
+  store (decided 2026-10-12, #681), **View demo ↗** (a
   new tab, or the same tab with a Back link), **Use this template**, and "Your current look"
   on the one in use. Switching asks "Keep my words" or "Use template text"; the live site
   doesn't change until Publish.
@@ -741,6 +742,11 @@ through. Your site stays live."), as is a support session.
   content. Open preview ↗ opens its tab on the click and sends it to the signed link once made (https only, no
   opener), so a pop-up blocker doesn't stop it; it shows only once the draft's preview is written, and sits in the
   preview's toolbar on a phone.
+- **Built on #681**: each template's card shows its picture, `apps/ui/store/public/templates/{key}.webp` (alt text
+  empty, since the name is beside it), in place of part 3's name tile, which stays for a key whose picture doesn't
+  load. *Decided there:* each picture is the top of that theme's preview bundle home page at 1440 px, cropped to the
+  card's 1280 : 794 and at most 150 KB, rendered as "Your Shop" with no description (so each theme's own lead line
+  shows) and no products, without the preview banner and the cookie question, which a returning shopper doesn't see.
 - **Built on #680**: the Overview frames the live site at Desktop and Phone, as `PortalStorefront` draws it, now that
   live pages let the store's portal frame them (storefront ARCHITECTURE §3.5): the card's head has "Live now · version
   N" and Desktop · Phone; Desktop is the site 1280 px wide scaled to the card (at most 640 px tall), Phone is it 390 px

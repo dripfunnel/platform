@@ -462,6 +462,19 @@ describe('the template gallery', () => {
     expect(screen.getByText(fill(g.switched, { name: 'Bloom' }))).toBeTruthy()
   })
 
+  it('shows each template’s picture, and its name where a picture won’t load', async () => {
+    api.loadOverview.mockResolvedValue(notStarted)
+    await show()
+    const cards = screen.getAllByRole('listitem')
+    const pictures = cards.map((card) => card.querySelector('.df-sf-template-thumb img'))
+    expect(pictures.map((img) => [img?.getAttribute('src'), img?.getAttribute('alt')])).toEqual(templates.map((t) => [`/templates/${t.key}.webp`, '']))
+    fireEvent.error(pictures[2] as HTMLImageElement)
+    const bloom = cards[2] as HTMLElement
+    expect(bloom.querySelector('img')).toBeNull()
+    expect(within(bloom).getAllByText('Bloom')).toHaveLength(2)
+    expect(cards[1]?.querySelector('img')).toBeTruthy()
+  })
+
   it('asks to keep the words when the template changes, and marks the current look', async () => {
     api.chooseTemplate.mockResolvedValue('unpublished_changes')
     await show()
