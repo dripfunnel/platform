@@ -207,10 +207,8 @@ export const studioSessionClass = (connect: Connect) =>
     async repair(storeId: string, input: { failing: string[]; key: string }, model: DesignModel): Promise<string | null> {
       const done = await this.ctx.storage.get<string | null>(`repair:${input.key}`)
       if (done !== undefined) return done
-      const commit = await (await this.active(storeId)).repairPublish(input.failing, model).catch((error: unknown) => {
-        if (error instanceof StudioQueued || error instanceof StudioUnavailable) return null
-        throw error
-      })
+      // A busy or unavailable studio throws uncached, so the Workflow step's own retries can still repair.
+      const commit = await (await this.active(storeId)).repairPublish(input.failing, model)
       await this.ctx.storage.put(`repair:${input.key}`, commit)
       return commit
     }
