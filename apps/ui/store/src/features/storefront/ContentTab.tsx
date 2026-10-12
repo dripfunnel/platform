@@ -1,7 +1,7 @@
 import { ErrorState, LoadingState, StatusPill } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContentKind, ContentRow, ContentStatus } from '../../api/content'
-import { fill, formatDay, messages } from '../../messages'
+import { fill, formatTime, messages } from '../../messages'
 import type { StorefrontApi } from './storefrontApi'
 import './content.css'
 
@@ -47,6 +47,10 @@ export const ContentTab = ({ kind, api, onStudio }: ContentTabProps) => {
   }
 
   const w = words.pages
+  const metaOf = (r: ContentRow) => {
+    const edited = fill(w.edited, { date: formatTime(r.updatedAt) })
+    return r.inMenu ? fill(w.inMenu, { meta: edited }) : edited
+  }
   if (list.kind === 'loading') return <LoadingState label={words.loading} />
   if (list.kind === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
 
@@ -71,7 +75,7 @@ export const ContentTab = ({ kind, api, onStudio }: ContentTabProps) => {
                   <span className="df-sfc-path">{r.path}</span>
                 </span>
                 <StatusPill tone={pills[r.status].tone} icon={pills[r.status].icon} label={words.status[r.status]} />
-                <span className="df-sfc-meta">{r.inMenu ? fill(w.inMenu, { meta: fill(w.edited, { date: formatDay(r.updatedAt.slice(0, 10)) }) }) : fill(w.edited, { date: formatDay(r.updatedAt.slice(0, 10)) })}</span>
+                <span className="df-sfc-meta">{metaOf(r)}</span>
               </div>
             </li>
           ))}

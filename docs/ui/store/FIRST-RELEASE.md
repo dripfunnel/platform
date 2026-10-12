@@ -765,7 +765,7 @@ through. Your site stays live."), as is a support session.
   the studio tells; a store whose first publish rolled back has nothing live and no notice, as the prototype shows it
   only with a site.
 - **Built on #339 (part 1, on #338's API)**: the Pages tab's list, as `StorefrontContent` draws it: the content pages
-  (title, path, Published, Draft or Scheduled, when edited, "in the footer"), fifty at a time with Show more, then the
+  (title, path, Published, Draft or Scheduled, when edited in UTC with the zone named, "in the footer"), fifty at a time with Show more, then the
   AI's pages (`customPagePaths`), each "Made by AI"; the Owner's open the studio on that page (`?view=studio&page=`),
   a reader's open nothing. *Decided there:* an AI page is named by its path, as the studio's picker names it; the
   page-level Manager notice stands for the drawing's own. The editor and Journal come in later parts.

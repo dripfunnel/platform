@@ -1,15 +1,12 @@
 // @vitest-environment happy-dom
-import { optionalParam } from '@dripfunnel/shared/search'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { z } from 'zod'
 import type { ContentRow } from '../../api/content'
 import type { Acting } from '../../api/shell'
 import type { StorefrontBrand, StorefrontOverview } from '../../api/storefront'
-import { fill, messages } from '../../messages'
-import { storefrontTabs, storefrontViews } from './storefrontAccess'
-import { studioPathPattern } from './studioRules'
+import { fill, formatTime, messages } from '../../messages'
+import { storefrontSearch } from './storefrontSearch'
 
 // Storefront › Pages driven by each seat (StorefrontContent; FIRST-RELEASE §14): the content pages and the AI's.
 
@@ -37,7 +34,7 @@ const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve
 const show = async ({ acting = owner }: { acting?: Acting } = {}) => {
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly: false } }), component: Outlet })
-  const page = createRoute({ getParentRoute: () => app, path: '/storefront', validateSearch: z.looseObject({ tab: optionalParam(z.enum(storefrontTabs)), view: optionalParam(z.enum(storefrontViews)), page: optionalParam(z.string().regex(studioPathPattern)) }), component: StorefrontPage })
+  const page = createRoute({ getParentRoute: () => app, path: '/storefront', validateSearch: storefrontSearch, component: StorefrontPage })
   const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: ['/storefront?tab=pages'] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
@@ -56,7 +53,7 @@ beforeEach(() => {
   api.loadTemplates.mockResolvedValue([])
   api.loadPoweredBy.mockResolvedValue({ removed: true, removable: false })
   api.loadMeters.mockRejectedValue(new Error('not under test'))
-  content.loadContentList.mockResolvedValue({ rows: [row(), lookbook], next: null })
+  content.loadContentList.mockResolvedValue({ rows: [row(), lookbook, row({ id: '33333333-3333-4333-8333-333333333333', title: 'Autumn', path: '/autumn', status: 'scheduled', inMenu: false })], next: null })
   content.loadCustomPaths.mockResolvedValue(['/about'])
 })
 
@@ -74,8 +71,11 @@ describe('the Pages list', () => {
     expect(within(rows[0] as HTMLElement).getByText('Questions we get asked')).toBeTruthy()
     expect(within(rows[0] as HTMLElement).getByText(c.status.published)).toBeTruthy()
     expect(within(rows[0] as HTMLElement).getByText('/faq')).toBeTruthy()
+    expect(within(rows[0] as HTMLElement).getByText(fill(p.inMenu, { meta: fill(p.edited, { date: formatTime('2026-10-09T10:40:00Z') }) }))).toBeTruthy()
     expect(within(rows[1] as HTMLElement).getByText(c.status.draft)).toBeTruthy()
-    expect(within(rows[2] as HTMLElement).getByText(p.ai)).toBeTruthy()
+    expect(within(rows[1] as HTMLElement).getByText(fill(p.edited, { date: formatTime('2026-10-09T10:40:00Z') }))).toBeTruthy()
+    expect(within(rows[2] as HTMLElement).getByText(c.status.scheduled)).toBeTruthy()
+    expect(within(rows[3] as HTMLElement).getByText(p.ai)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: fill(p.aiOpen, { path: '/about' }) }))
     await settle()
     expect(router.state.location.search).toMatchObject({ view: 'studio', page: '/about' })
@@ -112,5 +112,24 @@ describe('the Pages list', () => {
     expect(content.loadContentList).toHaveBeenLastCalledWith('page', 'cursor-1')
     expect(screen.getByText('Lookbook')).toBeTruthy()
     expect(screen.queryByRole('button', { name: c.more })).toBeNull()
+  })
+
+  it('says Show more failed and lets it be asked again', async () => {
+    content.loadContentList.mockResolvedValueOnce({ rows: [row()], next: 'cursor-1' }).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ rows: [lookbook], next: null })
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: c.more }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(c.moreFailed)
+    fireEvent.click(screen.getByRole('button', { name: c.more }))
+    await settle()
+    expect(screen.getByText('Lookbook')).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+})
+
+describe('the studio’s page in the address', () => {
+  it('takes a path on the shop and drops anything else, so the studio opens on the home page', () => {
+    expect(storefrontSearch.parse({ view: 'studio', page: '/about' }).page).toBe('/about')
+    for (const page of ['about', '/a b', '/a\\b', `/${'a'.repeat(501)}`]) expect(storefrontSearch.parse({ view: 'studio', page }).page).toBeUndefined()
   })
 })
