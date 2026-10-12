@@ -3,9 +3,9 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { setProblemReporter, shopProblemReporter } from '../../sealed/report'
 import type { ShopClient } from '../api/client'
-import { AddressProvider } from '../browser/router'
+import { AddressProvider, useLocation } from '../browser/router'
 import { createI18n, type Translate } from '../i18n/i18n'
-import { useHeadAt } from '../seo/head'
+import { storeHead, useHeadAt } from '../seo/head'
 import type { ShopStoreSettings } from './store'
 
 /** `studio` is the AI studio's frame on the preview origin (AI-STUDIO §1). */
@@ -25,7 +25,8 @@ const StorefrontContext = createContext<Storefront | null>(null)
 
 /** The store's own head under every page's; a preview or the studio frame is never indexed (PREVIEW §5 step 4). */
 const StoreHead = ({ store, mode }: { store: ShopStoreSettings; mode: RenderMode }) => {
-  useHeadAt(0, { title: store.name, description: store.description, hidden: mode !== 'live' })
+  const { path } = useLocation()
+  useHeadAt(0, { ...storeHead(store, path), hidden: mode !== 'live' })
   return null
 }
 

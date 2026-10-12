@@ -132,8 +132,9 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   preloads, plays muted only while on screen and never under reduced motion; the size cap is the media library's, not
   the browser's.
 - **The head**: core keeps the title, description, canonical, Open Graph and robots in step in the browser, the page's
-  over the store's, and `noindex` holds in the preview and the studio. JSON-LD is only ever in the static HTML: Trusted
-  Types forbid writing a script's text at run time.
+  over the store's, and `noindex` holds in the preview and the studio. The home page's title, description and share
+  image are the store's search and sharing (SAAS §9.2), in the static HTML and in the browser (`storeHead`). JSON-LD is
+  only ever in the static HTML: Trusted Types forbid writing a script's text at run time.
 - **A closed preview**: on `PREVIEW_CLOSED` from `/shop-api`, core's runtime replaces the page with "This preview has
   closed. Open it again from your link or from the portal." and no store data (PREVIEW §5 step 3).
 

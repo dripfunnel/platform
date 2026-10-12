@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
-import { applyHead, mergedHead } from './head'
+import { applyHead, mergedHead, storeHead } from './head'
 
 describe('the head', () => {
   it("puts a page's fields over the store's whatever order they came in, and keeps any noindex", () => {
@@ -21,5 +21,13 @@ describe('the head', () => {
     expect(document.head.querySelector('link[rel="canonical"]')).toBeNull()
     expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex, nofollow')
     expect(document.head.querySelector('meta[name="description"]')).toBeNull()
+  })
+})
+
+describe('storeHead', () => {
+  it("uses the home page's search and sharing on the home page only", () => {
+    const store = { name: 'Juniper', description: 'Clothes', seo: { title: 'Juniper linen', description: null, image: { url: 'https://shop.example/s.png' } } }
+    expect(storeHead(store, '/')).toEqual({ title: 'Juniper linen', description: 'Clothes', image: 'https://shop.example/s.png' })
+    expect(storeHead(store, '/about/')).toEqual({ title: 'Juniper', description: 'Clothes', image: null })
   })
 })

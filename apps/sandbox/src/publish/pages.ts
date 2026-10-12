@@ -1,4 +1,4 @@
-import { coreRoutes, routeAddresses, type CoreRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
+import { coreRoutes, routeAddresses, storeHead, type CoreRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { fallbackPath, indexable, type CatalogueSnapshot, type PageRoute } from '@dripfunnel/storefront-core/guard'
 
 // The live site's pages and the files around them (storefront ARCHITECTURE §4.2, §8; LIVE-SHOP §4 step 6, and §5 step 6
@@ -43,12 +43,14 @@ export type PageAssets = { entry: string; css: readonly string[] }
 /** The document around a rendered page: core owns the head (ARCHITECTURE §8), the theme the body. */
 export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body: string; assets: PageAssets; dir: 'ltr' | 'rtl'; store: CatalogueSnapshot['store'] }) => {
   const asset = (file: string) => escapeHtml(`${s.assetBase ?? '/'}${file}`)
+  const head = storeHead(o.store, page.route === 'home' ? '/' : page.path)
   const live: LivePage = { route: page.route === 'custom' ? null : page.route, custom: page.custom, path: page.path, store: o.store, poweredBy: s.poweredBy }
   return [
     '<!doctype html>',
     `<html lang="${escapeHtml(page.language)}" dir="${o.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">`,
-    `<title>${escapeHtml(o.store.name)}</title>`,
-    o.store.description ? `<meta name="description" content="${escapeHtml(o.store.description)}">` : '',
+    `<title>${escapeHtml(head.title ?? o.store.name)}</title>`,
+    head.description ? `<meta name="description" content="${escapeHtml(head.description)}">` : '',
+    head.image ? `<meta property="og:image" content="${escapeHtml(head.image)}">` : '',
     indexable(page.route) && !page.path.includes('/_fallback/') ? `<link rel="canonical" href="${escapeHtml(`${s.origin}${page.path}`)}">` : '<meta name="robots" content="noindex">',
     ...o.assets.css.map((c) => `<link rel="stylesheet" href="${asset(c)}">`),
     `<script type="module" src="${asset(o.assets.entry)}"></script>`,
