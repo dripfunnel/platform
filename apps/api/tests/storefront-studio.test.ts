@@ -84,7 +84,11 @@ let aiMode: 'plan' | 'none' = 'plan'
 /** The studio's RPC fails before it reaches the model (a Durable Object fault). */
 let studioDown = false
 /** The world's design deps; a test sets the screenshotter, which sits behind the SSRF check (docs/ARCHITECTURE.md §7). */
-const design: { ai: (billedTo: 'plan' | 'own_key') => AiProvider | null; screenshots: Screenshotter | null; readAsset: null } = {
+const design: {
+  ai: (billedTo: 'plan' | 'own_key') => AiProvider | null
+  screenshots: Screenshotter | null
+  readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
+} = {
   ai: (billedTo) => (aiMode === 'plan' && billedTo === 'plan' ? provider : null),
   screenshots: null,
   readAsset: null,
@@ -220,6 +224,30 @@ describe('asking for a change', () => {
     }
     expect(script.sent.length).toBe(sent)
     expect(await usage(t.storeA1)).toBe(used)
+  })
+
+  it('takes only the store’s own merchant image: another store’s, a supplier’s or a non-id is refused before the model or a unit', async () => {
+    const asset = async (storeId: string, sellerId: string | null = null) =>
+      (await db.sql<{ id: string }[]>`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${sellerId}, ${`stores/${storeId}/assets/${crypto.randomUUID()}.png`}, 'image', 'image/png', 10, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    const own = await asset(t.storeA1)
+    const others = [await asset(t.storeB1), await asset(t.storeA1, t.sellerA1First), 'https://evil.example/x.png', crypto.randomUUID()]
+    const read: string[] = []
+    design.readAsset = async (key) => (read.push(key), { bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), mime: 'image/png' })
+    try {
+      const sent = script.sent.length
+      const used = await usage(t.storeA1)
+      for (const image of others) expect((await ask('owner', 'Like this', { image })).code, image).toBe('INVALID_IMAGE')
+      expect(read).toEqual([])
+      expect(script.sent.length).toBe(sent)
+      expect(await usage(t.storeA1)).toBe(used)
+      // The model changes nothing here, so the draft the later tests build on stays as it was.
+      script.answers = [reply([])]
+      expect((await ask('owner', 'Like this', { image: own })).code).toBeUndefined()
+      expect(read).toHaveLength(1)
+      expect(script.sent.length).toBe(sent + 1)
+    } finally {
+      design.readAsset = null
+    }
   })
 
   it('screenshots a sample site only at a public https address, refused before the budget and the model', async () => {

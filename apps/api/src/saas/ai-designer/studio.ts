@@ -1,5 +1,6 @@
 import type { ActivityEntry } from '#auth/activity'
 import type { StoreRole } from '#auth/storePermissions'
+import { isUuid } from '#core/ids'
 import { logEvent, failureCode } from '#core/log'
 import { toMajor } from '#core/money'
 import { insertDesignMessage, markUndone, selectBriefStore, selectDesignChat, selectLatestChange, selectMessage, selectProductSample, selectRecentRequests, type MessageRow } from '#db/scoped/design'
@@ -119,6 +120,7 @@ export const createStudioService = (deps: StudioDeps) => {
   }
 
   const imageOf = async (assetId: string): Promise<DesignResult<AiImage>> => {
+    if (!isUuid(assetId)) return { ok: false, reason: 'INVALID_IMAGE' }
     const key = await withScope(sql, context, (tx) => selectMerchantImageKey(tx, storeId, assetId))
     if (!key) return { ok: false, reason: 'INVALID_IMAGE' }
     const file = deps.readAsset ? await deps.readAsset(key) : null
