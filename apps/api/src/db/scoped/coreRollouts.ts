@@ -1,4 +1,4 @@
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
 
 // core_rollout and core_rollout_store (DATA-MODEL §7.8 "Platform scope", SAAS §10): staff start and steer a rollout in
 // platform scope; the cron's tick and each store's upgrade Workflow move it in system scope.
@@ -149,7 +149,7 @@ export const selectReleaseForRollout = async (tx: ScopedSql, version: string): P
 export const setRolloutState = async (tx: ScopedSql, id: string, change: { state: RolloutState; pausedState?: 'canary' | 'waves' | null; percent?: number; finishedAt?: Date | null }): Promise<void> => {
   await tx`
     update core_rollout set state = ${change.state}, paused_state = ${change.pausedState ?? null},
-      percent = coalesce(${change.percent ?? null}::int, percent), finished_at = coalesce(${change.finishedAt ?? null}::timestamptz, finished_at)
+      percent = coalesce(${change.percent ?? null}::int, percent), finished_at = coalesce(finished_at, ${change.finishedAt ?? null}::timestamptz)
     where id = ${id}`
 }
 
@@ -185,6 +185,9 @@ export const markReverted = async (tx: ScopedSql, id: string, outcome: { reverte
   else await tx`update core_rollout_store set error = ${outcome.error} where id = ${id}`
 }
 
-export const countStoresByState = (tx: ScopedSql, rolloutId: string): Promise<{ state: StoreUpgradeState; n: number }[]> =>
-  tx<{ state: StoreUpgradeState; n: number }[]>`select state, count(*)::int as n from core_rollout_store where rollout_id = ${rolloutId} group by state order by state`
+/** The stores of each rollout counted by state, in one query for a page of them. */
+export const countStoresByState = (tx: ScopedSql, rolloutIds: readonly string[]): Promise<{ rollout_id: string; state: StoreUpgradeState; n: number }[]> =>
+  tx<{ rollout_id: string; state: StoreUpgradeState; n: number }[]>`
+    select rollout_id, state, count(*)::int as n from core_rollout_store
+    where rollout_id = any(${pgArray(rolloutIds)}::uuid[]) group by rollout_id, state order by rollout_id, state`
 

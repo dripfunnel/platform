@@ -1962,10 +1962,13 @@ core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), se
                     -- (built on #482, migration 0250); staff read it, system scope writes it; retired_at and
                     -- image_deleted_at (#485, 0350): no store needs the version's studio image any more, and the
                     -- scheduled workflow deleted it from Cloudflare's registry (AI-STUDIO §9)
-storefront_template (key PK, name, description, demo_store_id NULL, core_min_version,
+storefront_template (key PK, name, tag, description, demo_store_id NULL, core_min_version,
                      state ('offered'|'retired'))
                     -- the template gallery (storefront ARCHITECTURE §2.3); the code itself is
-                    -- in templates/storefront/themes/{key}; a partner offers a subset (G4)
+                    -- in templates/storefront/themes/{key}, whose template.json each row
+                    -- mirrors (built on #486, migration 0331; `tag` is the gallery's short
+                    -- label, "Minimal fashion"); staff read it, system scope writes it; a
+                    -- partner offers a subset (G4)
 core_rollout        (id, version, security, state ('canary'|'waves'|'paused'|'done'|'rolled_back'),
                      paused_state NULL, percent, started_by NULL, reason, started_at, enrolled_at NULL,
                      finished_at NULL)

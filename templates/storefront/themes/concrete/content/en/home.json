@@ -1,0 +1,12 @@
+{
+  "hero": {
+    "title": "This is {store}",
+    "lead": "See what is in store.",
+    "shop": "Shop now"
+  },
+  "banner": {
+    "title": "Join us",
+    "body": "Create an account to follow your orders and check out faster.",
+    "action": "Join"
+  }
+}

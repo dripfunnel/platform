@@ -13,6 +13,7 @@ export interface StudioDraftRow {
   storefront_template: string | null
   /** The build whose source a store without a draft starts from: its own theme's, while the baseline is served. */
   own_build_id: string | null
+  own_core_version: string | null
   /** What a draft moves onto before it publishes (AI-STUDIO §6 step 2): a major's passed upgrade, else the live commit. */
   onto_commit: string | null
   onto_version: string | null
@@ -25,12 +26,13 @@ export const selectStudioStart = async (tx: ScopedSql, storeId: string): Promise
     await tx<StudioDraftRow[]>`
       select d.head_commit, d.template, d.core_version, d.preview_deploy_ref, f.live_build_id,
         s.core_version as store_core_version, f.template as storefront_template,
-        case when f.theme_mode = 'baseline' then coalesce(f.baseline_from_build_id, f.live_build_id) else f.live_build_id end as own_build_id,
+        o.id as own_build_id, o.core_version as own_core_version,
         coalesce(f.core_upgrade_commit, case when f.theme_mode = 'own' then r.commit end) as onto_commit,
         coalesce(f.core_upgrade_version, case when f.theme_mode = 'own' then r.core_version end) as onto_version,
         f.core_upgrade_commit is not null as onto_upgrade
       from storefront f join store s on s.id = f.store_id left join design_draft d on d.store_id = f.store_id
         left join publish_run r on r.id = f.live_build_id
+        left join publish_run o on o.id = case when f.theme_mode = 'baseline' then coalesce(f.baseline_from_build_id, f.live_build_id) else f.live_build_id end
       where f.store_id = ${storeId}`
   )[0] ?? null
 

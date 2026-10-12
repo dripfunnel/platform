@@ -118,6 +118,24 @@ describe('the Admin API', () => {
     expect((await run(start('9.9.9'), 'staff-engineer')).code).toBe('NOT_FOUND')
     expect((await run('mutation { startCoreRollout(version: "1.1.0", security: false, reason: " ") { id } }', 'staff-engineer')).code).toBe('INVALID_INPUT')
     expect(await db.sql`select 1 from core_rollout where state in ('canary', 'waves', 'paused')`).toHaveLength(0)
+    expect((await run('{ coreRollout(id: "not-a-uuid") { id } }', 'staff-engineer')).data).toEqual({ coreRollout: null })
+    expect((await run(steer('pauseCoreRollout'), 'staff-engineer', { id: 'not-a-uuid', r: 'Pause' })).code).toBe('NOT_FOUND')
+  })
+})
+
+describe('the Admin API’s reads and a late roll back', () => {
+  it('counts each listed rollout’s own stores, and keeps a finished rollout’s finish time when it is rolled back', async () => {
+    const first = (await run<{ startCoreRollout: Rollout }>(start('1.1.0'), 'staff-engineer')).data?.startCoreRollout.id ?? ''
+    await advanceRollouts(db.sql, { actionsJobs: 2, now: new Date() })
+    const finished = new Date('2026-10-01T10:00:00Z')
+    await db.sql`update core_rollout set state = 'done', finished_at = ${finished} where id = ${first}`
+    const second = (await run<{ startCoreRollout: Rollout }>(start('1.2.0'), 'staff-engineer')).data?.startCoreRollout.id ?? ''
+    const listed = await run<{ coreRollouts: { items: Rollout[] } }>(`{ coreRollouts(first: 25) { items { ${fields} } } }`, 'staff-engineer')
+    const byId = new Map((listed.data?.coreRollouts.items ?? []).map((r) => [r.id, r.stores.reduce((n, s) => n + s.count, 0)]))
+    expect(byId.get(first)).toBe(3)
+    expect(byId.get(second)).toBe(0)
+    await run(steer('rollBackCoreRollout'), 'staff-engineer', { id: first, r: 'Late regression' })
+    expect(await db.sql`select state, finished_at from core_rollout where id = ${first}`).toEqual([{ state: 'rolled_back', finished_at: finished }])
   })
 })
 
@@ -175,6 +193,13 @@ describe('the tick', () => {
     expect(await rolloutRow(id)).toMatchObject({ state: 'paused', paused_state: 'canary' })
     const [alert] = await db.sql<{ reason: string; actor_kind: string }[]>`select reason, actor_kind from activity_log where target_id = ${id} and action = 'core_rollout.paused'`
     expect(alert).toMatchObject({ reason: 'canary_failed', actor_kind: 'job' })
+    await tick(10)
+    expect(await rolloutRow(id)).toMatchObject({ state: 'paused', paused_state: 'canary' })
+    // Resumed, the engineer accepts the canaries as they ended: the waves begin, and it isn't paused again.
+    expect((await run<{ resumeCoreRollout: Rollout }>(steer('resumeCoreRollout'), 'staff-engineer', { id, r: 'The pinned canary is a theme we know' })).data?.resumeCoreRollout).toMatchObject({ state: 'waves', percent: 10 })
+    await tick(10)
+    expect(await rolloutRow(id)).toMatchObject({ state: 'waves' })
+    expect(await db.sql`select 1 from activity_log where target_id = ${id} and action = 'core_rollout.paused'`).toHaveLength(1)
   })
 
   it('lets a security fix take every job', async () => {

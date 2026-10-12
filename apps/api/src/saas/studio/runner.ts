@@ -260,23 +260,40 @@ export class StudioRunner {
       this.client = null
       this.host = null
       await own?.stop()
-      const host = await this.deps.host(row.onto_version)
-      await host.start()
-      const next = sandboxClient(host.send, storeId)
-      await next.loadBundle(draft)
-      const result = await next.rebase({ commit: row.onto_commit, bundle: await onto.arrayBuffer() }, context)
-      if (!result.ok) {
-        // Back on the draft's own core, as it was.
-        await host.stop()
+      const version = row.onto_version
+      const ontoCommit = row.onto_commit
+      let host: SandboxHost | null = null
+      // Whatever fails on the way, the studio goes back to the saved draft on its own core, and no new container is left.
+      const restore = async () => {
+        await host?.stop().catch(() => undefined)
+        this.client = null
+        this.host = null
+        this.start = start
         await this.ensureLoaded()
+      }
+      let result: ChangeResult
+      try {
+        host = await this.deps.host(version)
+        await host.start()
+        const next = sandboxClient(host.send, storeId)
+        await next.loadBundle(draft)
+        result = await next.rebase({ commit: ontoCommit, bundle: await onto.arrayBuffer() }, context)
+        if (result.ok) {
+          await this.deps.drafts.put(draftBundle(storeId), await next.exportBundle())
+          const rebased = result
+          await this.system((tx) => rebaseDraft(tx, { storeId, head: rebased.commit, coreVersion: version, at: this.deps.now() }))
+          this.host = host
+          this.client = next
+          this.start = { template: start.template, coreVersion: version }
+        }
+      } catch (error) {
+        await restore()
+        throw error
+      }
+      if (!result.ok) {
+        await restore()
         return { commit: head, coreVersion: start.coreVersion, rebased: false, problems: result.problems }
       }
-      this.host = host
-      this.client = next
-      this.start = { template: start.template, coreVersion: row.onto_version }
-      await this.deps.drafts.put(draftBundle(storeId), await next.exportBundle())
-      const version = row.onto_version
-      await this.system((tx) => rebaseDraft(tx, { storeId, head: result.commit, coreVersion: version, at: this.deps.now() }))
       this.deps.onBundle(result.bundle)
       return { commit: result.commit, coreVersion: version, rebased: true, problems: [] }
     })
@@ -317,7 +334,9 @@ export class StudioRunner {
     const { storeId } = this.deps
     const row = await this.system((tx) => selectStudioStart(tx, storeId))
     const template = row?.template ?? row?.storefront_template ?? null
-    const coreVersion = row?.core_version ?? row?.store_core_version ?? null
+    const draft = await this.deps.drafts.get(draftBundle(storeId))
+    // Without a draft the studio opens the store's own theme, never the baseline a security fix serves (ARCHITECTURE §7).
+    const coreVersion = (draft ? row?.core_version : row?.own_core_version) ?? row?.core_version ?? row?.store_core_version ?? null
     if (!row || !template || !coreVersion) throw new StudioUnavailable('The store has no storefront to design yet.')
     const grant = await this.deps.capacity.acquire()
     if (!grant.granted) throw new StudioQueued(grant.place)
@@ -329,8 +348,8 @@ export class StudioRunner {
     const client = sandboxClient(host.send, storeId)
     try {
       await host.start()
-      const saved = (await this.deps.drafts.get(draftBundle(storeId))) ?? (row.live_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.live_build_id)) : null)
-      if (!saved && row.live_build_id) throw new StudioUnavailable('The live build’s source is missing.')
+      const saved = draft ?? (row.own_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.own_build_id)) : null)
+      if (!saved && row.own_build_id) throw new StudioUnavailable('The live build’s source is missing.')
       loaded = saved
         ? await client.loadBundle(await saved.arrayBuffer())
         : await (async () => {

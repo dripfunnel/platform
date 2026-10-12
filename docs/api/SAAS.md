@@ -840,7 +840,7 @@ built and gated per store, and the upgrade bot must exist from day one.
   security fix, which so goes ahead of merchants' own and automatic publishes. Once the canaries end, a canary
   pinned or on the baseline pauses the rollout (`core_rollout.paused`, `canary_failed`, for an engineer to look);
   otherwise the waves reach 10, 25, 50 and 100 stores in a hundred, each once the one before has ended, and the rollout
-  is done. Pause stops new starts (running upgrades finish); resume goes back to the phase it left. Roll back stops
+  is done. Pause stops new starts (running upgrades finish); resume goes back to the phase it left, except that resuming a rollout whose canaries have all ended (the pause `canary_failed` causes) accepts them and starts the first wave, so it isn't paused again for the same canary. Roll back stops
   new starts and puts back, twenty a minute, every store it took live: the pointer moves back to the build before the
   upgrade (`storefront.rolled_back`, `core_rolled_back`), and a passed major's waiting upgrade is dropped; a store
   whose live build moved on since (a publish or a page render) keeps it, marked `moved_on`. *Decided on #485:* one
