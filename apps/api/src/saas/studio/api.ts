@@ -1,3 +1,4 @@
+import type { GoBackActor, GoBackResult } from '../storefronts/index'
 import type { DesignModel } from './model'
 import { StudioQueued, StudioUnavailable, type ChangeOutcome } from './runner'
 
@@ -31,4 +32,21 @@ export interface StudioApi {
   editText: (storeId: string, input: { locale: string; key: string; text: string; userId: string }) => Promise<StudioAnswer | { outcome: 'missing' }>
   /** Discard: the draft's row and bundle go and the sandbox reloads the live code (AI-STUDIO §5). */
   discard: (storeId: string) => Promise<void>
+  /** The hand-off to a publish (AI-STUDIO §6 steps 1–3): the draft's head, or one of its changes, kept for the push. */
+  prepare: (storeId: string, input: { commit: string | null }) => Promise<Prepared>
+  /** Go back (AI-STUDIO §5): the pointer moves in the studio's turn, and the draft is reset to the version only when it did. */
+  goBack: (storeId: string, input: { versionId: string; by: string; actor: GoBackActor }) => Promise<GoBackResult>
+}
+
+export type Prepared = { outcome: 'ready'; commit: string; template: string; coreVersion: string } | { outcome: 'nothing' } | { outcome: 'queued'; place: number } | { outcome: 'unavailable' }
+
+/** `prepare`'s answer as a value, as `studioAnswer` does for a change. */
+export const preparedAnswer = async (work: () => Promise<Exclude<Prepared, { outcome: 'queued' | 'unavailable' }>>): Promise<Prepared> => {
+  try {
+    return await work()
+  } catch (error) {
+    if (error instanceof StudioQueued) return { outcome: 'queued', place: error.place }
+    if (error instanceof StudioUnavailable) return { outcome: 'unavailable' }
+    throw error
+  }
 }

@@ -43,6 +43,7 @@ import { registerContent } from './content'
 import { registerStorefrontSettings } from './storefrontSettings'
 import { registerStorefront } from './storefront'
 import { registerStudio } from './studio'
+import { registerPublishing } from './publishing'
 
 export type { StoreContext } from './access'
 
@@ -92,7 +93,8 @@ registerBilling(builder)
 registerPreview(builder)
 registerContent(builder)
 registerStorefrontSettings(builder, storeAddress)
-registerStorefront(builder)
+const storefront = registerStorefront(builder)
 registerStudio(builder)
+registerPublishing(builder, storefront)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

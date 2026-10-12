@@ -42,7 +42,7 @@ export const selectStudioStart = async (tx: ScopedSql, storeId: string): Promise
 /** An accepted change moves the draft's head and its preview together (AI-STUDIO §4 steps 6–7, PREVIEW §4 step 3). */
 export const moveDraft = async (
   tx: ScopedSql,
-  d: { storeId: string; head: string; template: string; coreVersion: string; previewRef: string; userId: string; at: Date; customPaths: readonly string[] },
+  d: { storeId: string; head: string; template: string; coreVersion: string; previewRef: string; userId: string | null; at: Date; customPaths: readonly string[] },
 ): Promise<void> => {
   await tx`
     insert into design_draft (store_id, head_commit, template, core_version, changed_at, changed_by, preview_deploy_ref, commits)
@@ -51,6 +51,11 @@ export const moveDraft = async (
       changed_by = excluded.changed_by, preview_deploy_ref = excluded.preview_deploy_ref,
       commits = case when design_draft.head_commit = excluded.head_commit then design_draft.commits else array_append(design_draft.commits, excluded.head_commit) end`
   await tx`update storefront set custom_paths = ${pgArray(d.customPaths)}::text[] where store_id = ${d.storeId}`
+}
+
+/** A draft row whose commit never reached the studio's bundle starts again from the studio's head (its first commit). */
+export const restartDraft = async (tx: ScopedSql, storeId: string, head: string): Promise<void> => {
+  await tx`update design_draft set head_commit = ${head}, commits = ${pgArray([head])}::text[] where store_id = ${storeId}`
 }
 
 /** Discard (AI-STUDIO §5): the draft row goes, so the preview shows the live code (PREVIEW §3) and the studio loads it. */

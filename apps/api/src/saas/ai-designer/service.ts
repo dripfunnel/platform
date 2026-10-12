@@ -45,6 +45,15 @@ export type DesignRefusal =
         | 'SESSION_ENDED'
         | 'NOT_LATEST'
         | 'NOTHING_TO_DISCARD'
+        | 'NOTHING_TO_PUBLISH'
+        | 'NOT_BISECTED'
+        | 'ALREADY_LIVE'
+        | 'PUBLISH_RUNNING'
+        | 'BUILD_GONE'
+        | 'NOTHING_LIVE'
+        | 'NOTHING_WAITING'
+        | 'NO_PRESSES_LEFT'
+        | 'SECURITY_RELEASE'
     }
   | { reason: 'STUDIO_QUEUED'; place: number }
   | { reason: 'CHANGE_REFUSED'; problems: number }

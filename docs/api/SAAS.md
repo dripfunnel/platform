@@ -685,6 +685,11 @@ SaaS layer owns the state and the rules:
 - **"Publish now"**: the merchant presses it (a `publish` capability, [ACCESS.md](ACCESS.md));
   it uses one press from the plan's **monthly allowance** (§6). The button shows what is
   waiting, presses left, and the next automatic publish. At zero it explains itself.
+- **Built on #318:** change detection is `storefront.changes_since`, `changed_kinds`, `changed_count`, moved by triggers
+  (DATA-MODEL §7.8); "Publish now" (`publishNow`) takes a press only when changes wait, counting a press queued or
+  running, and `store_usage.publish_now` counts it once live; the automatic publish runs from the five-minute cron
+  (`autoPublish` in `index.ts`, `saas/storefronts/automatic.ts`) for stores whose changes have waited a day, the
+  platform default until the Admin setting exists (R5); the history is pruned daily to the plan's `history_days`.
 - **Automatic publish** (`jobs/cron.ts`): every store with unpublished changes is published on
   the **schedule set in the Admin API**: a platform default interval with per-plan overrides
   (CONSOLE-DESIGN R5, which shows the fleet build-minute cost before saving). It never uses
