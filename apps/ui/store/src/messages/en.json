@@ -6678,7 +6678,15 @@
         "other": "That didn’t work. Check your connection and try again."
       },
       "openStudio": "Open studio",
-      "continueStudio": "Continue in studio"
+      "continueStudio": "Continue in studio",
+      "rolledBackReasons": {
+        "check_home": "your new version’s home page didn’t open.",
+        "check_product": "your new version’s product pages didn’t open.",
+        "check_cart": "your new version stopped shoppers adding products to a cart.",
+        "check_checkout": "your new version broke the checkout.",
+        "check_payment": "your new version broke the payment form.",
+        "vitals_regressed": "your new version made your site much slower for shoppers."
+      }
     },
     "gallery": {
       "first": "Choose a starting point",

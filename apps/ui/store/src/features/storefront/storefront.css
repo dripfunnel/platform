@@ -769,6 +769,16 @@
   gap: 14px;
 }
 
+.df-sf-rolled-back {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: 10px;
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+  font-size: 14px;
+}
+
 .df-sf-draft {
   display: flex;
   flex-wrap: wrap;

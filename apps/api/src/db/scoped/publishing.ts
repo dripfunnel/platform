@@ -497,6 +497,36 @@ export const selectPublishRun = async (tx: ScopedSql, storeId: string, id: strin
       from publish_run r where r.store_id = ${storeId} and r.id = ${id} and r.attempt_of is null`
   )[0] ?? null
 
+export interface LastPublishRow {
+  state: 'live' | 'failed' | 'rolled_back'
+  error: string | null
+  version: number | null
+  finished_at: Date
+}
+
+/**
+ * `storefront.lastPublish`: the store's newest finished design or catalogue publish, never a page render; one whose
+ * repair's build went live and was rolled back reads rolled back (LIVE-SHOP §4 step 10).
+ */
+export const selectLastPublish = async (tx: ScopedSql, storeId: string): Promise<LastPublishRow | null> =>
+  (
+    await tx<LastPublishRow[]>`
+      select case when a.state = 'rolled_back' then a.state else r.state end as state, case when a.state = 'rolled_back' then a.error else r.error end as error,
+        greatest(r.finished_at, a.finished_at) as finished_at,
+        -- switchLive stamps the version with the switch's time; a later page render moves its build_id, never that.
+        case when r.state = 'live' and a.state is distinct from 'rolled_back' then (
+          select v.number from design_version v where v.store_id = r.store_id and v.published_at = coalesce(a.switched_at, r.switched_at)
+        ) end as version
+      from publish_run r
+      left join lateral (
+        select x.state, x.error, x.finished_at, x.switched_at from publish_run x
+        where x.store_id = r.store_id and x.attempt_of = r.id and x.switched_at is not null limit 1
+      ) a on true
+      where r.store_id = ${storeId} and r.attempt_of is null and r.kind in ('design', 'manual', 'automatic')
+        and r.state in ('live', 'failed', 'rolled_back') and r.finished_at is not null
+      order by greatest(r.finished_at, a.finished_at) desc, r.created_at desc limit 1`
+  )[0] ?? null
+
 export const selectVersionByNumber = async (tx: ScopedSql, storeId: string, number: number): Promise<{ id: string } | null> =>
   (await tx<{ id: string }[]>`select id from design_version where store_id = ${storeId} and number = ${number}`)[0] ?? null
 

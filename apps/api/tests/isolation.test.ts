@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext, SellerScope } from '#core/tenancy'
 import { pgArray, type ScopedSql, withScope } from '#db/scoped/index'
+import { selectLastPublish } from '#db/scoped/publishing'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -642,6 +643,28 @@ describe('the backstop itself', () => {
     // A supplier, a partner, staff and a shopper hold no grant on it.
     for (const context of [storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), partnerCaller(t.partnerA), staff, shopper(t.partnerA, t.storeA1, null)]) await expect(count(context)).rejects.toThrow(/permission denied/)
     await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA1), (tx) => tx`insert into design_message (store_id, role, text) values (${t.storeA1}, 'user', 'forged')`)).rejects.toThrow(/permission denied/)
+  })
+
+  it('answers a store’s last publish to the merchant side of that store only (#682)', async () => {
+    for (const [storeId, error] of [[t.storeA1, 'check_cart'], [t.storeB1, 'check_home']] as const) {
+      await db.sql`
+        insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind, error, switched_at, finished_at, rolled_back_at)
+        values (${storeId}, 'design', 'rolled_back', ${'d'.repeat(40)}, 'linen', '1.0.0', 'system', ${error}, now(), now(), now())`
+    }
+    const last = (context: CallerContext, storeId: string) => withScope(db.sql, context, async (tx) => (await selectLastPublish(tx, storeId))?.error ?? null)
+    for (const [context, storeId, error] of [
+      [storeCaller(t.partnerA, t.storeA1), t.storeA1, 'check_cart'],
+      [storeCaller(t.partnerA, t.storeA2), t.storeA1, null],
+      [storeCaller(t.partnerA, t.storeA1), t.storeB1, null],
+      [storeCaller(t.partnerB, t.storeB1), t.storeB1, 'check_home'],
+      [supportSession(t.partnerA, t.storeA1, 'read'), t.storeA1, 'check_cart'],
+    ] as const) {
+      expect(await last(context, storeId)).toBe(error)
+    }
+    // A supplier, a partner, staff and a shopper hold no grant on publishes.
+    for (const context of [storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), partnerCaller(t.partnerA), staff, shopper(t.partnerA, t.storeA1, null)]) {
+      await expect(last(context, t.storeA1)).rejects.toThrow(/permission denied/)
+    }
   })
 
   it('lets only the merchant side of a store remove its own domain (#471)', async () => {
