@@ -172,7 +172,7 @@ export const localGitHub = ({ org, installationId, appId, verifyKey }: { org: st
     return reply(404, { message: 'Not Found' })
   }
 
-  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const fetchImpl = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
     const method = (init?.method ?? 'GET').toUpperCase()
     const path = `${url.pathname}${url.search}`
