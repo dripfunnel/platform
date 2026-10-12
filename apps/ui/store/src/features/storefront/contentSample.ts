@@ -58,6 +58,6 @@ export const sampleContent = (state: StorefrontState) => {
       entries = entries.filter((e) => e.id !== id)
       return Promise.resolve()
     },
-    loadProductNames: (ids: readonly string[]) => Promise.resolve(Object.fromEntries(ids.map((id) => [id, id === 'sample-product-1' ? 'Indigo block-print kurta' : null]))),
+    loadProductNames: (ids: readonly string[]) => Promise.resolve(new Map(ids.flatMap((id): [string, string][] => (id === 'sample-product-1' ? [[id, 'Indigo block-print kurta']] : [])))),
   }
 }

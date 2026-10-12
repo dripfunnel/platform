@@ -784,7 +784,8 @@ through. Your site stays live."), as is a support session.
   description for people who can't see it), questions and answers (each question and answer typed in place, up to
   50), products (picked by name, up to 24, shown by name, "A product no longer in your catalogue" for one deleted
   since) and, on a page, the contact form, which says where messages go (the brand's public email). *Decided there:*
-  product names are read in one request of aliased `product(id)` reads, since the Store API has no read by ids.
+  product names are read as Offers reads them (`loadProductNames`, aliased `product(id)` reads fifty at a time), since
+  the Store API has no read by ids.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---
