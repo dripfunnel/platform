@@ -136,6 +136,8 @@ describe('the studio’s rules', () => {
     expect(frameOriginOf(frame, 'https://shop.partner.com')).toBe('https://k7.webpreview.store')
     expect(frameOriginOf(frame.replace('https', 'http'), 'https://shop.partner.com')).toBeNull()
     expect(frameOriginOf('https://k7.webpreview.store/other/', 'https://shop.partner.com')).toBeNull()
+    expect(frameOriginOf('https://k7.webpreview.store/__studio/abc', 'https://shop.partner.com')).toBeNull()
+    expect(frameOriginOf('https://k7.webpreview.store/__studio/abc/x/', 'https://shop.partner.com')).toBeNull()
     expect(frameOriginOf(frame, 'https://k7.webpreview.store')).toBeNull()
     expect(frameOriginOf('not a url', 'https://shop.partner.com')).toBeNull()
   })
@@ -145,6 +147,7 @@ describe('the studio’s rules', () => {
     expect(frameAddress(frame, '/policies/terms/')).toBe(`${frame}policies/terms/`)
     expect(frameAddress(frame, '//evil.example.com/')).toBe(`${frame}evil.example.com/`)
     expect(frameAddress(frame, '/../x/')).toBe(frame)
+    expect(frameAddress('https://k7.webpreview.store/__studio/abc', '/abcd/x')).toBe('https://k7.webpreview.store/__studio/abc')
     expect(frameAddress(frame, '/a/../../../x')).toBe(frame)
   })
 

@@ -19,7 +19,7 @@ export const openingPollMs = 2_000
 export const frameOriginOf = (frameUrl: string, portalOrigin: string): string | null => {
   try {
     const url = new URL(frameUrl)
-    return url.protocol === 'https:' && url.pathname.startsWith('/__studio/') && url.origin !== portalOrigin ? url.origin : null
+    return url.protocol === 'https:' && /^\/__studio\/[A-Za-z0-9_-]+\/$/.test(url.pathname) && !url.search && !url.hash && url.origin !== portalOrigin ? url.origin : null
   } catch {
     return null
   }
@@ -28,7 +28,7 @@ export const frameOriginOf = (frameUrl: string, portalOrigin: string): string | 
 /** A store path inside the frame, under the session's base so the id stays in every request's path; anything else shows the home page. */
 export const frameAddress = (frameUrl: string, path: string): string => {
   const address = new URL(path.replace(/^\/+/, ''), frameUrl).toString()
-  return address.startsWith(frameUrl) ? address : frameUrl
+  return frameUrl.endsWith('/') && address.startsWith(frameUrl) ? address : frameUrl
 }
 
 // The studio–frame messages (AI-STUDIO §8, "Built on #319"): the frame reports the page it shows and the words picked for Edit text.
