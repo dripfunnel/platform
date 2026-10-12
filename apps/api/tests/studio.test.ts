@@ -405,6 +405,24 @@ describe('the migration agent and a draft’s rebase onto an upgrade (#485)', ()
     expect(runs.every((r) => r.billed_to === 'platform')).toBe(true)
   })
 
+  it('opens a store served the baseline, with no draft, on its own theme and that theme’s core', async () => {
+    await upgradeOfLive()
+    drafts.objects.delete(draftBundle(t.storeA2))
+    const run = async (kind: string, version: string) =>
+      (await db.sql<{ id: string }[]>`insert into publish_run (store_id, kind, state, commit, template, core_version, started_by_kind) values (${t.storeA2}, ${kind}, 'live', ${'c'.repeat(40)}, 'baseline', ${version}, 'system') returning id`)[0]?.id ?? ''
+    const own = await run('design', core)
+    const baseline = await run('security', '0.5.0')
+    drafts.objects.set(sourceBundle(t.storeA2, own), { bytes: drafts.objects.get(sourceBundle(t.storeA2, liveBuild))?.bytes ?? new ArrayBuffer(0) })
+    // The baseline build's source isn't there: opening from it would fail.
+    await db.sql`update storefront set live_build_id = ${baseline}, theme_mode = 'baseline', baseline_from_build_id = ${own} where store_id = ${t.storeA2}`
+    const versions: string[] = []
+    const { runner } = await runnerFor(t.storeA2, { host: async (version) => (versions.push(version), await sandboxProcess().then((h) => (processes.push(h), h))) })
+    await runner.open()
+    expect(versions).toEqual([core])
+    await runner.stop()
+    await db.sql`update storefront set live_build_id = null, theme_mode = 'own', baseline_from_build_id = null where store_id = ${t.storeA2}`
+  })
+
   it('keeps a draft started before the upgrade, and moves it onto the upgrade at its next publish', async () => {
     const upgrade = await upgradeOfLive()
     // The merchant goes on designing after the live version; the upgrade bot never touches that draft.

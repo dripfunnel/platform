@@ -317,7 +317,9 @@ export class StudioRunner {
     const { storeId } = this.deps
     const row = await this.system((tx) => selectStudioStart(tx, storeId))
     const template = row?.template ?? row?.storefront_template ?? null
-    const coreVersion = row?.core_version ?? row?.store_core_version ?? null
+    const draft = await this.deps.drafts.get(draftBundle(storeId))
+    // Without a draft the studio opens the store's own theme, never the baseline a security fix serves (ARCHITECTURE §7).
+    const coreVersion = (draft ? row?.core_version : row?.own_core_version) ?? row?.core_version ?? row?.store_core_version ?? null
     if (!row || !template || !coreVersion) throw new StudioUnavailable('The store has no storefront to design yet.')
     const grant = await this.deps.capacity.acquire()
     if (!grant.granted) throw new StudioQueued(grant.place)
@@ -329,8 +331,8 @@ export class StudioRunner {
     const client = sandboxClient(host.send, storeId)
     try {
       await host.start()
-      const saved = (await this.deps.drafts.get(draftBundle(storeId))) ?? (row.live_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.live_build_id)) : null)
-      if (!saved && row.live_build_id) throw new StudioUnavailable('The live build’s source is missing.')
+      const saved = draft ?? (row.own_build_id ? await this.deps.drafts.get(sourceBundle(storeId, row.own_build_id)) : null)
+      if (!saved && row.own_build_id) throw new StudioUnavailable('The live build’s source is missing.')
       loaded = saved
         ? await client.loadBundle(await saved.arrayBuffer())
         : await (async () => {
