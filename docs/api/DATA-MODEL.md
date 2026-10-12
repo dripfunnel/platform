@@ -1960,7 +1960,7 @@ core_release        (version PK, released_at, kind ('major'|'minor'|'patch'), se
                     -- sandbox_image is Cloudflare's registry reference pinned by @sha256, which the
                     -- studio's Durable Object starts; written by release.yml's sandbox-image job
                     -- (built on #482, migration 0250); staff read it, system scope writes it; retired_at and
-                    -- image_deleted_at (#485, 0331): no store needs the version's studio image any more, and the
+                    -- image_deleted_at (#485, 0350): no store needs the version's studio image any more, and the
                     -- scheduled workflow deleted it from Cloudflare's registry (AI-STUDIO §9)
 storefront_template (key PK, name, description, demo_store_id NULL, core_min_version,
                      state ('offered'|'retired'))
