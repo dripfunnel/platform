@@ -57,7 +57,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [device, setDevice] = useState<StudioDevice>('desktop')
   const [pane, setPane] = useState<StudioPane>('chat')
   const panesId = useId()
-  const [framePath, setFramePath] = useState('/')
+  // Each pick is a new visit, so the frame goes there even when its address already names that page (it may have moved itself).
+  const [visit, setVisit] = useState({ path: '/', count: 0 })
   const [shownPath, setShownPath] = useState('/')
   const [editing, setEditing] = useState(false)
   const [textKey, setTextKey] = useState<string | null>(null)
@@ -181,6 +182,11 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     }
   }
 
+  const pick = (path: string) => {
+    setVisit((was) => ({ path, count: was.count + 1 }))
+    setShownPath(path)
+  }
+
   const postEdit = (on: boolean) => {
     setEditing(on)
     if (session) frameRef.current?.contentWindow?.postMessage(editModeMessage(on), session.origin)
@@ -277,7 +283,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         </div>
         {status && <span className={`df-studio-pill${canDiscard ? ' df-studio-pill--draft' : ''}`}>{status}</span>}
         <span className="df-studio-gap" />
-        {!phone && <PagePicker groups={groups} value={shownPath} onChange={(path) => (setFramePath(path), setShownPath(path))} />}
+        {!phone && <PagePicker groups={groups} value={shownPath} onChange={pick} />}
         {!phone && (
           <>
             <div className="df-studio-devices" role="group" aria-label={words.screen}>
@@ -347,7 +353,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         <div className="df-studio-pane df-studio-pane--preview" {...paneProps('preview')}>
           <div className={`df-studio-preview df-studio-preview--${shownDevice}`}>
             <div className="df-studio-toolbar">
-              {phone && <PagePicker groups={groups} value={shownPath} onChange={(path) => (setFramePath(path), setShownPath(path))} />}
+              {phone && <PagePicker groups={groups} value={shownPath} onChange={pick} />}
               <span className="df-studio-gap" />
               {editing && !phone && <span className="df-studio-hint">{words.edit.hint}</span>}
               <button type="button" className="df-button df-studio-edit-toggle" aria-pressed={editing} disabled={locked} onClick={() => postEdit(!editing)}>
@@ -355,7 +361,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
               </button>
             </div>
             <div className="df-studio-frame">
-              {session && <iframe ref={frameRef} title={words.frameTitle} src={frameAddress(session.frameUrl, framePath)} referrerPolicy="no-referrer" />}
+              {session && <iframe key={visit.count} ref={frameRef} title={words.frameTitle} src={frameAddress(session.frameUrl, visit.path)} referrerPolicy="no-referrer" />}
               {overlay && (
                 <div className="df-studio-overlay">
                   <div role="status">
@@ -383,6 +389,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         api={api}
         onCancel={() => setTextKey(null)}
         onNotHere={notHere}
+        onPartlySaved={() => void after()}
         onSaved={() => {
           setTextKey(null)
           setToast(words.edit.saved)
