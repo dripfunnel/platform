@@ -859,7 +859,6 @@ const releaseUnpaid: CronJob = async (sql, config) => {
   if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
 }
 
-// A scheduled post goes live at its time (FIRST-RELEASE §14); its change waits for the next publish like any edit.
 // A core rollout's next stores and phase, or a rolled-back one's stores put back (SAAS §10).
 const advanceCoreRollouts: CronJob = async (sql, config) => {
   await advanceRollouts(sql, { actionsJobs: config.GITHUB_ACTIONS_JOBS ?? defaultActionsJobs, now: new Date() }).catch((error: unknown) => {
@@ -867,6 +866,7 @@ const advanceCoreRollouts: CronJob = async (sql, config) => {
   })
 }
 
+// A scheduled post goes live at its time (FIRST-RELEASE §14); its change waits for the next publish like any edit.
 const publishDuePosts: CronJob = async (sql) => {
   const published = await publishScheduledPosts(sql, activityLog, new Date()).catch((error: unknown) => {
     logEvent({ event: 'scheduled_posts_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })

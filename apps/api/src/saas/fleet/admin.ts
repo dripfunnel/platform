@@ -37,7 +37,11 @@ const pageSize = 25
 export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDeps) => {
   const asStaff = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, { caller: { kind: 'staff', staffId: staff.id } }, work)
   const entry = staffEntry(staff, facts)
-  const view = async (tx: ScopedSql, row: RolloutRow): Promise<RolloutView> => ({ ...row, stores: await countStoresByState(tx, row.id) })
+  const views = async (tx: ScopedSql, rows: RolloutRow[]): Promise<RolloutView[]> => {
+    const counts = await countStoresByState(tx, rows.map((r) => r.id))
+    return rows.map((row) => ({ ...row, stores: counts.filter((c) => c.rollout_id === row.id).map(({ state, n }) => ({ state, n })) }))
+  }
+  const view = async (tx: ScopedSql, row: RolloutRow): Promise<RolloutView> => (await views(tx, [row]))[0] ?? { ...row, stores: [] }
   const audit = (tx: ScopedSql, row: RolloutRow, action: string, reason: string, before: string) =>
     activity.record(tx, entry({ action, reason, target: { type: 'core_rollout', id: row.id, label: row.version }, visibility: 'staff', changes: [{ field: 'state', before, after: row.state }] }))
 
@@ -48,7 +52,7 @@ export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDe
       const after = decoded.after ? { at: decoded.after.occurredAt, id: decoded.after.id } : undefined
       const rows = await selectRollouts(tx, { after, limit: decoded.limit })
       const { rows: items, pageInfo } = pageOf(rows, { ...decoded, before: undefined }, (r): Keyset => ({ occurredAt: r.started_at, id: r.id }))
-      return { items: await Promise.all(items.map((r) => view(tx, r))), pageInfo }
+      return { items: await views(tx, items), pageInfo }
     })
   }
 
