@@ -29,6 +29,12 @@ const words: Record<DesignRefusal['reason'], string> = {
   SESSION_ENDED: 'Your studio session ended. Reopen the studio to keep designing.',
   NOT_LATEST: 'Only your latest change can be undone.',
   NOTHING_TO_DISCARD: 'There are no unpublished changes to discard.',
+  NOTHING_TO_PUBLISH: 'There are no changes to publish.',
+  NOT_BISECTED: 'That change isn’t the one a refused publish named.',
+  ALREADY_LIVE: 'That version is already live.',
+  PUBLISH_RUNNING: 'Wait for the publish in progress to finish.',
+  BUILD_GONE: 'That version can’t be restored any more.',
+  SECURITY_RELEASE: 'That version predates a security fix to your storefront, so it can’t be restored.',
 }
 
 export const answered = <T>(result: DesignResult<T>): T => {

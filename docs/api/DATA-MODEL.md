@@ -1828,6 +1828,7 @@ design_draft        (store_id PK, head_commit, base_version_id NULL, template, c
                     -- the public repo (decided 2026-10-09, storefront AI-STUDIO §4, §6);
                     -- preview_deploy_ref is the preview's folder (PREVIEW §3);
                     -- discard resets it to the live version's commit; deleted on publish.
+                    -- #318: deleted when a design publish of its head goes live, and when going back to a version
                     -- Built on #316 (migration 0231) without base_version_id, which comes with
                     -- design_version: the create-storefront Workflow writes the first, its head
                     -- the repo's main and its preview the template's bundle (SAAS §5 step 7)

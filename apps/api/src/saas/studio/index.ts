@@ -6,4 +6,4 @@ export { closeEndedSockets, dressFrameResponse, frameClosed, frameOpening, serve
 export { endStudioSession, hashStudioSession, liveStudioSession, liveStudioSessionHash, openStudioSession, renewStudio, studioAccess, studioRenewEveryMs, studioSessionMs, studioSessionPattern, type OpenedStudioSession, type StudioAccess } from './sessions'
 export { studioForJob, studioOf } from './stub'
 export { templateChange } from './template'
-export { studioAnswer, type StudioAnswer, type StudioApi, type StudioState } from './api'
+export { preparedAnswer, studioAnswer, type Prepared, type StudioAnswer, type StudioApi, type StudioState } from './api'

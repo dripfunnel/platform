@@ -140,6 +140,8 @@ export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise
   await tx`
     update design_draft set commits = coalesce(commits[array_position(commits, ${run.commit}::text) + 1:], commits)
     where store_id = ${run.store_id} and array_position(commits, ${run.commit}::text) is not null`
+  // A draft published to its head is the live version now: no draft, as after Discard (#318, AI-STUDIO §6 step 4).
+  if (run.kind === 'design') await tx`delete from design_draft where store_id = ${run.store_id} and head_commit = ${run.commit}`
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${run.core_version} where id = ${run.store_id}`
   // The merchant republished: their own theme is back, and a major it was waiting for is taken (ARCHITECTURE §7).
   if (run.kind === 'design') {
@@ -236,6 +238,7 @@ export interface VersionRow {
   id: string
   number: number
   commit: string
+  template: string
   core_version: string
   build_id: string
   state: 'live' | 'kept'
@@ -245,19 +248,28 @@ export interface VersionRow {
 export const selectVersion = async (tx: ScopedSql, storeId: string, versionId: string): Promise<VersionRow | null> =>
   (
     await tx<VersionRow[]>`
-      select v.id, v.number, v.commit, v.core_version, v.build_id, v.state, r.files_deleted_at is not null as files_deleted
+      select v.id, v.number, v.commit, v.template, v.core_version, v.build_id, v.state, r.files_deleted_at is not null as files_deleted
       from design_version v join publish_run r on r.id = v.build_id
       where v.store_id = ${storeId} and v.id = ${versionId}`
   )[0] ?? null
 
 /** Go back (SAAS §9.2): the pointer moves to a kept build, which becomes the live version, and the draft starts from it. */
-export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: VersionRow, by: string | null, at: Date): Promise<void> => {
+export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: VersionRow, at: Date): Promise<void> => {
   await tx`update storefront set live_build_id = ${version.build_id} where store_id = ${storeId}`
   await tx`update design_version set state = 'kept' where store_id = ${storeId} and state = 'live'`
   await tx`update design_version set state = 'live' where id = ${version.id}`
-  await tx`update design_draft set head_commit = ${version.commit}, base_version_id = ${version.id}, commits = '{}', changed_at = ${at}, changed_by = ${by} where store_id = ${storeId}`
+  // The draft is now the live version, as after Discard: no row, so the preview shows the live code (#318, AI-STUDIO §5).
+  await tx`delete from design_draft where store_id = ${storeId}`
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${version.core_version} where id = ${storeId}`
 }
+
+/** The newest security release of core above `version`, which a version gone back to is rebuilt on (SAAS §9.2). */
+export const selectNewerSecurityCore = async (tx: ScopedSql, version: string): Promise<string | null> =>
+  (
+    await tx<{ version: string }[]>`
+      select version from core_release where security and string_to_array(version, '.')::int[] > string_to_array(${version}, '.')::int[]
+      order by string_to_array(version, '.')::int[] desc limit 1`
+  )[0]?.version ?? null
 
 /** The address a shopper reaches the store on: its primary one (SAAS §8), else a live domain of its own. */
 export const selectStorefrontHost = async (tx: ScopedSql, storeId: string): Promise<string | null> => {
@@ -443,3 +455,34 @@ export const failOpenAttempts = async (tx: ScopedSql, storeId: string, rootId: s
       where attempt_of = ${rootId} and store_id = ${storeId} and state in ('building', 'checking', 'deploying')
       returning id`
   ).map((r) => r.id)
+
+export interface PublishRunView {
+  id: string
+  kind: PublishKind
+  state: RunState
+  error: string | null
+  repair_attempts: number
+  build_minutes: number | null
+  created_at: Date
+  finished_at: Date | null
+  /** The full gate's report (LIVE-SHOP §4 step 7): each check's name, pass or fail, and plain words. */
+  gate: { passed?: boolean; checks?: { name: string; passed: boolean; detail?: string }[] } | null
+  /** The post-deploy checks (LIVE-SHOP §4 step 10). */
+  checks: { name: string; result: string; detail: string }[] | null
+  /** The chat's message for the change bisect named, which "Publish everything before this change" names. */
+  bisect_message_id: string | null
+  version: number | null
+}
+
+/** `publishRun(id)` as the merchant side reads it: its own store's publish only, never a repair's or bisect's build. */
+export const selectPublishRun = async (tx: ScopedSql, storeId: string, id: string): Promise<PublishRunView | null> =>
+  (
+    await tx<PublishRunView[]>`
+      select r.id, r.kind, r.state, r.error, r.repair_attempts, r.build_minutes, r.created_at, r.finished_at, r.gate, r.checks,
+        (select m.id from design_message m where m.store_id = r.store_id and m.role = 'ai' and m.commit = r.bisect_commit order by m.created_at desc limit 1) as bisect_message_id,
+        (select v.number from design_version v where v.store_id = r.store_id and v.build_id in (r.id, (select a.id from publish_run a where a.attempt_of = r.id and a.state = 'live' limit 1)) order by v.number desc limit 1) as version
+      from publish_run r where r.store_id = ${storeId} and r.id = ${id} and r.attempt_of is null`
+  )[0] ?? null
+
+export const selectVersionByNumber = async (tx: ScopedSql, storeId: string, number: number): Promise<{ id: string } | null> =>
+  (await tx<{ id: string }[]>`select id from design_version where store_id = ${storeId} and number = ${number}`)[0] ?? null

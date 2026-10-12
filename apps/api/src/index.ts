@@ -730,6 +730,8 @@ const studioFor = (env: Env): ((context: TenantContext) => StudioApi) | null => 
       texts: async (storeId, input) => await stub.texts(storeId, input),
       editText: async (storeId, input) => await stub.editText(storeId, input),
       discard: async (storeId) => await stub.discard(storeId),
+      prepare: async (storeId, input) => await stub.prepare(storeId, input),
+      goBack: async (storeId, input) => await stub.goBack(storeId, input),
     }
   }
 }

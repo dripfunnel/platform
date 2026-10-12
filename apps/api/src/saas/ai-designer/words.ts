@@ -7,6 +7,8 @@ export const designAudit = {
   changeUndone: 'storefront.change_undone',
   textEdited: 'storefront.text_edited',
   discarded: 'storefront.discarded',
+  reverted: 'storefront.reverted',
+  publishStarted: 'storefront.publish_started',
 } as const
 
 export const designNotes = {

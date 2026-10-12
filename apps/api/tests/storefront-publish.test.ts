@@ -173,8 +173,8 @@ describe('go back', () => {
     ])
     const [mirror] = await db.sql<{ core_version: string }[]>`select core_version from store where id = ${t.storeA1}`
     expect(mirror?.core_version).toBe('1.0.0')
-    const [draft] = await db.sql<{ head_commit: string; base_version_id: string }[]>`select head_commit, base_version_id from design_draft where store_id = ${t.storeA1}`
-    expect(draft).toEqual({ head_commit: v1?.commit, base_version_id: v1?.id })
+    // The draft is the version now: no row, as after Discard, so the preview shows the live code (#318).
+    expect(await db.sql`select 1 from design_draft where store_id = ${t.storeA1}`).toHaveLength(0)
     const [entry] = await db.sql<{ visibility: string }[]>`select visibility from activity_log where store_id = ${t.storeA1} and action = 'storefront.reverted'`
     expect(entry?.visibility).toBe('store')
   })
@@ -246,6 +246,8 @@ describe('clean-up', () => {
   })
 
   it('deletes preview folders a publish made old, never the current one or one written since', async () => {
+    // Going back (above) reset A1's draft (#318); a draft with a change since gives it a current folder again.
+    await db.sql`insert into design_draft (store_id, head_commit, template, core_version, preview_deploy_ref) values (${t.storeA1}, ${commit(99)}, 'linen', '1.0.0', 'change-9') on conflict (store_id) do update set preview_deploy_ref = 'change-9'`
     // A publish since the last clean-up is what makes a store's folders old.
     await publish(t.storeA1, 50)
     await publish(t.storeA2, 51)

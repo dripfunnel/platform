@@ -1039,6 +1039,7 @@ type Mutation {
   finishShopifyConnect(key: String!): String
   finishStripeConnect(key: String!): Boolean
   generateCodes(count: Int!, length: Int, offerId: ID!, prefix: String): OfferCodeBatch
+  goBackToVersion(number: Int!): Boolean
   installApp(appId: ID!, scopes: [String!]!): ID
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
@@ -1051,6 +1052,8 @@ type Mutation {
   openStorefrontPreview: String
   pauseOffer(id: ID!): Boolean
   proposeProduct(input: ProductInput!): SavedProduct
+  publishBefore(messageId: ID!): ID
+  publishDesign: ID
   publishProductStory(productId: ID!, revision: Int!): ProductStory
   receiveReturn(returnId: ID!): Boolean
   recordMarketingStop(id: ID!): Boolean
@@ -2018,6 +2021,27 @@ type Provisioning {
   step: String
 }
 
+type PublishCheck {
+  name: String
+  passed: Boolean
+  words: String
+}
+
+type PublishRun {
+  bisectMessageId: ID
+  buildMinutes: Int
+  checks: [PublishCheck!]
+  createdAt: String
+  error: String
+  finishedAt: String
+  id: ID
+  kind: String
+  repairAttempts: Int
+  state: String
+  step: String
+  version: Int
+}
+
 type Query {
   abandonedCart(id: ID!): AbandonedCartDetail
   abandonedCartCounts: AbandonedCartCounts
@@ -2101,6 +2125,7 @@ type Query {
   productTranslation(language: String!, productId: ID!): [Translation!]
   products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
+  publishRun(id: ID!): PublishRun
   reminderSettings: ReminderSettings
   report(currency: String, days: Int!): StoreReport
   reportExport(id: ID!): ReportExport
