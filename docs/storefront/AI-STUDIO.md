@@ -385,7 +385,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   - an older version is **retired** (`core_release.retired_at`) once no store that isn't closed needs it: no live build,
     no own-theme build under the baseline, no draft and no waiting major on it. Nothing starts a retired image, and the
     scheduled workflow deletes it with `wrangler containers images delete` (the only documented way), marking
-    `image_deleted_at`; ghcr.io's public copy stays, so a store repo's build of an old pin still runs;
+    `image_deleted_at`, version by version (an image already gone counts as deleted; a failure is retried next run); ghcr.io's public copy stays, so a store repo's build of an old pin still runs;
   - while stores a rollout can move still need an older version (their own code is on it, not pinned, no major
     waiting), the job **starts a forced rollout** to the newest release first (system actor, `core_rollout.started` with
     `retire_images`), when no other rollout is active and none to that release has run: patches and minors move those
