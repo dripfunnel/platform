@@ -16,12 +16,14 @@ export interface EditTextDialogProps {
   onCancel: () => void
   onNotHere: () => void
   onSaved: () => void
+  /** Some languages saved before one was refused: the dialog stays open on the rest. */
+  onPartlySaved: () => void
 }
 
 type Loaded = { kind: 'loading' } | { kind: 'ready'; was: Record<string, string>; now: Record<string, string> }
 
 /** Edit text (FIRST-RELEASE §14): the picked words in every language the store offers, saved through the same checks as any change. */
-export const EditTextDialog = ({ textKey, page, pageLabel, languages, api, onCancel, onNotHere, onSaved }: EditTextDialogProps) => {
+export const EditTextDialog = ({ textKey, page, pageLabel, languages, api, onCancel, onNotHere, onSaved, onPartlySaved }: EditTextDialogProps) => {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' })
@@ -60,14 +62,22 @@ export const EditTextDialog = ({ textKey, page, pageLabel, languages, api, onCan
     if (!loaded.now[main]?.trim()) return setError(fill(words.mainMissing, { language: languageName(main, locale) }))
     setSaving(true)
     setError(null)
+    const saved: Record<string, string> = {}
     try {
       for (const l of languages) {
         const text = loaded.now[l]?.trim() ?? ''
-        if (text !== '' && text !== loaded.was[l]) await api.saveDesignText(l, textKey, text)
+        if (text === '' || text === loaded.was[l]) continue
+        await api.saveDesignText(l, textKey, text)
+        saved[l] = text
       }
       onSaved()
     } catch (e) {
       setError(editRefusal(e))
+      // The languages already saved changed the draft: they count as saved, and the studio reads it again.
+      if (Object.keys(saved).length > 0) {
+        setLoaded({ ...loaded, was: { ...loaded.was, ...saved } })
+        onPartlySaved()
+      }
     } finally {
       setSaving(false)
     }

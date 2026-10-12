@@ -101,6 +101,18 @@ describe('the studio’s frame', () => {
     expect(frame().getAttribute('src')).toBe(`${frameUrl}products/kurta/`)
   })
 
+  it('takes the frame back to a page it left by itself', async () => {
+    await show()
+    const before = frame()
+    post({ type: 'df-studio:page', path: '/cart/' })
+    const picker = screen.getByRole('combobox', { name: words.page }) as HTMLSelectElement
+    expect(picker.value).toBe('/cart/')
+    fireEvent.change(picker, { target: { value: '/' } })
+    expect(frame()).not.toBe(before)
+    expect(frame().getAttribute('src')).toBe(frameUrl)
+    expect(picker.value).toBe('/')
+  })
+
   it('lists every page of the store: core’s, the content pages and the AI’s own', async () => {
     await show()
     const picker = screen.getByRole('combobox', { name: words.page })
@@ -264,6 +276,25 @@ describe('Edit text', () => {
     expect(api.saveDesignText).toHaveBeenCalledTimes(1)
     expect(api.saveDesignText).toHaveBeenCalledWith('fr', 'pages:home.lead', 'Couches chaudes')
     expect(screen.getByText(words.edit.saved)).toBeTruthy()
+  })
+
+  it('keeps what saved when a later language is refused, and reads the studio again', async () => {
+    const save = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new ApiError('CHANGE_REFUSED', 'No.')).mockResolvedValue(undefined)
+    await show({ saveDesignText: save })
+    fireEvent.click(screen.getByRole('button', { name: words.edit.button }))
+    post({ type: 'df-studio:text', key: 'pages:home.lead' })
+    await settle()
+    const dialog = within(screen.getByRole('dialog', { name: words.edit.title }))
+    const [main, other] = dialog.getAllByRole('textbox') as HTMLTextAreaElement[]
+    fireEvent.change(main as HTMLTextAreaElement, { target: { value: 'Cosy layers' } })
+    fireEvent.change(other as HTMLTextAreaElement, { target: { value: 'Couches douillettes' } })
+    fireEvent.click(dialog.getByRole('button', { name: words.edit.save }))
+    await settle()
+    expect(dialog.getByRole('alert').textContent).toBe(words.edit.refused.CHANGE_REFUSED)
+    expect(api.loadDesignChat).toHaveBeenCalledTimes(2)
+    fireEvent.click(dialog.getByRole('button', { name: words.edit.save }))
+    await settle()
+    expect(save.mock.calls.map((c) => c[0])).toEqual(['en', 'fr', 'fr'])
   })
 
   it('sends the merchant to Products or Store info for words the theme doesn’t hold', async () => {
