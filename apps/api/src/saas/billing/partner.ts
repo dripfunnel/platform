@@ -60,6 +60,8 @@ export interface PartnerBillingDeps {
   facts: RequestFacts
   activity: ActivityLog
   stripe: StripeApi | null
+  // The `pk_` the console's Stripe.js acts with; null until it is a Worker variable (THIRD-PARTY-ACCESS §2.7).
+  publishableKey: string | null
   now: () => Date
 }
 
@@ -136,7 +138,7 @@ export type NextPayout =
   | { state: 'heldVerification' | 'heldVerifying' | 'heldNoAccount' }
   | { state: 'first' }
 
-export const createPartnerBillingService = ({ sql, caller, facts, activity, stripe, now }: PartnerBillingDeps) => {
+export const createPartnerBillingService = ({ sql, caller, facts, activity, stripe, publishableKey, now }: PartnerBillingDeps) => {
   const partnerId = caller.partner.id
   const context = partnerContextOf(caller)
   const entry = partnerEntry(caller, facts)
@@ -206,6 +208,7 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
       }
     })
 
+  const billingClientConfig = () => ({ publishableKey })
   const payoutAccount = () => read(async (tx) => payoutAccountDto(await selectBillingAccount(tx, partnerId)))
   const paymentMethod = () => read(async (tx) => paymentMethodDto(await selectBillingAccount(tx, partnerId)))
 
@@ -328,7 +331,7 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
     }
   }
 
-  return { merchantPayments, payouts, nextPayout, partnerInvoices, billingSettings, payoutAccount, paymentMethod, setBillingMode, setPayoutAccount, setPaymentMethod, downloadInvoice }
+  return { merchantPayments, payouts, nextPayout, partnerInvoices, billingSettings, billingClientConfig, payoutAccount, paymentMethod, setBillingMode, setPayoutAccount, setPaymentMethod, downloadInvoice }
 }
 
 export type PartnerBillingService = ReturnType<typeof createPartnerBillingService>

@@ -149,6 +149,9 @@ const InvoiceLink = builder.objectRef<{ ok: boolean; reason?: string; url?: stri
   }),
 })
 
+const ClientConfig = builder.objectRef<{ publishableKey: string | null }>('BillingClientConfig').implement({
+  fields: (t) => ({ publishableKey: t.exposeString('publishableKey', { nullable: true }) }),
+})
 const billingRead = { api: 'platform', scope: 'partner', permission: 'billing.read', target: 'none' } as const
 const pageArgs = (t: Parameters<Parameters<typeof builder.queryFields>[0]>[0]) => ({ after: t.arg.string(), before: t.arg.string(), first: t.arg.int() })
 
@@ -163,6 +166,7 @@ builder.queryFields((t) => ({
   nextPayout: t.field({ type: NextPayoutType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).nextPayout() }),
   partnerInvoices: t.field({ type: InvoicesPage, args: pageArgs(t), extensions: { access: billingRead }, resolve: async (_, args, ctx) => page(await signedIn(ctx.billing).partnerInvoices(args)) }),
   billingSettings: t.field({ type: SettingsType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).billingSettings() }),
+  billingClientConfig: t.field({ type: ClientConfig, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).billingClientConfig() }),
   payoutAccount: t.field({ type: PayoutAccountType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).payoutAccount() }),
   paymentMethod: t.field({ type: PaymentMethodType, extensions: { access: billingRead }, resolve: (_, __, ctx) => signedIn(ctx.billing).paymentMethod() }),
   // A fresh link to Stripe's PDF; reading it changes nothing, so it is a query.

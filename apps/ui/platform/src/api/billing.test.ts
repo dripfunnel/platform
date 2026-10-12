@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { invoicePdf, loadBilling, setBillingMode } from './billing'
+import { invoicePdf, loadBilling, loadBillingClientConfig, setBillingMode, setPaymentMethod, setPayoutAccount } from './billing'
 
 // The billing rules are the Platform API's (apps/api tests/platform-billing); these check the client.
 const answer = vi.fn<(body: { query: string; variables?: Record<string, unknown> }) => unknown>()
@@ -48,5 +48,21 @@ describe('billing', () => {
     await expect(invoicePdf('i1')).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
     answer.mockReturnValueOnce({ data: { downloadInvoice: { ok: false, reason: 'NO_PDF', url: null } } })
     expect(await invoicePdf('i1')).toEqual({ ok: false, reason: 'NO_PDF' })
+  })
+
+  it('reads the publishable key at runtime, null while the provider is off', async () => {
+    answer.mockReturnValueOnce({ data: { billingClientConfig: { publishableKey: 'pk_test_a' } } })
+    expect(await loadBillingClientConfig()).toBe('pk_test_a')
+    answer.mockReturnValueOnce({ data: { billingClientConfig: { publishableKey: null } } })
+    expect(await loadBillingClientConfig()).toBeNull()
+  })
+
+  it('sends a token alone to each setter, and words a known refusal', async () => {
+    answer.mockReturnValueOnce({ data: { setPayoutAccount: { ok: true, reason: null } } })
+    expect(await setPayoutAccount('btok_1Abc23')).toEqual({ ok: true })
+    expect(answer.mock.lastCall?.[0]).toMatchObject({ variables: { token: 'btok_1Abc23' } })
+    answer.mockReturnValueOnce({ data: { setPaymentMethod: { ok: false, reason: 'NOT_CONNECTED' } } })
+    expect(await setPaymentMethod('pm_1Abc23')).toEqual({ ok: false, reason: 'NOT_CONNECTED' })
+    expect(Object.keys((answer.mock.lastCall?.[0] as { variables: object }).variables)).toEqual(['token'])
   })
 })

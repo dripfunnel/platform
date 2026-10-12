@@ -43,6 +43,10 @@ type ActivityTarget {
   type: String
 }
 
+type BillingClientConfig {
+  publishableKey: String
+}
+
 type BillingPageInfo {
   endCursor: String
   hasNextPage: Boolean
@@ -803,6 +807,7 @@ type Query {
   activityExport(id: ID!): ActivityExportJob
   activityLog(after: String, before: String, filter: PartnerActivityFilterInput, first: Int): PartnerActivityPage
   activityPeople(query: String!): [ActivityPerson!]
+  billingClientConfig: BillingClientConfig
   billingSettings: BillingSettings
   branding: Branding
   changePlanOptions(storeId: ID!): ChangePlanOptions
