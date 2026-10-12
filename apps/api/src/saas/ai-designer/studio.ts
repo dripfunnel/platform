@@ -5,7 +5,7 @@ import { toMajor } from '#core/money'
 import { insertDesignMessage, markUndone, selectBriefStore, selectDesignChat, selectLatestChange, selectMessage, selectProductSample, selectRecentRequests, type MessageRow } from '#db/scoped/design'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectPreviewKey } from '#db/scoped/previewAccess'
-import { addUsage, hasUsageLeft, reserveUsage } from '#db/scoped/storeAccount'
+import { hasUsageLeft, releaseUsage, reserveUsage } from '#db/scoped/storeAccount'
 import { selectMerchantImageKey } from '#db/scoped/storefrontSettings'
 import { selectGuardContext, selectStudioStart } from '#db/scoped/studio'
 import type { AiImage, AiProvider } from '#integrations/ai/index'
@@ -14,7 +14,7 @@ import type { DnsLookup } from '#integrations/dns/doh'
 import { checkedUrl } from '#integrations/http/publicFetch'
 import { allowanceFor } from '#saas/entitlements/index'
 import { guardContextFor } from '#saas/storefronts/index'
-import { openStudioSession, renewStudio, studioAccess, type StudioState } from '#saas/studio/index'
+import { openStudioSession, renewStudio, studioAccess, type DesignModel, type StudioState } from '#saas/studio/index'
 import { designModel, type DesignBrief, type Device } from './model'
 import { recordAfter, type DesignerDeps, type DesignResult } from './service'
 import { designAudit, designErrors, designNotes } from './words'
@@ -174,11 +174,13 @@ export const createStudioService = (deps: StudioDeps) => {
     if (shot && !shot.ok) return shot
     const asked = now()
     const before = (await withSystemScope(sql, (tx) => selectStudioStart(tx, storeId)))?.head_commit ?? null
-    const model = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? null))
+    const designer = designModel(provider, await briefOf(input, image?.value ?? null, shot?.value ?? null))
+    let modelAsked = false
+    const model: DesignModel = { propose: (proposal) => ((modelAsked = true), designer.propose(proposal)) }
     // The unit is taken last, so only the studio's own answer stands between it and the model.
     if (billedTo === 'plan' && !(await reserve())) return { ok: false, reason: 'AI_BUDGET_REACHED' }
-    // The sandbox never took it, so the model wasn't asked: the request gives its unit back.
-    const giveBack = () => (billedTo === 'plan' ? withSystemScope(sql, (tx) => addUsage(tx, storeId, 'ai_prompts', -1, monthStart(now()), now())) : Promise.resolve())
+    // The model was never asked (the sandbox didn't take it, or the studio failed first): the request gives its unit back.
+    const giveBack = () => (billedTo === 'plan' ? withSystemScope(sql, (tx) => releaseUsage(tx, storeId, 'ai_prompts', monthStart(now()), now())) : Promise.resolve())
     let answer: Awaited<ReturnType<NonNullable<typeof studio>['change']>> | { outcome: 'failed' }
     try {
       answer = await studio.change(storeId, { request: text, userId: actor.id, billedTo }, model)
@@ -186,7 +188,7 @@ export const createStudioService = (deps: StudioDeps) => {
       logEvent({ event: 'storefront_design_failed', api: 'store', storeId, code: failureCode(error) })
       answer = { outcome: 'failed' }
     }
-    if (answer.outcome === 'queued' || answer.outcome === 'unavailable') await giveBack()
+    if (answer.outcome === 'queued' || answer.outcome === 'unavailable' || (answer.outcome === 'failed' && !modelAsked)) await giveBack()
     if (answer.outcome === 'queued') return { ok: false, reason: 'STUDIO_QUEUED', place: answer.place }
     if (answer.outcome === 'unavailable') return { ok: false, reason: 'STUDIO_UNAVAILABLE' }
     const summary = 'summary' in answer ? answer.summary : null

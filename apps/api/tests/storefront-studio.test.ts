@@ -81,6 +81,8 @@ const provider: AiProvider = {
   },
 }
 let aiMode: 'plan' | 'none' = 'plan'
+/** The studio's RPC fails before it reaches the model (a Durable Object fault). */
+let studioDown = false
 /** The world's design deps; a test sets the screenshotter, which sits behind the SSRF check (docs/ARCHITECTURE.md §7). */
 const design: { ai: (billedTo: 'plan' | 'own_key') => AiProvider | null; screenshots: Screenshotter | null; readAsset: null } = {
   ai: (billedTo) => (aiMode === 'plan' && billedTo === 'plan' ? provider : null),
@@ -107,7 +109,10 @@ beforeAll(async () => {
     now,
     secrets: null,
     lookup,
-    studio: local.studio,
+    studio: (context) => {
+      const studio = local.studio(context)
+      return { ...studio, change: (storeId, input, model) => (studioDown ? Promise.reject(new Error('the studio is unreachable')) : studio.change(storeId, input, model)) }
+    },
     extra: { preview: { domain: 'webpreview.store', links: { seal: async () => 'x', open: async () => null } }, design },
   })
   host = await sandboxProcess()
@@ -202,6 +207,19 @@ describe('asking for a change', () => {
     expect((await ask('owner', 'x', { site: `https://example.com/${'a'.repeat(2048)}` })).code).toBe('INVALID_URL')
     expect((await w.gql('owner', 'query T($p: String!) { designText(page: $p, locale: "en-IN") { key } }', { p: 'p'.repeat(201) })).code).toBe('INVALID_INPUT')
     expect(script.sent.length).toBe(sent + 1)
+  })
+
+  it('gives the unit back when the studio fails before the model is asked', async () => {
+    const used = await usage(t.storeA1)
+    const sent = script.sent.length
+    studioDown = true
+    try {
+      const lost = await ask('owner', 'Lost on the way'); console.log('LOST', JSON.stringify(lost)); expect(lost.data?.['askDesign']).toMatchObject({ outcome: 'failed', message: { role: 'error' } })
+    } finally {
+        studioDown = false
+    }
+    expect(script.sent.length).toBe(sent)
+    expect(await usage(t.storeA1)).toBe(used)
   })
 
   it('screenshots a sample site only at a public https address, refused before the budget and the model', async () => {

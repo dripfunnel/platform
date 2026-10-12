@@ -113,7 +113,6 @@ export const addUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, n
   `
 }
 
-/** One unit of a monthly allowance taken in one statement while fewer than `allowed` are used; false when none is left. */
 /** Whether one more fits this period's allowance, without taking it (`reserveUsage` takes it). */
 export const hasUsageLeft = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date, allowed: number): Promise<boolean> => {
   if (allowed <= 0) return false
@@ -122,6 +121,7 @@ export const hasUsageLeft = async (tx: ScopedSql, storeId: string, key: AmountKe
   return (row?.used ?? 0) < allowed
 }
 
+/** One unit of a monthly allowance taken in one statement while fewer than `allowed` are used; false when none is left. */
 export const reserveUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date, allowed: number, at: Date): Promise<boolean> => {
   if (allowed <= 0) return false
   const month = periodStart.toISOString().slice(0, 10)
@@ -134,6 +134,11 @@ export const reserveUsage = async (tx: ScopedSql, storeId: string, key: AmountKe
     returning used
   `
   return taken.count === 1
+}
+
+/** Gives back a unit `reserveUsage` took this period; an update, since an insert's negative row fails `used >= 0` first. */
+export const releaseUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date, at: Date): Promise<void> => {
+  await tx`update store_usage set used = used - 1, updated_at = ${at} where store_id = ${storeId} and key = ${key} and period_start = ${periodStart.toISOString().slice(0, 10)}::date and used > 0`
 }
 
 export interface StoreAccount {
