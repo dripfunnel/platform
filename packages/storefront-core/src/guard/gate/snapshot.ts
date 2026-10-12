@@ -23,6 +23,11 @@ export const snapshotStoreSchema = z.strictObject({
   contactPhone: optional(40),
   logo: z.strictObject({ url: z.string().max(2048) }).nullable(),
   address: z.strictObject({ street: optional(200), city: optional(200), region: optional(200), postal: optional(40), country: optional(2) }).nullable(),
+  // The brand and the home page's search and sharing (DATA-MODEL §7.8), which a theme reads through useStorefront().
+  favicon: z.strictObject({ url: z.string().max(2048) }).nullable().default(null),
+  tagline: optional(100).default(null),
+  social: z.array(z.strictObject({ network: z.string().max(20), url: z.string().max(300) })).max(6).default([]),
+  seo: z.strictObject({ title: optional(60), description: optional(155), image: z.strictObject({ url: z.string().max(2048) }).nullable() }).nullable().default(null),
 })
 
 /** An https origin, or the loopback a local run serves from. */

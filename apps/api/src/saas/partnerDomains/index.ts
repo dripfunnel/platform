@@ -9,7 +9,7 @@ import { withScope } from '#db/scoped/index'
 import { deletePartnerAddress, hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
 import { selectCustomDomains } from '#db/scoped/stores'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
-import { isBareDomain, ownershipRecord, queueStoreHostsRemoval, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
+import { isBareDomain, isDripfunnelHost, ownershipRecord, queueStoreHostsRemoval, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
@@ -25,9 +25,6 @@ export const domainAudit = {
 
 export const merchantDomainPageSize = 25
 
-// Never a partner's own address (FIRST-RELEASE §9.2 "Use a domain your company owns").
-const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.com']
-const isOurs = (host: string, edgeZone: string): boolean => [...dripfunnelDomains, edgeZone].some((d) => host === d || host.endsWith(`.${d}`))
 const wildcardKinds: readonly DomainKind[] = ['shops']
 
 export type AddRefusal =
@@ -98,7 +95,7 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, edge
     const typed = parseHostname(parsed.data.host.trim().replace(/^\*\./, ''), { localhost: localHosts })
     if (!typed.ok || typed.wildcard) return Promise.resolve({ ok: false, reason: 'NOT_A_HOSTNAME' })
     const base = typed.host
-    if (isOurs(base, edgeZone)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
+    if (isDripfunnelHost(base, edgeZone)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
     // A wildcard or the email sender on a bare domain would clash with the partner's website.
     if ((wildcard || kind === 'email') && isBareDomain(base)) return Promise.resolve({ ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' })
     const host = wildcard ? `*.${base}` : base

@@ -181,7 +181,7 @@ describe('the post-deploy checks', () => {
   })
 
   it('roll a store’s first publish back to no build at all', async () => {
-    await db.sql`insert into custom_domain (store_id, host, status, expected_cname, ownership_token) values (${t.storeA2}, 'shop.a2.example', 'live', 'x', 'y')`
+    await db.sql`insert into custom_domain (store_id, host, status, expected_cname, ownership_token, is_primary) values (${t.storeA2}, 'shop.a2.example', 'live', 'x', 'y', true)`
     const runId = await staged(t.storeA2, 8)
     probe.breakPath(/^\/checkout$/, { status: 500 })
     expect(await runPublish(deps(), { runId, storeId: t.storeA2 }, steps)).toBe('rolled_back')

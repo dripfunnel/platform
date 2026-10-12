@@ -25,19 +25,30 @@ export interface ShopStoreRow {
   languages: string[]
   currencies: { currency: string; mode: 'manual' | 'convert' }[]
   markets: { id: string; parent_id: string | null; name: string; is_primary: boolean; is_fallback: boolean; countries: string[]; currency: string; language: string | null; web_mode: 'main' | 'path'; path_prefix: string | null }[]
+  favicon_asset_id: string | null
+  tagline: string | null
+  social: Record<string, string>
+  seo: { title: string | null; description: string | null; share_asset_id: string | null } | null
 }
 
+/** The brand's public face wins over Store info's once saved (DATA-MODEL §7.8); never its colours or voice. */
 export const selectShopStore = async (tx: ScopedSql, storeId: string): Promise<ShopStoreRow | null> =>
   (
     await tx<ShopStoreRow[]>`
-      select s.name, s.description, s.logo_asset_id, s.address, s.contact_email, s.contact_phone, s.time_zone, s.country, s.unit_system,
-        s.pricing_currency::text as pricing_currency, s.main_language, s.tax_inclusive,
+      select s.name, coalesce(b.description, s.description) as description, coalesce(b.logo_asset_id, s.logo_asset_id) as logo_asset_id,
+        case when b.store_id is null then s.address else coalesce(b.contact_address, '{}') end as address,
+        case when b.store_id is null then s.contact_email else b.contact_email end as contact_email,
+        case when b.store_id is null then s.contact_phone else b.contact_phone end as contact_phone,
+        s.time_zone, s.country, s.unit_system, s.pricing_currency::text as pricing_currency, s.main_language, s.tax_inclusive,
+        b.favicon_asset_id, b.tagline, coalesce(b.social, '{}') as social,
+        case when o.store_id is null then null else json_build_object('title', o.title, 'description', o.description, 'share_asset_id', o.share_asset_id) end as seo,
         coalesce((select json_agg(l.language order by l.position, l.language) from store_language l where l.store_id = s.id), '[]'::json) as languages,
         coalesce((select json_agg(json_build_object('currency', c.currency, 'mode', c.mode) order by c.position, c.currency) from store_currency c where c.store_id = s.id), '[]'::json) as currencies,
         coalesce((select json_agg(json_build_object('id', m.id, 'parent_id', m.parent_id, 'name', m.name, 'is_primary', m.is_primary, 'is_fallback', m.is_fallback,
             'countries', m.countries, 'currency', m.currency, 'language', m.language, 'web_mode', m.web_mode, 'path_prefix', m.path_prefix) order by m.position, m.name)
           from market m where m.store_id = s.id), '[]'::json) as markets
-      from store s where s.id = ${storeId}
+      from store s left join storefront_brand b on b.store_id = s.id left join storefront_seo o on o.store_id = s.id
+      where s.id = ${storeId}
     `
   )[0] ?? null
 

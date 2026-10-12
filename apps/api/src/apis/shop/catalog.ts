@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import type { Page } from '#core/paging'
 import { createStorefrontCatalog, type ShopCollectionRow, type ShopMenuItem, type ShopStoreRow } from '#engine/modules/storefront/index'
+import { socialNetworks } from '#saas/storefrontSettings/index'
 import { shopOf, type ShopContext } from './access'
 import type { ShopBuilder } from './builder'
 
@@ -46,11 +47,27 @@ export const registerCatalog = ({ builder, pageInfo, image }: ShopBuilder) => {
       pathPrefix: t.exposeString('path_prefix', { nullable: true }),
     }),
   })
+  const SocialLink = builder.objectRef<{ network: string; url: string }>('ShopSocialLink').implement({
+    // instagram, facebook, x, youtube, tiktok or whatsapp; url is https on that network's own host.
+    fields: (t) => ({ network: t.exposeString('network'), url: t.exposeString('url') }),
+  })
+  const Seo = builder.objectRef<NonNullable<ShopStoreRow['seo']>>('ShopStoreSeo').implement({
+    // The home page's title, description and share image (SAAS §9.2), for core's <head>.
+    fields: (t) => ({
+      title: t.exposeString('title', { nullable: true }),
+      description: t.exposeString('description', { nullable: true }),
+      image: t.field({ type: image, nullable: true, resolve: (s, _, ctx) => imageOf(ctx, s.share_asset_id) }),
+    }),
+  })
   const Store = builder.objectRef<ShopStoreRow>('ShopStore').implement({
     fields: (t) => ({
       name: t.exposeString('name'),
       description: t.exposeString('description', { nullable: true }),
       logo: t.field({ type: image, nullable: true, resolve: (s, _, ctx) => imageOf(ctx, s.logo_asset_id) }),
+      favicon: t.field({ type: image, nullable: true, resolve: (s, _, ctx) => imageOf(ctx, s.favicon_asset_id) }),
+      tagline: t.exposeString('tagline', { nullable: true }),
+      social: t.field({ type: [SocialLink], resolve: (s) => socialNetworks.flatMap((network) => (s.social[network] ? [{ network, url: s.social[network] }] : [])) }),
+      seo: t.field({ type: Seo, nullable: true, resolve: (s) => s.seo }),
       // For collection in person and receipts.
       address: t.field({ type: Address, resolve: (s) => ({ ...s.address, country: s.country }) }),
       contactEmail: t.exposeString('contact_email', { nullable: true }),

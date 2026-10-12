@@ -12,6 +12,25 @@ describe('completeStore', () => {
     expect(completeStore({ ...full, currencies: [{ code: null }, { code: 'INR' }], logo: { url: null } })).toMatchObject({ currencies: [{ code: 'INR' }], logo: null })
   })
 
+  it('decodes the brand and the home page’s search and sharing, and none of them is required', () => {
+    const store = completeStore({
+      ...full,
+      favicon: { url: 'https://shop.example/shop-api/assets/f' },
+      tagline: 'Linen for slow days',
+      social: [{ network: 'instagram', url: 'https://www.instagram.com/juniper' }, { network: 'x', url: 'javascript:alert(1)' }, { network: 'facebook', url: 'http://facebook.com/juniper' }],
+      seo: { title: 'Juniper linen', description: 'Handwoven in Jaipur.', image: { url: 'https://shop.example/shop-api/assets/s' } },
+    })
+    expect(store).toMatchObject({
+      favicon: { url: 'https://shop.example/shop-api/assets/f' },
+      tagline: 'Linen for slow days',
+      // A link shows only once it parses as https.
+      social: [{ network: 'instagram', url: 'https://www.instagram.com/juniper' }],
+      seo: { title: 'Juniper linen', description: 'Handwoven in Jaipur.', image: { url: 'https://shop.example/shop-api/assets/s' } },
+    })
+    expect(completeStore(full)).toMatchObject({ favicon: null, tagline: null, social: [], seo: null })
+    expect(completeStore({ ...full, seo: { title: null, description: null, image: null } }).seo).toEqual({ title: null, description: null, image: null })
+  })
+
   it('names what is missing when a field a storefront needs is null', () => {
     expect(() => completeStore({ ...full, name: null, timeZone: null })).toThrow(expect.objectContaining({ code: 'STORE_INCOMPLETE', message: "The Shop API's store has no name, timeZone." }))
   })
