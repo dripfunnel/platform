@@ -23,11 +23,17 @@ export const PolicyPage = () => {
           {t('pages.contact.title')}
         </Link>
         <nav className={styles.chips} aria-label={t('pages.policy.eyebrow')}>
-          {kinds.map((k) => (
-            <Link key={k} href={`/policies/${k}/`} className={k === kind ? styles.chipOn : styles.chipLink}>
-              {names[k]}
-            </Link>
-          ))}
+          {kinds.map((k) =>
+            k === kind ? (
+              <span key={k} className={styles.chipOn} aria-current="page">
+                {names[k]}
+              </span>
+            ) : (
+              <Link key={k} href={`/policies/${k}/`} className={styles.chipLink}>
+                {names[k]}
+              </Link>
+            ),
+          )}
         </nav>
       </section>
     </Layout>
