@@ -480,11 +480,23 @@ their own cards.
   nonce, so the same build gives the same header); `pageHeaders` gives each HTML file of a build
   its own header, which the build writes into its manifest for the edge Worker to send unchanged
   (LIVE-SHOP §4 step 8, §5 step 5). A store's header is `default-src 'none'`, then the sources
-  above, with `frame-ancestors 'none'`, `base-uri 'none'` and `object-src 'none'`; an origin is
-  https with no path. `goog#html` is listed only when the store uses GA4 or GTM. Each provider's
+  above, with `frame-ancestors` (next item), `base-uri 'none'` and `object-src 'none'`; an origin
+  is https with no path. `goog#html` is listed only when the store uses GA4 or GTM. Each provider's
   hosts are in `platform/csp` (the payment providers' *proposed*, until #313's adapters confirm
   them). `installTrustedTypes({ analyticsHosts, buildOrigins })` creates `df-core` and `default`
   once, before any script loads; core's analytics set their script through `df-core`.
+- **Framed only by the store's portal** (decided 2026-10-12, #680): live pages and the preview
+  link's pages (both `storeCsp`) list the store's partner portal origin in `frame-ancestors`, so
+  the Overview can show the live site ([FIRST-RELEASE §14](../ui/store/FIRST-RELEASE.md)); every
+  other site stays refused.
+  *As built on #680:* `storeCsp` takes an optional `portalOrigin`, keeping `'none'` without one;
+  the publish's snapshot (`csp.portalOrigin`, LIVE-SHOP §4 step 3) carries
+  `https://{the partner's live portal host}`, the host the studio's frame allows, and none while
+  the partner has no live portal host. The preview link's header comes with the edge Worker
+  sending one (above). A store gets it from its next build of any kind; the
+  Store API's `storefront.live.portalOrigin` reads it from the live home page's header in the
+  build's manifest (a page run's own, else the build it renders beside), null for a build from
+  before.
 - **The studio frame's CSP is stricter** (decided 2026-10-09, #520; AI-STUDIO §8):
   - **`default-src 'none'`**, so every directive not listed below is closed;
   - `script-src`, `connect-src`, `font-src` and `style-src` are `'self'` only: the frame's own

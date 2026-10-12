@@ -6663,6 +6663,7 @@
       "liveLabel": "Live now · version {number}",
       "published": "Published {when}",
       "liveAt": "Shoppers see this version at {host}.",
+      "frameTitle": "Your live site at {host}",
       "powered": "“Powered by {brand}” shows in your footer on {plan}.",
       "poweredRemove": "Remove it",
       "creatingTitle": "Setting up your storefront…",

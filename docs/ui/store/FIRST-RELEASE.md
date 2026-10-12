@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-13 (#681: the template gallery's pictures, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-13 (#681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -747,6 +747,15 @@ through. Your site stays live."), as is a support session.
   load. *Decided there:* each picture is the top of that theme's preview bundle home page at 1440 px, cropped to the
   card's 1280 : 794 and at most 150 KB, rendered as "Your Shop" with no description (so each theme's own lead line
   shows) and no products, without the preview banner and the cookie question, which a returning shopper doesn't see.
+- **Built on #680**: the Overview frames the live site at Desktop and Phone, as `PortalStorefront` draws it, now that
+  live pages let the store's portal frame them (storefront ARCHITECTURE §3.5): the card's head has "Live now · version
+  N" and Desktop · Phone; Desktop is the site 1280 px wide scaled to the card (at most 640 px tall), Phone is it 390 px
+  wide in a 620 px panel. The frame is sandboxed (`allow-scripts allow-same-origin`), sends no referrer and opens the
+  live address the header names. *Decided there:* it frames only when the Store API says the live home page lets this
+  portal's origin frame it (`storefront.live.portalOrigin`); a build from before #680, or one made for another portal
+  host, keeps #319's view (the version, when it was published and its address) until the next publish; so does a
+  frame that hasn't loaded in 20 seconds, since a browser tells a page nothing else about a frame it refused. The
+  Manager sees the same frame.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

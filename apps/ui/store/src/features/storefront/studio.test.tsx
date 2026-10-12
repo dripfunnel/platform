@@ -16,7 +16,7 @@ const [firstSuggestion = '', secondSuggestion = ''] = c.suggestions
 const origin = 'https://k7f3q9f2xa.webpreview.store'
 const frameUrl = `${origin}/__studio/abcdefghijklmnopqrstuv/`
 const ready: StudioSession = { state: 'ready', place: null, session: 'abcdefghijklmnopqrstuv', frameUrl, access: 'change', expiresAt: '2026-10-12T09:00:00Z' }
-const overview: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen' }, draft: { template: 'linen', changedAt: null, previewReady: true } }
+const overview: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }, draft: { template: 'linen', changedAt: null, previewReady: true } }
 const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: '2026-10-12T08:00:00Z', ...more })
 const chat = [line('m3', 'ai', 'I warmed it up.', { changed: ['Colours'], canUndo: true }), line('m2', 'user', 'Make it warmer'), line('m1', 'note', 'template:linen')]
 

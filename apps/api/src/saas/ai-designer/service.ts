@@ -74,7 +74,7 @@ export type DesignStatus = 'not_started' | 'creating' | 'create_failed' | 'not_p
 export interface StorefrontView {
   status: DesignStatus
   template: string | null
-  live: { number: number; publishedAt: Date; template: string | null } | null
+  live: { number: number; publishedAt: Date; template: string | null; portalOrigin: string | null } | null
   draft: { template: string; changedAt: Date | null; previewReady: boolean } | null
 }
 
@@ -197,7 +197,7 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
       return {
         status: statusOf(s),
         template: s.draft_template ?? s.live_template ?? s.storefront_template,
-        live: s.live_number !== null && s.live_published_at ? { number: s.live_number, publishedAt: s.live_published_at, template: s.live_template } : null,
+        live: s.live_number !== null && s.live_published_at ? { number: s.live_number, publishedAt: s.live_published_at, template: s.live_template, portalOrigin: s.live_portal_origin } : null,
         draft: s.draft_template && s.draft_head ? { template: s.draft_template, changedAt: s.draft_changed_at, previewReady: s.draft_preview !== null } : null,
       }
     })
