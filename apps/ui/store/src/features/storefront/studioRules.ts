@@ -25,8 +25,11 @@ export const frameOriginOf = (frameUrl: string, portalOrigin: string): string | 
   }
 }
 
-/** A store path inside the frame: relative to the session's base, so the id stays in every request's path. */
-export const frameAddress = (frameUrl: string, path: string): string => new URL(path.replace(/^\/+/, ''), frameUrl).toString()
+/** A store path inside the frame, under the session's base so the id stays in every request's path; anything else shows the home page. */
+export const frameAddress = (frameUrl: string, path: string): string => {
+  const address = new URL(path.replace(/^\/+/, ''), frameUrl).toString()
+  return address.startsWith(frameUrl) ? address : frameUrl
+}
 
 // The studio–frame messages (AI-STUDIO §8, "Built on #319"): the frame reports the page it shows and the words picked for Edit text.
 const fromFrame = z.discriminatedUnion('type', [
