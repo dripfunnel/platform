@@ -716,15 +716,16 @@ through. Your site stays live."), as is a support session.
   *(proposed)*; "Checking your change…" covers the whole request, which answers once checked and repaired; the page
   picker is a select grouped Shop, Policies, Content pages and Pages the AI made, its product page the product changed
   last; the four suggestions are the prototype's, since the API proposes none; the AI signs as "{partner} AI"; Edit text
-  saves only the languages changed and never leaves the main one empty. Publish, its gate and the AI tokens line come in
-  part 5 and 6.
+  saves only the languages changed and never leaves the main one empty. Publish and its gate are part 5's; the AI
+  tokens line comes in part 6.
 - **Built on #319 (part 5)**: Publish in the studio's top bar ("Publish site" before the first), its question, the
   gate's steps in the top bar ("Building your site…", "Checking your site…", "Checking it went live…"), "Version N is
   live — we checked your site and it changed", a refused publish in the chat with what failed and **Publish
   everything before this change** when one change is to blame, and a rolled-back publish. *Decided there:* the publish
   followed is kept in the address (`?run=`), so a reload keeps following it; the question says "uses a few build
   minutes", since the API gives no estimate; the refusal's words are the failed checks' own, with "We tried to fix it
-  and couldn't." only after a repair; the studio takes no change while a publish runs; a rollback is told in the
+  and couldn't." only after a repair; the studio takes no change while a publish runs; Publish everything before this change is offered only when the
+  change to blame is in the conversation shown, and a change accepted after a refused publish clears its notice; a rollback is told in the
   studio that followed the publish, and the Overview's notice waits for a read of the last publish, which `storefront`
   doesn't give.
 - **Built on #319 (part 6)**: the catalogue Publish now bar, Site settings › AI and build minutes and Version history
