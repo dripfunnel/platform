@@ -6,7 +6,7 @@ import { GridPlaceholder, ProductGrid } from './ProductCard'
 import styles from '../styles/shop.module.css'
 
 /** A collection's or a search's products: filters, sort, the grid and its states, and "Load more". */
-export const ListingResults = ({ listing, empty }: { listing: Listing; empty?: { title: string; lead: string } }) => {
+export const ListingResults = ({ listing }: { listing: Listing }) => {
   const { t } = useStorefront()
   return (
     <div className={listing.facets.length ? styles.listingFiltered : styles.listing}>
@@ -26,13 +26,13 @@ export const ListingResults = ({ listing, empty }: { listing: Listing; empty?: {
             <Notice title={t('shop.listing.empty')} lead={t('shop.listing.emptyLead')}>
               <Retry label={t('shop.listing.clear')} onRetry={listing.clear} />
             </Notice>
-          ) : empty ? (
-            <Notice title={empty.title} lead={empty.lead}>
-              <Link href="/collections/all/" className={styles.secondary}>
-                {t('shop.collection.browse')}
+          ) : (
+            <Notice title={t('shop.collection.empty')} lead={t('shop.collection.emptyLead')}>
+              <Link href="/" className={styles.secondary}>
+                {t('shop.collection.home')}
               </Link>
             </Notice>
-          ) : null
+          )
         ) : null}
         {listing.status === 'ready' ? <ProductGrid products={listing.items} /> : null}
         <LoadMore listing={listing} />

@@ -36,7 +36,10 @@
     "loading": "Loading the collection",
     "missing": "We can't find that collection",
     "missingLead": "It may have moved or been taken down.",
-    "browse": "Browse all products"
+    "browse": "Browse all products",
+    "empty": "Nothing here yet",
+    "emptyLead": "There are no products to show here yet. Come back soon.",
+    "home": "Go to the home page"
   },
   "search": {
     "title": "Search the shop",
