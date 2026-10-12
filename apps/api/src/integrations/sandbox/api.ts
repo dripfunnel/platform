@@ -29,6 +29,11 @@ const changeSchema = z.discriminatedUnion('ok', [
 ])
 const loadedSchema = z.object({ head: z.string().regex(/^[0-9a-f]{40}$/), bundle: bundleSchema.nullable(), problems: z.array(problemSchema).max(500) })
 const themeSchema = z.object({ head: z.string().regex(/^[0-9a-f]{40}$/), files: z.array(z.object({ path: z.string(), content: z.string() })).max(2000) })
+const upgradedSchema = z.object({
+  commit: z.string().regex(/^[0-9a-f]{40}$/),
+  files: z.array(z.object({ path: z.string().max(512), content: z.string().nullable() })).max(1000),
+  notes: z.array(z.object({ version: z.string(), kind: z.enum(['major', 'minor', 'patch']), notes: z.string().max(8000) })).max(100),
+})
 const previewSchema = z.object({ id: z.string().regex(/^[0-9a-f]{16}$/), files: z.array(z.object({ path: z.string(), sha256: z.string().regex(/^[0-9a-f]{64}$/), base64: z.string() })).max(500) })
 
 export type GateProblem = z.infer<typeof problemSchema>
@@ -36,6 +41,9 @@ export type ClientBundle = z.infer<typeof bundleSchema>
 export type ChangeResult = z.infer<typeof changeSchema>
 export type Loaded = z.infer<typeof loadedSchema>
 export type PreviewFiles = z.infer<typeof previewSchema>
+export type Upgraded = z.infer<typeof upgradedSchema>
+/** The upgrade bot's request (storefront ARCHITECTURE §7.1): codemods from `from` to `to`, or the baseline theme's files. */
+export type UpgradeRequest = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null }
 
 /** How a request reaches the container: `ctx.container.getTcpPort(port).fetch` on Cloudflare, plain fetch locally. */
 export type SandboxFetch = (request: Request) => Promise<Response>
@@ -70,6 +78,12 @@ export const sandboxClient = (send: SandboxFetch, slot: string) => {
     theme: async () => json(await call('GET', 'theme'), themeSchema),
     change: async (files: readonly FileChange[], message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'changes', JSON.stringify({ files, message, context })), changeSchema),
     undo: async (commit: string, message: string, context: GuardContext): Promise<ChangeResult> => json(await call('POST', 'undo', JSON.stringify({ commit, message, context })), changeSchema),
+    upgrade: async (request: UpgradeRequest): Promise<Upgraded> => json(await call('POST', 'upgrade', JSON.stringify(request)), upgradedSchema),
+    /** AI-STUDIO §6 step 2: the draft onto the upgrade's commit, whose bundle goes first. */
+    rebase: async (onto: { commit: string; bundle: ArrayBuffer }, context: GuardContext): Promise<ChangeResult> => {
+      await call('PUT', 'onto', onto.bundle, 'application/x-git-bundle')
+      return json(await call('POST', 'rebase', JSON.stringify({ onto: onto.commit, context })), changeSchema)
+    },
     exportBundle: async (): Promise<ArrayBuffer> => (await call('GET', 'bundle')).arrayBuffer(),
     previewFiles: async (): Promise<PreviewFiles> => json(await call('GET', 'preview'), previewSchema),
     /** A frame file as the container serves it, its page with core's studio CSP for these origins; a 404 is passed through. */

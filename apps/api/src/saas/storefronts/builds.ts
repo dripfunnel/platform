@@ -125,7 +125,7 @@ export interface StartAnswer {
   /** The commit in the source bundle to build, and the core version whose build image builds it. */
   commit: string
   core: string
-  /** A publish that mustn't change the look: a core upgrade (ARCHITECTURE §7). */
+  /** A publish that mustn't change the look: a patch or minor upgrade, or a security fix on the store's own theme (ARCHITECTURE §7). */
   strictLook: boolean
   snapshot: string
   /** The live build's files for the visual diff, by path; null before the store's first publish. */
@@ -149,7 +149,7 @@ export const startBuild = (deps: BuildDeps, token: string, buildId: string): Pro
       source: await link(deps.buckets.drafts, sourceBundle(build.store_id, build.id)),
       commit: build.commit,
       core: build.core_version,
-      strictLook: build.kind === 'upgrade',
+      strictLook: (build.kind === 'upgrade' && !build.check_only) || (build.kind === 'security' && !build.baseline),
       snapshot: await link(deps.buckets.drafts, snapshotFile(build.store_id, build.id)),
       live,
       expiresAt: expiresAt(now),
@@ -206,8 +206,8 @@ export const reportBuild = async (deps: BuildDeps, token: string, report: GateRe
   return answer.answer
 }
 
-/** A bisect's build is only checked, never uploaded (ARCHITECTURE §4.2 step 4). */
-const answerTo = (build: Pick<BuildRow, 'attempt'>, passed: boolean) => ({ passed, upload: passed && build.attempt !== 'bisect' })
+/** A bisect's build and a major's upgrade are only checked, never uploaded (ARCHITECTURE §4.2 step 4, §7). */
+const answerTo = (build: Pick<BuildRow, 'attempt' | 'check_only'>, passed: boolean) => ({ passed, upload: passed && build.attempt !== 'bisect' && !build.check_only })
 
 export interface UploadCredential {
   endpoint: string

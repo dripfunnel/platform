@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, normalize } from 'node:path'
-import type { GuardContext } from '@dripfunnel/storefront-core/guard'
+import { applyCodemods, baselineWithOwn, changesBetween, notesBetween, pinCore, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
 import { bundle, runtimeFolder, type ClientBundle } from './gate/bundle'
 import { build, validate, type GateProblem } from './gate/index'
 import { gitIn, type Git } from './git'
@@ -15,6 +15,11 @@ export type ChangeResult =
   | { ok: false; problems: GateProblem[] }
 
 export type Loaded = { head: string; bundle: ClientBundle | null; problems: GateProblem[] }
+
+/** The upgrade bot's commit: every file it wrote or removed, package.json included, and the notes it applied. */
+export type Upgraded = { commit: string; files: FileChange[]; notes: Pick<UpgradeNote, 'version' | 'kind' | 'notes'>[] }
+
+export type UpgradeInput = { from: string; to: string; message: string; baseline: { path: string; content: string }[] | null }
 
 export class NotLoaded extends Error {
   override name = 'NotLoaded'
@@ -114,6 +119,87 @@ export class Workspace {
     return this.change(files, message, context)
   }
 
+  /**
+   * The upgrade bot's commit on the loaded live commit (storefront ARCHITECTURE §7.1): core pinned to `to`, with the
+   * codemods of every release after `from` applied, or the baseline theme with the store's own words and tokens. No gate
+   * runs here: the publish's full gate judges the commit.
+   */
+  async upgrade(input: UpgradeInput, notes: readonly UpgradeNote[]): Promise<Upgraded> {
+    const theme = await this.theme()
+    const applied = input.baseline ? [] : notesBetween(input.from, input.to, notes)
+    const next = input.baseline ? baselineWithOwn(new Map(input.baseline.map((f) => [f.path, f.content])), theme) : applyCodemods(theme, applied.flatMap((n) => n.codemods))
+    if (![...next.keys()].every(isThemePath)) throw new Error('An upgrade wrote outside the theme.')
+    const changes = changesBetween(theme, next)
+    const pkg = pinCore(await readFile(join(this.repo, 'package.json'), 'utf8'), input.to)
+    try {
+      for (const f of changes) {
+        if (f.content === null) await rm(join(this.repo, f.path), { force: true })
+        else await this.write(f.path, f.content)
+      }
+      await this.write('package.json', pkg)
+      await this.git(['add', '--all'])
+      if ((await this.git(['diff', '--cached', '--name-only'])).trim() !== '') await this.git(['commit', '--quiet', '--message', input.message])
+    } catch (error) {
+      // Nothing half-written may ride along with the next operation's commit.
+      await this.discard()
+      throw error
+    }
+    return { commit: await this.head(), files: [...changes, { path: 'package.json', content: pkg }], notes: applied.map(({ version, kind, notes: words }) => ({ version, kind, notes: words })) }
+  }
+
+  /** The bundle a rebase moves the draft onto, kept beside the working copy until the rebase reads it. */
+  async receiveOnto(bytes: Buffer): Promise<void> {
+    this.mustBeLoaded()
+    await writeFile(join(this.dir, 'onto.bundle'), bytes)
+  }
+
+  /**
+   * The draft's own changes moved onto `onto`, the upgrade bot's commit (AI-STUDIO §6 step 2), then the fast gate again;
+   * a conflict or a refusal leaves the draft exactly as it was.
+   */
+  async rebase(onto: string, context: GuardContext): Promise<ChangeResult> {
+    this.mustBeLoaded()
+    const file = join(this.dir, 'onto.bundle')
+    const before = await this.head()
+    const refused = (rule: string, message: string): ChangeResult => ({ ok: false, problems: [{ step: 'validator', file: null, line: null, rule, message }] })
+    try {
+      // Only a real conflict is called one: a missing or unrelated commit is a fault in what was sent.
+      const fetched = await this.git(['fetch', '--quiet', file, `+${branch}:refs/df/onto`]).then(() => true, () => false)
+      const found = fetched && (await this.git(['merge-base', '--is-ancestor', onto, 'refs/df/onto']).then(() => true, () => false))
+      if (!found) return refused('rebase/missing-onto', 'The core update’s commit is not in the bundle sent for it.')
+      if (!(await this.git(['merge-base', onto, before]).then(() => true, () => false))) return refused('rebase/unrelated', 'The draft and the core update share no history.')
+      const reached = await this.git(['merge-base', '--is-ancestor', onto, before]).then(() => true, () => false)
+      if (reached) return { ok: true, changed: false, commit: before, bundle: this.current ?? (await this.rebundle()) }
+      try {
+        await this.git(['rebase', '--quiet', onto])
+      } catch {
+        await this.git(['rebase', '--abort']).catch(() => undefined)
+        await this.git(['reset', '--quiet', '--hard', before])
+        return refused('rebase/conflict', 'The draft and the core update change the same lines of the theme.')
+      }
+      const next = join(this.client, 'next')
+      try {
+        const theme = await this.theme()
+        const refused = validate([...theme].map(([path, content]) => ({ path, content })), context)
+        const gated = refused.length > 0 ? { ok: false as const, problems: refused } : await build(theme, this.repo, next)
+        if (!gated.ok) {
+          await this.git(['reset', '--quiet', '--hard', before])
+          await rm(next, { recursive: true, force: true })
+          return gated
+        }
+        await this.promote(next, gated.bundle)
+        return { ok: true, changed: true, commit: await this.head(), bundle: gated.bundle }
+      } catch (error) {
+        await this.git(['reset', '--quiet', '--hard', before])
+        await rm(next, { recursive: true, force: true })
+        throw error
+      }
+    } finally {
+      await rm(file, { force: true })
+      await this.git(['update-ref', '-d', 'refs/df/onto']).catch(() => undefined)
+    }
+  }
+
   /** The repo and its history as one file, for `drafts/{store}.bundle` (AI-STUDIO §4 step 6). */
   async exportBundle(): Promise<Buffer> {
     this.mustBeLoaded()
@@ -147,6 +233,14 @@ export class Workspace {
       }),
     )
     return { id: this.current.id, files }
+  }
+
+  private async rebundle(): Promise<ClientBundle> {
+    const next = join(this.client, 'next')
+    const bundled = await bundle(this.repo, next)
+    if (!bundled.ok) throw new Error('The draft no longer bundles.')
+    await this.promote(next, bundled.bundle)
+    return bundled.bundle
   }
 
   private async afterLoad(): Promise<Loaded> {
