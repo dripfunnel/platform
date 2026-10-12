@@ -312,6 +312,18 @@ describe('Edit text', () => {
     expect(save.mock.calls.map((c) => c[0])).toEqual(['en', 'fr', 'fr'])
   })
 
+  it('turns Edit text off when a page is picked, since the new frame starts without it', async () => {
+    await show()
+    const toggle = screen.getByRole('button', { name: words.edit.button })
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.change(screen.getByRole('combobox', { name: words.page }), { target: { value: '/cart/' } })
+    expect(screen.getByRole('button', { name: words.edit.button }).getAttribute('aria-pressed')).toBe('false')
+    post({ type: 'df-studio:text', key: 'pages:home.lead' })
+    await settle()
+    expect(api.loadDesignText).not.toHaveBeenCalled()
+  })
+
   it('sends the merchant to Products or Store info for words the theme doesn’t hold', async () => {
     await show({ loadDesignText: vi.fn().mockResolvedValue([]) })
     fireEvent.click(screen.getByRole('button', { name: words.edit.button }))
@@ -404,6 +416,22 @@ describe('publishing from the studio', () => {
     await settle()
     expect(api.publishBefore).toHaveBeenCalledWith('m2')
     expect(onRun).toHaveBeenCalledWith('r2')
+  })
+
+  it('offers to publish before a change only when it can name that change', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { bisectMessageId: 'older-than-the-page' })) }, 'r1')
+    expect(screen.getByRole('alert')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: p.before })).toBeNull()
+  })
+
+  it('clears a refused publish once another change is accepted', async () => {
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { bisectMessageId: 'm2' })) }, 'r1')
+    expect(screen.getByRole('button', { name: p.before })).toBeTruthy()
+    fireEvent.change(prompt(), { target: { value: 'Move the buy bar up' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenCalledTimes(1)
+    expect(onRun).toHaveBeenCalledWith(null)
   })
 
   it('offers nothing to publish before when no one change is to blame', async () => {

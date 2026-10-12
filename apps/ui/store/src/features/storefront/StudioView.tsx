@@ -96,6 +96,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     let current = true
     let timer: ReturnType<typeof setTimeout> | undefined
     setSandbox({ kind: 'opening' })
+    setEditing(false)
     const read = (id: string | null) =>
       api.loadStudioSession(id).then(
         (s) => {
@@ -193,7 +194,9 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     }
   }
 
+  // A new frame starts in its normal mode, so Edit text turns off with every new frame (a page picked, the studio reopened).
   const pick = (path: string) => {
+    setEditing(false)
     setVisit((was) => ({ path, count: was.count + 1 }))
     setShownPath(path)
   }
@@ -223,6 +226,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
       setBusy(false)
       return false
     }
+    // A change after a refused or rolled-back publish moves the draft on, so that publish's notice and offer go.
+    if (run) onRun(null)
     await after()
     setBusy(false)
     return true
@@ -262,8 +267,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
         <strong>{fill(words.publish.refusedTitle, { number: String(ended.version ?? next) })}</strong>
         <span>{refusedText(ended)}</span>
         {culprit && <span className="df-sf-lede">{fill(words.publish.culprit, { text: culprit.text })}</span>}
-        {ended.bisectMessageId && (
-          <button type="button" className="df-button" disabled={locked} onClick={() => setPublishing({ before: ended.bisectMessageId })}>
+        {culprit && (
+          <button type="button" className="df-button" disabled={locked} onClick={() => setPublishing({ before: culprit.id })}>
             {words.publish.before}
           </button>
         )}
