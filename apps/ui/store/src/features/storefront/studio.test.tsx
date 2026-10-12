@@ -217,6 +217,12 @@ describe('the chat', () => {
     expect(screen.getByText(c.empty)).toBeTruthy()
   })
 
+  it('keeps its list a list: the states inside the conversation carry their roles on an inner element', async () => {
+    await show({ loadDesignChat: vi.fn().mockRejectedValue(new Error('offline')) })
+    const list = screen.getAllByRole('list')[0] as HTMLElement
+    expect(within(list).getAllByRole('listitem').length).toBe(list.children.length)
+  })
+
   it('says when the conversation couldn’t be read, in the conversation', async () => {
     await show({ loadDesignChat: vi.fn().mockRejectedValue(new Error('offline')) })
     expect(screen.getByRole('alert').textContent).toBe(c.loadFailed)
