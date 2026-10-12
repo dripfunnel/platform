@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { inlineHashes, studioCsp } from '@dripfunnel/storefront-core'
+import { inlineHashes, studioCsp, studioFramePage } from '@dripfunnel/storefront-core'
 import { compareVersions, coreUpgradeNotes, type GuardContext, type UpgradeNote } from '@dripfunnel/storefront-core/guard'
 import { isRepoPath, isThemePath } from './paths'
 import { Workspace, NotLoaded } from './workspace'
@@ -163,12 +163,14 @@ export const sandboxServer = ({ slots, workRoot, runtimeDir, notes = coreUpgrade
     }
     if (method === 'GET' && op === 'client') {
       const path = rest.join('/') || 'index.html'
-      const bytes = await ws().clientFile(path, runtimeDir)
-      if (!bytes) return send(res, 404, { error: 'NOT_FOUND' })
-      const headers: Record<string, string | number> = { 'content-type': types[path.split('.').at(-1) ?? ''] ?? 'application/octet-stream', 'content-length': bytes.byteLength }
+      const file = await ws().clientFile(path, runtimeDir)
+      if (!file) return send(res, 404, { error: 'NOT_FOUND' })
       const frame = frameOrigins(req)
-      // The studio frame's page carries core's own studio CSP (ARCHITECTURE §3.5), from the origins the Durable Object sent.
-      if (frame && path.endsWith('.html')) headers['content-security-policy'] = studioCsp(frame, await inlineHashes(bytes.toString('utf8')))
+      // The studio frame's page carries core's own studio CSP (ARCHITECTURE §3.5) and names the portal it allows (AI-STUDIO §8).
+      const page = frame && path.endsWith('.html') ? studioFramePage(file.toString('utf8'), frame.portalOrigin) : null
+      const bytes = page === null ? file : Buffer.from(page)
+      const headers: Record<string, string | number> = { 'content-type': types[path.split('.').at(-1) ?? ''] ?? 'application/octet-stream', 'content-length': bytes.byteLength }
+      if (frame && page !== null) headers['content-security-policy'] = studioCsp(frame, await inlineHashes(page))
       res.writeHead(200, headers)
       return res.end(bytes)
     }

@@ -83,13 +83,16 @@ describe('the sandbox server', () => {
     expect((await fetch(`${base}/slots/store-a/client/../../repo/package.json`)).status).toBe(404)
   })
 
-  it('gives the frame’s page core’s studio CSP for the origins it is sent, and nothing to a page asked without them', async () => {
+  it('gives the frame’s page core’s studio CSP and the portal it names for the origins it is sent, and neither to a page asked without them', async () => {
     const framed = await fetch(`${base}/slots/store-a/client/index.html`, { headers: { 'x-df-frame-media': 'https://k7f3q9f2xa.webpreview.store', 'x-df-frame-portal': 'https://store.partner-a.example' } })
     const csp = framed.headers.get('content-security-policy') ?? ''
     expect(csp).toContain("default-src 'none'")
     expect(csp).toContain("script-src 'self'")
     expect(csp).toContain('frame-ancestors https://store.partner-a.example')
-    expect((await fetch(`${base}/slots/store-a/client/index.html`)).headers.get('content-security-policy')).toBeNull()
+    expect(await framed.text()).toContain('<meta name="df-studio-portal" content="https://store.partner-a.example">')
+    const plain = await fetch(`${base}/slots/store-a/client/index.html`)
+    expect(plain.headers.get('content-security-policy')).toBeNull()
+    expect(await plain.text()).not.toContain('df-studio-portal')
   })
 
   it('exports the theme from the entry and boots it once, so the hot reload can load a later one', async () => {

@@ -16,7 +16,8 @@ export const setRouterBase = (studioBase: string | null) => {
 
 const current = (): string => `${base ? studioPagePath(base, location.pathname) : location.pathname}${location.search}`
 
-const subscribe = (changed: () => void) => {
+/** Calls `changed` after every navigate() and back or forward button, until the returned function is called. */
+export const watchAddress = (changed: () => void) => {
   addEventListener('popstate', changed)
   addEventListener(navigated, changed)
   return () => {
@@ -40,7 +41,7 @@ const parse = (href: string): Address => {
 /** The page's path and query; a new value whenever navigate() or the back button changes them. */
 export const useLocation = (): Address => {
   const server = useContext(ServerAddress)
-  const href = useSyncExternalStore(subscribe, current, () => server)
+  const href = useSyncExternalStore(watchAddress, current, () => server)
   return useMemo(() => parse(href), [href])
 }
 

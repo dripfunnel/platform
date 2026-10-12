@@ -240,8 +240,16 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   session's path, never by reading or writing the frame's DOM. It hears a message only from the frame's own window and
   the frame's origin, and only `{ type: 'df-studio:page', path }` (the page the frame moved to) and
   `{ type: 'df-studio:text', key }` (the words picked for Edit text, keyed like `pages:home.lead`); it posts only
-  `{ type: 'df-studio:edit', on }`, to the frame's origin. The frame's side of these messages (in core's studio
-  render mode) isn't built yet.
+  `{ type: 'df-studio:edit', on }`, to the frame's origin.
+  **The frame's side, built on #679** *(decided there)*: only in core's `studio` render mode, core's `connectStudioFrame`
+  posts `df-studio:page` with the page's path (the session's prefix taken off) for the first page and after every
+  navigation, and hears `df-studio:edit` only from `window.parent` at the portal's origin. The sandbox writes that origin
+  into the frame's page as `<meta name="df-studio-portal">` from the same value its CSP's `frame-ancestors` lists, and
+  every message goes only to it, never `'*'`; a page with no `<head>` to carry it is refused, so the feature never fails silently. While Edit text is on, core outlines hovered words (a dark dashed ring on a white
+  halo, so one of the two shows at 3:1 on any theme's background) and a click posts `df-studio:text` instead of acting: core's `t()` remembers each string of the theme's own content it renders
+  with its key (`content/en/home.json`'s `hero.title` is `home:hero.title`), and the click's element, or its nearest
+  ancestor with words of its own, is looked up there; identical words resolve to the first key shown. Live and preview
+  pages carry no portal and connect nothing.
 - **The studio-session id** (§3 step 6) is a bearer credential in the frame's path, so it is
   held to these rules:
   - **Bound** to one store, one user and the portal session that opened the studio. It is
