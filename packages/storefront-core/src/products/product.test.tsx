@@ -45,6 +45,7 @@ const tee = {
     { region: 'US', field: 'origin', value: 'Made in India' },
     { region: 'US', field: 'fibre', value: '100% cotton' },
     { region: 'IN', field: 'care', value: 'Hand wash' },
+    { region: 'ALL', field: 'importer', value: 'Juniper Ltd' },
   ],
   returns: null,
   warranty: null,
@@ -112,7 +113,7 @@ describe('useProduct', () => {
     act(() => screen.getByText('Sage').click())
     expect(location.pathname).toBe('/products/organic-cotton-tee/v-sage-m/')
     expect(screen.getByTestId('price').textContent).toBe('$32.00 ')
-    expect(screen.getByTestId('photos').textContent).toBe('Sage,Front*')
+    expect(screen.getByTestId('photos').textContent).toBe('Sage*,Front')
   })
 
   it('opens a version address with that version chosen, and keeps the canonical on the product', async () => {
@@ -130,7 +131,7 @@ describe('useProduct', () => {
     shopAnswering(() => answer(tee))
     render(<Provided><Page /></Provided>)
     await screen.findByText('Organic Cotton Tee')
-    expect(screen.getByTestId('legal').textContent).toBe('Country of origin=Made in India|Fibre content=100% cotton')
+    expect(screen.getByTestId('legal').textContent).toBe('Country of origin=Made in India|Fibre content=100% cotton|Product information=Juniper Ltd')
   })
 
   it('names a product the store has not got as missing, and an outage as an error with its code', async () => {
