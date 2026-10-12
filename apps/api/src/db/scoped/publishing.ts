@@ -143,6 +143,14 @@ export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise
   // A draft published to its head is the live version now: no draft, as after Discard (#318, AI-STUDIO §6 step 4).
   if (run.kind === 'design') await tx`delete from design_draft where store_id = ${run.store_id} and head_commit = ${run.commit}`
   await tx`update store set build_state = 'live', last_publish_at = ${at}, core_version = ${run.core_version} where id = ${run.store_id}`
+  // The merchant republished: their own theme is back, and a major it was waiting for is taken (ARCHITECTURE §7).
+  if (run.kind === 'design') {
+    await tx`
+      update storefront set theme_mode = 'own', baseline_reason = null, baseline_from_build_id = null,
+        core_upgrade_version = case when string_to_array(core_upgrade_version, '.')::int[] <= string_to_array(${run.core_version}, '.')::int[] then null else core_upgrade_version end,
+        core_upgrade_commit = case when string_to_array(core_upgrade_version, '.')::int[] <= string_to_array(${run.core_version}, '.')::int[] then null else core_upgrade_commit end
+      where store_id = ${run.store_id}`
+  }
 }
 
 /** The build whose asset folder a new build's pages load from: the live build's own, or the one it inherited. */

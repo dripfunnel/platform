@@ -121,7 +121,7 @@ import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
 import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
 import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
-import { storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
+import { advanceRollouts, createFleetService, defaultActionsJobs, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
 import { indexNowClient } from '#integrations/indexnow/client'
@@ -380,7 +380,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, staffMembers: null, customers: null, staffSessions: null, provisioning: null, dashboard: null, apps: null, fleet: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -400,6 +400,7 @@ const handleAdmin = async (
       customers: caller ? createCustomersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffMembers: caller ? createStaffMembersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       apps: caller ? createAppRegistryService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, secrets: await (secretsFor(config) ?? null), lookup: lookupFor(sql, config), now: () => new Date() }) : null,
+      fleet: caller ? createFleetService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
@@ -898,6 +899,13 @@ const releaseUnpaid: CronJob = async (sql, config) => {
   if (released > 0) logEvent({ event: 'unpaid_orders_cancelled', api: 'system', code: 'unpaid', count: released })
 }
 
+// A core rollout's next stores and phase, or a rolled-back one's stores put back (SAAS §10).
+const advanceCoreRollouts: CronJob = async (sql, config) => {
+  await advanceRollouts(sql, { actionsJobs: config.GITHUB_ACTIONS_JOBS ?? defaultActionsJobs, now: new Date() }).catch((error: unknown) => {
+    logEvent({ event: 'core_rollout_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+  })
+}
+
 // A scheduled post goes live at its time (FIRST-RELEASE §14); its change waits for the next publish like any edit.
 const publishDuePosts: CronJob = async (sql) => {
   const published = await publishScheduledPosts(sql, activityLog, new Date()).catch((error: unknown) => {
@@ -1010,7 +1018,7 @@ const readStorefrontVitals: CronJob = async (sql) => {
 
 /** wrangler.jsonc's `triggers.crons`, each with the jobs it runs (#477); the outbox relay goes last, since it throws. */
 export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
-  '* * * * *': [expireSms, relayOutbox, publishDuePosts],
+  '* * * * *': [expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
   '0 3 * * *': [purgeCarts, purgeWebhookLog, cleanStorefrontFiles, readStorefrontVitals],

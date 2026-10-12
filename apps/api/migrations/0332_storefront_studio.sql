@@ -1,20 +1,12 @@
 -- SAPI 17 (#318), part 1: the studio's chat (DATA-MODEL §7.8). The template gallery is #486's storefront_template (0331).
 
--- The studio's chat (PortalStorefront): the merchant's requests, the AI's replies and the notes between them. A note's
--- and an error's text is a code the portal words (FIRST-RELEASE §14), never stored words.
+-- The studio's chat (PortalStorefront). Part 1 writes only its notes, whose text is a code the portal words
+-- (FIRST-RELEASE §14), never stored words; part 2 adds the requests, replies and errors.
 create table design_message (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references store (id),
-  role text not null check (role in ('user', 'ai', 'note', 'error')),
+  role text not null constraint design_message_role_check check (role in ('note')),
   text text not null check (char_length(text) <= 4000),
-  changed text[] not null default '{}' check (cardinality(changed) <= 5),
-  image_asset_id uuid references asset (id),
-  sample_url text check (char_length(sample_url) <= 2048),
-  page text check (char_length(page) <= 200),
-  commit text check (commit ~ '^[0-9a-f]{40}$'),
-  before_commit text check (before_commit ~ '^[0-9a-f]{40}$'),
-  undone boolean not null default false,
-  ai_run_id uuid references ai_run (id),
   created_by uuid references "user" (id),
   created_at timestamptz not null default now()
 );

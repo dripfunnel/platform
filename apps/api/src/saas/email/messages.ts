@@ -176,6 +176,12 @@ export const en = {
     // Decided on #337: data, assets and the repo are kept 90 days, with the export offered.
     data: 'Your products, orders and customers are kept for 90 days. Download them from Billing before then.',
   },
+  storefrontBaseline: {
+    subject: (store: string) => `${store}'s storefront is showing a simpler design for now`,
+    heading: 'Your storefront is showing a simpler design',
+    body: (store: string) => `A security update couldn't be applied to ${store}'s storefront design, so shoppers now see a simpler design with your own words and colours. Everything keeps selling as before.`,
+    kept: 'Your own design is kept. Publish it again from the studio, or we put it back as soon as it can take the update.',
+  },
   storeRestored: {
     subject: (store: string) => `${store} is back`,
     heading: 'Your store is restored',

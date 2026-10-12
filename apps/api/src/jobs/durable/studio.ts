@@ -6,7 +6,7 @@ import { selectSandboxImage } from '#db/scoped/coreReleases'
 import { containerHost, localSandboxHost, type ClientBundle, type SandboxHost } from '#integrations/sandbox/index'
 import { deleteDraft, selectStudioPortalHost } from '#db/scoped/studio'
 import { goBack, type GoBackActor, type GoBackResult } from '#saas/storefronts/index'
-import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
+import { alarmStep, capacityLedger, closeEndedSockets, defaultStudioCapacity, frameClosed, hashStudioSession, liveStudioSession, liveStudioSessionHash, serveFrame, StudioQueued, StudioRunner, StudioUnavailable, studioStoreHeader, type DesignModel, type Grant, type Prepared, type PublishReady, type StudioAnswer, type StudioApi, type StudioState, preparedAnswer, studioAnswer, type UpgradeAnswer, type UpgradeAsk } from '#saas/studio/index'
 
 // The Durable Objects behind the studio (storefront AI-STUDIO.md §2): StudioSession, one per store, named by the store id
 // the session's TenantContext gave (saas/studio studioOf), and StudioCapacity, one for the account.
@@ -19,6 +19,9 @@ export interface StudioEnv extends Record<string, unknown> {
 
 /** The alarm looks every minute while a container may run (AI-STUDIO §7). */
 const tickMs = 60 * 1000
+
+/** How long a status poll waits for the open it started: a queue answer comes back at once, a container start doesn't. */
+const statusWaitMs = 1_000
 
 type Connect = (hyperdrive: { connectionString: string }) => postgres.Sql
 
@@ -57,7 +60,6 @@ export const studioSessionClass = (connect: Connect) =>
     private lastActive = Date.now()
     private db: (<T>(work: (sql: postgres.Sql) => Promise<T>) => Promise<T>) | null = null
     private opening: Promise<StudioState> | null = null
-    private lastOpen: StudioState | null = null
 
     /** The object is named by its store's id; it refuses any call for another store, whoever made it. */
     private async runnerFor(storeId: string): Promise<StudioRunner> {
@@ -121,7 +123,7 @@ export const studioSessionClass = (connect: Connect) =>
       }
     }
 
-    /** Where the studio stands without waiting for it: a sandbox not loaded yet starts in the background (AI-STUDIO §3). */
+    /** Where the studio stands: a sandbox not loaded yet starts in the background (AI-STUDIO §3), and is "starting" until it answers. */
     async status(storeId: string): Promise<StudioState> {
       const runner = await this.runnerFor(storeId)
       if (runner.loaded) return runner.pending > 0 ? { state: 'busy' } : { state: 'ready' }
@@ -129,9 +131,10 @@ export const studioSessionClass = (connect: Connect) =>
         this.opening = this.open(storeId).finally(() => {
           this.opening = null
         })
-        this.ctx.waitUntil(this.opening.then((state) => void (this.lastOpen = state)))
+        this.ctx.waitUntil(this.opening)
       }
-      return this.lastOpen && this.lastOpen.state !== 'ready' ? this.lastOpen : { state: 'starting' }
+      const waited = new Promise<null>((resolve) => setTimeout(() => resolve(null), statusWaitMs))
+      return (await Promise.race([this.opening, waited])) ?? { state: 'starting' }
     }
 
     async useTemplate(storeId: string, input: { template: string; keep: boolean; userId: string }): Promise<StudioAnswer> {
@@ -150,6 +153,10 @@ export const studioSessionClass = (connect: Connect) =>
       return (await this.runnerFor(storeId)).prepareUpgrade(ask)
     }
 
+    /** AI-STUDIO §6 steps 1–2: the draft moved onto any newer core first; #318's Publish builds what this answers. */
+    async prepareToPublish(storeId: string): Promise<PublishReady> {
+      return (await this.active(storeId)).prepareToPublish()
+    }
 
     async undo(storeId: string, input: { commit: string; userId: string }): Promise<StudioAnswer> {
       const runner = await this.active(storeId)

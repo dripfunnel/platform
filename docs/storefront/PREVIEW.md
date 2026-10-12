@@ -150,6 +150,8 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    session has run out (a tab left idle for over 15 minutes), the Worker answers with a plain
    page that shows no store data: "This preview has closed. Open it again from your link or from
    the portal." `/shop-api` answers the SPA with an error that makes it show the same screen.
+   **Built on #307:** that error is `PREVIEW_CLOSED`; core's runtime then replaces the page, on its first request or any
+   later one, with core's own closed screen and no store data.
 4. **Which check runs on which request:**
    - **HTML and `/shop-api/*` requests get the full re-check.** The Worker asks the API for the
      store's current preview folder (no cached lookup, unlike live sites: LIVE-SHOP §5 step 1),

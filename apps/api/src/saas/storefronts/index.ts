@@ -5,7 +5,7 @@ export { draftBundle, previewFolder, publishedTheme, sourceBundle, upgradeBundle
 export { dispatchBuild, freezeBuild, FreezeRefused, freezeRefusals, guardContextFor, type FreezeDeps } from './freeze'
 export { createStorefrontParams, startStorefront, storefrontCreateKind, type CreateStorefrontParams, type StartResult } from './start'
 export { edgeCacheTags, lookupLiveHost, lookupRedirects, maxEdgeRedirects, type EdgeState, type LiveHost } from './edge'
-export { goBack, publishBefore, publishParams, requestPageRender, rollBackLiveBuild, runPublish, startPublish, startUpgradePublish, failUnswitchedRun, type UpgradeStart, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type GoBackActor, type GoBackResult, type PublishBeforeResult, type PublishDeps, type PublishParams, type PublishRepair, type PublishSteps, type RenderResult } from './publish'
+export { goBack, publishBefore, publishParams, requestPageRender, rollBackLive, rollBackLiveBuild, runPublish, startPublish, startUpgradePublish, failUnswitchedRun, type UpgradeStart, storefrontIndexNowKind, storefrontPublishKind, storefrontRenderPageKind, type GoBackActor, type GoBackResult, type PublishBeforeResult, type PublishDeps, type PublishParams, type PublishRepair, type PublishSteps, type RenderResult } from './publish'
 export { BuildRefused, BuildUnavailable, buildLifetimeMs, gateReport, handoutSeconds, issueCredentials, reportBuild, reportUploaded, startBuild, type BuildDeps, type BuildRefusal, type GateReport } from './builds'
 export { digestOf, manifestSchema, maxBuildFiles, maxFileBytes, type Manifest } from './manifest'
 export { isPublicAsset, UploadRefused, uploadRefusals, verifyUpload, type UploadRefusal, type VerifyDeps } from './verify'

@@ -103,14 +103,12 @@ export const setUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, u
   `
 }
 
-/** A monthly meter moved by `n` atomically; a row from an earlier month starts again (SAAS §6.2). */
-export const addUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, n: number, periodStart: Date, at: Date): Promise<void> => {
-  await tx`
-    insert into store_usage (store_id, key, used, period_start, updated_at) values (${storeId}, ${key}, ${n}, ${periodStart.toISOString().slice(0, 10)}::date, ${at})
-    on conflict (store_id, key) do update set
-      used = case when store_usage.period_start = excluded.period_start then store_usage.used + excluded.used else excluded.used end,
-      period_start = excluded.period_start, updated_at = excluded.updated_at
-  `
+/** Whether one more fits this period's allowance, without taking it (`reserveUsage` takes it). */
+export const hasUsageLeft = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date, allowed: number): Promise<boolean> => {
+  if (allowed <= 0) return false
+  const month = periodStart.toISOString().slice(0, 10)
+  const [row] = await tx<{ used: number }[]>`select used from store_usage where store_id = ${storeId} and key = ${key} and period_start = ${month}::date`
+  return (row?.used ?? 0) < allowed
 }
 
 /** One unit of a monthly allowance taken in one statement while fewer than `allowed` are used; false when none is left. */
@@ -126,6 +124,11 @@ export const reserveUsage = async (tx: ScopedSql, storeId: string, key: AmountKe
     returning used
   `
   return taken.count === 1
+}
+
+/** Gives back a unit `reserveUsage` took this period; an update, since an insert's negative row fails `used >= 0` first. */
+export const releaseUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, periodStart: Date, at: Date): Promise<void> => {
+  await tx`update store_usage set used = used - 1, updated_at = ${at} where store_id = ${storeId} and key = ${key} and period_start = ${periodStart.toISOString().slice(0, 10)}::date and used > 0`
 }
 
 export interface StoreAccount {
