@@ -1,0 +1,8 @@
+{
+  "key": "baseline",
+  "name": "Start from scratch",
+  "tag": "Blank",
+  "description": "A plain header, banner, story and footer. Describe your shop and the AI styles it.",
+  "demoStore": null,
+  "coreMinVersion": "0.0.0"
+}

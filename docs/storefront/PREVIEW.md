@@ -100,6 +100,10 @@ the template ships with a core release (ARCHITECTURE §2.3). Creating the store'
 bundle into the store's first preview folder, a server-side R2 copy (SAAS §5 step 7).
 *Why:* the preview opens seconds after the merchant picks a template, without starting a
 container.
+*As built on #486:* the bundle is the fast gate's bundle step over `templates/storefront/themes/{key}/`. Since the
+preview host answers every page address with the same `index.html` (§5 step 4), the runtime picks the page from the
+address: a core route's page, then the longest item prefix (`/products/…`), then the theme's own paths, else the 404
+page (`apps/sandbox/src/runtime/routes.ts`).
 
 **Other moments:**
 - **Undo** is a new change (a revert), so it gets a new preview by the same steps.

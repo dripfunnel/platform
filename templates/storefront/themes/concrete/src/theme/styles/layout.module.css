@@ -1,0 +1,329 @@
+.shell {
+  --bg: #efefec;
+  --surface: #fff;
+  --ink: #0d0d0d;
+  --ink-soft: #46463f;
+  --muted: #46463f;
+  --line: rgb(13 13 13 / 14%);
+  --accent: #d7f205;
+  --accent-ink: #0d0d0d;
+  --focus: #0d0d0d;
+  --radius: 0px;
+  --button-radius: 0px;
+  --heading-font: 'Archivo Black', 'Arial Black', sans-serif;
+  --heading-weight: 400;
+  --brand-weight: 400;
+  --heading-case: uppercase;
+  --heading-spacing: 0.01em;
+  --body-font: 'Work Sans', system-ui, sans-serif;
+  --header-bg: #0d0d0d;
+  --header-ink: #fff;
+  --header-hover: rgb(255 255 255 / 12%);
+  --footer-bg: #0d0d0d;
+  --footer-ink: #efefec;
+  --footer-muted: #c9c9c2;
+  --footer-line: rgb(239 239 236 / 20%);
+  --picture: linear-gradient(135deg, hsl(24 75% 72%), hsl(64 70% 52%));
+  --picture-alt: linear-gradient(135deg, hsl(330 75% 72%), hsl(10 70% 52%));
+  --announce-bg: #0d0d0d;
+  --announce-ink: #d7f205;
+  --df-sealed-font: var(--body-font);
+  --df-sealed-color: var(--ink);
+  --df-sealed-muted: var(--muted);
+  --df-sealed-surface: var(--surface);
+  --df-sealed-radius: var(--radius);
+
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  /* Cancels the browser's 8px body margin, which theme CSS can't name (storefront ARCHITECTURE §3.4). */
+  margin: -8px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body-font);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.preview {
+  display: block;
+}
+
+.announce {
+  margin: 0;
+  padding: 9px 16px;
+  background: var(--announce-bg);
+  color: var(--announce-ink);
+  font-size: 13px;
+  text-align: center;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--line);
+  color: var(--header-ink);
+}
+
+.bar {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 1240px);
+  min-height: 64px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+
+.brand {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  color: var(--header-ink);
+  font-family: var(--heading-font);
+  font-size: 21px;
+  font-weight: var(--brand-weight);
+  letter-spacing: var(--heading-spacing);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  text-transform: var(--heading-case);
+  white-space: nowrap;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  padding-block: 8px;
+}
+
+.navLink {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--header-ink);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.navLink:hover {
+  background: var(--header-hover);
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tool {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--header-ink);
+}
+
+.tool:hover {
+  background: var(--header-hover);
+}
+
+.icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.hidden {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.main {
+  width: 100%;
+  flex: 1;
+}
+
+.footer {
+  margin-top: 56px;
+  padding: 40px 16px 24px;
+  background: var(--footer-bg);
+  border-top: 1px solid var(--footer-line);
+  color: var(--footer-ink);
+  font-size: 14px;
+}
+
+.columns {
+  display: grid;
+  box-sizing: border-box;
+  width: min(100%, 1208px);
+  gap: 28px 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-inline: auto;
+}
+
+.about {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  grid-column: 1 / -1;
+}
+
+.footerBrand {
+  margin: 0;
+  font-family: var(--heading-font);
+  font-size: 18px;
+  font-weight: var(--brand-weight);
+  overflow-wrap: anywhere;
+  text-transform: var(--heading-case);
+}
+
+.note {
+  max-width: 36ch;
+  margin: 0;
+  color: var(--footer-muted);
+}
+
+.links {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.heading {
+  margin: 0 0 6px;
+  color: var(--footer-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.footerLink {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  color: var(--footer-ink);
+  text-decoration: none;
+}
+
+.footerLink:hover {
+  text-decoration: underline;
+}
+
+.base {
+  display: flex;
+  box-sizing: border-box;
+  width: min(100%, 1208px);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 28px auto 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--footer-line);
+  color: var(--footer-muted);
+}
+
+.cookies {
+  display: block;
+  --df-sealed-color: var(--footer-ink);
+}
+
+.cookies::part(button) {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--footer-line);
+  border-radius: var(--button-radius);
+  background: transparent;
+  color: var(--footer-ink);
+}
+
+.powered {
+  display: block;
+  --df-sealed-muted: var(--footer-muted);
+}
+
+.consent {
+  display: block;
+}
+
+.brand:focus-visible,
+.navLink:focus-visible,
+.tool:focus-visible {
+  outline: 2px solid var(--header-ink);
+  outline-offset: 2px;
+}
+
+.footerLink:focus-visible {
+  outline: 2px solid var(--footer-ink);
+  outline-offset: 2px;
+}
+
+@media (min-width: 900px) {
+  .bar {
+    flex-wrap: nowrap;
+    gap: 24px;
+    padding-inline: 32px;
+  }
+
+  .brand {
+    flex: 0 1 auto;
+  }
+
+  .nav {
+    flex-direction: row;
+    gap: 4px;
+    padding-block: 0;
+  }
+
+  .tools {
+    margin-left: auto;
+  }
+
+  .footer {
+    padding-inline: 32px;
+  }
+
+  .columns {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .about {
+    grid-column: auto;
+  }
+
+  .bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 24px;
+    padding-block: 14px 6px;
+  }
+
+  .brand {
+    flex: 1 0 100%;
+    font-size: 24px;
+    text-align: center;
+  }
+
+  .tools {
+    margin-left: 0;
+  }
+}
