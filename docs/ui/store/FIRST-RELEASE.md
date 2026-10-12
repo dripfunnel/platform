@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-13 (#339 part 1: Storefront › Pages' list, §14; #682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-13 (#339 parts 1 and 2: Storefront › Pages' list and editor, §14; #682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -768,7 +768,18 @@ through. Your site stays live."), as is a support session.
   (title, path, Published, Draft or Scheduled, when edited in UTC with the zone named, "in the footer"), fifty at a time with Show more, then the
   AI's pages (`customPagePaths`), each "Made by AI"; the Owner's open the studio on that page (`?view=studio&page=`),
   a reader's open nothing. *Decided there:* an AI page is named by its path, as the studio's picker names it; the
-  page-level Manager notice stands for the drawing's own. The editor and Journal come in later parts.
+  page-level Manager notice stands for the drawing's own.
+- **Built on #339 (part 2)**: the page editor (`?entry=`, `new` for one not saved; **Add a page** for the Owner): title,
+  web address after the shop's host (the title's until one is typed), the blocks with move and remove (heading and text
+  here; the other kinds are kept as they are until part 3), how it looks in search (title /60, description /160, the
+  result's preview), and Publishing (status and when edited, "waiting for the next publish", Show in the footer menu,
+  **Publish** or **Update**, **Save as draft**, **Delete page**, which asks first). A `PATH_TAKEN` refusal shows under
+  the web address, naming what holds it; nothing is saved. *Decided there:* the clash words (`storefront.content.taken`)
+  *(proposed, for review)*: a core route by what it is ("/cart is your shop's cart"), an AI page by its path, a
+  language by its name, a market, another page or post by its title; a "Title in search" beside the drawn description,
+  since the API takes both; the note drops the drawing's "about 2 minutes", which no publish promises; no Preview
+  button, since the preview host shows live pages only (#338); a reader sees the fields read-only with no buttons, and
+  `?entry=new` shows them the list; leaving the editor asks nothing, as drawn.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

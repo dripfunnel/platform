@@ -285,6 +285,38 @@ describe('the page editor', () => {
     expect(screen.queryByRole('group', { name: e.toolsLabel })).toBeNull()
   })
 
+  it('shows a reader the list for a new page', async () => {
+    await show({ acting: manager, entry: 'new' })
+    expect(screen.getByRole('heading', { name: p.title })).toBeTruthy()
+    expect(screen.queryByRole('textbox', { name: e.title })).toBeNull()
+  })
+
+  it('shows the page’s error with a retry that reads it again', async () => {
+    content.loadContentEntry.mockRejectedValueOnce(new Error('offline'))
+    await show({ entry: faq.id })
+    expect(screen.getByText(c.error.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: c.error.retry }))
+    await settle()
+    expect((screen.getByRole('textbox', { name: e.title }) as HTMLInputElement).value).toBe('Questions we get asked')
+  })
+
+  it('shows an address the API finds invalid next to it', async () => {
+    content.saveContent.mockRejectedValue(new ApiError('INVALID_INPUT', 'bad', { field: 'slug' }))
+    await show({ entry: faq.id })
+    fireEvent.click(screen.getByRole('button', { name: e.update }))
+    await settle()
+    expect(describedBy(slugInput())).toBe(e.needsSlug)
+  })
+
+  it('holds a save while the search words are too long', async () => {
+    await show({ entry: faq.id })
+    fireEvent.change(screen.getByRole('textbox', { name: e.seoTitle }), { target: { value: 'x'.repeat(61) } })
+    fireEvent.click(screen.getByRole('button', { name: e.update }))
+    await settle()
+    expect(screen.getByText(e.seoTooLong)).toBeTruthy()
+    expect(content.saveContent).not.toHaveBeenCalled()
+  })
+
   it('says a page that is gone is gone', async () => {
     content.loadContentEntry.mockResolvedValue(null)
     await show({ entry: faq.id })

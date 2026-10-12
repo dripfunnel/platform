@@ -2,7 +2,7 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useState } from 'react'
 import { contentLimits, type ContentEntry, type ContentKind } from '../../api/content'
-import { fill, formatDay, messages } from '../../messages'
+import { fill, formatTime, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
 import { ContentBlocks } from './ContentBlocks'
 import { draftOf, draftProblem, inputOf, cleanSlug, pathOf, pathTakenText, slugShown, type ContentDraft } from './contentDraft'
@@ -192,7 +192,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, titleAt,
         </div>
         <aside className="df-sf-card df-sfc-side" aria-labelledby={`${formId}-publishing`}>
           <h2 id={`${formId}-publishing`}>{words.publishing}</h2>
-          <span className="df-sfc-status">{entry ? fill(words.nowEdited, { status, date: formatDay(entry.updatedAt.slice(0, 10)) }) : fill(words.now, { status })}</span>
+          <span className="df-sfc-status">{entry ? fill(words.nowEdited, { status, date: formatTime(entry.updatedAt) }) : fill(words.now, { status })}</span>
           {entry?.waitingForPublish && <span className="df-sf-help">{words.waiting}</span>}
           <label className="df-sfc-check">
             <input type="checkbox" checked={draft.inMenu} disabled={!canEdit} onChange={() => set({ inMenu: !draft.inMenu })} />

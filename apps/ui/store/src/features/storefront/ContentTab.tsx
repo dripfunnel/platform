@@ -59,7 +59,8 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
     const edited = fill(w.edited, { date: formatTime(r.updatedAt) })
     return r.inMenu ? fill(w.inMenu, { meta: edited }) : edited
   }
-  if (entry !== undefined) {
+  // A reader has nothing to write, so `new` shows them the list.
+  if (entry !== undefined && (canEdit || entry !== 'new')) {
     const rows = list.kind === 'ready' ? list.rows : []
     return (
       <ContentEditor
