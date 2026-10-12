@@ -102,3 +102,28 @@ export const loadStudioLanguages = async (): Promise<string[]> => {
   const { storeLocale } = await query('{ storeLocale { mainLanguage offeredLanguages } }', z.object({ storeLocale: z.object({ mainLanguage: z.string(), offeredLanguages: z.array(z.string()) }).nullable() }))
   return storeLocale ? [storeLocale.mainLanguage, ...storeLocale.offeredLanguages.filter((l) => l !== storeLocale.mainLanguage)] : []
 }
+
+// Publishing from the studio (FIRST-RELEASE §19 "Built on #318 (part 3)"; storefront AI-STUDIO §6).
+export const publishSteps = ['queued', 'checking', 'going_live', 'live', 'failed', 'rolled_back'] as const
+export type PublishStep = (typeof publishSteps)[number]
+
+const runSchema = z.object({
+  id: z.string(),
+  step: z.enum(publishSteps),
+  version: z.number().int().nullable(),
+  repairAttempts: z.number().int(),
+  checks: z.array(z.object({ name: z.string(), passed: z.boolean(), words: text })),
+  bisectMessageId: text,
+})
+export type PublishRun = z.infer<typeof runSchema>
+
+/** The draft through the whole site's checks; answers the publish's id for `loadPublishRun`. */
+export const publishDesign = async (): Promise<string> => (await query('mutation { publishDesign }', z.object({ publishDesign: z.string() }))).publishDesign
+
+/** "Publish everything before this change": the change a refused publish named. */
+export const publishBefore = async (messageId: string): Promise<string> =>
+  (await query('mutation B($id: ID!) { publishBefore(messageId: $id) }', z.object({ publishBefore: z.string() }), { id: messageId })).publishBefore
+
+/** Null for a publish that isn't this store's. */
+export const loadPublishRun = async (id: string): Promise<PublishRun | null> =>
+  (await query('query P($id: ID!) { publishRun(id: $id) { id step version repairAttempts checks { name passed words } bisectMessageId } }', z.object({ publishRun: runSchema.nullable() }), { id })).publishRun

@@ -2,8 +2,8 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { StorefrontOverview } from '../../api/storefront'
-import type { DesignMessage, StudioSession } from '../../api/studio'
+import type { StorefrontMeters, StorefrontOverview } from '../../api/storefront'
+import type { DesignMessage, PublishRun, StudioSession } from '../../api/studio'
 import { fill, messages } from '../../messages'
 import type { StorefrontApi } from './storefrontApi'
 import { StudioView } from './StudioView'
@@ -34,20 +34,28 @@ const fakeApi = () =>
     loadOverview: vi.fn().mockResolvedValue(overview),
     discardDraft: vi.fn().mockResolvedValue(undefined),
     uploadImage: vi.fn().mockResolvedValue({ ok: true, assetId: 'a-photo' }),
+    publishDesign: vi.fn().mockResolvedValue('r1'),
+    publishBefore: vi.fn().mockResolvedValue('r2'),
+    loadPublishRun: vi.fn(),
+    previewLink: vi.fn().mockResolvedValue('https://k7f3q9f2xa.webpreview.store/?preview=signed'),
+    endPreviewLinks: vi.fn().mockResolvedValue(undefined),
   }) satisfies Partial<StorefrontApi>
 
 type Fake = ReturnType<typeof fakeApi>
 let api: Fake
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
-const show = async (over: Partial<Fake> = {}) => {
+const usageOf = (over: Partial<StorefrontMeters['usage']> = {}): StorefrontMeters['usage'] => ({ ownKey: false, aiRequests: 40, aiPromptsUsed: 40, aiPromptsAllowed: 1000, buildMinutes: 12, publishesLast30Days: 2, recent: [], ...over })
+let usage = usageOf()
+const show = async (over: Partial<Fake> = {}, run: string | null = null) => {
   Object.assign(api, over)
   const onOverview = vi.fn()
+  const onRun = vi.fn()
   await act(async () => {
-    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} />)
+    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} usage={usage} run={run} onRun={onRun} />)
   })
   await settle()
-  return { onOverview }
+  return { onOverview, onRun }
 }
 // Test frames never load (vite.config.ts), so each stands in with a window of its own that records what it is sent.
 const frameWindows = new WeakMap<HTMLIFrameElement, { postMessage: ReturnType<typeof vi.fn> }>()
@@ -65,6 +73,7 @@ const prompt = () => screen.getByRole('textbox', { name: c.prompt }) as HTMLText
 
 beforeEach(() => {
   api = fakeApi()
+  usage = usageOf()
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })))
 })
 
@@ -386,5 +395,216 @@ describe('discarding in the studio', () => {
     await settle()
     expect(api.discardDraft).toHaveBeenCalledTimes(1)
     expect(onOverview).toHaveBeenCalledWith(overview)
+  })
+})
+
+describe('publishing from the studio', () => {
+  const p = words.publish
+  const runOf = (step: PublishRun['step'], more: Partial<PublishRun> = {}): PublishRun => ({ id: 'r1', step, version: 13, repairAttempts: 0, checks: [], bisectMessageId: null, ...more })
+
+  it('asks first, naming the version, the address and the way back, then follows the publish', async () => {
+    const { onRun } = await show()
+    fireEvent.click(screen.getByRole('button', { name: p.button }))
+    expect(api.publishDesign).not.toHaveBeenCalled()
+    const ask = within(screen.getByRole('dialog', { name: fill(p.title, { number: '13' }) }))
+    expect(ask.getByText(`${fill(p.body, { host: 'www.kesari.in' })} ${fill(p.back, { number: '12' })}`)).toBeTruthy()
+    fireEvent.click(ask.getByRole('button', { name: p.confirm }))
+    await settle()
+    expect(api.publishDesign).toHaveBeenCalledTimes(1)
+    expect(onRun).toHaveBeenCalledWith('r1')
+  })
+
+  it('shows a refusal to publish in the error line', async () => {
+    await show({ publishDesign: vi.fn().mockRejectedValue(new ApiError('NOTHING_TO_PUBLISH', 'No.')) })
+    fireEvent.click(screen.getByRole('button', { name: p.button }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: fill(p.title, { number: '13' }) })).getByRole('button', { name: p.confirm }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(p.refused.NOTHING_TO_PUBLISH)
+  })
+
+  it('shows the steps while it runs, locks the studio, and says when the version is live', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { onRun, onOverview } = await show({ loadPublishRun: vi.fn().mockResolvedValueOnce(runOf('queued')).mockResolvedValueOnce(runOf('checking')).mockResolvedValueOnce(runOf('going_live')).mockResolvedValue(runOf('live')) }, 'r1')
+    expect(screen.getByText(p.steps.queued)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: p.button })).toBeNull()
+    expect(prompt().readOnly).toBe(true)
+    await act(async () => void vi.advanceTimersByTime(2_000))
+    expect(screen.getByText(p.steps.checking)).toBeTruthy()
+    await act(async () => void vi.advanceTimersByTime(2_000))
+    expect(screen.getByText(p.steps.going_live)).toBeTruthy()
+    await act(async () => void vi.advanceTimersByTime(2_000))
+    await settle()
+    expect(screen.getByText(fill(p.live, { number: '13' }))).toBeTruthy()
+    expect(onRun).toHaveBeenCalledWith(null)
+    expect(onOverview).toHaveBeenCalled()
+  })
+
+  it('says what failed in a refused publish, and offers to publish everything before the change to blame', async () => {
+    const checks = [{ name: 'price', passed: false, words: 'On phones the buy bar covers the price.' }, { name: 'a11y', passed: true, words: null }]
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { checks, repairAttempts: 3, bisectMessageId: 'm2' })) }, 'r1')
+    const card = within(screen.getByRole('alert'))
+    expect(card.getByText(fill(p.refusedTitle, { number: '13' }))).toBeTruthy()
+    expect(card.getByText(`On phones the buy bar covers the price. ${p.tried} ${p.unchanged}`)).toBeTruthy()
+    expect(card.getByText(fill(p.culprit, { text: 'Make it warmer' }))).toBeTruthy()
+    fireEvent.click(card.getByRole('button', { name: p.before }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: fill(p.title, { number: '13' }) })).getByRole('button', { name: p.confirm }))
+    await settle()
+    expect(api.publishBefore).toHaveBeenCalledWith('m2')
+    expect(onRun).toHaveBeenCalledWith('r2')
+  })
+
+  it('offers to publish before a change only when it can name that change', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { bisectMessageId: 'older-than-the-page' })) }, 'r1')
+    expect(screen.getByRole('alert')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: p.before })).toBeNull()
+  })
+
+  it('clears a refused publish once another change is accepted', async () => {
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { bisectMessageId: 'm2' })) }, 'r1')
+    expect(screen.getByRole('button', { name: p.before })).toBeTruthy()
+    fireEvent.change(prompt(), { target: { value: 'Move the buy bar up' } })
+    fireEvent.click(screen.getByRole('button', { name: c.send }))
+    await settle()
+    expect(api.askDesign).toHaveBeenCalledTimes(1)
+    expect(onRun).toHaveBeenCalledWith(null)
+  })
+
+  it('offers nothing to publish before when no one change is to blame', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed')) }, 'r1')
+    expect(within(screen.getByRole('alert')).getByText(`${p.refusedFallback} ${p.unchanged}`)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: p.before })).toBeNull()
+  })
+
+  it('says so when a publish was rolled back after going live', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('rolled_back', { checks: [{ name: 'checkout', passed: false, words: 'your new version broke the checkout on phones.' }] })) }, 'r1')
+    expect(screen.getByRole('alert').textContent).toBe(fill(p.rolledBack, { number: '12', reason: 'your new version broke the checkout on phones.' }))
+  })
+
+  it('stops asking after five failed reads but keeps the publish and the lock, and checks again on request', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const read = vi.fn().mockRejectedValue(new Error('offline'))
+    const { onRun } = await show({ loadPublishRun: read }, 'r1')
+    for (let i = 0; i < 4; i += 1) await act(async () => void vi.advanceTimersByTime(2_000))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(5)
+    await act(async () => void vi.advanceTimersByTime(10_000))
+    expect(read).toHaveBeenCalledTimes(5)
+    expect(onRun).not.toHaveBeenCalled()
+    expect(prompt().readOnly).toBe(true)
+    expect(within(screen.getByRole('alert')).getByText(p.lost)).toBeTruthy()
+    read.mockResolvedValue(runOf('live'))
+    fireEvent.click(screen.getByRole('button', { name: p.checkAgain }))
+    await settle()
+    expect(read).toHaveBeenCalledTimes(6)
+    expect(onRun).toHaveBeenCalledWith(null)
+  })
+
+  // FORBIDDEN means the seat no longer publishes: reading stops at once, and the renewal (not this read) ends the session.
+  it('stops reading at once when a read is forbidden, keeping the publish and the lock', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const read = vi.fn().mockRejectedValue(new ApiError('FORBIDDEN', 'No.'))
+    const { onRun } = await show({ loadPublishRun: read }, 'r1')
+    await act(async () => void vi.advanceTimersByTime(10_000))
+    expect(read).toHaveBeenCalledTimes(1)
+    expect(within(screen.getByRole('alert')).getByText(p.lost)).toBeTruthy()
+    expect(prompt().readOnly).toBe(true)
+    expect(onRun).not.toHaveBeenCalled()
+    expect(screen.queryByText(words.sandbox.ended)).toBeNull()
+  })
+
+  it('keeps the chat a list with a publish notice in it', async () => {
+    await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('failed', { bisectMessageId: 'm2' })) }, 'r1')
+    const list = screen.getAllByRole('list')[0] as HTMLElement
+    expect([...list.children].every((item) => item.tagName === 'LI' && !item.hasAttribute('role'))).toBe(true)
+    expect(within(list).getByRole('alert')).toBeTruthy()
+  })
+
+  it('ends the session at once when a read of the publish is refused, keeping the publish to check after Reopen', async () => {
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockRejectedValue(new ApiError('SESSION_ENDED', 'Ended.')) }, 'r1')
+    expect(screen.getByText(words.sandbox.ended)).toBeTruthy()
+    expect(onRun).not.toHaveBeenCalled()
+  })
+
+  it('stops following a publish that isn’t this store’s', async () => {
+    const { onRun } = await show({ loadPublishRun: vi.fn().mockResolvedValue(null) }, 'r9')
+    expect(onRun).toHaveBeenCalledWith(null)
+  })
+
+  it('has nothing to publish without a draft', async () => {
+    cleanup()
+    api.loadOverview.mockResolvedValue(overview)
+    await act(async () => {
+      render(<StudioView overview={{ ...overview, status: 'same_as_live', draft: null }} templates={[]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} />)
+    })
+    await settle()
+    expect((screen.getByRole('button', { name: p.button }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('the studio’s AI line and preview links', () => {
+  const pv = words.preview
+
+  it('says how many AI requests are left, or that the store uses its own key', async () => {
+    await show()
+    expect(screen.getByText(fill(words.usageLine, { left: '960' }))).toBeTruthy()
+    cleanup()
+    usage = usageOf({ ownKey: true, aiPromptsAllowed: null })
+    await show()
+    expect(screen.getByText(words.usageOwn)).toBeTruthy()
+  })
+
+  it('opens the signed preview link in a new tab that carries nothing back', async () => {
+    const tab = { opener: {} as unknown, location: { href: '' }, close: vi.fn() }
+    const open = vi.fn().mockReturnValue(tab)
+    vi.stubGlobal('open', open)
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: pv.open }))
+    await settle()
+    expect(open).toHaveBeenCalledWith('', '_blank')
+    expect(tab.opener).toBeNull()
+    expect(tab.location.href).toBe('https://k7f3q9f2xa.webpreview.store/?preview=signed')
+  })
+
+  it('never follows a link that isn’t https, and says why a link couldn’t be made', async () => {
+    const tab = { opener: {} as unknown, location: { href: '' }, close: vi.fn() }
+    vi.stubGlobal('open', vi.fn().mockReturnValue(tab))
+    await show({ previewLink: vi.fn().mockResolvedValueOnce('javascript:alert(1)').mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'No.')) })
+    fireEvent.click(screen.getByRole('button', { name: pv.open }))
+    await settle()
+    expect(tab.close).toHaveBeenCalledTimes(1)
+    expect(tab.location.href).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: pv.open }))
+    await settle()
+    expect(tab.close).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('alert').textContent).toBe(pv.refused.NOT_CONNECTED)
+  })
+
+  it('ends every preview link only after asking', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: pv.more }))
+    expect(screen.getByRole('button', { name: pv.more }).getAttribute('aria-expanded')).toBe('true')
+    fireEvent.keyDown(screen.getByRole('button', { name: pv.end }), { key: 'Escape' })
+    expect(screen.queryByRole('button', { name: pv.end })).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: pv.more }))
+    fireEvent.click(screen.getByRole('button', { name: pv.more }))
+    fireEvent.blur(screen.getByRole('button', { name: pv.end }), { relatedTarget: prompt() })
+    expect(screen.queryByRole('button', { name: pv.end })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: pv.more }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: pv.end }))
+    fireEvent.click(screen.getByRole('button', { name: pv.end }))
+    expect(api.endPreviewLinks).not.toHaveBeenCalled()
+    fireEvent.click(within(screen.getByRole('dialog', { name: pv.endTitle })).getByRole('button', { name: pv.endConfirm }))
+    await settle()
+    expect(api.endPreviewLinks).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(pv.ended)).toBeTruthy()
+  })
+
+  it('offers no preview before the draft has one', async () => {
+    cleanup()
+    await act(async () => {
+      render(<StudioView overview={{ ...overview, draft: { template: 'linen', changedAt: null, previewReady: false } }} templates={[]} storeName="Kesari" host={null} api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} />)
+    })
+    await settle()
+    expect(screen.queryByRole('button', { name: pv.open })).toBeNull()
   })
 })

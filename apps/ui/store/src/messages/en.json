@@ -6850,7 +6850,135 @@
           "other": "That didn’t work. Check your connection and try again."
         },
         "loading": "Loading the words in each language…"
-      }
+      },
+      "publish": {
+        "button": "Publish",
+        "firstButton": "Publish site",
+        "title": "Publish version {number}?",
+        "body": "We check your whole site first, then it goes live on {host} in a few minutes and uses a few build minutes.",
+        "back": "You can go back to version {number} any time, for free.",
+        "confirm": "Publish",
+        "cancel": "Cancel",
+        "steps": {
+          "queued": "Building your site…",
+          "checking": "Checking your site…",
+          "going_live": "Checking it went live…"
+        },
+        "live": "Version {number} is live — we checked your site and it changed",
+        "refusedTitle": "Version {number} wasn’t published",
+        "refusedFallback": "Something on your site didn’t pass our checks.",
+        "tried": "We tried to fix it and couldn’t.",
+        "unchanged": "Your live site hasn’t changed.",
+        "culprit": "It started with this change: “{text}”.",
+        "before": "Publish everything before this change",
+        "rolledBack": "We put version {number} back: {reason} We’re fixing it.",
+        "rolledBackFallback": "your new version didn’t pass our checks once it was live.",
+        "lost": "We couldn’t read how your publish is going. The studio waits until we can, so nothing changes under it.",
+        "refused": {
+          "NOTHING_TO_PUBLISH": "There are no changes to publish.",
+          "NOT_BISECTED": "That change isn’t the one the refused publish named.",
+          "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
+          "STUDIO_QUEUED": "The studio is waiting for room. Try again in a moment.",
+          "STUDIO_UNAVAILABLE": "The studio couldn’t start. Try again in a minute.",
+          "READ_ONLY": "Your store is view-only until the payment goes through.",
+          "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+          "FORBIDDEN": "Only the store owner can change the storefront.",
+          "other": "That didn’t work. Check your connection and try again."
+        },
+        "checkAgain": "Check again"
+      },
+      "preview": {
+        "open": "Open preview ↗",
+        "more": "More preview options",
+        "end": "End all preview links",
+        "endTitle": "End all preview links?",
+        "endBody": "Anyone you’ve shared a preview link with loses access now. Your team can open a new link from here.",
+        "endConfirm": "End links",
+        "cancel": "Cancel",
+        "ended": "Preview links ended",
+        "refused": {
+          "NOT_CONNECTED": "Previews aren’t set up here yet.",
+          "NOT_FOUND": "There’s no preview to open yet.",
+          "READ_ONLY": "Your store is view-only until the payment goes through.",
+          "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+          "FORBIDDEN": "Only the store owner can change the storefront.",
+          "other": "That didn’t work. Check your connection and try again."
+        }
+      },
+      "usageLine": "AI requests: {left} left",
+      "usageOwn": "On your own AI key"
+    },
+    "publishNow": {
+      "products": {
+        "one": "1 product changed since {time}.",
+        "other": "{count} products changed since {time}."
+      },
+      "changed": "Your catalogue changed since {time}.",
+      "presses": {
+        "one": "1 of {allowed} “Publish now” presses left this month.",
+        "other": "{left} of {allowed} “Publish now” presses left this month."
+      },
+      "none": "No “Publish now” presses left this month. Your changes go live with the next automatic publish, or upgrade for more.",
+      "next": "Next automatic publish: {time}.",
+      "button": "Publish now",
+      "working": "Publishing…",
+      "done": "Your catalogue changes are live",
+      "failed": "That publish didn’t go live. Your site hasn’t changed.",
+      "seePlans": "See plans",
+      "refused": {
+        "NOTHING_LIVE": "Publish your design first.",
+        "NOTHING_WAITING": "Your live site is already up to date.",
+        "NO_PRESSES_LEFT": "No “Publish now” presses left this month.",
+        "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "other": "That didn’t work. Check your connection and try again."
+      },
+      "lost": "We couldn’t read how your publish is going.",
+      "checkAgain": "Check again"
+    },
+    "usage": {
+      "title": "AI and build minutes",
+      "lede": "This month. Resets on the 1st.",
+      "requests": "AI requests",
+      "of": "{used} of {allowed}",
+      "buildMinutes": "Build minutes",
+      "requestsStat": "AI requests this month",
+      "publishesStat": "Publishes in the last 30 days",
+      "recent": "Recent requests",
+      "ownKey": "The AI runs on your own OpenAI or Anthropic key, so its tokens are billed by them.",
+      "note": "Going back to an older version never uses build minutes.",
+      "error": "We couldn’t load this month’s use. Try again in a moment."
+    },
+    "history": {
+      "title": "Version history",
+      "lede": "Each publish is kept for your plan’s days, and the live version always.",
+      "empty": "Nothing published yet. Each publish is saved here so you can go back.",
+      "row": "v{number} · {label}",
+      "templateLabel": "{template} template",
+      "live": "Live",
+      "back": "Go back to this",
+      "more": "Show older versions",
+      "askTitle": "Go back to version {number}?",
+      "askBody": "“{label}” goes live again. Your current version stays in history, so you can come back. No build minutes used.",
+      "confirm": "Go back",
+      "cancel": "Cancel",
+      "done": "Version {number} is live again",
+      "error": "We couldn’t load the version history. Try again in a moment.",
+      "refused": {
+        "ALREADY_LIVE": "That version is already live.",
+        "PUBLISH_RUNNING": "Wait for the publish in progress to finish.",
+        "BUILD_GONE": "That version can’t be restored any more.",
+        "NOT_FOUND": "That version isn’t kept any more.",
+        "SECURITY_RELEASE": "That version predates a security fix to your storefront, so it can’t be restored.",
+        "READ_ONLY": "Your store is view-only until the payment goes through.",
+        "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+        "FORBIDDEN": "Only the store owner can change the storefront.",
+        "other": "That didn’t work. Check your connection and try again."
+      },
+      "loading": "Loading your versions…",
+      "retry": "Try again"
     }
   }
 }

@@ -1,9 +1,10 @@
 import { ConfirmDialog, EmptyState } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
-import type { StorefrontOverview } from '../../api/storefront'
+import type { StorefrontMeters, StorefrontOverview } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
 import { discardRefusal } from './overviewView'
+import { PublishNowBar } from './PublishNowBar'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.overview
@@ -17,8 +18,13 @@ export interface PoweredLine {
 
 export interface DesignTabProps {
   overview: StorefrontOverview
+  catalogue: StorefrontMeters['catalogue'] | null
   host: string | null
   canEdit: boolean
+  canUpgrade: boolean
+  run: string | null
+  onRun: (id: string | null) => void
+  onPublished: (toast: string | null) => void
   powered: PoweredLine | null
   api: StorefrontApi
   onOverview: (next: StorefrontOverview) => void
@@ -27,7 +33,7 @@ export interface DesignTabProps {
 }
 
 /** The Design tab's overview (PortalStorefront › Overview; FIRST-RELEASE §14). */
-export const DesignTab = ({ overview, host, canEdit, powered, api, onOverview, onToast, onStudio }: DesignTabProps) => {
+export const DesignTab = ({ overview, catalogue, host, canEdit, canUpgrade, run, onRun, onPublished, powered, api, onOverview, onToast, onStudio }: DesignTabProps) => {
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +70,7 @@ export const DesignTab = ({ overview, host, canEdit, powered, api, onOverview, o
   const { live } = overview
   return (
     <div className="df-sf-design">
+      {overview.live && catalogue && <PublishNowBar catalogue={catalogue} canEdit={canEdit} canUpgrade={canUpgrade} api={api} run={run} onRun={onRun} onDone={onPublished} />}
       {overview.status === 'unpublished_changes' && (
         <div className="df-sf-draft">
           <p>
