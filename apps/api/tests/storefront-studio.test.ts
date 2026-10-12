@@ -180,6 +180,20 @@ describe('asking for a change', () => {
     expect(script.sent.length).toBe(sent)
   })
 
+  it('lets only one of two requests at once take the month’s last AI request, and refuses over-long input before the model', async () => {
+    await db.sql`update store_usage set used = 5 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    script.answers = [reply([lead('Last one in.')]), reply([lead('Too late.')])]
+    const sent = script.sent.length
+    const both = await Promise.all([ask('owner', 'Last request A'), ask('owner', 'Last request B')])
+    expect(both.map((r) => r.code ?? 'ok').sort()).toEqual(['AI_BUDGET_REACHED', 'ok'])
+    expect(script.sent.length).toBe(sent + 1)
+    expect(await usage(t.storeA1)).toBe(6)
+    await db.sql`update store_usage set used = 0 where store_id = ${t.storeA1} and key = 'ai_prompts'`
+    expect((await ask('owner', 'x', { site: `https://example.com/${'a'.repeat(2048)}` })).code).toBe('INVALID_URL')
+    expect((await w.gql('owner', 'query T($p: String!) { designText(page: $p, locale: "en-IN") { key } }', { p: 'p'.repeat(201) })).code).toBe('INVALID_INPUT')
+    expect(script.sent.length).toBe(sent + 1)
+  })
+
   it('is the Owner’s: the Manager reads the chat and is refused writes; Staff and suppliers are refused; another store’s chat stays its own', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await ask(who, 'Mine')).code).toBe('FORBIDDEN')
     const chat = await w.gql('manager', '{ designChat { messages { role text } next } }')
@@ -216,7 +230,7 @@ describe('editing, undoing and discarding', () => {
     const after = await draft(t.storeA1)
     expect(after?.head_commit).not.toBe(before?.head_commit)
     expect(after?.preview_deploy_ref).not.toBe(before?.preview_deploy_ref)
-    expect((await texts('owner'))?.find((e) => e.key === 'pages:home.lead')?.text).toBe('Second of two.')
+    expect((await texts('owner'))?.find((e) => e.key === 'pages:home.lead')?.text).toBe('Last one in.')
   })
 
   it('discards back to the live version: the draft row and bundle go, the preview shows live code, the studio reloads it', async () => {

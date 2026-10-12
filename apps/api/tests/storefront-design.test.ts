@@ -13,6 +13,7 @@ import { activityLog } from '#saas/activity/index'
 import { exchangeSupportHandoff } from '#saas/storeSupport/index'
 import { seedStoreWorld, type StoreWorld, type Who } from './support/storeWorld'
 import { localStudio } from './support/studio'
+import { ensureTemplateGallery } from './support/templateGallery'
 
 // Card #318 (SAPI 17), part 1: the template gallery, choosing a template and the Storefront overview on the Store API
 // (FIRST-RELEASE §14, §19; SAAS §9.2), against the real database and the real sandbox; R2 is in memory.
@@ -78,6 +79,7 @@ const choose = (who: Parameters<StoreWorld['gql']>[0], key: string, keepWords: b
 
 beforeAll(async () => {
   db = await createTestDatabase()
+  await ensureTemplateGallery(db.sql)
   t = await seedTenants(db.sql)
   w = await seedStoreWorld(db.sql, t, { now, secrets: null, lookup: null, studio: local.studio })
   host = await sandboxProcess()
@@ -181,6 +183,13 @@ describe('choosing a template', () => {
     expect((await choose('owner', 'nope', false)).code).toBe('INVALID_TEMPLATE')
   })
 
+  it('is refused to a store with its own storefront, which never gets a repo (PLATFORM-PROMPT §5.6)', async () => {
+    await db.sql`update store set storefront_kind = 'own' where id = ${t.storeA1}`
+    expect((await choose('owner', 'linen', false)).code).toBe('OWN_FRONTEND')
+    await db.sql`update store set storefront_kind = 'ai' where id = ${t.storeA1}`
+    expect(await db.sql`select 1 from outbox where kind = 'storefront.create' and store_id = ${t.storeA1}`).toHaveLength(0)
+  })
+
   it('is the Owner’s: the Manager, Staff and a supplier are refused', async () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await choose(who, 'linen', false)).code).toBe('FORBIDDEN')
   })
@@ -192,7 +201,7 @@ describe('choosing a template', () => {
     expect(queued.map((q) => q.payload)).toEqual([expect.objectContaining({ template: 'linen', storeId: t.storeA1 })])
     expect((await choose('owner', 'bloom', false)).code).toBe('IN_PROGRESS')
     const [logged] = await db.sql<{ action: string; changes: unknown }[]>`select action, changes from activity_log where store_id = ${t.storeA1} and action = 'storefront.template_chosen'`
-    expect(logged?.changes).toEqual([expect.objectContaining({ field: 'template', before: null, after: 'linen' }), expect.objectContaining({ field: 'words', before: null, after: 'template' })])
+    expect(logged?.changes).toEqual([expect.objectContaining({ field: 'template', before: null, after: 'linen' })])
     const notes = await db.sql<{ role: string; text: string }[]>`select role, text from design_message where store_id = ${t.storeA1}`
     expect(notes).toEqual([{ role: 'note', text: 'template:linen' }])
     const status = await w.gql('owner', '{ storefront { status template draft { template } live { number } history { number } } }')

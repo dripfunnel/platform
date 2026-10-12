@@ -12,6 +12,7 @@ import type { StoreBuilder } from './builder'
 const words: Record<DesignRefusal['reason'], string> = {
   BRAND_NOT_READY: 'Add your shop name and logo first.',
   INVALID_TEMPLATE: 'That template isn’t offered.',
+  OWN_FRONTEND: 'This store uses its own storefront, so it has no template.',
   IN_PROGRESS: 'Your storefront is still being set up.',
   NOT_CONNECTED: 'The studio isn’t set up here yet.',
   STUDIO_UNAVAILABLE: 'The studio couldn’t start. Try again in a minute.',
