@@ -9,6 +9,11 @@ export const absoluteMs = 8 * 60 * 60 * 1000
 // session that is still open. #40's impersonation is the first caller.
 export const reauthMs = 5 * 60 * 1000
 
+// ACCESS.md §4: `last_seen_at` is written at most this often, so parallel reads never wait on the row's lock.
+export const lastSeenWriteMs = 60 * 1000
+
+export const lastSeenIsStale = (lastSeenAt: Date, now: Date): boolean => now.getTime() - lastSeenAt.getTime() >= lastSeenWriteMs
+
 export const cookieName = '__Host-df_admin_session'
 
 export interface StaffSession {
@@ -45,15 +50,21 @@ export const createSession = async (tx: ScopedSql, staffUserId: string, now: Dat
  */
 export const readSession = async (tx: ScopedSql, id: string, now: Date): Promise<StaffSession | null> => {
   const idHash = await hashSessionId(id)
-  const rows = await tx<{ staff_user_id: string; reauth_at: Date | null }[]>`
-    update staff_session set last_seen_at = ${now}
+  const rows = await tx<{ staff_user_id: string; reauth_at: Date | null; last_seen_at: Date }[]>`
+    select staff_user_id, reauth_at, last_seen_at from staff_session
     where id_hash = ${idHash}
       and expires_at > ${now}
       and last_seen_at > ${new Date(now.getTime() - idleMs)}
-    returning staff_user_id, reauth_at
   `
   const row = rows[0]
-  return row ? { staffUserId: row.staff_user_id, reauthAt: row.reauth_at } : null
+  if (!row) return null
+  if (lastSeenIsStale(row.last_seen_at, now)) {
+    await tx`
+      update staff_session set last_seen_at = ${now}
+      where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
+    `
+  }
+  return { staffUserId: row.staff_user_id, reauthAt: row.reauth_at }
 }
 
 export const isReauthFresh = (session: StaffSession, now: Date): boolean =>
