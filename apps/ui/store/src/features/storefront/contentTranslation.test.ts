@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ContentEntry } from '../../api/content'
-import { translationDraftOf, translationInputOf } from './contentTranslation'
+import { translationDraftOf, translationInputOf, writtenOf } from './contentTranslation'
 
 const block = (kind: ContentEntry['body'][number]['kind'], more: Partial<ContentEntry['body'][number]> = {}) => ({ kind, text: null, assetId: null, alt: null, items: null, productIds: null, ...more })
 const main: ContentEntry = {
@@ -39,5 +39,13 @@ describe('a translation', () => {
       seoTitle: null,
       seoDescription: null,
     })
+  })
+
+  it('reads back what a save wrote, a field left empty now holding the main words', () => {
+    const input = translationInputOf(main, { ...translationDraftOf(main, null), title: 'हम' })
+    const again = translationDraftOf(main, writtenOf('hi', input))
+    expect(again.title).toBe('हम')
+    expect(again.blocks.map((b) => b.text || b.alt)).toEqual(['Our story', 'Printers', '', ''])
+    expect(again.blocks[2]?.items).toEqual([{ question: 'Q?', answer: 'A.' }])
   })
 })

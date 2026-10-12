@@ -4,7 +4,7 @@ import { contentLimits, type ContentEntry, type ContentKind } from '../../api/co
 import { fill, messages } from '../../messages'
 import { languageName } from '../common/languageName'
 import { refusalIn } from '../common/refusal'
-import { translationDraftOf, translationInputOf, type TranslatedBlock, type TranslationDraft } from './contentTranslation'
+import { translationDraftOf, translationInputOf, writtenOf, type TranslatedBlock, type TranslationDraft } from './contentTranslation'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.content.translate
@@ -65,8 +65,9 @@ export const TranslationPanel = ({ kind, entry, language, mainLanguage, canEdit,
     setBusy(true)
     setProblem(null)
     try {
-      await api.saveContentTranslation(kind, entry.id, language, remove ? null : translationInputOf(entry, draft))
-      const next = remove ? translationDraftOf(entry, null) : draft
+      const input = remove ? null : translationInputOf(entry, draft)
+      await api.saveContentTranslation(kind, entry.id, language, input)
+      const next = translationDraftOf(entry, input ? writtenOf(language, input) : null)
       setSaved(next)
       setDraft(next)
       setRead({ kind: 'ready', written: !remove, changed: false })

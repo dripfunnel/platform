@@ -103,14 +103,6 @@ export const sampleAddress = (raw: string): string | null => {
   }
 }
 
-export const languageName = (code: string, locale: string): string => {
-  try {
-    return new Intl.DisplayNames([locale], { type: 'language' }).of(code) ?? code
-  } catch {
-    return code
-  }
-}
-
 /** How often a running publish is read again. */
 export const publishPollMs = 2_000
 

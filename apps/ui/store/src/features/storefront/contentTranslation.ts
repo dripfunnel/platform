@@ -31,12 +31,13 @@ export const translationDraftOf = (main: ContentEntry, written: ContentTranslati
 
 const or = (typed: string | undefined, main: string | null | undefined): string => (typed?.trim() ? typed : (main ?? ''))
 
-/** The page's blocks with the words typed, and the main language's where a field is left empty; photos, products and the form as they are. */
+/** The page's blocks with the words typed, the main language's as they are now where one is empty (#338 keeps a language whole). */
 export const translationInputOf = (main: ContentEntry, draft: TranslationDraft): ContentTranslationInput => ({
   title: or(draft.title, main.title).trim(),
   body: main.body.flatMap((b, i): ContentBlockInput[] => {
     const t = draft.blocks[i]
     if (b.kind === 'heading' || b.kind === 'text') return [{ kind: b.kind, text: or(t?.text, b.text) }]
+    // A saved photo block always has its photo (content rules.ts), so no block is dropped and indexes stay aligned.
     if (b.kind === 'image') return b.assetId ? [{ kind: 'image', assetId: b.assetId, alt: or(t?.alt, b.alt) }] : []
     if (b.kind === 'faq') return [{ kind: 'faq', items: (b.items ?? []).map((q, n) => ({ question: or(t?.items[n]?.question, q.question), answer: or(t?.items[n]?.answer, q.answer) })) }]
     if (b.kind === 'products') return [{ kind: 'products', productIds: b.productIds ?? [] }]
@@ -44,4 +45,12 @@ export const translationInputOf = (main: ContentEntry, draft: TranslationDraft):
   }),
   seoTitle: draft.seoTitle.trim() || null,
   seoDescription: draft.seoDescription.trim() || null,
+})
+
+/** What a save wrote, read back as the API would answer it, so the fields show what was saved. */
+export const writtenOf = (language: string, input: ContentTranslationInput): ContentTranslation => ({
+  language,
+  ...input,
+  body: input.body.map((b) => ({ kind: b.kind, text: b.text ?? null, assetId: b.assetId ?? null, alt: b.alt ?? null, items: b.items ?? null, productIds: b.productIds ?? null })),
+  changed: false,
 })

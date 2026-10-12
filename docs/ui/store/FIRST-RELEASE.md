@@ -798,7 +798,8 @@ through. Your site stays live."), as is a support session.
   title, each block's words (headings, text, photo descriptions, questions and answers) and the search words beside the
   main language's, with "Not in {language} yet", the `changed` notice ("The {main} words changed since this was
   written"), **Save translation** and **Remove the {language} words** (asks first; the shop then shows the main words).
-  *Decided there:* a field left empty saves the main language's words, so a shopper never sees an empty block; the
+  *Decided there:* a field left empty saves the main language's words as they are then (#338 keeps a language's
+  words whole, so there is no per-field fallback), and the hint says so; a later change to them raises `changed`; the
   translation follows the page's saved blocks (products and the contact form are the same in every language); the tabs
   hold still while either side has unsaved words; a page not saved yet has no tabs.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
