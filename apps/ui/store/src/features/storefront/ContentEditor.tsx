@@ -165,7 +165,10 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
               )}
             </div>
           </section>
-          <ContentBlocks kind={kind} title={w.body} body={draft.body} onBody={(body) => set({ body })} canEdit={canEdit} api={api} names={names} onName={(p, name) => setNames((was) => ({ ...was, [p]: name }))} contactEmail={contactEmail} />
+          <ContentBlocks kind={kind} title={w.body} body={draft.body} onBody={(change) => {
+              setDraft((was) => ({ ...was, body: change(was.body) }))
+              setProblem(null)
+            }} canEdit={canEdit} api={api} names={names} onName={(p, name) => setNames((was) => ({ ...was, [p]: name }))} contactEmail={contactEmail} />
           <section className="df-sf-card" aria-labelledby={`${formId}-search`}>
             <h2 id={`${formId}-search`}>{words.search}</h2>
             <div className="df-sf-field">
