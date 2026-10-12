@@ -144,6 +144,8 @@ describe('the studio’s rules', () => {
     expect(frameAddress(frame, '/')).toBe(frame)
     expect(frameAddress(frame, '/policies/terms/')).toBe(`${frame}policies/terms/`)
     expect(frameAddress(frame, '//evil.example.com/')).toBe(`${frame}evil.example.com/`)
+    expect(frameAddress(frame, '/../x/')).toBe(frame)
+    expect(frameAddress(frame, '/a/../../../x')).toBe(frame)
   })
 
   it('hears only the frame’s window from its origin, and only the protocol’s messages', () => {

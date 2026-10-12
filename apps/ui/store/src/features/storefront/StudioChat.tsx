@@ -169,7 +169,7 @@ export const StudioChat = ({ chat, hasEarlier, assistant, templateName, locked, 
                   <input
                     id={siteId}
                     type="url"
-                    placeholder="https://"
+                    placeholder={words.sitePlaceholder}
                     aria-invalid={siteErr !== null}
                     value={siteIn}
                     onChange={(e) => (setSiteIn(e.target.value), setSiteErr(null))}

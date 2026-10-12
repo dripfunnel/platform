@@ -9,7 +9,7 @@ import type { Acting } from '../../api/shell'
 import type { StorefrontBrand, StorefrontDomains, StorefrontOverview, StorefrontSeo, StorefrontTemplate } from '../../api/storefront'
 import { setBrand } from '../../brand/current'
 import { fill, messages } from '../../messages'
-import { storefrontTabs } from './storefrontAccess'
+import { storefrontTabs, storefrontViews } from './storefrontAccess'
 
 // Storefront driven by each seat (FIRST-RELEASE §14): the brand step, the gallery, the overview, the tabs, and Site settings' three cards.
 
@@ -56,11 +56,11 @@ const templates = [template('baseline', 'Start from scratch'), template('linen',
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
-const show = async ({ acting = owner, readOnly = false, tab }: { acting?: Acting; readOnly?: boolean; tab?: string } = {}) => {
+const show = async ({ acting = owner, readOnly = false, tab, view }: { acting?: Acting; readOnly?: boolean; tab?: string; view?: string } = {}) => {
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
-  const page = createRoute({ getParentRoute: () => app, path: '/storefront', validateSearch: z.looseObject({ tab: optionalParam(z.enum(storefrontTabs)) }), component: StorefrontPage })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: [tab ? `/storefront?tab=${tab}` : '/storefront'] }) })
+  const page = createRoute({ getParentRoute: () => app, path: '/storefront', validateSearch: z.looseObject({ tab: optionalParam(z.enum(storefrontTabs)), view: optionalParam(z.enum(storefrontViews)) }), component: StorefrontPage })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: [view ? `/storefront?view=${view}` : tab ? `/storefront?tab=${tab}` : '/storefront'] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -427,6 +427,25 @@ describe('the template gallery', () => {
     await show()
     expect(screen.getByRole('heading', { level: 1, name: g.first })).toBeTruthy()
     expect(screen.getByRole('alert').textContent).toBe(g.failed)
+  })
+
+  it('opens the studio for the Owner by its address', async () => {
+    await show({ view: 'studio' })
+    expect(screen.getByRole('dialog', { name: words.studio.label })).toBeTruthy()
+    expect(studio.loadStudioSession).toHaveBeenCalledWith(null)
+  })
+
+  // The API refuses every studio write to a Manager (`publish`); the screen also never opens a session for one.
+  it('never opens the studio for a Manager or a past-due store, even by its address', async () => {
+    api.loadOverview.mockResolvedValue(withDraft)
+    await show({ acting: manager, view: 'studio' })
+    expect(screen.queryByRole('dialog', { name: words.studio.label })).toBeNull()
+    expect(screen.queryByRole('button', { name: o.openStudio })).toBeNull()
+    expect(screen.queryByRole('button', { name: o.continueStudio })).toBeNull()
+    cleanup()
+    await show({ readOnly: true, view: 'studio' })
+    expect(screen.queryByRole('dialog', { name: words.studio.label })).toBeNull()
+    expect(studio.loadStudioSession).not.toHaveBeenCalled()
   })
 
   it('isn’t the Manager’s, even by its address', async () => {
