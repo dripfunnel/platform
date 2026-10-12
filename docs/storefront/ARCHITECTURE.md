@@ -215,6 +215,14 @@ The six templates and "Start from scratch" live in this repo as complete startin
   consent banner, Cookie settings, "Powered by" and preview banner. The product grids, collection tiles and cart lines
   the prototype draws join each theme with core's browse and cart hooks (#307, #313); until then their pages show
   their frame and words. Pictures are the template's own CSS surfaces, never a product's.
+- *Baseline's browse pages as built on #307* *(decided there)*: home (the store's collections and its newest products),
+  collection and search (filters as a sidebar on wide screens and a panel on narrow ones, sort, chips, "Load more"), the
+  product page (gallery with video, options as buttons with sold-out values struck through, the stock line, legal
+  details, accordions, related products), the policies, About, Contact and 404, each with its loading, empty, missing and
+  failed states. The header draws the merchant's menu, and the footer the store's tagline, contact and social links.
+  Contact shows the store's public contact details and no message form, since the Shop API has no operation for one; a
+  policy page names the policy and points to Contact, since the Shop API serves no policy text yet. The add-to-cart
+  button and the cart come with #313.
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
   origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
   testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the

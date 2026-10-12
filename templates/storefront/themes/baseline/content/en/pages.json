@@ -1,5 +1,4 @@
 {
-  "product": { "title": "Product", "lead": "The details of this product." },
   "cart": { "title": "Your cart", "lead": "Check what you picked before you check out.", "action": "Keep shopping" },
   "checkout": { "title": "Checkout", "lead": "A few details and your order is on its way.", "action": "Back to your cart" },
   "confirmation": { "title": "Thank you", "lead": "We have your order and will email you as it moves along." },
