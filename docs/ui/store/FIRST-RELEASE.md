@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-13 (#682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-13 (#339 part 1: Storefront › Pages' list, §14; #682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -764,6 +764,11 @@ through. Your site stays live."), as is a support session.
   once it was live."; a later refused publish ends the notice too, since the last publish is then the refused one, which
   the studio tells; a store whose first publish rolled back has nothing live and no notice, as the prototype shows it
   only with a site.
+- **Built on #339 (part 1, on #338's API)**: the Pages tab's list, as `StorefrontContent` draws it: the content pages
+  (title, path, Published, Draft or Scheduled, when edited, "in the footer"), fifty at a time with Show more, then the
+  AI's pages (`customPagePaths`), each "Made by AI"; the Owner's open the studio on that page (`?view=studio&page=`),
+  a reader's open nothing. *Decided there:* an AI page is named by its path, as the studio's picker names it; the
+  page-level Manager notice stands for the drawing's own. The editor and Journal come in later parts.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

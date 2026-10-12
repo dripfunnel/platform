@@ -6434,13 +6434,35 @@
       "noSiteTitle": "No storefront yet",
       "noSiteBody": "The store owner picks a template and publishes the site. You’ll see it here once it’s live."
     },
-    "pages": {
-      "title": "No pages yet",
-      "body": "Your FAQ, lookbook and other pages of your own will be listed here, with the pages the AI makes for your site. Adding pages isn’t open yet."
-    },
     "journal": {
       "title": "No posts yet",
       "body": "Posts for your shop’s blog will be listed here, newest first. Writing posts isn’t open yet."
+    },
+    "content": {
+      "loading": "Loading your pages",
+      "error": {
+        "title": "We couldn’t load this list",
+        "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
+        "retry": "Try again"
+      },
+      "more": "Show more",
+      "moreFailed": "We couldn’t load more. Try again.",
+      "status": {
+        "draft": "Draft",
+        "scheduled": "Scheduled",
+        "published": "Published"
+      },
+      "pages": {
+        "title": "Pages",
+        "sub": "About, FAQ, contact and lookbook pages on your storefront.",
+        "empty": "No pages yet.",
+        "foot": "Your menus can link to these pages (Collections › Menus).",
+        "edited": "Edited {date}",
+        "inMenu": "{meta} · in the footer",
+        "ai": "Made by AI",
+        "aiMeta": "Change it in the studio",
+        "aiOpen": "Open {path} in the studio"
+      }
     },
     "brand": {
       "title": "Your brand",

@@ -1,0 +1,122 @@
+/* Storefront › Pages and Journal (designs/StorefrontContent.dc.html): the list and the editor. */
+.df-sfc {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.df-sfc-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.df-sfc-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.df-sfc-head p {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sfc-empty {
+  margin: 0;
+  padding: 28px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.df-sfc-rows {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  list-style: none;
+}
+
+.df-sfc-rows li + li {
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-sfc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  background: none;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+button.df-sfc-row {
+  cursor: pointer;
+}
+
+button.df-sfc-row:hover {
+  background: var(--df-color-hover);
+}
+
+.df-sfc-row > :is(.df-pill, .df-sf-tag) {
+  justify-self: start;
+}
+
+.df-sfc-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-sfc-name strong {
+  overflow-wrap: anywhere;
+}
+
+.df-sfc-path {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+strong.df-sfc-path {
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+.df-sfc-meta,
+.df-sfc-foot {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-sfc-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+@container (min-width: 760px) {
+  .df-sfc-row {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1.4fr);
+  }
+}
