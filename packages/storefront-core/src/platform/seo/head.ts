@@ -57,6 +57,12 @@ export const mergedHead = (list: readonly Entry[]): Head => {
   return { ...head, hidden: list.some((e) => e.head.hidden === true) }
 }
 
+// The build's own link (publish/pages.ts) stands while the page is still the one it was written for.
+const builtCanonical = (doc: Document, origin: string) => {
+  const href = doc.head.querySelector('link[rel="canonical"]')?.getAttribute('href')
+  return href === `${origin}${doc.location.pathname}` ? href : null
+}
+
 export const applyHead = (doc: Document, head: Head, origin: string) => {
   if (head.title) doc.title = head.title
   setMeta(doc, 'name', 'description', head.description ?? null)
@@ -65,7 +71,7 @@ export const applyHead = (doc: Document, head: Head, origin: string) => {
   setMeta(doc, 'property', 'og:image', head.image ?? null)
   // Only ever added: a live page the build marked noindex (a cart, an account page) stays so.
   if (head.hidden) setMeta(doc, 'name', 'robots', 'noindex, nofollow')
-  setCanonical(doc, head.hidden || !head.canonical ? null : new URL(head.canonical, origin).toString())
+  setCanonical(doc, head.hidden ? null : head.canonical ? new URL(head.canonical, origin).toString() : builtCanonical(doc, origin))
 }
 
 const refresh = () => applyHead(document, mergedHead(entries), location.origin)
