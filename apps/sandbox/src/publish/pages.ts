@@ -1,4 +1,4 @@
-import { coreRoutes, routeAddresses, storeHead, type CoreRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
+import { contentAddresses, coreRoutes, routeAddresses, storeHead, type ThemeRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { fallbackPath, indexable, type CatalogueSnapshot, type PageRoute } from '@dripfunnel/storefront-core/guard'
 
 // The live site's pages and the files around them (storefront ARCHITECTURE §4.2, §8; LIVE-SHOP §4 step 6, and §5 step 6
@@ -7,7 +7,7 @@ import { fallbackPath, indexable, type CatalogueSnapshot, type PageRoute } from 
 export type PlannedPage = { path: string; route: PageRoute; language: string; custom: string | null }
 
 /** What the page's script reads to hydrate the same tree the build rendered (runtime/boot.tsx). */
-export type LivePage = { route: CoreRoute | null; custom: string | null; path: string; store: CatalogueSnapshot['store']; poweredBy: string | null }
+export type LivePage = { route: ThemeRoute | null; custom: string | null; path: string; store: CatalogueSnapshot['store']; poweredBy: string | null }
 
 export const livePageId = 'df-page'
 
@@ -17,7 +17,8 @@ export const directionOf = (language: string): 'ltr' | 'rtl' => (rightToLeft.has
 /** The main language at the root and every other one under its own code (ARCHITECTURE §8 "locale routing"). */
 export const languagePrefix = (store: CatalogueSnapshot['store'], language: string) => (language === store.mainLanguage ? '' : `/${language.toLowerCase()}`)
 
-export const plan = (routes: ThemeRoutes, store: CatalogueSnapshot['store']): PlannedPage[] =>
+/** `contentPaths`: the store's content pages and posts (the snapshot's `guard.usedPaths`); each page gets its own file. */
+export const plan = (routes: ThemeRoutes, store: CatalogueSnapshot['store'], contentPaths: readonly string[] = []): PlannedPage[] =>
   [store.mainLanguage, ...store.languages.filter((l) => l !== store.mainLanguage)].flatMap((language) => {
     const prefix = languagePrefix(store, language)
     return [
@@ -27,6 +28,13 @@ export const plan = (routes: ThemeRoutes, store: CatalogueSnapshot['store']): Pl
           const address = routeAddresses[route]
           return { path: `${prefix}${'page' in address ? address.page : fallbackPath(route)}`, route, language, custom: null }
         }),
+      ...(['blog', 'blogPost'] as const)
+        .filter((route) => routes.routes[route] !== undefined)
+        .map((route): PlannedPage => {
+          const address = contentAddresses[route]
+          return { path: `${prefix}${'page' in address ? address.page : fallbackPath(route)}`, route, language, custom: null }
+        }),
+      ...(routes.routes.contentPage === undefined ? [] : contentPaths.filter((p) => /^\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p))).map((path): PlannedPage => ({ path: `${prefix}${path}/`, route: 'contentPage', language, custom: null })),
       ...Object.keys(routes.custom ?? {}).map((custom): PlannedPage => ({ path: `${prefix}${custom}/`, route: 'custom', language, custom })),
     ]
   })
@@ -77,8 +85,8 @@ export const robots = (origin: string) => `User-agent: *\nAllow: /\nSitemap: ${o
 export const edgeRules = (pages: readonly PlannedPage[], store: CatalogueSnapshot['store']) => ({
   redirects: [],
   fallbacks: pages.flatMap((p) => {
-    if (p.route === 'custom') return []
-    const address = routeAddresses[p.route]
+    if (p.route === 'custom' || p.route === 'contentPage') return []
+    const address = p.route === 'blog' || p.route === 'blogPost' ? contentAddresses[p.route] : routeAddresses[p.route]
     return 'prefix' in address ? [{ prefix: `${languagePrefix(store, p.language)}${address.prefix}`, page: p.path }] : []
   }),
   notFound: pages.find((p) => p.route === 'notFound' && p.language === store.mainLanguage)?.path ?? null,

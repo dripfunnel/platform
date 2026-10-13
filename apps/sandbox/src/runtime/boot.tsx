@@ -21,13 +21,13 @@ import {
   studioPortalOrigin,
   studioShopEndpoint,
   type Catalogue,
-  type CoreRoute,
+  type ThemeRoute,
   type ShopStoreSettings,
 } from '@dripfunnel/storefront-core'
 import { routeAt } from './routes'
 
 /** The theme's pages as the bundle's entry exports them, from routes.json (gate/bundle.ts). */
-export type ThemePages = { routes: Partial<Record<CoreRoute, ComponentType>>; custom: Record<string, ComponentType>; content: Record<string, Record<string, string>> }
+export type ThemePages = { routes: Partial<Record<ThemeRoute, ComponentType>>; custom: Record<string, ComponentType>; content: Record<string, Record<string, string>> }
 
 // In the studio frame every address carries the session (AI-STUDIO §3 step 6); core reads it from its own module's URL.
 const base = studioBasePath(import.meta.url)
@@ -48,13 +48,13 @@ const close = () => {
 }
 const client = createShopClient({ ...(base ? { endpoint: studioShopEndpoint(base) } : {}), state: () => (base || !livePage() ? guestShopState() : storedShopState()), onError: (e) => (e.code === previewClosedCode ? close() : undefined) })
 
-const pageFor = (pages: ThemePages, path: string): { Page: ComponentType | undefined; route: CoreRoute | null } => {
+const pageFor = (pages: ThemePages, path: string): { Page: ComponentType | undefined; route: ThemeRoute | null } => {
   const found = routeAt(path, Object.keys(pages.custom))
   return 'custom' in found ? { Page: pages.custom[found.custom], route: null } : { Page: pages.routes[found.route] ?? pages.routes.notFound, route: found.route }
 }
 
 /** The page, with the theme's checkout switched to core's baseline once it throws (ARCHITECTURE §3.3). */
-const routed = (Page: ComponentType, route: CoreRoute | null) =>
+const routed = (Page: ComponentType, route: ThemeRoute | null) =>
   route === 'checkout' ? (
     <CheckoutBoundary baseline={<BaselineCheckout />}>
       <Page />
@@ -85,7 +85,7 @@ const render = async (pages: ThemePages): Promise<void> => {
 }
 
 /** A live page carries the store it was built with and its route (publish/pages.ts), so it hydrates the same tree. */
-const livePage = (): { route: CoreRoute | null; custom: string | null; path: string; store: ShopStoreSettings; poweredBy: string | null } | null => {
+const livePage = (): { route: ThemeRoute | null; custom: string | null; path: string; store: ShopStoreSettings; poweredBy: string | null } | null => {
   const text = document.getElementById('df-page')?.textContent
   return text ? (JSON.parse(text) as ReturnType<typeof livePage>) : null
 }

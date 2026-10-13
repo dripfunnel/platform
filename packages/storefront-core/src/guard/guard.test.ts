@@ -135,6 +135,15 @@ describe('validateChange: routes and the store paths', () => {
     expect(validateChange(changed([routes({ '/hi/about': 'AboutPage' })]), context).problems.map((p) => p.rule)).toEqual(['routes/path-reserved'])
     expect(validateChange(changed([routes({ '/carts-of-flowers': 'AboutPage', '/lookbook/summer': 'AboutPage' })]), context).ok).toBe(true)
   })
+
+  it('lets a theme leave the content routes out, and checks the page of each it maps (#324)', () => {
+    const parsed = JSON.parse(baseline.find((f) => f.path === 'routes.json')?.content ?? '{}') as { routes: Record<string, string> }
+    const mapped = (extra: Record<string, string>) => ({ path: 'routes.json', content: JSON.stringify({ ...parsed, routes: { ...parsed.routes, ...extra } }, null, 2) })
+    expect(validateChange(baseline, context).ok).toBe(true)
+    expect(validateChange(changed([mapped({ contentPage: 'AboutPage', blog: 'HomePage', blogPost: 'HomePage' })]), context).ok).toBe(true)
+    expect(validateChange(changed([mapped({ blogPost: 'content/PostPage' })]), context).problems.map((p) => p.rule)).toEqual(['routes/page-not-found'])
+    expect(validateChange(changed([mapped({ blogs: 'HomePage' })]), context).problems.map((p) => p.rule)).toEqual(['routes/invalid'])
+  })
 })
 
 describe('the built validator', () => {

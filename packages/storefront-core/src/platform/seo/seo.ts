@@ -13,6 +13,8 @@ export type SeoInput = {
   preview: boolean
   product?: { name: string; price: Money; available: boolean; image?: string | null | undefined } | undefined
   breadcrumbs?: readonly { name: string; url: string }[] | undefined
+  /** A blog post: its title, when it was published (ISO 8601), its author and cover. */
+  article?: { headline: string; datePublished: string | null; author: string | null; image?: string | null | undefined } | undefined
 }
 
 export type Seo = {
@@ -28,7 +30,7 @@ export const seoFor = (p: SeoInput): Seo => {
     { property: 'og:title', content: p.title },
     { property: 'og:site_name', content: p.store.name },
     { property: 'og:url', content: p.url },
-    { property: 'og:type', content: p.product ? 'product' : 'website' },
+    { property: 'og:type', content: p.product ? 'product' : p.article ? 'article' : 'website' },
   ]
   if (p.description) meta.push({ name: 'description', content: p.description }, { property: 'og:description', content: p.description })
   if (p.image) meta.push({ property: 'og:image', content: p.image })
@@ -54,6 +56,17 @@ export const seoFor = (p: SeoInput): Seo => {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: p.breadcrumbs.map((b, i) => ({ '@type': 'ListItem', position: i + 1, name: b.name, item: b.url })),
+    })
+  if (p.article)
+    jsonLd.push({
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: p.article.headline,
+      mainEntityOfPage: p.url,
+      publisher: { '@type': 'Organization', name: p.store.name },
+      ...(p.article.datePublished ? { datePublished: p.article.datePublished } : {}),
+      ...(p.article.author ? { author: { '@type': 'Person', name: p.article.author } } : {}),
+      ...(p.article.image ? { image: p.article.image } : {}),
     })
   return { title, meta, canonical: p.url, jsonLd }
 }

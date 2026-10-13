@@ -17,6 +17,9 @@
     "accountOrders": "account/OrdersPage",
     "accountOrder": "account/OrderPage",
     "policy": "PolicyPage",
+    "contentPage": "content/ContentPage",
+    "blog": "content/BlogPage",
+    "blogPost": "content/BlogPostPage",
     "notFound": "NotFoundPage",
     "degraded": "DegradedPage"
   },

@@ -17,7 +17,12 @@ describe('the preview’s route for an address', () => {
     ['/about/', { custom: '/about' }],
     ['/our/story', { custom: '/our/story' }],
     ['/products/', { route: 'notFound' }],
-    ['/nowhere/', { route: 'notFound' }],
+    ['/blog/', { route: 'blog' }],
+    ['/blog/why-linen/', { route: 'blogPost' }],
+    ['/faq', { route: 'contentPage' }],
+    ['/nowhere/', { route: 'contentPage' }],
+    ['/no/where/', { route: 'notFound' }],
+    ['/Not_A_Slug/', { route: 'notFound' }],
   ])('%s', (path, found) => {
     expect(routeAt(path, ['/about', '/our/story'])).toEqual(found)
   })
