@@ -33,8 +33,21 @@ describe('AddToCart and BuyNow', () => {
     const button = screen.getByRole('button', { name: 'Add' })
     expect(button.getAttribute('data-df-action')).toBe('add-to-cart')
     await act(async () => void fireEvent.click(button))
-    expect(asked.map((a) => a.variables)).toEqual([{ versionId: 'v1', quantity: 2 }])
+    expect(asked.map((a) => a.variables)).toEqual([{ versionId: 'v1', quantity: 2, gift: null }])
     expect(done).toHaveBeenCalledWith(true)
+  })
+
+  it('sends a gift card’s recipient with it, trimmed, and no date for now', async () => {
+    const asked = shopAnswering(() => ({ data: { addToCart: { cartToken: 't', cart: cartOf([line('g1', 1)]) } } }))
+    render(
+      <Provided client={createShopClient({ state: storedShopState })}>
+        <AddToCart versionId="g1" gift={{ recipientName: ' Asha ', recipientEmail: 'asha@example.com ', sendOn: '', message: ' Happy birthday ' }}>
+          Add
+        </AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    expect(asked[0]?.variables).toEqual({ versionId: 'g1', quantity: 1, gift: { recipientName: 'Asha', recipientEmail: 'asha@example.com', sendOn: null, message: 'Happy birthday' } })
   })
 
   it('opens checkout after buying now', async () => {

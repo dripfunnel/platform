@@ -1,5 +1,5 @@
-import { routeAddresses, type ThemeRoutes } from '../../contracts/routes.js'
-import { coreRoutes, requiredParts, type CoreRoute } from '../../contracts/theme.js'
+import { contentAddresses, routeAddresses, type ThemeRoutes } from '../../contracts/routes.js'
+import { coreRoutes, requiredParts, type ThemeRoute } from '../../contracts/theme.js'
 import { claimsIn } from '../claims.js'
 import type { Problem } from '../rules.js'
 import { gateCheck, gateReport, type GateCheck, type GateReport } from './report.js'
@@ -16,7 +16,7 @@ export const pageBudgets = { jsGzip: 90 * 1024, cssGzip: 50 * 1024, pageBytes: 1
 /** A page's share of pixels that may differ from the live site's before it counts as looking different. */
 export const lookTolerance = 0.005
 
-export type PageRoute = CoreRoute | 'custom'
+export type PageRoute = ThemeRoute | 'custom'
 
 /** A built page without JavaScript: its file, its headings, the words of its main landmark, its links, and what went wrong. */
 export type PageRead = { path: string; route: PageRoute; html: string; h1s: string[]; mainText: string; text: string; links: string[]; errors: string[] }
@@ -69,12 +69,12 @@ export type GateInput = {
 }
 
 /** The pages search engines are told about (ARCHITECTURE §8): content a shopper lands on, never a cart or an account. */
-export const indexable = (route: PageRoute): boolean => route === 'home' || route === 'custom' || route === 'product' || route === 'collection' || route === 'policy'
+export const indexable = (route: PageRoute): boolean => route === 'home' || route === 'custom' || route === 'product' || route === 'collection' || route === 'policy' || route === 'contentPage' || route === 'blog' || route === 'blogPost'
 
 /** Where a route's client-rendered page is kept, for addresses that have no file of their own (LIVE-SHOP §5 step 6). */
-export const fallbackPath = (route: CoreRoute) => `/_fallback/${route}/`
+export const fallbackPath = (route: ThemeRoute) => `/_fallback/${route}/`
 
-const routeNames: Partial<Record<PageRoute, string>> = { orderConfirmation: 'order confirmation', signIn: 'sign-in', forgotPassword: 'forgot password', resetPassword: 'reset password', accountAddresses: 'addresses', accountOrders: 'orders', accountOrder: 'order', notFound: 'not found' }
+const routeNames: Partial<Record<PageRoute, string>> = { orderConfirmation: 'order confirmation', signIn: 'sign-in', forgotPassword: 'forgot password', resetPassword: 'reset password', accountAddresses: 'addresses', accountOrders: 'orders', accountOrder: 'order', notFound: 'not found', contentPage: 'content page', blogPost: 'blog post' }
 /** How the gate names a page in its words. */
 export const pageName = (p: { path: string; route: PageRoute }) => (p.route === 'custom' ? `page ${p.path}` : `${routeNames[p.route] ?? p.route} page`)
 const at = (v: PageVisit) => `${pageName(v)} at ${v.width} px`
@@ -111,6 +111,12 @@ export const checkContracts = (input: Pick<GateInput, 'routes' | 'pages' | 'visi
       continue
     }
     const address = routeAddresses[route]
+    const path = 'page' in address ? address.page : fallbackPath(route)
+    if (!built.has(path)) problems.push(`The build has no ${pageName({ path, route })}.`)
+  }
+  for (const route of ['blog', 'blogPost'] as const) {
+    if (!input.routes.routes[route]) continue
+    const address = contentAddresses[route]
     const path = 'page' in address ? address.page : fallbackPath(route)
     if (!built.has(path)) problems.push(`The build has no ${pageName({ path, route })}.`)
   }
@@ -198,10 +204,7 @@ const sitemapLocs = (xml: string) => [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].m
 export const checkCrawl = (input: Pick<GateInput, 'pages' | 'site'>): GateCheck => {
   const pages = new Set(input.pages.map((p) => p.path))
   const files = new Set(input.site.files.map((f) => `/${f}`))
-  const prefixes = coreRoutes.flatMap((r) => {
-    const a = routeAddresses[r]
-    return 'prefix' in a ? [a.prefix] : []
-  })
+  const prefixes = [...coreRoutes.map((r) => routeAddresses[r]), ...Object.values(contentAddresses)].flatMap((a) => ('prefix' in a ? [a.prefix] : []))
   // An item address in another language keeps its route's prefix after the language's code (`/hi/products/…`).
   const unprefixed = (path: string) => [path, ...input.site.prefixes.filter((p) => path.startsWith(`${p}/`)).map((p) => path.slice(p.length))]
   const leads = (href: string) => {
@@ -216,10 +219,7 @@ export const checkCrawl = (input: Pick<GateInput, 'pages' | 'site'>): GateCheck 
     const wanted = input.pages.filter((p) => indexable(p.route) && !p.path.includes('/_fallback/')).map((p) => `${input.site.origin}${p.path}`)
     for (const url of wanted) if (!listed.has(url)) problems.push(`The sitemap leaves out ${url}.`)
     // An item of an indexable route (a product, a collection, a policy) may be listed, in any of the store's languages.
-    const itemPrefixes = coreRoutes.flatMap((r) => {
-      const a = routeAddresses[r]
-      return indexable(r) && 'prefix' in a ? [a.prefix] : []
-    })
+    const itemPrefixes = [...coreRoutes.map((r) => [r, routeAddresses[r]] as const), ...(['blogPost'] as const).map((r) => [r, contentAddresses[r]] as const)].flatMap(([r, a]) => (indexable(r) && 'prefix' in a ? [a.prefix] : []))
     const item = (url: string) => {
       const path = url.startsWith(`${input.site.origin}/`) ? url.slice(input.site.origin.length) : ''
       return plainPath(path) && unprefixed(path).some((u) => itemPrefixes.some((p) => u.startsWith(p) && u.length > p.length))

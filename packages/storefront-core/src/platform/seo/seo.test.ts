@@ -24,4 +24,10 @@ describe('seoFor', () => {
   it('escapes < in structured data', () => {
     expect(jsonLdText({ name: '</script><script>x' })).not.toContain('</script>')
   })
+
+  it('describes a blog post as an Article with its date, author and cover', () => {
+    const seo = seoFor({ store: { name: 'Juniper & Co.', url: 'https://juniper.example/' }, url: 'https://juniper.example/blog/linen/', title: 'Why linen', preview: false, article: { headline: 'Why linen', datePublished: '2026-10-01T10:00:00Z', author: 'Maya', image: 'https://media.example/1.jpg' } })
+    expect(seo.meta).toContainEqual({ property: 'og:type', content: 'article' })
+    expect(seo.jsonLd).toContainEqual({ '@context': 'https://schema.org', '@type': 'Article', headline: 'Why linen', mainEntityOfPage: 'https://juniper.example/blog/linen/', publisher: { '@type': 'Organization', name: 'Juniper & Co.' }, datePublished: '2026-10-01T10:00:00Z', author: { '@type': 'Person', name: 'Maya' }, image: 'https://media.example/1.jpg' })
+  })
 })

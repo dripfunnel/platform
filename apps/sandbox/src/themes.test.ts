@@ -48,7 +48,7 @@ const themeFiles = (key: string): ThemeFile[] =>
 
 const brand = { name: 'Northstar Linen', tagline: 'Linen clothes, made slowly', email: 'hello@northstar.example', phone: '+91 98450 22113', address: ['12 Residency Road', 'Bengaluru'], socialLinks: [] }
 // The seed stores offer English only (en-IN and en-US), so the themes are written in English (card #486).
-const india: GuardContext = { locales: ['en'], usedPaths: ['/faq'], mediaIds: [], brand }
+const india: GuardContext = { locales: ['en'], usedPaths: ['/faq', '/blog/why-linen'], mediaIds: [], brand }
 const unitedStates: GuardContext = { locales: ['en'], usedPaths: [], mediaIds: [], brand: { ...brand, name: 'Juniper & Co.', address: ['Oak Street', 'Columbus'] } }
 
 const snapshot: CatalogueSnapshot = catalogueSnapshotSchema.parse({
@@ -58,6 +58,8 @@ const snapshot: CatalogueSnapshot = catalogueSnapshotSchema.parse({
   poweredBy: 'Acme Commerce',
   guard: india,
   csp: { assetOrigin: null, mediaOrigins: [], analytics: [], payments: [] },
+  // A published post, so a theme that maps the blog builds its page and the gate checks it (#324).
+  posts: [{ path: '/blog/why-linen', title: 'Why we work in linen', seoTitle: null, seoDescription: null, author: null, publishedAt: '2026-10-01T10:00:00.000Z', image: null }],
   assetBase: null,
 })
 

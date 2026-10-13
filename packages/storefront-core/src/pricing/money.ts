@@ -35,5 +35,8 @@ export const toDecimal = ({ amount, currency }: Money): string => {
   return digits === 0 ? whole : `${whole}.${(abs % scale).toString().padStart(digits, '0')}`
 }
 
+/** Whether an amount is nothing ("0", "000", "-0"): free delivery, a gift card that took nothing. */
+export const isZero = (money: Money): boolean => /^-?0+$/.test(money.amount)
+
 /** The amount in the shopper's locale, the currency always shown (never a silent default). */
 export const formatMoney = (money: Money, locale: string): string => formatter(locale, money.currency).format(toDecimal(money) as `${number}`)
