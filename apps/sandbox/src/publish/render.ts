@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ComponentType } from 'react'
 import { build, type Plugin } from 'esbuild'
-import type { CoreRoute, ShopStoreSettings } from '@dripfunnel/storefront-core'
+import type { ShopStoreSettings, ThemeRoute } from '@dripfunnel/storefront-core'
 import { readContent, routesSchema, runtimeModules } from '../gate/bundle'
 
 // The static build's renderer (storefront ARCHITECTURE §4.2 "Live"): the theme's pages bundled for Node with the same
@@ -13,7 +13,7 @@ import { readContent, routesSchema, runtimeModules } from '../gate/bundle'
 export type PageValue = { store: ShopStoreSettings; poweredBy: string | null; path: string }
 
 export interface ServerTheme {
-  page: (route: CoreRoute | null, custom: string | null) => ComponentType | undefined
+  page: (route: ThemeRoute | null, custom: string | null) => ComponentType | undefined
   render: (page: ComponentType, value: PageValue) => string
 }
 

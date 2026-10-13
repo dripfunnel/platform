@@ -1,5 +1,5 @@
 import { reservedPathSegments, themeRoutesSchema } from '../contracts/routes.js'
-import { coreRoutes, type CoreRoute } from '../contracts/theme.js'
+import { contentRoutes, coreRoutes, type CoreRoute } from '../contracts/theme.js'
 import { routesPath } from './files.js'
 import { readJson } from './json.js'
 import { problem, type GuardContext, type Problem } from './rules.js'
@@ -41,6 +41,10 @@ export const checkRoutes = (files: ReadonlyMap<string, string>, context: GuardCo
     const page = routes[route]
     if (page === undefined) problems.push(problem(routesPath, json.lineOf(['routes']), 'routes/route-not-mapped', `The "${route}" route has no page; map it to one in src/theme/pages.`))
     else missingPage(page, json.lineOf(['routes', route]))
+  }
+  for (const route of contentRoutes) {
+    const page = routes[route]
+    if (page !== undefined) missingPage(page, json.lineOf(['routes', route]))
   }
   const used = new Set(context.usedPaths.map(comparable))
   const reserved = new Set([...reservedPathSegments, ...context.locales.flatMap((l) => [l.toLowerCase(), l.split('-')[0] ?? l])])

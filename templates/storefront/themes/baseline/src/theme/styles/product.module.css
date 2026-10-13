@@ -301,6 +301,46 @@
   cursor: default;
 }
 
+.kindNote {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.gift {
+  display: grid;
+  flex-basis: 100%;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.field input {
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
 .added {
   flex-basis: 100%;
   margin: 0;

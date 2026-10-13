@@ -33,6 +33,9 @@ export const snapshotStoreSchema = z.strictObject({
 /** An https origin, or the loopback a local run serves from. */
 const origin = z.string().regex(/^(?:https:\/\/[a-z0-9.-]+|http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?)$/)
 
+/** The posts a build writes pages for: the newest, past which a post is still served by the blog's client-rendered page. */
+export const maxSnapshotPosts = 500
+
 export const catalogueSnapshotSchema = z.strictObject({
   version: z.literal(1),
   /** The store's live address, which the sitemap, canonical links and robots.txt name (ARCHITECTURE §8). */
@@ -45,6 +48,24 @@ export const catalogueSnapshotSchema = z.strictObject({
   /** The page CSP's inputs (ARCHITECTURE §3.5); the check step writes each page's header from them. */
   csp: storeCspSchema,
   /** The public folder this build's JS and CSS are served from (LIVE-SHOP §5 step 7), or null for the page's own origin. */
+  /**
+   * The store's published blog posts, newest first (#324), so the build writes each one's page with its head and Article
+   * structured data (ARCHITECTURE §8: JSON-LD is only ever in the static HTML). Empty without a blog.
+   */
+  posts: z
+    .array(
+      z.strictObject({
+        path: z.string().regex(/^\/blog\/[a-z0-9]+(?:-[a-z0-9]+)*$/),
+        title: z.string().min(1).max(200),
+        seoTitle: optional(60),
+        seoDescription: optional(160),
+        author: optional(80),
+        publishedAt: z.iso.datetime({ offset: true }),
+        image: z.strictObject({ url: z.string().max(2048) }).nullable(),
+      }),
+    )
+    .max(maxSnapshotPosts)
+    .default([]),
   assetBase: z
     .string()
     .regex(/^(?:https:\/\/[a-z0-9.-]+|http:\/\/127\.0\.0\.1(?::\d+)?)\/(?:[A-Za-z0-9_-]+\/)*$/)

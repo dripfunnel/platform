@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { coreRoutes, type CoreRoute } from './theme.js'
+import { contentRoutes, coreRoutes, type ContentRoute, type CoreRoute } from './theme.js'
 
 /** A page under src/theme/pages without its .tsx, such as "HomePage" or "account/OrdersPage". */
 const themePage = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9_-]{0,63}){0,4}$/, 'Name a page under src/theme/pages without .tsx, such as "HomePage".')
@@ -17,7 +17,7 @@ export const reservedPathSegments: readonly string[] = [
 
 /** routes.json: the theme page that skins each core route, and the theme's own pages by path (ARCHITECTURE §2.2, §3.1). */
 export const themeRoutesSchema = z.strictObject({
-  routes: z.partialRecord(z.enum(coreRoutes), themePage),
+  routes: z.partialRecord(z.enum([...coreRoutes, ...contentRoutes]), themePage),
   custom: z
     .record(z.string().regex(customPathPattern, 'Use lower-case words joined by hyphens, such as "/our-story", at most three levels deep.'), themePage)
     .refine((pages) => Object.keys(pages).length <= maxCustomPages, `A theme may have at most ${maxCustomPages} custom pages.`)
@@ -50,4 +50,13 @@ export const routeAddresses: Readonly<Record<CoreRoute, { page: string } | { pre
   policy: { prefix: '/policies/' },
   notFound: { page: '/404/' },
   degraded: { page: '/degraded/' },
+}
+
+/**
+ * Where the content routes live (SAPI 24 as built on #338): the blog at `/blog/`, a post under it; a content page at the one
+ * segment its slug names, which the build learns from the store's content paths (the validator's `usedPaths`).
+ */
+export const contentAddresses: Readonly<Record<Exclude<ContentRoute, 'contentPage'>, { page: string } | { prefix: string }>> = {
+  blog: { page: '/blog/' },
+  blogPost: { prefix: '/blog/' },
 }

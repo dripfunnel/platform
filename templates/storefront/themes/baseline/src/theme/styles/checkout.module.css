@@ -333,6 +333,48 @@
   cursor: default;
 }
 
+.giftCard {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.giftCard label {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.giftCard input {
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.giftCard button {
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--ink);
+  border-radius: var(--button-radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.giftCard p {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 14px;
+}
+
 .side {
   display: flex;
   flex-direction: column;

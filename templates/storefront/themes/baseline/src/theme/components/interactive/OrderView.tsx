@@ -94,6 +94,45 @@ export const OrderView = ({ inAccount = false }: { inAccount?: boolean }) => {
               <PaymentElement t={t} />
             </div>
           ) : null}
+          {order.downloads.length > 0 ? (
+            <div className={styles.card}>
+              <h2 className={styles.cardTitle}>{t('shop.order.downloads')}</h2>
+              <ul className={styles.list}>
+                {order.downloads.map((d, i) => (
+                  <li key={i} className={styles.item}>
+                    {d.url ? (
+                      <Link href={d.url} className={shop.secondary}>
+                        {t('shop.order.download', { name: d.name })}
+                      </Link>
+                    ) : (
+                      <span>{d.name}</span>
+                    )}
+                    {d.usesLeft !== null && d.until ? <span className={styles.note}>{t('shop.order.downloadLeft', { count: d.usesLeft, date: d.until })}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {order.licenceKeys.length > 0 ? (
+            <div className={styles.card}>
+              <h2 className={styles.cardTitle}>{t('shop.order.keys')}</h2>
+              <dl className={styles.facts}>
+                {order.licenceKeys.map((k, i) => (
+                  <div key={i}>
+                    <dt>{k.name}</dt>
+                    <dd className={styles.key}>{k.key}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : null}
+          {order.lines.flatMap((l, i) =>
+            l.gift ? [
+              <p key={i} className={styles.info}>
+                {l.gift.sendOn ? t('shop.order.giftOn', { name: l.gift.recipientName, date: l.gift.sendOn }) : t('shop.order.giftNow', { name: l.gift.recipientName })}
+              </p>,
+            ] : [],
+          )}
           <div className={styles.card}>
             <dl className={styles.facts}>
               {order.delivery ? (

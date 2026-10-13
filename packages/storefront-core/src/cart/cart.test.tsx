@@ -137,4 +137,37 @@ describe('useCart', () => {
     await act(async () => page.retry())
     expect(count()).toBe('2 v1×1,v2×1')
   })
+
+  it('applies a gift card by its number, spaces dropped, shows what it takes off, and removes it', async () => {
+    localStorage.setItem('df-cart', 'tok-1')
+    const card = { applied: usd(1000), balance: usd(1500), expiresAt: '2027-10-13T00:00:00Z', last4: '4321' }
+    let refuse = false
+    const asked = shopAnswering((a) =>
+      a.query.includes('applyGiftCard')
+        ? refuse
+          ? { errors: [{ message: 'no', extensions: { code: 'GIFT_CARD_INVALID' } }] }
+          : { data: { applyGiftCard: { cart: cartOf([line('v1', 1)], { giftCard: card, amountDue: usd(1800) }) } } }
+        : a.query.includes('removeGiftCard')
+          ? { data: { removeGiftCard: { cart: cartOf([line('v1', 1)]) } } }
+          : { data: { cart: cartOf([line('v1', 1)]) } },
+    )
+    mount()
+    await act(async () => undefined)
+    let refusal: string | null = 'not asked'
+    await act(async () => {
+      refusal = await page.applyGiftCard('GC12 3456 4321')
+    })
+    expect(refusal).toBeNull()
+    expect(asked.find((a) => a.query.includes('applyGiftCard'))?.variables).toEqual({ number: 'GC1234564321' })
+    expect(page.cart?.giftCard).toEqual(card)
+    expect(page.cart?.amountDue).toEqual(usd(1800))
+    await act(async () => void (await page.removeGiftCard()))
+    expect(page.cart?.giftCard).toBeNull()
+    refuse = true
+    await act(async () => {
+      refusal = await page.applyGiftCard('nope')
+    })
+    expect(refusal).toBe('GIFT_CARD_INVALID')
+    expect(page.error).toBe('GIFT_CARD_INVALID')
+  })
 })
