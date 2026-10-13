@@ -1,30 +1,14 @@
-import { useState } from 'react'
 import { messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import type { StorefrontApi } from './storefrontApi'
+import { usePhotoUpload } from './usePhotoUpload'
 
 const words = messages.storefront.content.editor
-const uploadWords = messages.storefront.brand.uploadRefused
 
 /** A post's cover photo (StorefrontContent): the drawing's dashed box, uploading on pick. */
-export const CoverField = ({ assetId, canEdit, api, onCover }: { assetId: string | null; canEdit: boolean; api: StorefrontApi; onCover: (assetId: string | null) => void }) => {
-  const [busy, setBusy] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
-  const upload = (file: File) => {
-    setBusy(true)
-    setProblem(null)
-    api.uploadImage(file).then(
-      (r) => {
-        setBusy(false)
-        if (r.ok) onCover(r.assetId)
-        else setProblem(uploadWords[r.code])
-      },
-      () => {
-        setBusy(false)
-        setProblem(uploadWords.NOT_CONNECTED)
-      },
-    )
-  }
+export const CoverField = ({ assetId, canEdit, api, onCover, onUploading }: { assetId: string | null; canEdit: boolean; api: StorefrontApi; onCover: (assetId: string | null) => void; onUploading: (busy: boolean) => void }) => {
+  const { uploading: busy, problem, upload: send } = usePhotoUpload(api, onUploading)
+  const upload = (file: File) => send(file, onCover)
   const label = busy ? words.uploading : assetId ? words.changeCover : words.addCover
   return (
     <div className="df-sfc-cover-field">

@@ -102,10 +102,12 @@ export const inputOf = (kind: ContentKind, draft: ContentDraft, publish: boolean
 })
 
 /** Why a save can't go yet, before asking the API: a title, an address, and nothing past its limit. */
-export const draftProblem = (draft: ContentDraft): { field: 'title' | 'slug' | 'seo'; text: string } | null => {
+export const draftProblem = (draft: ContentDraft): { field: 'title' | 'slug' | 'seo' | 'date'; text: string } | null => {
   if (!draft.title.trim()) return { field: 'title', text: words.editor.needsTitle }
   if (!slugShown(draft)) return { field: 'slug', text: words.editor.needsSlug }
   if (draft.seoTitle.length > contentLimits.seoTitle || draft.seoDescription.length > contentLimits.seoDescription) return { field: 'seo', text: words.editor.seoTooLong }
+  // #338 keeps a post's stored date when none is sent, so a dated post can't be emptied (FIRST-RELEASE §14).
+  if (draft.publishAt && !draft.publishDate) return { field: 'date', text: words.editor.needsDate }
   return null
 }
 
