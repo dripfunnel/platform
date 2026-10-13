@@ -230,7 +230,7 @@ Never reuse a value from local or production.
 | `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
 | ~~`CF_PAGES_POOL`~~ | — | — | Not needed since 2026-10-09: no Pages project per store; the R2 storefront upload credential replaces it (THIRD-PARTY-ACCESS §2.1, names on #317) |
 | `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 5. Read since #309 |
-| `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout |
+| `STRIPE_PUBLISHABLE_KEY` | Text | the test-mode `pk_test_…` | Stripe (test mode) › Developers › API keys. Without it Stripe isn't offered at checkout, and Settings › Payout and payment in the partner console says the provider isn't switched on |
 | `R2_STOREFRONT_ACCOUNT_ID` | Text | the Cloudflare account id | §2.8 item 1 |
 | `R2_STOREFRONT_ACCESS_KEY_ID`, `R2_STOREFRONT_SECRET_ACCESS_KEY` | Secret | the upload credential's key pair | Shown once when the R2 token is created (§2.8 item 1) |
 | `R2_STOREFRONT_API_TOKEN` | Secret | the same R2 token's value | Shown once with the key pair (§2.8 item 1). Read since #517 with the five values beside it: without all six a store build's calls don't exist |

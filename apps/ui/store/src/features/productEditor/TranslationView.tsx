@@ -1,14 +1,12 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { useEffect, useId, useState } from 'react'
 import { loadProductTranslation, saveProductTranslation, type ProductTranslationInput, type TranslationRow } from '../../api/translations'
-import { fill, locale, messages } from '../../messages'
+import { fill, messages } from '../../messages'
+import { languageName } from '../common/languageName'
 import { Card } from './EditorCards'
 
 const words = messages.editor.translate
 
-const names = new Intl.DisplayNames([locale], { type: 'language' })
-/** "hi-IN" as people say it: Hindi (India). */
-export const languageName = (code: string): string => names.of(code) ?? code
 
 const keyOf = (r: Pick<TranslationRow, 'entity' | 'entityId' | 'field'>) => `${r.entity}|${r.entityId}|${r.field}`
 

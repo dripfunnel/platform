@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-13 (#339: Storefront › Pages and Journal, §14; #682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -615,7 +615,8 @@ through. Your site stays live."), as is a support session.
   Store info), and a tone of voice. "Continue to templates" stays disabled until the name and
   logo are set; everything else can be skipped.
 - **Template gallery**: "Choose a starting point" (first time) or "Change template"; the six
-  templates and "Start from scratch" previewed with the store's products, **View demo ↗** (a
+  templates and "Start from scratch", each shown by one picture of its look, the same for every
+  store (decided 2026-10-12, #681), **View demo ↗** (a
   new tab, or the same tab with a Back link), **Use this template**, and "Your current look"
   on the one in use. Switching asks "Keep my words" or "Use template text"; the live site
   doesn't change until Publish.
@@ -694,6 +695,113 @@ through. Your site stays live."), as is a support session.
   a plan without `custom_domain` the card says so and links the Owner to Billing. Search and sharing's counters
   turn red and say "too long" past the limit, which disables Save; the share image is picked from the first photo
   of the five products changed last.
+- **Built on #319 (part 3, on #318's API)**: the Overview's header (the live line, **View live site ↗**, **Change
+  template**), the draft notice with **Discard** (asks first), the live version, "Powered by" with **Remove it**, and the
+  template gallery with "Your current look", **View demo ↗** (an https demo only) and the keep-my-words question. *Decided
+  there:* live pages refuse every frame (`frame-ancestors 'none'`, storefront ARCHITECTURE §3.5, #481), so the Overview
+  shows the live version's number, when it was published and its address instead of framing it at Desktop and Phone; a
+  template's thumbnail is a tile with its name until the API offers a picture with the store's products (ST 0 left it
+  open); the gallery replaces the page for the Owner until a template is picked, and again after the site couldn't be
+  made ("We couldn't set up your storefront. Pick a template to try again."); the first pick asks nothing about words,
+  since there are none to keep; while the site is made the Design tab says "Setting up your storefront…" and reads its
+  status again every 5 seconds; "Start from scratch" reads "Custom" in the live line; "Powered by" shows to the Owner
+  only (it needs the plan, a `billing` read) when the partner shows it and the plan keeps it, with Remove it (to
+  Billing) only when another plan removes it. Open studio and Continue in studio come with the studio (part 4).
+- **Built on #319 (part 4)**: the studio, full screen over the portal (a modal dialog, so the header and menu are
+  inert): the top bar (← Storefront, template and store, address, status, the page picker, Desktop · Tablet · Phone as
+  a select below 1180 px, Discard), Chat and Preview tabs on a phone, the sandbox's states, the chat (words, an uploaded
+  or pasted image, a website address, suggestions, what changed, Undo this change, notes, the error line) and Edit
+  text; Open studio and Continue in studio on the Overview, and the gallery opening the studio after a pick. *Decided
+  there:* the Manager gets no studio, as the prototype draws (the Overview shows them the draft notice); the session is
+  renewed every 2 minutes (storefront AI-STUDIO §9); "You're next — about N seconds" counts 20 seconds per studio ahead
+  *(proposed)*; "Checking your change…" covers the whole request, which answers once checked and repaired; the page
+  picker is a select grouped Shop, Policies, Content pages and Pages the AI made, its product page the product changed
+  last; the four suggestions are the prototype's, since the API proposes none; the AI signs as "{partner} AI"; Edit text
+  saves only the languages changed and never leaves the main one empty. Publish and its gate are part 5's; the AI
+  tokens line comes in part 6.
+- **Built on #319 (part 5)**: Publish in the studio's top bar ("Publish site" before the first), its question, the
+  gate's steps in the top bar ("Building your site…", "Checking your site…", "Checking it went live…"), "Version N is
+  live — we checked your site and it changed", a refused publish in the chat with what failed and **Publish
+  everything before this change** when one change is to blame, and a rolled-back publish. *Decided there:* the publish
+  followed is kept in the address (`?run=`), so a reload keeps following it; the question says "uses a few build
+  minutes", since the API gives no estimate; the refusal's words are the failed checks' own, with "We tried to fix it
+  and couldn't." only after a repair; the studio takes no change while a publish runs; Publish everything before this change is offered only when the
+  change to blame is in the conversation shown, and a change accepted after a refused publish clears its notice; a publish the studio can't read (five failed reads in a row, or a refused read) keeps the studio waiting and says so, with Check again, since it may still be running; a rollback is told in the
+  studio that followed the publish, and the Overview's notice waits for a read of the last publish (built on #682).
+- **Built on #319 (part 6)**: the catalogue Publish now bar, Site settings › AI and build minutes and Version history
+  with Go back to this, Open preview ↗ with End all preview links, and the chat's AI line. *Decided there:* the bar
+  shows only on a live site while changes wait: "12 products changed since …" (or "Your catalogue changed since …" for
+  other kinds), the presses left, the next automatic publish and **Publish now** for the Owner; at zero it says "No
+  'Publish now' presses left this month. Your changes go live with the next automatic publish, or upgrade for more."
+  with See plans; the Manager sees the bar without its button; a press is followed like a studio publish (`?run=`).
+  AI and build minutes meters AI requests (the plan's allowance is requests, not the prototype's tokens), shows build
+  minutes as a count (plans set no limit) and the five latest requests; the chat says "AI requests: N left" or "On your
+  own AI key". Version history names each version by the merchant's last request, else "{template} template"; it
+  shows no author and no rolled-back badge, which the API doesn't give. Site settings has two columns from 820 px of
+  content. Open preview ↗ opens its tab on the click and sends it to the signed link once made (https only, no
+  opener), so a pop-up blocker doesn't stop it; it shows only once the draft's preview is written, and sits in the
+  preview's toolbar on a phone.
+- **Built on #681**: each template's card shows its picture, `apps/ui/store/public/templates/{key}.webp` (alt text
+  empty, since the name is beside it), in place of part 3's name tile, which stays for a key whose picture doesn't
+  load. *Decided there:* each picture is the top of that theme's preview bundle home page at 1440 px, cropped to the
+  card's 1280 : 794 and at most 150 KB, rendered as "Your Shop" with no description (so each theme's own lead line
+  shows) and no products, without the preview banner and the cookie question, which a returning shopper doesn't see.
+- **Built on #680**: the Overview frames the live site at Desktop and Phone, as `PortalStorefront` draws it, now that
+  live pages let the store's portal frame them (storefront ARCHITECTURE §3.5): the card's head has "Live now · version
+  N" and Desktop · Phone; Desktop is the site 1280 px wide scaled to the card (at most 640 px tall), Phone is it 390 px
+  wide in a 620 px panel. The frame is sandboxed (`allow-scripts allow-same-origin`), sends no referrer and opens the
+  live address the header names. *Decided there:* it frames only when the Store API says the live home page lets this
+  portal's origin frame it (`storefront.live.portalOrigin`); a build from before #680, or one made for another portal
+  host, keeps #319's view (the version, when it was published and its address) until the next publish; so does a
+  frame that hasn't loaded in 20 seconds, since a browser tells a page nothing else about a frame it refused. The
+  Manager sees the same frame.
+- **Built on #682**: the Overview's rolled-back notice, first in the Design tab as `PortalStorefront` draws it (`rolled-back`):
+  "We put version N−1 back: {what broke}. We're fixing it." while the store's last finished design or catalogue publish
+  (`storefront.lastPublish`) reads rolled back, gone once a later one is live. The Owner and the Manager see it, with no
+  button. *Decided there:* N−1 is the version live now, as the prototype names it, since a rollback withdraws the new
+  version's number; what broke is the failed check in plain words (home page, product pages, adding to a cart, checkout,
+  the payment form) or "your site much slower" after `vitals_regressed`, else "your new version didn't pass our checks
+  once it was live."; a later refused publish ends the notice too, since the last publish is then the refused one, which
+  the studio tells; a store whose first publish rolled back has nothing live and no notice, as the prototype shows it
+  only with a site.
+- **Built on #339 (part 1, on #338's API)**: the Pages tab's list, as `StorefrontContent` draws it: the content pages
+  (title, path, Published, Draft or Scheduled, when edited in UTC with the zone named, "in the footer"), fifty at a time with Show more, then the
+  AI's pages (`customPagePaths`), each "Made by AI"; the Owner's open the studio on that page (`?view=studio&page=`),
+  a reader's open nothing. *Decided there:* an AI page is named by its path, as the studio's picker names it; the
+  page-level Manager notice stands for the drawing's own.
+- **Built on #339 (part 2)**: the page editor (`?entry=`, `new` for one not saved; **Add a page** for the Owner): title,
+  web address after the shop's host (the title's until one is typed), the blocks with move and remove (heading and text;
+  part 3 adds the others), how it looks in search (title /60, description /160, the
+  result's preview), and Publishing (status and when edited, "waiting for the next publish", Show in the footer menu,
+  **Publish** or **Update**, **Save as draft**, **Delete page**, which asks first). A `PATH_TAKEN` refusal shows under
+  the web address, naming what holds it; nothing is saved. *Decided there:* the clash words (`storefront.content.taken`)
+  *(proposed, for review)*: a core route by what it is ("/cart is your shop's cart"), an AI page by its path, a
+  language by its name, a market, another page or post by its title; a "Title in search" beside the drawn description,
+  since the API takes both; the note drops the drawing's "about 2 minutes", which no publish promises; no Preview
+  button, since the preview host shows live pages only (#338); a reader sees the fields read-only with no buttons, and
+  `?entry=new` shows them the list; leaving the editor asks nothing, as drawn.
+- **Built on #339 (part 3)**: the editor's other blocks: a photo (made by its upload, PNG, JPG or WebP, with its
+  description for people who can't see it), questions and answers (each question and answer typed in place, up to
+  50), products (picked by name, up to 24, shown by name, "A product no longer in your catalogue" for one deleted
+  since) and, on a page, the contact form, which says where messages go (the brand's public email). *Decided there:*
+  product names are read as Offers reads them (`loadProductNames`, aliased `product(id)` reads fifty at a time), since
+  the Store API has no read by ids.
+- **Built on #339 (part 4)**: the Journal tab: posts by their date ("Goes live {date}" while scheduled) and who wrote
+  them, **Write a post**, and the editor as for a page with a cover photo (the drawing's dashed box), **Publish on**
+  and **Written by** in Publishing, no contact form and no footer menu, and **Schedule** in place of Publish for a later
+  day. *Decided there:* the day is in UTC and said so; left empty, a post is dated when it's published (#338), but a
+  post that has a date keeps one (#338 can't clear it); an unchanged day keeps the post's own instant, a picked one starts at midnight UTC; tags, which the drawing doesn't show,
+  are kept as read; a plan without `blog` shows the refusal on save ("Your plan doesn’t include the Journal…"), since
+  no read says so first; Publish and Save wait while a photo or the cover uploads.
+- **Built on #339 (part 5)**: other languages: a saved page or post in a store with more than one language has the
+  language tabs over its editor (the product editor's, now shared in `features/common`); another language shows the
+  title, each block's words (headings, text, photo descriptions, questions and answers) and the search words beside the
+  main language's, with "Not in {language} yet", the `changed` notice ("The {main} words changed since this was
+  written"), **Save translation** and **Remove the {language} words** (asks first; the shop then shows the main words).
+  *Decided there:* a field left empty saves the main language's words as they are then (#338 keeps a language's
+  words whole, so there is no per-field fallback), and the hint says so; a later change to them raises `changed`; the
+  translation follows the page's saved blocks (products and the contact form are the same in every language); the tabs
+  hold still while either side has unsaved words; a page not saved yet has no tabs.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---
@@ -982,6 +1090,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 | Storefront (SAPI 17, #318) | `storefront` (live version, draft, history, usage, publishing status), `storefrontTemplates`, `designChat`, `studioSession` (starting, queued with its place, ready, busy), `publishRun(id)` (steps and the gate's plain-words result), `designText(page, locale)`, `previewLink` | `chooseTemplate(key, keepWords)` (refused until the brand is ready), `askDesign(text, imageAssetId, sampleUrl, page, device)` (AI request, run in the store's sandbox), `saveDesignText(locale, key, text)`, `undoDesignChange`, `discardDraft`, `publishDesign`, `publishBefore(messageId)`, `goBackToVersion(n)`, `publishNow` |
 | Storefront › Pages and Journal (SAPI 24, built on #338) | `contentPages`, `blogPosts` (paged, 50 a page; pages by when they were edited, posts by their date), `contentEntry(id)` (each with its `path`, `status`, blocks and `waitingForPublish`), `customPagePaths` (the theme's own pages the tabs list to open in the studio; decided on #338 that this card's API answers them, so SUI 17 reads one area); `storefront.read`, Owner and Manager | `saveContentPage`, `saveBlogPost` (create, or update at the revision read; `publish: false` keeps a draft; a post dated later is scheduled; a post needs the plan's `blog`), `deleteContentPage`, `deleteBlogPost` (Owner, `publish`); `contentTranslation(id, language)` and `saveContentPageTranslation`, `saveBlogPostTranslation` (another offered language's title, blocks and search words, or null to fall back; `changed` once the main words move; part 2); an address another page or post, a core route, a language, a market or a custom page holds is refused as `PATH_TAKEN` naming it |
 | Storefront site settings (SAPI 17b, #471) | `storefrontBrand` (with `brandReady`), `storefrontSeo`, `storefrontDomains` | `saveStorefrontBrand`, `saveStorefrontSeo`, `connectDomain`, `checkDomain`, `makeDomainPrimary`, `removeDomain` |
+| | *Built on #682: on `storefront`, `lastPublish` (`state` live, failed or rolled_back, `error`, `version` and `finishedAt`): the store's newest finished publish of kind design, manual or automatic, never a page render, read in the caller's scope under `storefront.read`, null before the first; one whose repair's build went live and was rolled back reads rolled back, with the check's code; `version` is the version it made live, null once failed or rolled back, since a rollback withdraws it (storefront LIVE-SHOP §4 step 10).* | |
 | | *Built on #318 (part 4): on `storefront`, `catalogue` (`waiting`, `since`, `changedKinds`, `changedProducts`, `pressesAllowed` and `pressesLeft`, null when unlimited, a press queued or running holding one, and `nextAutomaticPublishAt`) and `usage` (`ownKey`, this month's `aiRequests`, `aiTokens` and `aiPromptsUsed` of `aiPromptsAllowed`, `buildMinutes` with no plan limit to answer, `publishesLast30Days`, and the last five requests' `text`, `outcome` and `tokens`); `publishNow` (`publish`: `NOTHING_LIVE`, `NOTHING_WAITING`, `NO_PRESSES_LEFT`); `previewLink` (#317's `openStorefrontPreview`, renamed; a mutation, since it records who opened one) and `endPreviewLinks` (`publish`, Owner; refused to support and staff sessions; `storefront.preview_links_ended`).* | |
 | | *Built on #318 (part 3): `publishDesign` (`publish`: the draft's head through the full pipeline; answers the publish's id; `NOTHING_TO_PUBLISH`, `STUDIO_QUEUED`, `STUDIO_UNAVAILABLE`), `publishRun(id)` (`storefront.read`: `kind`, `state`, `step` (queued, checking, going_live, live, failed or rolled_back), `error`, `repairAttempts`, `buildMinutes`, `version`, `checks` (the full gate's, then the post-deploy ones, each `name`, `passed` and plain `words`), `bisectMessageId`; another store's id answers null), `publishBefore(messageId)` (the change bisect named only, `NOT_BISECTED`) and `goBackToVersion(number)` (`ALREADY_LIVE`, `PUBLISH_RUNNING`, `BUILD_GONE`, `NOT_FOUND`, and `SECURITY_RELEASE` for a version older than a security release of core, which is never undone). Once a design publish is live its theme reaches the repo as one commit; a refused one records `storefront.publish_refused` and pushes nothing.* | |
 | | *Built on #318 (part 2): `studioSession(session)` (`storefront.read`: `state` starting, queued with `place`, ready, busy or unavailable; `session`, the studio-session id; `frameUrl`, `https://{key}.<PREVIEW_DOMAIN>/__studio/{session}/`; `access` change for the Owner, view for a Manager; `expiresAt`; given a live `session` of the caller's it is renewed rather than a new one opened), `renewStudioSession(session)` (any signed-in person: the seat is re-checked and a refusal, a lost seat included, ends the session, `SESSION_ENDED`; unlogged, `studio_renewal`), `designChat(after)` (`storefront.read`, 50 a page, newest first: `role`, `text`, `changed`, `imageAssetId`, `sampleUrl`, `page`, `canUndo`, `undone`), `designText(page, locale)` (the page's words and the shared ones in one offered language, keyed `pages:home.lead`), and, all `publish` and refused to a support or staff session: `askDesign(text, imageAssetId, sampleUrl, page, device)` (answers `outcome` changed, unchanged, refused or failed, and the reply; `AI_BUDGET_REACHED` once the month's `ai_prompts` are used on a plan with AI, `AI_NOT_CONNECTED` without a key, `INVALID_IMAGE` for anything but the store's own image, `INVALID_URL` for an address that isn't public https, `SAMPLE_UNAVAILABLE`, `STUDIO_QUEUED`, `STUDIO_UNAVAILABLE`), `saveDesignText(locale, key, text)` (`INVALID_LANGUAGE`, `NOT_FOUND` for a key the theme doesn't hold, `CHANGE_REFUSED`), `undoDesignChange(messageId)` (the latest change only, `NOT_LATEST`) and `discardDraft` (`NOTHING_TO_DISCARD` without a live version). An error's text is `change_refused` or `change_failed`, a note's `undone` or `discarded`.* | |

@@ -23,6 +23,8 @@ export interface PlatformContextDeps {
   secrets: SecretBox | null
   // DripFunnel's Stripe account; null until its keys are Worker secrets (THIRD-PARTY-ACCESS §2.7).
   stripe: StripeApi | null
+  // The `pk_` the console's Stripe.js acts with (#278); absent while it is unset.
+  stripePublishableKey?: string | null
   edgeZone: string
   /** `*.localhost` partner domains, where the local DNS stand-in answers them (DNS_LOCAL). */
   localHosts?: boolean
@@ -32,7 +34,7 @@ export interface PlatformContextDeps {
 export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, localHosts = false, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, stripePublishableKey = null, localHosts = false, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -49,6 +51,6 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, stri
     reports: createPartnerReportsService(deps),
     // A partner user's own; no staff session reaches it (apis/platform/support.ts).
     support: caller.user && !caller.staff ? createPartnerSupportService({ ...deps, user: caller.user, secrets }) : null,
-    billing: createPartnerBillingService({ ...deps, stripe }),
+    billing: createPartnerBillingService({ ...deps, stripe, publishableKey: stripePublishableKey }),
   }
 }

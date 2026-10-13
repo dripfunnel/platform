@@ -9,7 +9,8 @@
   "tools": {
     "search": "Search",
     "account": "Account",
-    "cart": "Cart"
+    "cart": "Cart",
+    "cartCount": "Cart, {count, plural, one {# item} other {# items}}"
   },
   "footer": {
     "note": "Thank you for shopping with us.",

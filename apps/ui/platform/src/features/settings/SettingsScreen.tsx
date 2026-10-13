@@ -5,6 +5,7 @@ import { changeTeamRole, inviteTeamMember, loadMoreTeam, removeTeamMember, resen
 import { staffSession } from '../../api/staffSession'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
+import { billingAccess } from '../billing/loadBilling'
 import { CompanyTab } from './CompanyTab'
 import { PayoutTab } from './PayoutTab'
 import { SecurityTab } from './SecurityTab'
@@ -125,7 +126,18 @@ export const SettingsScreen = () => {
         {tab === 'team' && (
           <TeamTab team={members.items} role={me.role} session={session && session.state === 'open' ? session.kind : null} readOnly={readOnly} busy={busy} more={{ show: members.more, busy: moreState === 'busy', failed: moreState === 'failed' }} onRun={onRun} onMore={onMore} />
         )}
-        {tab === 'payout' && <PayoutTab setupSession={session?.kind === 'setup'} partner={me.partner.name} />}
+        {tab === 'payout' && (
+          <PayoutTab
+            staffSession={session !== null}
+            partner={me.partner.name}
+            denied={billingAccess(me.role).denied}
+            mayChange={(me.role === 'partner-owner' || me.role === 'partner-finance') && !readOnly}
+            country={data.company.country}
+            currency={data.company.contract?.feeCurrency ?? null}
+            forced={forced === 'notconnected' || forced === 'verifying' || forced === 'declined' ? forced : null}
+            onToast={setToast}
+          />
+        )}
         {tab === 'security' && <SecurityTab required={data.company.secondFactorRequired} team={members.items} complete={!members.more} blocked={session && session.state === 'open' && session.kind === 'impersonation' ? messages.settings.team.refusals.BLOCKED_WHILE_IMPERSONATING : null} isOwner={me.role === 'partner-owner' && !readOnly} busy={busy} session={session} onChange={onPolicy} />}
       </Settings>
       <Toast message={toast} onDone={clearToast} />

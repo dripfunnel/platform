@@ -215,9 +215,14 @@ page (`apps/sandbox/src/runtime/routes.ts`).
 
    *Why:* catalogue changes show in the preview at once, with no build, and a shared link
    exposes nothing a shopper couldn't already see, apart from the draft's design.
-6. **Checkout runs in each provider's test mode** (decided 2026-10-05 on #284). Whether express
-   wallets (Apple Pay, Google Pay) can show on `*.webpreview.store`, given their domain
-   registration, is open *(decide on #313)*.
+6. **Checkout runs in each provider's test mode** (decided 2026-10-05 on #284). **Express wallets
+   (Apple Pay, Google Pay) are hidden on `*.webpreview.store`** (decided 2026-10-13 with Gaurav on #313): a
+   preview's checkout offers cards and the provider's other test-mode methods, never a wallet; wallets show only
+   on a live shop, where the provider offers them.
+   *Why:* each wallet registers the domain it runs on, and a preview's is the shared preview domain, not the shop's.
+   **Built on #313:** core's Stripe adapter asks Stripe's Payment Element for Apple Pay and Google Pay (`'auto'`) only
+   when the render mode is `live`, and `'never'` here and in the studio frame; core's sealed payment element says it is
+   a test ("Test mode. No real payment is taken on this preview.", with Stripe's test card).
 
 ---
 
@@ -276,6 +281,7 @@ There is no per-store hostname fee.
   locally (decided 2026-10-09).
 - ~~Whether the consoles show a store's preview address.~~ They don't: a preview opens only
   through the merchant's signed link (decided 2026-10-09, #518).
-- Express wallets in preview *(decide on #313)*.
+- ~~Express wallets in preview~~ Hidden on `*.webpreview.store`, shown on live shops where the provider offers them
+  (decided 2026-10-13 on #313, §5 step 6).
 - ~~How long old preview folders are kept~~ Until the next publish goes live, then deleted bar the current one (decided on
   #317, §3).

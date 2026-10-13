@@ -35,7 +35,7 @@ export const defineTheme = (manifest: ThemeManifest): ThemeManifest => manifest
 /** The routes a manifest doesn't map yet. */
 export const missingRoutes = (manifest: ThemeManifest): CoreRoute[] => coreRoutes.filter((r) => !manifest.routes?.[r])
 
-export type RequiredPart = 'price' | 'consent' | 'preview' | 'legal' | 'powered'
+export type RequiredPart = 'price' | 'consent' | 'preview' | 'legal' | 'powered' | 'payment' | 'summary'
 
 /** `priced: false` is a page core gave no price to show, such as one built before the store's products reach the theme. */
 export type PageFacts = { preview: boolean; poweredBy: boolean; legal: boolean; priced?: boolean }
@@ -47,5 +47,6 @@ export const requiredParts = (route: CoreRoute, page: PageFacts): RequiredPart[]
   if (page.poweredBy) parts.push('powered')
   if (page.legal && (route === 'product' || route === 'checkout' || route === 'policy')) parts.push('legal')
   if (page.priced !== false && (route === 'product' || route === 'cart' || route === 'checkout')) parts.push('price')
+  if (page.priced !== false && route === 'checkout') parts.push('payment', 'summary')
   return parts
 }

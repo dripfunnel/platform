@@ -69,7 +69,7 @@ export const rebaseDraft = async (tx: ScopedSql, d: { storeId: string; head: str
   await tx`update design_draft set head_commit = ${d.head}, core_version = ${d.coreVersion}, commits = ${pgArray([d.head])}::text[], changed_at = ${d.at} where store_id = ${d.storeId}`
 }
 
-/** The partner's live portal host: the only page that may frame the studio (ARCHITECTURE §3.5 `frame-ancestors`). */
+/** The partner's live portal host: the only page that may frame the studio and the store's pages (ARCHITECTURE §3.5 `frame-ancestors`). */
 export const selectStudioPortalHost = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
   (
     await tx<{ host: string }[]>`

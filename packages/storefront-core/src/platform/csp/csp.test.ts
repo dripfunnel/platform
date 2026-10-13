@@ -33,6 +33,13 @@ describe('storeCsp', () => {
     expect(first).not.toMatch(/nonce|unsafe-inline|unsafe-eval|\*;|\s\*\s/)
   })
 
+  it('lets only the store’s portal frame it, and no page at all without one', () => {
+    expect(directive(storeCsp(store, none), 'frame-ancestors')).toBe("frame-ancestors 'none'")
+    expect(directive(storeCsp({ ...store, portalOrigin: 'https://shop.partner.com' }, none), 'frame-ancestors')).toBe('frame-ancestors https://shop.partner.com')
+    expect(() => storeCsp({ ...store, portalOrigin: 'https://shop.partner.com/app' }, none)).toThrow()
+    expect(() => storeCsp({ ...store, portalOrigin: 'http://shop.partner.com' }, none)).toThrow()
+  })
+
   it('refuses an origin with a path, plain http, or an unknown provider', () => {
     expect(() => storeCsp({ ...store, assetOrigin: 'https://assets.example.com/x' }, none)).toThrow()
     expect(() => storeCsp({ ...store, mediaOrigins: ['http://media.example.com'] }, none)).toThrow()

@@ -122,3 +122,101 @@ export const loadShareImages = async (): Promise<string[]> => {
   const photos = await query(`query P(${params}) { ${fields} }`, z.record(z.string(), z.object({ photos: z.array(z.object({ assetId: z.string().nullable() })).nullable() }).nullable()), Object.fromEntries(ids.map((id, i) => [`p${i}`, id])))
   return ids.map((_, i) => photos[`p${i}`]?.photos?.[0]?.assetId ?? null).filter((id): id is string => id !== null)
 }
+
+// The design itself (FIRST-RELEASE §19 "Built on #318"; apps/api/src/apis/store/storefront.ts and studio.ts).
+export const storefrontStatuses = ['not_started', 'creating', 'create_failed', 'not_published', 'same_as_live', 'unpublished_changes'] as const
+export type StorefrontStatus = (typeof storefrontStatuses)[number]
+
+const overviewSchema = z.object({
+  status: z.enum(storefrontStatuses),
+  template: text,
+  // `portalOrigin`: who the live home page lets frame it (storefront ARCHITECTURE §3.5), null for a build from before #680.
+  live: z.object({ number: z.number().int(), publishedAt: z.string(), template: text, portalOrigin: text }).nullable(),
+  draft: z.object({ template: z.string(), changedAt: text, previewReady: z.boolean() }).nullable(),
+  // The newest finished design or catalogue publish; `error` is the failed check's code (LOGGING's storefront.rolled_back).
+  lastPublish: z.object({ state: z.enum(['live', 'failed', 'rolled_back']), error: text, version: z.number().int().nullable(), finishedAt: z.string() }).nullable(),
+})
+export type StorefrontOverview = z.infer<typeof overviewSchema>
+
+export const loadOverview = async (): Promise<StorefrontOverview> =>
+  (await query('{ storefront { status template live { number publishedAt template portalOrigin } draft { template changedAt previewReady } lastPublish { state error version finishedAt } } }', z.object({ storefront: overviewSchema }))).storefront
+
+const templateSchema = z.object({ key: z.string(), name: z.string(), tag: z.string(), description: z.string(), demoUrl: text, current: z.boolean() })
+export type StorefrontTemplate = z.infer<typeof templateSchema>
+
+/** "Start from scratch" (`baseline`) first, then the six templates. */
+export const loadTemplates = async (): Promise<StorefrontTemplate[]> =>
+  (await query('{ storefrontTemplates { key name tag description demoUrl current } }', z.object({ storefrontTemplates: z.array(templateSchema) }))).storefrontTemplates
+
+export const scratchTemplate = 'baseline'
+
+/** The first choice starts making the store's site (`creating`); a later one changes the draft. Answers the new status. */
+export const chooseTemplate = async (key: string, keepWords: boolean): Promise<StorefrontStatus> =>
+  (await query('mutation T($key: String!, $keep: Boolean!) { chooseTemplate(key: $key, keepWords: $keep) }', z.object({ chooseTemplate: z.enum(storefrontStatuses) }), { key, keep: keepWords })).chooseTemplate
+
+export const discardDraft = async (): Promise<void> => {
+  await query('mutation { discardDraft }', z.object({ discardDraft: z.boolean() }))
+}
+
+/** Whether the plan keeps "Powered by" in the footer, and whether another plan removes it (the `billing` read, Owner only). */
+export const loadPoweredBy = async (): Promise<{ removed: boolean; removable: boolean }> => {
+  const plans = (await query('{ planCatalogue { current values { key enabled } } }', z.object({ planCatalogue: z.array(z.object({ current: z.boolean(), values: z.array(z.object({ key: z.string(), enabled: z.boolean().nullable() })) })).nullable() }))).planCatalogue ?? []
+  const removes = (plan: (typeof plans)[number]) => plan.values.some((v) => v.key === 'powered_by_removal' && v.enabled === true)
+  return { removed: plans.some((p) => p.current && removes(p)), removable: plans.some((p) => !p.current && removes(p)) }
+}
+
+const catalogueSchema = z.object({
+  waiting: z.boolean(),
+  since: text,
+  changedKinds: z.array(z.string()),
+  changedProducts: z.number().int(),
+  pressesAllowed: z.number().int().nullable(),
+  pressesLeft: z.number().int().nullable(),
+  nextAutomaticPublishAt: text,
+})
+const usageSchema = z.object({
+  ownKey: z.boolean(),
+  aiRequests: z.number().int(),
+  aiPromptsUsed: z.number().int(),
+  aiPromptsAllowed: z.number().int().nullable(),
+  buildMinutes: z.number().int(),
+  publishesLast30Days: z.number().int(),
+  recent: z.array(z.object({ id: z.string(), text: z.string(), createdAt: z.string() })),
+})
+const meterSchema = z.object({ catalogue: catalogueSchema, usage: usageSchema })
+/** Catalogue changes waiting for a publish, and this month's AI and build use (FIRST-RELEASE §19 "Built on #318 (part 4)"). */
+export type StorefrontMeters = z.infer<typeof meterSchema>
+
+export const loadMeters = async (): Promise<StorefrontMeters> =>
+  (
+    await query(
+      '{ storefront { catalogue { waiting since changedKinds changedProducts pressesAllowed pressesLeft nextAutomaticPublishAt } usage { ownKey aiRequests aiPromptsUsed aiPromptsAllowed buildMinutes publishesLast30Days recent { id text createdAt } } } }',
+      z.object({ storefront: meterSchema }),
+    )
+  ).storefront
+
+/** "Publish now": the live code rebuilt with the catalogue as it is, one of the month's presses; answers the publish's id. */
+export const publishNow = async (): Promise<string> => (await query('mutation { publishNow }', z.object({ publishNow: z.string() }))).publishNow
+
+const versionSchema = z.object({ id: z.string(), number: z.number().int(), template: z.string(), label: text, live: z.boolean(), publishedAt: z.string() })
+export type StorefrontVersion = z.infer<typeof versionSchema>
+
+/** The API's page of version history (apps/api saas/ai-designer `historyPage`); it answers no cursor, so a full page may have more. */
+export const historyPageSize = 50
+
+/** Version history, newest first, a page at a time before a version's number. */
+export const loadHistory = async (before: number | null): Promise<StorefrontVersion[]> =>
+  (await query('query H($before: Int) { storefront { history(before: $before) { id number template label live publishedAt } } }', z.object({ storefront: z.object({ history: z.array(versionSchema) }) }), { before })).storefront.history
+
+/** "Go back to this": the version's kept build goes live again, using no build minutes, and the draft becomes it. */
+export const goBackToVersion = async (number: number): Promise<void> => {
+  await query('mutation G($n: Int!) { goBackToVersion(number: $n) }', z.object({ goBackToVersion: z.boolean() }), { n: number })
+}
+
+/** A signed link to the draft on the store's preview host (PREVIEW §5), recorded as opened. */
+export const previewLink = async (): Promise<string> => (await query('mutation { previewLink }', z.object({ previewLink: z.string() }))).previewLink
+
+/** Every preview link and its cookies stop at their next request (PREVIEW §5 step 4). */
+export const endPreviewLinks = async (): Promise<void> => {
+  await query('mutation { endPreviewLinks }', z.object({ endPreviewLinks: z.boolean() }))
+}

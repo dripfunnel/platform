@@ -2,16 +2,21 @@ import type { ComponentType } from 'react'
 import { createRoot, hydrateRoot, type Root } from 'react-dom/client'
 import {
   connectHotReload,
+  connectStudioFrame,
   createI18n,
+  createTextKeys,
   createShopClient,
   loadStore,
   previewClosedCode,
   PreviewClosed,
   setRouterBase,
   ShopApiError,
+  guestShopState,
+  storedShopState,
   StorefrontProvider,
   studioBasePath,
   studioPagePath,
+  studioPortalOrigin,
   studioShopEndpoint,
   type Catalogue,
   type CoreRoute,
@@ -28,6 +33,8 @@ setRouterBase(base)
 let root: Root | null = null
 let store: Promise<ShopStoreSettings | null> | null = null
 let closed = false
+// The words the frame's current bundle shows, for Edit text (AI-STUDIO §8); a new bundle starts a new map.
+let shown = createTextKeys()
 
 // Once a preview's session ends, every page shows core's closed screen and no store data (PREVIEW §5 step 3).
 const close = () => {
@@ -37,7 +44,7 @@ const close = () => {
   root ??= createRoot(element)
   root.render(<PreviewClosed locale={document.documentElement.lang || 'en'} />)
 }
-const client = createShopClient({ ...(base ? { endpoint: studioShopEndpoint(base) } : {}), onError: (e) => (e.code === previewClosedCode ? close() : undefined) })
+const client = createShopClient({ ...(base ? { endpoint: studioShopEndpoint(base) } : {}), state: () => (base || !livePage() ? guestShopState() : storedShopState()), onError: (e) => (e.code === previewClosedCode ? close() : undefined) })
 
 const pageFor = (pages: ThemePages, path: string): ComponentType | undefined => {
   const found = routeAt(path, Object.keys(pages.custom))
@@ -56,7 +63,8 @@ const render = async (pages: ThemePages): Promise<void> => {
   if (closed || !settings || !Page) return
   root ??= createRoot(element)
   // The theme's keys are its own (`pages.home.title`), checked against content/** by the validator, not core's MessageKey.
-  const { t } = createI18n(settings.language, pages.content as Record<string, Catalogue>)
+  if (base) shown = createTextKeys()
+  const { t } = createI18n(settings.language, pages.content as Record<string, Catalogue>, base ? shown : undefined)
   root.render(
     <StorefrontProvider value={{ client, store: settings, locale: settings.language, t, mode: base ? 'studio' : 'preview', poweredBy: null }}>
       <Page />
@@ -93,6 +101,7 @@ export const boot = (pages: ThemePages): void => {
   if (live) return hydrate(pages, live)
   void render(pages)
   if (!base) return
+  connectStudioFrame({ base, portalOrigin: studioPortalOrigin(document), keyOf: (text) => shown.keyOf(text) })
   connectHotReload<ThemePages>({
     base,
     origin: location.origin,

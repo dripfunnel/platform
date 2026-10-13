@@ -4,6 +4,10 @@
 export const storefrontTabs = ['design', 'pages', 'journal', 'settings'] as const
 export type StorefrontTab = (typeof storefrontTabs)[number]
 
+/** Full-page views over the tabs: the gallery (Change template) and the studio. */
+export const storefrontViews = ['gallery', 'studio'] as const
+export type StorefrontView = (typeof storefrontViews)[number]
+
 export interface StorefrontAccess {
   canRead: boolean
   canEdit: boolean
@@ -13,7 +17,7 @@ export interface StorefrontAccess {
 
 export const storefrontAccessOf = (forced: string | null, acting: { permissions: readonly string[] }, readOnly: boolean): StorefrontAccess => {
   if (forced === 'denied') return { canRead: false, canEdit: false, notice: null }
-  if (forced === 'manager') return { canRead: true, canEdit: false, notice: 'manager' }
+  if (forced === 'manager' || forced === 'noSite') return { canRead: true, canEdit: false, notice: 'manager' }
   if (forced === 'readOnly') return { canRead: true, canEdit: false, notice: 'readOnly' }
   if (forced) return { canRead: true, canEdit: true, notice: null }
   const canRead = acting.permissions.includes('storefront.read')

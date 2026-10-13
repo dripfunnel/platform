@@ -49,6 +49,8 @@ export const storeCspSchema = z.strictObject({
   mediaOrigins: z.array(origin).max(5),
   analytics: z.array(z.enum(analyticsProviders)).max(3),
   payments: z.array(z.enum(paymentProviders)).max(5),
+  /** The store's portal, the only page that may frame its pages (the Overview, FIRST-RELEASE §14); absent, none may. */
+  portalOrigin: origin.optional(),
 })
 
 export type StoreCsp = z.infer<typeof storeCspSchema>
@@ -86,7 +88,7 @@ export const storeCsp = (input: StoreCsp, hashes: InlineHashes): string => {
     ['connect-src', ["'self'", ...from('connect')]],
     ['frame-src', from('frame').length ? from('frame') : ["'none'"]],
     ['form-action', ["'self'", ...from('form')]],
-    ['frame-ancestors', ["'none'"]],
+    ['frame-ancestors', [p.portalOrigin ?? "'none'"]],
     ['base-uri', ["'none'"]],
     ['object-src', ["'none'"]],
     ['require-trusted-types-for', ["'script'"]],

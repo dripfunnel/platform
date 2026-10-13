@@ -51,10 +51,11 @@ beforeAll(async () => {
   const names = `const MEDIA = '${media.origin}'; const OTHER = '${otherSite.origin}';`
   liveScript = `${names}
 import { installTrustedTypes } from '/core/platform/csp/trustedTypes'
-${probes(`installTrustedTypes({ analyticsHosts: ['www.googletagmanager.com'], buildOrigins: [location.origin] })
+${probes(`installTrustedTypes({ analyticsHosts: ['www.googletagmanager.com'], paymentHosts: ['js.stripe.com'], buildOrigins: [location.origin] })
 const script = document.createElement('script')
 try { script.src = OTHER + '/x.js'; out.otherScriptUrl = 'set' } catch { out.otherScriptUrl = 'refused' }
 try { script.src = 'https://www.googletagmanager.com/gtag/js?id=G-1'; out.analyticsScriptUrl = 'set' } catch { out.analyticsScriptUrl = 'refused' }
+try { script.src = 'https://js.stripe.com/v3'; out.paymentScriptUrl = 'set' } catch { out.paymentScriptUrl = 'refused' }
 try { trustedTypes.createPolicy('mine', { createHTML: (s) => s }); out.ownPolicy = 'made' } catch { out.ownPolicy = 'refused' }
 window.results = out`)}`
   studioScript = `${names}\n${probes(`parent.postMessage(out, '${portal.origin}')`)}`
@@ -87,7 +88,7 @@ describe("a store's CSP in a browser", () => {
 
   it("lets core's default policy take a script URL only on the store's analytics hosts, and no other policy be made", async () => {
     const { results } = await resultsAt(site.origin)
-    expect(results).toMatchObject({ otherScriptUrl: 'refused', analyticsScriptUrl: 'set', ownPolicy: 'refused' })
+    expect(results).toMatchObject({ otherScriptUrl: 'refused', analyticsScriptUrl: 'set', paymentScriptUrl: 'set', ownPolicy: 'refused' })
   })
 })
 
