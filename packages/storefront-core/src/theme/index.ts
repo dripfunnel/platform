@@ -1,4 +1,5 @@
 // What a theme may import (storefront ARCHITECTURE §3.4 "Imports"): core's hooks and components, never its internals.
+export { AddToCart, BuyNow } from '../cart/buttons'
 export { useCart, type Cart, type CartLine, type CartPage, type DeliveryOption, type LineProblem } from '../cart/cart'
 export { useCollection, useCollections, type CollectionCard, type CollectionPage } from '../collections/collections'
 export { useInView, useMediaQuery, usePointer, useReducedMotion, useScrollProgress } from '../platform/browser/hooks'

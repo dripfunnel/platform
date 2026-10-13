@@ -169,6 +169,8 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **`<OrderSummary>`** is sealed (part `summary`, at least 160×48 px): subtotal, each offer, delivery ("Chosen at
   checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too.
 - **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer.
+- **`<AddToCart>` and `<BuyNow>`** (part 2): the buttons a theme words and styles, `useCart`'s `add` and `buyNow` behind them,
+  marked `data-df-action` so the checkout smoke test finds them in any theme (§3.2's "add-to-cart that uses `useCart`").
 
 ### 2.2 The store repo
 
@@ -237,8 +239,10 @@ The six templates and "Start from scratch" live in this repo as complete startin
   details, accordions, related products), the policies, About, Contact and 404, each with its loading, empty, missing and
   failed states. The header draws the merchant's menu, and the footer the store's tagline, contact and social links.
   Contact shows the store's public contact details and no message form, since the Shop API has no operation for one; a
-  policy page names the policy and points to Contact, since the Shop API serves no policy text yet. The add-to-cart
-  button and the cart come with #313.
+  policy page names the policy and points to Contact, since the Shop API serves no policy text yet.
+- *Baseline's cart as built on #313 (part 2)*: the cart page (lines with their quantity steppers and Remove, the sealed
+  summary, the discount code, Checkout; loading, empty and failed states), Add to cart and Buy now on the product page, and
+  the count on the header's cart.
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
   origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
   testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the

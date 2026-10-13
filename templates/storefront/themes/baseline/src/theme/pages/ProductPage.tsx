@@ -1,4 +1,5 @@
 import { Breadcrumbs, LegalNotices, Link, Price, useProduct, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { BuyButtons } from '../components/interactive/BuyButtons'
 import { Gallery } from '../components/interactive/Gallery'
 import { Options } from '../components/interactive/Options'
 import { Retry } from '../components/interactive/Retry'
@@ -59,6 +60,7 @@ export const ProductPage = () => {
             <p className={styles.stock} role="status">
               {firstMissing ? t('shop.product.choose', { option: firstMissing.name }) : page.stock?.inStock ? t('shop.product.inStock') : t('shop.product.outOfStock')}
             </p>
+            <BuyButtons page={page} />
             {product.highlights.length ? (
               <ul className={styles.highlights}>
                 {product.highlights.map((h) => (
