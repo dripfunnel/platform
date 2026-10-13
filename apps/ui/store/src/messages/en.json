@@ -6552,6 +6552,7 @@
         "needsTitle": "Give it a title.",
         "needsSlug": "Give it a web address: letters, numbers and hyphens.",
         "seoTooLong": "Shorten the title or description in search to save.",
+        "needsDate": "This post already has a date and can’t go back to none. Pick a day.",
         "savedDraft": "Saved as a draft — not on your shop yet",
         "published": "Published. It goes live with your shop’s next publish.",
         "deleted": "Deleted",

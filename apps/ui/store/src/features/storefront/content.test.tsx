@@ -497,6 +497,44 @@ describe('the Journal', () => {
     expect(screen.getByRole('alert').textContent).toBe(e.refused.PLAN_LIMIT)
   })
 
+  it('holds Publish and Save while the cover uploads, then saves with it', async () => {
+    let finish: (r: { ok: true; assetId: string }) => void = () => undefined
+    upload.uploadPhoto.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    await show({ tab: 'journal', entry: 'new' })
+    fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'Notes' } })
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(e.addCover), { target: { files: [new File(['x'], 'cover.png', { type: 'image/png' })] } })
+    })
+    expect((screen.getByRole('button', { name: e.publish }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: e.draft }) as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => finish({ ok: true, assetId: '66666666-6666-4666-8666-666666666666' }))
+    fireEvent.click(screen.getByRole('button', { name: e.publish }))
+    await settle()
+    expect(content.saveContent.mock.calls[0]?.[3]).toMatchObject({ coverAssetId: '66666666-6666-4666-8666-666666666666' })
+  })
+
+  it('holds Publish while a photo block uploads', async () => {
+    upload.uploadPhoto.mockReturnValue(new Promise(() => undefined))
+    content.loadContentEntry.mockResolvedValue(faq)
+    await show({ entry: faq.id })
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(e.tools.image), { target: { files: [new File(['x'], 'p.png', { type: 'image/png' })] } })
+    })
+    expect((screen.getByRole('button', { name: e.update }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('keeps a dated post dated: emptying its day is refused next to the field, and nothing is saved', async () => {
+    content.loadContentEntry.mockResolvedValue(linen)
+    await show({ tab: 'journal', entry: linen.id })
+    const day = screen.getByLabelText(e.publishOn) as HTMLInputElement
+    fireEvent.change(day, { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: e.update }))
+    await settle()
+    expect(content.saveContent).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toBe(e.needsDate)
+    expect(day.getAttribute('aria-invalid')).toBe('true')
+  })
+
   it('takes the cover photo off a post', async () => {
     content.loadContentEntry.mockResolvedValue({ ...linen, coverAssetId: '66666666-6666-4666-8666-666666666666' })
     await show({ tab: 'journal', entry: linen.id })
