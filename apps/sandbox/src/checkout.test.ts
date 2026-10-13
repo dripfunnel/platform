@@ -25,6 +25,8 @@ const engine = ({ place, down = 0 }: { place?: (provider: string) => unknown; do
     if (r.query.includes('paymentOptions')) return { data: { paymentOptions: [{ provider: 'cod', kind: 'cod', instructions: null, mode: 'test', publicKey: null }, { provider: 'razorpay', kind: 'card', instructions: null, mode: 'test', publicKey: 'rzp_test_1' }, { provider: 'bank_transfer', kind: 'bank_transfer', instructions: 'Juniper & Co., IBAN TEST 0001', mode: 'test', publicKey: null }], store: { markets: [{ id: 'm', countries: ['US'] }] } } }
     if (r.query.includes('placeOrder')) return place ? place(String(v['provider'])) : { data: { placeOrder: { orderId: 'o-1', total: usd(3024), instructions: null, payment: null } } }
     if (r.query.includes('confirmPayment')) return { data: { confirmPayment: order } }
+    if (r.query.includes('applyGiftCard(')) return String(v['number']) === 'GC12345678' ? (Object.assign(cart, { giftCard: { applied: usd(1000), balance: usd(0), expiresAt: null, last4: '5678' }, amountDue: usd(2024) }), change('applyGiftCard')) : { errors: [{ message: 'no', extensions: { code: 'GIFT_CARD_INVALID' } }] }
+    if (r.query.includes('removeGiftCard')) return (Object.assign(cart, { giftCard: null, amountDue: cart['total'] }), change('removeGiftCard'))
     return basics(r)
   }
   return { cart, asked, answer }
@@ -217,6 +219,37 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
       await failed.page.getByRole('heading', { level: 1, name: 'Thank you' }).waitFor()
     } finally {
       await failed.context.close()
+    }
+  })
+
+  it('takes a gift card at the payment step: refuses a wrong number in words, shows what one takes off, and removes it', async () => {
+    const { context, page } = await ready(engine())
+    try {
+      await page.getByLabel('Gift card number').waitFor()
+      await page.getByLabel('Gift card number').fill('NOPE')
+      await page.getByRole('button', { name: 'Apply' }).click()
+      await page.getByText("That number doesn't match a gift card, or it can't be used here. Check it and try again.").waitFor()
+      await page.getByLabel('Gift card number').fill('GC12 3456 78')
+      await page.getByRole('button', { name: 'Apply' }).click()
+      await page.getByText('Your gift card ending 5678 is paying part of this order.').waitFor()
+      await page.getByRole('button', { name: 'Remove' }).click()
+      await page.getByLabel('Gift card number').waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  it('gives a paid order its downloads, licence keys and a gift card’s recipient', async () => {
+    const { context, page, errors } = await orderPage(() => ({ data: { confirmPayment: { ...placed, paymentState: 'paid', paymentMethod: 'stripe', paymentDueBy: null, lines: [{ name: 'Gift card', versionName: null, quantity: 1, unitPrice: usd(5000), lineTotal: usd(5000), gift: { recipientName: 'Asha', recipientEmail: 'asha@example.com', sendOn: null } }], downloads: [{ name: 'Pattern PDF', url: `${previewOrigin}/dl/abc`, usesLeft: 5, expiresAt: '2026-11-12T10:00:00.000Z' }], licenceKeys: [{ name: 'Font licence', key: 'AAAA-BBBB-CCCC' }] } } }))
+    try {
+      await page.getByRole('heading', { name: 'Your downloads' }).waitFor()
+      expect(await page.getByRole('link', { name: 'Download Pattern PDF' }).getAttribute('href')).toBe(`${previewOrigin}/dl/abc`)
+      await page.getByText(/5 downloads left, until Thursday, November 12/).waitFor()
+      await page.getByText('AAAA-BBBB-CCCC').waitFor()
+      await page.getByText("We've emailed the gift card to Asha, and sent you a copy.").waitFor()
+      expect(errors).toEqual([])
+    } finally {
+      await context.close()
     }
   })
 })

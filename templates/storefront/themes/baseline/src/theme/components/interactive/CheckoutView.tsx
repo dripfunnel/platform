@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { AddressFields, Choices, Form, Link, OrderSummary, PaymentElement, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, Choices, CodeField, Form, Link, OrderSummary, PaymentElement, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useCart, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
@@ -131,6 +131,7 @@ export const CheckoutView = () => {
     }
     if (id === 'payment') {
       return (
+        <>
         <Form className={styles.form} onSubmit={() => void c.review()}>
           {c.payments.length === 0 ? <p className={styles.note}>{t('shop.checkout.noPayment')}</p> : null}
           <Choices
@@ -153,6 +154,8 @@ export const CheckoutView = () => {
             {t('shop.checkout.continue')}
           </SubmitButton>
         </Form>
+        <GiftCard />
+        </>
       )
     }
     return (
@@ -219,5 +222,37 @@ export const CheckoutView = () => {
         </aside>
       </div>
     </section>
+  )
+}
+
+/** A gift card paying part of the order, as D1's payment step takes one: its number, then what it takes off, or why not. */
+const GiftCard = () => {
+  const { t } = useStorefront()
+  const cart = useCart()
+  const [refused, setRefused] = useState<string | null>(null)
+  const applied = cart.cart?.giftCard ?? null
+  if (applied) {
+    return (
+      <p className={styles.note}>
+        {applied.last4 ? t('shop.checkout.giftCardAppliedEnding', { last4: applied.last4 }) : t('shop.checkout.giftCardApplied')}{' '}
+        <button type="button" className={styles.change} onClick={() => void cart.removeGiftCard()}>
+          {t('shop.cart.remove')}
+        </button>
+      </p>
+    )
+  }
+  return (
+    <CodeField
+      label={t('shop.checkout.giftCard')}
+      button={t('shop.cart.apply')}
+      message={refused}
+      refused={refused !== null}
+      className={styles.giftCard}
+      onApply={async (number) => {
+        const worked = await cart.applyGiftCard(number)
+        setRefused(worked ? null : t('shop.checkout.giftCardRefused'))
+        return worked
+      }}
+    />
   )
 }

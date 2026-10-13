@@ -20,7 +20,7 @@ as customised by us, now removed from the workspace); §11 records what was take
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
-behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), and the baseline checkout and the checkout smoke test (#313 part 7); everything else below is to build.
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), and the baseline checkout and the checkout smoke test (#313 part 7), and gift cards, product kinds, downloads and licence keys (#324 part 1); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
@@ -158,7 +158,11 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **`useCart()`** in `./theme`: the Shop API's `cart` with its lines (the product's name, address, version, photo, unit
   price, line total, the offers' discount and what stops a line being bought), codes, offers, delivery, tax and totals, and
   `add`, `setQuantity`, `remove`, `applyCode`, `removeCode` and `buyNow`. One cart per page however many components show
-  it (the header's count, the cart page), read once in the browser and never in a static build.
+  it (the header's count, the cart page), read once in the browser and never in a static build. *Since #324:* a gift card
+  is added with its recipient (`add` and `buyNow` take `gift`: name, email, an optional message and send-on date), each
+  line carries its `gift`, and `applyGiftCard(number)` and `removeGiftCard()` let a gift card pay part of the cart: the
+  cart's `giftCard` says what it takes off, what is left on it and its last four digits, and `amountDue` what is left to
+  pay, both as the engine answers them.
 - **A change shows at once**: a line's new quantity and the count change before the engine answers, the line and the cart
   marked `pending`, their money the last answer's; the answer replaces them, and a refusal takes the change back and keeps
   its code in `error`. Changes go one at a time, in order. No amount is ever worked out in the browser.
@@ -175,6 +179,12 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   never lands over a newer change's answer.
 - **`<AddToCart>` and `<BuyNow>`** (part 2): the buttons a theme words and styles, `useCart`'s `add` and `buyNow` behind them,
   marked `data-df-action` so the checkout smoke test finds them in any theme (§3.2's "add-to-cart that uses `useCart`").
+  *Since #324:* `gift` passes a gift card's recipient, and `describedBy` names the words saying why a button is disabled.
+- **A product's kind** (#324): `useProduct`'s `kind` is a gift card (its expiry in months), a download (how many downloads
+  within how many days), a service (its duration and place) or physical, from the Shop API's `productType`. The sealed
+  `OrderSummary` shows a gift card's part, and for a cart "After the gift card" from the engine's `amountDue` (a placed
+  order shows the gift card's part only: the Shop API gives no amount due for it, and none is worked out in the browser). `useOrder` gives an order's
+  `giftCard`, `downloads` (its link, uses left and until when) and `licenceKeys`, and each line's gift recipient.
 
 *The checkout as built on #313 (part 3)* *(decided there)*:
 - **`useCheckout()`** in `./theme`: the steps contact → delivery address → delivery → payment → review, each `done`, `open`
@@ -321,6 +331,13 @@ The six templates and "Start from scratch" live in this repo as complete startin
   and number with Verified) and Addresses (Default, Make this my default, Remove, Add an address); an order at
   `/account/orders/{id}/` is the order page headed by its number. D1's Orders list, Messages, Gift cards, Downloads and
   Your data wait for the Shop API (and #324 for gift cards and downloads).
+- *Baseline's product kinds as built on #324 (part 1)*, from D1's "Product · gift card", "· download" and "· service": a
+  gift card's page asks for the recipient's name and email, an optional message (up to 200 characters) and a send-on date
+  with the card's expiry, and has one button, "Add gift card to cart", disabled with its reason until a name and a real
+  email are in; a download says how many downloads within how many days, a service its duration and place. A cart line
+  says who a gift card is for. Checkout's payment step takes a gift card's number (refused in words, then "Your gift card
+  ending …" and Remove). The order page lists the downloads (a link each, uses left and until when), the licence keys and
+  when each gift card is emailed.
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
   origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
   testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the

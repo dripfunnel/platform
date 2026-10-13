@@ -17,22 +17,24 @@ type Props = {
   onDone?: (worked: boolean) => void
   /** A gift card's recipient; the engine refuses a gift card without one. */
   gift?: GiftRecipient | null
+  /** The id of the words saying why it's disabled, for a screen reader. */
+  describedBy?: string | undefined
 }
 
-export const AddToCart = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift }: Props) => {
+export const AddToCart = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props) => {
   const cart = useCart()
   return (
-    <button type="button" className={className} data-df-action="add-to-cart" disabled={disabled || versionId === null} onClick={() => (versionId ? void cart.add(versionId, quantity, gift ?? undefined).then((worked) => onDone?.(worked)) : undefined)}>
+    <button type="button" className={className} data-df-action="add-to-cart" aria-describedby={describedBy} disabled={disabled || versionId === null} onClick={() => (versionId ? void cart.add(versionId, quantity, gift ?? undefined).then((worked) => onDone?.(worked)) : undefined)}>
       {children}
     </button>
   )
 }
 
 /** Adds the version, then opens checkout. */
-export const BuyNow = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift }: Props) => {
+export const BuyNow = ({ versionId, quantity = 1, disabled = false, className, children, onDone, gift, describedBy }: Props) => {
   const cart = useCart()
   return (
-    <button type="button" className={className} data-df-action="buy-now" disabled={disabled || versionId === null} onClick={() => (versionId ? void cart.buyNow(versionId, quantity, gift ?? undefined).then((worked) => onDone?.(worked)) : undefined)}>
+    <button type="button" className={className} data-df-action="buy-now" aria-describedby={describedBy} disabled={disabled || versionId === null} onClick={() => (versionId ? void cart.buyNow(versionId, quantity, gift ?? undefined).then((worked) => onDone?.(worked)) : undefined)}>
       {children}
     </button>
   )

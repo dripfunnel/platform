@@ -68,8 +68,10 @@ describe('OrderSummary', () => {
     expect(html).toContain('$36.00')
     const money = (n: number) => usd(n) as Order['total']
     const order: Order = { id: 'o-1', number: '1051', cancelled: false, payment: 'paid', method: 'stripe', instructions: null, payBy: null, delivery: null, placedAt: null, lines: [], subtotal: money(5600), discounts: [], shipping: null, tax: null, total: money(5600), giftCard: money(2000), downloads: [], licenceKeys: [] }
+    // A placed order shows what the gift card paid; the rest isn't given by the Shop API and isn't worked out in the browser.
     const placed = renderToStaticMarkup(<OrderSummary order={order} locale="en-US" t={t} />)
     expect(placed).toContain('>Gift card<')
-    expect(placed).toContain('$36.00')
+    expect(placed).toContain('−$20.00')
+    expect(placed).not.toContain('After the gift card')
   })
 })

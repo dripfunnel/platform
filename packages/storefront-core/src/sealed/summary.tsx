@@ -31,7 +31,8 @@ type Figures = {
   tax: { amount: Money; includesTax: boolean } | null
   total: Money
   /** A gift card's part of the total, and what is left after it. */
-  giftCard: { applied: Money; last4: string | null; rest: Money } | null
+  /** `rest`: what the engine says is left to pay (a cart's `amountDue`); a placed order has none, and no amount is worked out here. */
+  giftCard: { applied: Money; last4: string | null; rest: Money | null } | null
   estimated: boolean
   pending: boolean
 }
@@ -42,7 +43,7 @@ const figuresOf = (props: OrderSummaryProps): Figures => {
   if ('order' in props) {
     const o = props.order
     const lines = o.lines.map((l, i) => ({ key: String(i), photo: null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal }))
-    return { lines, subtotal: o.subtotal, discounts: o.discounts, delivery: o.shipping, tax: o.tax, total: o.total, giftCard: o.giftCard ? { applied: o.giftCard, last4: null, rest: { ...o.total, amount: String(BigInt(o.total.amount) - BigInt(o.giftCard.amount)) } as Money } : null, estimated: false, pending: false }
+    return { lines, subtotal: o.subtotal, discounts: o.discounts, delivery: o.shipping, tax: o.tax, total: o.total, giftCard: o.giftCard ? { applied: o.giftCard, last4: null, rest: null } : null, estimated: false, pending: false }
   }
   const { cart, at } = props
   const lines = at === 'checkout' ? cart.lines.map((l) => ({ key: l.versionId, photo: l.photo?.url ?? null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal })) : null
@@ -105,10 +106,12 @@ export const OrderSummary = (props: OrderSummaryProps) => {
                 <dt>{f.giftCard.last4 ? t('summary.giftCardEnding', { last4: f.giftCard.last4 }) : t('summary.giftCard')}</dt>
                 <dd>{t('summary.minus', { amount: money(f.giftCard.applied) })}</dd>
               </div>
-              <div part="total">
-                <dt>{t('summary.afterGiftCard')}</dt>
-                <dd>{money(f.giftCard.rest)}</dd>
-              </div>
+              {f.giftCard.rest ? (
+                <div part="total">
+                  <dt>{t('summary.afterGiftCard')}</dt>
+                  <dd>{money(f.giftCard.rest)}</dd>
+                </div>
+              ) : null}
             </>
           ) : null}
         </dl>

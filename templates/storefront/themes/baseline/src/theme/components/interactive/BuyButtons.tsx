@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { AddToCart, BuyNow, Link, TextField, useStorefront, type GiftRecipient, type ProductPage } from '@dripfunnel/storefront-core/theme'
 import shop from '../../styles/shop.module.css'
 import styles from '../../styles/product.module.css'
@@ -21,6 +21,8 @@ export const BuyButtons = ({ page }: { page: ProductPage }) => {
   const giftReady = gift.recipientName.trim() !== '' && emailLike.test(gift.recipientEmail.trim())
   const buyable = version !== null && version.stock.inStock && (!isGift || giftReady)
   const set = (patch: Partial<GiftRecipient>) => setGift({ ...gift, ...patch })
+  const why = useId()
+  const waitsForRecipient = isGift && !giftReady
   return (
     <div className={styles.buy}>
       {kind?.kind === 'digital' ? (
@@ -42,7 +44,12 @@ export const BuyButtons = ({ page }: { page: ProductPage }) => {
           />
         </div>
       ) : null}
-      <AddToCart versionId={version?.id ?? null} disabled={!buyable} gift={isGift ? gift : null} className={shop.primary} onDone={(added) => setNote(added ? 'added' : 'failed')}>
+      {waitsForRecipient ? (
+        <p id={why} className={styles.kindNote}>
+          {t('shop.product.gift.needed')}
+        </p>
+      ) : null}
+      <AddToCart versionId={version?.id ?? null} disabled={!buyable} gift={isGift ? gift : null} describedBy={waitsForRecipient ? why : undefined} className={shop.primary} onDone={(added) => setNote(added ? 'added' : 'failed')}>
         {isGift ? t('shop.product.gift.add') : t('shop.product.add')}
       </AddToCart>
       {isGift ? null : (
