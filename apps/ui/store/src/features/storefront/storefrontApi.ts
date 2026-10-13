@@ -1,4 +1,5 @@
-import { deleteContent, loadContentEntry, loadContentList, loadCustomPaths, saveContent } from '../../api/content'
+import { deleteContent, loadContentEntry, loadContentList, loadContentTranslation, loadCustomPaths, saveContent, saveContentTranslation } from '../../api/content'
+import { loadProductNames } from '../../api/offers'
 import { uploadPhoto } from '../../api/productEditor'
 import { checkDomain, chooseTemplate, connectDomain, discardDraft, endPreviewLinks, goBackToVersion, loadBrand, loadDomains, loadHistory, loadMeters, loadOverview, loadPoweredBy, loadSeo, loadShareImages, loadTemplates, makeDomainPrimary, previewLink, publishNow, removeDomain, saveBrand, saveSeo } from '../../api/storefront'
 import { ApiError } from '@dripfunnel/shared/graphql'
@@ -49,9 +50,12 @@ export interface StorefrontApi {
   loadContentEntry: typeof loadContentEntry
   saveContent: typeof saveContent
   deleteContent: typeof deleteContent
+  loadProductNames: typeof loadProductNames
+  loadContentTranslation: typeof loadContentTranslation
+  saveContentTranslation: typeof saveContentTranslation
 }
 
-export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadCustomPaths, loadContentEntry, saveContent, deleteContent }
+export const storeApi: StorefrontApi = { loadBrand, saveBrand, loadSeo, saveSeo, loadDomains, connectDomain, checkDomain, makeDomainPrimary, removeDomain, loadShareImages, uploadImage: uploadPhoto, loadOverview, loadTemplates, chooseTemplate, discardDraft, loadPoweredBy, loadStudioSession, renewStudioSession, loadDesignChat, askDesign, undoDesignChange, loadDesignText, saveDesignText, loadStudioPages, loadStudioLanguages, publishDesign, publishBefore, loadPublishRun, loadMeters, publishNow, loadHistory, goBackToVersion, previewLink, endPreviewLinks, loadContentList, loadCustomPaths, loadContentEntry, saveContent, deleteContent, loadProductNames, loadContentTranslation, saveContentTranslation }
 
 /** The harness's store: writes change the sample in memory, so a click-through behaves without a backend. */
 export const sampleApi = (state: StorefrontState): StorefrontApi => {

@@ -27,11 +27,12 @@ export interface ContentTabProps {
   onEntry: (entry: string | undefined) => void
   host: string | null
   shopName: string
+  contactEmail: string | null
   onToast: (text: string) => void
 }
 
-/** Storefront › Pages (StorefrontContent; FIRST-RELEASE §14): content pages and the AI's own pages, newest edit first. */
-export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host, shopName, onToast }: ContentTabProps) => {
+/** Storefront › Pages and Journal (StorefrontContent; FIRST-RELEASE §14): content pages with the AI's own, or posts. */
+export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host, shopName, contactEmail, onToast }: ContentTabProps) => {
   const [list, setList] = useState<List>({ kind: 'loading' })
   const latest = useRef(0)
   const load = useCallback(() => {
@@ -54,10 +55,15 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
     )
   }
 
-  const w = words.pages
+  const w = kind === 'page' ? words.pages : words.journal
   const metaOf = (r: ContentRow) => {
-    const edited = fill(w.edited, { date: formatTime(r.updatedAt) })
-    return r.inMenu ? fill(w.inMenu, { meta: edited }) : edited
+    if (kind === 'post') {
+      const date = formatTime(r.publishAt ?? r.updatedAt)
+      const when = r.status === 'scheduled' ? fill(words.journal.goesLive, { date }) : date
+      return r.author ? fill(words.journal.byline, { when, author: r.author }) : when
+    }
+    const edited = fill(words.pages.edited, { date: formatTime(r.updatedAt) })
+    return r.inMenu ? fill(words.pages.inMenu, { meta: edited }) : edited
   }
   // A reader has nothing to write, so `new` shows them the list.
   if (entry !== undefined && (canEdit || entry !== 'new')) {
@@ -70,8 +76,10 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
         canEdit={canEdit}
         host={host}
         shopName={shopName}
+        contactEmail={contactEmail}
         titleAt={(path) => rows.find((r) => r.path === path)?.title ?? null}
         onBack={() => onEntry(undefined)}
+        onToast={onToast}
         onDone={(text) => {
           onToast(text)
           onEntry(undefined)
@@ -120,14 +128,14 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
                 <span className="df-sfc-name">
                   <strong className="df-sfc-path">{path}</strong>
                 </span>
-                <span className="df-sf-tag">{w.ai}</span>
-                <span className="df-sfc-meta">{onStudio ? w.aiMeta : ''}</span>
+                <span className="df-sf-tag">{words.pages.ai}</span>
+                <span className="df-sfc-meta">{onStudio ? words.pages.aiMeta : ''}</span>
               </>
             )
             return (
               <li key={path}>
                 {onStudio ? (
-                  <button type="button" className="df-sfc-row" aria-label={fill(w.aiOpen, { path })} onClick={() => onStudio(path)}>
+                  <button type="button" className="df-sfc-row" aria-label={fill(words.pages.aiOpen, { path })} onClick={() => onStudio(path)}>
                     {inside}
                   </button>
                 ) : (

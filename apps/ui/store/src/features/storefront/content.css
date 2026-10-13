@@ -221,6 +221,7 @@ strong.df-sfc-path {
 }
 
 .df-sfc-tool {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -236,6 +237,24 @@ strong.df-sfc-path {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.df-sfc-tool:disabled,
+.df-sfc-tool[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.df-sfc-tool input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.df-sfc-tool:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
 }
 
 .df-sfc-block {
@@ -267,7 +286,8 @@ strong.df-sfc-path {
   gap: 4px;
 }
 
-.df-sfc-mini button {
+.df-sfc-mini button,
+.df-sfc-chips button {
   width: 28px;
   height: 28px;
   padding: 0;
@@ -284,7 +304,8 @@ strong.df-sfc-path {
   cursor: not-allowed;
 }
 
-.df-sfc-block textarea {
+.df-sfc-block :is(textarea, input:not([type='file'])),
+.df-sfc-question :is(textarea, input) {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -298,11 +319,11 @@ strong.df-sfc-path {
   resize: vertical;
 }
 
-.df-sfc-block textarea:read-only {
+.df-sfc-block :is(textarea, input):read-only {
   background: var(--df-color-page);
 }
 
-.df-sfc-block textarea:focus-visible {
+.df-sfc-block :is(textarea, input):focus-visible {
   outline: 2px solid var(--df-color-focus);
   outline-offset: 1px;
 }
@@ -310,6 +331,90 @@ strong.df-sfc-path {
 .df-sfc-block .df-sfc-heading {
   font-size: 18px;
   font-weight: 700;
+}
+
+.df-sfc-photo {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 120px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--df-color-neutral-surface);
+}
+
+.df-sfc-photo-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.df-sfc-block .df-sfc-photo input {
+  position: relative;
+  height: 34px;
+  margin: 8px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--df-radius-small);
+  background: color-mix(in srgb, var(--df-color-surface) 92%, transparent);
+  font-size: 13px;
+}
+
+.df-sfc-faq,
+.df-sfc-products {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.df-sfc-question {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--df-color-border);
+}
+
+.df-sfc-products .df-product-search {
+  align-self: stretch;
+}
+
+.df-sfc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-sfc-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 4px 0 10px;
+  border-radius: 15px;
+  background: var(--df-color-neutral-surface);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-sfc-chips button {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+}
+
+.df-sfc-form {
+  margin: 0;
+  color: var(--df-color-text);
+  font-size: 13px;
 }
 
 .df-sfc-google {
@@ -343,4 +448,55 @@ strong.df-sfc-path {
     position: sticky;
     top: 16px;
   }
+}
+
+.df-sfc-cover-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.df-sfc-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  height: 120px;
+  overflow: hidden;
+  border: 2px dashed var(--df-color-field-border);
+  border-radius: 10px;
+  background: var(--df-color-page);
+}
+
+.df-sfc-cover-pick {
+  position: relative;
+  padding: 6px 10px;
+  border-radius: var(--df-radius-small);
+  background: color-mix(in srgb, var(--df-color-surface) 92%, transparent);
+  color: var(--df-color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+label.df-sfc-cover-pick {
+  cursor: pointer;
+}
+
+.df-sfc-cover-pick input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.df-sfc-cover-pick:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-sfc-side .df-sf-field input {
+  box-sizing: border-box;
+  width: 100%;
 }

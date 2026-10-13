@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fill, messages } from '../../messages'
-import { cleanSlug, draftOf, draftProblem, inputOf, moveBlock, newBlock, pathOf, pathTakenText, slugShown } from './contentDraft'
+import { cleanSlug, draftOf, draftProblem, inputOf, moveBlock, newBlock, pathOf, pathTakenText, schedules, slugShown } from './contentDraft'
 
 const t = messages.storefront.content.taken
 const none = () => null
@@ -42,12 +42,32 @@ describe('the input', () => {
     expect(draftProblem({ ...draftOf(null), title: '!!!' })?.field).toBe('slug')
     expect(draftProblem({ ...draftOf(null), title: 'A', seoDescription: 'x'.repeat(161) })?.field).toBe('seo')
     expect(draftProblem({ ...draftOf(null), title: 'A' })).toBeNull()
+    const dated = { ...draftOf(null, 'post'), title: 'A', publishAt: '2026-09-14T09:00:00.000Z', publishDate: '' }
+    expect(draftProblem(dated)?.field).toBe('date')
+    expect(draftProblem({ ...dated, publishAt: null })).toBeNull()
   })
 
   it('moves a block one place', () => {
     const [a, b, c] = [newBlock('heading'), newBlock('text'), newBlock('form')]
     expect(moveBlock([a, b, c], 2, -1).map((x) => x.kind)).toEqual(['heading', 'form', 'text'])
     expect(moveBlock([a, b, c], 0, 1).map((x) => x.kind)).toEqual(['text', 'heading', 'form'])
+  })
+})
+
+describe('a post’s day', () => {
+  it('schedules only a day after today in UTC', () => {
+    const now = new Date('2026-10-13T23:30:00Z')
+    expect(schedules({ publishDate: '2026-10-14' }, now)).toBe(true)
+    expect(schedules({ publishDate: '2026-10-13' }, now)).toBe(false)
+    expect(schedules({ publishDate: '' }, now)).toBe(false)
+  })
+
+  it('sends the instant read while the day is unchanged, a picked day’s start otherwise, and nothing while empty', () => {
+    const draft = { ...draftOf(null, 'post'), title: 'Notes', publishAt: '2026-09-14T09:00:00.000Z', publishDate: '2026-09-14' }
+    expect(inputOf('post', draft, true).publishAt).toBe('2026-09-14T09:00:00.000Z')
+    expect(inputOf('post', { ...draft, publishDate: '2026-09-20' }, true).publishAt).toBe('2026-09-20T00:00:00.000Z')
+    expect(inputOf('post', { ...draft, publishDate: '' }, true)).not.toHaveProperty('publishAt')
+    expect(inputOf('post', draft, true)).not.toHaveProperty('inMenu')
   })
 })
 

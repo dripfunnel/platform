@@ -220,10 +220,12 @@ export const StorefrontPage = () => {
           onEntry={goEntry}
           host={host}
           shopName={brand?.shopName ?? acting.store.name}
+          contactEmail={brand?.contactEmail ?? null}
           onToast={setToast}
         />
       )
-    if (tab === 'journal') return <EmptyState title={words.journal.title} body={words.journal.body} />
+    if (tab === 'journal')
+      return <ContentTab kind="post" api={api} canEdit={access.canEdit} onStudio={null} entry={entry} onEntry={goEntry} host={host} shopName={brand?.shopName ?? acting.store.name} contactEmail={null} onToast={setToast} />
     if (tab === 'settings')
       return (
         <SiteSettingsTab

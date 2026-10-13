@@ -153,9 +153,10 @@ describe('storefront', () => {
     expect(screen.getByRole('tab', { name: words.tabs.design }).getAttribute('aria-selected')).toBe('true')
   })
 
-  it('shows Journal as an empty state until its screens are built', async () => {
+  it('shows the Journal tab', async () => {
     await show({ tab: 'journal' })
-    expect(screen.getByRole('heading', { name: words.journal.title })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: words.content.journal.title })).toBeTruthy()
+    expect(content.loadContentList).toHaveBeenCalledWith('post', null)
   })
 })
 
