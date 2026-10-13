@@ -490,7 +490,40 @@ describe('the Journal', () => {
     fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'Notes' } })
     fireEvent.click(screen.getByRole('button', { name: e.draft }))
     await settle()
+    expect(screen.getByRole('alert').textContent).toBe(j.planLimit)
+  })
+
+  it('names the plan in general, not the Journal, when a page is refused for it', async () => {
+    content.saveContent.mockRejectedValue(new ApiError('PLAN_LIMIT', 'plan', {}))
+    await show({ entry: 'new' })
+    fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'Notes' } })
+    fireEvent.click(screen.getByRole('button', { name: e.draft }))
+    await settle()
     expect(screen.getByRole('alert').textContent).toBe(e.refused.PLAN_LIMIT)
+  })
+
+  it('takes the cover photo off a post', async () => {
+    content.loadContentEntry.mockResolvedValue({ ...linen, coverAssetId: '66666666-6666-4666-8666-666666666666' })
+    await show({ tab: 'journal', entry: linen.id })
+    fireEvent.click(screen.getByRole('button', { name: e.removeCover }))
+    expect(screen.getByLabelText(e.addCover)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: e.update }))
+    await settle()
+    expect(content.saveContent.mock.calls[0]?.[3]).toMatchObject({ coverAssetId: null })
+  })
+
+  it('is read-only for a Manager: no new post, no cover picker and no buttons', async () => {
+    content.loadContentList.mockResolvedValue({ rows: [postRow()], next: null })
+    await show({ acting: manager, tab: 'journal' })
+    expect(screen.queryByRole('button', { name: j.add })).toBeNull()
+    cleanup()
+    content.loadContentEntry.mockResolvedValue(linen)
+    await show({ acting: manager, tab: 'journal', entry: linen.id })
+    expect((screen.getByLabelText(e.publishOn) as HTMLInputElement).readOnly).toBe(true)
+    expect((screen.getByRole('textbox', { name: e.author }) as HTMLInputElement).readOnly).toBe(true)
+    expect(screen.getByText(e.noCover)).toBeTruthy()
+    expect(screen.queryByLabelText(e.addCover)).toBeNull()
+    for (const name of [e.schedule, e.update, e.publish, e.draft, j.delete]) expect(screen.queryByRole('button', { name })).toBeNull()
   })
 
   it('deletes a post after restating what happens', async () => {
