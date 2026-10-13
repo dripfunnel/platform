@@ -2,8 +2,9 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import postgres from 'postgres'
 import { z } from 'zod'
-import { markImageDeleted, selectImagesToDelete } from '#db/scoped/coreReleases'
+import { selectImagesToDelete } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
+import { recordImageDeleted } from '#saas/fleet/index'
 import { assertLocalHost } from '../migrate/host-guard'
 import { deleteRetiredImages, stderrOf } from './delete-images'
 
@@ -23,7 +24,7 @@ try {
       })
       process.stdout.write(stdout)
     },
-    markDeleted: (version) => withSystemScope(sql, (tx) => markImageDeleted(tx, version, new Date())),
+    markDeleted: (version) => withSystemScope(sql, (tx) => recordImageDeleted(tx, version, new Date())),
   })
   for (const version of deleted) console.log(`storefront-build:${version} deleted from Cloudflare's registry.`)
   for (const version of failed) console.error(`storefront-build:${version} could not be deleted; it is tried again on the next run.`)

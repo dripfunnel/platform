@@ -2,5 +2,5 @@ export { baselineTemplateEmail, runStoreUpgrade, storefrontUpgradeKind, storefro
 export { createFleetService, fleetAudit, type FleetRefusal, type FleetResult, type FleetService, type RolloutView } from './admin'
 export { advanceRollouts, defaultActionsJobs, revertBatch, rolloutCapacity } from './rollout'
 export { canaryStores, wavePercents } from './waves'
-export { imageBudget, keptImages, retireCoreImages, type Retirement } from './retire'
+export { imageBudget, keptImages, recordImageDeleted, retireCoreImages, type Retirement } from './retire'
 export { pushUpgrade, upgradePushParams, type UpgradePushParams } from './push'

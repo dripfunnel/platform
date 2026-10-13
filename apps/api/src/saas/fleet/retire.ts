@@ -1,8 +1,9 @@
 import type postgres from 'postgres'
+import type { ActivityEntry } from '#auth/activity'
 import { logEvent } from '#core/log'
-import { retireRelease, selectReleaseUse } from '#db/scoped/coreReleases'
+import { markImageDeleted, retireRelease, selectReleaseUse } from '#db/scoped/coreReleases'
 import { hasRolloutActiveOrTo, insertRollout } from '#db/scoped/coreRollouts'
-import { withSystemScope } from '#db/scoped/index'
+import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 
 // The retirement of old core images (storefront AI-STUDIO §9, decided on #485): the account holds about 25 of them, so
@@ -14,6 +15,23 @@ export const keptImages = 20
 export const imageBudget = 25
 
 /** `kept`: versions not retired; `held`: images still in the registry, a retired one counting until it is deleted. */
+const job = (actorId: string, actorLabel: string) => ({ category: 'system', result: 'success', actorKind: 'job', actorId, actorLabel, partnerId: null, storeId: null, api: 'system', requestId: null, ip: null, userAgent: null, visibility: 'staff' }) as const
+
+/** A version's studio image leaves (staff only, LOGGING §4): the job retires it, then the workflow deletes it. */
+const releaseEntry = (version: string, action: string, field: string, after: string, by: ReturnType<typeof job>): ActivityEntry => ({
+  ...by,
+  action,
+  target: { type: 'core_release', id: version, label: version },
+  changes: [{ field, before: null, after }],
+  reason: 'retire_images',
+})
+
+/** `retire-images.yml`'s record of an image it deleted from Cloudflare's registry, which can't be undone. */
+export const recordImageDeleted = async (tx: ScopedSql, version: string, at: Date): Promise<void> => {
+  await markImageDeleted(tx, version, at)
+  await activityLog.record(tx, releaseEntry(version, 'core_release.image_deleted', 'image_deleted_at', at.toISOString(), job('retire-images', 'Core image deletion')))
+}
+
 export type Retirement = { retired: string[]; rolloutId: string | null; kept: number; held: number }
 
 /**
@@ -30,6 +48,7 @@ export const retireCoreImages = (sql: postgres.Sql, now: Date): Promise<Retireme
       if (release.stores > 0) movable ||= release.movable > 0
       else {
         await retireRelease(tx, release.version, now)
+        await activityLog.record(tx, releaseEntry(release.version, 'core_release.retired', 'retired_at', now.toISOString(), job('core-images', 'Core image retirement')))
         retired.push(release.version)
       }
     }

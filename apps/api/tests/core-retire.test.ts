@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { recordCoreRelease, selectImagesToDelete, selectSandboxImage, markImageDeleted } from '#db/scoped/coreReleases'
+import { recordCoreRelease, selectImagesToDelete, selectSandboxImage } from '#db/scoped/coreReleases'
 import { withSystemScope } from '#db/scoped/index'
-import { imageBudget, keptImages, retireCoreImages } from '#saas/fleet/index'
+import { imageBudget, keptImages, recordImageDeleted, retireCoreImages } from '#saas/fleet/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -45,6 +45,8 @@ describe('the retirement of old core images', () => {
     expect(first.retired).toEqual([version(2)])
     expect(first).toMatchObject({ kept: 22, held: 23 })
     expect(await withSystemScope(db.sql, (tx) => selectSandboxImage(tx, version(2)))).toBeNull()
+    const retiredEntries = await db.sql<{ target_id: string; actor_kind: string; actor_id: string; reason: string; visibility: string }[]>`select target_id, actor_kind, actor_id, reason, visibility from activity_log where action = 'core_release.retired'`
+    expect(retiredEntries).toEqual([{ target_id: version(2), actor_kind: 'job', actor_id: 'core-images', reason: 'retire_images', visibility: 'staff' }])
     expect(await withSystemScope(db.sql, (tx) => selectSandboxImage(tx, version(0)))).toBe(image(1))
     const [rollout] = await db.sql<{ version: string; started_by: string | null; state: string }[]>`select version, started_by, state from core_rollout where id = ${first.rolloutId ?? ''}`
     expect(rollout).toEqual({ version: version(22), started_by: null, state: 'canary' })
@@ -64,8 +66,11 @@ describe('the retirement of old core images', () => {
     // Retired, but in the registry until the workflow deletes them.
     expect(done).toMatchObject({ kept: 20, held: 23 })
     expect(await withSystemScope(db.sql, selectImagesToDelete)).toEqual(expect.arrayContaining([version(0), version(1), version(2)]))
-    await withSystemScope(db.sql, (tx) => markImageDeleted(tx, version(2), new Date()))
+    await withSystemScope(db.sql, (tx) => recordImageDeleted(tx, version(2), new Date()))
     expect(await withSystemScope(db.sql, selectImagesToDelete)).not.toContain(version(2))
+    const deletedEntries = await db.sql<{ target_id: string; actor_id: string; reason: string }[]>`select target_id, actor_id, reason from activity_log where action = 'core_release.image_deleted'`
+    expect(deletedEntries).toEqual([{ target_id: version(2), actor_id: 'retire-images', reason: 'retire_images' }])
+    expect(await db.sql`select 1 from activity_log where action = 'core_release.retired'`).toHaveLength(3)
     // The newest twenty are never retired, whatever uses them.
     expect(await db.sql`select 1 from core_release where retired_at is not null and string_to_array(version, '.')::int[] >= '{1,3,0}'::int[]`).toHaveLength(0)
   })
