@@ -6482,7 +6482,8 @@
         "delete": "Delete post",
         "deleteTitle": "Delete “{title}”?",
         "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
-        "notFound": "This post isn’t here any more."
+        "notFound": "This post isn’t here any more.",
+        "planLimit": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts."
       },
       "editor": {
         "loading": "Loading the page",
@@ -6561,7 +6562,7 @@
           "READ_ONLY": "Your store is view-only until the payment goes through.",
           "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
           "FORBIDDEN": "Only the store owner can change the storefront.",
-          "PLAN_LIMIT": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts.",
+          "PLAN_LIMIT": "Your plan doesn’t include this. Check your plan in Billing.",
           "other": "That didn’t save. Check your connection and try again."
         },
         "deleteRefused": {

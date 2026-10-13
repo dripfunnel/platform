@@ -107,6 +107,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
         const path = typeof error.details['path'] === 'string' ? error.details['path'] : pathOf(kind, slug)
         setProblem({ field: 'slug', text: pathTakenText({ path, heldBy: String(error.details['heldBy'] ?? '') }, titleAt) })
       } else if (isApiError(error) && error.code === 'INVALID_INPUT' && error.details['field'] === 'slug') setProblem({ field: 'slug', text: words.needsSlug })
+      else if (kind === 'post' && isApiError(error) && error.code === 'PLAN_LIMIT') setProblem({ field: 'form', text: all.journal.planLimit })
       else setProblem({ field: 'form', text: refusalIn(words.refused)(error) })
       setBusy(null)
     }
