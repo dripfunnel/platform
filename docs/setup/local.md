@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -20,6 +20,7 @@ This page is the order to do things in.
 | Merchant portal (`apps/ui/store`), one per partner | `https://store.<partner>.localhost` with `pnpm dev:https` (e.g. `https://store.northstar.localhost`); `http://localhost:5173?as=owner` for the sample harness only | Vite, behind Caddy |
 | Partner console (`apps/ui/platform`) | `http://localhost:5174`, or `https://platform.localhost` with `pnpm dev:https` | Vite |
 | Admin console (`apps/ui/admin`) | `http://localhost:5175`, or `https://admin.localhost` with `pnpm dev:https` | Vite |
+| Merchant mobile app (`apps/ui/mobile-app/merchant`) | Expo's dev server on port 8081, opened on an emulator, a simulator or a phone (§6.2); not part of `pnpm dev` | `pnpm dev:mobile` |
 | Postgres 18 | `localhost:5432` (or the port you choose) | Homebrew, apt or the Windows installer |
 | R2, rate limiters, version metadata | inside `wrangler dev` | Wrangler's local simulation |
 
@@ -237,6 +238,33 @@ curl -H "host: admin.localhost" -H "cf-connecting-ip: 127.0.0.1" http://localhos
 
 `/api/health` is per API host; a request without `cf-connecting-ip` gets 400 by design.
 `dbLatencyMs` is how long the database check took, and is present only when `db` is `"ok"`.
+
+### 6.2 Run the mobile app
+
+The merchant mobile app (`apps/ui/mobile-app/merchant`) isn't part of `pnpm dev` or `pnpm dev:https`:
+it starts on its own, after `pnpm install`.
+
+```bash
+cp apps/ui/mobile-app/merchant/.env.example apps/ui/mobile-app/merchant/.env.local   # once; holds PARTNER_KEY=dev
+pnpm dev:mobile                                                                      # Expo's dev server (Metro)
+```
+
+`PARTNER_KEY` picks `partners/<PARTNER_KEY>.env`, and `app.config.ts` stops with the variable named
+when that file is missing, or a value in it is missing or malformed
+([mobile-app/merchant/CONFIGURATION.md](../mobile-app/merchant/CONFIGURATION.md) §2). Then open it
+on one of these, from Expo's terminal:
+
+| On | How |
+|---|---|
+| **Android emulator** | Install Android Studio and make a virtual device, start it, then press `a` (or `pnpm --filter @dripfunnel/mobile-merchant android`) |
+| **iOS simulator** | Mac only: Xcode and its simulator, then press `i` |
+| **A real phone with Expo Go** | Install Expo Go from the store, put the phone on the same network, and scan the QR code |
+| **A real phone with a development build** | `pnpm --filter @dripfunnel/mobile-merchant exec eas build --profile dev` (needs an Expo account; the first run asks to link the project), install the build, then open it from the QR code |
+
+The `dev` partner points the app at `https://dev-store.dripfunnel.ai/api/`, the one exception to
+using only a local database (AGENTS.md "Working with the user" rule 3). The app makes no API call
+yet. Cloudflare Access gates that host, so its calls are refused there until that is solved on its
+own card (CONFIGURATION.md §2).
 
 ---
 

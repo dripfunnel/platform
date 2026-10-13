@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
+Last updated: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
 Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
@@ -21,6 +21,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 | **Five kinds of user and their hostnames**: Admin on `admin.dripfunnel.com`; Partners on `platform.dripfunnel.com`; merchants and vendors on each partner's own portal host; customers on merchants' domains. Full detail in [USERS-AND-DOMAINS.md](USERS-AND-DOMAINS.md) | Per-partner consoles; one shared merchant portal host; Admin and Partners in one console | Partners are our customers and use one console we own; merchants see only their partner's brand. Staff get their own console and host, so an Admin screen or endpoint can never be reached from a partner session, and Cloudflare Access can guard the whole admin host. |
 | **One repo, `dripfunnel/platform`**, for every app, the storefront package and template, and all docs | Four repos (packages, store, admin, template) | One schema and one migration history for one database; an AI agent (or a person) can follow a change from table to API to screen and make it in one pull request; one copy of the rules. Generated **store repos** stay separate by design. |
 | **Four apps**: `api` (one Worker) and three SPAs in `apps/ui/`: `store`, `platform` and `admin` | Five API Workers; a package per concern | Fewest moving parts: one API deploy, one config, one set of bindings, no wiring copied between Workers. The modules inside `api` stay separate, so splitting a Worker out later is cheap. |
+| **The merchant mobile app is a React Native (Expo) project in this repo**, `apps/ui/mobile-app/merchant`, inside the pnpm workspace and the turbo gates (`typecheck`, `lint`, `test`; no `build`). Its builds and store submissions are manual, per partner (decided 2026-10-08 on #490; set up on #496) | A separate mobile repo; building and submitting it from the `dev` and `prod` pipelines | One repo is the rule above: a change can go from the GraphQL schema to a mobile screen in one pull request. Every submission goes through Apple's and Google's review, so a person decides when each partner's app ships ([mobile-app/merchant/](mobile-app/merchant/REACT-NATIVE.md)). |
 | **One API Worker** serves the Store, Platform, Admin and Shop APIs, webhooks, queues, Cron and Workflows, choosing by hostname and path (§2) | A Worker per API | Simpler. Its costs are covered: a bad deploy is limited by manual promotion and instant rollback, and a hostname guard with a test keeps each API off hosts it doesn't belong on. |
 | **Only code the AI could reach is a published package**: `@dripfunnel/storefront-core`, installed by store repos | Publishing shared internal code | Store repos are the only code outside this repo, and the AI writes their themes (storefront/ARCHITECTURE.md §1). The core they run must be versioned and outside the files the AI may change. Our own apps ship from one commit and need no versions. |
 | **AI changes run in Cloudflare Containers** (`apps/sandbox`'s image), each store's held by a Durable Object in the API Worker (decided 2026-10-08 on #470). **Storefront builds run in each store's public repo on GitHub Actions**, inside the same image published publicly on `ghcr.io`, with no secret in any repo (decided 2026-10-09 with Gaurav) | GitHub Actions for AI changes (decided 2026-10-05 on #284); builds in Containers (2026-10-08, replaced); a third-party sandbox | Workers can't run a build. Containers give each studio its own machine in seconds, next to R2 and the Worker, with no network and no credential (storefront/AI-STUDIO.md). Builds cost nothing on public repos and upload through 15-minute credentials the API mints after a GitHub OIDC check (storefront/LIVE-SHOP.md §1). |
@@ -49,6 +50,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
 | `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |
+| `apps/ui/mobile-app/merchant` | **Mobile app** (Expo; iOS and Android), one build per partner, built and submitted by hand, never by the pipelines (§6) | Merchants and vendors on their phones, in the partner's look; it calls `/api/` on the partner's portal host with a bearer token ([mobile-app/merchant/REACT-NATIVE.md](mobile-app/merchant/REACT-NATIVE.md) §5) | none of its own: the partner's portal host |
 | `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every storefront runs on, with the validator and gate suites. Store repos never install it: they pin a version, and the sandbox image for that version has it preinstalled (code/ARCHITECTURE.md §5) | none |
 | `apps/sandbox` | **Container image**, one per core version: run in Cloudflare Containers by the API Worker's `StudioSession` Durable Object, and published publicly on `ghcr.io` for store repos' builds | A store's studio session (applying the AI's changes, the fast gate, the live frame) and, inside each store repo's workflow, every storefront build; Node, not the Workers runtime; no network, no credential | none |
 | Store repos | **Public** GitHub repo per store, holding its published theme and one locked workflow that builds it inside `apps/sandbox`'s image (storefront/LIVE-SHOP.md §3–§4) | The store's live static build, uploaded to R2 and served by the edge Worker; its preview comes from the studio (storefront/PREVIEW.md) | `{shop}.shops.<partnerdomain>`; the merchant's own domain; preview on `{key}.webpreview.store` |
@@ -96,6 +98,8 @@ platform/
       platform/             Pages SPA: Partners
       admin/                Pages SPA: DripFunnel staff (Admin)
       shared/               only code more than one SPA uses
+      mobile-app/
+        merchant/           Expo app: merchants and vendors on iOS and Android; shares no code with the SPAs
     sandbox/                the container image for studio sessions and storefront builds
   packages/
     storefront-core/        the ONLY published package
@@ -115,6 +119,8 @@ platform/
       platform/             README.md, CLAUDE-DESIGN-PROMPT.md
       store/                README.md, DESIGN-BRIEF.md, CATALOG-DESIGN.md, OFFERS-DESIGN.md
       shared/               README.md
+    mobile-app/             merchant/: the merchant mobile app (REACT-NATIVE.md, ARCHITECTURE.md,
+                            DESIGN.md, CONFIGURATION.md, BUILDS-AND-STORE-ACCOUNTS.md, and more)
     code/                   ARCHITECTURE.md, DESIGN.md: repo-wide decisions and conventions
     storefront/             ARCHITECTURE.md, DESIGN.md: storefront template and AI design
   .github/workflows/        ci.yml (review, gates, naming in turn), naming.yml,
@@ -135,10 +141,12 @@ customers use; a **store repo** is one merchant's generated storefront. "Merchan
 "platform console" and "admin console" in the docs mean `apps/ui/store`, `apps/ui/platform`
 and `apps/ui/admin`.
 
-**Planned: the merchant mobile app**, at `apps/ui/mobile-app/merchant` (decided 2026-10-08 on
-#490, [mobile-app/merchant/](mobile-app/merchant/REACT-NATIVE.md)). It isn't in §1–§3 yet;
-those change in the pull request that sets the app up. Its builds and store submissions are
-manual, so the `dev` and `prod` pipelines (§6) never deploy it.
+**The merchant mobile app** (`apps/ui/mobile-app/merchant`, package `@dripfunnel/mobile-merchant`,
+[mobile-app/merchant/](mobile-app/merchant/REACT-NATIVE.md)) is set up and holds placeholder
+screens only (#496). Its folder layout is in
+[mobile-app/merchant/ARCHITECTURE.md](mobile-app/merchant/ARCHITECTURE.md) §3. Its builds and
+store submissions are manual, so the `dev` and `prod` pipelines (§6) never deploy it. Its dev
+script is `start`, not `dev`, so `pnpm dev` doesn't start Metro; `pnpm dev:mobile` does.
 
 ---
 

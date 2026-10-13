@@ -71,7 +71,7 @@ docs/
     store/OFFERS-DESIGN.md  design prompt: offers in depth
     shared/README.md        guide: @dripfunnel/shared, what belongs in it
   mobile-app/
-    merchant/               the merchant mobile app (apps/ui/mobile-app/merchant, planned):
+    merchant/               the merchant mobile app (apps/ui/mobile-app/merchant, set up with placeholder screens):
       REACT-NATIVE.md         React Native with Expo, native sign-in, Intl on Hermes, the SDK policy
       BUILDS-AND-STORE-ACCOUNTS.md  one build and one developer account per partner, and the store rules behind it
       FIRST-RELEASE.md        what the first release contains; no Billing or in-app purchase in the app

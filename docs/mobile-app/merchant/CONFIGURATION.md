@@ -4,9 +4,10 @@ Every value that differs between partners' apps, where it is kept, and what read
 partner gets its own build is in [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md);
 the code that reads these values is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-**Status: proposed, not built.**
+**Status: built for the `dev` partner (#496).** `app.config.ts`, `partners/dev.env`, `.env.example` and
+`eas.json`'s `dev` profile exist. Other partners' files and profiles are added when their apps are set up.
 
-Last updated: 2026-10-09 (#493: the `dev` profile).
+Last updated: 2026-10-12 (#496: how the file is read). Before: 2026-10-09 (#493: the `dev` profile).
 
 ---
 
@@ -16,11 +17,14 @@ Last updated: 2026-10-09 (#493: the `dev` profile).
   It is committed and holds **public values only**, because everything in it can end up in the
   app bundle. The build picks a file by its EAS build profile, one profile per partner.
 - **`.env.example`** (committed, dummy values) lists every variable; **`.env.local`**
-  (gitignored) holds your local values. This follows the repo rule in
+  (gitignored) holds your local values, which for the app is only `PARTNER_KEY`. This follows the repo rule in
   [code/THIRD-PARTY-ACCESS.md](../../code/THIRD-PARTY-ACCESS.md) §8.
 - **Secrets never go in an env file** (§3). They live in EAS's credential store, per partner.
 - **`app.config.ts` validates every value with zod** and fails the build on a missing or
   malformed one, so a partner's app can never ship with another partner's or a blank value.
+  It also refuses a variable it doesn't know (a typo), an image that doesn't exist, and an
+  `UPDATES_CHANNEL` that isn't `PARTNER_KEY`, and it never reads outside `partners/`.
+- **Quote a colour**: `ANDROID_ICON_BACKGROUND="#0A2A4A"`. In an env file an unquoted `#` starts a comment.
 - **Only `PARTNER_DOMAIN` reaches the running app**, through `expo-constants` `extra`. Every
   other value is used only by the build. No variable uses the `EXPO_PUBLIC_` prefix, so
   nothing reaches the bundle by accident.

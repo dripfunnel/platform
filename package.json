@@ -15,6 +15,7 @@
     "dev:store": "turbo run dev --filter=@dripfunnel/store",
     "dev:platform": "turbo run dev --filter=@dripfunnel/platform",
     "dev:admin": "turbo run dev --filter=@dripfunnel/admin",
+    "dev:mobile": "pnpm --filter @dripfunnel/mobile-merchant start",
     "dev:storefront": "turbo run dev --filter=@dripfunnel/storefront-template",
     "dev:storefront-core": "turbo run dev --filter=@dripfunnel/storefront-core",
     "build": "turbo run build",
