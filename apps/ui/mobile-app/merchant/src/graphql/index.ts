@@ -2,4 +2,5 @@ export { createApiClient, defaultTimeoutMs, type ApiClient, type ClientOptions }
 export { ApiError, isApiError, knownErrorCodes, type KnownErrorCode } from './errors'
 export { nextPage, pageInfoSchema, previousPage, type PageInfo, type PageRequest } from './paging'
 export { partnerDomain } from './partnerDomain'
-export { typedQuery } from './typed'
+export { postJson, postSignOut, type RestOptions } from './rest'
+export { decode, typedQuery } from './typed'
