@@ -1,13 +1,13 @@
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import { blockKinds, contentLimits, type BlockKind, type ContentKind } from '../../api/content'
 import { fill, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 import { ProductSearch } from '../common/ProductSearch'
 import { moveBlock, newBlock, type DraftBlock } from './contentDraft'
 import type { StorefrontApi } from './storefrontApi'
+import { usePhotoUpload } from './usePhotoUpload'
 
 const words = messages.storefront.content.editor
-const uploadWords = messages.storefront.brand.uploadRefused
 const toolMarks: Record<BlockKind, string> = { heading: 'H', text: '¶', image: '▣', faq: '?', products: '◫', form: '✉' }
 
 export interface ContentBlocksProps {
@@ -24,33 +24,20 @@ export interface ContentBlocksProps {
   namesFailed: boolean
   onName: (id: string, name: string) => void
   contactEmail: string | null
+  /** Told when a photo starts and stops uploading, so the editor's saves wait for it. */
+  onUploading: (busy: boolean) => void
 }
 
 /** The page's blocks (StorefrontContent's block editor): add, move, remove and fill each kind. */
-export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, namesFailed, onName, contactEmail }: ContentBlocksProps) => {
+export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, namesFailed, onName, contactEmail, onUploading }: ContentBlocksProps) => {
   const id = useId()
-  const [uploading, setUploading] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
+  const { uploading, problem, upload: send } = usePhotoUpload(api, onUploading)
   const set = (index: number, patch: Partial<DraftBlock>) => onBody((was) => was.map((b, i) => (i === index ? { ...b, ...patch } : b)))
   const tools = blockKinds.filter((k) => k !== 'form' || kind === 'page')
   const full = body.length >= contentLimits.blocks
 
-  const upload = (file: File) => {
-    setUploading(true)
-    setProblem(null)
-    api.uploadImage(file).then(
-      (r) => {
-        setUploading(false)
-        // Tools wait while a photo uploads, so it takes the place counted when it was picked.
-        if (r.ok) onBody((was) => (was.length < contentLimits.blocks ? [...was, newBlock('image', { assetId: r.assetId })] : was))
-        else setProblem(uploadWords[r.code])
-      },
-      () => {
-        setUploading(false)
-        setProblem(uploadWords.NOT_CONNECTED)
-      },
-    )
-  }
+  // Tools wait while a photo uploads, so it takes the place counted when it was picked.
+  const upload = (file: File) => send(file, (assetId) => onBody((was) => (was.length < contentLimits.blocks ? [...was, newBlock('image', { assetId })] : was)))
 
   return (
     <section className="df-sf-card" aria-labelledby={`${id}-title`}>

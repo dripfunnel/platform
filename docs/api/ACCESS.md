@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -288,6 +288,12 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   client bug or someone probing. At most five crossings a minute are logged per person, whatever stores they name; past that they are refused without an entry, so a looping client can't flood the log (#288).
 - **Timings**: idle **2 h**, absolute **12 h**. "Remember me" extends the absolute bound
   to **30 days** on that device, idle limit 7 days, with 2-factor still asked on a new device (decided 2026-10-05 on #337). Sessions are never year-long.
+  Idle is measured from `last_seen_at`, which a read writes **at most once a minute** (decided
+  2026-10-11 on #636): a read finds the live session with a plain `select`, and only when
+  `last_seen_at` is 60 s old or more updates it, guarded so racing requests write it once. A
+  page's parallel requests therefore don't queue on the session row's lock, and an idle
+  session can end up to 60 s before its nominal 2 h or 7 days. The same holds for partner and
+  staff sessions.
 - **The second factor** (decided 2026-10-02; the prototype's `PortalAuth` and `PortalProfile`
   decide the screens): after the password, a person with 2-factor on enters a 6-digit code
   from their authenticator app or texted to their own mobile number; a **backup code** (one of
@@ -349,7 +355,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
 - **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
   store. **Built on #155**: the `__Host-df_platform_session` cookie, a `partner_session` row
-  (idle 2 h, absolute 12 h; no "Remember me": no partner screen offers it, FIRST-RELEASE §3), `POST /api/auth/sign-out`
+  (idle 2 h, absolute 12 h; `last_seen_at` written at most once a minute, so idle can end up to 60 s early, as under Timings; no "Remember me": no partner screen offers it, FIRST-RELEASE §3), `POST /api/auth/sign-out`
   logged as `partner_user.signed_out`, and `me` null for a missing, expired, suspended-user or
   closed-partner session, as for an unknown one. **Sign-in, built on #156**
   (`apis/platform/auth.ts`): `POST /api/auth/sign-in` answers `INVALID_CREDENTIALS`
@@ -386,7 +392,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   entry; `reset-password` works once, within 30 minutes of the email being sent, and ends
   every session of that user (`RESET_INVALID` otherwise). Tokens are minted when the email is
   sent (`auth/partnerTokens.ts`), so none rests in the outbox. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
-  other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that
+  other pool: idle 1 h, absolute 8 h** (decided 2026-10-01; `last_seen_at` written at most once a minute, so idle can end up to 60 s early, as under Timings). A staff session is the one that
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
   A2). **Support sessions** have their own cookie and bounds (§8).
