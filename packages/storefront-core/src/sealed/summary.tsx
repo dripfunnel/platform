@@ -30,13 +30,11 @@ type Figures = {
   delivery: Money | 'later' | 'next' | null
   tax: { amount: Money; includesTax: boolean } | null
   total: Money
-  /** A gift card's part of the total, and what is left after it. */
-  /** `rest`: what the engine says is left to pay (a cart's `amountDue`); a placed order has none, and no amount is worked out here. */
+  /** A gift card's part of the total; `rest` is what the engine says is left to pay (a cart's `amountDue`), none for an order. */
   giftCard: { applied: Money; last4: string | null; rest: Money | null } | null
   estimated: boolean
   pending: boolean
 }
-
 
 const figuresOf = (props: OrderSummaryProps): Figures => {
   if ('order' in props) {

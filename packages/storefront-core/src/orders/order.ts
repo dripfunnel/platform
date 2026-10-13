@@ -14,7 +14,7 @@ import { useRepay, type PayPhase } from '../checkout/checkout'
 // coming back from a provider. Reading it asks the provider about a card payment still pending (Shop API `confirmPayment`).
 
 const m = `{ ${moneyFields} }`
-const orderFields = `id number state paymentState paymentMethod paymentDueBy shippingMethod placedAt pricesIncludeTax lines { name versionName quantity unitPrice ${m} lineTotal ${m} gift { recipientName recipientEmail sendOn } } subtotal ${m} discounts { name amount ${m} } shipping ${m} giftCard ${m} tax ${m} total ${m} downloads { name url usesLeft expiresAt } licenceKeys { name key }`
+const orderFields = `id number state paymentState paymentMethod paymentDueBy shippingMethod placedAt pricesIncludeTax lines { name versionName quantity unitPrice ${m} lineTotal ${m} gift { recipientName sendOn } } subtotal ${m} discounts { name amount ${m} } shipping ${m} giftCard ${m} tax ${m} total ${m} downloads { name url usesLeft expiresAt } licenceKeys { name key }`
 const confirmMutation = `mutation Order($orderId: ID!) { confirmPayment(orderId: $orderId) { ${orderFields} } }`
 const instructionsQuery = `query Instructions { paymentOptions { provider instructions } }`
 
@@ -91,7 +91,7 @@ const manual = new Set(['cod', 'bank_transfer'])
 const paymentOf = (o: z.infer<typeof orderSchema>): OrderPayment =>
   o.paymentState === 'paid' || o.paymentState === 'authorised' ? 'paid' : o.paymentState === 'refunded' || o.paymentState === 'partly_refunded' ? 'refunded' : o.paymentMethod && manual.has(o.paymentMethod) ? 'awaiting' : 'confirming'
 
-const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, when: (iso: string) => string): Order => ({
+const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, when: (iso: string) => string, day: (date: string) => string): Order => ({
   id: o.id,
   number: o.number ?? o.id,
   cancelled: o.state === 'cancelled',
@@ -101,7 +101,7 @@ const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, whe
   payBy: o.paymentDueBy ? when(o.paymentDueBy) : null,
   delivery: o.shippingMethod ?? null,
   placedAt: o.placedAt ?? null,
-  lines: (o.lines ?? []).map((l) => ({ name: l.name ?? '', versionName: l.versionName ?? null, quantity: l.quantity, unitPrice: l.unitPrice ?? null, lineTotal: l.lineTotal ?? null, gift: l.gift?.recipientName ? { recipientName: l.gift.recipientName, sendOn: l.gift.sendOn ? when(l.gift.sendOn) : null } : null })),
+  lines: (o.lines ?? []).map((l) => ({ name: l.name ?? '', versionName: l.versionName ?? null, quantity: l.quantity, unitPrice: l.unitPrice ?? null, lineTotal: l.lineTotal ?? null, gift: l.gift?.recipientName ? { recipientName: l.gift.recipientName, sendOn: l.gift.sendOn ? day(l.gift.sendOn) : null } : null })),
   subtotal: o.subtotal,
   discounts: (o.discounts ?? []).flatMap((d) => (d.amount ? [{ name: d.name ?? '', amount: d.amount }] : [])),
   shipping: o.shipping ?? null,
@@ -117,13 +117,15 @@ export const useOrder = (): OrderPage => {
   const { t, store, locale } = useStorefront()
   const { path } = useLocation()
   const when = (iso: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: store.timeZone, timeZoneName: 'short' }).format(new Date(iso))
+  // A gift's send-on day is a calendar date, not a moment: shown as that date, with no time and no shift of zone.
+  const day = (date: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date.slice(0, 10)}T12:00:00Z`))
   const id = itemSlug(path, '/order/') ?? itemSlug(path, '/account/orders/')
   const loaded = useShopData(id ? JSON.stringify(['order', id]) : null, async (client) => {
     const found = (await client.query(confirmMutation, z.object({ confirmPayment: orderSchema.nullable() }), { orderId: id })).confirmPayment
     if (!found) return null
     const awaitingTransfer = found.paymentMethod === 'bank_transfer' && paymentOf(found) === 'awaiting'
     const options = awaitingTransfer ? await client.query(instructionsQuery, optionsSchema).catch(() => null) : null
-    return decode(found, options?.paymentOptions?.find((p) => p.provider === 'bank_transfer')?.instructions ?? null, when)
+    return decode(found, options?.paymentOptions?.find((p) => p.provider === 'bank_transfer')?.instructions ?? null, when, day)
   })
   const status = id === null || (loaded.status === 'ready' && !loaded.data) ? 'missing' : loaded.status === 'ready' ? 'ready' : loaded.status === 'error' ? 'error' : 'loading'
   useHead({ title: loaded.data ? t('order.title', { number: loaded.data.number }) : null, hidden: true })
