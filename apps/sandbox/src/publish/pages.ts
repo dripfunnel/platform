@@ -37,7 +37,8 @@ export const plan = (routes: ThemeRoutes, store: CatalogueSnapshot['store'], con
           const address = contentAddresses[route]
           return { path: `${prefix}${'page' in address ? address.page : fallbackPath(route)}`, route, language, custom: null }
         }),
-      ...(routes.routes.blogPost === undefined ? [] : postPaths).map((path): PlannedPage => ({ path: `${prefix}${path}/`, route: 'blogPost', language, custom: null })),
+      // The snapshot holds a post's main-language words, so only those pages are written; another language's reads its own.
+      ...(routes.routes.blogPost === undefined || language !== store.mainLanguage ? [] : postPaths).map((path): PlannedPage => ({ path: `${path}/`, route: 'blogPost', language, custom: null })),
       ...(routes.routes.contentPage === undefined ? [] : contentPaths.filter((p) => /^\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p))).map((path): PlannedPage => ({ path: `${prefix}${path}/`, route: 'contentPage', language, custom: null })),
       ...Object.keys(routes.custom ?? {}).map((custom): PlannedPage => ({ path: `${prefix}${custom}/`, route: 'custom', language, custom })),
     ]
@@ -52,9 +53,10 @@ const scriptJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u0
 
 export type PageAssets = { entry: string; css: readonly string[] }
 
+/** A post's own page, written for the main language only (`plan`). */
+const postOf = (page: PlannedPage, s: CatalogueSnapshot) => (page.route === 'blogPost' ? (s.posts.find((p) => page.path === `${p.path}/`) ?? null) : null)
+
 /** The document around a rendered page: core owns the head (ARCHITECTURE §8), the theme the body. */
-/** A post's own page, by its address without the language prefix. */
-const postOf = (page: PlannedPage, s: CatalogueSnapshot) => (page.route === 'blogPost' ? (s.posts.find((p) => page.path.endsWith(`${p.path}/`)) ?? null) : null)
 
 export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body: string; assets: PageAssets; dir: 'ltr' | 'rtl'; store: CatalogueSnapshot['store'] }) => {
   const asset = (file: string) => escapeHtml(`${s.assetBase ?? '/'}${file}`)

@@ -22,6 +22,16 @@ describe('the build’s page plan', () => {
     expect(pages.some((p) => p.route === 'contentPage' || p.route === 'blog' || p.route === 'blogPost')).toBe(false)
   })
 
+  it('writes a post’s own page in the main language only, leaving another language’s to the posts’ page, which reads its words', () => {
+    const pages = plan({ routes: { ...core, blogPost: 'BlogPostPage' } }, store, ['/blog/why-linen'], ['/blog/why-linen'])
+    expect(pages.filter((p) => p.route === 'blogPost').map((p) => [p.path, p.language])).toEqual([
+      ['/_fallback/blogPost/', 'en'],
+      ['/blog/why-linen/', 'en'],
+      ['/hi/_fallback/blogPost/', 'hi'],
+    ])
+    expect(edgeRules(pages, store).fallbacks).toContainEqual({ prefix: '/hi/blog/', page: '/hi/_fallback/blogPost/' })
+  })
+
   it('gives each published post its own page, listed in the sitemap, whose HTML carries its head and Article data', () => {
     const snapshot = catalogueSnapshotSchema.parse({
       version: 1,
