@@ -789,10 +789,10 @@ through. Your site stays live."), as is a support session.
 - **Built on #339 (part 4)**: the Journal tab: posts by their date ("Goes live {date}" while scheduled) and who wrote
   them, **Write a post**, and the editor as for a page with a cover photo (the drawing's dashed box), **Publish on**
   and **Written by** in Publishing, no contact form and no footer menu, and **Schedule** in place of Publish for a later
-  day. *Decided there:* the day is in UTC and said so; left empty, a post is dated when it's published (#338); an
-  unchanged day keeps the post's own instant, a picked one starts at midnight UTC; tags, which the drawing doesn't show,
+  day. *Decided there:* the day is in UTC and said so; left empty, a post is dated when it's published (#338), but a
+  post that has a date keeps one (#338 can't clear it); an unchanged day keeps the post's own instant, a picked one starts at midnight UTC; tags, which the drawing doesn't show,
   are kept as read; a plan without `blog` shows the refusal on save ("Your plan doesn’t include the Journal…"), since
-  no read says so first.
+  no read says so first; Publish and Save wait while a photo or the cover uploads.
 - **Built on #339 (part 5)**: other languages: a saved page or post in a store with more than one language has the
   language tabs over its editor (the product editor's, now shared in `features/common`); another language shows the
   title, each block's words (headings, text, photo descriptions, questions and answers) and the search words beside the
