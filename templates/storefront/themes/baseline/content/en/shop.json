@@ -214,7 +214,8 @@
       "methodOff": "This shop doesn't sign in that way.",
       "tooManyAddresses": "That's as many addresses as an account keeps. Remove one to add another.",
       "other": "Something went wrong. Try again in a minute.",
-      "invalidAddress": "This address needs updating before we can use it. Remove it and add it again."
+      "invalidAddress": "This address needs updating before we can use it. Remove it and add it again.",
+      "details": "We couldn't save your details. Check them and try again."
     },
     "failed": "We couldn't load your account",
     "hello": "Hello, {name}",

@@ -168,8 +168,8 @@ export type AccountPage = {
   countries: string[]
   retry: () => void
   busy: boolean
-  /** The last change's refusal: INVALID_INPUT, TOO_MANY, NOT_FOUND, SIGNED_OUT, … */
-  error: string | null
+  /** The last change's refusal: INVALID_INPUT, TOO_MANY, NOT_FOUND, … A session that ended (SIGNED_OUT) is `signedOut` instead. */
+  error: { code: string; of: 'details' | 'addresses' } | null
   rename: (name: string) => Promise<boolean>
   saveAddress: (input: { id: string | null; address: AddressDraft; isDefault: boolean }) => Promise<Partial<Record<AddressField, FieldProblem>> | null>
   /** The saved address becomes the default, sent as it was saved. */
@@ -184,7 +184,7 @@ export const useAccount = (): AccountPage => {
   const signedIn = mode === 'live' && shopperToken('session') !== undefined
   const loaded = useShopData(signedIn ? 'account' : null, (c) => c.query(accountQuery, accountSchema))
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<AccountPage['error']>(null)
   const raw = loaded.data?.account ?? null
   const account: Account | null = raw
     ? {
@@ -197,7 +197,7 @@ export const useAccount = (): AccountPage => {
       }
     : null
 
-  const change = async (operation: string, variables: Record<string, unknown>): Promise<boolean> => {
+  const change = async (of: 'details' | 'addresses', operation: string, variables: Record<string, unknown>): Promise<boolean> => {
     setBusy(true)
     setError(null)
     try {
@@ -205,7 +205,10 @@ export const useAccount = (): AccountPage => {
       loaded.retry()
       return true
     } catch (e) {
-      setError(codeOf(e))
+      const code = codeOf(e)
+      // The session ended while the page was open: forget it, so the account reads as signed out and sends the shopper to sign in.
+      if (code === 'SIGNED_OUT') keepShopperToken('session', null)
+      setError({ code, of })
       return false
     } finally {
       setBusy(false)
@@ -220,18 +223,18 @@ export const useAccount = (): AccountPage => {
     retry: loaded.retry,
     busy,
     error,
-    rename: (name) => change(renameMutation, { name: name.trim() || null }),
+    rename: (name) => change('details', renameMutation, { name: name.trim() || null }),
     saveAddress: async ({ id, address, isDefault }) => {
       const problems = addressProblems(address)
       if (Object.keys(problems).length > 0) return problems
-      return (await change(saveAddressMutation, { id, address: draftOf(address), isDefault })) ? {} : null
+      return (await change('addresses', saveAddressMutation, { id, address: draftOf(address), isDefault })) ? {} : null
     },
     makeDefault: (id) => {
       const saved = account?.addresses.find((a) => a.id === id)
       // Sent as it was saved: the Shop API judges it, and a refusal shows as `error` (core's newer checks would only hide it).
-      return saved ? change(saveAddressMutation, { id, address: draftOf(saved), isDefault: true }) : Promise.resolve(false)
+      return saved ? change('addresses', saveAddressMutation, { id, address: draftOf(saved), isDefault: true }) : Promise.resolve(false)
     },
-    removeAddress: (id) => change(deleteAddressMutation, { id }),
+    removeAddress: (id) => change('addresses', deleteAddressMutation, { id }),
     signOut: async () => {
       await client.request(signOutMutation).catch(() => undefined)
       keepShopperToken('session', null)
