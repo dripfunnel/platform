@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { decode, nextPage, pageInfoSchema, postJson, typedQuery, type ApiClient, type RestOptions } from '../graphql'
+import { ApiError, decode, nextPage, pageInfoSchema, postJson, typedQuery, type ApiClient, type RestOptions } from '../graphql'
 
 // The merchant portal's sign-in routes on the partner's host (ACCESS.md §4). With no Origin and no cookie each
 // answer carries the session as `token`; a refusal is an ApiError with the route's code.
@@ -57,22 +57,22 @@ const storesAnswer = z.object({
 
 const storesQuery = `query Stores($after: String) { me { email name } myStores(first: 50, after: $after) { nodes { membershipId role tier store { id name } seller { id name } } pageInfo { startCursor endCursor hasPreviousPage hasNextPage } } }`
 
-const maxPages = 10
+// 50 stores a page, so this is 5,000 memberships: past it the server's paging is broken, and a chooser that left
+// stores out (and called a held last store "removed") would be worse than an error.
+const maxPages = 100
 
 export const loadStores = async (client: ApiClient): Promise<{ email: string; stores: StoreChoice[] }> => {
   const query = typedQuery(client)
   const stores: StoreChoice[] = []
-  let email = ''
   let after: string | undefined
   for (let page = 0; page < maxPages; page += 1) {
     const answer = await query(storesQuery, storesAnswer, { after })
-    email = answer.me.email
     stores.push(...answer.myStores.nodes)
     const next = nextPage(answer.myStores.pageInfo)
-    if (!next?.after) break
+    if (!next?.after) return { email: answer.me.email, stores }
     after = next.after
   }
-  return { email, stores }
+  throw new ApiError('BAD_RESPONSE', 'The API kept offering more stores than a person can belong to.')
 }
 
 const switched = z.object({ switchStore: choiceSchema })

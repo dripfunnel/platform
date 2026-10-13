@@ -114,6 +114,8 @@
     "chooseLoading": "Loading your stores…",
     "chooseError": "We couldn’t load your stores.",
     "chooseLastUsed": "Last used",
+    "chooseSupplierName": "{store} · {supplier}",
+    "chooseChevron": "›",
     "chooseRemoved": "You no longer have access to {store} — its owner removed you. Your other stores still work.",
     "chooseNotYou": "Not you?",
     "chooseOpenFailed": "We couldn’t open that store.",

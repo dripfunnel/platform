@@ -157,7 +157,9 @@ loading the partner's look don't.
 - **Where the token lives.** Only a full session is saved, with the last store, in Expo SecureStore
   (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), keyed by the portal host. Sign-out and an answer of `UNAUTHENTICATED` wipe
   both. If the keystore fails or gives no answer in 5 s, the app treats that as no saved session and a failed
-  save lasts until the app closes (seen on the Android emulator, whose keystore reports errors).
+  save lasts until the app closes (seen on the Android emulator, whose keystore reports errors). A sign-out
+  that cannot remove the token tries twice, then marks the device signed out in AsyncStorage, so the next start
+  does not use the token it left behind and tries the removal again; a new sign-in replaces it and clears the mark.
 - **After the password:** `done` opens the session; `second-factor` asks for the code (an authenticator app's,
   or a text sent as the step opens), a backup code stands in for it; `enrol` holds an Owner at set-up by text
   message, then shows the ten backup codes once before the session opens.

@@ -35,3 +35,24 @@ describe('loading the stores a person belongs to', () => {
     expect(JSON.parse(init.body).variables).toEqual({ storeId: 'a', supplierId: 's1' })
   })
 })
+
+describe('a person in a great many stores', () => {
+  // Each page holds one store and points at the next, for as many pages as `total`.
+  const pagedHost = (total: number) =>
+    ((_url: string, init: { body: string }) => {
+      const after = (JSON.parse(init.body).variables.after as string | undefined) ?? '0'
+      const index = Number(after)
+      const answer = { me: { email: 'owner@example.com', name: 'Priya' }, myStores: { nodes: [choice(`s${index}`, `Store ${index}`)], pageInfo: pageInfo(index + 1 < total, String(index + 1)) } }
+      return Promise.resolve({ json: () => Promise.resolve({ data: answer }) })
+    }) as unknown as typeof fetch
+
+  it('gets every store, however many pages that takes, so none is left out of the chooser', async () => {
+    const { stores } = await loadStores(createApiClient({ domain: 'store.example.com', fetchImpl: pagedHost(25) }))
+    expect(stores).toHaveLength(25)
+    expect(stores.at(-1)?.store.name).toBe('Store 24')
+  })
+
+  it('stops with an error, not a short list, when the paging never ends', async () => {
+    await expect(loadStores(createApiClient({ domain: 'store.example.com', fetchImpl: pagedHost(Number.POSITIVE_INFINITY) }))).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
+  })
+})

@@ -1,4 +1,4 @@
-import { createSessionStore, type SessionStorage } from '../../session'
+import { createSessionStore, type SessionStorage } from '../../session/sessionStore'
 import { createPendingStore } from './pending'
 import { confirmEnrolCode, failureOf, finishEnrol, resendCode, sendEnrolCode, signOut, startSignIn, submitBackupCode, submitCode } from './signInFlow'
 

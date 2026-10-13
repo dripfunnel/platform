@@ -98,13 +98,15 @@ export function ChooseStoreScreen() {
             <Text style={[styles.initial, { color: colors.sideText }]}>{entry.choice.store.name.slice(0, 1).toUpperCase()}</Text>
           </View>
           <View style={styles.names}>
-            <Text style={[styles.name, { color: colors.text }]}>{entry.choice.seller ? `${entry.choice.store.name} · ${entry.choice.seller.name}` : entry.choice.store.name}</Text>
+            <Text style={[styles.name, { color: colors.text }]}>{entry.choice.seller ? t('auth.chooseSupplierName', { store: entry.choice.store.name, supplier: entry.choice.seller.name }) : entry.choice.store.name}</Text>
             <Text style={[styles.role, { color: colors.muted }]}>{roleLabel(entry.choice)}</Text>
           </View>
           {entry.last ? (
             <Text style={[styles.badge, { backgroundColor: colors.infoSurface, color: colors.info }]}>{t('auth.chooseLastUsed')}</Text>
           ) : null}
-          <Text style={{ color: colors.muted, fontSize: 20 }}>›</Text>
+          <Text accessibilityElementsHidden importantForAccessibility="no" style={{ color: colors.muted, fontSize: 20 }}>
+            {t('auth.chooseChevron')}
+          </Text>
         </Pressable>
       ))}
       <View style={styles.foot}>
