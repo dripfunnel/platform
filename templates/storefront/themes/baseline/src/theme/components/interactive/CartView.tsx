@@ -23,7 +23,7 @@ const Plus = () => (
 export const CartView = () => {
   const { store, locale, t } = useStorefront()
   const page = useCart()
-  const [codeNote, setCodeNote] = useState<string | null>(null)
+  const [codeNote, setCodeNote] = useState<{ words: string; refused: boolean } | null>(null)
   const codeWord = (state: string) =>
     state === 'APPLIED'
       ? t('shop.cart.codes.applied')
@@ -127,11 +127,12 @@ export const CartView = () => {
           <CodeField
             label={t('shop.cart.code')}
             button={t('shop.cart.apply')}
-            message={codeNote}
+            message={codeNote?.words ?? null}
+            refused={codeNote?.refused ?? false}
             className={styles.code}
             onApply={async (code) => {
               const state = await page.applyCode(code)
-              setCodeNote(state ? codeWord(state) : t('shop.cart.changeFailed'))
+              setCodeNote({ words: state ? codeWord(state) : t('shop.cart.changeFailed'), refused: state !== 'APPLIED' })
               return state === 'APPLIED'
             }}
           />

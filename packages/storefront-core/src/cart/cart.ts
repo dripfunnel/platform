@@ -199,6 +199,13 @@ const createCartStore = (client: ShopClient) => {
     }
   }
 
+  /** Reads and changes go one at a time, in order, so a read never lands over a newer change's answer. */
+  const inTurn = <T>(work: () => Promise<T>): Promise<T> => {
+    const done = queue.then(work)
+    queue = done.catch(() => undefined)
+    return done
+  }
+
   /**
    * One change at a time, in order, so each answer is newer than the last. `overlay` shows the change until the engine
    * answers; a refusal drops it and keeps the code in `error`. An expired cart is forgotten and the change asked again once.
@@ -225,9 +232,7 @@ const createCartStore = (client: ShopClient) => {
           return null
         },
       )
-    const done = queue.then(() => ask(true))
-    queue = done.catch(() => undefined)
-    return done
+    return inTurn(() => ask(true))
   }
 
   return {
@@ -239,12 +244,12 @@ const createCartStore = (client: ShopClient) => {
     load: () => {
       if (started) return
       started = true
-      void read()
+      void inTurn(read)
     },
     reload: () => {
       started = true
       set({ status: state.cart ? state.status : 'loading', code: null })
-      return read()
+      return inTurn(read)
     },
     change,
   }
