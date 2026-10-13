@@ -13,7 +13,8 @@ export const keptImages = 20
 /** About 50 GB at up to 2 GB an image (AI-STUDIO §7): past this, the engineer on call is alerted. */
 export const imageBudget = 25
 
-export type Retirement = { retired: string[]; rolloutId: string | null; kept: number }
+/** `kept`: versions not retired; `held`: images still in the registry, a retired one counting until it is deleted. */
+export type Retirement = { retired: string[]; rolloutId: string | null; kept: number; held: number }
 
 /**
  * The daily job: an older version no store needs is retired (its image is deleted by `retire-images.yml`); while stores
@@ -56,6 +57,7 @@ export const retireCoreImages = (sql: postgres.Sql, now: Date): Promise<Retireme
       })
     }
     const kept = releases.filter((r) => !r.retired_at && !retired.includes(r.version)).length
-    if (kept > imageBudget) logEvent({ event: 'core_images_over_budget', api: 'system', code: 'over_budget', count: kept })
-    return { retired, rolloutId, kept }
+    const held = releases.filter((r) => !r.image_deleted_at).length
+    if (held > imageBudget) logEvent({ event: 'core_images_over_budget', api: 'system', code: 'over_budget', count: held })
+    return { retired, rolloutId, kept, held }
   })

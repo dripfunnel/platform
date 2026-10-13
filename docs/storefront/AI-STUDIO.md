@@ -391,6 +391,6 @@ built from the fast gate's bundle, the frame on the store's preview origin).
     `retire_images`), when no other rollout is active and none to that release has run: patches and minors move those
     stores; a major moves them only at their next publish (ARCHITECTURE §7), and a store left pinned keeps its version's
     image, as does a draft until it is published;
-  - more than **25** images kept alerts the engineer on call (`core_images_over_budget`), who repairs or moves the
-    stores holding them.
+  - more than **25** images in the registry alerts the engineer on call (`core_images_over_budget`), who repairs or moves
+    the stores holding them, or the workflow's deletes; a retired image counts until the workflow has deleted it.
   *Why:* a store is never left without the image its studio and its upgrade need, and the account stays under 50 GB.

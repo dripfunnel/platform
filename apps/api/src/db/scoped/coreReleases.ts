@@ -31,6 +31,8 @@ export const selectSandboxImage = async (tx: ScopedSql, version: string): Promis
 export interface ReleaseUse {
   version: string
   retired_at: Date | null
+  /** Set once `retire-images.yml` deleted its image from Cloudflare's registry; until then it still takes space. */
+  image_deleted_at: Date | null
   /** Stores not closed whose live code, own theme under the baseline, draft or waiting major is on the version. */
   stores: number
   /** Of those, the ones a rollout moves: their own code is on it, not pinned, no major waiting (ARCHITECTURE §7). */
@@ -46,7 +48,7 @@ export const selectReleaseUse = (tx: ScopedSql): Promise<ReleaseUse[]> =>
       union all select store_id, core_version, false from design_draft
       union all select store_id, core_upgrade_version, false from storefront where core_upgrade_version is not null
     )
-    select c.version, c.retired_at, n.stores, n.movable
+    select c.version, c.retired_at, c.image_deleted_at, n.stores, n.movable
     from core_release c
     cross join lateral (
       select count(distinct u.store_id)::int as stores, (count(distinct u.store_id) filter (where u.movable))::int as movable

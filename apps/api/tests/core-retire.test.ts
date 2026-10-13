@@ -43,7 +43,7 @@ describe('the retirement of old core images', () => {
     expect(keptImages).toBeLessThan(imageBudget)
     const first = await retireCoreImages(db.sql, new Date())
     expect(first.retired).toEqual([version(2)])
-    expect(first.kept).toBe(22)
+    expect(first).toMatchObject({ kept: 22, held: 23 })
     expect(await withSystemScope(db.sql, (tx) => selectSandboxImage(tx, version(2)))).toBeNull()
     expect(await withSystemScope(db.sql, (tx) => selectSandboxImage(tx, version(0)))).toBe(image(1))
     const [rollout] = await db.sql<{ version: string; started_by: string | null; state: string }[]>`select version, started_by, state from core_rollout where id = ${first.rolloutId ?? ''}`
@@ -61,7 +61,8 @@ describe('the retirement of old core images', () => {
     const done = await retireCoreImages(db.sql, new Date())
     expect(done.retired.sort()).toEqual([version(0), version(1)])
     expect(done.rolloutId).toBeNull()
-    expect(done.kept).toBe(20)
+    // Retired, but in the registry until the workflow deletes them.
+    expect(done).toMatchObject({ kept: 20, held: 23 })
     expect(await withSystemScope(db.sql, selectImagesToDelete)).toEqual(expect.arrayContaining([version(0), version(1), version(2)]))
     await withSystemScope(db.sql, (tx) => markImageDeleted(tx, version(2), new Date()))
     expect(await withSystemScope(db.sql, selectImagesToDelete)).not.toContain(version(2))
@@ -86,11 +87,12 @@ describe('the retirement of old core images', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation((line: unknown) => void lines.push(String(line)))
     try {
       const pinned = await retireCoreImages(db.sql, new Date())
-      expect(pinned).toEqual({ retired: [], rolloutId: null, kept: 26 })
+      // 26 versions kept, and 1.0 and 1.1 retired but not yet deleted (their deletes failed): 28 images take space.
+      expect(pinned).toEqual({ retired: [], rolloutId: null, kept: 26, held: 28 })
     } finally {
       spy.mockRestore()
     }
-    expect(lines.map((l) => JSON.parse(l) as unknown)).toContainEqual({ event: 'core_images_over_budget', api: 'system', code: 'over_budget', count: 26 })
+    expect(lines.map((l) => JSON.parse(l) as unknown)).toContainEqual({ event: 'core_images_over_budget', api: 'system', code: 'over_budget', count: 28 })
   })
 
   it('moves an unpinned store with one rollout per release, never again after it ran', async () => {
