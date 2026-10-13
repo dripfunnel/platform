@@ -37,6 +37,7 @@ export const en = {
   'summary.taxIncluded': 'Includes {amount} tax.',
   'summary.estimated': 'Estimated total',
   'summary.total': 'Total',
+  'summary.updating': 'Updating the totals…',
 } as const
 
 export type MessageKey = keyof typeof en

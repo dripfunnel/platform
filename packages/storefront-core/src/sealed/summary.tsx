@@ -5,9 +5,8 @@ import type { Translate } from '../platform/i18n/i18n'
 import { formatMoney, type Money } from '../pricing/money'
 import { Sealed } from './Sealed'
 
-// The order summary (storefront ARCHITECTURE §2.1 `sealed`, §3.3 "A wrong price or total"): every amount as the engine
-// answered it, worded by core, so no theme can show a total of its own. Parts: panel, lines, line, photo, name, version, rows,
-// row, saving, total, note.
+// The order summary (storefront ARCHITECTURE §2.1 `sealed`, §3.3): every amount as the engine answered it, worded by core,
+// and a note while a change awaits its answer. Parts: panel, lines, line, photo, name, version, rows, row, saving, total, note.
 
 export type OrderSummaryProps = {
   cart: Cart
@@ -45,8 +44,8 @@ export const OrderSummary = ({ cart, at, locale, t, className }: OrderSummaryPro
             <dt>{t('summary.subtotal')}</dt>
             <dd>{money(cart.subtotal)}</dd>
           </div>
-          {cart.discounts.map((d) => (
-            <div key={`${d.name}-${d.code ?? ''}`} part="row saving">
+          {cart.discounts.map((d, i) => (
+            <div key={i} part="row saving">
               <dt>{d.name}</dt>
               <dd>{t('summary.minus', { amount: money(d.amount) })}</dd>
             </div>
@@ -69,6 +68,11 @@ export const OrderSummary = ({ cart, at, locale, t, className }: OrderSummaryPro
           </div>
         </dl>
         {cart.tax?.includesTax && !isZero(cart.tax.amount) ? <p part="note">{t('summary.taxIncluded', { amount: money(cart.tax.amount) })}</p> : null}
+        {cart.pending ? (
+          <p part="note" role="status">
+            {t('summary.updating')}
+          </p>
+        ) : null}
       </section>
     </Sealed>
   )
