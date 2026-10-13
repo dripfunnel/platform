@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "wrangler dev --env local --port 8788 --local-protocol https --persist-to ../apps/api/.wrangler/state",
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",

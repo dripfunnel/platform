@@ -98,6 +98,7 @@ export const CartView = () => {
                   {line.lineTotal ? <Price money={line.lineTotal} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.price} /> : null}
                 </div>
                 {line.versionName ? <p className={styles.version}>{line.versionName}</p> : null}
+                {line.gift ? <p className={styles.version}>{t('shop.cart.giftFor', { name: line.gift.recipientName, email: line.gift.recipientEmail })}</p> : null}
                 {problemWords(line) ? <p className={styles.problem}>{problemWords(line)}</p> : null}
                 <div className={styles.actions}>
                   <div className={styles.stepper} role="group" aria-label={t('shop.cart.quantity', { name: line.name })}>

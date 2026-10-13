@@ -20,8 +20,9 @@ import { badgesSchema, cardsSchema, moneyFields, productPath, summaryFields, typ
 const text = z.string().nullable().optional()
 const list = <T extends z.ZodType>(item: T) => z.array(item).nullable().optional()
 const money = moneySchema.nullable().optional().catch(null)
+const count = z.number().int().nonnegative().nullable().optional()
 
-const productFields = `id name slug description highlights inStock price { ${moneyFields} } compareAt { ${moneyFields} } maxPrice { ${moneyFields} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${moneyFields} } compareAt { ${moneyFields} } inStock available } specs { name value versionId } faqs { question answer } compliance { region field value } returns warranty seoTitle seoDescription related { ${summaryFields} }`
+const productFields = `id name slug productType giftCard { expiryMonths } download { days limit } service { duration location } description highlights inStock price { ${moneyFields} } compareAt { ${moneyFields} } maxPrice { ${moneyFields} } badges { label tone } photos { alt versionId image { url } } video { file { url } } options { id name values { id name } } versions { id name choices { optionId valueId } price { ${moneyFields} } compareAt { ${moneyFields} } inStock available } specs { name value versionId } faqs { question answer } compliance { region field value } returns warranty seoTitle seoDescription related { ${summaryFields} }`
 export const productQuery = `query Product($slug: String!) { product(slug: $slug) { ${productFields} } store { marketId markets { id countries } } }`
 
 const answerSchema = z.object({
@@ -30,6 +31,10 @@ const answerSchema = z.object({
       id: text,
       name: text,
       slug: text,
+      productType: text,
+      giftCard: z.object({ expiryMonths: count }).nullable().optional(),
+      download: z.object({ days: count, limit: count }).nullable().optional(),
+      service: z.object({ duration: text, location: text }).nullable().optional(),
       description: text,
       highlights: list(z.string()),
       inStock: z.boolean().nullable().optional(),
@@ -60,9 +65,18 @@ type Decoded = NonNullable<Answer['product']>
 export type Version = { id: string; name: string | null; choices: Readonly<Record<string, string>>; price: Money | null; compareAt: Money | null; stock: Stock }
 export type ProductOption = { id: string; name: string; values: { id: string; name: string }[] }
 
+/** What the product is, and what that kind tells the shopper (catalogue product kinds, #323). */
+export type ProductKind =
+  | { kind: 'physical' }
+  | { kind: 'gift_card'; expiryMonths: number | null }
+  | { kind: 'digital'; downloadDays: number | null; downloadLimit: number | null }
+  | { kind: 'service'; duration: string | null; location: string | null }
+
 export type Product = {
   id: string
   name: string
+  /** A gift card needs its recipient to be added (`AddToCart`'s `gift`); a download or a service is never sent. */
+  kind: ProductKind
   href: string
   description: string | null
   highlights: string[]
@@ -100,6 +114,15 @@ const legalNotices = (p: Decoded, store: Answer['store'], t: (key: MessageKey) =
   }
   return [...chosen].map(([field, body]) => ({ title: t(legalTitles[field] ?? 'legal.other'), body }))
 }
+
+const kindOf = (p: Decoded): ProductKind =>
+  p.productType === 'gift_card'
+    ? { kind: 'gift_card', expiryMonths: p.giftCard?.expiryMonths ?? null }
+    : p.productType === 'digital'
+      ? { kind: 'digital', downloadDays: p.download?.days ?? null, downloadLimit: p.download?.limit ?? null }
+      : p.productType === 'service'
+        ? { kind: 'service', duration: p.service?.duration ?? null, location: p.service?.location ?? null }
+        : { kind: 'physical' }
 
 const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null => {
   const p = answer.product
@@ -140,6 +163,7 @@ const decode = (answer: Answer, t: (key: MessageKey) => string): Product | null 
     legal: legalNotices(p, answer.store, t),
     returns: p.returns ?? null,
     warranty: p.warranty ?? null,
+    kind: kindOf(p),
     related: p.related,
     seoTitle: p.seoTitle ?? null,
     seoDescription: p.seoDescription ?? null,

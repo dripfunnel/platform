@@ -56,6 +56,7 @@ pnpm dev:<api|store|platform|admin>              # one of the four on its own
 pnpm dev:mobile                                  # the merchant mobile app's Expo dev server (not part of pnpm dev)
 pnpm dev:storefront                              # the storefront template (builds core first)
 pnpm dev:storefront-core                         # storefront-core rebuilding on change
+pnpm dev:proxy                                   # store-proxy: preview and store hosts (docs/setup/local.md §6.3)
 pnpm --filter ./apps/api schema                  # regenerate apps/api/schema/*.graphql
 pnpm changeset                                   # required when storefront-core changes
 ```

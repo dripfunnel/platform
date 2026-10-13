@@ -74,6 +74,13 @@ describe('the full gate', () => {
     expect(detail({ ...good, pages: onPage(pages, '/', (p) => ({ ...p, h1s: ['  '] })) }, 'no-js')).toBe("The home page's main heading is empty without JavaScript.")
   })
 
+  it('wants the blog’s pages built once a theme maps them, and leaves them alone when it doesn’t (#324)', () => {
+    const blogRoutes: ThemeRoutes = { ...routes, routes: { ...routes.routes, blog: 'BlogPage', blogPost: 'BlogPostPage' } }
+    expect(failing({ ...good, routes: blogRoutes })).toEqual(['contracts'])
+    expect(detail({ ...good, routes: blogRoutes }, 'contracts')).toContain('The build has no blog page.')
+    expect(detail({ ...good, routes: blogRoutes }, 'contracts')).toContain('The build has no blog post page.')
+  })
+
   it('leaves checkout out of the JavaScript budget, and takes the median of three timings', () => {
     expect(failing({ ...good, weights: onPage(good.weights, '/checkout/', (w) => ({ ...w, jsGzip: 200_000 })) })).toEqual([])
     expect(failing({ ...good, weights: onPage(good.weights, '/', (w) => ({ ...w, lcpMs: [2100, 2200, 100] })) })).toEqual(['budgets'])

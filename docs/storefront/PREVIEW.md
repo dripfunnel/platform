@@ -13,7 +13,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
+Last updated: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
 studio's fast gate, served from R2 by the edge Worker).

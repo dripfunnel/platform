@@ -71,7 +71,21 @@
     "buyNow": "Buy now",
     "added": "Added to your cart.",
     "addFailed": "We couldn't add that. Try again.",
-    "viewCart": "View cart"
+    "viewCart": "View cart",
+    "download": "A download: {times, plural, one {# download} other {# downloads}} within {days, plural, one {# day} other {# days}} of paying.",
+    "downloadPlain": "A download, ready once you've paid.",
+    "service": "A service: we'll be in touch to arrange it.",
+    "gift": {
+      "name": "Recipient's name",
+      "email": "Recipient's email",
+      "message": "Message",
+      "optional": "Optional · up to 200 characters",
+      "sendOn": "Send on",
+      "sendHint": "We email it that morning. Leave it empty to send it now.",
+      "sendHintExpiry": "We email it that morning. Leave it empty to send it now. It can be used for {months, plural, one {# month} other {# months}} after it's sent.",
+      "add": "Add gift card to cart",
+      "needed": "Add the recipient's name and email to add this gift card."
+    }
   },
   "cart": {
     "title": "Your cart",
@@ -105,7 +119,8 @@
       "usedUp": "This code has been used up.",
       "alreadyUsed": "You've already used this code.",
       "invalid": "That code isn't valid. Check it and try again."
-    }
+    },
+    "giftFor": "For {name} ({email})"
   },
   "checkout": {
     "title": "Checkout",
@@ -157,7 +172,14 @@
       "changed": "Your cart changed while you were paying. Check it and try again.",
       "other": "We couldn't place your order. Try again in a minute."
     },
-    "free": "Free"
+    "free": "Free",
+    "giftCard": "Gift card number",
+    "giftCardApplied": "Your gift card is paying part of this order.",
+    "giftCardAppliedEnding": "Your gift card ending {last4} is paying part of this order.",
+    "giftCardRefused": "That number doesn't match a gift card. Check it and try again.",
+    "giftCardTooMany": "Too many tries. Wait a few minutes and try again.",
+    "giftCardPreview": "Gift cards can't be used on a preview of the shop; they work on the live shop.",
+    "giftCardFailed": "We couldn't check that gift card. Try again in a minute."
   },
   "order": {
     "loading": "Loading your order",
@@ -186,7 +208,13 @@
     "method": "Delivery",
     "summary": "Order {number}",
     "backToAccount": "← Your account",
-    "payAgain": "Try paying again"
+    "payAgain": "Try paying again",
+    "downloads": "Your downloads",
+    "download": "Download {name}",
+    "downloadLeft": "{count, plural, one {# download left} other {# downloads left}}, until {date}.",
+    "keys": "Your licence keys",
+    "giftOn": "We email the gift card to {name} on {date}, and send you a copy.",
+    "giftNow": "We've emailed the gift card to {name}, and sent you a copy."
   },
   "account": {
     "preview": "Signing in works on the live shop. On this preview you check out as a guest.",

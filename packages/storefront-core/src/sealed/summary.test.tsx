@@ -45,7 +45,7 @@ describe('OrderSummary', () => {
 
   it('shows a placed order’s lines and what was charged, without an estimate or a next step', () => {
     const money = (n: number) => usd(n) as Order['total']
-    const order: Order = { id: 'o-1', number: '1051', cancelled: false, payment: 'paid', method: 'stripe', instructions: null, payBy: null, delivery: 'Standard delivery', placedAt: null, lines: [{ name: 'Organic Cotton Tee', versionName: 'Sand / M', quantity: 2, unitPrice: money(2800), lineTotal: money(5600) }], subtotal: money(5600), discounts: [{ name: 'Autumn', amount: money(560) }], shipping: money(900), tax: { amount: money(300), includesTax: true }, total: money(5940) }
+    const order: Order = { id: 'o-1', number: '1051', cancelled: false, payment: 'paid', method: 'stripe', instructions: null, payBy: null, delivery: 'Standard delivery', placedAt: null, lines: [{ name: 'Organic Cotton Tee', versionName: 'Sand / M', quantity: 2, unitPrice: money(2800), lineTotal: money(5600), gift: null }], subtotal: money(5600), discounts: [{ name: 'Autumn', amount: money(560) }], shipping: money(900), tax: { amount: money(300), includesTax: true }, total: money(5940), giftCard: null, downloads: [], licenceKeys: [] }
     const html = renderToStaticMarkup(<OrderSummary order={order} locale="en-US" t={t} />)
     expect(html).toContain('data-df-sealed="summary"')
     expect(html).toContain('Organic Cotton Tee × 2')
@@ -57,5 +57,21 @@ describe('OrderSummary', () => {
     expect(html).toContain('Includes $3.00 tax.')
     expect(html).not.toContain('Estimated')
     expect(html).not.toContain('Next step')
+  })
+
+  it('shows a gift card’s part and what is left after it, for a cart and for a placed order', () => {
+    const cart = shownCart(cartOf([line('v1', 2)], { total: usd(5600), amountDue: usd(3600), giftCard: { applied: usd(2000), balance: usd(0), expiresAt: null, last4: '4321' } }))
+    const html = renderToStaticMarkup(<OrderSummary cart={cart} at="checkout" locale="en-US" t={t} />)
+    expect(html).toContain('Gift card ending 4321')
+    expect(html).toContain('−$20.00')
+    expect(html).toContain('After the gift card')
+    expect(html).toContain('$36.00')
+    const money = (n: number) => usd(n) as Order['total']
+    const order: Order = { id: 'o-1', number: '1051', cancelled: false, payment: 'paid', method: 'stripe', instructions: null, payBy: null, delivery: null, placedAt: null, lines: [], subtotal: money(5600), discounts: [], shipping: null, tax: null, total: money(5600), giftCard: money(2000), downloads: [], licenceKeys: [] }
+    // A placed order shows what the gift card paid; the rest isn't given by the Shop API and isn't worked out in the browser.
+    const placed = renderToStaticMarkup(<OrderSummary order={order} locale="en-US" t={t} />)
+    expect(placed).toContain('>Gift card<')
+    expect(placed).toContain('−$20.00')
+    expect(placed).not.toContain('After the gift card')
   })
 })

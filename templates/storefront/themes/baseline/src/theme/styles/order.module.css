@@ -126,6 +126,26 @@
   overflow-wrap: anywhere;
 }
 
+.list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.key {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

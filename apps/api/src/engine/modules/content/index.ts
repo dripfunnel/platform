@@ -3,6 +3,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isUuid } from '#core/ids'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
+import { selectStoreEntitlement } from '#db/scoped/entitlements'
 import { uniqueViolation, withScope, type ScopedSql } from '#db/scoped/index'
 import {
   clearRedirectFrom,
@@ -10,6 +11,7 @@ import {
   deleteContentTranslation,
   insertContent,
   redirectRenamed,
+  selectBuildPosts,
   selectContent,
   selectContentList,
   selectContentSlugs,
@@ -197,3 +199,17 @@ export const createContentService = ({ sql, context, actor, activity, facts, now
  */
 export const storeContentPaths = async (tx: ScopedSql, storeId: string): Promise<string[]> =>
   (await selectContentSlugs(tx, storeId)).map((r) => contentPath(r.kind, r.slug))
+
+/** The newest published posts for a build's snapshot (#324, LIVE-SHOP §4 step 3); none while the plan has no blog. */
+export const storeBuildPosts = async (tx: ScopedSql, storeId: string, now: Date, limit: number) => {
+  if ((await selectStoreEntitlement(tx, storeId, 'blog', now)).enabled !== true) return []
+  return (await selectBuildPosts(tx, storeId, now, limit)).map((p) => ({
+    path: contentPath('post', p.slug),
+    title: p.title,
+    seoTitle: p.seo_title,
+    seoDescription: p.seo_description,
+    author: p.author,
+    publishedAt: p.publish_at.toISOString(),
+    image: p.cover_asset_id ? { url: `/shop-api/assets/${p.cover_asset_id}` } : null,
+  }))
+}

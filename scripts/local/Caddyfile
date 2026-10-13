@@ -24,7 +24,21 @@ https:// {
 	tls internal {
 		on_demand
 	}
-	reverse_proxy localhost:5173
+	# Preview and shop hosts (store-proxy, docs/setup/local.md §6.3) come first; every other host is a portal.
+	@storefront host *.preview.localhost *.shop.*.localhost
+	handle @storefront {
+		# https upstream: the studio frame's origins must be https (the sandbox refuses http ones).
+		reverse_proxy https://localhost:8788 {
+			# Caddy otherwise sends the upstream's own name as Host, and the proxy finds the store by the host.
+			header_up Host {host}
+			transport http {
+				tls_insecure_skip_verify
+			}
+		}
+	}
+	handle {
+		reverse_proxy localhost:5173
+	}
 }
 
 # Answers Caddy's question before it makes a certificate: yes for a .localhost name, no for anything else.

@@ -75,6 +75,8 @@ const shopApi = (state: { closed: boolean; asked: Request[] }) => (request: Requ
   if (query.startsWith('query Menu')) return ok({ menu: [{ id: 'm1', label: 'Cotton Edit', kind: 'collection', collectionSlug: 'cotton-edit', url: null, children: [] }] })
   if (query.startsWith('query Collections')) return ok({ collections: { nodes: collections } })
   if (query.startsWith('query Collection(')) return ok({ collection: collections.find((c) => c.slug === v['slug']) ?? null })
+  // The store has no content pages: one lower-case segment that isn't a custom page is asked for as one (#324).
+  if (query.startsWith('query ContentPage')) return ok({ contentPage: null })
   if (query.startsWith('query Product(')) return ok({ product: v['slug'] === tee.slug ? tee : null, store: { marketId: 'm-us', markets: [{ id: 'm-us', countries: ['US'] }] } })
   if (query.startsWith('query Listing')) {
     const filters = (v['filters'] as string[] | null) ?? []
