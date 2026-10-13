@@ -206,7 +206,8 @@ checking, deploying, live, failed, rolled back).
    - a visual diff against the live build's files from step 3.
 
    The checkout smoke test runs against core's offline Shop API fixture (decided on #483); the real
-   checkout is the post-deploy check (step 10). The container writes each check's pass or fail
+   checkout is the post-deploy check (step 10). Its test purchase (`smokeTest`, storefront ARCHITECTURE §4.2's
+   `checkout`) is built on #313 and gates a publish once INF 4 adds it to the check step. The container writes each check's pass or fail
    to its output folder. A runner step then:
    - computes the **digest of the files it handed to the container**: SHA-256 over the sorted
      list of each file's path and SHA-256, computed outside the container. Its form (decided on

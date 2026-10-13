@@ -18,6 +18,7 @@ export { setProblemReporter, shopProblemReporter, type StorefrontProblem } from 
 export { jsonLdText, seoFor, type Seo, type SeoInput } from './platform/seo/seo'
 export { StorefrontProvider, useStorefront, type RenderMode, type Storefront } from './platform/store/context'
 export { completeStore, loadStore, storeQuery, storeSchema, type ShopStoreSettings, type StoreSeo } from './platform/store/store'
+export { BaselineCheckout } from './checkout/baseline'
 export { CheckoutBoundary } from './checkout/fallback'
 export { Link } from './platform/browser/link'
 export { navigate, setRouterBase, useLocation, type Address } from './platform/browser/router'

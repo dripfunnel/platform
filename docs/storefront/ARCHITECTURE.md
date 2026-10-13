@@ -20,7 +20,7 @@ as customised by us, now removed from the workspace); §11 records what was take
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
-behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6); everything else below is to build.
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), and the baseline checkout and the checkout smoke test (#313 part 7); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
@@ -211,6 +211,11 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **Headless form controls** (`ui/headless/form.tsx`): `Form` and `SubmitButton`, `TextField` (its label, hint and error
   tied to it), `Choices` (radio buttons, each option's content the theme's) and `AddressFields` (the country's fields with
   core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK).
+- **The baseline checkout** (`checkout/baseline.tsx`, #313 part 7): core's own `BaselineCheckout`, in core's words and
+  look (a stylesheet core adopts, so no theme CSS is needed), with the preview banner, every step, the sealed summary and
+  payment element and Place order. The runtime renders the checkout route inside `CheckoutBoundary` with it as the
+  baseline; a live checkout page renders afresh in the browser rather than hydrating, since the server's HTML is the
+  theme's checkout for a visit without JavaScript.
 - **A preview checks out as a guest**: core's runtime sends no session token on the preview host or in the studio frame
   (`guestShopState`), only the cart's.
 - **Signing in** (`account/account.ts`, #313 part 6): **`useSignIn`** signs a shopper in by email and password (`signIn`) or
@@ -704,8 +709,13 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
   768 and 1440 px, as a shopper who answered consent, and the consent banner itself on a first visit;
 - `checkout`: the checkout smoke test against core's offline Shop API fixture *(decided on #483, as proposed: the
   real checkout is the post-deploy check)*: the checkout and cart pages open at the three widths with no error, their
-  main heading is what a tap reaches, and no sealed part is hidden. Until core's cart and checkout (#313) exist it can't
-  take a product to a test payment;
+  main heading is what a tap reaches, and no sealed part is hidden. **The test purchase** (#313 part 7) is built:
+  `smokeShop` (`@dripfunnel/storefront-core/guard`) is the offline Shop API with one test product, a cart and checkout
+  that move as the engine's do, and cash on delivery in test mode; the build image's `smokeTest` (`apps/sandbox`,
+  `publish/smoke.ts`) buys it at 390, 768 and 1440 px from its page through Add to cart, the cart's link to checkout,
+  each step (filling core's fields by their `autocomplete` token, choosing the first option, pressing Continue) and
+  Place order to the order's page, and `smokeProblems` words what stopped it. Adding it to this check, so that every
+  publish must pass it, is INF 4's;
 - `axe`: WCAG 2.0–2.2 A and AA rules on every page at each width;
 - `budgets`: §9 on a phone (390 px) for home, collection, product, custom pages and cart, one page at a time. *Decided on
   #483:* the CPU is slowed to a mid-range phone's speed calibrated against the runner's own, as Lighthouse does, instead
