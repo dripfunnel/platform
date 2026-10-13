@@ -142,8 +142,9 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
   membership carries (`Acting.role`, `Acting.tier`). `ShellDataProvider`, above the routes so My profile shares it,
   reads `me`, `navBadges`, `storeState` and `profile.theme` for the acting store, each read on its own so a failed one
   draws less (no badge, no banner) rather than stopping the app; it reads again when the app comes to the front.
-  `useShell().canSave` is false while the phone is offline (NetInfo) or the store is view-only, and a `Button` marked
-  `saves` is off then. Sheets and toasts come from `useFeedback()`. A screen draws a designed state (DESIGN.md §4) through
+  A `Button` marked `saves` (an account action: My profile takes no store state, as on the web) is off while the phone
+  is offline (NetInfo); a screen that writes store data applies the store's view-only rule itself.
+  Sheets and toasts come from `useFeedback()`. A screen draws a designed state (DESIGN.md §4) through
   `ShellScreen`, either one it knows (access denied, 404) or the one the development-only Scenario menu picks.
 - **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
   offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write

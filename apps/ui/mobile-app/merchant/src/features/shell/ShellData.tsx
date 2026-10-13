@@ -15,8 +15,6 @@ export type Shell = {
   badges: Badges | null
   state: StoreState | null
   online: boolean
-  /** Whether a change may be sent: a connection, and a store that isn't view-only (FIRST-RELEASE.md §3.3). */
-  canSave: boolean
   refresh: () => void
 }
 
@@ -29,8 +27,6 @@ export const useShell = (): Shell => {
   if (!shell) throw new Error('useShell needs a ShellDataProvider above it')
   return shell
 }
-
-export const useCanSave = (): boolean => useContext(Context)?.canSave ?? true
 
 const roleScenarios: Record<Exclude<RoleScenario, 'real'>, { role: string; tier: string | null }> = {
   owner: { role: 'owner', tier: null },
@@ -87,7 +83,7 @@ export function ShellDataProvider({ acting, client, children }: { acting: Acting
 
   const effective = useMemo<Acting | null>(() => (acting && scenario.role !== 'real' ? { ...acting, ...roleScenarios[scenario.role] } : acting), [acting, scenario.role])
   const value = useMemo<Shell | null>(
-    () => (effective ? { acting: effective, seat: seatOf(effective), person, badges, state, online, canSave: online && state?.readOnly !== true, refresh } : null),
+    () => (effective ? { acting: effective, seat: seatOf(effective), person, badges, state, online, refresh } : null),
     [effective, person, badges, state, online, refresh],
   )
   return <Context.Provider value={value}>{children}</Context.Provider>

@@ -5,6 +5,7 @@ import { actingAs, byRole, fakeClient, flush, hasText, press, pressableNamed, pr
 import type { ApiClient } from '../../graphql'
 import { buildTheme, getMode, ThemeProvider } from '../../theme'
 import { resetScenario, setScenario } from '../states/scenario'
+import { Button } from '../common/Button'
 import { useFeedback } from './Feedback'
 import { MoreScreen, helpTarget } from './MoreScreen'
 import { ShellDataProvider, useShell } from './ShellData'
@@ -268,16 +269,15 @@ describe('light or dark, and the connection', () => {
     expect(getMode()).toBe('dark')
   })
 
-  it('stops saves while offline or in a view-only store', async () => {
-    let canSave: boolean | undefined
-    const Probe = () => ((canSave = useShell().canSave), null)
-    await renderShell(<Probe />)
-    expect(canSave).toBe(true)
+  it('stops an account save while offline, and keeps it in a view-only store (My profile takes no store state)', async () => {
+    const off = (renderer: ReactTestRenderer) => renderer.root.findAll((node) => node.props.accessibilityRole === 'button')[0]?.props.accessibilityState.disabled as boolean
+    const renderer = await renderShell(<Button label="Save" onPress={jest.fn()} saves />)
+    expect(off(renderer)).toBe(false)
     await act(async () => mockNetListeners.forEach((listener) => listener({ isConnected: false, isInternetReachable: false })))
-    expect(canSave).toBe(false)
+    expect(off(renderer)).toBe(true)
     await act(async () => mockNetListeners.forEach((listener) => listener({ isConnected: true, isInternetReachable: null })))
-    expect(canSave).toBe(true)
-    await renderShell(<Probe />, { client: fakeClient({ state: { readOnly: true, status: 'past_due', trialEndsAt: null, pastDueSince: null, provisioning: null, support: null } }) })
-    expect(canSave).toBe(false)
+    expect(off(renderer)).toBe(false)
+    const viewOnly = { readOnly: true, status: 'past_due', trialEndsAt: null, pastDueSince: null, provisioning: null, support: null }
+    expect(off(await renderShell(<Button label="Save" onPress={jest.fn()} saves />, { client: fakeClient({ state: viewOnly }) }))).toBe(false)
   })
 })
