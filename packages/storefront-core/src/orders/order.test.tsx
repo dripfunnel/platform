@@ -3,7 +3,13 @@ import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { orderOf } from '../../test/order'
 import { Provided, shopAnswering } from '../../test/shop'
+import { checkoutSdk } from '../checkout/checkout'
+import { browserSdk } from '../checkout/payments'
+import { PaymentElement } from '../sealed/payment'
+import { createI18n } from '../platform/i18n/i18n'
 import { useOrder, type OrderPage } from './order'
+
+const { t } = createI18n('en-US')
 
 let seen: OrderPage | null = null
 const Probe = () => {
@@ -19,6 +25,7 @@ const show = async (address: string) => {
   render(
     <Provided>
       <Probe />
+      <PaymentElement t={t} />
     </Provided>,
   )
   await act(async () => undefined)
@@ -29,6 +36,8 @@ afterEach(() => {
   history.replaceState(null, '', '/')
   seen = null
   vi.unstubAllGlobals()
+  checkoutSdk.current = browserSdk
+  Reflect.deleteProperty(globalThis, 'Razorpay')
 })
 
 describe('useOrder', () => {
@@ -91,5 +100,48 @@ describe('useOrder', () => {
     fail = false
     await act(async () => page().retry())
     expect(page().status).toBe('ready')
+  })
+
+  it('offers Try paying again for a card payment that hasn’t gone through, and reads the order again once it has', async () => {
+    let paid = false
+    const asked = shopAnswering((a) =>
+      a.query.includes('payOrder')
+        ? { data: { payOrder: { providerRef: 'rzp_order_2', publicKey: 'rzp_test_1', accountId: null, clientSecret: null, sessionId: null, redirectUrl: null } } }
+        : { data: { confirmPayment: orderOf({ paymentState: paid ? 'paid' : 'pending', paymentMethod: 'razorpay' }) } },
+    )
+    const went: string[] = []
+    checkoutSdk.current = { script: async () => undefined, go: () => undefined, stripe: async () => ({}) as never }
+    ;(globalThis as Record<string, unknown>)['Razorpay'] = class {
+      constructor(private o: { handler: () => void; order_id: string }) {}
+      open() {
+        went.push(this.o.order_id)
+        paid = true
+        this.o.handler()
+      }
+      close() {}
+    }
+    await show('/order/o-1/')
+    expect(page().order?.payment).toBe('confirming')
+    expect(page().payAgain).not.toBeNull()
+    await act(async () => page().payAgain?.())
+    await act(async () => undefined)
+    expect(asked.filter((a) => a.query.includes('payOrder')).map((a) => a.variables)).toEqual([{ orderId: 'o-1' }])
+    expect(went).toEqual(['rzp_order_2'])
+    expect(page().order?.payment).toBe('paid')
+    expect(page().payAgain).toBeNull()
+  })
+
+  it('reads the order again when it was paid meanwhile, and offers no new attempt for cash on delivery or a transfer', async () => {
+    let paid = false
+    shopAnswering((a) => (a.query.includes('payOrder') ? ((paid = true), { errors: [{ message: 'paid', extensions: { code: 'ALREADY_PAID' } }] }) : { data: { confirmPayment: orderOf({ paymentState: paid ? 'paid' : 'pending', paymentMethod: 'phonepe' }) } }))
+    await show('/order/o-1/')
+    await act(async () => page().payAgain?.())
+    await act(async () => undefined)
+    expect(page().order?.payment).toBe('paid')
+    cleanup()
+    vi.unstubAllGlobals()
+    shopAnswering(() => ({ data: { confirmPayment: orderOf({ id: 'o-2', paymentState: 'pending', paymentMethod: 'cod' }) } }))
+    await show('/order/o-2/')
+    expect(page().payAgain).toBeNull()
   })
 })

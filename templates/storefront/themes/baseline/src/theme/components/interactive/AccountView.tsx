@@ -57,7 +57,13 @@ export const AccountView = ({ section }: { section: Section }) => {
         <div className={styles.body}>
           {page.error ? (
             <p className={styles.alert} role="alert">
-              {page.error === 'TOO_MANY' ? t('shop.account.refused.tooManyAddresses') : t('shop.account.refused.other')}
+              {page.error.of === 'details'
+                ? t('shop.account.refused.details')
+                : page.error.code === 'TOO_MANY'
+                  ? t('shop.account.refused.tooManyAddresses')
+                  : page.error.code === 'INVALID_INPUT'
+                    ? t('shop.account.refused.invalidAddress')
+                    : t('shop.account.refused.other')}
             </p>
           ) : null}
           {section === 'details' ? <Details page={page} /> : <Addresses page={page} />}
@@ -123,7 +129,7 @@ const Addresses = ({ page }: { page: AccountPage }) => {
             </p>
             <div className={styles.row}>
               {!a.isDefault ? (
-                <button type="button" className={styles.link} disabled={page.busy} onClick={() => void page.saveAddress({ id: a.id, address: a, isDefault: true })}>
+                <button type="button" className={styles.link} disabled={page.busy} onClick={() => void page.makeDefault(a.id)}>
                   {t('shop.account.makeDefault')}
                 </button>
               ) : null}
@@ -153,7 +159,14 @@ const Addresses = ({ page }: { page: AccountPage }) => {
             <SubmitButton className={shop.primary} disabled={page.busy}>
               {t('shop.account.saveAddress')}
             </SubmitButton>
-            <button type="button" className={shop.secondary} onClick={() => setDraft(null)}>
+            <button
+              type="button"
+              className={shop.secondary}
+              onClick={() => {
+                setDraft(null)
+                setErrors({})
+              }}
+            >
               {t('shop.account.cancel')}
             </button>
           </div>

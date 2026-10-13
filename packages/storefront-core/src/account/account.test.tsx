@@ -176,8 +176,42 @@ describe('useAccount', () => {
     expect(asked.find((a) => a.query.includes('saveAddress'))?.variables).toEqual({ id: null, isDefault: true, address: { name: 'Maya Chen', line1: '1 Main St', line2: null, city: 'Austin', region: 'TX', postalCode: '78701', country: 'US', phone: null } })
     refuse = true
     await act(async () => void (await shown(account).removeAddress('a-1')))
-    expect(shown(account).error).toBe('TOO_MANY')
+    expect(shown(account).error).toEqual({ code: 'TOO_MANY', of: 'addresses' })
     expect(asked.filter((a) => a.query.includes('account {')).length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('makes a saved address the default as it was saved, and keeps the Shop API’s refusal to show', async () => {
+    sessionStorage.setItem('df-session', 'sess-1')
+    // Saved before today's checks: no state, which core would now ask for.
+    const old = { ...raw, addresses: [{ ...raw.addresses[0], id: 'a-2', region: null, isDefault: false }] }
+    let refuse = false
+    const asked = shopAnswering((a) => (a.query.includes('account {') ? { data: { account: old } } : refuse ? { errors: [{ message: 'no', extensions: { code: 'INVALID_INPUT' } }] } : { data: { saveAddress: 'a-2' } }))
+    await show('account')
+    let made = false
+    await act(async () => {
+      made = await shown(account).makeDefault('a-2')
+    })
+    expect(made).toBe(true)
+    expect(asked.find((a) => a.query.includes('saveAddress'))?.variables).toEqual({ id: 'a-2', isDefault: true, address: { name: 'Maya Chen', line1: '88 Neil Ave', line2: null, city: 'Columbus', region: null, postalCode: '43215', country: 'US', phone: null } })
+    refuse = true
+    await act(async () => {
+      made = await shown(account).makeDefault('a-2')
+    })
+    expect(made).toBe(false)
+    expect(shown(account).error).toEqual({ code: 'INVALID_INPUT', of: 'addresses' })
+  })
+
+  it('says which part a refusal came from, and is signed out when the session ended during a change', async () => {
+    sessionStorage.setItem('df-session', 'sess-1')
+    let code = 'INVALID_INPUT'
+    shopAnswering((a) => (a.query.includes('account {') ? { data: { account: raw } } : { errors: [{ message: 'no', extensions: { code } }] }))
+    await show('account')
+    await act(async () => void (await shown(account).rename('Maya')))
+    expect(shown(account).error).toEqual({ code: 'INVALID_INPUT', of: 'details' })
+    code = 'SIGNED_OUT'
+    await act(async () => void (await shown(account).removeAddress('a-1')))
+    expect(shopperToken('session')).toBeUndefined()
+    expect(shown(account).status).toBe('signedOut')
   })
 
   it('signs out: ends the session on the server, forgets it here, and goes home', async () => {

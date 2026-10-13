@@ -1,7 +1,7 @@
 'use client'
 
 import { clsx } from 'clsx'
-import { Link, OrderSummary, useOrder, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { Link, OrderSummary, PaymentElement, useOrder, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
@@ -79,9 +79,19 @@ export const OrderView = ({ inAccount = false }: { inAccount?: boolean }) => {
           ) : null}
           {awaiting && order.method === 'cod' ? <p className={styles.info}>{t('shop.order.cod')}</p> : null}
           {!order.cancelled && order.payment === 'confirming' ? (
-            <div className={styles.info} role="status">
-              <p className={styles.infoText}>{t('shop.order.confirming')}</p>
-              <Retry label={t('shop.order.checkAgain')} onRetry={page.retry} />
+            <div className={styles.card}>
+              <p className={styles.note} role="status">
+                {t('shop.order.confirming')}
+              </p>
+              <div className={styles.actions}>
+                <Retry label={t('shop.order.checkAgain')} onRetry={page.retry} />
+                {page.payAgain ? (
+                  <button type="button" className={shop.primary} onClick={page.payAgain}>
+                    {t('shop.order.payAgain')}
+                  </button>
+                ) : null}
+              </div>
+              <PaymentElement t={t} />
             </div>
           ) : null}
           <div className={styles.card}>
