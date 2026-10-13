@@ -70,7 +70,7 @@ function ToastView({ toast, onDismiss }: { toast: ToastSpec | null; onDismiss: (
   return (
     <View pointerEvents="box-none" style={[styles.toastWrap, { bottom: insets.bottom + 54 + 12 }]}>
       <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.toast, { backgroundColor: colors.ink, borderRadius: radii.button }]}>
-        <Text style={styles.toastText}>{toast.message}</Text>
+        <Text style={[styles.toastText, { color: colors.onInk }]}>{toast.message}</Text>
         {toast.undo ? (
           <Pressable
             accessibilityRole="button"
@@ -119,7 +119,7 @@ function MenuSheet({ spec, onClose }: { spec: MenuSpec; onClose: () => void }) {
 const styles = StyleSheet.create({
   toastWrap: { position: 'absolute', left: 16, right: 16 },
   toast: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingVertical: 14, minHeight: 48 },
-  toastText: { flex: 1, color: '#ffffff', fontSize: 14, lineHeight: 20 },
+  toastText: { flex: 1, fontSize: 14, lineHeight: 20 },
   undo: { fontSize: 14, fontWeight: '800' },
   menuHead: { gap: 2, paddingBottom: 4 },
   menuTitle: { fontSize: 17, fontWeight: '800' },

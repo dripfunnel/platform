@@ -20,6 +20,8 @@ export type Shell = {
   refresh: () => void
 }
 
+type Loaded = { key: string; person: Person | null; badges: Badges | null; state: StoreState | null }
+
 const Context = createContext<Shell | null>(null)
 
 export const useShell = (): Shell => {
@@ -47,29 +49,24 @@ const settled = <T,>(read: Promise<T>): Promise<T | null> => read.catch(() => nu
 export function ShellDataProvider({ acting, client, children }: { acting: Acting | null; client: ApiClient; children: ReactNode }) {
   const scenario = useScenario()
   const online = useOnline()
-  const [person, setPerson] = useState<Person | null>(null)
-  const [badges, setBadges] = useState<Badges | null>(null)
-  const [state, setState] = useState<StoreState | null>(null)
+  const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [round, setRound] = useState(0)
   const refresh = useCallback(() => setRound((n) => n + 1), [])
 
   const storeKey = acting ? `${acting.storeId}/${acting.supplierId ?? ''}` : null
-  // Nothing carries over from one store to the next.
-  useEffect(() => {
-    setPerson(null)
-    setBadges(null)
-    setState(null)
-  }, [storeKey])
+  // What was read for another store is never handed to this one, not even for a render.
+  const data = loaded !== null && loaded.key === storeKey ? loaded : null
+  const person = data?.person ?? null
+  const badges = data?.badges ?? null
+  const state = data?.state ?? null
 
   useEffect(() => {
     let current = true
     if (storeKey === null) return
     void Promise.all([settled(loadPerson(client)), settled(loadBadges(client)), settled(loadStoreState(client)), settled(loadTheme(client))]).then(([nextPerson, nextBadges, nextState, nextTheme]) => {
       if (!current) return
-      setPerson(nextPerson)
-      setBadges(nextBadges)
-      setState(nextState)
+      setLoaded({ key: storeKey, person: nextPerson, badges: nextBadges, state: nextState })
       if (nextTheme) setTheme(nextTheme)
     })
     return () => {

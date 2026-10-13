@@ -30,7 +30,7 @@ export function ScenarioMenu() {
         onPress={() => setOpen(true)}
         style={[styles.open, { backgroundColor: colors.ink, bottom: insets.bottom + 54 + 14 }]}
       >
-        <Text style={styles.openText}>{t('scenario.open')}</Text>
+        <Text style={[styles.openText, { color: colors.onInk }]}>{t('scenario.open')}</Text>
       </Pressable>
       {open ? (
         <SheetFrame onClose={() => setOpen(false)}>
@@ -70,7 +70,7 @@ export function ScenarioMenu() {
 
 const styles = StyleSheet.create({
   open: { position: 'absolute', left: 12, height: 32, paddingHorizontal: 12, borderRadius: 16, alignItems: 'center', justifyContent: 'center', opacity: 0.85 },
-  openText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  openText: { fontSize: 12, fontWeight: '700' },
   title: { fontSize: 19, fontWeight: '800' },
   note: { fontSize: 13, lineHeight: 19 },
   group: { gap: 6 },

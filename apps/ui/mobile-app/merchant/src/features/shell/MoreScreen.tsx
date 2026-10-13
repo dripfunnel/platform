@@ -12,9 +12,13 @@ import { useShell } from './ShellData'
 
 const roleLabel = (role: string): string => (role.startsWith('supplier') ? t('auth.role.supplier') : t(`auth.role.${role}` as MessageKey))
 
+// The partner's strings reach the system's URL opener, so only an https page or a plain address opens (a bad one is skipped).
+const httpsPage = (url: string | null) => (url !== null && /^https:\/\/\S+$/i.test(url) ? url : null)
+const mailAddress = (email: string | null) => (email !== null && /^[^\s@<>"?&#,;%]+@[^\s@<>"?&#,;%]+\.[^\s@<>"?&#,;%]+$/.test(email) ? `mailto:${email}` : null)
+
 // The brand's own help page, then its support page, then a mail to its support address; none of them, no button.
 export const helpTarget = (brand: { helpUrl: string | null; supportUrl: string | null; supportEmail: string | null } | null): string | null =>
-  brand?.helpUrl ?? brand?.supportUrl ?? (brand?.supportEmail ? `mailto:${brand.supportEmail}` : null)
+  httpsPage(brand?.helpUrl ?? null) ?? httpsPage(brand?.supportUrl ?? null) ?? mailAddress(brand?.supportEmail ?? null)
 
 export function MoreScreen() {
   const { colors, radii } = useTheme()
@@ -90,7 +94,7 @@ export function MoreScreen() {
           accessibilityRole="button"
           accessibilityLabel={t('more.help')}
           onPress={() => void Linking.openURL(help)}
-          style={[styles.help, { backgroundColor: colors.brand, bottom: 16 + insets.bottom }]}
+          style={[styles.help, { backgroundColor: colors.brand, shadowColor: colors.shadow, bottom: 16 + insets.bottom }]}
         >
           <Icon name="help" size={26} color={colors.brandContrast} strokeWidth={2} />
         </Pressable>
@@ -115,5 +119,5 @@ const styles = StyleSheet.create({
   noIcon: { width: 20 },
   rowLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
   note: { fontSize: 12 },
-  help: { position: 'absolute', right: 16, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  help: { position: 'absolute', right: 16, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', elevation: 4, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
 })

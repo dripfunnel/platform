@@ -120,7 +120,7 @@ function SheetConfirm({ label, danger, busy, onPress }: { label: string; danger:
   if (!danger) return <Button label={label} onPress={onPress} busy={busy} />
   return (
     <Pressable accessibilityRole="button" accessibilityState={{ busy }} disabled={busy} onPress={onPress} style={[styles.danger, { backgroundColor: colors.dangerButton, borderRadius: radii.button }]}>
-      <Text style={styles.dangerLabel}>{label}</Text>
+      <Text style={[styles.dangerLabel, { color: colors.onDanger }]}>{label}</Text>
     </Pressable>
   )
 }
@@ -142,5 +142,5 @@ const styles = StyleSheet.create({
   textarea: { borderWidth: 1, padding: 12, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },
   buttons: { gap: 8, paddingTop: 4 },
   danger: { height: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  dangerLabel: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  dangerLabel: { fontSize: 16, fontWeight: '700' },
 })

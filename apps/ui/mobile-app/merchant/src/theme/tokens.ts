@@ -5,6 +5,8 @@ export type Palette = {
   brandHover: string
   brandContrast: string
   ink: string
+  /** Text on an `ink` surface (a toast, the scenario button). */
+  onInk: string
   page: string
   surface: string
   heading: string
@@ -22,6 +24,10 @@ export type Palette = {
   dangerBorder: string
   /** A destructive action's button, which carries white text. */
   dangerButton: string
+  /** The label on `dangerButton`. */
+  onDanger: string
+  /** A floating control's shadow. */
+  shadow: string
   warning: string
   warningSurface: string
   warningBorder: string
@@ -47,6 +53,7 @@ export const lightPalette: Palette = {
   brandHover: '#d96c33',
   brandContrast: '#4a1b0c',
   ink: '#14181f',
+  onInk: '#ffffff',
   page: '#fdfaf7',
   surface: '#ffffff',
   heading: '#0a2a4a',
@@ -63,6 +70,8 @@ export const lightPalette: Palette = {
   dangerSurface: '#fdecec',
   dangerBorder: '#f3c7c2',
   dangerButton: '#a1261b',
+  onDanger: '#ffffff',
+  shadow: '#000000',
   warning: '#7a4b00',
   warningSurface: '#fff6e5',
   warningBorder: '#f2d9a6',

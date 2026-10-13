@@ -45,12 +45,13 @@ export function ShellHeader({ deep }: { deep: boolean }) {
       ) : (
         <Pressable accessibilityRole="button" accessibilityLabel={t('shell.switchStoreFrom', { store: acting.storeName })} onPress={actions.switchStore} style={styles.store}>
           <View style={styles.tile}>
+            <View style={[StyleSheet.absoluteFill, styles.tileFill, { backgroundColor: colors.sideText }]} />
             <Text style={[styles.tileText, { color: colors.sideText }]}>{initialsOf(acting.storeName, '·').slice(0, 1)}</Text>
           </View>
           <Text numberOfLines={1} style={[styles.storeName, { color: colors.sideText }]}>
             {acting.storeName}
           </Text>
-          <Text style={styles.caret}>{t('shell.caret')}</Text>
+          <Text style={[styles.caret, { color: colors.sideText }]}>{t('shell.caret')}</Text>
         </Pressable>
       )}
       <View style={styles.spacer} />
@@ -68,10 +69,11 @@ const styles = StyleSheet.create({
   back: { height: 44, flexDirection: 'row', alignItems: 'center', gap: 2, paddingRight: 10 },
   backLabel: { fontSize: 16, fontWeight: '600' },
   store: { flexShrink: 1, height: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 6 },
-  tile: { width: 32, height: 32, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  tile: { width: 32, height: 32, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  tileFill: { opacity: 0.16 },
   tileText: { fontSize: 13, fontWeight: '800' },
   storeName: { flexShrink: 1, fontSize: 17, fontWeight: '800' },
-  caret: { color: '#b8c7d6', fontSize: 11 },
+  caret: { fontSize: 11 },
   spacer: { flex: 1 },
   avatarHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },

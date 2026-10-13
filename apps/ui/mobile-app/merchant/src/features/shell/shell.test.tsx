@@ -1,12 +1,13 @@
 import type { ComponentProps } from 'react'
 import { Linking, Pressable, Text } from 'react-native'
-import { act, type ReactTestRenderer } from 'react-test-renderer'
-import { actingAs, byRole, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
-import { getMode } from '../../theme'
+import { act, create, type ReactTestRenderer } from 'react-test-renderer'
+import { actingAs, byRole, fakeClient, flush, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
+import type { ApiClient } from '../../graphql'
+import { buildTheme, getMode, ThemeProvider } from '../../theme'
 import { resetScenario, setScenario } from '../states/scenario'
 import { useFeedback } from './Feedback'
 import { MoreScreen, helpTarget } from './MoreScreen'
-import { useShell } from './ShellData'
+import { ShellDataProvider, useShell } from './ShellData'
 import { ShellHeader } from './ShellHeader'
 import { TabBar } from './TabBar'
 
@@ -157,6 +158,14 @@ describe('the More screen', () => {
     expect(helpTarget({ helpUrl: null, supportUrl: null, supportEmail: null })).toBeNull()
     expect(helpTarget(null)).toBeNull()
   })
+
+  it('opens only an https page or a plain address, never another scheme', () => {
+    expect(helpTarget({ helpUrl: 'intent://scan#Intent;end', supportUrl: 'tel:+911234567890', supportEmail: null })).toBeNull()
+    expect(helpTarget({ helpUrl: 'http://h.example', supportUrl: 'javascript:alert(1)', supportEmail: 'a@b.c' })).toBe('mailto:a@b.c')
+    expect(helpTarget({ helpUrl: 'file:///etc/passwd', supportUrl: 'https://s.example/help', supportEmail: null })).toBe('https://s.example/help')
+    expect(helpTarget({ helpUrl: null, supportUrl: null, supportEmail: 'a@b.example?cc=x@y.example' })).toBeNull()
+    expect(helpTarget({ helpUrl: null, supportUrl: null, supportEmail: 'not an address' })).toBeNull()
+  })
 })
 
 describe('the header', () => {
@@ -213,6 +222,32 @@ describe('toasts', () => {
     expect(hasText(renderer, 'Product deleted')).toBe(true)
     await act(async () => void jest.advanceTimersByTime(200))
     expect(hasText(renderer, 'Product deleted')).toBe(false)
+  })
+})
+
+describe('a store switch', () => {
+  it('never hands one store’s counts to the next, not even for the first render after the switch', async () => {
+    const seen: (number | null)[] = []
+    const Probe = () => (seen.push(useShell().badges?.ordersToShip ?? null), null)
+    const neverAnswers: ApiClient = { request: () => new Promise(() => undefined) }
+    const tree = (storeId: string, client: ApiClient) => (
+      <ThemeProvider theme={buildTheme('light')}>
+        <ShellDataProvider acting={actingAs('owner', null, { storeId })} client={client}>
+          <Probe />
+        </ShellDataProvider>
+      </ThemeProvider>
+    )
+    let renderer!: ReactTestRenderer
+    await act(async () => {
+      renderer = create(tree('store-1', fakeClient({ badges: { products: 2, toShip: 5 } })))
+    })
+    await flush()
+    expect(seen.at(-1)).toBe(5)
+    seen.length = 0
+    await act(async () => renderer.update(tree('store-2', neverAnswers)))
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen.every((count) => count === null)).toBe(true)
+    await act(async () => renderer.unmount())
   })
 })
 
