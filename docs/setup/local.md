@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -222,12 +222,13 @@ with the same secret.
   a store's first template choice runs the whole `create-storefront` Workflow without the App. The repos last until
   `pnpm dev` restarts. The templates come from the local `storefront-sites-local` bucket (bound with `storefront-assets-local` and
   `storefront-drafts-local`, storefront LIVE-SHOP.md §2), which stays empty until the release
-  uploads them (storefront ARCHITECTURE §2.3, #486), so until then the run stops at its first step and undoes itself.
+  uploads them (storefront ARCHITECTURE §2.3, #486): run `pnpm --filter ./apps/api seed:templates` (§6.3), or the run
+  stops at its first step and undoes itself.
   A store build's calls on `https://hooks.localhost/builds/*` (#517) take tokens from a local OIDC issuer whose key
   lives as long as the Worker, and answer with credentials and links that name nothing real: no runner reaches this
   machine, so the integration tests are what drive them (`apps/api/tests/build-uploads.test.ts`). A publish's post-deploy
   checks (#484) read the switched build's pages from the bucket as the edge Worker would serve them, and skip the Shop
-  API checks, since no store host resolves here.
+  API checks, since no store build runs here and a store's own address answers 404 (§6.3).
 
 Check that it's up:
 
