@@ -52,6 +52,12 @@ ${button}`,
 [part~=row],[part~=total]{display:flex!important;justify-content:space-between;gap:16px}
 [part~=total]{font-weight:700;font-size:max(14px,1.15em)!important}
 [part~=saving]{color:var(--df-sealed-saving,inherit)}`,
+  payment: `:host{display:block!important}
+[part~=panel]{display:grid!important;gap:12px}
+[part~=test]{padding:10px 12px;border-radius:var(--df-sealed-radius,8px);background:var(--df-preview-surface,#fdf3dc);color:var(--df-preview-color,#5c3d00)}
+[part~=field]:empty{display:none}
+[part~=status]{${muted}}
+${button}`,
 }
 
 export const sealedCss = (part: SealedPart): string => locked + parts[part]

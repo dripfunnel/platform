@@ -1,6 +1,9 @@
 // What a theme may import (storefront ARCHITECTURE §3.4 "Imports"): core's hooks and components, never its internals.
 export { AddToCart, BuyNow } from '../cart/buttons'
 export { useCart, type Cart, type CartLine, type CartPage, type DeliveryOption, type LineProblem } from '../cart/cart'
+export { addressDraft, orderPath, useCheckout, type CheckoutPage, type CheckoutStepId, type PayPhase, type PaymentChoice } from '../checkout/checkout'
+export { type AddressDraft, type AddressField, type FieldProblem } from '../checkout/address'
+export { PlaceOrder } from '../checkout/place'
 export { useCollection, useCollections, type CollectionCard, type CollectionPage } from '../collections/collections'
 export { useInView, useMediaQuery, usePointer, useReducedMotion, useScrollProgress } from '../platform/browser/hooks'
 export { Link } from '../platform/browser/link'
@@ -17,6 +20,8 @@ export { useProduct, type Product, type ProductOption, type ProductPage, type Ve
 export { type ProductCard } from '../products/summary'
 export { useSearch, type Search } from '../search/search'
 export { Breadcrumbs, ConsentBanner, ConsentSettingsButton, LegalNotices, PoweredBy, PreviewBanner, Price, type Crumb, type LegalNotice, type PriceProps } from '../sealed/components'
+export { PaymentElement } from '../sealed/payment'
 export { OrderSummary, type OrderSummaryProps } from '../sealed/summary'
 export { useStorefront, type RenderMode, type Storefront } from '../platform/store/context'
 export { Checkbox, CodeField, SearchField, Select } from '../ui/headless/fields'
+export { AddressFields, Choices, Form, SubmitButton, TextField, type TextFieldProps } from '../ui/headless/form'

@@ -44,3 +44,6 @@ export const keepShopperToken = (which: ShopperToken, token: string | null, { re
 
 /** The client's `state` in the browser: the tokens as they are when each request is sent. */
 export const storedShopState = (): ShopState => ({ cartToken: shopperToken('cart'), sessionToken: shopperToken('session') })
+
+/** The preview's and the studio frame's: a guest's cart only, never a session, as the Shop API treats every caller there (PREVIEW §5 step 5). */
+export const guestShopState = (): ShopState => ({ cartToken: shopperToken('cart') })
