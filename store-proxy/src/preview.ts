@@ -64,14 +64,14 @@ const previewObject = async (url: URL, session: PreviewSession, folder: string, 
 }
 
 export const servePreview = async (request: Request, url: URL, key: string, deps: Deps): Promise<Response> => {
+  // The studio frame (AI-STUDIO §3 step 6), its Shop API's POSTs too: the API finds this host's store and its Durable Object checks the session in
+  // the path before anything is read; no cookie is asked for, since the cross-site frame never has one.
+  if (url.pathname.startsWith('/__studio/')) return deps.edge.fetch(request)
   // Pages are only read, so a write to one never reaches the re-check. Cross-site posts don't carry the SameSite=Lax cookie;
   // `/shop-api` writes (the SPA's cart) renew it as PREVIEW §5 step 2 says, and the API judges them.
   if (request.method !== 'GET' && request.method !== 'HEAD' && !isShopApi(url.pathname)) return withPreviewHeaders(new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } }))
   if (url.pathname === '/robots.txt') return withPreviewHeaders(new Response(robots, { headers: { 'content-type': 'text/plain' } }))
   if (url.pathname === '/__open') return open(url, key, deps)
-  // The studio frame (AI-STUDIO §3 step 6): the API finds this host's store and its Durable Object checks the session in
-  // the path before anything is read; no cookie is asked for, since the cross-site frame never has one.
-  if (url.pathname.startsWith('/__studio/')) return deps.edge.fetch(request)
   const value = cookieValue(request, sessionCookie)
   const session = value && deps.sessions ? await deps.sessions.read(value) : null
   const live = session !== null && session.k === key && session.x > deps.now() / 1000
