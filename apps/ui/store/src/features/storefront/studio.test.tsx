@@ -16,7 +16,7 @@ const [firstSuggestion = '', secondSuggestion = ''] = c.suggestions
 const origin = 'https://k7f3q9f2xa.webpreview.store'
 const frameUrl = `${origin}/__studio/abcdefghijklmnopqrstuv/`
 const ready: StudioSession = { state: 'ready', place: null, session: 'abcdefghijklmnopqrstuv', frameUrl, access: 'change', expiresAt: '2026-10-12T09:00:00Z' }
-const overview: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen' }, draft: { template: 'linen', changedAt: null, previewReady: true } }
+const overview: StorefrontOverview = { status: 'unpublished_changes', template: 'linen', live: { number: 12, publishedAt: '2026-10-09T10:40:00Z', template: 'linen', portalOrigin: null }, draft: { template: 'linen', changedAt: null, previewReady: true }, lastPublish: null }
 const line = (id: string, role: DesignMessage['role'], text: string, more: Partial<DesignMessage> = {}): DesignMessage => ({ id, role, text, changed: [], imageAssetId: null, sampleUrl: null, canUndo: false, undone: false, createdAt: '2026-10-12T08:00:00Z', ...more })
 const chat = [line('m3', 'ai', 'I warmed it up.', { changed: ['Colours'], canUndo: true }), line('m2', 'user', 'Make it warmer'), line('m1', 'note', 'template:linen')]
 
@@ -47,12 +47,12 @@ let api: Fake
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 const usageOf = (over: Partial<StorefrontMeters['usage']> = {}): StorefrontMeters['usage'] => ({ ownKey: false, aiRequests: 40, aiPromptsUsed: 40, aiPromptsAllowed: 1000, buildMinutes: 12, publishesLast30Days: 2, recent: [], ...over })
 let usage = usageOf()
-const show = async (over: Partial<Fake> = {}, run: string | null = null) => {
+const show = async (over: Partial<Fake> = {}, run: string | null = null, startPath = '/') => {
   Object.assign(api, over)
   const onOverview = vi.fn()
   const onRun = vi.fn()
   await act(async () => {
-    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} usage={usage} run={run} onRun={onRun} />)
+    render(<StudioView overview={overview} templates={[{ key: 'linen', name: 'Linen', tag: '', description: '', demoUrl: null, current: true }]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={onOverview} usage={usage} run={run} onRun={onRun} startPath={startPath} />)
   })
   await settle()
   return { onOverview, onRun }
@@ -108,6 +108,12 @@ describe('the studio’s frame', () => {
     post({ type: 'df-studio:page', path: '/faq' })
     expect(picker.value).toBe('/faq')
     expect(frame().getAttribute('src')).toBe(`${frameUrl}products/kurta/`)
+  })
+
+  it('opens on the page Storefront › Pages picked', async () => {
+    await show({}, null, '/about')
+    expect(frame().getAttribute('src')).toBe(`${frameUrl}about`)
+    expect((screen.getByRole('combobox', { name: words.page }) as HTMLSelectElement).value).toBe('/about')
   })
 
   it('takes the frame back to a page it left by itself', async () => {
@@ -534,7 +540,7 @@ describe('publishing from the studio', () => {
     cleanup()
     api.loadOverview.mockResolvedValue(overview)
     await act(async () => {
-      render(<StudioView overview={{ ...overview, status: 'same_as_live', draft: null }} templates={[]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} />)
+      render(<StudioView overview={{ ...overview, status: 'same_as_live', draft: null }} templates={[]} storeName="Kesari" host="www.kesari.in" api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} startPath="/" />)
     })
     await settle()
     expect((screen.getByRole('button', { name: p.button }) as HTMLButtonElement).disabled).toBe(true)
@@ -602,7 +608,7 @@ describe('the studio’s AI line and preview links', () => {
   it('offers no preview before the draft has one', async () => {
     cleanup()
     await act(async () => {
-      render(<StudioView overview={{ ...overview, draft: { template: 'linen', changedAt: null, previewReady: false } }} templates={[]} storeName="Kesari" host={null} api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} />)
+      render(<StudioView overview={{ ...overview, draft: { template: 'linen', changedAt: null, previewReady: false } }} templates={[]} storeName="Kesari" host={null} api={api as unknown as StorefrontApi} onExit={vi.fn()} onOverview={vi.fn()} usage={usage} run={null} onRun={vi.fn()} startPath="/" />)
     })
     await settle()
     expect(screen.queryByRole('button', { name: pv.open })).toBeNull()

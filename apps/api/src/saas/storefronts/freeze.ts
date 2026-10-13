@@ -3,7 +3,7 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { markDispatched, selectAssetsBuild, selectBuildInput, selectSnapshotSource, unmarkDispatched } from '#db/scoped/publishing'
 import { GitHubRefused, GitHubUnavailable } from '#integrations/github/index'
 import { selectShopStore } from '#db/scoped/shop'
-import { selectGuardContext, type GuardContextRow } from '#db/scoped/studio'
+import { selectGuardContext, selectStudioPortalHost, type GuardContextRow } from '#db/scoped/studio'
 import type { GuardContext } from '#integrations/sandbox/index'
 import { storeContentPaths } from '#engine/modules/content/index'
 import { shopsHostOf } from '#saas/domains/storeHosts'
@@ -52,6 +52,7 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string,
   const store = await selectShopStore(tx, storeId)
   const source = await selectSnapshotSource(tx, storeId)
   const guard = await selectGuardContext(tx, storeId)
+  const portal = await selectStudioPortalHost(tx, storeId)
   if (!store || !source || !guard) throw new FreezeRefused('no_source')
   if (!source.shops_host) throw new FreezeRefused('no_address')
   const languages = store.languages.length > 0 ? store.languages : [store.main_language]
@@ -81,7 +82,8 @@ const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string,
     },
     poweredBy: source.powered_by,
     guard: guardContextFor(guard, await storeContentPaths(tx, storeId)),
-    csp: { assetOrigin, mediaOrigins: [], analytics: [], payments: [] },
+    // The portal may frame the pages (the Overview, ARCHITECTURE §3.5); without a live one, no page may.
+    csp: { assetOrigin, mediaOrigins: [], analytics: [], payments: [], ...(portal ? { portalOrigin: `https://${portal}` } : {}) },
     assetBase: assetOrigin ? `${assetOrigin}/${assetsFolder(storeId, assetsBuildId)}` : null,
   }
 }

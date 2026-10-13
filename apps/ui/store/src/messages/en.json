@@ -6434,13 +6434,212 @@
       "noSiteTitle": "No storefront yet",
       "noSiteBody": "The store owner picks a template and publishes the site. You’ll see it here once it’s live."
     },
-    "pages": {
-      "title": "No pages yet",
-      "body": "Your FAQ, lookbook and other pages of your own will be listed here, with the pages the AI makes for your site. Adding pages isn’t open yet."
-    },
-    "journal": {
-      "title": "No posts yet",
-      "body": "Posts for your shop’s blog will be listed here, newest first. Writing posts isn’t open yet."
+    "content": {
+      "loading": "Loading your pages",
+      "error": {
+        "title": "We couldn’t load this list",
+        "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
+        "retry": "Try again"
+      },
+      "more": "Show more",
+      "moreFailed": "We couldn’t load more. Try again.",
+      "status": {
+        "draft": "Draft",
+        "scheduled": "Scheduled",
+        "published": "Published"
+      },
+      "pages": {
+        "title": "Pages",
+        "sub": "About, FAQ, contact and lookbook pages on your storefront.",
+        "add": "Add a page",
+        "empty": "No pages yet.",
+        "foot": "Your menus can link to these pages (Collections › Menus).",
+        "edited": "Edited {date}",
+        "inMenu": "{meta} · in the footer",
+        "ai": "Made by AI",
+        "aiMeta": "Change it in the studio",
+        "aiOpen": "Open {path} in the studio",
+        "back": "All pages",
+        "untitled": "Untitled page",
+        "body": "The page",
+        "delete": "Delete page",
+        "deleteTitle": "Delete the page “{title}”?",
+        "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
+        "deleteBodyMenu": "It comes off your shop with the next publish. Links to it show “page not found”, and it leaves the footer menu.",
+        "notFound": "This page isn’t here any more."
+      },
+      "journal": {
+        "title": "Journal",
+        "sub": "Posts for your shop’s blog, newest first. Shoppers find them under Journal.",
+        "add": "Write a post",
+        "empty": "No posts yet. Write about how you make things, care tips or new arrivals.",
+        "foot": "Posts can mention products; shoppers see their live price.",
+        "goesLive": "Goes live {date}",
+        "byline": "{when} · {author}",
+        "back": "All posts",
+        "untitled": "Untitled post",
+        "body": "The post",
+        "delete": "Delete post",
+        "deleteTitle": "Delete “{title}”?",
+        "deleteBody": "It comes off your shop with the next publish. Links to it show “page not found”.",
+        "notFound": "This post isn’t here any more.",
+        "planLimit": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts."
+      },
+      "editor": {
+        "loading": "Loading the page",
+        "title": "Title",
+        "slug": "Web address",
+        "kinds": {
+          "heading": "Heading",
+          "text": "Text",
+          "image": "Photo",
+          "faq": "Questions and answers",
+          "products": "Products",
+          "form": "Contact form"
+        },
+        "tools": {
+          "heading": "Add a heading",
+          "text": "Add text",
+          "image": "Add a photo",
+          "faq": "Add questions",
+          "products": "Add products",
+          "form": "Add a contact form"
+        },
+        "toolsLabel": "Add a block",
+        "blockText": "{kind}, block {number}",
+        "moveUp": "Move block {number} up",
+        "moveDown": "Move block {number} down",
+        "remove": "Remove block {number}",
+        "uploading": "Uploading…",
+        "photoAlt": "Photo description, block {number}",
+        "photoAltHint": "Describe the photo for people who can’t see it",
+        "question": "Question {number}",
+        "answer": "Answer {number}",
+        "removeQuestion": "Remove question {number}",
+        "addQuestion": "+ Add a question",
+        "findProduct": "Find a product to add",
+        "removeProduct": "Remove {name}",
+        "loadingProduct": "Loading the product’s name…",
+        "goneProduct": "A product no longer in your catalogue",
+        "unknownProduct": "A product whose name didn’t load",
+        "namesFailed": "We couldn’t load these products’ names. They stay on the page as they are; open the page again to see them.",
+        "productsHelp": "Shown with their live price and stock. A sold-out product shows as sold out, never removed.",
+        "form": "Name, email, order number (optional) and message. Messages go to {email} and a copy goes to the shopper.",
+        "formNoEmail": "your store email",
+        "search": "How it looks in search",
+        "seoTitle": "Title in search",
+        "seoTitleHelp": "Leave it empty to use the title.",
+        "seoDescription": "Description",
+        "seoPlaceholder": "Add a description so search engines show something better than the first line.",
+        "publishing": "Publishing",
+        "now": "Now: {status}",
+        "nowEdited": "Now: {status} · edited {date}",
+        "waiting": "Your last save goes live with your shop’s next publish.",
+        "inMenu": "Show in the footer menu",
+        "publish": "Publish",
+        "update": "Update",
+        "publishOn": "Publish on",
+        "publishOnHelp": "A future date schedules it. Left empty, it’s dated the day it’s published. Dates are in UTC.",
+        "author": "Written by",
+        "schedule": "Schedule",
+        "scheduled": "Scheduled for {date}",
+        "addCover": "Add a cover photo",
+        "changeCover": "Change the cover photo",
+        "removeCover": "Remove the cover photo",
+        "noCover": "No cover photo",
+        "draft": "Save as draft",
+        "saving": "Saving…",
+        "note": "Goes live with your shop’s next publish. Your storefront design decides how it looks.",
+        "cancel": "Cancel",
+        "needsTitle": "Give it a title.",
+        "needsSlug": "Give it a web address: letters, numbers and hyphens.",
+        "seoTooLong": "Shorten the title or description in search to save.",
+        "needsDate": "This post already has a date and can’t go back to none. Pick a day.",
+        "savedDraft": "Saved as a draft — not on your shop yet",
+        "published": "Published. It goes live with your shop’s next publish.",
+        "deleted": "Deleted",
+        "refused": {
+          "INVALID_INPUT": "Something here isn’t valid. Check each block and try again.",
+          "STALE_REVISION": "Someone else saved this since you opened it. Reload to see their changes.",
+          "NOT_FOUND": "This isn’t here any more. Go back to the list.",
+          "READ_ONLY": "Your store is view-only until the payment goes through.",
+          "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+          "FORBIDDEN": "Only the store owner can change the storefront.",
+          "PLAN_LIMIT": "Your plan doesn’t include this. Check your plan in Billing.",
+          "other": "That didn’t save. Check your connection and try again."
+        },
+        "deleteRefused": {
+          "NOT_FOUND": "This isn’t here any more. Go back to the list.",
+          "READ_ONLY": "Your store is view-only until the payment goes through.",
+          "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+          "FORBIDDEN": "Only the store owner can change the storefront.",
+          "other": "That didn’t delete. Check your connection and try again."
+        }
+      },
+      "taken": {
+        "coreLine": "{path} is your shop’s {what}. Choose another web address.",
+        "core": {
+          "cart": "cart",
+          "checkout": "checkout",
+          "orders": "order pages",
+          "accounts": "shoppers’ account pages",
+          "signIn": "sign-in pages",
+          "search": "search page",
+          "products": "product pages",
+          "collections": "collection pages",
+          "policies": "policy pages",
+          "journal": "Journal"
+        },
+        "coreOther": "{path} is kept for how your shop works behind the scenes. Choose another web address.",
+        "custom": "{path} is a page your AI designer made. Choose another web address, or change that page in the studio.",
+        "language": "{path} is your shop in {language}. Choose another web address.",
+        "market": "{path} is where one of your markets lives (Settings › Markets). Choose another web address.",
+        "page": {
+          "named": "Your page “{title}” already uses {path}. Choose another web address.",
+          "unnamed": "Another of your pages already uses {path}. Choose another web address."
+        },
+        "post": {
+          "named": "Your post “{title}” already uses {path}. Choose another web address.",
+          "unnamed": "Another of your posts already uses {path}. Choose another web address."
+        }
+      },
+      "translate": {
+        "loading": "Loading the translation",
+        "failed": "We couldn’t load this translation",
+        "failedBody": "Nothing was changed. Try again in a moment.",
+        "retry": "Try again",
+        "title": "In {language}",
+        "notYet": "Not in {language} yet. Shoppers see the {main} words until you save a translation; nothing is broken.",
+        "hint": "A field left empty is saved with the {main} words as they are now.",
+        "changed": "The {main} words changed since this was written. Check it still says the same.",
+        "main": "{language}: {text}",
+        "blocks": "The words of each block",
+        "same": "Same in every language.",
+        "fields": {
+          "title": "Title",
+          "block": "{kind}, block {number}",
+          "seoTitle": "Title in search",
+          "seoDescription": "Description in search"
+        },
+        "save": "Save translation",
+        "saving": "Saving…",
+        "cancel": "Cancel",
+        "saved": "{language} saved",
+        "remove": "Remove the {language} words",
+        "removeTitle": "Remove the {language} words?",
+        "removeBody": "Shoppers reading your shop in {language} see the {main} words here instead.",
+        "removeConfirm": "Remove",
+        "removed": "{language} removed",
+        "refused": {
+          "NOT_FOUND": "This isn’t here any more. Go back to the list.",
+          "INVALID_INPUT": "Something here isn’t valid. Check each field and try again.",
+          "READ_ONLY": "Your store is view-only until the payment goes through.",
+          "SUPPORT_READ_ONLY": "Support can’t change the storefront.",
+          "FORBIDDEN": "Only the store owner can change the storefront.",
+          "PLAN_LIMIT": "Your plan doesn’t include the Journal. Change plans in Billing to publish posts.",
+          "other": "That didn’t save. Your words are still here; try again."
+        }
+      }
     },
     "brand": {
       "title": "Your brand",
@@ -6663,6 +6862,7 @@
       "liveLabel": "Live now · version {number}",
       "published": "Published {when}",
       "liveAt": "Shoppers see this version at {host}.",
+      "frameTitle": "Your live site at {host}",
       "powered": "“Powered by {brand}” shows in your footer on {plan}.",
       "poweredRemove": "Remove it",
       "creatingTitle": "Setting up your storefront…",
@@ -6677,7 +6877,15 @@
         "other": "That didn’t work. Check your connection and try again."
       },
       "openStudio": "Open studio",
-      "continueStudio": "Continue in studio"
+      "continueStudio": "Continue in studio",
+      "rolledBackReasons": {
+        "check_home": "your new version’s home page didn’t open.",
+        "check_product": "your new version’s product pages didn’t open.",
+        "check_cart": "your new version stopped shoppers adding products to a cart.",
+        "check_checkout": "your new version broke the checkout.",
+        "check_payment": "your new version broke the payment form.",
+        "vitals_regressed": "your new version made your site much slower for shoppers."
+      }
     },
     "gallery": {
       "first": "Choose a starting point",

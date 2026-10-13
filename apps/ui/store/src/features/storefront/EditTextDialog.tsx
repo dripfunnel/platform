@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { fill, locale, messages } from '../../messages'
-import { editRefusal, languageName } from './studioRules'
+import { languageName } from '../common/languageName'
+import { editRefusal } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.studio.edit
@@ -59,7 +60,7 @@ export const EditTextDialog = ({ textKey, page, pageLabel, languages, api, onCan
 
   const save = async () => {
     if (loaded.kind !== 'ready' || saving || !textKey) return
-    if (!loaded.now[main]?.trim()) return setError(fill(words.mainMissing, { language: languageName(main, locale) }))
+    if (!loaded.now[main]?.trim()) return setError(fill(words.mainMissing, { language: languageName(main) }))
     setSaving(true)
     setError(null)
     const saved: Record<string, string> = {}
@@ -103,12 +104,12 @@ export const EditTextDialog = ({ textKey, page, pageLabel, languages, api, onCan
       {loaded.kind === 'ready' &&
         languages.map((l) => {
           const value = loaded.now[l] ?? ''
-          const name = languageName(l, locale)
+          const name = languageName(l)
           return (
             <label key={l} className="df-field">
               <span>{l === main ? fill(words.main, { language: name }) : name}</span>
               <textarea rows={2} value={value} onChange={(e) => (setError(null), setLoaded({ ...loaded, now: { ...loaded.now, [l]: e.target.value } }))} />
-              {l !== main && !value.trim() && <span className="df-field-hint">{fill(words.untranslated, { main: languageName(main, locale) })}</span>}
+              {l !== main && !value.trim() && <span className="df-field-hint">{fill(words.untranslated, { main: languageName(main) })}</span>}
             </label>
           )
         })}

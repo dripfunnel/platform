@@ -59,9 +59,9 @@ const callerOf = (partnerId: string, role: PartnerRole, staff: PartnerCaller['st
   partner: { id: partnerId, name: partnerId === ids.ns ? 'Northstar Commerce' : 'Bazaar Cloud', product: 'Shops', host: null, state: 'live' },
 })
 
-const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}, connected = true) => {
+const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}, connected = true, publishableKey: string | null = 'pk_test_northstar') => {
   const deps = { sql: db.sql, caller, facts, activity: activityLog, now: () => clock }
-  const contextValue = { caller, console: createPartnerConsoleService(deps), billing: createPartnerBillingService({ ...deps, stripe: connected ? stripe : null }) }
+  const contextValue = { caller, console: createPartnerConsoleService(deps), billing: createPartnerBillingService({ ...deps, stripe: connected ? stripe : null, publishableKey }) }
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   const error = result.errors?.[0]
   if (error && error.extensions['code'] === undefined) throw error
@@ -81,6 +81,7 @@ const q = {
   payouts: `{ payouts { items { month collected { amount } fee { amount } adjustment { amount { amount } } payout { amount currency } status toLast4 } } }`,
   next: `{ nextPayout { state date soFar { amount currency } toLast4 } }`,
   settings: `{ billingSettings { mode asOf staleSince payoutAccount { bank last4 status } } }`,
+  client: `{ billingClientConfig { publishableKey } }`,
   account: `{ payoutAccount { bank last4 status failure } }`,
   card: `{ paymentMethod { brand last4 expires status } }`,
   invoices: `{ partnerInvoices { items { id number what amount { amount currency } status } } }`,
@@ -296,6 +297,27 @@ describe('the Stripe webhook', () => {
 describe('payout account and card', () => {
   it('hold the next payout until there is an account to pay', async () => {
     expect((await run<{ nextPayout: { state: string } }>(q.next, callerOf(ids.ns, 'partner-owner'))).data?.nextPayout.state).toBe('heldNoAccount')
+  })
+
+  it('keeps the payout account and card from any staff session, and gives them to the partner', async () => {
+    const owner = callerOf(ids.ns, 'partner-owner')
+    const staffed = (kind: 'impersonation' | 'setup'): PartnerCaller => ({ ...owner, staff: { id: '', name: 'Staff', email: 'staff@dripfunnel.test', session: { kind, id: crypto.randomUUID(), expiresAt: start } } } as PartnerCaller)
+    for (const kind of ['impersonation', 'setup'] as const) {
+      expect((await run(q.account, staffed(kind))).code).toBe(kind === 'setup' ? 'PARTNER_ENTERS_THIS_ITSELF' : 'BLOCKED_WHILE_IMPERSONATING')
+      expect((await run(q.card, staffed(kind))).code).toBeDefined()
+    }
+    expect((await run(q.account, owner)).code).toBeUndefined()
+    const inSettings = async (caller: PartnerCaller) => (await run<{ billingSettings: { payoutAccount: unknown } }>(q.settings, caller)).data?.billingSettings.payoutAccount
+    expect(await inSettings(owner)).not.toBeNull()
+    for (const kind of ['impersonation', 'setup'] as const) expect(await inSettings(staffed(kind))).toBeNull()
+  })
+
+  it('answer the publishable key at runtime to whoever reads billing, and null while there is none', async () => {
+    const answer = async (role: PartnerRole, key?: string | null) => (await run<{ billingClientConfig: { publishableKey: string | null } }>(q.client, callerOf(ids.ns, role), {}, true, key)).data?.billingClientConfig.publishableKey
+    expect(await answer('partner-owner')).toBe('pk_test_northstar')
+    expect(await answer('partner-read-only')).toBe('pk_test_northstar')
+    expect(await answer('partner-finance', null)).toBeNull()
+    expect((await run(q.client, callerOf(ids.ns, 'partner-support'))).code).toBe('FORBIDDEN')
   })
 
   it('refuse Admin, Support and Read-only, and never a staff session', async () => {

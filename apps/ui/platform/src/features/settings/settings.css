@@ -117,17 +117,6 @@
   height: 20px;
 }
 
-.df-hosted-slot {
-  display: grid;
-  place-items: center;
-  min-height: 72px;
-  padding: var(--df-space-3);
-  border: 1px dashed var(--df-color-border);
-  border-radius: var(--df-radius);
-  color: var(--df-color-muted);
-  font-size: 13px;
-  text-align: center;
-}
 
 @media (max-width: 639px) {
   .df-settings-fact {
@@ -162,4 +151,16 @@
     color: var(--df-color-muted);
     font-size: 11px;
   }
+}
+.df-settings-onfile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+.df-card-field {
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
 }

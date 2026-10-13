@@ -52,3 +52,41 @@ export const SearchField = ({ label, placeholder, button, value, onSearch, class
     </form>
   )
 }
+
+/**
+ * A code to apply, such as a discount code: trimmed, handed to `onApply`, and cleared once it worked; nothing is posted.
+ * `message` is what the last try answered; `refused` announces it as an error.
+ */
+export const CodeField = ({ label, button, onApply, message, refused = false, className }: Styled & { label: string; button: string; onApply: (code: string) => Promise<boolean>; message?: string | null; refused?: boolean }) => {
+  const id = useId()
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  return (
+    <form
+      className={className}
+      onSubmit={(e) => {
+        e.preventDefault()
+        const value = code.trim()
+        if (!value || busy) return
+        setBusy(true)
+        onApply(value)
+          .then((worked) => {
+            if (worked) setCode('')
+          })
+          .catch(() => undefined)
+          .finally(() => setBusy(false))
+      }}
+    >
+      <label htmlFor={id}>{label}</label>
+      <input id={id} type="text" value={code} maxLength={60} autoComplete="off" autoCapitalize="characters" spellCheck={false} aria-invalid={message && refused ? true : undefined} aria-describedby={message ? `${id}-message` : undefined} onChange={(e) => setCode(e.target.value)} />
+      <button type="submit" disabled={busy}>
+        {button}
+      </button>
+      {message ? (
+        <p id={`${id}-message`} role={refused ? 'alert' : 'status'}>
+          {message}
+        </p>
+      ) : null}
+    </form>
+  )
+}

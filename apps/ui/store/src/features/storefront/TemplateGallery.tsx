@@ -72,14 +72,17 @@ export const TemplateGallery = ({ templates, status, api, onBack, onChosen }: Te
   )
 }
 
+const templatePicture = (key: string): string => `${import.meta.env.BASE_URL}templates/${encodeURIComponent(key)}.webp`
+
 const TemplateCard = ({ template, busy, onPick }: { template: StorefrontTemplate; busy: string | null; onPick: () => void }) => {
   const nameId = useId()
+  const [pictured, setPictured] = useState(true)
   const scratch = template.key === scratchTemplate
   return (
     <li className={`df-sf-template${scratch ? ' df-sf-template--scratch' : ''}${template.current ? ' df-sf-template--current' : ''}`}>
-      {/* No picture of each look with the store's products exists yet (FIRST-RELEASE §14, "Built on #319 (part 3)"). */}
-      <div className="df-sf-template-thumb" aria-hidden="true">
-        <span>{template.name}</span>
+      {/* One picture per template, the same for every store; a key without one keeps the name tile (FIRST-RELEASE §14). */}
+      <div className="df-sf-template-thumb">
+        {pictured ? <img src={templatePicture(template.key)} alt="" loading="lazy" onError={() => setPictured(false)} /> : <span aria-hidden="true">{template.name}</span>}
       </div>
       {template.current && <span className="df-sf-badge">{words.current}</span>}
       <div className="df-sf-template-body">

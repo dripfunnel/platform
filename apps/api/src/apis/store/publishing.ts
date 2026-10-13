@@ -1,4 +1,4 @@
-import type { PublishRunView } from '#db/scoped/publishing'
+import type { LastPublishRow, PublishRunView } from '#db/scoped/publishing'
 import { createPublishingService, designAudit, type CatalogueView, type UsageView } from '#saas/ai-designer/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -71,7 +71,20 @@ export const registerPublishing = (builder: StoreBuilder, storefront: ReturnType
       recent: t.field({ type: [Recent], resolve: (u) => u.recent }),
     }),
   })
+  const LastPublish = builder.objectRef<LastPublishRow>('StorefrontLastPublish').implement({
+    fields: (t) => ({
+      // live, failed or rolled_back.
+      state: t.exposeString('state'),
+      // The failed check's or the rollback's code (LOGGING's storefront.publish_failed and storefront.rolled_back).
+      error: t.exposeString('error', { nullable: true }),
+      // The version it made live; null once failed or rolled back, since a rollback withdraws it (LIVE-SHOP §4 step 10).
+      version: t.exposeInt('version', { nullable: true }),
+      finishedAt: t.string({ resolve: (p) => p.finished_at.toISOString() }),
+    }),
+  })
   builder.objectFields(storefront.Storefront, (t) => ({
+    // The newest finished design or catalogue publish (not a page render); null before the first.
+    lastPublish: t.field({ type: LastPublish, nullable: true, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).lastPublish() }),
     catalogue: t.field({ type: Catalogue, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).catalogue() }),
     usage: t.field({ type: Usage, resolve: (_, __, ctx: StoreContext) => publishingFor(ctx).usage() }),
   }))

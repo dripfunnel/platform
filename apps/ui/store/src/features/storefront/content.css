@@ -1,0 +1,502 @@
+/* Storefront › Pages and Journal (designs/StorefrontContent.dc.html): the list and the editor. */
+.df-sfc,
+.df-sfc-editor,
+.df-sfc-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.df-sfc-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.df-sfc-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.df-sfc-head p {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-sfc-empty {
+  margin: 0;
+  padding: 28px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.df-sfc-rows {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  list-style: none;
+}
+
+.df-sfc-rows li + li {
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-sfc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  background: none;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+button.df-sfc-row {
+  cursor: pointer;
+}
+
+button.df-sfc-row:hover {
+  background: var(--df-color-hover);
+}
+
+.df-sfc-row > :is(.df-pill, .df-sf-tag) {
+  justify-self: start;
+}
+
+.df-sfc-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-sfc-name strong {
+  overflow-wrap: anywhere;
+}
+
+.df-sfc-path {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+strong.df-sfc-path {
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+.df-sfc-meta,
+.df-sfc-foot {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-sfc-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.df-sfc-back {
+  align-self: flex-start;
+}
+
+.df-sfc-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.df-sfc-side {
+  gap: 10px;
+}
+
+.df-sfc-side h2,
+.df-sfc-main h2 {
+  font-size: 15px;
+}
+
+.df-sfc-status {
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+.df-sfc-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.df-sfc-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.df-sfc-delete {
+  align-self: flex-start;
+}
+
+.df-sf-field .df-sfc-title {
+  font-size: 16px;
+}
+
+.df-sfc-slug {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+}
+
+.df-sfc-slug[data-invalid] {
+  border-color: var(--df-color-danger);
+}
+
+.df-sfc-slug:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 1px;
+}
+
+.df-sfc-prefix {
+  display: flex;
+  flex: none;
+  align-items: center;
+  max-width: 55%;
+  padding: 0 10px;
+  overflow: hidden;
+  border-right: 1px solid var(--df-color-field-border);
+  background: var(--df-color-page);
+  color: var(--df-color-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-sf-field .df-sfc-slug input {
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+}
+
+.df-sf-field .df-sfc-slug input:focus-visible {
+  outline: none;
+}
+
+.df-sfc-body-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-sfc-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.df-sfc-tool {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius-small);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-sfc-tool:disabled,
+.df-sfc-tool[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.df-sfc-tool input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.df-sfc-tool:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-sfc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+}
+
+.df-sfc-block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.df-sfc-kind {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-sfc-mini {
+  display: flex;
+  gap: 4px;
+}
+
+.df-sfc-mini button,
+.df-sfc-chips button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-small);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.df-sfc-mini button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.df-sfc-block :is(textarea, input:not([type='file'])),
+.df-sfc-question :is(textarea, input) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.df-sfc-block :is(textarea, input):read-only {
+  background: var(--df-color-page);
+}
+
+.df-sfc-block :is(textarea, input):focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 1px;
+}
+
+.df-sfc-block .df-sfc-heading {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.df-sfc-photo {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 120px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--df-color-neutral-surface);
+}
+
+.df-sfc-photo-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.df-sfc-block .df-sfc-photo input {
+  position: relative;
+  height: 34px;
+  margin: 8px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--df-radius-small);
+  background: color-mix(in srgb, var(--df-color-surface) 92%, transparent);
+  font-size: 13px;
+}
+
+.df-sfc-faq,
+.df-sfc-products {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.df-sfc-question {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--df-color-border);
+}
+
+.df-sfc-products .df-product-search {
+  align-self: stretch;
+}
+
+.df-sfc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-sfc-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 4px 0 10px;
+  border-radius: 15px;
+  background: var(--df-color-neutral-surface);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-sfc-chips button {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+}
+
+.df-sfc-form {
+  margin: 0;
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+.df-sfc-google {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--df-color-page);
+}
+
+.df-sfc-google .df-sf-google-host {
+  color: var(--df-color-success);
+  overflow-wrap: anywhere;
+}
+
+.df-sfc-google .df-sf-google-title {
+  font-size: 15px;
+}
+
+@container (min-width: 760px) {
+  .df-sfc-row {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1.4fr);
+  }
+
+  .df-sfc-columns {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+
+  .df-sfc-side {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+.df-sfc-cover-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.df-sfc-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  height: 120px;
+  overflow: hidden;
+  border: 2px dashed var(--df-color-field-border);
+  border-radius: 10px;
+  background: var(--df-color-page);
+}
+
+.df-sfc-cover-pick {
+  position: relative;
+  padding: 6px 10px;
+  border-radius: var(--df-radius-small);
+  background: color-mix(in srgb, var(--df-color-surface) 92%, transparent);
+  color: var(--df-color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+label.df-sfc-cover-pick {
+  cursor: pointer;
+}
+
+.df-sfc-cover-pick input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.df-sfc-cover-pick:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-sfc-side .df-sf-field input {
+  box-sizing: border-box;
+  width: 100%;
+}

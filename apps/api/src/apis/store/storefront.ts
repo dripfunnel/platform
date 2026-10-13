@@ -83,6 +83,8 @@ export const registerStorefront = (builder: StoreBuilder) => {
       number: t.exposeInt('number'),
       publishedAt: t.string({ resolve: (v) => v.publishedAt.toISOString() }),
       template: t.exposeString('template', { nullable: true }),
+      // The portal origin the live home page may be framed by (storefront ARCHITECTURE §3.5); null when it refuses every frame.
+      portalOrigin: t.exposeString('portalOrigin', { nullable: true }),
     }),
   })
   const Draft = builder.objectRef<NonNullable<StorefrontView['draft']>>('StorefrontDraft').implement({

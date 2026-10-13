@@ -4,7 +4,8 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
 import { CompanyTab } from './CompanyTab'
-import { PayoutTab } from './PayoutTab'
+import { bankComplete, bankTokenData, needsRouting } from './bankDetails'
+import { PayoutPanels, PayoutTab } from './PayoutTab'
 import { SecurityTab } from './SecurityTab'
 import { Settings } from './Settings'
 import { settingsTabs } from './settingsHarness'
@@ -143,18 +144,54 @@ describe('the team’s confirmations', () => {
 })
 
 describe('Payout and payment', () => {
-  it('says nothing is connected yet, and never offers a card number field', async () => {
-    const html = await render(<PayoutTab setupSession={false} partner="Northstar Commerce" />)
-    expect(textOf(html)).toContain(words.payout.notConnected)
-    expect(textOf(html)).toContain(words.payout.slot)
-    expect(html).not.toMatch(/<input/)
+  const noop = () => undefined
+  const account = { bank: 'Chase', last4: '1180', status: 'verified', failure: null } as const
+  const card = { brand: 'visa', last4: '3009', expires: '2028-12', status: 'on_file' } as const
+  const panels = async (over: Partial<Parameters<typeof PayoutPanels>[0]> = {}) =>
+    textOf(await render(<PayoutPanels data={{ publishableKey: 'pk_test_a', account, card }} refusal={null} accountBlock={null} onAccount={noop} onCard={noop} {...over} />))
+  it('shows what is on file with its status, last 4 digits only', async () => {
+    const text = await panels()
+    expect(text).toContain('Chase ending 1180')
+    expect(text).toContain('Verified')
+    expect(text).toContain('Visa ending 3009')
+    expect(text).toContain('On file')
+    expect(text).toContain('Change account')
+    expect(text).toContain('Change card')
   })
-
+  it('says Missing with an Add button when nothing is on file, and words declined and verifying', async () => {
+    const empty = await panels({ data: { publishableKey: 'pk_test_a', account: { bank: null, last4: null, status: 'missing', failure: null }, card: { brand: null, last4: null, expires: null, status: 'missing' } } })
+    expect(empty).toContain('No payout account yet')
+    expect(empty).toContain('Add account')
+    expect(empty).toContain('Add card')
+    expect(await panels({ data: { publishableKey: 'pk_test_a', account: { ...account, status: 'verifying' }, card: { ...card, status: 'declined' } } })).toMatch(/Verifying[\s\S]*Declined/)
+  })
+  it('disables Add and Change until the provider is switched on', async () => {
+    const html = await render(<PayoutPanels data={{ publishableKey: null, account, card }} refusal={null} accountBlock={null} onAccount={noop} onCard={noop} />)
+    expect(html.match(/<button[^>]*disabled/g)).toHaveLength(2)
+  })
+  it('gives a role that may not change this, or a staff session, the reason instead of a button', async () => {
+    const html = await render(<PayoutPanels data={{ publishableKey: 'pk_test_a', account, card }} refusal={words.payout.mayNot} accountBlock={null} onAccount={noop} onCard={noop} />)
+    expect(html.match(/<button[^>]*disabled=""[^>]*>Change (account|card)/g)).toHaveLength(2)
+    expect(textOf(html)).toContain(words.payout.mayNot)
+  })
   it('tells a staff setup session these stay with the partner', async () => {
-    expect(textOf(await render(<PayoutTab setupSession partner="Northstar Commerce" />))).toContain('Payment method and payout details stay with Northstar Commerce. Northstar Commerce enters these itself.')
+    const text = textOf(await render(<PayoutTab staffSession partner="Northstar Commerce" mayChange denied={false} country="US" currency="USD" forced={null} onToast={noop} />))
+    expect(text).toContain('Payment method and payout details stay with Northstar Commerce. Northstar Commerce enters these itself.')
+    expect(text).not.toContain('Payout account')
   })
 })
-
+describe('the bank account fields', () => {
+  const fields = { holder: ' Northstar Commerce LLC ', routing: '110000000', number: '000123456789' }
+  it('ask for a routing number except in an IBAN country', () => {
+    expect(needsRouting('US')).toBe(true)
+    expect(needsRouting('DE')).toBe(false)
+    expect(bankComplete('US', { ...fields, routing: '' })).toBe(false)
+    expect(bankComplete('DE', { holder: 'Kappa GmbH', routing: '', number: 'DE89 3704 0044 0532 0130 00' })).toBe(true)
+  })
+  it('go to Stripe.js as its bank account token data, never to our API', () => {
+    expect(bankTokenData('US', 'USD', fields)).toEqual({ country: 'US', currency: 'usd', account_holder_name: 'Northstar Commerce LLC', account_holder_type: 'company', account_number: '000123456789', routing_number: '110000000' })
+  })
+})
 describe('Security', () => {
   it('is the Owner’s switch, naming who has 2-factor off', async () => {
     const owner = await render(<SecurityTab required={false} team={team} complete blocked={null} isOwner busy={false} session={null} onChange={noop} />)

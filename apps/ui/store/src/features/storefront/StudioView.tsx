@@ -11,8 +11,9 @@ import { tabKeyHandler } from '../common/tabKeys'
 import { discardRefusal, templateName } from './overviewView'
 import { EditTextDialog } from './EditTextDialog'
 import { StudioChat, type ChatRequest } from './StudioChat'
-import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishPollMs, publishProgress, publishReadTries, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
+import { askRefusal, editModeMessage, frameAddress, frameMessage, frameOriginOf, openingPollMs, pageGroups, publishProgress, publishRefusal, refusedText, renewEveryMs, rolledBackText, secondsPerPlace, textPageOf } from './studioRules'
 import type { StorefrontApi } from './storefrontApi'
+import { usePublishRun } from './usePublishRun'
 import './studio.css'
 
 const words = messages.storefront.studio
@@ -39,13 +40,15 @@ export interface StudioViewProps {
   /** The publish being followed, kept in the address so a reload keeps following it. */
   run: string | null
   onRun: (id: string | null) => void
+  /** The page the frame opens on: one of the AI's pages picked in Storefront › Pages, else the home page. */
+  startPath: string
 }
 
 const sandboxOf = (state: string, place: number | null): Sandbox =>
   state === 'ready' ? { kind: 'ready' } : state === 'queued' ? { kind: 'queued', place: place ?? 1 } : state === 'busy' ? { kind: 'finishing' } : state === 'unavailable' ? { kind: 'failed', text: words.sandbox.unavailable } : { kind: 'opening' }
 
 /** The full-screen AI studio (PortalStorefront › studio; FIRST-RELEASE §14; storefront AI-STUDIO §1, §3, §8). */
-export const StudioView = ({ overview, templates, storeName, host, api, onExit, onOverview, usage, run, onRun }: StudioViewProps) => {
+export const StudioView = ({ overview, templates, storeName, host, api, onExit, onOverview, usage, run, onRun, startPath }: StudioViewProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const phone = usePhone()
@@ -64,8 +67,8 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [pane, setPane] = useState<StudioPane>('chat')
   const panesId = useId()
   // Each pick is a new visit, so the frame goes there even when its address already names that page (it may have moved itself).
-  const [visit, setVisit] = useState({ path: '/', count: 0 })
-  const [shownPath, setShownPath] = useState('/')
+  const [visit, setVisit] = useState({ path: startPath, count: 0 })
+  const [shownPath, setShownPath] = useState(startPath)
   const [editing, setEditing] = useState(false)
   const [textKey, setTextKey] = useState<string | null>(null)
   const [discarding, setDiscarding] = useState(false)
@@ -74,8 +77,6 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
   const [publishing, setPublishing] = useState<{ before: string | null } | null>(null)
   const [previewMenu, setPreviewMenu] = useState(false)
   const [ending, setEnding] = useState(false)
-  const [lost, setLost] = useState(false)
-  const [checks, setChecks] = useState(0)
   const moreRef = useRef<HTMLButtonElement>(null)
   const nameOf = useCallback((key: string) => templateName(templates, key), [templates])
   const notHere = useCallback(() => {
@@ -156,43 +157,23 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     return () => window.removeEventListener('message', onMessage)
   }, [session, editing])
 
-  // A publish is read again until it ends; only the newest answer for the run followed lands.
-  useEffect(() => {
-    if (!run) return
-    let current = true
-    let failures = 0
-    setLost(false)
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const read = () =>
-      api.loadPublishRun(run).then(
-        (answer) => {
-          if (!current) return
-          failures = 0
-          if (!answer) return onRun(null)
-          setPublished(answer)
-          if (publishProgress(answer.step)) return void (timer = setTimeout(() => void read(), publishPollMs))
-          if (answer.step === 'live') {
-            setToast(fill(words.publish.live, { number: String(answer.version ?? '') }))
-            onRun(null)
-          }
-          void loadChat()
-          void api.loadOverview().then(onOverview, () => undefined)
-        },
-        (e: unknown) => {
-          if (!current) return
-          failures += 1
-          // A refused read, or one that keeps failing, stops asking but keeps the publish and the lock: it may still be running.
-          if (isApiError(e, 'SESSION_ENDED')) setSandbox({ kind: 'ended' })
-          if (isApiError(e, 'SESSION_ENDED') || isApiError(e, 'FORBIDDEN') || failures >= publishReadTries) return setLost(true)
-          timer = setTimeout(() => void read(), publishPollMs)
-        },
-      )
-    void read()
-    return () => {
-      current = false
-      clearTimeout(timer)
-    }
-  }, [api, run, onRun, loadChat, onOverview, checks, opened])
+  const publishEnded = useCallback(
+    (answer: PublishRun | null) => {
+      if (!answer) return onRun(null)
+      setPublished(answer)
+      if (answer.step === 'live') {
+        setToast(fill(words.publish.live, { number: String(answer.version ?? '') }))
+        onRun(null)
+      }
+      void loadChat()
+      void api.loadOverview().then(onOverview, () => undefined)
+    },
+    [api, onRun, loadChat, onOverview],
+  )
+  const publishReadFailed = useCallback((e: unknown) => {
+    if (isApiError(e, 'SESSION_ENDED')) setSandbox({ kind: 'ended' })
+  }, [])
+  const { lost, checkAgain } = usePublishRun(api, run, { onProgress: setPublished, onEnd: publishEnded, onReadError: publishReadFailed, restart: opened })
 
   const publish = async (before: string | null) => {
     setPublishing(null)
@@ -338,7 +319,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     <li>
       <div className="df-studio-refused" role="alert">
         <span>{words.publish.lost}</span>
-        <button type="button" className="df-button" onClick={() => setChecks((n) => n + 1)}>
+        <button type="button" className="df-button" onClick={checkAgain}>
           {words.publish.checkAgain}
         </button>
       </div>

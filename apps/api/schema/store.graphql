@@ -2848,6 +2848,7 @@ type Storefront {
   catalogue: StorefrontCatalogue
   draft: StorefrontDraft
   history(before: Int): [StorefrontVersion!]
+  lastPublish: StorefrontLastPublish
   live: StorefrontLiveVersion
   status: String
   template: String
@@ -2923,8 +2924,16 @@ type StorefrontDraft {
   template: String
 }
 
+type StorefrontLastPublish {
+  error: String
+  finishedAt: String
+  state: String
+  version: Int
+}
+
 type StorefrontLiveVersion {
   number: Int
+  portalOrigin: String
   publishedAt: String
   template: String
 }

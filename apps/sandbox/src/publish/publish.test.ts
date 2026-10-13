@@ -239,6 +239,8 @@ describe.skipIf(!chrome)('step check', () => {
     const pages = listing(join(built, 'site')).map((l) => l.slice(66)).filter((p) => p.endsWith('.html'))
     expect(Object.keys(headers).sort()).toEqual(pages.sort())
     expect(headers['index.html']?.['content-security-policy']).toMatch(/^default-src 'none'; script-src 'self' 'sha256-/)
+    // A snapshot without the store's portal lets no page frame the site.
+    expect(Object.values(headers).every((h) => h['content-security-policy'].includes("frame-ancestors 'none'"))).toBe(true)
   })
 
   it('fails a page whose loads block the main thread past the budget, by the timings it measured', async () => {
@@ -316,7 +318,7 @@ describe.skipIf(!chrome)('step check', () => {
 
   it('fails a page that reaches outside the store, with JavaScript on or off, and serves the build’s assets from its asset host', async () => {
     // The pages load their JS and CSS from the asset host, which the check step answers from the build's own files.
-    const hosted = catalogueSnapshotSchema.parse({ ...snapshot, csp: { ...snapshot.csp, assetOrigin: 'https://sf-assets.example.com' }, assetBase: 'https://sf-assets.example.com/stores/s1/builds/b1/assets/' })
+    const hosted = catalogueSnapshotSchema.parse({ ...snapshot, csp: { ...snapshot.csp, assetOrigin: 'https://sf-assets.example.com', portalOrigin: 'https://store.partner-a.example' }, assetBase: 'https://sf-assets.example.com/stores/s1/builds/b1/assets/' })
     const source = await sourceOf('reaching')
     const out = join(root, 'reaching-built')
     const theme = await checkout(source.bundle, source.commit, join(root, 'reaching-src'))
@@ -329,7 +331,9 @@ describe.skipIf(!chrome)('step check', () => {
     writeFileSync(join(out, 'site/assets/poll.js'), "setInterval(() => fetch('/shop-api', { method: 'POST', body: '{}' }), 200)\n")
     const search = join(out, 'site/search/index.html')
     writeFileSync(search, readFileSync(search, 'utf8').replace('</head>', '<script src="/assets/poll.js"></script></head>'))
-    const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot: hosted, theme, strictLook: false, browser })
+    const { report, headers } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot: hosted, theme, strictLook: false, browser })
+    // Every page may be framed by the store's portal and nothing else (ARCHITECTURE §3.5).
+    expect(Object.values(headers).map((h) => h['content-security-policy'].split('; ').find((d) => d.startsWith('frame-ancestors')))).toEqual(Object.keys(headers).map(() => 'frame-ancestors https://store.partner-a.example'))
     const contracts = report.checks.find((c) => c.name === 'contracts')?.detail ?? ''
     // With JavaScript on the page's CSP stops it; with JavaScript off the CSP is bypassed and the routing refuses it.
     expect(contracts).toContain('The cart page at 390 px failed while loading.')

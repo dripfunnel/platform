@@ -1,13 +1,15 @@
 import { ConfirmDialog, EmptyState } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { StorefrontMeters, StorefrontOverview } from '../../api/storefront'
 import { fill, formatTime, messages } from '../../messages'
-import { discardRefusal } from './overviewView'
+import { LiveFrame, liveDevices, type LiveDevice } from './LiveFrame'
+import { canFrameLive, discardRefusal, rolledBackNotice } from './overviewView'
 import { PublishNowBar } from './PublishNowBar'
 import type { StorefrontApi } from './storefrontApi'
 
 const words = messages.storefront.overview
+const screenWords = messages.storefront.studio
 
 /** The footer's "Powered by" line while the plan keeps it; `removable` when another plan takes it off. */
 export interface PoweredLine {
@@ -37,6 +39,10 @@ export const DesignTab = ({ overview, catalogue, host, canEdit, canUpgrade, run,
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [device, setDevice] = useState<LiveDevice>('desktop')
+  // The address a frame failed to load, so a new live address gets its own try.
+  const [failedHost, setFailedHost] = useState<string | null>(null)
+  const onFrameFail = useCallback(() => setFailedHost(host), [host])
   const working = useRef(false)
 
   const discard = () => {
@@ -68,8 +74,15 @@ export const DesignTab = ({ overview, catalogue, host, canEdit, canUpgrade, run,
       </div>
     )
   const { live } = overview
+  const framed = live !== null && host !== null && host !== failedHost && canFrameLive(live.portalOrigin, window.location.origin)
+  const rolledBack = rolledBackNotice(overview)
   return (
     <div className="df-sf-design">
+      {rolledBack && (
+        <p className="df-sf-rolled-back" role="alert">
+          {rolledBack}
+        </p>
+      )}
       {overview.live && catalogue && <PublishNowBar catalogue={catalogue} canEdit={canEdit} canUpgrade={canUpgrade} api={api} run={run} onRun={onRun} onDone={onPublished} />}
       {overview.status === 'unpublished_changes' && (
         <div className="df-sf-draft">
@@ -100,10 +113,19 @@ export const DesignTab = ({ overview, catalogue, host, canEdit, canUpgrade, run,
         <section className="df-sf-live" aria-label={fill(words.liveLabel, { number: String(live.number) })}>
           <div className="df-sf-live-head">
             <span className="df-sf-eyebrow">{fill(words.liveLabel, { number: String(live.number) })}</span>
-            <span className="df-sf-lede">{fill(words.published, { when: formatTime(live.publishedAt) })}</span>
+            {framed ? (
+              <div className="df-sf-devices" role="group" aria-label={screenWords.screen}>
+                {liveDevices.map((d) => (
+                  <button key={d} type="button" aria-pressed={device === d} onClick={() => setDevice(d)}>
+                    {screenWords.devices[d]}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="df-sf-lede">{fill(words.published, { when: formatTime(live.publishedAt) })}</span>
+            )}
           </div>
-          {/* Live pages refuse every frame (storefront ARCHITECTURE §3.5), so the site opens in its own tab instead. */}
-          {host && <p className="df-sf-live-body">{fill(words.liveAt, { host })}</p>}
+          {framed && host ? <LiveFrame key={host} host={host} device={device} onFail={onFrameFail} /> : host && <p className="df-sf-live-body">{fill(words.liveAt, { host })}</p>}
           {powered && (
             <p className="df-sf-powered">
               <span>{fill(words.powered, { brand: powered.brand, plan: powered.plan })}</span>

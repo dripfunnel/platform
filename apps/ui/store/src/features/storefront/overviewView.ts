@@ -1,5 +1,5 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
-import { scratchTemplate, type StorefrontDomains, type StorefrontStatus, type StorefrontTemplate } from '../../api/storefront'
+import { scratchTemplate, type StorefrontDomains, type StorefrontOverview, type StorefrontStatus, type StorefrontTemplate } from '../../api/storefront'
 import { fill, messages } from '../../messages'
 import { refusalIn } from '../common/refusal'
 
@@ -14,6 +14,16 @@ export const needsTemplate = (status: StorefrontStatus): boolean => status === '
 /** Where shoppers reach the live site: the main address once it is live, else the free one. */
 export const liveHost = (domains: StorefrontDomains): string | null =>
   (domains.domains.find((d) => d.primary && d.status === 'live') ?? domains.domains.find((d) => d.kind === 'free'))?.host ?? null
+
+/** A build from before #680 refuses every frame, as does one made for another portal (storefront ARCHITECTURE §3.5). */
+export const canFrameLive = (portalOrigin: string | null, here: string): boolean => portalOrigin !== null && portalOrigin === here
+
+/** "We put version N−1 back: …" until a later publish goes live; it names the version live again, as `PortalStorefront` does. */
+export const rolledBackNotice = ({ lastPublish, live }: StorefrontOverview): string | null => {
+  if (lastPublish?.state !== 'rolled_back' || !live) return null
+  const reasons: Record<string, string | undefined> = words.overview.rolledBackReasons
+  return fill(words.studio.publish.rolledBack, { number: String(live.number), reason: reasons[lastPublish.error ?? ''] ?? words.studio.publish.rolledBackFallback })
+}
 
 /** "Start from scratch" reads as the prototype's "Custom" once it is the store's look. */
 export const templateName = (templates: readonly StorefrontTemplate[], key: string | null): string =>
