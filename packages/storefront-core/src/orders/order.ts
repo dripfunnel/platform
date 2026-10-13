@@ -8,6 +8,7 @@ import { useStorefront } from '../platform/store/context'
 import { moneySchema, type Money } from '../pricing/money'
 import { moneyFields } from '../products/summary'
 import { itemSlug } from '../collections/collections'
+import { useRepay, type PayPhase } from '../checkout/checkout'
 
 // A shopper's placed order (storefront ARCHITECTURE §2.1 `orders`): the page `/order/{id}/` a shopper lands on after paying or
 // coming back from a provider. Reading it asks the provider about a card payment still pending (Shop API `confirmPayment`).
@@ -70,6 +71,10 @@ export type OrderPage = {
   order: Order | null
   /** Asks again: "Try again" after a failure, "Check again" while a card payment is being confirmed. */
   retry: () => void
+  /** "Try paying again" while a card payment hasn't gone through (declined, or left at the provider); null otherwise. */
+  payAgain: (() => void) | null
+  /** Where that new attempt stands, as the sealed payment element shows it. */
+  paying: PayPhase
 }
 
 const manual = new Set(['cod', 'bank_transfer'])
@@ -110,5 +115,9 @@ export const useOrder = (): OrderPage => {
   })
   const status = id === null || (loaded.status === 'ready' && !loaded.data) ? 'missing' : loaded.status === 'ready' ? 'ready' : loaded.status === 'error' ? 'error' : 'loading'
   useHead({ title: loaded.data ? t('order.title', { number: loaded.data.number }) : null, hidden: true })
-  return { status, code: loaded.code, order: loaded.data ?? null, retry: loaded.retry }
+  const order = loaded.data ?? null
+  const unpaidCard = order && !order.cancelled && order.payment === 'confirming' && order.method && !manual.has(order.method) ? { id: order.id, total: order.total, method: order.method } : null
+  const repay = useRepay(unpaidCard, loaded.retry)
+  const idle = repay.phase.kind === 'idle' || repay.phase.kind === 'failed'
+  return { status, code: loaded.code, order, retry: loaded.retry, payAgain: repay.again && idle ? () => void repay.again?.() : null, paying: repay.phase }
 }

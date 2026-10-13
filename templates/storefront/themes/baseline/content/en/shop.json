@@ -181,11 +181,12 @@
     "transferBy": "Use your order number {number} as the reference. Pay by {date}: if your payment hasn't reached us by then, we cancel the order and email you.",
     "transferRef": "Use your order number {number} as the reference.",
     "cod": "Pay in cash to the courier when it arrives.",
-    "confirming": "We're waiting for your payment to be confirmed. This can take a minute; we email you as soon as it is.",
+    "confirming": "We're waiting for your payment to be confirmed, which can take a minute. If it didn't go through, try paying again.",
     "checkAgain": "Check again",
     "method": "Delivery",
     "summary": "Order {number}",
-    "backToAccount": "← Your account"
+    "backToAccount": "← Your account",
+    "payAgain": "Try paying again"
   },
   "account": {
     "preview": "Signing in works on the live shop. On this preview you check out as a guest.",

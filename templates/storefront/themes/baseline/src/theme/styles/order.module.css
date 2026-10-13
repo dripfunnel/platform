@@ -104,11 +104,6 @@
   color: var(--ink);
 }
 
-.infoText {
-  flex: 1 1 240px;
-  margin: 0;
-}
-
 .facts {
   display: grid;
   gap: 10px;
