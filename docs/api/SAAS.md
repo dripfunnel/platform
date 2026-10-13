@@ -386,7 +386,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   `SHOP_RATE_LIMITER`, `RATE_LIMITED` with no address or no limiter. A partner's own site reads it
   server-side, with a GET (no Origin needed) or from the portal host; there is no CORS. *Decided
   here*: name order, since plans hold no display order; no gate on the partner's state, as `brand`
-  has none and a closed partner's host already answers 404.
+  has none and a closed partner's host answers 404 (within 60 s, the portal-host cache's limit, §8).
 
 ### 6.2 Enforcement
 
