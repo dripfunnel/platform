@@ -38,7 +38,7 @@ describe.skipIf(!chrome)('the baseline account pages on a preview', () => {
   it('sends the account to sign in, which says the same', async () => {
     const { context, page, asked } = await visit('/account/addresses/')
     try {
-      await page.waitForURL(`${previewOrigin}/sign-in/?next=/account/addresses/`)
+      await page.waitForURL(`${previewOrigin}/sign-in/?next=%2Faccount%2Faddresses%2F`)
       await page.getByText('Signing in works on the live shop. On this preview you check out as a guest.').waitFor()
       expect(asked.some((r) => r.query.includes('account {'))).toBe(false)
     } finally {
