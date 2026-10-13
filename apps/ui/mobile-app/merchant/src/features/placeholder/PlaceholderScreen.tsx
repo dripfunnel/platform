@@ -1,11 +1,15 @@
+import type { ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import messages from '../../messages/en.json'
+import { t } from '../../messages'
+import { useTheme } from '../../theme'
 
-export function PlaceholderScreen({ title }: { title: string }) {
+export function PlaceholderScreen({ title, children }: { title: string; children?: ReactNode }) {
+  const { colors } = useTheme()
   return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>{title}</Text>
-      <Text>{messages.placeholder.body}</Text>
+    <View style={[styles.screen, { backgroundColor: colors.page }]}>
+      {children}
+      <Text style={[styles.title, { color: colors.heading }]}>{title}</Text>
+      <Text style={{ color: colors.text }}>{t('placeholder.body')}</Text>
     </View>
   )
 }

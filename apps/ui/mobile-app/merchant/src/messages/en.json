@@ -11,5 +11,21 @@
   },
   "placeholder": {
     "body": "This screen isn't built yet."
+  },
+  "brand": {
+    "defaultName": "DripFunnel",
+    "logo": "{name} logo"
+  },
+  "hermesCheck": {
+    "title": "Hermes check",
+    "engine": "Engine: {engine} on {platform}",
+    "installed": "Polyfills installed: {list}",
+    "none": "none",
+    "summary": "{passed} of {total} inputs match",
+    "pass": "match",
+    "fail": "differs",
+    "expected": "expected",
+    "actual": "actual",
+    "report": "Report"
   }
 }

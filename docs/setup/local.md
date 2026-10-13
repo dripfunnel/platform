@@ -262,9 +262,17 @@ on one of these, from Expo's terminal:
 | **A real phone with a development build** | `pnpm --filter @dripfunnel/mobile-merchant exec eas build --profile dev` (needs an Expo account; the first run asks to link the project), install the build, then open it from the QR code |
 
 The `dev` partner points the app at `https://dev-store.dripfunnel.ai/api/`, the one exception to
-using only a local database (AGENTS.md "Working with the user" rule 3). The app makes no API call
-yet. Cloudflare Access gates that host, so its calls are refused there until that is solved on its
-own card (CONFIGURATION.md §2).
+using only a local database (AGENTS.md "Working with the user" rule 3). At start the app asks that
+host for the partner's look (the public `brand` query). Cloudflare Access gates the host, so the call is
+refused there until that is solved on its own card (CONFIGURATION.md §2); the app then starts in the
+last look it saved, or DripFunnel's defaults the first time.
+
+**The Hermes check.** In a development build or Expo Go, open `/hermes-check` (on an Android emulator:
+`adb shell am start -a android.intent.action.VIEW -d "exp://localhost:8081/--/hermes-check"`, after
+`adb reverse tcp:8081 tcp:8081`). It runs the format inputs on that phone and prints a `HERMES_CHECK` report
+to the log (`adb logcat -s ReactNativeJS`); what it found is in
+[REACT-NATIVE.md](../mobile-app/merchant/REACT-NATIVE.md) §6.1. Restart `pnpm dev:mobile` after a package is
+installed, or Metro answers 500 for the new module.
 
 ---
 
