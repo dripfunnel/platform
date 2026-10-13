@@ -22,7 +22,7 @@ beforeAll(async () => {
 afterAll(async () => preview?.close())
 
 describe.skipIf(!chrome)('the baseline theme’s content pages and blog', () => {
-  it('shows a content page at its slug with its questions that open, and the 404 words for one the store hasn’t got', async () => {
+  it('shows a content page at its slug with its questions that open and the store’s email for its contact block, and the 404 words for one the store hasn’t got', async () => {
     if (!preview) throw new Error('no browser')
     const asked: ShopRequest[] = []
     const context = await preview.open(answer(asked), 390)
@@ -35,6 +35,9 @@ describe.skipIf(!chrome)('the baseline theme’s content pages and blog', () => 
       expect(await question.getAttribute('aria-expanded')).toBe('false')
       await question.click()
       await page.getByText('Yes, to 30 countries.').waitFor()
+      // The contact form block: the Shop API takes no message yet, so it gives the store's email to write to.
+      await page.getByRole('heading', { name: 'Write to us' }).waitFor()
+      await page.getByText("Email hello@juniper.example and we'll reply within a working day.").waitFor()
       await page.goto(`${previewOrigin}/lookbook/`)
       await page.getByRole('heading', { level: 1, name: 'We can’t find that page' }).waitFor()
     } finally {

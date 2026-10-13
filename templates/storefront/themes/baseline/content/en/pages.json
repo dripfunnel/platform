@@ -77,7 +77,10 @@
   "content": {
     "loading": "Loading the page",
     "failed": "We couldn't load this page",
-    "questions": "Questions"
+    "questions": "Questions",
+    "contact": "Write to us",
+    "email": "Email {email} and we'll reply within a working day.",
+    "phone": "Or call {phone}."
   },
   "blog": {
     "eyebrow": "Journal",

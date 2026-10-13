@@ -31,7 +31,20 @@ const Products = ({ slugs }: { slugs: string[] }) => {
   ) : null
 }
 
-/** A content page's or a post's blocks, the merchant's words as plain text; a contact form has nowhere to go yet, so it's left out. */
+/** The contact form block: the Shop API takes no message yet, so it gives the store's own email and phone to write to. */
+const Contact = () => {
+  const { store, t } = useStorefront()
+  if (!store.contactEmail && !store.contactPhone) return null
+  return (
+    <section className={styles.contact} aria-label={t('pages.content.contact')}>
+      <h2 className={styles.heading}>{t('pages.content.contact')}</h2>
+      {store.contactEmail ? <p className={styles.text}>{t('pages.content.email', { email: store.contactEmail })}</p> : null}
+      {store.contactPhone ? <p className={styles.text}>{t('pages.content.phone', { phone: store.contactPhone })}</p> : null}
+    </section>
+  )
+}
+
+/** A content page's or a post's blocks, the merchant's words as plain text. */
 export const ContentBlocks = ({ blocks }: { blocks: ContentBlock[] }) => {
   const { t } = useStorefront()
   return (
@@ -57,7 +70,9 @@ export const ContentBlocks = ({ blocks }: { blocks: ContentBlock[] }) => {
           </section>
         ) : b.kind === 'products' ? (
           <Products key={i} slugs={b.slugs} />
-        ) : null,
+        ) : (
+          <Contact key={i} />
+        ),
       )}
     </div>
   )

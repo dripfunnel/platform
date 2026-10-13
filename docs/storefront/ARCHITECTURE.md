@@ -339,7 +339,8 @@ The six templates and "Start from scratch" live in this repo as complete startin
   ending …" and Remove). The order page lists the downloads (a link each, uses left and until when), the licence keys and
   when each gift card is emailed.
 - *Baseline's content pages and blog as built on #324 (part 2)*, from D1's FAQ, Journal and Journal post: a content page is
-  its title and blocks (a heading, paragraphs, an image, questions that open to their answers, product cards); the Journal
+  its title and blocks (a heading, paragraphs, an image, questions that open to their answers, product cards, and for the contact form block
+  the store's email and phone to write to); the Journal
   lists posts as cards (cover, date, title, excerpt) with "Older posts", `?tag=` narrowing it; a post has "← Journal", its date
   and author, title, cover, blocks and tag links. Loading, failed (Try again), not found and empty states.
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
@@ -408,7 +409,7 @@ one lower-case segment that is no core segment nor a custom page is a content pa
 none there. Core's hooks: `useContentPage`, `useBlog` (twelve at a time, newest first, `?tag=`, `loadMore`) and
 `useBlogPost`, the blocks decoded to `heading`, `text`, `image`, `faq`, `products` and `form` (a block of another kind is
 dropped), and `useProductCards(slugs)` for a products block (one request for up to 24). The contact form block has nowhere to
-send yet (the Shop API takes no message), so the baseline leaves it out. `seoFor` describes a post as an Article (headline,
+send yet (the Shop API takes no message), so the baseline shows "Write to us" with the store's contact email and phone. `seoFor` describes a post as an Article (headline,
 date, author, cover). The build's snapshot carries the store's published posts (LIVE-SHOP §4 step 3), so the build writes
 each one's page in the main language, whose words it holds, with its title, description, `og:type` article and Article
 JSON-LD in the static HTML; another language's post, and a post past the newest 500, is served by the posts'
