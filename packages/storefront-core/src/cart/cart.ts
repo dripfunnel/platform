@@ -312,8 +312,8 @@ export type CartPage = {
   /** The code's state as the engine answers it, such as APPLIED or INVALID; null when it couldn't be asked. */
   applyCode: (code: string) => Promise<string | null>
   removeCode: (code: string) => Promise<boolean>
-  /** A gift card's number pays part of the cart; refused as GIFT_CARD_INVALID, RATE_LIMITED or NOT_IN_PREVIEW in `error`. */
-  applyGiftCard: (number: string) => Promise<boolean>
+  /** A gift card's number pays part of the cart: null once it does, else the refusal's code (GIFT_CARD_INVALID, RATE_LIMITED, NOT_IN_PREVIEW, …). */
+  applyGiftCard: (number: string) => Promise<string | null>
   removeGiftCard: () => Promise<boolean>
   /** Adds the version to the cart, then opens checkout. */
   buyNow: (versionId: string, quantity?: number, gift?: GiftRecipient) => Promise<boolean>
@@ -337,7 +337,7 @@ export const useCart = (): CartPage => {
     remove: (versionId) => setQuantity(versionId, 0),
     applyCode: async (code) => (await store.change(applyMutation, { code }, codeSchema))?.state ?? null,
     removeCode: async (code) => (await store.change(removeCodeMutation, { code }, changeSchema)) !== null,
-    applyGiftCard: async (number) => (await store.change(giftCardMutation, { number: number.replace(/\s+/g, '') }, changeSchema)) !== null,
+    applyGiftCard: async (number) => ((await store.change(giftCardMutation, { number: number.replace(/\s+/g, '') }, changeSchema)) !== null ? null : (store.get().error ?? 'UNKNOWN')),
     removeGiftCard: async () => (await store.change(removeGiftCardMutation, {}, changeSchema)) !== null,
     // The active order is the only cart (ARCHITECTURE §2.1), so buying now is adding to it and going straight to checkout.
     buyNow: async (versionId, quantity = 1, gift) => {

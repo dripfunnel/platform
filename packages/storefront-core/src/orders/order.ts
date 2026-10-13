@@ -5,7 +5,7 @@ import { useLocation } from '../platform/browser/router'
 import { useShopData } from '../platform/render/data'
 import { useHead } from '../platform/seo/head'
 import { useStorefront } from '../platform/store/context'
-import { moneySchema, type Money } from '../pricing/money'
+import { isZero, moneySchema, type Money } from '../pricing/money'
 import { moneyFields } from '../products/summary'
 import { itemSlug } from '../collections/collections'
 import { useRepay, type PayPhase } from '../checkout/checkout'
@@ -107,7 +107,7 @@ const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, whe
   shipping: o.shipping ?? null,
   tax: o.tax ? { amount: o.tax, includesTax: o.pricesIncludeTax === true } : null,
   total: o.total,
-  giftCard: o.giftCard && !/^0+$/.test(o.giftCard.amount) ? o.giftCard : null,
+  giftCard: o.giftCard && !isZero(o.giftCard) ? o.giftCard : null,
   downloads: (o.downloads ?? []).map((d) => ({ name: d.name ?? '', url: d.url ?? null, usesLeft: d.usesLeft ?? null, until: d.expiresAt ? when(d.expiresAt) : null })),
   licenceKeys: (o.licenceKeys ?? []).flatMap((k) => (k.key ? [{ name: k.name ?? '', key: k.key }] : [])),
 })

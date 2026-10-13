@@ -25,7 +25,11 @@ const engine = ({ place, down = 0 }: { place?: (provider: string) => unknown; do
     if (r.query.includes('paymentOptions')) return { data: { paymentOptions: [{ provider: 'cod', kind: 'cod', instructions: null, mode: 'test', publicKey: null }, { provider: 'razorpay', kind: 'card', instructions: null, mode: 'test', publicKey: 'rzp_test_1' }, { provider: 'bank_transfer', kind: 'bank_transfer', instructions: 'Juniper & Co., IBAN TEST 0001', mode: 'test', publicKey: null }], store: { markets: [{ id: 'm', countries: ['US'] }] } } }
     if (r.query.includes('placeOrder')) return place ? place(String(v['provider'])) : { data: { placeOrder: { orderId: 'o-1', total: usd(3024), instructions: null, payment: null } } }
     if (r.query.includes('confirmPayment')) return { data: { confirmPayment: order } }
-    if (r.query.includes('applyGiftCard(')) return String(v['number']) === 'GC12345678' ? (Object.assign(cart, { giftCard: { applied: usd(1000), balance: usd(0), expiresAt: null, last4: '5678' }, amountDue: usd(2024) }), change('applyGiftCard')) : { errors: [{ message: 'no', extensions: { code: 'GIFT_CARD_INVALID' } }] }
+    if (r.query.includes('applyGiftCard(')) {
+      const number = String(v['number'])
+      if (number === 'GC12345678') return (Object.assign(cart, { giftCard: { applied: usd(1000), balance: usd(0), expiresAt: null, last4: '5678' }, amountDue: usd(2024) }), change('applyGiftCard'))
+      return { errors: [{ message: 'no', extensions: { code: number === 'MANY' ? 'RATE_LIMITED' : number === 'PREVIEW' ? 'NOT_IN_PREVIEW' : 'GIFT_CARD_INVALID' } }] }
+    }
     if (r.query.includes('removeGiftCard')) return (Object.assign(cart, { giftCard: null, amountDue: cart['total'] }), change('removeGiftCard'))
     return basics(r)
   }
@@ -222,13 +226,19 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
     }
   })
 
-  it('takes a gift card at the payment step: refuses a wrong number in words, shows what one takes off, and removes it', async () => {
+  it('takes a gift card at the payment step: says why one is refused (a wrong number, too many tries, a preview), shows one applied, and removes it', async () => {
     const { context, page } = await ready(engine())
     try {
       await page.getByLabel('Gift card number').waitFor()
       await page.getByLabel('Gift card number').fill('NOPE')
       await page.getByRole('button', { name: 'Apply' }).click()
-      await page.getByText("That number doesn't match a gift card, or it can't be used here. Check it and try again.").waitFor()
+      await page.getByText("That number doesn't match a gift card. Check it and try again.").waitFor()
+      await page.getByLabel('Gift card number').fill('MANY')
+      await page.getByRole('button', { name: 'Apply' }).click()
+      await page.getByText('Too many tries. Wait a few minutes and try again.').waitFor()
+      await page.getByLabel('Gift card number').fill('PREVIEW')
+      await page.getByRole('button', { name: 'Apply' }).click()
+      await page.getByText("Gift cards can't be used on a preview of the shop; they work on the live shop.").waitFor()
       await page.getByLabel('Gift card number').fill('GC12 3456 78')
       await page.getByRole('button', { name: 'Apply' }).click()
       await page.getByText('Your gift card ending 5678 is paying part of this order.').waitFor()

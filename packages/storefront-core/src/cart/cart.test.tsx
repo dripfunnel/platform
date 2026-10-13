@@ -153,18 +153,21 @@ describe('useCart', () => {
     )
     mount()
     await act(async () => undefined)
-    await act(async () => void (await page.applyGiftCard('GC12 3456 4321')))
+    let refusal: string | null = 'not asked'
+    await act(async () => {
+      refusal = await page.applyGiftCard('GC12 3456 4321')
+    })
+    expect(refusal).toBeNull()
     expect(asked.find((a) => a.query.includes('applyGiftCard'))?.variables).toEqual({ number: 'GC1234564321' })
     expect(page.cart?.giftCard).toEqual(card)
     expect(page.cart?.amountDue).toEqual(usd(1800))
     await act(async () => void (await page.removeGiftCard()))
     expect(page.cart?.giftCard).toBeNull()
     refuse = true
-    let worked = true
     await act(async () => {
-      worked = await page.applyGiftCard('nope')
+      refusal = await page.applyGiftCard('nope')
     })
-    expect(worked).toBe(false)
+    expect(refusal).toBe('GIFT_CARD_INVALID')
     expect(page.error).toBe('GIFT_CARD_INVALID')
   })
 })

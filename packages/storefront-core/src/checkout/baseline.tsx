@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { Link } from '../platform/browser/link'
 import type { MessageKey } from '../platform/i18n/messages'
 import { useStorefront } from '../platform/store/context'
-import { formatMoney } from '../pricing/money'
+import { formatMoney, isZero } from '../pricing/money'
 import { PreviewBanner } from '../sealed/components'
 import { PaymentElement } from '../sealed/payment'
 import { OrderSummary } from '../sealed/summary'
@@ -141,7 +141,7 @@ export const BaselineCheckout = () => {
           legend={t('checkout.delivery')}
           value={cart.shippingOption}
           onChange={(option) => void c.chooseDelivery(option)}
-          options={cart.shippingOptions.map((o) => ({ value: o.id, content: <span>{`${deliveryName(o)} · ${/^0+$/.test(o.amount.amount) ? t('summary.free') : formatMoney(o.amount, locale)}`}</span> }))}
+          options={cart.shippingOptions.map((o) => ({ value: o.id, content: <span>{`${deliveryName(o)} · ${isZero(o.amount) ? t('summary.free') : formatMoney(o.amount, locale)}`}</span> }))}
         />
       )
     }

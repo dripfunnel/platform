@@ -132,29 +132,29 @@ export const CheckoutView = () => {
     if (id === 'payment') {
       return (
         <>
-        <Form className={styles.form} onSubmit={() => void c.review()}>
-          {c.payments.length === 0 ? <p className={styles.note}>{t('shop.checkout.noPayment')}</p> : null}
-          <Choices
-            legend={t('shop.checkout.payment')}
-            value={c.chosen}
-            className={styles.choices}
-            optionClassName={styles.choice}
-            chosenClassName={clsx(styles.choice, styles.chosen)}
-            onChange={c.choosePayment}
-            options={c.payments.map((p) => ({
-              value: p.provider,
-              content: (
-                <span className={styles.choiceText}>
-                  <span className={styles.choiceName}><PaymentMethod provider={p.provider} /></span>
-                </span>
-              ),
-            }))}
-          />
-          <SubmitButton className={shop.primary} disabled={c.busy || !c.chosen}>
-            {t('shop.checkout.continue')}
-          </SubmitButton>
-        </Form>
-        <GiftCard />
+          <Form className={styles.form} onSubmit={() => void c.review()}>
+            {c.payments.length === 0 ? <p className={styles.note}>{t('shop.checkout.noPayment')}</p> : null}
+            <Choices
+              legend={t('shop.checkout.payment')}
+              value={c.chosen}
+              className={styles.choices}
+              optionClassName={styles.choice}
+              chosenClassName={clsx(styles.choice, styles.chosen)}
+              onChange={c.choosePayment}
+              options={c.payments.map((p) => ({
+                value: p.provider,
+                content: (
+                  <span className={styles.choiceText}>
+                    <span className={styles.choiceName}><PaymentMethod provider={p.provider} /></span>
+                  </span>
+                ),
+              }))}
+            />
+            <SubmitButton className={shop.primary} disabled={c.busy || !c.chosen}>
+              {t('shop.checkout.continue')}
+            </SubmitButton>
+          </Form>
+          <GiftCard />
         </>
       )
     }
@@ -249,9 +249,9 @@ const GiftCard = () => {
       refused={refused !== null}
       className={styles.giftCard}
       onApply={async (number) => {
-        const worked = await cart.applyGiftCard(number)
-        setRefused(worked ? null : t('shop.checkout.giftCardRefused'))
-        return worked
+        const code = await cart.applyGiftCard(number)
+        setRefused(code === null ? null : code === 'RATE_LIMITED' ? t('shop.checkout.giftCardTooMany') : code === 'NOT_IN_PREVIEW' ? t('shop.checkout.giftCardPreview') : code === 'GIFT_CARD_INVALID' ? t('shop.checkout.giftCardRefused') : t('shop.checkout.giftCardFailed'))
+        return code === null
       }}
     />
   )

@@ -176,7 +176,10 @@
     "giftCard": "Gift card number",
     "giftCardApplied": "Your gift card is paying part of this order.",
     "giftCardAppliedEnding": "Your gift card ending {last4} is paying part of this order.",
-    "giftCardRefused": "That number doesn't match a gift card, or it can't be used here. Check it and try again."
+    "giftCardRefused": "That number doesn't match a gift card. Check it and try again.",
+    "giftCardTooMany": "Too many tries. Wait a few minutes and try again.",
+    "giftCardPreview": "Gift cards can't be used on a preview of the shop; they work on the live shop.",
+    "giftCardFailed": "We couldn't check that gift card. Try again in a minute."
   },
   "order": {
     "loading": "Loading your order",

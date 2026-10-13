@@ -3,7 +3,7 @@
 import type { Cart } from '../cart/cart'
 import type { Order } from '../orders/order'
 import type { Translate } from '../platform/i18n/i18n'
-import { formatMoney, type Money } from '../pricing/money'
+import { formatMoney, isZero, type Money } from '../pricing/money'
 import { Sealed } from './Sealed'
 
 // The order summary (storefront ARCHITECTURE §2.1 `sealed`, §3.3): every amount as the engine answered it, worded by core,
@@ -37,7 +37,6 @@ type Figures = {
   pending: boolean
 }
 
-const isZero = (m: Money) => /^-?0+$/.test(m.amount)
 
 const figuresOf = (props: OrderSummaryProps): Figures => {
   if ('order' in props) {
