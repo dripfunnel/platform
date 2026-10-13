@@ -192,7 +192,7 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   `PlaceOrder` asks `payOrder` for another attempt. One order per cart: `place` does nothing while an order is being placed
   or paid, or once it failed with its order, which only `payOrder` goes on with.
 - **Where a provider sends the shopper back**, and where Pay leads, is the order's own page, `/order/{id}/` (core's
-  `orderConfirmation` route), built with the confirmation page in part 4.
+  `orderConfirmation` route), built with the order page in part 5.
 - **Express wallets** are Stripe's Apple Pay and Google Pay inside its Payment Element, asked for (`'auto'`) only on a live
   shop and `'never'` in the preview and the studio frame (PREVIEW §5 step 6).
 - **The sealed `<PaymentElement>`** (part `payment`, at least 200×24 px): the preview's test-mode note (Stripe's test card
@@ -280,6 +280,11 @@ The six templates and "Start from scratch" live in this repo as complete startin
 - *Baseline's cart as built on #313 (part 2)*: the cart page (lines with their quantity steppers and Remove, the sealed
   summary, the discount code, Checkout; loading, empty and failed states), Add to cart and Buy now on the product page, and
   the count on the header's cart.
+- *Baseline's checkout as built on #313 (part 4)*: checkout in its own frame (the shop's name, "Secure
+  checkout", Back to cart; no menu), the steps as cards numbered by CSS, each open with its form, done with its line and
+  Change, or still to come, beside the sealed summary, which stays shown on phones under the steps (D1 collapses it there;
+  a sealed part may not be hidden); the review lists contact, address and way to pay above the sealed payment element and
+  Place order.
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
   origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
   testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the
