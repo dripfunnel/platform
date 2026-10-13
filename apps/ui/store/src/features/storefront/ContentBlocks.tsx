@@ -20,6 +20,8 @@ export interface ContentBlocksProps {
   api: StorefrontApi
   /** Product names by id: null for one no longer in the catalogue, absent while unknown. */
   names: Record<string, string | null>
+  /** The names couldn't be read, so one still unknown is shown as such rather than as loading. */
+  namesFailed: boolean
   onName: (id: string, name: string) => void
   contactEmail: string | null
   /** Told when a photo starts and stops uploading, so the editor's saves wait for it. */
@@ -27,7 +29,7 @@ export interface ContentBlocksProps {
 }
 
 /** The page's blocks (StorefrontContent's block editor): add, move, remove and fill each kind. */
-export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, onName, contactEmail, onUploading }: ContentBlocksProps) => {
+export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, namesFailed, onName, contactEmail, onUploading }: ContentBlocksProps) => {
   const id = useId()
   const { uploading, problem, upload: send } = usePhotoUpload(api, onUploading)
   const set = (index: number, patch: Partial<DraftBlock>) => onBody((was) => was.map((b, i) => (i === index ? { ...b, ...patch } : b)))
@@ -139,7 +141,7 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
               <div className="df-sfc-products">
                 <ul className="df-sfc-chips">
                   {b.productIds.map((p) => {
-                    const name = names[p] === undefined ? words.loadingProduct : (names[p] ?? words.goneProduct)
+                    const name = names[p] === undefined ? (namesFailed ? words.unknownProduct : words.loadingProduct) : (names[p] ?? words.goneProduct)
                     return (
                       <li key={p}>
                         {name}
@@ -152,6 +154,11 @@ export const ContentBlocks = ({ kind, title, body, onBody, canEdit, api, names, 
                     )
                   })}
                 </ul>
+                {namesFailed && b.productIds.some((p) => names[p] === undefined) && (
+                  <span className="df-sf-problem" role="alert">
+                    {words.namesFailed}
+                  </span>
+                )}
                 {canEdit && b.productIds.length < contentLimits.products && (
                   <ProductSearch
                     label={words.findProduct}
