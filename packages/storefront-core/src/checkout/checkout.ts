@@ -23,7 +23,7 @@ export type PaymentChoice = { provider: string; kind: string; instructions: stri
 export type PayPhase =
   | { kind: 'idle' }
   | { kind: 'placing' }
-  | { kind: 'paying'; orderId: string; amount: Money; submit: (() => void) | null; note: string | null }
+  | { kind: 'paying'; orderId: string; amount: Money; submit: (() => void) | null; note: string | null; submitting: boolean }
   | { kind: 'leaving'; orderId: string }
   | { kind: 'confirming'; orderId: string }
   | { kind: 'failed'; orderId: string | null; amount: Money | null; code: string; message: string | null }
@@ -169,8 +169,20 @@ export const useCheckout = (): CheckoutPage => {
       return store.set({ phase: { kind: 'failed', orderId, amount, code: 'PAYMENT_UNAVAILABLE', message: null } })
     }
     const submit = session.submit
-    const paying = (note: string | null) => store.set({ phase: { kind: 'paying', orderId, amount, note, submit: submit ? () => void submit().then((n) => (store.get().phase.kind === 'paying' ? paying(n) : undefined)) : null } })
-    paying(null)
+    // Pay is held while its press is answered, so one press confirms once.
+    const paying = (note: string | null, submitting: boolean): void =>
+      store.set({ phase: { kind: 'paying', orderId, amount, note, submitting, submit: submit && !submitting ? press : null } })
+    let pressed = false
+    const press = () => {
+      if (pressed) return
+      pressed = true
+      paying(null, true)
+      void submit?.().then((n) => {
+        pressed = false
+        if (store.get().phase.kind === 'paying') paying(n, false)
+      })
+    }
+    paying(null, false)
     const outcome = await session.outcome
     if (outcome.kind === 'paid') return settle(orderId)
     if (outcome.kind === 'away') return store.set({ phase: { kind: 'leaving', orderId } })

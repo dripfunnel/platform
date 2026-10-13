@@ -33,8 +33,8 @@ export const PaymentElement = ({ t, className }: { t: Translate; className?: str
         ) : null}
         {state.instructions && phase.kind === 'idle' ? <p part="instructions">{state.instructions}</p> : null}
         <div part="field" ref={host} />
-        {phase.kind === 'paying' && phase.submit ? (
-          <button type="button" part="button" onClick={phase.submit}>
+        {phase.kind === 'paying' && (phase.submit || phase.submitting) ? (
+          <button type="button" part="button" disabled={!phase.submit} onClick={phase.submit ?? undefined}>
             {t('payment.pay', { amount: formatMoney(phase.amount, locale) })}
           </button>
         ) : null}

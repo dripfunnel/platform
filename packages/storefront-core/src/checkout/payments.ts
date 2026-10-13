@@ -145,7 +145,7 @@ const cashfree: PaymentAdapter = async (ctx, sdk) => {
 
 /** PhonePe opens its app from its own page, which sends the shopper back to the order's. */
 const phonepe: PaymentAdapter = async (ctx, sdk) => {
-  if (!ctx.start.redirectUrl) throw new Error('PhonePe needs its page.')
+  if (!ctx.start.redirectUrl || new URL(ctx.start.redirectUrl).protocol !== 'https:') throw new Error('PhonePe needs its https page.')
   try {
     sdk.go(ctx.start.redirectUrl)
   } catch {
