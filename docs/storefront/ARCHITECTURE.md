@@ -197,7 +197,10 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   `confirmPayment`, so a card payment still pending is asked about on arrival and again on "Check again": a guest reads
   it with the cart it was placed from, a customer with their session. It says how the order stands (paid, a card still
   confirming, cash on delivery or a bank transfer awaited with the store's details and its pay-by date in the store's
-  time zone, refunded, cancelled), and the sealed `<OrderSummary order>` lists its lines and what was charged.
+  time zone, refunded, cancelled), and the sealed `<OrderSummary order>` lists its lines and what was charged. A card
+  payment that hasn't gone through (declined, or left at the provider) gets **"Try paying again"** (`payAgain`, core's
+  `useRepay`): `payOrder` starts a new attempt through the same adapters in the sealed payment element the page places,
+  and the order is read again once it is paid, or was meanwhile (`ALREADY_PAID`).
 - **Express wallets** are Stripe's Apple Pay and Google Pay inside its Payment Element, asked for (`'auto'`) only on a live
   shop and `'never'` in the preview and the studio frame (PREVIEW §5 step 6).
 - **The sealed `<PaymentElement>`** (part `payment`, at least 200×24 px): the preview's test-mode note (Stripe's test card
@@ -292,7 +295,7 @@ The six templates and "Start from scratch" live in this repo as complete startin
   Place order.
 - *Baseline's order page as built on #313 (part 5)*, from D1's order confirmation: a pill for where it stands, "Thank
   you" and the order's number, what to do next (a bank transfer's reference, pay-by date and details; cash to the
-  courier; a card still confirming with Check again), its delivery and way to pay, and the sealed summary beside them
+  courier; a card still confirming with Check again, Try paying again and the sealed payment element), its delivery and way to pay, and the sealed summary beside them
   under "Order {number}"; loading, failed (Try again), not found and cancelled states. D1's "Thank you, {name}", receipt
   email and "Create account" card wait for the Shop API's order to carry the contact (it doesn't yet).
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
