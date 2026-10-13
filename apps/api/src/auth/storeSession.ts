@@ -1,5 +1,5 @@
 import type { ScopedSql } from '#db/scoped/index'
-import { hashSessionId, newSessionId } from './session'
+import { hashSessionId, lastSeenIsStale, lastSeenWriteMs, newSessionId } from './session'
 
 // ACCESS.md §4: idle 2 h and absolute 12 h; "Remember me" 7 days idle and 30 days absolute (#337).
 export const idleMs = 2 * 60 * 60 * 1000
@@ -89,17 +89,24 @@ export const endUserSession = async (tx: ScopedSql, id: string): Promise<UserSes
 
 /** The live session on this partner's host, sliding its idle window; null when unknown, ended or another partner's. */
 export const readUserSession = async (tx: ScopedSql, id: string, partnerId: string, now: Date): Promise<UserSession | null> => {
-  const rows = await tx<{ user_id: string; partner_id: string }[]>`
-    update user_session set last_seen_at = ${now}
-    where id_hash = ${await hashSessionId(id)}
+  const idHash = await hashSessionId(id)
+  const rows = await tx<{ user_id: string; partner_id: string; last_seen_at: Date }[]>`
+    select user_id, partner_id, last_seen_at from user_session
+    where id_hash = ${idHash}
       and partner_id = ${partnerId}
       and stage = 'full'
       and absolute_expires_at > ${now}
       and last_seen_at > ${now}::timestamptz - case when remember then ${`${rememberIdleMs} milliseconds`}::interval else ${`${idleMs} milliseconds`}::interval end
-    returning user_id, partner_id
   `
   const row = rows[0]
-  return row ? { userId: row.user_id, partnerId: row.partner_id } : null
+  if (!row) return null
+  if (lastSeenIsStale(row.last_seen_at, now)) {
+    await tx`
+      update user_session set last_seen_at = ${now}
+      where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
+    `
+  }
+  return { userId: row.user_id, partnerId: row.partner_id }
 }
 
 /** A person who has just become an Owner without 2-factor is held at enrolment, as at sign-in (ACCESS.md §4). */

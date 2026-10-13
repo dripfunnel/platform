@@ -1,7 +1,7 @@
 import { sealedCss } from './styles'
 
 /** Core's sealed components (storefront ARCHITECTURE §2.1 `sealed`, §3.5), by the name ./testing and the reports use. */
-export const sealedParts = ['price', 'preview', 'powered', 'legal', 'consent', 'consent-settings', 'breadcrumbs'] as const
+export const sealedParts = ['price', 'preview', 'powered', 'legal', 'consent', 'consent-settings', 'breadcrumbs', 'summary'] as const
 export type SealedPart = (typeof sealedParts)[number]
 
 export const sealedTag = 'df-sealed'

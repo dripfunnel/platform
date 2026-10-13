@@ -12,6 +12,7 @@ export const minimumSize: Record<SealedPart, { width: number; height: number }> 
   consent: { width: 240, height: 80 },
   'consent-settings': { width: 24, height: 24 },
   breadcrumbs: { width: 40, height: 12 },
+  summary: { width: 160, height: 48 },
 }
 
 /** Below this, a part or the text in it counts as transparent. */

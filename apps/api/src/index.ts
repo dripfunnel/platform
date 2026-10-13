@@ -25,6 +25,7 @@ import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { resolvePortalPartner, resolveStoreStanding } from '#auth/storeCaller'
+import type { PortalHostCache } from '#auth/portalHost'
 import { storeActivityFor } from '#auth/storeSupport'
 import { storeOriginAllowed } from '#auth/storeCredential'
 import { machineCredentialOf } from '#auth/apiKeys'
@@ -533,7 +534,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
   if (!hyperdrive) return entry === 'portal' ? notFound() : servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
-    const partnerId = await resolvePortalPartner(sql, url.hostname)
+    const partnerId = await resolvePortalPartner(sql, url.hostname, { cache: dataCentreCache(), keep: (work) => ctx.waitUntil(work) })
     if (!partnerId) return notFound()
     const brandFile = brandFileOf(url.pathname)
     if (brandFile) return request.method === 'GET' ? serveBrandFile(sql, env.ASSETS ?? null, env.IMAGES ?? null, partnerId, brandFile, new Date()) : notFound()
@@ -669,7 +670,8 @@ const handleHooks = async (request: Request, url: URL, config: Config, env: Env,
 }
 
 // The data centre's own cache; absent off Cloudflare (tests), where every request runs.
-const shopCache = (): ShopCache | null => (typeof caches !== 'undefined' && 'default' in caches ? (caches as CacheStorage & { default: ShopCache }).default : null)
+const dataCentreCache = (): (ShopCache & PortalHostCache) | null =>
+  typeof caches !== 'undefined' && 'default' in caches ? (caches as CacheStorage & { default: ShopCache & PortalHostCache }).default : null
 
 const shopRefusal = (status: number, code: string, message: string) =>
   new Response(JSON.stringify({ errors: [{ message, extensions: { code } }] }), { status, headers: { 'content-type': 'application/json' } })
@@ -695,7 +697,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
     if (isDownloadPath(url.pathname)) return handleDownload(request, context, env.ASSETS ?? null)
     if (url.pathname === vitalsPath) return handleVitals(request, context)
     const key = found.shopper.available ? await shopCacheKey(request, found.shopper, url.hostname) : null
-    return throughShopCache(shopCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
+    return throughShopCache(dataCentreCache(), key, () => servers.shop.fetch(request, context), (work) => ctx.waitUntil(work))
   })
 }
 

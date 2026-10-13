@@ -66,6 +66,45 @@
     "delivery": "Delivery and returns",
     "warranty": "Warranty",
     "questions": "Questions",
-    "related": "You may also like"
+    "related": "You may also like",
+    "add": "Add to cart",
+    "buyNow": "Buy now",
+    "added": "Added to your cart.",
+    "addFailed": "We couldn't add that. Try again.",
+    "viewCart": "View cart"
+  },
+  "cart": {
+    "title": "Your cart",
+    "loading": "Loading your cart",
+    "failed": "We couldn't load your cart",
+    "empty": "Your cart is empty",
+    "emptyLead": "Find something you like and it will wait for you here.",
+    "keepShopping": "Keep shopping",
+    "changeFailed": "That change didn't go through. Try again.",
+    "quantity": "Quantity of {name}",
+    "less": "One fewer",
+    "more": "One more",
+    "remove": "Remove",
+    "removeCode": "Remove the code {code}",
+    "summary": "Summary",
+    "code": "Discount code",
+    "apply": "Apply",
+    "checkout": "Checkout",
+    "blocked": "Something in your cart can't be bought right now. Change or remove it to check out.",
+    "problems": {
+      "short": "{count, plural, =0 {None left} one {Only # left} other {Only # left}}",
+      "notSoldHere": "Not sold where you are",
+      "unavailable": "No longer available"
+    },
+    "codes": {
+      "applied": "Code applied.",
+      "notEligible": "Your cart doesn't meet this code's conditions yet.",
+      "doesntCombine": "This code can't be used with another offer in your cart.",
+      "signIn": "Sign in to use this code.",
+      "expired": "This code has expired.",
+      "usedUp": "This code has been used up.",
+      "alreadyUsed": "You've already used this code.",
+      "invalid": "That code isn't valid. Check it and try again."
+    }
   }
 }
