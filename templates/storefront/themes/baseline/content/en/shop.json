@@ -71,7 +71,20 @@
     "buyNow": "Buy now",
     "added": "Added to your cart.",
     "addFailed": "We couldn't add that. Try again.",
-    "viewCart": "View cart"
+    "viewCart": "View cart",
+    "download": "A download: {times, plural, one {# download} other {# downloads}} within {days, plural, one {# day} other {# days}} of paying.",
+    "downloadPlain": "A download, ready once you've paid.",
+    "service": "A service: we'll be in touch to arrange it.",
+    "gift": {
+      "name": "Recipient's name",
+      "email": "Recipient's email",
+      "message": "Message",
+      "optional": "Optional · up to 200 characters",
+      "sendOn": "Send on",
+      "sendHint": "We email it that morning. Leave it empty to send it now.",
+      "sendHintExpiry": "We email it that morning. Leave it empty to send it now. It can be used for {months, plural, one {# month} other {# months}} after it's sent.",
+      "add": "Add gift card to cart"
+    }
   },
   "cart": {
     "title": "Your cart",
@@ -105,7 +118,8 @@
       "usedUp": "This code has been used up.",
       "alreadyUsed": "You've already used this code.",
       "invalid": "That code isn't valid. Check it and try again."
-    }
+    },
+    "giftFor": "For {name} ({email})"
   },
   "checkout": {
     "title": "Checkout",

@@ -30,6 +30,8 @@ type Figures = {
   delivery: Money | 'later' | 'next' | null
   tax: { amount: Money; includesTax: boolean } | null
   total: Money
+  /** A gift card's part of the total, and what is left after it. */
+  giftCard: { applied: Money; last4: string | null; rest: Money } | null
   estimated: boolean
   pending: boolean
 }
@@ -40,12 +42,12 @@ const figuresOf = (props: OrderSummaryProps): Figures => {
   if ('order' in props) {
     const o = props.order
     const lines = o.lines.map((l, i) => ({ key: String(i), photo: null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal }))
-    return { lines, subtotal: o.subtotal, discounts: o.discounts, delivery: o.shipping, tax: o.tax, total: o.total, estimated: false, pending: false }
+    return { lines, subtotal: o.subtotal, discounts: o.discounts, delivery: o.shipping, tax: o.tax, total: o.total, giftCard: o.giftCard ? { applied: o.giftCard, last4: null, rest: { ...o.total, amount: String(BigInt(o.total.amount) - BigInt(o.giftCard.amount)) } as Money } : null, estimated: false, pending: false }
   }
   const { cart, at } = props
   const lines = at === 'checkout' ? cart.lines.map((l) => ({ key: l.versionId, photo: l.photo?.url ?? null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal })) : null
   const delivery = cart.shipping ?? (cart.needsShipping ? (at === 'cart' ? 'later' : 'next') : null)
-  return { lines, subtotal: cart.subtotal, discounts: cart.discounts, delivery, tax: cart.tax, total: cart.total, estimated: at === 'cart', pending: cart.pending }
+  return { lines, subtotal: cart.subtotal, discounts: cart.discounts, delivery, tax: cart.tax, total: cart.total, giftCard: cart.giftCard ? { applied: cart.giftCard.applied, last4: cart.giftCard.last4, rest: cart.amountDue } : null, estimated: at === 'cart', pending: cart.pending }
 }
 
 export const OrderSummary = (props: OrderSummaryProps) => {
@@ -97,6 +99,18 @@ export const OrderSummary = (props: OrderSummaryProps) => {
             <dt>{t(f.estimated ? 'summary.estimated' : 'summary.total')}</dt>
             <dd>{money(f.total)}</dd>
           </div>
+          {f.giftCard ? (
+            <>
+              <div part="row saving">
+                <dt>{f.giftCard.last4 ? t('summary.giftCardEnding', { last4: f.giftCard.last4 }) : t('summary.giftCard')}</dt>
+                <dd>{t('summary.minus', { amount: money(f.giftCard.applied) })}</dd>
+              </div>
+              <div part="total">
+                <dt>{t('summary.afterGiftCard')}</dt>
+                <dd>{money(f.giftCard.rest)}</dd>
+              </div>
+            </>
+          ) : null}
         </dl>
         {f.tax?.includesTax && !isZero(f.tax.amount) ? <p part="note">{t('summary.taxIncluded', { amount: money(f.tax.amount) })}</p> : null}
         {f.pending ? (

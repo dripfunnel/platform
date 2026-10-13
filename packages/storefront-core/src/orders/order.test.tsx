@@ -144,4 +144,14 @@ describe('useOrder', () => {
     await show('/order/o-2/')
     expect(page().payAgain).toBeNull()
   })
+
+  it('gives a paid order’s downloads with their uses and date, its licence keys, a gift card’s recipient and what a gift card paid', async () => {
+    shopAnswering(() => ({ data: { confirmPayment: orderOf({ giftCard: { amount: '1000', currency: 'USD' }, lines: [{ name: 'Gift card', versionName: null, quantity: 1, unitPrice: { amount: '5000', currency: 'USD' }, lineTotal: { amount: '5000', currency: 'USD' }, gift: { recipientName: 'Asha', recipientEmail: 'asha@example.com', sendOn: '2026-10-20T00:00:00Z' } }], downloads: [{ name: 'Pattern PDF', url: 'https://shop.example/dl/abc', usesLeft: 4, expiresAt: '2026-11-12T00:00:00Z' }], licenceKeys: [{ name: 'Font licence', key: 'AAAA-BBBB' }, { name: 'Empty', key: null }] }) } }))
+    await show('/order/o-1/')
+    const order = page().order
+    expect(order?.giftCard).toEqual({ amount: '1000', currency: 'USD' })
+    expect(order?.lines[0]?.gift).toEqual({ recipientName: 'Asha', sendOn: 'Tuesday, October 20 at 12:00 AM UTC' })
+    expect(order?.downloads).toEqual([{ name: 'Pattern PDF', url: 'https://shop.example/dl/abc', usesLeft: 4, until: 'Thursday, November 12 at 12:00 AM UTC' }])
+    expect(order?.licenceKeys).toEqual([{ name: 'Font licence', key: 'AAAA-BBBB' }])
+  })
 })

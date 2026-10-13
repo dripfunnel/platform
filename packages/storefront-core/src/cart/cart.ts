@@ -15,7 +15,7 @@ import { moneyFields, productPath } from '../products/summary'
 
 const m = `{ ${moneyFields} }`
 const addressFields = 'name line1 line2 city region postalCode country phone'
-export const cartFields = `id currency email phone note needsShipping checkoutStep problems readyToPay deliverable shippingOption lines { versionId quantity productName productSlug versionName photoUrl unitPrice ${m} lineTotal ${m} discount ${m} available problem } subtotal ${m} discount ${m} discounts { name code amount ${m} } codes { code state } shipping ${m} shippingDiscount ${m} tax { amount ${m} pricesIncludeTax } total ${m} amountDue ${m} shippingAddress { ${addressFields} } billingAddress { ${addressFields} } shippingOptions { id provider service amount ${m} before ${m} minDays maxDays hours }`
+export const cartFields = `id currency email phone note needsShipping checkoutStep problems readyToPay deliverable shippingOption lines { versionId quantity productName productSlug versionName photoUrl unitPrice ${m} lineTotal ${m} discount ${m} available problem gift { recipientName recipientEmail sendOn message } } subtotal ${m} discount ${m} discounts { name code amount ${m} } codes { code state } shipping ${m} shippingDiscount ${m} tax { amount ${m} pricesIncludeTax } total ${m} amountDue ${m} giftCard { applied ${m} balance ${m} expiresAt last4 } shippingAddress { ${addressFields} } billingAddress { ${addressFields} } shippingOptions { id provider service amount ${m} before ${m} minDays maxDays hours }`
 
 const text = z.string().nullable().optional()
 const count = z.number().int().nullable().optional()
@@ -38,7 +38,7 @@ export const cartSchema = z.object({
   readyToPay: z.boolean().nullable().optional(),
   deliverable: z.boolean().nullable().optional(),
   shippingOption: text,
-  lines: z.array(z.object({ versionId: z.string(), quantity: z.number().int().positive(), productName: text, productSlug: text, versionName: text, photoUrl: text, unitPrice: money, lineTotal: money, discount: money, available: count, problem: text })),
+  lines: z.array(z.object({ versionId: z.string(), quantity: z.number().int().positive(), productName: text, productSlug: text, versionName: text, photoUrl: text, unitPrice: money, lineTotal: money, discount: money, available: count, problem: text, gift: z.object({ recipientName: text, recipientEmail: text, sendOn: text, message: text }).nullable().optional() })),
   subtotal: moneySchema,
   discount: money,
   discounts: z.array(z.object({ name: text, code: text, amount: money })).nullable().optional(),
@@ -48,6 +48,7 @@ export const cartSchema = z.object({
   tax: z.object({ amount: moneySchema, pricesIncludeTax: z.boolean() }).nullable().optional().catch(null),
   total: moneySchema,
   amountDue: moneySchema,
+  giftCard: z.object({ applied: moneySchema, balance: money, expiresAt: text, last4: text }).nullable().optional().catch(null),
   shippingAddress: addressSchema,
   billingAddress: addressSchema,
   shippingOptions: z.array(z.object({ id: z.string(), provider: text, service: text, amount: moneySchema, before: money, minDays: count, maxDays: count, hours: text })).nullable().optional(),
@@ -75,7 +76,12 @@ export type CartLine = {
   problem: LineProblem | null
   /** A change to it the engine hasn't answered yet: its money is the last answer's until it does. */
   pending: boolean
+  /** A gift card line's recipient, which the engine emails the card to. */
+  gift: GiftRecipient | null
 }
+
+/** Who a gift card goes to, and when (ISO date, empty for now), with a message. */
+export type GiftRecipient = { recipientName: string; recipientEmail: string; sendOn: string | null; message: string | null }
 
 /** A way to deliver the cart (SAPI 23's quote): courier, flat or pickup. */
 export type DeliveryOption = { id: string; provider: string | null; service: string | null; amount: Money; before: Money | null; minDays: number | null; maxDays: number | null; hours: string | null }
@@ -97,7 +103,10 @@ export type Cart = {
   shippingDiscount: Money | null
   tax: { amount: Money; includesTax: boolean } | null
   total: Money
+  /** What is left to pay once a gift card took its part. */
   amountDue: Money
+  /** The gift card paying part of it: what it takes off, what's left on it after, its last four digits. */
+  giftCard: { applied: Money; balance: Money | null; expiresAt: string | null; last4: string | null } | null
   email: string | null
   phone: string | null
   note: string | null
@@ -130,7 +139,7 @@ export const viewCart = (cart: Decoded, overlay: readonly Overlay[] = []): Cart 
     if (quantity <= 0) return []
     const photo = l.photoUrl ? photoOf(l.photoUrl, l.productName ?? null) : null
     const problem = lineProblems.find((p) => p === l.problem) ?? null
-    return [{ versionId: l.versionId, quantity, name: l.productName ?? '', href: l.productSlug ? productPath(l.productSlug) : null, versionName: l.versionName ?? null, photo, unitPrice: l.unitPrice ?? null, lineTotal: l.lineTotal ?? null, discount: l.discount ?? null, available: l.available ?? null, problem, pending: quantity !== l.quantity }]
+    return [{ versionId: l.versionId, quantity, name: l.productName ?? '', href: l.productSlug ? productPath(l.productSlug) : null, versionName: l.versionName ?? null, photo, unitPrice: l.unitPrice ?? null, lineTotal: l.lineTotal ?? null, discount: l.discount ?? null, available: l.available ?? null, problem, pending: quantity !== l.quantity, gift: l.gift?.recipientName && l.gift.recipientEmail ? { recipientName: l.gift.recipientName, recipientEmail: l.gift.recipientEmail, sendOn: l.gift.sendOn ?? null, message: l.gift.message ?? null } : null }]
   })
   const known = new Set(cart.lines.map((l) => l.versionId))
   const adding = overlay.filter((o) => o.kind === 'add' && !known.has(o.versionId)).reduce((n, o) => n + o.quantity, 0)
@@ -148,6 +157,7 @@ export const viewCart = (cart: Decoded, overlay: readonly Overlay[] = []): Cart 
     tax: cart.tax ? { amount: cart.tax.amount, includesTax: cart.tax.pricesIncludeTax } : null,
     total: cart.total,
     amountDue: cart.amountDue,
+    giftCard: cart.giftCard ? { applied: cart.giftCard.applied, balance: cart.giftCard.balance ?? null, expiresAt: cart.giftCard.expiresAt ?? null, last4: cart.giftCard.last4 ?? null } : null,
     email: cart.email ?? null,
     phone: cart.phone ?? null,
     note: cart.note ?? null,
@@ -278,11 +288,13 @@ export const useCartState = () => {
 }
 
 const lineChange = (name: string, args: string) => `mutation ${name}($versionId: ID!, $quantity: Int!) { ${args} { cartToken cart { ${cartFields} } } }`
-const addMutation = lineChange('Add', 'addToCart(versionId: $versionId, quantity: $quantity)')
+const addMutation = `mutation Add($versionId: ID!, $quantity: Int!, $gift: ShopGiftCardInput) { addToCart(versionId: $versionId, quantity: $quantity, gift: $gift) { cartToken cart { ${cartFields} } } }`
 const quantityMutation = lineChange('Quantity', 'setCartQuantity(versionId: $versionId, quantity: $quantity)')
 const applyMutation = `mutation Apply($code: String!) { applyCode(code: $code) { state cart { ${cartFields} } } }`
 const removeCodeMutation = `mutation RemoveCode($code: String!) { removeCode(code: $code) { cart { ${cartFields} } } }`
 const codeSchema = z.object({ cart: cartSchema.nullable().optional(), state: text })
+const giftCardMutation = `mutation GiftCard($number: String!) { applyGiftCard(number: $number) { cart { ${cartFields} } } }`
+const removeGiftCardMutation = `mutation RemoveGiftCard { removeGiftCard { cart { ${cartFields} } } }`
 
 export type CartPage = {
   status: 'loading' | 'ready' | 'error'
@@ -293,21 +305,26 @@ export type CartPage = {
   count: number
   /** The last change's refusal, such as UNAVAILABLE or TOO_MANY_LINES; cleared by the next change. */
   error: string | null
-  add: (versionId: string, quantity?: number) => Promise<boolean>
+  /** `gift`: a gift card's recipient, which the engine needs to sell one. */
+  add: (versionId: string, quantity?: number, gift?: GiftRecipient) => Promise<boolean>
   setQuantity: (versionId: string, quantity: number) => Promise<boolean>
   remove: (versionId: string) => Promise<boolean>
   /** The code's state as the engine answers it, such as APPLIED or INVALID; null when it couldn't be asked. */
   applyCode: (code: string) => Promise<string | null>
   removeCode: (code: string) => Promise<boolean>
+  /** A gift card's number pays part of the cart; refused as GIFT_CARD_INVALID, RATE_LIMITED or NOT_IN_PREVIEW in `error`. */
+  applyGiftCard: (number: string) => Promise<boolean>
+  removeGiftCard: () => Promise<boolean>
   /** Adds the version to the cart, then opens checkout. */
-  buyNow: (versionId: string, quantity?: number) => Promise<boolean>
+  buyNow: (versionId: string, quantity?: number, gift?: GiftRecipient) => Promise<boolean>
   retry: () => void
 }
 
 /** The shopper's cart and what can be done to it (ARCHITECTURE §2.1 `cart`); nothing here prices anything. */
 export const useCart = (): CartPage => {
   const { store, snapshot, cart } = useCartState()
-  const add = async (versionId: string, quantity = 1) => (await store.change(addMutation, { versionId, quantity }, changeSchema, { versionId, quantity, kind: 'add' })) !== null
+  const add = async (versionId: string, quantity = 1, gift?: GiftRecipient) =>
+    (await store.change(addMutation, { versionId, quantity, gift: gift ? { recipientName: gift.recipientName.trim(), recipientEmail: gift.recipientEmail.trim(), sendOn: gift.sendOn || null, message: gift.message?.trim() || null } : null }, changeSchema, { versionId, quantity, kind: 'add' })) !== null
   const setQuantity = async (versionId: string, quantity: number) => (await store.change(quantityMutation, { versionId, quantity }, changeSchema, { versionId, quantity, kind: 'set' })) !== null
   return {
     status: snapshot.status,
@@ -320,9 +337,11 @@ export const useCart = (): CartPage => {
     remove: (versionId) => setQuantity(versionId, 0),
     applyCode: async (code) => (await store.change(applyMutation, { code }, codeSchema))?.state ?? null,
     removeCode: async (code) => (await store.change(removeCodeMutation, { code }, changeSchema)) !== null,
+    applyGiftCard: async (number) => (await store.change(giftCardMutation, { number: number.replace(/\s+/g, '') }, changeSchema)) !== null,
+    removeGiftCard: async () => (await store.change(removeGiftCardMutation, {}, changeSchema)) !== null,
     // The active order is the only cart (ARCHITECTURE §2.1), so buying now is adding to it and going straight to checkout.
-    buyNow: async (versionId, quantity = 1) => {
-      const added = await add(versionId, quantity)
+    buyNow: async (versionId, quantity = 1, gift) => {
+      const added = await add(versionId, quantity, gift)
       if (added) navigate('/checkout/')
       return added
     },

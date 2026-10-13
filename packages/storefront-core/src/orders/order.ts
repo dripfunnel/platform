@@ -14,7 +14,7 @@ import { useRepay, type PayPhase } from '../checkout/checkout'
 // coming back from a provider. Reading it asks the provider about a card payment still pending (Shop API `confirmPayment`).
 
 const m = `{ ${moneyFields} }`
-const orderFields = `id number state paymentState paymentMethod paymentDueBy shippingMethod placedAt pricesIncludeTax lines { name versionName quantity unitPrice ${m} lineTotal ${m} } subtotal ${m} discounts { name amount ${m} } shipping ${m} tax ${m} total ${m}`
+const orderFields = `id number state paymentState paymentMethod paymentDueBy shippingMethod placedAt pricesIncludeTax lines { name versionName quantity unitPrice ${m} lineTotal ${m} gift { recipientName recipientEmail sendOn } } subtotal ${m} discounts { name amount ${m} } shipping ${m} giftCard ${m} tax ${m} total ${m} downloads { name url usesLeft expiresAt } licenceKeys { name key }`
 const confirmMutation = `mutation Order($orderId: ID!) { confirmPayment(orderId: $orderId) { ${orderFields} } }`
 const instructionsQuery = `query Instructions { paymentOptions { provider instructions } }`
 
@@ -30,19 +30,22 @@ const orderSchema = z.object({
   shippingMethod: text,
   placedAt: text,
   pricesIncludeTax: z.boolean().nullable().optional(),
-  lines: z.array(z.object({ name: text, versionName: text, quantity: z.number().int(), unitPrice: money, lineTotal: money })).nullable().optional(),
+  lines: z.array(z.object({ name: text, versionName: text, quantity: z.number().int(), unitPrice: money, lineTotal: money, gift: z.object({ recipientName: text, recipientEmail: text, sendOn: text }).nullable().optional() })).nullable().optional(),
   subtotal: moneySchema,
   discounts: z.array(z.object({ name: text, amount: money })).nullable().optional(),
   shipping: money,
+  giftCard: money,
   tax: money,
   total: moneySchema,
+  downloads: z.array(z.object({ name: text, url: text, usesLeft: z.number().int().nullable().optional(), expiresAt: text })).nullable().optional(),
+  licenceKeys: z.array(z.object({ name: text, key: text })).nullable().optional(),
 })
 const optionsSchema = z.object({ paymentOptions: z.array(z.object({ provider: z.string(), instructions: text })).nullable() })
 
 /** Paid and settled; waiting for the shopper (a bank transfer, cash on delivery) or the provider (a card being confirmed); refunded. */
 export type OrderPayment = 'paid' | 'awaiting' | 'confirming' | 'refunded'
 
-export type OrderLine = { name: string; versionName: string | null; quantity: number; unitPrice: Money | null; lineTotal: Money | null }
+export type OrderLine = { name: string; versionName: string | null; quantity: number; unitPrice: Money | null; lineTotal: Money | null; gift: { recipientName: string; sendOn: string | null } | null }
 
 export type Order = {
   id: string
@@ -63,6 +66,12 @@ export type Order = {
   shipping: Money | null
   tax: { amount: Money; includesTax: boolean } | null
   total: Money
+  /** What a gift card paid of the total. */
+  giftCard: Money | null
+  /** Each download, once paid: its link (signed, for this shopper), how many uses are left and until when, worded. */
+  downloads: { name: string; url: string | null; usesLeft: number | null; until: string | null }[]
+  /** Each licence key, once paid. */
+  licenceKeys: { name: string; key: string }[]
 }
 
 export type OrderPage = {
@@ -92,12 +101,15 @@ const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, whe
   payBy: o.paymentDueBy ? when(o.paymentDueBy) : null,
   delivery: o.shippingMethod ?? null,
   placedAt: o.placedAt ?? null,
-  lines: (o.lines ?? []).map((l) => ({ name: l.name ?? '', versionName: l.versionName ?? null, quantity: l.quantity, unitPrice: l.unitPrice ?? null, lineTotal: l.lineTotal ?? null })),
+  lines: (o.lines ?? []).map((l) => ({ name: l.name ?? '', versionName: l.versionName ?? null, quantity: l.quantity, unitPrice: l.unitPrice ?? null, lineTotal: l.lineTotal ?? null, gift: l.gift?.recipientName ? { recipientName: l.gift.recipientName, sendOn: l.gift.sendOn ? when(l.gift.sendOn) : null } : null })),
   subtotal: o.subtotal,
   discounts: (o.discounts ?? []).flatMap((d) => (d.amount ? [{ name: d.name ?? '', amount: d.amount }] : [])),
   shipping: o.shipping ?? null,
   tax: o.tax ? { amount: o.tax, includesTax: o.pricesIncludeTax === true } : null,
   total: o.total,
+  giftCard: o.giftCard && !/^0+$/.test(o.giftCard.amount) ? o.giftCard : null,
+  downloads: (o.downloads ?? []).map((d) => ({ name: d.name ?? '', url: d.url ?? null, usesLeft: d.usesLeft ?? null, until: d.expiresAt ? when(d.expiresAt) : null })),
+  licenceKeys: (o.licenceKeys ?? []).flatMap((k) => (k.key ? [{ name: k.name ?? '', key: k.key }] : [])),
 })
 
 /** The order the address names (`/order/{id}/`, or `/account/orders/{id}/` in the account); a guest reads it with the cart it was placed from, a customer with their session. */

@@ -35,7 +35,7 @@ export type TextFieldProps = Styled & {
   label: string
   value: string
   onChange: (value: string) => void
-  type?: 'text' | 'email' | 'tel' | 'password'
+  type?: 'text' | 'email' | 'tel' | 'password' | 'date'
   autoComplete?: string
   inputMode?: 'text' | 'email' | 'tel' | 'numeric'
   /** Words after the label, such as "Optional". */
