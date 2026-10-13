@@ -1,8 +1,8 @@
 import type { BlockKind, ContentBlockInput, ContentEntry, ContentInput, ContentKind } from '../../api/content'
 import { contentLimits } from '../../api/content'
-import { fill, locale, messages } from '../../messages'
+import { fill, messages } from '../../messages'
+import { languageName } from '../common/languageName'
 import { slugOf } from '../common/slug'
-import { languageName } from './studioRules'
 
 // Pages and Journal's editor before it is saved (StorefrontContent; FIRST-RELEASE §14): pure.
 
@@ -154,7 +154,7 @@ export const pathTakenText = ({ path, heldBy }: PathTaken, titleAt: (path: strin
     return what ? fill(t.coreLine, { path, what: t.core[what] }) : fill(t.coreOther, { path })
   }
   if (heldBy === 'custom_page') return fill(t.custom, { path })
-  if (heldBy === 'language') return fill(t.language, { path, language: languageName(segment, locale) })
+  if (heldBy === 'language') return fill(t.language, { path, language: languageName(segment) })
   if (heldBy === 'market') return fill(t.market, { path })
   const title = titleAt(path)
   const kind = heldBy === 'blog_post' ? t.post : t.page

@@ -285,3 +285,30 @@
     padding-top: 56px;
   }
 }
+
+.buy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.buy > button {
+  flex: 1 1 180px;
+}
+
+.buy > button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.added {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.viewCart {
+  color: var(--ink);
+  font-weight: 600;
+}

@@ -9,6 +9,7 @@
   --line: #e6dfd6;
   --accent: #2f5d50;
   --accent-ink: #fff;
+  --danger: #9a3412;
   --focus: #00519f;
   --radius: 12px;
   --button-radius: 999px;
@@ -125,6 +126,29 @@
 
 .tool:hover {
   background: var(--header-hover);
+}
+
+.tool:has(.count) {
+  position: relative;
+}
+
+.count {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .icon {

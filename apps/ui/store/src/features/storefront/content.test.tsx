@@ -17,9 +17,11 @@ const p = c.pages
 
 const api = vi.hoisted(() => ({ loadBrand: vi.fn(), loadSeo: vi.fn(), loadDomains: vi.fn(), loadOverview: vi.fn(), loadTemplates: vi.fn(), loadPoweredBy: vi.fn(), loadMeters: vi.fn() }))
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
-const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn() }))
+const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn(), loadContentTranslation: vi.fn(), saveContentTranslation: vi.fn() }))
 vi.mock('../../api/content', async (actual) => ({ ...(await actual<typeof import('../../api/content')>()), ...content }))
 
+const studio = vi.hoisted(() => ({ loadStudioLanguages: vi.fn() }))
+vi.mock('../../api/studio', async (actual) => ({ ...(await actual<typeof import('../../api/studio')>()), ...studio }))
 const offers = vi.hoisted(() => ({ loadProductNames: vi.fn() }))
 vi.mock('../../api/offers', async (actual) => ({ ...(await actual<typeof import('../../api/offers')>()), ...offers }))
 const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
@@ -90,6 +92,9 @@ beforeEach(() => {
   content.loadContentEntry.mockResolvedValue(faq)
   content.saveContent.mockImplementation((_kind: string, id: string | null, _revision: number | null, input: { title: string; slug: string }) => Promise.resolve({ ...faq, id: id ?? 'new-id', title: input.title, slug: input.slug }))
   content.deleteContent.mockResolvedValue(undefined)
+  content.loadContentTranslation.mockResolvedValue(null)
+  content.saveContentTranslation.mockResolvedValue(undefined)
+  studio.loadStudioLanguages.mockResolvedValue(['en'])
   offers.loadProductNames.mockResolvedValue(new Map([['p1', 'Indigo kurta']]))
 })
 
@@ -627,5 +632,129 @@ describe('the Journal', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: j.delete }))
     await settle()
     expect(content.deleteContent).toHaveBeenCalledWith('post', linen.id)
+  })
+})
+
+describe('other languages', () => {
+  const t = c.translate
+  const hindi = new Intl.DisplayNames(['en'], { type: 'language' }).of('hi') ?? 'hi'
+  const english = new Intl.DisplayNames(['en'], { type: 'language' }).of('en') ?? 'en'
+
+  beforeEach(() => {
+    studio.loadStudioLanguages.mockResolvedValue(['en', 'hi'])
+  })
+
+  it('translates a saved page block by block, the main words standing in for a field left empty', async () => {
+    await show({ entry: faq.id })
+    fireEvent.click(screen.getByRole('tab', { name: hindi }))
+    await settle()
+    expect(content.loadContentTranslation).toHaveBeenCalledWith(faq.id, 'hi')
+    expect(screen.getByText(fill(t.notYet, { language: hindi, main: english }))).toBeTruthy()
+    fireEvent.change(screen.getByRole('textbox', { name: t.fields.title }), { target: { value: 'हमसे पूछे गए सवाल' } })
+    fireEvent.change(screen.getByRole('textbox', { name: fill(t.fields.block, { kind: e.kinds.heading, number: '1' }) }), { target: { value: 'सवाल' } })
+    fireEvent.change(screen.getByRole('textbox', { name: fill(e.answer, { number: '1' }) }), { target: { value: '3–5 दिन।' } })
+    fireEvent.click(screen.getByRole('button', { name: t.save }))
+    await settle()
+    expect(content.saveContentTranslation).toHaveBeenCalledWith('page', faq.id, 'hi', {
+      title: 'हमसे पूछे गए सवाल',
+      body: [
+        { kind: 'heading', text: 'सवाल' },
+        { kind: 'faq', items: [{ question: 'Delivery?', answer: '3–5 दिन।' }] },
+        { kind: 'products', productIds: ['p1', 'p2'] },
+      ],
+      seoTitle: null,
+      seoDescription: null,
+    })
+    expect(screen.getByText(fill(t.saved, { language: hindi }))).toBeTruthy()
+  })
+
+  it('says when the main words moved, and removes a language after asking', async () => {
+    content.loadContentTranslation.mockResolvedValue({ language: 'hi', title: 'सवाल', body: [{ kind: 'heading', text: 'सवाल', assetId: null, alt: null, items: null, productIds: null }], seoTitle: null, seoDescription: null, changed: true })
+    await show({ entry: faq.id })
+    fireEvent.click(screen.getByRole('tab', { name: hindi }))
+    await settle()
+    expect(screen.getByText(fill(t.changed, { main: english }))).toBeTruthy()
+    expect((screen.getByRole('textbox', { name: fill(t.fields.block, { kind: e.kinds.heading, number: '1' }) }) as HTMLInputElement).value).toBe('सवाल')
+    fireEvent.click(screen.getByRole('button', { name: fill(t.remove, { language: hindi }) }))
+    const dialog = screen.getByRole('dialog', { name: fill(t.removeTitle, { language: hindi }) })
+    fireEvent.click(within(dialog).getByRole('button', { name: t.removeConfirm }))
+    await settle()
+    expect(content.saveContentTranslation).toHaveBeenCalledWith('page', faq.id, 'hi', null)
+    expect(screen.getByText(fill(t.notYet, { language: hindi, main: english }))).toBeTruthy()
+  })
+
+  it('holds the tabs while the main language has unsaved words', async () => {
+    await show({ entry: faq.id })
+    fireEvent.change(screen.getByRole('textbox', { name: e.title }), { target: { value: 'FAQ' } })
+    expect((screen.getByRole('tab', { name: hindi }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows no tabs for a page not saved yet, or a store with one language', async () => {
+    await show({ entry: 'new' })
+    expect(screen.queryByRole('tab', { name: hindi })).toBeNull()
+    cleanup()
+    studio.loadStudioLanguages.mockResolvedValue(['en'])
+    await show({ entry: faq.id })
+    expect(screen.queryByRole('tab', { name: hindi })).toBeNull()
+  })
+
+  it('shows the translation’s error with a retry that reads it again', async () => {
+    content.loadContentTranslation.mockRejectedValueOnce(new Error('offline'))
+    await show({ entry: faq.id })
+    fireEvent.click(screen.getByRole('tab', { name: hindi }))
+    await settle()
+    expect(screen.getByText(t.failed)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: t.retry }))
+    await settle()
+    expect(screen.getByRole('textbox', { name: t.fields.title })).toBeTruthy()
+  })
+
+  it('says why a save was refused and keeps the words typed; Cancel puts back the saved ones', async () => {
+    content.saveContentTranslation.mockRejectedValueOnce(new ApiError('FORBIDDEN', 'no'))
+    await show({ entry: faq.id })
+    fireEvent.click(screen.getByRole('tab', { name: hindi }))
+    await settle()
+    const title = () => screen.getByRole('textbox', { name: t.fields.title }) as HTMLInputElement
+    fireEvent.change(title(), { target: { value: 'सवाल' } })
+    expect((screen.getByRole('tab', { name: fill(messages.editor.translate.main, { language: english }) }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: t.save }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(t.refused.FORBIDDEN)
+    expect(title().value).toBe('सवाल')
+    fireEvent.click(screen.getByRole('button', { name: t.cancel }))
+    expect(title().value).toBe('')
+    expect((screen.getByRole('tab', { name: fill(messages.editor.translate.main, { language: english }) }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('shows what was saved, the main words in the fields left empty', async () => {
+    await show({ entry: faq.id })
+    fireEvent.click(screen.getByRole('tab', { name: hindi }))
+    await settle()
+    fireEvent.change(screen.getByRole('textbox', { name: t.fields.title }), { target: { value: 'सवाल' } })
+    fireEvent.click(screen.getByRole('button', { name: t.save }))
+    await settle()
+    expect((screen.getByRole('textbox', { name: fill(t.fields.block, { kind: e.kinds.heading, number: '1' }) }) as HTMLInputElement).value).toBe('Questions')
+    expect(screen.getByText(fill(t.hint, { main: english }))).toBeTruthy()
+  })
+
+  it('translates a post with the post’s own save, and says when the plan has no Journal', async () => {
+    content.loadContentEntry.mockResolvedValue(linen)
+    content.saveContentTranslation.mockRejectedValueOnce(new ApiError('PLAN_LIMIT', 'plan', { key: 'blog' }))
+    await show({ tab: 'journal', entry: linen.id })
+    fireEvent.click(screen.getByRole('tab', { name: hindi }))
+    await settle()
+    fireEvent.change(screen.getByRole('textbox', { name: t.fields.title }), { target: { value: 'लिनन' } })
+    fireEvent.click(screen.getByRole('button', { name: t.save }))
+    await settle()
+    expect(content.saveContentTranslation).toHaveBeenCalledWith('post', linen.id, 'hi', expect.objectContaining({ title: 'लिनन', body: [{ kind: 'text', text: 'Wash cool.' }] }))
+    expect(screen.getByRole('alert').textContent).toBe(t.refused.PLAN_LIMIT)
+  })
+
+  it('shows the translation read-only to a Manager', async () => {
+    await show({ acting: manager, entry: faq.id })
+    fireEvent.click(screen.getByRole('tab', { name: hindi }))
+    await settle()
+    expect((screen.getByRole('textbox', { name: t.fields.title }) as HTMLInputElement).readOnly).toBe(true)
+    expect(screen.queryByRole('button', { name: t.save })).toBeNull()
   })
 })

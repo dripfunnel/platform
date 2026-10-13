@@ -83,3 +83,29 @@ export const deleteContent = async (kind: ContentKind, id: string): Promise<void
   const field = kind === 'page' ? 'deleteContentPage' : 'deleteBlogPost'
   await query(`mutation D($id: ID!) { ${field}(id: $id) }`, z.object({ [field]: z.boolean().nullable() }), { id })
 }
+
+const translationSchema = z.object({ language: z.string(), title: z.string(), body: z.array(blockSchema), seoTitle: text, seoDescription: text, changed: z.boolean() })
+export type ContentTranslation = z.infer<typeof translationSchema>
+
+/** A page's or post's words in another language the store offers; null until written. */
+export const loadContentTranslation = async (id: string, language: string): Promise<ContentTranslation | null> =>
+  (
+    await query(
+      'query T($id: ID!, $language: String!) { contentTranslation(id: $id, language: $language) { language title body { kind text assetId alt items { question answer } productIds } seoTitle seoDescription changed } }',
+      z.object({ contentTranslation: translationSchema.nullable() }),
+      { id, language },
+    )
+  ).contentTranslation
+
+export interface ContentTranslationInput {
+  title: string
+  body: ContentBlockInput[]
+  seoTitle: string | null
+  seoDescription: string | null
+}
+
+/** Saves another language's words, or with null removes them, so the shop shows the main language's. */
+export const saveContentTranslation = async (kind: ContentKind, id: string, language: string, input: ContentTranslationInput | null): Promise<void> => {
+  const field = kind === 'page' ? 'saveContentPageTranslation' : 'saveBlogPostTranslation'
+  await query(`mutation W($id: ID!, $language: String!, $input: ContentTranslationInput) { ${field}(id: $id, language: $language, input: $input) { language } }`, z.object({ [field]: z.object({ language: z.string() }).nullable() }), { id, language, input })
+}

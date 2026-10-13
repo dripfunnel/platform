@@ -12,6 +12,7 @@ import { storeRoleOf, type StoreRole } from './storePermissions'
 import { resolveSupportCaller, supportActor, supportCookieName, type SupportSeat } from './storeSupport'
 import { isUuid } from '#core/ids'
 import { machineCredentialOf } from './apiKeys'
+import { throughPortalHostCache, type PortalHostCaching } from './portalHost'
 import { planApiLimits, resolveMachine, type MachineCaller } from './machineCaller'
 
 // The acting store and, for a person working for more than one supplier in it, the acting
@@ -60,8 +61,8 @@ export type StoreStanding =
 export const standingPerson = (standing: StoreStanding): StorePerson | null => ('person' in standing ? standing.person : null)
 
 /** The partner whose portal host this is; null answers 404 (docs/ARCHITECTURE.md §2). */
-export const resolvePortalPartner = async (sql: postgres.Sql, host: string): Promise<string | null> =>
-  withSystemScope(sql, (tx) => selectPortalPartner(tx, host))
+export const resolvePortalPartner = async (sql: postgres.Sql, host: string, caching: PortalHostCaching | null = null): Promise<string | null> =>
+  throughPortalHostCache(caching, host, () => withSystemScope(sql, (tx) => selectPortalPartner(tx, host)))
 
 const callerOf = (person: StorePerson, sessionHash: string, row: MembershipRow): StoreCaller | null => {
   const role = storeRoleOf(row)

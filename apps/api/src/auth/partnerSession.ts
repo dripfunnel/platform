@@ -1,5 +1,5 @@
 import type { ScopedSql } from '#db/scoped/index'
-import { hashSessionId, newSessionId } from './session'
+import { hashSessionId, lastSeenIsStale, lastSeenWriteMs, newSessionId } from './session'
 
 // ACCESS.md §4: the session model every pool but staff's uses. No partner screen offers
 // "Remember me" (FIRST-RELEASE §3), so every session takes the 12 h bound.
@@ -31,15 +31,23 @@ export const createPartnerSession = async (tx: ScopedSql, partnerUserId: string,
 
 /** The session's user if it is live and past every sign-in step, sliding the idle window; else null. */
 export const readPartnerSession = async (tx: ScopedSql, id: string, now: Date): Promise<string | null> => {
-  const rows = await tx<{ partner_user_id: string }[]>`
-    update partner_session set last_seen_at = ${now}
-    where id_hash = ${await hashSessionId(id)}
+  const idHash = await hashSessionId(id)
+  const rows = await tx<{ partner_user_id: string; last_seen_at: Date }[]>`
+    select partner_user_id, last_seen_at from partner_session
+    where id_hash = ${idHash}
       and stage = 'full'
       and absolute_expires_at > ${now}
       and last_seen_at > ${new Date(now.getTime() - idleMs)}
-    returning partner_user_id
   `
-  return rows[0]?.partner_user_id ?? null
+  const row = rows[0]
+  if (!row) return null
+  if (lastSeenIsStale(row.last_seen_at, now)) {
+    await tx`
+      update partner_session set last_seen_at = ${now}
+      where id_hash = ${idHash} and last_seen_at <= ${new Date(now.getTime() - lastSeenWriteMs)}
+    `
+  }
+  return row.partner_user_id
 }
 
 export interface PendingSession {

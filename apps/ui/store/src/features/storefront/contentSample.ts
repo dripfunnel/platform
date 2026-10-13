@@ -1,5 +1,5 @@
 import { ApiError } from '@dripfunnel/shared/graphql'
-import type { ContentEntry, ContentInput, ContentKind } from '../../api/content'
+import type { ContentEntry, ContentInput, ContentKind, ContentTranslation, ContentTranslationInput } from '../../api/content'
 import { pathOf } from './contentDraft'
 import type { StorefrontState } from './storefrontStates'
 
@@ -49,6 +49,7 @@ export const sampleContent = (state: StorefrontState) => {
   let entries = state === 'contentEmpty' ? [] : [...pages(), ...posts()]
   const custom = state === 'contentEmpty' ? [] : customPaths
   let made = 0
+  const translations = new Map<string, ContentTranslation>()
   const of = (kind: ContentKind) => entries.filter((e) => e.kind === kind)
   return {
     loadContentList: (kind: ContentKind) => Promise.resolve({ rows: of(kind), next: null }),
@@ -63,6 +64,12 @@ export const sampleContent = (state: StorefrontState) => {
       const saved: ContentEntry = { ...blank, ...was, id: id ?? `sample-new-${(made += 1)}`, kind, path, title: input.title, slug: input.slug, body, seoTitle: input.seoTitle, seoDescription: input.seoDescription, inMenu: input.inMenu ?? false, status: !input.publish ? 'draft' : input.publishAt && input.publishAt > new Date().toISOString() ? 'scheduled' : 'published', publishAt: kind === 'post' ? (input.publishAt ?? was?.publishAt ?? new Date().toISOString()) : null, author: input.author ?? null, coverAssetId: input.coverAssetId ?? null, waitingForPublish: true, updatedAt: new Date().toISOString(), revision: (was?.revision ?? 0) + 1 }
       entries = was ? entries.map((e) => (e.id === id ? saved : e)) : [saved, ...entries]
       return Promise.resolve(saved)
+    },
+    loadContentTranslation: (id: string, language: string) => Promise.resolve(translations.get(`${id}|${language}`) ?? null),
+    saveContentTranslation: (_kind: ContentKind, id: string, language: string, input: ContentTranslationInput | null) => {
+      if (input) translations.set(`${id}|${language}`, { language, ...input, body: input.body.map((b) => block(b.kind, b)), changed: false })
+      else translations.delete(`${id}|${language}`)
+      return Promise.resolve()
     },
     deleteContent: (_kind: ContentKind, id: string) => {
       entries = entries.filter((e) => e.id !== id)

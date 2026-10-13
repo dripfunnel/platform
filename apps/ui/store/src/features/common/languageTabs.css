@@ -1,0 +1,41 @@
+/* The language tabs over an editor (common/LanguageTabs.tsx): the product editor, Pages and Journal. */
+.df-editor-languages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-editor-languages [role='tablist'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.df-editor-languages button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-editor-languages button[aria-selected='true'] {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-editor-languages button span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}

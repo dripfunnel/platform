@@ -79,6 +79,7 @@ export const ContentTab = ({ kind, api, canEdit, onStudio, entry, onEntry, host,
         contactEmail={contactEmail}
         titleAt={(path) => rows.find((r) => r.path === path)?.title ?? null}
         onBack={() => onEntry(undefined)}
+        onToast={onToast}
         onDone={(text) => {
           onToast(text)
           onEntry(undefined)
