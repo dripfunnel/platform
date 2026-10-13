@@ -31,4 +31,14 @@ describe('OrderSummary', () => {
     expect(html).toContain('Includes $3.00 tax.')
     expect(renderToStaticMarkup(<OrderSummary cart={cart} at="checkout" locale="en-US" t={t} />)).toContain('Next step')
   })
+
+  it('says the totals are being updated while a change waits, and lists a line that can’t be bought', () => {
+    const cart = { ...shownCart(cartOf([line('v1', 2)])), pending: true }
+    const html = renderToStaticMarkup(<OrderSummary cart={cart} at="checkout" locale="en-US" t={t} />)
+    expect(html).toContain('Updating the totals…')
+    expect(html).toContain('aria-busy="true"')
+    const settled = renderToStaticMarkup(<OrderSummary cart={shownCart(cartOf([{ ...line('v1', 1), problem: 'unavailable' }]))} at="checkout" locale="en-US" t={t} />)
+    expect(settled).not.toContain('Updating')
+    expect(settled).toContain('Organic Cotton Tee × 1')
+  })
 })

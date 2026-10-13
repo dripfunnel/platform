@@ -59,7 +59,7 @@ describe.skipIf(!chrome)('the baseline cart page', () => {
       expect(api.state.lines[0]?.quantity).toBe(2)
       await page.getByLabel('Discount code').fill('nope')
       await page.getByRole('button', { name: 'Apply' }).click()
-      await page.getByText("That code isn't valid. Check it and try again.").waitFor()
+      await page.getByRole('alert').filter({ hasText: "That code isn't valid. Check it and try again." }).waitFor()
       await page.getByLabel('Discount code').fill('AUTUMN')
       await page.getByRole('button', { name: 'Apply' }).click()
       await page.getByText('Code applied.').waitFor()

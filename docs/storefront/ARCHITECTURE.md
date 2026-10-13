@@ -167,8 +167,11 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   then makes a new one.
 - **Buy now** adds the version to the active cart and opens checkout, since the active order is the only cart.
 - **`<OrderSummary>`** is sealed (part `summary`, at least 160×48 px): subtotal, each offer, delivery ("Chosen at
-  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too.
-- **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer.
+  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too. While a
+  change waits for its answer it says "Updating the totals…", since its amounts are still the last answer's.
+- **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer
+  (`refused` announces a refusal as an error). Reads of the cart and changes to it go one at a time, in order, so a read
+  never lands over a newer change's answer.
 - **`<AddToCart>` and `<BuyNow>`** (part 2): the buttons a theme words and styles, `useCart`'s `add` and `buyNow` behind them,
   marked `data-df-action` so the checkout smoke test finds them in any theme (§3.2's "add-to-cart that uses `useCart`").
 
@@ -492,7 +495,8 @@ their own cards.
     the parts' position, transform and margins, overflow, and text no smaller than 12 px. Text is
     sized through `--df-price-size` and `--df-sealed-size`; colour and type through
     `--df-sealed-font`, `--df-sealed-color`, `--df-sealed-muted`, `--df-sealed-surface`,
-    `--df-sealed-radius`, `--df-preview-surface` and `--df-preview-color`; anything else through
+    `--df-sealed-radius`, `--df-preview-surface`, `--df-preview-color` and `--df-sealed-saving` (an offer's line in the
+    order summary, #313); anything else through
     `::part`. The page's HTML carries each component's words, for crawlers and the no-JavaScript
     check, until core renders it in its root.
   - Parts: the price `amount`, `was`, `tax`; the preview banner `banner`; "Powered by" `line`;

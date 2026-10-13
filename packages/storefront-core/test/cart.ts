@@ -4,7 +4,7 @@ import { cartSchema, viewCart, type Cart } from '../src/cart/cart'
 
 export const usd = (amount: number) => ({ amount: String(amount), currency: 'USD' })
 
-export const line = (versionId: string, quantity: number, unit = 2800) => ({ versionId, quantity, productName: 'Organic Cotton Tee', productSlug: 'organic-cotton-tee', versionName: 'Sand / M', photoUrl: null, unitPrice: usd(unit), lineTotal: usd(unit * quantity), discount: null, available: 5, problem: null })
+export const line = (versionId: string, quantity: number, unit = 2800) => ({ versionId, quantity, productName: 'Organic Cotton Tee', productSlug: 'organic-cotton-tee', versionName: 'Sand / M', photoUrl: null, unitPrice: usd(unit), lineTotal: usd(unit * quantity), discount: null, available: 5, problem: null as string | null })
 
 export const cartOf = (lines: ReturnType<typeof line>[], extra: Record<string, unknown> = {}) => {
   const subtotal = lines.reduce((n, l) => n + Number(l.lineTotal.amount), 0)

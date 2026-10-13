@@ -120,4 +120,21 @@ describe('useCart', () => {
     await act(async () => page.retry())
     expect(count()).toBe('1 v1×1')
   })
+
+  it('never lets an older read land over a newer change’s answer', async () => {
+    localStorage.setItem('df-cart', 'tok-1')
+    const read = later<unknown>()
+    let reads = 0
+    const now = cartOf([line('v1', 1), line('v2', 1)])
+    shopAnswering((a) => (a.query.startsWith('query Cart') ? ((reads += 1) === 1 ? read.promise : { data: { cart: now } }) : { data: { addToCart: { cartToken: null, cart: now } } }))
+    mount()
+    await act(async () => undefined)
+    const added = page.add('v2')
+    await act(async () => undefined)
+    read.settle({ data: { cart: cartOf([line('v1', 1)]) } })
+    await act(async () => void (await added))
+    expect(count()).toBe('2 v1×1,v2×1')
+    await act(async () => page.retry())
+    expect(count()).toBe('2 v1×1,v2×1')
+  })
 })

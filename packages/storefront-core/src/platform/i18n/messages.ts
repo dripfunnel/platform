@@ -37,6 +37,7 @@ export const en = {
   'summary.taxIncluded': 'Includes {amount} tax.',
   'summary.estimated': 'Estimated total',
   'summary.total': 'Total',
+  'summary.updating': 'Updating the totals…',
   'payment.label': 'Payment',
   'payment.studio': 'Checkout works in Open preview',
   'payment.test': 'Test mode. No real payment is taken on this preview.',
