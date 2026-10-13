@@ -4,13 +4,15 @@ How the code of `apps/ui/mobile-app/merchant` is laid out and how it talks to th
 The framework decision is [REACT-NATIVE.md](REACT-NATIVE.md); the look is [DESIGN.md](DESIGN.md);
 builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
-**Status: the project is set up (#496) and its foundations are built (#497), with placeholder screens only.**
+**Status: the project is set up (#496), its foundations are built (#497) and so are getting in and My profile
+(#498); the other screens are placeholders.**
 `app.config.ts`, `partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/graphql/`,
-`src/intl/`, `src/format/`, `src/messages/`, `src/theme/`, `src/brand/` and `src/api/brand.ts` exist (the
-placeholder screen in `src/features/placeholder/` goes when the first real screen replaces it). `session/` and
-`nav.ts` are built on later cards. Rows marked *(proposed)* await a yes.
+`src/intl/`, `src/format/`, `src/messages/`, `src/theme/`, `src/brand/`, `src/session/`, `src/features/auth/`,
+`src/features/profile/` and `src/api/` (`brand`, `auth`, `profile`) exist (the placeholder screen in
+`src/features/placeholder/` goes when the first real screen replaces it). Only `nav.ts` is still to build. Rows
+marked *(proposed)* await a yes.
 
-Last updated: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
+Last updated: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
 
 ---
 
@@ -92,7 +94,7 @@ apps/ui/mobile-app/merchant/
 
 ## 4. Startup
 
-Built in #497 up to step 3; steps 4–5 come with sign-in (#498).
+Built in #497 up to step 3, and in #498 for steps 4–5.
 
 1. Load the FormatJS polyfills (`src/intl/`), before anything formats.
 2. Read the partner's portal domain from the build configuration (`expo-constants`).
@@ -129,6 +131,12 @@ Built in #497 up to step 3; steps 4–5 come with sign-in (#498).
   §4; the session is #498). The partner's primary colour becomes the header and its accent the brand colour, and
   `corner` halves or removes the radii, as the portal applies them (`apps/ui/store` `brand/applyBrand.ts`).
   Fonts are not loaded: the brand's `font` is read but the app uses the system font until a card adds font files.
+- **Built in #498** (`src/session/`): who may see which screen follows the session (`Stack.Protected` in the root
+  layout): signed out sees `(auth)`, signed in with no store acting sees the chooser, a store acting sees the tabs and
+  My profile. The session store keeps the token and the last store in secure storage, and every call a signed-in
+  person makes goes through `sessionClient()`, which adds the bearer token, `X-Store` and `X-Supplier` and ends the
+  session on `UNAUTHENTICATED`. The sign-in routes are plain POSTs, so `graphql/rest.ts` carries them; how they
+  work is in REACT-NATIVE.md §5.1.
 - **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
   offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write
   needs a connection. If a queue is added later, which writes may wait in it is decided first,

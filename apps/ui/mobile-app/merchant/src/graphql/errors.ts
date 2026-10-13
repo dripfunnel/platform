@@ -16,6 +16,18 @@ export const knownErrorCodes = [
   'NOT_FOUND',
   'RATE_LIMITED',
   'INVALID_INPUT',
+  // The sign-in routes' refusals and My profile's (ACCESS.md §4); the sign-in ones carry `minutes` or `triesLeft` in details.
+  'INVALID_CREDENTIALS',
+  'LOCKED',
+  'WRONG_CODE',
+  'CODE_EXPIRED',
+  'INVALID_PHONE',
+  'INVALID_EMAIL',
+  'NAME_REQUIRED',
+  'WEAK_PASSWORD',
+  'PHONE_REQUIRED',
+  'PHONE_IN_USE_FOR_SIGN_IN',
+  'SECOND_FACTOR_REQUIRED',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

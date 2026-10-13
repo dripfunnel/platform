@@ -39,7 +39,7 @@ export const createApiClient = ({ domain, timeoutMs = defaultTimeoutMs, token = 
       const timer = setTimeout(() => abort.abort(), timeoutMs)
       let body: GraphQLResponse<T>
       try {
-        const response = await fetchImpl(endpoint, { method: 'POST', headers: headers(), body: JSON.stringify({ query, variables }), signal: abort.signal })
+        const response = await fetchImpl(endpoint, { method: 'POST', headers: headers(), body: JSON.stringify({ query, variables }), signal: abort.signal, credentials: 'omit' })
         body = (await response.json()) as GraphQLResponse<T>
       } catch {
         throw new ApiError('NO_RESPONSE', 'The API did not answer.')

@@ -10,9 +10,9 @@ iOS and Android app in each partner's look:
 How builds, partners and store accounts work is in
 [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
-**Status: the project is set up (#496) and its foundations are built (#497): the API client, formatting on Hermes, messages and the partner's look.** Screens are placeholders. The Hermes check has passed on Android; iOS is still to run (§6).
+**Status: the project is set up (#496), its foundations are built (#497: the API client, formatting on Hermes, messages and the partner's look) and so are getting in and My profile (#498).** The other screens are placeholders. The Hermes check has passed on Android; iOS is still to run (§6).
 
-Last updated: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
+Last updated: 2026-10-13 (#498: what the app's sign-in does, §5.1). Before: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
 
 ---
 
@@ -147,6 +147,34 @@ gets the **same session as a bearer token**:
 
 Only the screens that call the Store API wait for this to be built; the project setup and
 loading the partner's look don't.
+
+### 5.1 Built in #498
+
+- **No cookie, ever.** Every call is made with `credentials: 'omit'` and no `Origin`, so the API answers a
+  sign-in with the session as `token` in the body. A password opens a *pending* session when the person has a
+  second factor or an Owner has none yet; the pending token is held in memory only, so an app that is killed
+  there wakes up signed out.
+- **Where the token lives.** Only a full session is saved, with the last store, in Expo SecureStore
+  (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), keyed by the portal host. Sign-out and an answer of `UNAUTHENTICATED` wipe
+  both. If the keystore fails or gives no answer in 5 s, the app treats that as no saved session and a failed
+  save lasts until the app closes (seen on the Android emulator, whose keystore reports errors).
+- **After the password:** `done` opens the session; `second-factor` asks for the code (an authenticator app's,
+  or a text sent as the step opens), a backup code stands in for it; `enrol` holds an Owner at set-up by text
+  message, then shows the ten backup codes once before the session opens.
+- **The stores.** `myStores` after sign-in: none is refused ("This account doesn't belong to a store here"),
+  one opens directly, several show the chooser with the last store first. This is read at every start, so a person
+  in several stores sees the chooser each time, as ARCHITECTURE.md §4 step 5 says. A last store that is no longer
+  held shows "its owner removed you".
+- **Forgot password** asks for the email and says "check your email"; the link in it opens the web portal in the
+  browser, where the new password is chosen, and the person then signs in here. Sign-up is not in the app.
+  **Google sign-in is not built**: the Store API has no route for it (FIRST-RELEASE.md §4, "Not built, for want of
+  an API"). The prototype's "Create a store" and "Create another store" are left out with sign-up.
+- **The prototype's expired-session message** says "after 12 hours without activity"; the idle limit is 2 hours
+  (ACCESS.md §4), so the app says "after a while without activity".
+- **Left out, each for a reason:** My profile's Appearance (light or dark: the app stays light until a card adds
+  it), "Contact support" on the locked and backup-code screens (it needs the partner's support contact from the
+  brand query), "My activity", and the toast that says how many backup codes are left (the app has no toasts until
+  the shell, #499; the count shows in My profile).
 
 ---
 
