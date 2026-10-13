@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import { AddressFields, Choices, Form, Link, OrderSummary, PaymentElement, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
+import { PaymentMethod } from '../PaymentMethod'
 import { Retry } from './Retry'
 import shop from '../../styles/shop.module.css'
 import styles from '../../styles/checkout.module.css'
@@ -50,12 +51,10 @@ export const CheckoutView = () => {
   const stepTitle = (id: CheckoutStepId) =>
     id === 'contact' ? t('shop.checkout.contact') : id === 'address' ? t('shop.checkout.address') : id === 'delivery' ? t('shop.checkout.delivery') : id === 'payment' ? t('shop.checkout.payment') : t('shop.checkout.review')
   const deliveryName = (o: DeliveryOption) => (o.id === 'pickup' ? t('shop.checkout.pickup') : o.id === 'flat' ? t('shop.checkout.standard') : (o.service ?? t('shop.checkout.courier')))
-  const methodName = (provider: string) =>
-    provider === 'cod' ? t('shop.checkout.methods.cod') : provider === 'bank_transfer' ? t('shop.checkout.methods.transfer') : provider === 'razorpay' || provider === 'cashfree' ? t('shop.checkout.methods.upi') : provider === 'phonepe' ? t('shop.checkout.methods.phonepe') : provider === 'paypal' ? t('shop.checkout.methods.paypal') : t('shop.checkout.methods.card')
   const shipTo = cart.shippingAddress ? [cart.shippingAddress.name, cart.shippingAddress.line1, cart.shippingAddress.line2, cart.shippingAddress.city, cart.shippingAddress.postalCode, cart.shippingAddress.region].filter(Boolean).join(', ') : null
   const chosenDelivery = cart.shippingOptions.find((o) => o.id === cart.shippingOption) ?? null
   const done = (id: CheckoutStepId) =>
-    id === 'contact' ? [cart.email, cart.phone].filter(Boolean).join(' · ') : id === 'address' ? shipTo : id === 'delivery' ? (chosenDelivery ? deliveryName(chosenDelivery) : null) : id === 'payment' && c.chosen ? methodName(c.chosen) : null
+    id === 'contact' ? [cart.email, cart.phone].filter(Boolean).join(' · ') : id === 'address' ? shipTo : id === 'delivery' ? (chosenDelivery ? deliveryName(chosenDelivery) : null) : id === 'payment' && c.chosen ? <PaymentMethod provider={c.chosen} /> : null
   const refusal = (code: string) =>
     code === 'OUT_OF_STOCK'
       ? t('shop.checkout.refusals.outOfStock')
@@ -145,7 +144,7 @@ export const CheckoutView = () => {
               value: p.provider,
               content: (
                 <span className={styles.choiceText}>
-                  <span className={styles.choiceName}>{methodName(p.provider)}</span>
+                  <span className={styles.choiceName}><PaymentMethod provider={p.provider} /></span>
                 </span>
               ),
             }))}
@@ -172,7 +171,9 @@ export const CheckoutView = () => {
           {c.chosen ? (
             <div>
               <dt>{t('shop.checkout.payment')}</dt>
-              <dd>{methodName(c.chosen)}</dd>
+              <dd>
+                <PaymentMethod provider={c.chosen} />
+              </dd>
             </div>
           ) : null}
         </dl>

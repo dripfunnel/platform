@@ -16,18 +16,18 @@ export const chrome = [process.env['CHROME_PATH'], '/Applications/Google Chrome.
 export type ShopRequest = { query: string; variables: Record<string, unknown>; headers: Record<string, string> }
 export type ShopAnswer = (request: ShopRequest) => unknown
 
-const baseline = fileURLToPath(new URL('../../../../templates/storefront/themes/baseline/', import.meta.url))
+export const baselineTheme = fileURLToPath(new URL('../../../../templates/storefront/themes/baseline/', import.meta.url))
 
 export type Preview = { browser: Browser; open: (answer: ShopAnswer, width?: number) => Promise<BrowserContext>; close: () => Promise<void> }
 
-/** Builds core's runtime and the baseline's bundle once, and launches the browser. */
-export const startPreview = async (): Promise<Preview> => {
+/** Builds core's runtime and a theme's bundle (the baseline's unless named) once, and launches the browser. */
+export const startPreview = async (theme = baselineTheme): Promise<Preview> => {
   if (!chrome) throw new Error('no browser')
   const root = mkdtempSync(join(tmpdir(), 'preview-test-'))
   const runtime = join(root, 'runtime')
   const out = join(root, 'preview')
   await buildRuntime(runtime)
-  const built = await bundle(baseline, out)
+  const built = await bundle(theme, out)
   if (!built.ok) throw new Error(JSON.stringify(built.problems))
   const browser = await chromium.launch({ executablePath: chrome, headless: true })
   const open = async (answer: ShopAnswer, width = 1440) => {

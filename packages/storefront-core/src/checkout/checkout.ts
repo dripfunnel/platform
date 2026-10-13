@@ -135,6 +135,42 @@ const draftOf = (a: AddressDraft): Record<string, string | null> => ({ name: a.n
 /** An address the cart holds as a draft to edit. */
 export const addressDraft = (a: CartAddress | null, country: string): AddressDraft => ({ name: a?.name ?? '', line1: a?.line1 ?? '', line2: a?.line2 ?? '', city: a?.city ?? '', region: a?.region ?? '', postalCode: a?.postalCode ?? '', country: a?.country ?? country, phone: a?.phone ?? '' })
 
+type Payer = { store: CheckoutStore; mode: RenderMode; locale: string; test: boolean; contact: { email: string | null; phone: string | null; name: string | null }; paid: (orderId: string) => Promise<void> }
+
+/** A placed order's payment through its provider's adapter, in the sealed element's host; `paid` runs once it went through. */
+const takePayment = async (p: Payer, orderId: string, amount: Money, start: PaymentStart, provider: string): Promise<void> => {
+  const { store } = p
+  const adapter = paymentAdapters[provider]
+  const host = store.get().host
+  if (!adapter || !host) return store.set({ phase: { kind: 'failed', orderId, amount, code: 'METHOD_UNAVAILABLE', message: null } })
+  let session: PaySession
+  try {
+    session = await adapter({ orderId, start, amount, returnUrl: `${location.origin}${orderPath(orderId)}`, test: p.test, wallets: p.mode === 'live', locale: p.locale, host, contact: p.contact }, checkoutSdk.current)
+  } catch {
+    return store.set({ phase: { kind: 'failed', orderId, amount, code: 'PAYMENT_UNAVAILABLE', message: null } })
+  }
+  const submit = session.submit
+  // Pay is held while its press is answered, so one press confirms once.
+  const paying = (note: string | null, submitting: boolean): void =>
+    store.set({ phase: { kind: 'paying', orderId, amount, note, submitting, submit: submit && !submitting ? press : null } })
+  let pressed = false
+  const press = () => {
+    if (pressed) return
+    pressed = true
+    paying(null, true)
+    void submit?.().then((n) => {
+      pressed = false
+      if (store.get().phase.kind === 'paying') paying(n, false)
+    })
+  }
+  paying(null, false)
+  const outcome = await session.outcome
+  if (outcome.kind === 'paid') return p.paid(orderId)
+  if (outcome.kind === 'away') return store.set({ phase: { kind: 'leaving', orderId } })
+  session.close()
+  store.set({ phase: { kind: 'failed', orderId, amount, code: outcome.kind === 'cancelled' ? 'PAYMENT_CANCELLED' : 'PAYMENT_FAILED', message: outcome.kind === 'failed' ? outcome.message : null } })
+}
+
 export const useCheckout = (): CheckoutPage => {
   const { client, mode, locale } = useStorefront()
   const { store: carts, snapshot, cart } = useCartState()
@@ -158,37 +194,8 @@ export const useCheckout = (): CheckoutPage => {
     navigate(orderPath(orderId))
   }
 
-  const pay = async (orderId: string, amount: Money, start: PaymentStart, provider: string) => {
-    const adapter = paymentAdapters[provider]
-    const host = store.get().host
-    if (!adapter || !host) return store.set({ phase: { kind: 'failed', orderId, amount, code: 'METHOD_UNAVAILABLE', message: null } })
-    let session: PaySession
-    try {
-      session = await adapter({ orderId, start, amount, returnUrl: `${location.origin}${orderPath(orderId)}`, test: payments.find((p) => p.provider === provider)?.test ?? mode !== 'live', wallets: mode === 'live', locale, host, contact: { email: cart?.email ?? null, phone: cart?.phone ?? null, name: cart?.shippingAddress?.name ?? null } }, checkoutSdk.current)
-    } catch {
-      return store.set({ phase: { kind: 'failed', orderId, amount, code: 'PAYMENT_UNAVAILABLE', message: null } })
-    }
-    const submit = session.submit
-    // Pay is held while its press is answered, so one press confirms once.
-    const paying = (note: string | null, submitting: boolean): void =>
-      store.set({ phase: { kind: 'paying', orderId, amount, note, submitting, submit: submit && !submitting ? press : null } })
-    let pressed = false
-    const press = () => {
-      if (pressed) return
-      pressed = true
-      paying(null, true)
-      void submit?.().then((n) => {
-        pressed = false
-        if (store.get().phase.kind === 'paying') paying(n, false)
-      })
-    }
-    paying(null, false)
-    const outcome = await session.outcome
-    if (outcome.kind === 'paid') return settle(orderId)
-    if (outcome.kind === 'away') return store.set({ phase: { kind: 'leaving', orderId } })
-    session.close()
-    store.set({ phase: { kind: 'failed', orderId, amount, code: outcome.kind === 'cancelled' ? 'PAYMENT_CANCELLED' : 'PAYMENT_FAILED', message: outcome.kind === 'failed' ? outcome.message : null } })
-  }
+  const pay = (orderId: string, amount: Money, start: PaymentStart, provider: string) =>
+    takePayment({ store, mode, locale, test: payments.find((p) => p.provider === provider)?.test ?? mode !== 'live', contact: { email: cart?.email ?? null, phone: cart?.phone ?? null, name: cart?.shippingAddress?.name ?? null }, paid: settle }, orderId, amount, start, provider)
 
   return {
     status: snapshot.status === 'error' ? 'error' : snapshot.status === 'loading' ? 'loading' : !cart || cart.lines.length === 0 ? 'empty' : 'ready',
@@ -267,3 +274,30 @@ export const useCheckout = (): CheckoutPage => {
   }
 }
 
+/**
+ * "Try paying again" on the order's page (#313): a new attempt for a placed order whose card payment didn't go through,
+ * in the sealed payment element the page places; `paid` reads the order again once it did, or once it was paid meanwhile.
+ */
+export const useRepay = (order: { id: string; total: Money; method: string } | null, paid: () => void): { again: (() => Promise<void>) | null; phase: PayPhase } => {
+  const { client, mode, locale } = useStorefront()
+  const { store, state } = useCheckoutState()
+  const done = async (orderId: string) => {
+    store.set({ phase: { kind: 'confirming', orderId } })
+    await client.request(confirmMutation, { orderId }).catch(() => undefined)
+    store.set({ phase: { kind: 'idle' } })
+    paid()
+  }
+  const again = async () => {
+    const { phase } = store.get()
+    if (!order || (phase.kind !== 'idle' && phase.kind !== 'failed')) return
+    store.set({ phase: { kind: 'placing' }, chosen: order.method, instructions: null })
+    try {
+      const start = (await client.query(payMutation, z.object({ payOrder: startSchema }), { orderId: order.id })).payOrder
+      await takePayment({ store, mode, locale, test: mode !== 'live', contact: { email: null, phone: null, name: null }, paid: done }, order.id, order.total, start, order.method)
+    } catch (error) {
+      if (codeOf(error) === 'ALREADY_PAID') return done(order.id)
+      store.set({ phase: { kind: 'failed', orderId: order.id, amount: order.total, code: codeOf(error), message: null } })
+    }
+  }
+  return { again: order && mode !== 'studio' ? again : null, phase: state.phase }
+}

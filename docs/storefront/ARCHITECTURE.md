@@ -20,7 +20,7 @@ as customised by us, now removed from the workspace); §11 records what was take
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
-behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), and the checkout controller with the payment adapters and the sealed payment element (#313 part 3); everything else below is to build.
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), and the baseline checkout and the checkout smoke test (#313 part 7); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
@@ -167,7 +167,8 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   then makes a new one.
 - **Buy now** adds the version to the active cart and opens checkout, since the active order is the only cart.
 - **`<OrderSummary>`** is sealed (part `summary`, at least 160×48 px): subtotal, each offer, delivery ("Chosen at
-  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too. While a
+  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too, and given
+  a placed `order` (the order's page) its lines and what was charged. While a
   change waits for its answer it says "Updating the totals…", since its amounts are still the last answer's.
 - **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer
   (`refused` announces a refusal as an error). Reads of the cart and changes to it go one at a time, in order, so a read
@@ -192,7 +193,14 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   `PlaceOrder` asks `payOrder` for another attempt. One order per cart: `place` does nothing while an order is being placed
   or paid, or once it failed with its order, which only `payOrder` goes on with.
 - **Where a provider sends the shopper back**, and where Pay leads, is the order's own page, `/order/{id}/` (core's
-  `orderConfirmation` route), built with the order page in part 5.
+  `orderConfirmation` route; the Shop API gives Cashfree and PhonePe that address). **`useOrder`** reads it through
+  `confirmPayment`, so a card payment still pending is asked about on arrival and again on "Check again": a guest reads
+  it with the cart it was placed from, a customer with their session. It says how the order stands (paid, a card still
+  confirming, cash on delivery or a bank transfer awaited with the store's details and its pay-by date in the store's
+  time zone, refunded, cancelled), and the sealed `<OrderSummary order>` lists its lines and what was charged. A card
+  payment that hasn't gone through (declined, or left at the provider) gets **"Try paying again"** (`payAgain`, core's
+  `useRepay`): `payOrder` starts a new attempt through the same adapters in the sealed payment element the page places,
+  and the order is read again once it is paid, or was meanwhile (`ALREADY_PAID`).
 - **Express wallets** are Stripe's Apple Pay and Google Pay inside its Payment Element, asked for (`'auto'`) only on a live
   shop and `'never'` in the preview and the studio frame (PREVIEW §5 step 6).
 - **The sealed `<PaymentElement>`** (part `payment`, at least 200×24 px): the preview's test-mode note (Stripe's test card
@@ -206,8 +214,24 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **Headless form controls** (`ui/headless/form.tsx`): `Form` and `SubmitButton`, `TextField` (its label, hint and error
   tied to it), `Choices` (radio buttons, each option's content the theme's) and `AddressFields` (the country's fields with
   core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK).
+- **The baseline checkout** (`checkout/baseline.tsx`, #313 part 7): core's own `BaselineCheckout`, in core's words and
+  look (a stylesheet core adopts, so no theme CSS is needed), with the preview banner, every step, the sealed summary and
+  payment element and Place order. The runtime renders the checkout route inside `CheckoutBoundary` with it as the
+  baseline; a live checkout page renders afresh in the browser rather than hydrating, since the server's HTML is the
+  theme's checkout for a visit without JavaScript.
 - **A preview checks out as a guest**: core's runtime sends no session token on the preview host or in the studio frame
   (`guestShopState`), only the cart's.
+- **Signing in** (`account/account.ts`, #313 part 6): **`useSignIn`** signs a shopper in by email and password (`signIn`) or
+  by a code (`requestSignInCode`, then `verifySignInCode`) by email or text, as the shop's `signInOptions` allow; the same
+  code with a name and a password creates an account, and with a password alone sets a new one. Core checks the email,
+  number, 6-digit code and a password of at least 10 characters first, keeps the session token (for the visit only
+  without "Keep me signed in") and goes on to `?next=` when it is a page of this shop, else `/account/`. On a preview or
+  in the studio frame it asks nothing and answers `NOT_IN_PREVIEW`.
+- **The account**: **`useAccount`** reads the signed-in shopper's details, addresses and the store's countries;
+  `rename`, `saveAddress` (core's address checks first; also "make default"), `removeAddress`, each reading the account
+  again, and `signOut`, which ends the session on the server and here. Without a session, or on a preview, it is
+  `signedOut` and asks nothing. An order in the account (`/account/orders/{id}/`) is `useOrder`'s. The account's list of
+  orders waits for the Shop API to list them (it reads one order by id only).
 
 ### 2.2 The store repo
 
@@ -285,6 +309,18 @@ The six templates and "Start from scratch" live in this repo as complete startin
   Change, or still to come, beside the sealed summary, which stays shown on phones under the steps (D1 collapses it there;
   a sealed part may not be hidden); the review lists contact, address and way to pay above the sealed payment element and
   Place order.
+- *Baseline's order page as built on #313 (part 5)*, from D1's order confirmation: a pill for where it stands, "Thank
+  you" and the order's number, what to do next (a bank transfer's reference, pay-by date and details; cash to the
+  courier; a card still confirming with Check again, Try paying again and the sealed payment element), its delivery and way to pay, and the sealed summary beside them
+  under "Order {number}"; loading, failed (Try again), not found and cancelled states. D1's "Thank you, {name}", receipt
+  email and "Create account" card wait for the Shop API's order to carry the contact (it doesn't yet).
+- *Baseline's sign-in and account as built on #313 (part 6)*, from D1's Sign in and Account: sign in by email and
+  password or by a mobile code (tabs when the shop allows both), Keep me signed in, Forgot password; Create an account
+  and Forgot password each by an emailed code, then the name and password or the new password; on a preview each says
+  signing in works on the live shop. The account: "Hello, {name}", Sign out, Your details (the name to edit, the email
+  and number with Verified) and Addresses (Default, Make this my default, Remove, Add an address); an order at
+  `/account/orders/{id}/` is the order page headed by its number. D1's Orders list, Messages, Gift cards, Downloads and
+  Your data wait for the Shop API (and #324 for gift cards and downloads).
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
   origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
   testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the
@@ -676,8 +712,13 @@ step 7). Each check reports pass or fail in plain words, at most 500 characters,
   768 and 1440 px, as a shopper who answered consent, and the consent banner itself on a first visit;
 - `checkout`: the checkout smoke test against core's offline Shop API fixture *(decided on #483, as proposed: the
   real checkout is the post-deploy check)*: the checkout and cart pages open at the three widths with no error, their
-  main heading is what a tap reaches, and no sealed part is hidden. Until core's cart and checkout (#313) exist it can't
-  take a product to a test payment;
+  main heading is what a tap reaches, and no sealed part is hidden. **The test purchase** (#313 part 7) is built:
+  `smokeShop` (`@dripfunnel/storefront-core/guard`) is the offline Shop API with one test product, a cart and checkout
+  that move as the engine's do, and cash on delivery in test mode; the build image's `smokeTest` (`apps/sandbox`,
+  `publish/smoke.ts`) buys it at 390, 768 and 1440 px from its page through Add to cart, the cart's link to checkout,
+  each step (filling core's fields by their `autocomplete` token, choosing the first option, pressing Continue) and
+  Place order to the order's page, and `smokeProblems` words what stopped it. Adding it to this check, so that every
+  publish must pass it, is INF 4's;
 - `axe`: WCAG 2.0–2.2 A and AA rules on every page at each width;
 - `budgets`: §9 on a phone (390 px) for home, collection, product, custom pages and cart, one page at a time. *Decided on
   #483:* the CPU is slowed to a mid-range phone's speed calibrated against the runner's own, as Lighthouse does, instead

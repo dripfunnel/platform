@@ -68,6 +68,10 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
       expect(await page.locator('[data-df-sealed="summary"]').count()).toBe(1)
       await page.getByRole('button', { name: 'Place order' }).click()
       await page.waitForURL(`${previewOrigin}/order/o-1/`)
+      await page.getByRole('heading', { level: 1, name: 'Thank you' }).waitFor()
+      await page.getByText('Pay on delivery', { exact: true }).waitFor()
+      await page.getByText('Pay in cash to the courier when it arrives.').waitFor()
+      expect(await page.locator('[data-df-sealed="summary"]').count()).toBe(1)
       expect(api.asked.filter((r) => r.query.includes('placeOrder')).map((r) => r.variables)).toEqual([{ provider: 'cod' }])
       expect(api.asked.every((r) => r.headers['x-shop-session'] === undefined)).toBe(true)
       expect(errors).toEqual([])
@@ -154,6 +158,65 @@ describe.skipIf(!chrome)('the baseline checkout', () => {
       await page.getByRole('heading', { level: 1, name: 'Checkout' }).waitFor()
     } finally {
       await context.close()
+    }
+  })
+
+  /** The order's page on its own, as a shopper lands on it from a provider or their email. */
+  const orderPage = async (confirm: (asked: number) => unknown) => {
+    if (!preview) throw new Error('no browser')
+    const api = engine()
+    let asked = 0
+    const context = await preview.open((r) => (r.query.includes('confirmPayment') ? confirm(asked++) : api.answer(r)))
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    await page.goto(`${previewOrigin}/order/o-1/`)
+    return { context, page, errors }
+  }
+  const placed = { id: 'o-1', number: 'JC-1051', state: 'placed', paymentState: 'pending', paymentMethod: 'bank_transfer', placedAt: '2026-10-13T10:00:00.000Z', paymentDueBy: '2026-10-16T10:00:00.000Z', shippingMethod: 'Standard delivery', pricesIncludeTax: false, lines: [{ name: 'Organic Cotton Tee', versionName: 'Sand / M', quantity: 1, unitPrice: usd(2800), lineTotal: usd(2800) }], subtotal: usd(2800), discounts: [], shipping: usd(0), tax: usd(224), total: usd(3024) }
+
+  it('gives an awaited bank transfer its reference, pay-by date and the store’s details, with the sealed summary', async () => {
+    const { context, page, errors } = await orderPage(() => ({ data: { confirmPayment: placed } }))
+    try {
+      await page.getByRole('heading', { level: 1, name: 'Thank you' }).waitFor()
+      await page.getByText('Waiting for your payment').waitFor()
+      await page.getByRole('heading', { name: 'Pay by bank transfer' }).waitFor()
+      await page.getByText(/Use your order number JC-1051 as the reference\. Pay by Friday, October 16/).waitFor()
+      await page.getByText('Juniper & Co., IBAN TEST 0001').waitFor()
+      await page.getByRole('heading', { name: 'Order JC-1051' }).waitFor()
+      expect(await page.locator('[data-df-sealed="summary"]').count()).toBe(1)
+      expect(errors).toEqual([])
+    } finally {
+      await context.close()
+    }
+  })
+
+  it('says a card payment is still being confirmed, and Check again asks the provider again', async () => {
+    const { context, page } = await orderPage((n) => ({ data: { confirmPayment: { ...placed, paymentMethod: 'razorpay', paymentDueBy: null, paymentState: n === 0 ? 'pending' : 'paid' } } }))
+    try {
+      await page.getByText('Confirming your payment').waitFor()
+      await page.getByRole('button', { name: 'Check again' }).click()
+      await page.getByText('Paid', { exact: true }).waitFor()
+      expect(await page.getByRole('button', { name: 'Check again' }).count()).toBe(0)
+    } finally {
+      await context.close()
+    }
+  })
+
+  it('says it can’t find an order the shopper can’t see, and offers Try again when it can’t load', async () => {
+    const missing = await orderPage(() => ({ data: { confirmPayment: null } }))
+    try {
+      await missing.page.getByRole('heading', { level: 1, name: "We can't find this order" }).waitFor()
+    } finally {
+      await missing.context.close()
+    }
+    const failed = await orderPage((n) => (n === 0 ? { errors: [{ message: 'down', extensions: { code: 'UNAVAILABLE' } }] } : { data: { confirmPayment: { ...placed, paymentMethod: 'cod', paymentDueBy: null } } }))
+    try {
+      await failed.page.getByRole('heading', { level: 1, name: "We couldn't load your order" }).waitFor()
+      await failed.page.getByRole('button', { name: 'Try again' }).click()
+      await failed.page.getByRole('heading', { level: 1, name: 'Thank you' }).waitFor()
+    } finally {
+      await failed.context.close()
     }
   })
 })

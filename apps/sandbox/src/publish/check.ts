@@ -71,7 +71,8 @@ const allFiles = async (root: string, prefix = ''): Promise<string[]> =>
   ).flat()
 
 /** Each HTML file's CSP header (ARCHITECTURE §3.5), from the store's sources and the file's own inline hashes. */
-const headersOf = async (root: string, snapshot: CatalogueSnapshot) => {
+/** Each built page's headers, its CSP among them, as the build's manifest will carry them. */
+export const headersOf = async (root: string, snapshot: CatalogueSnapshot) => {
   const pages = await Promise.all((await allFiles(root)).filter((f) => f.endsWith('.html')).sort().map(async (path) => ({ path, html: await readFile(join(root, path), 'utf8') })))
   return pageHeaders(pages, (hashes) => storeCsp(snapshot.csp, hashes))
 }

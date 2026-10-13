@@ -1,6 +1,8 @@
 import type { ComponentType } from 'react'
 import { createRoot, hydrateRoot, type Root } from 'react-dom/client'
 import {
+  BaselineCheckout,
+  CheckoutBoundary,
   connectHotReload,
   connectStudioFrame,
   createI18n,
@@ -46,10 +48,20 @@ const close = () => {
 }
 const client = createShopClient({ ...(base ? { endpoint: studioShopEndpoint(base) } : {}), state: () => (base || !livePage() ? guestShopState() : storedShopState()), onError: (e) => (e.code === previewClosedCode ? close() : undefined) })
 
-const pageFor = (pages: ThemePages, path: string): ComponentType | undefined => {
+const pageFor = (pages: ThemePages, path: string): { Page: ComponentType | undefined; route: CoreRoute | null } => {
   const found = routeAt(path, Object.keys(pages.custom))
-  return 'custom' in found ? pages.custom[found.custom] : (pages.routes[found.route] ?? pages.routes.notFound)
+  return 'custom' in found ? { Page: pages.custom[found.custom], route: null } : { Page: pages.routes[found.route] ?? pages.routes.notFound, route: found.route }
 }
+
+/** The page, with the theme's checkout switched to core's baseline once it throws (ARCHITECTURE §3.3). */
+const routed = (Page: ComponentType, route: CoreRoute | null) =>
+  route === 'checkout' ? (
+    <CheckoutBoundary baseline={<BaselineCheckout />}>
+      <Page />
+    </CheckoutBoundary>
+  ) : (
+    <Page />
+  )
 
 const render = async (pages: ThemePages): Promise<void> => {
   const element = document.getElementById('root')
@@ -59,7 +71,7 @@ const render = async (pages: ThemePages): Promise<void> => {
     if (error instanceof ShopApiError && error.code === previewClosedCode) return null
     throw error
   })
-  const Page = pageFor(pages, base ? studioPagePath(base, location.pathname) : location.pathname)
+  const { Page, route } = pageFor(pages, base ? studioPagePath(base, location.pathname) : location.pathname)
   if (closed || !settings || !Page) return
   root ??= createRoot(element)
   // The theme's keys are its own (`pages.home.title`), checked against content/** by the validator, not core's MessageKey.
@@ -67,7 +79,7 @@ const render = async (pages: ThemePages): Promise<void> => {
   const { t } = createI18n(settings.language, pages.content as Record<string, Catalogue>, base ? shown : undefined)
   root.render(
     <StorefrontProvider value={{ client, store: settings, locale: settings.language, t, mode: base ? 'studio' : 'preview', poweredBy: null }}>
-      <Page />
+      {routed(Page, route)}
     </StorefrontProvider>,
   )
 }
@@ -83,12 +95,14 @@ const hydrate = (pages: ThemePages, live: NonNullable<ReturnType<typeof livePage
   const Page = live.custom ? pages.custom[live.custom] : live.route ? pages.routes[live.route] : undefined
   if (!element || !Page) return
   const { t } = createI18n(live.store.language, pages.content as Record<string, Catalogue>)
-  hydrateRoot(
-    element,
+  const tree = (
     <StorefrontProvider value={{ client, store: live.store, locale: live.store.language, t, mode: 'live', poweredBy: live.poweredBy }} address={live.path}>
-      <Page />
-    </StorefrontProvider>,
+      {routed(Page, live.route)}
+    </StorefrontProvider>
   )
+  // The built checkout is the theme's for a visit without JavaScript; with it, the switch is the browser's, so it renders afresh.
+  if (live.route === 'checkout') createRoot(element).render(tree)
+  else hydrateRoot(element, tree)
 }
 
 let booted = false

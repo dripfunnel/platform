@@ -1,5 +1,4 @@
 {
-  "confirmation": { "title": "Thank you", "lead": "We have your order and will email you as it moves along." },
   "signIn": { "title": "Sign in", "lead": "Sign in to follow your orders and use your saved addresses.", "action": "New here? Create an account" },
   "register": { "title": "Create an account", "lead": "An account keeps your orders and addresses in one place.", "action": "Already have an account? Sign in" },
   "verify": { "title": "Check your email", "lead": "We sent you a code to confirm your email address." },
