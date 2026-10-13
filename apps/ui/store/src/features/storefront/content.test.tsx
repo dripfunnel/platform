@@ -28,6 +28,8 @@ const products = vi.hoisted(() => ({ loadProducts: vi.fn() }))
 vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...products }))
 
 const { StorefrontPage } = await import('./StorefrontPage')
+const { ContentBlocks } = await import('./ContentBlocks')
+const { storeApi } = await import('./storefrontApi')
 
 const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['catalog.read', 'storefront.read', 'publish'] }
 const manager: Acting = { ...owner, role: 'manager', permissions: ['catalog.read', 'storefront.read'] }
@@ -295,6 +297,63 @@ describe('the page editor', () => {
     await settle()
     expect(screen.getByRole('alert').textContent).toBe(messages.storefront.brand.uploadRefused.TOO_LARGE)
     expect(screen.queryByRole('group', { name: fill(e.blockText, { kind: e.kinds.image, number: '3' }) })).toBeNull()
+  })
+
+  it('says the products’ names didn’t load, rather than loading for ever', async () => {
+    offers.loadProductNames.mockRejectedValue(new Error('offline'))
+    await show({ entry: faq.id })
+    expect(screen.getAllByText(e.unknownProduct)).toHaveLength(2)
+    expect(screen.queryByText(e.loadingProduct)).toBeNull()
+    expect(screen.getByRole('alert').textContent).toBe(e.namesFailed)
+  })
+
+  it('says an upload that couldn’t be sent failed, and adds no block', async () => {
+    upload.uploadPhoto.mockRejectedValue(new Error('offline'))
+    await show({ entry: 'new' })
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(e.tools.image), { target: { files: [new File(['x'], 'p.png', { type: 'image/png' })] } })
+    })
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(messages.storefront.brand.uploadRefused.NOT_CONNECTED)
+    expect(screen.queryByRole('group', { name: fill(e.blockText, { kind: e.kinds.image, number: '3' }) })).toBeNull()
+  })
+
+  it('stops adding blocks at a hundred, even one a photo brings', async () => {
+    const text = { kind: 'text' as const, text: 'x', assetId: null, alt: null, items: null, productIds: null }
+    let finish: (r: { ok: true; assetId: string }) => void = () => undefined
+    upload.uploadPhoto.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    content.loadContentEntry.mockResolvedValue({ ...faq, body: Array.from({ length: 99 }, () => text) })
+    await show({ entry: faq.id })
+    expect((screen.getByRole('button', { name: e.tools.heading }) as HTMLButtonElement).disabled).toBe(false)
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(e.tools.image), { target: { files: [new File(['x'], 'p.png', { type: 'image/png' })] } })
+    })
+    expect((screen.getByRole('button', { name: e.tools.heading }) as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => finish({ ok: true, assetId: '66666666-6666-4666-8666-666666666666' }))
+    expect(screen.getByRole('group', { name: fill(e.blockText, { kind: e.kinds.image, number: '100' }) })).toBeTruthy()
+    expect((screen.getByRole('button', { name: e.tools.heading }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByLabelText(e.tools.image) as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('offers the contact form on a page only, never on a post', () => {
+    const blocks = (kind: 'page' | 'post') => (
+      <ContentBlocks kind={kind} title="Body" body={[]} onBody={() => undefined} canEdit api={storeApi} names={{}} namesFailed={false} onName={() => undefined} contactEmail="hello@kesari.in" />
+    )
+    const { rerender } = render(blocks('page'))
+    expect(screen.getByRole('button', { name: e.tools.form })).toBeTruthy()
+    rerender(blocks('post'))
+    expect(screen.queryByRole('button', { name: e.tools.form })).toBeNull()
+    expect(screen.getByRole('button', { name: e.tools.heading })).toBeTruthy()
+  })
+
+  it('shows a Manager every block read-only, with no tools, product search or question to add', async () => {
+    await show({ acting: manager, entry: faq.id })
+    expect((screen.getByRole('textbox', { name: fill(e.question, { number: '1' }) }) as HTMLInputElement).readOnly).toBe(true)
+    expect((screen.getByRole('textbox', { name: fill(e.answer, { number: '1' }) }) as HTMLTextAreaElement).readOnly).toBe(true)
+    expect(screen.queryByRole('button', { name: e.addQuestion })).toBeNull()
+    expect(screen.queryByRole('searchbox', { name: e.findProduct })).toBeNull()
+    expect(screen.queryByRole('button', { name: fill(e.removeProduct, { name: 'Indigo kurta' }) })).toBeNull()
+    expect(screen.queryByRole('group', { name: e.toolsLabel })).toBeNull()
   })
 
   it('adds a contact form saying where messages go', async () => {

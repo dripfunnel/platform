@@ -6521,6 +6521,8 @@
         "removeProduct": "Remove {name}",
         "loadingProduct": "Loading the product’s name…",
         "goneProduct": "A product no longer in your catalogue",
+        "unknownProduct": "A product whose name didn’t load",
+        "namesFailed": "We couldn’t load these products’ names. They stay on the page as they are; open the page again to see them.",
         "productsHelp": "Shown with their live price and stock. A sold-out product shows as sold out, never removed.",
         "form": "Name, email, order number (optional) and message. Messages go to {email} and a copy goes to the shopper.",
         "formNoEmail": "your store email",

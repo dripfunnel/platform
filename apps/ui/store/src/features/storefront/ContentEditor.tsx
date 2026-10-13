@@ -41,6 +41,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
   const [read, setRead] = useState<Read>(id ? { kind: 'loading' } : { kind: 'ready', entry: null })
   const [draft, setDraft] = useState<ContentDraft>(() => draftOf(null, kind))
   const [names, setNames] = useState<Record<string, string | null>>({})
+  const [namesFailed, setNamesFailed] = useState(false)
   const [busy, setBusy] = useState<'publish' | 'draft' | 'delete' | null>(null)
   const [uploads, setUploads] = useState(0)
   const onUploading = (now: boolean) => setUploads((n) => n + (now ? 1 : -1))
@@ -60,9 +61,10 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
         if (!entry) return
         setDraft(draftOf(entry, kind))
         const ids = [...new Set(entry.body.flatMap((b) => b.productIds ?? []))]
+        setNamesFailed(false)
         api.loadProductNames(ids).then(
           (found) => live && setNames((was) => ({ ...Object.fromEntries(ids.map((p) => [p, found.get(p) ?? null])), ...was })),
-          () => undefined,
+          () => live && setNamesFailed(true),
         )
       },
       () => live && setRead({ kind: 'error' }),
@@ -174,7 +176,7 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
           <ContentBlocks kind={kind} title={w.body} body={draft.body} onBody={(change) => {
               setDraft((was) => ({ ...was, body: change(was.body) }))
               setProblem(null)
-            }} canEdit={canEdit} api={api} names={names} onName={(p, name) => setNames((was) => ({ ...was, [p]: name }))} contactEmail={contactEmail} onUploading={onUploading} />
+            }} canEdit={canEdit} api={api} names={names} namesFailed={namesFailed} onName={(p, name) => setNames((was) => ({ ...was, [p]: name }))} contactEmail={contactEmail} onUploading={onUploading} />
           <section className="df-sf-card" aria-labelledby={`${formId}-search`}>
             <h2 id={`${formId}-search`}>{words.search}</h2>
             <div className="df-sf-field">
