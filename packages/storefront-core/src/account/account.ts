@@ -146,6 +146,8 @@ const renameMutation = `mutation Rename($name: String) { updateAccount(name: $na
 const saveAddressMutation = `mutation SaveAddress($id: ID, $address: ShopSavedAddressInput!, $isDefault: Boolean) { saveAddress(id: $id, address: $address, isDefault: $isDefault) }`
 const deleteAddressMutation = `mutation DeleteAddress($id: ID!) { deleteAddress(id: $id) }`
 
+const draftOf = (a: AddressDraft) => ({ name: a.name.trim(), line1: a.line1.trim(), line2: a.line2.trim() || null, city: a.city.trim(), region: a.region.trim() || null, postalCode: a.postalCode.trim() || null, country: a.country, phone: a.phone.trim() || null })
+
 export type SavedAddress = AddressDraft & { id: string; isDefault: boolean }
 
 export type Account = {
@@ -170,6 +172,8 @@ export type AccountPage = {
   error: string | null
   rename: (name: string) => Promise<boolean>
   saveAddress: (input: { id: string | null; address: AddressDraft; isDefault: boolean }) => Promise<Partial<Record<AddressField, FieldProblem>> | null>
+  /** The saved address becomes the default, sent as it was saved. */
+  makeDefault: (id: string) => Promise<boolean>
   removeAddress: (id: string) => Promise<boolean>
   signOut: () => Promise<void>
 }
@@ -220,8 +224,12 @@ export const useAccount = (): AccountPage => {
     saveAddress: async ({ id, address, isDefault }) => {
       const problems = addressProblems(address)
       if (Object.keys(problems).length > 0) return problems
-      const draft = { name: address.name.trim(), line1: address.line1.trim(), line2: address.line2.trim() || null, city: address.city.trim(), region: address.region.trim() || null, postalCode: address.postalCode.trim() || null, country: address.country, phone: address.phone.trim() || null }
-      return (await change(saveAddressMutation, { id, address: draft, isDefault })) ? {} : null
+      return (await change(saveAddressMutation, { id, address: draftOf(address), isDefault })) ? {} : null
+    },
+    makeDefault: (id) => {
+      const saved = account?.addresses.find((a) => a.id === id)
+      // Sent as it was saved: the Shop API judges it, and a refusal shows as `error` (core's newer checks would only hide it).
+      return saved ? change(saveAddressMutation, { id, address: draftOf(saved), isDefault: true }) : Promise.resolve(false)
     },
     removeAddress: (id) => change(deleteAddressMutation, { id }),
     signOut: async () => {
