@@ -1,13 +1,16 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native'
 import { useTheme } from '../../theme'
+import { useOnline } from '../shell/connection'
 
-type Props = { label: string; onPress: () => void; kind?: 'primary' | 'secondary'; busy?: boolean; disabled?: boolean }
+type Props = { label: string; onPress: () => void; kind?: 'primary' | 'secondary'; busy?: boolean; disabled?: boolean; saves?: boolean }
 
 // 50 px tall, full width: a hit target of 44 px or more (DESIGN.md §4). The brand colour carries dark text (SAAS.md §3.3).
-export function Button({ label, onPress, kind = 'primary', busy = false, disabled = false }: Props) {
+// `saves` marks a button that writes: it is off while the phone has no connection (FIRST-RELEASE.md §3.3).
+export function Button({ label, onPress, kind = 'primary', busy = false, disabled = false, saves = false }: Props) {
   const { colors, radii } = useTheme()
   const primary = kind === 'primary'
-  const inactive = busy || disabled
+  const online = useOnline()
+  const inactive = busy || disabled || (saves && !online)
   return (
     <Pressable
       accessibilityRole="button"

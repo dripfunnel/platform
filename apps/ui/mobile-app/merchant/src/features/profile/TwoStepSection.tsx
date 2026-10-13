@@ -124,7 +124,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
         <>
           <Notice kind="error" text={`${t('profile.turnOffTitle')} ${t('profile.turnOffBody')}`} />
           <TextField label={t('profile.stepPassword')} value={password} onChangeText={setPassword} secret autoComplete="current-password" textContentType="password" help={t('profile.stepPasswordHelp')} />
-          <Button label={t('profile.turnOffConfirm')} onPress={() => void turnOff()} busy={busy} disabled={!password} />
+          <Button label={t('profile.turnOffConfirm')} onPress={() => void turnOff()} busy={busy} disabled={!password} saves />
           <Button kind="secondary" label={t('common.cancel')} onPress={reset} />
         </>
       ) : null}
@@ -153,7 +153,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
             )
           })}
           <TextField label={t('profile.stepPassword')} value={password} onChangeText={setPassword} secret autoComplete="current-password" textContentType="password" help={t('profile.stepPasswordHelp')} />
-          <Button label={t('profile.next')} onPress={() => void start(flow.method, flow.switching)} busy={busy} disabled={!password} />
+          <Button label={t('profile.next')} onPress={() => void start(flow.method, flow.switching)} busy={busy} disabled={!password} saves />
           <Button kind="secondary" label={t('common.cancel')} onPress={reset} />
         </>
       ) : null}
@@ -171,7 +171,7 @@ export function TwoStepSection({ profile, onChanged }: { profile: Profile; onCha
             </View>
           ) : null}
           <TextField label={t('profile.sixDigitCode')} value={code} onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))} code keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6} />
-          <Button label={t('profile.verify')} onPress={() => void verify(flow)} busy={busy} disabled={code.length !== 6} />
+          <Button label={t('profile.verify')} onPress={() => void verify(flow)} busy={busy} disabled={code.length !== 6} saves />
           <Button kind="secondary" label={t('common.cancel')} onPress={reset} />
         </>
       ) : null}

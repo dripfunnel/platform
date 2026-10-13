@@ -4,13 +4,12 @@
     "orders": "Orders",
     "catalogue": "Catalogue",
     "offers": "Offers",
-    "more": "More"
+    "more": "More",
+    "products": "Products",
+    "toShip": "To ship"
   },
   "placeholder": {
-    "body": "This screen isn't built yet.",
-    "myProfile": "My profile",
-    "switchStore": "Switch store",
-    "signOut": "Sign out"
+    "body": "This screen isn't built yet."
   },
   "brand": {
     "defaultName": "DripFunnel",
@@ -226,5 +225,171 @@
     "expected": "expected",
     "actual": "actual",
     "report": "Report"
+  },
+  "shell": {
+    "undo": "Undo",
+    "account": "Account",
+    "myProfile": "My profile",
+    "switchStore": "Switch store",
+    "switchStoreFrom": "{store}, switch store",
+    "signOut": "Sign out",
+    "caret": "▾",
+    "tabWithBadge": "{tab}, {count} waiting",
+    "roleAt": "{role} at {store}"
+  },
+  "banners": {
+    "provisioning": {
+      "title": "Your store is being built —",
+      "body": "about a minute. Products work now; Storefront and Settings open when it’s ready."
+    },
+    "pastDue": {
+      "title": "Your store is view-only.",
+      "body": "Your last payment didn’t go through. Everything is safe — pay in the web portal to start editing again."
+    },
+    "trial": {
+      "title": "Free trial · {days}.",
+      "days": "{count} days left",
+      "body": "You have everything while it lasts. No card needed."
+    },
+    "trialEnding": {
+      "title": "Your trial ends tomorrow.",
+      "body": "Choose a plan in the web portal to keep everything, or pick what to keep on the free plan."
+    },
+    "trialEnded": {
+      "title": "Your trial ended — you’re on the free plan.",
+      "body": "Items over the free plan’s limits are paused, never deleted."
+    },
+    "bandwidth": {
+      "title": "You’ve used {percent}% of this month’s bandwidth.",
+      "body": "Your shop stays online."
+    },
+    "whiteLabel": {
+      "title": "White-label is on.",
+      "body": "Your customers see your own name everywhere — not DripFunnel."
+    },
+    "suspended": {
+      "title": "This store is suspended.",
+      "body": "Nothing can be changed and the shop shows a notice. {contact}",
+      "contact": "Contact {support} to find out why.",
+      "noContact": "Contact your store’s provider to find out why."
+    },
+    "cancelled": {
+      "title": "This store is cancelled.",
+      "body": "You can look around and export until the paid period ends."
+    },
+    "support": {
+      "title": "{partner} support ({name}) is viewing your store.",
+      "body": "Read-only. Ends in {time}."
+    },
+    "offline": {
+      "title": "You’re offline.",
+      "body": "Changes need a connection."
+    },
+    "sample": {
+      "partner": "Your provider",
+      "agent": "Sam"
+    }
+  },
+  "catalogue": {
+    "products": "Products",
+    "collections": "Collections"
+  },
+  "more": {
+    "group": {
+      "shop": "Your shop",
+      "account": "Account"
+    },
+    "customers": "Customers",
+    "carts": "Abandoned carts",
+    "reports": "Reports",
+    "storefront": "Storefront",
+    "settings": "Settings",
+    "sales": "Your sales",
+    "team": "Your team",
+    "profile": "My profile",
+    "switchStore": "Switch store",
+    "signOut": "Sign out",
+    "viewOnly": "View only",
+    "viewOnlyLabel": "{item}, view only",
+    "help": "Help"
+  },
+  "states": {
+    "loading": "Loading",
+    "slow": "This is taking longer than usual. Your data is safe — we’re still loading it.",
+    "goHome": "Go to Home",
+    "loadErr": {
+      "title": "We couldn’t load {name}",
+      "body": "Nothing is lost — this is a problem on our side, not your data. It usually clears in a few seconds.",
+      "ref": "Ref 503 · {ref} — quote this if you contact support"
+    },
+    "notFound": {
+      "label": "this page",
+      "title": "This page isn’t here any more",
+      "body": "The link may be old, or what it pointed to was deleted or moved. Nothing else in your store has changed."
+    },
+    "denied": {
+      "title": "You don’t have access to {name}",
+      "body": "Your role can’t open {name}. Ask the store’s owner if you need it.",
+      "bodySupplier": "Your supplier access can’t open {name}. Ask {store} if you need it."
+    },
+    "expired": {
+      "title": "You were signed out"
+    },
+    "removed": {
+      "title": "Removed from {store}"
+    },
+    "offline": {
+      "body": "Check your connection. What you’ve already opened stays here — changes need a connection."
+    }
+  },
+  "scenario": {
+    "open": "Scenario",
+    "title": "Scenario",
+    "note": "Development builds only. Picks what the shell draws so each state can be checked without a store in it.",
+    "reset": "Reset",
+    "group": {
+      "screen": "Screen",
+      "banner": "Banner",
+      "role": "Role",
+      "mode": "Look"
+    },
+    "screen": {
+      "normal": "Normal",
+      "slow": "Slow to load",
+      "loadErr": "Couldn’t load",
+      "notFound": "404",
+      "denied": "Access denied",
+      "expired": "Session expired",
+      "removed": "Removed from store",
+      "offline": "Offline"
+    },
+    "banner": {
+      "real": "Real",
+      "none": "None",
+      "trial": "Trial",
+      "trialEnds": "Trial ends tomorrow",
+      "trialEnded": "Trial ended",
+      "bandwidth": "Bandwidth",
+      "whiteLabel": "White-label",
+      "pastDue": "Past due",
+      "provisioning": "Being built",
+      "support": "Support session",
+      "offline": "Offline"
+    },
+    "role": {
+      "real": "Real",
+      "owner": "Owner",
+      "manager": "Manager",
+      "staff": "Staff",
+      "supplierStock": "Supplier: stock",
+      "supplierCatalogue": "Supplier: catalogue",
+      "supplierOrders": "Supplier: orders",
+      "supplierAdmin": "Supplier admin"
+    },
+    "mode": {
+      "real": "Saved",
+      "light": "Light",
+      "dark": "Dark"
+    }
   }
 }

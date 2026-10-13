@@ -1,7 +1,7 @@
 import type { Brand } from '../api/brand'
 import { loadBrand } from './loadBrand'
 
-const answered: Brand = { productName: 'Northstar', primaryColor: '#0A2A4A', accentColor: '#EC844F', font: null, corner: null, files: { logoLight: '/api/brand/logo-light', logoDark: null, mark: null } }
+const answered: Brand = { productName: 'Northstar', primaryColor: '#0A2A4A', accentColor: '#EC844F', font: null, corner: null, helpUrl: null, supportUrl: null, supportEmail: null, files: { logoLight: '/api/brand/logo-light', logoDark: null, mark: null } }
 const saved: Brand = { ...answered, productName: 'Northstar (saved)' }
 
 const steps = (overrides: Partial<Parameters<typeof loadBrand>[0]> = {}) => ({

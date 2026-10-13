@@ -71,7 +71,7 @@ export function DetailsSection({ profile, onSaved }: { profile: Profile; onSaved
       />
       {emailChanged ? <TextField label={t('profile.emailPassword')} value={password} onChangeText={setPassword} secret autoComplete="current-password" textContentType="password" help={t('profile.emailPasswordHelp')} /> : null}
       <TextField label={t('profile.mobile')} value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" placeholder={t('profile.mobilePlaceholder')} />
-      <Button label={t('profile.saveDetails')} onPress={() => void save()} busy={busy} disabled={!dirty} />
+      <Button label={t('profile.saveDetails')} onPress={() => void save()} busy={busy} disabled={!dirty} saves />
     </SectionCard>
   )
 }

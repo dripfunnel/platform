@@ -8,7 +8,7 @@ export type Decision =
   | { kind: 'open'; entry: Entry }
   | { kind: 'choose'; entries: Entry[]; removed: string | null }
 
-const actingOf = (choice: StoreChoice): Acting => ({ storeId: choice.store.id, supplierId: choice.seller?.id ?? null, storeName: choice.store.name })
+export const actingOf = (choice: StoreChoice): Acting => ({ storeId: choice.store.id, supplierId: choice.seller?.id ?? null, storeName: choice.store.name, role: choice.role, tier: choice.tier })
 
 const same = (a: Acting, b: Acting) => a.storeId === b.storeId && a.supplierId === b.supplierId
 

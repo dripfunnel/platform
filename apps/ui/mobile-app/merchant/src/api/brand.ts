@@ -11,6 +11,11 @@ export const brandSchema = z.object({
   accentColor: hex.nullable(),
   font: z.string().nullable(),
   corner: z.string().nullable(),
+  // The partner's help centre and support contact: the app's help opens these, never DripFunnel's (SAAS.md §3.4).
+  // Defaulted so a look saved by an earlier version still reads.
+  helpUrl: z.string().nullable().default(null),
+  supportUrl: z.string().nullable().default(null),
+  supportEmail: z.string().nullable().default(null),
   files: z.object({ logoLight: z.string().nullable(), logoDark: z.string().nullable(), mark: z.string().nullable() }),
 })
 
@@ -19,4 +24,4 @@ export type Brand = z.infer<typeof brandSchema>
 const brandAnswer = z.object({ brand: brandSchema.nullable() })
 
 export const fetchBrand = async (client: ApiClient): Promise<Brand | null> =>
-  (await typedQuery(client)(`{ brand { productName primaryColor accentColor font corner files { logoLight logoDark mark } } }`, brandAnswer)).brand
+  (await typedQuery(client)(`{ brand { productName primaryColor accentColor font corner helpUrl supportUrl supportEmail files { logoLight logoDark mark } } }`, brandAnswer)).brand

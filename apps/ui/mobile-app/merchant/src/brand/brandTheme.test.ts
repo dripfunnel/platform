@@ -2,7 +2,7 @@ import type { Brand } from '../api/brand'
 import { buildTheme, darkPalette, lightPalette, radii } from '../theme'
 import { themeFor } from './brandTheme'
 
-const brand: Brand = { productName: 'Northstar', primaryColor: '#0A2A4A', accentColor: '#EC844F', font: null, corner: null, files: { logoLight: null, logoDark: null, mark: null } }
+const brand: Brand = { productName: 'Northstar', primaryColor: '#0A2A4A', accentColor: '#EC844F', font: null, corner: null, helpUrl: null, supportUrl: null, supportEmail: null, files: { logoLight: null, logoDark: null, mark: null } }
 
 describe('the partner look over the tokens', () => {
   it("is DripFunnel's own look with no brand, light or dark", () => {

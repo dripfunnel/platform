@@ -20,6 +20,8 @@ export type Palette = {
   danger: string
   dangerSurface: string
   dangerBorder: string
+  /** A destructive action's button, which carries white text. */
+  dangerButton: string
   warning: string
   warningSurface: string
   warningBorder: string
@@ -33,6 +35,8 @@ export type Palette = {
   neutralSurface: string
   neutralBorder: string
   hover: string
+  /** The active tab's pill (DESIGN.md §2). */
+  selected: string
   /** The header and the active tab: the partner's primary colour, which carries white text. */
   side: string
   sideText: string
@@ -58,6 +62,7 @@ export const lightPalette: Palette = {
   danger: '#a1261b',
   dangerSurface: '#fdecec',
   dangerBorder: '#f3c7c2',
+  dangerButton: '#a1261b',
   warning: '#7a4b00',
   warningSurface: '#fff6e5',
   warningBorder: '#f2d9a6',
@@ -71,6 +76,7 @@ export const lightPalette: Palette = {
   neutralSurface: '#f1eeea',
   neutralBorder: '#e0dad3',
   hover: '#f7f2ed',
+  selected: '#e3ecf5',
   side: '#0a2a4a',
   sideText: '#ffffff',
 }
@@ -93,6 +99,7 @@ export const darkPalette: Palette = {
   danger: '#f29a90',
   dangerSurface: '#34110f',
   dangerBorder: '#5e231e',
+  dangerButton: '#b83227',
   warning: '#f2c36b',
   warningSurface: '#2e2208',
   warningBorder: '#5a4212',
@@ -106,6 +113,7 @@ export const darkPalette: Palette = {
   neutralSurface: '#1a2a38',
   neutralBorder: '#2a3f52',
   hover: '#16293a',
+  selected: '#1e3a52',
   side: '#050d14',
 }
 

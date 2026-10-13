@@ -10,11 +10,11 @@ describe('what happens after a person signs in, by how many stores they belong t
 
   it('opens the only store directly', () => {
     const decision = decide([choice('a', 'Juniper & Co.')], null)
-    expect(decision).toMatchObject({ kind: 'open', entry: { acting: { storeId: 'a', supplierId: null, storeName: 'Juniper & Co.' } } })
+    expect(decision).toMatchObject({ kind: 'open', entry: { acting: { storeId: 'a', supplierId: null, storeName: 'Juniper & Co.', role: 'owner', tier: null } } })
   })
 
   it('shows the chooser for several stores, with the last used one first and marked', () => {
-    const decision = decide([choice('a', 'Aurelia Home', 'manager'), choice('b', 'Juniper & Co.'), choice('c', 'Kala Weaves', 'supplier-member', { id: 's', name: 'Kala' })], { storeId: 'b', supplierId: null, storeName: 'Juniper & Co.' })
+    const decision = decide([choice('a', 'Aurelia Home', 'manager'), choice('b', 'Juniper & Co.'), choice('c', 'Kala Weaves', 'supplier-member', { id: 's', name: 'Kala' })], { storeId: 'b', supplierId: null, storeName: 'Juniper & Co.', role: 'owner', tier: null })
 
     expect(decision.kind).toBe('choose')
     if (decision.kind !== 'choose') return
@@ -34,7 +34,7 @@ describe('what happens after a person signs in, by how many stores they belong t
   })
 
   it('says the last store was removed when it is no longer among the stores held', () => {
-    const decision = decide([choice('a', 'Aurelia Home'), choice('b', 'Kala Weaves')], { storeId: 'gone', supplierId: null, storeName: 'Juniper & Co.' })
+    const decision = decide([choice('a', 'Aurelia Home'), choice('b', 'Kala Weaves')], { storeId: 'gone', supplierId: null, storeName: 'Juniper & Co.', role: 'owner', tier: null })
     expect(decision).toMatchObject({ kind: 'choose', removed: 'Juniper & Co.' })
   })
 })
