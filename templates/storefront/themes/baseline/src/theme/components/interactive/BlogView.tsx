@@ -38,6 +38,11 @@ export const BlogView = () => {
           </Link>
         ))}
       </div>
+      {blog.loadMoreFailed ? (
+        <p className={shop.lead} role="alert">
+          {t('pages.blog.olderFailed')}
+        </p>
+      ) : null}
       {blog.more ? (
         <button type="button" className={shop.secondary} disabled={blog.loadingMore} onClick={() => void blog.loadMore()}>
           {t('pages.blog.older')}

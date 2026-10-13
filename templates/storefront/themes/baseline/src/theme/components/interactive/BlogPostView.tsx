@@ -52,8 +52,8 @@ export const BlogPostView = () => {
       {post.tags.length > 0 ? (
         <nav className={shop.chips} aria-label={t('pages.blog.tags')}>
           {post.tags.map((tag) => (
-            <Link key={tag} href={`/blog/?tag=${tag}`} className={shop.chipLink}>
-              {tag}
+            <Link key={tag.name} href={tag.href} className={shop.chipLink}>
+              {tag.name}
             </Link>
           ))}
         </nav>

@@ -93,6 +93,7 @@
     "failedPost": "We couldn't load this post",
     "back": "← Journal",
     "by": "by {author}",
-    "tags": "Tags"
+    "tags": "Tags",
+    "olderFailed": "We couldn't load older posts. Try again."
   }
 }

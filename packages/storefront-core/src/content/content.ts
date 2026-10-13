@@ -78,7 +78,8 @@ export type BlogPost = {
   published: string | null
   publishedAt: string | null
   cover: Photo | null
-  tags: string[]
+  /** Each tag with the address of the posts it names (`/blog/?tag=…`, encoded). */
+  tags: { name: string; href: string }[]
   body: ContentBlock[]
   /** The post's own first words, for a card: the first text block, cut at a word. */
   excerpt: string | null
@@ -93,7 +94,7 @@ const excerptOf = (blocks: ContentBlock[]): string | null => {
   return `${first.slice(0, 180).replace(/\s+\S*$/, '')}…`
 }
 
-const postOf = (p: z.infer<typeof postSchema>, when: (iso: string) => string): BlogPost | null => {
+const postOf = (p: z.infer<typeof postSchema>, when: (iso: string) => string | null): BlogPost | null => {
   if (!p.title || !(p.path ?? p.slug)) return null
   const body = blocksOf(p.body)
   return {
@@ -103,7 +104,7 @@ const postOf = (p: z.infer<typeof postSchema>, when: (iso: string) => string): B
     published: p.publishedAt ? when(p.publishedAt) : null,
     publishedAt: p.publishedAt ?? null,
     cover: p.cover?.url ? photoOf(p.cover.url, p.title) : null,
-    tags: p.tags ?? [],
+    tags: (p.tags ?? []).filter(Boolean).map((name) => ({ name, href: `/blog/?tag=${encodeURIComponent(name)}` })),
     body,
     excerpt: excerptOf(body),
   }
@@ -113,7 +114,11 @@ const useWhen = () => {
   const { store, locale } = useStorefront()
   return useMemo(() => {
     const format = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: store.timeZone })
-    return (iso: string) => format.format(new Date(iso))
+    // A date the Shop API sent malformed shows no date rather than taking the list down.
+    return (iso: string): string | null => {
+      const date = new Date(iso)
+      return Number.isNaN(date.getTime()) ? null : format.format(date)
+    }
   }, [locale, store.timeZone])
 }
 
@@ -131,6 +136,8 @@ export type BlogView = {
   /** The next page of older posts, added below. */
   loadMore: () => Promise<void>
   loadingMore: boolean
+  /** The last `loadMore` failed; asking again is the way on. */
+  loadMoreFailed: boolean
   retry: () => void
 }
 
@@ -143,6 +150,7 @@ export const useBlog = (): BlogView => {
   const loaded = useShopData(JSON.stringify(['blog', tag]), (c) => c.query(listQuery, listSchema, { first: blogPageSize, after: null, tag }))
   const [later, setLater] = useState<{ tag: string | null; posts: z.infer<typeof postSchema>[]; cursor: string | null; more: boolean } | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false)
   const first = loaded.data?.blogPosts
   const extra = later?.tag === tag ? later : null
   const cursor = extra ? extra.cursor : (first?.pageInfo?.endCursor ?? null)
@@ -156,14 +164,16 @@ export const useBlog = (): BlogView => {
     tag,
     more,
     loadingMore,
+    loadMoreFailed,
     loadMore: async () => {
       if (!more || loadingMore || !cursor) return
       setLoadingMore(true)
+      setLoadMoreFailed(false)
       try {
         const next = (await client.query(listQuery, listSchema, { first: blogPageSize, after: cursor, tag })).blogPosts
         setLater({ tag, posts: [...(extra?.posts ?? []), ...(next?.nodes ?? [])], cursor: next?.pageInfo?.endCursor ?? null, more: next?.pageInfo?.hasNextPage === true })
       } catch {
-        // The button stays, so the shopper can ask again.
+        setLoadMoreFailed(true)
       } finally {
         setLoadingMore(false)
       }
@@ -199,6 +209,7 @@ export const useProductCards = (slugs: readonly string[]): { status: 'loading' |
     c.query(query, z.record(z.string(), z.unknown()), Object.fromEntries(asked.map((s, i) => [`s${i}`, s]))),
   )
   const found = asked.map((_, i) => loaded.data?.[`p${i}`]).filter((p): p is Record<string, unknown> => typeof p === 'object' && p !== null)
-  const cards = cardsSchema.parse(found.map((p) => ({ ...p, photo: Array.isArray(p['photos']) ? (p['photos'][0] ?? null) : null })))
+  // Each card on its own, so one the schema refuses is left out rather than failing the page.
+  const cards = found.flatMap((p) => cardsSchema.safeParse([{ ...p, photo: Array.isArray(p['photos']) ? (p['photos'][0] ?? null) : null }]).data ?? [])
   return { status: asked.length === 0 || loaded.status === 'ready' ? 'ready' : loaded.status === 'error' ? 'error' : 'loading', cards }
 }

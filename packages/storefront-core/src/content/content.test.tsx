@@ -73,7 +73,7 @@ describe('useBlog and useBlogPost', () => {
     await show('/blog/', useBlog)
     let blog = seen as BlogView
     expect(blog.posts.map((p) => p.title)).toEqual(['Post 1', 'Post 2'])
-    expect(blog.posts[0]).toMatchObject({ path: '/blog/post-1', author: 'Maya', published: 'October 1, 2026', tags: ['linen'] })
+    expect(blog.posts[0]).toMatchObject({ path: '/blog/post-1', author: 'Maya', published: 'October 1, 2026', tags: [{ name: 'linen', href: '/blog/?tag=linen' }] })
     expect(blog.posts[0]?.excerpt?.endsWith('…')).toBe(true)
     expect((blog.posts[0]?.excerpt ?? '').length).toBeLessThanOrEqual(181)
     expect(blog.more).toBe(true)
@@ -111,5 +111,38 @@ describe('useProductCards', () => {
       ['TEE', '/products/tee/', 'https://media.example/tee.jpg'],
       ['CAP', '/products/cap/', 'https://media.example/cap.jpg'],
     ])
+  })
+
+  it('leaves out a product the schema refuses, keeping the rest', async () => {
+    const usd = (n: number) => ({ amount: String(n), currency: 'USD' })
+    shopAnswering(() => ({ data: { p0: { id: 'tee', name: 'Tee', slug: 'tee', inStock: true, price: usd(2800), compareAt: null, maxPrice: null, photos: [], badges: [] }, p1: { id: 'odd', name: 'Odd', slug: 'odd', inStock: 'maybe', price: { amount: '28.00', currency: 'USD' }, photos: [], badges: [] } } }))
+    await show('/faq/', () => useProductCards(['tee', 'odd']))
+    expect((seen as ReturnType<typeof useProductCards>).cards.map((c) => c.name)).toEqual(['Tee'])
+  })
+})
+
+describe('the blog when the Shop API misbehaves', () => {
+  it('gives each tag an encoded address, shows a malformed date as none, and says when older posts didn’t load', async () => {
+    let fail = true
+    shopAnswering((a) =>
+      a.variables['after']
+        ? fail
+          ? { errors: [{ message: 'down', extensions: { code: 'UNAVAILABLE' } }] }
+          : { data: { blogPosts: { nodes: [post(9)], pageInfo: { hasNextPage: false, endCursor: null } } } }
+        : { data: { blogPosts: { nodes: [post(1, { publishedAt: 'not a date', tags: ['news & offers', 'c#'] })], pageInfo: { hasNextPage: true, endCursor: 'c1' } } } },
+    )
+    await show('/blog/', useBlog)
+    let blog = seen as BlogView
+    expect(blog.posts[0]?.published).toBeNull()
+    expect(blog.posts[0]?.tags).toEqual([{ name: 'news & offers', href: '/blog/?tag=news%20%26%20offers' }, { name: 'c#', href: '/blog/?tag=c%23' }])
+    await act(async () => blog.loadMore())
+    blog = seen as BlogView
+    expect(blog.loadMoreFailed).toBe(true)
+    expect(blog.more).toBe(true)
+    fail = false
+    await act(async () => blog.loadMore())
+    blog = seen as BlogView
+    expect(blog.loadMoreFailed).toBe(false)
+    expect(blog.posts.map((p) => p.title)).toEqual(['Post 1', 'Post 9'])
   })
 })
