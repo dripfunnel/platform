@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -580,7 +580,10 @@ failed; a live hostname can become expiring or broken if its records change.
    prod with #428), and sends the request with the partner's own `Host`: no forwarded-host
    header, no shared secret. `PortalProxy` finds the partner among `partner_domain`'s portal
    rows that have gone live (`live`, `expiring`, `broken`) of a partner not closed, and serves
-   only `/api/*`; anything else is 404. The Worker's public `fetch` serves the Store API only on
+   only `/api/*`; anything else is 404. **The lookup is cached (#637):** a found partner is kept
+   in the data centre's `caches.default` for 60 s under the lower-cased host, a host not found is
+   never kept, and nothing purges it: a removed domain or a closed partner resolves for up to 60 s,
+   the edge lookup's limit below. The session and membership checks still run on every request. The Worker's public `fetch` serves the Store API only on
    our own zone's hosts, so a partner's host sent to it with a forged `Host` is 404
    (ARCHITECTURE §2). *Decided here (#426): our own zone is the admin host's parent, so feature
    environments and `*.localhost` work with no new setting; verifying and issuing hosts are not

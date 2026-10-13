@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
+Last updated: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
 Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
@@ -61,7 +61,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 |---|---|---|
 | `admin.dripfunnel.com/api/*` | Admin API (`src/apis/admin`) | 404 |
 | `platform.dripfunnel.com/api/*` | Platform API (`src/apis/platform`) | 404 |
-| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). A partner's own host arrives only through store-proxy's service binding on the `PortalProxy` entrypoint; the Worker's own routes answer the Store API only on hosts in the admin host's zone (`dev-store.dripfunnel.ai` on dev, `store.northstar.localhost` locally) | 404 |
+| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal` that has gone live (`live`, `expiring` or `broken`), of a partner not closed (#288, #426). The found partner is kept in the data centre's cache (`caches.default`, keyed by the lower-cased host) for 60 s and a host not found is never kept, so a removed or no-longer-live domain, or a closed partner's, resolves for up to 60 s, as the edge lookup does (SAAS.md §8, #637). A partner's own host arrives only through store-proxy's service binding on the `PortalProxy` entrypoint; the Worker's own routes answer the Store API only on hosts in the admin host's zone (`dev-store.dripfunnel.ai` on dev, `store.northstar.localhost` locally) | 404 |
 | A storefront host `/shop-api/*` | Shop API (`src/apis/shop`); through store-proxy's `StorefrontEdge` binding only `/shop-api/*` answers, and never on our own hosts (#317) | |
 | `hooks.dripfunnel.com/*` | Webhooks (`src/hooks`); `/builds/*`, a store repo's build calls by GitHub OIDC (`src/apis/builds.ts`, storefront/LIVE-SHOP.md §4, #517) | 404 |
 | Queue messages, Cron, Workflow steps | `src/jobs` | no HTTP route |
