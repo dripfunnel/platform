@@ -156,6 +156,7 @@
       "notReady": "There's something to finish before you pay. Check each step.",
       "changed": "Your cart changed while you were paying. Check it and try again.",
       "other": "We couldn't place your order. Try again in a minute."
-    }
+    },
+    "free": "Free"
   }
 }

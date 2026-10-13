@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { AddressFields, Choices, Form, Link, OrderSummary, PaymentElement, PlaceOrder, SubmitButton, TextField, addressDraft, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
+import { AddressFields, Choices, Form, Link, OrderSummary, PaymentElement, PlaceOrder, Price, SubmitButton, TextField, addressDraft, useCheckout, useStorefront, type AddressField, type CheckoutStepId, type DeliveryOption, type FieldProblem } from '@dripfunnel/storefront-core/theme'
 import { Notice } from '../Notice'
 import { Retry } from './Retry'
 import shop from '../../styles/shop.module.css'
@@ -10,7 +10,7 @@ import styles from '../../styles/checkout.module.css'
 
 /** The checkout's body: core's steps as cards, each open, done with its Change, or still to come, beside the sealed summary (D1). */
 export const CheckoutView = () => {
-  const { locale, t } = useStorefront()
+  const { store, locale, t } = useStorefront()
   const c = useCheckout()
   const [email, setEmail] = useState<string | null>(null)
   const [phone, setPhone] = useState<string | null>(null)
@@ -119,9 +119,11 @@ export const CheckoutView = () => {
             value: o.id,
             content: (
               <span className={styles.choiceText}>
-                <span className={styles.choiceName}>{deliveryName(o)}</span>
+                <span className={styles.choiceTop}>
+                  <span className={styles.choiceName}>{deliveryName(o)}</span>
+                  {/^0+$/.test(o.amount.amount) ? <span className={styles.choicePrice}>{t('shop.checkout.free')}</span> : <Price money={o.amount} includesTax={store.pricesIncludeTax} locale={locale} t={t} className={styles.choicePrice} />}
+                </span>
                 {o.minDays !== null && o.maxDays !== null ? <span className={styles.choiceNote}>{t('shop.checkout.days', { min: o.minDays, max: o.maxDays })}</span> : null}
-                <span className={styles.choiceNote}>{o.provider}</span>
               </span>
             ),
           }))}

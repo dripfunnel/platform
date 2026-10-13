@@ -193,6 +193,8 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   or paid, or once it failed with its order, which only `payOrder` goes on with.
 - **Where a provider sends the shopper back**, and where Pay leads, is the order's own page, `/order/{id}/` (core's
   `orderConfirmation` route), built with the order page in part 5.
+- **Express wallets** are Stripe's Apple Pay and Google Pay inside its Payment Element, asked for (`'auto'`) only on a live
+  shop and `'never'` in the preview and the studio frame (PREVIEW §5 step 6).
 - **The sealed `<PaymentElement>`** (part `payment`, at least 200×24 px): the preview's test-mode note (Stripe's test card
   with it), a bank transfer's instructions, the provider's own field or buttons, core's Pay, and "Placing your order…",
   "Your payment is being confirmed", or what went wrong in its own words: a closed window, a declined payment, or an

@@ -279,7 +279,18 @@
   gap: 2px;
 }
 
+.choiceTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .choiceName {
+  font-weight: 600;
+}
+
+.choicePrice {
+  flex-shrink: 0;
   font-weight: 600;
 }
 
