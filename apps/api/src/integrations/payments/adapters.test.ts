@@ -24,7 +24,7 @@ const request: PaymentRequest = {
   orderId: '0b8c9a5e-2222-4000-8000-000000000002',
   amount: { amount: 129950n, currency: 'INR' },
   customer: { email: 'asha@example.com', phone: '+919845022113' },
-  returnUrl: 'https://jaipur.shops.example/checkout/complete?order=o',
+  returnUrl: 'https://jaipur.shops.example/order/o/',
 }
 const reference = 'df_7f1c1f0e111140008000000000000001'
 

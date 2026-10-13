@@ -4,6 +4,7 @@ export { useCart, type Cart, type CartLine, type CartPage, type DeliveryOption, 
 export { addressDraft, orderPath, useCheckout, type CheckoutPage, type CheckoutStepId, type PayPhase, type PaymentChoice } from '../checkout/checkout'
 export { type AddressDraft, type AddressField, type FieldProblem } from '../checkout/address'
 export { PlaceOrder } from '../checkout/place'
+export { useOrder, type Order, type OrderLine, type OrderPage, type OrderPayment } from '../orders/order'
 export { useCollection, useCollections, type CollectionCard, type CollectionPage } from '../collections/collections'
 export { useInView, useMediaQuery, usePointer, useReducedMotion, useScrollProgress } from '../platform/browser/hooks'
 export { Link } from '../platform/browser/link'

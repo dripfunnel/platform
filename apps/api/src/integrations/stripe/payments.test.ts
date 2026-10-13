@@ -3,7 +3,7 @@ import { PaymentRefused, PaymentUnavailable } from '#core/payments'
 import { stripePayments } from './payments'
 
 const account = { mode: 'test' as const, externalAccountId: 'acct_merchant', credentials: {} }
-const request = { attemptId: '7f1c1f0e-0000-4000-8000-000000000001', orderId: 'o1', amount: { amount: 2599n, currency: 'USD' }, customer: { email: 'a@example.com', phone: null }, returnUrl: 'https://shop.example/checkout/complete?order=o1' }
+const request = { attemptId: '7f1c1f0e-0000-4000-8000-000000000001', orderId: 'o1', amount: { amount: 2599n, currency: 'USD' }, customer: { email: 'a@example.com', phone: null }, returnUrl: 'https://shop.example/order/o1/' }
 
 describe('Stripe payments on a connected account', () => {
   it('starts a PaymentIntent on the merchant’s account in the checkout’s mode, once per attempt', async () => {

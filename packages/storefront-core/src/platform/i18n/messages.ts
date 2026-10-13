@@ -38,6 +38,7 @@ export const en = {
   'summary.estimated': 'Estimated total',
   'summary.total': 'Total',
   'summary.updating': 'Updating the totals…',
+  'order.title': 'Order {number}',
   'payment.label': 'Payment',
   'payment.studio': 'Checkout works in Open preview',
   'payment.test': 'Test mode. No real payment is taken on this preview.',

@@ -1,6 +1,7 @@
 'use client'
 
 import type { Cart } from '../cart/cart'
+import type { Order } from '../orders/order'
 import type { Translate } from '../platform/i18n/i18n'
 import { formatMoney, type Money } from '../pricing/money'
 import { Sealed } from './Sealed'
@@ -9,27 +10,57 @@ import { Sealed } from './Sealed'
 // and a note while a change awaits its answer. Parts: panel, lines, line, photo, name, version, rows, row, saving, total, note.
 
 export type OrderSummaryProps = {
-  cart: Cart
-  /** `checkout` lists the lines and says delivery is the next step; `cart` leaves the lines to the page. */
-  at: 'cart' | 'checkout'
   locale: string
   t: Translate
   className?: string
+} & (
+  | {
+      cart: Cart
+      /** `checkout` lists the lines and says delivery is the next step; `cart` leaves the lines to the page. */
+      at: 'cart' | 'checkout'
+    }
+  /** A placed order, on its own page: its lines and what was charged. */
+  | { order: Order }
+)
+
+type Figures = {
+  lines: { key: string; photo: string | null; name: string; quantity: number; versionName: string | null; lineTotal: Money | null }[] | null
+  subtotal: Money
+  discounts: { name: string; amount: Money }[]
+  delivery: Money | 'later' | 'next' | null
+  tax: { amount: Money; includesTax: boolean } | null
+  total: Money
+  estimated: boolean
+  pending: boolean
 }
 
 const isZero = (m: Money) => /^-?0+$/.test(m.amount)
 
-export const OrderSummary = ({ cart, at, locale, t, className }: OrderSummaryProps) => {
+const figuresOf = (props: OrderSummaryProps): Figures => {
+  if ('order' in props) {
+    const o = props.order
+    const lines = o.lines.map((l, i) => ({ key: String(i), photo: null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal }))
+    return { lines, subtotal: o.subtotal, discounts: o.discounts, delivery: o.shipping, tax: o.tax, total: o.total, estimated: false, pending: false }
+  }
+  const { cart, at } = props
+  const lines = at === 'checkout' ? cart.lines.map((l) => ({ key: l.versionId, photo: l.photo?.url ?? null, name: l.name, quantity: l.quantity, versionName: l.versionName, lineTotal: l.lineTotal })) : null
+  const delivery = cart.shipping ?? (cart.needsShipping ? (at === 'cart' ? 'later' : 'next') : null)
+  return { lines, subtotal: cart.subtotal, discounts: cart.discounts, delivery, tax: cart.tax, total: cart.total, estimated: at === 'cart', pending: cart.pending }
+}
+
+export const OrderSummary = (props: OrderSummaryProps) => {
+  const { locale, t, className } = props
+  const f = figuresOf(props)
   const money = (m: Money) => formatMoney(m, locale)
-  const delivery = cart.shipping ? (isZero(cart.shipping) ? t('summary.free') : money(cart.shipping)) : cart.needsShipping ? t(at === 'cart' ? 'summary.deliveryAtCheckout' : 'summary.deliveryNext') : null
+  const delivery = f.delivery === 'later' ? t('summary.deliveryAtCheckout') : f.delivery === 'next' ? t('summary.deliveryNext') : f.delivery ? (isZero(f.delivery) ? t('summary.free') : money(f.delivery)) : null
   return (
     <Sealed part="summary" className={className}>
-      <section part="panel" aria-label={t('summary.label')} aria-busy={cart.pending || undefined}>
-        {at === 'checkout' ? (
+      <section part="panel" aria-label={t('summary.label')} aria-busy={f.pending || undefined}>
+        {f.lines ? (
           <ul part="lines">
-            {cart.lines.map((l) => (
-              <li key={l.versionId} part="line">
-                {l.photo ? <img part="photo" src={l.photo.url} alt="" width={56} height={70} loading="lazy" decoding="async" /> : <span />}
+            {f.lines.map((l) => (
+              <li key={l.key} part="line">
+                {l.photo ? <img part="photo" src={l.photo} alt="" width={56} height={70} loading="lazy" decoding="async" /> : <span />}
                 <span>
                   <span part="name">{t('summary.quantity', { name: l.name, quantity: l.quantity })}</span>
                   {l.versionName ? <span part="version"> {l.versionName}</span> : null}
@@ -42,9 +73,9 @@ export const OrderSummary = ({ cart, at, locale, t, className }: OrderSummaryPro
         <dl part="rows">
           <div part="row">
             <dt>{t('summary.subtotal')}</dt>
-            <dd>{money(cart.subtotal)}</dd>
+            <dd>{money(f.subtotal)}</dd>
           </div>
-          {cart.discounts.map((d, i) => (
+          {f.discounts.map((d, i) => (
             <div key={i} part="row saving">
               <dt>{d.name}</dt>
               <dd>{t('summary.minus', { amount: money(d.amount) })}</dd>
@@ -56,19 +87,19 @@ export const OrderSummary = ({ cart, at, locale, t, className }: OrderSummaryPro
               <dd>{delivery}</dd>
             </div>
           ) : null}
-          {cart.tax && !cart.tax.includesTax ? (
+          {f.tax && !f.tax.includesTax ? (
             <div part="row">
               <dt>{t('summary.tax')}</dt>
-              <dd>{money(cart.tax.amount)}</dd>
+              <dd>{money(f.tax.amount)}</dd>
             </div>
           ) : null}
           <div part="total">
-            <dt>{t(at === 'cart' ? 'summary.estimated' : 'summary.total')}</dt>
-            <dd>{money(cart.total)}</dd>
+            <dt>{t(f.estimated ? 'summary.estimated' : 'summary.total')}</dt>
+            <dd>{money(f.total)}</dd>
           </div>
         </dl>
-        {cart.tax?.includesTax && !isZero(cart.tax.amount) ? <p part="note">{t('summary.taxIncluded', { amount: money(cart.tax.amount) })}</p> : null}
-        {cart.pending ? (
+        {f.tax?.includesTax && !isZero(f.tax.amount) ? <p part="note">{t('summary.taxIncluded', { amount: money(f.tax.amount) })}</p> : null}
+        {f.pending ? (
           <p part="note" role="status">
             {t('summary.updating')}
           </p>

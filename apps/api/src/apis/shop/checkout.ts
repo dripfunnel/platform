@@ -25,9 +25,6 @@ const words: Record<string, string> = {
   OFFER_CHANGED: 'An offer in your cart has just ended or been used up. Check your cart and pay again.',
 }
 
-// Where a provider that takes the shopper away (Cashfree, PhonePe) sends them back: the storefront's own order page.
-export const returnPath = '/checkout/complete'
-
 const answered = <T>(result: CheckoutResult<T>): T => {
   if (result.ok) return result.value
   throw new GraphQLError(words[result.reason] ?? words['NOT_READY'] ?? '', { extensions: { code: result.reason, ...(result.problems ? { problems: result.problems } : {}) } })
@@ -52,7 +49,8 @@ const checkoutOf = async (ctx: ShopContext) => {
     mode: paymentModeOf(shopper),
     gateways: ctx.payments?.gateways ?? {},
     secrets: ctx.secrets ?? null,
-    returnUrl: (orderId) => `${ctx.origin}${returnPath}?order=${orderId}`,
+    // Cashfree and PhonePe send the shopper back to the storefront's order page, which asks confirmPayment (#313).
+    returnUrl: (orderId) => `${ctx.origin}/order/${orderId}/`,
   })
 }
 

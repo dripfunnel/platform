@@ -20,7 +20,7 @@ as customised by us, now removed from the workspace); §11 records what was take
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
-behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), and the checkout controller with the payment adapters and the sealed payment element (#313 part 3); everything else below is to build.
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), and `useOrder` for the order's page (#313 part 5); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
@@ -167,7 +167,8 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   then makes a new one.
 - **Buy now** adds the version to the active cart and opens checkout, since the active order is the only cart.
 - **`<OrderSummary>`** is sealed (part `summary`, at least 160×48 px): subtotal, each offer, delivery ("Chosen at
-  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too. While a
+  checkout" until chosen, "Free" at zero), tax and the total, worded by core; at checkout it lists the lines too, and given
+  a placed `order` (the order's page) its lines and what was charged. While a
   change waits for its answer it says "Updating the totals…", since its amounts are still the last answer's.
 - **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer
   (`refused` announces a refusal as an error). Reads of the cart and changes to it go one at a time, in order, so a read
@@ -192,7 +193,11 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   `PlaceOrder` asks `payOrder` for another attempt. One order per cart: `place` does nothing while an order is being placed
   or paid, or once it failed with its order, which only `payOrder` goes on with.
 - **Where a provider sends the shopper back**, and where Pay leads, is the order's own page, `/order/{id}/` (core's
-  `orderConfirmation` route), built with the order page in part 5.
+  `orderConfirmation` route; the Shop API gives Cashfree and PhonePe that address). **`useOrder`** reads it through
+  `confirmPayment`, so a card payment still pending is asked about on arrival and again on "Check again": a guest reads
+  it with the cart it was placed from, a customer with their session. It says how the order stands (paid, a card still
+  confirming, cash on delivery or a bank transfer awaited with the store's details and its pay-by date in the store's
+  time zone, refunded, cancelled), and the sealed `<OrderSummary order>` lists its lines and what was charged.
 - **Express wallets** are Stripe's Apple Pay and Google Pay inside its Payment Element, asked for (`'auto'`) only on a live
   shop and `'never'` in the preview and the studio frame (PREVIEW §5 step 6).
 - **The sealed `<PaymentElement>`** (part `payment`, at least 200×24 px): the preview's test-mode note (Stripe's test card
@@ -285,6 +290,11 @@ The six templates and "Start from scratch" live in this repo as complete startin
   Change, or still to come, beside the sealed summary, which stays shown on phones under the steps (D1 collapses it there;
   a sealed part may not be hidden); the review lists contact, address and way to pay above the sealed payment element and
   Place order.
+- *Baseline's order page as built on #313 (part 5)*, from D1's order confirmation: a pill for where it stands, "Thank
+  you" and the order's number, what to do next (a bank transfer's reference, pay-by date and details; cash to the
+  courier; a card still confirming with Check again), its delivery and way to pay, and the sealed summary beside them
+  under "Order {number}"; loading, failed (Try again), not found and cancelled states. D1's "Thank you, {name}", receipt
+  email and "Create account" card wait for the Shop API's order to carry the contact (it doesn't yet).
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
   origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
   testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the

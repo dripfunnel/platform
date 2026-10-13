@@ -158,5 +158,32 @@
       "other": "We couldn't place your order. Try again in a minute."
     },
     "free": "Free"
+  },
+  "order": {
+    "loading": "Loading your order",
+    "failed": "We couldn't load your order",
+    "missing": "We can't find this order",
+    "missingLead": "Open it from the link in your email, or from the browser you ordered on.",
+    "keepShopping": "Continue shopping",
+    "title": "Thank you",
+    "lead": "Order {number} is placed. We'll email you as it moves along.",
+    "cancelledTitle": "This order is cancelled",
+    "cancelledLead": "Order {number} was cancelled. Any payment taken is refunded to how you paid.",
+    "pills": {
+      "paid": "Paid",
+      "confirming": "Confirming your payment",
+      "cod": "Pay on delivery",
+      "transfer": "Waiting for your payment",
+      "refunded": "Refunded",
+      "cancelled": "Cancelled"
+    },
+    "transferTitle": "Pay by bank transfer",
+    "transferBy": "Use your order number {number} as the reference. Pay by {date}: if your payment hasn't reached us by then, we cancel the order and email you.",
+    "transferRef": "Use your order number {number} as the reference.",
+    "cod": "Pay in cash to the courier when it arrives.",
+    "confirming": "We're waiting for your payment to be confirmed. This can take a minute; we email you as soon as it is.",
+    "checkAgain": "Check again",
+    "method": "Delivery",
+    "summary": "Order {number}"
   }
 }
