@@ -40,8 +40,9 @@ const shop = (mode = 'test', extra: (a: Asked) => unknown = () => undefined) =>
   })
 
 /** Each provider's SDK as the test drives it: what was loaded, and how each window or field was used. */
-const fakeSdk = ({ declines = 0, dismiss = false }: { declines?: number; dismiss?: boolean } = {}) => {
+const fakeSdk = ({ declines = 0, dismiss = false, incomplete = 0, cashfreeFails = false, goFails = false }: { declines?: number; dismiss?: boolean; incomplete?: number; cashfreeFails?: boolean; goFails?: boolean } = {}) => {
   let declined = declines
+  let unfinished = incomplete
   const loaded: string[] = []
   const went: string[] = []
   const g = globalThis as Record<string, unknown>
@@ -49,12 +50,15 @@ const fakeSdk = ({ declines = 0, dismiss = false }: { declines?: number; dismiss
     script: async (url) => {
       loaded.push(new URL(url).host)
     },
-    go: (url) => void went.push(url),
+    go: (url) => {
+      if (goFails) throw new Error('blocked')
+      went.push(url)
+    },
     stripe: async (key, opts) => {
       loaded.push(`stripe:${key}:${String(opts.stripeAccount)}`)
       return {
         elements: () => ({ create: (_: string, o: { wallets: unknown }) => ({ mount: () => void loaded.push(`wallets:${JSON.stringify(o.wallets)}`), destroy: () => undefined }) }),
-        confirmPayment: async () => (declined-- > 0 ? { error: { message: 'Your card was declined.' } } : {}),
+        confirmPayment: async () => (unfinished-- > 0 ? { error: { type: 'validation_error', message: 'Your card number is incomplete.' } } : declined-- > 0 ? { error: { type: 'card_error', message: 'Your card was declined.' } } : {}),
       } as never
     },
   }
@@ -67,7 +71,7 @@ const fakeSdk = ({ declines = 0, dismiss = false }: { declines?: number; dismiss
     }
     close() {}
   }
-  g['Cashfree'] = () => ({ checkout: async (o: { paymentSessionId: string }) => void went.push(`cashfree:${o.paymentSessionId}`) })
+  g['Cashfree'] = () => ({ checkout: async (o: { paymentSessionId: string }) => (cashfreeFails ? { error: { message: 'session expired' } } : void went.push(`cashfree:${o.paymentSessionId}`)) })
   g['paypal'] = { Buttons: (o: { createOrder: () => string; onApprove: () => void }) => ({ render: async () => (went.push(`paypal:${o.createOrder()}`), o.onApprove()), close: async () => undefined }) }
   checkoutSdk.current = sdk
   return { loaded, went }
@@ -241,5 +245,48 @@ describe('one order per cart', () => {
     expect(page.phase).toMatchObject({ kind: 'failed', orderId: null, code: 'OUT_OF_STOCK' })
     expect(sealedText(container)).toContain('Your order wasn’t placed and nothing was charged.')
     expect(sealedText(container)).not.toContain('payment didn’t go through')
+  })
+
+  it('keeps Stripe’s field open for a number to correct, saying what, then pays', async () => {
+    shop()
+    fakeSdk({ incomplete: 1 })
+    const { container } = mount()
+    await payWith('stripe')
+    await act(async () => (page.phase.kind === 'paying' ? page.phase.submit?.() : undefined))
+    await act(async () => undefined)
+    expect(page.phase).toMatchObject({ kind: 'paying', note: 'Your card number is incomplete.' })
+    expect(sealedText(container)).toContain('Your card number is incomplete.')
+    await act(async () => (page.phase.kind === 'paying' ? page.phase.submit?.() : undefined))
+    await act(async () => undefined)
+    expect(assign).toHaveBeenCalledWith('/order/o-1/')
+  })
+
+  it('says so when Cashfree or PhonePe can’t take the shopper away, and offers another attempt', async () => {
+    for (const [provider, opts] of [['cashfree', { cashfreeFails: true }], ['phonepe', { goFails: true }]] as const) {
+      shop()
+      fakeSdk(opts)
+      mount()
+      await payWith(provider)
+      expect(page.phase).toMatchObject({ kind: 'failed', orderId: 'o-1', code: 'PAYMENT_FAILED' })
+      cleanup()
+    }
+  })
+
+  it('tells a shopper leaving for Cashfree where they are going', async () => {
+    shop()
+    fakeSdk()
+    const { container } = mount()
+    await payWith('cashfree')
+    expect(page.phase).toMatchObject({ kind: 'leaving', orderId: 'o-1' })
+    expect(sealedText(container)).toContain('Taking you to the payment page…')
+  })
+
+  it('refuses to open Razorpay without its key', async () => {
+    shop('test', (a) => (a.query.includes('placeOrder') ? { data: { placeOrder: { orderId: 'o-1', total: usd(2800), instructions: null, payment: { ...start, publicKey: null } } } } : undefined))
+    const { went } = fakeSdk()
+    mount()
+    await payWith('razorpay')
+    expect(went).toEqual([])
+    expect(page.phase).toMatchObject({ kind: 'failed', orderId: 'o-1', code: 'PAYMENT_UNAVAILABLE' })
   })
 })

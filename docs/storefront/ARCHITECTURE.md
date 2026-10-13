@@ -186,7 +186,9 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   a card provider's payment is then taken by its **adapter** (`checkout/payments.ts`), which loads its own SDK only then:
   Stripe's Payment Element (Stripe.js through `@stripe/stripe-js`, as #278's console uses it) in the sealed element with
   core's Pay; Razorpay's window; Cashfree's and PhonePe's pages, which send the shopper back; PayPal's buttons in the sealed
-  element. Paid, core asks `confirmPayment` and opens the order's page; declined or closed, the payment phase says so and
+  element. A field to correct (Stripe's `validation_error`) keeps the element open with its words; a provider that can't
+  take the shopper away fails the attempt. Paid, core asks `confirmPayment` and opens the order's page; declined or closed,
+  the payment phase says so and
   `PlaceOrder` asks `payOrder` for another attempt. One order per cart: `place` does nothing while an order is being placed
   or paid, or once it failed with its order, which only `payOrder` goes on with.
 - **Where a provider sends the shopper back**, and where Pay leads, is the order's own page, `/order/{id}/` (core's

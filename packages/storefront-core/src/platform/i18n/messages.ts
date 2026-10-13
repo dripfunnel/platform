@@ -44,6 +44,7 @@ export const en = {
   'payment.testCard': 'Use card 4242 4242 4242 4242, any future date and any CVC.',
   'payment.pay': 'Pay {amount}',
   'payment.placing': 'Placing your order…',
+  'payment.leaving': 'Taking you to the payment page…',
   'payment.processing': 'Your payment is being confirmed. This can take a moment.',
   'payment.failed': 'The payment didn’t go through. You haven’t been charged. Try again or choose another way to pay.',
   'payment.cancelled': 'The payment was closed before it finished. Try again when you’re ready.',

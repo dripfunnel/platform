@@ -30,8 +30,11 @@ export type PayContext = {
   contact: { email: string | null; phone: string | null; name: string | null }
 }
 
-/** A provider's window or field for a placed order: `submit` when the shopper presses core's Pay, else the provider's own. */
-export type PaySession = { submit: (() => void) | null; outcome: Promise<PayOutcome>; close: () => void }
+/**
+ * A provider's window or field for a placed order: `submit` when the shopper presses core's Pay (it answers what to fix,
+ * such as a card number, while the field stays open), else the provider's own. `outcome` settles once the payment ends.
+ */
+export type PaySession = { submit: (() => Promise<string | null>) | null; outcome: Promise<PayOutcome>; close: () => void }
 
 export type PaymentAdapter = (ctx: PayContext, sdk: Sdk) => Promise<PaySession>
 
@@ -84,11 +87,16 @@ const stripe: PaymentAdapter = async (ctx, sdk) => {
   element.mount(ctx.host)
   const { outcome, settle } = settled()
   return {
-    submit: () => {
-      void client.confirmPayment({ elements, confirmParams: { return_url: ctx.returnUrl }, redirect: 'if_required' }).then(
-        (r) => settle(r.error ? { kind: 'failed', message: r.error.message ?? null } : { kind: 'paid' }),
-        () => settle({ kind: 'failed', message: null }),
-      )
+    submit: async () => {
+      try {
+        const r = await client.confirmPayment({ elements, confirmParams: { return_url: ctx.returnUrl }, redirect: 'if_required' })
+        // A field to correct keeps the element open; anything else ends this attempt.
+        if (r.error?.type === 'validation_error') return r.error.message ?? null
+        settle(r.error ? { kind: 'failed', message: r.error.message ?? null } : { kind: 'paid' })
+      } catch {
+        settle({ kind: 'failed', message: null })
+      }
+      return null
     },
     outcome,
     close: () => element.destroy(),
@@ -99,6 +107,7 @@ type RazorpayWindow = { Razorpay?: new (options: Record<string, unknown>) => { o
 
 /** Razorpay's own window, opened at once: UPI, cards and netbanking there. */
 const razorpay: PaymentAdapter = async (ctx, sdk) => {
+  if (!ctx.start.publicKey) throw new Error('Razorpay needs its key id.')
   await sdk.script('https://checkout.razorpay.com/v1/checkout.js')
   const Checkout = (globalThis as RazorpayWindow).Razorpay
   if (!Checkout) throw new Error('Razorpay could not load.')
@@ -124,14 +133,24 @@ const cashfree: PaymentAdapter = async (ctx, sdk) => {
   await sdk.script('https://sdk.cashfree.com/js/v3/cashfree.js')
   const make = (globalThis as CashfreeWindow).Cashfree
   if (!make) throw new Error('Cashfree could not load.')
-  void make({ mode: ctx.test ? 'sandbox' : 'production' }).checkout({ paymentSessionId: ctx.start.sessionId, redirectTarget: '_self' })
-  return { submit: null, outcome: Promise.resolve({ kind: 'away' }), close: () => undefined }
+  // Cashfree takes the shopper away; its promise answers only when it couldn't.
+  const outcome = make({ mode: ctx.test ? 'sandbox' : 'production' })
+    .checkout({ paymentSessionId: ctx.start.sessionId, redirectTarget: '_self' })
+    .then(
+      (r): PayOutcome => (r && typeof r === 'object' && 'error' in r ? { kind: 'failed', message: null } : { kind: 'away' }),
+      (): PayOutcome => ({ kind: 'failed', message: null }),
+    )
+  return { submit: null, outcome, close: () => undefined }
 }
 
 /** PhonePe opens its app from its own page, which sends the shopper back to the order's. */
 const phonepe: PaymentAdapter = async (ctx, sdk) => {
   if (!ctx.start.redirectUrl) throw new Error('PhonePe needs its page.')
-  sdk.go(ctx.start.redirectUrl)
+  try {
+    sdk.go(ctx.start.redirectUrl)
+  } catch {
+    return { submit: null, outcome: Promise.resolve({ kind: 'failed', message: null }), close: () => undefined }
+  }
   return { submit: null, outcome: Promise.resolve({ kind: 'away' }), close: () => undefined }
 }
 

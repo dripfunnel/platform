@@ -38,9 +38,14 @@ export const PaymentElement = ({ t, className }: { t: Translate; className?: str
             {t('payment.pay', { amount: formatMoney(phase.amount, locale) })}
           </button>
         ) : null}
-        {phase.kind === 'placing' || phase.kind === 'confirming' ? (
+        {phase.kind === 'paying' && phase.note ? (
+          <p part="status" role="alert">
+            {phase.note}
+          </p>
+        ) : null}
+        {phase.kind === 'placing' || phase.kind === 'confirming' || phase.kind === 'leaving' ? (
           <p part="status" role="status">
-            {t(phase.kind === 'placing' ? 'payment.placing' : 'payment.processing')}
+            {t(phase.kind === 'placing' ? 'payment.placing' : phase.kind === 'leaving' ? 'payment.leaving' : 'payment.processing')}
           </p>
         ) : null}
         {phase.kind === 'failed' ? (

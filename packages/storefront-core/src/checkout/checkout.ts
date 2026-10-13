@@ -23,7 +23,8 @@ export type PaymentChoice = { provider: string; kind: string; instructions: stri
 export type PayPhase =
   | { kind: 'idle' }
   | { kind: 'placing' }
-  | { kind: 'paying'; orderId: string; amount: Money; submit: (() => void) | null }
+  | { kind: 'paying'; orderId: string; amount: Money; submit: (() => void) | null; note: string | null }
+  | { kind: 'leaving'; orderId: string }
   | { kind: 'confirming'; orderId: string }
   | { kind: 'failed'; orderId: string | null; amount: Money | null; code: string; message: string | null }
 
@@ -167,10 +168,12 @@ export const useCheckout = (): CheckoutPage => {
     } catch {
       return store.set({ phase: { kind: 'failed', orderId, amount, code: 'PAYMENT_UNAVAILABLE', message: null } })
     }
-    store.set({ phase: { kind: 'paying', orderId, amount, submit: session.submit } })
+    const submit = session.submit
+    const paying = (note: string | null) => store.set({ phase: { kind: 'paying', orderId, amount, note, submit: submit ? () => void submit().then((n) => (store.get().phase.kind === 'paying' ? paying(n) : undefined)) : null } })
+    paying(null)
     const outcome = await session.outcome
     if (outcome.kind === 'paid') return settle(orderId)
-    if (outcome.kind === 'away') return
+    if (outcome.kind === 'away') return store.set({ phase: { kind: 'leaving', orderId } })
     session.close()
     store.set({ phase: { kind: 'failed', orderId, amount, code: outcome.kind === 'cancelled' ? 'PAYMENT_CANCELLED' : 'PAYMENT_FAILED', message: outcome.kind === 'failed' ? outcome.message : null } })
   }
