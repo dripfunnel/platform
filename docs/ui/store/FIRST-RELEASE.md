@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-13 (#682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
+Last updated: 2026-10-13 (#339: Storefront › Pages and Journal, §14; #682: the Overview's rolled-back notice and `storefront.lastPublish`, §14 and §19; #681: the template gallery's pictures, §14; #680: the Overview frames the live site at Desktop and Phone, §14). Before: 2026-10-12 (#319 parts 1 and 2: Storefront's page, Your brand and Site settings, §14; #471 part 2: Domains, §19; #471: the brand and search and sharing on the Store and Shop APIs, §19). Before: 2026-10-11 (#338: what Pages and Journal need of the API, §19). Before: 2026-10-11 (#518: the Shop API's preview hosts). Before: 2026-10-10 (#326: the Home and Reports screens; #322: Home's figures per seat, and Reports; #325: Offers and Abandoned carts).
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -764,6 +764,44 @@ through. Your site stays live."), as is a support session.
   once it was live."; a later refused publish ends the notice too, since the last publish is then the refused one, which
   the studio tells; a store whose first publish rolled back has nothing live and no notice, as the prototype shows it
   only with a site.
+- **Built on #339 (part 1, on #338's API)**: the Pages tab's list, as `StorefrontContent` draws it: the content pages
+  (title, path, Published, Draft or Scheduled, when edited in UTC with the zone named, "in the footer"), fifty at a time with Show more, then the
+  AI's pages (`customPagePaths`), each "Made by AI"; the Owner's open the studio on that page (`?view=studio&page=`),
+  a reader's open nothing. *Decided there:* an AI page is named by its path, as the studio's picker names it; the
+  page-level Manager notice stands for the drawing's own.
+- **Built on #339 (part 2)**: the page editor (`?entry=`, `new` for one not saved; **Add a page** for the Owner): title,
+  web address after the shop's host (the title's until one is typed), the blocks with move and remove (heading and text;
+  part 3 adds the others), how it looks in search (title /60, description /160, the
+  result's preview), and Publishing (status and when edited, "waiting for the next publish", Show in the footer menu,
+  **Publish** or **Update**, **Save as draft**, **Delete page**, which asks first). A `PATH_TAKEN` refusal shows under
+  the web address, naming what holds it; nothing is saved. *Decided there:* the clash words (`storefront.content.taken`)
+  *(proposed, for review)*: a core route by what it is ("/cart is your shop's cart"), an AI page by its path, a
+  language by its name, a market, another page or post by its title; a "Title in search" beside the drawn description,
+  since the API takes both; the note drops the drawing's "about 2 minutes", which no publish promises; no Preview
+  button, since the preview host shows live pages only (#338); a reader sees the fields read-only with no buttons, and
+  `?entry=new` shows them the list; leaving the editor asks nothing, as drawn.
+- **Built on #339 (part 3)**: the editor's other blocks: a photo (made by its upload, PNG, JPG or WebP, with its
+  description for people who can't see it), questions and answers (each question and answer typed in place, up to
+  50), products (picked by name, up to 24, shown by name, "A product no longer in your catalogue" for one deleted
+  since) and, on a page, the contact form, which says where messages go (the brand's public email). *Decided there:*
+  product names are read as Offers reads them (`loadProductNames`, aliased `product(id)` reads fifty at a time), since
+  the Store API has no read by ids.
+- **Built on #339 (part 4)**: the Journal tab: posts by their date ("Goes live {date}" while scheduled) and who wrote
+  them, **Write a post**, and the editor as for a page with a cover photo (the drawing's dashed box), **Publish on**
+  and **Written by** in Publishing, no contact form and no footer menu, and **Schedule** in place of Publish for a later
+  day. *Decided there:* the day is in UTC and said so; left empty, a post is dated when it's published (#338), but a
+  post that has a date keeps one (#338 can't clear it); an unchanged day keeps the post's own instant, a picked one starts at midnight UTC; tags, which the drawing doesn't show,
+  are kept as read; a plan without `blog` shows the refusal on save ("Your plan doesn’t include the Journal…"), since
+  no read says so first; Publish and Save wait while a photo or the cover uploads.
+- **Built on #339 (part 5)**: other languages: a saved page or post in a store with more than one language has the
+  language tabs over its editor (the product editor's, now shared in `features/common`); another language shows the
+  title, each block's words (headings, text, photo descriptions, questions and answers) and the search words beside the
+  main language's, with "Not in {language} yet", the `changed` notice ("The {main} words changed since this was
+  written"), **Save translation** and **Remove the {language} words** (asks first; the shop then shows the main words).
+  *Decided there:* a field left empty saves the main language's words as they are then (#338 keeps a language's
+  words whole, so there is no per-field fallback), and the hint says so; a later change to them raises `changed`; the
+  translation follows the page's saved blocks (products and the contact form are the same in every language); the tabs
+  hold still while either side has unsaved words; a page not saved yet has no tabs.
 - **Not in the first release**: the own storefront (AI or own, flow 75).
 
 ---

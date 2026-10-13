@@ -1,7 +1,8 @@
 import { useId, useRef } from 'react'
 import { fill, messages, plural } from '../../messages'
-import { tabKeyHandler } from '../common/tabKeys'
-import { languageName } from './TranslationView'
+import { languageName } from './languageName'
+import './languageTabs.css'
+import { tabKeyHandler } from './tabKeys'
 
 const words = messages.editor.translate
 

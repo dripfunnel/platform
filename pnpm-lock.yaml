@@ -311,6 +311,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.11.0(jiti@2.7.0)(supports-color@10.2.2))
+      '@stripe/stripe-js':
+        specifier: ^10.0.0
+        version: 10.0.0
       css-tree:
         specifier: ^3.2.1
         version: 3.2.1

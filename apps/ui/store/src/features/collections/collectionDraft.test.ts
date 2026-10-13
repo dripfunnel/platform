@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Collection, CollectionRule, CollectionSummary } from '../../api/collections'
 import type { Facet } from '../../api/productEditor'
-import { blankDraft, collectionsAccess, draftOf, nameField, nested, ruleFields, ruleInputs, rowsOf, sentenceOf, slugOf } from './collectionDraft'
+import { blankDraft, collectionsAccess, draftOf, nameField, nested, ruleFields, ruleInputs, rowsOf, sentenceOf } from './collectionDraft'
+import { slugOf } from '../common/slug'
 
 const facets: Facet[] = [
   { id: 'fabric', name: 'Fabric', shopperVisible: true, values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }] },

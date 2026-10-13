@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
-import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, useMenu, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, useCart, useMenu, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Menu } from './interactive/Menu'
 import styles from '../styles/layout.module.css'
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const { store, t, mode, poweredBy } = useStorefront()
   const menu = useMenu()
+  const { count } = useCart()
   return (
     <div className={styles.shell}>
       {mode === 'live' ? null : <PreviewBanner t={t} className={styles.preview} />}
@@ -55,7 +56,12 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                 <path d="M5.5 8h13l-1 12h-11z" />
                 <path d="M9 8V6.5a3 3 0 016 0V8" />
               </svg>
-              <span className={styles.hidden}>{t('common.tools.cart')}</span>
+              <span className={styles.hidden}>{count > 0 ? t('common.tools.cartCount', { count }) : t('common.tools.cart')}</span>
+              {count > 0 ? (
+                <span className={styles.count} aria-hidden="true">
+                  {count}
+                </span>
+              ) : null}
             </Link>
           </div>
         </div>

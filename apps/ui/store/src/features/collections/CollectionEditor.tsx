@@ -8,7 +8,8 @@ import type { Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { RadioCards } from '../common/RadioCards'
 import '../common/switch.css'
-import { blankDraft, draftOf, nameField, newRow, ruleFields, ruleInputs, slugOf, type CollectionDraft, type RuleRow } from './collectionDraft'
+import { slugOf } from '../common/slug'
+import { blankDraft, draftOf, nameField, newRow, ruleFields, ruleInputs, type CollectionDraft, type RuleRow } from './collectionDraft'
 
 const words = messages.collections.editor
 

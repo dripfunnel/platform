@@ -27,6 +27,8 @@ const api = vi.hoisted(() => ({ loadBrand: vi.fn(), saveBrand: vi.fn(), loadSeo:
 vi.mock('../../api/storefront', async (actual) => ({ ...(await actual<typeof import('../../api/storefront')>()), ...api }))
 const studio = vi.hoisted(() => ({ loadStudioSession: vi.fn(), renewStudioSession: vi.fn(), loadDesignChat: vi.fn(), askDesign: vi.fn(), undoDesignChange: vi.fn(), loadDesignText: vi.fn(), saveDesignText: vi.fn(), loadStudioPages: vi.fn(), loadStudioLanguages: vi.fn(), loadPublishRun: vi.fn(), publishDesign: vi.fn(), publishBefore: vi.fn() }))
 vi.mock('../../api/studio', async (actual) => ({ ...(await actual<typeof import('../../api/studio')>()), ...studio }))
+const content = vi.hoisted(() => ({ loadContentList: vi.fn(), loadCustomPaths: vi.fn(), loadContentEntry: vi.fn(), saveContent: vi.fn(), deleteContent: vi.fn() }))
+vi.mock('../../api/content', async (actual) => ({ ...(await actual<typeof import('../../api/content')>()), ...content }))
 const upload = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
 vi.mock('../../api/productEditor', () => upload)
 
@@ -100,6 +102,8 @@ beforeEach(() => {
   studio.loadDesignChat.mockResolvedValue({ messages: [], next: null })
   studio.loadStudioPages.mockResolvedValue({ product: null, content: [], custom: [] })
   studio.loadStudioLanguages.mockResolvedValue(['en'])
+  content.loadContentList.mockResolvedValue({ rows: [], next: null })
+  content.loadCustomPaths.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -134,7 +138,7 @@ describe('storefront', () => {
     await settle()
     expect(screen.getByRole('tab', { name: words.tabs.pages }).getAttribute('aria-selected')).toBe('true')
     expect(document.activeElement).toBe(screen.getByRole('tab', { name: words.tabs.pages }))
-    expect(screen.getByRole('heading', { name: words.pages.title })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: words.content.pages.title })).toBeTruthy()
     fireEvent.keyDown(screen.getByRole('tab', { name: words.tabs.pages }), { key: 'End' })
     await settle()
     expect(screen.getByRole('tab', { name: words.tabs.settings }).getAttribute('aria-selected')).toBe('true')
@@ -149,9 +153,10 @@ describe('storefront', () => {
     expect(screen.getByRole('tab', { name: words.tabs.design }).getAttribute('aria-selected')).toBe('true')
   })
 
-  it('shows Journal as an empty state until its screens are built', async () => {
+  it('shows the Journal tab', async () => {
     await show({ tab: 'journal' })
-    expect(screen.getByRole('heading', { name: words.journal.title })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: words.content.journal.title })).toBeTruthy()
+    expect(content.loadContentList).toHaveBeenCalledWith('post', null)
   })
 })
 
