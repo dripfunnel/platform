@@ -8,8 +8,11 @@ import { Retry } from './Retry'
 import shop from '../../styles/shop.module.css'
 import styles from '../../styles/order.module.css'
 
-/** The order's page (`/order/{id}/`), as D1's order confirmation: where it stands, what to do next, and what was charged. */
-export const OrderView = () => {
+/**
+ * The order's page (`/order/{id}/`), as D1's order confirmation: where it stands, what to do next, and what was charged;
+ * `inAccount`, the same order in the account (`/account/orders/{id}/`), headed by its number.
+ */
+export const OrderView = ({ inAccount = false }: { inAccount?: boolean }) => {
   const { locale, t } = useStorefront()
   const page = useOrder()
 
@@ -58,9 +61,14 @@ export const OrderView = () => {
       <div className={styles.order}>
         <div className={styles.main}>
           <div className={styles.head}>
+            {inAccount ? (
+              <Link href="/account/" className={styles.back}>
+                {t('shop.order.backToAccount')}
+              </Link>
+            ) : null}
             <span className={clsx(styles.pill, pill.tone)}>{pill.words}</span>
-            <h1 className={styles.title}>{order.cancelled ? t('shop.order.cancelledTitle') : t('shop.order.title')}</h1>
-            <p className={styles.lead}>{order.cancelled ? t('shop.order.cancelledLead', { number: order.number }) : t('shop.order.lead', { number: order.number })}</p>
+            <h1 className={styles.title}>{order.cancelled ? t('shop.order.cancelledTitle') : inAccount ? t('shop.order.summary', { number: order.number }) : t('shop.order.title')}</h1>
+            {order.cancelled ? <p className={styles.lead}>{t('shop.order.cancelledLead', { number: order.number })}</p> : inAccount ? null : <p className={styles.lead}>{t('shop.order.lead', { number: order.number })}</p>}
           </div>
           {awaiting && order.method === 'bank_transfer' ? (
             <div className={styles.card}>
@@ -101,7 +109,7 @@ export const OrderView = () => {
           </div>
         </div>
         <aside className={styles.side}>
-          <h2 className={styles.sideTitle}>{t('shop.order.summary', { number: order.number })}</h2>
+          <h2 className={styles.sideTitle}>{inAccount ? t('shop.checkout.summary') : t('shop.order.summary', { number: order.number })}</h2>
           <OrderSummary order={order} locale={locale} t={t} className={styles.summary} />
         </aside>
       </div>

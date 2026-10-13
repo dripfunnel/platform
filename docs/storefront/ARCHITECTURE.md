@@ -20,7 +20,7 @@ as customised by us, now removed from the workspace); §11 records what was take
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
-behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), and `useOrder` for the order's page (#313 part 5); everything else below is to build.
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
@@ -213,6 +213,17 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK).
 - **A preview checks out as a guest**: core's runtime sends no session token on the preview host or in the studio frame
   (`guestShopState`), only the cart's.
+- **Signing in** (`account/account.ts`, #313 part 6): **`useSignIn`** signs a shopper in by email and password (`signIn`) or
+  by a code (`requestSignInCode`, then `verifySignInCode`) by email or text, as the shop's `signInOptions` allow; the same
+  code with a name and a password creates an account, and with a password alone sets a new one. Core checks the email,
+  number, 6-digit code and a password of at least 10 characters first, keeps the session token (for the visit only
+  without "Keep me signed in") and goes on to `?next=` when it is a page of this shop, else `/account/`. On a preview or
+  in the studio frame it asks nothing and answers `NOT_IN_PREVIEW`.
+- **The account**: **`useAccount`** reads the signed-in shopper's details, addresses and the store's countries;
+  `rename`, `saveAddress` (core's address checks first; also "make default"), `removeAddress`, each reading the account
+  again, and `signOut`, which ends the session on the server and here. Without a session, or on a preview, it is
+  `signedOut` and asks nothing. An order in the account (`/account/orders/{id}/`) is `useOrder`'s. The account's list of
+  orders waits for the Shop API to list them (it reads one order by id only).
 
 ### 2.2 The store repo
 
@@ -295,6 +306,13 @@ The six templates and "Start from scratch" live in this repo as complete startin
   courier; a card still confirming with Check again), its delivery and way to pay, and the sealed summary beside them
   under "Order {number}"; loading, failed (Try again), not found and cancelled states. D1's "Thank you, {name}", receipt
   email and "Create account" card wait for the Shop API's order to carry the contact (it doesn't yet).
+- *Baseline's sign-in and account as built on #313 (part 6)*, from D1's Sign in and Account: sign in by email and
+  password or by a mobile code (tabs when the shop allows both), Keep me signed in, Forgot password; Create an account
+  and Forgot password each by an emailed code, then the name and password or the new password; on a preview each says
+  signing in works on the live shop. The account: "Hello, {name}", Sign out, Your details (the name to edit, the email
+  and number with Verified) and Addresses (Default, Make this my default, Remove, Add an address); an order at
+  `/account/orders/{id}/` is the order page headed by its number. D1's Orders list, Messages, Gift cards, Downloads and
+  Your data wait for the Shop API (and #324 for gift cards and downloads).
 - The sample words state no fact about a store, since any store may start from any theme: no product, material,
   origin, way of making, policy (returns, warranty, delivery), discount, certification or promise of news, and no
   testimonial (§12, DESIGN §9). The prototype's words of that kind are rewritten as neutral ones, the hero shows the

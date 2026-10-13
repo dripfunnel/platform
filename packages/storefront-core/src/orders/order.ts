@@ -95,12 +95,12 @@ const decode = (o: z.infer<typeof orderSchema>, instructions: string | null, whe
   total: o.total,
 })
 
-/** The order the address names (`/order/{id}/`); a guest reads it with the cart it was placed from, a customer with their session. */
+/** The order the address names (`/order/{id}/`, or `/account/orders/{id}/` in the account); a guest reads it with the cart it was placed from, a customer with their session. */
 export const useOrder = (): OrderPage => {
   const { t, store, locale } = useStorefront()
   const { path } = useLocation()
   const when = (iso: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: store.timeZone, timeZoneName: 'short' }).format(new Date(iso))
-  const id = itemSlug(path, '/order/')
+  const id = itemSlug(path, '/order/') ?? itemSlug(path, '/account/orders/')
   const loaded = useShopData(id ? JSON.stringify(['order', id]) : null, async (client) => {
     const found = (await client.query(confirmMutation, z.object({ confirmPayment: orderSchema.nullable() }), { orderId: id })).confirmPayment
     if (!found) return null

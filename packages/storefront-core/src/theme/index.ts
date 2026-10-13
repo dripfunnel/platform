@@ -1,4 +1,5 @@
 // What a theme may import (storefront ARCHITECTURE §3.4 "Imports"): core's hooks and components, never its internals.
+export { useAccount, useSignIn, type Account, type AccountPage, type CodeStep, type SavedAddress, type SignInChannel, type SignInPage } from '../account/account'
 export { AddToCart, BuyNow } from '../cart/buttons'
 export { useCart, type Cart, type CartLine, type CartPage, type DeliveryOption, type LineProblem } from '../cart/cart'
 export { addressDraft, orderPath, useCheckout, type CheckoutPage, type CheckoutStepId, type PayPhase, type PaymentChoice } from '../checkout/checkout'
