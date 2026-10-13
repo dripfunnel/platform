@@ -1,4 +1,4 @@
-import { contentAddresses, coreRoutes, routeAddresses, storeHead, type ThemeRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
+import { contentAddresses, coreRoutes, jsonLdText, routeAddresses, seoFor, storeHead, type ThemeRoute, type ThemeRoutes } from '@dripfunnel/storefront-core'
 import { fallbackPath, indexable, type CatalogueSnapshot, type PageRoute } from '@dripfunnel/storefront-core/guard'
 
 // The live site's pages and the files around them (storefront ARCHITECTURE §4.2, §8; LIVE-SHOP §4 step 6, and §5 step 6
@@ -17,8 +17,11 @@ export const directionOf = (language: string): 'ltr' | 'rtl' => (rightToLeft.has
 /** The main language at the root and every other one under its own code (ARCHITECTURE §8 "locale routing"). */
 export const languagePrefix = (store: CatalogueSnapshot['store'], language: string) => (language === store.mainLanguage ? '' : `/${language.toLowerCase()}`)
 
-/** `contentPaths`: the store's content pages and posts (the snapshot's `guard.usedPaths`); each page gets its own file. */
-export const plan = (routes: ThemeRoutes, store: CatalogueSnapshot['store'], contentPaths: readonly string[] = []): PlannedPage[] =>
+/**
+ * `contentPaths`: the store's content pages and posts (the snapshot's `guard.usedPaths`); each page gets its own file.
+ * `postPaths`: its published posts (the snapshot's `posts`), each with its own file, its head and Article data (§8).
+ */
+export const plan = (routes: ThemeRoutes, store: CatalogueSnapshot['store'], contentPaths: readonly string[] = [], postPaths: readonly string[] = []): PlannedPage[] =>
   [store.mainLanguage, ...store.languages.filter((l) => l !== store.mainLanguage)].flatMap((language) => {
     const prefix = languagePrefix(store, language)
     return [
@@ -34,6 +37,7 @@ export const plan = (routes: ThemeRoutes, store: CatalogueSnapshot['store'], con
           const address = contentAddresses[route]
           return { path: `${prefix}${'page' in address ? address.page : fallbackPath(route)}`, route, language, custom: null }
         }),
+      ...(routes.routes.blogPost === undefined ? [] : postPaths).map((path): PlannedPage => ({ path: `${prefix}${path}/`, route: 'blogPost', language, custom: null })),
       ...(routes.routes.contentPage === undefined ? [] : contentPaths.filter((p) => /^\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p))).map((path): PlannedPage => ({ path: `${prefix}${path}/`, route: 'contentPage', language, custom: null })),
       ...Object.keys(routes.custom ?? {}).map((custom): PlannedPage => ({ path: `${prefix}${custom}/`, route: 'custom', language, custom })),
     ]
@@ -49,9 +53,17 @@ const scriptJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u0
 export type PageAssets = { entry: string; css: readonly string[] }
 
 /** The document around a rendered page: core owns the head (ARCHITECTURE §8), the theme the body. */
+/** A post's own page, by its address without the language prefix. */
+const postOf = (page: PlannedPage, s: CatalogueSnapshot) => (page.route === 'blogPost' ? (s.posts.find((p) => page.path.endsWith(`${p.path}/`)) ?? null) : null)
+
 export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body: string; assets: PageAssets; dir: 'ltr' | 'rtl'; store: CatalogueSnapshot['store'] }) => {
   const asset = (file: string) => escapeHtml(`${s.assetBase ?? '/'}${file}`)
-  const head = storeHead(o.store, page.route === 'home' ? '/' : page.path)
+  const post = postOf(page, s)
+  const absolute = (url: string) => (url.startsWith('/') ? `${s.origin}${url}` : url)
+  const article = post
+    ? seoFor({ store: { name: o.store.name, url: `${s.origin}/` }, url: `${s.origin}${page.path}`, title: post.seoTitle ?? post.title, description: post.seoDescription, image: post.image ? absolute(post.image.url) : null, preview: false, article: { headline: post.title, datePublished: post.publishedAt, author: post.author, image: post.image ? absolute(post.image.url) : null } })
+    : null
+  const head = article ? { title: article.title, description: post?.seoDescription ?? null, image: post?.image ? absolute(post.image.url) : null } : storeHead(o.store, page.route === 'home' ? '/' : page.path)
   const live: LivePage = { route: page.route === 'custom' ? null : page.route, custom: page.custom, path: page.path, store: o.store, poweredBy: s.poweredBy }
   return [
     '<!doctype html>',
@@ -59,6 +71,8 @@ export const pageDocument = (page: PlannedPage, s: CatalogueSnapshot, o: { body:
     `<title>${escapeHtml(head.title ?? o.store.name)}</title>`,
     head.description ? `<meta name="description" content="${escapeHtml(head.description)}">` : '',
     head.image ? `<meta property="og:image" content="${escapeHtml(head.image)}">` : '',
+    article ? '<meta property="og:type" content="article">' : '',
+    ...(article?.jsonLd ?? []).map((data) => `<script type="application/ld+json">${jsonLdText(data)}</script>`),
     indexable(page.route) && !page.path.includes('/_fallback/') ? `<link rel="canonical" href="${escapeHtml(`${s.origin}${page.path}`)}">` : '<meta name="robots" content="noindex">',
     ...o.assets.css.map((c) => `<link rel="stylesheet" href="${asset(c)}">`),
     `<script type="module" src="${asset(o.assets.entry)}"></script>`,

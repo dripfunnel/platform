@@ -409,8 +409,9 @@ none there. Core's hooks: `useContentPage`, `useBlog` (twelve at a time, newest 
 `useBlogPost`, the blocks decoded to `heading`, `text`, `image`, `faq`, `products` and `form` (a block of another kind is
 dropped), and `useProductCards(slugs)` for a products block (one request for up to 24). The contact form block has nowhere to
 send yet (the Shop API takes no message), so the baseline leaves it out. `seoFor` describes a post as an Article (headline,
-date, author, cover); it reaches a page's static HTML once the build has the store's posts, which it doesn't yet, as with
-Product.
+date, author, cover). The build's snapshot carries the store's published posts (LIVE-SHOP §4 step 3), so the build writes
+each one's page, in every language, with its title, description, `og:type` article and Article JSON-LD in the static
+HTML; a post past the newest 500 is served by the posts' client-rendered page.
 
 ### 3.2 What the theme receives and must render
 

@@ -75,7 +75,7 @@ const buildInto = async (input: BuildInput): Promise<BuildOutcome> => {
     throw error
   })
   if (!server) return failed(["The theme's pages can't be bundled for the static build."], 'contracts')
-  const pages = plan(routes, s.store, s.guard.usedPaths)
+  const pages = plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path))
   const thrown = await renderPages(server, pages, s, site, assets)
   if (thrown.length > 0) return failed(thrown, 'contracts')
   await write(join(site, 'sitemap.xml'), sitemap(pages, s.origin))

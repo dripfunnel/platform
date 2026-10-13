@@ -150,7 +150,9 @@ checking, deploying, live, failed, rolled back).
    `commit` out of it. The snapshot is core's `catalogueSnapshotSchema`: the store as the Shop API's `store` reads it,
    the live address (the store's host under its partner's live shops address: none is `no_address`), the partner's
    "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
-   `sf-assets.<EDGE_ZONE>`. *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
+   `sf-assets.<EDGE_ZONE>`, and *since #324* the store's published, due posts, newest first, at most 500 (none while
+   the plan has no blog): each one's address, title, search title and description, author, date and cover, so the
+   build writes its page with its head and Article data (storefront ARCHITECTURE §8). *Decided on #483:* the bundle isn't trimmed to the one commit, since the Worker has no git;
    it stays as private as the draft it copies.
 4. **The platform starts the workflow** with `workflow_dispatch`, passing a **single-use build
    id**, through the GitHub App.

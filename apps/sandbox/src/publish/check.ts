@@ -346,7 +346,7 @@ export const checkSite = async (input: CheckInput): Promise<CheckOutcome> => {
   const { snapshot: s, browser, site } = input
   const validator = validateChange(input.theme, s.guard).problems
   const routes = routesOf(input.theme)
-  const pages = plan(routes, s.store, s.guard.usedPaths)
+  const pages = plan(routes, s.store, s.guard.usedPaths, s.posts.map((p) => p.path))
   const main = pages.filter((p) => p.language === s.store.mainLanguage)
   const headers = await headersOf(site, s)
   const served = await serveFolders([site], (rel) => headers[rel]?.['content-security-policy'] ?? null)

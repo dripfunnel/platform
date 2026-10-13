@@ -189,6 +189,23 @@ export const selectShopContent = async (tx: ScopedSql, storeId: string, kind: Co
       where c.store_id = ${storeId} and c.kind = ${kind} and c.slug = ${slug}`
   )[0] ?? null
 
+export interface BuildPostRow {
+  slug: string
+  title: string
+  seo_title: string | null
+  seo_description: string | null
+  author: string | null
+  publish_at: Date
+  cover_asset_id: string | null
+}
+
+/** The posts a build writes pages for: published and due by `now`, newest first, in the main language's words. */
+export const selectBuildPosts = async (tx: ScopedSql, storeId: string, now: Date, limit: number): Promise<BuildPostRow[]> =>
+  tx<BuildPostRow[]>`
+    select slug, title, seo_title, seo_description, author, publish_at, cover_asset_id from storefront_content
+    where store_id = ${storeId} and kind = 'post' and status = 'published' and deleted_at is null and publish_at <= ${now}
+    order by publish_at desc, id desc limit ${limit}`
+
 /** The web addresses of the products among `ids` the shopper may see, by id. */
 export const selectShopProductSlugs = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<Map<string, string>> =>
   ids.length === 0
