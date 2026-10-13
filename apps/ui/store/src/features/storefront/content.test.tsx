@@ -337,7 +337,7 @@ describe('the page editor', () => {
 
   it('offers the contact form on a page only, never on a post', () => {
     const blocks = (kind: 'page' | 'post') => (
-      <ContentBlocks kind={kind} title="Body" body={[]} onBody={() => undefined} canEdit api={storeApi} names={{}} namesFailed={false} onName={() => undefined} contactEmail="hello@kesari.in" />
+      <ContentBlocks kind={kind} title="Body" body={[]} onBody={() => undefined} canEdit api={storeApi} names={{}} namesFailed={false} onName={() => undefined} contactEmail="hello@kesari.in" onUploading={() => undefined} />
     )
     const { rerender } = render(blocks('page'))
     expect(screen.getByRole('button', { name: e.tools.form })).toBeTruthy()
