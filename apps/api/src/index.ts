@@ -122,7 +122,7 @@ import { publishStorefrontWorkflow } from '#jobs/workflows/publish-storefront'
 import { renderPageWorkflow } from '#jobs/workflows/render-page'
 import { coreUpgradeWorkflow } from '#jobs/workflows/core-upgrade'
 import { storefrontUpgradeDeliverer, storefrontUpgradePushDeliverer, type UpgradeWorkflow } from '#jobs/queues/deliverers/storefrontUpgrade'
-import { advanceRollouts, createFleetService, defaultActionsJobs, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
+import { advanceRollouts, createFleetService, defaultActionsJobs, retireCoreImages, storefrontUpgradeKind, storefrontUpgradePushKind, type UpgradeParams } from '#saas/fleet/index'
 import { indexNowDeliverer } from '#jobs/queues/deliverers/indexNow'
 import { storefrontRenderDeliverer, storefrontRenderKind } from '#jobs/queues/deliverers/storefrontRender'
 import { indexNowClient } from '#integrations/indexnow/client'
@@ -908,6 +908,15 @@ const advanceCoreRollouts: CronJob = async (sql, config) => {
   })
 }
 
+// Old core versions' studio images retired once no store needs them (AI-STUDIO §9).
+const retireOldCoreImages: CronJob = async (sql) => {
+  const done = await retireCoreImages(sql, new Date()).catch((error: unknown) => {
+    logEvent({ event: 'core_images_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+    return null
+  })
+  if (done && done.retired.length > 0) logEvent({ event: 'core_images_retired', api: 'system', code: 'retired', count: done.retired.length })
+}
+
 // A scheduled post goes live at its time (FIRST-RELEASE §14); its change waits for the next publish like any edit.
 const publishDuePosts: CronJob = async (sql) => {
   const published = await publishScheduledPosts(sql, activityLog, new Date()).catch((error: unknown) => {
@@ -1039,7 +1048,7 @@ export const cronGroups: Readonly<Record<string, readonly CronJob[]>> = {
   '* * * * *': [expireSms, advanceCoreRollouts, relayOutbox, publishDuePosts],
   '*/5 * * * *': [queueDomainChecks, failStuckExports, releaseUnpaid, endDueTrials, suspendOverdue, markAbandoned, queueReminders, autoPublish],
   '0 * * * *': [refreshRates, purgeExpiredExports, purgeShopperSignIns, purgeSignups],
-  '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals],
+  '0 3 * * *': [purgeCarts, purgeWebhookLog, pruneStorefrontHistory, cleanStorefrontFiles, readStorefrontVitals, retireOldCoreImages],
 }
 
 const runCron = async (cron: string, env: Env): Promise<void> => {

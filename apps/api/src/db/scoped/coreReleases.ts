@@ -24,5 +24,46 @@ export const recordCoreRelease = async (tx: ScopedSql, version: string, sandboxI
     on conflict (version) do update set sandbox_image = excluded.sandbox_image`
 }
 
+/** A retired version's image is gone, or about to be (AI-STUDIO §9): nothing starts it. */
 export const selectSandboxImage = async (tx: ScopedSql, version: string): Promise<string | null> =>
-  (await tx<{ sandbox_image: string }[]>`select sandbox_image from core_release where version = ${version}`)[0]?.sandbox_image ?? null
+  (await tx<{ sandbox_image: string }[]>`select sandbox_image from core_release where version = ${version} and retired_at is null`)[0]?.sandbox_image ?? null
+
+export interface ReleaseUse {
+  version: string
+  retired_at: Date | null
+  /** Set once `retire-images.yml` deleted its image from Cloudflare's registry; until then it still takes space. */
+  image_deleted_at: Date | null
+  /** Stores not closed whose live code, own theme under the baseline, draft or waiting major is on the version. */
+  stores: number
+  /** Of those, the ones a rollout moves: their own code is on it, not pinned, no major waiting (ARCHITECTURE §7). */
+  movable: number
+}
+
+/** Every release, newest first, with the stores that still need its image (AI-STUDIO §9). */
+export const selectReleaseUse = (tx: ScopedSql): Promise<ReleaseUse[]> =>
+  tx<ReleaseUse[]>`
+    with used as (
+      select f.store_id, r.core_version as version, f.core_pinned_reason is null and f.core_upgrade_version is null as movable
+      from storefront f join publish_run r on r.id in (f.live_build_id, f.baseline_from_build_id)
+      union all select store_id, core_version, false from design_draft
+      union all select store_id, core_upgrade_version, false from storefront where core_upgrade_version is not null
+    )
+    select c.version, c.retired_at, c.image_deleted_at, n.stores, n.movable
+    from core_release c
+    cross join lateral (
+      select count(distinct u.store_id)::int as stores, (count(distinct u.store_id) filter (where u.movable))::int as movable
+      from used u join store s on s.id = u.store_id where u.version = c.version and s.status <> 'closed'
+    ) n
+    order by string_to_array(c.version, '.')::int[] desc`
+
+export const retireRelease = async (tx: ScopedSql, version: string, at: Date): Promise<void> => {
+  await tx`update core_release set retired_at = ${at} where version = ${version} and retired_at is null`
+}
+
+/** Retired versions whose image the scheduled workflow hasn't deleted from Cloudflare's registry yet. */
+export const selectImagesToDelete = async (tx: ScopedSql): Promise<string[]> =>
+  (await tx<{ version: string }[]>`select version from core_release where retired_at is not null and image_deleted_at is null order by retired_at`).map((r) => r.version)
+
+export const markImageDeleted = async (tx: ScopedSql, version: string, at: Date): Promise<void> => {
+  await tx`update core_release set image_deleted_at = ${at} where version = ${version} and retired_at is not null`
+}

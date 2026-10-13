@@ -222,7 +222,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   Container time is recorded per request in `ai_run.sandbox_ms`, and it is the platform's cost.
 - **Image storage:** an account holds at most 50 GB of container images, and stores pinned to
   older core versions still need theirs. At about 1.5–2 GB an image, that is roughly 25–30
-  versions at once, so old versions need a retirement rule *(decide on #485)*.
+  versions at once, so old versions need a retirement rule: decided on #485, §9.
 
 ---
 
@@ -378,4 +378,19 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   boot reads `/__studio/{session}/` from core's own module address (`studioBasePath`), points the Shop API client at
   `/__studio/{session}/shop-api` (`studioShopEndpoint`), and on each notice imports the new entry and renders its
   pages into the same root, applying only the newest bundle and putting the scroll back.
-- The retirement rule for old core versions' images *(decide on #485)*.
+- ~~The retirement rule for old core versions' images.~~ **Decided on #485** (`saas/fleet/retire.ts`, the daily
+  `0 3 * * *` cron; `.github/workflows/retire-images.yml`):
+  - the **newest 20** released versions always keep their studio image in Cloudflare's registry, leaving room under the
+    account's ~25 for the older ones still needed;
+  - an older version is **retired** (`core_release.retired_at`) once no store that isn't closed needs it: no live build,
+    no own-theme build under the baseline, no draft and no waiting major on it. Nothing starts a retired image, and the
+    scheduled workflow deletes it with `wrangler containers images delete` (the only documented way), marking
+    `image_deleted_at`, version by version (an image already gone counts as deleted; a failure is retried next run); ghcr.io's public copy stays, so a store repo's build of an old pin still runs;
+  - while stores a rollout can move still need an older version (their own code is on it, not pinned, no major
+    waiting), the job **starts a forced rollout** to the newest release first (system actor, `core_rollout.started` with
+    `retire_images`), when no other rollout is active and none to that release has run: patches and minors move those
+    stores; a major moves them only at their next publish (ARCHITECTURE §7), and a store left pinned keeps its version's
+    image, as does a draft until it is published;
+  - more than **25** images in the registry alerts the engineer on call (`core_images_over_budget`), who repairs or moves
+    the stores holding them, or the workflow's deletes; a retired image counts until the workflow has deleted it.
+  *Why:* a store is never left without the image its studio and its upgrade need, and the account stays under 50 GB.
