@@ -16,18 +16,18 @@ export const BuyButtons = ({ page }: { page: ProductPage }) => {
   const [note, setNote] = useState<'added' | 'failed' | null>(null)
   const [gift, setGift] = useState<GiftRecipient>({ recipientName: '', recipientEmail: '', sendOn: '', message: '' })
   const version = page.version
-  const kind = page.product?.kind ?? { kind: 'physical' as const }
-  const isGift = kind.kind === 'gift_card'
+  const kind = page.product?.kind
+  const isGift = kind?.kind === 'gift_card'
   const giftReady = gift.recipientName.trim() !== '' && emailLike.test(gift.recipientEmail.trim())
   const buyable = version !== null && version.stock.inStock && (!isGift || giftReady)
   const set = (patch: Partial<GiftRecipient>) => setGift({ ...gift, ...patch })
   return (
     <div className={styles.buy}>
-      {kind.kind === 'digital' ? (
+      {kind?.kind === 'digital' ? (
         <p className={styles.kindNote}>{kind.downloadLimit !== null && kind.downloadDays !== null ? t('shop.product.download', { times: kind.downloadLimit, days: kind.downloadDays }) : t('shop.product.downloadPlain')}</p>
       ) : null}
-      {kind.kind === 'service' ? <p className={styles.kindNote}>{[kind.duration, kind.location].filter(Boolean).join(' · ') || t('shop.product.service')}</p> : null}
-      {isGift ? (
+      {kind?.kind === 'service' ? <p className={styles.kindNote}>{[kind.duration, kind.location].filter(Boolean).join(' · ') || t('shop.product.service')}</p> : null}
+      {kind?.kind === 'gift_card' ? (
         <div className={styles.gift}>
           <TextField label={t('shop.product.gift.name')} autoComplete="off" value={gift.recipientName} onChange={(recipientName) => set({ recipientName })} className={styles.field} />
           <TextField label={t('shop.product.gift.email')} type="email" autoComplete="off" value={gift.recipientEmail} onChange={(recipientEmail) => set({ recipientEmail })} className={styles.field} />
