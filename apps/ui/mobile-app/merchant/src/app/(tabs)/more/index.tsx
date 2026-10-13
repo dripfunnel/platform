@@ -1,6 +1,6 @@
 import { PlaceholderScreen } from '../../../features/placeholder/PlaceholderScreen'
-import messages from '../../../messages/en.json'
+import { t } from '../../../messages'
 
 export default function More() {
-  return <PlaceholderScreen title={messages.tabs.more} />
+  return <PlaceholderScreen title={t('tabs.more')} />
 }

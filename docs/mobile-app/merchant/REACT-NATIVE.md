@@ -10,9 +10,9 @@ iOS and Android app in each partner's look:
 How builds, partners and store accounts work is in
 [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
-**Status: the project is set up (#496), with placeholder screens only.** The rest is decided, not built.
+**Status: the project is set up (#496) and its foundations are built (#497): the API client, formatting on Hermes, messages and the partner's look.** Screens are placeholders. The Hermes check has passed on Android; iOS is still to run (§6).
 
-Last updated: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
+Last updated: 2026-10-13 (#497: the Hermes check's result and the polyfills the app loads, §6). Before: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
 
 ---
 
@@ -159,13 +159,32 @@ of the app's `src/format/` could fail or come out differently: `Intl.PluralRules
 
 - **The app keeps Hermes and fills the gaps with FormatJS.** FormatJS is pure JavaScript, so it
   runs the same on Android and iOS with no native code or Expo config.
-- At startup, before anything formats, the app loads each FormatJS polyfill through its
-  `shouldPolyfill` check, so only what Hermes lacks is replaced. Locale data is loaded only for
-  the languages the portal ships.
+- At startup, before anything formats, the app imports each FormatJS polyfill first thing in
+  `app/_layout.tsx` (`src/intl/`). Each `polyfill.js` replaces its `Intl` member only where its own
+  `shouldPolyfill` check says the engine lacks it, so only what Hermes lacks is replaced. Locale data
+  is loaded only for the languages the portal ships (English), and registers only for a polyfill that
+  is active.
 - `@formatjs/intl-datetimeformat` and its time-zone data are added only if the zone names fail
-  the check below.
-- **The check:** the card that sets up the app runs the inputs from the `src/format/` tests on
-  Hermes on iOS and on Android and compares the output with Node's. Tests on Node don't prove
+  the check below. They did not (§6.1), so it is not installed.
+- **The check:** #497 runs the inputs from the `src/format/` tests on
+  Hermes on iOS and on Android and compares the output with the expected strings. Tests on Node don't prove
   Hermes. Currency digits in money formatting matter most: money is stored in minor units, so a
   wrong digit count stores a wrong price.
 
+### 6.1 The check's result (#497)
+
+How to run it: start the app in a development build or Expo Go (`pnpm dev:mobile`) and open
+`/hermes-check`, which exists only in development builds. It runs every input in
+`src/format/cases.ts` on the phone, shows each match or difference, and prints a report (lines starting
+`HERMES_CHECK`) to the log. The same inputs run on Node in the Jest tests.
+
+| Where | Engine | Inputs matching | FormatJS installed | Date |
+|---|---|---|---|---|
+| Android emulator (Pixel 7, API 34), Expo Go | Hermes for RN 0.86.2 | **24 of 24**, every currency-digit case included (INR 2, USD 2, JPY 0, KWD 3) | `locale`, `pluralrules`, `numberformat`, `listformat` | 2026-10-13 |
+| iOS | | **Not run yet.** It needs a Mac simulator or an iPhone through an EAS development build; none was available. Run `/hermes-check` there and paste its output on #497 | | |
+
+What Hermes on Android needed: **`Intl.PluralRules`, `Intl.ListFormat`, `Intl.NumberFormat` and
+`Intl.Locale` came from FormatJS**; `Intl.getCanonicalLocales` and `Intl.DateTimeFormat` are Hermes' own.
+Time-zone names ("GMT+5:30", "EDT", "GMT+1") matched without `@formatjs/intl-datetimeformat`, so it is not
+installed. Locale data is for English only: a regional locale such as `en-IN` would need its own data
+file (for example `locale-data/en-IN.js`) when one ships.

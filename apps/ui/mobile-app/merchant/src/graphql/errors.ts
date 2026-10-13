@@ -1,0 +1,42 @@
+// The Store API's stable codes (ACCESS.md §3.1, §4, scope.ts) and the three the app makes itself.
+export const knownErrorCodes = [
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'BLOCKED_WHILE_IMPERSONATING',
+  'PARTNER_ENTERS_THIS_ITSELF',
+  'STORE_REQUIRED',
+  'SUPPLIER_REQUIRED',
+  'STORE_SUSPENDED',
+  'READ_ONLY',
+  'SUPPORT_READ_ONLY',
+  'BLOCKED_FOR_SUPPORT',
+  'PLAN_LIMIT',
+  'PLAN_LIMIT_REACHED',
+  'NOT_CONNECTED',
+  'NOT_FOUND',
+  'RATE_LIMITED',
+  'INVALID_INPUT',
+  // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
+  'NO_RESPONSE',
+  'BAD_RESPONSE',
+  'UNKNOWN',
+] as const
+
+export type KnownErrorCode = (typeof knownErrorCodes)[number]
+
+const known: ReadonlySet<string> = new Set(knownErrorCodes)
+
+export class ApiError extends Error {
+  readonly code: KnownErrorCode
+  constructor(
+    code: string | undefined,
+    message: string,
+    /** The refusal's other facts as the API sent them; unchecked data. */
+    readonly details: Readonly<Record<string, unknown>> = {},
+  ) {
+    super(message)
+    this.code = code !== undefined && known.has(code) ? (code as KnownErrorCode) : 'UNKNOWN'
+  }
+}
+
+export const isApiError = (error: unknown, code?: KnownErrorCode): error is ApiError => error instanceof ApiError && (code === undefined || error.code === code)

@@ -4,13 +4,13 @@ How the code of `apps/ui/mobile-app/merchant` is laid out and how it talks to th
 The framework decision is [REACT-NATIVE.md](REACT-NATIVE.md); the look is [DESIGN.md](DESIGN.md);
 builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
-**Status: the project is set up (#496), with placeholder screens only.** `app.config.ts`,
-`partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/messages/` exist (the
-placeholder screen in `src/features/placeholder/` goes when the first real screen replaces it). The other folders in §3
-(`graphql/`, `api/`, `format/`, `session/`, `brand/`, `theme/`, `intl/`, `nav.ts`) are built on later cards.
-Rows marked *(proposed)* await a yes.
+**Status: the project is set up (#496) and its foundations are built (#497), with placeholder screens only.**
+`app.config.ts`, `partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/graphql/`,
+`src/intl/`, `src/format/`, `src/messages/`, `src/theme/`, `src/brand/` and `src/api/brand.ts` exist (the
+placeholder screen in `src/features/placeholder/` goes when the first real screen replaces it). `session/` and
+`nav.ts` are built on later cards. Rows marked *(proposed)* await a yes.
 
-Last updated: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
+Last updated: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
 
 ---
 
@@ -92,6 +92,8 @@ apps/ui/mobile-app/merchant/
 
 ## 4. Startup
 
+Built in #497 up to step 3; steps 4–5 come with sign-in (#498).
+
 1. Load the FormatJS polyfills (`src/intl/`), before anything formats.
 2. Read the partner's portal domain from the build configuration (`expo-constants`).
 3. Call the Store API's public brand query on that domain, and build the theme from it. Show
@@ -112,6 +114,21 @@ apps/ui/mobile-app/merchant/
   Screens call these functions, never `fetch`.
 - **Errors by code** (`UNAUTHENTICATED`, `FORBIDDEN`, `PLAN_LIMIT_REACHED`, `NOT_CONNECTED`…),
   each mapped to a state from DESIGN.md §4.
+- **Built in #497** (`src/graphql/`): the client sends `Authorization: Bearer`, `X-Store` and `X-Supplier` when
+  it has them (read afresh on every call; none exist yet), times out every call (15 s; the brand query
+  5 s so a phone with no signal reaches its saved look quickly), and answers failures as an `ApiError` with
+  a code. The API's codes pass through (`UNAUTHENTICATED`, `FORBIDDEN`, `READ_ONLY`, `STORE_REQUIRED`,
+  `NOT_FOUND`, …); a code it doesn't know is `UNKNOWN`. The app makes three itself: **`NO_RESPONSE`** (no
+  answer in time, or a page that isn't the API's JSON, such as Cloudflare Access's), `BAD_RESPONSE` (an
+  answer that doesn't match its zod schema) and `UNKNOWN`. `NOT_CONNECTED` is only the API's, an
+  integration that isn't connected, never "the network is down". `PLAN_LIMIT` is what the API sends for a
+  plan gate (ui/README.md §3 names it `PLAN_LIMIT_REACHED`), so both are known. Each operation's answer is
+  decoded with a zod schema written from `apps/api/schema/` (`typedQuery`), as the SPAs do.
+- **The look** (`src/theme/`, `src/brand/`): the tokens are DripFunnel's `--df-*` values as a TypeScript
+  object, light and dark. The mode is light until the signed-in person's own choice is known (ui/README.md
+  §4; the session is #498). The partner's primary colour becomes the header and its accent the brand colour, and
+  `corner` halves or removes the radii, as the portal applies them (`apps/ui/store` `brand/applyBrand.ts`).
+  Fonts are not loaded: the brand's `font` is read but the app uses the system font until a card adds font files.
 - **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
   offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write
   needs a connection. If a queue is added later, which writes may wait in it is decided first,

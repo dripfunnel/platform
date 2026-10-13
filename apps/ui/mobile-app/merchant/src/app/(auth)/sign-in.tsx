@@ -1,6 +1,6 @@
 import { PlaceholderScreen } from '../../features/placeholder/PlaceholderScreen'
-import messages from '../../messages/en.json'
+import { t } from '../../messages'
 
 export default function SignIn() {
-  return <PlaceholderScreen title={messages.auth.signIn} />
+  return <PlaceholderScreen title={t('auth.signIn')} />
 }
