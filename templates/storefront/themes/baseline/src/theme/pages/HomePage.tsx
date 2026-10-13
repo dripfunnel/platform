@@ -6,7 +6,7 @@ import styles from '../styles/home.module.css'
 
 export const HomePage = () => {
   const { store, t } = useStorefront()
-  const { collections } = useCollections({ first: 4 })
+  const { collections, status } = useCollections({ first: 4 })
   const newest = useProducts({ sort: 'newest', first: 4 })
   return (
     <Layout>
@@ -26,19 +26,29 @@ export const HomePage = () => {
         </div>
         <div className={styles.picture} />
       </section>
-      {collections.length ? (
+      {status === 'loading' || collections.length ? (
         <section className={shop.band}>
           <h2 className={shop.heading}>{t('home.collections.title')}</h2>
-          <ul className={styles.tiles}>
-            {collections.map((c) => (
-              <li key={c.id}>
-                <Link href={c.href} className={styles.tile}>
-                  {c.image ? <Image image={c.image} alt={c.name} ratio={1} sizes="(min-width: 900px) 25vw, 50vw" className={styles.tileImage} /> : null}
-                  <span className={styles.tileName}>{c.name}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {status === 'loading' ? (
+            <ul className={styles.tiles} aria-busy="true" aria-label={t('shop.listing.loading')}>
+              {[0, 1, 2, 3].map((i) => (
+                <li key={i}>
+                  <span className={styles.tile} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <ul className={styles.tiles}>
+              {collections.map((c) => (
+                <li key={c.id}>
+                  <Link href={c.href} className={styles.tile}>
+                    {c.image ? <Image image={c.image} alt={c.name} ratio={1} sizes="(min-width: 900px) 25vw, 50vw" className={styles.tileImage} /> : null}
+                    <span className={styles.tileName}>{c.name}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       ) : null}
       {newest.status === 'loading' || newest.products.length ? (
