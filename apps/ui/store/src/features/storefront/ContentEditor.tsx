@@ -16,7 +16,7 @@ const all = messages.storefront.content
 const words = all.editor
 
 type Read = { kind: 'loading' } | { kind: 'error' } | { kind: 'missing' } | { kind: 'ready'; entry: ContentEntry | null }
-type Problem = { field: 'title' | 'slug' | 'seo' | 'form'; text: string }
+type Problem = { field: 'title' | 'slug' | 'seo' | 'date' | 'form'; text: string }
 
 /** Search results cut a long title or description short; the preview does the same. */
 const cut = (text: string, limit: number) => (text.length > limit ? `${text.slice(0, limit - 2)}…` : text)
@@ -45,6 +45,8 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
   const [draft, setDraft] = useState<ContentDraft>(() => draftOf(null, kind))
   const [names, setNames] = useState<Record<string, string | null>>({})
   const [busy, setBusy] = useState<'publish' | 'draft' | 'delete' | null>(null)
+  const [uploads, setUploads] = useState(0)
+  const onUploading = (now: boolean) => setUploads((n) => n + (now ? 1 : -1))
   const [problem, setProblem] = useState<Problem | null>(null)
   const [asking, setAsking] = useState(false)
   const [deleteProblem, setDeleteProblem] = useState<string | null>(null)
@@ -198,12 +200,12 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
                 </span>
               )}
             </div>
-            {kind === 'post' && <CoverField assetId={draft.coverAssetId} canEdit={canEdit} api={api} onCover={(coverAssetId) => set({ coverAssetId })} />}
+            {kind === 'post' && <CoverField assetId={draft.coverAssetId} canEdit={canEdit} api={api} onCover={(coverAssetId) => set({ coverAssetId })} onUploading={onUploading} />}
           </section>
           <ContentBlocks kind={kind} title={w.body} body={draft.body} onBody={(change) => {
               setDraft((was) => ({ ...was, body: change(was.body) }))
               setProblem(null)
-            }} canEdit={canEdit} api={api} names={names} onName={(p, name) => setNames((was) => ({ ...was, [p]: name }))} contactEmail={contactEmail} />
+            }} canEdit={canEdit} api={api} names={names} onName={(p, name) => setNames((was) => ({ ...was, [p]: name }))} contactEmail={contactEmail} onUploading={onUploading} />
           <section className="df-sf-card" aria-labelledby={`${formId}-search`}>
             <h2 id={`${formId}-search`}>{words.search}</h2>
             <div className="df-sf-field">
@@ -248,10 +250,15 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
             <>
               <div className="df-sf-field">
                 <label htmlFor={`${formId}-date`}>{words.publishOn}</label>
-                <input id={`${formId}-date`} type="date" value={draft.publishDate} readOnly={!canEdit} aria-describedby={`${formId}-date-help`} onChange={(e) => set({ publishDate: e.target.value })} />
+                <input id={`${formId}-date`} type="date" value={draft.publishDate} readOnly={!canEdit} aria-invalid={at('date') ? true : undefined} aria-describedby={at('date') ? `${formId}-date-problem` : `${formId}-date-help`} onChange={(e) => set({ publishDate: e.target.value })} />
                 <span id={`${formId}-date-help`} className="df-sf-help">
                   {words.publishOnHelp}
                 </span>
+                {at('date') && (
+                  <span id={`${formId}-date-problem`} className="df-sf-problem" role="alert">
+                    {at('date')}
+                  </span>
+                )}
               </div>
               <div className="df-sf-field">
                 <label htmlFor={`${formId}-author`}>{words.author}</label>
@@ -261,10 +268,10 @@ export const ContentEditor = ({ kind, id, api, canEdit, host, shopName, contactE
           )}
           {canEdit && (
             <>
-              <button type="button" className="df-button df-button--primary" disabled={busy !== null} onClick={() => void save(true)}>
+              <button type="button" className="df-button df-button--primary" disabled={busy !== null || uploads > 0} onClick={() => void save(true)}>
                 {busy === 'publish' ? words.saving : future ? words.schedule : entry?.status === 'published' ? words.update : words.publish}
               </button>
-              <button type="button" className="df-button" disabled={busy !== null} onClick={() => void save(false)}>
+              <button type="button" className="df-button" disabled={busy !== null || uploads > 0} onClick={() => void save(false)}>
                 {busy === 'draft' ? words.saving : words.draft}
               </button>
             </>

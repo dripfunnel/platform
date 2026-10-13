@@ -42,6 +42,9 @@ describe('the input', () => {
     expect(draftProblem({ ...draftOf(null), title: '!!!' })?.field).toBe('slug')
     expect(draftProblem({ ...draftOf(null), title: 'A', seoDescription: 'x'.repeat(161) })?.field).toBe('seo')
     expect(draftProblem({ ...draftOf(null), title: 'A' })).toBeNull()
+    const dated = { ...draftOf(null, 'post'), title: 'A', publishAt: '2026-09-14T09:00:00.000Z', publishDate: '' }
+    expect(draftProblem(dated)?.field).toBe('date')
+    expect(draftProblem({ ...dated, publishAt: null })).toBeNull()
   })
 
   it('moves a block one place', () => {
