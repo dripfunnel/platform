@@ -20,11 +20,11 @@ as customised by us, now removed from the workspace); §11 records what was take
 **Status: specification only.** `storefront-core` has its Shop API client, store settings,
 i18n, money, SEO and the route contract (#304), the validator, `./guard` (#480), and the sealed
 components with the branded commerce types (#481), the publish gate's suites with the edge-case catalogue (#483), and the browse
-behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), and the cart with buy now and the sealed order summary (#313 part 1); everything else below is to build.
+behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), and the checkout controller with the payment adapters and the sealed payment element (#313 part 3); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 part 1: the cart as built).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built).
 
 ---
 
@@ -171,6 +171,37 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
 - **`<CodeField>`** in `ui/headless`: a code's field and its Apply button, the theme's words and the engine's answer.
 - **`<AddToCart>` and `<BuyNow>`** (part 2): the buttons a theme words and styles, `useCart`'s `add` and `buyNow` behind them,
   marked `data-df-action` so the checkout smoke test finds them in any theme (§3.2's "add-to-cart that uses `useCart`").
+
+*The checkout as built on #313 (part 3)* *(decided there)*:
+- **`useCheckout()`** in `./theme`: the steps contact → delivery address → delivery → payment → review, each `done`, `open`
+  or `later` by what the engine's cart holds (an email, an address, a delivery option, a way to pay it checked), without the
+  address and delivery when nothing is sent (`needsShipping`); `edit` opens a finished step again. `saveContact`,
+  `saveAddress` (core's checks per country first: what `address.ts` requires and the PIN, ZIP or postcode's form),
+  `chooseDelivery`, `choosePayment`, `review` (the Shop API's `checkout`) and `place`. The cart is `useCart`'s, so a change
+  anywhere shows everywhere.
+- **Placing**: `placeOrder` with the chosen way to pay. Cash on delivery and a bank transfer go straight to the order's page;
+  a card provider's payment is then taken by its **adapter** (`checkout/payments.ts`), which loads its own SDK only then:
+  Stripe's Payment Element (Stripe.js through `@stripe/stripe-js`, as #278's console uses it) in the sealed element with
+  core's Pay; Razorpay's window; Cashfree's and PhonePe's pages, which send the shopper back; PayPal's buttons in the sealed
+  element. Paid, core asks `confirmPayment` and opens the order's page; declined or closed, the payment phase says so and
+  `PlaceOrder` asks `payOrder` for another attempt.
+- **Where a provider sends the shopper back** is the order's own page, `/order/{id}/` (core's `orderConfirmation` route),
+  which reads the payment back; the Shop API's return address moved there from `/checkout/complete?order=`, which no build
+  had a page for.
+- **Express wallets** are Stripe's Apple Pay and Google Pay inside its Payment Element, asked for (`'auto'`) only on a live
+  shop and `'never'` in the preview and the studio frame (PREVIEW §5 step 6).
+- **The sealed `<PaymentElement>`** (part `payment`, at least 200×24 px): the preview's test-mode note (Stripe's test card
+  with it), a bank transfer's instructions, the provider's own field or buttons, core's Pay, and "Placing your order…",
+  "Your payment is being confirmed" or why it failed. In the studio frame it shows only "Checkout works in Open preview",
+  no provider loads and nothing is placed. On checkout the payment element and the order summary are required parts
+  wherever core gave the page a price.
+- **`<PlaceOrder>`**: the theme words and styles it; core places the order, or asks for another attempt after a failed
+  payment; marked `data-df-action` for the smoke test.
+- **Headless form controls** (`ui/headless/form.tsx`): `Form` and `SubmitButton`, `TextField` (its label, hint and error
+  tied to it), `Choices` (radio buttons, each option's content the theme's) and `AddressFields` (the country's fields with
+  core's labels: PIN code and State in India, ZIP code and State in the US, Postcode in the UK).
+- **A preview checks out as a guest**: core's runtime sends no session token on the preview host or in the studio frame
+  (`guestShopState`), only the cart's.
 
 ### 2.2 The store repo
 
@@ -467,14 +498,14 @@ their own cards.
   - Parts: the price `amount`, `was`, `tax`; the preview banner `banner`; "Powered by" `line`;
     legal notices `section`, `title`, `body`; the consent banner `banner`, `title`, `body`,
     `choice`, `button`; Cookie settings `button`; breadcrumbs `list`, `item`, `link`, `current`;
-    the order summary `panel`, `lines`, `line`, `photo`, `name`, `version`, `rows`, `row`, `saving`, `total`, `note`
-    (#313). The payment element is sealed the same way by the checkout card (#313).
+    the order summary `panel`, `lines`, `line`, `photo`, `name`, `version`, `rows`, `row`, `saving`, `total`, `note`;
+    the payment element `panel`, `test`, `instructions`, `field`, `button`, `status` (#313).
   - The banners are `popover="manual"`, so they take no focus; the preview banner's height is held
     in the page.
   - The self-check runs after layout and whenever the component scrolls into view. A failure is
     checked again a second later, so an entrance animation can finish, and only then reported.
     Minimum sizes (`minimumSize`): price 24×12 px, preview banner 200×24, "Powered by" 40×12,
-    legal notices 120×24, consent banner 240×80, Cookie settings 24×24, breadcrumbs 40×12, order summary 160×48; below
+    legal notices 120×24, consent banner 240×80, Cookie settings 24×24, breadcrumbs 40×12, order summary 160×48, payment element 200×24; below
     50% opacity, of the component or its text, counts as transparent. "Covered" is a hit test at
     its centre, so an overlay a theme makes ignore the pointer (`pointer-events: none`) isn't seen
     by it; the publish gate's visual checks (§4.2) are the wall there.
@@ -502,9 +533,11 @@ their own cards.
   (LIVE-SHOP §4 step 8, §5 step 5). A store's header is `default-src 'none'`, then the sources
   above, with `frame-ancestors` (next item), `base-uri 'none'` and `object-src 'none'`; an origin
   is https with no path. `goog#html` is listed only when the store uses GA4 or GTM. Each provider's
-  hosts are in `platform/csp` (the payment providers' *proposed*, until #313's adapters confirm
-  them). `installTrustedTypes({ analyticsHosts, buildOrigins })` creates `df-core` and `default`
-  once, before any script loads; core's analytics set their script through `df-core`.
+  hosts are in `platform/csp`; #313's adapters load each payment SDK from its listed script host
+  (`js.stripe.com`, `checkout.razorpay.com`, `sdk.cashfree.com`, `www.paypal.com`; PhonePe loads none), and the other
+  payment hosts stay *proposed* until a live payment is tried. `installTrustedTypes({ analyticsHosts, paymentHosts,
+  buildOrigins })` creates `df-core` and `default` once, before any script loads; core's analytics and payment adapters set
+  their scripts through `df-core`, and Stripe.js's own loader meets `default` (#313).
 - **Framed only by the store's portal** (decided 2026-10-12, #680): live pages and the preview
   link's pages (both `storeCsp`) list the store's partner portal origin in `frame-ancestors`, so
   the Overview can show the live site ([FIRST-RELEASE §14](../ui/store/FIRST-RELEASE.md)); every

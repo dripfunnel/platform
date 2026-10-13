@@ -261,7 +261,7 @@ describe('Paying by card', () => {
     const { placed } = await placeStripe(token)
     expect(placed?.payment).toEqual({ providerRef: 'pi_test1', publicKey: 'pk_live_platform', accountId: 'acct_columbus', clientSecret: 'pi_test1_secret_x' })
     paid = placed?.orderId ?? ''
-    expect(started[0]).toMatchObject({ orderId: paid, amount: { amount: await totalOf(paid), currency: 'USD' }, customer: { email: 'sam@example.com' }, returnUrl: `https://${live}/checkout/complete?order=${paid}` })
+    expect(started[0]).toMatchObject({ orderId: paid, amount: { amount: await totalOf(paid), currency: 'USD' }, customer: { email: 'sam@example.com' }, returnUrl: `https://${live}/order/${paid}/` })
     expect((await db.sql`select state, payment_state, stock_reserved from "order" where id = ${paid}`)[0]).toEqual({ state: 'placed', payment_state: 'pending', stock_reserved: false })
     expect(await db.sql`select provider_ref, state, mode from payment where order_id = ${paid}`).toEqual([{ provider_ref: 'pi_test1', state: 'pending', mode: 'live' }])
     expect(await reserved()).toBe(0)

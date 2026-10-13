@@ -11,6 +11,7 @@ import {
   PreviewClosed,
   setRouterBase,
   ShopApiError,
+  guestShopState,
   storedShopState,
   StorefrontProvider,
   studioBasePath,
@@ -43,7 +44,7 @@ const close = () => {
   root ??= createRoot(element)
   root.render(<PreviewClosed locale={document.documentElement.lang || 'en'} />)
 }
-const client = createShopClient({ ...(base ? { endpoint: studioShopEndpoint(base) } : {}), state: storedShopState, onError: (e) => (e.code === previewClosedCode ? close() : undefined) })
+const client = createShopClient({ ...(base ? { endpoint: studioShopEndpoint(base) } : {}), state: () => (base || !livePage() ? guestShopState() : storedShopState()), onError: (e) => (e.code === previewClosedCode ? close() : undefined) })
 
 const pageFor = (pages: ThemePages, path: string): ComponentType | undefined => {
   const found = routeAt(path, Object.keys(pages.custom))

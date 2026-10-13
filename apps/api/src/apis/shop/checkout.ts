@@ -25,8 +25,9 @@ const words: Record<string, string> = {
   OFFER_CHANGED: 'An offer in your cart has just ended or been used up. Check your cart and pay again.',
 }
 
-// Where a provider that takes the shopper away (Cashfree, PhonePe) sends them back: the storefront's own order page.
-export const returnPath = '/checkout/complete'
+// Where a provider that takes the shopper away (Cashfree, PhonePe, a card's 3-D Secure) sends them back: the storefront's
+// order page, core's `orderConfirmation` route (storefront ARCHITECTURE §3.1), which reads the payment back.
+const returnUrl = (origin: string, orderId: string) => `${origin}/order/${encodeURIComponent(orderId)}/`
 
 const answered = <T>(result: CheckoutResult<T>): T => {
   if (result.ok) return result.value
@@ -52,7 +53,7 @@ const checkoutOf = async (ctx: ShopContext) => {
     mode: paymentModeOf(shopper),
     gateways: ctx.payments?.gateways ?? {},
     secrets: ctx.secrets ?? null,
-    returnUrl: (orderId) => `${ctx.origin}${returnPath}?order=${orderId}`,
+    returnUrl: (orderId) => returnUrl(ctx.origin, orderId),
   })
 }
 

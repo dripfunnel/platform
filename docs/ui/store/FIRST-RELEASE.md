@@ -1208,7 +1208,7 @@ the store's own rates leave delivery untaxed (decided on #309). A Stripe account
 `TEST` (the preview storefront). The keys are checked, tried once with the provider, sealed and never shown again (`INVALID_KEYS`,
 `KEYS_REFUSED`, `PROVIDER_UNAVAILABLE`). `gateways` lists each mode's `connections` with the webhook address to paste
 into the provider. At checkout `placeOrder` answers Razorpay's order and key id, Cashfree's `sessionId`, PhonePe's
-`redirectUrl` (the shopper returns to `/checkout/complete?order=…` and the storefront calls `confirmPayment`) or PayPal's order
+`redirectUrl` (the shopper returns to the order's page, `/order/{id}/`, and the storefront calls `confirmPayment`; moved there from `/checkout/complete?order=…` on #313) or PayPal's order
 and client id. Cashfree refuses with `PHONE_REQUIRED` until the cart has a mobile number.
 **Built on #310 (SAPI 11), part 1, reading orders:** `orders(filter, search)` (newest first, at most 50; the chips `ALL`,
 `TO_SHIP` (unshipped or partly shipped, and gone through: paid, or cash on delivery or transfer), `PARTLY_SHIPPED`, `SHIPPED`,
