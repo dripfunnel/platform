@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { keepShopperToken, shopperToken, storedShopState } from './tokens'
+import { guestShopState, keepShopperToken, shopperToken, storedShopState } from './tokens'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -27,6 +27,12 @@ describe('the shopper’s tokens', () => {
     expect(shopperToken('session')).toBeUndefined()
     keepShopperToken('session', 'c')
     expect([localStorage.getItem('df-session'), sessionStorage.getItem('df-session')]).toEqual(['c', null])
+  })
+
+  it('sends a guest’s cart and never a session on the preview', () => {
+    keepShopperToken('cart', 'c1')
+    keepShopperToken('session', 's1')
+    expect(guestShopState()).toEqual({ cartToken: 'c1' })
   })
 
   it('has no token, and throws nothing, where storage is off', () => {

@@ -187,15 +187,16 @@ order). The prototype draws both (`designs/DF Storefront Prototype`: 14 days in 
   Stripe's Payment Element (Stripe.js through `@stripe/stripe-js`, as #278's console uses it) in the sealed element with
   core's Pay; Razorpay's window; Cashfree's and PhonePe's pages, which send the shopper back; PayPal's buttons in the sealed
   element. Paid, core asks `confirmPayment` and opens the order's page; declined or closed, the payment phase says so and
-  `PlaceOrder` asks `payOrder` for another attempt.
-- **Where a provider sends the shopper back** is the order's own page, `/order/{id}/` (core's `orderConfirmation` route),
-  which reads the payment back; the Shop API's return address moved there from `/checkout/complete?order=`, which no build
-  had a page for.
+  `PlaceOrder` asks `payOrder` for another attempt. One order per cart: `place` does nothing while an order is being placed
+  or paid, or once it failed with its order, which only `payOrder` goes on with.
+- **Where a provider sends the shopper back**, and where Pay leads, is the order's own page, `/order/{id}/` (core's
+  `orderConfirmation` route), built with the confirmation page in part 4.
 - **Express wallets** are Stripe's Apple Pay and Google Pay inside its Payment Element, asked for (`'auto'`) only on a live
   shop and `'never'` in the preview and the studio frame (PREVIEW §5 step 6).
 - **The sealed `<PaymentElement>`** (part `payment`, at least 200×24 px): the preview's test-mode note (Stripe's test card
   with it), a bank transfer's instructions, the provider's own field or buttons, core's Pay, and "Placing your order…",
-  "Your payment is being confirmed" or why it failed. In the studio frame it shows only "Checkout works in Open preview",
+  "Your payment is being confirmed", or what went wrong in its own words: a closed window, a declined payment, or an
+  order the engine didn't place ("Your order wasn't placed and nothing was charged"). In the studio frame it shows only "Checkout works in Open preview",
   no provider loads and nothing is placed. On checkout the payment element and the order summary are required parts
   wherever core gave the page a price.
 - **`<PlaceOrder>`**: the theme words and styles it; core places the order, or asks for another attempt after a failed

@@ -45,7 +45,7 @@ export const PaymentElement = ({ t, className }: { t: Translate; className?: str
         ) : null}
         {phase.kind === 'failed' ? (
           <p part="status" role="alert">
-            {phase.message ?? t('payment.failed')}
+            {phase.orderId === null ? t('payment.notPlaced') : phase.code === 'PAYMENT_CANCELLED' ? t('payment.cancelled') : (phase.message ?? t('payment.failed'))}
           </p>
         ) : null}
       </section>

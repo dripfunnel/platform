@@ -220,8 +220,9 @@ export const useCheckout = (): CheckoutPage => {
       }
     },
     place: async () => {
-      const provider = store.get().chosen
-      if (mode === 'studio' || !provider || store.get().phase.kind === 'placing') return
+      const { chosen: provider, phase } = store.get()
+      // One order per cart: while one is being placed or paid, or failed with its order, only payAgain goes on.
+      if (mode === 'studio' || !provider || (phase.kind !== 'idle' && !(phase.kind === 'failed' && phase.orderId === null))) return
       store.set({ phase: { kind: 'placing' }, error: null })
       let placed: z.infer<typeof placeSchema>['placeOrder']
       try {

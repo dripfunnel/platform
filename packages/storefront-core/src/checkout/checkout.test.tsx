@@ -2,7 +2,7 @@
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cartOf, line, usd } from '../../test/cart'
-import { Provided, shopAnswering, type Asked } from '../../test/shop'
+import { later, Provided, shopAnswering, type Asked } from '../../test/shop'
 import { createShopClient } from '../platform/api/client'
 import { storedShopState } from '../platform/api/tokens'
 import type { RenderMode } from '../platform/store/context'
@@ -40,7 +40,7 @@ const shop = (mode = 'test', extra: (a: Asked) => unknown = () => undefined) =>
   })
 
 /** Each provider's SDK as the test drives it: what was loaded, and how each window or field was used. */
-const fakeSdk = ({ declines = 0 }: { declines?: number } = {}) => {
+const fakeSdk = ({ declines = 0, dismiss = false }: { declines?: number; dismiss?: boolean } = {}) => {
   let declined = declines
   const loaded: string[] = []
   const went: string[] = []
@@ -59,10 +59,11 @@ const fakeSdk = ({ declines = 0 }: { declines?: number } = {}) => {
     },
   }
   g['Razorpay'] = class {
-    constructor(private o: { handler: () => void; order_id: string }) {}
+    constructor(private o: { handler: () => void; order_id: string; modal: { ondismiss: () => void } }) {}
     open() {
       went.push(`razorpay:${this.o.order_id}`)
-      this.o.handler()
+      if (dismiss) this.o.modal.ondismiss()
+      else this.o.handler()
     }
     close() {}
   }
@@ -193,5 +194,52 @@ describe('in the studio frame', () => {
     expect(host && rootOf(host)?.textContent).toBe('Checkout works in Open preview')
     expect(loaded).toEqual([])
     expect(asked.some((a) => a.query.includes('placeOrder'))).toBe(false)
+  })
+})
+
+describe('one order per cart', () => {
+  const placed = (asked: Asked[]) => asked.filter((a) => a.query.includes('placeOrder')).length
+  const sealedText = (c: HTMLElement) => {
+    const host = c.querySelector('[data-df-sealed="payment"]')
+    return (host && rootOf(host)?.textContent) ?? ''
+  }
+
+  it('places nothing more while a card is being paid or its payment confirmed', async () => {
+    const held = later<unknown>()
+    const asked = shop('test', (a) => (a.query.includes('confirmPayment') ? held.promise : undefined))
+    fakeSdk()
+    mount()
+    await payWith('stripe')
+    expect(page.phase.kind).toBe('paying')
+    await act(async () => void page.place())
+    expect(placed(asked)).toBe(1)
+    await act(async () => (page.phase.kind === 'paying' ? page.phase.submit?.() : undefined))
+    await act(async () => undefined)
+    expect(page.phase.kind).toBe('confirming')
+    await act(async () => void page.place())
+    expect(placed(asked)).toBe(1)
+    held.settle({ data: { confirmPayment: { id: 'o-1' } } })
+    await act(async () => undefined)
+  })
+
+  it('after a closed payment window, says so, and only another attempt goes on', async () => {
+    const asked = shop()
+    fakeSdk({ dismiss: true })
+    const { container } = mount()
+    await payWith('razorpay')
+    expect(page.phase).toMatchObject({ kind: 'failed', orderId: 'o-1', code: 'PAYMENT_CANCELLED' })
+    expect(sealedText(container)).toContain('The payment was closed before it finished.')
+    await act(async () => void page.place())
+    expect(placed(asked)).toBe(1)
+  })
+
+  it('says an order the engine refused wasn’t placed, not that a payment failed', async () => {
+    shop('test', (a) => (a.query.includes('placeOrder') ? { errors: [{ message: 'sold out', extensions: { code: 'OUT_OF_STOCK' } }] } : undefined))
+    fakeSdk()
+    const { container } = mount()
+    await payWith('cod')
+    expect(page.phase).toMatchObject({ kind: 'failed', orderId: null, code: 'OUT_OF_STOCK' })
+    expect(sealedText(container)).toContain('Your order wasn’t placed and nothing was charged.')
+    expect(sealedText(container)).not.toContain('payment didn’t go through')
   })
 })

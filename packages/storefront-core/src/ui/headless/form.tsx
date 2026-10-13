@@ -100,13 +100,19 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
     <div className={className}>
       <span className={fieldClassName}>
         <label htmlFor={id}>{t('address.country')}</label>
-        <select id={id} value={value.country} autoComplete="shipping country" onChange={(e) => onChange({ ...value, country: e.target.value })}>
+        <select id={id} value={value.country} autoComplete="shipping country" aria-invalid={errors.country ? true : undefined} aria-describedby={errors.country ? `${id}-error` : undefined} onChange={(e) => onChange({ ...value, country: e.target.value })}>
+          {value.country ? null : <option value="">{t('address.chooseCountry')}</option>}
           {(countries.includes(value.country) || !value.country ? countries : [value.country, ...countries]).map((c) => (
             <option key={c} value={c}>
               {names.of(c) ?? c}
             </option>
           ))}
         </select>
+        {errors.country ? (
+          <small id={`${id}-error`} role="alert">
+            {problem(errors.country)}
+          </small>
+        ) : null}
       </span>
       {addressFields(value.country).map((f) => (
         <TextField
