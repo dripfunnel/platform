@@ -10,9 +10,9 @@ iOS and Android app in each partner's look:
 How builds, partners and store accounts work is in
 [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
-**Status: decided, not built.** No app folder or code yet.
+**Status: the project is set up (#496), with placeholder screens only.** The rest is decided, not built.
 
-Last updated: 2026-10-09 (#493: no shared code with the SPAs).
+Last updated: 2026-10-12 (#496: the app's project exists at `apps/ui/mobile-app/merchant`). Before: 2026-10-09 (#493: no shared code with the SPAs).
 
 ---
 
@@ -25,7 +25,7 @@ Last updated: 2026-10-09 (#493: no shared code with the SPAs).
 | **Hermes, with FormatJS polyfills filling the gaps in its `Intl`** (decided 2026-10-08, §6) | Switching to JavaScriptCore; writing the app's `src/format/` on a date or number library | Hermes is React Native's and Expo's default engine. FormatJS is pure JavaScript, works the same on Android and iOS, and replaces only what Hermes lacks, so `src/format/` is written on standard `Intl`. |
 | **No shared code.** The app imports nothing from `apps/ui/shared` (`@dripfunnel/shared`) or `apps/ui/store`. It has its own API client, formatting, messages and validation, typed only from `apps/api/schema/`. Nothing moves into `shared/` for it (decided 2026-10-09, §2) | Reusing `@dripfunnel/shared` and moving code from `apps/ui/store` into `shared/` | Decided on #493. The cost is that the app writes and keeps its own versions of those parts (§2). |
 | **Start on the current Expo SDK; take patch updates on a schedule, and a new SDK only when it improves the app** (decided 2026-10-08, §3) | Following every new SDK as it ships | Every new Expo SDK can break things; patch updates within an SDK don't. A new SDK is worth that work only for a real gain, such as performance. |
-| **The app will live in this repo**, at `apps/ui/mobile-app/merchant`, inside the pnpm workspace and the turbo gates | A separate mobile repo | One repo is the platform's rule (ARCHITECTURE.md §1): a change can go from the GraphQL schema to the mobile screen in one pull request. The pull request that scaffolds the app adds it to ARCHITECTURE.md §1–§3. The `dev` and `prod` pipelines don't deploy it; its builds and submissions are manual ([BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md) §2). |
+| **The app lives in this repo**, at `apps/ui/mobile-app/merchant`, inside the pnpm workspace and the turbo gates | A separate mobile repo | One repo is the platform's rule (ARCHITECTURE.md §1): a change can go from the GraphQL schema to the mobile screen in one pull request. The pull request that scaffolds the app adds it to ARCHITECTURE.md §1–§3. The `dev` and `prod` pipelines don't deploy it; its builds and submissions are manual ([BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md) §2). |
 
 ---
 

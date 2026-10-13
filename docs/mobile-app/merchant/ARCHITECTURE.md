@@ -4,10 +4,13 @@ How the code of `apps/ui/mobile-app/merchant` is laid out and how it talks to th
 The framework decision is [REACT-NATIVE.md](REACT-NATIVE.md); the look is [DESIGN.md](DESIGN.md);
 builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
-**Status: proposed, not built.** The app folder doesn't exist yet. Rows marked *(proposed)*
-await a yes.
+**Status: the project is set up (#496), with placeholder screens only.** `app.config.ts`,
+`partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/messages/` exist (the
+placeholder screen in `src/features/placeholder/` goes when the first real screen replaces it). The other folders in §3
+(`graphql/`, `api/`, `format/`, `session/`, `brand/`, `theme/`, `intl/`, `nav.ts`) are built on later cards.
+Rows marked *(proposed)* await a yes.
 
-Last updated: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
+Last updated: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
 
 ---
 
@@ -51,8 +54,13 @@ Last updated: 2026-10-09 (#493: own client and formatting, no offline queue, no 
 
 ## 3. Folder structure
 
-`pnpm-workspace.yaml` matches `apps/ui/*`, which doesn't reach two levels down. The pull
-request that sets the app up adds `apps/ui/mobile-app/*` to it.
+`pnpm-workspace.yaml` matches `apps/ui/*`, which doesn't reach two levels down, so it also lists
+`apps/ui/mobile-app/*` (#496). The app's scripts are `start` (Expo's dev server, run by
+`pnpm dev:mobile`), `typecheck`, `lint` and `test` (Jest with `jest-expo`). It has no `dev` script
+because `pnpm dev` runs every `dev` script under `apps/`, and no `build` script because an Expo build is
+EAS's job (BUILDS-AND-STORE-ACCOUNTS.md §2). Route files under `src/app/` use default exports, which
+Expo Router requires; the root `eslint.config.js` allows them there and forbids imports from
+`@dripfunnel/*` and `apps/` in the app (REACT-NATIVE.md §2).
 
 ```
 apps/ui/mobile-app/merchant/

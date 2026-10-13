@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -554,7 +554,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 The one list of every value the code reads, with what it is for, how to make it, where it is
 kept and what reads it. **Decided 2026-10-04 on #272**: there is no central env file. Each app
 that reads values has its own **`.env.example`** (dummy values, committed) and **`.env.local`**
-(your real local values, gitignored): `apps/api` and the three consoles in `apps/ui/*`. A value
+(your real local values, gitignored): `apps/api`, the three consoles in `apps/ui/*` and the merchant mobile app (`apps/ui/mobile-app/merchant`, #496). A value
 two apps use is repeated in each. **A new variable is added to its app's `.env.example` and to
 this table in the change that first reads it.**
 
@@ -577,6 +577,11 @@ Where it is kept:
 - **Build var**: the consoles' two public flags, `VITE_STATE_HARNESS` and `VITE_ADMIN_URL`, read
   at build time (decided on #272): `apps/ui/<app>/.env.local` locally, the CI build step
   otherwise. Compiled into the public bundle, so **never** a secret.
+- **Partner file** (mobile app): a partner's public build-time values in the committed
+  `apps/ui/mobile-app/merchant/partners/<partner>.env`, picked by `PARTNER_KEY`, which is set in the shell,
+  in that app's `.env.local` or in the EAS build profile's `env` in `eas.json`. Public values only: they can
+  end up in the app bundle, so never a secret. A partner's signing credentials and store keys live in EAS's
+  credential store ([mobile-app/merchant/CONFIGURATION.md](../mobile-app/merchant/CONFIGURATION.md) §3).
 - **Your shell profile**: personal tokens (`GITHUB_PAT`).
 
 ### 8.1 Read by the code today
@@ -634,6 +639,8 @@ Where it is kept:
 | `GITHUB_TOKEN` | Per-run token GitHub makes for each workflow | Nothing to make or set | — | `ci.yml`, `naming.yml` |
 | `VITE_STATE_HARNESS` | `"1"` builds the `?state=` harness into a console; dev and feature builds only, never production | — | Build var (feature and dev builds) | `apps/ui/*/src/harness.ts`, `shared/ui/screenState.ts` |
 | `VITE_ADMIN_URL` | Where the portals' staff-session links lead outside `vite dev`; https only, defaults to production | The admin console's address for that build | Build var | `shared/ui/adminConsoleUrl.ts` |
+| `PARTNER_KEY` | Which partner a mobile build is for: it picks `partners/<PARTNER_KEY>.env`, the EAS build profile and the update channel (equal to `UPDATES_CHANNEL`). Not a secret | Chosen once when the partner's app is set up ([mobile-app/merchant/CONFIGURATION.md](../mobile-app/merchant/CONFIGURATION.md) §2); `dev` for development | `apps/ui/mobile-app/merchant/.env.local` · the `dev` profile's `env` in `eas.json` · that partner's EAS profile | `apps/ui/mobile-app/merchant/app.config.ts` (since #496) |
+| `PARTNER_DOMAIN`, `APP_NAME`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE`, `APP_SCHEME`, `ICON_IMAGE`, `ANDROID_ICON_FOREGROUND`, `ANDROID_ICON_BACKGROUND`, `SPLASH_IMAGE`, `SPLASH_BACKGROUND`, `UPDATES_CHANNEL` | A partner's mobile app: its portal host, name, store ids, URL scheme, icon and splash, and update channel. Public values only. `app.config.ts` validates each with zod and fails on a missing or malformed one; only `PARTNER_DOMAIN` reaches the running app (`expo-constants` `extra`), and no variable uses `EXPO_PUBLIC_` | What each is and where its value comes from: [mobile-app/merchant/CONFIGURATION.md](../mobile-app/merchant/CONFIGURATION.md) §2 | `apps/ui/mobile-app/merchant/partners/<partner>.env` (committed; `partners/dev.env` for development) | `apps/ui/mobile-app/merchant/app.config.ts` (since #496) |
 
 ### 8.2 Not read yet
 

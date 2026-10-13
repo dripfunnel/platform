@@ -1,0 +1,15 @@
+{
+  "tabs": {
+    "home": "Home",
+    "orders": "Orders",
+    "catalogue": "Catalogue",
+    "offers": "Offers",
+    "more": "More"
+  },
+  "auth": {
+    "signIn": "Sign in"
+  },
+  "placeholder": {
+    "body": "This screen isn't built yet."
+  }
+}
