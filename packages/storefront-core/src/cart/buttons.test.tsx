@@ -51,3 +51,32 @@ describe('AddToCart and BuyNow', () => {
     expect(assign).toHaveBeenCalledWith('/checkout/')
   })
 })
+
+describe('when the engine refuses', () => {
+  it('tells the theme the add failed, and buy now stays on the page', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...location, pathname: '/products/tee/', origin: location.origin, assign })
+    shopAnswering(() => ({ errors: [{ message: 'gone', extensions: { code: 'UNAVAILABLE' } }] }))
+    const added = vi.fn()
+    const bought = vi.fn()
+    render(
+      <Provided client={createShopClient({ state: storedShopState })}>
+        <AddToCart versionId="v1" onDone={added}>
+          Add
+        </AddToCart>
+        <BuyNow versionId="v1" onDone={bought}>
+          Buy now
+        </BuyNow>
+        <AddToCart versionId="v2" disabled>
+          Sold out
+        </AddToCart>
+      </Provided>,
+    )
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Add' })))
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Buy now' })))
+    expect(added).toHaveBeenCalledWith(false)
+    expect(bought).toHaveBeenCalledWith(false)
+    expect(assign).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Sold out' })).toHaveProperty('disabled', true)
+  })
+})

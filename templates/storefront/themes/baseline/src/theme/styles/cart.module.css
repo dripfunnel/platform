@@ -238,6 +238,11 @@
   align-self: stretch;
 }
 
+.checkout:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 @media (min-width: 900px) {
   .cart {
     grid-template-columns: minmax(0, 1fr) 400px;

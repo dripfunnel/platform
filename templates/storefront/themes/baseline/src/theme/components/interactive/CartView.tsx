@@ -147,10 +147,18 @@ export const CartView = () => {
               ))}
             </ul>
           ) : null}
-          {blocked ? <p className={styles.problem}>{t('shop.cart.blocked')}</p> : null}
-          <Link href="/checkout/" className={clsx(shop.primary, styles.checkout)}>
-            {t('shop.cart.checkout')}
-          </Link>
+          {blocked ? (
+            <>
+              <p className={styles.problem}>{t('shop.cart.blocked')}</p>
+              <button type="button" className={clsx(shop.primary, styles.checkout)} disabled>
+                {t('shop.cart.checkout')}
+              </button>
+            </>
+          ) : (
+            <Link href="/checkout/" className={clsx(shop.primary, styles.checkout)}>
+              {t('shop.cart.checkout')}
+            </Link>
+          )}
         </aside>
       </div>
     </section>
