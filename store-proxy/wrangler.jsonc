@@ -8,6 +8,15 @@
   "observability": { "enabled": false },
   "logpush": false,
   "env": {
+    // `wrangler dev --env local` (docs/setup/local.md §6.3): preview and shop hosts, behind Caddy, on the API Worker's local bucket.
+    "local": {
+      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "localhost", "PREVIEW_DOMAIN": "preview.localhost" },
+      "services": [
+        { "binding": "API", "service": "dripfunnel-api-local", "entrypoint": "PortalProxy" },
+        { "binding": "EDGE", "service": "dripfunnel-api-local", "entrypoint": "StorefrontEdge" }
+      ],
+      "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-local" }]
+    },
     // Partner portal hosts arrive here through Cloudflare for SaaS (SAAS.md §8); `*/*` catches
     // them, and the Worker passes every host of our own zone straight through.
     "dev": {

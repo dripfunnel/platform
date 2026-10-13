@@ -276,6 +276,20 @@ installed, or Metro answers 500 for the new module.
 
 ---
 
+### 6.3 Previews and store hosts
+
+`pnpm dev:https` sends every other `.localhost` host to the merchant portal. To see the studio's preview pane, **Open
+preview** and a store's own address (`store12.shop.<partner>.localhost`), also run `pnpm dev:proxy` in another terminal
+(with `pnpm dev` already running): `store-proxy` on port 8788, which Caddy sends `*.preview.localhost` and
+`*.shop.*.localhost` to. It reads the API Worker's local bucket and calls its `StorefrontEdge`.
+
+1. `cp store-proxy/.env.example store-proxy/.env.local` and put `openssl rand -base64 32` after `PREVIEW_SESSION_KEY=`.
+2. `PREVIEW_DOMAIN=preview.localhost` in `apps/api/.env.local` (§4), as for the studio.
+3. `pnpm --filter ./apps/api seed:templates` once, so a store can pick a template.
+
+A store that was never published answers 404 on its own address; no build runs here. A preview shows files the studio
+wrote, so open the studio first, then the preview.
+
 ## 7. Sign in
 
 ### 7.1 With a local session (staff and partner users, no Microsoft account needed)

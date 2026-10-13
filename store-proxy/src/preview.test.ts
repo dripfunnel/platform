@@ -129,6 +129,12 @@ describe('a preview page', () => {
     expect(sites.asked).toHaveLength(before)
   })
 
+  it('hands the studio frame\'s Shop API writes to the API too', async () => {
+    const before = edge.forwarded.length
+    await get(`https://${hostB}/__studio/session-of-a/shop-api`, { method: 'POST', body: '{}' })
+    expect(edge.forwarded).toHaveLength(before + 1)
+  })
+
   it('serves chunks on the cookie alone, checked before the cache; the copy kept is shared, the one sent private', async () => {
     const cookie = await opened()
     const chunk = await get(`https://${hostA}/assets/app.js`, withCookie(cookie))
