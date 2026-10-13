@@ -36,7 +36,7 @@ const breaks = [
   'export const Breaks = () => {',
   '  const [running, setRunning] = useState(false)',
   '  useEffect(() => setRunning(true), [])',
-  "  if (running) throw new Error('This theme broke its checkout.')",
+  '  if (running) throw new Error()',
   '  return null',
   '}',
   '',

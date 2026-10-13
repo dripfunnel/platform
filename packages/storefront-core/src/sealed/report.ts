@@ -7,18 +7,25 @@ type Reporter = (problem: StorefrontProblem) => void
 
 let reporter: Reporter | null = null
 let sent = new Set<string>()
+// A boundary can catch in the first commit, before the provider's effect sets the reporter: those wait for it.
+let waiting: StorefrontProblem[] = []
 
 /** Where reports go; each problem goes once per page. */
 export const setProblemReporter = (next: Reporter | null) => {
   reporter = next
   sent = new Set()
+  if (!next) return
+  const held = waiting
+  waiting = []
+  held.forEach(reportProblem)
 }
 
 export const reportProblem = (problem: StorefrontProblem) => {
   const key = `${problem.kind}|${problem.subject}|${problem.detail ?? ''}`
   if (sent.has(key)) return
   sent.add(key)
-  reporter?.(problem)
+  if (reporter) reporter(problem)
+  else waiting.push(problem)
 }
 
 // Names only, never the address or an error's message: a studio address holds its session (AI-STUDIO §8).
