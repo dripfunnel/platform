@@ -105,9 +105,10 @@
         { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
       "observability": {
-        "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": true, "persist": true },
-        "traces": { "enabled": true, "head_sampling_rate": 1, "persist": true },
+        "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
+        "traces": { "enabled": false },
         "issue_detection": { "enabled": true }
       },
       "images": { "binding": "IMAGES" },
@@ -161,9 +162,10 @@
         { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
       "observability": {
-        "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": true, "persist": true },
-        "traces": { "enabled": true, "head_sampling_rate": 1, "persist": true },
+        "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
+        "traces": { "enabled": false },
         "issue_detection": { "enabled": true }
       },
       "images": { "binding": "IMAGES" }
