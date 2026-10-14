@@ -5,6 +5,9 @@ import { actingAs, fakeClient, hasText, press, pressableNamed, pressablesNamed, 
 import { resetScenario } from '../states/scenario'
 import { ProductsScreen } from './ProductsScreen'
 
+// The first render of a file pays for loading the native-component mocks, which a cold CI cache and a busy runner stretch past the 30 s default.
+jest.setTimeout(120_000)
+
 const mockPush = jest.fn()
 const mockSession: { client: ApiClient | null } = { client: null }
 

@@ -5,6 +5,9 @@ import { actingAs, hasText, press, pressableNamed, pressablesNamed, renderShell 
 import { resetScenario } from '../../states/scenario'
 import { StoryScreen } from './StoryScreen'
 
+// The first render of a file pays for loading the native-component mocks, which a cold CI cache and a busy runner stretch past the 30 s default.
+jest.setTimeout(120_000)
+
 const mockSession: { client: ApiClient | null } = { client: null }
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), navigate: jest.fn(), back: jest.fn() }), useNavigation: () => ({ dispatch: jest.fn() }) }))
