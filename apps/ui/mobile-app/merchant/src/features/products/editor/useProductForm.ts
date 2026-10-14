@@ -72,7 +72,13 @@ export function useProductForm(client: ApiClient, data: EditorData, onReload: ()
         if (out.stockFailed) feedback.toast({ message: t('products.stock.newFailed') })
         return setExit(() => () => router.replace(productHref(seat, out.id) as never))
       }
-      if (!out.product) return onReload()
+      if (!out.product) {
+        if (!out.stockFailed) return onReload()
+        // Saved, but the read-back failed with counts still to send: keep every typed number, at the revision the save answered with.
+        if (out.saved && current) setCurrent({ ...current, revision: out.saved.revision })
+        setBaseline({ ...draft, stock: baseline.stock })
+        return setFailure({ code: null, message: t('products.stock.failed') })
+      }
       const fresh = draftOf(out.product, data.currency, out.levels ?? levels)
       setCurrent(out.product)
       if (out.levels) setLevels(out.levels)

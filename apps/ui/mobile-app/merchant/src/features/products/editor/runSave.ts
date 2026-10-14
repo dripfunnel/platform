@@ -48,6 +48,8 @@ export async function runSave({ client, product, draft, baseline, currency, side
       stockFailed = true
     }
   }
+  // Counts can only be sent to versions the API has answered with; typed ones that can't be sent are reported, never dropped.
+  if (countsStock && !read && stockChangesOf(draft, baseline, () => 'unread').length > 0) stockFailed = true
   const levels = read ? await loadProductStock(client, id).catch(() => null) : null
   return { id, saved, product: read, levels, stockFailed }
 }

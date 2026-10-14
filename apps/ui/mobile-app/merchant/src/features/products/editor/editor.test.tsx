@@ -534,3 +534,33 @@ describe('choices and versions', () => {
     expect(pressablesNamed(renderer, 'Hide product').length).toBeGreaterThan(0)
   })
 })
+
+describe('never losing typed counts', () => {
+  it('keeps the typed stock, and says so, when the product saved but could not be read back', async () => {
+    let saves = 0
+    const { renderer, calls } = await open('p-1', {
+      ...base(),
+      'product(id': () => {
+        if (saves === 1) throw new ApiError('NO_RESPONSE', 'down')
+        return { product: apiProduct() }
+      },
+      'mutation Save': () => ((saves += 1), { saveProduct: { id: 'p-1', revision: 5, approval: null, reviewed: [] } }),
+      'mutation SetStock': () => ({ setStock: [{ versionId: 'ver-1' }] }),
+    })
+
+    await type(renderer, 'Product name', 'Mara Linen Shirt II')
+    await type(renderer, 'Stock of this product at Jaipur studio', '20')
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+
+    expect(calledWith(calls, 'mutation SetStock')).toHaveLength(0)
+    expect(hasText(renderer, 'The product saved, but the counts didn’t. Try saving again.')).toBe(true)
+    expect((input(renderer, 'Stock of this product at Jaipur studio').props as { value: string }).value).toBe('20')
+    expect((input(renderer, 'Product name').props as { value: string }).value).toBe('Mara Linen Shirt II')
+
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+    expect(calledWith(calls, 'mutation Save').at(-1)?.variables).toMatchObject({ revision: 5 })
+    expect(calledWith(calls, 'mutation SetStock')[0]?.variables).toEqual({ e: [{ versionId: 'ver-1', warehouseId: 'w-1', quantity: 20 }] })
+  })
+})
