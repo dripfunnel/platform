@@ -161,7 +161,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    `R2_STOREFRONT_SECRET_ACCESS_KEY` and the token's value → `R2_STOREFRONT_API_TOKEN`, with the bucket names
    `STOREFRONT_SITES_BUCKET` and `STOREFRONT_DRAFTS_BUCKET` (all six or none, #517), and a cache purge token → `CF_CACHE_PURGE_TOKEN`
    (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
-2. **Preview domain**: dev uses `actuateminds.com` itself (#735, a recorded deviation in PREVIEW.md §8: previews are `{key}.actuateminds.com`, one label deep, and the domain is shared with other hosts). Otherwise register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §8:
+2. **Preview domain**: dev is bound to `actuateminds.com` for testing (#735), a proposed, unconfirmed deviation: see PREVIEW.md §8. Otherwise register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §8:
    `webpreview.store` itself is prod's), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
    `*.<domain>`, and confirm Universal SSL covers it. In Logpush leave out `ClientRequestURI`,
    `ClientRequestPath` and `ClientRequestQuery` (`../api/LOGGING.md` §9, `../storefront/PREVIEW.md` §2). The Worker route is #517's.
@@ -196,7 +196,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY` (the API Worker), and another → `PREVIEW_SESSION_KEY` (the store proxy,
    `wrangler secret put PREVIEW_SESSION_KEY --env dev` in `store-proxy`). Then give `store-proxy/wrangler.jsonc`'s `env.dev`
    the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.<dev preview domain>/*` and the
-   variable `PREVIEW_DOMAIN`, as its comment lists (#317). Dev's is `actuateminds.com` (#735): a domain we own that serves nothing else with users or sessions, a deviation from PREVIEW §1 recorded in PREVIEW.md §8. Its wildcard DNS record (`*`, proxied) and the secret
+   variable `PREVIEW_DOMAIN`, as its comment lists (#317). Dev is bound to `actuateminds.com` for testing (#735), a proposed, unconfirmed deviation from PREVIEW §1: see PREVIEW.md §8. Its wildcard DNS record (`*`, proxied) and the secret
    are set by hand; the free Universal certificate covers one label.
 
 ---

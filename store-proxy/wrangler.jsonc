@@ -21,7 +21,7 @@
     // them, and the Worker passes every host of our own zone straight through.
     "dev": {
       "name": "dripfunnel-store-proxy-dev",
-      // PREVIEW_DOMAIN is a domain shared with other hosts, not one of its own: a dev-only deviation (PREVIEW.md §8, #735). Its previews are one label deep, so the free Universal certificate covers them.
+      // Shared domain, dev only: PREVIEW.md §8 (#735).
       "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "PREVIEW_DOMAIN": "actuateminds.com" },
       // The API serves a partner's own host only on this entrypoint (SAAS.md §8, #426); EDGE is the storefront and preview edge.
       "services": [
