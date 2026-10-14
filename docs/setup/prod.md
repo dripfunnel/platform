@@ -175,13 +175,11 @@ moment you save.
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
 harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.com`.
 
+The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Workers Logs on, **invocation logs and traces off on purpose** (LOGGING §9: they record URLs, and some carry a token). Don't switch them on in the dashboard.
+
 ---
 
 ## 5. Releasing
-
-The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Workers Logs on, **invocation logs and traces off on purpose** (LOGGING §9: they record URLs, and some carry a token). Don't switch them on in the dashboard.
-
-
 1. Merge a pull request into `main`.
 2. **prod.yml** runs: gates against the test branch → migrations against production →
    uploads a new Worker version. **Nothing is live yet.**

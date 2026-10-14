@@ -155,7 +155,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    `sf-assets.dripfunnel.ai/*` with **no Worker** (Workers Routes › Add route › Worker: None), so the store proxy's `*/*`
    route never runs for it (LIVE-SHOP §5 step 7). They are bound in `apps/api/wrangler.jsonc`'s `env.dev`
    (`STOREFRONT_SITES`, `STOREFRONT_ASSETS`, `STOREFRONT_DRAFTS`) with the four Workflows and the studio's `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Objects as in `env.local` (#730; the deploy
-   token needs *Workers Scripts: Edit*; Workflows has no permission of its own). Create the buckets first: a binding to a missing bucket fails the deploy. Until the release uploads the templates (ARCHITECTURE §2.3), fill the sites bucket once with `pnpm --filter ./apps/api exec tsx --env-file=.env.local scripts/local/seed-templates.ts --remote` (reads `R2_STOREFRONT_*` and `STOREFRONT_SITES_BUCKET` from `.env.local`; its previews are a stand-in page). Create the R2 storefront
+   token needs *Workflows: Edit*). Create the buckets first: a binding to a missing bucket fails the deploy. Until the release uploads the templates (ARCHITECTURE §2.3), fill the sites bucket once with `pnpm --filter ./apps/api exec tsx --env-file=.env.local scripts/local/seed-templates.ts --remote` (reads `R2_STOREFRONT_*` and `STOREFRONT_SITES_BUCKET` from `.env.local`; its previews are a stand-in page). Create the R2 storefront
    upload credential (*Object Read & Write* on those three buckets only, able to create temporary
    credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
    `R2_STOREFRONT_SECRET_ACCESS_KEY` and the token's value → `R2_STOREFRONT_API_TOKEN`, with the bucket names
