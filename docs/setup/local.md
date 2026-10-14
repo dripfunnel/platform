@@ -294,18 +294,23 @@ sites bucket, records it as the store's live build and prints the address. Runni
 stores are untouched. The proxy caches the host lookup for up to a minute, so the address may still answer 404 for that
 long.
 `seed:live-shop <store> --draft` (#726) copies the studio's current preview instead, so the address shows the design the
-studio made. Before running it:
+studio made. In order:
 
-1. Open the store's studio and make a change (Edit text needs no model key), so a draft preview exists. A store without
-   one is refused.
-2. Have the sandbox running (`pnpm --filter ./apps/sandbox start:local`, §6.0) with `SANDBOX_LOCAL_URL` set, and the
-   store's studio open since the sandbox last started. A preview imports core's runtime (`assets/core/*`), which is not
-   in its folder; the command fetches those files from the store's slot in the sandbox. A restarted sandbox answers
-   `NOT_LOADED` until the studio is opened again, and the command refuses, naming the file it could not get.
+1. Start everything, each in its own terminal: `pnpm dev` (or `pnpm dev:api`), `pnpm dev:https`, `pnpm dev:proxy`, and the
+   sandbox, `pnpm --filter ./apps/sandbox start:local` (§6.0), with `SANDBOX_LOCAL_URL` set in `apps/api/.env.local`.
+2. Open the store's studio in the merchant portal and make a change (Edit text needs no model key), so a draft preview
+   exists. A store without one is refused.
+3. Run `pnpm --filter ./apps/api seed:live-shop <store code or id> --draft`. It prints the address.
+4. Open the address and hard-reload (Cmd+Shift+R): the browser keeps the previous build's page, and the proxy caches the
+   host lookup for up to a minute.
 
-Nothing is built: the copy is the preview's own files plus those runtime files. It writes no version, so the Storefront
-tab still says "Not published yet". A file the copy lacks answers 404; hard-reload (Cmd+Shift+R) after running it, since
-the browser keeps the previous build's page.
+A preview imports core's runtime (`assets/core/*`), which is not in its folder; the command fetches those files from the
+store's slot in the sandbox. So open the studio again after any sandbox restart: it answers `NOT_LOADED` until you do,
+and the command refuses, naming the file it could not get.
+
+Nothing is built: the copy is the preview's own files plus those runtime files, so the page keeps the preview's "not your
+live shop" banner. It writes no version, so the Storefront tab still says "Not published yet". A file the copy lacks
+answers 404.
 
 A preview shows files the studio wrote, so open the studio first, then the preview.
 
