@@ -39,7 +39,7 @@ export function ProductPicks({ client, picked, names, disabled, onToggle, onSeen
         style={[styles.pick, { borderColor: colors.border, backgroundColor: on ? colors.infoSurface : colors.surface }]}
       >
         <View style={[styles.box, { borderColor: on ? colors.focus : colors.fieldBorder, backgroundColor: on ? colors.focus : colors.surface }]}>
-          <Text style={styles.mark}>{on ? '✓' : ''}</Text>
+          <Text style={[styles.mark, { color: colors.onInk }]}>{on ? '✓' : ''}</Text>
         </View>
         <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
         <Text style={[styles.status, { color: colors.muted }]}>{status}</Text>
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   note: { fontSize: 13, padding: 12 },
   pick: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderBottomWidth: 1 },
   box: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  mark: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
+  mark: { fontSize: 12, fontWeight: '800' },
   name: { flex: 1, fontSize: 14 },
   status: { fontSize: 12 },
 })
