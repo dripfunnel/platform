@@ -22,7 +22,7 @@ export const loadBadges = async (client: ApiClient): Promise<Badges> => {
 const stateSchema = z.object({
   storeState: z
     .object({
-      readOnly: z.boolean(),
+      readOnly: z.boolean().nullable().transform((flag) => flag === true),
       status: z.string().nullable(),
       trialEndsAt: z.string().nullable(),
       pastDueSince: z.string().nullable(),
@@ -39,6 +39,6 @@ export const loadStoreState = async (client: ApiClient): Promise<StoreState | nu
 
 /** The person's saved choice of light or dark (My profile, `PortalProfile`); anything else is light. */
 export const loadTheme = async (client: ApiClient): Promise<'light' | 'dark'> => {
-  const { profile } = await typedQuery(client)('{ profile { theme } }', z.object({ profile: z.object({ theme: z.string().nullable() }) }))
-  return profile.theme === 'dark' ? 'dark' : 'light'
+  const { profile } = await typedQuery(client)('{ profile { theme } }', z.object({ profile: z.object({ theme: z.string().nullable() }).nullable() }))
+  return profile?.theme === 'dark' ? 'dark' : 'light'
 }
