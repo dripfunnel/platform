@@ -280,7 +280,7 @@ There is no per-store hostname fee.
   registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`
   locally (decided 2026-10-09). **Proposed deviation on dev (#735, unconfirmed: bound for testing on dev only; the owner of this decision has not approved it on #735):** dev uses
   `actuateminds.com` itself (previews are `{key}.actuateminds.com`, one label deep, so the free Universal certificate
-  covers them), a domain we own. **Observed 2026-10-14: its apex serves a public website, and an unused subdomain answers 522 (a proxied wildcard record already exists), so it is not an empty zone;** whether anything there holds users or sessions is unverified. It is **not** reserved for previews:
+  covers them), a domain we own. **Observed 2026-10-14: its apex serves a public website, and an unused subdomain answers 522 (a proxied wildcard record already exists), so it is not an empty zone;** whether anything there holds users or sessions is unverified, and which proxied subdomains exist there was not checked. **Risk accepted by akshay-softobotics on 2026-10-14, not by the owner of this decision:** any real proxied subdomain on this zone answers the Worker's closed 404 once dev's store-proxy deploys. It is **not** reserved for previews:
   the Worker's zone-wide route answers every `*.actuateminds.com` host (a name that isn't a preview key gets the
   closed 404), and scripts and cookies from any other host there share a site with every dev store preview (no Public
   Suffix List entry). Accepted because dev holds test data only; if
