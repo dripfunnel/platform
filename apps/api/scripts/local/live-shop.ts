@@ -96,8 +96,9 @@ export const seedLiveShop = async ({ databaseUrl, sites, store, core, draft = fa
     const folder = buildFolder(row.id, buildId)
     const encoder = new TextEncoder()
     const edge = { path: '_edge.json', bytes: encoder.encode(JSON.stringify({ redirects: [], fallbacks: [], notFound: null })) }
-    const copied = draft ? await previewFiles(sql, sites, row.id) : []
+    if (draft && sandboxUrl && !/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(sandboxUrl)) throw new Error(`Refusing to fetch from sandbox "${sandboxUrl}": local sandbox only (http://127.0.0.1:<port>).`)
     if (draft && !sandboxUrl) throw new Error('SANDBOX_LOCAL_URL is not set in apps/api/.env.local: the draft needs the sandbox for core\'s runtime (docs/setup/local.md §6.0).')
+    const copied = draft ? await previewFiles(sql, sites, row.id) : []
     const pages = draft
       ? [...copied, ...(await coreFiles(sandboxUrl ?? '', row.id, copied)), edge]
       : [{ path: 'index.html', bytes: encoder.encode(`<!doctype html><html lang="en"><meta charset="utf-8"><title>${escaped(row.name)}</title><h1>${escaped(row.name)}</h1><p>A local stand-in site: no build ran. store-proxy serves it from the local sites bucket.</p></html>`) }, edge]

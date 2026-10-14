@@ -111,12 +111,16 @@ describe('seed:live-shop', () => {
       await preview(t.storeA1, 'change-1', 'old')
       await preview(t.storeA1, 'change-2', '<p>new design</p>')
       await preview(t.storeB1, 'change-9', 'other store')
+      const otherBuild = (await seedLiveShop({ databaseUrl: db.url, sites, store: t.storeB1, core })).buildId
+      const otherKeys = sites.keys(`stores/${t.storeB1}/`)
       const live = await seedDraft(t.storeA1)
       const folder = `stores/${t.storeA1}/builds/${live.buildId}/`
       expect(sites.keys(folder)).toEqual([`${folder}_edge.json`, `${folder}_manifest.json`, `${folder}chunks/theme.js`, `${folder}index.html`])
       expect(await (await sites.get(`${folder}index.html`))?.text()).toBe('<p>new design</p>')
       expect(await livePointer(t.storeA1)).toBe(live.buildId)
-      expect(sites.keys(`stores/${t.storeB1}/`)).toEqual([`stores/${t.storeB1}/preview/change-9/chunks/theme.js`, `stores/${t.storeB1}/preview/change-9/index.html`])
+      expect(sites.keys(`stores/${t.storeB1}/`)).toEqual(otherKeys)
+      expect(await livePointer(t.storeB1)).toBe(otherBuild)
+      expect(await runIds(t.storeB1)).toEqual([otherBuild])
     })
 
     it('fetches the core runtime files the preview imports, and what those import, from the sandbox', async () => {
@@ -151,6 +155,31 @@ describe('seed:live-shop', () => {
       expect(await runIds(t.storeA1)).toEqual([second.buildId])
       expect(sites.keys(`stores/${t.storeA1}/builds/${first.buildId}/`)).toEqual([])
       expect(sites.keys(`stores/${t.storeA1}/preview/change-2/`)).toHaveLength(2)
+    })
+
+    it('replaces an earlier draft build with a new one, leaving other stores alone', async () => {
+      sites = fakeSites()
+      await draftFor(t.storeA1, 'change-2')
+      await preview(t.storeA1, 'change-2', '<p>first</p>')
+      const other = await seedLiveShop({ databaseUrl: db.url, sites, store: t.storeB1, core })
+      const first = await seedDraft(t.storeA1)
+      await draftFor(t.storeA1, 'change-3')
+      await preview(t.storeA1, 'change-3', '<p>second</p>')
+      const second = await seedDraft(t.storeA1)
+      expect(second.buildId).not.toBe(first.buildId)
+      expect(await runIds(t.storeA1)).toEqual([second.buildId])
+      expect(await livePointer(t.storeA1)).toBe(second.buildId)
+      expect(sites.keys(`stores/${t.storeA1}/builds/${first.buildId}/`)).toEqual([])
+      expect(await (await sites.get(`stores/${t.storeA1}/builds/${second.buildId}/index.html`))?.text()).toBe('<p>second</p>')
+      expect(await livePointer(t.storeB1)).toBe(other.buildId)
+    })
+
+    it('refuses a sandbox address that is not on this machine, before reading anything', async () => {
+      sites = fakeSites()
+      await draftFor(t.storeA1, 'change-2')
+      await preview(t.storeA1, 'change-2', '<p>x</p>')
+      await expect(seedLiveShop({ databaseUrl: db.url, sites, store: t.storeA1, core, draft: true, sandboxUrl: 'http://sandbox.example.com:8790' })).rejects.toThrow(/sandbox/i)
+      expect(sites.keys(`stores/${t.storeA1}/builds/`)).toEqual([])
     })
 
     it('refuses a store with no draft preview, writing nothing', async () => {
