@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-14 (#730: the dev storefront buckets and Workflows bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -154,8 +154,8 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    rule allowing `GET` from any origin (the storefront's module scripts load cross-origin), and add a Worker route
    `sf-assets.dripfunnel.ai/*` with **no Worker** (Workers Routes › Add route › Worker: None), so the store proxy's `*/*`
    route never runs for it (LIVE-SHOP §5 step 7). They are bound in `apps/api/wrangler.jsonc`'s `env.dev`
-   (`STOREFRONT_SITES`, `STOREFRONT_ASSETS`, `STOREFRONT_DRAFTS`) with the four Workflows as in `env.local` (#730; the deploy
-   token needs *Workflows: Edit*). Create the buckets first: a binding to a missing bucket fails the deploy. Until the release uploads the templates (ARCHITECTURE §2.3), fill the sites bucket once with `pnpm --filter ./apps/api exec tsx --env-file=.env.local scripts/local/seed-templates.ts --remote` (reads `R2_STOREFRONT_*` and `STOREFRONT_SITES_BUCKET` from `.env.local`; its previews are a stand-in page). Create the R2 storefront
+   (`STOREFRONT_SITES`, `STOREFRONT_ASSETS`, `STOREFRONT_DRAFTS`) with the four Workflows and the studio's `STUDIO_SESSION` and `STUDIO_CAPACITY` Durable Objects as in `env.local` (#730; the deploy
+   token needs *Workers Scripts: Edit*; Workflows has no permission of its own). Create the buckets first: a binding to a missing bucket fails the deploy. Until the release uploads the templates (ARCHITECTURE §2.3), fill the sites bucket once with `pnpm --filter ./apps/api exec tsx --env-file=.env.local scripts/local/seed-templates.ts --remote` (reads `R2_STOREFRONT_*` and `STOREFRONT_SITES_BUCKET` from `.env.local`; its previews are a stand-in page). Create the R2 storefront
    upload credential (*Object Read & Write* on those three buckets only, able to create temporary
    credentials) → `R2_STOREFRONT_ACCOUNT_ID`, `R2_STOREFRONT_ACCESS_KEY_ID`,
    `R2_STOREFRONT_SECRET_ACCESS_KEY` and the token's value → `R2_STOREFRONT_API_TOKEN`, with the bucket names
