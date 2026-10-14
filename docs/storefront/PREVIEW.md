@@ -26,7 +26,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **Every preview is on one generic domain we own: `{key}.webpreview.store`** | `{shop}.preview.<partnerdomain>` (decided 2026-10-05 on #337, replaced); `{shop}.preview.dripfunnel.com`; a direct R2 link | On our own zone, one wildcard DNS record and Cloudflare's free certificate cover every store, so nothing is set up or paid per store. A partner-domain preview is one more Cloudflare for SaaS hostname per store ($0.10 a month), and wildcard custom hostnames need Enterprise. A separate domain, not a subdomain of `dripfunnel.com`, means the AI's code can never set cookies where the consoles live. The price: preview links show our generic domain, not the partner's. |
+| **Every preview is on one generic domain we own: `{key}.webpreview.store`** (dev: `actuateminds.com`, §8) | `{shop}.preview.<partnerdomain>` (decided 2026-10-05 on #337, replaced); `{shop}.preview.dripfunnel.com`; a direct R2 link | On our own zone, one wildcard DNS record and Cloudflare's free certificate cover every store, so nothing is set up or paid per store. A partner-domain preview is one more Cloudflare for SaaS hostname per store ($0.10 a month), and wildcard custom hostnames need Enterprise. A separate domain, not a subdomain of `dripfunnel.com`, means the AI's code can never set cookies where the consoles live. The price: preview links show our generic domain, not the partner's. |
 | **No direct R2 link** | The bucket's `r2.dev` address; signed R2 URLs | A direct link would put every store on one origin, 404 on any deep link (a SPA needs `index.html` for every path), check no access, and have no `/shop-api` for the cart and checkout. Cloudflare also rate-limits `r2.dev` and says it isn't for production. A signed R2 URL covers one file, so the SPA's own scripts couldn't load. |
 | **The studio's fast gate builds the preview; there is no separate preview build** | A preview build per change in a build pool or Actions | The bundle the fast gate already produced is the preview ([AI-STUDIO.md](AI-STUDIO.md) §4), so a preview costs nothing extra and is ready in seconds. What the studio shows is exactly what the link shows. |
 | **Served from R2 by the same edge Worker as live sites** | A branch deployment of the store's Pages project (open question in ARCHITECTURE §12, now closed) | Pages per store is gone ([LIVE-SHOP.md](LIVE-SHOP.md) §1), and one serving path for preview and live is less to build and run. |
@@ -37,7 +37,7 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 
 ## 2. The domain (set up once)
 
-1. **Register `webpreview.store`** (available on 2026-10-09, as the `.store` registry reported)
+1. **Register `webpreview.store`** (prod; dev uses `actuateminds.com`, §8) (available on 2026-10-09, as the `.store` registry reported)
    and add it to Cloudflare as **its own zone**, apart from `dripfunnel.com` (#287).
    *Why:* a separate registrable domain keeps preview cookies and scripts away from the
    consoles.
@@ -278,12 +278,12 @@ There is no per-store hostname fee.
 - ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,
   `PREVIEW_DOMAIN`, validated at boot: `webpreview.store` in prod, a second cheap domain
   registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`
-  locally (decided 2026-10-09). **Proposed deviation on dev (#735, unconfirmed: bound for testing on dev only; the owner of this decision has not approved it on #735):** dev uses
+  locally (decided 2026-10-09). **Approved deviation on dev (#735; approved 2026-10-15 for dev only, §1 and §2 hold for prod):** dev uses
   `actuateminds.com` itself (previews are `{key}.actuateminds.com`, one label deep, so the free Universal certificate
-  covers them), a domain we own. **Observed 2026-10-14: its apex serves a public website, and an unused subdomain answers 522 (a proxied wildcard record already exists), so it is not an empty zone;** whether anything there holds users or sessions is unverified, and which proxied subdomains exist there was not checked. **Risk accepted by akshay-softobotics on 2026-10-14, not by the owner of this decision:** any real proxied subdomain on this zone answers the Worker's closed 404 once dev's store-proxy deploys. It is **not** reserved for previews:
+  covers them), a domain we own. **Observed 2026-10-14: its apex serves a public website, and an unused subdomain answers 522 (a proxied wildcard record already exists), so it is not an empty zone;** whether anything there holds users or sessions is unverified, and which proxied subdomains exist there was not checked. **Risk accepted with the approval:** any real proxied subdomain on this zone answers the Worker's closed 404 once dev's store-proxy deploys. It is **not** reserved for previews:
   the Worker's zone-wide route answers every `*.actuateminds.com` host (a name that isn't a preview key gets the
   closed 404), and scripts and cookies from any other host there share a site with every dev store preview (no Public
-  Suffix List entry). Accepted because dev holds test data only; if
+  Suffix List entry). Accepted because dev holds test data only; the zone's other proxied subdomains were not listed; if
   a real site ever runs on `actuateminds.com`, dev previews move to a domain of their own. Prod keeps `webpreview.store`.
 - ~~Whether the consoles show a store's preview address.~~ They don't: a preview opens only
   through the merchant's signed link (decided 2026-10-09, #518).
