@@ -70,7 +70,7 @@ export function buildConfig(config: Partial<ExpoConfig>, env: PartnerEnv): ExpoC
       package: env.ANDROID_PACKAGE,
       adaptiveIcon: { foregroundImage: env.ANDROID_ICON_FOREGROUND, backgroundColor: env.ANDROID_ICON_BACKGROUND },
     },
-    plugins: ['expo-router', ['expo-splash-screen', { image: env.SPLASH_IMAGE, backgroundColor: env.SPLASH_BACKGROUND, imageWidth: 200 }], 'expo-updates'],
+    plugins: ['expo-router', ['expo-splash-screen', { image: env.SPLASH_IMAGE, backgroundColor: env.SPLASH_BACKGROUND, imageWidth: 200 }], 'expo-updates', ['expo-image-picker', { microphonePermission: false }]],
     extra: { PARTNER_DOMAIN: env.PARTNER_DOMAIN },
   }
 }

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { useTheme } from '../../theme'
 
-export function SectionCard({ title, sub, children }: { title: string; sub?: string; children: ReactNode }) {
+export function SectionCard({ title, sub, children }: { title: string; sub?: string | undefined; children: ReactNode }) {
   const { colors, radii } = useTheme()
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.card }]}>

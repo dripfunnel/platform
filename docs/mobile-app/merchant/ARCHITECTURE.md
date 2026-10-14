@@ -12,7 +12,7 @@ builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.m
 `src/features/placeholder/` goes when the first real screen replaces it). Only `nav.ts` is still to build. Rows
 marked *(proposed)* await a yes.
 
-Last updated: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
+Last updated: 2026-10-13 (#500: Products, §3, §5). Before: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
 
 ---
 
@@ -76,7 +76,8 @@ apps/ui/mobile-app/merchant/
       _layout.tsx           root: polyfills, brand, session; then (auth) or (tabs)
       (auth)/               signed out: sign-in, 2-factor, invitation, password reset
       (tabs)/               signed in: the tab bar (DESIGN.md §2)
-        home.tsx  orders/  catalogue/  offers/  products.tsx  to-ship.tsx  more/
+        home.tsx  orders/  catalogue/  offers/  products/  to-ship.tsx  more/
+                                catalogue/ and products/ (a supplier's tab) hold the list, [id] (the editor; `new` opens an empty one) and [id]/story (A+ content)
     features/<area>/        screens, private components and hooks per area
     graphql/                the app's own API client and types generated from apps/api/schema/ (§5)
     api/<area>.ts           this app's GraphQL operations, typed from apps/api/schema/
@@ -146,6 +147,18 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
   is offline (NetInfo); a screen that writes store data applies the store's view-only rule itself.
   Sheets and toasts come from `useFeedback()`. A screen draws a designed state (DESIGN.md §4) through
   `ShellScreen`, either one it knows (access denied, 404) or the one the development-only Scenario menu picks.
+- **Built in #500** (`src/features/products/`, `src/api/products.ts`, `inventory.ts`, `productStory.ts`): Catalogue › Products and a supplier's Products tab are one list of stacked cards
+  (`ProductsScreen`: search, sort, filter chips with the API's counts, Show more, Approve and Send back for a seat that holds `approve`).
+  What a seat may do is the API's list of permissions (`me.acting.permissions`, `access.ts`), and nothing narrows the list in the app. The editor
+  (`editor/`) keeps a form draft (`draft.ts`: prices typed in major units, sent as minor-unit strings through `minorOf`) and sends back, as loaded, every
+  field it has no control for (address, category, shipping, tax, barcodes, other-currency prices), because a save writes every field it names; the
+  listing sections, filters, size chart and video are left out of the input, which keeps them as stored. Photos come from the library or camera
+  (`expo-image-picker`), go to `POST /api/assets` as raw bytes with the session's headers (not a signed URL: that is what the API has, FIRST-RELEASE (store) §19)
+  and are read back with the same headers. A typed count is saved with `setStock` after the product; "Change with a reason" is `adjustStock`, applied at
+  once. A+ content (`story/`) edits the draft modules and publishes them with the product. Not in the app yet: product kinds other than a physical
+  item (MA 14, #507; they open read-only), collections (#501), import and export (#505), bulk actions, quick edit, and the listing sections the card
+  left out (weight and box, tax category, collections and filters, specifications, FAQs, related, badges, legal fields, search listing, size chart,
+  other currencies and markets), which stay as stored when the phone saves.
 - **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
   offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write
   needs a connection. If a queue is added later, which writes may wait in it is decided first,
