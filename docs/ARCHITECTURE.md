@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
+Last updated: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
 Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
@@ -262,7 +262,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 - **Activity log**: every write and sign-in at every level, shoppers included, in an
   append-only Postgres table, searchable per person in each console within its scope; 13
   months online, 7 years archived on R2 (api/LOGGING.md).
-- Workers logs and traces with request, partner, store and seller ids and no personal data;
+- Workers logs (not invocation logs or traces: they record URLs, and some carry a token; LOGGING §9) with request, partner, store and seller ids and no personal data;
   Logpush to long-term storage *(confirm destination)*; the platform metrics (build minutes, AI cost,
   provisioning success, time to first store).
 - Secrets in Workers secrets (or Cloudflare Secrets Store), never in the repo or a bundle.

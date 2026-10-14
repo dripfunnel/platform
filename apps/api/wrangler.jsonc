@@ -105,6 +105,11 @@
         { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
+      "observability": {
+        "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
+        "traces": { "enabled": false }
+      },
       "images": { "binding": "IMAGES" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }],
       "r2_buckets": [
@@ -121,6 +126,15 @@
         { "name": "dripfunnel-render-page-dev", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
         { "name": "dripfunnel-core-upgrade-dev", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
       ],
+      // The studio's Durable Objects. Its `containers` entry (docs/setup/dev.md §2.8 item 3) waits for the first release's
+      // `core_release.sandbox_image` digest, so until then the studio opens but has no sandbox to start.
+      "durable_objects": {
+        "bindings": [
+          { "name": "STUDIO_SESSION", "class_name": "StudioSession" },
+          { "name": "STUDIO_CAPACITY", "class_name": "StudioCapacity" }
+        ]
+      },
+      "migrations": [{ "tag": "studio-v1", "new_sqlite_classes": ["StudioSession", "StudioCapacity"] }],
       // Prod gains its queue once it exists (docs/setup/prod.md): a binding to a missing queue fails the deploy.
       "queues": {
         "producers": [{ "binding": "OUTBOX_WAKE", "queue": "dripfunnel-outbox-wake-dev" }],
@@ -147,6 +161,11 @@
         { "name": "BUILD_RATE_LIMITER", "namespace_id": "1040", "simple": { "limit": 60, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
+      "observability": {
+        "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
+        "traces": { "enabled": false }
+      },
       "images": { "binding": "IMAGES" }
     }
   }
