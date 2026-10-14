@@ -253,6 +253,28 @@ describe('a store switch', () => {
 })
 
 describe('light or dark, and the connection', () => {
+  it('does not carry one person’s look to the next person after a sign-out, even when the next one’s look can’t be read', async () => {
+    const failing: ApiClient = { request: () => Promise.reject(new Error('offline')) }
+    const tree = (acting: ReturnType<typeof actingAs> | null, client: ApiClient) => (
+      <ThemeProvider theme={buildTheme('light')}>
+        <ShellDataProvider acting={acting} client={client}>
+          {null}
+        </ShellDataProvider>
+      </ThemeProvider>
+    )
+    let renderer!: ReactTestRenderer
+    await act(async () => {
+      renderer = create(tree(actingAs('owner'), fakeClient({ theme: 'dark' })))
+    })
+    await flush()
+    expect(getMode()).toBe('dark')
+    await act(async () => renderer.update(tree(null, failing)))
+    await act(async () => renderer.update(tree(actingAs('owner', null, { storeId: 'store-2' }), failing)))
+    await flush()
+    expect(getMode()).toBe('light')
+    await act(async () => renderer.unmount())
+  })
+
   it('draws the account’s saved dark choice, and goes back to light when no store is acting', async () => {
     const dark = fakeClient({ theme: 'dark' })
     const renderer = await renderShell(<ShellHeader deep={false} />, { client: dark })

@@ -59,7 +59,10 @@ export function ShellDataProvider({ acting, client, children }: { acting: Acting
 
   useEffect(() => {
     let current = true
-    if (storeKey === null) return
+    if (storeKey === null) {
+      setTheme('light')
+      return
+    }
     void Promise.all([settled(loadPerson(client)), settled(loadBadges(client)), settled(loadStoreState(client)), settled(loadTheme(client))]).then(([nextPerson, nextBadges, nextState, nextTheme]) => {
       if (!current) return
       setLoaded({ key: storeKey, person: nextPerson, badges: nextBadges, state: nextState })
