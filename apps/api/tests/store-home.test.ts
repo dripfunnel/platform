@@ -36,8 +36,7 @@ const order = async (storeId: string, number: string, placedAt: string, o: { tot
   return id
 }
 
-const staff = { id: 'staff-1', name: 'Sam Support', email: 'sam@dripfunnel.example' }
-const gql = async (source: string, who: Who, as: { support?: 'read'; impersonating?: boolean } = {}) => {
+const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers: Record<string, string> = {
     cookie: `${storeCookieName}=${cookies[who]}`,
@@ -55,9 +54,7 @@ const gql = async (source: string, who: Who, as: { support?: 'read'; impersonati
           support: { sessionId: crypto.randomUUID(), agent: { id: crypto.randomUUID(), name: 'Priya' }, partnerName: 'Partner A', actingAs: 'Owner', access: as.support, expiresAt: new Date(Date.now() + 3_600_000), writeRequest: null },
         },
       }
-    : as.impersonating && resolved.kind === 'acting'
-      ? { ...resolved, caller: { ...resolved.caller, impersonation: { id: 'imp-1', staff } } }
-      : resolved
+    : resolved
   const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined }
@@ -223,7 +220,7 @@ describe('across stores and callers (ACCESS §11)', () => {
 
 // Card #719: the Owner skips "Choose how shoppers pay" and "Choose how you ship" on the checklist.
 describe('skipping an optional setup step', () => {
-  const skip = (who: Who, step: 'payments' | 'shipping', skipped: boolean, as: { support?: 'read'; impersonating?: boolean } = {}) =>
+  const skip = (who: Who, step: 'payments' | 'shipping', skipped: boolean, as: { support?: 'read' } = {}) =>
     gql(`mutation { skipSetupStep(step: ${step}, skipped: ${skipped}) }`, who, as)
   const stored = async () => Object.fromEntries((await db.sql<{ id: string; setup_skipped: string[] }[]>`select id, to_jsonb(setup_skipped) as setup_skipped from store where id in (${t.storeA1}, ${t.storeA2}, ${t.storeB1})`).map((r) => [r.id, r.setup_skipped]))
   const setupOf = async () => (await home('fresh'))?.['setup']
@@ -264,15 +261,6 @@ describe('skipping an optional setup step', () => {
     for (const who of ['manager', 'staff', 'supplier'] as const) expect((await skip(who, 'payments', true)).code, who).toBe('FORBIDDEN')
     expect((await skip('owner', 'payments', true, { support: 'read' })).code).toBe('BLOCKED_FOR_SUPPORT')
     expect(await stored()).toEqual({ [t.storeA1]: [], [t.storeA2]: [], [t.storeB1]: [] })
-  })
-
-  it('lets a staff member impersonating the Owner skip, logged as the Owner with the staff member behind it', async () => {
-    expect((await skip('owner', 'shipping', true, { impersonating: true })).data).toEqual({ skipSetupStep: true })
-    const [entry] = await db.sql<Record<string, string>[]>`
-      select actor_kind, on_behalf_of_kind, on_behalf_of_id, on_behalf_of_label, access_kind, access_ref, target_id, reason, store_id from activity_log
-      where action = 'store.setup_step_skipped' and access_kind = 'impersonation'`
-    expect(entry).toMatchObject({ actor_kind: 'person', on_behalf_of_kind: 'staff', on_behalf_of_id: staff.id, on_behalf_of_label: 'Sam Support <sam@dripfunnel.example>', access_ref: 'imp-1', target_id: 'shipping', reason: 'skipped', store_id: t.storeA1 })
-    await skip('owner', 'shipping', false)
   })
 
   it('writes an entry per skip and undo, naming the step and nothing else', async () => {

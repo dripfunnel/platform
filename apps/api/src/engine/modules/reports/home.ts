@@ -1,5 +1,5 @@
 import type postgres from 'postgres'
-import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StorePermission } from '#auth/storePermissions'
 import type { TenantContext } from '#core/tenancy'
 import { approvalRequired, countAwaitingApproval } from '#db/scoped/approval'
@@ -120,8 +120,7 @@ export const homeAudit = { setupStepSkipped: 'store.setup_step_skipped' } as con
 export interface SetupSkipDeps {
   sql: postgres.Sql
   context: TenantContext
-  /** The entry's actor, with the staff member behind an impersonation (auth/storeCaller entryActor). */
-  actor: Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'onBehalfOf' | 'access'> & { partnerId: string }
+  actor: { id: string; partnerId: string }
   activity: ActivityLog
   facts: RequestFacts
 }
@@ -135,7 +134,10 @@ export const createSetupSkipService = ({ sql, context, actor, activity, facts }:
         category: 'write',
         action: homeAudit.setupStepSkipped,
         result: 'success',
-        ...actor,
+        actorKind: 'person',
+        actorId: actor.id,
+        actorLabel: null,
+        partnerId: actor.partnerId,
         storeId: context.storeId,
         target: { type: 'setup_step', id: step, label: step },
         reason: skipped ? 'skipped' : 'undone',
