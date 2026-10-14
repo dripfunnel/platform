@@ -3,7 +3,8 @@ import * as SecureStore from 'expo-secure-store'
 import { z } from 'zod'
 import type { Acting, SessionStorage } from './sessionStore'
 
-const actingSchema = z.object({ storeId: z.string(), supplierId: z.string().nullable(), storeName: z.string() })
+// Only the ids and the name decide "last used"; the role and tier come fresh from the API at every start.
+const actingSchema = z.object({ storeId: z.string(), supplierId: z.string().nullable(), storeName: z.string(), role: z.string().catch(''), tier: z.string().nullable().catch(null) })
 
 // Keyed by the portal host, so a build never reads another partner's session. The token never leaves this file's
 // calls, and is not logged or shown.

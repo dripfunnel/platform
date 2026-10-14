@@ -1,7 +1,7 @@
 import { createApiClient, isApiError, type ApiClient, type ClientOptions } from '../graphql'
 
 /** The store, and for a person working for more than one supplier in it the supplier, a request acts in (ACCESS.md §4). */
-export type Acting = { storeId: string; supplierId: string | null; storeName: string }
+export type Acting = { storeId: string; supplierId: string | null; storeName: string; role: string; tier: string | null }
 
 /** Why the sign-in screen is showing, when it isn't a plain start: the words come from messages/. */
 export type Notice = 'signedOut' | 'expired' | 'noStores'

@@ -59,8 +59,8 @@ describe('the saved session', () => {
 
   it('is read back after it was saved, with the last store', async () => {
     await storage.writeToken('t0ken')
-    await storage.writeLast({ storeId: 'a', supplierId: null, storeName: 'Juniper & Co.' })
-    await expect(storage.read()).resolves.toEqual({ token: 't0ken', last: { storeId: 'a', supplierId: null, storeName: 'Juniper & Co.' } })
+    await storage.writeLast({ storeId: 'a', supplierId: null, storeName: 'Juniper & Co.', role: 'owner', tier: null })
+    await expect(storage.read()).resolves.toEqual({ token: 't0ken', last: { storeId: 'a', supplierId: null, storeName: 'Juniper & Co.', role: 'owner', tier: null } })
   })
 
   it('is gone after a sign-out', async () => {

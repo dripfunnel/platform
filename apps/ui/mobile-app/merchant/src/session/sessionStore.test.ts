@@ -1,6 +1,6 @@
 import { createSessionClient, createSessionStore, type Acting, type SessionStorage } from './sessionStore'
 
-const acting: Acting = { storeId: 'store-1', supplierId: null, storeName: 'Juniper & Co.' }
+const acting: Acting = { storeId: 'store-1', supplierId: null, storeName: 'Juniper & Co.', role: 'owner', tier: null }
 
 const memoryStorage = (saved: { token: string | null; last: Acting | null } = { token: null, last: null }) => {
   const kept = { ...saved }
@@ -94,6 +94,21 @@ describe('a signed-in person’s client', () => {
 
     const [, init] = fetchImpl.mock.calls[0] as unknown as [string, { headers: Record<string, string> }]
     expect(init.headers).toMatchObject({ authorization: 'Bearer t0ken', 'x-store': 'store-1', 'x-supplier': 'supplier-1' })
+  })
+
+  it('sends neither the store nor the supplier once the person has switched store', async () => {
+    const store = createSessionStore(memoryStorage().storage)
+    await store.open('t0ken')
+    await store.act({ ...acting, supplierId: 'supplier-1' })
+    store.leaveStore()
+    const fetchImpl = answer({ data: { ok: true } })
+
+    await createSessionClient(store, { domain: 'store.example.com', fetchImpl }).request('{ ok }')
+
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, { headers: Record<string, string> }]
+    expect(init.headers).toMatchObject({ authorization: 'Bearer t0ken' })
+    expect(init.headers).not.toHaveProperty('x-store')
+    expect(init.headers).not.toHaveProperty('x-supplier')
   })
 
   it('ends the session, wiping the token, when the API answers UNAUTHENTICATED', async () => {

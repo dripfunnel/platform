@@ -1,10 +1,13 @@
 // First, so the Intl polyfills are in place before anything formats (ARCHITECTURE.md §4 step 1).
 import '../intl'
 import { Stack } from 'expo-router'
+import type { ReactNode } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { BrandProvider } from '../brand/BrandProvider'
+import { FeedbackProvider } from '../features/shell/Feedback'
+import { ShellDataProvider } from '../features/shell/ShellData'
 import { t } from '../messages'
-import { useSession } from '../session'
+import { sessionClient, useSession } from '../session'
 import { SessionProvider } from '../session/SessionProvider'
 import { useTheme } from '../theme'
 
@@ -32,13 +35,28 @@ function Routes() {
   )
 }
 
+// What the signed-in shell reads about the store and the person, and the sheets and toasts it draws, sit above the
+// routes so My profile shares them with the tabs (DESIGN.md §2, §4).
+function InShell({ children }: { children: ReactNode }) {
+  const state = useSession()
+  return (
+    <FeedbackProvider>
+      <ShellDataProvider acting={state.status === 'signedIn' ? state.acting : null} client={sessionClient()}>
+        {children}
+      </ShellDataProvider>
+    </FeedbackProvider>
+  )
+}
+
 // BrandProvider loads the partner's look before anything renders (ARCHITECTURE.md §4 step 3).
 export default function RootLayout() {
   return (
     <BrandProvider>
       <StatusBar style="auto" />
       <SessionProvider>
-        <Routes />
+        <InShell>
+          <Routes />
+        </InShell>
       </SessionProvider>
     </BrandProvider>
   )

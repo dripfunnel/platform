@@ -67,7 +67,7 @@ export function PasswordSection({ profile }: { profile: Profile }) {
           />
           <TextField label={t('profile.againPassword')} value={again} onChangeText={setAgain} secret autoComplete="new-password" textContentType="newPassword" invalid={again !== '' && again !== next} />
           <Notice text={t('profile.passwordNote')} />
-          <Button label={t('profile.changePassword')} onPress={() => void save()} busy={busy} />
+          <Button label={t('profile.changePassword')} onPress={() => void save()} busy={busy} saves />
           <Button kind="secondary" label={t('common.cancel')} onPress={close} />
         </>
       ) : (

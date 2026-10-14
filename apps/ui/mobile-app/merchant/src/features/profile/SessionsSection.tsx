@@ -50,7 +50,7 @@ export function SessionsSection({ sessions, onChanged }: { sessions: readonly Si
           {session.current ? <Text style={[styles.sub, { color: colors.success }]}>{t('profile.sessionActive')}</Text> : null}
         </View>
       ))}
-      {others > 0 ? <Button kind="secondary" label={t('profile.signOutOthers')} onPress={confirm} busy={busy} /> : null}
+      {others > 0 ? <Button kind="secondary" label={t('profile.signOutOthers')} onPress={confirm} busy={busy} saves /> : null}
     </SectionCard>
   )
 }

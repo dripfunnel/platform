@@ -76,7 +76,7 @@ apps/ui/mobile-app/merchant/
       _layout.tsx           root: polyfills, brand, session; then (auth) or (tabs)
       (auth)/               signed out: sign-in, 2-factor, invitation, password reset
       (tabs)/               signed in: the tab bar (DESIGN.md §2)
-        home.tsx  orders/  catalogue/  offers/  more/
+        home.tsx  orders/  catalogue/  offers/  products.tsx  to-ship.tsx  more/
     features/<area>/        screens, private components and hooks per area
     graphql/                the app's own API client and types generated from apps/api/schema/ (§5)
     api/<area>.ts           this app's GraphQL operations, typed from apps/api/schema/
@@ -137,6 +137,15 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
   person makes goes through `sessionClient()`, which adds the bearer token, `X-Store` and `X-Supplier` and ends the
   session on `UNAUTHENTICATED`. The sign-in routes are plain POSTs, so `graphql/rest.ts` carries them; how they
   work is in REACT-NATIVE.md §5.1.
+- **Built in #499** (`src/features/shell/`, `src/features/states/`): the shell is the header, the banners, the
+  screen and the tab bar, all drawn by `app/(tabs)/_layout.tsx` from `nav.ts` for the role and supplier tier the
+  membership carries (`Acting.role`, `Acting.tier`). `ShellDataProvider`, above the routes so My profile shares it,
+  reads `me`, `navBadges`, `storeState` and `profile.theme` for the acting store, each read on its own so a failed one
+  draws less (no badge, no banner) rather than stopping the app; it reads again when the app comes to the front.
+  A `Button` marked `saves` (an account action: My profile takes no store state, as on the web) is off while the phone
+  is offline (NetInfo); a screen that writes store data applies the store's view-only rule itself.
+  Sheets and toasts come from `useFeedback()`. A screen draws a designed state (DESIGN.md §4) through
+  `ShellScreen`, either one it knows (access denied, 404) or the one the development-only Scenario menu picks.
 - **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
   offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write
   needs a connection. If a queue is added later, which writes may wait in it is decided first,

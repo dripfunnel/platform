@@ -50,8 +50,12 @@ partner's primary colour when white-labelled, otherwise navy `#0A2A4A`. The head
 | Role | Tabs |
 |---|---|
 | Owner, Manager, Staff | Home · Orders · Catalogue · Offers · More |
-| Supplier (catalogue tiers) | Products · To ship · More |
-| Supplier (stock only) | Products · More |
+| Supplier, orders tiers (`vendor-orders-read`, `vendor-orders-fulfil`) | Products · To ship · More |
+| Supplier, `vendor-stock` and `vendor-catalogue` | Products · More |
+
+A supplier who cannot read orders has no To ship tab and no Your sales item, because the API
+refuses it every order query (ACCESS.md §5.2). The tabs and the More items are data in
+`apps/ui/mobile-app/merchant/src/nav.ts`, one list per role and tier.
 
 - **Active tab:** navy, weight 800, on a `#E3ECF5` pill. Inactive tabs are `#5A6472`, weight 600.
 - **Badges:** counts of waiting work.
@@ -61,9 +65,14 @@ partner's primary colour when white-labelled, otherwise navy `#0A2A4A`. The head
 **More** shows the person (initials, name, role and store), then two groups:
 
 - **Your shop:** every menu item the role has that isn't a tab, such as Customers, Abandoned
-  carts, Reports and Storefront.
-- **Account:** My profile, Settings, Switch store, Sign out. Billing is not in the app
-  (FIRST-RELEASE.md §1).
+  carts, Reports and Storefront; for a supplier, Your sales (the orders tiers) and Your team
+  (a Supplier admin).
+- **Account:** My profile, Settings (Owner only), Switch store, Sign out. Billing is not in the
+  app (FIRST-RELEASE.md §1).
+
+In a development build a **Scenario** button opens a menu that picks which state, banner, role
+and look the shell draws, so each can be screenshotted without a store in that state. It does
+nothing in a store build.
 
 A 58 px orange help button floats at the bottom right. It opens the **partner's** help centre
 (SAAS.md §3.4), never DripFunnel's.
@@ -100,10 +109,13 @@ instead.
   tall, stacked with the confirm button on top. They follow design.md §4's modal spec (title,
   body, choices, one input, `danger`).
 - **Toasts** sit above the tab bar: one line, an optional action (Undo), dark ground.
-- **Banners** sit under the header, full width, each with one action: trial, trial ending,
-  trial ended, bandwidth at 80% or more, white label on, offline ("You're offline. Changes
-  need a connection.", decided 2026-10-09: no offline write queue in the first release,
-  ARCHITECTURE.md §5). Plan banners have no buy or upgrade action (§5).
+- **Banners** sit under the header, full width, in the portal's words (FIRST-RELEASE.md §3.3):
+  provisioning, past due, trial, trial ending, trial ended, bandwidth at 80% or more, white
+  label on, suspended, cancelled, a support session, offline ("You're offline. Changes need a
+  connection.", decided 2026-10-09: no offline write queue in the first release,
+  ARCHITECTURE.md §5). They carry no button, since plans and billing are not in the app (§5).
+  While the phone is offline every button that saves is off. Trial ended, bandwidth and white
+  label come from the Scenario menu only until the API sends the data for them.
 - **Sizes:** hit targets 44 px or more; fields and buttons 44–50 px; content padding 16 px; list
   cards 16 px radius, quick tiles 14 px, buttons 12 px.
 - **Lists are stacked cards**: the name, a muted second line, and the value or status on the

@@ -4,7 +4,7 @@ import { readSavedBrand, saveBrand } from './storage'
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'))
 
-const brand: Brand = { productName: 'Northstar', primaryColor: '#0A2A4A', accentColor: null, font: null, corner: 'soft', files: { logoLight: null, logoDark: null, mark: null } }
+const brand: Brand = { productName: 'Northstar', primaryColor: '#0A2A4A', accentColor: null, font: null, corner: 'soft', helpUrl: null, supportUrl: null, supportEmail: null, files: { logoLight: null, logoDark: null, mark: null } }
 
 describe('the look saved on the device', () => {
   beforeEach(() => AsyncStorage.clear())
