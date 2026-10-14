@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -288,8 +288,11 @@ preview** and a store's own address (`store12.shop.<partner>.localhost`), also r
 2. `PREVIEW_DOMAIN=preview.localhost` in `apps/api/.env.local` (§4), as for the studio.
 3. `pnpm --filter ./apps/api seed:templates` once, so a store can pick a template.
 
-A store that was never published answers 404 on its own address; no build runs here. A preview shows files the studio
-wrote, so open the studio first, then the preview.
+A store that was never published answers 404 on its own address; no build runs here. To see a store's address working,
+run `pnpm --filter ./apps/api seed:live-shop <store code or id>` (#723): it writes a one-page stand-in build into the local
+sites bucket, records it as the store's live build and prints the address. Running it again replaces the stand-in; other
+stores are untouched. The proxy caches the host lookup for up to a minute, so the address may still answer 404 for that
+long. A preview shows files the studio wrote, so open the studio first, then the preview.
 
 ## 7. Sign in
 
