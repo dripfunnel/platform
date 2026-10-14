@@ -196,8 +196,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY` (the API Worker), and another → `PREVIEW_SESSION_KEY` (the store proxy,
    `wrangler secret put PREVIEW_SESSION_KEY --env dev` in `store-proxy`). Then give `store-proxy/wrangler.jsonc`'s `env.dev`
    the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.<dev preview domain>/*` and the
-   variable `PREVIEW_DOMAIN`, as its comment lists (#317). Dev's is `preview-dev.dripfunnel.com` (#735): under `dripfunnel.com` because the
-   boot rule refuses a domain under `dripfunnel.ai`, which weakens the separate-domain wall on dev only; its wildcard DNS record, a certificate
+   variable `PREVIEW_DOMAIN`, as its comment lists (#317). Dev's is `preview.actuateminds.com` (#735): a registrable domain apart from ours, as PREVIEW §1 wants. Its wildcard DNS record, a certificate
    for the two-label host and the secret are set by hand.
 
 ---
