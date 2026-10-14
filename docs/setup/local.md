@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -292,7 +292,22 @@ A store that was never published answers 404 on its own address; no build runs h
 run `pnpm --filter ./apps/api seed:live-shop <store code or id>` (#723): it writes a one-page stand-in build into the local
 sites bucket, records it as the store's live build and prints the address. Running it again replaces the stand-in; other
 stores are untouched. The proxy caches the host lookup for up to a minute, so the address may still answer 404 for that
-long. A preview shows files the studio wrote, so open the studio first, then the preview.
+long.
+`seed:live-shop <store> --draft` (#726) copies the studio's current preview instead, so the address shows the design the
+studio made. Before running it:
+
+1. Open the store's studio and make a change (Edit text needs no model key), so a draft preview exists. A store without
+   one is refused.
+2. Have the sandbox running (`pnpm --filter ./apps/sandbox start:local`, §6.0) with `SANDBOX_LOCAL_URL` set, and the
+   store's studio open since the sandbox last started. A preview imports core's runtime (`assets/core/*`), which is not
+   in its folder; the command fetches those files from the store's slot in the sandbox. A restarted sandbox answers
+   `NOT_LOADED` until the studio is opened again, and the command refuses, naming the file it could not get.
+
+Nothing is built: the copy is the preview's own files plus those runtime files. It writes no version, so the Storefront
+tab still says "Not published yet". A file the copy lacks answers 404; hard-reload (Cmd+Shift+R) after running it, since
+the browser keeps the previous build's page.
+
+A preview shows files the studio wrote, so open the studio first, then the preview.
 
 ## 7. Sign in
 
