@@ -63,7 +63,11 @@ export const seed = async (connectionString: string, now: Date = new Date()): Pr
   const sql = postgres(connectionString, { max: 1 })
   try {
     return await sql.begin(async (tx) => {
+      // The cascade reaches storefront_template through its demo store; the gallery is 0331's, not the seed's, so it goes back.
+      await tx.unsafe('create temp table kept_template on commit drop as select * from storefront_template')
       await tx.unsafe(`truncate ${owned.join(', ')} restart identity cascade`)
+      await tx.unsafe('update kept_template set demo_store_id = null')
+      await tx.unsafe('insert into storefront_template select * from kept_template')
       return seedInto(tx, now)
     })
   } finally {
