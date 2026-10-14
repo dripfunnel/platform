@@ -774,8 +774,10 @@ type HomeSales {
 type HomeSetup {
   collections: Boolean
   payments: Boolean
+  paymentsSkipped: Boolean
   products: Boolean
   shipping: Boolean
+  shippingSkipped: Boolean
 }
 
 type InstallableApp {
@@ -1139,6 +1141,7 @@ type Mutation {
   setTheme(theme: String!): Profile
   shipItems(courierName: String, lines: [ShipLineInput!]!, orderId: ID!, trackingNumber: String, trackingUrl: String, warehouseId: ID!): [ID!]
   signOutOtherSessions: Int
+  skipSetupStep(skipped: Boolean!, step: SetupStep!): Boolean
   startCatalogImport(file: String!): ID
   startReturn(lines: [ShipLineInput!]!, note: String, orderId: ID!, reason: ReturnReason!): ID
   startShopifyImport(all: Boolean, productIds: [ID!]): ID
@@ -2364,6 +2367,11 @@ type ServiceDetails {
 input ServiceDetailsInput {
   duration: String
   location: String
+}
+
+enum SetupStep {
+  payments
+  shipping
 }
 
 type SharedName {

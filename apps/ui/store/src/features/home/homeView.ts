@@ -52,6 +52,9 @@ export interface SetupItem {
   key: SetupKey
   done: boolean
   note: string | null
+  /** Payments and shipping can be skipped by the Owner until done; a skipped one leaves the count (#719). */
+  optional: boolean
+  skipped: boolean
 }
 
 const languageName = (code: string) => new Intl.DisplayNames([locale], { type: 'language' }).of(code) ?? code
@@ -65,12 +68,21 @@ export const setupOf = (home: StoreHome, localeFacts: StoreLocaleFacts | null): 
   if (!home.setup || home.hasOrders) return []
   const items: SetupItem[] = []
   if (localeFacts?.country && localeFacts.currency && localeFacts.language)
-    items.push({ key: 'locale', done: true, note: fill(words.setup.locale.note, { country: countryName(localeFacts.country), currency: localeFacts.currency, language: languageName(localeFacts.language) }) })
+    items.push({ key: 'locale', done: true, optional: false, skipped: false, note: fill(words.setup.locale.note, { country: countryName(localeFacts.country), currency: localeFacts.currency, language: languageName(localeFacts.language) }) })
   for (const key of ['products', 'collections', 'payments', 'shipping'] as const) {
     const done = home.setup[key]
-    if (done !== null) items.push({ key, done, note: null })
+    if (done === null) continue
+    const optional = key === 'payments' || key === 'shipping'
+    const skipped = !done && ((key === 'payments' && home.setup.paymentsSkipped) || (key === 'shipping' && home.setup.shippingSkipped)) === true
+    items.push({ key, done, note: null, optional: optional && !done, skipped })
   }
   return items
+}
+
+/** "X of Y": a skipped step is in neither number. */
+export const setupCount = (items: SetupItem[]): { done: number; total: number } => {
+  const counted = items.filter((i) => !i.skipped)
+  return { done: counted.filter((i) => i.done).length, total: counted.length }
 }
 
 export interface Delta {

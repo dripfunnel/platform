@@ -1,4 +1,5 @@
 import type postgres from 'postgres'
+import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { StorePermission } from '#auth/storePermissions'
 import type { TenantContext } from '#core/tenancy'
 import { approvalRequired, countAwaitingApproval } from '#db/scoped/approval'
@@ -11,6 +12,8 @@ import {
   selectRejectedCouriers,
   selectSetup,
   selectStoreDays,
+  setSetupStepSkipped,
+  type SetupStep,
 } from '#db/scoped/storeHome'
 import { selectMerchantOrders, type OrderListRow } from '#db/scoped/storeOrders'
 
@@ -46,7 +49,15 @@ export interface HomeView {
   /** Each order's total is null for a seat without money. */
   latestOrders: (OrderListRow & { total_amount: string | null })[]
   /** The getting-started checklist while the store has no order; an item is null for a seat that can't do it. */
-  setup: { products: boolean | null; collections: boolean | null; payments: boolean | null; shipping: boolean | null } | null
+  setup: {
+    products: boolean | null
+    collections: boolean | null
+    payments: boolean | null
+    shipping: boolean | null
+    /** Whether the Owner skipped the step (#719); null for a seat that can't, as its done flag is. */
+    paymentsSkipped: boolean | null
+    shippingSkipped: boolean | null
+  } | null
 }
 
 export interface HomeDeps {
@@ -95,9 +106,43 @@ export const createHomeService = ({ sql, context, has, now }: HomeDeps) => {
               collections: only(has('catalog.write'), setup.collections),
               payments: only(has('payments.configure'), setup.payments),
               shipping: only(has('shipping.configure'), setup.shipping),
+              paymentsSkipped: only(has('payments.configure'), setup.skipped.includes('payments')),
+              shippingSkipped: only(has('shipping.configure'), setup.skipped.includes('shipping')),
             },
       }
     })
 
   return { read }
 }
+
+export const homeAudit = { setupStepSkipped: 'store.setup_step_skipped' } as const
+
+export interface SetupSkipDeps {
+  sql: postgres.Sql
+  context: TenantContext
+  /** The entry's actor, with the staff member behind an impersonation (auth/storeCaller entryActor). */
+  actor: Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'onBehalfOf' | 'access'> & { partnerId: string }
+  activity: ActivityLog
+  facts: RequestFacts
+}
+
+/** Home's "Skip" and "Undo" on the two optional checklist steps (#719); the step names, never a person's data, are logged. */
+export const createSetupSkipService = ({ sql, context, actor, activity, facts }: SetupSkipDeps) => ({
+  skip: (step: SetupStep, skipped: boolean): Promise<boolean> =>
+    withScope(sql, context, async (tx) => {
+      await setSetupStepSkipped(tx, step, skipped)
+      await activity.record(tx, {
+        category: 'write',
+        action: homeAudit.setupStepSkipped,
+        result: 'success',
+        ...actor,
+        storeId: context.storeId,
+        target: { type: 'setup_step', id: step, label: step },
+        reason: skipped ? 'skipped' : 'undone',
+        api: 'store',
+        visibility: 'store',
+        ...facts,
+      })
+      return true
+    }),
+})

@@ -197,14 +197,45 @@
   background: var(--df-color-brand);
 }
 
-.df-home-step a {
+.df-home-step {
   display: flex;
   align-items: center;
-  gap: var(--df-space-3);
-  padding: 10px 0;
+  gap: var(--df-space-2);
   border-top: 1px solid var(--df-color-border);
+}
+.df-home-step a {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--df-space-3);
+  min-width: 0;
+  padding: 10px 0;
   color: var(--df-color-text);
   text-decoration: none;
+}
+.df-home-step-skip {
+  flex: none;
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 400;
+}
+.df-home-step-tag {
+  margin-left: var(--df-space-2);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.df-home-step--skipped .df-home-step-label {
+  color: var(--df-color-muted);
+}
+.df-home-step--skipped .df-home-step-mark {
+  border-style: dashed;
+  color: var(--df-color-muted);
 }
 
 .df-home-step-mark {

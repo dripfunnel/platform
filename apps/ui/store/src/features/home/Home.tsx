@@ -2,12 +2,12 @@ import { EmptyState, ErrorState, firstName, LoadingState, useScreenState } from 
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadHome, loadLocaleFacts, type HomeOrder, type StoreHome, type StoreLocaleFacts } from '../../api/home'
+import { loadHome, loadLocaleFacts, skipSetupStep, type HomeOrder, type SkippableStep, type StoreHome, type StoreLocaleFacts } from '../../api/home'
 import { harnessEnabled, harnessSearch } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { merchantStatus, moneyText } from '../orders/orderView'
 import { homeSample, homeStates, type HomeState } from './homeStates'
-import { dateLineOf, greetingOf, numbersOf, setupOf, tasksOf, type NumberCard, type SetupItem, type Task } from './homeView'
+import { dateLineOf, greetingOf, numbersOf, setupCount, setupOf, tasksOf, type NumberCard, type SetupItem, type Task } from './homeView'
 import './home.css'
 
 const words = messages.home
@@ -41,6 +41,7 @@ export const Home = () => {
   const sample = useMemo(() => homeSample(forced), [forced])
   const seat = useMemo(() => seatOf(forced, acting, state?.readOnly ?? false), [forced, acting, state])
   const [view, setView] = useState<View>({ kind: 'loading' })
+  const [skipFailed, setSkipFailed] = useState(false)
   const latest = useRef(0)
 
   const load = useCallback(() => {
@@ -63,6 +64,15 @@ export const Home = () => {
     )
   }, [forced, sample, seat.supplier, seat.owner])
   useEffect(load, [load])
+
+  const skip = (step: SkippableStep, skipped: boolean) => {
+    setSkipFailed(false)
+    void (sample ? Promise.resolve() : skipSetupStep(step, skipped)).then(
+      () =>
+        setView((v) => (v.kind === 'ready' && v.home.setup ? { ...v, home: { ...v.home, setup: { ...v.home.setup, [`${step}Skipped`]: skipped } } } : v)),
+      () => setSkipFailed(true),
+    )
+  }
 
   const now = new Date()
   const timeZone = view.kind === 'ready' ? view.home.timeZone : Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -92,12 +102,12 @@ export const Home = () => {
       {seat.readOnly && <p className="df-home-readonly">{words.readOnly}</p>}
       {view.kind === 'loading' && <LoadingState label={words.loading} />}
       {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}
-      {view.kind === 'ready' && <HomeBody home={view.home} locale={view.locale} seat={seat} />}
+      {view.kind === 'ready' && <HomeBody home={view.home} locale={view.locale} seat={seat} onSkip={skip} skipFailed={skipFailed} />}
     </div>
   )
 }
 
-const HomeBody = ({ home, locale, seat }: { home: StoreHome; locale: StoreLocaleFacts | null; seat: HomeSeat }) => {
+const HomeBody = ({ home, locale, seat, onSkip, skipFailed }: { home: StoreHome; locale: StoreLocaleFacts | null; seat: HomeSeat; onSkip: (step: SkippableStep, skipped: boolean) => void; skipFailed: boolean }) => {
   const tasks = tasksOf(home)
   const setup = setupOf(home, seat.owner ? locale : null)
   const numbers = numbersOf(home)
@@ -122,7 +132,7 @@ const HomeBody = ({ home, locale, seat }: { home: StoreHome; locale: StoreLocale
           <strong>{words.allClear.title}</strong> {words.allClear.body}
         </p>
       )}
-      {setup.length > 0 && <Checklist items={setup} owner={seat.owner} />}
+      {setup.length > 0 && <Checklist items={setup} owner={seat.owner} onSkip={seat.readOnly ? null : onSkip} skipFailed={skipFailed} />}
       {!home.hasOrders && setup.length === 0 && (
         <section className="df-home-card df-home-wait" aria-labelledby="df-home-wait">
           <h2 id="df-home-wait">{words.staffWait.title}</h2>
@@ -218,40 +228,41 @@ const setupLink = (key: SetupItem['key']) => {
   }
 }
 
-const Checklist = ({ items, owner }: { items: SetupItem[]; owner: boolean }) => {
+const Checklist = ({ items, owner, onSkip, skipFailed }: { items: SetupItem[]; owner: boolean; onSkip: ((step: SkippableStep, skipped: boolean) => void) | null; skipFailed: boolean }) => {
   const s = words.setup
-  const done = items.filter((i) => i.done).length
+  const { done, total } = setupCount(items)
   return (
     <section className="df-home-card df-home-setup" aria-labelledby="df-home-setup">
       <div className="df-home-setup-head">
         <h2 id="df-home-setup">{s.title}</h2>
-        <span className="df-home-mono">{fill(s.progress, { done: formatCount(done), total: formatCount(items.length) })}</span>
+        <span className="df-home-mono">{fill(s.progress, { done: formatCount(done), total: formatCount(total) })}</span>
       </div>
-      <div className="df-home-progress" role="progressbar" aria-labelledby="df-home-setup" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={done}>
-        <span style={{ width: `${(done / items.length) * 100}%` }} />
+      <div className="df-home-progress" role="progressbar" aria-labelledby="df-home-setup" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}>
+        <span style={{ width: `${total === 0 ? 100 : (done / total) * 100}%` }} />
       </div>
       <ul className="df-home-steps">
         {items.map((item) => {
           const label = s[item.key].label
-          const cta = item.done && item.key !== 'locale' ? s.done : s[item.key].cta
+          const cta = item.skipped ? null : item.done && item.key !== 'locale' ? s.done : s[item.key].cta
           const body = (
             <>
               <span className="df-home-step-mark" aria-hidden="true">
-                {item.done ? s.mark : ''}
+                {item.done ? s.mark : item.skipped ? s.skippedMark : ''}
               </span>
               <span className="df-home-step-text">
                 <span className="df-home-step-label">
                   {label}
                   {item.done && <span className="df-visually-hidden"> {s.doneSuffix}</span>}
+                  {(item.skipped || item.optional) && <span className="df-home-step-tag">{item.skipped ? s.skipped : s.optional}</span>}
                 </span>
                 {item.note && <span className="df-home-step-note">{item.note}</span>}
               </span>
-              <span className="df-home-step-cta">{cta}</span>
+              {cta && <span className="df-home-step-cta">{cta}</span>}
             </>
           )
           const link = setupLink(item.key)
           return (
-            <li key={item.key} className={item.done ? 'df-home-step df-home-step--done' : 'df-home-step'}>
+            <li key={item.key} className={`df-home-step${item.done ? ' df-home-step--done' : ''}${item.skipped ? ' df-home-step--skipped' : ''}`}>
               {link.to === '/products/$productId' ? (
                 <Link to={link.to} params={{ productId: 'new' }} search={(prev) => harnessSearch(prev)}>
                   {body}
@@ -265,10 +276,20 @@ const Checklist = ({ items, owner }: { items: SetupItem[]; owner: boolean }) => 
                   {body}
                 </Link>
               )}
+              {onSkip && (item.optional || item.skipped) && (
+                <button type="button" className="df-button df-home-step-skip" aria-label={fill(item.skipped ? s.undoFor : s.skipFor, { step: label })} onClick={() => onSkip(item.key as SkippableStep, !item.skipped)}>
+                  {item.skipped ? s.undo : s.skip}
+                </button>
+              )}
             </li>
           )
         })}
       </ul>
+      {skipFailed && (
+        <p className="df-home-step-owner" role="alert">
+          {s.skipError}
+        </p>
+      )}
       {!owner && <p className="df-home-step-owner">{s.ownerNote}</p>}
       <p className="df-home-step-foot">{s.footer}</p>
     </section>

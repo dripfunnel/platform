@@ -282,6 +282,15 @@ totals; the checklist with only the items the API gives the seat. Decided here: 
 locale check, so the Owner's line shows what sign-up set (country, pricing currency, main language) as done, with Change
 opening Settings › Store info; and a Manager's note names "the store owner", since a Manager can't read who that is.
 
+**Built on #719**: "Choose how shoppers pay" and "Choose how you ship" carry an **Optional** tag and a **Skip** action
+while not done, for the Owner only (the steps are the Owner's already). A skipped step shows **Skipped** with **Undo**
+and leaves the "X of Y" count and the bar; the list still goes at the first order. `home.setup` adds `paymentsSkipped`
+and `shippingSkipped` (null for a seat without the step), and `skipSetupStep(step: payments | shipping, skipped)` saves
+it (`settings`, so the Owner; refused to a partner support session; a staff member impersonating the Owner is allowed
+once the Store API takes impersonation, logged with the Owner as the actor and staff as `on_behalf_of`). The activity
+entry `store.setup_step_skipped` names the step and `skipped` or `undone`, nothing else. The merchant mobile app's
+`PortalHome` keeps its old list.
+
 ---
 
 ## 6. Orders (`PortalOrders`, DESIGN-BRIEF F, flows 36–41, 70–71)

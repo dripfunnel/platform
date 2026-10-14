@@ -40,7 +40,22 @@ export interface StoreCaller {
   plan: { id: string; name: string } | null
   /** Set for a partner support session acting as this seat's user (ACCESS.md §8). */
   support?: SupportSeat
+  /** Set for a staff member impersonating this seat's user (ACCESS.md §8.1); nothing sets it until the Store API takes impersonation. */
+  impersonation?: { id: string; staff: { id: string; name: string; email: string } }
 }
+
+/** The caller as an entry's actor: the person, with the staff member and session behind an impersonation (ACCESS.md §8.1). */
+export const entryActor = (caller: StoreCaller): Pick<ActivityEntry, 'actorKind' | 'actorId' | 'actorLabel' | 'onBehalfOf' | 'access'> => ({
+  actorKind: 'person',
+  actorId: caller.person.id,
+  actorLabel: null,
+  ...(caller.impersonation
+    ? {
+        onBehalfOf: { kind: 'staff' as const, id: caller.impersonation.staff.id, label: `${caller.impersonation.staff.name} <${caller.impersonation.staff.email}>` },
+        access: { kind: 'impersonation' as const, id: caller.impersonation.id },
+      }
+    : {}),
+})
 
 /**
  * Where a request on the portal host stands. Only `acting` reaches store data; the rest are the
