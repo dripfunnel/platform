@@ -67,6 +67,15 @@ describe('seed:live-shop', () => {
     expect(sites.keys('')).toEqual([])
   })
 
+  it('refuses a code two partners share, writing nothing', async () => {
+    sites = fakeSites()
+    await db.sql`insert into store (partner_id, name, code) values (${t.partnerA}, 'Twin', 'twin'), (${t.partnerB}, 'Twin', 'twin')`
+    const runsBefore = (await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run`)[0]?.n
+    await expect(seedFor('twin')).rejects.toThrow(/code of 2 stores/)
+    expect(sites.keys('')).toEqual([])
+    expect((await db.sql<{ n: number }[]>`select count(*)::int as n from publish_run`)[0]?.n).toBe(runsBefore)
+  })
+
   it('names a store that is not there', async () => {
     sites = fakeSites()
     await expect(seedFor('no-such-store')).rejects.toThrow(/No store/)
