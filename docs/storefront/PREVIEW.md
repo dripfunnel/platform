@@ -280,7 +280,7 @@ There is no per-store hostname fee.
   registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`
   locally (decided 2026-10-09). **Proposed deviation on dev (#735, unconfirmed: bound for testing on dev only; the owner of this decision has not approved it on #735):** dev uses
   `actuateminds.com` itself (previews are `{key}.actuateminds.com`, one label deep, so the free Universal certificate
-  covers them), a domain we own that serves nothing else with users or sessions. It is **not** reserved for previews:
+  covers them), a domain we own that, **by the proposer's statement only (unverified)**, serves nothing else with users or sessions. It is **not** reserved for previews:
   the Worker's zone-wide route answers every `*.actuateminds.com` host (a name that isn't a preview key gets the
   closed 404), and scripts and cookies from any other host there share a site with every dev store preview (no Public
   Suffix List entry). Accepted because dev holds test data only; if
