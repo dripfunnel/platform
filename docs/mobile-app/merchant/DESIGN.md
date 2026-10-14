@@ -5,7 +5,7 @@ Scope is [FIRST-RELEASE.md](FIRST-RELEASE.md); code structure is [ARCHITECTURE.m
 
 **Status: decided, not built.**
 
-Last updated: 2026-10-13 (#500: Products). Before: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
+Last updated: 2026-10-14 (#501: Collections, §5). Before: 2026-10-13 (#500: Products). Before: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
 
 ---
 
@@ -150,6 +150,11 @@ These follow decisions in `docs/`, so the prototype needs redrawing here:
   so the sheet says it is saved right away. The prototype's "much higher than usual" price check needs the store's other prices, which the app doesn't
   read, so only "Selling for free?" is asked. A download, a service or a gift card opens read-only until MA 14 (#507). Quick edit and bulk actions are not
   on the phone (`designs/INCOMPLETE-FEATURES.md`).
+- **Collections** (#501). The prototype's four parts (Collections, Filters, Menus, Size charts) are a scrolling tab bar under the Catalogue segment, and a collection and a
+  size chart each open on their own screen with the shell's Back, not beside the list. A menu item is changed from the sheet its row opens (move, nest, remove), not
+  by four small buttons, and its desktop and phone previews stack. Hand-picked products show what is picked so far above the search. A size chart is a grid that scrolls
+  sideways. The size-chart limit and plan messages show with no "See plans" action, since plans are not in the app (§5). Every write that loses or changes something asks
+  in a sheet first, which the prototype does only for some. A supplier's own size charts and a collection's image, SEO and sort order are not in the app.
 - **"Email me a link"** (decided 2026-10-08). The prototype's Best on the web sheet offers to
   email a link to the web portal. The app instead **opens the web portal in the phone's
   browser**, on the partner's portal host. "Open here anyway" stays. Emailing

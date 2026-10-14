@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { View } from 'react-native'
-import { PlaceholderScreen } from '../../../features/placeholder/PlaceholderScreen'
+import { CollectionsArea } from '../../../features/collections/CollectionsArea'
 import { ProductsScreen } from '../../../features/products/ProductsScreen'
 import { SegmentedControl } from '../../../features/shell/SegmentedControl'
 import { t } from '../../../messages'
 
 type Segment = 'products' | 'collections'
 
-// Products | Collections under one tab (DESIGN.md §2); Collections is built by its own card.
+// Products | Collections under one tab (DESIGN.md §2); Collections holds its own filters, menus and size charts (FIRST-RELEASE.md §12).
 export default function Catalogue() {
   const [segment, setSegment] = useState<Segment>('products')
   return (
@@ -20,7 +20,7 @@ export default function Catalogue() {
         value={segment}
         onChange={setSegment}
       />
-      {segment === 'products' ? <ProductsScreen /> : <PlaceholderScreen title={t('catalogue.collections')} />}
+      {segment === 'products' ? <ProductsScreen /> : <CollectionsArea />}
     </View>
   )
 }
