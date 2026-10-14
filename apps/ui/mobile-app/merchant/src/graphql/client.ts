@@ -15,21 +15,23 @@ export type ClientOptions = {
 
 export const defaultTimeoutMs = 15_000
 
+/** The session's headers: the bearer token and the acting store and supplier (ACCESS.md §4), each only when there is one. Every call to the API carries these. */
+export const authHeaders = ({ token = () => null, store = () => null, supplier = () => null }: Pick<ClientOptions, 'token' | 'store' | 'supplier'>): Record<string, string> => {
+  const bearer = token()
+  const storeId = store()
+  const supplierId = supplier()
+  return {
+    ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
+    ...(storeId ? { 'x-store': storeId } : {}),
+    ...(supplierId ? { 'x-supplier': supplierId } : {}),
+  }
+}
+
 // Trailing slash: the `/api/*` route misses bare `/api` (ARCHITECTURE.md §2).
 export const createApiClient = ({ domain, timeoutMs = defaultTimeoutMs, token = () => null, store = () => null, supplier = () => null, fetchImpl = fetch }: ClientOptions) => {
   const endpoint = `https://${domain}/api/`
 
-  const headers = (): Record<string, string> => {
-    const bearer = token()
-    const storeId = store()
-    const supplierId = supplier()
-    return {
-      'content-type': 'application/json',
-      ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
-      ...(storeId ? { 'x-store': storeId } : {}),
-      ...(supplierId ? { 'x-supplier': supplierId } : {}),
-    }
-  }
+  const headers = (): Record<string, string> => ({ 'content-type': 'application/json', ...authHeaders({ token, store, supplier }) })
 
   return {
     async request<T>(query: string, variables?: Record<string, unknown>): Promise<T> {

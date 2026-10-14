@@ -60,7 +60,7 @@ export function PhotosCard({ draft, update, photos, disabled }: Props) {
               ) : null}
               {photo.status === 'uploading' ? (
                 <View style={[styles.overlay, { backgroundColor: colors.backdrop }]}>
-                  <Text style={styles.overlayText}>{t('products.photos.uploading')}</Text>
+                  <Text style={[styles.overlayText, { color: colors.onInk }]}>{t('products.photos.uploading')}</Text>
                 </View>
               ) : null}
               {photo.status === 'failed' ? (
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   badge: { position: 'absolute', left: 4, top: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
   badgeText: { fontSize: 10, fontWeight: '700' },
   overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 4 },
-  overlayText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
+  overlayText: { fontSize: 12, fontWeight: '600' },
   failed: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
   failedActions: { gap: 0 },
   reason: { fontSize: 11, lineHeight: 15 },
