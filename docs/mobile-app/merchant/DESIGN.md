@@ -5,7 +5,7 @@ Scope is [FIRST-RELEASE.md](FIRST-RELEASE.md); code structure is [ARCHITECTURE.m
 
 **Status: decided, not built.**
 
-Last updated: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
+Last updated: 2026-10-13 (#500: Products). Before: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
 
 ---
 
@@ -146,6 +146,10 @@ These follow decisions in `docs/`, so the prototype needs redrawing here:
   doesn't list, so it is not in this release.
 - **The help button.** The prototype opens `help.dripfunnel.com/store`; the app opens the
   partner's help centre (white label).
+- **Products** (#500). The prototype's **Change with a reason** holds the change until Save; the API applies it at once (`adjustStock`), as the web portal does,
+  so the sheet says it is saved right away. The prototype's "much higher than usual" price check needs the store's other prices, which the app doesn't
+  read, so only "Selling for free?" is asked. A download, a service or a gift card opens read-only until MA 14 (#507). Quick edit and bulk actions are not
+  on the phone (`designs/INCOMPLETE-FEATURES.md`).
 - **"Email me a link"** (decided 2026-10-08). The prototype's Best on the web sheet offers to
   email a link to the web portal. The app instead **opens the web portal in the phone's
   browser**, on the partner's portal host. "Open here anyway" stays. Emailing

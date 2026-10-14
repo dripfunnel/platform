@@ -7,7 +7,7 @@ import { sessionClient } from '../../session'
 import { Button } from '../common/Button'
 import { Notice } from '../common/Notice'
 import { TextField } from '../common/TextField'
-import { SectionCard } from './SectionCard'
+import { SectionCard } from '../common/SectionCard'
 
 const minimumLength = 10
 

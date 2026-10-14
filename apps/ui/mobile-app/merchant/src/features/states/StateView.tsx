@@ -20,8 +20,8 @@ type Props = StateActions & {
   label: string
   store: string
   supplier: boolean
-  /** Quoted to support when a load fails; the API's request id, or a sample in the Scenario menu. */
-  reference: string
+  /** Quoted to support when a load fails: a sample in the Scenario menu, and none until the API sends a request id to quote. */
+  reference: string | null
 }
 
 export function Skeleton() {
@@ -88,7 +88,7 @@ export function StateView({ kind, label, store, supplier, reference, onRetry, on
         <Button label={view.primary.label} onPress={view.primary.onPress} />
         {view.secondary ? <Button kind="secondary" label={view.secondary.label} onPress={view.secondary.onPress} /> : null}
       </View>
-      {kind === 'loadErr' ? <Text style={[styles.ref, { color: colors.muted }]}>{t('states.loadErr.ref', { ref: reference })}</Text> : null}
+      {kind === 'loadErr' && reference !== null ? <Text style={[styles.ref, { color: colors.muted }]}>{t('states.loadErr.ref', { ref: reference })}</Text> : null}
     </View>
   )
 }

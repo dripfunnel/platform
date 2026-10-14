@@ -28,3 +28,15 @@ describe('formatMoney', () => {
     expect(() => formatMoney({ amount: Number.NaN, currency: 'USD' }, 'en')).toThrow(RangeError)
   })
 })
+
+describe('formatMoney with the API’s digit strings', () => {
+  it('formats an amount past what a number holds without throwing', () => {
+    expect(() => formatMoney({ amount: '9007199254740993', currency: 'INR' }, 'en')).not.toThrow()
+    expect(formatMoney({ amount: '123456', currency: 'INR' }, 'en')).toBe('₹1,234.56')
+    expect(formatMoney({ amount: '-1999', currency: 'USD' }, 'en')).toBe('-$19.99')
+  })
+
+  it('refuses text that is not whole minor units', () => {
+    expect(() => formatMoney({ amount: '19.99', currency: 'USD' }, 'en')).toThrow(RangeError)
+  })
+})
