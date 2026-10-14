@@ -21,8 +21,8 @@
     // them, and the Worker passes every host of our own zone straight through.
     "dev": {
       "name": "dripfunnel-store-proxy-dev",
-      // PREVIEW_DOMAIN is a subdomain of actuateminds.com, not a registrable domain of its own: a dev-only deviation (PREVIEW.md §8, #735).
-      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "PREVIEW_DOMAIN": "preview.actuateminds.com" },
+      // PREVIEW_DOMAIN is a domain shared with other hosts, not one of its own: a dev-only deviation (PREVIEW.md §8, #735). Its previews are one label deep, so the free Universal certificate covers them.
+      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "PREVIEW_DOMAIN": "actuateminds.com" },
       // The API serves a partner's own host only on this entrypoint (SAAS.md §8, #426); EDGE is the storefront and preview edge.
       "services": [
         { "binding": "API", "service": "dripfunnel-api-dev", "entrypoint": "PortalProxy" },
@@ -32,7 +32,7 @@
       // The secret PREVIEW_SESSION_KEY is set by hand (docs/setup/dev.md §2.8 item 8); a binding to a missing zone fails the deploy.
       "routes": [
         { "pattern": "*/*", "zone_name": "dripfunnel.ai" },
-        { "pattern": "*.preview.actuateminds.com/*", "zone_name": "actuateminds.com" }
+        { "pattern": "*.actuateminds.com/*", "zone_name": "actuateminds.com" }
       ]
     }
   }

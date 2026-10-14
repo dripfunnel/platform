@@ -279,9 +279,11 @@ There is no per-store hostname fee.
   `PREVIEW_DOMAIN`, validated at boot: `webpreview.store` in prod, a second cheap domain
   registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`
   locally (decided 2026-10-09). **Deviation on dev (decided 2026-10-14 on #735):** dev uses
-  `preview.actuateminds.com`, a subdomain of a domain we own that serves nothing else with users or sessions. It
-  is **not** its own registrable domain, so scripts and cookies from any other `actuateminds.com` host share a
-  site with every dev store preview (no Public Suffix List entry). Accepted because dev holds test data only; if
+  `actuateminds.com` itself (previews are `{key}.actuateminds.com`, one label deep, so the free Universal certificate
+  covers them), a domain we own that serves nothing else with users or sessions. It is **not** reserved for previews:
+  the Worker's zone-wide route answers every `*.actuateminds.com` host (a name that isn't a preview key gets the
+  closed 404), and scripts and cookies from any other host there share a site with every dev store preview (no Public
+  Suffix List entry). Accepted because dev holds test data only; if
   a real site ever runs on `actuateminds.com`, dev previews move to a domain of their own. Prod keeps `webpreview.store`.
 - ~~Whether the consoles show a store's preview address.~~ They don't: a preview opens only
   through the merchant's signed link (decided 2026-10-09, #518).
