@@ -199,6 +199,25 @@ describe('publishing', () => {
     expect((await db.sql`select 1 from activity_log where action = 'branding.published' and actor_label like 'Diego Alvarez%'`).length).toBe(1)
   })
 
+  it('publishes from a staff setup session as staff, and refuses a partner user claiming to be staff', async () => {
+    const ns = await current(ids.ns)
+    const setup: PartnerCaller = {
+      ...callerOf(ids.ns, 'partner-owner'),
+      user: null,
+      staff: { id: crypto.randomUUID(), name: 'Gaurav Kunal', email: 'gaurav@dripfunnel.example', session: { kind: 'setup', id: crypto.randomUUID(), expiresAt: now } },
+    }
+    expect(await serviceFor(setup).publishBranding(ns)).toMatchObject({ ok: true })
+    const [newest] = await db.sql`select created_by_kind, created_by_label from partner_branding where partner_id = ${ids.ns} and state = 'published' order by published_at desc, id desc limit 1`
+    expect(newest).toEqual({ created_by_kind: 'staff', created_by_label: 'Gaurav Kunal' })
+
+    await expect(
+      withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: crypto.randomUUID() }, partnerId: ids.ns }, (tx) =>
+        tx`insert into partner_branding (partner_id, product_name, primary_color, accent_color, font, corner, background, support_email, powered_by, state, created_by_kind, created_by_label)
+           values (${ids.ns}, 'x', '#4A1B0C', '#EC844F', 'Nunito', 'rounded', 'sand', 'a@b.example', true, 'draft', 'staff', 'x')`,
+      ),
+    ).rejects.toThrow(/row-level security/)
+  })
+
   it('publishes Kaufladen with its Impressum and DPA, marks Legal pages, and leaves Northstar untouched', async () => {
     const before = await db.sql`select id, product_name from partner_branding where partner_id = ${ids.ns} order by id`
     const kl = await current(ids.kl)
