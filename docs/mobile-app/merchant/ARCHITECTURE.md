@@ -5,10 +5,11 @@ The framework decision is [REACT-NATIVE.md](REACT-NATIVE.md); the look is [DESIG
 builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
 **Status: the project is set up (#496), its foundations are built (#497) and so are getting in and My profile
-(#498); the other screens are placeholders.**
+(#498), the shell (#499) and Products (#500); the other screens are placeholders.**
 `app.config.ts`, `partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/graphql/`,
 `src/intl/`, `src/format/`, `src/messages/`, `src/theme/`, `src/brand/`, `src/session/`, `src/features/auth/`,
-`src/features/profile/` and `src/api/` (`brand`, `auth`, `profile`) exist (the placeholder screen in
+`src/features/profile/`, `src/features/shell/`, `src/features/states/`, `src/features/products/` and `src/api/` (`brand`, `auth`, `profile`, `shell`, `products`, `inventory`,
+`productStory`) exist (the placeholder screen in
 `src/features/placeholder/` goes when the first real screen replaces it). Only `nav.ts` is still to build. Rows
 marked *(proposed)* await a yes.
 
