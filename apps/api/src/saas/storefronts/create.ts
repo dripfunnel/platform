@@ -12,6 +12,7 @@ import {
   setFirstRepoHead,
   setJobState,
   setRepoId,
+  undoStoreRepo,
   upsertDesignDraft,
   type CreationRow,
 } from '#db/scoped/storefronts'
@@ -196,8 +197,11 @@ const doneStep = async (deps: CreateDeps, p: CreateParams, core: string): Promis
   return row.repo
 }
 
+/** How an undo ends: a failed run leaves the job failed with its cause for staff; an Admin Undo leaves it undone. */
+type Ending = { by: 'failure'; step: ProvisioningStep; code: string } | { by: 'staff' }
+
 /** Every registered compensation, newest first, then the store marked as able to try again. */
-const undoStep = async (deps: CreateDeps, p: CreateParams, failed: { step: ProvisioningStep; code: string }): Promise<string> => {
+const undoStep = async (deps: CreateDeps, p: Pick<CreateParams, 'storeId' | 'jobId'>, ending: Ending): Promise<string> => {
   const row = await withSystemScope(deps.sql, async (tx) => {
     const found = await selectCreation(tx, p.storeId, p.jobId)
     if (found?.job_state === 'running') await setJobState(tx, p.jobId, 'cleaning')
@@ -219,6 +223,11 @@ const undoStep = async (deps: CreateDeps, p: CreateParams, failed: { step: Provi
         break
     }
   }
+  if (ending.by === 'staff') {
+    await withSystemScope(deps.sql, (tx) => undoStoreRepo(tx, { storeId: p.storeId, jobId: p.jobId, at: deps.now() }))
+    return 'undone'
+  }
+  const failed = ending
   await withSystemScope(deps.sql, async (tx) => {
     // The cause for staff, as a code (core/log failureCode), never the error's words.
     await failStoreRepo(tx, { storeId: p.storeId, jobId: p.jobId, error: createFailedMessage, details: `Stopped at ${failed.step}: ${failed.code}`, at: deps.now() })
@@ -262,9 +271,15 @@ export const runCreateStorefront = async (deps: CreateDeps, p: CreateParams, ste
     return 'created'
   } catch (error) {
     if (error instanceof Stopped) return 'stopped'
-    const failed = { step: at, code: failureCode(error) }
+    const failed = { by: 'failure' as const, step: at, code: failureCode(error) }
     logEvent({ event: 'storefront_create_failed', api: 'system', storeId: p.storeId, code: `${failed.step}:${failed.code}` })
     await steps.do('undo', () => undoStep(deps, p, failed))
     return 'undone'
   }
+}
+
+/** An Admin Undo (#730): the compensations of a failed job, run in the Workflow after the request committed. */
+export const runUndoStorefront = async (deps: CreateDeps, p: Pick<CreateParams, 'storeId' | 'jobId'>, steps: StepRunner): Promise<'undone' | 'not running'> => {
+  const answer = await steps.do('undo', () => undoStep(deps, p, { by: 'staff' }))
+  return answer === 'undone' ? 'undone' : 'not running'
 }

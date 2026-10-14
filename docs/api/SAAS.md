@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -321,6 +321,18 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   step and an error code in its details), so choosing again starts afresh; a store left
   `creating` with no job keeps its repo's name, so the next run reuses that repo. Until dev has the GitHub App (#287) and the sites bucket (#317), the
   choice waits in the outbox.
+- **Retry and Undo of a failed `create-storefront` job** (Admin API, built on #730; nothing runs
+  inside the request). **Retry** does what choosing the template again does: a **new** job, with
+  the template read from the failed job's `storefront.create` outbox row, queuing
+  `storefront.create` after commit (the failed run's cleanup left no repo, so the new run names a
+  new one); asked twice, it is one job. **Undo** (a reason is required) marks the job `cleaning`
+  and queues `storefront.undo`; the same Workflow runs the job's registered compensations
+  (`undoStep`), then the job is `undone` and the store is as before the template pick, free to
+  try again. Both act only on the store's newest job, and only on a failed one. Staff cannot touch
+  `storefront` (restrictive policy), so the start goes through two security-definer functions
+  bound to one failed `create-storefront` job (`0352_staff_storefront_retry.sql`). A
+  `provision-store` job (steps 1–3) has no executor, and a stuck job keeps its refusal. Both are
+  audited (`job.retried`, `job.undone`) with actor, store and, for Undo, the reason.
 - **A custom domain is not part of signup**; the merchant connects it whenever they like (§8).
 - "Under two minutes" means a **usable portal and preview** (decided 2026-10-05 on #337): the
   portal at signup, the preview within seconds of picking a template (steps 4–8); the first

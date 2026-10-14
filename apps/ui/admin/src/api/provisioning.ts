@@ -112,8 +112,8 @@ export const loadProvisioningJobs = async (filter: JobFilter, page: PageRequest,
 export const loadJobProgress = async (jobId: string): Promise<JobProgress | null> =>
   (await query(`query Job($id: ID!) { provisioningJob(id: $id) { id state step } }`, progressSchema, { id: jobId })).provisioningJob
 
-// Both start the signup Workflow and return before it ends; the job reports on the next query.
-// Until that Workflow exists they refuse with NO_EXECUTOR (apps/api src/saas/provisioning/jobs.ts).
+// Both queue the create-storefront Workflow and return before it runs; the job reports on the next query. Any other
+// kind of job refuses with NO_EXECUTOR (apps/api src/saas/provisioning/jobs.ts).
 export const retryJob = (jobId: string): Promise<void> => mutate('retryJob', 'retryJob(id: $id)', '($id: ID!)', { id: jobId })
 
 // Every console write is audited with a reason (AGENTS.md), so Undo asks for one (decided on #20).

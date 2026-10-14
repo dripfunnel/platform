@@ -5,7 +5,7 @@ import type { CallerContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { createGitHubApp } from '#integrations/github/index'
 import { localGitHub, type LocalGitHub } from '#integrations/local/github'
-import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
+import { storefrontCreateDeliverer, storefrontUndoDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createFailedMessage, runCreateStorefront, startStorefront, storefrontCreateKind, type CreateDeps, type CreateStorefrontParams, type StepRunner } from '#saas/storefronts/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -140,6 +140,29 @@ describe('choosing a template the first time', () => {
     await deliverer.deliver(effect, new AbortController().signal)
     expect(created).toEqual([params.jobId])
     await expect(deliverer.deliver({ ...effect, payload: { ...params, extra: 1 } }, new AbortController().signal)).rejects.toThrow(/bad_payload/)
+  })
+})
+
+describe('an Admin Undo', () => {
+  it('starts the Workflow once per job under an instance of its own, however often the outbox delivers', async () => {
+    const created: string[] = []
+    const workflow: StorefrontWorkflow = {
+      get: async (id) => {
+        if (!created.includes(id)) throw new Error('instance.not_found')
+        return {} as WorkflowInstance
+      },
+      create: async (options?: WorkflowInstanceCreateOptions<unknown>) => {
+        created.push(options?.id ?? '')
+        return {} as WorkflowInstance
+      },
+    }
+    const deliverer = storefrontUndoDeliverer(workflow)
+    const params = { storeId: t.storeA1, jobId: '6d1c4f8e-0a7b-4f43-9a8e-2b6c1d0e9f71' }
+    const effect = { id: 'e', kind: 'storefront.undo', idempotencyKey: 'k', payload: params, partnerId: t.partnerA, storeId: t.storeA1, attempt: 1 }
+    await deliverer.deliver(effect, new AbortController().signal)
+    await deliverer.deliver(effect, new AbortController().signal)
+    expect(created).toEqual([`undo-${params.jobId}`])
+    await expect(deliverer.deliver({ ...effect, payload: { ...params, template: 'bloom' } }, new AbortController().signal)).rejects.toThrow(/bad_payload/)
   })
 })
 
