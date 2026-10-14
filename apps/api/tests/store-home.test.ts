@@ -46,7 +46,14 @@ const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
   const partnerId = who === 'fresh' ? t.partnerB : t.partnerA
   const resolved = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, new Date(), activityLog, facts)
   const standing = as.support && resolved.kind === 'acting'
-    ? { ...resolved, caller: { ...resolved.caller, context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } } } }
+    ? {
+        ...resolved,
+        caller: {
+          ...resolved.caller,
+          context: { ...resolved.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: as.support } },
+          support: { sessionId: crypto.randomUUID(), agent: { id: crypto.randomUUID(), name: 'Priya' }, partnerName: 'Partner A', actingAs: 'Owner', access: as.support, expiresAt: new Date(Date.now() + 3_600_000), writeRequest: null },
+        },
+      }
     : resolved
   const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
@@ -55,7 +62,7 @@ const gql = async (source: string, who: Who, as: { support?: 'read' } = {}) => {
 
 const fields = `timeZone hasOrders toShip partlyShipped oldestToShipAt paymentsToCollect { count firstOrderId } awaitingApproval lowStock { count names } rejectedCouriers
   ordersToday ordersYesterday sales { yesterday { amount currency } dayBefore { amount } averageWeek { amount } } returningCustomers
-  latestOrders { number items total { amount currency } } setup { products collections payments shipping }`
+  latestOrders { number items total { amount currency } } setup { products collections payments shipping paymentsSkipped shippingSkipped }`
 const home = async (who: Who, as: { support?: 'read' } = {}) => (await gql(`{ home { ${fields} } }`, who, as)).data?.['home'] as Record<string, unknown> | null
 
 beforeAll(async () => {
@@ -169,9 +176,9 @@ describe('Home for each seat', () => {
   })
 
   it('shows a new store its checklist, each item only to a seat that can do it', async () => {
-    expect(await home('fresh')).toMatchObject({ hasOrders: false, toShip: 0, ordersToday: 0, sales: [], returningCustomers: 0, latestOrders: [], setup: { products: false, collections: false, payments: false, shipping: false } })
+    expect(await home('fresh')).toMatchObject({ hasOrders: false, toShip: 0, ordersToday: 0, sales: [], returningCustomers: 0, latestOrders: [], setup: { products: false, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false } })
     await db.sql`insert into store_shipping (store_id, currency, saved_at) values (${t.storeB1}, 'INR', now())`
-    expect((await home('fresh'))?.['setup']).toEqual({ products: false, collections: false, payments: false, shipping: true })
+    expect((await home('fresh'))?.['setup']).toEqual({ products: false, collections: false, payments: false, shipping: true, paymentsSkipped: false, shippingSkipped: false })
   })
 })
 
@@ -208,5 +215,62 @@ describe('across stores and callers (ACCESS §11)', () => {
     } finally {
       await db.sql`update store set status = 'active' where id = ${t.storeA1}`
     }
+  })
+})
+
+// Card #719: the Owner skips "Choose how shoppers pay" and "Choose how you ship" on the checklist.
+describe('skipping an optional setup step', () => {
+  const skip = (who: Who, step: 'payments' | 'shipping', skipped: boolean, as: { support?: 'read' } = {}) =>
+    gql(`mutation { skipSetupStep(step: ${step}, skipped: ${skipped}) }`, who, as)
+  const stored = async () => Object.fromEntries((await db.sql<{ id: string; setup_skipped: string[] }[]>`select id, to_jsonb(setup_skipped) as setup_skipped from store where id in (${t.storeA1}, ${t.storeA2}, ${t.storeB1})`).map((r) => [r.id, r.setup_skipped]))
+  const setupOf = async () => (await home('fresh'))?.['setup']
+
+  it('skips a step and undoes it, the Owner’s read saying so', async () => {
+    expect((await skip('fresh', 'payments', true)).data).toEqual({ skipSetupStep: true })
+    expect(await setupOf()).toMatchObject({ payments: false, paymentsSkipped: true, shippingSkipped: false })
+    expect((await skip('fresh', 'shipping', true)).code).toBeUndefined()
+    expect((await skip('fresh', 'payments', true)).code).toBeUndefined()
+    expect((await stored())[t.storeB1]).toEqual(['shipping', 'payments'])
+    await skip('fresh', 'payments', false)
+    expect(await setupOf()).toMatchObject({ paymentsSkipped: false, shippingSkipped: true })
+    await skip('fresh', 'shipping', false)
+    expect((await stored())[t.storeB1]).toEqual([])
+  })
+
+  it('refuses a step that is not one of the two, and keeps the column to them', async () => {
+    expect((await gql('mutation { skipSetupStep(step: products, skipped: true) }', 'fresh')).data).toBeUndefined()
+    await expect(db.sql`update store set setup_skipped = array['products'] where id = ${t.storeB1}`).rejects.toThrow()
+  })
+
+  it('touches only the caller’s own store, never one it names (isolation matrix)', async () => {
+    await skip('other', 'payments', true)
+    expect(await stored()).toEqual({ [t.storeA1]: [], [t.storeA2]: ['payments'], [t.storeB1]: [] })
+    const crossing = await resolveStoreStanding(
+      db.sql,
+      new Request('https://store.example/api/', { headers: { cookie: `${storeCookieName}=${cookies.fresh}`, [storeHeader]: t.storeA2 } }),
+      t.partnerB,
+      new Date(),
+      activityLog,
+      { requestId: 'r', ip: null, userAgent: null },
+    )
+    expect(crossing.kind).not.toBe('acting')
+    await skip('other', 'payments', false)
+  })
+
+  it('refuses a Manager, Staff, a supplier and a support session, and changes nothing', async () => {
+    for (const who of ['manager', 'staff', 'supplier'] as const) expect((await skip(who, 'payments', true)).code, who).toBe('FORBIDDEN')
+    expect((await skip('owner', 'payments', true, { support: 'read' })).code).toBe('BLOCKED_FOR_SUPPORT')
+    expect(await stored()).toEqual({ [t.storeA1]: [], [t.storeA2]: [], [t.storeB1]: [] })
+  })
+
+  it('writes an entry per skip and undo, naming the step and nothing else', async () => {
+    await db.sql`delete from activity_log where action = 'store.setup_step_skipped' and store_id = ${t.storeB1}`
+    await skip('fresh', 'payments', true)
+    await skip('fresh', 'payments', false)
+    const rows = await db.sql<{ reason: string; target_id: string; target_label: string; changes: unknown[] }[]>`select reason, target_id, target_label, changes from activity_log where action = 'store.setup_step_skipped' and store_id = ${t.storeB1} order by occurred_at, id`
+    expect(rows).toEqual([
+      { reason: 'skipped', target_id: 'payments', target_label: 'payments', changes: [] },
+      { reason: 'undone', target_id: 'payments', target_label: 'payments', changes: [] },
+    ])
   })
 })

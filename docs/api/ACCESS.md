@@ -984,7 +984,7 @@ Browser → https://<store's portal host>/support/enter?token=…
   switch let start; a Manager's Allow emails the Owners like a session start does.
 - **Never, even elevated**: change passwords or sign-in methods, payment methods, payouts,
   ownership or roles; create API keys or install apps; open a storefront preview link, which names
-  the person who opened it (storefront PREVIEW §5, #317). A support session is not a person, so it
+  the person who opened it (storefront PREVIEW §5, #317); skip a Home checklist step (#719). A support session is not a person, so it
   can't act as one.
 - **Staff don't use support sessions**: they impersonate (§8.1).
 - A partner's support session never reaches a store of another partner; the host check (§9

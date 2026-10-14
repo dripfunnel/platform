@@ -115,6 +115,8 @@ export interface SetupRow {
   collections: boolean
   payments: boolean
   shipping: boolean
+  /** The steps the Owner skipped (store.setup_skipped): `payments` and/or `shipping`. */
+  skipped: string[]
 }
 
 /** The getting-started checklist's facts (PortalHome "Get your shop ready"). */
@@ -123,7 +125,16 @@ export const selectSetup = async (tx: ScopedSql, storeId: string): Promise<Setup
     select exists (select 1 from product where store_id = ${storeId} and deleted_at is null and not is_sample) as products,
       exists (select 1 from collection where store_id = ${storeId} and deleted_at is null) as collections,
       exists (select 1 from payment_provider_account where store_id = ${storeId} and status = 'live' and not paused_by_plan) as payments,
-      exists (select 1 from store_shipping where store_id = ${storeId} and saved_at is not null) as shipping
+      exists (select 1 from store_shipping where store_id = ${storeId} and saved_at is not null) as shipping,
+      (select to_jsonb(setup_skipped) from store where id = ${storeId}) as skipped
   `
-  return row ?? { products: false, collections: false, payments: false, shipping: false }
+  return row ?? { products: false, collections: false, payments: false, shipping: false, skipped: [] }
+}
+
+export const setupSteps = ['payments', 'shipping'] as const
+export type SetupStep = (typeof setupSteps)[number]
+
+/** Through 0351's definer: the merchant side writes this store column and no other. */
+export const setSetupStepSkipped = async (tx: ScopedSql, step: SetupStep, skipped: boolean): Promise<void> => {
+  await tx`select set_setup_step_skipped(${step}, ${skipped})`
 }

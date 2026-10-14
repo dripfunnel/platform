@@ -29,10 +29,13 @@
       <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;">Get your shop ready for its first order</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted,#5A6472);">{{ setupDone }} of {{ setupTotal }}</span></div>
       <div style="height:6px;border-radius:3px;background:var(--sunk,#EDEAE5);overflow:hidden;"><div style="width:{{ setupPct }};height:100%;background:#EC844F;"></div></div>
       <sc-for list="{{ setup }}" as="c" hint-placeholder-count="5">
-        <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border:0;border-top:1px solid var(--border,#F1EEEA);background:none;text-align:left;cursor:pointer;width:100%;">
-          <span style="width:22px;height:22px;border-radius:50%;border:1.5px solid {{ c.ring }};background:{{ c.fill }};color:#FFFFFF;font-size:12px;display:flex;align-items:center;justify-content:center;">{{ c.mark }}</span>
-          <span style="flex:1;display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;color:var(--text,#14181F);text-decoration:{{ c.td }};">{{ c.label }}</span><sc-if value="{{ c.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted,#5A6472);">{{ c.note }}</span></sc-if></span><span style="font-size:13px;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:600;">{{ c.cta }}</span>
-        </button>
+        <div style="display:flex;align-items:center;gap:8px;border-top:1px solid var(--border,#F1EEEA);">
+          <button onClick="{{ c.onClick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:10px 0;border:0;background:none;text-align:left;cursor:pointer;">
+            <span style="flex:none;width:22px;height:22px;border-radius:50%;border:1.5px {{ c.ringStyle }} {{ c.ring }};background:{{ c.fill }};color:{{ c.markFg }};font-size:12px;display:flex;align-items:center;justify-content:center;">{{ c.mark }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;"><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:14px;color:{{ c.labelFg }};text-decoration:{{ c.td }};">{{ c.label }}</span><sc-if value="{{ c.tag }}" hint-placeholder-val="{{ false }}"><span style="background:var(--navy-tint,#EAF1F8);color:var(--navy-tint-text,#00325F);font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;">{{ c.tag }}</span></sc-if></span><sc-if value="{{ c.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted,#5A6472);">{{ c.note }}</span></sc-if></span><span style="flex:none;font-size:13px;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:600;">{{ c.cta }}</span>
+          </button>
+          <sc-if value="{{ c.skipLabel }}" hint-placeholder-val="{{ false }}"><button onClick="{{ c.onSkip }}" style="flex:none;height:32px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text2,#434A55);font-size:13px;cursor:pointer;" style-hover="background:var(--hover,#FAF9F7);">{{ c.skipLabel }}</button></sc-if>
+        </div>
         <sc-if value="{{ c.panel }}" hint-placeholder-val="{{ false }}">
           <div style="margin:0 0 8px 34px;padding:18px;background:var(--paper,#FDFAF7);border:1px solid var(--border,#E8E2DC);border-radius:12px;display:flex;flex-direction:column;gap:16px;">
             <sc-for list="{{ localeFields }}" as="f" hint-placeholder-count="3">
@@ -138,8 +141,14 @@ class Component extends DCLogic {
       { label: 'Choose how shoppers pay', ok: gw, cta: 'Set up', onClick: () => app.go('settings', { settingsTab: 'payments' }) },
       { label: 'Choose how you ship', ok: !!app.st.shippingSet, cta: app.st.shippingSet ? 'Done' : 'Set up', onClick: () => app.go('settings', { settingsTab: 'shipping' }) },
       { label: 'Make your storefront yours', ok: ((app.data('storefront') || {}).live || 0) > 12 || !!app.st.setupBought, cta: ((app.data('storefront') || {}).live || 0) > 12 ? 'Done' : 'Open', onClick: () => app.go('storefront') }
-    ].map((x, i) => ({ ...x, ownerOnly: [0, 3, 4].includes(i) })).map(x => ({ ...x, mark: x.ok ? '✓' : '', fill: x.ok ? '#1D6B47' : 'var(--card,#FFFFFF)', ring: x.ok ? '#1D6B47' : 'var(--faint,#B9BEC6)', td: x.ok ? 'line-through' : 'none', cta: x.ok && !x.panel && x.cta !== 'Change' ? 'Done' : x.cta, note: x.note || '', panel: !!x.panel }));
-    const setup = c.isOwner ? setupAll : setupAll.filter(x => !x.ownerOnly);
+    ].map((x, i) => ({ ...x, ownerOnly: [0, 3, 4].includes(i), step: { 3: 'payments', 4: 'shipping' }[i] })).map(x => {
+      const skipped = !!x.step && !x.ok && (app.st.setupSkipped || []).includes(x.step);
+      const optional = !!x.step && !x.ok;
+      const toggle = () => app.set('setupSkipped', l => skipped ? (l || []).filter(y => y !== x.step) : [...(l || []), x.step]);
+      return { ...x, skipped, mark: x.ok ? '✓' : skipped ? '–' : '', fill: x.ok ? '#1D6B47' : 'var(--card,#FFFFFF)', ring: x.ok ? '#1D6B47' : 'var(--faint,#B9BEC6)', ringStyle: skipped ? 'dashed' : 'solid', markFg: skipped ? 'var(--muted,#5A6472)' : '#FFFFFF', td: x.ok ? 'line-through' : 'none', labelFg: skipped ? 'var(--muted,#5A6472)' : 'var(--text,#14181F)', tag: skipped ? 'Skipped' : optional ? 'Optional' : '', skipLabel: skipped ? 'Undo' : optional ? 'Skip' : '', onSkip: toggle, cta: skipped ? '' : x.ok && !x.panel && x.cta !== 'Change' ? 'Done' : x.cta, note: x.note || '', panel: !!x.panel };
+    });
+    const setup = (c.isOwner ? setupAll : setupAll.filter(x => !x.ownerOnly)).filter(x => !x.skipped);
+    const setupShown = c.isOwner ? setupAll : setupAll.filter(x => !x.ownerOnly);
     const ST = { unfulfilled: ['To ship', 'var(--pfg,#8F4017)'], partial: ['Partly shipped', 'var(--wfg,#7A4B00)'], fulfilled: ['Shipped', 'var(--okfg,#1D6B47)'], refunded: ['Refunded', 'var(--muted,#5A6472)'], cancelled: ['Cancelled', 'var(--muted,#5A6472)'] };
     const hr = new Date().getHours();
     return {
@@ -149,7 +158,7 @@ class Component extends DCLogic {
       tasks: tasks.map(t => ({ ...t, n: String(t.n) })), hasTasks: tasks.length > 0, allClear: !tasks.length && orders.length > 0,
       localeFields, saveLocale: () => { app.setLocale({ region, currency: cur, language: lang, languageName: (LANGS.find(x => x[0] === lang) || [])[1] }); this.setState({ localeOpen: false, region: null, cur: null, lang: null }); app.toast(`Set: ${(REG.find(x => x[0] === region) || [])[1]} · ${cur} · ${(LANGS.find(x => x[0] === lang) || [])[1]}`); },
       closeLocale: () => this.setState({ localeOpen: false }),
-      showSetup: orders.length === 0 && !c.isStaff, staffWait: orders.length === 0 && c.isStaff, ownerNote: !c.isOwner && orders.length === 0 && !c.isStaff, setup, setupDone: String(setup.filter(x => x.ok).length), setupTotal: String(setup.length), setupPct: (setup.filter(x => x.ok).length / setup.length * 100) + '%',
+      showSetup: orders.length === 0 && !c.isStaff, staffWait: orders.length === 0 && c.isStaff, ownerNote: !c.isOwner && orders.length === 0 && !c.isStaff, setup: setupShown, setupDone: String(setup.filter(x => x.ok).length), setupTotal: String(setup.length), setupPct: (setup.filter(x => x.ok).length / setup.length * 100) + '%',
       showNumbers: orders.length > 0, numbersTitle: money ? 'How the shop is doing' : 'Today', numbers,
       latest: orders.slice(0, 5).map(o => ({ id: o.id, who: o.customer.name, status: (ST[o.status] || ST.fulfilled)[0], stFg: (ST[o.status] || ST.fulfilled)[1], total: money ? fmt(o.total) : o.lines.reduce((a, l) => a + l.qty, 0) + ' items', onClick: () => app.openOrder(o.id) })),
       a: { allOrders: () => app.go('orders') }

@@ -817,6 +817,7 @@ describe('the backstop itself', () => {
       'plan_first_version',
       'save_store_info',
       'save_store_name',
+      'set_setup_step_skipped',
       'set_store_main_language',
       'set_store_support_access',
       'set_store_tax_inclusive',

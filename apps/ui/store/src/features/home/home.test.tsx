@@ -12,7 +12,7 @@ import { numbersOf, tasksOf } from './homeView'
 
 const words = messages.home
 
-const api = vi.hoisted(() => ({ loadHome: vi.fn(), loadLocaleFacts: vi.fn() }))
+const api = vi.hoisted(() => ({ loadHome: vi.fn(), loadLocaleFacts: vi.fn(), skipSetupStep: vi.fn() }))
 vi.mock('../../api/home', () => api)
 
 const { Home } = await import('./Home')
@@ -55,7 +55,7 @@ const fresh: StoreHome = {
   sales: [],
   returningCustomers: 0,
   latestOrders: [],
-  setup: { products: true, collections: false, payments: false, shipping: false },
+  setup: { products: true, collections: false, payments: false, shipping: false, paymentsSkipped: false, shippingSkipped: false },
 }
 
 const ownerPermissions = ['orders.read', 'reports.read', 'settings', 'approve', 'shipping.configure', 'orders.mark_paid', 'catalog.read']
@@ -171,8 +171,42 @@ describe('the Home screen', () => {
     expect(screen.queryByRole('region', { name: words.numbers.title })).toBeNull()
   })
 
+  it('tags payments and shipping Optional, and Skip drops a step from the count and Undo brings it back', async () => {
+    api.loadHome.mockResolvedValue(fresh)
+    api.skipSetupStep.mockResolvedValue(undefined)
+    await show(owner)
+    const setup = screen.getByRole('region', { name: words.setup.title })
+    expect(within(setup).getAllByText(words.setup.optional)).toHaveLength(2)
+    await act(async () => {
+      fireEvent.click(within(setup).getByRole('button', { name: `Skip: ${words.setup.payments.label}` }))
+    })
+    expect(api.skipSetupStep).toHaveBeenCalledWith('payments', true)
+    expect(within(setup).getByText('2 of 4')).toBeTruthy()
+    expect(within(setup).getByText(words.setup.skipped)).toBeTruthy()
+    await act(async () => {
+      fireEvent.click(within(setup).getByRole('button', { name: `Undo skipping: ${words.setup.payments.label}` }))
+    })
+    expect(api.skipSetupStep).toHaveBeenLastCalledWith('payments', false)
+    expect(within(setup).getByText('2 of 5')).toBeTruthy()
+  })
+  it('keeps a step as it was and says so when the skip is not saved', async () => {
+    api.loadHome.mockResolvedValue(fresh)
+    api.skipSetupStep.mockRejectedValue(new Error('down'))
+    await show(owner)
+    const setup = screen.getByRole('region', { name: words.setup.title })
+    await act(async () => {
+      fireEvent.click(within(setup).getByRole('button', { name: `Skip: ${words.setup.shipping.label}` }))
+    })
+    expect(within(setup).getByRole('alert').textContent).toBe(words.setup.skipError)
+    expect(within(setup).getByText('2 of 5')).toBeTruthy()
+  })
+  it('offers a Manager no Skip, as the steps are not theirs', async () => {
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { products: true, collections: false, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null } })
+    await show(manager)
+    expect(screen.queryByRole('button', { name: /Skip/ })).toBeNull()
+  })
   it('gives a Manager only the catalogue steps, saying the rest is the owner’s', async () => {
-    api.loadHome.mockResolvedValue({ ...fresh, setup: { products: true, collections: false, payments: null, shipping: null } })
+    api.loadHome.mockResolvedValue({ ...fresh, setup: { products: true, collections: false, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null } })
     await show(manager)
     const setup = screen.getByRole('region', { name: words.setup.title })
     expect(within(setup).getAllByRole('link')).toHaveLength(2)
@@ -180,7 +214,7 @@ describe('the Home screen', () => {
   })
 
   it('tells Staff in a new store that the first order will show up here', async () => {
-    api.loadHome.mockResolvedValue({ ...fresh, sales: null, returningCustomers: null, paymentsToCollect: null, setup: { products: null, collections: null, payments: null, shipping: null } })
+    api.loadHome.mockResolvedValue({ ...fresh, sales: null, returningCustomers: null, paymentsToCollect: null, setup: { products: null, collections: null, payments: null, shipping: null, paymentsSkipped: null, shippingSkipped: null } })
     await show(staff)
     expect(screen.getByRole('region', { name: words.staffWait.title })).toBeTruthy()
     expect(screen.queryByRole('region', { name: words.setup.title })).toBeNull()

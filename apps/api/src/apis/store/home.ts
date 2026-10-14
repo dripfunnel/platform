@@ -1,5 +1,5 @@
 import { storeRoleHas } from '#auth/storePermissions'
-import { createHomeService, type HomeSales, type HomeView } from '#engine/modules/reports/index'
+import { createHomeService, createSetupSkipService, homeAudit, setupSteps, type HomeSales, type HomeView } from '#engine/modules/reports/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { moneyType, type StoreBuilder } from './builder'
@@ -48,6 +48,8 @@ export const registerHome = (builder: StoreBuilder) => {
       collections: t.exposeBoolean('collections', { nullable: true }),
       payments: t.exposeBoolean('payments', { nullable: true }),
       shipping: t.exposeBoolean('shipping', { nullable: true }),
+      paymentsSkipped: t.exposeBoolean('paymentsSkipped', { nullable: true }),
+      shippingSkipped: t.exposeBoolean('shippingSkipped', { nullable: true }),
     }),
   })
   const Home = builder.objectRef<HomeView>('StoreHome').implement({
@@ -71,6 +73,25 @@ export const registerHome = (builder: StoreBuilder) => {
     }),
   })
 
+  const SetupStepType = builder.enumType('SetupStep', { values: setupSteps })
+  builder.mutationFields((t) => ({
+    // Only the Owner (`settings`); a support session never reaches it (#719).
+    skipSetupStep: t.boolean({
+      args: { step: t.arg({ type: SetupStepType, required: true }), skipped: t.arg.boolean({ required: true }) },
+      extensions: { access: { api: 'store', scope: 'store', permission: 'settings', target: 'none', audit: homeAudit.setupStepSkipped, blockedFor: ['support'] } },
+      resolve: (_, args, ctx: StoreContext) => {
+        if (!ctx.sql) throw forbidden()
+        const caller = actingCaller(ctx)
+        return createSetupSkipService({
+          sql: ctx.sql,
+          context: caller.context,
+          actor: { id: caller.person.id, partnerId: caller.person.partnerId },
+          activity: ctx.activity,
+          facts: ctx.facts,
+        }).skip(args.step, args.skipped)
+      },
+    }),
+  }))
   builder.queryFields((t) => ({
     home: t.field({
       type: Home,
