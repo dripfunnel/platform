@@ -10,7 +10,7 @@ export type ProductFilter = (typeof productFilters)[number]
 export const productSorts = ['updated', 'name', 'price_low', 'price_high', 'stock'] as const
 export type ProductSort = (typeof productSorts)[number]
 
-const minor = z.string().regex(/^-?\d+$/).transform(Number)
+const minor = z.string().regex(/^-?\d+$/)
 const moneySchema = z.object({ amount: minor, currency: z.string() })
 const approvalSchema = z.enum(['approved', 'pending', 'sent_back']).nullable()
 
@@ -210,8 +210,10 @@ export type PhotoDeps = {
 
 /** A stored file's address, with the session's headers only when it is on the portal's own host: a file kept at an address elsewhere never receives the token. */
 export const assetSource = (deps: Pick<PhotoDeps, 'domain' | 'headers'>, path: string): { uri: string; headers?: Record<string, string> } => {
-  if (!path.startsWith('http')) return { uri: `https://${deps.domain}${path}`, headers: deps.headers() }
-  return new URL(path).host === deps.domain ? { uri: path, headers: deps.headers() } : { uri: path }
+  const address = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)/i.exec(path)
+  if (address === null) return { uri: `https://${deps.domain}${path}`, headers: deps.headers() }
+  const own = address[1]?.toLowerCase() === 'https' && address[2]?.toLowerCase() === deps.domain.toLowerCase()
+  return own ? { uri: path, headers: deps.headers() } : { uri: path }
 }
 
 const uploadSchema = z.union([z.object({ ok: z.literal(true), asset: z.object({ id: z.string(), kind: z.string() }) }), z.object({ ok: z.literal(false), code: z.string() })])

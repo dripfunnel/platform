@@ -46,7 +46,7 @@ export function VersionsCard({ draft, update, currency, disabled, canHideProduct
           return
         }
         update((d) => ({ ...d, versions: d.versions.map((version) => (!version.removed && matches(version) ? { ...version, price: text.trim() } : version)) }))
-        feedback.toast({ message: t('products.versions.allSet', { price: formatMoney({ amount: Number(minor), currency }, locale) }) })
+        feedback.toast({ message: t('products.versions.allSet', { price: formatMoney({ amount: minor, currency }, locale) }) })
       },
     })
 

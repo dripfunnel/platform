@@ -11,7 +11,6 @@ const stockPageSchema = z.object({
   productStock: z.object({ nodes: z.array(z.object({ versionId: z.string(), levels: z.array(levelSchema) })), pageInfo: pageInfoSchema }),
 })
 
-
 /** Each version's levels by version id, every page of them (a product holds up to 100 versions). */
 export const loadProductStock = async (client: ApiClient, productId: string): Promise<Map<string, StockLevel[]>> => {
   const levels = new Map<string, StockLevel[]>()

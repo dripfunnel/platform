@@ -1,4 +1,5 @@
-export type Money = { amount: number; currency: string }
+/** Minor units: a digit string as the API sends them, or a whole number. */
+export type Money = { amount: string | number; currency: string }
 
 const digitsByCurrency = new Map<string, number>()
 
@@ -11,10 +12,18 @@ export const moneyDigits = (currency: string): number => {
   return digits
 }
 
-/** Integer minor units and their currency as a price. A fraction of a minor unit is a bug upstream, so it throws. */
+/**
+ * Integer minor units and their currency as a price. A fraction of a minor unit is a bug upstream, so it throws. A digit string is
+ * formatted from its decimal text, so an amount past what a number holds is never rounded by this code.
+ */
 export const formatMoney = ({ amount, currency }: Money, locale: string): string => {
-  if (!Number.isSafeInteger(amount)) throw new RangeError(`Money is integer minor units, not ${amount}.`)
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount / 10 ** moneyDigits(currency))
+  const formatter = new Intl.NumberFormat(locale, { style: 'currency', currency })
+  if (typeof amount === 'number') {
+    if (!Number.isSafeInteger(amount)) throw new RangeError(`Money is integer minor units, not ${amount}.`)
+    return formatter.format(amount / 10 ** moneyDigits(currency))
+  }
+  if (!/^-?\d+$/.test(amount)) throw new RangeError(`Money is integer minor units, not ${amount}.`)
+  return formatter.format(moneyText({ amount, currency }) as unknown as number)
 }
 
 /** Minor units, as the API's digit string, shown to be edited: "49.00", or "4900" for yen. Digit arithmetic, so no amount loses precision. */

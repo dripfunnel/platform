@@ -11,8 +11,8 @@ const row = (over: Partial<ProductRow> = {}): ProductRow => ({
   supplier: null,
   supplierRemoved: false,
   versionCount: 1,
-  minPrice: { amount: 249900, currency: 'INR' },
-  maxPrice: { amount: 249900, currency: 'INR' },
+  minPrice: { amount: '249900', currency: 'INR' },
+  maxPrice: { amount: '249900', currency: 'INR' },
   photoUrl: null,
   stock: 12,
   lowStock: false,
@@ -33,8 +33,8 @@ describe('a list row says what the API sent', () => {
 
   it('formats a price, or a range of them, from minor units in the product’s currency', () => {
     expect(priceText(row())).toBe('₹2,499.00')
-    expect(priceText(row({ maxPrice: { amount: 279900, currency: 'INR' } }))).toBe('₹2,499.00 – ₹2,799.00')
-    expect(priceText(row({ minPrice: { amount: 2499, currency: 'USD' }, maxPrice: { amount: 2499, currency: 'USD' } }))).toBe('$24.99')
+    expect(priceText(row({ maxPrice: { amount: '279900', currency: 'INR' } }))).toBe('₹2,499.00 – ₹2,799.00')
+    expect(priceText(row({ minPrice: { amount: '2499', currency: 'USD' }, maxPrice: { amount: '2499', currency: 'USD' } }))).toBe('$24.99')
     expect(priceText(row({ minPrice: null, maxPrice: null }))).toBe('No price')
   })
 
