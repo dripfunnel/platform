@@ -21,15 +21,18 @@
     // them, and the Worker passes every host of our own zone straight through.
     "dev": {
       "name": "dripfunnel-store-proxy-dev",
-      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev" },
-      // The API serves a partner's own host only on this entrypoint (SAAS.md §8, #426).
-      "services": [{ "binding": "API", "service": "dripfunnel-api-dev", "entrypoint": "PortalProxy" }],
-      "routes": [{ "pattern": "*/*", "zone_name": "dripfunnel.ai" }]
-      // Storefront and preview hosts (storefront LIVE-SHOP.md §5, PREVIEW.md §5) wait for #287's bucket and preview zone, then
-      // gain: "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-dev" }], a second service
-      // { "binding": "EDGE", "service": "dripfunnel-api-dev", "entrypoint": "StorefrontEdge" }, the route
-      // { "pattern": "*.<dev preview domain>/*", "zone_name": "<dev preview domain>" }, the variable PREVIEW_DOMAIN and the
-      // secret PREVIEW_SESSION_KEY (docs/setup/dev.md §2.8). A binding to a missing bucket or zone fails the deploy.
+      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "PREVIEW_DOMAIN": "preview-dev.dripfunnel.com" },
+      // The API serves a partner's own host only on this entrypoint (SAAS.md §8, #426); EDGE is the storefront and preview edge.
+      "services": [
+        { "binding": "API", "service": "dripfunnel-api-dev", "entrypoint": "PortalProxy" },
+        { "binding": "EDGE", "service": "dripfunnel-api-dev", "entrypoint": "StorefrontEdge" }
+      ],
+      "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-dev" }],
+      // The secret PREVIEW_SESSION_KEY is set by hand (docs/setup/dev.md §2.8 item 8); a binding to a missing zone fails the deploy.
+      "routes": [
+        { "pattern": "*/*", "zone_name": "dripfunnel.ai" },
+        { "pattern": "*.preview-dev.dripfunnel.com/*", "zone_name": "dripfunnel.com" }
+      ]
     }
   }
 }
