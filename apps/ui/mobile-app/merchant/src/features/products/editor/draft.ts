@@ -93,7 +93,7 @@ export const blankDraft = (): Draft => ({
   carry: { productType: 'physical', category: null, warrantyText: null, returnsText: null, seoTitle: null, seoDescription: null, slug: '' },
 })
 
-const textOf = (amount: string | null | undefined, currency: string) => (amount ? moneyText({ amount: Number(amount), currency }) : '')
+const textOf = (amount: string | null | undefined, currency: string) => (amount ? moneyText({ amount, currency }) : '')
 
 export const draftOf = (product: EditorProduct, currency: string, levels: ReadonlyMap<string, readonly StockLevel[]> = new Map()): Draft => {
   const versions = product.versions.map((version): DraftVersion => {
@@ -204,11 +204,11 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   const priced = live.map((version) => minorOf(version.price, currency))
   if (live.length === 0) problems.push('versions')
   const optioned = draft.options.length > 0
-  if (priced.some((price) => price === null || price === 'invalid' || price < 0 || (optioned && price === 0))) problems.push('price')
+  if (priced.some((price) => price === null || price === 'invalid' || (optioned && price === '0'))) problems.push('price')
   const lowCompare = live.some((version, i) => {
     const compare = minorOf(version.compareAt, currency)
     const price = priced[i]
-    return compare === 'invalid' || (typeof compare === 'number' && typeof price === 'number' && compare <= price)
+    return compare === 'invalid' || (typeof compare === 'string' && typeof price === 'string' && BigInt(compare) <= BigInt(price))
   })
   if (lowCompare) problems.push('compare')
   if (live.some((version) => minorOf(version.cost, currency) === 'invalid')) problems.push('cost')
@@ -230,12 +230,12 @@ export const hidesEveryVersion = (draft: Draft): boolean => {
 /** A product with one version and no price typed or 0: the sheet asks "Selling for free?" before saving it. */
 export const isFree = (draft: Draft, currency: string): boolean => {
   const live = liveVersions(draft)
-  return live.length === 1 && minorOf(live[0]?.price ?? '', currency) === 0
+  return live.length === 1 && minorOf(live[0]?.price ?? '', currency) === '0'
 }
 
 const amountOf = (text: string, currency: string): string | null => {
   const minor = minorOf(text, currency)
-  return typeof minor === 'number' ? String(minor) : null
+  return typeof minor === 'string' ? minor : null
 }
 
 /**

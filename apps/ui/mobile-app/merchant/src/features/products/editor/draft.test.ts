@@ -79,9 +79,17 @@ describe('a price typed in major units goes to the API in minor units', () => {
 
   it('reads empty as unpriced, and a price shown for editing is the one that was saved', () => {
     expect(minorOf('  ', 'INR')).toBeNull()
-    expect(moneyText({ amount: 129905, currency: 'INR' })).toBe('1299.05')
-    expect(moneyText({ amount: 500, currency: 'JPY' })).toBe('500')
+    expect(moneyText({ amount: '129905', currency: 'INR' })).toBe('1299.05')
+    expect(moneyText({ amount: '500', currency: 'JPY' })).toBe('500')
     expect(draftOf(product(), 'INR').versions[0]?.price).toBe('2499.00')
+  })
+
+  it('gives back a price an untouched save would resend exactly, even past what a float holds', () => {
+    const big = '9007199254740993'
+    const loaded = draftOf(product({ versions: [{ ...(product().versions[0] as EditorProduct['versions'][number]), prices: [{ amount: big, compareAtAmount: null, currency: 'INR' }] }] }), 'INR')
+    expect(loaded.versions[0]?.price).toBe('90071992547409.93')
+    expect(inputOf(loaded, 'INR', 'merchant', false).versions[0]?.prices[0]).toEqual({ currency: 'INR', amount: big })
+    expect(moneyText({ amount: '5', currency: 'INR' })).toBe('0.05')
   })
 
   it('sends a compare-at price and a cost in minor units too, and asks that compare-at is above the price', () => {

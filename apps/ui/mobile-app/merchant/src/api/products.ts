@@ -208,11 +208,11 @@ export type PhotoDeps = {
   fetchImpl?: typeof fetch
 }
 
-/** A stored file's address and the headers that let the phone read it: the API's paths are relative and need the session. */
-export const assetSource = (deps: Pick<PhotoDeps, 'domain' | 'headers'>, path: string): { uri: string; headers: Record<string, string> } => ({
-  uri: path.startsWith('http') ? path : `https://${deps.domain}${path}`,
-  headers: deps.headers(),
-})
+/** A stored file's address, with the session's headers only when it is on the portal's own host: a file kept at an address elsewhere never receives the token. */
+export const assetSource = (deps: Pick<PhotoDeps, 'domain' | 'headers'>, path: string): { uri: string; headers?: Record<string, string> } => {
+  if (!path.startsWith('http')) return { uri: `https://${deps.domain}${path}`, headers: deps.headers() }
+  return new URL(path).host === deps.domain ? { uri: path, headers: deps.headers() } : { uri: path }
+}
 
 const uploadSchema = z.union([z.object({ ok: z.literal(true), asset: z.object({ id: z.string(), kind: z.string() }) }), z.object({ ok: z.literal(false), code: z.string() })])
 

@@ -29,7 +29,7 @@ export function ShellScreen({ label, state, onRetry, children }: { label: string
           label={label}
           store={acting.storeName}
           supplier={seat?.side === 'supplier'}
-          reference={sampleReference}
+          reference={scenario.screen === 'normal' ? null : sampleReference}
           onRetry={() => {
             setScenario({ screen: 'normal' })
             retry()

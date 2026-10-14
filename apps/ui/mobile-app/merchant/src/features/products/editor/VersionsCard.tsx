@@ -41,12 +41,12 @@ export function VersionsCard({ draft, update, currency, disabled, canHideProduct
       confirm: t('products.versions.apply'),
       onConfirm: ({ text }) => {
         const minor = minorOf(text, currency)
-        if (typeof minor !== 'number' || minor <= 0) {
+        if (typeof minor !== 'string' || BigInt(minor) <= 0n) {
           feedback.toast({ message: t('products.price.missing') })
           return
         }
         update((d) => ({ ...d, versions: d.versions.map((version) => (!version.removed && matches(version) ? { ...version, price: text.trim() } : version)) }))
-        feedback.toast({ message: t('products.versions.allSet', { price: formatMoney({ amount: minor, currency }, locale) }) })
+        feedback.toast({ message: t('products.versions.allSet', { price: formatMoney({ amount: Number(minor), currency }, locale) }) })
       },
     })
 
@@ -115,7 +115,7 @@ export function VersionsCard({ draft, update, currency, disabled, canHideProduct
               version={version}
               at={at}
               disabled={disabled}
-              priceInvalid={problems.includes('price') && !version.removed && (typeof priced !== 'number' || priced <= 0)}
+              priceInvalid={problems.includes('price') && !version.removed && (typeof priced !== 'string' || BigInt(priced) <= 0n)}
               stock={stock}
               onAdjust={onAdjust}
               onVisibility={() => toggle(version, at)}
