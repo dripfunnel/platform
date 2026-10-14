@@ -278,7 +278,7 @@ There is no per-store hostname fee.
 - ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,
   `PREVIEW_DOMAIN`, validated at boot: `webpreview.store` in prod, a second cheap domain
   registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`
-  locally (decided 2026-10-09). **Deviation on dev (decided 2026-10-14 on #735):** dev uses
+  locally (decided 2026-10-09). **Deviation on dev (proposed on #735, approved there by akshay-softobotics on 2026-10-14 for test use only):** dev uses
   `actuateminds.com` itself (previews are `{key}.actuateminds.com`, one label deep, so the free Universal certificate
   covers them), a domain we own that serves nothing else with users or sessions. It is **not** reserved for previews:
   the Worker's zone-wide route answers every `*.actuateminds.com` host (a name that isn't a preview key gets the
