@@ -108,8 +108,7 @@
       // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
       "observability": {
         "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
-        "traces": { "enabled": false },
-        "issue_detection": { "enabled": true }
+        "traces": { "enabled": false }
       },
       "images": { "binding": "IMAGES" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }],
@@ -165,8 +164,7 @@
       // Only the app's own redacted lines (LOGGING §9): invocation logs and traces record URLs, and some carry a token.
       "observability": {
         "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
-        "traces": { "enabled": false },
-        "issue_detection": { "enabled": true }
+        "traces": { "enabled": false }
       },
       "images": { "binding": "IMAGES" }
     }

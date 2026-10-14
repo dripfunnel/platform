@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
+Last updated: 2026-10-14 (#733: observability, §5). Before: 2026-10-11 (#317: `CF_CACHE_PURGE_TOKEN`, the storefront buckets; #518: `PREVIEW_DOMAIN`). Before: 2026-10-09 (`CF_PAGES_POOL` no longer needed).
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -178,6 +178,9 @@ harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.c
 ---
 
 ## 5. Releasing
+
+The Worker's observability is set in `apps/api/wrangler.jsonc` (`env.prod`): Workers Logs on, **invocation logs and traces off on purpose** (LOGGING §9: they record URLs, and some carry a token). Don't switch them on in the dashboard.
+
 
 1. Merge a pull request into `main`.
 2. **prod.yml** runs: gates against the test branch → migrations against production →
