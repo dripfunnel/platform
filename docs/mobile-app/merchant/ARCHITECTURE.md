@@ -154,12 +154,12 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
   What a seat may do is the API's list of permissions (`me.acting.permissions`, `access.ts`), and nothing narrows the list in the app. The editor
   (`editor/`) keeps a form draft (`draft.ts`: prices typed in major units, sent as minor-unit strings through `minorOf`) and sends back, as loaded, every
   field it has no control for (address, category, shipping, tax, barcodes, other-currency prices), because a save writes every field it names; the
-  listing sections, filters, size chart and video are left out of the input, which keeps them as stored. Photos come from the library or camera
+  listing sections, filters and video are left out of the input, which keeps them as stored (the size chart goes only when it was changed, #501). Photos come from the library or camera
   (`expo-image-picker`), go to `POST /api/assets` as raw bytes with the session's headers (not a signed URL: that is what the API has, FIRST-RELEASE (store) §19)
   and are read back with the same headers. A typed count is saved with `setStock` after the product; "Change with a reason" is `adjustStock`, applied at
   once. A+ content (`story/`) edits the draft modules and publishes them with the product. Not in the app yet: product kinds other than a physical
   item (MA 14, #507; they open read-only), import and export (#505), bulk actions, quick edit, and the listing sections the card
-  left out (weight and box, tax category, collections and filters, specifications, FAQs, related, badges, legal fields, search listing, size chart,
+  left out (weight and box, tax category, collections and filters, specifications, FAQs, related, badges, legal fields, search listing,
   other currencies and markets), which stay as stored when the phone saves.
 - **Built in #501** (`src/features/collections/`, `src/api/collections.ts`, `filters.ts`, `menu.ts`, `sizeCharts.ts`): Catalogue › Collections is one area with four parts under a tab bar
   (`CollectionsArea`): the list, Filters, Menus and Size charts. The collections and filters are read once for the area (`areaData.ts`), and the editors
@@ -170,7 +170,7 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
   (`access.ts`): Staff looks only, a supplier has none. Every write that loses or changes something says its consequence in a sheet first (delete, rename or
   merge a filter value, switch a filter between shoppers and internal, remove a menu item, change a chart used on several products, delete a chart), and a
   refusal shows by its code (`errors.collections`, `filters`, `menus`, `sizeCharts`; the codes are in `graphql/errors.ts`). A menu item saves at once at the
-  revision read, as the web's does. Leaving an editor with unsaved changes asks first (`useLeaveGuard`). Not in the app: a supplier's own size charts (the web's
+  revision read, as the web's does. A physical product picks its size chart in the product editor (`SizeChartCard`, for a merchant seat when Settings › Catalogue has size charts on); it is sent as `sizeChartId` only when changed, and `null` takes it off. Leaving an editor with unsaved changes asks first (`useLeaveGuard`). Not in the app: a supplier's own size charts (the web's
   "Your products" tab), a collection's image, SEO and sort order, and menu items that link to pages or addresses (they are kept and shown).
 - **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
   offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write

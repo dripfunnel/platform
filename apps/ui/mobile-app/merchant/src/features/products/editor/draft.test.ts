@@ -14,6 +14,7 @@ const product = (overrides: Partial<EditorProduct> = {}): EditorProduct => ({
   supplier: null,
   shared: false,
   slug: 'mara-linen-shirt',
+  sizeChartId: null,
   category: 'Shirts',
   warrantyText: 'One year',
   returnsText: '30 days',
@@ -122,6 +123,16 @@ describe('what the phone does not edit goes back as it came', () => {
     expect(supplier).not.toHaveProperty('visible')
     expect(supplier.versions[0]).not.toHaveProperty('taxClassId')
     expect(supplier.versions[0]?.prices).toEqual([{ currency: 'INR', amount: '249900' }])
+  })
+
+  it('sends the size chart only when it was changed: left out keeps it, null takes it off', () => {
+    const attached = draftOf(product({ sizeChartId: 'sc-tops' }), 'INR')
+
+    expect(inputOf(loaded, 'INR', 'merchant', false)).not.toHaveProperty('sizeChartId')
+    expect(inputOf(attached, 'INR', 'merchant', false)).not.toHaveProperty('sizeChartId')
+    expect(inputOf({ ...loaded, sizeChart: { ...loaded.sizeChart, id: 'sc-tops' } }, 'INR', 'merchant', false)).toMatchObject({ sizeChartId: 'sc-tops' })
+    expect(inputOf({ ...attached, sizeChart: { ...attached.sizeChart, id: null } }, 'INR', 'merchant', false)).toMatchObject({ sizeChartId: null })
+    expect(inputOf({ ...loaded, sizeChart: { ...loaded.sizeChart, id: 'sc-tops' } }, 'INR', 'supplier', false)).not.toHaveProperty('sizeChartId')
   })
 
   it('names no address for a new product, so the API makes one from the name', () => {

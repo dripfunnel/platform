@@ -93,7 +93,8 @@
       "TOO_LARGE": "That photo is too big. Use one under 20 MB.",
       "UNSUPPORTED_TYPE": "Use a JPG, PNG or WebP photo.",
       "EMPTY": "That file is empty.",
-      "NOT_CONNECTED": "This isn’t connected yet. Try again later."
+      "NOT_CONNECTED": "This isn’t connected yet. Try again later.",
+      "FEATURE_UNAVAILABLE": "Size charts aren’t switched on in this store."
     },
     "collections": {
       "NAME_REQUIRED": "Give the collection a name.",
@@ -1334,6 +1335,14 @@
       "waitUpload": "A photo is still uploading. Save again once it’s in.",
       "leaveTitle": "Leave without saving?",
       "leave": "Your A+ changes aren’t saved."
+    },
+    "sizeChart": {
+      "title": "Size chart",
+      "hint": "Shoppers return fewer orders when there’s a size chart.",
+      "none": "No size chart",
+      "pick": "Choose a size chart",
+      "attached": "A size chart",
+      "failed": "Size charts didn’t load, so the chart can’t be changed here. Reload to try again."
     }
   },
   "more": {
