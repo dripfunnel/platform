@@ -106,7 +106,7 @@ import { webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDelivere
 import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
-import { storefrontCreateDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
+import { storefrontCreateDeliverer, storefrontUndoDeliverer, type StorefrontWorkflow } from '#jobs/queues/deliverers/storefrontCreate'
 import { createStorefrontWorkflow } from '#jobs/workflows/create-storefront'
 import { studioCapacityClass, studioSessionClass, type CapacityNamespace, type StudioSessionObject } from '#jobs/durable/studio'
 import { handleStudioFrame } from '#apis/studio/frame'
@@ -131,7 +131,7 @@ import { actionsKeys } from '#integrations/github/oidc'
 import { storefrontR2, type StorefrontR2 } from '#integrations/cloudflare/r2'
 import { localActionsKeys, localStorefrontR2 } from '#integrations/local/builds'
 import type { BuildDeps } from '#saas/storefronts/index'
-import { storefrontCreateKind, type CreateStorefrontParams } from '#saas/storefronts/index'
+import { storefrontCreateKind, storefrontUndoKind, type CreateStorefrontParams, type UndoStorefrontParams } from '#saas/storefronts/index'
 import { activityLog } from '#saas/activity/index'
 import { endTrials, suspendOverdueStores } from '#saas/storeBilling/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
@@ -180,7 +180,7 @@ interface Env extends Record<string, unknown> {
   // Wakes the outbox relay after a request (api/README.md §5); unbound, cron delivers.
   OUTBOX_WAKE?: Queue<OutboxWake> | undefined
   // SAAS §5 steps 4–8 and the bucket its templates and previews are in; unbound, a store's first template choice waits in the outbox.
-  CREATE_STOREFRONT?: Workflow<CreateStorefrontParams> | undefined
+  CREATE_STOREFRONT?: Workflow<CreateStorefrontParams | UndoStorefrontParams> | undefined
   STOREFRONT_SITES?: R2Bucket | undefined
   // The other two storefront buckets (storefront LIVE-SHOP.md §2): built JS and CSS behind the asset host, and the private drafts.
   STOREFRONT_ASSETS?: R2Bucket | undefined
@@ -282,7 +282,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     [webhookDeliveryKind]: webhookDeliveryDeliverer(sql, { lookup, secrets }),
     [webhookReleaseKind]: webhookReleaseDeliverer(sql),
     [appNoticeKind]: appNoticeDeliverer(sql, { lookup, secrets }),
-    ...(createStorefront ? { [storefrontCreateKind]: storefrontCreateDeliverer(createStorefront) } : {}),
+    ...(createStorefront ? { [storefrontCreateKind]: storefrontCreateDeliverer(createStorefront), [storefrontUndoKind]: storefrontUndoDeliverer(createStorefront) } : {}),
     ...(publishing
       ? {
           [storefrontPublishKind]: storefrontPublishDeliverer(publishing.publish),
@@ -394,7 +394,7 @@ const handleAdmin = async (
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: config.PLATFORM_HOST, localHosts: config.DNS_LOCAL === '1', now: () => new Date() })
         : null,
       stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() }) : null,
-      provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, now: () => new Date() }) : null,
+      provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffSessions: caller
         ? createStaffSessionsService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, reauthFresh: caller.reauthFresh, platformHost: config.PLATFORM_HOST, now: () => new Date() })
         : null,

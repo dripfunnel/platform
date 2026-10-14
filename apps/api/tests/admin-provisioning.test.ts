@@ -3,12 +3,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
+import { factsOf } from '#auth/activity'
+import type { ProvisioningStep } from '#db/schema/saas'
+import { pgArray, withScope, withSystemScope } from '#db/scoped/index'
+import { activityLog } from '#saas/activity/index'
 import { createProvisioningService } from '#saas/provisioning/index'
+import { createStorefrontParams, runCreateStorefront, runUndoStorefront, startStorefront, storefrontCreateKind, storefrontUndoKind, type StepRunner } from '#saas/storefronts/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
+import { createDepsFor } from './support/storefrontCreate'
 
-// Card #37: Provisioning on the Admin API. The signup Workflow is the Store strand's, so Retry
-// and Undo answer NO_EXECUTOR once every other check passes.
+// Card #37: Provisioning on the Admin API. Retry and Undo run a failed create-storefront job (#730); a
+// provision-store job has no executor, so they answer NO_EXECUTOR once every other check passes.
 
 let db: TestDatabase
 const now = new Date('2026-10-02T12:00:00Z')
@@ -16,13 +22,17 @@ const staffByRole = new Map<StaffRole, StaffMember>()
 const jobs = { failed: '', stuck: '', running: '', own: '', done: '' }
 const secret = 'ghs_abcdefghijklmnopqrstuvwxyz0123456789'
 
+const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
+const provisioningFor = (staff: StaffMember) =>
+  createProvisioningService({ sql: db.sql, staff, facts: factsOf(request), activity: activityLog, now: () => now })
+
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
   isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
   staffActivity: null,
   partners: null,
   stores: null,
-  provisioning: staff ? createProvisioningService({ sql: db.sql, staff, now: () => now }) : null,
+  provisioning: staff ? provisioningFor(staff) : null,
   staffSessions: null,
   customers: null,
   staffMembers: null,
@@ -151,5 +161,174 @@ describe('retry and undo', () => {
     const progress = `query($id: ID!) { provisioningJob(id: $id) { id state step } }`
     expect((await run<{ provisioningJob: unknown }>(progress, as('staff-support'), { id: jobs.stuck })).data?.provisioningJob).toEqual({ id: jobs.stuck, state: 'stuck', step: 'defaults' })
     expect((await run<{ provisioningJob: unknown }>(progress, as('staff-support'), { id: jobs.done })).data?.provisioningJob).toBeNull()
+  })
+})
+
+// #730: a failed create-storefront job is retried or undone through the outbox, never inside the request.
+describe('retry and undo of a failed create-storefront job', () => {
+  const once: StepRunner = { do: (_, work) => work() }
+  const stores = { a: { id: '', partner: '' }, b: { id: '', partner: '' } }
+  const engineer = () => as('staff-engineer')
+  const outboxOf = async (kind: string, storeId: string) =>
+    db.sql<{ payload: { storeId: string; jobId: string; template: string }; idempotency_key: string }[]>`select payload, idempotency_key from outbox where kind = ${kind} and store_id = ${storeId} order by created_at`
+  const jobsOf = async (storeId: string) =>
+    db.sql<{ id: string; state: string }[]>`select id, state from job where store_id = ${storeId} and kind = 'create-storefront' order by started_at, id`
+  const activityOf = async (storeId: string, action: string) =>
+    db.sql<{ actor_kind: string; actor_label: string; reason: string | null; partner_id: string }[]>`select actor_kind, actor_label, reason, partner_id from activity_log where store_id = ${storeId} and action = ${action} order by occurred_at`
+
+  const reset = async (storeId: string) => {
+    await db.sql`delete from job_detail where job_id in (select id from job where store_id = ${storeId} and kind = 'create-storefront')`
+    await db.sql`delete from job where store_id = ${storeId} and kind = 'create-storefront'`
+    await db.sql`delete from outbox where store_id = ${storeId} and kind in (${storefrontCreateKind}, ${storefrontUndoKind})`
+    await db.sql`delete from activity_log where store_id = ${storeId} and action in ('job.retried', 'job.undone')`
+    await db.sql`delete from design_draft where store_id = ${storeId}`
+    await db.sql`delete from storefront_push where store_id = ${storeId}`
+    await db.sql`update storefront set repo = null, repo_id = null, repo_state = 'none', repo_head = null, template = null where store_id = ${storeId}`
+    await db.sql`update store set storefront_kind = 'ai', core_version = null where id = ${storeId}`
+  }
+
+  /** The store's template pick, run until `failAt` stops it: the job ends failed with everything undone. */
+  const failedAt = async (storeId: string, step: ProvisioningStep | null, world: Awaited<ReturnType<typeof createDepsFor>>) => {
+    const started = await withSystemScope(db.sql, (tx) => startStorefront(tx, storeId, 'bloom', now))
+    if (!started.ok) throw new Error(`start refused: ${started.code}`)
+    const params = { storeId, jobId: started.jobId, template: 'bloom' }
+    const result = await runCreateStorefront({ ...world.deps, failAt: (at) => { if (at === step) throw new Error('boom') } }, params, once)
+    // The test clock is fixed, so a later job would tie with this one on its start time.
+    await db.sql`update job set started_at = started_at - interval '1 hour' where id = ${params.jobId}`
+    return { params, result }
+  }
+
+  /** What the Retry's new job asked the Workflow for, run to the end. */
+  const runQueued = async (storeId: string, world: Awaited<ReturnType<typeof createDepsFor>>) => {
+    const queued = await outboxOf(storefrontCreateKind, storeId)
+    const last = queued.at(-1)
+    if (!last) throw new Error('nothing queued')
+    return runCreateStorefront(world.deps, createStorefrontParams.parse(last.payload), once)
+  }
+
+  beforeAll(async () => {
+    const rows = await db.sql<{ id: string; partner_id: string }[]>`
+      select distinct on (s.partner_id) s.id, s.partner_id from store s join storefront f on f.store_id = s.id
+      where s.id not in (select store_id from job where id = any(${pgArray([jobs.failed, jobs.stuck, jobs.running, jobs.own, jobs.done])}::uuid[])) order by s.partner_id, s.id`
+    const [a, b] = rows
+    if (!a || !b) throw new Error('the seed needs two partners with a store each')
+    stores.a = { id: a.id, partner: a.partner_id }
+    stores.b = { id: b.id, partner: b.partner_id }
+  })
+
+  it('retries a failed job: one new job under the same template, however often it is asked, and a store with exactly one repo', async () => {
+    await reset(stores.a.id)
+    const world = await createDepsFor(db.sql, () => now)
+    const { params, result } = await failedAt(stores.a.id, 'storeConfig', world)
+    expect(result).toBe('undone')
+    expect(world.github.repos.size).toBe(0)
+
+    for (let i = 0; i < 2; i += 1) expect((await run<{ retryJob: unknown }>(retry, engineer(), { id: params.jobId })).data?.retryJob).toEqual({ ok: true, code: null })
+
+    const jobs = await jobsOf(stores.a.id)
+    expect(jobs.map((j) => j.state)).toEqual(['failed', 'running'])
+    const queued = await outboxOf(storefrontCreateKind, stores.a.id)
+    expect(queued.map((q) => q.payload.template)).toEqual(['bloom', 'bloom'])
+    expect(queued.at(-1)?.payload.jobId).toBe(jobs[1]?.id)
+
+    expect(await runQueued(stores.a.id, world)).toBe('created')
+    expect(world.github.repos.size).toBe(1)
+    expect(await activityOf(stores.a.id, 'job.retried')).toEqual([expect.objectContaining({ actor_kind: 'staff', reason: null, partner_id: stores.a.partner, actor_label: expect.stringContaining(engineer().email) })])
+  })
+
+  it.each(['repo', 'storeConfig', 'hostingTarget', 'firstBuild', 'done'] as const)('leaves exactly one repo when it fails at %s and is retried', async (step) => {
+    await reset(stores.a.id)
+    const world = await createDepsFor(db.sql, () => now)
+    const { params, result } = await failedAt(stores.a.id, step, world)
+    expect(result).toBe('undone')
+    expect(world.github.repos.size).toBe(0)
+    expect((await run<{ retryJob: unknown }>(retry, engineer(), { id: params.jobId })).data?.retryJob).toEqual({ ok: true, code: null })
+    expect(await runQueued(stores.a.id, world)).toBe('created')
+    expect(world.github.repos.size).toBe(1)
+  })
+
+  it('undoes a failed job: the repo, the store’s folders and its preview go, the job is undone, and the store can try again', async () => {
+    await reset(stores.a.id)
+    const world = await createDepsFor(db.sql, () => now)
+    const { params } = await failedAt(stores.a.id, null, world)
+    // Cleanup that did not finish: the repo and folders are still there when the job is marked failed.
+    await db.sql`update job set state = 'failed' where id = ${params.jobId}`
+    await db.sql`update storefront set repo_state = 'failed' where store_id = ${stores.a.id}`
+    expect(world.github.repos.size).toBe(1)
+
+    expect((await run<{ undoJob: unknown }>(undo, engineer(), { id: params.jobId, r: 'Owner asked to start again' })).data?.undoJob).toEqual({ ok: true, code: null })
+    expect((await jobsOf(stores.a.id)).map((j) => j.state)).toEqual(['cleaning'])
+    expect((await run<{ undoJob: unknown }>(undo, engineer(), { id: params.jobId, r: 'Asked twice' })).data?.undoJob).toEqual({ ok: false, code: 'JOB_RUNNING' })
+    const queued = await outboxOf(storefrontUndoKind, stores.a.id)
+    expect(queued.map((q) => q.payload)).toEqual([{ storeId: stores.a.id, jobId: params.jobId }])
+
+    expect(await runUndoStorefront(world.deps, { storeId: stores.a.id, jobId: params.jobId }, once)).toBe('undone')
+    expect(world.github.repos.size).toBe(0)
+    expect(world.sites.keys(`stores/${stores.a.id}`)).toEqual([])
+    expect(world.sites.keys('previews/')).toEqual([])
+    expect((await db.sql`select 1 from design_draft where store_id = ${stores.a.id}`).length).toBe(0)
+    expect((await jobsOf(stores.a.id)).map((j) => j.state)).toEqual(['undone'])
+    expect(await activityOf(stores.a.id, 'job.undone')).toEqual([expect.objectContaining({ actor_kind: 'staff', reason: 'Owner asked to start again', partner_id: stores.a.partner })])
+    expect(await withSystemScope(db.sql, (tx) => startStorefront(tx, stores.a.id, 'bloom', now))).toEqual({ ok: true, jobId: expect.any(String) })
+  })
+
+  it('refuses what it should: a stuck job, an old job, a finished store, a store with its own frontend, an unknown job', async () => {
+    await reset(stores.a.id)
+    const world = await createDepsFor(db.sql, () => now)
+    const { params } = await failedAt(stores.a.id, 'storeConfig', world)
+    expect((await run<{ undoJob: unknown }>(undo, engineer(), { id: params.jobId, r: '   ' })).data?.undoJob).toEqual({ ok: false, code: 'REASON_REQUIRED' })
+    expect((await run<{ retryJob: unknown }>(retry, engineer(), { id: '00000000-0000-4000-8000-000000000000' })).data?.retryJob).toEqual({ ok: false, code: 'NOT_FOUND' })
+
+    // A newer job exists, so the old failed one is no longer what an Undo may clean (its folders are the live job's).
+    expect((await run<{ retryJob: unknown }>(retry, engineer(), { id: params.jobId })).data?.retryJob).toEqual({ ok: true, code: null })
+    const newest = (await jobsOf(stores.a.id)).at(-1)?.id ?? ''
+    await db.sql`update job set state = 'failed' where id = ${newest}`
+    expect((await run<{ undoJob: unknown }>(undo, engineer(), { id: params.jobId, r: 'Old one' })).data?.undoJob).toEqual({ ok: false, code: 'NOT_FOUND' })
+
+    // The newest job is stuck: its Workflow is alive, so Retry keeps its refusal.
+    const stuck = newest
+    await db.sql`update job set state = 'running', step_started_at = ${new Date(now.getTime() - 3 * 3_600_000)} where id = ${stuck}`
+    expect((await run<{ retryJob: unknown }>(retry, engineer(), { id: stuck })).data?.retryJob).toEqual({ ok: false, code: 'NO_EXECUTOR' })
+    expect((await run<{ undoJob: unknown }>(undo, engineer(), { id: stuck, r: 'x' })).data?.undoJob).toEqual({ ok: false, code: 'NOT_FAILED' })
+
+    // Once the store has its site, or its own frontend, a retry has nothing to make.
+    await db.sql`update job set state = 'failed' where id = ${stuck}`
+    await db.sql`update storefront set repo_state = 'ready' where store_id = ${stores.a.id}`
+    expect((await run<{ retryJob: unknown }>(retry, engineer(), { id: stuck })).data?.retryJob).toEqual({ ok: false, code: 'NOT_FOUND' })
+    await db.sql`update storefront set repo_state = 'failed' where store_id = ${stores.a.id}`
+    await db.sql`update store set storefront_kind = 'own', build_state = null where id = ${stores.a.id}`
+    expect((await run<{ retryJob: unknown }>(retry, engineer(), { id: stuck })).data?.retryJob).toEqual({ ok: false, code: 'NOT_FOUND' })
+  })
+
+  it('changes only the job it is asked for, and a partner manager reaches only an assigned partner’s jobs', async () => {
+    await reset(stores.a.id)
+    await reset(stores.b.id)
+    const world = await createDepsFor(db.sql, () => now)
+    const a = await failedAt(stores.a.id, 'storeConfig', world)
+    const b = await failedAt(stores.b.id, 'storeConfig', world)
+    const before = await db.sql`select id, state, repo_state from job j join storefront f on f.store_id = j.store_id where j.id = ${b.params.jobId}`
+
+    expect((await run<{ retryJob: unknown }>(retry, engineer(), { id: a.params.jobId })).data?.retryJob).toEqual({ ok: true, code: null })
+    expect(await db.sql`select id, state, repo_state from job j join storefront f on f.store_id = j.store_id where j.id = ${b.params.jobId}`).toEqual(before)
+    expect(await outboxOf(storefrontCreateKind, stores.b.id)).toHaveLength(1)
+
+    const manager = as('staff-partner-manager')
+    const assigned = await db.sql<{ partner_id: string }[]>`select partner_id from staff_partner_assignment where staff_user_id = ${manager.id} and removed_at is null`
+    const mine = assigned.some((r) => r.partner_id === stores.a.partner) ? stores.a : stores.b
+    const theirs = mine === stores.a ? b : a
+    // The role check is the resolver's (a partner manager holds neither permission); the assignment is the service's.
+    expect((await run(retry, manager, { id: theirs.params.jobId })).code).toBe('FORBIDDEN')
+    if (assigned.length > 0 && !assigned.some((r) => r.partner_id === (mine === stores.a ? stores.b : stores.a).partner)) {
+      expect(await provisioningFor(manager).retryJob(theirs.params.jobId)).toEqual({ ok: false, code: 'NOT_FOUND' })
+      expect(await provisioningFor(manager).undoJob(theirs.params.jobId, 'not mine')).toEqual({ ok: false, code: 'NOT_FOUND' })
+    }
+  })
+
+  it('opens the store’s repo state only to the job it is asked about: the staff functions refuse another job kind and another scope', async () => {
+    const provisionJob = jobs.failed
+    const context = { caller: { kind: 'staff' as const, staffId: engineer().id } }
+    const rows = await withScope(db.sql, context, (tx) => tx`select * from staff_start_row(${provisionJob})`)
+    expect(rows).toHaveLength(0)
+    await expect(withScope(db.sql, { caller: { kind: 'platform' } } as never, (tx) => tx`select * from staff_start_row(${provisionJob})`)).rejects.toThrow()
   })
 })

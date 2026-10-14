@@ -1,19 +1,21 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import { partnerScopedRoles, roleHas } from '#auth/permissions'
+import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StaffMember } from '#auth/staff'
 import { redactSecretsInText } from '#core/secretText'
 import { provisioningSteps } from '#db/schema/saas'
 import { withScope } from '#db/scoped/index'
-import { selectProvisioningJob, selectProvisioningJobs, type ProvisioningJobRow } from '#db/scoped/provisioning'
+import { markJobCleaning, selectProvisioningJob, selectProvisioningJobs, type ProvisioningJobRow } from '#db/scoped/provisioning'
 import { selectPartnerNames } from '#db/scoped/stores'
 import type { PageInfo } from '#saas/activity/index'
-import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
+import { queueSideEffect } from '#saas/outbox/index'
+import { decodePage, pageOf, staffEntry, type PageRequest } from '#saas/staff/index'
+import { retryStorefront, storefrontUndoKind } from '#saas/storefronts/index'
 import { stuckAfterMinutes } from './stuck'
 
-// Provisioning on the Admin API (ui/admin/FIRST-RELEASE.md §7, §12; card #37): signups in
-// progress, stuck or failed, and Retry and Undo. The Workflow that runs a signup's steps is the
-// Store strand's merchant-signup card, so the two actions refuse with NO_EXECUTOR until it exists.
+// Provisioning on the Admin API (ui/admin/FIRST-RELEASE.md §7, §12; card #37): signups in progress, stuck or failed, and
+// Retry and Undo. Only a failed create-storefront job has an executor (#730); a provision-store job answers NO_EXECUTOR.
 
 export const jobPageSize = 25
 export const jobAudit = { retryJob: 'job.retried', undoJob: 'job.undone' } as const
@@ -27,18 +29,20 @@ export const jobFilter = z.strictObject({
 
 type Refusal = 'RETRIERS_ONLY' | 'CLEANERS_ONLY' | 'JOB_RUNNING'
 type Permission = { allowed: true } | { allowed: false; reason: Refusal }
-export type JobActionResult = { ok: false; code: 'NOT_FOUND' | 'JOB_RUNNING' | 'NOT_FAILED' | 'REASON_REQUIRED' | 'NO_EXECUTOR' }
+export type JobActionResult = { ok: true; code: null } | { ok: false; code: 'NOT_FOUND' | 'JOB_RUNNING' | 'NOT_FAILED' | 'REASON_REQUIRED' | 'NO_EXECUTOR' }
 
 export interface ProvisioningDeps {
   sql: postgres.Sql
   staff: StaffMember
+  facts: RequestFacts
+  activity: ActivityLog
   now: () => Date
 }
 
 const stateOf = (row: ProvisioningJobRow): 'running' | 'stuck' | 'failed' | 'cleaning' =>
   row.state === 'failed' ? 'failed' : row.state === 'cleaning' ? 'cleaning' : row.stuck ? 'stuck' : 'running'
 
-export const createProvisioningService = ({ sql, staff, now }: ProvisioningDeps) => {
+export const createProvisioningService = ({ sql, staff, facts, activity, now }: ProvisioningDeps) => {
   const context = { caller: { kind: 'staff' as const, staffId: staff.id } }
   const assignedTo = partnerScopedRoles.includes(staff.role) ? staff.id : undefined
   const may = (permission: 'provisioning.retry' | 'provisioning.undo', refusal: Refusal): Permission =>
@@ -102,25 +106,46 @@ export const createProvisioningService = ({ sql, staff, now }: ProvisioningDeps)
     })
   }
 
-  /** The job's own checks, then NO_EXECUTOR: nothing may half-run a signup step inside a request (api/README §4). */
-  const refuseWithoutExecutor = async (id: string, kind: 'retry' | 'undo', reason: string | null): Promise<JobActionResult> => {
+  const asStaff = staffEntry(staff, facts)
+  const record = (tx: Parameters<ActivityLog['record']>[0], row: ProvisioningJobRow, action: string, reason: string | null) =>
+    activity.record(tx, asStaff({ action, reason, partnerId: row.partner_id, storeId: row.store_id, target: { type: 'store', id: row.store_id, label: row.store_name }, visibility: 'partner' }))
+
+  /**
+   * The job's own checks, then the executor: nothing runs a step inside a request (api/README §4), so a Retry or an Undo
+   * queues what the Workflow does after commit. Only a store's newest create-storefront job is acted on (its
+   * compensations name the store's folders, which a later job may own).
+   */
+  const act = async (id: string, kind: 'retry' | 'undo', reason: string | null): Promise<JobActionResult> => {
     if (!z.guid().safeParse(id).success) return { ok: false, code: 'NOT_FOUND' }
-    if (kind === 'undo' && !reason?.trim()) return { ok: false, code: 'REASON_REQUIRED' }
+    const why = reason?.trim() ?? ''
+    if (kind === 'undo' && !why) return { ok: false, code: 'REASON_REQUIRED' }
     return withScope(sql, context, async (tx): Promise<JobActionResult> => {
       const row = await selectProvisioningJob(tx, id, stuckAfterMinutes, now(), assignedTo)
       if (!row || row.state === 'done' || row.state === 'undone') return { ok: false, code: 'NOT_FOUND' }
       const state = stateOf(row)
       if (state === 'running' || state === 'cleaning') return { ok: false, code: 'JOB_RUNNING' }
       if (kind === 'undo' && state !== 'failed') return { ok: false, code: 'NOT_FAILED' }
-      return { ok: false, code: 'NO_EXECUTOR' }
+      if (row.kind !== 'create-storefront' || state !== 'failed') return { ok: false, code: 'NO_EXECUTOR' }
+      // A Retry asked twice: the first one's job is running, and that is the answer to both.
+      if (row.latest_id !== row.id) return kind === 'retry' && row.latest_state === 'running' ? { ok: true, code: null } : { ok: false, code: 'NOT_FOUND' }
+      if (kind === 'retry') {
+        const started = await retryStorefront(tx, row.id, now())
+        if (!started.ok) return { ok: false, code: 'NOT_FOUND' }
+        await record(tx, row, jobAudit.retryJob, null)
+        return { ok: true, code: null }
+      }
+      await markJobCleaning(tx, row.id)
+      await queueSideEffect(tx, { kind: storefrontUndoKind, idempotencyKey: `${storefrontUndoKind}:${row.id}`, payload: { storeId: row.store_id, jobId: row.id }, partnerId: row.partner_id, storeId: row.store_id })
+      await record(tx, row, jobAudit.undoJob, why)
+      return { ok: true, code: null }
     })
   }
 
   return {
     provisioningJobs,
     provisioningJob,
-    retryJob: (id: string) => refuseWithoutExecutor(id, 'retry', null),
-    undoJob: (id: string, reason: string) => refuseWithoutExecutor(id, 'undo', reason),
+    retryJob: (id: string) => act(id, 'retry', null),
+    undoJob: (id: string, reason: string) => act(id, 'undo', reason),
   }
 }
 

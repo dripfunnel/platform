@@ -1,8 +1,8 @@
-import { createStorefrontParams, type CreateStorefrontParams } from '#saas/storefronts/index'
+import { createStorefrontParams, undoStorefrontParams, type CreateStorefrontParams, type UndoStorefrontParams } from '#saas/storefronts/index'
 import { GiveUp, type Deliverer } from '../outbox-relay'
 
-/** The Workflow binding's two calls the deliverer makes. */
-export type StorefrontWorkflow = Pick<Workflow<CreateStorefrontParams>, 'get' | 'create'>
+/** The Workflow binding's two calls the deliverers make. */
+export type StorefrontWorkflow = Pick<Workflow<CreateStorefrontParams | UndoStorefrontParams>, 'get' | 'create'>
 
 /**
  * `storefront.create`: starts the create-storefront Workflow after the choice commits (SAAS §5), its instance named by
@@ -17,5 +17,19 @@ export const storefrontCreateDeliverer = (workflow: StorefrontWorkflow): Deliver
       () => false,
     )
     if (!started) await workflow.create({ id: parsed.data.jobId, params: parsed.data })
+  },
+})
+
+/** `storefront.undo` (an Admin Undo, #730): the same Workflow, an instance of its own, since the job's was used by its create run. */
+export const storefrontUndoDeliverer = (workflow: StorefrontWorkflow): Deliverer => ({
+  deliver: async (effect) => {
+    const parsed = undoStorefrontParams.safeParse(effect.payload)
+    if (!parsed.success) throw new GiveUp('bad_payload')
+    const id = `undo-${parsed.data.jobId}`
+    const started = await workflow.get(id).then(
+      () => true,
+      () => false,
+    )
+    if (!started) await workflow.create({ id, params: parsed.data })
   },
 })

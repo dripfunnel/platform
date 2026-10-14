@@ -25,8 +25,12 @@ export interface ProvisioningJobRow {
   partner_name: string
   owner_name: string | null
   owner_email: string | null
+  kind: string
   state: JobState
   stuck: boolean
+  /** The store's newest job and its state: an Undo or a Retry acts on that one only (#730). */
+  latest_id: string
+  latest_state: JobState
   steps: ProvisioningStep[]
   step: ProvisioningStep
   step_started_at: Date
@@ -38,12 +42,13 @@ export interface ProvisioningJobRow {
 
 const projection = (tx: ScopedSql, stuck: Readonly<Record<ProvisioningStep, number>>, now: Date) => tx`
   select j.id, j.store_id, s.name as store_name, s.code as store_code, s.partner_id, p.name as partner_name,
-    o.name as owner_name, o.email as owner_email, j.state, ${stuckJobPredicate(tx, stuck, now)} as stuck,
+    o.name as owner_name, o.email as owner_email, j.kind, j.state, l.id as latest_id, l.state as latest_state, ${stuckJobPredicate(tx, stuck, now)} as stuck,
     to_jsonb(j.steps) as steps, j.step, j.step_started_at, date_trunc('milliseconds', j.started_at) as started_at, j.attempts, j.last_error, d.details
   from job j
   join store s on s.id = j.store_id
   join partner p on p.id = s.partner_id
   left join job_detail d on d.job_id = j.id
+  join lateral (select id, state from job where store_id = j.store_id order by started_at desc, id desc limit 1) l on true
   left join lateral (
     select u.name, u.email from membership m join "user" u on u.id = m.user_id
     where m.store_id = s.id and m.seller_id is null and m.role_key = 'owner' order by m.created_at limit 1
@@ -91,3 +96,7 @@ export const selectProvisioningJob = async (tx: ScopedSql, id: string, stuck: Re
         ${assignedTo !== undefined ? tx`and s.partner_id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${assignedTo} and a.removed_at is null)` : tx``}
     `
   )[0] ?? null
+/** Under a Retry or an Undo: the job's job state to `cleaning`, so a second Undo, or a Retry, finds it busy. */
+export const markJobCleaning = async (tx: ScopedSql, jobId: string): Promise<void> => {
+  await tx`update job set state = 'cleaning' where id = ${jobId} and state = 'failed'`
+}

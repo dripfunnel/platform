@@ -59,7 +59,7 @@ const ProgressType = builder.objectRef<Progress>('JobProgress').implement({
   fields: (t) => ({ id: t.exposeID('id'), state: t.exposeString('state'), step: t.exposeString('step') }),
 })
 
-const Result = builder.objectRef<{ ok: boolean; code: string }>('JobActionResult').implement({
+const Result = builder.objectRef<{ ok: boolean; code: string | null }>('JobActionResult').implement({
   fields: (t) => ({ ok: t.exposeBoolean('ok'), code: t.exposeString('code', { nullable: true }) }),
 })
 

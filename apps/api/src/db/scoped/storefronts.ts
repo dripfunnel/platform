@@ -66,9 +66,9 @@ export const selectCreation = async (tx: ScopedSql, storeId: string, jobId: stri
   )[0] ?? null
 
 /** Locked, so two first choices of a template start one job. */
-export const selectStartForUpdate = async (tx: ScopedSql, storeId: string): Promise<(StoreRepoRow & { partner_id: string; storefront_kind: 'ai' | 'own' }) | null> =>
+export const selectStartForUpdate = async (tx: ScopedSql, storeId: string): Promise<StartRow | null> =>
   (
-    await tx<(StoreRepoRow & { partner_id: string; storefront_kind: 'ai' | 'own' })[]>`
+    await tx<StartRow[]>`
       select f.repo, f.repo_state, f.repo_head, s.partner_id, s.storefront_kind
       from storefront f join store s on s.id = f.store_id where f.store_id = ${storeId} for update of f`
   )[0] ?? null
@@ -76,8 +76,7 @@ export const selectStartForUpdate = async (tx: ScopedSql, storeId: string): Prom
 export const selectRunningCreation = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
   (await tx<{ id: string }[]>`select id from job where store_id = ${storeId} and kind = 'create-storefront' and state in ('running', 'cleaning') order by started_at desc limit 1`)[0]?.id ?? null
 
-export const beginStoreRepo = async (tx: ScopedSql, storeId: string, repo: string, steps: readonly ProvisioningStep[], at: Date): Promise<string> => {
-  await tx`update storefront set repo = ${repo}, repo_state = 'creating', repo_head = null where store_id = ${storeId}`
+export const insertCreateJob = async (tx: ScopedSql, storeId: string, steps: readonly ProvisioningStep[], at: Date): Promise<string> => {
   const [first] = steps
   const [row] = await tx<{ id: string }[]>`
     insert into job (store_id, kind, state, steps, step, step_started_at, started_at)
@@ -85,7 +84,18 @@ export const beginStoreRepo = async (tx: ScopedSql, storeId: string, repo: strin
   if (!row) throw new Error('job: insert returned no row')
   return row.id
 }
-
+export const beginStoreRepo = async (tx: ScopedSql, storeId: string, repo: string, steps: readonly ProvisioningStep[], at: Date): Promise<string> => {
+  await tx`update storefront set repo = ${repo}, repo_state = 'creating', repo_head = null where store_id = ${storeId}`
+  return insertCreateJob(tx, storeId, steps, at)
+}
+export type StartRow = StoreRepoRow & { partner_id: string; storefront_kind: 'ai' | 'own' }
+/** An Admin Retry's start (0352): the failed job's store, locked, with the template that job was started with. */
+export const selectStaffStart = async (tx: ScopedSql, jobId: string): Promise<(StartRow & { store_id: string; template: string | null }) | null> =>
+  (await tx<(StartRow & { store_id: string; template: string | null })[]>`select * from staff_start_row(${jobId})`)[0] ?? null
+export const beginStaffStoreRepo = async (tx: ScopedSql, jobId: string, storeId: string, repo: string, steps: readonly ProvisioningStep[], at: Date): Promise<string> => {
+  await tx`select staff_begin_repo(${jobId}, ${repo})`
+  return insertCreateJob(tx, storeId, steps, at)
+}
 /** The repo's numeric id, which a build's OIDC token names (storefront LIVE-SHOP.md §9). */
 export const setRepoId = async (tx: ScopedSql, storeId: string, repoId: number): Promise<void> => {
   await tx`update storefront set repo_id = ${repoId} where store_id = ${storeId}`
@@ -135,6 +145,12 @@ export const finishStoreRepo = async (tx: ScopedSql, d: { storeId: string; jobId
   await tx`update job set state = 'done', finished_at = ${d.at} where id = ${d.jobId}`
 }
 
+/** A staff Undo's ending: everything the job made is gone and the store is as if no template was ever picked. */
+export const undoStoreRepo = async (tx: ScopedSql, d: { storeId: string; jobId: string; at: Date }): Promise<void> => {
+  await tx`update storefront set repo = null, repo_id = null, repo_head = null, repo_state = 'none' where store_id = ${d.storeId}`
+  await tx`delete from storefront_push where store_id = ${d.storeId}`
+  await tx`update job set state = 'undone', finished_at = ${d.at} where id = ${d.jobId}`
+}
 /** Everything the job made is gone: no repo, no pushes, the store free to try again. */
 export const failStoreRepo = async (tx: ScopedSql, d: { storeId: string; jobId: string; error: string; details: string; at: Date }): Promise<void> => {
   await tx`update storefront set repo = null, repo_id = null, repo_head = null, repo_state = 'failed' where store_id = ${d.storeId}`
