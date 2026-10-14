@@ -8,7 +8,7 @@ import { sessionClient } from '../../session'
 import { useTheme } from '../../theme'
 import { Button } from '../common/Button'
 import { Notice } from '../common/Notice'
-import { SectionCard } from './SectionCard'
+import { SectionCard } from '../common/SectionCard'
 
 // The person's own sessions, this one marked, and "Sign out everywhere else" (ACCESS.md §4). One chosen session can't be ended.
 export function SessionsSection({ sessions, onChanged }: { sessions: readonly SignedInSession[]; onChanged: () => void }) {

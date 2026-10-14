@@ -10,7 +10,7 @@ import { Button } from '../common/Button'
 import { LinkButton } from '../common/LinkButton'
 import { Notice } from '../common/Notice'
 import { TextField } from '../common/TextField'
-import { SectionCard } from './SectionCard'
+import { SectionCard } from '../common/SectionCard'
 
 type Flow =
   | { step: 'idle' }
