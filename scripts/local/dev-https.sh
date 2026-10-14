@@ -1,9 +1,12 @@
 #!/bin/sh
 # `pnpm dev:https`: `pnpm dev` behind Caddy on https://admin.localhost, https://platform.localhost
-# and every partner's https://store.<partner>.localhost (docs/setup/local.md §6).
+# and every partner's https://store.<partner>.localhost (docs/setup/local.md §6). `--all` (pnpm dev:https:all) also
+# starts the studio's sandbox, store-proxy, storefront-core and the template, as `pnpm dev:all` plus the sandbox.
 set -eu
 cd "$(dirname "$0")/../.."
 config=scripts/local/Caddyfile
+all=0
+[ "${1:-}" = --all ] && all=1
 
 fail() {
   printf '✗ %s\n    Fix: %s\n' "$1" "$2" >&2
@@ -33,4 +36,9 @@ fi
 
 echo "Admin console: https://admin.localhost   Partner console: https://platform.localhost"
 echo "Merchant portals: https://store.<partner>.localhost (https://store.northstar.localhost, …); emails and texts print here."
-pnpm dev
+if [ "$all" = 1 ]; then
+  echo "Also: the studio's sandbox on :8790, store-proxy on :8788 (preview and shop hosts), storefront-core and the template."
+  pnpm exec turbo run dev start:local
+else
+  pnpm dev
+fi

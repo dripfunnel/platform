@@ -52,6 +52,8 @@ pnpm dev:https                                   # the same behind https://admin
                                                  # https://platform.localhost (needs Caddy)
 pnpm dev:all                                     # those plus the storefront template and
                                                  # storefront-core rebuilding on change
+pnpm dev:https:all                               # dev:all plus the studio's sandbox, behind Caddy:
+                                                 # everything but the mobile app in one terminal
 pnpm dev:<api|store|platform|admin>              # one of the four on its own
 pnpm dev:mobile                                  # the merchant mobile app's Expo dev server (not part of pnpm dev)
 pnpm dev:storefront                              # the storefront template (builds core first)
