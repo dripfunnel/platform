@@ -97,10 +97,11 @@ export const loadStudioPages = async (): Promise<StudioPages> => {
   return { product: first?.slug ? { name: first.name, slug: first.slug } : null, content, custom: r.customPagePaths ?? [] }
 }
 
-/** The languages Edit text offers, the main one first. */
+/** The languages Edit text offers: the store's own active ones, the main one first (the API refuses any other). */
 export const loadStudioLanguages = async (): Promise<string[]> => {
-  const { storeLocale } = await query('{ storeLocale { mainLanguage offeredLanguages } }', z.object({ storeLocale: z.object({ mainLanguage: z.string(), offeredLanguages: z.array(z.string()) }).nullable() }))
-  return storeLocale ? [storeLocale.mainLanguage, ...storeLocale.offeredLanguages.filter((l) => l !== storeLocale.mainLanguage)] : []
+  const language = z.object({ code: z.string(), status: z.string() })
+  const { storeLocale } = await query('{ storeLocale { mainLanguage languages { code status } } }', z.object({ storeLocale: z.object({ mainLanguage: z.string(), languages: z.array(language) }).nullable() }))
+  return storeLocale ? [storeLocale.mainLanguage, ...storeLocale.languages.filter((l) => l.status === 'active' && l.code !== storeLocale.mainLanguage).map((l) => l.code)] : []
 }
 
 // Publishing from the studio (FIRST-RELEASE §19 "Built on #318 (part 3)"; storefront AI-STUDIO §6).

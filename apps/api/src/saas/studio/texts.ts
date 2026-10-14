@@ -20,12 +20,17 @@ const strings = (value: Json, prefix: string): { key: string; text: string }[] =
   return Object.entries(value).flatMap(([k, v]) => strings(v, prefix.endsWith(':') ? `${prefix}${k}` : `${prefix}.${k}`))
 }
 
-/** The page's own words (pages.json under the page's name) and the words every page shares (common.json). */
+/** The page's own words (pages.json under the page's name) and every other content file's (common.json, home.json, …). */
 export const pageTexts = (theme: ReadonlyMap<string, string>, page: string, locale: string): { key: string; text: string }[] => {
   const pages = parse(theme.get(`content/${locale}/pages.json`))
-  const common = parse(theme.get(`content/${locale}/common.json`))
   const own = isObject(pages) && pages[page] !== undefined ? strings(pages[page], `pages:${page}`) : []
-  return [...own, ...(common === undefined ? [] : strings(common, 'common:'))]
+  const file = new RegExp(`^content/${locale}/([a-z][a-z0-9-]{0,40})\\.json$`)
+  const others = [...theme].flatMap(([path, text]) => {
+    const name = file.exec(path)?.[1]
+    const value = name && name !== 'pages' ? parse(text) : undefined
+    return value === undefined ? [] : strings(value, `${name}:`)
+  })
+  return [...own, ...others]
 }
 
 /** The file with the one string at `key` replaced, or null when the key names no string there (nothing is added). */
