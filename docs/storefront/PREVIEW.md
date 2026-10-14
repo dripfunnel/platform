@@ -13,7 +13,7 @@ document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files,
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
+Last updated: 2026-10-14 (#735: dev's preview domain deviates, §8). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
 studio's fast gate, served from R2 by the edge Worker).
@@ -278,7 +278,11 @@ There is no per-store hostname fee.
 - ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,
   `PREVIEW_DOMAIN`, validated at boot: `webpreview.store` in prod, a second cheap domain
   registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`
-  locally (decided 2026-10-09).
+  locally (decided 2026-10-09). **Deviation on dev (decided 2026-10-14 on #735):** dev uses
+  `preview.actuateminds.com`, a subdomain of a domain we own that serves nothing else with users or sessions. It
+  is **not** its own registrable domain, so scripts and cookies from any other `actuateminds.com` host share a
+  site with every dev store preview (no Public Suffix List entry). Accepted because dev holds test data only; if
+  a real site ever runs on `actuateminds.com`, dev previews move to a domain of their own. Prod keeps `webpreview.store`.
 - ~~Whether the consoles show a store's preview address.~~ They don't: a preview opens only
   through the merchant's signed link (decided 2026-10-09, #518).
 - ~~Express wallets in preview~~ Hidden on `*.webpreview.store`, shown on live shops where the provider offers them

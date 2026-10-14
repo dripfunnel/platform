@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
+Last updated: 2026-10-14 (#735: dev's preview domain, §8). Before: 2026-10-12 (#496: the merchant mobile app's `PARTNER_KEY` and partner-file values, §8.1). Before: 2026-10-11 (#517: the R2 storefront upload credential read, with its API token and the bucket names; #317: `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read by the code). Before: 2026-10-09 (#522: the Claude GitHub App now serves `@claude` in issues only; storefront builds on GitHub Actions with OIDC; R2 instead of Pages per store; `webpreview.store`).
 
 ---
 
@@ -590,7 +590,7 @@ Where it is kept:
 |---|---|---|---|---|
 | `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST` | Which hostname is which API; the router answers 404 elsewhere (ARCHITECTURE §2) | Fixed per environment: `*.localhost`, `dev-*.dripfunnel.ai`, `*.dripfunnel.com` | `.env.local` · Worker variable · Worker variable | `core/config.ts` |
 | `HYPERDRIVE_REQUIRED` | `"1"` where a Hyperdrive binding exists, so losing it turns `/health` red (#30) | — | `.env.local` · Worker variable · Worker variable once prod's binding exists | `core/config.ts` |
-| `PREVIEW_DOMAIN` | The domain every store's preview is on, `{key}.<domain>` (PREVIEW.md §8): the Shop API finds the store by its preview key there (#518). Validated at boot: a domain apart from the consoles' hosts and `EDGE_ZONE`, and `preview.localhost` only locally; absent, no preview host answers | Fixed per environment: `preview.localhost`, the dev preview domain registered on #287, `webpreview.store` | `.env.local` · Worker variable · Worker variable | `core/config.ts`, `auth/shopCaller.ts` |
+| `PREVIEW_DOMAIN` | The domain every store's preview is on, `{key}.<domain>` (PREVIEW.md §8): the Shop API finds the store by its preview key there (#518). Validated at boot: a domain apart from the consoles' hosts and `EDGE_ZONE`, and `preview.localhost` only locally; absent, no preview host answers | Fixed per environment: `preview.localhost`, the dev preview domain (`preview.actuateminds.com`, #735), `webpreview.store` | `.env.local` · Worker variable · Worker variable | `core/config.ts`, `auth/shopCaller.ts` |
 | `HYPERDRIVE` *(binding)* | Postgres through Hyperdrive. Holds the Neon **pooled** string of the app role, without `BYPASSRLS` (§2.2) | `wrangler hyperdrive create <name> --connection-string=<pooled url>`, then its id in `wrangler.jsonc` | Cloudflare; `wrangler.jsonc` names it | `index.ts`, `db/client.ts` |
 | `ASSETS` *(binding)* | R2 bucket for uploads, exports and invoices (§2.1) | `wrangler r2 bucket create dripfunnel-assets-dev` (and `dripfunnel-assets`) | `wrangler.jsonc` | `index.ts` (brand uploads) |
 | `IMAGES` *(binding)* | Cloudflare Images transformations for brand files (§2.1); billed per unique transformation after 5,000 a month | Nothing to create; declared at the top level of `wrangler.jsonc` | `wrangler.jsonc` | `index.ts` (brand files) |

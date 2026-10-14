@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-15 (#735: dev's preview domain, §2.8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-10-14 (#735: dev's preview domain, §2.8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -161,7 +161,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    `R2_STOREFRONT_SECRET_ACCESS_KEY` and the token's value → `R2_STOREFRONT_API_TOKEN`, with the bucket names
    `STOREFRONT_SITES_BUCKET` and `STOREFRONT_DRAFTS_BUCKET` (all six or none, #517), and a cache purge token → `CF_CACHE_PURGE_TOKEN`
    (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
-2. **Preview domain**: register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §8:
+2. **Preview domain**: dev uses `preview.actuateminds.com` (#735, a recorded deviation in PREVIEW.md §8: a subdomain, not its own registrable domain). Otherwise register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §8:
    `webpreview.store` itself is prod's), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
    `*.<domain>`, and confirm Universal SSL covers it. In Logpush leave out `ClientRequestURI`,
    `ClientRequestPath` and `ClientRequestQuery` (`../api/LOGGING.md` §9, `../storefront/PREVIEW.md` §2). The Worker route is #517's.
@@ -196,7 +196,7 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
 8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY` (the API Worker), and another → `PREVIEW_SESSION_KEY` (the store proxy,
    `wrangler secret put PREVIEW_SESSION_KEY --env dev` in `store-proxy`). Then give `store-proxy/wrangler.jsonc`'s `env.dev`
    the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.<dev preview domain>/*` and the
-   variable `PREVIEW_DOMAIN`, as its comment lists (#317). Dev's is `preview.actuateminds.com` (#735): a registrable domain apart from ours, as PREVIEW §1 wants. Its wildcard DNS record, a certificate
+   variable `PREVIEW_DOMAIN`, as its comment lists (#317). Dev's is `preview.actuateminds.com` (#735): a subdomain of a domain we own that serves nothing else with users or sessions, a deviation from PREVIEW §1 recorded in PREVIEW.md §8. Its wildcard DNS record, a certificate
    for the two-label host and the secret are set by hand.
 
 ---
