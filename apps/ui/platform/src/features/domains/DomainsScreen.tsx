@@ -23,7 +23,7 @@ export const DomainsScreen = () => {
   const forced = useScreenState(domainsStates, harnessEnabled)
   const { me } = shellRoute.useLoaderData()
   const session = useCurrentStaffSession(staffSession)
-  const canRemove = canRemoveAddress(me.role, session?.state === 'open') && forced !== 'denied'
+  const canRemove = canRemoveAddress(me.role, session?.state === 'open' && session.kind === 'impersonation') && forced !== 'denied'
   const [removing, setRemoving] = useState<Added | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const router = useRouter()

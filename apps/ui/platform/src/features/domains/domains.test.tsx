@@ -174,7 +174,7 @@ describe('the address rules', () => {
 })
 
 describe('Remove an address', () => {
-  it('is offered to Owners and Admins only, and never in a support session', () => {
+  it('is offered to Owners and Admins only, and never while impersonating', () => {
     expect(['partner-owner', 'partner-admin'].map((r) => canRemoveAddress(r as PartnerRole, false))).toEqual([true, true])
     expect(['partner-support', 'partner-finance', 'partner-read-only'].map((r) => canRemoveAddress(r as PartnerRole, false))).toEqual([false, false, false])
     expect(canRemoveAddress('partner-owner', true)).toBe(false)
