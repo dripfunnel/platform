@@ -120,12 +120,16 @@ describe('Settings is the Owner’s', () => {
   it('says Staff and a supplier have no access either, and a tab that does not exist is a 404 for the Owner only', async () => {
     const staff = await show(<SettingsTabScreen tab="store" />, {}, { acting: actingAs('staff') })
     expect(hasText(staff.renderer, 'You don’t have access to Settings')).toBe(true)
+    expect(staff.calls).toHaveLength(0)
     const supplier = await show(<SettingsTabScreen tab="store" />, {}, { acting: actingAs('supplier-admin', 'vendor-catalogue') })
     expect(hasText(supplier.renderer, 'You don’t have access to Settings')).toBe(true)
+    expect(supplier.calls).toHaveLength(0)
     const missing = await show(<SettingsTabScreen tab="payments" />, {})
     expect(hasText(missing.renderer, 'This page isn’t here any more')).toBe(true)
+    expect(missing.calls).toHaveLength(0)
     const hidden = await show(<SettingsTabScreen tab="payments" />, {}, { acting: actingAs('manager') })
     expect(hasText(hidden.renderer, 'You don’t have access to Settings')).toBe(true)
+    expect(hidden.calls).toHaveLength(0)
   })
 
   it('says it could not load, and loads again on request', async () => {
@@ -247,5 +251,9 @@ describe('Store info', () => {
     expect(hasText(renderer, 'Your store is read-only until the bill is paid.')).toBe(true)
     expect(pressablesNamed(renderer, 'Save store info')).toHaveLength(0)
     expect(pressablesNamed(renderer, 'Save currencies')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Save languages')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Convert automatically')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Add a currency')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Add a language')).toHaveLength(0)
   })
 })
