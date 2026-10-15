@@ -83,7 +83,7 @@
       "TOO_MANY_WAREHOUSES": "You can have up to 20 locations. Remove one first.",
       "DEFAULT_WAREHOUSE": "Make another location the default first.",
       "WAREHOUSE_HOLDS_STOCK": "This location still holds stock. Set it to 0 or move it first.",
-      "STALE_REVISION": "Someone else changed this location first. It now shows their changes; edit it again to make yours.",
+      "STALE_REVISION": "Someone else changed this location first. The list now shows their changes; press Save again to replace them with yours.",
       "NOT_FOUND": "That location isn’t here any more.",
       "INVALID_INPUT": "Something here isn’t valid.",
       "READ_ONLY": "Your store is read-only until the bill is paid.",

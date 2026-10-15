@@ -4,7 +4,6 @@ import { deletePlace, loadPlaces, makeDefaultPlace, savePlace, type Place } from
 import type { ApiClient } from '../../../graphql'
 import { isApiError } from '../../../graphql'
 import { t } from '../../../messages'
-import { errorMessage } from '../../../messages/errorMessage'
 import { tCount } from '../../../messages/plural'
 import { useTheme } from '../../../theme'
 import { Button } from '../../common/Button'
@@ -145,10 +144,13 @@ function PlaceSheet({ initial, client, onClose, onDone }: { initial: PlaceForm; 
         try {
           await savePlace(client, form.id, form.revision, placeInputOf(form))
         } catch (error) {
-          // Saving again would only be refused again: the sheet closes saying so, and the list reads again with their change.
-          if (!isApiError(error, 'STALE_REVISION')) throw error
-          await onDone()
-          return errorMessage(error, 'settingsWarehouse')
+          // Someone else saved first: the list reads again, and the next Save goes at their revision with what was typed kept.
+          if (isApiError(error, 'STALE_REVISION')) {
+            const fresh = (await loadPlaces(client).catch(() => null))?.find((place) => place.id === form.id)
+            if (fresh) setForm((current) => ({ ...current, revision: fresh.revision }))
+            await onDone()
+          }
+          throw error
         }
         await onDone()
         return adding ? t('settings.warehouse.added', { name: form.name.trim() }) : t('settings.warehouse.saved')

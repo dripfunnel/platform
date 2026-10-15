@@ -390,8 +390,23 @@ describe('Warehouse', () => {
     expect(asked(calls, 'mutation SavePlace')).toHaveLength(0)
   })
 
-  it('edits at the revision it was read at, and says so when someone else saved first', async () => {
-    const { renderer, calls } = await show(<SettingsTabScreen tab="warehouse" />, store({ 'mutation SavePlace': () => { throw new ApiError('STALE_REVISION', 'x') } }))
+  it('edits at the revision it was read at, and when someone else saved first keeps what was typed and saves at their revision', async () => {
+    let saves = 0
+    let reads = 0
+    const { renderer, calls } = await show(
+      <SettingsTabScreen tab="warehouse" />,
+      store({
+        'query Places': () => {
+          reads += 1
+          return { warehouses: paged(places.map((candidate) => (reads > 1 && candidate.id === 'w1' ? { ...candidate, revision: 3 } : candidate))) }
+        },
+        'mutation SavePlace': () => {
+          saves += 1
+          if (saves === 1) throw new ApiError('STALE_REVISION', 'x')
+          return { saveWarehouse: 'w1' }
+        },
+      }),
+    )
 
     await click(renderer, 'Manage Main godown')
     await click(renderer, 'Rename or change address')
@@ -400,6 +415,10 @@ describe('Warehouse', () => {
 
     expect(asked(calls, 'mutation SavePlace')[0]?.variables).toMatchObject({ id: 'w1', r: 2, input: { name: 'Main store' } })
     expect(hasText(renderer, 'Someone else changed this location first.')).toBe(true)
+    expect((input(renderer, 'Name').props as { value: string }).value).toBe('Main store')
+    await click(renderer, 'Save')
+
+    expect(asked(calls, 'mutation SavePlace')[1]?.variables).toMatchObject({ id: 'w1', r: 3, input: { name: 'Main store' } })
   })
 
   it('makes one the default and says existing stock does not move, after asking', async () => {
