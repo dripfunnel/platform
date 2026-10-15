@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { Provided } from '../../../test/shop'
 import type { RenderMode } from '../store/context'
-import { asMain, Image, photoSchema, Video, videoSchema } from './media'
+import { Image, Video } from './media'
+import { asMain, photoSchema, videoSchema } from './photo'
 
 const photo = photoSchema.parse({ alt: 'Front', image: { url: 'https://shop.example/shop-api/assets/a' } })
 const video = videoSchema.parse({ file: { url: 'https://shop.example/shop-api/assets/v' } })

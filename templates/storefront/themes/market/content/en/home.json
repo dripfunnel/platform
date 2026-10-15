@@ -8,5 +8,12 @@
     "title": "Find what you need",
     "body": "Search the shop by name or type.",
     "action": "Start shopping"
+  },
+  "collections": {
+    "title": "Shop by collection"
+  },
+  "newest": {
+    "title": "New in",
+    "all": "See all"
   }
 }
