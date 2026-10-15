@@ -98,7 +98,8 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   card, is never published.
 - **Dev channel** (#761): every push to `dev` publishes `<version>-dev.<run number>` under the `dev` dist-tag
   (`main` publishes under `latest`). The stamp is written inside the run only; a dev build gets no git tag,
-  no sandbox image and no `core_release` row.
+  no sandbox image and no `core_release` row. Dev builds are the one exception to the `0.0.0` rule: they
+  publish as `0.0.0-dev.<run>` so the channel works before the first release card.
 - CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
   `packages/storefront-core` (its changelog aside) without adding a changeset naming the
   package. Two kinds pass without one: a release PR (a new version, the changelog heading

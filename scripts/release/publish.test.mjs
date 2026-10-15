@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { devVersion, publishedVersion, releasable, releaseCommit, tagFor } from './publish.mjs'
+import { devVersion, distTag, packVersion, publishedVersion, releasable, releaseCommit, tagFor } from './publish.mjs'
 
 describe('tagFor', () => {
   it('names the tag the way changesets does', () => {
@@ -44,5 +44,23 @@ describe('releaseCommit', () => {
 describe('devVersion', () => {
   it('suffixes the run number as a dev prerelease', () => {
     assert.equal(devVersion('0.0.0', '57'), '0.0.0-dev.57')
+  })
+})
+
+describe('distTag', () => {
+  it('publishes dev runs under dev and main, with an empty DEV_RUN, under latest', () => {
+    assert.equal(distTag('57'), 'dev')
+    assert.equal(distTag(''), 'latest')
+    assert.equal(distTag(undefined), 'latest')
+  })
+})
+
+describe('packVersion', () => {
+  it('stamps dev runs, even at 0.0.0', () => {
+    assert.equal(packVersion('0.0.0', '57'), '0.0.0-dev.57')
+  })
+  it('leaves main at its version, and refuses 0.0.0', () => {
+    assert.equal(packVersion('0.1.0', ''), '0.1.0')
+    assert.equal(packVersion('0.0.0', ''), null)
   })
 })
