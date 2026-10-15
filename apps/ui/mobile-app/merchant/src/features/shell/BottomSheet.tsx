@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { t } from '../../messages'
 import { useTheme } from '../../theme'
 import { Button } from '../common/Button'
+import { useOnline } from './connection'
 
 export type SheetChoice = { value: string; label: string; sub?: string }
 
@@ -13,11 +14,14 @@ export type SheetSpec = {
   tag?: string
   body?: string
   choices?: readonly SheetChoice[]
-  input?: { label: string; placeholder?: string; error?: string }
+  /** `initial` starts the field with a value (a rename); `single` makes it one line, for a name, rather than a few. */
+  input?: { label: string; placeholder?: string; error?: string; initial?: string; single?: boolean }
   confirm: string
   /** Absent means "Cancel"; `null` means no cancel button. */
   cancel?: string | null
   danger?: boolean
+  /** The confirm button writes, so it is off while the phone is offline (FIRST-RELEASE.md §3.3). */
+  saves?: boolean
   onConfirm: (result: { choice: string | null; text: string }) => void | Promise<void>
 }
 
@@ -44,7 +48,7 @@ export function SheetFrame({ onClose, children }: { onClose: () => void; childre
 export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () => void }) {
   const { colors, radii } = useTheme()
   const [choice, setChoice] = useState<string | null>(spec.choices?.[0]?.value ?? null)
-  const [text, setText] = useState('')
+  const [text, setText] = useState(spec.input?.initial ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -99,15 +103,15 @@ export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () =>
             }}
             placeholder={spec.input.placeholder}
             placeholderTextColor={colors.muted}
-            multiline
-            numberOfLines={3}
-            style={[styles.textarea, { color: colors.text, borderColor: error ? colors.danger : colors.fieldBorder, borderRadius: radii.button }]}
+            multiline={spec.input.single !== true}
+            numberOfLines={spec.input.single === true ? 1 : 3}
+            style={[spec.input.single === true ? styles.line : styles.textarea, { color: colors.text, borderColor: error ? colors.danger : colors.fieldBorder, borderRadius: radii.button }]}
           />
           {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
         </View>
       ) : null}
       <View style={styles.buttons}>
-        <SheetConfirm label={spec.confirm} danger={spec.danger === true} busy={busy} onPress={() => void confirm()} />
+        <SheetConfirm label={spec.confirm} danger={spec.danger === true} saves={spec.saves === true} busy={busy} onPress={() => void confirm()} />
         {spec.cancel === null ? null : <Button kind="secondary" label={spec.cancel ?? t('common.cancel')} onPress={onClose} />}
       </View>
     </SheetFrame>
@@ -115,11 +119,13 @@ export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () =>
 }
 
 // The confirm button: the brand colour, or red for something that can't be undone.
-function SheetConfirm({ label, danger, busy, onPress }: { label: string; danger: boolean; busy: boolean; onPress: () => void }) {
+function SheetConfirm({ label, danger, saves, busy, onPress }: { label: string; danger: boolean; saves: boolean; busy: boolean; onPress: () => void }) {
   const { colors, radii } = useTheme()
-  if (!danger) return <Button label={label} onPress={onPress} busy={busy} />
+  const online = useOnline()
+  if (!danger) return <Button label={label} onPress={onPress} busy={busy} saves={saves} />
+  const off = busy || (saves && !online)
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ busy }} disabled={busy} onPress={onPress} style={[styles.danger, { backgroundColor: colors.dangerButton, borderRadius: radii.button }]}>
+    <Pressable accessibilityRole="button" accessibilityState={{ busy, disabled: off }} disabled={off} onPress={onPress} style={[styles.danger, { backgroundColor: colors.dangerButton, borderRadius: radii.button, opacity: off && !busy ? 0.5 : 1 }]}>
       <Text style={[styles.dangerLabel, { color: colors.onDanger }]}>{label}</Text>
     </Pressable>
   )
@@ -140,6 +146,7 @@ const styles = StyleSheet.create({
   choiceSub: { fontSize: 12 },
   field: { gap: 6 },
   textarea: { borderWidth: 1, padding: 12, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },
+  line: { borderWidth: 1, paddingHorizontal: 12, fontSize: 16, minHeight: 50 },
   buttons: { gap: 8, paddingTop: 4 },
   danger: { height: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   dangerLabel: { fontSize: 16, fontWeight: '700' },

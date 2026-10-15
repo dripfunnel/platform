@@ -15,7 +15,7 @@ import { ProductCard } from './ProductCard'
 import { ProductsEmpty, type EmptyKind } from './ProductsEmpty'
 import { ProductsFilters } from './ProductsFilters'
 import { newProductHref, productHref } from './routes'
-import { stateOfError, useLoad } from './useLoad'
+import { stateOfError, useLoad } from '../common/useLoad'
 import { useProductList } from './useProductList'
 import { useReview } from './useReview'
 

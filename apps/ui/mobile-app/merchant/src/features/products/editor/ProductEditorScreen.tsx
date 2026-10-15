@@ -2,7 +2,7 @@ import { sessionClient } from '../../../session'
 import { t } from '../../../messages'
 import { Skeleton } from '../../states/StateView'
 import { ShellScreen } from '../../states/ShellScreen'
-import { stateOfError, useLoad } from '../useLoad'
+import { stateOfError, useLoad } from '../../common/useLoad'
 import { loadEditor } from './loadEditor'
 import { ProductForm } from './ProductForm'
 

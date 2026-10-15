@@ -40,7 +40,7 @@ const base = (over: { permissions?: string[]; seller?: { id: string } | null; st
   'acting { permissions': () => ({ me: { acting: { permissions: over.permissions ?? ['catalog.read', 'catalog.write'], seller: over.seller ?? null } } }),
   catalogueSettings: () => ({ catalogueSettings: { pricingCurrency: 'INR', features: over.features ?? [{ key: 'aplus', enabled: true, inPlan: true }, { key: 'video', enabled: true, inPlan: true }] } }),
   'product(id': () => ({
-    product: { id: 'p-1', revision: 1, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, shared: false, slug: 'mara', category: null, warrantyText: null, returnsText: null, seoTitle: null, seoDescription: null, pricingCurrency: 'INR', photos: [], options: [], versions: [], readiness: null },
+    product: { id: 'p-1', revision: 1, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, shared: false, slug: 'mara', category: null, sizeChartId: null, warrantyText: null, returnsText: null, seoTitle: null, seoDescription: null, pricingCurrency: 'INR', photos: [], options: [], versions: [], readiness: null },
   }),
   'productStory(productId': () => ({ productStory: over.story ?? story() }),
   'storyBlocks(first': () => ({ storyBlocks: { nodes: [{ id: 'sb-1', name: 'Our studio' }], pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null } } }),
