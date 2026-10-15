@@ -2,7 +2,7 @@ import { isApiError } from '../graphql'
 import { t, tryT } from './index'
 
 /** Where an error happened, so one code can read differently: a wrong password at sign-in is not a wrong current password. */
-export type ErrorContext = 'signIn' | 'password' | 'profile' | 'code' | 'products' | 'collections' | 'filters' | 'menus' | 'sizeCharts'
+export type ErrorContext = 'signIn' | 'password' | 'profile' | 'code' | 'products' | 'collections' | 'filters' | 'menus' | 'sizeCharts' | 'settingsStore' | 'settingsPeople' | 'settingsSuppliers' | 'settingsWarehouse' | 'settingsTax' | 'settingsMarkets' | 'settingsCatalogue'
 
 // Errors are handled by code, never by the API's words (ui/README.md §3): the context's wording first, then the
 // code's own, then one message for anything else. Facts the refusal carries (`minutes`, `triesLeft`) fill the words,
