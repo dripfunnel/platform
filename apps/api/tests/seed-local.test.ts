@@ -19,12 +19,14 @@ afterAll(async () => {
 })
 
 describe('the seed', () => {
-  it('keeps the template gallery the migrations wrote, through its truncate and a second run', async () => {
+  it('keeps the template gallery the migrations wrote through a second run, without the demo store it removed', async () => {
     const offered = () => db.sql<{ key: string }[]>`select key from storefront_template where state = 'offered' order by key`
     const before = await offered()
     expect(before.map((t) => t.key)).toEqual(['atelier', 'baseline', 'bloom', 'circuit', 'concrete', 'linen', 'market'])
+    await db.sql`update storefront_template set demo_store_id = (select id from store limit 1) where key = 'linen'`
     await seed(db.url, new Date('2026-10-06T09:00:00Z'))
     expect(await offered()).toEqual(before)
+    expect(await db.sql`select key from storefront_template where demo_store_id is not null`).toEqual([])
   })
 })
 
