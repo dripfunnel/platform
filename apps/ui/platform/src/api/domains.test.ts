@@ -50,9 +50,9 @@ describe('adding and re-checking', () => {
     expect(await addPartnerDomain('portal', 'northstar.com')).toEqual({ ok: true, apex: true })
     expect(answer.mock.calls[0]?.[0].variables).toEqual({ kind: 'portal', host: 'northstar.com' })
     answer.mockReturnValueOnce({ data: { addPartnerDomain: { ok: false, reason: 'HOST_TAKEN', apex: null } } })
-    expect(await addPartnerDomain('shops', 'shops.x.com')).toEqual({ ok: false, reason: 'HOST_TAKEN' })
+    expect(await addPartnerDomain('email', 'mail.x.com')).toEqual({ ok: false, reason: 'HOST_TAKEN' })
     answer.mockReturnValueOnce({ data: { addPartnerDomain: { ok: false, reason: 'SOMETHING_NEW', apex: null } } })
-    await expect(addPartnerDomain('shops', 'shops.x.com')).rejects.toMatchObject({ code: 'SOMETHING_NEW' })
+    await expect(addPartnerDomain('email', 'mail.x.com')).rejects.toMatchObject({ code: 'SOMETHING_NEW' })
   })
 
   it('reads a queued re-check, and one that came too soon', async () => {
@@ -67,8 +67,8 @@ describe('adding and re-checking', () => {
 describe('removePartnerDomain', () => {
   it('reads a removal, and one that found nothing', async () => {
     answer.mockReturnValueOnce({ data: { removePartnerDomain: { ok: true, reason: null } } })
-    expect(await removePartnerDomain('shops')).toEqual({ ok: true })
+    expect(await removePartnerDomain('email')).toEqual({ ok: true })
     answer.mockReturnValueOnce({ data: { removePartnerDomain: { ok: false, reason: 'NOT_FOUND' } } })
-    expect(await removePartnerDomain('shops')).toEqual({ ok: false, reason: 'NOT_FOUND' })
+    expect(await removePartnerDomain('email')).toEqual({ ok: false, reason: 'NOT_FOUND' })
   })
 })

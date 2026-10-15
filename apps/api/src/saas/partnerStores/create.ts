@@ -21,7 +21,7 @@ import { selectBillingMode } from '#db/scoped/partnerConsole'
 import { selectPartner } from '#db/scoped/partners'
 import { insertStoreInvitation } from '#db/scoped/stores'
 import { partnerEntry } from '#saas/activity/index'
-import { queueStoreHostSync } from '#saas/domains/index'
+import { freeStoreSlug } from '#saas/stores/slug'
 import { queueSideEffect } from '#saas/outbox/index'
 import { stepsFor } from '#saas/provisioning/index'
 
@@ -150,10 +150,12 @@ export const createPartnerCreateStore = ({ sql, caller, facts, activity, now }: 
       const status = trialEndsAt ? 'trial' : 'active'
       const ownerId = await ownerPerson(tx, partnerId, input.ownerEmail, input.ownerName)
       if (!ownerId) return { ok: false, reason: 'INVALID_INPUT', field: 'ownerEmail' }
+      const code = await freeStoreCode(tx, partnerId, codeFrom(input.name))
       const storeId = await insertPartnerStore(tx, {
         partnerId,
         name: input.name,
-        code: await freeStoreCode(tx, partnerId, codeFrom(input.name)),
+        code,
+        slug: await freeStoreSlug(tx, code),
         country: country.code,
         pricingCurrency: country.currency,
         planId: plan.id,
@@ -177,7 +179,6 @@ export const createPartnerCreateStore = ({ sql, caller, facts, activity, now }: 
       // Account, store and portal: what each does today is these rows (SAAS §5); the storefront
       // steps wait for their runner, so they are not this job's.
       await insertFinishedJob(tx, storeId, stepsFor('own'), at)
-      await queueStoreHostSync(tx, { partnerId, storeId }, 'provisioned')
       const invitationId = await insertStoreInvitation(tx, { storeId, email: input.ownerEmail, role: 'owner', expiresAt: new Date(at.getTime() + invitationDays * day), invitedByLabel: actingName(caller) })
       await queueSideEffect(tx, {
         kind: 'email',

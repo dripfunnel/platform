@@ -82,7 +82,7 @@ describe('signing up', () => {
     expect(fresh.body).toEqual(known.body)
     const prepared = await withSystemScope(db.sql, async (tx) => {
       const rows = await tx<{ payload: unknown }[]>`select payload from outbox where kind = 'email' and payload->>'template' = 'signup-code' order by created_at`
-      return Promise.all(rows.map((r) => prepareEmail(tx, { payload: r.payload, partnerId: t.partnerA }, { adminHost: 'a', platformHost: 'p' }, now)))
+      return Promise.all(rows.map((r) => prepareEmail(tx, { payload: r.payload, partnerId: t.partnerA }, { adminHost: 'a', platformHost: 'p', shopDomain: 'shop.example' }, now)))
     })
     const [toKnown, toFresh] = prepared
     expect(toKnown?.send && toKnown.content.subject).toContain('already have')
@@ -123,6 +123,25 @@ describe('signing up', () => {
     expect((await post('/api/auth/sign-up/store', { storeName: 'Juniper', subdomain: 'juniper-co', country: 'IN' }, signup)).body).toEqual({ ok: true, step: 'phone' })
   })
 
+  it('refuses a web address another partner’s store or sign-up holds, with the same answer whichever it is, and every reserved or -preview name', async () => {
+    const taken = async (subdomain: string) => {
+      const start = await post('/api/auth/sign-up', { name: 'Slug', email: `slug.${subdomain}@a.example`, password })
+      const signup = start.cookies['__Host-portal_signup'] ?? ''
+      await post('/api/auth/sign-up/verify-email', { code: await emailCode(`slug.${subdomain}@a.example`) }, signup)
+      return (await post('/api/auth/sign-up/store', { storeName: 'Slug', subdomain, country: 'IN' }, signup)).body
+    }
+    // Held by partner B's store, and by a sign-up of partner B's in progress: nothing says which partner, or whether a store or a sign-up.
+    await db.sql`insert into store (partner_id, name, code, slug) values (${t.partnerB}, 'Theirs', 'theirs', 'borrowed')`
+    await db.sql`insert into signup (partner_id, token_hash, name, email, password_hash, stage, subdomain, expires_at) values (${t.partnerB}, 'slug-held', 'N', 'n@b.example', 'x', 'phone', 'inflight', now() + interval '1 day')`
+    const byStore = await taken('borrowed')
+    const bySignup = await taken('inflight')
+    expect([byStore['code'], bySignup['code']]).toEqual(['SUBDOMAIN_TAKEN', 'SUBDOMAIN_TAKEN'])
+    expect(Object.keys(byStore).sort()).toEqual(Object.keys(bySignup).sort())
+    expect(JSON.stringify([byStore, bySignup])).not.toMatch(/partner|theirs/i)
+    for (const name of ['acme-preview', 'shop', 'www', 'x-preview']) expect((await taken(name))['code'], name).toBe('SUBDOMAIN_TAKEN')
+    expect((await taken('fresh-slug'))['ok']).toBe(true)
+  })
+
   it('accepts any sign-up email code when CODE_CHECK is 0', async () => {
     const start = await post('/api/auth/sign-up', { name: 'Zed', email: 'zed@a.example', password })
     await emailCode('zed@a.example')
@@ -148,7 +167,9 @@ describe('signing up', () => {
     expect(owner).toEqual({ role_key: 'owner', status: 'active', email_verified: true, phone: '+919845022113' })
     const [job] = await db.sql<{ state: string; steps: string[] }[]>`select state, array_to_json(steps) as steps from job where store_id = ${store?.id ?? ''}`
     expect(job).toEqual({ state: 'done', steps: ['accountAndStore', 'defaults', 'hostnames'] })
-    expect(await db.sql`select 1 from outbox where kind = 'store_host.sync' and store_id = ${store?.id ?? ''}`).toHaveLength(1)
+    // The slug is the address (#744, #745): no hostname is registered, so nothing is queued for one.
+    expect(await db.sql`select 1 from outbox where kind like 'store_host%' and store_id = ${store?.id ?? ''}`).toEqual([])
+    expect((await db.sql<{ slug: string }[]>`select slug from store where id = ${store?.id ?? ''}`)[0]?.slug).toBe('kesari')
     expect(await db.sql`select 1 from signup where email = 'owner.new@a.example'`).toHaveLength(0)
     const [entry] = await db.sql<{ visibility: string }[]>`select visibility from activity_log where action = 'store.created' and store_id = ${store?.id ?? ''}`
     expect(entry?.visibility).toBe('store')
@@ -197,7 +218,7 @@ describe('signing up', () => {
       })).rejects.toThrow(`injected at ${step}`)
       expect(await db.sql`select 1 from store where code = ${`fails-${step.toLowerCase()}`}`).toHaveLength(0)
       expect(await db.sql`select 1 from "user" where email = ${email}`).toHaveLength(0)
-      expect(await db.sql`select 1 from outbox o where kind = 'store_host.sync' and not exists (select 1 from store s where s.id = o.store_id)`).toHaveLength(0)
+      expect(await db.sql`select 1 from outbox o where kind like 'store_host%'`).toHaveLength(0)
       expect((await post('/api/auth/sign-up/verify-phone', { code }, signup)).body['step']).toBe('enrol')
     }
   })

@@ -117,7 +117,7 @@ beforeAll(async () => {
       const studio = local.studio(context)
       return { ...studio, change: (storeId, input, model) => (studioDown ? Promise.reject(new Error('the studio is unreachable')) : studio.change(storeId, input, model)) }
     },
-    extra: { preview: { domain: 'webpreview.store', links: { seal: async () => 'x', open: async () => null } }, design },
+    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -341,8 +341,8 @@ describe('the studio session', () => {
   it('opens the frame on the store’s own preview origin, read-only for the Manager; Staff and suppliers are refused', async () => {
     const opened = await w.gql('owner', '{ studioSession { state session frameUrl access } }')
     const view = opened.data?.['studioSession'] as { state: string; session: string; frameUrl: string; access: string }
-    const [key] = await db.sql<{ preview_key: string }[]>`select preview_key from storefront where store_id = ${t.storeA1}`
-    expect(view).toMatchObject({ state: 'ready', access: 'change', frameUrl: `https://${key?.preview_key}.webpreview.store/__studio/${view.session}/` })
+    const [key] = await db.sql<{ slug: string }[]>`select slug from store where id = ${t.storeA1}`
+    expect(view).toMatchObject({ state: 'ready', access: 'change', frameUrl: `https://${key?.slug}-preview.my-store.one/__studio/${view.session}/` })
     const again = await w.gql('owner', 'query S($s: String) { studioSession(session: $s) { session } }', { s: view.session })
     expect((again.data?.['studioSession'] as { session: string }).session).toBe(view.session)
     expect((await w.gql('manager', '{ studioSession { access } }')).data?.['studioSession']).toEqual({ access: 'view' })

@@ -690,10 +690,6 @@
         "label": "Portal address",
         "hint": "The address your merchants sign up at, live"
       },
-      "wildcards": {
-        "label": "Shop address",
-        "hint": "The shop address, live"
-      },
       "emailSender": {
         "label": "Email sender",
         "hint": "DKIM, SPF and DMARC verified. Until then, emails use a fallback sender."
@@ -1804,7 +1800,7 @@
     },
     "empty": {
       "title": "No domains yet",
-      "body": "Add your portal address first. That’s where your merchants sign in. Then add the shop address and an email sender. We’ll give you the DNS records to add at your provider.",
+      "body": "Add your portal address first. That’s where your merchants sign in. Then add an email sender. We’ll give you the DNS records to add at your provider.",
       "action": "Add portal address"
     },
     "add": "Add an address",
@@ -1814,11 +1810,6 @@
         "label": "Merchant portal",
         "what": "Where your merchants sign in and build their shops.",
         "pick": "Where your merchants sign in and build their shops. Add this first."
-      },
-      "shops": {
-        "label": "Shop address, all stores",
-        "what": "Every store’s shop address until it connects its own domain.",
-        "pick": "Every store’s shop address until it connects its own domain."
       },
       "email": {
         "label": "Email sender",
@@ -1850,7 +1841,6 @@
       "title": "Remove {host}?",
       "body": {
         "portal": "Merchants can no longer sign in at {host}. Their stores keep working.",
-        "shops": "Shops stop answering at this address until you add another.",
         "email": "Emails go from {sender} until you add another sender."
       },
       "confirm": "Remove address",
@@ -1880,7 +1870,6 @@
       "pointer": {
         "portal": "Points your portal address at DripFunnel.",
         "apex": "Root domains can’t use a CNAME, so this points it at DripFunnel directly.",
-        "shops": "Sends every shop address to DripFunnel.",
         "email": "Points this address at DripFunnel."
       },
       "ownership": "Proves the address is yours.",
@@ -1920,10 +1909,8 @@
       "kindQuestion": "What is this address for?",
       "added": "Added",
       "field": "Address",
-      "wildcardField": "Base address",
       "help": {
         "portal": "A subdomain like {example} is easiest. Your merchants will see it in their browser.",
-        "wildcard": "Every store gets an address under this, like harbor-coffee.{example}.",
         "email": "Use a subdomain you don’t send other email from. Replies still go to your support address."
       },
       "cancel": "Cancel",
@@ -1960,10 +1947,6 @@
           "one": "We found the record and issued the certificate. Merchants can sign in here now.",
           "other": "We found the records and issued the certificate. Merchants can sign in here now."
         },
-        "shops": {
-          "one": "We found the record and issued the certificate. Stores use it right away.",
-          "other": "We found the records and issued the certificate. Stores use it right away."
-        },
         "email": {
           "one": "We found the records. Emails now come from this address.",
           "other": "We found the records. Emails now come from this address."
@@ -1982,7 +1965,6 @@
       },
       "examples": {
         "portal": "store.{zone}",
-        "shops": "shops.{zone}",
         "email": "mail.{zone}",
         "zone": "yourcompany.com"
       },

@@ -35,7 +35,6 @@ const edge = 'edge.dripfunnel.net'
 const domainsFor = (base: string, portal: string, waiting: readonly DomainKind[] = []): PartnerDomain[] => {
   const spec: [DomainKind, string, string, string][] = [
     ['portal', portal, 'CNAME', `portal.${edge}`],
-    ['shops', `*.shops.${base}`, 'CNAME', `shops.${edge}`],
     ['email', `mail.${base}`, 'TXT', 'v=spf1 include:mail.dripfunnel.net ~all'],
   ]
   return spec.map(([kind, host, record, expected]) => {
@@ -159,7 +158,6 @@ export const samplePartners: readonly SamplePartner[] = [
     branding: { productName: 'Bazaar Cloud Commerce', primaryColor: '#0F6E5C', accentColor: '#F2B134', poweredBy: 'off' },
     domains: [
       ...domainsFor('bazaarcloud.in', 'portal.bazaarcloud.in'),
-      { id: 'bz-shops-ae', kind: 'shops', host: '*.shops.bazaarcloud.ae', status: 'broken', record: 'CNAME', expected: `shops.${edge}`, found: 'shops-old.bzhost.ae', checkedAt: '2026-09-28T10:30:00Z' },
     ],
     plans: [
       plan('bz-starter', 'Starter', 'live', 250, 1, 120),
@@ -198,7 +196,6 @@ export const samplePartners: readonly SamplePartner[] = [
       { item: 'company', ...done('Jonas', 'Kaufladen Digital', 'Kaufladen Digital GmbH, Berlin') },
       { item: 'branding', ...done('Priya', 'DripFunnel') },
       { item: 'portalHost', ...done('Jonas', 'Kaufladen Digital', 'shop.kaufladen.de is live') },
-      { item: 'wildcards', ...done('Jonas', 'Kaufladen Digital') },
       { item: 'emailSender', ...progress('mail.kaufladen.de: waiting for DNS') },
       { item: 'plan', ...done('Priya', 'DripFunnel', 'Basis and Plus are priced') },
       { item: 'legal', ...done('Jonas', 'Kaufladen Digital') },
@@ -258,10 +255,10 @@ export const samplePartners: readonly SamplePartner[] = [
       { item: 'company', ...done('Maya', 'DripFunnel', 'Tallis Studio Pty Ltd, Melbourne') },
       { item: 'branding', ...missing('Logo, colours and font') },
       { item: 'portalHost', ...progress('shops.tallis.studio: waiting for DNS') },
-      ...(['wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const).map((item) => ({ item, ...missing('Not started') })),
+      ...(['emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const).map((item) => ({ item, ...missing('Not started') })),
     ],
     branding: { productName: 'Tallis Shops', primaryColor: '#3D5A40', accentColor: '#E3B23C', poweredBy: 'on' },
-    domains: domainsFor('tallis.studio', 'shops.tallis.studio', ['portal', 'shops', 'email']),
+    domains: domainsFor('tallis.studio', 'shops.tallis.studio', ['portal', 'email']),
     plans: [],
     team: [],
     checks: { portalHost: false, emailDomain: false, pricedPlan: false, legalPages: false },
@@ -283,12 +280,11 @@ export const samplePartners: readonly SamplePartner[] = [
       { item: 'company', ...done('Priya', 'DripFunnel', 'Nordlicht Media AB, Stockholm') },
       { item: 'branding', ...done('Priya', 'DripFunnel') },
       { item: 'portalHost', ...done('Priya', 'DripFunnel') },
-      { item: 'wildcards', ...progress('*.shops.nordlicht.media: waiting for DNS') },
       { item: 'emailSender', ...progress('mail.nordlicht.media: verifying') },
       ...(['plan', 'legal', 'paymentMethod', 'payoutDetails'] as const).map((item) => ({ item, ...missing('Not started') })),
     ],
     branding: { productName: 'Nordlicht Shops', primaryColor: '#3B2F63', accentColor: '#7FD1C7', poweredBy: 'on' },
-    domains: domainsFor('nordlicht.media', 'shops.nordlicht.media', ['shops', 'email']),
+    domains: domainsFor('nordlicht.media', 'shops.nordlicht.media', ['email']),
     plans: [],
     team: [],
     checks: { portalHost: true, emailDomain: false, pricedPlan: false, legalPages: false },

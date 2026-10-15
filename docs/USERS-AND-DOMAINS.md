@@ -6,7 +6,7 @@ Who uses the platform, where each of them signs in, and which hostnames exist. *
 mean the admin console at `admin.dripfunnel.com`.
 
 Last updated: 2026-10-15 (every store's free addresses on `my-store.one`: `{slug}.my-store.one` live,
-`{slug}-preview.my-store.one` preview; the partner's shop domain retired). Before: 2026-10-09
+`{slug}-preview.my-store.one` preview; the partner's shop domain retired; built on #744, #745, `SHOP_DOMAIN` replaces `PREVIEW_DOMAIN`). Before: 2026-10-09
 (previews moved to `{key}.webpreview.store`; §5's checks answered).
 
 ---
@@ -57,7 +57,7 @@ its stores are on `my-store.one` like every other partner's.
 | **Reserved slugs**: any ending in `-preview`, and signup's reserved names ([api/SAAS.md](api/SAAS.md) §4.1) | — | `acme-preview` would take over `acme`'s preview host. |
 
 Dev uses a second domain of its own with the same pattern, `my-shop.dev`, and local development uses
-`my-store.localhost` (setup/local.md, changed with the code), so neither shares cookies with live shops.
+`my-store.localhost` (setup/local.md), so neither shares cookies with live shops.
 
 **One portal host per partner** (decided): a partner has exactly one brand, one look and one
 portal host.

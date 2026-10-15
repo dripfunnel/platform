@@ -102,7 +102,7 @@ export interface StoreHistoryEntry {
 }
 
 // The DNS records the store's addresses need (SAAS.md §7). A store without a custom domain has
-// only its shop address, which its partner's wildcard covers.
+// only its free address, {slug}.<SHOP_DOMAIN>, which needs no record.
 export interface StoreDnsRecord {
   kind: 'custom' | 'ownership' | 'shopAddress'
   host: string

@@ -4,7 +4,7 @@ import { fileHeaders, isFilePath, relativeKey } from './files'
 import { page } from './pages'
 import { cookieValue, sessionCookie, sessionSeconds, setCookie, withoutCookie, type PreviewSession } from './session'
 
-// A preview host, {key}.<PREVIEW_DOMAIN> (storefront PREVIEW.md §5): opened only through the signed link, then a 15-minute
+// A preview host, {slug}-preview.<SHOP_DOMAIN> (storefront PREVIEW.md §5): opened only through the signed link, then a 15-minute
 // session cookie checked on every request. HTML and /shop-api get the API's full access re-check, which alone renews it.
 
 // Every preview answer, the closed page included (PREVIEW §5 steps 2 and 4; LOGGING §9).

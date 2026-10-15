@@ -7,8 +7,8 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one`, `{slug}.` live and
-`{slug}-preview.` preview, §1 and §8; not built yet). Before: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
+Last updated: 2026-10-15 (#744, #745: every store's free addresses on `SHOP_DOMAIN`, `{slug}.` live and
+`{slug}-preview.` preview, §1 and §8; no per-store Cloudflare hostnames). Before: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
 Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, since moved).
@@ -47,7 +47,7 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, 
 | Deployable | Kind | Serves | Hostnames |
 |---|---|---|---|
 | `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host and every preview host, `{slug}-preview.<SHOP_DOMAIN>`; `hooks.dripfunnel.com` |
-| `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS, and on `*.my-store.one/*` in the `my-store.one` zone (USERS-AND-DOMAINS §2). Partner portal hosts: `/api/*` to the API Worker's `PortalProxy` entrypoint through a service binding, the rest to the store Pages project. Storefront hosts and `*.my-store.one`: each store's built files from R2, `/shop-api/*` to the API Worker's `StorefrontEdge` entrypoint, which also answers its host lookups (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09, entrypoint on #317). Our own hosts pass through (SAAS.md §8). Portal part on dev only so far; the storefront part is built (#317) and is bound on dev once #287's bucket and the dev shop zone exist | every partner portal host; every merchant domain; `*.my-store.one` |
+| `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS, and on `*.<SHOP_DOMAIN>/*` in the shop zone (`my-store.one` in prod, `my-shop.dev` on dev, `my-store.localhost` locally; USERS-AND-DOMAINS §2). Partner portal hosts: `/api/*` to the API Worker's `PortalProxy` entrypoint through a service binding, the rest to the store Pages project. Storefront hosts and `*.<SHOP_DOMAIN>`: each store's built files from R2, `/shop-api/*` to the API Worker's `StorefrontEdge` entrypoint, which also answers its host lookups (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09, entrypoint on #317). Our own hosts pass through (SAAS.md §8). Portal part on dev only so far; the storefront part is built (#317) and is bound on dev once #287's bucket and the dev shop zone exist | every partner portal host; every merchant domain; `*.<SHOP_DOMAIN>` |
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
 | `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |
@@ -288,7 +288,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 ## 8. Open questions
 
 - ~~The Shop API hostname pattern for storefronts.~~ `/shop-api` on the store's own storefront hosts: `{slug}.<SHOP_DOMAIN>`, or its live custom
-  domain. Previews are on `{slug}-preview.<SHOP_DOMAIN>` (`my-store.one` in prod; decided 2026-10-15,
+  domain. Previews are on `{slug}-preview.<SHOP_DOMAIN>` (`my-store.one` in prod; #744,
   USERS-AND-DOMAINS §2, replacing #518's `{key}.webpreview.store`): the store is the one whose
   `slug` is `{slug}`, checkout there is in test mode, and every caller is a guest. On
   any other host the public store key alone names the store, and a key sent on a store's own or

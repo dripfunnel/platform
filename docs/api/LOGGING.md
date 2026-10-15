@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-10-15 (previews and live shops on `my-store.one`, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
+Last updated: 2026-10-15 (#744: previews and live shops on `SHOP_DOMAIN`, both zones' Logpush, §9). Before: 2026-10-14 (#733: the API Worker's invocation logs and traces stay off, §9; ARCHITECTURE §7 agrees). Before: 2026-10-14 (#730: `job.retried` and `job.undone` now written for a failed `create-storefront` job). Before: 2026-10-12 (#485: `storefront.core_pinned` built). Before: 2026-10-12 (#471: `custom_domain.check_requested`; #471: `storefront.seo_changed` names its fields). Before: 2026-10-11 (#484: `storefront.rolled_back`; #338: the content page and post entries). Before: 2026-10-11 (#517: a store build's entries and `build_call`; #317: `storefront.publish_failed`, `storefront.preview_opened`, store-proxy's request line). Before: 2026-10-09 (#520: credentials in a URL path are never logged, §9).
 
 ---
 
@@ -312,9 +312,9 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
   - the preview link's token (storefront PREVIEW §5 step 2) is written as `/__open?t=:token`;
   - the edge Worker's automatic invocation logs are off;
   - the API Worker's automatic invocation logs and traces are off on dev and prod (#733): they record the request and outbound fetch URLs, and some routes carry a token in the query (`?token=` on the support and impersonation handoffs, a link token); only the app's own redacted lines are kept;
-  - the `my-store.one` zone's request logs leave out the request path and query
-    (`ClientRequestURI`, `ClientRequestPath`, `ClientRequestQuery` are not among its Logpush
-    fields).
+  - the shop zones' request logs (`my-store.one` in prod, `my-shop.dev` on dev) leave out the request path and query
+    (`ClientRequestURI`, `ClientRequestPath`, `ClientRequestQuery` are not among each zone's Logpush
+    fields; set by hand in the Cloudflare dashboard, setup/dev.md and setup/prod.md).
 
   A logging test fails if either value appears in a log line. **Built on #317**: store-proxy writes one line per
   request with the host, the path redacted as above and never a query, the status and the time

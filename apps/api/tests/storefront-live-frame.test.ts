@@ -26,7 +26,7 @@ const frozenCsp = async (): Promise<Record<string, unknown>> => {
     startPublish(tx, { storeId: t.storeA1, kind: 'design', commit: 'b'.repeat(40), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: now() }),
   )
   if (!started.ok) throw new Error('the publish did not start')
-  expect(await freezeBuild({ sql: db.sql, drafts, assetOrigin: null, dispatch: async () => true, now }, t.storeA1, started.runId)).toBe('frozen')
+  expect(await freezeBuild({ sql: db.sql, drafts, assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now }, t.storeA1, started.runId)).toBe('frozen')
   return (JSON.parse((await (await drafts.get(snapshotFile(t.storeA1, started.runId)))?.text()) ?? '{}') as { csp: Record<string, unknown> }).csp
 }
 
@@ -50,7 +50,6 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   w = await seedStoreWorld(db.sql, t, { now, secrets: null, lookup: null })
   await db.sql`update store set status = 'active', pricing_currency = 'INR' where id = ${t.storeA1}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`insert into design_draft (store_id, head_commit, template, core_version) values (${t.storeA1}, ${'b'.repeat(40)}, 'linen', '1.0.0')`
   const bytes = new TextEncoder().encode('draft').buffer
   await drafts.put(draftBundle(t.storeA1), bytes, { sha256: [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('') })

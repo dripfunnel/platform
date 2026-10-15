@@ -44,7 +44,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
           assets,
           assetHost: `sf-assets.${config.EDGE_ZONE}`,
           liveBuild: async (host) => {
-            const found = await lookupLiveHost(sql, host, { localhost: true })
+            const found = await lookupLiveHost(sql, host, { localhost: true, shopDomain: config.SHOP_DOMAIN ?? null })
             return found.kind === 'store' && found.buildId ? { storeId: found.storeId, buildId: found.buildId } : null
           },
         })
@@ -58,6 +58,7 @@ export const runPublishWorkflow = async (env: PublishStorefrontEnv, connect: Con
       drafts,
       // The asset host on the edge zone (LIVE-SHOP §2, decided on #317).
       assetOrigin: `https://sf-assets.${config.EDGE_ZONE}`,
+      shopDomain: config.SHOP_DOMAIN ?? null,
       dispatch: (repo: string, buildId: string) => repos.dispatchBuild(repo, { build_id: buildId, api }),
       now: () => new Date(),
       probe,

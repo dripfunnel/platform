@@ -31,7 +31,7 @@ export interface StudioDeps extends DesignerDeps {
   lookup: DnsLookup | null
   /** A merchant image's bytes from the assets bucket, by its row's key; null when the bucket isn't bound. */
   readAsset: ((key: string) => Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string } | null>) | null
-  /** `webpreview.store` (PREVIEW_DOMAIN); the studio frame opens only there. */
+  /** `my-store.one` (SHOP_DOMAIN); the studio frame opens only on `{slug}-preview.` of it. */
   previewDomain: string | null
 }
 
@@ -91,7 +91,7 @@ export const createStudioService = (deps: StudioDeps) => {
     const opened = existing && renewed ? { id: existing, access, expiresAt: renewed } : await openStudioSession(sql, context, deps.role, now())
     if (!opened) return { ok: false, reason: 'NOT_FOUND' }
     const state = await studio.status(storeId)
-    return { ok: true, value: { ...state, session: opened.id, frameUrl: `https://${key.preview_key}.${deps.previewDomain}/__studio/${opened.id}/`, access: opened.access, expiresAt: opened.expiresAt } }
+    return { ok: true, value: { ...state, session: opened.id, frameUrl: `https://${key.slug}-preview.${deps.previewDomain}/__studio/${opened.id}/`, access: opened.access, expiresAt: opened.expiresAt } }
   }
 
   /** `renewStudioSession`: the seat re-checked; a refused renewal ends the session (AI-STUDIO §3 step 6, §8). */

@@ -10,16 +10,13 @@ let db: TestDatabase
 let t: Tenants
 let sites: FakeSites
 const core = '1.4.0'
-const seedFor = (store: string, databaseUrl = db.url) => seedLiveShop({ databaseUrl, sites, store, core })
+const seedFor = (store: string, databaseUrl = db.url) => seedLiveShop({ databaseUrl, sites, store, shopDomain: 'my-store.localhost', core })
 const livePointer = async (storeId: string) => (await db.sql<{ id: string | null }[]>`select live_build_id as id from storefront where store_id = ${storeId}`)[0]?.id ?? null
 const runIds = async (storeId: string) => (await db.sql<{ id: string }[]>`select id from publish_run where store_id = ${storeId} order by id`).map((r) => r.id)
 
 beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
-  await db.sql`
-    insert into partner_domain (partner_id, kind, host, status, record_type, expected)
-    values (${t.partnerA}, 'shops', '*.shops.a.localhost', 'live', 'CNAME', 'x')`
 })
 afterAll(async () => {
   await db.drop()
@@ -32,10 +29,10 @@ describe('seed:live-shop', () => {
     const folder = `stores/${t.storeA1}/builds/${live.buildId}/`
     expect(sites.keys('')).toEqual([`${folder}_edge.json`, `${folder}_manifest.json`, `${folder}index.html`])
     expect(await livePointer(t.storeA1)).toBe(live.buildId)
-    expect(live.address).toBe('store-a1.shops.a.localhost')
+    expect(live.address).toBe('store-a1.my-store.localhost')
     const [run] = await db.sql<{ state: string; commit: string }[]>`select state, commit from publish_run where id = ${live.buildId}`
     expect(run?.state).toBe('live')
-    const host = await lookupLiveHost(db.sql, live.address ?? '', { localhost: true })
+    const host = await lookupLiveHost(db.sql, live.address ?? '', { localhost: true, shopDomain: 'my-store.localhost' })
     expect(host).toMatchObject({ kind: 'store', storeId: t.storeA1, buildId: live.buildId })
   })
 
@@ -93,7 +90,7 @@ describe('seed:live-shop', () => {
       await putText(sites, `stores/${storeId}/preview/${ref}/chunks/theme.js`, 'export {}', 'text/javascript')
     }
     const sandboxUrl = 'http://127.0.0.1:8790'
-    const seedDraft = (store: string, databaseUrl = db.url) => seedLiveShop({ databaseUrl, sites, store, core, draft: true, sandboxUrl })
+    const seedDraft = (store: string, databaseUrl = db.url) => seedLiveShop({ databaseUrl, sites, store, shopDomain: 'my-store.localhost', core, draft: true, sandboxUrl })
     const sandboxServes = (files: Record<string, string>) => {
       const asked: string[] = []
       vi.stubGlobal('fetch', async (url: string) => {
@@ -111,7 +108,7 @@ describe('seed:live-shop', () => {
       await preview(t.storeA1, 'change-1', 'old')
       await preview(t.storeA1, 'change-2', '<p>new design</p>')
       await preview(t.storeB1, 'change-9', 'other store')
-      const otherBuild = (await seedLiveShop({ databaseUrl: db.url, sites, store: t.storeB1, core })).buildId
+      const otherBuild = (await seedLiveShop({ databaseUrl: db.url, sites, store: t.storeB1, shopDomain: 'my-store.localhost', core })).buildId
       const otherKeys = sites.keys(`stores/${t.storeB1}/`)
       const live = await seedDraft(t.storeA1)
       const folder = `stores/${t.storeA1}/builds/${live.buildId}/`
@@ -150,7 +147,7 @@ describe('seed:live-shop', () => {
       sites = fakeSites()
       await draftFor(t.storeA1, 'change-2')
       await preview(t.storeA1, 'change-2', '<p>new design</p>')
-      const first = await seedLiveShop({ databaseUrl: db.url, sites, store: t.storeA1, core })
+      const first = await seedLiveShop({ databaseUrl: db.url, sites, store: t.storeA1, shopDomain: 'my-store.localhost', core })
       const second = await seedDraft(t.storeA1)
       expect(await runIds(t.storeA1)).toEqual([second.buildId])
       expect(sites.keys(`stores/${t.storeA1}/builds/${first.buildId}/`)).toEqual([])
@@ -161,7 +158,7 @@ describe('seed:live-shop', () => {
       sites = fakeSites()
       await draftFor(t.storeA1, 'change-2')
       await preview(t.storeA1, 'change-2', '<p>first</p>')
-      const other = await seedLiveShop({ databaseUrl: db.url, sites, store: t.storeB1, core })
+      const other = await seedLiveShop({ databaseUrl: db.url, sites, store: t.storeB1, shopDomain: 'my-store.localhost', core })
       const first = await seedDraft(t.storeA1)
       await draftFor(t.storeA1, 'change-3')
       await preview(t.storeA1, 'change-3', '<p>second</p>')
@@ -178,7 +175,7 @@ describe('seed:live-shop', () => {
       sites = fakeSites()
       await draftFor(t.storeA1, 'change-2')
       await preview(t.storeA1, 'change-2', '<p>x</p>')
-      await expect(seedLiveShop({ databaseUrl: db.url, sites, store: t.storeA1, core, draft: true, sandboxUrl: 'http://sandbox.example.com:8790' })).rejects.toThrow(/sandbox/i)
+      await expect(seedLiveShop({ databaseUrl: db.url, sites, store: t.storeA1, shopDomain: 'my-store.localhost', core, draft: true, sandboxUrl: 'http://sandbox.example.com:8790' })).rejects.toThrow(/sandbox/i)
       expect(sites.keys(`stores/${t.storeA1}/builds/`)).toEqual([])
     })
 

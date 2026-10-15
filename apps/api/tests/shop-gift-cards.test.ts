@@ -24,8 +24,8 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const host = 'kesari.shops.acme.example'
-const otherHost = 'surat.shops.acme.example'
+const host = 'kesari.shop.example'
+const otherHost = 'surat.shop.example'
 const stores = { kesari: '', surat: '' }
 const ids = { cardProduct: '', amount: '', pack: '', suratCard: '', suratAmount: '' }
 type Who = 'owner' | 'staff' | 'supplier' | 'suratOwner'
@@ -42,7 +42,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   const store = async (name: string, code: string) =>
     (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status) values (${t.partnerA}, ${name}, ${code}, 'IN', 'INR', 'active') returning id`)[0]?.id ?? ''
   stores.kesari = await store('Kesari', 'kesari')
@@ -76,7 +75,7 @@ afterAll(async () => {
 
 let codeAttempts = true
 const shop = async (source: string, cart: string | null = null, on = host, preview = false) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on)
+  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: db.sql, shopper: { ...found.shopper, preview }, origin: `https://${on}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowCodeAttempt: async () => codeAttempts, allowNewCart: async () => true, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
@@ -97,7 +96,7 @@ const issue = (who: Who, email = 'meera@example.com', product = ids.cardProduct,
   merchant(`mutation { issueGiftCard(productId: "${product}", versionId: "${version}", recipientEmail: "${email}", recipientName: "Meera", issueKey: "${key}") }`, who, as)
 /** The card's email, composed as the relay would: its code read back from it. */
 const send = async (giftCardId: string, storeId = stores.kesari) => {
-  const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: { template: 'gift-card', giftCardId }, partnerId: t.partnerA, storeId }, { adminHost: 'a', platformHost: 'p' }, new Date()))
+  const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: { template: 'gift-card', giftCardId }, partnerId: t.partnerA, storeId }, { adminHost: 'a', platformHost: 'p', shopDomain: 'shop.example' }, new Date()))
   if (!prepared.send) throw new Error(prepared.reason)
   const line = prepared.content.paragraphs.find((p) => p.startsWith('Your gift card number: ')) ?? ''
   return line.slice('Your gift card number: '.length)

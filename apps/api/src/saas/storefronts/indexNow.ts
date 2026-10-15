@@ -49,9 +49,9 @@ const edgeRules = z.object({ notFound: z.string().max(2048).nullable().optional(
 const addressOf = (path: string) => `/${path.replace(/(?:^|\/)index\.html$/, (m) => (m.startsWith('/') ? '/' : ''))}`
 
 /** What to tell IndexNow, or null when the store has no public address (none yet, or this machine's). */
-export const indexNowSubmission = async (deps: { sql: postgres.Sql; sites: SitesBucket }, p: IndexNowPayload): Promise<{ host: string; key: string; urls: string[] } | null> => {
+export const indexNowSubmission = async (deps: { sql: postgres.Sql; sites: SitesBucket; shopDomain: string | null }, p: IndexNowPayload): Promise<{ host: string; key: string; urls: string[] } | null> => {
   const row = await withSystemScope(deps.sql, async (tx) => ({
-    host: await selectStorefrontHost(tx, p.storeId),
+    host: await selectStorefrontHost(tx, p.storeId, deps.shopDomain),
     key: await selectIndexNowKey(tx, p.storeId),
   }))
   if (!row.host || !row.key || isLocalhost(row.host)) return null

@@ -10,7 +10,7 @@
   "env": {
     // `wrangler dev --env local` (docs/setup/local.md §6.3): preview and shop hosts, behind Caddy, on the API Worker's local bucket.
     "local": {
-      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "localhost", "PREVIEW_DOMAIN": "preview.localhost" },
+      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "localhost", "SHOP_DOMAIN": "my-store.localhost" },
       "services": [
         { "binding": "API", "service": "dripfunnel-api-local", "entrypoint": "PortalProxy" },
         { "binding": "EDGE", "service": "dripfunnel-api-local", "entrypoint": "StorefrontEdge" }
@@ -21,15 +21,17 @@
     // them, and the Worker passes every host of our own zone straight through.
     "dev": {
       "name": "dripfunnel-store-proxy-dev",
-      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev" },
-      // The API serves a partner's own host only on this entrypoint (SAAS.md §8, #426).
-      "services": [{ "binding": "API", "service": "dripfunnel-api-dev", "entrypoint": "PortalProxy" }],
-      "routes": [{ "pattern": "*/*", "zone_name": "dripfunnel.ai" }]
-      // Storefront and preview hosts (storefront LIVE-SHOP.md §5, PREVIEW.md §5) wait for #287's bucket and preview zone, then
-      // gain: "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-dev" }], a second service
-      // { "binding": "EDGE", "service": "dripfunnel-api-dev", "entrypoint": "StorefrontEdge" }, the route
-      // { "pattern": "*.<dev preview domain>/*", "zone_name": "<dev preview domain>" }, the variable PREVIEW_DOMAIN and the
-      // secret PREVIEW_SESSION_KEY (docs/setup/dev.md §2.8). A binding to a missing bucket or zone fails the deploy.
+      "vars": { "OWN_ZONE": "dripfunnel.ai", "PAGES_HOST": "dripfunnel-store-dev.pages.dev", "SHOP_DOMAIN": "my-shop.dev" },
+      // The API serves a partner's own host only on PortalProxy (SAAS.md §8, #426); shop and preview hosts use StorefrontEdge (LIVE-SHOP §5, PREVIEW §5).
+      "services": [
+        { "binding": "API", "service": "dripfunnel-api-dev", "entrypoint": "PortalProxy" },
+        { "binding": "EDGE", "service": "dripfunnel-api-dev", "entrypoint": "StorefrontEdge" }
+      ],
+      "r2_buckets": [{ "binding": "SITES", "bucket_name": "storefront-sites-dev" }],
+      "routes": [
+        { "pattern": "*/*", "zone_name": "dripfunnel.ai" },
+        { "pattern": "*.my-shop.dev/*", "zone_name": "my-shop.dev" }
+      ]
     }
   }
 }

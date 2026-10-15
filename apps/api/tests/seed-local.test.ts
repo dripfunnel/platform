@@ -33,7 +33,6 @@ describe('the seed', () => {
 describe('the local finish of the seed', () => {
   it('moves each partner’s addresses and their records to .localhost, so the portal host finds its partner', async () => {
     expect(localHost('store.northstar.example')).toBe('store.northstar.localhost')
-    expect(localHost('*.shops.northstar.example')).toBe('*.shops.northstar.localhost')
     const northstar = (await db.sql<{ id: string }[]>`select id from partner where name = 'Northstar Commerce'`)[0]?.id
     expect(await resolvePortalPartner(db.sql, 'store.northstar.localhost')).toBeNull()
     const done = await finishLocally(db.url, undefined)

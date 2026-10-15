@@ -32,7 +32,7 @@ const deps = (): PublishDeps => ({
   sites,
   assets,
   drafts,
-  assetOrigin: 'https://sf-assets.dripfunnel.com',
+  assetOrigin: 'https://sf-assets.dripfunnel.com', shopDomain: 'shop.example',
   dispatch: async (repo, buildId) => {
     dispatched.push({ repo, buildId })
     return true
@@ -67,7 +67,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update store set status = 'active' where id in (${t.storeA1}, ${t.storeA2})`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`update storefront set repo = 'sf-a1a1a1a1a1', repo_id = 9101 where store_id = ${t.storeA1}`
   await db.sql`update storefront set repo = 'sf-a2a2a2a2a2', repo_id = 9102 where store_id = ${t.storeA2}`
   await db.sql`insert into design_draft (store_id, head_commit, template, core_version) values (${t.storeA1}, ${commit(9)}, 'linen', '1.0.0')`
@@ -97,7 +96,7 @@ describe('a publish’s build', () => {
     const [store] = await db.sql<{ code: string; name: string; main_language: string }[]>`select code, name, main_language from store where id = ${t.storeA1}`
     expect(snapshot).toMatchObject({
       version: 1,
-      origin: `https://${store?.code ?? ''}.shops.acme.example`,
+      origin: `https://${store?.code ?? ''}.shop.example`,
       store: { name: store?.name, mainLanguage: store?.main_language, language: store?.main_language },
       csp: { assetOrigin: 'https://sf-assets.dripfunnel.com', mediaOrigins: [], analytics: [], payments: [] },
       assetBase: `https://sf-assets.dripfunnel.com/stores/${t.storeA1}/builds/${runId}/assets/`,

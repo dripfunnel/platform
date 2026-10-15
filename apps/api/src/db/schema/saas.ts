@@ -59,7 +59,7 @@ export interface PartnerInvitationRow {
   created_at: Date
 }
 
-export const domainKinds = ['portal', 'shops', 'email'] as const
+export const domainKinds = ['portal', 'email'] as const
 export type DomainKind = (typeof domainKinds)[number]
 
 /** SAAS.md §8. */
@@ -80,7 +80,7 @@ export interface PartnerDomainRow {
 }
 
 /** ui/platform/FIRST-RELEASE.md §4, in order. */
-export const setupItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const
+export const setupItems = ['company', 'branding', 'portalHost', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const
 export type SetupItem = (typeof setupItems)[number]
 
 export interface PartnerSetupItemRow {
@@ -120,6 +120,8 @@ export interface StoreRow {
   created_at: Date
   name: string
   code: string
+  /** Names the store's free addresses, {slug}.<SHOP_DOMAIN> (migration 0354). */
+  slug: string
   country: string | null
   status: StoreStatus
   plan_id: string | null

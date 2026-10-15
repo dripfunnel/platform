@@ -4,7 +4,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { hashSessionId } from './session'
 import { resolveShopperSession } from './shopperAuth'
 import { defaultFeatures, featureKeys, type FeatureKey } from '#db/scoped/catalogListing'
-import { selectStorefrontByHost, selectStorefrontByKey, selectStorefrontByPreviewKey, type StorefrontRow } from '#db/scoped/shopCaller'
+import { previewSlugOf, selectStorefrontByHost, selectStorefrontByKey, selectStorefrontByPreviewSlug, type StorefrontRow } from '#db/scoped/shopCaller'
 
 // A Shop API request's store (ACCESS §3, PLATFORM-PROMPT §5.5): from the storefront's host or its public store key,
 // never a secret or an argument; and what it reads in: a language, currency and market the store offers.
@@ -67,20 +67,19 @@ const shopperOf = (row: StorefrontRow, request: Request, orderTokenHash: string 
  * The host decides when it is a storefront's own; a key sent with it must be that store's, so store X is never served
  * on store Y's host. Anywhere else the key alone decides (a merchant's own frontend, PLATFORM-PROMPT §5.6).
  */
-export const resolveShopper = async (sql: postgres.Sql, request: Request, host: string, previewDomain: string | null = null): Promise<ShopResolution> => {
+export const resolveShopper = async (sql: postgres.Sql, request: Request, host: string, shopDomain: string | null = null): Promise<ShopResolution> => {
   const key = request.headers.get(shopKeyHeader)?.trim() ?? ''
   const validKey = /^pk_[0-9a-f]{32}$/.test(key)
   const name = host.toLowerCase()
-  const suffix = previewDomain ? `.${previewDomain.toLowerCase()}` : null
-  const onPreviewHost = suffix !== null && name.endsWith(suffix)
-  const label = suffix && onPreviewHost ? name.slice(0, -suffix.length) : ''
-  const previewKey = /^[a-z2-7]{10}$/.test(label) ? label : null
+  const underDomain = shopDomain !== null && name.endsWith(`.${shopDomain.toLowerCase()}`)
+  const previewSlug = previewSlugOf(name, shopDomain)
+  const onPreviewHost = previewSlug !== null
   const { byHost, byKey } = await withSystemScope(sql, async (tx) => ({
-    byHost: !onPreviewHost ? await selectStorefrontByHost(tx, name) : previewKey ? await selectStorefrontByPreviewKey(tx, previewKey) : null,
+    byHost: onPreviewHost ? await selectStorefrontByPreviewSlug(tx, previewSlug) : await selectStorefrontByHost(tx, name, shopDomain),
     byKey: validKey ? await selectStorefrontByKey(tx, key) : null,
   }))
   // A preview host names its store by its key alone, never by a public key (storefront PREVIEW.md §6).
-  if (onPreviewHost && !byHost) return { kind: 'unknown' }
+  if ((onPreviewHost || underDomain) && !byHost) return { kind: 'unknown' }
   if (byHost && key !== '' && byKey?.store_id !== byHost.store_id) return { kind: 'key-mismatch' }
   const row = byHost ?? byKey
   const cartToken = request.headers.get(shopCartHeader)?.trim() ?? ''

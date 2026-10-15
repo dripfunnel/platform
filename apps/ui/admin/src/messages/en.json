@@ -425,7 +425,6 @@
         "company": "Company details",
         "branding": "Branding",
         "portalHost": "Portal host",
-        "wildcards": "Shop address",
         "emailSender": "Email sender domain",
         "plan": "Plans and prices",
         "legal": "Legal pages",
@@ -478,7 +477,6 @@
       "note": "Read-only. The partner points these at DripFunnel from their DNS provider. Checked every 10 minutes.",
       "kinds": {
         "portal": "Portal host",
-        "shops": "Shop wildcard",
         "email": "Email sender domain"
       },
       "record": "Record",
@@ -984,7 +982,7 @@
       "found": "We found",
       "noRecord": "—",
       "covered": "Covered",
-      "coveredBy": "Covered by {partner}’s shop wildcard",
+      "coveredBy": "Needs no record: it is on DripFunnel’s shop domain",
       "nothingFound": "Nothing found yet",
       "status": {
         "live": "Live",

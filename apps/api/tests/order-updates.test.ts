@@ -33,7 +33,7 @@ const relay = async () => {
   const at = new Date((clock?.now ?? new Date()).getTime() + 1000)
   const deliverers = {
     [orderUpdateKind]: orderNotifyDeliverer(db.sql, () => at),
-    email: emailDeliverer(db.sql, ses, { hosts: { adminHost: 'admin.test', platformHost: 'platform.test' }, senderDomain: 'mail.test', suppressionKey: btoa('k'.repeat(32)), now: () => at }),
+    email: emailDeliverer(db.sql, ses, { hosts: { adminHost: 'admin.test', platformHost: 'platform.test', shopDomain: 'shop.example' }, senderDomain: 'mail.test', suppressionKey: btoa('k'.repeat(32)), now: () => at }),
   }
   // Twice: the update's own row, then the email it queued.
   await relayDue(db.sql, deliverers, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })

@@ -34,13 +34,6 @@ const partnerNames: Record<string, string> = {
   lt: 'Loom & Thread',
 }
 
-const shopsDomain: Record<string, string> = {
-  df: 'dripfunnel.com',
-  ns: 'northstar.com',
-  bz: 'bazaarcloud.in',
-  kl: 'kaufladen.de',
-  lt: 'loomandthread.co.uk',
-}
 
 const edge = 'shops.edge.dripfunnel.net'
 
@@ -87,8 +80,7 @@ const setupOf = (seed: Seed): SampleSetup => {
 }
 
 const sample = (seed: Seed): SampleStore => {
-  const shops = shopsDomain[seed.partner] ?? 'dripfunnel.com'
-  const host = seed.domain?.host ?? `${seed.code}.shops.${shops}`
+  const host = seed.domain?.host ?? `${seed.code}.my-store.one`
   const custom = seed.domain?.custom ?? false
   const status = seed.domain?.status ?? 'live'
   const built = seed.built === undefined ? (['2026-09-26T11:20:00Z', '2026-09-26T11:32:00Z'] as const) : seed.built
@@ -408,7 +400,7 @@ export const sampleStores: readonly SampleStore[] = [
     state: trial('2026-10-08', 10),
     created: '2026-09-28',
     storefront: 'own',
-    domain: { host: 'tidewater-surf.shops.northstar.com', custom: false, status: 'waiting' },
+    domain: { host: 'tidewater-surf.my-store.one', custom: false, status: 'waiting' },
     setup: { state: 'running', step: 'hostnames', attempts: 1, startedAt: '2026-09-28T10:50:00Z', stepMinutes: 1 },
     people: [1, 0, 0, 0],
     built: null,

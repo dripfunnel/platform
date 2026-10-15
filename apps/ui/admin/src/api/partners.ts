@@ -94,7 +94,7 @@ export interface PartnerPage {
 }
 
 // The nine setup items of DATA-MODEL.md §3.2, in the API's words.
-export const setupItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
+export const setupItems = ['company', 'branding', 'portalHost', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
 export type SetupItem = (typeof setupItems)[number]
 
 export interface SetupRow {
@@ -113,7 +113,7 @@ export interface HistoryEntry {
   note: string | null
 }
 
-export const domainKinds = ['portal', 'shops', 'email'] as const
+export const domainKinds = ['portal', 'email'] as const
 export type DomainKind = (typeof domainKinds)[number]
 
 export interface PartnerDomain {

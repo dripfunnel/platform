@@ -7,7 +7,7 @@ import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { maxPageSize, withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
-import { selectPartner, selectPartnerDomainsFor } from '#db/scoped/partners'
+import { selectPartner } from '#db/scoped/partners'
 import { selectOverrides, selectStoreAccount, selectTrialExtensions } from '#db/scoped/storeAccount'
 import { selectCustomDomains, selectStoreCounts, selectStoreForUpdate, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
 import { listActivity, partnerEntry, type PageInfo } from '#saas/activity/index'
@@ -83,10 +83,12 @@ export interface PartnerStoresDeps {
   caller: PartnerCaller
   facts: RequestFacts
   activity: ActivityLog
+  /** The domain of every store's free address, `{slug}.<SHOP_DOMAIN>`; null where none is set. */
+  shopDomain: string | null
   now: () => Date
 }
 
-export const createPartnerStoresService = ({ sql, caller, facts, activity, now }: PartnerStoresDeps) => {
+export const createPartnerStoresService = ({ sql, caller, facts, activity, shopDomain, now }: PartnerStoresDeps) => {
   const partnerId = caller.partner.id
   const context = partnerContextOf(caller)
   const role = caller.role
@@ -154,8 +156,6 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
       const people = listed.slice(0, maxPageSize)
       const domains = await selectCustomDomains(tx, id)
       const partner = await selectPartner(tx, partnerId)
-      const partnerDomains = await selectPartnerDomainsFor(tx, [partnerId])
-      const shops = partnerDomains.find((d) => d.kind === 'shops')?.host.replace(/^\*\./, '') ?? null
       const activityPage = await listActivity(sql, context, { storeId: id }, { first: detailListSize })
       const overrides = await selectOverrides(tx, id, undefined, detailListSize + 1)
       const extensions = await selectTrialExtensions(tx, id, undefined, detailListSize + 1)
@@ -185,7 +185,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
           partnerName: partner?.name ?? caller.partner.name,
         },
         site: {
-          liveHost: domains.find((d) => d.status === 'live')?.host ?? (shops ? `${row.code}.${shops}` : null),
+          liveHost: domains.find((d) => d.status === 'live')?.host ?? (shopDomain ? `${row.slug}.${shopDomain}` : null),
           lastPublishAt: row.last_publish_at,
         },
         records: domains.map((d) => ({ host: d.host, status: d.status, type: 'CNAME', value: d.expected_cname, found: d.found_cname, since: d.created_at })),

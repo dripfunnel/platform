@@ -107,9 +107,9 @@ describe('Partner detail', () => {
     }
   })
 
-  it('lists the portal host, shop wildcard and email sender domain, and no preview address (#518)', async () => {
+  it('lists the portal host and email sender domain, and no preview or shop address (#518, #745)', async () => {
     const text = textOf(await render({ tab: 'domains' }))
-    for (const kind of ['portal', 'shops', 'email'] as const) expect(text).toContain(words.domains.kinds[kind])
+    for (const kind of ['portal', 'email'] as const) expect(text).toContain(words.domains.kinds[kind])
     expect(text).not.toMatch(/preview/i)
   })
 
@@ -118,7 +118,7 @@ describe('Partner detail', () => {
     expect(text).toContain('Done by Priya (DripFunnel)')
     expect(text).toContain('shop.kaufladen.de is live')
     expect(text).toContain('Add the bank account DripFunnel pays you into')
-    expect(text).toContain('7 of 9')
+    expect(text).toContain('6 of 8')
     expect(text).toContain('Sent back by Maya Ortiz: Legal pages missing an Impressum')
   })
 

@@ -17,7 +17,7 @@ let t: Tenants
 let sites: FakeSites
 let assets: FakeSites
 let drafts: FakeSites
-const shopsA1 = 'store-a1.shops.acme.example'
+const shopsA1 = 'store-a1.shop.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 // No "uploaded" ever arrives in these tests while a run waits: the wait ends as the Workflow's timeout does.
 const steps = {
@@ -27,7 +27,7 @@ const steps = {
   },
 }
 let probe: TestProbe
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts, assetOrigin: null, dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts, assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
 const actor: GoBackActor = { actorKind: 'person', actorId: null, actorLabel: 'Owner', api: 'store', requestId: null, ip: null, userAgent: null }
 
 beforeAll(async () => {
@@ -35,7 +35,6 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   await db.sql`update store set status = 'active' where id in (${t.storeA1}, ${t.storeA2})`
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`insert into design_draft (store_id, head_commit, template, core_version, preview_deploy_ref) values (${t.storeA1}, ${commit(99)}, 'linen', '1.0.0', 'change-9')`
 }, 60_000)
 
@@ -98,7 +97,7 @@ describe('a publish', () => {
   it('makes a second build live at once: the next lookup names it, and a replayed run changes nothing', async () => {
     const first = await live(t.storeA1)
     const second = await publish(t.storeA1, 2)
-    expect(await lookupLiveHost(db.sql, shopsA1, { localhost: false })).toMatchObject({ storeId: t.storeA1, buildId: second })
+    expect(await lookupLiveHost(db.sql, shopsA1, { localhost: false, shopDomain: 'shop.example' })).toMatchObject({ storeId: t.storeA1, buildId: second })
     expect((await versions(t.storeA1)).map((v) => [v.number, v.state])).toEqual([
       [1, 'kept'],
       [2, 'live'],
@@ -149,7 +148,7 @@ describe('a publish', () => {
     expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, steps)).toBe('failed')
     expect(await runState(runId)).toEqual({ state: 'failed', error: 'upload_timed_out' })
     expect(await live(t.storeA1)).toBe(before)
-    expect(await lookupLiveHost(db.sql, shopsA1, { localhost: false })).toMatchObject({ buildId: before })
+    expect(await lookupLiveHost(db.sql, shopsA1, { localhost: false, shopDomain: 'shop.example' })).toMatchObject({ buildId: before })
     expect(sites.keys(stagingFolder(t.storeA1, runId))).toEqual([])
     const [store] = await db.sql<{ build_state: string }[]>`select build_state from store where id = ${t.storeA1}`
     expect(store?.build_state).toBe('live')
@@ -166,7 +165,7 @@ describe('go back', () => {
     expect(await goBack(db.sql, { storeId: t.storeA1, versionId: v1?.id ?? '', by: null, actor, now: new Date() })).toEqual({ ok: true })
     expect(await live(t.storeA1)).toBe(v1?.build_id)
     expect((await db.sql`select id from publish_run where store_id = ${t.storeA1}`).length).toBe(runsBefore)
-    expect(await lookupLiveHost(db.sql, shopsA1, { localhost: false })).toMatchObject({ buildId: v1?.build_id })
+    expect(await lookupLiveHost(db.sql, shopsA1, { localhost: false, shopDomain: 'shop.example' })).toMatchObject({ buildId: v1?.build_id })
     expect((await versions(t.storeA1)).map((v) => [v.number, v.state])).toEqual([
       [1, 'live'],
       [2, 'kept'],

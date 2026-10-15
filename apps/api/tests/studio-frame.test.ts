@@ -10,7 +10,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const domain = 'webpreview.test'
+const domain = 'shop.test'
 const keys: Record<string, string> = {}
 let session = ''
 
@@ -20,7 +20,7 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   for (const [name, id] of [['A1', t.storeA1], ['B1', t.storeB1]] as const) {
-    keys[name] = (await db.sql<{ preview_key: string }[]>`select preview_key from storefront where store_id = ${id}`)[0]?.preview_key ?? ''
+    keys[name] = (await db.sql<{ slug: string }[]>`select slug from store where id = ${id}`)[0]?.slug ?? ''
   }
   const [user] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'frame.a1@studio.example', 'Frame', 'active') returning id`
   const userId = user?.id ?? ''
@@ -68,7 +68,7 @@ const harness = (loaded = true) => {
 describe('the studio frame', () => {
   it('serves the container’s page under the session’s path, with the frame’s headers, and a page’s path as the SPA', async () => {
     const { seen, frame } = harness()
-    const response = await frame(`${keys['A1']}.${domain}`, `/__studio/${session}/our-story`)
+    const response = await frame(`${keys['A1']}-preview.${domain}`, `/__studio/${session}/our-story`)
     expect(response.status).toBe(200)
     const html = await response.text()
     expect(html).toContain(`src="/__studio/${session}/assets/entry-X.js"`)
@@ -84,27 +84,27 @@ describe('the studio frame', () => {
       ['file', t.storeA1, 'our-story'],
       ['file', t.storeA1, 'index.html'],
     ])
-    const chunk = await frame(`${keys['A1']}.${domain}`, `/__studio/${session}/assets/entry-X.js`)
+    const chunk = await frame(`${keys['A1']}-preview.${domain}`, `/__studio/${session}/assets/entry-X.js`)
     expect(chunk.headers.get('cache-control')).toBe('private, max-age=31536000, immutable')
   })
 
   it('opens the hot-reload WebSocket for a live session only', async () => {
     const { seen, frame } = harness()
-    expect(await (await frame(`${keys['A1']}.${domain}`, `/__studio/${session}/__hot`, { upgrade: 'websocket' })).text()).toBe('socket')
-    expect((await frame(`${keys['A1']}.${domain}`, `/__studio/${session}/__hot`)).status).toBe(404)
+    expect(await (await frame(`${keys['A1']}-preview.${domain}`, `/__studio/${session}/__hot`, { upgrade: 'websocket' })).text()).toBe('socket')
+    expect((await frame(`${keys['A1']}-preview.${domain}`, `/__studio/${session}/__hot`)).status).toBe(404)
     expect(seen.filter((s) => s.kind === 'socket')).toHaveLength(1)
   })
 
   it('shows the opening page and starts the sandbox while it is not loaded', async () => {
     const { seen, frame } = harness(false)
-    const response = await frame(`${keys['A1']}.${domain}`, `/__studio/${session}/`)
+    const response = await frame(`${keys['A1']}-preview.${domain}`, `/__studio/${session}/`)
     expect([response.status, response.headers.get('retry-after')]).toEqual([503, '2'])
     expect(seen.map((s) => s.kind)).toEqual(['open'])
   })
 
   it('sends /__studio/{session}/shop-api to the preview host’s Shop API only after the session check, without the id', async () => {
     const { seen, frame } = harness()
-    expect((await frame(`${keys['A1']}.${domain}`, `/__studio/${session}/shop-api`)).status).toBe(200)
+    expect((await frame(`${keys['A1']}-preview.${domain}`, `/__studio/${session}/shop-api`)).status).toBe(200)
     expect(seen.map((s) => [s.kind, s.storeId ?? null, s.path])).toEqual([
       ['check', t.storeA1, ''],
       ['shop', null, '/shop-api'],
@@ -113,13 +113,13 @@ describe('the studio frame', () => {
 
   it('refuses store A’s session on store B’s preview host, an unknown host, and a malformed id, the same way', async () => {
     const { seen, frame } = harness()
-    for (const path of [`/__studio/${session}/shop-api`, `/__studio/${session}/`, `/__studio/${session}/__hot`]) expect((await frame(`${keys['B1']}.${domain}`, path, { upgrade: 'websocket' })).status).toBe(404)
+    for (const path of [`/__studio/${session}/shop-api`, `/__studio/${session}/`, `/__studio/${session}/__hot`]) expect((await frame(`${keys['B1']}-preview.${domain}`, path, { upgrade: 'websocket' })).status).toBe(404)
     expect(seen.filter((s) => s.kind !== 'check')).toEqual([])
     for (const [host, path] of [
       [`zzzzzzzzzz.${domain}`, `/__studio/${session}/`],
-      [`${keys['A1']}.${domain}`, '/__studio/short/'],
-      [`${keys['A1']}.${domain}`, `/__studio/${session}x/`],
-      [`${keys['A1']}.other.test`, `/__studio/${session}/`],
+      [`${keys['A1']}-preview.${domain}`, '/__studio/short/'],
+      [`${keys['A1']}-preview.${domain}`, `/__studio/${session}x/`],
+      [`${keys['A1']}-preview.other.test`, `/__studio/${session}/`],
     ] as const) {
       const r = await frame(host, path)
       expect([host, r.status, r.headers.get('referrer-policy')]).toEqual([host, 404, 'no-referrer'])
@@ -131,8 +131,8 @@ describe('the studio frame', () => {
     const lines: string[] = []
     for (const level of ['log', 'info', 'warn', 'error'] as const) vi.spyOn(console, level).mockImplementation((...args: unknown[]) => void lines.push(args.map(String).join(' ')))
     const { frame } = harness()
-    await frame(`${keys['A1']}.${domain}`, `/__studio/${session}/shop-api`)
-    await frame(`${keys['B1']}.${domain}`, `/__studio/${session}/`)
+    await frame(`${keys['A1']}-preview.${domain}`, `/__studio/${session}/shop-api`)
+    await frame(`${keys['B1']}-preview.${domain}`, `/__studio/${session}/`)
     expect(lines.filter((l) => l.includes(session))).toEqual([])
   })
 
@@ -170,7 +170,7 @@ describe('the studio frame', () => {
       socket: async () => (asked.push('socket'), new Response('x')),
     }
     for (const header of [t.storeB1, '']) {
-      const r = await serveFrame(new Request(`https://${keys['A1']}.${domain}/__studio/${session}/`, { headers: header ? { [studioStoreHeader]: header } : {} }), server)
+      const r = await serveFrame(new Request(`https://${keys['A1']}-preview.${domain}/__studio/${session}/`, { headers: header ? { [studioStoreHeader]: header } : {} }), server)
       expect(r.status).toBe(404)
     }
     expect(asked).toEqual([])

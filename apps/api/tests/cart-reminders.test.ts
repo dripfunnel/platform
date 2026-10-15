@@ -30,8 +30,8 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const host = 'jaipur.shops.acme.example'
-const otherHost = 'surat.shops.acme.example'
+const host = 'jaipur.shop.example'
+const otherHost = 'surat.shop.example'
 const suppressionKey = btoa('k'.repeat(32))
 let store = ''
 let surat = ''
@@ -52,7 +52,7 @@ const ses: SesApi = { send: async (email) => (sent.push(email), { messageId: `m-
 
 const facts = { requestId: 'r', ip: '203.0.113.5', userAgent: null }
 const shop = async (source: string, cart: string | null = null, on = host) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on)
+  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = {
     sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true,
@@ -119,11 +119,11 @@ const sweep = async () => {
 const relay = async () => {
   const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
   const at = row?.now ?? new Date()
-  const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test' }
+  const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test', shopDomain: 'shop.example' }
   return relayDue(db.sql, {
     'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, whatsappAccounts),
     email: emailDeliverer(db.sql, ses, { hosts, senderDomain: 'mail.dripfunnel.test', suppressionKey }),
-    whatsapp: whatsappDeliverer(db.sql, whatsappAccounts ?? { forPartner: async () => null }, () => whatsappSender, suppressionKey),
+    whatsapp: whatsappDeliverer(db.sql, whatsappAccounts ?? { forPartner: async () => null }, () => whatsappSender, suppressionKey, 'shop.example'),
   }, { ...defaultRelayOptions, now: () => at })
 }
 /** Sweeps and delivers until nothing more goes: the cron and the outbox, as the Worker runs them. */
@@ -142,7 +142,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   const make = async (name: string, code: string, country: string) =>
     (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status, address) values (${t.partnerA}, ${name}, ${code}, ${country}, 'INR', 'active', ${db.sql.json({ street: '1 MI Road', city: 'Jaipur' })}) returning id`)[0]?.id ?? ''
   store = await make('Jaipur', 'jaipur', 'IN')
@@ -591,7 +590,7 @@ describe('WhatsApp in India (#337)', () => {
   let member = ''
   let session = ''
   const signedIn = async (source: string, cart: string | null = null) => {
-    const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: { 'x-shop-session': session, ...(cart ? { 'x-shop-cart': cart } : {}) } }), host)
+    const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: { 'x-shop-session': session, ...(cart ? { 'x-shop-cart': cart } : {}) } }), host, 'shop.example')
     if (found.kind !== 'found') throw new Error('no store')
     const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, now: () => new Date() }
     return graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
@@ -651,7 +650,7 @@ describe('WhatsApp in India (#337)', () => {
       const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
       const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
       await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
-      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, gone, () => whatsappSender, suppressionKey) }, opts)
+      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, gone, () => whatsappSender, suppressionKey, 'shop.example') }, opts)
       const mailed = mailTo('member.wa@example.com').length
       for (let i = 0; i < 2; i++) await relay()
       expect([await reminders(cart), mailTo('member.wa@example.com').length - mailed]).toMatchObject([[{ state: 'sent', channel: 'email' }], 1])
@@ -676,7 +675,7 @@ describe('WhatsApp in India (#337)', () => {
       // Decided for WhatsApp; the shopper's answer or address changes before it goes.
       await set()
       const mailed = mailTo('member.wa@example.com').length
-      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, gone, () => whatsappSender, suppressionKey) }, opts)
+      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, gone, () => whatsappSender, suppressionKey, 'shop.example') }, opts)
       for (let i = 0; i < 2; i++) await relay()
       await reset()
       expect([await reminders(cart), mailTo('member.wa@example.com').length - mailed]).toMatchObject([[{ state: 'skipped', skip_reason: reason }], 0])
@@ -696,7 +695,7 @@ describe('WhatsApp in India (#337)', () => {
       // The first try failed (MSG91 or SES down) and the shopper unsubscribed before the retry.
       await db.sql`update customer set consent_state = 'stopped' where id = ${member}`
       const before = [texts.length, mailTo('member.wa@example.com').length]
-      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => whatsappSender, suppressionKey) }, opts)
+      await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => whatsappSender, suppressionKey, 'shop.example') }, opts)
       for (let i = 0; i < 2; i++) await relay()
       await db.sql`update customer set consent_state = 'opted_in' where id = ${member}`
       expect([channel, await reminders(cart), texts.length - (before[0] ?? 0), mailTo('member.wa@example.com').length - (before[1] ?? 0)]).toMatchObject([channel, [{ state: 'skipped', skip_reason: 'opted_out' }], 0, 0])
@@ -738,7 +737,7 @@ describe('WhatsApp in India (#337)', () => {
     const [row] = await db.sql<{ now: Date }[]>`select now() + interval '1 second' as now`
     const opts = { ...defaultRelayOptions, now: () => row?.now ?? new Date() }
     await relayDue(db.sql, { 'cart.remind': cartRemindDeliverer(db.sql, suppressionKey, anAccount) }, opts)
-    await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => refusing, suppressionKey) }, opts)
+    await relayDue(db.sql, { whatsapp: whatsappDeliverer(db.sql, anAccount, () => refusing, suppressionKey, 'shop.example') }, opts)
     expect(await reminders(cart)).toMatchObject([{ state: 'skipped', skip_reason: 'undeliverable' }])
   })
 })

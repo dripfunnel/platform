@@ -38,7 +38,7 @@ let cache: ReturnType<typeof fakeCache>
 let sites: ReturnType<typeof fakeSites>
 let deps: Deps
 let settle: () => Promise<void>
-const env = { API: { fetch: async () => new Response('api') } as unknown as Fetcher, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', PREVIEW_DOMAIN: 'webpreview.store' }
+const env = { API: { fetch: async () => new Response('api') } as unknown as Fetcher, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', SHOP_DOMAIN: 'my-store.one' }
 
 beforeEach(async () => {
   vi.unstubAllGlobals()

@@ -45,6 +45,7 @@ export interface NewPartnerStore {
   partnerId: string
   name: string
   code: string
+  slug: string
   country: string
   /** The currency the store prices its products in: its country's (DATA-MODEL §7.2 `pricing_currency`). */
   pricingCurrency: string
@@ -56,8 +57,8 @@ export interface NewPartnerStore {
 
 export const insertPartnerStore = async (tx: ScopedSql, s: NewPartnerStore): Promise<string> => {
   const [row] = await tx<{ id: string }[]>`
-    insert into store (partner_id, name, code, country, pricing_currency, status, plan_id, trial_ends_at, storefront_kind, created_at)
-    values (${s.partnerId}, ${s.name}, ${s.code}, ${s.country}, ${s.pricingCurrency}, ${s.status}, ${s.planId}, ${s.trialEndsAt}, 'ai', ${s.createdAt})
+    insert into store (partner_id, name, code, slug, country, pricing_currency, status, plan_id, trial_ends_at, storefront_kind, created_at)
+    values (${s.partnerId}, ${s.name}, ${s.code}, ${s.slug}, ${s.country}, ${s.pricingCurrency}, ${s.status}, ${s.planId}, ${s.trialEndsAt}, 'ai', ${s.createdAt})
     returning id
   `
   if (!row) throw new Error('store: insert returned no row')

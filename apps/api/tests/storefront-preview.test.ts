@@ -19,7 +19,7 @@ let db: TestDatabase
 let t: Tenants
 let links: PreviewLinks
 const linkKey = btoa(String.fromCharCode(...new Uint8Array(32).fill(3)))
-const domain = 'preview.localhost'
+const domain = 'my-store.localhost'
 const now = new Date('2026-10-11T09:00:00Z')
 type Who = 'owner' | 'manager' | 'supplier' | 'bOwner'
 const people: Record<Who, string> = { owner: '', manager: '', supplier: '', bOwner: '' }
@@ -42,7 +42,7 @@ beforeAll(async () => {
   await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${people.supplier}, ${t.storeA1}, ${t.sellerA1First}, 'supplier-admin', 'active')`
   for (const who of Object.keys(cookies) as Who[]) cookies[who] = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: people[who], partnerId: who === 'bOwner' ? t.partnerB : t.partnerA }, now))
   await db.sql`insert into design_draft (store_id, head_commit, template, core_version, preview_deploy_ref) values (${t.storeA1}, ${'a'.repeat(40)}, 'linen', '1.0.0', 'change-2')`
-  const rows = await db.sql<{ store_id: string; preview_key: string }[]>`select store_id, preview_key from storefront where store_id in (${t.storeA1}, ${t.storeB1})`
+  const rows = await db.sql<{ store_id: string; preview_key: string }[]>`select id as store_id, slug as preview_key from store where id in (${t.storeA1}, ${t.storeB1})`
   keys.a1 = rows.find((r) => r.store_id === t.storeA1)?.preview_key ?? ''
   keys.b1 = rows.find((r) => r.store_id === t.storeB1)?.preview_key ?? ''
 }, 60_000)
@@ -65,12 +65,12 @@ const tokenOf = (url: string | null) => new URL(url ?? 'https://x/').searchParam
 
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise, passThroughOnException: () => undefined } as unknown as ExecutionContext
 const edge = (extra: Record<string, unknown> = {}) =>
-  new StorefrontEdge(ctx, { ADMIN_HOST: 'admin.localhost', PLATFORM_HOST: 'platform.localhost', HOOKS_HOST: 'hooks.localhost', HYPERDRIVE: { connectionString: db.url }, PREVIEW_DOMAIN: domain, PREVIEW_LINK_KEY: linkKey, ...extra } as never)
+  new StorefrontEdge(ctx, { ADMIN_HOST: 'admin.localhost', PLATFORM_HOST: 'platform.localhost', HOOKS_HOST: 'hooks.localhost', HYPERDRIVE: { connectionString: db.url }, SHOP_DOMAIN: domain, PREVIEW_LINK_KEY: linkKey, ...extra } as never)
 
 describe('Open preview', () => {
   it('gives the Owner a link to the store’s own preview host that names nobody, and logs that it did, never the link', async () => {
     const { url } = await openPreview('owner')
-    expect(url).toMatch(new RegExp(`^https://${keys.a1}\\.preview\\.localhost/__open\\?t=[A-Za-z0-9_-]+$`))
+    expect(url).toMatch(new RegExp(`^https://${keys.a1}-preview\\.my-store\\.localhost/__open\\?t=[A-Za-z0-9_-]+$`))
     expect(url).not.toContain(people.owner)
     expect(url).not.toContain(t.storeA1)
     const grant = await links.open(tokenOf(url))
@@ -78,7 +78,7 @@ describe('Open preview', () => {
     const entries = await db.sql`select * from activity_log where action = 'storefront.preview_opened'`
     expect(entries).toHaveLength(1)
     expect(JSON.stringify(entries)).not.toContain(tokenOf(url))
-    expect((await openPreview('bOwner')).url).toContain(`https://${keys.b1}.`)
+    expect((await openPreview('bOwner')).url).toContain(`https://${keys.b1}-preview.`)
   })
 
   it('refuses a seat that can’t publish, a supplier, and a Worker without the preview’s values', async () => {

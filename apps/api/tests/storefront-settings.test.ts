@@ -250,7 +250,6 @@ describe('the Shop API and the publish snapshot', () => {
   })
 
   it('freezes them into the snapshot a publish builds from, so the next publish of any kind carries them', async () => {
-    await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
     await db.sql`insert into design_draft (store_id, head_commit, template, core_version) values (${t.storeA1}, ${'b'.repeat(40)}, 'linen', '1.0.0')`
     await saveBrand('owner', { logoAssetId: files.logo, faviconAssetId: files.favicon, tagline: 'Linen for slow days', social: { instagram: '@juniper.linen' }, primaryColour: '#1f4e3d', voice: 'Warm' })
     await saveSeo('owner', { title: 'Juniper linen', shareImageAssetId: files.photo })
@@ -261,7 +260,7 @@ describe('the Shop API and the publish snapshot', () => {
       startPublish(tx, { storeId: t.storeA1, kind: 'design', commit: 'b'.repeat(40), template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: now() }),
     )
     const runId = started.ok ? started.runId : ''
-    expect(await freezeBuild({ sql: db.sql, drafts, assetOrigin: null, dispatch: async () => true, now }, t.storeA1, runId)).toBe('frozen')
+    expect(await freezeBuild({ sql: db.sql, drafts, assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now }, t.storeA1, runId)).toBe('frozen')
     const snapshot = JSON.parse((await (await drafts.get(snapshotFile(t.storeA1, runId)))?.text()) ?? '{}') as { store: Record<string, unknown> }
     expect(snapshot.store).toMatchObject({
       tagline: 'Linen for slow days',

@@ -78,7 +78,6 @@ import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActiv
 import { cloudflareClient } from '#integrations/cloudflare/api'
 import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
-import { storeHostSyncDeliverer, storeHostsRegisterDeliverer, storeHostsRemoveDeliverer } from '#jobs/queues/deliverers/storeHost'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
@@ -101,7 +100,6 @@ import { storeEventKind } from '#db/scoped/storeEvents'
 import { deleteOldDeliveries } from '#db/scoped/webhooks'
 import { webhookDeliveryKind, webhookReleaseKind } from '#saas/webhooks/index'
 import { appNoticeKind } from '#saas/apps/index'
-import { storeHostSyncKind, storeHostsRegisterKind, storeHostsRemoveKind } from '#saas/domains/index'
 import { webhookDeliveryDeliverer, webhookEventDeliverer, webhookReleaseDeliverer } from '#jobs/queues/deliverers/webhooks'
 import { appNoticeDeliverer } from '#jobs/queues/deliverers/appNotice'
 import { purgeShopperIdentity } from '#db/scoped/shopper'
@@ -256,16 +254,13 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
   const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
-    ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
+    ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST, shopDomain: config.SHOP_DOMAIN ?? null, downloadLinks }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     // A cart reminder is decided as email is sent, so it waits with it until SES is configured.
     ...(ses ? { [cartRemindKind]: cartRemindDeliverer(sql, ses.suppressionKey, config.SMS_LOCAL === '1' ? localWhatsAppAccounts : null) } : {}),
-    ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey) } : {}),
+    ...(config.SMS_LOCAL === '1' && ses ? { [whatsappKind]: whatsappDeliverer(sql, localWhatsAppAccounts, localWhatsApp, ses.suppressionKey, config.SHOP_DOMAIN ?? null) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
-    ...(cloudflare ? { [storeHostSyncKind]: storeHostSyncDeliverer(sql, cloudflare) } : {}),
-    [storeHostsRegisterKind]: storeHostsRegisterDeliverer(sql),
-    [storeHostsRemoveKind]: storeHostsRemoveDeliverer(sql),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
@@ -290,7 +285,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
           [storefrontRenderKind]: storefrontRenderDeliverer(sql, () => new Date()),
           [storefrontUpgradePushKind]: storefrontUpgradePushDeliverer(sql, publishing.repos, publishing.drafts),
           ...(publishing.upgrade ? { [storefrontUpgradeKind]: storefrontUpgradeDeliverer(publishing.upgrade) } : {}),
-          [storefrontIndexNowKind]: indexNowDeliverer(sql, publishing.sites, indexNowClient()),
+          [storefrontIndexNowKind]: indexNowDeliverer(sql, publishing.sites, indexNowClient(), config.SHOP_DOMAIN ?? null),
         }
       : {}),
     ...(config.CF_CACHE_PURGE_TOKEN && config.CF_SAAS_ZONE_ID ? { [cachePurgeKind]: cachePurgeDeliverer(cachePurgeClient({ token: config.CF_CACHE_PURGE_TOKEN, zoneId: config.CF_SAAS_ZONE_ID })) } : {}),
@@ -393,7 +388,7 @@ const handleAdmin = async (
       partners: caller
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: config.PLATFORM_HOST, localHosts: config.DNS_LOCAL === '1', now: () => new Date() })
         : null,
-      stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() }) : null,
+      stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, shopDomain: config.SHOP_DOMAIN ?? null, now: () => new Date() }) : null,
       provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       staffSessions: caller
         ? createStaffSessionsService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, reauthFresh: caller.reauthFresh, platformHost: config.PLATFORM_HOST, now: () => new Date() })
@@ -465,7 +460,7 @@ const previewLinksFor = (config: Config): Promise<PreviewLinks> | null => {
 /** "Open preview" needs both the preview domain and the link's key (storefront PREVIEW.md §5 step 1, §8). */
 const previewFor = async (config: Config): Promise<{ domain: string; links: PreviewLinks } | null> => {
   const links = previewLinksFor(config)
-  return config.PREVIEW_DOMAIN && links ? { domain: config.PREVIEW_DOMAIN, links: await links } : null
+  return config.SHOP_DOMAIN && links ? { domain: config.SHOP_DOMAIN, links: await links } : null
 }
 
 let linkKey: { key: string; signer: Promise<LinkSigner> } | undefined
@@ -515,7 +510,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), stripePublishableKey: config.STRIPE_PUBLISHABLE_KEY ?? null, edgeZone: config.EDGE_ZONE, shopDomain: config.SHOP_DOMAIN ?? null, localHosts: config.DNS_LOCAL === '1', now: () => new Date() }))
   })
 }
 
@@ -555,7 +550,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     if (isStoreAuthPath(url.pathname)) {
       const limiter = env.SIGN_IN_RATE_LIMITER
       if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
+      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, shopDomain: config.SHOP_DOMAIN ?? null, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success, codeCheck: config.CODE_CHECK })
     }
     const facts = factsOf(request)
     if (machineCredentialOf(request) !== null) {
@@ -569,7 +564,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     const context = { standing, partnerId, sql, activity: storeActivityFor(standing, activityLog), facts, secrets, lookup: lookupFor(sql, config), host: url.host, shopify: shopConnectOf(shopifyFor(config)), couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, files: env.ASSETS ?? null, payments: paymentsFor(config), billing: stripeFor(config), codeCheck: config.CODE_CHECK,
       allowCodeCheck: async (key: string) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false),
       allowPublicRead: async (key: string) => (env.SHOP_RATE_LIMITER ? (await env.SHOP_RATE_LIMITER.limit({ key })).success : false),
-      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1' }, now: () => new Date() }
+      preview: await previewFor(config), studio: studioFor(env), design: designFor(config, env), domains: { edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', shopDomain: config.SHOP_DOMAIN ?? null }, now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     if (isDocumentsPath(url.pathname)) return handleDocument(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
@@ -689,7 +684,7 @@ const handleShop = async (request: Request, url: URL, config: Config, env: Env, 
   // Keyed per address, never pooled, as sign-in is; Cloudflare sets the header on all real traffic.
   if (!facts.ip || !(await limiter.limit({ key: `shop:${url.hostname}:${facts.ip}` })).success) return shopRefusal(429, 'RATE_LIMITED', 'Too many requests. Try again in a minute.')
   return withConnection(hyperdrive, ctx, async (sql) => {
-    const found = await resolveShopper(sql, request, url.hostname, config.PREVIEW_DOMAIN ?? null)
+    const found = await resolveShopper(sql, request, url.hostname, config.SHOP_DOMAIN ?? null)
     if (found.kind === 'key-mismatch') return shopRefusal(403, 'WRONG_STORE_KEY', 'This key is for another shop.')
     if (found.kind === 'unknown') return notFound()
     const context: ShopContext = { sql, shopper: found.shopper, origin: url.origin, activity: activityLog, facts, couriers: config.COURIERS_LOCAL === '1' ? localCouriers() : null, payments: paymentsFor(config), secrets: await (secretsFor(config) ?? null), allowAttempt: async (key) => (env.SIGN_IN_RATE_LIMITER ? (await env.SIGN_IN_RATE_LIMITER.limit({ key })).success : false), allowNewCart: async (key) => (await carts.limit({ key })).success, allowCodeAttempt: async (key) => (env.OFFER_CODE_RATE_LIMITER ? (await env.OFFER_CODE_RATE_LIMITER.limit({ key })).success : false), codeCheck: config.CODE_CHECK, sessionToken: found.shopper.preview ? null : request.headers.get(shopSessionHeader), downloadLinks: await (downloadLinksFor(config) ?? null), allowDownload: async (key) => (env.DOWNLOAD_RATE_LIMITER ? (await env.DOWNLOAD_RATE_LIMITER.limit({ key })).success : false), now: () => new Date() }
@@ -745,7 +740,7 @@ const studioFrame = async (request: Request, config: Config, env: Env, ctx: Exec
   return withConnection(config.HYPERDRIVE, ctx, (sql) =>
     handleStudioFrame(request, {
       sql,
-      previewDomain: config.PREVIEW_DOMAIN ?? null,
+      previewDomain: config.SHOP_DOMAIN ?? null,
       studioFor: (storeId) => {
         const stub = namespace.get(namespace.idFromName(storeId))
         return { check: (forStore, session) => stub.check(forStore, session), fetch: (r) => stub.fetch(r) }
@@ -1105,7 +1100,7 @@ export class StorefrontEdge extends WorkerEntrypoint<Env> {
 
   /** Thrown, never answered as unknown, when the database can't be asked: the edge then caches nothing. */
   liveHost(host: string): Promise<LiveHost> {
-    return edgeQuery(this.env, this.ctx, (sql, config) => lookupLiveHost(sql, host, { localhost: isLocalhost(config.HOOKS_HOST) }))
+    return edgeQuery(this.env, this.ctx, (sql, config) => lookupLiveHost(sql, host, { localhost: isLocalhost(config.HOOKS_HOST), shopDomain: config.SHOP_DOMAIN ?? null }))
   }
 
   /** The renamed addresses of the store its hostname named (storefront ARCHITECTURE §8), as one list the edge caches. */

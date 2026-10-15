@@ -10,7 +10,6 @@ import type { StaffContext } from '#core/tenancy'
 import type { BuildState, CustomDomainRow, HostStatus, StoreRow, StoreStatus } from '#db/schema/saas'
 import { selectActivity } from '#db/scoped/activity'
 import { withScope, type ScopedSql } from '#db/scoped/index'
-import { selectPartnerDomainsOf } from '#db/scoped/partners'
 import {
   insertStoreNote,
   selectCustomDomains,
@@ -163,6 +162,8 @@ export interface StoresServiceDeps {
   facts: RequestFacts
   activity: ActivityLog
   isAssigned: (staffId: string, target: AccessTarget) => Promise<boolean>
+  /** The domain of every store's free address, `{slug}.<SHOP_DOMAIN>`; null where none is set. */
+  shopDomain: string | null
   now: () => Date
 }
 
@@ -214,17 +215,16 @@ export const createStoresService = (deps: StoresServiceDeps) => {
   const entry = (store: Pick<StoreRow, 'id' | 'name' | 'partner_id'>, action: StoreAuditAction, reason: string | null, extra: Partial<ActivityEntry> = {}): ActivityEntry =>
     asStaff({ action, reason, partnerId: store.partner_id, storeId: store.id, target: { type: 'store', id: store.id, label: store.name }, visibility: 'partner', ...extra })
 
-  // SAAS.md §8: the live site is the custom domain once it is live, and `{shop}.shops.<partnerdomain>` until then.
-  const defaultHostOf = (row: StoreListRow, partnerDomain: string | null): string => `${row.code}.shops.${partnerDomain ?? 'dripfunnel.example'}`
-  const liveHostOf = (row: StoreListRow, partnerDomain: string | null): string =>
-    row.domain_host !== null && row.domain_status === 'live' ? row.domain_host : defaultHostOf(row, partnerDomain)
+  // SAAS.md §8: the live site is the custom domain once it is live, and `{slug}.<SHOP_DOMAIN>` until then.
+  const defaultHostOf = (row: StoreListRow): string => `${row.slug}.${deps.shopDomain ?? 'dripfunnel.example'}`
+  const liveHostOf = (row: StoreListRow): string => (row.domain_host !== null && row.domain_status === 'live' ? row.domain_host : defaultHostOf(row))
 
   const setupOf = (row: StoreListRow): StoreRowDto['setup'] => {
     const state = setupStateOf(row.job_state && row.job_step && row.job_step_started_at ? { state: row.job_state, step: row.job_step, step_started_at: row.job_step_started_at } : null, now())
     return { state, step: row.job_step, steps: row.job_steps ?? [], attempts: row.job_attempts ?? 0 }
   }
 
-  const rowOf = (row: StoreListRow, shopsDomain: string | null): StoreRowDto => ({
+  const rowOf = (row: StoreListRow): StoreRowDto => ({
     id: row.id,
     name: row.name,
     code: row.code,
@@ -234,13 +234,11 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     state: stateOf(row, now()),
     storefront: row.storefront_kind === 'own' ? 'own' : (row.build_state ?? 'building'),
     // FIRST-RELEASE §5.1: the custom domain and its status when there is one, else the live link.
-    domain: row.domain_host !== null ? { host: row.domain_host, custom: true, status: row.domain_status ?? 'waiting' } : { host: defaultHostOf(row, shopsDomain), custom: false, status: 'live' },
+    domain: row.domain_host !== null ? { host: row.domain_host, custom: true, status: row.domain_status ?? 'waiting' } : { host: defaultHostOf(row), custom: false, status: 'live' },
     setup: setupOf(row),
     createdAt: row.created_at,
   })
 
-  // For the store's default address, `{shop}.shops.<partnerdomain>`.
-  const shopsDomainsFor = (tx: ScopedSql, partnerIds: readonly string[]) => selectPartnerDomainsOf(tx, partnerIds)
 
   const list = async (filter: unknown, page: PageRequest): Promise<Result<{ page: StorePage }>> => {
     const parsed = storeFilter.safeParse(filter ?? {})
@@ -268,11 +266,10 @@ export const createStoresService = (deps: StoresServiceDeps) => {
         at,
       )
       const { rows: pageRows, pageInfo } = pageOf(rows, decoded, (row) => ({ occurredAt: row.created_at, id: row.id }))
-      const shops = await shopsDomainsFor(tx, [...new Set(pageRows.map((r) => r.partner_id))])
       return {
         ok: true,
         page: {
-          items: pageRows.map((row) => rowOf(row, shops.get(row.partner_id) ?? null)),
+          items: pageRows.map((row) => rowOf(row)),
           pageInfo,
           partners: await selectPartnerNames(tx, assignedTo),
         },
@@ -335,17 +332,15 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     return withScope(sql, context, async (tx) => {
       const row = await selectStoreListRow(tx, id, now())
       if (!row) return null
-      const [people, domains, notes, counts, history, shops, detail] = await Promise.all([
+      const [people, domains, notes, counts, history, detail] = await Promise.all([
         selectStorePeople(tx, id),
         selectCustomDomains(tx, id),
         selectStoreNotes(tx, id),
         selectStoreCounts(tx, id),
         selectActivity(tx, { targetType: 'store', targetId: id }, {}, 100),
-        shopsDomainsFor(tx, [row.partner_id]),
         row.job_id ? selectJobDetail(tx, row.job_id) : Promise.resolve(null),
       ])
-      const shopsDomain = shops.get(row.partner_id) ?? null
-      const base = rowOf(row, shopsDomain)
+      const base = rowOf(row)
       const domain = domains[0] ?? null
       const jobState = base.setup.state
       return {
@@ -357,11 +352,11 @@ export const createStoresService = (deps: StoresServiceDeps) => {
           version: row.core_version,
           lastBuildAt: row.last_build_at,
           lastPublishAt: row.last_publish_at,
-          liveHost: liveHostOf(row, shopsDomain),
+          liveHost: liveHostOf(row),
         },
         // Never a secret in either (decided on #43), as on the Provisioning list.
         provisioning: { error: redactSecretsInText(row.job_last_error), details: redactSecretsInText(detail?.details ?? null) },
-        records: recordsFor(domain, liveHostOf(row, shopsDomain)),
+        records: recordsFor(domain, liveHostOf(row)),
         users: people.map((p) => ({
           id: p.user_id,
           name: p.name,

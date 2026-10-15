@@ -476,7 +476,7 @@ describe('the copy into the build’s folders', () => {
 
 describe('a build from its report to live', () => {
   const steps = { do: (_: string, work: () => Promise<string>) => work(), waitFor: async () => undefined }
-  const publishDeps = () => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, dispatch: async () => true, now: () => now, probe: testProbe(db.sql, { sites, assets }), assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
+  const publishDeps = () => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: null, dispatch: async () => true, now: () => now, probe: testProbe(db.sql, { sites, assets }), assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
 
   it('goes live only after its upload is verified, through #317’s switch', async () => {
     const { id, auth } = await stagedBuild(t.storeA2, repos.a2, '7601')

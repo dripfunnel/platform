@@ -15,7 +15,7 @@ describe('the sample Partners list', () => {
     expect(page.items).toHaveLength(7)
     expect(page.items.find((row) => row.id === 'kl')).toMatchObject({
       portalHost: { host: 'shop.kaufladen.de', status: 'live' },
-      setup: { done: 7, total: 9 },
+      setup: { done: 6, total: 8 },
       owner: { email: 'jonas@kaufladen.de', invitation: 'active' },
     })
   })

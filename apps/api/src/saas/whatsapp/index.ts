@@ -51,7 +51,7 @@ const itemsIn = (n: number) => (n === 1 ? '1 item' : `${n} items`)
  * A cart reminder by WhatsApp, its link minted now and the reminder marked sent, in the transaction that sends it: a
  * failed send leaves neither behind, and a second delivery finds it sent.
  */
-export const prepareWhatsAppReminder = async (tx: ScopedSql, reminderId: string, row: { partnerId: string | null; storeId: string | null }, account: PartnerWhatsAppAccount, now: Date): Promise<PreparedWhatsApp> => {
+export const prepareWhatsAppReminder = async (tx: ScopedSql, reminderId: string, row: { partnerId: string | null; storeId: string | null }, account: PartnerWhatsAppAccount, shopDomain: string | null, now: Date): Promise<PreparedWhatsApp> => {
   const r = await selectReminderToSend(tx, reminderId)
   if (!r || r.state !== 'queued' || r.channel !== 'whatsapp') return { send: false, reason: 'link_closed' }
   if (r.partner_id !== row.partnerId || r.store_id !== row.storeId) return { send: false, reason: 'tenant_mismatch' }
@@ -64,7 +64,7 @@ export const prepareWhatsAppReminder = async (tx: ScopedSql, reminderId: string,
   const message: WhatsAppMessage = r.code && r.code_percent ? 'cart.reminder_code' : 'cart.reminder'
   const template = account.templates[message]
   if (!template) return { send: false, reason: 'no_template' }
-  const host = await selectShopHost(tx, r.store_id)
+  const host = await selectShopHost(tx, r.store_id, shopDomain)
   if (!host) {
     await skipReminder(tx, reminderId, 'no_shop_host')
     return { send: false, reason: 'no_shop_host' }

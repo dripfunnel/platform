@@ -28,8 +28,8 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const host = 'kesari.shops.acme.example'
-const otherHost = 'surat.shops.acme.example'
+const host = 'kesari.shop.example'
+const otherHost = 'surat.shop.example'
 const stores = { kesari: '', surat: '' }
 const v = { pack: '', keys: '', card: '', lesson: '' }
 let keysProduct = ''
@@ -55,7 +55,6 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   signer = await linkSigner(kek, 'download-links')
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   stores.kesari = await store('Kesari', 'kesari')
   stores.surat = await store('Surat', 'surat')
   const key = `stores/${stores.kesari}/assets/00000000-0000-4000-8000-000000000001.pdf`
@@ -79,7 +78,7 @@ afterAll(async () => {
 })
 
 const shopContext = async (on: string, cart: string | null): Promise<ShopContext> => {
-  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on)
+  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), on, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   return { sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, downloadLinks: signer, now: () => new Date() }
 }
@@ -131,7 +130,7 @@ const fetchDownload = async (url: string, allow = true) => {
   return { status: response.status, text: await response.text(), disposition: response.headers.get('content-disposition') }
 }
 const emailFor = (payload: Record<string, unknown>, storeId = stores.kesari) =>
-  withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload, partnerId: t.partnerA, storeId }, { adminHost: 'admin.example', platformHost: 'platform.example', downloadLinks: signer }, new Date()))
+  withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload, partnerId: t.partnerA, storeId }, { adminHost: 'admin.example', platformHost: 'platform.example', shopDomain: 'shop.example', downloadLinks: signer }, new Date()))
 
 describe('a gift card in the cart', () => {
   it('takes one card a line for a recipient, and refuses a recipient on anything else', async () => {
@@ -223,7 +222,7 @@ describe('delivery', () => {
     const payload = { template: 'gift-card', giftCardId: id }
     // Asked for by another store's or another partner's row: refused before anything is written.
     expect(await emailFor(payload, stores.surat)).toEqual({ send: false, reason: 'tenant_mismatch' })
-    const hosts = { adminHost: 'admin.example', platformHost: 'platform.example', downloadLinks: signer }
+    const hosts = { adminHost: 'admin.example', platformHost: 'platform.example', shopDomain: 'shop.example', downloadLinks: signer }
     expect(await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload, partnerId: t.partnerB, storeId: stores.kesari }, hosts, new Date()))).toEqual({ send: false, reason: 'tenant_mismatch' })
     expect(await unsent()).toBe(true)
     // A suppressed recipient, and SES down: the code set while composing is rolled back with the message.

@@ -7,7 +7,7 @@ prompt should be updated.
 
 Paste everything below the line.
 
-Last updated: 2026-10-15 (with Gaurav: no shop wildcard on a partner's Domains). Before: 2026-10-11 (#518: no preview link on a store's Storefront tab). Before: 2026-10-09 (previews off the partner domain).
+Last updated: 2026-10-15 (#745: no shop wildcard on a partner's Domains). Before: 2026-10-11 (#518: no preview link on a store's Storefront tab). Before: 2026-10-09 (previews off the partner domain).
 
 ---
 

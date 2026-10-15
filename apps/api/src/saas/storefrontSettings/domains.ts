@@ -3,11 +3,10 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { parseHostname } from '#core/hostname'
 import type { TenantContext } from '#core/tenancy'
 import type { CustomDomainRow } from '#db/schema/saas'
-import { serialise, uniqueViolation, withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { selectSnapshotSource } from '#db/scoped/publishing'
+import { serialise, uniqueViolation, withScope, type ScopedSql } from '#db/scoped/index'
 import { insertCustomDomain } from '#db/scoped/stores'
-import { deleteStoreDomain, merchantHostTaken, selectStoreDomainForUpdate, selectStoreDomains, setPrimaryDomain } from '#db/scoped/storefrontSettings'
-import { edgeTargets, isBareDomain, isDripfunnelHost, queueHostPurge, queueMerchantDomainRemoval, shopsHostOf, type MerchantHost } from '#saas/domains/index'
+import { deleteStoreDomain, merchantHostTaken, selectStoreDomainForUpdate, selectStoreDomains, selectStoreSlug, setPrimaryDomain } from '#db/scoped/storefrontSettings'
+import { edgeTargets, isBareDomain, isDripfunnelHost, queueHostPurge, queueMerchantDomainRemoval, type MerchantHost } from '#saas/domains/index'
 import { planLimitFor } from '#saas/entitlements/index'
 import { queueSideEffect } from '#saas/outbox/index'
 
@@ -60,6 +59,8 @@ export interface StoreDomainsDeps {
   edgeZone: string
   /** `*.localhost` names are accepted where the local DNS stand-in answers them (DNS_LOCAL). */
   localHosts: boolean
+  /** The domain of every store's free address, `{slug}.<SHOP_DOMAIN>`; null where none is set. */
+  shopDomain: string | null
   now: () => Date
 }
 
@@ -85,7 +86,7 @@ const viewOf = (d: CustomDomainRow): DomainView => ({
   ],
 })
 
-export const createStoreDomainsService = ({ sql, context, actor, activity, facts, edgeZone, localHosts, now }: StoreDomainsDeps) => {
+export const createStoreDomainsService = ({ sql, context, actor, activity, facts, edgeZone, localHosts, shopDomain, now }: StoreDomainsDeps) => {
   const { storeId } = context
   const partnerId = actor.partnerId
   const minute = (at: Date) => Math.floor(at.getTime() / 60_000)
@@ -118,10 +119,11 @@ export const createStoreDomainsService = ({ sql, context, actor, activity, facts
     }
   }
 
-  /** `{code}.shops.<partnerdomain>`, once the partner's shops address is live; its partner's row isn't the store's to read. */
+  /** `{slug}.<SHOP_DOMAIN>`, the store's free address. */
   const freeHost = async (): Promise<string | null> => {
-    const source = await withSystemScope(sql, (tx) => selectSnapshotSource(tx, storeId))
-    return source?.shops_host ? shopsHostOf(source.shops_host, source.code) : null
+    if (!shopDomain) return null
+    const slug = await withScope(sql, context, (tx) => selectStoreSlug(tx, storeId))
+    return slug ? `${slug}.${shopDomain}` : null
   }
 
   const domains = async (): Promise<DomainsView> => {
@@ -136,7 +138,7 @@ export const createStoreDomainsService = ({ sql, context, actor, activity, facts
     const typed = parseHostname(raw.trim().replace(/^https?:\/\//i, '').replace(/[/?#].*$/, ''), { localhost: localHosts })
     if (!typed.ok || typed.wildcard) return Promise.resolve({ ok: false, reason: 'INVALID_HOSTNAME' })
     const host = typed.host
-    if (isDripfunnelHost(host, edgeZone)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
+    if (isDripfunnelHost(host, edgeZone) || (shopDomain !== null && (host === shopDomain || host.endsWith(`.${shopDomain}`)))) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
     // An apex can't take a CNAME and there is no fixed address to give yet (SAAS §8 "Verify before building: Apex").
     if (isBareDomain(host)) return Promise.resolve({ ok: false, reason: 'APEX_NOT_AVAILABLE', suggested: `www.${host}` })
     return run(async (tx) => {

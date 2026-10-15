@@ -9,6 +9,8 @@ import { markUserSignedIn, type SignInCandidate } from '#db/scoped/userSignIn'
 import { json } from './authHttp'
 
 export interface StoreAuthDeps {
+  /** The domain of every store's free address (SHOP_DOMAIN), told to sign-up so it can show the address; null where none is set. */
+  shopDomain?: string | null | undefined
   sql: postgres.Sql
   activity: ActivityLog
   /** The host's partner; every account and session here is that partner's. */

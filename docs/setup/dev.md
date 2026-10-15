@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
+Last updated: 2026-10-15 (#744: `SHOP_DOMAIN` `my-shop.dev` replaces the preview domain, §2.8 items 2 and 8). Before: 2026-10-14 (#733: Workers Logs on, invocation logs and traces off, §4). Before: 2026-10-14 (#730: the dev storefront buckets, Workflows and studio Durable Objects bound, the one-off template upload, §2.8). Before: 2026-10-12 (#638: the studio cap is the `STUDIO_MAX_RUNNING` variable; the `STUDIO_CAPACITY` binding keeps its name). Before: 2026-10-11 (#317: the storefront buckets' names and bindings, the asset host, `CF_CACHE_PURGE_TOKEN` read; #518: `PREVIEW_DOMAIN` read). Before: 2026-10-09 (#520: storefront setup: `webpreview.store`, R2 upload credential, the App's permissions; #493: the merchant mobile app's `dev` profile).
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -161,9 +161,8 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    `R2_STOREFRONT_SECRET_ACCESS_KEY` and the token's value → `R2_STOREFRONT_API_TOKEN`, with the bucket names
    `STOREFRONT_SITES_BUCKET` and `STOREFRONT_DRAFTS_BUCKET` (all six or none, #517), and a cache purge token → `CF_CACHE_PURGE_TOKEN`
    (`../storefront/LIVE-SHOP.md` §2, §9). No Pages project per store.
-2. **Preview domain**: register a second, cheap dev preview domain (for example `webpreview-dev.store`; PREVIEW.md §8:
-   `webpreview.store` itself is prod's), add it as its own zone on the Cloudflare account you use for dev (Free plan), add the proxied wildcard record
-   `*.<domain>`, and confirm Universal SSL covers it. In Logpush leave out `ClientRequestURI`,
+2. **Shop domain**: add `my-shop.dev` (prod's is `my-store.one`) as its own zone on the DripFunnel-Dev Cloudflare account (Free plan), add the proxied wildcard record
+   `*.my-shop.dev`, and confirm Universal SSL covers it. Every store's free addresses are `{slug}.my-shop.dev` and `{slug}-preview.my-shop.dev`. In Logpush leave out `ClientRequestURI`,
    `ClientRequestPath` and `ClientRequestQuery` (`../api/LOGGING.md` §9, `../storefront/PREVIEW.md` §2). The Worker route is #517's.
 3. **Cloudflare Containers and Durable Objects**: enable both on the Cloudflare account you use for dev. Measure the cold
    start of a 1.5–2 GB image at `basic` and `standard-1`, and record it with the date in
@@ -195,8 +194,8 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (THIRD-PARTY-ACCESS §3).
 8. `openssl rand -base64 32` → `PREVIEW_LINK_KEY` (the API Worker), and another → `PREVIEW_SESSION_KEY` (the store proxy,
    `wrangler secret put PREVIEW_SESSION_KEY --env dev` in `store-proxy`). Then give `store-proxy/wrangler.jsonc`'s `env.dev`
-   the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.<dev preview domain>/*` and the
-   variable `PREVIEW_DOMAIN`, as its comment lists (#317).
+   the `SITES` bucket, the `EDGE` service on the `StorefrontEdge` entrypoint, the route `*.my-shop.dev/*` and the
+   variable `SHOP_DOMAIN=my-shop.dev`, as its comment lists (#317, #744).
 
 ---
 
@@ -237,8 +236,8 @@ Never reuse a value from local or production.
 | `CF_CACHE_PURGE_TOKEN` | Secret | a *Zone › Cache Purge* token on the `dripfunnel.ai` zone | Profile › API Tokens (§2.8 item 1). Read since #317 with `CF_SAAS_ZONE_ID`: purges the store proxy's cached host lookups after a publish, a domain or a state change; without it they expire within 60 seconds |
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` | Text | the provisioning App's ids | §2.8 item 4 |
 | `GITHUB_APP_PRIVATE_KEY` | Secret | the App's `.pem`, one line with `\n` for line breaks | §2.8 item 4 |
-| `PREVIEW_DOMAIN` | Text | the dev preview domain from §2.8 item 2 | Validated at boot (PREVIEW.md §8); `preview.localhost` locally. Read since #518: without it no preview host answers |
-| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Read since #317: seals "Open preview" links; without it, or without `PREVIEW_DOMAIN`, Open preview answers "not set up" |
+| `SHOP_DOMAIN` | Text | `my-shop.dev` (§2.8 item 2) | Validated at boot; `my-store.localhost` locally. Replaces `PREVIEW_DOMAIN` (#744): without it no store or preview host answers |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 8). Read since #317: seals "Open preview" links; without it, or without `SHOP_DOMAIN`, Open preview answers "not set up" |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
 "not connected" instead of failing. Leaving out part of a group does the same, so set each

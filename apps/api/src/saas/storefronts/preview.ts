@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { previewLinkSeconds, type PreviewLinks } from '#auth/previewLink'
 import { merchantRolePermissions, merchantRoles } from '#auth/storePermissions'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
+import { slugPattern } from '#saas/stores/slug'
 import { holdsMerchantRole, movePreviewEpoch, selectPreviewKey, selectPreviewStore } from '#db/scoped/previewAccess'
 
 // The preview link and the access re-check behind it (storefront PREVIEW.md §5): the API's side of the edge Worker's
@@ -14,11 +15,11 @@ const refused: PreviewAccess = { ok: false }
 /** ACCESS §5.1: opening a preview is part of `publish`, so its issuer must still hold it. */
 const previewRoles = merchantRoles.filter((role) => merchantRolePermissions[role].includes('publish'))
 
-const previewKey = z.string().regex(/^[a-z2-7]{10}$/)
-export const previewCheck = z.strictObject({ key: previewKey, storeId: z.uuid(), userId: z.uuid(), epoch: z.int().nonnegative() })
+const previewSlug = z.string().regex(slugPattern)
+export const previewCheck = z.strictObject({ key: previewSlug, storeId: z.uuid(), userId: z.uuid(), epoch: z.int().nonnegative() })
 export type PreviewCheck = z.infer<typeof previewCheck>
 
-/** The key must still be the store's, its revocation number unmoved, and the issuer still able to publish (§5 step 4). */
+/** The slug must still be the store's, its revocation number unmoved, and the issuer still able to publish (§5 step 4). */
 const recheck = async (tx: ScopedSql, c: PreviewCheck): Promise<PreviewAccess> => {
   const store = await selectPreviewStore(tx, c.key)
   if (!store || store.store_id !== c.storeId || store.preview_epoch !== c.epoch) return refused
@@ -28,7 +29,7 @@ const recheck = async (tx: ScopedSql, c: PreviewCheck): Promise<PreviewAccess> =
 
 /** `__open?t=`: a link for another store's preview, an expired one or a forged one gets the same refusal (§5 step 2). */
 export const openPreview = async (sql: postgres.Sql, links: PreviewLinks, key: unknown, token: unknown, now: Date): Promise<PreviewAccess> => {
-  const host = previewKey.safeParse(key)
+  const host = previewSlug.safeParse(key)
   if (!host.success || typeof token !== 'string') return refused
   const grant = await links.open(token)
   if (!grant || grant.expiresAt <= now.getTime() / 1000) return refused
@@ -49,5 +50,5 @@ export const previewLinkFor = async (sql: postgres.Sql, links: PreviewLinks, dom
   const store = await withSystemScope(sql, (tx) => selectPreviewKey(tx, storeId))
   if (!store) return null
   const token = await links.seal({ storeId, userId, epoch: store.preview_epoch, expiresAt: Math.floor(now.getTime() / 1000) + previewLinkSeconds })
-  return `https://${store.preview_key}.${domain}/__open?t=${token}`
+  return `https://${store.slug}-preview.${domain}/__open?t=${token}`
 }

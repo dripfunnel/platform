@@ -17,13 +17,13 @@ export interface EdgeHostRow {
   primary_host: string | null
 }
 
-export const selectEdgeHost = async (tx: ScopedSql, host: string): Promise<EdgeHostRow | null> => {
+export const selectEdgeHost = async (tx: ScopedSql, host: string, shopDomain: string | null): Promise<EdgeHostRow | null> => {
   const rows = await tx<EdgeHostRow[]>`
     select s.id as store_id, s.partner_id, s.name, s.main_language, s.status, f.live_build_id, f.indexnow_key,
-      ${primaryHostOf(tx)} as primary_host,
+      ${primaryHostOf(tx, shopDomain)} as primary_host,
       (s.status = 'cancelled' and exists (select 1 from store_subscription x where x.store_id = s.id and x.cancel_at > now())) as selling_out
     from store s join storefront f on f.store_id = s.id
-    where ${storefrontHostMatch(tx, host)}
+    where ${storefrontHostMatch(tx, host, shopDomain)}
     limit 2`
   // Two stores claiming one host is a data fault: neither is served, as in the Shop API.
   return rows.length === 1 ? (rows[0] ?? null) : null

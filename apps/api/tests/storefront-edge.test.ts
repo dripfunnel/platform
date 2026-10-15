@@ -13,14 +13,15 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const shopsA1 = 'store-a1.shops.acme.example'
-const shopsA2 = 'store-a2.shops.acme.example'
+const shopsA1 = 'store-a1.shop.example'
+const shopsA2 = 'store-a2.shop.example'
 const customA2 = 'www.a2-shop.example'
 
 const env = () => ({
   ADMIN_HOST: 'admin.dripfunnel.com',
   PLATFORM_HOST: 'platform.dripfunnel.com',
   HOOKS_HOST: 'hooks.dripfunnel.com',
+  SHOP_DOMAIN: 'shop.example',
   HYPERDRIVE: { connectionString: db.url },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   SHOP_RATE_LIMITER: { limit: async () => ({ success: true }) },
@@ -35,7 +36,6 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   await db.sql`update store set pricing_currency = 'INR', status = 'active' where id in (${t.storeA1}, ${t.storeA2}, ${t.storeB1})`
   await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`insert into custom_domain (store_id, host, status, expected_cname, ownership_token) values (${t.storeA2}, ${customA2}, 'live', 'x', 'y')`
 }, 60_000)
 
@@ -68,9 +68,11 @@ describe('the edge Worker’s host lookup', () => {
     expect(a1).toMatchObject({ storeId: t.storeA1 })
     expect(a2).toMatchObject({ storeId: t.storeA2, buildId: buildA2 })
     expect(a1).not.toMatchObject({ buildId: buildA2 })
-    // Store B1 is the other partner's: it has no address under partner A's wildcard.
-    expect(await edge().liveHost('store-b1.shops.acme.example')).toEqual({ kind: 'none' })
-    for (const host of ['unknown.example', '*.shops.acme.example', 'shops.acme.example', '127.0.0.1', '', 'store-a1.shops.acme.example.evil.example'])
+    // Every partner's stores share one domain, each by its own slug: B1 is found as B1 and nothing else is.
+    expect(await edge().liveHost('store-b1.shop.example')).toMatchObject({ storeId: t.storeB1 })
+    expect(await edge().liveHost('store-a1-preview.shop.example')).toEqual({ kind: 'none' })
+    expect(await edge().liveHost('store-a1.shops.acme.example')).toEqual({ kind: 'none' })
+    for (const host of ['unknown.example', '*.shop.example', 'shops.acme.example', '127.0.0.1', '', 'store-a1.shop.example.evil.example'])
       expect(await edge().liveHost(host), host).toEqual({ kind: 'none' })
   })
 
@@ -81,8 +83,10 @@ describe('the edge Worker’s host lookup', () => {
     expect(await edge().liveHost(shopsA1)).toMatchObject({ state: 'suspended' })
     await db.sql`update store set status = 'cancelled', cancelled_at = now(), suspended_at = null, suspended_reason = null, suspended_previous_status = null where id = ${t.storeA1}`
     expect(await edge().liveHost(shopsA1)).toMatchObject({ state: 'offline' })
+    // A closed store answers as no store does (#744), on its slug and its preview alike.
     await db.sql`update store set status = 'closed', closed_at = now() where id = ${t.storeA1}`
-    expect(await edge().liveHost(shopsA1)).toMatchObject({ state: 'offline' })
+    expect(await edge().liveHost(shopsA1)).toEqual({ kind: 'none' })
+    expect(await edge().liveHost('store-a1-preview.shop.example')).toEqual({ kind: 'none' })
     await db.sql`update store set status = 'active', cancelled_at = null, closed_at = null, past_due_since = null where id = ${t.storeA1}`
   })
 

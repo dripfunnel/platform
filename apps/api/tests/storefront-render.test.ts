@@ -20,10 +20,10 @@ let t: Tenants
 let sites: FakeSites
 let assets: FakeSites
 let probe: TestProbe
-const host = 'store-a1.shops.acme.example'
+const host = 'store-a1.shop.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 const steps: PublishSteps = { do: (_, work) => work(), waitFor: async () => undefined }
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async () => undefined })
 const signal = new AbortController().signal
 const effect = (kind: string, payload: unknown): Effect => ({ id: 'e', kind, idempotencyKey: 'k', payload, partnerId: null, storeId: null, attempt: 1 })
 
@@ -32,7 +32,6 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   await db.sql`update store set status = 'active' where id in (${t.storeA1}, ${t.storeA2})`
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`insert into store_language (store_id, language, status, position) values (${t.storeA1}, 'hi-IN', 'active', 1) on conflict do nothing`
   sites = fakeSites()
   assets = fakeSites()
@@ -164,16 +163,16 @@ describe('a single-page render', () => {
   it('tells IndexNow the pages that changed or went, on the store’s own address', async () => {
     const [queuedNow] = await db.sql<{ payload: { storeId: string; buildId: string; previousBuildId: string } }[]>`select payload from outbox where kind = 'storefront.indexnow' and payload->>'buildId' = ${render}`
     expect(queuedNow?.payload).toEqual({ storeId: t.storeA1, buildId: render, previousBuildId: base })
-    const submission = await indexNowSubmission({ sql: db.sql, sites }, { storeId: t.storeA1, buildId: render, previousBuildId: base })
+    const submission = await indexNowSubmission({ sql: db.sql, sites, shopDomain: 'shop.example' }, { storeId: t.storeA1, buildId: render, previousBuildId: base })
     expect(submission?.host).toBe(host)
     expect(submission?.key).toMatch(/^[a-f0-9]{32}$/)
     expect(submission?.urls).toEqual([`https://${host}/products/blue-mug/`, `https://${host}/products/mug/`])
     const sent: { urls: readonly string[] }[] = []
     const client: IndexNow = { submit: async (s) => void sent.push(s) }
-    await indexNowDeliverer(db.sql, sites, client).deliver(effect('storefront.indexnow', queuedNow?.payload), signal)
+    await indexNowDeliverer(db.sql, sites, client, 'shop.example').deliver(effect('storefront.indexnow', queuedNow?.payload), signal)
     expect(sent.map((s) => s.urls)).toEqual([submission?.urls])
     const refusing: IndexNow = { submit: async () => Promise.reject(new IndexNowRefused('answered 403')) }
-    await expect(indexNowDeliverer(db.sql, sites, refusing).deliver(effect('storefront.indexnow', queuedNow?.payload), signal)).rejects.toBeInstanceOf(GiveUp)
+    await expect(indexNowDeliverer(db.sql, sites, refusing, 'shop.example').deliver(effect('storefront.indexnow', queuedNow?.payload), signal)).rejects.toBeInstanceOf(GiveUp)
   })
 
   it('never tells IndexNow about the pages a build serves for missing addresses, wherever its `_edge.json` puts them', async () => {
@@ -187,7 +186,7 @@ describe('a single-page render', () => {
     const edge = { redirects: [], fallbacks: [{ prefix: '/products/', page: '/products/_/' }], notFound: '/not-found.html' }
     await write(a, { 'index.html': 'one', 'not-found.html': 'missing one', 'products/_/index.html': 'shell one' }, edge)
     await write(b, { 'index.html': 'two', 'not-found.html': 'missing two', 'products/_/index.html': 'shell two' }, edge)
-    const submission = await indexNowSubmission({ sql: db.sql, sites }, { storeId: t.storeA1, buildId: b, previousBuildId: a })
+    const submission = await indexNowSubmission({ sql: db.sql, sites, shopDomain: 'shop.example' }, { storeId: t.storeA1, buildId: b, previousBuildId: a })
     expect(submission?.urls).toEqual([`https://${host}/`])
   })
 
@@ -261,10 +260,10 @@ describe('isolation', () => {
     // IndexNow for store A names store A's host and key; a build of store B named under store A reads nothing of B's.
     const keys = await db.sql<{ store_id: string; indexnow_key: string }[]>`select store_id, indexnow_key from storefront where store_id in (${t.storeA1}, ${t.storeB1})`
     const keyOf = (id: string) => keys.find((k) => k.store_id === id)?.indexnow_key
-    const submission = await indexNowSubmission({ sql: db.sql, sites }, { storeId: t.storeA1, buildId: pageA, previousBuildId: liveA })
+    const submission = await indexNowSubmission({ sql: db.sql, sites, shopDomain: 'shop.example' }, { storeId: t.storeA1, buildId: pageA, previousBuildId: liveA })
     expect(submission?.key).toBe(keyOf(t.storeA1))
     expect(submission?.urls.every((u) => u.startsWith(`https://${host}/`))).toBe(true)
-    const forged = await indexNowSubmission({ sql: db.sql, sites }, { storeId: t.storeA1, buildId: baseB, previousBuildId: null })
+    const forged = await indexNowSubmission({ sql: db.sql, sites, shopDomain: 'shop.example' }, { storeId: t.storeA1, buildId: baseB, previousBuildId: null })
     expect(forged).toBeNull()
   })
 })
@@ -279,7 +278,7 @@ describe('a page run’s frozen input', () => {
     const runId = started.ok ? started.runId : ''
     const drafts = fakeSites()
     await putText(drafts, sourceBundle(t.storeA1, liveA), 'bundle')
-    const frozen = { sql: db.sql, drafts, assetOrigin: 'https://sf-assets.dripfunnel.com', dispatch: async () => true, now: () => new Date() }
+    const frozen = { sql: db.sql, drafts, assetOrigin: 'https://sf-assets.dripfunnel.com', shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date() }
     expect(await freezeBuild(frozen, t.storeA1, runId)).toBe('frozen')
     const snapshot = JSON.parse((await (await drafts.get(snapshotFile(t.storeA1, runId)))?.text()) ?? '{}') as { assetBase: string }
     expect(snapshot.assetBase).toBe(`https://sf-assets.dripfunnel.com/stores/${t.storeA1}/builds/${assetsOf?.id ?? ''}/assets/`)

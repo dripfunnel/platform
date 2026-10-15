@@ -285,14 +285,14 @@ export const selectNewerSecurityCore = async (tx: ScopedSql, version: string): P
   )[0]?.version ?? null
 
 /** The address a shopper reaches the store on: its primary one (SAAS §8), else a live domain of its own. */
-export const selectStorefrontHost = async (tx: ScopedSql, storeId: string): Promise<string | null> => {
-  const [row] = await tx<{ host: string | null }[]>`select ${storefrontHostOf(tx)} as host from store s where s.id = ${storeId}`
+export const selectStorefrontHost = async (tx: ScopedSql, storeId: string, shopDomain: string | null): Promise<string | null> => {
+  const [row] = await tx<{ host: string | null }[]>`select ${storefrontHostOf(tx, shopDomain)} as host from store s where s.id = ${storeId}`
   return row?.host ?? null
 }
 
 /** `selectStorefrontHost`'s answer for the store `s` in the query around it, so a list asks once for every row. */
-export const storefrontHostOf = (tx: ScopedSql) =>
-  tx`coalesce(${primaryHostOf(tx)}, (select lower(c.host) from custom_domain c where c.store_id = s.id and c.status = 'live' order by c.created_at, c.id limit 1))`
+export const storefrontHostOf = (tx: ScopedSql, shopDomain: string | null) =>
+  tx`coalesce(${primaryHostOf(tx, shopDomain)}, (select lower(c.host) from custom_domain c where c.store_id = s.id and c.status = 'live' order by c.created_at, c.id limit 1))`
 
 /** Builds whose folders clean-up deletes: past the newest `keep` that went live, never live, never a version's; every failed run and bisect probe (LIVE-SHOP §4 step 11). */
 export const selectExpiredBuilds = async (tx: ScopedSql, keep: number, limit: number): Promise<{ id: string; store_id: string }[]> =>
@@ -380,20 +380,17 @@ export const selectGateVerdict = async (tx: ScopedSql, storeId: string, runId: s
   (await tx<{ passed: boolean | null }[]>`select (gate->>'passed')::boolean as passed from publish_run where id = ${runId} and store_id = ${storeId}`)[0]?.passed ?? null
 
 export interface SnapshotSourceRow {
-  code: string
-  shops_host: string | null
   primary_host: string | null
   powered_by: string | null
 }
 
 /** The store's address and its partner's "Powered by" brand, beside the Shop API's own store read. */
-export const selectSnapshotSource = async (tx: ScopedSql, storeId: string): Promise<SnapshotSourceRow | null> =>
+export const selectSnapshotSource = async (tx: ScopedSql, storeId: string, shopDomain: string | null): Promise<SnapshotSourceRow | null> =>
   (
     await tx<SnapshotSourceRow[]>`
-      select s.code, d.host as shops_host, case when p.powered_by = 'off' then null else p.product_name end as powered_by,
-        ${primaryHostOf(tx)} as primary_host
+      select case when p.powered_by = 'off' then null else p.product_name end as powered_by,
+        ${primaryHostOf(tx, shopDomain)} as primary_host
       from store s join partner p on p.id = s.partner_id
-        left join partner_domain d on d.partner_id = s.partner_id and d.kind = 'shops' and d.status = 'live'
       where s.id = ${storeId}`
   )[0] ?? null
 

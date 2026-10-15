@@ -332,13 +332,13 @@ export const selectReminderToSend = async (tx: ScopedSql, id: string): Promise<R
 export const markReminderSent = async (tx: ScopedSql, id: string, tokenHash: string, now: Date): Promise<boolean> =>
   (await tx`update cart_reminder set state = 'sent', link_token_hash = ${tokenHash}, sent_at = ${now} where id = ${id} and state = 'queued' and channel is not null`).count > 0
 
-/** The store's live shop host, as the partner console shows it: its live custom domain, else its code on the partner's shops wildcard. */
-export const selectShopHost = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+/** The store's live shop host, as the partner console shows it: its live custom domain, else its slug on SHOP_DOMAIN. */
+export const selectShopHost = async (tx: ScopedSql, storeId: string, shopDomain: string | null): Promise<string | null> =>
   (
     await tx<{ host: string | null }[]>`
       select coalesce(
         (select c.host from custom_domain c where c.store_id = s.id and c.status = 'live' order by c.host limit 1),
-        (select s.code || substr(d.host, 2) from partner_domain d where d.partner_id = s.partner_id and d.kind = 'shops' and d.status = 'live' limit 1)
+        ${shopDomain === null ? tx`null` : tx`lower(s.slug) || ${`.${shopDomain.toLowerCase()}`}`}
       ) as host
       from store s join partner p on p.id = s.partner_id where s.id = ${storeId} and p.state <> 'closed'
     `

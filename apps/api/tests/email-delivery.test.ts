@@ -21,7 +21,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 let db: TestDatabase
 // The database's clock when the tests start, not a fixed date: the rows they read are stamped with its now().
 let now: Date
-const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test' }
+const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test', shopDomain: 'shop.example' }
 const senderDomain = 'mail.dripfunnel.test'
 const suppressionKey = btoa('k'.repeat(32))
 
@@ -282,16 +282,16 @@ describe('email delivery', () => {
     expect(ses.sent.map((m) => m.to)).toEqual([['second.owner@northstar.example']])
   })
 
-  it('skips a live-address email queued for a retired preview address, and the outbox moves on (#518)', async () => {
-    const [domain] = await db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${northstar.id} and kind = 'shops'`
-    // As queued before 0232 deleted the preview rows: its address is gone and its kind is retired.
-    await queue('partner-domain-live', { partnerId: northstar.id, domainId: crypto.randomUUID(), kind: 'preview' }, { partnerId: northstar.id, storeId: null })
-    await queue('partner-domain-live', { partnerId: northstar.id, domainId: domain?.id, kind: 'shops' }, { partnerId: northstar.id, storeId: null })
+  it('skips a live-address email queued for a retired preview or shops address, and the outbox moves on (#518, #745)', async () => {
+    const [domain] = await db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${northstar.id} and kind = 'portal'`
+    // As queued before 0232 and 0355 deleted those rows: the address is gone and its kind is retired.
+    for (const kind of ['preview', 'shops']) await queue('partner-domain-live', { partnerId: northstar.id, domainId: crypto.randomUUID(), kind }, { partnerId: northstar.id, storeId: null })
+    await queue('partner-domain-live', { partnerId: northstar.id, domainId: domain?.id, kind: 'portal' }, { partnerId: northstar.id, storeId: null })
     const ses = fakeSes()
-    expect(await relay(ses.api)).toMatchObject({ delivered: 2, retry: 0, dead: 0 })
+    expect(await relay(ses.api)).toMatchObject({ delivered: 3, retry: 0, dead: 0 })
     expect(ses.sent).toHaveLength(1)
-    expect(ses.sent[0]?.text).toContain(`${domain?.host ?? ''} now works as your shops address.`)
-    expect(await db.sql`select delivered_at is not null as settled, failed_at from outbox where payload->>'kind' = 'preview'`).toEqual([{ settled: true, failed_at: null }])
+    expect(ses.sent[0]?.text).toContain(`${domain?.host ?? ''} now works as your portal address.`)
+    expect(await db.sql`select delivered_at is not null as settled, failed_at from outbox where payload->>'kind' in ('preview', 'shops')`).toEqual([{ settled: true, failed_at: null }, { settled: true, failed_at: null }])
   })
 
   it('names at most 50 Owners on a store notice, the live ones first in line', async () => {

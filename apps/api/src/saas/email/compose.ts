@@ -35,6 +35,8 @@ import type { Brand, EmailContent } from './render'
 /** Hosts the links lead to, from the Worker's configuration. */
 export interface EmailHosts {
   adminHost: string
+  /** The domain of every store's free address (SHOP_DOMAIN); null where none is set. */
+  shopDomain: string | null
   platformHost: string
   /** Signs a paid order's download links (auth/signedLink.ts); null where CREDENTIALS_KEK isn't set. */
   downloadLinks?: LinkSigner | null
@@ -391,7 +393,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!o.email) return { send: false, reason: 'no_recipient' }
       const look = await partnerBrand(tx, o.partner_id)
       if (!look) return { send: false, reason: 'no_recipient' }
-      const host = await selectShopHost(tx, o.store_id)
+      const host = await selectShopHost(tx, o.store_id, hosts.shopDomain)
       // A link needs the shop's address and the signing key; until both exist the email waits rather than going out bare.
       if (o.downloads.length > 0 && (!host || !hosts.downloadLinks)) throw new NotYet('no_download_host', 60 * 60 * 1000)
       const signer = hosts.downloadLinks ?? null
@@ -412,7 +414,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const code = newGiftCardCode()
       const card = await markGiftCardSent(tx, p.giftCardId, { hash: await hashGiftCardCode(owner.store_id, code), last4: code.slice(-4) }, now)
       if (!card) return { send: false, reason: 'link_closed' }
-      const host = await selectShopHost(tx, card.store_id)
+      const host = await selectShopHost(tx, card.store_id, hosts.shopDomain)
       const w = en.giftCard
       const paragraphs = [
         ...(card.recipient_name ? [w.hello(card.recipient_name)] : []),
@@ -517,7 +519,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
         await skipReminder(tx, p.reminderId, 'opted_out')
         return { send: false, reason: 'no_recipient' }
       }
-      const host = await selectShopHost(tx, r.store_id)
+      const host = await selectShopHost(tx, r.store_id, hosts.shopDomain)
       if (!host) {
         await skipReminder(tx, p.reminderId, 'no_shop_host')
         return { send: false, reason: 'no_recipient' }
@@ -548,7 +550,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (store.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const look = await partnerBrand(tx, store.partner_id)
       if (!look) return { send: false, reason: 'no_recipient' }
-      const host = (await selectShopHost(tx, p.storeId)) ?? `${store.code}.example`
+      const host = (await selectShopHost(tx, p.storeId, hosts.shopDomain)) ?? `${store.code}.example`
       const saved = (await selectReminderFlow(tx, p.storeId)).steps.find((x) => x.position === p.position)
       const fallback = defaultReminderSteps.find((x) => x.position === p.position)
       const step = saved ? { subject: saved.subject, body: saved.body } : fallback

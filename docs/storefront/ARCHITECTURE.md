@@ -24,7 +24,7 @@ behaviour: the browser hooks, media, the head, and the product, collection and s
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4; built on #744).
 
 ---
 
@@ -672,7 +672,7 @@ the theme, so a page is written once.
 ### 4.1 Preview (staging)
 
 - **Where**: **`{slug}-preview.my-store.one`**, on one domain we own for every store (decided
-  2026-10-15 with Gaurav, replacing `{key}.webpreview.store` and before it #337's `{store}.preview.{partner-domain}`), served from R2
+  2026-10-15 with Gaurav, built on #744, replacing `{key}.webpreview.store` and before it #337's `{store}.preview.{partner-domain}`), served from R2
   by the edge Worker ([PREVIEW.md](PREVIEW.md)).
 - **How**: a client-rendered build with no SSR and no SSG. Every page loads its data from the
   Shop API at run time, so the build holds no catalogue and takes seconds.

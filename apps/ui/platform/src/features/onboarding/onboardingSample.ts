@@ -6,7 +6,6 @@ export const sampleOnboarding = (change: Partial<Onboarding> = {}): Onboarding =
     { key: 'company', status: 'done', detail: 'Kaufladen Digital GmbH, Berlin', doneBy: 'DripFunnel', to: '/settings' },
     { key: 'branding', status: 'done', detail: 'Logo, colours and font saved', doneBy: 'Jonas', to: '/branding' },
     { key: 'portalHost', status: 'progress', detail: 'shop.kaufladen.de: waiting for DNS', doneBy: null, to: '/domains' },
-    { key: 'wildcards', status: 'progress', detail: null, doneBy: null, to: '/domains' },
     { key: 'emailSender', status: 'progress', detail: null, doneBy: null, to: '/domains' },
     { key: 'plan', status: 'missing', detail: '3 plans, none priced yet', doneBy: null, to: '/plans' },
     { key: 'legal', status: 'missing', detail: null, doneBy: null, to: '/branding' },

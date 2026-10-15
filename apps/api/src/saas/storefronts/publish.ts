@@ -288,7 +288,7 @@ const buildFiles = async (deps: PublishDeps, storeId: string, buildId: string): 
 
 /** Checks the switched build from the edge and keeps the results on the run; answers `passed` or the failed check's code. */
 const checksStep = async (deps: PublishDeps, storeId: string, buildId: string): Promise<string> => {
-  const host = await withSystemScope(deps.sql, (tx) => selectStorefrontHost(tx, storeId))
+  const host = await withSystemScope(deps.sql, (tx) => selectStorefrontHost(tx, storeId, deps.shopDomain))
   const results: CheckResult[] = host
     ? await runPostDeployChecks(deps.probe, { host, assetHost: deps.assetHost, buildId, files: await buildFiles(deps, storeId, buildId) }, { wait: deps.wait, now: () => deps.now().getTime() })
     : [{ name: 'home', result: 'skipped', detail: 'The store has no address yet.' }]

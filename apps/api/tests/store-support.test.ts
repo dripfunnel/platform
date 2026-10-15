@@ -235,7 +235,7 @@ describe('write elevation', () => {
 
     const [email] = await db.sql<{ payload: { template: string }; store_id: string }[]>`select payload, store_id from outbox where idempotency_key like ${`%support-write-allowed:${id}%`}`
     expect(email).toMatchObject({ payload: { template: 'support-write-allowed' }, store_id: t.storeA1 })
-    const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: email?.payload, partnerId: t.partnerA, storeId: t.storeA1 }, { adminHost: 'admin.example', platformHost: 'platform.example' }, clock))
+    const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: email?.payload, partnerId: t.partnerA, storeId: t.storeA1 }, { adminHost: 'admin.example', platformHost: 'platform.example', shopDomain: 'shop.example' }, clock))
     expect(prepared.send && prepared.to).toEqual(['owner@a.example'])
 
     expect((await gql(q.includeTax, { support: cookie }, { i: true })).code).toBeUndefined()

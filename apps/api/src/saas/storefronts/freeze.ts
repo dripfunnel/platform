@@ -6,7 +6,6 @@ import { selectShopStore } from '#db/scoped/shop'
 import { selectGuardContext, selectStudioPortalHost, type GuardContextRow } from '#db/scoped/studio'
 import type { GuardContext } from '#integrations/sandbox/index'
 import { storeBuildPosts, storeContentPaths } from '#engine/modules/content/index'
-import { shopsHostOf } from '#saas/domains/storeHosts'
 import { socialNetworks } from '#saas/storefrontSettings/index'
 import { assetsFolder, draftBundle, snapshotFile, sourceBundle, upgradeBundle } from './layout'
 import type { SitesBucket } from './templates'
@@ -31,6 +30,8 @@ export interface FreezeDeps {
   drafts: SitesBucket
   /** The public asset host (LIVE-SHOP §2 `storefront-assets`), whose build folder the pages load their JS and CSS from. */
   assetOrigin: string | null
+  /** The domain of every store's free address (SHOP_DOMAIN); without it a store has no address to build for. */
+  shopDomain: string | null
   /** Starts the locked workflow (integrations/github `dispatchBuild`); false when GitHub has no such repo. */
   dispatch: (repo: string, buildId: string) => Promise<boolean>
   now: () => Date
@@ -48,18 +49,18 @@ const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.to
 const sha256 = async (bytes: ArrayBuffer) => hex(await crypto.subtle.digest('SHA-256', bytes))
 
 /** core's `catalogueSnapshotSchema` (storefront ARCHITECTURE §4.2, `./guard`): the store as the Shop API answers it. */
-const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string, assetOrigin: string | null, now: Date): Promise<unknown> => {
+const snapshotOf = async (tx: ScopedSql, storeId: string, assetsBuildId: string, assetOrigin: string | null, shopDomain: string | null, now: Date): Promise<unknown> => {
   const store = await selectShopStore(tx, storeId)
-  const source = await selectSnapshotSource(tx, storeId)
+  const source = await selectSnapshotSource(tx, storeId, shopDomain)
   const guard = await selectGuardContext(tx, storeId)
   const portal = await selectStudioPortalHost(tx, storeId)
   if (!store || !source || !guard) throw new FreezeRefused('no_source')
-  if (!source.shops_host) throw new FreezeRefused('no_address')
+  if (!source.primary_host) throw new FreezeRefused('no_address')
   const languages = store.languages.length > 0 ? store.languages : [store.main_language]
   return {
     version: 1,
     // The primary address, which canonical links and the sitemap name (SAAS §8): the store's own domain once made so.
-    origin: `https://${source.primary_host ?? shopsHostOf(source.shops_host, source.code)}`,
+    origin: `https://${source.primary_host}`,
     store: {
       name: store.name,
       description: store.description,
@@ -100,7 +101,7 @@ export const freezeBuild = async (deps: FreezeDeps, storeId: string, buildId: st
     if (!found) throw new FreezeRefused('no_source')
     // A page run's pages load the live build's JS and CSS, which the same commit builds byte for byte (LIVE-SHOP §7).
     const assetsBuild = found.kind === 'page' && found.live_build_id ? ((await selectAssetsBuild(tx, found.live_build_id)) ?? found.live_build_id) : buildId
-    return { input: found, snapshot: found.reported ? null : await snapshotOf(tx, storeId, assetsBuild, deps.assetOrigin, deps.now()) }
+    return { input: found, snapshot: found.reported ? null : await snapshotOf(tx, storeId, assetsBuild, deps.assetOrigin, deps.shopDomain, deps.now()) }
   })
   if (input.reported || snapshot === null) return 'reported'
   // An upgrade or a security fix builds the upgrade bot's private commit (LIVE-SHOP §8), never the live one.

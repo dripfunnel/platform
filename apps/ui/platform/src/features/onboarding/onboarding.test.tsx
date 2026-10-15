@@ -25,7 +25,7 @@ describe('the setup checklist', () => {
     for (const item of Object.values(words.items)) expect(text).toContain(item.label)
     for (const to of ['/settings', '/branding', '/domains', '/plans']) expect(html).toContain(`href="${to}"`)
     expect(text).toContain(words.submit)
-    expect(text).toContain('2 of 10 done')
+    expect(text).toContain('2 of 9 done')
   })
 
   it('shows the API’s detail, and the item’s own hint when the API has none', async () => {
@@ -83,7 +83,7 @@ describe('the partner states', () => {
     expect(html).not.toContain('df-checklist-row--submit')
     expect(text).toContain(words.awaiting.title)
     expect(text).toContain('Submitted by DripFunnel on Sep 27, 2026.')
-    expect(text).toContain('8 of 10 done')
+    expect(text).toContain('7 of 9 done')
     for (const step of words.awaiting.next) expect(text).toContain(step.title)
     expect(text).toContain(words.awaiting.note)
   })

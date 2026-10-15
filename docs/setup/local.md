@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-15 (#744: `SHOP_DOMAIN` `my-store.localhost` replaces `PREVIEW_DOMAIN`; #745: no shops address for a partner, §6.1). Before: 2026-10-15 (#720: the studio's `PREVIEW_LINK_KEY`, §6.0). Before: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -88,7 +88,7 @@ can use your own role and database names, as long as you put them in `.env.local
    | Line | What to put locally |
    |---|---|
    | `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST` | Leave as `admin.localhost`, `platform.localhost`, `hooks.localhost`. |
-   | `PREVIEW_DOMAIN` | Leave `preview.localhost`: a store's preview Shop API answers at `{key}.preview.localhost`, its key in `storefront.preview_key` (storefront PREVIEW.md §8). |
+   | `SHOP_DOMAIN` | Leave `my-store.localhost`: a store answers at `{slug}.my-store.localhost` and its preview at `{slug}-preview.my-store.localhost` (storefront PREVIEW.md §8). |
    | `HYPERDRIVE_REQUIRED` | Leave `1`. |
    | `DATABASE_URL` | Your local database from §3, e.g. `postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel`. Change the port if you moved it. |
    | `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` | The same host, port and database as `DATABASE_URL`, **with a password** (any password, if Postgres ignores it). |
@@ -188,7 +188,7 @@ pnpm --filter ./apps/sandbox start:local   # http://127.0.0.1:8790, with an empt
 Then set `SANDBOX_LOCAL_URL=http://127.0.0.1:8790` in `apps/api/.env.local`. The Worker refuses it
 anywhere but on localhost. Without it the local `StudioSession` has no sandbox and answers that the
 studio is unavailable. It needs no Docker: the sandbox's own tests and the API's studio tests start it
-the same way. The studio frame also needs `PREVIEW_DOMAIN=preview.localhost` and a `PREVIEW_LINK_KEY`
+the same way. The studio frame also needs `SHOP_DOMAIN=my-store.localhost` and a `PREVIEW_LINK_KEY`
 of your own (`openssl rand -base64 32`) in `apps/api/.env.local`; without either, Open studio says it
 isn't set up.
 
@@ -284,12 +284,11 @@ installed, or Metro answers 500 for the new module.
 ### 6.3 Previews and store hosts
 
 `pnpm dev:https` sends every other `.localhost` host to the merchant portal. To see the studio's preview pane, **Open
-preview** and a store's own address (`store12.shop.<partner>.localhost`), also run `pnpm dev:proxy` in another terminal
-(with `pnpm dev` already running): `store-proxy` on port 8788, which Caddy sends `*.preview.localhost` and
-`*.shop.*.localhost` to. It reads the API Worker's local bucket and calls its `StorefrontEdge`.
+preview** and a store's own address (`{slug}.my-store.localhost`), also run `pnpm dev:proxy` in another terminal
+(with `pnpm dev` already running): `store-proxy` on port 8788, which Caddy sends `*.my-store.localhost` to. It reads the API Worker's local bucket and calls its `StorefrontEdge`.
 
 1. `cp store-proxy/.env.example store-proxy/.env.local` and put `openssl rand -base64 32` after `PREVIEW_SESSION_KEY=`.
-2. `PREVIEW_DOMAIN=preview.localhost` in `apps/api/.env.local` (§4), as for the studio.
+2. `SHOP_DOMAIN=my-store.localhost` in `apps/api/.env.local` (§4), as for the studio.
 3. `pnpm --filter ./apps/api seed:templates` once, so a store can pick a template.
 
 A store that was never published answers 404 on its own address; no build runs here. To see a store's address working,
@@ -409,12 +408,12 @@ it with the query.
    2-factor if the console asks.
    *Writes* the `partner_user` (active, with its password) and the invitation as accepted.
 3. **The Owner works through setup** in the partner console's checklist:
-   - **Domains** (`/domains`): portal `store.acme.localhost`, shops `shops.acme.localhost`,
-     email sender `mail.acme.localhost`. There is no preview address: previews are on
-     `{key}.preview.localhost` (storefront PREVIEW.md). On dev these are the
+   - **Domains** (`/domains`): portal `store.acme.localhost` and
+     email sender `mail.acme.localhost`. There is no shops or preview address: stores answer on
+     `{slug}.my-store.localhost` (storefront PREVIEW.md). On dev these are the
      partner's real domains; locally any `<name>.<partner>.localhost` works, as long as it isn't
-     a bare `<partner>.localhost` (a portal or wildcard on a bare domain is refused, as on dev).
-     *Writes* three `partner_domain` rows (waiting) and their `partner_domain_record` rows, and a
+     a bare `<partner>.localhost` (a portal on a bare domain is refused, as on dev).
+     *Writes* two `partner_domain` rows (waiting) and their `partner_domain_record` rows, and a
      `domain.recheck` per address in `outbox`. Within a minute the domain check turns each live
      (§6.1):
      ```sql
