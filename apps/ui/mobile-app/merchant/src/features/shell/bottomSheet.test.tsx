@@ -28,11 +28,34 @@ const goOnline = () => act(async () => mockNetListeners.forEach((listener) => li
 // The button that draws a label, found by its text: the one that carries the disabled state.
 const buttonOf = (renderer: ReactTestRenderer, label: string) =>
   renderer.root.findAll((node) => node.props.accessibilityRole === 'button' && node.findAll((inner) => (inner.type as unknown) === 'Text' && inner.children.join('') === label).length > 0)[0] as ReactTestInstance
+const fieldOf = (renderer: ReactTestRenderer, label: string) => renderer.root.findAll((node) => node.props.accessibilityLabel === label && typeof node.props.onChangeText === 'function')[0]
 const off = (renderer: ReactTestRenderer, label: string) => (buttonOf(renderer, label).props as { accessibilityState: { disabled: boolean } }).accessibilityState.disabled
 
 afterEach(goOnline)
 
 describe('the bottom sheet’s options', () => {
+  it('starts an input with a value, as a rename does, and hands what was typed back', async () => {
+    const onConfirm = jest.fn()
+    const renderer = await renderShell(<Opener spec={{ title: 'Rename', input: { label: 'Rename to', initial: 'Linen', single: true }, confirm: 'Save name', onConfirm }} />)
+    await press(pressableNamed(renderer, 'open'))
+    const field = fieldOf(renderer, 'Rename to')
+
+    expect((field?.props as { value: string }).value).toBe('Linen')
+    expect((field?.props as { multiline: boolean }).multiline).toBe(false)
+    await act(async () => field?.props.onChangeText('Flax linen'))
+    await press(pressableNamed(renderer, 'Save name'))
+    expect(onConfirm).toHaveBeenCalledWith({ choice: null, text: 'Flax linen' })
+  })
+
+  it('keeps a few lines for an input that is not marked single, and starts it empty', async () => {
+    const renderer = await renderShell(<Opener spec={{ title: 'Why', input: { label: 'Reason' }, confirm: 'Send', onConfirm: jest.fn() }} />)
+    await press(pressableNamed(renderer, 'open'))
+    const field = fieldOf(renderer, 'Reason')
+
+    expect((field?.props as { value: string }).value).toBe('')
+    expect((field?.props as { multiline: boolean }).multiline).toBe(true)
+  })
+
   it('turns a writing confirm off while offline, a dangerous one too, and never runs it', async () => {
     const onConfirm = jest.fn()
     const renderer = await renderShell(<Opener spec={{ title: 'Delete it?', confirm: 'Delete', danger: true, saves: true, onConfirm }} />)

@@ -14,7 +14,8 @@ export type SheetSpec = {
   tag?: string
   body?: string
   choices?: readonly SheetChoice[]
-  input?: { label: string; placeholder?: string; error?: string }
+  /** `initial` starts the field with a value (a rename); `single` makes it one line, for a name, rather than a few. */
+  input?: { label: string; placeholder?: string; error?: string; initial?: string; single?: boolean }
   confirm: string
   /** Absent means "Cancel"; `null` means no cancel button. */
   cancel?: string | null
@@ -47,7 +48,7 @@ export function SheetFrame({ onClose, children }: { onClose: () => void; childre
 export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () => void }) {
   const { colors, radii } = useTheme()
   const [choice, setChoice] = useState<string | null>(spec.choices?.[0]?.value ?? null)
-  const [text, setText] = useState('')
+  const [text, setText] = useState(spec.input?.initial ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -102,9 +103,9 @@ export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () =>
             }}
             placeholder={spec.input.placeholder}
             placeholderTextColor={colors.muted}
-            multiline
-            numberOfLines={3}
-            style={[styles.textarea, { color: colors.text, borderColor: error ? colors.danger : colors.fieldBorder, borderRadius: radii.button }]}
+            multiline={spec.input.single !== true}
+            numberOfLines={spec.input.single === true ? 1 : 3}
+            style={[spec.input.single === true ? styles.line : styles.textarea, { color: colors.text, borderColor: error ? colors.danger : colors.fieldBorder, borderRadius: radii.button }]}
           />
           {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
         </View>
@@ -145,6 +146,7 @@ const styles = StyleSheet.create({
   choiceSub: { fontSize: 12 },
   field: { gap: 6 },
   textarea: { borderWidth: 1, padding: 12, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },
+  line: { borderWidth: 1, paddingHorizontal: 12, fontSize: 16, minHeight: 50 },
   buttons: { gap: 8, paddingTop: 4 },
   danger: { height: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   dangerLabel: { fontSize: 16, fontWeight: '700' },

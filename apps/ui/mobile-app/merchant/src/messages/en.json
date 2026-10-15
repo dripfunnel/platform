@@ -107,6 +107,27 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "You can’t change collections.",
       "UNKNOWN": "That didn’t save. Try again."
+    },
+    "filters": {
+      "NAME_REQUIRED": "Give it a name.",
+      "DUPLICATE_NAME": "Another filter already has that name.",
+      "DUPLICATE_VALUE": "This filter already has a value with that name.",
+      "TOO_MANY_FILTERS": "Your store has 200 filters, the most it can have. Merge or remove one first.",
+      "INVALID_INPUT": "Something here isn’t valid. Values can be up to 60 characters, and a filter up to 200 of them.",
+      "NOT_FOUND": "That isn’t here any more. It may have been changed elsewhere.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can’t change filters.",
+      "STALE_REVISION": "Someone else changed this filter first. It now shows their changes; make yours again.",
+      "UNKNOWN": "That didn’t save. Try again."
+    },
+    "menus": {
+      "STALE_REVISION": "Someone else changed the menu first. It now shows their version; make your change again.",
+      "TOO_MANY_ITEMS": "A menu can have up to 100 items.",
+      "TOO_DEEP": "A menu nests one level.",
+      "INVALID_LINK": "A menu item links a collection that isn’t here any more. Remove it and try again.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can’t change the menu.",
+      "UNKNOWN": "That didn’t save. Try again."
     }
   },
   "auth": {
@@ -498,6 +519,131 @@
       "deleteConfirm": "Delete collection",
       "deleted": "“{name}” deleted. Its products are untouched.",
       "slugPlaceholder": "your-collection"
+    },
+    "tabs": {
+      "label": "Collections area",
+      "collections": "Collections",
+      "filters": "Filters",
+      "menus": "Menus"
+    },
+    "filters": {
+      "title": "Filters",
+      "sub": "The checkboxes shoppers see on the left of your shop.",
+      "create": "Create filter",
+      "viewOnly": "You can look at filters but not change them.",
+      "none": "No filters yet. Create one — Fabric, Occasion or Fit — and add its values.",
+      "noValues": "No values yet.",
+      "newTitle": "New filter",
+      "newBody": "Suggestions: Brand · Fabric · Occasion · Fit · Pattern. It shows in your shop’s filters once it has values.",
+      "newName": "Name",
+      "newPlaceholder": "e.g. Fit",
+      "newMissing": "Give it a name",
+      "newConfirm": "Create",
+      "created": "“{name}” created — add its values",
+      "shopper": "Shoppers see this",
+      "internal": "Only you see these",
+      "makeInternal": "{name}: shoppers see this. Make it internal",
+      "makeShopper": "{name}: only you see these. Show it to shoppers",
+      "makeInternalTitle": "Make {name} internal?",
+      "makeInternalBody": "Shoppers will no longer see {name} as a filter on your shop. Only your team sees it, and automatic collections keep using it.",
+      "makeInternalConfirm": "Make internal",
+      "makeShopperTitle": "Show {name} to shoppers?",
+      "makeShopperBody": "{name} will appear as a filter on your shop, with its values.",
+      "makeShopperConfirm": "Show to shoppers",
+      "nowShopper": "{name} now shows to shoppers",
+      "nowInternal": "{name} is now internal — only you see it",
+      "usedBy": {
+        "one": "Used by 1 collection",
+        "other": "Used by {count} collections"
+      },
+      "add": "+ Add",
+      "addLabel": "Add a value to {name}",
+      "addTitle": "Add to {name}",
+      "addValue": "New value",
+      "addPlaceholder": "e.g. Bamboo",
+      "addMissing": "Type a value",
+      "addConfirm": "Add",
+      "added": "“{value}” added",
+      "manageTitle": "“{value}” in {name}",
+      "uses": {
+        "one": "1 product uses it. Renaming keeps it; deleting takes it off.",
+        "other": "{count} products use it. Renaming keeps them all; deleting takes it off them."
+      },
+      "usesNone": "No products use it yet.",
+      "rename": "Rename",
+      "delete": "Delete value",
+      "renameTitle": "Rename “{value}”",
+      "renameTo": "Rename to",
+      "renameMissing": "Type a name",
+      "renameConfirm": "Save name",
+      "renamed": {
+        "one": "Renamed to “{value}” — 1 product updated",
+        "other": "Renamed to “{value}” — {count} products updated"
+      },
+      "deleteTitle": "Delete “{value}”?",
+      "deleteBody": {
+        "one": "1 product loses it, and automatic collections using it will shrink.",
+        "other": "{count} products lose it, and automatic collections using it will shrink."
+      },
+      "deleteNone": "Nothing uses it.",
+      "deleteConfirm": "Delete",
+      "deleted": "“{value}” deleted",
+      "lookAlike": "“{a}” and “{b}” look like the same thing.",
+      "merge": "Merge them",
+      "mergeTitle": "Merge into “{keep}”?",
+      "mergeBody": "Products using {drop} will use “{keep}” instead.",
+      "quoted": "“{value}”",
+      "mergeConfirm": "Merge",
+      "merged": "Merged into “{keep}”",
+      "explainTitle": "Choices or filters?",
+      "choicesLabel": "Choices",
+      "choices": "the shopper picks one when buying, like Size M. Each has its own price and stock. Set them on the product.",
+      "filtersLabel": "Filters",
+      "filtersText": "the shopper ticks boxes to narrow down, like Fabric: Linen. Nothing to pick at checkout.",
+      "tagsLabel": "Internal tags",
+      "tags": "only you see them, like “Reorder soon”.",
+      "tip": "Tap a value to rename or delete it. Filters also power automatic collections.",
+      "explainJoin": " — ",
+      "valueName": {
+        "one": "{name}, 1 product",
+        "other": "{name}, {count} products"
+      }
+    },
+    "menus": {
+      "title": "Main menu",
+      "note": "Tap an item to move, nest or remove it. Hidden collections stay here but shoppers don’t see them.",
+      "viewOnly": "You can look at the menu but not change it. Hidden collections stay here but shoppers don’t see them.",
+      "add": "+ Add a collection",
+      "addLabel": "Add a collection to the menu",
+      "added": "Added to the menu",
+      "removed": "Removed from the menu. The collection is still there.",
+      "removeTitle": "Remove “{label}” from the menu?",
+      "removeBody": "The collection stays in your catalogue. Anything nested under it moves up a level.",
+      "removeConfirm": "Remove from menu",
+      "products": {
+        "one": "1 product",
+        "other": "{count} products"
+      },
+      "hiddenNote": "Hidden — not shown to shoppers",
+      "gone": "Removed collection",
+      "link": "Link · {url}",
+      "actionsSub": "What to do with this item",
+      "up": "Move up",
+      "down": "Move down",
+      "nest": "Nest under the item above",
+      "unnest": "Move out",
+      "remove": "Remove from menu",
+      "firstNest": "The first item can’t be nested",
+      "nestHasKids": "An item with items under it can’t be nested — the menu goes one level deep. Move its items out first.",
+      "empty": "No items yet. Add a collection to start your menu.",
+      "desktop": "How shoppers see it · desktop",
+      "phone": "Phone menu",
+      "saving": "Saving…",
+      "saved": "Menu saved",
+      "loadFailed": {
+        "title": "Your menu didn’t load",
+        "body": "Check your connection and try again."
+      }
     }
   },
   "products": {

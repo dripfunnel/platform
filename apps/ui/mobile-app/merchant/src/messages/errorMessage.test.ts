@@ -35,3 +35,18 @@ describe('the refusals Collections meets', () => {
     expect(errorMessage(error, 'collections')).not.toBe(t('errors.generic'))
   })
 })
+
+describe('the refusals Filters and Menus meet', () => {
+  it.each([
+    ['filters', 'DUPLICATE_NAME'],
+    ['filters', 'TOO_MANY_FILTERS'],
+    ['menus', 'INVALID_LINK'],
+    ['menus', 'TOO_DEEP'],
+    ['menus', 'TOO_MANY_ITEMS'],
+  ] as const)('has words of its own for %s %s, not the generic message', (context, code) => {
+    const error = new ApiError(code, 'API words that are never shown')
+
+    expect(error.code).toBe(code)
+    expect(errorMessage(error, context)).not.toBe(t('errors.generic'))
+  })
+})

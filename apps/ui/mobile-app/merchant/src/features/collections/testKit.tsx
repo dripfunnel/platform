@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { act, type ReactTestRenderer } from 'react-test-renderer'
 import type { ApiClient } from '../../graphql'
 import { fakeApi, type Call } from '../../testing/fakeApi'
-import { renderShell } from '../../testing/harness'
+import { press, pressableNamed, pressablesNamed, renderShell } from '../../testing/harness'
 
 /** The client the screens under test get from `sessionClient()` (each test file's jest.mock of ../../session reads it). */
 export const session: { client: ApiClient | null } = { client: null }
@@ -87,3 +87,7 @@ export const pause = async () => {
   await settle()
 }
 export const asked = (calls: Call[], text: string) => calls.filter((call) => call.query.includes(text))
+export const tab = async (renderer: ReactTestRenderer, name: string) => {
+  await press(pressablesNamed(renderer, name).find((node) => node.props.accessibilityRole === 'tab') ?? pressableNamed(renderer, name))
+  await settle()
+}
