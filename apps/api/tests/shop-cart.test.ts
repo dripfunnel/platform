@@ -17,7 +17,7 @@ let db: TestDatabase
 let t: Tenants
 const stores = { india: '', other: '' }
 const ids = { kurta: '', hidden: '', theirs: '' }
-const hostOf = { india: 'jaipur.shops.acme.example', other: 'surat.shops.acme.example' }
+const hostOf = { india: 'jaipur.shop.example', other: 'surat.shop.example' }
 
 const store = async (name: string, code: string) => {
   const [row] = await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status, address) values
@@ -36,7 +36,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   stores.india = await store('Jaipur', 'jaipur')
   stores.other = await store('Surat', 'surat')
   ids.kurta = await version(stores.india, 'kurta', 'visible', '105000', 3)
@@ -55,7 +54,7 @@ afterAll(async () => {
 const gql = async (source: string, who: { host?: string; token?: string | null } = {}, variables: Record<string, unknown> = {}) => {
   const host = who.host ?? hostOf.india
   const headers: Record<string, string> = who.token ? { 'x-shop-cart': who.token } : {}
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
+  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, couriers: null, allowNewCart: async () => allow, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })

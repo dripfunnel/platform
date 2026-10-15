@@ -167,11 +167,11 @@ describe('onboarding and submitForApproval', () => {
   type Ob = { onboarding: { items: { key: string; status: string; doneBy: string | null }[]; checks: Record<string, boolean>; submittedBy: string | null; fixes: { item: string }[]; canSubmit: { allowed: boolean; reason: string | null } } }
   type Sub = { submitForApproval: { ok: boolean; code: string | null; check: string | null } }
 
-  it('lists the nine items, staff work as DripFunnel, and never a payment item done by staff', async () => {
+  it('lists the eight items, staff work as DripFunnel, and never a payment item done by staff', async () => {
     await db.sql`update partner_setup_item set status = 'done', done_at = now(), done_by_kind = 'staff', done_by_label = 'DripFunnel' where partner_id = ${ids.kl} and item = 'paymentMethod'`
     const { data } = await run<Ob>(onboardingQuery, callerOf(ids.kl, 'partner-owner'))
     const items = data?.onboarding.items ?? []
-    expect(items.map((i) => i.key)).toEqual(['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'])
+    expect(items.map((i) => i.key)).toEqual(['company', 'branding', 'portalHost', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'])
     expect(items.find((i) => i.key === 'branding')?.doneBy).toBe('DripFunnel')
     expect(items.find((i) => i.key === 'company')?.doneBy).toBe('Jonas')
     expect(items.find((i) => i.key === 'paymentMethod')).toMatchObject({ status: 'missing', doneBy: null })
@@ -179,23 +179,20 @@ describe('onboarding and submitForApproval', () => {
     expect(data?.onboarding.canSubmit).toEqual({ allowed: false, reason: 'ALREADY_SUBMITTED' })
   })
 
-  it('reads portalHost, wildcards and emailSender from the domain rows: missing, in progress, done', async () => {
+  it('reads portalHost and emailSender from the domain rows: missing, in progress, done', async () => {
     const [fresh] = await db.sql<{ id: string }[]>`insert into partner (name, state) values ('Checklist Partner', 'draft') returning id`
     const partner = fresh?.id ?? ''
     const domainItems = async () =>
-      Object.fromEntries(((await run<Ob>(onboardingQuery, callerOf(partner, 'partner-owner'))).data?.onboarding.items ?? []).filter((i) => ['portalHost', 'wildcards', 'emailSender'].includes(i.key)).map((i) => [i.key, i.status]))
+      Object.fromEntries(((await run<Ob>(onboardingQuery, callerOf(partner, 'partner-owner'))).data?.onboarding.items ?? []).filter((i) => ['portalHost', 'emailSender'].includes(i.key)).map((i) => [i.key, i.status]))
     const address = (kind: string, host: string, status: string) =>
       db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${partner}, ${kind}, ${host}, ${status}, 'CNAME', 'x.example')`
-    expect(await domainItems()).toEqual({ portalHost: 'missing', wildcards: 'missing', emailSender: 'missing' })
+    expect(await domainItems()).toEqual({ portalHost: 'missing', emailSender: 'missing' })
     await address('portal', 'store.checklist.example', 'waiting')
-    await address('shops', '*.shops.checklist.example', 'waiting')
     await address('email', 'mail.checklist.example', 'live')
-    // The shops address alone decides the item (FIRST-RELEASE §4, item 4; #518).
-    expect(await domainItems()).toEqual({ portalHost: 'progress', wildcards: 'progress', emailSender: 'done' })
-    await db.sql`update partner_domain set status = 'live' where partner_id = ${partner} and kind = 'shops'`
+    expect(await domainItems()).toEqual({ portalHost: 'progress', emailSender: 'done' })
     await db.sql`update partner_domain set status = 'live' where partner_id = ${partner} and kind = 'portal'`
     await db.sql`update partner_domain set status = 'broken' where partner_id = ${partner} and kind = 'email'`
-    expect(await domainItems()).toEqual({ portalHost: 'done', wildcards: 'done', emailSender: 'progress' })
+    expect(await domainItems()).toEqual({ portalHost: 'done', emailSender: 'progress' })
   })
 
   it('refuses a second submission, and Support, Finance and Read-only outright', async () => {

@@ -4,7 +4,7 @@ import { query } from './client'
 
 // The checklist of FIRST-RELEASE.md §4 (SAAS §3.2 step 2), the go-live checks (step 3) and who
 // may submit, all the Platform API's: `onboarding` and `submitForApproval` (§16).
-export const checklistItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
+export const checklistItems = ['company', 'branding', 'portalHost', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
 
 export type ChecklistItemKey = (typeof checklistItems)[number]
 

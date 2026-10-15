@@ -14,7 +14,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const host = 'store-a1.shops.acme.example'
+const host = 'store-a1.shop.example'
 const ids = { kurta: '', red: '', blue: '', shirt: '', dress: '', hidden: '', hiddenVersion: '', other: '', otherVersion: '', summer: '', cotton: '', linen: '', colour: '', usa: '' }
 
 const product = async (storeId: string, slug: string, created: string, over: Record<string, unknown> = {}) =>
@@ -33,8 +33,6 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   await db.sql`update store set pricing_currency = 'INR', country = 'IN', status = 'active' where id in (${t.storeA1}, ${t.storeB1})`
   await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerB}, 'shops', '*.shops.bolt.example', 'live', 'CNAME', 'x')`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`update market set countries = '["IN"]' where store_id = ${t.storeA1}`
   await db.sql`insert into store_currency (store_id, currency, mode, rounding, status, position) values (${t.storeA1}, 'USD', 'convert', 'ends-99', 'active', 0)`
   await db.sql`insert into store_language (store_id, language, status, position) values (${t.storeA1}, 'hi-IN', 'active', 1)`
@@ -79,7 +77,7 @@ afterAll(async () => {
 })
 
 const gql = async (source: string, headers: Record<string, string> = {}, variables: Record<string, unknown> = {}, on = host) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers }), on)
+  const found = await resolveShopper(db.sql, new Request(`https://${on}/shop-api`, { headers }), on, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${on}`, activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, allowNewCart: async () => true, now: () => new Date('2026-10-07T09:00:00Z') }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue, variableValues: variables })
@@ -240,7 +238,7 @@ describe('stock a storefront may read (migration 0065)', () => {
 })
 
 describe('limits and isolation', () => {
-  const theirs = 'store-b1.shops.bolt.example'
+  const theirs = 'store-b1.shop.example'
 
   it('caps a page at 50, a search at 100 characters and filter choices at 50, and reads % and _ as themselves', async () => {
     const many = await Promise.all(Array.from({ length: 51 }, (_, i) => product(t.storeB1, `bulk-${i}`, '2026-10-01T00:00:00Z')))

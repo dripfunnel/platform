@@ -27,7 +27,7 @@ const callerOf = (partnerId: string, role: PartnerRole = 'partner-owner'): Partn
 })
 
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
-  const deps = { sql: db.sql, caller, facts, activity: activityLog, now: () => now }
+  const deps = { sql: db.sql, caller, facts, activity: activityLog, shopDomain: 'shop.example', now: () => now }
   const contextValue = { caller, stores: createPartnerStoresService(deps), activity: createPartnerActivityService(deps) }
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   const error = result.errors?.[0]
@@ -92,7 +92,7 @@ describe('creating', () => {
       select pp.monthly_amount, p.version from plan p join plan_price pp on pp.plan_id = p.id and pp.version = p.version and pp.currency = 'USD' where p.id = ${ids.nsPlan}`
     expect(sub).toEqual({ status: 'trial', amount: price?.monthly_amount, currency: 'USD', plan_version: price?.version })
     expect(await db.sql`select 1 from outbox where kind = 'email' and payload->>'template' = 'store-owner-invitation' and payload->>'storeId' = ${storeId}`).toHaveLength(1)
-    expect(await db.sql`select 1 from outbox where kind = 'store_host.sync' and store_id = ${storeId}`).toHaveLength(1)
+    expect(await db.sql`select 1 from outbox where kind like 'store_host%' and store_id = ${storeId}`).toEqual([])
     expect(await db.sql`select 1 from activity_log where action = 'store.created' and store_id = ${storeId}`).toHaveLength(1)
 
     const progress = (await run<{ provisioning: { steps: { key: string; state: string }[]; done: boolean } }>(q.progress, callerOf(ids.ns), { id: storeId })).data?.provisioning
@@ -111,10 +111,23 @@ describe('creating', () => {
     const [jenna] = await db.sql<{ id: string; email: string }[]>`select u.id, u.email from "user" u where u.partner_id = ${ids.ns} and u.email = 'jenna@harborcoffee.example'`
     const created = (await run<Created>(q.create, callerOf(ids.ns, 'partner-admin'), { i: input({ ownerEmail: jenna?.email, trialDays: 0 }) })).data?.createStore
     expect(created?.ok).toBe(true)
-    const [store] = await db.sql<{ code: string; status: string }[]>`select code, status from store where id = ${created?.storeId ?? ''}`
-    expect(store).toEqual({ code: 'cedar-pine-2', status: 'active' })
+    const [store] = await db.sql<{ code: string; slug: string; status: string }[]>`select code, slug, status from store where id = ${created?.storeId ?? ''}`
+    expect(store).toEqual({ code: 'cedar-pine-2', slug: 'cedar-pine-2', status: 'active' })
     const [member] = await db.sql<{ user_id: string }[]>`select user_id from membership where store_id = ${created?.storeId ?? ''}`
     expect(member?.user_id).toBe(jenna?.id)
+  })
+
+  it('gives the store a slug no store of any partner holds, never a reserved or -preview one', async () => {
+    const owner = callerOf(ids.ns, 'partner-admin')
+    await db.sql`insert into store (partner_id, name, code, slug) select partner.id, 'Other', 'other', 'across-partners' from partner where partner.id <> ${ids.ns} limit 1`
+    const slugOf = async (name: string) => {
+      const made = (await run<Created>(q.create, owner, { i: input({ name, ownerEmail: `${name.replace(/\W+/g, '')}@harborcoffee.example`, trialDays: 0 }) })).data?.createStore
+      expect(made?.ok).toBe(true)
+      return (await db.sql<{ slug: string }[]>`select slug from store where id = ${made?.storeId ?? ''}`)[0]?.slug
+    }
+    expect(await slugOf('Across Partners')).toBe('across-partners-2')
+    expect(await slugOf('Shop')).toBe('shop-2')
+    expect(await slugOf('Acme Preview')).toBe('acme-preview-2')
   })
 
   it('refuses a role, a partner that isn’t Live, a plan of another partner and a country the plan isn’t priced in', async () => {

@@ -10,7 +10,7 @@ const configSchema = z.object({
   // Purges the edge Worker's cached host lookups by tag on CF_SAAS_ZONE_ID (storefront LIVE-SHOP.md §5 step 1); absent, they expire in 60 seconds.
   CF_CACHE_PURGE_TOKEN: z.string().min(1).optional(),
   // Every store's preview is `{key}.<it>` (storefront PREVIEW.md §8): its own registrable domain, never a console's.
-  PREVIEW_DOMAIN: z.string().regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'PREVIEW_DOMAIN must be a domain such as webpreview.store').optional(),
+  SHOP_DOMAIN: z.string().regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'SHOP_DOMAIN must be a domain such as my-store.one').optional(),
   // Seals the preview link's token (storefront PREVIEW.md §5 step 1): 32 bytes in base64. Absent, "Open preview" answers NOT_CONNECTED.
   PREVIEW_LINK_KEY: z
     .string()
@@ -123,10 +123,10 @@ const checkedConfig = configSchema.superRefine((c, ctx) => {
   if ((c.BROWSER_RENDERING_ACCOUNT_ID === undefined) !== (c.BROWSER_RENDERING_TOKEN === undefined)) ctx.addIssue({ code: 'custom', message: 'BROWSER_RENDERING_ACCOUNT_ID and BROWSER_RENDERING_TOKEN go together', path: ['BROWSER_RENDERING_ACCOUNT_ID'] })
   if (c.CODE_CHECK === '0' && c.HOOKS_HOST !== devHooksHost && !isLocalhost(c.HOOKS_HOST)) ctx.addIssue({ code: 'custom', message: 'CODE_CHECK=0 is for dev and local development only', path: ['CODE_CHECK'] })
   const ourHosts = [c.ADMIN_HOST, c.PLATFORM_HOST, c.HOOKS_HOST, c.EDGE_ZONE]
-  if (c.PREVIEW_DOMAIN !== undefined && ourHosts.some((h) => h === c.PREVIEW_DOMAIN || h.endsWith(`.${c.PREVIEW_DOMAIN}`) || c.PREVIEW_DOMAIN?.endsWith(`.${h}`)))
-    ctx.addIssue({ code: 'custom', message: 'PREVIEW_DOMAIN must be apart from the consoles’ hosts and EDGE_ZONE', path: ['PREVIEW_DOMAIN'] })
+  if (c.SHOP_DOMAIN !== undefined && ourHosts.some((h) => h === c.SHOP_DOMAIN || h.endsWith(`.${c.SHOP_DOMAIN}`) || c.SHOP_DOMAIN?.endsWith(`.${h}`)))
+    ctx.addIssue({ code: 'custom', message: 'SHOP_DOMAIN must be apart from the consoles’ hosts and EDGE_ZONE', path: ['SHOP_DOMAIN'] })
   if (isLocalhost(c.HOOKS_HOST)) return
-  if (c.PREVIEW_DOMAIN !== undefined && isLocalhost(c.PREVIEW_DOMAIN)) ctx.addIssue({ code: 'custom', message: 'PREVIEW_DOMAIN on localhost is for local development only', path: ['PREVIEW_DOMAIN'] })
+  if (c.SHOP_DOMAIN !== undefined && isLocalhost(c.SHOP_DOMAIN)) ctx.addIssue({ code: 'custom', message: 'SHOP_DOMAIN on localhost is for local development only', path: ['SHOP_DOMAIN'] })
   for (const key of localOnly) {
     if (c[key] !== undefined) ctx.addIssue({ code: 'custom', message: `${key} is for local development only (HOOKS_HOST on localhost)`, path: [key] })
   }

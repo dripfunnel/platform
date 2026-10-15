@@ -26,6 +26,8 @@ export interface PlatformContextDeps {
   // The `pk_` the console's Stripe.js acts with (#278); absent while it is unset.
   stripePublishableKey?: string | null
   edgeZone: string
+  /** The domain of every store's free address (SHOP_DOMAIN); null where none is set. */
+  shopDomain: string | null
   /** `*.localhost` partner domains, where the local DNS stand-in answers them (DNS_LOCAL). */
   localHosts?: boolean
   now: () => Date

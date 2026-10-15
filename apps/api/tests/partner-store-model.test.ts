@@ -95,8 +95,8 @@ describe('the fields the admin console shows', () => {
       store_count: 1,
       portal_host: 'shop.kaufladen.example',
       portal_status: 'live',
-      setup_done: 7,
-      setup_total: 9,
+      setup_done: 6,
+      setup_total: 8,
       owner_name: 'Jonas Weber',
       owner_email: 'jonas@kaufladen.example',
       owner_invitation: 'active',
@@ -114,7 +114,7 @@ describe('the fields the admin console shows', () => {
     const row = await as(staff, (tx) => selectPartner(tx, id))
     expect(row).toMatchObject({ product_name: 'Kaufladen Shops', primary_color: '#2A2F8F', powered_by: 'on', country: 'DE', fallback_sender_accepted: true })
     const domains = await as(staff, (tx) => tx`select kind, status, record_type, expected, found from partner_domain where partner_id = ${id} order by kind`)
-    expect(domains.map((d) => d['kind'])).toEqual(['email', 'portal', 'shops'])
+    expect(domains.map((d) => d['kind'])).toEqual(['email', 'portal'])
     expect(domains.find((d) => d['kind'] === 'email')).toMatchObject({ status: 'waiting', record_type: 'TXT', found: null })
     const plans = await as(staff, (tx) => selectPlans(tx, id))
     expect(plans.map((p) => [p.name, p.status, p.store_count])).toEqual([
@@ -123,7 +123,7 @@ describe('the fields the admin console shows', () => {
       ['Enterprise', 'draft', 0],
     ])
     const items = await as(staff, (tx) => tx<{ item: string; status: string; done_by_label: string | null }[]>`select item, status, done_by_label from partner_setup_item where partner_id = ${id} order by item`)
-    expect(items).toHaveLength(9)
+    expect(items).toHaveLength(8)
     expect(items.find((i) => i.item === 'branding')).toMatchObject({ status: 'done', done_by_label: 'DripFunnel' })
     expect(items.find((i) => i.item === 'payoutDetails')).toMatchObject({ status: 'missing', done_by_label: null })
   })

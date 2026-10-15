@@ -23,7 +23,7 @@ const callerOf = (partnerId: string, role: PartnerRole, name = 'Maya Chen'): Par
 })
 
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
-  const stores = createPartnerStoresService({ sql: db.sql, caller, facts, activity: activityLog, now: () => now })
+  const stores = createPartnerStoresService({ sql: db.sql, caller, facts, activity: activityLog, shopDomain: 'shop.example', now: () => now })
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue: { caller, console: null, plans: null, branding: null, stores } })
   const error = result.errors?.[0]
   if (error && error.extensions['code'] === undefined) throw error

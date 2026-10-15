@@ -9,12 +9,12 @@ draft theme, with live catalogue data, `noindex`, a signed link and test-mode ch
 document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files, and
 [LIVE-SHOP.md](LIVE-SHOP.md) runs the same edge Worker for live sites.
 
-**Status:** the preview key (§2 step 5, being replaced by the slug, not built yet) and the Shop API's side of §5 step 5 and §6 are built on #518; §5 steps 1–5 and
+**Status:** the preview address by slug (§2 step 5, #744; the old preview key built on #518 is dropped by #746) and the Shop API's side of §5 step 5 and §6 are built on #518; §5 steps 1–5 and
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-10-15 (with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
-replacing the preview key, §1, §2, §8; not built yet). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
+Last updated: 2026-10-15 (#744/#745 built; with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+replacing the preview key, §1, §2, §8; built on #744, store-proxy and dev included). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
 studio's fast gate, served from R2 by the edge Worker).
@@ -44,11 +44,11 @@ The domain is the live shops' too ([LIVE-SHOP.md](LIVE-SHOP.md) §6): these step
    and add it to Cloudflare as **its own zone**, apart from `dripfunnel.com` (#287).
    *Why:* a separate registrable domain keeps preview cookies and scripts away from the
    consoles.
-2. **Add one proxied wildcard DNS record**, `*.my-store.one`. Cloudflare's free Universal SSL
+2. **Add one proxied wildcard DNS record**, `*.my-store.one` (by hand; dev's zone `my-shop.dev` on the DripFunnel-Dev account gets the same, `*.my-shop.dev`). Cloudflare's free Universal SSL
    certificate covers `*.my-store.one`, one label deep, which is why a preview is
    `{slug}-preview.` and not `{slug}.preview.`.
    *Why:* a new store's preview works the moment it exists, with no DNS or certificate step.
-3. **Add one Worker route**, `*.my-store.one/*` → the edge Worker.
+3. **Add one Worker route**, `*.my-store.one/*` → the edge Worker (prod's store-proxy, #428's; dev's `*.my-shop.dev/*` → dev's store-proxy). Leave the request path and query out of each zone's Logpush (LOGGING §9).
 4. **Submit `my-store.one` to the Public Suffix List** *(proposed)*, as `github.io`,
    `pages.dev` and `r2.dev` are.
    *Why:* browsers then treat each `{slug}.my-store.one` and `{slug}-preview.my-store.one` as a
@@ -57,7 +57,7 @@ The domain is the live shops' too ([LIVE-SHOP.md](LIVE-SHOP.md) §6): these step
    (ARCHITECTURE §3.4) cover the gap.
 5. **The label is the store's slug with `-preview` added**: `store.slug`, unique across the
    platform and never changed (decided 2026-10-15, [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2).
-   It replaces the opaque `storefront.preview_key` (decided 2026-10-09, built on #518).
+   It replaces the opaque `storefront.preview_key` (decided 2026-10-09, built on #518); the column is read still and #746 drops it. A slug ending `-preview` is reserved, so no live address can collide with a preview.
    *Why:* the live shop at `{slug}.my-store.one` already shows that the store exists, so an opaque
    key hides nothing, and the signed link (§5), not the name, is what opens a preview.
 
@@ -278,7 +278,7 @@ There is no per-store hostname fee.
     and #319 (the screen).
 - ~~The `storefront.preview_key` column and its format.~~ 10 lowercase base32 characters, made
   with the store (decided 2026-10-09; built on #518, migration 0232). Replaced by the store's slug
-  (decided 2026-10-15, §2 step 5); the column is dropped once nothing reads it.
+  (decided 2026-10-15, §2 step 5, built on #744); #746 drops the column.
 - ~~Previews on dev and locally.~~ The domain is a Worker variable per environment,
   `SHOP_DOMAIN` (replacing `PREVIEW_DOMAIN`), validated at boot: `my-store.one` in prod, a
   second domain of its own for dev, `my-shop.dev` (registered 2026-10-15), and `my-store.localhost` locally (decided 2026-10-15;

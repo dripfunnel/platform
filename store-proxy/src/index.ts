@@ -11,14 +11,14 @@ interface Env {
   SITES?: R2Bucket | undefined
   OWN_ZONE: string
   PAGES_HOST: string
-  PREVIEW_DOMAIN?: string | undefined
+  SHOP_DOMAIN?: string | undefined
   PREVIEW_SESSION_KEY?: string | undefined
 }
 
 const isOwnHost = (host: string, zone: string) => host === zone || host.endsWith(`.${zone}`)
 const isApi = (pathname: string) => pathname === '/api' || pathname.startsWith('/api/')
 const domainPattern = /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/
-const keyPattern = /^[a-z2-7]{10}$/
+const slugPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 
 /** A partner's portal host keeps its routing (SAAS §8): `/api/*` to the API's `PortalProxy`, the rest to Pages. */
 const portal = (request: Request, url: URL, env: Env): Promise<Response> => {
@@ -29,11 +29,13 @@ const portal = (request: Request, url: URL, env: Env): Promise<Response> => {
   return fetch(new Request(url, request))
 }
 
-/** `{key}.<PREVIEW_DOMAIN>`, one label deep; anything else under the domain is no preview. */
+/** `{slug}-preview.<SHOP_DOMAIN>`, one label deep; anything else under the domain is no preview. */
 export const previewKeyOf = (host: string, domain: string | undefined): string | null => {
   if (!domain || !host.endsWith(`.${domain}`)) return null
-  const key = host.slice(0, -domain.length - 1)
-  return keyPattern.test(key) ? key : null
+  const label = host.slice(0, -domain.length - 1)
+  if (!label.endsWith('-preview')) return null
+  const slug = label.slice(0, -'-preview'.length)
+  return slugPattern.test(slug) ? slug : null
 }
 
 // LOGGING §9: a preview token or a studio session never reaches a log line, and no query string does.
@@ -44,11 +46,14 @@ export const loggedPath = (pathname: string): string => {
 }
 
 const serveStorefront = async (request: Request, url: URL, env: Env, deps: Deps): Promise<Response> => {
-  const key = previewKeyOf(url.hostname, env.PREVIEW_DOMAIN)
+  const key = previewKeyOf(url.hostname, env.SHOP_DOMAIN)
   if (key !== null) return servePreview(request, url, key, deps)
-  if (env.PREVIEW_DOMAIN && url.hostname.endsWith(`.${env.PREVIEW_DOMAIN}`)) return page('missing', 404, { headers: { 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex, nofollow' } })
   const found = await lookupHost(url.hostname, deps)
-  if (found.kind === 'none') return portal(request, url, env)
+  // Any other name under the shop domain is no store: the closed 404, never a partner's portal.
+  if (found.kind === 'none') {
+    if (env.SHOP_DOMAIN && url.hostname.endsWith(`.${env.SHOP_DOMAIN}`)) return page('missing', 404, { headers: { 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex, nofollow' } })
+    return portal(request, url, env)
+  }
   return serveLive(request, url, found, deps)
 }
 
@@ -67,7 +72,7 @@ export const route = async (request: Request, env: Env, deps: Deps | null): Prom
 let sealed: { key: string; seal: Promise<SessionSeal> } | undefined
 const sessionsFor = (env: Env): Promise<SessionSeal> | null => {
   const key = env.PREVIEW_SESSION_KEY
-  if (!key || !env.PREVIEW_DOMAIN) return null
+  if (!key || !env.SHOP_DOMAIN) return null
   if (sealed?.key !== key) sealed = { key, seal: sessionSeal(key) }
   return sealed.seal
 }
@@ -75,7 +80,7 @@ const sessionsFor = (env: Env): Promise<SessionSeal> | null => {
 /** Configuration checked on every request, so a bad value answers 500 rather than serving half-configured (AGENTS.md "Security"). */
 export const configProblem = (env: Env): string | null => {
   if (!domainPattern.test(env.OWN_ZONE)) return 'OWN_ZONE'
-  if (env.PREVIEW_DOMAIN !== undefined && (!domainPattern.test(env.PREVIEW_DOMAIN) || isOwnHost(env.PREVIEW_DOMAIN, env.OWN_ZONE))) return 'PREVIEW_DOMAIN'
+  if (env.SHOP_DOMAIN !== undefined && (!domainPattern.test(env.SHOP_DOMAIN) || isOwnHost(env.SHOP_DOMAIN, env.OWN_ZONE))) return 'SHOP_DOMAIN'
   if (env.PREVIEW_SESSION_KEY !== undefined && !/^[A-Za-z0-9+/]{43}=$/.test(env.PREVIEW_SESSION_KEY)) return 'PREVIEW_SESSION_KEY'
   if ((env.EDGE === undefined) !== (env.SITES === undefined)) return 'EDGE'
   return null

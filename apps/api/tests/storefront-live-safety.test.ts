@@ -18,18 +18,17 @@ let sites: FakeSites
 let assets: FakeSites
 let probe: TestProbe
 let clock: number
-const hostA1 = 'store-a1.shops.acme.example'
+const hostA1 = 'store-a1.shop.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 const steps: PublishSteps = { do: (_, work) => work(), waitFor: async () => undefined }
 // The checks' waits move this clock instead of sleeping.
-const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, dispatch: async () => true, now: () => new Date(clock), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async (ms) => void (clock += ms) })
+const deps = (): PublishDeps => ({ sql: db.sql, sites, assets, drafts: fakeSites(), assetOrigin: null, shopDomain: 'shop.example', dispatch: async () => true, now: () => new Date(clock), probe, assetHost: 'sf-assets.dripfunnel.com', wait: async (ms) => void (clock += ms) })
 
 beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update store set status = 'active' where id in (${t.storeA1}, ${t.storeA2})`
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   sites = fakeSites()
   assets = fakeSites()
 }, 60_000)
@@ -98,7 +97,7 @@ describe('the post-deploy checks', () => {
     probe.breakPath(/^\/checkout$/, { status: 500 })
     expect(await runPublish(deps(), { runId, storeId: t.storeA1 }, steps)).toBe('rolled_back')
     expect(await live(t.storeA1)).toBe(previous)
-    expect(await lookupLiveHost(db.sql, hostA1, { localhost: false })).toMatchObject({ buildId: previous })
+    expect(await lookupLiveHost(db.sql, hostA1, { localhost: false, shopDomain: 'shop.example' })).toMatchObject({ buildId: previous })
     expect(await runOf(runId)).toMatchObject({ state: 'rolled_back', error: 'check_checkout' })
     expect((await runOf(runId))?.checks?.find((c) => c.name === 'checkout')?.result).toBe('failed')
     expect((await versions(t.storeA1)).map((v) => [v.number, v.state, v.build_id])).toEqual([[1, 'live', previous]])
@@ -192,9 +191,9 @@ describe('the post-deploy checks', () => {
     expect(store?.build_state).toBe('failed')
   })
 
-  it('skip a store with no address yet, which goes live', async () => {
+  it('skip a store with no address yet, which goes live: where no shop domain is set and it has no domain of its own', async () => {
     const runId = await staged(t.storeB1, 9)
-    expect(await runPublish(deps(), { runId, storeId: t.storeB1 }, steps)).toBe('live')
+    expect(await runPublish({ ...deps(), shopDomain: null }, { runId, storeId: t.storeB1 }, steps)).toBe('live')
     expect((await runOf(runId))?.checks).toEqual([{ name: 'home', result: 'skipped', detail: 'The store has no address yet.' }])
   })
 

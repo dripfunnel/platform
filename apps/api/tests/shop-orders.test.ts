@@ -20,7 +20,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 const stores = { india: '', other: '' }
-const host = 'jaipur.shops.acme.example'
+const host = 'jaipur.shop.example'
 let kurta = ''
 const cookies: Record<'owner' | 'manager' | 'staff' | 'other', string> = { owner: '', manager: '', staff: '', other: '' }
 
@@ -31,7 +31,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   stores.india = await store('Jaipur', 'jaipur')
   stores.other = await store('Surat', 'surat')
   await db.sql`update store set order_prefix = 'JP-', next_order_number = 1001 where id = ${stores.india}`
@@ -57,7 +56,7 @@ afterAll(async () => {
 })
 
 const shop = async (source: string, cart: string | null = null) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host)
+  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
@@ -254,7 +253,7 @@ describe('holding stock and placing safely', () => {
 
   it('refuses a cart changed after it was priced, in another tab', async () => {
     const token = await cartOf([[versions.shawl, 1]])
-    const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: { 'x-shop-cart': token } }), host)
+    const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: { 'x-shop-cart': token } }), host, 'shop.example')
     if (found.kind !== 'found') throw new Error('no store')
     // Every transaction after the first (the cart priced) sees the cart change, as another tab's would.
     let begins = 0

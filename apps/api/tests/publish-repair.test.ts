@@ -27,7 +27,7 @@ const deps = (repair?: PublishRepair): PublishDeps => ({
   sites,
   assets,
   drafts,
-  assetOrigin: null,
+  assetOrigin: null, shopDomain: 'shop.example',
   dispatch: async (_repo, buildId) => {
     dispatched.push(buildId)
     return true
@@ -75,7 +75,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update store set status = 'active' where id in (${t.storeA1}, ${t.storeA2})`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`update storefront set repo = 'sf-r1r1r1r1r1', repo_id = 9201 where store_id = ${t.storeA1}`
   await db.sql`update storefront set repo = 'sf-r2r2r2r2r2', repo_id = 9202 where store_id = ${t.storeA2}`
 }, 60_000)

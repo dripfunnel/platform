@@ -17,7 +17,7 @@ const standInTemplate = 'local-stand-in'
 interface StoreRow {
   id: string
   name: string
-  address: string | null
+  slug: string
 }
 
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex')
@@ -67,6 +67,8 @@ export interface LiveShopOptions {
   sites: SitesBucket
   /** The store's id, or its code when only one store has it. */
   store: string
+  /** SHOP_DOMAIN: the store lives on `{slug}.` of it. */
+  shopDomain: string
   core: string
   /** Copy the studio's current preview instead of writing the stand-in page. */
   draft?: boolean
@@ -75,16 +77,14 @@ export interface LiveShopOptions {
   now?: () => Date
 }
 
-export const seedLiveShop = async ({ databaseUrl, sites, store, core, draft = false, sandboxUrl, now = () => new Date() }: LiveShopOptions) => {
+export const seedLiveShop = async ({ databaseUrl, sites, store, shopDomain, core, draft = false, sandboxUrl, now = () => new Date() }: LiveShopOptions) => {
   assertLoopbackOnly(databaseUrl)
   const sql = postgres(databaseUrl, { max: 1 })
   try {
     const found = await withSystemScope(
       sql,
       (tx) => tx<StoreRow[]>`
-        select s.id, s.name,
-          (select s.code || substr(lower(d.host), 2) from partner_domain d
-            where d.partner_id = s.partner_id and d.kind = 'shops' and d.status not in ('waiting', 'failed') limit 1) as address
+        select s.id, s.name, s.slug
         from store s join storefront f on f.store_id = s.id
         where s.id::text = ${store} or s.code = ${store}`,
     )
@@ -116,7 +116,7 @@ export const seedLiveShop = async ({ databaseUrl, sites, store, core, draft = fa
       return tx<{ id: string }[]>`delete from publish_run where store_id = ${row.id} and commit = ${standInCommit} and id <> ${buildId} returning id`
     })
     for (const old of replaced) await deletePrefix(sites, buildFolder(row.id, old.id))
-    return { storeId: row.id, name: row.name, buildId, address: row.address, files: pages.map((p) => p.path) }
+    return { storeId: row.id, name: row.name, buildId, address: `${row.slug}.${shopDomain}`, files: pages.map((p) => p.path) }
   } finally {
     await sql.end()
   }

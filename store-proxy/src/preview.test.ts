@@ -4,15 +4,15 @@ import worker, { route } from './index'
 import { sessionSeconds } from './session'
 import { depsWith, fakeCache, fakeEdge, fakeSites, sessionKey, type Clock, type FakeEdge } from './testSupport'
 
-// Card #317: a preview host, {key}.webpreview.store (storefront PREVIEW.md §5, §6).
+// Card #317: a preview host, {slug}-preview.my-store.one (storefront PREVIEW.md §5, §6).
 
 const storeA = '00000000-0000-4000-8000-00000000000a'
 const storeB = '00000000-0000-4000-8000-00000000000b'
 const owner = '00000000-0000-4000-8000-0000000000c1'
-const keyA = 'abcdefghij'
-const keyB = 'klmnopqrst'
-const hostA = `${keyA}.webpreview.store`
-const hostB = `${keyB}.webpreview.store`
+const keyA = 'acme'
+const keyB = 'bolt'
+const hostA = `${keyA}-preview.my-store.one`
+const hostB = `${keyB}-preview.my-store.one`
 const objects = {
   [`stores/${storeA}/preview/change-2/index.html`]: { body: '<p>draft A</p>', contentType: 'text/html', csp: "script-src 'self'" },
   [`stores/${storeA}/preview/change-2/assets/app.js`]: { body: 'js A', contentType: 'text/javascript' },
@@ -25,7 +25,7 @@ let cache: ReturnType<typeof fakeCache>
 let sites: ReturnType<typeof fakeSites>
 let deps: Deps
 let settle: () => Promise<void>
-const env = { API: { fetch: async () => new Response('api') } as unknown as Fetcher, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', PREVIEW_DOMAIN: 'webpreview.store' }
+const env = { API: { fetch: async () => new Response('api') } as unknown as Fetcher, OWN_ZONE: 'dripfunnel.ai', PAGES_HOST: 'store.pages.dev', SHOP_DOMAIN: 'my-store.one' }
 const grantA = { ok: true as const, storeId: storeA, userId: owner, epoch: 3, folder: 'change-2' }
 
 beforeEach(async () => {
@@ -173,7 +173,7 @@ describe('a preview page', () => {
   })
 
   it('answers a name under the preview domain that is no preview key with nothing', async () => {
-    expect((await get('https://not-a-key.webpreview.store/')).status).toBe(404)
+    expect((await get('https://not-a-slug.my-store.one/')).status).toBe(404)
     expect((await get(`https://x.${hostA}/`)).status).toBe(404)
   })
 })

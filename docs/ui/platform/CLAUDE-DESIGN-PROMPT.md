@@ -17,7 +17,7 @@ non-production hosts only.
 
 Paste everything below the line.
 
-Last updated: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`, the checklist and §6.7). Before: 2026-10-11 (#518: no preview address in the checklist or a store's Storefront tab). Before: 2026-10-09 (the preview address card removed).
+Last updated: 2026-10-15 (#744, #745: no shop address, stores on `my-store.one`, the checklist and §6.7; built). Before: 2026-10-11 (#518: no preview address in the checklist or a store's Storefront tab). Before: 2026-10-09 (the preview address card removed).
 
 ---
 

@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { withSystemScope } from '#db/scoped/index'
-import { selectStorefrontByPreviewKey } from '#db/scoped/shopCaller'
+import { previewSlugOf, selectStorefrontByPreviewSlug } from '#db/scoped/shopCaller'
 import { frameClosed, studioFrameOf, studioStoreHeader } from '#saas/studio/index'
 
 // `/__studio/{session}/…` on a store's preview host (storefront AI-STUDIO §3 step 6), reached only through store-proxy's
@@ -19,13 +19,11 @@ export interface StudioFrameDeps {
   shop: (request: Request) => Promise<Response>
 }
 
-/** The store a preview host names by its key: the only way the frame finds its store (PREVIEW §6). */
-const storeOfHost = async (sql: postgres.Sql, host: string, previewDomain: string): Promise<string | null> => {
-  const suffix = `.${previewDomain.toLowerCase()}`
-  const name = host.toLowerCase()
-  const label = name.endsWith(suffix) ? name.slice(0, -suffix.length) : ''
-  if (!/^[a-z2-7]{10}$/.test(label)) return null
-  return (await withSystemScope(sql, (tx) => selectStorefrontByPreviewKey(tx, label)))?.store_id ?? null
+/** The store a preview host names by its slug: the only way the frame finds its store (PREVIEW §6). */
+const storeOfHost = async (sql: postgres.Sql, host: string, shopDomain: string): Promise<string | null> => {
+  const slug = previewSlugOf(host, shopDomain)
+  if (slug === null) return null
+  return (await withSystemScope(sql, (tx) => selectStorefrontByPreviewSlug(tx, slug)))?.store_id ?? null
 }
 
 export const handleStudioFrame = async (request: Request, deps: StudioFrameDeps): Promise<Response> => {

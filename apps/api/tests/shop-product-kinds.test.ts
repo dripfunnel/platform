@@ -12,7 +12,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const host = 'kesari.shops.acme.example'
+const host = 'kesari.shop.example'
 let store = ''
 const v = { pack: '', keys: '', lesson: '', card: '', kurta: '' }
 
@@ -30,7 +30,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   store = (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code, country, pricing_currency, status) values (${t.partnerA}, 'Kesari', 'kesari', 'IN', 'INR', 'active') returning id`)[0]?.id ?? ''
   v.pack = (await product('pattern-pack', 'digital', { kind: { download_mode: 'file', download_limit: 3, download_days: 7 } })).versionId
   const keys = await product('font-licence', 'digital', { kind: { download_mode: 'keys' } })
@@ -50,7 +49,7 @@ afterAll(async () => {
 })
 
 const shop = async (source: string, cart: string | null = null) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host)
+  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, allowAttempt: async () => true, allowNewCart: async () => true, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })

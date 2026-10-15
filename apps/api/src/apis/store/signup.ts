@@ -24,6 +24,7 @@ import {
 } from '#db/scoped/signup'
 import { selectSignInCandidate } from '#db/scoped/userSignIn'
 import { queueSideEffect } from '#saas/outbox/index'
+import { isReservedSlug, slugPattern } from '#saas/stores/slug'
 import { provisionStore, type FailAt } from '#saas/provisioning/index'
 import { queueSms } from '#saas/sms/index'
 import { admit, type Admission, type StoreAuthDeps } from './admission'
@@ -38,9 +39,6 @@ const signupMs = 24 * 60 * 60 * 1000
 const setSignupCookie = (token: string) => `${signupCookieName}=${token}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${signupMs / 1000}`
 const clearSignupCookie = () => `${signupCookieName}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`
 
-/** Names a store can't take: the platform's own hosts under every partner domain. */
-const reservedSubdomains = new Set(['admin', 'api', 'app', 'help', 'hooks', 'mail', 'platform', 'portal', 'preview', 'shop', 'shops', 'status', 'store', 'support', 'www'])
-const subdomainPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 const textsPerNumberPerDay = 3
 const textsPerPartnerPerHour = 200
 const startsPerPartnerPerHour = 500
@@ -116,15 +114,15 @@ export const verifySignupEmail = async (request: Request, deps: StoreAuthDeps, c
     const wrong = input ? await checkCode(tx, s, 'email', input.code, now, deps.codeCheck) : { code: 'WRONG_CODE' as const }
     if (wrong) return wrong
     await advanceSignup(tx, s.id, 'store')
-    return { countries: await offeredCountries(tx, deps.partnerId) }
+    return { countries: await offeredCountries(tx, deps.partnerId), shopDomain: deps.shopDomain ?? null }
   })
   return answer(outcome, { step: 'store', ...(isRefusal(outcome) ? {} : outcome) })
 }
 
-const suggestionsFor = async (tx: ScopedSql, partnerId: string, base: string, signupId: string, now: Date): Promise<string[]> => {
+const suggestionsFor = async (tx: ScopedSql, base: string, signupId: string): Promise<string[]> => {
   const free: string[] = []
   for (const candidate of [`${base}-co`, `${base}-shop`, `${base}-store`, `${base}-online`]) {
-    if (subdomainPattern.test(candidate) && !(await subdomainTaken(tx, partnerId, candidate, signupId, now))) free.push(candidate)
+    if (slugPattern.test(candidate) && !isReservedSlug(candidate) && !(await subdomainTaken(tx, candidate, signupId))) free.push(candidate)
     if (free.length === 2) break
   }
   return free
@@ -133,15 +131,14 @@ const suggestionsFor = async (tx: ScopedSql, partnerId: string, base: string, si
 /** Step 3: the store's name, its web address on the partner's domain, and its country (which sets the currency). */
 export const signupStore = async (request: Request, deps: StoreAuthDeps, cookie: string | null): Promise<Response> => {
   const input = await readBody(request, storeInput)
-  const now = deps.now()
   const outcome = await withSignup(deps, cookie, ['store', 'phone'], async (tx, s): Promise<SignupRefusal | Record<string, never>> => {
     if (!input) return { code: 'INVALID_INPUT' }
     const storeName = input.storeName.trim()
     const subdomain = input.subdomain.trim().toLowerCase()
     if (storeName === '' || storeName.length > 80) return { code: 'NAME_REQUIRED' }
-    if (!subdomainPattern.test(subdomain)) return { code: 'INVALID_SUBDOMAIN' }
-    if (reservedSubdomains.has(subdomain) || (await subdomainTaken(tx, deps.partnerId, subdomain, s.id, now))) {
-      return { code: 'SUBDOMAIN_TAKEN', suggestions: await suggestionsFor(tx, deps.partnerId, subdomain, s.id, now) }
+    if (!slugPattern.test(subdomain)) return { code: 'INVALID_SUBDOMAIN' }
+    if (isReservedSlug(subdomain) || (await subdomainTaken(tx, subdomain, s.id))) {
+      return { code: 'SUBDOMAIN_TAKEN', suggestions: await suggestionsFor(tx, subdomain, s.id) }
     }
     if (!(await offeredCountries(tx, deps.partnerId)).some((c) => c.code === input.country)) return { code: 'COUNTRY_UNAVAILABLE' }
     await advanceSignup(tx, s.id, 'phone', { store_name: storeName, subdomain, country: input.country })
@@ -190,7 +187,7 @@ export const verifySignupPhone = async (request: Request, deps: StoreAuthDeps, f
     // The address was proven by email; an account made since then keeps it, and this sign-up stops here.
     if (await selectSignInCandidate(tx, deps.partnerId, s.email)) return { code: 'SIGNUP_EXPIRED' }
     const made = await provisionStore(tx, { partnerId: deps.partnerId, owner: { name: s.name, email: s.email, passwordHash: s.password_hash, phone: s.phone }, store: { name: s.store_name, code: s.subdomain, country: country.code, currency: country.currency } }, now, failAt)
-    if (!made.ok) return made.reason === 'SUBDOMAIN_TAKEN' ? { code: 'SUBDOMAIN_TAKEN', suggestions: await suggestionsFor(tx, deps.partnerId, s.subdomain, s.id, now) } : { code: 'COUNTRY_UNAVAILABLE' }
+    if (!made.ok) return made.reason === 'SUBDOMAIN_TAKEN' ? { code: 'SUBDOMAIN_TAKEN', suggestions: await suggestionsFor(tx, s.subdomain, s.id) } : { code: 'COUNTRY_UNAVAILABLE' }
     await deps.activity.record(tx, {
       category: 'auth',
       action: 'store.created',

@@ -9,7 +9,7 @@ Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Appr
 Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
 Stores, because a queue of work waiting needs a list to work from.
 
-Last updated: 2026-10-15 (with Gaurav: no shop wildcard on a partner's Domains; not built yet, #745). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
+Last updated: 2026-10-15 (#745: no shop wildcard on a partner's Domains, built). Before: 2026-10-14 (#730: Retry and Undo run a failed `create-storefront` job, §12). Before: 2026-10-11 (#518: no preview address on a partner's Domains or a store's Storefront tab).
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -108,7 +108,7 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 | **Overview** | Partner details and contacts, the contract (fee currency, other currencies, "Powered by" term, or "No contract yet"), state history, setup checklist with each item's status |
 | **Stores** | This partner's stores (the Stores list, pre-filtered) |
 | **Branding** | Read-only preview of its look, words and "Powered by" setting |
-| **Domains** | Portal host and email sender domain (the shop wildcard goes on #745, decided 2026-10-15): each with the expected DNS records and status, and "Re-check now" |
+| **Domains** | Portal host and email sender domain (no shop wildcard: stores are at `{slug}.my-store.one`, #745): each with the expected DNS records and status, and "Re-check now" |
 | **Plans** | Read-only list of its plans, prices and entitlements (the partner edits them in its console) |
 | **Team** | Its partner users and roles, last sign-in, with **Impersonate** on each (§8) |
 | **Activity** | Audit entries about this partner |

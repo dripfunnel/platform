@@ -6,7 +6,7 @@ import { selectPartnerDomainById, updatePartnerDomainCheck } from '#db/scoped/pa
 import { queueSideEffect } from '#saas/outbox/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { activityLog } from '#saas/activity/index'
-import { checkRecords, queueStoreHostsRegistration, registerHostname } from '#saas/domains/index'
+import { checkRecords, registerHostname } from '#saas/domains/index'
 import type { CloudflareApi } from '#integrations/cloudflare/api'
 import type { Deliverer } from '../outbox-relay'
 
@@ -55,8 +55,6 @@ export const domainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLookup, now
           partnerId: domain.partner_id,
           storeId: null,
         })
-        // Each store's shops host is its own custom hostname under this wildcard (SAAS §5 step 3).
-        if (domain.kind === 'shops') await queueStoreHostsRegistration(tx, { partnerId: domain.partner_id, domainId: domain.id, round: at.toISOString() })
       }
       if (status !== current.status) {
         await activityLog.record(tx, {

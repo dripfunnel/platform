@@ -100,7 +100,7 @@ const deps = (repair?: PublishRepair): PublishDeps => ({
   sites,
   assets,
   drafts,
-  assetOrigin: null,
+  assetOrigin: null, shopDomain: 'shop.example',
   dispatch: async (_repo, buildId) => {
     dispatched.push(buildId)
     return true
@@ -142,7 +142,7 @@ beforeAll(async () => {
     secrets: null,
     lookup: null,
     studio: local.studio,
-    extra: { preview: { domain: 'webpreview.store', links: { seal: async () => 'x', open: async () => null } }, design: { ai: () => provider, screenshots: null, readAsset: null } },
+    extra: { preview: { domain: 'my-store.one', links: { seal: async () => 'x', open: async () => null } }, design: { ai: () => provider, screenshots: null, readAsset: null } },
   })
   host = await sandboxProcess()
   sites = fakeSites()
@@ -162,7 +162,6 @@ beforeAll(async () => {
   await repos.advance(repo, main)
   await db.sql`update store set status = 'active', core_version = ${core}, main_language = 'en-IN' where id = ${t.storeA1}`
   await db.sql`insert into store_language (store_id, language) values (${t.storeA1}, 'en-IN'), (${t.storeA1}, 'hi-IN') on conflict do nothing`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`update storefront set repo = ${repo}, repo_id = 9301, repo_state = 'ready', repo_head = ${main}, template = 'baseline' where store_id = ${t.storeA1}`
   await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) select plan_id, partner_id, 1, 'ai_mode', 1 from store where plan_id is not null`
   await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) select plan_id, partner_id, 1, 'ai_prompts', 50 from store where plan_id is not null`

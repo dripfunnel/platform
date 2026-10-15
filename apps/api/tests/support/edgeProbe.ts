@@ -16,7 +16,7 @@ export const testProbe = (sql: postgres.Sql, buckets: { sites: SitesBucket; asse
     ...buckets,
     assetHost: 'sf-assets.dripfunnel.com',
     liveBuild: async (host) => {
-      const found = await lookupLiveHost(sql, host, { localhost: false })
+      const found = await lookupLiveHost(sql, host, { localhost: false, shopDomain: 'shop.example' })
       return found.kind === 'store' && found.buildId ? { storeId: found.storeId, buildId: found.buildId } : null
     },
   })

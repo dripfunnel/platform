@@ -15,7 +15,7 @@ import { stuckAfterMinutes } from '#saas/provisioning/index'
 // The partner console's shell and Home until Live (ui/platform/FIRST-RELEASE.md §2, §4; card
 // #158). Every read runs as the caller's partner; nothing here takes a partner id from a request.
 
-export const checklistItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
+export const checklistItems = ['company', 'branding', 'portalHost', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
 export type ChecklistItem = (typeof checklistItems)[number]
 export type ConsoleLink = '/settings' | '/branding' | '/domains' | '/plans'
 
@@ -24,7 +24,6 @@ const linkFor: Record<ChecklistItem, ConsoleLink> = {
   company: '/settings',
   branding: '/branding',
   portalHost: '/domains',
-  wildcards: '/domains',
   emailSender: '/domains',
   plan: '/plans',
   legal: '/branding',
@@ -65,7 +64,7 @@ export interface NavBadges {
 }
 
 /** FIRST-RELEASE §6: these items are done when their addresses are live, so they follow the domain rows. */
-const domainItemKinds: Partial<Record<ChecklistItem, readonly DomainKind[]>> = { portalHost: ['portal'], wildcards: ['shops'], emailSender: ['email'] }
+const domainItemKinds: Partial<Record<ChecklistItem, readonly DomainKind[]>> = { portalHost: ['portal'], emailSender: ['email'] }
 
 export interface OnboardingItem {
   key: ChecklistItem

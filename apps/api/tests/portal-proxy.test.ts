@@ -41,7 +41,7 @@ beforeAll(async () => {
       (${t.partnerA}, 'portal', ${hostA}, 'live', 'CNAME', 'x'),
       (${t.partnerB}, 'portal', ${hostB}, 'live', 'CNAME', 'x'),
       (${other?.id ?? ''}, 'portal', ${pending}, 'waiting', 'CNAME', 'x'),
-      (${t.partnerA}, 'shops', 'shops.partner-a.example', 'live', 'CNAME', 'x'),
+      (${t.partnerA}, 'email', 'mail.partner-a.example', 'live', 'CNAME', 'x'),
       (${ours?.id ?? ''}, 'portal', ${ownHost}, 'live', 'CNAME', 'x')
   `
 }, 60_000)
@@ -63,7 +63,7 @@ describe('the PortalProxy entrypoint', () => {
 
   it('answers 404 on a host no partner holds, or one that is not a portal', async () => {
     expect((await viaProxy('store.nobody.example')).status).toBe(404)
-    expect((await viaProxy('shops.partner-a.example')).status).toBe(404)
+    expect((await viaProxy('mail.partner-a.example')).status).toBe(404)
   })
 
   it('answers 404 on a portal host until it is live, and keeps serving it once it has been', async () => {

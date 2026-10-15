@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { useId, type FormEvent } from 'react'
 import type { Address, DomainKind } from '../../api/domains'
 import { fill, messages, plural } from '../../messages'
-import { exampleFor, helpText, isWildcard } from './addDomainRules'
+import { exampleFor, helpText } from './addDomainRules'
 import { statusPill } from './domainLook'
 import { RecordTable } from './RecordTable'
 import './domains.css'
@@ -119,9 +119,8 @@ export const AddressStep = ({ addresses, zone, kind, typed, error, busy, onKind,
         ))}
       </fieldset>
       <div className="df-field">
-        <label htmlFor={fieldId}>{isWildcard(kind) ? words.wildcardField : words.field}</label>
+        <label htmlFor={fieldId}>{words.field}</label>
         <span className="df-add-host">
-          {isWildcard(kind) && <span aria-hidden="true">*.</span>}
           <input
             id={fieldId}
             type="text"

@@ -132,6 +132,10 @@ export const selectStoreDomainForUpdate = async (tx: ScopedSql, storeId: string,
 export const merchantHostTaken = async (tx: ScopedSql, host: string): Promise<boolean> =>
   (await tx<{ taken: boolean }[]>`select merchant_host_taken(${host}) as taken`)[0]?.taken ?? true
 
+/** The store's slug, which names its free address. */
+export const selectStoreSlug = async (tx: ScopedSql, storeId: string): Promise<string | null> =>
+  (await tx<{ slug: string }[]>`select slug from store where id = ${storeId}`)[0]?.slug ?? null
+
 /** Null makes the free address primary again. */
 export const setPrimaryDomain = async (tx: ScopedSql, storeId: string, id: string | null): Promise<void> => {
   await tx`update custom_domain set is_primary = (id = ${id}) is true where store_id = ${storeId} and is_primary is distinct from ((id = ${id}) is true)`

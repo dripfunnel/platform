@@ -113,7 +113,7 @@ describe('partners(filter, after, before) (§4.1, §6)', () => {
     const capped = await run<Page>(list, as('staff-super-admin'), { first: 500 })
     expect(capped.data?.partners.items.length).toBeLessThanOrEqual(25)
     const kaufladen = capped.data?.partners.items.find((i) => i['name'] === 'Kaufladen Digital')
-    expect(kaufladen).toMatchObject({ state: 'awaiting', stores: 1, portalHost: { host: 'shop.kaufladen.example', status: 'live' }, setup: { done: 7, total: 9 }, owner: { invitation: 'active' } })
+    expect(kaufladen).toMatchObject({ state: 'awaiting', stores: 1, portalHost: { host: 'shop.kaufladen.example', status: 'live' }, setup: { done: 6, total: 8 }, owner: { invitation: 'active' } })
     expect(kaufladen?.['checks']).toEqual({ portalHost: true, emailDomain: true, pricedPlan: true, legalPages: true })
     expect(kaufladen?.['approval']).toEqual({ setUpBy: 'Priya Shah', rule: 'second', approvals: 0 })
   })
@@ -149,7 +149,7 @@ describe('partner(id) (§4.2, §4.3)', () => {
     expect(p).toMatchObject({ name: 'Kaufladen Digital', country: 'DE', branding: { productName: 'Kaufladen Shops', poweredBy: 'on' } })
     expect((p?.['contacts'] as unknown[]).length).toBe(2)
     expect((p?.['history'] as { action: string }[]).map((h) => h.action)).toEqual(['partner.created', 'partner.set_up', 'partner.submitted', 'partner.sent_back', 'partner.submitted'])
-    expect((p?.['checklist'] as unknown[]).length).toBe(9)
+    expect((p?.['checklist'] as unknown[]).length).toBe(8)
     expect((p?.['domains'] as { kind: string; status: string }[]).find((d) => d.kind === 'email')).toMatchObject({ status: 'waiting', record: 'TXT' })
     expect((p?.['plans'] as { name: string; stores: number }[]).find((x) => x.name === 'Plus')?.stores).toBe(1)
     expect((p?.['team'] as unknown[]).length).toBe(2)
@@ -162,7 +162,7 @@ describe('partner(id) (§4.2, §4.3)', () => {
     await db.sql`insert into partner_setup_item (partner_id, item, status, detail) values (${id}, 'testSignup', 'missing', 'Sign up as a merchant') on conflict (partner_id, item) do update set status = 'missing', done_at = null`
     try {
       const page = await run<Page>(list, as('staff-super-admin'), { first: 25 })
-      expect(page.data?.partners.items.find((i) => i['name'] === 'Kaufladen Digital')).toMatchObject({ setup: { done: 7, total: 9 } })
+      expect(page.data?.partners.items.find((i) => i['name'] === 'Kaufladen Digital')).toMatchObject({ setup: { done: 6, total: 8 } })
       const complete = await run<Page>(list, as('staff-super-admin'), { first: 25, filter: { setup: 'complete' } })
       const before = (complete.data?.partners.items ?? []).map((i) => i['name'])
       await db.sql`update partner_setup_item set status = 'missing', done_at = null where partner_id = ${(await partnerIdOf('Northstar Commerce'))} and item = 'testSignup'`
@@ -525,8 +525,8 @@ describe('recheckDomain (SAAS.md §8; no lookup inside the request)', () => {
   it('refuses a stored host that is an address or a local name before any lookup', async () => {
     const kaufladen = await partnerIdOf('Kaufladen Digital')
     for (const host of ['10.0.0.1', '169.254.169.254', '[fe80::1]', 'db.localhost']) {
-      await db.sql`update partner_domain set host = ${host} where partner_id = ${kaufladen} and kind = 'shops'`
-      expect([host, (await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'shops' })).data?.['recheckDomain']]).toEqual([host, { ok: false, code: 'INVALID_HOSTNAME', failingChecks: null, state: null, id: null, approvals: null }])
+      await db.sql`update partner_domain set host = ${host} where partner_id = ${kaufladen} and kind = 'email'`
+      expect([host, (await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'email' })).data?.['recheckDomain']]).toEqual([host, { ok: false, code: 'INVALID_HOSTNAME', failingChecks: null, state: null, id: null, approvals: null }])
     }
   })
 })

@@ -15,8 +15,8 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const hostA1 = 'store-a1.shops.acme.example'
-const hostB1 = 'store-b1.shops.beta.example'
+const hostA1 = 'store-a1.shop.example'
+const hostB1 = 'store-b1.shop.example'
 const commit = (n: number) => n.toString(16).padStart(40, '0')
 const day = (offset: number, from = new Date('2026-10-11T12:00:00Z')) => new Date(from.getTime() + offset * 86_400_000)
 
@@ -25,7 +25,6 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   await db.sql`update store set status = 'active', pricing_currency = 'INR' where id in (${t.storeA1}, ${t.storeB1})`
   await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x'), (${t.partnerB}, 'shops', '*.shops.beta.example', 'live', 'CNAME', 'y')`
 }, 60_000)
 
 afterAll(async () => {
@@ -33,7 +32,7 @@ afterAll(async () => {
 })
 
 const beacon = async (host: string, body: string, now = new Date()) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api/vitals`), host)
+  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api/vitals`), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const ctx: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.4', userAgent: null }, allowNewCart: async () => false, now: () => now }
   return (await handleVitals(new Request(`https://${host}/shop-api/vitals`, { method: 'POST', body }), ctx)).status
@@ -50,7 +49,7 @@ describe('the vitals intake', () => {
   })
 
   it('keeps nothing for a preview host, a store that isn’t selling, or with no database, and counts no INP for a visit with no interaction', async () => {
-    const found = await resolveShopper(db.sql, new Request(`https://${hostA1}/shop-api/vitals`), hostA1)
+    const found = await resolveShopper(db.sql, new Request(`https://${hostA1}/shop-api/vitals`), hostA1, 'shop.example')
     if (found.kind !== 'found') throw new Error('no store')
     const body = JSON.stringify({ page: 'cart', device: 'desktop', lcp: 900, inp: 40, cls: 0 })
     const send = (ctx: Partial<ShopContext>) =>
@@ -66,7 +65,7 @@ describe('the vitals intake', () => {
   })
 
   it('refuses a body over 1 KB before reading it, by its declared length or as it streams', async () => {
-    const found = await resolveShopper(db.sql, new Request(`https://${hostA1}/shop-api/vitals`), hostA1)
+    const found = await resolveShopper(db.sql, new Request(`https://${hostA1}/shop-api/vitals`), hostA1, 'shop.example')
     if (found.kind !== 'found') throw new Error('no store')
     const ctx: ShopContext = { sql: db.sql, shopper: found.shopper, origin: '', activity: activityLog, facts: { requestId: 'r', ip: null, userAgent: null }, allowNewCart: async () => false, now: () => new Date() }
     const declared = new Request(`https://${hostA1}/shop-api/vitals`, { method: 'POST', headers: { 'content-length': '5000000' }, body: 'x' })

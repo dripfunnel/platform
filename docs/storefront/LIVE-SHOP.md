@@ -19,7 +19,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 #483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). The rest is specification.
 
-Last updated: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; not built yet). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; built on #744, and #745 took out #519's per-store hostnames). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -148,8 +148,7 @@ checking, deploying, live, failed, rolled back).
    **Built on #483** (`saas/storefronts/freeze.ts`): the source is a byte copy of the store's draft bundle for a design
    publish, or of the live build's own source bundle otherwise (none: `no_source`), and the build checks the run's
    `commit` out of it. The snapshot is core's `catalogueSnapshotSchema`: the store as the Shop API's `store` reads it,
-   the live address (the store's host under its partner's live shops address: none is `no_address`; to become
-   `{slug}.<SHOP_DOMAIN>`, which always exists, §6), the partner's
+   the live address (the store's primary host, `{slug}.<SHOP_DOMAIN>` until a domain is connected, §6: none is `no_address`), the partner's
    "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
    `sf-assets.<EDGE_ZONE>`, and *since #324* the store's published, due posts, newest first, at most 500 (none while
    the plan has no blog): each one's address, title, search title and description, author, date and cover, so the
@@ -435,13 +434,13 @@ What the edge Worker does on each request to a storefront host.
 - **Every store's free address is `{slug}.my-store.one`** (decided 2026-10-15 with Gaurav,
   [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2), for every partner, and it keeps working
   after the merchant connects a domain (it redirects to the primary one, SAAS §8). The domain is
-  set up once with the previews' ([PREVIEW.md](PREVIEW.md) §2): one wildcard record, Cloudflare's
+  set up once with the previews' ([PREVIEW.md](PREVIEW.md) §2): one wildcard record, added by hand, Cloudflare's
   free certificate and one Worker route, so nothing is registered or paid per store. The edge
   Worker finds the store by its `slug`; a closed store's slug answers as no store does.
   *Why:* a wildcard custom hostname under each partner's domain would need Enterprise, and
   registering each store's name costs $0.10 a month past the first 100.
-  *Replaces* `{shop}.shops.<partnerdomain>`, built on #519 (each store's name registered as its
-  own custom hostname under the partner's wildcard record); that registration is taken out.
+  *Replaced* `{shop}.shops.<partnerdomain>` (#519, taken out on #745: the per-store registration,
+  `store_host.sync` and the partner's `shops` domain kind are gone, and old `{code}.shops.` hosts answer 404).
 - **A merchant's own domain** is another custom hostname on the same zone (SAAS §8). It reaches
   the same edge Worker, which maps it to the same store.
 - Each merchant domain costs about $0.10 a month after the first 100, on every plan below

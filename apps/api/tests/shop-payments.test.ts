@@ -24,10 +24,10 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 const stores = { us: '', other: '' }
-const live = 'columbus.shops.acme.example'
-// Its preview host, {key}.<PREVIEW_DOMAIN> (storefront PREVIEW.md §2 step 5).
+const live = 'columbus.shop.example'
+// Its preview host, {slug}-preview.<SHOP_DOMAIN> (storefront PREVIEW.md §2 step 5).
 let preview = ''
-const previewDomain = 'preview.localhost'
+const previewDomain = 'shop.example'
 let mug = ''
 const cookies: Record<'owner' | 'staff' | 'other', string> = { owner: '', staff: '', other: '' }
 const people = { owner: '', staff: '' }
@@ -97,9 +97,8 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   stores.us = await store('Columbus', 'columbus')
-  preview = `${(await db.sql<{ k: string }[]>`select preview_key as k from storefront where store_id = ${stores.us}`)[0]?.k ?? ''}.${previewDomain}`
+  preview = `${(await db.sql<{ k: string }[]>`select slug as k from store where id = ${stores.us}`)[0]?.k ?? ''}-preview.${previewDomain}`
   stores.other = await store('Dayton', 'dayton')
   await db.sql`update store set address = '{"region": "OH"}'::jsonb where id = ${stores.us}`
   const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${stores.us}, 'Mug', 'mug', 'visible') returning id`
@@ -127,7 +126,7 @@ afterAll(async () => {
 })
 
 const shop = async (source: string, cart: string | null = null, host = live) => {
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host, previewDomain)
+  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers: cart ? { 'x-shop-cart': cart } : {} }), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.5', userAgent: null }, couriers: null, payments: wiring, secrets: null, allowAttempt: async () => true, allowNewCart: async () => true, now: () => new Date() }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })

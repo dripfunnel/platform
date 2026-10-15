@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames retired, §3.2, §3.5, §4.1, §5, §8; not built yet). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one` by its platform-unique `slug`, the partner's shop wildcard and #519's per-store hostnames removed in #744 and #745, §3.5, §4.1, §5, §8). Before: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -156,8 +156,8 @@ A partner owns two kinds of hostname (USERS-AND-DOMAINS §2), both verified thro
 | Hostname | Example | Records |
 |---|---|---|
 | Portal host | `store.<partnerdomain>` | CNAME to our Cloudflare for SaaS target, plus verification |
-| ~~Preview wildcard~~ | ~~`*.preview.<partnerdomain>`~~ | Retired: previews are on `{key}.webpreview.store` (decided 2026-10-09; now `{slug}-preview.my-store.one`, [../storefront/PREVIEW.md](../storefront/PREVIEW.md)). Removed on #518: migration 0232 deleted every preview row and narrowed `partner_domain.kind` to portal, shops and email, and the Platform and Admin APIs refuse kind `preview` as `INVALID_INPUT` |
-| ~~Shop wildcard~~ | ~~`*.shops.<partnerdomain>`~~ | Retired: every store's live address is `{slug}.my-store.one` (decided 2026-10-15, USERS-AND-DOMAINS §2). To remove: the `shops` kind of `partner_domain` and its rows, as #518 did for `preview` |
+| ~~Preview wildcard~~ | ~~`*.preview.<partnerdomain>`~~ | Retired: previews are on `{key}.webpreview.store` (decided 2026-10-09; now `{slug}-preview.my-store.one`, [../storefront/PREVIEW.md](../storefront/PREVIEW.md)). Removed on #518: migration 0232 deleted every preview row and narrowed `partner_domain.kind` to portal, shops and email (then to portal and email, below), and the Platform and Admin APIs refuse kind `preview` as `INVALID_INPUT` |
+| ~~Shop wildcard~~ | ~~`*.shops.<partnerdomain>`~~ | Retired: every store's live address is `{slug}.my-store.one` (decided 2026-10-15, USERS-AND-DOMAINS §2). Removed on #745: migration 0355 queued `domain.remove` for each registered store host, deleted the `shops` rows, their records and the `wildcards` setup items, and narrowed `partner_domain.kind` to portal and email; the Platform and Admin APIs refuse kind `shops` as `INVALID_INPUT`, and the checklist has eight items without the wildcards. Partners are not emailed about it |
 | Email sender domain | `mail.<partnerdomain>` | SES DKIM, SPF, DMARC (§3.6) |
 
 The house partner uses the same pattern on `dripfunnel.com`. Changing a live portal host keeps
@@ -181,7 +181,7 @@ receives uses the partner of the store (or portal host) it concerns, never anoth
   until brand files have a public address.
 - **From.** Until partners' own domains get SES identities (slice 11), the fallback
   `no-reply@<label>.<SES_SENDER_DOMAIN>` (THIRD-PARTY-ACCESS §2.4); the label is that of the
-  partner's portal host, else its shops or email host.
+  partner's portal host, else its email host.
 - **Recipients.** Domain live: the Owner. Card declined and payout account failed: the Owner
   and every active Finance user. Store notices: the store's Owners.
 - **Links** are minted when the email is sent, in the transaction that sends it.
@@ -300,7 +300,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 |---|---|---|
 | 1 | **Account and store**: the user (if new), the `store` row under the partner, the Owner `membership`, `store_subscription` in Trial on the chosen plan. One database transaction | Delete the store and its rows; delete the user only if this signup created it |
 | 2 | **Defaults**: store settings from the partner's defaults for new stores (region, currency, languages, tax behaviour, units, sample product), default warehouse, shipping and payment placeholders. **Per-store rows only**, never a shared one (the first platform's `TaxRate` lesson) | Deleted with the store |
-| 3 | **Hostnames**: none to register. The store's `slug` (§4.1), written in step 1, gives it `{slug}.my-store.one` and `{slug}-preview.my-store.one` on our own zone (decided 2026-10-15, [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §6, [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2); before it, `{shop}.shops.<partnerdomain>` registered per store (#519) and `{key}.webpreview.store` | None: the slug goes with the store |
+| 3 | **Hostnames**: none to register. The store's `slug` (§4.1), written in step 1, gives it `{slug}.my-store.one` and `{slug}-preview.my-store.one` on our own zone (decided 2026-10-15, [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §6, [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2); before it, `{shop}.shops.<partnerdomain>` registered per store (#519, removed on #745) and `{key}.webpreview.store` | None: the slug goes with the store |
 | 4 | **Repo** (when the merchant first picks a template): the GitHub App creates an empty **public** repo with an opaque name in the `dripfunnel` org and copies `templates/storefront/` with the chosen template's theme and the locked build workflow into it through the GitHub API ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §3) | Delete the repo |
 | 5 | **Store config**: generate `store.config.ts` (the public store key and the Shop API's path; hostnames, locales and currencies come from the Shop API at build, so a settings change needs no commit, decided on #316) and pin the current `@dripfunnel/storefront-core` version in `package.json`; the route shims are generated at build from `routes.json` (storefront ARCHITECTURE §2.2, decided on #316). **The repo holds no secret or variable, and one locked workflow** that builds inside the public build image and uploads through GitHub OIDC ([../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §4); every Cloudflare credential stays with the platform | Revert the commit (removed with the repo) |
 | 6 | **Hosting target**: the store's folder in R2, served by the edge Worker; nothing to create (decided 2026-10-09, replacing a Pages project per store: 100 projects per account; [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §1) | Delete the store's folders in both storefront buckets, and its draft, source bundles and snapshots in the drafts bucket (storefront LIVE-SHOP §4 step 11) |
@@ -311,15 +311,10 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   #290** (`saas/provisioning/provisionStore.ts`): all three are database writes today, so they
   run in one transaction with the texted code that starts them, and a failure anywhere leaves
   nothing (tested at each step); step 2's defaults arrive with each settings table's card, and
-  step 3's hostname is the store's code under the partner's shops wildcard, and the store's
-  preview key comes with its `storefront` row in step 1 (#518); both are replaced by the slug
-  (decided 2026-10-15, not built yet). Signup ends there:
+  step 3 is the slug, `store.slug` (migration 0354, unique on `lower(slug)`), set in step 1 by signup and
+  the partner console's Create store (#744). Signup ends there:
   `store.provisioned`, the welcome email through the outbox, the `signup` row deleted.
-  **Step 3's registration is built on #519, and is removed with the shops address** (§8): the
-  signup transaction, and the partner console's Create store, queue `store_host.sync` through the outbox; after commit it registers
-  `{code}.shops.<partnerdomain>` with Cloudflare for SaaS, and does nothing while the partner's
-  shops address isn't live (§8 has the rest). Its compensation is the transaction's: a failed
-  signup leaves no row, so nothing is registered.
+  A failed signup leaves no row, so nothing needs undoing.
 - Steps 4–8 make the storefront **when the merchant first picks a template** (decided
   2026-10-08 on #470), as the `create-storefront` Workflow with their compensations (INF 1).
   They **never run for a store that uses its own frontend** (it gets a public store key and
@@ -626,34 +621,14 @@ failed; a live hostname can become expiring or broken if its records change.
    queues the same purge with `reason: 'domain-primary'` (#471). *Decided here (#468): the purge names the
    host and its store, so #317 can purge by either; the removal is a function #471 calls in its
    own transaction, since the row's removal (DATA-MODEL §7.2's planned `removed_at`) is #471's.*
-   **Each store's shops host (#519), to be removed** (decided 2026-10-15: every store's free
-   address is `{slug}.<SHOP_DOMAIN>` on our own zone, LIVE-SHOP §6). Removing it takes out the
-   jobs and code below, deletes every registered `{code}.shops.` hostname from Cloudflare, and
-   deletes the partners' `shops` rows; until then it works as built. Wildcard custom hostnames need Enterprise, so the
-   partner's shops address is only its wildcard DNS record, and each store's
-   `{code}.shops.<partnerdomain>` is registered as its own custom hostname
-   (`saas/domains/storeHosts.ts`, `jobs/queues/deliverers/storeHost.ts`). Its state is
-   Cloudflare's and is kept nowhere of ours. `store_host.sync` (one store) registers the host,
-   through the same `registerHostname`, while the store is open and its partner's shops address
-   is live, and does nothing otherwise; once the store is closed (`transitionStore`) the same job
-   takes the host out. When the shops address goes live, `domain.recheck` queues
-   `store_hosts.register`, which pages through the partner's open stores 100 at a time by code
-   and queues a sync for each, keyed by the address, so a retried page queues none twice. Each
-   time the address goes live starts its own pages, so a store made while it was broken is
-   reached too, and every store already queued is skipped. Removing the shops address queues `store_hosts.remove`, which pages
-   through all the partner's stores, closed ones included, and queues `domain.remove` for each
-   host; `domain.remove` leaves a host an open store holds again because the address was added back.
-   Cloudflare being down rethrows, so the outbox retries; a refusal is recorded as
-   `store.shops_host_refused` (visibility `partner`) and the technical log
-   `store_host.refused`, and is not retried. A store closed or an address removed while its host
-   was being registered is taken back out. With no Cloudflare token configured,
-   `store_host.sync` waits in the outbox, as `domain.remove` does. Stores made before #519 are queued once by
-   migration 0220, with the fan-out's keys, so it registers nothing twice. Hostnames past the
-   first 100 are billed (Verify before building, below), which is why a closed store's goes.
-   *Decided here (#519): the partner console's Create store queues the registration as signup
-   does, since both make a store (§5); a closed store's host and every host of a removed address
-   go, a cancelled or suspended store's stay; the backfill is a migration, so it runs once in
-   each environment with the deploy, before the relay that delivers it is promoted.*
+   **Each store's shops host (#519), removed on #745** (decided 2026-10-15: every store's free
+   address is `{slug}.<SHOP_DOMAIN>` on our own zone, LIVE-SHOP §6). The `store_host.sync` and
+   `store_hosts.register` and `store_hosts.remove` jobs, `saas/domains/storeHosts.ts`, the
+   `storeHost` deliverer and the `store.shops_host_refused` and `store_host.refused` records are
+   gone, and migration 0355 queued `domain.remove` for each registered `{code}.shops.` hostname and
+   deleted the partners' `shops` rows. **Deploy window**: between the migration and the promote, the
+   old build answers `{code}.shops.` hosts with 404, so promote straight after. `shops.edge.<EDGE_ZONE>`
+   stays, only as the CNAME target of merchant custom domains.
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
    **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check
@@ -663,9 +638,15 @@ failed; a live hostname can become expiring or broken if its records change.
    (partner), never on the store row.
 6. **A store's free address and preview host are none of these**: `{slug}.<SHOP_DOMAIN>` and
    `{slug}-preview.<SHOP_DOMAIN>` are on our own zone with no custom hostname, and the edge
-   Worker and the Shop API find the store by `store.slug` (decided 2026-10-15,
-   [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §6, [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2;
-   built on #518 for the preview, by `storefront.preview_key`, which the slug replaces).
+   Worker and the Shop API find the store by `store.slug` (#744,
+   [../storefront/LIVE-SHOP.md](../storefront/LIVE-SHOP.md) §6, [../storefront/PREVIEW.md](../storefront/PREVIEW.md) §2).
+   `SHOP_DOMAIN` replaces `PREVIEW_DOMAIN`: `my-store.one` in prod, `my-shop.dev` in dev,
+   `my-store.localhost` locally. `storefront.preview_key` is read for a while longer (#746 drops it).
+   **By hand, once per zone:** dev, zone `my-shop.dev` in the DripFunnel-Dev account, a proxied
+   `*.my-shop.dev` record, and the route `*.my-shop.dev/*` on the dev store-proxy; prod, zone
+   `my-store.one` in the main account, a proxied `*.my-store.one` record and the route
+   `*.my-store.one/*` on the prod store-proxy (the prod environment is #428's). Each zone's Logpush
+   leaves out the request path and query (LOGGING §9).
 
 A merchant's custom domain is an entitlement (§6). Until one is connected the live site is at
 `{slug}.my-store.one`.
@@ -684,7 +665,7 @@ API) and #468 (registration through Cloudflare for SaaS).
 and the TXT `_df-verify.<host>`; *Check now* queues `custom_domain.recheck` at most once a minute (`TOO_SOON`), and
 connecting queues the first. Refused: a plan without `custom_domain` (`PLAN_LIMIT`), a domain while one waits
 (`DOMAIN_PENDING`) or once one is connected (`DOMAIN_LIMIT`), DripFunnel's names and `EDGE_ZONE`
-(`DRIPFUNNEL_DOMAIN`; names under `SHOP_DOMAIN` join them, decided 2026-10-15), another store's domain or a partner's address or a name under one, a store's free address
+(`DRIPFUNNEL_DOMAIN`; names under `SHOP_DOMAIN` join them, #744), another store's domain or a partner's address or a name under one, a store's free address
 included (`DOMAIN_TAKEN`), and a bare domain (`APEX_NOT_AVAILABLE`, suggesting `www.`). The primary address is the
 store's own domain once made so while live or expiring, else its free address; the edge Worker redirects every other
 address of the store to it with a 301 keeping the path and query (`/shop-api/*` excepted), canonical links and the

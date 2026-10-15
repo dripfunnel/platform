@@ -20,7 +20,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 let db: TestDatabase
 let t: Tenants
 const stores = { india: '', other: '' }
-const hostOf = { india: 'jaipur.shops.acme.example', other: 'surat.shops.acme.example' }
+const hostOf = { india: 'jaipur.shop.example', other: 'surat.shop.example' }
 let kurta = ''
 let ownerCookie = ''
 let managerCookie = ''
@@ -33,7 +33,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update partner set state = 'live' where id = ${t.partnerA}`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   stores.india = await store('Jaipur', 'jaipur')
   stores.other = await store('Surat', 'surat')
   const [p] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug, visibility) values (${stores.india}, 'Kurta', 'kurta', 'visible') returning id`
@@ -55,7 +54,7 @@ afterAll(async () => {
 const gql = async (source: string, who: { host?: string; session?: string; cart?: string; codeCheck?: '0' } = {}) => {
   const host = who.host ?? hostOf.india
   const headers: Record<string, string> = { ...(who.session ? { 'x-shop-session': who.session } : {}), ...(who.cart ? { 'x-shop-cart': who.cart } : {}) }
-  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
+  const found = await resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host, 'shop.example')
   if (found.kind !== 'found') throw new Error('no store')
   const contextValue: ShopContext = { sql: db.sql, shopper: found.shopper, origin: `https://${host}`, activity: activityLog, facts: { requestId: 'r', ip: '203.0.113.7', userAgent: null }, allowAttempt: async (key) => (limiterKeys.push(key), allow), sessionToken: who.session ?? null, allowNewCart: async () => true, codeCheck: who.codeCheck, now }
   const result = await graphql({ schema: shopSchema as GraphQLSchema, source, contextValue })
@@ -77,7 +76,7 @@ const textedCode = async (to: string) => {
 }
 const emailedCode = async () => {
   const [row] = await db.sql<{ payload: unknown; partner_id: string }[]>`select payload, partner_id from outbox where kind = 'email' and payload->>'template' = 'shopper-code' order by created_at desc limit 1`
-  const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: row?.payload, partnerId: row?.partner_id ?? null }, { adminHost: 'a', platformHost: 'p' }, new Date()))
+  const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: row?.payload, partnerId: row?.partner_id ?? null }, { adminHost: 'a', platformHost: 'p', shopDomain: 'shop.example' }, new Date()))
   if (!prepared.send) throw new Error(`no email: ${prepared.reason}`)
   return /\b(\d{6})\b/.exec(prepared.content.paragraphs.join(' '))?.[1] ?? ''
 }
@@ -328,7 +327,7 @@ describe('refused codes and the code email', () => {
     await gql('mutation { requestSignInCode(channel: EMAIL, to: "neha@example.com") }')
     const [row] = await db.sql<{ payload: Record<string, unknown>; partner_id: string }[]>`select payload, partner_id from outbox where kind = 'email' and payload->>'template' = 'shopper-code' order by created_at desc limit 1`
     expect(Object.keys(row?.payload ?? {}).sort()).toEqual(['customerCodeId', 'template'])
-    const prepare = (partnerId: string | null) => withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: row?.payload, partnerId }, { adminHost: 'a', platformHost: 'p' }, new Date()))
+    const prepare = (partnerId: string | null) => withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: row?.payload, partnerId }, { adminHost: 'a', platformHost: 'p', shopDomain: 'shop.example' }, new Date()))
     expect(await prepare(t.partnerB)).toEqual({ send: false, reason: 'tenant_mismatch' })
     const sent = await prepare(row?.partner_id ?? null)
     expect(sent.send && sent.to).toEqual(['neha@example.com'])

@@ -29,7 +29,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > the partner console shows instead: nothing, or a counterpart scoped to that partner's own
 > merchants, with Admin-only controls left out.
 >
-> Last updated: 2026-10-15 (with Gaurav: no shop wildcard; every store's free addresses on `my-store.one`; not built yet). Before: 2026-10-11 (#518: no preview address in either console). Before: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
+> Last updated: 2026-10-15 (#744, #745: every store's free addresses on `my-store.one`; no shop wildcard, built). Before: 2026-10-11 (#518: no preview address in either console). Before: 2026-10-09 (previews off the partner domain; fleet parts for AI-written themes on #470).
 
 ---
 
@@ -74,7 +74,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > - **Addresses**: the portal host (e.g. `store.northstarcommerce.com`), the email sender
 >   domain. Every store is at `{slug}.my-store.one` and its preview at
 >   `{slug}-preview.my-store.one`, on DripFunnel's own domain, not the partner's (decided
->   2026-10-15, USERS-AND-DOMAINS §2; not built yet, the shop wildcard goes on #745); neither
+>   2026-10-15, USERS-AND-DOMAINS §2; built on #744 and #745); neither
 >   console shows a store's preview address (removed on #518).
 > - **Messages**: emails (verification, invitations, billing receipts, alerts), legal pages,
 >   and support contacts.

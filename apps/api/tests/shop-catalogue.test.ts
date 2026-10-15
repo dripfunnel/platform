@@ -28,9 +28,6 @@ beforeAll(async () => {
   t = await seedTenants(db.sql)
   await db.sql`update store set pricing_currency = 'INR', country = 'IN', status = 'active' where id in (${t.storeA1}, ${t.storeA2}, ${t.storeB1})`
   await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values
-    (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x'),
-    (${t.partnerB}, 'shops', '*.shops.bolt.example', 'waiting', 'CNAME', 'x')`
   await db.sql`insert into custom_domain (store_id, host, status, expected_cname, ownership_token) values (${t.storeA2}, 'www.a2-shop.example', 'live', 'x', 'y')`
   for (const [k, id] of [['a1', t.storeA1], ['a2', t.storeA2], ['b1', t.storeB1]] as const) {
     keys[k] = (await db.sql<{ k: string }[]>`select public_store_key as k from storefront where store_id = ${id}`)[0]?.k ?? ''
@@ -65,7 +62,7 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const resolve = (host: string, headers: Record<string, string> = {}) => resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host)
+const resolve = (host: string, headers: Record<string, string> = {}) => resolveShopper(db.sql, new Request(`https://${host}/shop-api`, { headers }), host, 'shop.example')
 const shopperOn = async (host: string, headers: Record<string, string> = {}): Promise<Shopper> => {
   const found = await resolve(host, headers)
   if (found.kind !== 'found') throw new Error(`no store on ${host}`)
@@ -81,16 +78,16 @@ const asShopper = (storeId: string, partnerId = t.partnerA): TenantContext => ({
 
 describe('finding the store', () => {
   it('takes it from the storefront’s host: its code under the partner’s shops wildcard, or its live domain', async () => {
-    expect((await shopperOn('store-a1.shops.acme.example')).context.storeId).toBe(t.storeA1)
-    expect((await shopperOn('STORE-A1.shops.acme.example')).context.storeId).toBe(t.storeA1)
-    expect((await shopperOn('store-a2.shops.acme.example')).context.storeId).toBe(t.storeA2)
+    expect((await shopperOn('store-a1.shop.example')).context.storeId).toBe(t.storeA1)
+    expect((await shopperOn('STORE-A1.shop.example')).context.storeId).toBe(t.storeA1)
+    expect((await shopperOn('store-a2.shop.example')).context.storeId).toBe(t.storeA2)
     expect((await shopperOn('www.a2-shop.example')).context.storeId).toBe(t.storeA2)
   })
 
   it('never serves store X on store Y’s host: a key naming another store is refused, not followed', async () => {
-    expect(await resolve('store-a2.shops.acme.example', { 'x-shop-key': keys.a1 })).toEqual({ kind: 'key-mismatch' })
+    expect(await resolve('store-a2.shop.example', { 'x-shop-key': keys.a1 })).toEqual({ kind: 'key-mismatch' })
     expect(await resolve('www.a2-shop.example', { 'x-shop-key': 'pk_' + '0'.repeat(32) })).toEqual({ kind: 'key-mismatch' })
-    expect((await shopperOn('store-a2.shops.acme.example', { 'x-shop-key': keys.a2 })).context.storeId).toBe(t.storeA2)
+    expect((await shopperOn('store-a2.shop.example', { 'x-shop-key': keys.a2 })).context.storeId).toBe(t.storeA2)
   })
 
   it('takes it from the public key alone on a host no storefront holds', async () => {
@@ -101,50 +98,55 @@ describe('finding the store', () => {
     await db.sql`update partner set state = 'closed' where id in (${t.partnerA}, ${t.partnerB})`
     expect(await resolve('api.example', { 'x-shop-key': keys.b1 })).toEqual({ kind: 'unknown' })
     expect(await resolve('www.a2-shop.example')).toEqual({ kind: 'unknown' })
-    expect(await resolve('store-a1.shops.acme.example')).toEqual({ kind: 'unknown' })
+    expect(await resolve('store-a1.shop.example')).toEqual({ kind: 'unknown' })
     await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
     expect((await shopperOn('www.a2-shop.example')).context.storeId).toBe(t.storeA2)
   })
 
-  it('knows no store on another partner’s wildcard, a wildcard not yet checked, or a code no store has', async () => {
-    expect(await resolve('store-b1.shops.acme.example')).toEqual({ kind: 'unknown' })
-    expect(await resolve('store-b1.shops.bolt.example')).toEqual({ kind: 'unknown' })
-    expect(await resolve('nobody.shops.acme.example')).toEqual({ kind: 'unknown' })
+  it('knows no store on a slug no store has, a nested name, a retired partner shops host or a bare domain', async () => {
+    expect(await resolve('nobody.shop.example')).toEqual({ kind: 'unknown' })
+    expect(await resolve('x.store-a1.shop.example')).toEqual({ kind: 'unknown' })
+    expect(await resolve('store-a1.shops.acme.example')).toEqual({ kind: 'unknown' })
     expect(await resolve('shops.acme.example')).toEqual({ kind: 'unknown' })
   })
 
+  it('finds each partner’s store on its own slug and never on another’s', async () => {
+    expect((await shopperOn('store-b1.shop.example')).context.storeId).toBe(t.storeB1)
+    expect(await resolve('store-b1.shop.example', { 'x-shop-key': keys.a1 })).toEqual({ kind: 'key-mismatch' })
+  })
+
   it('reads in a language and currency the store offers, falling back to its own for any other', async () => {
-    expect(await shopperOn('store-a1.shops.acme.example', { 'x-shop-language': 'hi-IN', 'x-shop-currency': 'usd' })).toMatchObject({ language: 'hi-IN', currency: 'INR', marketId: null })
-    expect(await shopperOn('store-a1.shops.acme.example', { 'x-shop-language': 'fr-FR' })).toMatchObject({ language: 'en-US' })
+    expect(await shopperOn('store-a1.shop.example', { 'x-shop-language': 'hi-IN', 'x-shop-currency': 'usd' })).toMatchObject({ language: 'hi-IN', currency: 'INR', marketId: null })
+    expect(await shopperOn('store-a1.shop.example', { 'x-shop-language': 'fr-FR' })).toMatchObject({ language: 'en-US' })
   })
 
   it('answers a suspended store’s catalogue as unavailable, while a past-due one keeps selling', async () => {
     await db.sql`update store set status = 'suspended', suspended_at = now(), suspended_reason = 'unpaid', suspended_previous_status = 'active' where id = ${t.storeA2}`
-    expect((await gql('store-a2.shops.acme.example', '{ store { name } }')).code).toBe('STORE_UNAVAILABLE')
+    expect((await gql('store-a2.shop.example', '{ store { name } }')).code).toBe('STORE_UNAVAILABLE')
     await db.sql`update store set status = 'past_due', suspended_at = null, suspended_reason = null, suspended_previous_status = null where id = ${t.storeA2}`
-    expect((await gql('store-a2.shops.acme.example', '{ store { name } }')).data?.['store']).toEqual({ name: 'Store A2' })
+    expect((await gql('store-a2.shop.example', '{ store { name } }')).data?.['store']).toEqual({ name: 'Store A2' })
     await db.sql`update store set status = 'active' where id = ${t.storeA2}`
   })
 })
 
 describe('the catalogue a shopper reads', () => {
   it('shows the store’s public facts, never another store’s', async () => {
-    const { data } = await gql('store-a1.shops.acme.example', '{ store { name pricingCurrency mainLanguage languages currencies { code } markets { name primary currency } language currency } }')
+    const { data } = await gql('store-a1.shop.example', '{ store { name pricingCurrency mainLanguage languages currencies { code } markets { name primary currency } language currency } }')
     expect(data?.['store']).toEqual({ name: 'Store A1', pricingCurrency: 'INR', mainLanguage: 'en-US', languages: ['en-US', 'hi-IN'], currencies: [], markets: [{ name: 'Home', primary: true, currency: 'INR' }], language: 'en-US', currency: 'INR' })
   })
 
   it('lists visible collections a page at a time, at most 50, and finds one by its web address in the shopper’s language', async () => {
-    const list = await gql('store-a1.shops.acme.example', '{ collections(first: 500) { nodes { name slug } pageInfo { hasNextPage } } }')
+    const list = await gql('store-a1.shop.example', '{ collections(first: 500) { nodes { name slug } pageInfo { hasNextPage } } }')
     expect(list.data?.['collections']).toEqual({ nodes: [{ name: 'Shirts', slug: 'shirts' }], pageInfo: { hasNextPage: false } })
-    expect((await gql('store-a1.shops.acme.example', '{ collections(after: "nope") { nodes { id } } }')).code).toBe('INVALID_CURSOR')
+    expect((await gql('store-a1.shop.example', '{ collections(after: "nope") { nodes { id } } }')).code).toBe('INVALID_CURSOR')
     const hindi = { 'x-shop-language': 'hi-IN' }
-    expect((await gql('store-a1.shops.acme.example', '{ collection(slug: "kameez") { name slug } }', hindi)).data?.['collection']).toEqual({ name: 'कमीज़', slug: 'kameez' })
-    expect((await gql('store-a1.shops.acme.example', '{ collection(slug: "shirts") { name } }', hindi)).data?.['collection']).toEqual({ name: 'कमीज़' })
-    expect((await gql('store-a1.shops.acme.example', '{ collection(slug: "secret") { name } }')).data?.['collection']).toBeNull()
+    expect((await gql('store-a1.shop.example', '{ collection(slug: "kameez") { name slug } }', hindi)).data?.['collection']).toEqual({ name: 'कमीज़', slug: 'kameez' })
+    expect((await gql('store-a1.shop.example', '{ collection(slug: "shirts") { name } }', hindi)).data?.['collection']).toEqual({ name: 'कमीज़' })
+    expect((await gql('store-a1.shop.example', '{ collection(slug: "secret") { name } }')).data?.['collection']).toBeNull()
   })
 
   it('builds the menu, leaving out a link to a hidden collection with everything under it', async () => {
-    const { data } = await gql('store-a1.shops.acme.example', '{ menu { label kind collectionSlug children { label kind url } } }', { 'x-shop-language': 'hi-IN' })
+    const { data } = await gql('store-a1.shop.example', '{ menu { label kind collectionSlug children { label kind url } } }', { 'x-shop-language': 'hi-IN' })
     expect(data?.['menu']).toEqual([{ label: 'Shirts', kind: 'collection', collectionSlug: 'kameez', children: [{ label: 'About', kind: 'page', url: '/about' }] }])
   })
 
@@ -152,7 +154,7 @@ describe('the catalogue a shopper reads', () => {
     const [menu] = await db.sql<{ id: string }[]>`select id from menu where store_id = ${t.storeA1} and key = 'main'`
     await db.sql`insert into menu_item (menu_id, store_id, label, kind, url, position) select ${menu?.id ?? ''}, ${t.storeA1}, 'Page ' || n, 'page', '/p' || n, 10 + n from generate_series(1, 305) n`
     try {
-      const { data } = await gql('store-a1.shops.acme.example', '{ menu { label children { label } } }')
+      const { data } = await gql('store-a1.shop.example', '{ menu { label children { label } } }')
       const served = (data?.['menu'] as { children: unknown[] }[]).reduce((sum, item) => sum + 1 + item.children.length, 0)
       expect(served).toBeLessThanOrEqual(300)
     } finally {
@@ -239,7 +241,7 @@ describe('isolation (DATA-MODEL §7.11)', () => {
   })
 
   it('gives a store converting prices a new version when the reference rate is republished, and only such a store', async () => {
-    const seen = async () => (await shopperOn('store-a1.shops.acme.example')).catalogVersion
+    const seen = async () => (await shopperOn('store-a1.shop.example')).catalogVersion
     const plain = await seen()
     await db.sql`insert into exchange_rate (currency, per_euro, source, published_on, fetched_at) values ('USD', '1.08', 'ecb', '2026-10-06', now()) on conflict (currency) do update set published_on = '2026-10-06'`
     expect(await seen()).toBe(plain)

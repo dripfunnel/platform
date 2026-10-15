@@ -18,6 +18,7 @@ const publishingFor = (ctx: StoreContext) => {
     activity: ctx.activity,
     facts: ctx.facts,
     studio: ctx.studio?.(caller.context) ?? null,
+    shopDomain: ctx.domains?.shopDomain ?? null,
     now: ctx.now,
   })
 }

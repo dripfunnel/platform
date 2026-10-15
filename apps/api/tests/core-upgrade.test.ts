@@ -36,7 +36,7 @@ const publishDeps = (): PublishDeps => ({
   sites,
   assets,
   drafts,
-  assetOrigin: null,
+  assetOrigin: null, shopDomain: 'shop.example',
   dispatch: async (_repo, buildId) => {
     dispatched.push(buildId)
     return true
@@ -138,7 +138,6 @@ beforeAll(async () => {
   db = await createTestDatabase()
   t = await seedTenants(db.sql)
   await db.sql`update store set status = 'active' where id in (${t.storeA1}, ${t.storeA2})`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x')`
   await db.sql`update storefront set repo = 'sf-u1u1u1u1u1', repo_id = 9301 where store_id = ${t.storeA1}`
   await db.sql`update storefront set repo = 'sf-u2u2u2u2u2', repo_id = 9302 where store_id = ${t.storeA2}`
   await db.sql`update store set status = 'closed', closed_at = now() where id = ${t.storeB1}`
@@ -304,7 +303,7 @@ describe('a forced security fix', () => {
     const [owner] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'owner.baseline@example.com', 'Owner', 'active') returning id`
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner?.id ?? ''}, ${t.storeA1}, 'owner', 'active')`
     const [email] = await db.sql<{ payload: unknown; partner_id: string | null }[]>`select payload, partner_id from outbox where kind = 'email' and store_id = ${t.storeA1}`
-    const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: email?.payload, partnerId: email?.partner_id ?? null, storeId: t.storeA1 }, { adminHost: 'admin.localhost', platformHost: 'platform.localhost' }, new Date()))
+    const prepared = await withSystemScope(db.sql, (tx) => prepareEmail(tx, { payload: email?.payload, partnerId: email?.partner_id ?? null, storeId: t.storeA1 }, { adminHost: 'admin.localhost', platformHost: 'platform.localhost', shopDomain: 'shop.example' }, new Date()))
     expect(prepared.send ? prepared.content.subject : prepared.reason).toMatch(/simpler design/)
   })
 

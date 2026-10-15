@@ -39,17 +39,19 @@ describe('store proxy', () => {
   })
 
   it('checks its configuration: a preview domain apart from our zone, a 32-byte key, and the edge with its bucket', () => {
-    const fine = { ...env, PREVIEW_DOMAIN: 'webpreview.store', PREVIEW_SESSION_KEY: `${'A'.repeat(43)}=` }
+    const fine = { ...env, SHOP_DOMAIN: 'my-store.one', PREVIEW_SESSION_KEY: `${'A'.repeat(43)}=` }
     expect(configProblem(fine)).toBeNull()
-    expect(configProblem({ ...fine, PREVIEW_DOMAIN: 'preview.dripfunnel.ai' })).toBe('PREVIEW_DOMAIN')
+    expect(configProblem({ ...fine, SHOP_DOMAIN: 'preview.dripfunnel.ai' })).toBe('SHOP_DOMAIN')
     expect(configProblem({ ...fine, PREVIEW_SESSION_KEY: 'short' })).toBe('PREVIEW_SESSION_KEY')
     expect(configProblem({ ...fine, SITES: {} as R2Bucket })).toBe('EDGE')
   })
 
   it('takes a preview key only from one label of the preview domain', () => {
-    expect(previewKeyOf('abcdefghij.webpreview.store', 'webpreview.store')).toBe('abcdefghij')
-    expect(previewKeyOf('x.abcdefghij.webpreview.store', 'webpreview.store')).toBeNull()
-    expect(previewKeyOf('abcdefghij.webpreview.store.evil.example', 'webpreview.store')).toBeNull()
-    expect(previewKeyOf('abcdefghij.webpreview.store', undefined)).toBeNull()
+    expect(previewKeyOf('acme-preview.my-store.one', 'my-store.one')).toBe('acme')
+    expect(previewKeyOf('x.acme-preview.my-store.one', 'my-store.one')).toBeNull()
+    expect(previewKeyOf('acme-preview.my-store.one.evil.example', 'my-store.one')).toBeNull()
+    expect(previewKeyOf('acme-preview.my-store.one', undefined)).toBeNull()
+    expect(previewKeyOf('acme.my-store.one', 'my-store.one')).toBeNull()
+    expect(previewKeyOf('-preview.my-store.one', 'my-store.one')).toBeNull()
   })
 })

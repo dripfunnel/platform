@@ -28,6 +28,7 @@ const studioFor = (ctx: StoreContext) => {
     lookup: ctx.lookup ?? null,
     readAsset: design?.readAsset ?? null,
     previewDomain: ctx.preview?.domain ?? null,
+    shopDomain: ctx.domains?.shopDomain ?? null,
     now: ctx.now,
   })
 }
@@ -43,7 +44,7 @@ export const registerStudio = (builder: StoreBuilder) => {
       place: t.int({ nullable: true, resolve: (s) => (s.state === 'queued' ? s.place : null) }),
       // The studio-session id the frame's path carries; renewed with renewStudioSession.
       session: t.exposeString('session'),
-      // https://{key}.<PREVIEW_DOMAIN>/__studio/{session}/, never the portal host.
+      // https://{slug}-preview.<SHOP_DOMAIN>/__studio/{session}/, never the portal host.
       frameUrl: t.exposeString('frameUrl'),
       // change (the Owner) or view (a Manager).
       access: t.exposeString('access'),

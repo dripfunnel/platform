@@ -28,7 +28,7 @@ const owner = () => callerOf(ids.ns, 'partner-owner')
 type Result = { ok: boolean; reason: string | null; trialEndsAt?: string | null; overrideId?: string | null; proration?: { kind: string; amount: number | null; currency: string } | null }
 
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
-  const deps = { sql: db.sql, caller, facts, activity: activityLog, now: () => now }
+  const deps = { sql: db.sql, caller, facts, activity: activityLog, shopDomain: 'shop.example', now: () => now }
   const contextValue = { caller, console: null, plans: null, branding: null, stores: createPartnerStoresService(deps), storeActions: createPartnerStoreActions(deps) }
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   const error = result.errors?.[0]

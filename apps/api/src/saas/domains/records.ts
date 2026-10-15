@@ -16,7 +16,7 @@ const twoLevelSuffixes = ['co.uk', 'org.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz
 
 export const registrableLabels = (host: string): number => (twoLevelSuffixes.includes(host.split('.').slice(-2).join('.')) ? 3 : 2)
 
-const senderKindOrder = ['portal', 'shops', 'email']
+const senderKindOrder = ['portal', 'email']
 
 /**
  * The label of the partner's fallback sender, `no-reply@<label>.<sender domain>` (SAAS §3.6):
@@ -29,7 +29,7 @@ export const senderLabel = (domains: readonly { kind: string; host: string }[]):
   return bare.split('.').at(-registrableLabels(bare)) ?? null
 }
 
-/** Where a host's DNS is managed: "store.northstar.co.uk" and "*.shops.northstar.co.uk" → "northstar.co.uk". */
+/** Where a host's DNS is managed: "store.northstar.co.uk" → "northstar.co.uk". */
 export const zoneOf = (host: string): string => {
   const bare = host.replace(/^\*\./, '')
   return bare.split('.').slice(-registrableLabels(bare)).join('.')
@@ -78,8 +78,6 @@ export const recordsFor = (kind: DomainKind, host: string, apex: boolean, edgeZo
     case 'portal':
       if (!apex) return [{ purpose: 'pointer', recordType: 'CNAME', name: host, expected: targets.portal }]
       return apexAddress === null ? null : [{ purpose: 'pointer', recordType: 'A', name: host, expected: apexAddress }]
-    case 'shops':
-      return [{ purpose: 'pointer', recordType: 'CNAME', name: nameToResolve(host), expected: targets.shops }]
     case 'email':
       return [
         { purpose: 'spf', recordType: 'TXT', name: host, expected: emailRecords.spf },

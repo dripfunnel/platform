@@ -47,10 +47,10 @@ const openFor = async (host: string) => {
 }
 
 describe('Remove on the Domains screen', () => {
-  it.each(['partner-owner', 'partner-admin'])('shows %s a Remove on each of the three cards', (role) => {
+  it.each(['partner-owner', 'partner-admin'])('shows %s a Remove on each of the two cards', (role) => {
     state.role = role
     render(<DomainsScreen />)
-    expect(removeButtons()).toHaveLength(3)
+    expect(removeButtons()).toHaveLength(2)
   })
 
   it.each(['partner-support', 'partner-finance', 'partner-read-only'])('shows %s no Remove', (role) => {
@@ -67,7 +67,6 @@ describe('Remove on the Domains screen', () => {
 
   it.each([
     ['portal', 'store.northstar.com', 'Merchants can no longer sign in at store.northstar.com. Their stores keep working.'],
-    ['shops', '*.shops.northstar.com', 'Shops stop answering at this address until you add another.'],
     ['email', 'mail.northstar.com', 'Emails go from no-reply@northstar.dripfunnel-mail.com until you add another sender.'],
   ])('asks before removing the %s address, naming what stops', async (_kind, host, consequence) => {
     render(<DomainsScreen />)
@@ -81,12 +80,12 @@ describe('Remove on the Domains screen', () => {
     let finish: (r: { ok: true }) => void = () => undefined
     remove.mockReturnValue(new Promise((resolve) => (finish = resolve)))
     render(<DomainsScreen />)
-    const { user, dialog } = await openFor('*.shops.northstar.com')
+    const { user, dialog } = await openFor('store.northstar.com')
     await user.click(within(dialog).getByRole('button', { name: words.confirm }))
-    expect(remove).toHaveBeenCalledWith('shops')
+    expect(remove).toHaveBeenCalledWith('portal')
     expect((within(dialog).getByRole('button', { name: words.confirm }) as HTMLButtonElement).disabled).toBe(true)
     finish({ ok: true })
-    await waitFor(() => expect(screen.getByText('*.shops.northstar.com removed')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('store.northstar.com removed')).toBeTruthy())
     expect(dialog.hasAttribute('open')).toBe(false)
     expect(state.invalidate).toHaveBeenCalled()
   })

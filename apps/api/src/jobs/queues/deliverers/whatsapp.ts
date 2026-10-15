@@ -13,7 +13,7 @@ import { GiveUp, type Deliverer } from '../outbox-relay'
 // takes no idempotency key, so a crash after it accepts and before the row is marked can send twice, as a text can.
 
 /** `suppressionKey`: EMAIL_SUPPRESSION_KEY, for a reminder that falls back to email. */
-export const whatsappDeliverer = (sql: postgres.Sql, accounts: PartnerWhatsAppAccounts, sender: (credentials: Msg91WhatsAppCredentials) => WhatsAppSender, suppressionKey: string, now: () => Date = () => new Date()): Deliverer => ({
+export const whatsappDeliverer = (sql: postgres.Sql, accounts: PartnerWhatsAppAccounts, sender: (credentials: Msg91WhatsAppCredentials) => WhatsAppSender, suppressionKey: string, shopDomain: string | null, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect, signal) => {
     const log = (event: string, code: string) => logEvent({ event, api: 'system', partnerId: effect.partnerId, storeId: effect.storeId, code })
     const parsed = whatsappPayloadSchema.safeParse(effect.payload)
@@ -27,7 +27,7 @@ export const whatsappDeliverer = (sql: postgres.Sql, accounts: PartnerWhatsAppAc
       await withSystemScope(sql, async (tx) => {
         const account = await accounts.forPartner(tx, partnerId)
         // Decided for WhatsApp while it could go (cart.remind); its account, template or number gone since, it may go by email.
-        const prepared = account ? await prepareWhatsAppReminder(tx, reminderId, { partnerId, storeId: effect.storeId }, account, now()) : null
+        const prepared = account ? await prepareWhatsAppReminder(tx, reminderId, { partnerId, storeId: effect.storeId }, account, shopDomain, now()) : null
         if (!account || !prepared?.send) {
           const reason = prepared && !prepared.send ? prepared.reason : 'no_account'
           const fallsBack = reason === 'no_account' || reason === 'no_template' || reason === 'no_recipient'

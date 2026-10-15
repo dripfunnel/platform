@@ -27,7 +27,7 @@ const contextFor = (staff: StaffMember | null): AdminContext => {
     isAssigned: assigned,
     staffActivity: null,
     partners: null,
-    stores: staff ? createStoresService({ sql: db.sql, staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
+    stores: staff ? createStoresService({ sql: db.sql, staff, facts: factsOf(request), activity: activityLog, shopDomain: 'shop.example', isAssigned: assigned, now: () => now }) : null,
     provisioning: null,
     staffSessions: null,
     customers: null,
@@ -185,7 +185,7 @@ describe('store(id) (§5.2, §5.3)', () => {
     expect(s?.['site']).not.toHaveProperty('previewHost')
     // A custom domain still waiting is shown with its status, and the live link is the default address.
     const maple = (await run<Detail>(detail, as('staff-super-admin'), { id: await storeIdOf('Maple & Pine Home') })).data?.store
-    expect(maple?.['site']).toMatchObject({ liveHost: 'maple-pine.shops.northstar.example' })
+    expect(maple?.['site']).toMatchObject({ liveHost: 'maple-pine.shop.example' })
     expect((await run<{ store: { domain: { host: string; custom: boolean; status: string } } }>(`query($id: ID!) { store(id: $id) { domain { host custom status } } }`, as('staff-super-admin'), { id: await storeIdOf('Maple & Pine Home') })).data?.store.domain).toEqual({ host: 'shop.mapleandpine.example', custom: true, status: 'waiting' })
     expect((await run<Detail>(detail, as('staff-super-admin'), { id: 'not-an-id' })).data?.store).toBeNull()
     expect((s?.['records'] as { kind: string; record: string | null }[]).map((r) => [r.kind, r.record])).toEqual([['custom', 'CNAME'], ['ownership', 'TXT']])
@@ -384,7 +384,7 @@ describe('the service enforces the assignment itself (ACCESS.md §5.4)', () => {
       staff: as('staff-partner-manager'),
       facts: factsOf(request),
       activity: activityLog,
-      isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
+      shopDomain: 'shop.example', isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
       now: () => now,
     })
     expect(await service.get(harbor)).toBeNull()

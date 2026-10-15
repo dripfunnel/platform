@@ -13,7 +13,7 @@ import { looksLikeEmail } from '@dripfunnel/shared/format'
 const words = messages.auth
 const su = words.signup
 
-type View = { kind: 'account' } | { kind: 'email' } | { kind: 'store'; countries: Country[] } | { kind: 'phone'; hint: string | null } | { kind: 'building'; enrol: boolean }
+type View = { kind: 'account' } | { kind: 'email' } | { kind: 'store'; countries: Country[]; shopDomain: string | null } | { kind: 'phone'; hint: string | null } | { kind: 'building'; enrol: boolean }
 
 
 const forcedStart = (state: SignUpState): { view: View; error: string | null } => {
@@ -21,9 +21,9 @@ const forcedStart = (state: SignUpState): { view: View; error: string | null } =
     case 'email':
       return { view: { kind: 'email' }, error: null }
     case 'store':
-      return { view: { kind: 'store', countries: [...sampleCountries] }, error: null }
+      return { view: { kind: 'store', countries: [...sampleCountries], shopDomain: 'my-store.one' }, error: null }
     case 'taken':
-      return { view: { kind: 'store', countries: [...sampleCountries] }, error: signupText({ ok: false, code: 'SUBDOMAIN_TAKEN', suggestions: [...sampleSuggestions] }) }
+      return { view: { kind: 'store', countries: [...sampleCountries], shopDomain: 'my-store.one' }, error: signupText({ ok: false, code: 'SUBDOMAIN_TAKEN', suggestions: [...sampleSuggestions] }) }
     case 'phone':
       return { view: { kind: 'phone', hint: null }, error: null }
     case 'phoneCode':
@@ -98,7 +98,7 @@ export const SignUp = () => {
           const answer = await verifySignupEmail(code)
           if (isRefusal(answer)) return refused(answer)
           setCountry(answer.countries[0]?.code ?? '')
-          return go({ kind: 'store', countries: answer.countries })
+          return go({ kind: 'store', countries: answer.countries, shopDomain: answer.shopDomain ?? null })
         }
         if (view.kind === 'store') {
           const sub = subdomain || subdomainFrom(store)
@@ -155,7 +155,7 @@ export const SignUp = () => {
         <AuthFrame panel="up" step={2} title={su.su3.title} sub={su.su3.sub} notice={notice}>
           <form className="df-portal-auth-form" onSubmit={submit} noValidate>
             <Field label={su.su3.store} placeholder={su.su3.storePlaceholder} value={store} onValue={(v) => (setStore(v), subTouched ? undefined : setSubdomain(subdomainFrom(v)))} help={su.su3.storeHelp} />
-            <Field label={su.su3.sub2} placeholder={su.su3.subPlaceholder} value={subdomain} onValue={(v) => (setSubTouched(true), setSubdomain(v.toLowerCase()))} help={su.su3.subHelp} />
+            <Field label={su.su3.sub2} placeholder={su.su3.subPlaceholder} value={subdomain} onValue={(v) => (setSubTouched(true), setSubdomain(v.toLowerCase()))} help={view.shopDomain && subdomain ? fill(su.su3.subHelp, { address: `${subdomain}.${view.shopDomain}` }) : su.su3.subHelpNone} />
             <div className="df-auth-field">
               <label className="df-auth-label" htmlFor="signup-country">
                 {su.su3.country}

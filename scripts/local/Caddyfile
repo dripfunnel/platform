@@ -25,7 +25,7 @@ https:// {
 		on_demand
 	}
 	# Preview and shop hosts (store-proxy, docs/setup/local.md §6.3) come first; every other host is a portal.
-	@storefront host *.preview.localhost *.shop.*.localhost
+	@storefront host *.my-store.localhost
 	handle @storefront {
 		# https upstream: the studio frame's origins must be https (the sandbox refuses http ones).
 		reverse_proxy https://localhost:8788 {

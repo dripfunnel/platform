@@ -14,9 +14,9 @@ export interface TemplateRow {
 }
 
 /** The gallery in a fixed order, "Start from scratch" first, as ST 0 lists it (storefront ARCHITECTURE §2.3); one page of at most `maxPageSize`. */
-export const selectOfferedTemplates = (tx: ScopedSql): Promise<TemplateRow[]> =>
+export const selectOfferedTemplates = (tx: ScopedSql, shopDomain: string | null): Promise<TemplateRow[]> =>
   tx<TemplateRow[]>`
-    select t.key, t.name, t.tag, t.description, case when s.id is null then null else ${storefrontHostOf(tx)} end as demo_host
+    select t.key, t.name, t.tag, t.description, case when s.id is null then null else ${storefrontHostOf(tx, shopDomain)} end as demo_host
     from storefront_template t left join store s on s.id = t.demo_store_id
     where t.state = 'offered'
     order by t.key = 'baseline' desc, case t.key when 'linen' then 1 when 'concrete' then 2 when 'bloom' then 3 when 'circuit' then 4

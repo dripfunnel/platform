@@ -8,7 +8,7 @@ export interface Deps {
   cache: Cache
   waitUntil: (work: Promise<unknown>) => void
   now: () => number
-  /** Null where PREVIEW_DOMAIN or PREVIEW_SESSION_KEY isn't set: preview hosts then answer the closed page. */
+  /** Null where SHOP_DOMAIN or PREVIEW_SESSION_KEY isn't set: preview hosts then answer the closed page. */
   sessions: SessionSeal | null
 }
 

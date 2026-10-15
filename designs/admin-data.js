@@ -1,7 +1,7 @@
 (function () {
 const E = 'edge.dripfunnel.net';
 const dm = (k, host, rec, exp, st, found) => ({ k, host, rec, exp, st, found: found || (st === 'waiting' ? 'Nothing found yet' : exp) });
-const doms = (base, portal, o) => { o = o || {}; return [dm('Portal host', portal, 'CNAME', 'portal.' + E, o.portal || 'live'), dm('Shop wildcard', '*.shops.' + base, 'CNAME', 'shops.' + E, o.shops || 'live'), dm('Email sender domain', 'mail.' + base, 'TXT', 'v=spf1 include:mail.dripfunnel.net ~all', o.mail || 'live'), ...(o.extra || [])]; };
+const doms = (base, portal, o) => { o = o || {}; return [dm('Portal host', portal, 'CNAME', 'portal.' + E, o.portal || 'live'), dm('Email sender domain', 'mail.' + base, 'TXT', 'v=spf1 include:mail.dripfunnel.net ~all', o.mail || 'live'), ...(o.extra || [])]; };
 const PL = (n, price, cur, lim, stores) => ({ n, price, cur, lim, stores });
 const TM = (n, e, role, last) => ({ n, e, role, last });
 const PARTNERS = [
@@ -16,7 +16,7 @@ const PARTNERS = [
 
   hist:[['2025-03-14','Created as draft by Maya Ortiz'],['2025-03-19','Submitted for approval'],['2025-03-20','Approved by Arjun Menon: contract signed, KYC passed'],['2025-03-20','Live']] },
  { id:'bz', name:'Bazaar Cloud', short:'Bazaar Cloud', kind:'Reseller', region:'India, UAE', country:'India', state:'live', host:'portal.bazaarcloud.in', owner:['Vikram Rao','vikram@bazaarcloud.in'], created:'2025-01-22', stores:312, newWeek:21, color:'#0F6E5C', ink:'#FFFFFF', accent:'#F2B134', product:'Bazaar Cloud Commerce', powered:false, setup:[1,1,1,1,1,1,1,1], inv:'active', legal:true, test:true, sign:[23,22,1], median:'7 min 05 s',
-  domains: doms('bazaarcloud.in','portal.bazaarcloud.in',{extra:[dm('Shop wildcard (UAE)','*.shops.bazaarcloud.ae','CNAME','shops.'+E,'fail','shops-old.bzhost.ae')]}), contacts:[['Vikram Rao','Owner','vikram@bazaarcloud.in'],['Sana Qureshi','UAE lead','sana@bazaarcloud.ae']],
+  domains: doms('bazaarcloud.in','portal.bazaarcloud.in',{}), contacts:[['Vikram Rao','Owner','vikram@bazaarcloud.in'],['Sana Qureshi','UAE lead','sana@bazaarcloud.ae']],
   plans:[PL('Starter',1499,'INR','250 products · 1 staff',120),PL('Growth',4999,'INR','2,000 products · 3 staff',96),PL('Pro',9999,'INR','Unlimited products · 10 staff',31),PL('Starter UAE',69,'AED','250 products · 1 staff',29),PL('Growth UAE',219,'AED','2,000 products · 3 staff',26),PL('Pro UAE',549,'AED','Unlimited products · 10 staff',10)],
 
   hist:[['2025-01-22','Created as draft by Maya Ortiz'],['2025-01-30','Submitted for approval'],['2025-02-03','Approved by Arjun Menon: contract signed, KYC passed'],['2025-02-03','Live']] },
@@ -31,10 +31,10 @@ const PARTNERS = [
 
   hist:[['2025-09-12','Created as draft by Maya Ortiz'],['2025-09-29','Approved by Arjun Menon: contract signed, KYC passed'],['2025-09-29','Live']] },
  { id:'ts', name:'Tallis Studio', kind:'Agency', region:'Australia', country:'Australia', state:'draft', host:'shops.tallis.studio', owner:['Ben Tallis','ben@tallis.studio'], created:'2026-09-25', stores:0, newWeek:0, color:'#3D5A40', ink:'#FFFFFF', accent:'#E3B23C', product:'Tallis Shops', powered:true, setup:[1,'w',0,0,0,0,0,0], inv:'sent', invSent:'2026-09-25T11:03:00Z', legal:false, test:false, sign:[0,0,0], median:'—',
-  domains: doms('tallis.studio','shops.tallis.studio',{portal:'waiting',shops:'waiting',mail:'waiting'}), contacts:[['Ben Tallis','Owner (invited)','ben@tallis.studio']], plans:[],
+  domains: doms('tallis.studio','shops.tallis.studio',{portal:'waiting',mail:'waiting'}), contacts:[['Ben Tallis','Owner (invited)','ben@tallis.studio']], plans:[],
   hist:[['2026-09-25','Created as draft by Maya Ortiz. Owner invited']] },
  { id:'nl', name:'Nordlicht Media', short:'Nordlicht', kind:'Agency', region:'Sweden, Norway', country:'Sweden', state:'draft', inv:'held', host:'shops.nordlicht.media', owner:['Freya Lind','freya@nordlicht.media'], created:'2026-09-23', stores:0, newWeek:0, color:'#3B2F63', ink:'#FFFFFF', accent:'#7FD1C7', product:'Nordlicht Shops', powered:true, setup:[1,0,1,1,'w',0,0,0], by:{0:['Priya','DripFunnel'],2:['Priya','DripFunnel'],3:['Priya','DripFunnel'],4:['Priya','DripFunnel']}, legal:false, test:false, sign:[0,0,0], median:'—',
-  domains: doms('nordlicht.media','shops.nordlicht.media',{shops:'waiting',mail:'waiting'}), contacts:[['Freya Lind','Owner (invitation held)','freya@nordlicht.media']], plans:[],
+  domains: doms('nordlicht.media','shops.nordlicht.media',{mail:'waiting'}), contacts:[['Freya Lind','Owner (invitation held)','freya@nordlicht.media']], plans:[],
   hist:[['2026-09-23','Created as draft by Priya Shah. Owner invitation held'],['2026-09-24','Set up by Priya Shah (DripFunnel): company details, branding, portal host, email domain']] },
 ];
 const ST = o => ({ support:true, suppliers:0, setup:'done', sf:'ai-live', people:[1,1,2], ver:'v12', build:'2026-09-26T11:20:00Z', pub:'2026-09-26T11:32:00Z', hist:[], ...o });

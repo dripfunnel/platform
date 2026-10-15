@@ -22,6 +22,8 @@ export interface DesignerDeps {
   facts: RequestFacts
   /** The store's StudioSession; null where the Worker has none bound. */
   studio: StudioApi | null
+  /** The domain of every store's free address (SHOP_DOMAIN); a template's demo is its store's address on it. */
+  shopDomain: string | null
   now: () => Date
 }
 
@@ -109,7 +111,7 @@ export const recordAfter = async <T>(sql: postgres.Sql, storeId: string, work: (
   }
 }
 
-export const createDesignerService = ({ sql, context, actor, activity, facts, studio, now }: DesignerDeps) => {
+export const createDesignerService = ({ sql, context, actor, activity, facts, studio, shopDomain, now }: DesignerDeps) => {
   const { storeId } = context
 
   const entry = (action: string, changes: NonNullable<ActivityEntry['changes']>, reason: string | null = null): ActivityEntry => ({
@@ -146,7 +148,7 @@ export const createDesignerService = ({ sql, context, actor, activity, facts, st
     })
     return withSystemScope(sql, async (tx) =>
       Promise.all(
-        (await selectOfferedTemplates(tx)).map(async (t) => {
+        (await selectOfferedTemplates(tx, shopDomain)).map(async (t) => {
           return { key: t.key, name: t.name, tag: t.tag, description: t.description, demoUrl: t.demo_host ? `https://${t.demo_host}` : null, current: t.key === current }
         }),
       ),

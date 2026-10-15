@@ -90,19 +90,16 @@ export const setSignupPhoneCode = async (tx: ScopedSql, s: { id: string; partner
   await tx`insert into signup_text (partner_id, signup_id, phone, sent_at) values (${s.partnerId}, ${s.id}, ${phone}, ${sentAt})`
 }
 
-/** Whether the partner already has a store at this web address (store_code_key), or a sign-up holding it. */
-export const subdomainTaken = async (tx: ScopedSql, partnerId: string, subdomain: string, signupId: string, now: Date): Promise<boolean> =>
-  (
-    await tx`
-      select 1 from store where partner_id = ${partnerId} and code = ${subdomain}
-      union all
-      select 1 from signup where partner_id = ${partnerId} and subdomain = ${subdomain} and id <> ${signupId} and expires_at > ${now} and stage in ('phone', 'provisioning')
-      limit 1
-    `
-  ).length > 0
+/** Whether any store, or any other sign-up in progress, across every partner, holds this web address (store.slug). Never says whose. */
+export const subdomainTaken = async (tx: ScopedSql, subdomain: string, signupId: string | null): Promise<boolean> =>
+  (await tx<{ taken: boolean }[]>`select store_slug_taken(${subdomain}, ${signupId}) as taken`)[0]?.taken ?? true
 
 export const storeCodeTaken = async (tx: ScopedSql, partnerId: string, code: string): Promise<boolean> =>
   (await tx`select 1 from store where partner_id = ${partnerId} and code = ${code}`).length > 0
+
+/** A store, in any partner, already has this slug; sign-ups in progress don't count, the one being made is among them. */
+export const storeSlugTaken = async (tx: ScopedSql, slug: string): Promise<boolean> =>
+  (await tx<{ taken: boolean }[]>`select store_slug_in_use(${slug}) as taken`)[0]?.taken ?? true
 
 /** The partner's live plans with a monthly price in this currency, cheapest first. */
 export const selectSignupPlan = async (tx: ScopedSql, partnerId: string, currency: string): Promise<{ id: string; version: number; trial_days: number; monthly: number } | null> =>

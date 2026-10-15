@@ -1,8 +1,7 @@
 import type { ProvisioningStep } from '#db/schema/saas'
 import type { ScopedSql } from '#db/scoped/index'
 import { insertNewSubscription, insertPartnerStore, lockPartnerStores } from '#db/scoped/partnerCreateStore'
-import { finishJob, insertActiveOwnerMembership, insertRunningJob, insertSignupUser, moveJobTo, selectSignupPlan, storeCodeTaken } from '#db/scoped/signup'
-import { queueStoreHostSync } from '#saas/domains/index'
+import { finishJob, insertActiveOwnerMembership, insertRunningJob, insertSignupUser, moveJobTo, selectSignupPlan, storeCodeTaken, storeSlugTaken } from '#db/scoped/signup'
 import { addMonth } from '#saas/partnerStores/create'
 import { stepsFor } from './stuck'
 
@@ -27,7 +26,7 @@ export type FailAt = (step: ProvisioningStep) => void
 export const provisionStore = async (tx: ScopedSql, input: ProvisionInput, at: Date, failAt: FailAt = () => undefined): Promise<ProvisionResult> => {
   // One creation at a time per partner, as the console's: the web address is checked under it.
   await lockPartnerStores(tx, input.partnerId)
-  if (await storeCodeTaken(tx, input.partnerId, input.store.code)) return { ok: false, reason: 'SUBDOMAIN_TAKEN' }
+  if ((await storeCodeTaken(tx, input.partnerId, input.store.code)) || (await storeSlugTaken(tx, input.store.code))) return { ok: false, reason: 'SUBDOMAIN_TAKEN' }
   const plan = await selectSignupPlan(tx, input.partnerId, input.store.currency)
   if (!plan) return { ok: false, reason: 'NO_PLAN' }
   const trialEndsAt = new Date(at.getTime() + (plan.trial_days > 0 ? plan.trial_days : fallbackTrialDays) * day)
@@ -35,7 +34,7 @@ export const provisionStore = async (tx: ScopedSql, input: ProvisionInput, at: D
   // 1. Account and store.
   failAt('accountAndStore')
   const userId = await insertSignupUser(tx, { partnerId: input.partnerId, ...input.owner, now: at })
-  const storeId = await insertPartnerStore(tx, { partnerId: input.partnerId, name: input.store.name, code: input.store.code, country: input.store.country, pricingCurrency: input.store.currency, status: 'trial', planId: plan.id, trialEndsAt, createdAt: at })
+  const storeId = await insertPartnerStore(tx, { partnerId: input.partnerId, name: input.store.name, code: input.store.code, slug: input.store.code, country: input.store.country, pricingCurrency: input.store.currency, status: 'trial', planId: plan.id, trialEndsAt, createdAt: at })
   await insertActiveOwnerMembership(tx, userId, storeId)
   await insertNewSubscription(tx, { storeId, partnerId: input.partnerId, planId: plan.id, planVersion: plan.version, status: 'trial', currency: input.store.currency, amount: plan.monthly, periodStart: at, periodEnd: addMonth(at), trialEndsAt })
   const steps = stepsFor('own')
@@ -45,10 +44,8 @@ export const provisionStore = async (tx: ScopedSql, input: ProvisionInput, at: D
   await moveJobTo(tx, jobId, 'defaults', at)
   failAt('defaults')
 
-  // 3. Hostnames: the code is the reservation; `{code}.shops` is registered after commit, once the shops address is live.
-  // The preview key came with step 1's storefront row (0232's storefront_for_store()); a preview host needs no registration.
+  // 3. Hostnames: none to register; the slug written in step 1 gives the store {slug}.<SHOP_DOMAIN> and {slug}-preview.<SHOP_DOMAIN> (SAAS §5).
   await moveJobTo(tx, jobId, 'hostnames', at)
-  await queueStoreHostSync(tx, { partnerId: input.partnerId, storeId }, 'provisioned')
   failAt('hostnames')
 
   await finishJob(tx, jobId, at)

@@ -3,9 +3,8 @@ import { fill, messages } from '../../messages'
 
 const words = messages.domains.new
 
-export const isWildcard = (kind: DomainKind): boolean => kind === 'shops'
 
-// What was typed, as a hostname: no scheme, path or `*.`; the API adds the wildcard's `*.` itself.
+// What was typed, as a hostname: no scheme, path or `*.`.
 export const hostFrom = (typed: string): string =>
   typed
     .trim()
@@ -22,7 +21,7 @@ export const zoneIn = (addresses: readonly Address[]): string | null => addresse
 export const refusalText = (reason: AddRefusal, example: string): string => fill(words.refused[reason], { example })
 
 export const helpText = (kind: DomainKind, example: string): string =>
-  kind === 'portal' ? fill(words.help.portal, { example }) : isWildcard(kind) ? fill(words.help.wildcard, { example }) : words.help.email
+  kind === 'portal' ? fill(words.help.portal, { example }) : words.help.email
 
 // The first kind not yet added, or the one a link asked for when it is free (§9.2: portal first).
 export const firstKind = (addresses: readonly Address[], asked: DomainKind | undefined): DomainKind => {

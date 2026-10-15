@@ -26,15 +26,15 @@ const render = async (element: ReactNode) => {
 const domains = (page: DomainsPage, forced: Parameters<typeof Domains>[0]['forced'] = null) =>
   render(<Domains page={page} forced={forced} now={testNow} checking={null} merchants={{ items: page.merchants.items, more: false, busy: false }} onRecheck={noop} canRemove={false} onRemove={noop} onMore={noop} onCopy={noop} onRetry={noop} />)
 
-describe('the three addresses', () => {
+describe('the two addresses', () => {
   it('draw a card each with its status, when it was checked, Re-check now and the record table', async () => {
     const text = textOf(await domains(domainsPages.mixed))
-    for (const kind of ['portal', 'shops', 'email'] as const) expect(text).toContain(words.kinds[kind].label)
+    for (const kind of ['portal', 'email'] as const) expect(text).toContain(words.kinds[kind].label)
     expect(text).not.toMatch(/preview/i)
-    for (const status of ['live', 'failed', 'verifying'] as const) expect(text).toContain(words.status[status])
+    for (const status of ['failed', 'verifying'] as const) expect(text).toContain(words.status[status])
     expect(text).toContain('Checked 12 min ago')
     expect(text).toContain('Waiting since Sep 28, 2026')
-    expect(text.match(new RegExp(words.recheck, 'g'))).toHaveLength(3)
+    expect(text.match(new RegExp(words.recheck, 'g'))).toHaveLength(2)
     for (const column of [words.records.type, words.records.name, words.records.value, words.records.found]) expect(text).toContain(column)
     expect(text).toContain(words.purposes.dkim)
     // Each Copy names its record, so a screen reader tells them apart.
@@ -46,7 +46,7 @@ describe('the three addresses', () => {
     expect(text).toContain('Until it’s live, emails come from no-reply@northstar.dripfunnel-mail.com with your product name.')
   })
 
-  it('drop the fallback sender once email is live, and Add once all four are added', async () => {
+  it('drop the fallback sender once email is live, and Add once both are added', async () => {
     const html = await domains(domainsPages.allLive)
     expect(textOf(html)).not.toContain('Until it’s live')
     expect(hrefs(html)).not.toContain('/domains/new')
@@ -102,16 +102,15 @@ describe('the states', () => {
 })
 
 describe('the three steps', () => {
-  const step1 = (kind: 'portal' | 'shops', error: string | null = null) =>
+  const step1 = (kind: 'portal' | 'email', error: string | null = null) =>
     render(<AddressStep addresses={domainsPages.support.partner.addresses} zone="northstar.com" kind={kind} typed="" error={error} busy={false} onKind={noop} onType={noop} onContinue={noop} />)
 
-  it('asks what the address is for, marks the added ones, and puts *. before a wildcard', async () => {
-    const html = await step1('shops')
+  it('asks what the address is for, marks the added ones, and has no wildcard field', async () => {
+    const html = await step1('email')
     expect(textOf(html)).toContain(words.new.kindQuestion)
-    expect(html.match(/<input type="radio"[^>]*disabled=""/g)).toHaveLength(2)
+    expect(html.match(/<input type="radio"[^>]*disabled=""/g)).toHaveLength(1)
     expect(textOf(html)).toContain(words.new.added)
-    expect(html).toContain('*.</span>')
-    expect(textOf(html)).toContain(words.new.wildcardField)
+    expect(html).not.toContain('*.</span>')
     expect(textOf(await step1('portal', 'Bad'))).toContain('Bad')
   })
 
@@ -130,13 +129,13 @@ describe('the three steps', () => {
     const issuing = textOf(await render(<CheckStep address={{ ...addresses.portal, status: 'issuing' }} more={false} note={null} busy={false} onCheck={noop} onNext={noop} />))
     expect(issuing).toContain(words.new.found.other)
     expect(issuing).toContain(words.status.issuing)
-    expect(textOf(await render(<CheckStep address={addresses.shops} more={false} note={null} busy={false} onCheck={noop} onNext={noop} />))).toContain(words.new.mismatch.one)
+    expect(textOf(await render(<CheckStep address={{ ...addresses.portal, status: 'failed', records: addresses.portal.records.map((r) => ({ ...r, found: 'old-host.example.net', matches: false })) }} more={false} note={null} busy={false} onCheck={noop} onNext={noop} />))).toContain(words.new.mismatch.other)
   })
 
   it('ends saved and waiting, or live with the next address to add', async () => {
-    const saved = { ...addresses.shops, status: 'waiting' as const, records: addresses.shops.records.map((r) => ({ ...r, found: null })) }
+    const saved = { ...addresses.portal, status: 'waiting' as const, records: addresses.portal.records.map((r) => ({ ...r, found: null })) }
     const waiting = textOf(await render(<CheckStep address={saved} more note={null} busy={false} onCheck={noop} onNext={noop} />))
-    expect(waiting).toContain(words.new.waiting.one)
+    expect(waiting).toContain(words.new.waiting.other)
     expect(waiting).toContain(words.new.checkAgain)
     const live = await render(<CheckStep address={addresses.portal} more note={null} busy={false} onCheck={noop} onNext={noop} />)
     expect(textOf(live)).toContain(words.new.live.portal.other)
@@ -148,7 +147,7 @@ describe('the three steps', () => {
 describe('the address rules', () => {
   it('take a hostname from what was typed, and name examples under the partner’s domain', () => {
     expect(hostFrom('  https://Store.Northstar.com/sign-in ')).toBe('store.northstar.com')
-    expect(hostFrom('*.shops.northstar.com')).toBe('shops.northstar.com')
+    expect(hostFrom('*.mail.northstar.com')).toBe('mail.northstar.com')
     expect(exampleFor('email', 'northstar.co.uk')).toBe('mail.northstar.co.uk')
     expect(exampleFor('portal', null)).toBe('store.yourcompany.com')
   })
@@ -187,12 +186,12 @@ describe('Remove an address', () => {
       textOf(
         await render(<Domains page={domainsPages.mixed} forced={null} now={testNow} checking={null} merchants={{ items: [], more: false, busy: false }} onRecheck={noop} canRemove={canRemove} onRemove={noop} onMore={noop} onCopy={noop} onRetry={noop} />),
       )
-    expect((await shown(true)).match(new RegExp(words.remove.button, 'g'))).toHaveLength(3)
+    expect((await shown(true)).match(new RegExp(words.remove.button, 'g'))).toHaveLength(2)
     expect(await shown(false)).not.toContain(words.remove.button)
   })
 
   it('states the consequence for each kind', () => {
-    for (const kind of ['portal', 'shops', 'email'] as const) expect(words.remove.body[kind]).toBeTruthy()
+    for (const kind of ['portal', 'email'] as const) expect(words.remove.body[kind]).toBeTruthy()
     expect(words.remove.title).toBe('Remove {host}?')
   })
 

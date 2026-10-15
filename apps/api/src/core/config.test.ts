@@ -36,14 +36,14 @@ describe('parseConfig', () => {
     expect(parseConfig({ ...hosts, CODE_CHECK: '1' }).CODE_CHECK).toBe('1')
   })
 
-  it('takes PREVIEW_DOMAIN as a domain apart from the consoles, and preview.localhost on localhost only', () => {
-    expect(parseConfig({ ...hosts, PREVIEW_DOMAIN: 'webpreview.store' }).PREVIEW_DOMAIN).toBe('webpreview.store')
-    expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', PREVIEW_DOMAIN: 'preview.localhost' }).PREVIEW_DOMAIN).toBe('preview.localhost')
-    expect(() => parseConfig({ ...hosts, PREVIEW_DOMAIN: 'preview.localhost' })).toThrow(/local development only/)
-    expect(() => parseConfig({ ...hosts, PREVIEW_DOMAIN: 'https://webpreview.store' })).toThrow(/must be a domain/)
-    expect(() => parseConfig({ ...hosts, PREVIEW_DOMAIN: 'preview.dripfunnel.com' })).toThrow(/apart from the consoles/)
-    expect(() => parseConfig({ ...hosts, PREVIEW_DOMAIN: 'dripfunnel.com' })).toThrow(/apart from the consoles/)
-    expect(parseConfig(hosts).PREVIEW_DOMAIN).toBeUndefined()
+  it('takes SHOP_DOMAIN as a domain apart from the consoles, and my-store.localhost on localhost only', () => {
+    expect(parseConfig({ ...hosts, SHOP_DOMAIN: 'my-store.one' }).SHOP_DOMAIN).toBe('my-store.one')
+    expect(parseConfig({ ...hosts, HOOKS_HOST: 'hooks.localhost', SHOP_DOMAIN: 'my-store.localhost' }).SHOP_DOMAIN).toBe('my-store.localhost')
+    expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'my-store.localhost' })).toThrow(/local development only/)
+    expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'https://my-store.one' })).toThrow(/must be a domain/)
+    expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'shop.dripfunnel.com' })).toThrow(/apart from the consoles/)
+    expect(() => parseConfig({ ...hosts, SHOP_DOMAIN: 'dripfunnel.com' })).toThrow(/apart from the consoles/)
+    expect(parseConfig(hosts).SHOP_DOMAIN).toBeUndefined()
   })
 
   it('asks for the suppression key with the email stand-in, as SES does', () => {

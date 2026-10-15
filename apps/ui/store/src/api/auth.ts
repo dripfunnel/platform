@@ -132,7 +132,7 @@ export type Country = z.infer<typeof countrySchema>
 
 export const startSignup = (name: string, email: string, password: string) => post('sign-up', { name, email, password }, z.object({ ok: z.literal(true), step: z.literal('verify-email') }))
 
-export const verifySignupEmail = (code: string) => post('sign-up/verify-email', { code }, z.object({ ok: z.literal(true), step: z.literal('store'), countries: z.array(countrySchema) }))
+export const verifySignupEmail = (code: string) => post('sign-up/verify-email', { code }, z.object({ ok: z.literal(true), step: z.literal('store'), countries: z.array(countrySchema), shopDomain: z.string().nullable().optional() }))
 
 export const signupStore = (storeName: string, subdomain: string, country: string) => post('sign-up/store', { storeName, subdomain, country }, z.object({ ok: z.literal(true), step: z.literal('phone') }))
 

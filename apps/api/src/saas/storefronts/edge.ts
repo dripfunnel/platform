@@ -29,10 +29,10 @@ const stateOf = (row: EdgeHostRow): EdgeState => {
   }
 }
 
-export const lookupLiveHost = async (sql: postgres.Sql, rawHost: string, options: { localhost: boolean }): Promise<LiveHost> => {
+export const lookupLiveHost = async (sql: postgres.Sql, rawHost: string, options: { localhost: boolean; shopDomain: string | null }): Promise<LiveHost> => {
   const parsed = parseHostname(rawHost, { localhost: options.localhost })
   if (!parsed.ok || parsed.wildcard) return { kind: 'none' }
-  const row = await withSystemScope(sql, (tx) => selectEdgeHost(tx, parsed.host))
+  const row = await withSystemScope(sql, (tx) => selectEdgeHost(tx, parsed.host, options.shopDomain))
   if (!row) return { kind: 'none' }
   return { kind: 'store', storeId: row.store_id, partnerId: row.partner_id, buildId: row.live_build_id, state: stateOf(row), name: row.name, language: row.main_language, indexNowKey: row.indexnow_key, primaryHost: row.primary_host }
 }

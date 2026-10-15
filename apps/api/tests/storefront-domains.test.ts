@@ -37,7 +37,7 @@ beforeAll(async () => {
   w = await seedStoreWorld(db.sql, t, { now, secrets: null, lookup: null })
   await db.sql`update partner set state = 'live' where id in (${t.partnerA}, ${t.partnerB})`
   await db.sql`update store set status = 'active' where id in (${t.storeA1}, ${t.storeA2}, ${t.storeB1})`
-  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'shops', '*.shops.acme.example', 'live', 'CNAME', 'x'), (${t.partnerA}, 'portal', 'store.acme.example', 'live', 'CNAME', 'x')`
+  await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${t.partnerA}, 'portal', 'store.acme.example', 'live', 'CNAME', 'x')`
   // A1 and B1 are on a plan with their own domain; A2's has none.
   for (const storeId of [t.storeA1, t.storeB1]) {
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) select plan_id, partner_id, 1, 'custom_domain', true from store_subscription where store_id = ${storeId}`
@@ -50,7 +50,7 @@ afterAll(async () => {
 
 describe('the store’s addresses', () => {
   it('list the free address first, primary and live; the Manager reads them; Staff and a supplier are refused', async () => {
-    const free = `${await codeOf(t.storeA1)}.shops.acme.example`
+    const free = `${await codeOf(t.storeA1)}.shop.example`
     expect(await domainsOf('owner')).toEqual({ customDomainAllowed: true, domains: [{ id: null, host: free, kind: 'free', status: 'live', primary: true, records: [] }] })
     expect((await domainsOf('manager')).domains.map((d) => d.host)).toEqual([free])
     expect((await domainsOf('a2Owner')).customDomainAllowed).toBe(false)
@@ -69,7 +69,7 @@ describe('connecting a domain', () => {
     expect(await db.sql`select 1 from custom_domain where store_id = ${t.storeA2}`).toHaveLength(0)
   })
 
-  it('refuses what isn’t a domain the merchant may own: a bare domain, ours, a partner’s address, or one under it', async () => {
+  it('refuses what isn’t a domain the merchant may own: a bare domain, ours, one under the shop domain, a partner’s address, or one under it', async () => {
     const refused = async (host: string) => {
       const r = await connect('owner', host)
       return [r.code, r.extensions?.['suggested'] ?? null]
@@ -80,7 +80,8 @@ describe('connecting a domain', () => {
     expect(await refused('127.0.0.1')).toEqual(['INVALID_HOSTNAME', null])
     expect(await refused('shop.dripfunnel.com')).toEqual(['DRIPFUNNEL_DOMAIN', null])
     expect(await refused('shop.dripfunnel.example')).toEqual(['DRIPFUNNEL_DOMAIN', null])
-    expect(await refused(`${await codeOf(t.storeA2)}.shops.acme.example`)).toEqual(['DOMAIN_TAKEN', null])
+    expect(await refused(`${await codeOf(t.storeA2)}.shop.example`)).toEqual(['DRIPFUNNEL_DOMAIN', null])
+    expect(await refused('shop.example')).toEqual(['DRIPFUNNEL_DOMAIN', null])
     expect(await refused('store.acme.example')).toEqual(['DOMAIN_TAKEN', null])
     expect(await db.sql`select 1 from custom_domain`).toHaveLength(0)
   })
@@ -129,9 +130,9 @@ describe('a connected domain', () => {
     expect((await op('owner', 'makeDomainPrimary', id)).data?.['makeDomainPrimary']).toBe(true)
     expect((await domainsOf('owner')).domains.map((d) => [d.kind, d.status, d.primary])).toEqual([['free', 'live', false], ['custom', 'live', true]])
     expect((await purges(t.storeA1)).at(-1)).toEqual({ storeId: t.storeA1, host: own, reason: 'domain-primary' })
-    const free = `${await codeOf(t.storeA1)}.shops.acme.example`
-    expect(await lookupLiveHost(db.sql, free, { localhost: false })).toMatchObject({ kind: 'store', storeId: t.storeA1, primaryHost: own })
-    expect(await lookupLiveHost(db.sql, own, { localhost: false })).toMatchObject({ kind: 'store', storeId: t.storeA1, primaryHost: own })
+    const free = `${await codeOf(t.storeA1)}.shop.example`
+    expect(await lookupLiveHost(db.sql, free, { localhost: false, shopDomain: 'shop.example' })).toMatchObject({ kind: 'store', storeId: t.storeA1, primaryHost: own })
+    expect(await lookupLiveHost(db.sql, own, { localhost: false, shopDomain: 'shop.example' })).toMatchObject({ kind: 'store', storeId: t.storeA1, primaryHost: own })
     // Made primary again, nothing changes and nothing is purged.
     const count = (await purges(t.storeA1)).length
     await op('owner', 'makeDomainPrimary', id)
@@ -140,7 +141,7 @@ describe('a connected domain', () => {
     // The free address back as primary.
     expect((await op('owner', 'makeDomainPrimary', null)).data?.['makeDomainPrimary']).toBe(true)
     expect((await domainsOf('owner')).domains.map((d) => d.primary)).toEqual([true, false])
-    expect(await lookupLiveHost(db.sql, own, { localhost: false })).toMatchObject({ primaryHost: free })
+    expect(await lookupLiveHost(db.sql, own, { localhost: false, shopDomain: 'shop.example' })).toMatchObject({ primaryHost: free })
     expect(await purges(t.storeA1)).toHaveLength(count + 1)
     await op('owner', 'makeDomainPrimary', id)
     // No other store's lookup was purged.
@@ -167,7 +168,7 @@ describe('a connected domain', () => {
     expect((await domainsOf('owner')).domains.map((d) => [d.kind, d.primary])).toEqual([['free', true]])
     expect((await outbox(t.storeA1, 'domain.remove')).map((o) => o.payload)).toEqual([{ host: own }])
     expect((await purges(t.storeA1)).at(-1)).toEqual({ storeId: t.storeA1, host: own, reason: 'domain-removed' })
-    expect(await lookupLiveHost(db.sql, own, { localhost: false })).toEqual({ kind: 'none' })
+    expect(await lookupLiveHost(db.sql, own, { localhost: false, shopDomain: 'shop.example' })).toEqual({ kind: 'none' })
     expect([await purges(t.storeA2), await purges(t.storeB1)]).toEqual([[], []])
     expect((await db.sql<{ action: string }[]>`select action from activity_log where store_id = ${t.storeA1} and action = 'custom_domain.removed'`).map((l) => l.action)).toEqual(['custom_domain.removed'])
     // A waiting domain is cancelled the same way.
