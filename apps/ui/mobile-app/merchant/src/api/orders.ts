@@ -52,10 +52,6 @@ export type OrderCounts = z.infer<typeof countsSchema>
 export const loadOrderCounts = async (client: ApiClient): Promise<OrderCounts> =>
   (await typedQuery(client)('{ orderCounts { all toShip partlyShipped shipped cancelledRefunded paymentPending } }', z.object({ orderCounts: countsSchema }))).orderCounts
 
-/** The store's zone, which every time here is shown in; UTC until it is known. */
-export const loadStoreTimeZone = async (client: ApiClient): Promise<string> =>
-  (await typedQuery(client)('{ storeInfo { timeZone } }', z.object({ storeInfo: z.object({ timeZone: z.string() }).nullable() }))).storeInfo?.timeZone ?? 'UTC'
-
 /** The list as it is filtered and searched, as a job to read back with `loadOrderExport`; answers the job's id. */
 export const requestOrderExport = async (client: ApiClient, { filter, search }: OrderQuery): Promise<string> =>
   (await typedQuery(client)('mutation ExportOrders($filter: OrderFilter, $search: String) { exportOrders(filter: $filter, search: $search) }', z.object({ exportOrders: z.string() }), { filter, search: search.trim() || null })).exportOrders

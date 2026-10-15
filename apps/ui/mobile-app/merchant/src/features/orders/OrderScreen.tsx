@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { loadCouriers, loadOrder, receiveReturn, requestPickup, type OrderReturn, type OrderShipment } from '../../api/order'
-import { loadStoreTimeZone } from '../../api/orders'
+import { loadStoreTimeZone } from '../../api/storeInfo'
 import { loadAccess } from '../../api/products'
 import { formatDateTime } from '../../format'
 import { locale, t } from '../../messages'
@@ -50,7 +50,7 @@ export function OrderScreen({ id }: { id: string }) {
   const { state, online } = useShell()
   const permissions = useLoad(() => loadAccess(client), [client])
   const loaded = useLoad(() => loadOrder(client, id), [client, id])
-  const zone = useLoad(() => loadStoreTimeZone(client).catch(() => 'UTC'), [client])
+  const zone = useLoad(() => loadStoreTimeZone(client).then((known) => known ?? 'UTC', () => 'UTC'), [client])
   const access = permissions.state.status === 'ready' ? ordersAccessOf(permissions.state.data, state?.readOnly === true) : null
   const couriers = useLoad(() => (access?.canBook ? loadCouriers(client).catch((): string[] => []) : Promise.resolve<string[]>([])), [client, access?.canBook])
   const write = useWrite('orders')

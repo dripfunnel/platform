@@ -90,10 +90,6 @@ export const loadCustomer = async (client: ApiClient, id: string): Promise<Custo
     )
   ).customer
 
-/** The store's own zone, which dates are shown in; null when this seat reads no store settings. */
-export const loadStoreTimeZone = async (client: ApiClient): Promise<string | null> =>
-  (await typedQuery(client)('{ storeInfo { timeZone } }', z.object({ storeInfo: z.object({ timeZone: z.string() }).nullable() }))).storeInfo?.timeZone ?? null
-
 /** Order emails only: adding someone sends them nothing. An email already a customer answers that one (`existed`). */
 export const addCustomer = async (client: ApiClient, name: string, email: string, phone: string | null): Promise<{ id: string; existed: boolean }> =>
   (

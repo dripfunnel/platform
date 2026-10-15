@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
-import { loadCustomer, loadCustomerGroups, loadStoreTimeZone } from '../../api/customers'
+import { loadCustomer, loadCustomerGroups } from '../../api/customers'
+import { loadStoreTimeZone } from '../../api/storeInfo'
 import type { ApiClient } from '../../graphql'
 import { t } from '../../messages'
 import { stateOfError, useLoad } from '../common/useLoad'

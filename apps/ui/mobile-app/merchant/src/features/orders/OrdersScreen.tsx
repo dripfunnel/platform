@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
-import { loadStoreTimeZone, type OrderFilter } from '../../api/orders'
+import type { OrderFilter } from '../../api/orders'
+import { loadStoreTimeZone } from '../../api/storeInfo'
 import { loadAccess } from '../../api/products'
 import { formatNumber } from '../../format'
 import { locale, t } from '../../messages'
@@ -35,7 +36,7 @@ export function OrdersScreen({ initialFilter = 'ALL' }: Props) {
   const client = sessionClient()
   const permissions = useLoad(() => loadAccess(client), [client])
   const access = permissions.state.status === 'ready' ? ordersAccessOf(permissions.state.data, state?.readOnly === true) : null
-  const zone = useLoad(() => loadStoreTimeZone(client).catch(() => 'UTC'), [client])
+  const zone = useLoad(() => loadStoreTimeZone(client).then((known) => known ?? 'UTC', () => 'UTC'), [client])
   const list = useOrderList(client, access?.canRead === true, { filter: initialFilter })
   const exported = useOrderExport(client, list.query)
 
