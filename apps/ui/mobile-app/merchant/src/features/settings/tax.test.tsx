@@ -240,6 +240,36 @@ describe('Tax setup', () => {
     expect(asked(calls, 'mutation SaveInvoiceSettings')[0]?.variables).toEqual({ input: { taxPerLine: true, emailWithDispatch: true, footer: 'Thank you' } })
   })
 
+  it('sends back the invoice footer as it is now, not as it was when the tab opened', async () => {
+    let reads = 0
+    const { renderer, calls } = await show(
+      <SettingsTabScreen tab="tax" />,
+      tax({
+        '{ invoiceSettings {': () => {
+          reads += 1
+          return { invoiceSettings: { taxPerLine: true, emailWithDispatch: false, footer: reads > 1 ? 'Changed on the web' : 'Thank you', legalName: 'Kesari Threads Pvt Ltd' } }
+        },
+        'mutation SaveInvoiceSettings': () => ({ saveInvoiceSettings: true }),
+      }),
+    )
+
+    await click(renderer, 'Email the invoice with the dispatch note')
+    await click(renderer, 'Save invoice settings')
+
+    expect(asked(calls, 'mutation SaveInvoiceSettings')[0]?.variables).toEqual({ input: { taxPerLine: true, emailWithDispatch: true, footer: 'Changed on the web' } })
+  })
+
+  it('says why a category is refused when the store is at its limit', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="tax" />, tax({ 'mutation AddTaxCategory': () => { throw new ApiError('TOO_MANY', 'x') } }))
+
+    await click(renderer, 'Add a rate')
+    await type(renderer, 'Name', 'Books')
+    await type(renderer, 'Rate, %', '7')
+    await click(renderer, 'Add')
+
+    expect(hasText(renderer, 'That’s as many tax categories as a store can have.')).toBe(true)
+  })
+
   it('shows a refusal by its code', async () => {
     const { renderer } = await show(<SettingsTabScreen tab="tax" />, tax({ 'mutation AddTaxCategory': () => { throw new ApiError('DUPLICATE_NAME', 'x') } }))
 

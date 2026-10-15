@@ -91,6 +91,7 @@ export const knownErrorCodes = [
   'TOO_MANY_WAREHOUSES',
   'DEFAULT_WAREHOUSE',
   'WAREHOUSE_HOLDS_STOCK',
+  'TOO_MANY',
   'DEFAULT_CLASS',
   'CLASS_IN_USE',
   'ZONE_OVERLAP',

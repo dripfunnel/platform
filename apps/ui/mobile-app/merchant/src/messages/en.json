@@ -91,6 +91,7 @@
     },
     "settingsTax": {
       "NOT_FOUND": "That isn’t here any more.",
+      "TOO_MANY": "That’s as many tax categories as a store can have.",
       "INVALID_INPUT": "Something here isn’t valid.",
       "DUPLICATE_NAME": "Another category already has that name.",
       "DEFAULT_CLASS": "Make another category the default first.",

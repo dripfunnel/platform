@@ -258,8 +258,13 @@ function InvoiceCard({ invoice, taxId, name, client, canEdit }: { invoice: Invoi
   const dirty = perLine !== saved.perLine || email !== saved.email
 
   const save = async () => {
-    // The footer goes back as it is: the phone changes the two switches only.
-    if (await write.run(async () => (await saveInvoiceSettings(client, { taxPerLine: perLine, emailWithDispatch: email, footer: invoice.footer }), t('settings.tax.invoiceSaved')))) setSaved({ perLine, email })
+    // The footer goes back as it is now, read just before: the phone changes the two switches only, and the footer may have been changed on the web meanwhile.
+    const ok = await write.run(async () => {
+      const latest = await loadInvoiceSettings(client)
+      await saveInvoiceSettings(client, { taxPerLine: perLine, emailWithDispatch: email, footer: latest ? latest.footer : invoice.footer })
+      return t('settings.tax.invoiceSaved')
+    })
+    if (ok) setSaved({ perLine, email })
   }
 
   return (
