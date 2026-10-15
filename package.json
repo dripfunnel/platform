@@ -11,7 +11,6 @@
     "dev:all": "turbo run dev",
     "dev:proxy": "pnpm --filter @dripfunnel/store-proxy dev",
     "dev:https": "sh scripts/local/dev-https.sh",
-    "dev:https:all": "sh scripts/local/dev-https.sh --all",
     "setup:local": "pnpm install && pnpm --filter ./apps/api setup:local",
     "dev:api": "turbo run dev --filter=@dripfunnel/api",
     "dev:store": "turbo run dev --filter=@dripfunnel/store",

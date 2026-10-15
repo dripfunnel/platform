@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
+Last updated: 2026-10-15 (#720: Remove address in the partner console, §5). Before: 2026-10-14 (#730: Retry and Undo of a failed `create-storefront` job, §5). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §8). Before: 2026-10-12 (#485: the upgrade bot, §10). Before: 2026-10-12 (#471: the merchant's domains on the Store API and the primary address, §8). Before: 2026-10-11 (#317: `cache.purge` delivered; before it #518: the partner preview address retired in the code, previews found by
 `storefront.preview_key`). Before: 2026-10-09 (#520, with Gaurav: public store repos built by GitHub Actions, files in R2
 served by the edge Worker, previews on `webpreview.store`, drafts private until their publish is live; #493: no
 in-app purchase in the merchant mobile app).
@@ -601,7 +601,8 @@ failed; a live hostname can become expiring or broken if its records change.
    environments and `*.localhost` work with no new setting; verifying and issuing hosts are not
    yet live, as the card says.*
    Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the
-   SaaS hostname after commit; the console has no Remove button yet. Removing a merchant domain
+   SaaS hostname after commit; the partner console's Remove address (#429) calls it for an Owner or
+   Admin and in a staff setup session, never while impersonating (#720). Removing a merchant domain
    queues the same `domain.remove` through `queueMerchantDomainRemoval` (the row change and the
    endpoint are #471's `removeDomain`). A host another partner or store still holds is left
    alone, and one Cloudflare doesn't know is already gone.
