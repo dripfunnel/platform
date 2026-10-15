@@ -1,13 +1,19 @@
 name: release
 
 # storefront-core's releases, and only from here (AGENTS.md, docs/code/ARCHITECTURE.md §5).
-# Every push to main runs core's gates; if core's version isn't published yet (and isn't 0.0.0),
+# Every push to main or dev that touches core, its changesets, the sandbox or the release scripts runs core's gates; if core's version isn't published yet (and isn't 0.0.0),
 # it packs core once, attests that tarball, publishes the same file, then makes sure it's tagged.
 # A push to dev publishes `<version>-dev.<run>` under the `dev` dist-tag instead: no git tag, no sandbox image.
 
 on:
   push:
     branches: [main, dev]
+    paths:
+      - 'packages/storefront-core/**'
+      - '.changeset/**'
+      - 'apps/sandbox/**'
+      - 'scripts/release/**'
+      - '.github/workflows/release.yml'
 
 permissions:
   contents: read
