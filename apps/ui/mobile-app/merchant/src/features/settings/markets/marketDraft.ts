@@ -73,6 +73,16 @@ export const blankMarket = (name: string, loc: StoreLocale): MarketDraft => ({
 
 export const isMarketDirty = (draft: MarketDraft, start: MarketDraft): boolean => JSON.stringify(draft) !== JSON.stringify(start)
 
+// The API's own limits (markets/rules.ts): an adjustment from -90% to +1,000%, and a flat duty rate above 0 up to 100%.
+const adjustmentOf = (text: string): number | null => {
+  const bps = bpsOf(text, true)
+  return bps !== null && bps >= -9000 && bps <= 100000 ? bps : null
+}
+const dutyRateOf = (text: string): number | null => {
+  const bps = bpsOf(text)
+  return bps !== null && bps >= 1 ? bps : null
+}
+
 export type MarketProblem = 'name' | 'countries' | 'adjust' | 'path' | 'dutyRate' | 'dutyThreshold' | 'parentCountries'
 
 /** What can't be saved yet, said before the API would refuse it; a sub-market sells in its parent's countries only. */
@@ -80,9 +90,9 @@ export const marketProblem = (draft: MarketDraft, parentCountries: readonly stri
   if (draft.name.trim() === '') return 'name'
   if (draft.countries.length === 0) return 'countries'
   if (parentCountries && draft.countries.some((country) => !parentCountries.includes(country))) return 'parentCountries'
-  if (draft.adjust.trim() !== '' && bpsOf(draft.adjust, true) === null) return 'adjust'
+  if (draft.adjust.trim() !== '' && adjustmentOf(draft.adjust) === null) return 'adjust'
   if (draft.webMode === 'path' && !/^[a-z0-9][a-z0-9-]{0,19}$/.test(draft.pathPrefix.trim())) return 'path'
-  if (draft.duties === 'flat' && bpsOf(draft.dutyRate) === null) return 'dutyRate'
+  if (draft.duties === 'flat' && dutyRateOf(draft.dutyRate) === null) return 'dutyRate'
   if (draft.duties !== 'none' && draft.dutyThreshold.trim() !== '' && minorOf(draft.dutyThreshold, draft.currency) === 'invalid') return 'dutyThreshold'
   return null
 }
@@ -97,13 +107,13 @@ export const marketInputOf = (draft: MarketDraft): MarketInput => {
     countries: draft.countries,
     currency: draft.currency,
     language: draft.language,
-    priceAdjustmentBps: draft.adjust.trim() === '' ? 0 : (bpsOf(draft.adjust, true) ?? 0),
+    priceAdjustmentBps: draft.adjust.trim() === '' ? 0 : (adjustmentOf(draft.adjust) ?? 0),
     webMode: draft.webMode,
     pathPrefix: draft.webMode === 'path' ? draft.pathPrefix.trim() : null,
     products: draft.products,
     excludedProductIds: draft.products === 'some' ? draft.excluded.filter((product) => !product.gone).map((product) => product.id) : [],
     dutiesMode: draft.duties,
-    dutiesRateBps: draft.duties === 'flat' ? bpsOf(draft.dutyRate) : null,
+    dutiesRateBps: draft.duties === 'flat' ? dutyRateOf(draft.dutyRate) : null,
     dutiesThresholdAmount: typeof threshold === 'string' ? threshold : null,
   }
 }

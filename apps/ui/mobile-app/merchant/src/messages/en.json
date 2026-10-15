@@ -1898,9 +1898,9 @@
       "problems": {
         "name": "Give the market a name",
         "countries": "Pick at least one country",
-        "adjust": "Type the adjustment as a percentage, e.g. 10 or -5",
+        "adjust": "Type the adjustment as a percentage from -90 to 1,000, e.g. 10 or -5",
         "path": "Use a short path: lower-case letters, numbers and -, e.g. uk",
-        "dutyRate": "Type the duty percentage",
+        "dutyRate": "Type the duty percentage, above 0 and up to 100",
         "dutyThreshold": "Type the amount below which no duty is charged",
         "parentCountries": "A sub-market sells in its parent’s countries only. Take out the ones marked."
       },

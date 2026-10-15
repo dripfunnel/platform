@@ -100,6 +100,9 @@ describe('what can’t be saved yet', () => {
     [{ name: ' ' }, 'name'],
     [{ countries: [] }, 'countries'],
     [{ adjust: '1.234' }, 'adjust'],
+    [{ adjust: '-91' }, 'adjust'],
+    [{ adjust: '1001' }, 'adjust'],
+    [{ dutyRate: '0' }, 'dutyRate'],
     [{ pathPrefix: 'Not Ok' }, 'path'],
     [{ dutyRate: '' }, 'dutyRate'],
     [{ dutyRate: '1000' }, 'dutyRate'],
@@ -108,9 +111,13 @@ describe('what can’t be saved yet', () => {
     expect(marketProblem({ ...draft, ...change })).toBe(expected)
   })
 
-  it('accepts the market as it is, and a negative adjustment', () => {
+  it('accepts the market as it is, a negative adjustment, and the API’s limits themselves', () => {
     expect(marketProblem(draft)).toBeNull()
     expect(marketProblem({ ...draft, adjust: '-5' })).toBeNull()
+    expect(marketProblem({ ...draft, adjust: '-90' })).toBeNull()
+    expect(marketProblem({ ...draft, adjust: '1000' })).toBeNull()
+    expect(marketProblem({ ...draft, dutyRate: '0.01' })).toBeNull()
+    expect(marketProblem({ ...draft, dutyRate: '100' })).toBeNull()
   })
 
   it('says a sub-market may sell only in its parent’s countries', () => {
