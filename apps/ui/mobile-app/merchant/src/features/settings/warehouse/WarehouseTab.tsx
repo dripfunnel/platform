@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { deletePlace, loadPlaces, makeDefaultPlace, savePlace, type Place } from '../../../api/settingsWarehouse'
 import type { ApiClient } from '../../../graphql'
-import { isApiError } from '../../../graphql'
+import { ApiError, isApiError } from '../../../graphql'
 import { t } from '../../../messages'
 import { tCount } from '../../../messages/plural'
 import { useTheme } from '../../../theme'
@@ -22,15 +22,15 @@ import { addressLine, blankPlace, formOfPlace, placeInputOf, splitPlaces, type P
 export function WarehouseTab() {
   return (
     <TabFrame label={t('settings.tabs.warehouse')} load={loadPlaces}>
-      {({ data, client, canEdit, refresh }) => <PlaceList places={data} client={client} canEdit={canEdit} refresh={refresh} />}
+      {({ data, client, canEdit, refresh, apply }) => <PlaceList places={data} client={client} canEdit={canEdit} refresh={refresh} apply={apply} />}
     </TabFrame>
   )
 }
 
 type Sheet = { kind: 'form'; form: PlaceForm } | { kind: 'default'; place: Place } | { kind: 'delete'; place: Place }
-type Props = { places: readonly Place[]; client: ApiClient; canEdit: boolean; refresh: () => Promise<void> }
+type Props = { places: readonly Place[]; client: ApiClient; canEdit: boolean; refresh: () => Promise<void>; apply: (places: Place[]) => void }
 
-function PlaceList({ places, client, canEdit, refresh }: Props) {
+function PlaceList({ places, client, canEdit, refresh, apply }: Props) {
   const { colors } = useTheme()
   const feedback = useFeedback()
   const [sheet, setSheet] = useState<Sheet | null>(null)
@@ -90,7 +90,7 @@ function PlaceList({ places, client, canEdit, refresh }: Props) {
         </View>
       ) : null}
 
-      {sheet?.kind === 'form' ? <PlaceSheet initial={sheet.form} client={client} onClose={close} onDone={refresh} /> : null}
+      {sheet?.kind === 'form' ? <PlaceSheet initial={sheet.form} client={client} onClose={close} onDone={refresh} onFresh={apply} /> : null}
       {sheet?.kind === 'default' ? (
         <FormSheet
           title={t('settings.warehouse.makeDefaultTitle', { name: sheet.place.name })}
@@ -124,7 +124,7 @@ function PlaceList({ places, client, canEdit, refresh }: Props) {
   )
 }
 
-function PlaceSheet({ initial, client, onClose, onDone }: { initial: PlaceForm; client: ApiClient; onClose: () => void; onDone: () => Promise<void> }) {
+function PlaceSheet({ initial, client, onClose, onDone, onFresh }: { initial: PlaceForm; client: ApiClient; onClose: () => void; onDone: () => Promise<void>; onFresh: (places: Place[]) => void }) {
   const [form, setForm] = useState(initial)
   const [tried, setTried] = useState(false)
   const set = (key: keyof Omit<PlaceForm, 'id' | 'revision'>, value: string) => setForm((current) => ({ ...current, [key]: value }))
@@ -144,11 +144,16 @@ function PlaceSheet({ initial, client, onClose, onDone }: { initial: PlaceForm; 
         try {
           await savePlace(client, form.id, form.revision, placeInputOf(form))
         } catch (error) {
-          // Someone else saved first: the list reads again, and the next Save goes at their revision with what was typed kept.
+          // Someone else saved first: the list is read once and shown, and the next Save goes at their revision with what was typed kept. If that read
+          // fails the refusal stands as it is; if the location is gone the sheet says so.
           if (isApiError(error, 'STALE_REVISION')) {
-            const fresh = (await loadPlaces(client).catch(() => null))?.find((place) => place.id === form.id)
-            if (fresh) setForm((current) => ({ ...current, revision: fresh.revision }))
-            await onDone()
+            const fresh = await loadPlaces(client).catch(() => null)
+            if (fresh) {
+              onFresh(fresh)
+              const again = fresh.find((place) => place.id === form.id)
+              if (!again) throw new ApiError('NOT_FOUND', 'location')
+              setForm((current) => ({ ...current, revision: again.revision }))
+            }
           }
           throw error
         }

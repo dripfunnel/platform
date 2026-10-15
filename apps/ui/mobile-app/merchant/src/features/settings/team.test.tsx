@@ -421,6 +421,52 @@ describe('Warehouse', () => {
     expect(asked(calls, 'mutation SavePlace')[1]?.variables).toMatchObject({ id: 'w1', r: 3, input: { name: 'Main store' } })
   })
 
+  it('says a location is gone when someone deleted it while it was being edited, and shows the list without it', async () => {
+    let reads = 0
+    const { renderer } = await show(
+      <SettingsTabScreen tab="warehouse" />,
+      store({
+        'query Places': () => {
+          reads += 1
+          return { warehouses: paged(reads > 1 ? places.filter((candidate) => candidate.id !== 'w1') : places) }
+        },
+        'mutation SavePlace': () => { throw new ApiError('STALE_REVISION', 'x') },
+      }),
+    )
+
+    await click(renderer, 'Manage Main godown')
+    await click(renderer, 'Rename or change address')
+    await type(renderer, 'Name', 'Main store')
+    await click(renderer, 'Save')
+
+    expect(hasText(renderer, 'That location isn’t here any more.')).toBe(true)
+    expect(pressablesNamed(renderer, 'Manage Main godown')).toHaveLength(0)
+  })
+
+  it('keeps the refusal as it is when reading the list again fails, and reads it only once', async () => {
+    let reads = 0
+    const { renderer, calls } = await show(
+      <SettingsTabScreen tab="warehouse" />,
+      store({
+        'query Places': () => {
+          reads += 1
+          if (reads > 1) throw new ApiError('NO_RESPONSE', 'x')
+          return { warehouses: paged(places) }
+        },
+        'mutation SavePlace': () => { throw new ApiError('STALE_REVISION', 'x') },
+      }),
+    )
+
+    await click(renderer, 'Manage Main godown')
+    await click(renderer, 'Rename or change address')
+    await type(renderer, 'Name', 'Main store')
+    await click(renderer, 'Save')
+
+    expect(hasText(renderer, 'Someone else changed this location first.')).toBe(true)
+    expect((input(renderer, 'Name').props as { value: string }).value).toBe('Main store')
+    expect(asked(calls, 'query Places')).toHaveLength(2)
+  })
+
   it('makes one the default and says existing stock does not move, after asking', async () => {
     const { renderer, calls } = await show(<SettingsTabScreen tab="warehouse" />, store({ 'mutation MakeDefaultPlace': () => ({ setDefaultWarehouse: true }) }))
 
