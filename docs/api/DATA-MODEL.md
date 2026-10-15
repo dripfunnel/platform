@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-15 (with Gaurav: `store.slug`, platform-unique, for `{slug}.my-store.one`; `storefront.preview_key` and `partner_domain`'s shops kind to be retired, §2.1, §7.8; not built yet). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -94,15 +94,20 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   partner and kind; a partner may delete its own address and records (`0061`, #429). **The
   `preview` kind is gone** (#518, migration 0232: its rows and records deleted, the check
   narrowed): previews are on `{key}.webpreview.store` (storefront PREVIEW.md), keyed by
-  `storefront.preview_key` (§7.8).
-- **Store**: `name`, `code` (unique per partner, used in hostnames), `country`, `status`
+  `storefront.preview_key` (§7.8). **The `shops` kind goes the same way** (decided 2026-10-15, not
+  built yet): every store's live address is `{slug}.my-store.one` (USERS-AND-DOMAINS §2), so its
+  rows and records are deleted and the check narrows to portal and email.
+- **Store**: `name`, `code` (unique per partner), `slug` (decided 2026-10-15, not built yet:
+  unique across the platform, not null, never changed; its hosts are `{slug}.<SHOP_DOMAIN>` and
+  `{slug}-preview.<SHOP_DOMAIN>`, USERS-AND-DOMAINS §2, rules in SAAS §4.1; the migration copies
+  each store's `code`, adding `-2`, `-3`… on a clash; a `signup` row's `subdomain` becomes the slug), `country`, `status`
   (SAAS.md §4.2 plus `closed`) with its facts (`trial_ends_at`, `past_due_since`, the
   suspension's time, reason, who and **the status it had before**, so Restore returns to it),
   `plan_id`, `storefront_kind` (`ai` or `own`), `build_state`, `core_version`, last build and
   publish, and `support_access_allowed` (the merchant's standing consent, USERS-AND-DOMAINS §4.1,
   a column; there is no support-access table).
 - **Setup checklist**: the items of ui/platform/FIRST-RELEASE.md §4 (built as ten: company,
-  branding, portalHost, wildcards, emailSender, plan, legal, paymentMethod, payoutDetails,
+  branding, portalHost, wildcards (retired with the shops address, decided 2026-10-15), emailSender, plan, legal, paymentMethod, payoutDetails,
   testSignup; status done | progress | missing), one row each with
   status, detail and who did it (a partner user, or staff in a setup session). The admin console's
   "Owner accepted" is read from `partner_user.status`, not an item.
@@ -1756,9 +1761,10 @@ storefront          (store_id PK, repo, repo_id NULL, live_build_id NULL, previe
                     -- source bundle (sources/{store}/{build id}.bundle, private) is the record of
                     -- the live code, never GitHub's main (§4 step 3); it replaces
                     -- hosting_target, a Pages project (2026-10-09). preview_key is the opaque,
-                    -- platform-unique label of {key}.webpreview.store (PREVIEW §2); preview_epoch
+                    -- platform-unique label of {key}.webpreview.store, replaced by store.slug (PREVIEW §2,
+                    -- decided 2026-10-15) and dropped once nothing reads it; preview_epoch
                     -- (integer, proposed) ends every preview link when moved (PREVIEW §5 step 4); no
-                    -- preview_url: the host is derived from preview_key and PREVIEW_DOMAIN, and a
+                    -- preview_url: the host is derived from store.slug and SHOP_DOMAIN, and a
                     -- preview opens only through a signed link (PREVIEW §8). live_build_id (the publish_run
                     -- id, null until the first publish) and preview_epoch (integer, 0) built on #317, migration 0233;
                     -- files_deleted_at (0234) is when clean-up erased a store closed 90 days from the three buckets;

@@ -523,8 +523,8 @@ or admin console (ACCESS.md §8), integrations and apps:
   ([`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §1).
 - **Custom domains** through **Cloudflare for SaaS** (custom hostnames with automatic
   certificates), replacing the first platform's AWS ACM + CloudFront work (`provision-domain`). Keep
-  the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), and cover brand
-  storefront wildcards (`*.shops.partner.com`).
+  the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), a store's free
+  address is `{slug}.my-store.one`, on our own zone (USERS-AND-DOMAINS §2).
 - **Builds** run in the store repo's locked workflow inside the public build image
   (`apps/sandbox`) from the store's commit and a catalogue snapshot, offline, and upload to R2
   through a 15-minute credential limited to a private staging folder, minted after a GitHub OIDC

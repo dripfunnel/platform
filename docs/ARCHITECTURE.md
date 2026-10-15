@@ -7,7 +7,8 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
+Last updated: 2026-10-15 (with Gaurav: every store's free addresses on `my-store.one`, `{slug}.` live and
+`{slug}-preview.` preview, §1 and §8; not built yet). Before: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
 Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
@@ -45,15 +46,15 @@ Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
 
 | Deployable | Kind | Serves | Hostnames |
 |---|---|---|---|
-| `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host and every preview host, `{key}.<PREVIEW_DOMAIN>` (#518); `hooks.dripfunnel.com` |
-| `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS. Partner portal hosts: `/api/*` to the API Worker's `PortalProxy` entrypoint through a service binding, the rest to the store Pages project. Storefront hosts and `*.webpreview.store`: each store's built files from R2, `/shop-api/*` to the API Worker's `StorefrontEdge` entrypoint, which also answers its host lookups (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09, entrypoint on #317). Our own hosts pass through (SAAS.md §8). Portal part on dev only so far; the storefront part is built (#317) and is bound on dev once #287's bucket and preview zone exist | every partner portal host; every storefront host; `*.webpreview.store` |
+| `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host and every preview host, `{slug}-preview.<SHOP_DOMAIN>`; `hooks.dripfunnel.com` |
+| `store-proxy` (the edge Worker) | **Worker** | Sits on the zone's `*/*` route in front of the hosts that reach us through Cloudflare for SaaS, and on `*.my-store.one/*` in the `my-store.one` zone (USERS-AND-DOMAINS §2). Partner portal hosts: `/api/*` to the API Worker's `PortalProxy` entrypoint through a service binding, the rest to the store Pages project. Storefront hosts and `*.my-store.one`: each store's built files from R2, `/shop-api/*` to the API Worker's `StorefrontEdge` entrypoint, which also answers its host lookups (storefront/LIVE-SHOP.md §5, PREVIEW.md §5; decided 2026-10-09, entrypoint on #317). Our own hosts pass through (SAAS.md §8). Portal part on dev only so far; the storefront part is built (#317) and is bound on dev once #287's bucket and the dev shop zone exist | every partner portal host; every merchant domain; `*.my-store.one` |
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
 | `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |
 | `apps/ui/mobile-app/merchant` | **Mobile app** (Expo; iOS and Android), one build per partner, built and submitted by hand, never by the pipelines (§6) | Merchants and vendors on their phones, in the partner's look; it calls `/api/` on the partner's portal host with a bearer token ([mobile-app/merchant/REACT-NATIVE.md](mobile-app/merchant/REACT-NATIVE.md) §5) | none of its own: the partner's portal host |
 | `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every storefront runs on, with the validator and gate suites. Store repos never install it: they pin a version, and the sandbox image for that version has it preinstalled (code/ARCHITECTURE.md §5) | none |
 | `apps/sandbox` | **Container image**, one per core version: run in Cloudflare Containers by the API Worker's `StudioSession` Durable Object, and published publicly on `ghcr.io` for store repos' builds | A store's studio session (applying the AI's changes, the fast gate, the live frame) and, inside each store repo's workflow, every storefront build; Node, not the Workers runtime; no network, no credential | none |
-| Store repos | **Public** GitHub repo per store, holding its published theme and one locked workflow that builds it inside `apps/sandbox`'s image (storefront/LIVE-SHOP.md §3–§4) | The store's live static build, uploaded to R2 and served by the edge Worker; its preview comes from the studio (storefront/PREVIEW.md) | `{shop}.shops.<partnerdomain>`; the merchant's own domain; preview on `{key}.webpreview.store` |
+| Store repos | **Public** GitHub repo per store, holding its published theme and one locked workflow that builds it inside `apps/sandbox`'s image (storefront/LIVE-SHOP.md §3–§4) | The store's live static build, uploaded to R2 and served by the edge Worker; its preview comes from the studio (storefront/PREVIEW.md) | `{slug}.my-store.one`; the merchant's own domain; preview on `{slug}-preview.my-store.one` |
 | Postgres | **Neon**, via **Hyperdrive** | The system of record | none |
 | R2 buckets | **R2** | Assets, imports and exports, invoices; storefront builds, previews and private drafts (storefront/LIVE-SHOP.md §2) | public assets through a custom domain with Cloudflare image resizing (decided 2026-10-05 on #337) |
 
@@ -286,11 +287,10 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 
 ## 8. Open questions
 
-- ~~The Shop API hostname pattern for storefronts.~~ `/shop-api` on the store's own storefront hosts: `{code}.` under its
-  partner's `*.shops.` wildcard, or its live custom domain. Previews are on
-  `{key}.<PREVIEW_DOMAIN>` (`webpreview.store` in prod; decided 2026-10-09, storefront/PREVIEW.md §5):
-  the store is the one whose `storefront.preview_key` is `{key}`, checkout there is in test mode,
-  and every caller is a guest (built on #518, which removed the partner's `*.preview.` wildcard). On
+- ~~The Shop API hostname pattern for storefronts.~~ `/shop-api` on the store's own storefront hosts: `{slug}.<SHOP_DOMAIN>`, or its live custom
+  domain. Previews are on `{slug}-preview.<SHOP_DOMAIN>` (`my-store.one` in prod; decided 2026-10-15,
+  USERS-AND-DOMAINS §2, replacing #518's `{key}.webpreview.store`): the store is the one whose
+  `slug` is `{slug}`, checkout there is in test mode, and every caller is a guest. On
   any other host the public store key alone names the store, and a key sent on a store's own or
   preview host must be that store's (decided on #306).
 - Password hashing choice under Workers CPU limits.

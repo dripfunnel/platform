@@ -14,7 +14,7 @@ walls (§3), the model's context, the fast gate and what the AI refuses (§6.2).
 image per core version, the `StudioSession` Durable Object (§3 steps 2–5, §4 steps 1–8, §5 undo, §7), and the frame
 on the preview origin with its hot reload (§3 step 6, §4 step 5, §8). The studio's API and screens are #318 and #319.
 
-Last updated: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
+Last updated: 2026-10-15 (with Gaurav: the frame's origin is the store's preview host `{slug}-preview.my-store.one`, §1, §4, §8; not built yet). Before: 2026-10-12 (#485: the draft's rebase onto an upgrade, §6 step 2). Before: 2026-10-12 (#638: the studio cap is `STUDIO_MAX_RUNNING`, apart from the `STUDIO_CAPACITY` binding, §9). Before: 2026-10-11 (#482: the sandbox, its size and its image).
 Before: 2026-10-09 (decided with Gaurav: drafts in private R2 until their publish is live, the live frame
 built from the fast gate's bundle, the frame on the store's preview origin).
 
@@ -28,7 +28,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 | **The container has no network and no credential** (decided 2026-10-08 on #470) | A sandbox that fetches its own files or calls the model | Instructions hidden in a pasted image or a sample site have nowhere to go. The Worker and the Durable Object make every outside call. |
 | **The draft is a git bundle in a private R2 bucket; GitHub gets it only once its publish is live** (decided 2026-10-09 with Gaurav; "at Publish" moved after the switch on #520) | A commit to the store's repo per change (decided 2026-10-08 on #470, replaced) | Store repos are public ([LIVE-SHOP.md](LIVE-SHOP.md) §1). A git bundle is the repo and its history in one file, so undo, history and "publish everything before this change" still work on commits. The public repo gets only one squashed commit per published version, with a platform-written message (§6 step 4). |
 | **The live frame shows the fast gate's own client bundle, with hot reload** (decided 2026-10-09 with Gaurav) | The Next.js dev server in the container | The gate already builds the bundle, so the frame updates in under a second with no second build. It is byte-for-byte what the preview link shows. The container stays small (about 1 GiB) and starts faster. |
-| **The frame runs on the store's preview origin, `{key}.webpreview.store`, not on the portal host** (decided 2026-10-09 with Gaurav) | The frame served through the Store API on the portal host (ARCHITECTURE §6.1 as written on 2026-10-08) | AI-written code must never run on the portal's origin, where the merchant's session lives. The preview origin belongs to this store alone ([PREVIEW.md](PREVIEW.md) §1). |
+| **The frame runs on the store's preview origin, `{slug}-preview.my-store.one`, not on the portal host** (decided 2026-10-09 with Gaurav; the host moved 2026-10-15, [PREVIEW.md](PREVIEW.md) §2) | The frame served through the Store API on the portal host (ARCHITECTURE §6.1 as written on 2026-10-08) | AI-written code must never run on the portal's origin, where the merchant's session lives. The preview origin belongs to this store alone ([PREVIEW.md](PREVIEW.md) §1). |
 | **One image per core version, used for the studio and for builds** (decided 2026-10-09 with Gaurav) | Separate studio and build images | A theme that passes in the studio builds the same at Publish. The release workflow publishes it publicly on `ghcr.io` for builds and pushes it to Cloudflare's registry for containers (`../code/ARCHITECTURE.md` §5). |
 
 ---
@@ -41,8 +41,8 @@ built from the fast gate's bundle, the frame on the store's preview origin).
  │ Studio (apps/ui/store, portal  │ ───────► │ API Worker: Store API, model call            │
  │ host): chat, history, buttons  │          │   └─► Durable Object StudioSession:{store}   │
  │ ┌────────────────────────────┐ │          │         │ one change at a time              │
- │ │ frame: {key}.webpreview.   │ │ ───────► │ edge Worker ──► same Durable Object         │
- │ │ store/__studio (theme SPA) │ │ WebSocket│         ▼                                    │
+ │ │ frame: {slug}-preview.     │ │ ───────► │ edge Worker ──► same Durable Object         │
+ │ │ my-store.one/__studio      │ │ WebSocket│         ▼                                    │
  │ └────────────────────────────┘ │          │   container (apps/sandbox, the store's       │
  └────────────────────────────────┘          │   core version): no network, no credential   │
                                              │         │                                    │
@@ -59,7 +59,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
 | **`StudioSession` Durable Object** (one per store) | Owns the container, the change in progress and the draft's head commit | One owner per store makes two tabs safe and gives the container one place that talks to it. |
 | **Container** | Applies diffs, runs the fast gate, holds the working copy | Workers can't run a typecheck or a bundler; a container can, in isolation. |
 | **Private drafts bucket** *(proposed name `storefront-drafts`)* | `drafts/{store}.bundle`, the unpublished code | A container can stop at any moment; the draft must survive it. |
-| **Edge Worker on `*.webpreview.store`** | Serves the frame from the container while a session is open | It keeps the frame on the store's own origin. |
+| **Edge Worker on `*.my-store.one`** | Serves the frame from the container while a session is open | It keeps the frame on the store's own origin. |
 
 ---
 
@@ -86,7 +86,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
    GitHub:* it doesn't have the unpublished changes, its `main` can lag behind a publish whose push
    is still retrying, and reading R2 doesn't use GitHub's API limits.
 5. **The container builds the first bundle** with the fast gate's bundle step.
-6. **The frame opens** at `https://{key}.webpreview.store/__studio/{session}/`. `{session}` is
+6. **The frame opens** at `https://{slug}-preview.my-store.one/__studio/{session}/`. `{session}` is
    an unguessable studio-session id (128 random bits) that the Store API creates for this store's
    session. **Every frame request carries it in its path**, so no cookie is needed in the
    cross-site iframe (browsers don't send a SameSite=Lax cookie there, and many block third-party
@@ -267,7 +267,7 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   - **Kept out of logs:**
     - the edge Worker writes the path as `/__studio/:session/…` in its own logs;
     - Workers' automatic invocation logs are off for the edge Worker;
-    - the request logs for the `webpreview.store` zone leave out the request path and query
+    - the request logs for the `my-store.one` zone leave out the request path and query
       (LOGGING §9);
     - `Referrer-Policy: no-referrer` keeps it out of Referer headers.
   - **Visible to the theme's code**, which runs on the same origin and could read the address.
@@ -357,9 +357,9 @@ built from the fast gate's bundle, the frame on the store's preview origin).
   is live only while its portal session is fully signed in: `stage = 'full'`, inside both its absolute and idle bounds.
 - ~~The WebSocket path through the edge Worker.~~ **`/__studio/{session}/__hot`** (decided on #482), on the frame's own
   origin, so the studio CSP's `connect-src 'self'` covers it. How the frame is served (decided on #482):
-  - store-proxy sends `{key}.<PREVIEW_DOMAIN>/__studio/*` to the API's `StorefrontEdge`; the router gives `/__studio`
+  - store-proxy sends `{slug}-preview.<SHOP_DOMAIN>/__studio/*` to the API's `StorefrontEdge`; the router gives `/__studio`
     an area on that entry only, so a portal host or the public entry answers 404;
-  - the API finds the store from the host's preview key, and forwards to that store's Durable Object with the store
+  - the API finds the store from the host's slug, and forwards to that store's Durable Object with the store
     id in a header it sets itself; `/__studio/{session}/shop-api` goes to the preview host's Shop API after the
     object's `check`, with the id taken out of the path (so out of the Shop API's cache key);
   - the object checks the session against its own store before anything is read, then serves the container's file,

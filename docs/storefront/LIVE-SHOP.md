@@ -19,7 +19,7 @@ the workflow's `upload` step (§4 step 8) and the one-read verify and copy befor
 #483: the frozen input, the dispatch, the workflow's `fetch`, `build` and `check` steps and the build image's two steps
 (§4 steps 3–7). On #484: the post-deploy checks and the automatic rollback (§4 step 10). The rest is specification.
 
-Last updated: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
+Last updated: 2026-10-15 (with Gaurav: every store's live address `{slug}.my-store.one`, §6, and preview on `my-store.one`, USERS-AND-DOMAINS §2; not built yet). Before: 2026-10-12 (#485: the upgrade bot's private commits and push, §8). Before: 2026-10-12 (#471: the redirect to the primary address, §5 step 1). Before: 2026-10-11 (#484: the post-deploy checks and the rollback; #517: the build calls, the digest's form, the build id's lifetime, the upload step and the copy; #317: bucket names, the host lookup and the purge). Before: 2026-10-09 (decided with Gaurav: public store repos built by GitHub Actions, the
 built files in R2, one edge Worker for every store, the publish checks inside the workflow).
 
 ---
@@ -148,7 +148,8 @@ checking, deploying, live, failed, rolled back).
    **Built on #483** (`saas/storefronts/freeze.ts`): the source is a byte copy of the store's draft bundle for a design
    publish, or of the live build's own source bundle otherwise (none: `no_source`), and the build checks the run's
    `commit` out of it. The snapshot is core's `catalogueSnapshotSchema`: the store as the Shop API's `store` reads it,
-   the live address (the store's host under its partner's live shops address: none is `no_address`), the partner's
+   the live address (the store's host under its partner's live shops address: none is `no_address`; to become
+   `{slug}.<SHOP_DOMAIN>`, which always exists, §6), the partner's
    "Powered by" brand unless it is off, the validator's context, the CSP's inputs and the build's asset folder on
    `sf-assets.<EDGE_ZONE>`, and *since #324* the store's published, due posts, newest first, at most 500 (none while
    the plan has no blog): each one's address, title, search title and description, author, date and cover, so the
@@ -299,7 +300,7 @@ checking, deploying, live, failed, rolled back).
     no rebuild, live everywhere within a minute (§5 step 1).
     **Built on #484** (`saas/storefronts/postDeploy.ts`, the run's `checks`, `rollback` and `confirm` steps): the switch
     moves the pointer and numbers the version, and the run stays `deploying`, so a press waits and go back is refused,
-    until the checks end. They run on the store's own address (its oldest live custom domain, else its shops host),
+    until the checks end. They run on the store's own address (its oldest live custom domain, else its free address, §6),
     through `integrations/http/edgeProbe.ts`: every call has a 10-second timeout and up to three tries with growing
     waits. Every answer of the edge Worker names the build it came from (`x-df-build`), and the checks wait, 10 seconds
     at a time, until it is the new one, for two minutes at most. Then, decided here as plain HTTP from the API Worker:
@@ -431,18 +432,20 @@ What the edge Worker does on each request to a storefront host.
 
 ## 6. Domains
 
-- **Until the merchant connects a domain**, the live site is `{shop}.shops.<partnerdomain>`. The
-  partner adds one wildcard DNS record, and each store's address is registered as its own
-  Cloudflare for SaaS custom hostname (SAAS §5 step 3, §8).
-  *Why:* registering each name works on every Cloudflare plan. A wildcard custom hostname
-  would need Enterprise.
-  Built on #519: the address is registered after signup once the partner's shops address is
-  live, every store's when that address goes live, and taken out when the store closes or the
-  address is removed (SAAS §8).
+- **Every store's free address is `{slug}.my-store.one`** (decided 2026-10-15 with Gaurav,
+  [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2), for every partner, and it keeps working
+  after the merchant connects a domain (it redirects to the primary one, SAAS §8). The domain is
+  set up once with the previews' ([PREVIEW.md](PREVIEW.md) §2): one wildcard record, Cloudflare's
+  free certificate and one Worker route, so nothing is registered or paid per store. The edge
+  Worker finds the store by its `slug`; a closed store's slug answers as no store does.
+  *Why:* a wildcard custom hostname under each partner's domain would need Enterprise, and
+  registering each store's name costs $0.10 a month past the first 100.
+  *Replaces* `{shop}.shops.<partnerdomain>`, built on #519 (each store's name registered as its
+  own custom hostname under the partner's wildcard record); that registration is taken out.
 - **A merchant's own domain** is another custom hostname on the same zone (SAAS §8). It reaches
   the same edge Worker, which maps it to the same store.
-- Each hostname costs about $0.10 a month after the first 100, on every plan below Enterprise
-  (checked 2026-10-09).
+- Each merchant domain costs about $0.10 a month after the first 100, on every plan below
+  Enterprise (checked 2026-10-09).
 
 ---
 

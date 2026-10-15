@@ -9,11 +9,12 @@ draft theme, with live catalogue data, `noindex`, a signed link and test-mode ch
 document owns how it is hosted. [AI-STUDIO.md](AI-STUDIO.md) produces the files, and
 [LIVE-SHOP.md](LIVE-SHOP.md) runs the same edge Worker for live sites.
 
-**Status:** the preview key (§2 step 5) and the Shop API's side of §5 step 5 and §6 are built on #518; §5 steps 1–5 and
+**Status:** the preview key (§2 step 5, being replaced by the slug, not built yet) and the Shop API's side of §5 step 5 and §6 are built on #518; §5 steps 1–5 and
 §6's checks on #317 ("Open preview", the edge Worker's preview path, the access re-check). The studio frame's door
 (`/__studio/`) is #482's.
 
-Last updated: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
+Last updated: 2026-10-15 (with Gaurav: previews move to `{slug}-preview.my-store.one`, the store's slug
+replacing the preview key, §1, §2, §8; not built yet). Before: 2026-10-13 (#716: store-proxy forwards every `/__studio/` request, any method, before its GET/HEAD check; locally it runs behind Caddy, setup/local.md §6.3). Before: 2026-10-11 (#317: the preview path built, the link's lifetime and folder retention decided; before it #518: `storefront.preview_key` and the Shop
 API on preview hosts built).
 Before: 2026-10-09 (decided with Gaurav: previews on `{key}.webpreview.store`, built by the
 studio's fast gate, served from R2 by the edge Worker).
@@ -26,37 +27,39 @@ Decided 2026-10-09 with Gaurav unless the row says otherwise.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **Every preview is on one generic domain we own: `{key}.webpreview.store`** | `{shop}.preview.<partnerdomain>` (decided 2026-10-05 on #337, replaced); `{shop}.preview.dripfunnel.com`; a direct R2 link | On our own zone, one wildcard DNS record and Cloudflare's free certificate cover every store, so nothing is set up or paid per store. A partner-domain preview is one more Cloudflare for SaaS hostname per store ($0.10 a month), and wildcard custom hostnames need Enterprise. A separate domain, not a subdomain of `dripfunnel.com`, means the AI's code can never set cookies where the consoles live. The price: preview links show our generic domain, not the partner's. |
+| **Every preview is on one generic domain we own, the live shops' own: `{slug}-preview.my-store.one`** (decided 2026-10-15, [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2) | `{key}.webpreview.store` (decided 2026-10-09, replaced); `{shop}.preview.<partnerdomain>` (decided 2026-10-05 on #337, replaced); `{shop}.preview.dripfunnel.com`; a direct R2 link | On our own zone, one wildcard DNS record and Cloudflare's free certificate cover every store, so nothing is set up or paid per store. A partner-domain preview is one more Cloudflare for SaaS hostname per store ($0.10 a month), and wildcard custom hostnames need Enterprise. A separate domain, not a subdomain of `dripfunnel.com`, means the AI's code can never set cookies where the consoles live. Previews and live shops share the domain, so the Public Suffix List entry and `__Host-` cookies (§2 step 4) keep a draft from setting a cookie a live shop reads. The price: preview links show our generic domain, not the partner's. |
 | **No direct R2 link** | The bucket's `r2.dev` address; signed R2 URLs | A direct link would put every store on one origin, 404 on any deep link (a SPA needs `index.html` for every path), check no access, and have no `/shop-api` for the cart and checkout. Cloudflare also rate-limits `r2.dev` and says it isn't for production. A signed R2 URL covers one file, so the SPA's own scripts couldn't load. |
 | **The studio's fast gate builds the preview; there is no separate preview build** | A preview build per change in a build pool or Actions | The bundle the fast gate already produced is the preview ([AI-STUDIO.md](AI-STUDIO.md) §4), so a preview costs nothing extra and is ready in seconds. What the studio shows is exactly what the link shows. |
 | **Served from R2 by the same edge Worker as live sites** | A branch deployment of the store's Pages project (open question in ARCHITECTURE §12, now closed) | Pages per store is gone ([LIVE-SHOP.md](LIVE-SHOP.md) §1), and one serving path for preview and live is less to build and run. |
-| **Each store's preview is its own origin**, named by an opaque key | One host with a path per store | The browser keeps origins apart, so one store's AI-written code can't read another store's preview storage or cookies. This is the run-time wall behind the validator's ban (ARCHITECTURE §3.3). |
+| **Each store's preview is its own origin**, named by the store's slug | One host with a path per store | The browser keeps origins apart, so one store's AI-written code can't read another store's preview storage or cookies. This is the run-time wall behind the validator's ban (ARCHITECTURE §3.3). |
 | **A signed link, `noindex` and test-mode checkout** (decided 2026-10-05 on #284) | An open preview | Unchanged: a draft is private and must never be indexed or take real money. |
 
 ---
 
 ## 2. The domain (set up once)
 
-1. **Register `webpreview.store`** (available on 2026-10-09, as the `.store` registry reported)
+The domain is the live shops' too ([LIVE-SHOP.md](LIVE-SHOP.md) §6): these steps set it up for both.
+
+1. **Register `my-store.one`** (bought by Gaurav, 2026-10-15)
    and add it to Cloudflare as **its own zone**, apart from `dripfunnel.com` (#287).
    *Why:* a separate registrable domain keeps preview cookies and scripts away from the
    consoles.
-2. **Add one proxied wildcard DNS record**, `*.webpreview.store`. Cloudflare's free Universal SSL
-   certificate covers `*.webpreview.store`.
+2. **Add one proxied wildcard DNS record**, `*.my-store.one`. Cloudflare's free Universal SSL
+   certificate covers `*.my-store.one`, one label deep, which is why a preview is
+   `{slug}-preview.` and not `{slug}.preview.`.
    *Why:* a new store's preview works the moment it exists, with no DNS or certificate step.
-3. **Add one Worker route**, `*.webpreview.store/*` → the edge Worker.
-4. **Submit `webpreview.store` to the Public Suffix List** *(proposed)*, as `github.io`,
+3. **Add one Worker route**, `*.my-store.one/*` → the edge Worker.
+4. **Submit `my-store.one` to the Public Suffix List** *(proposed)*, as `github.io`,
    `pages.dev` and `r2.dev` are.
-   *Why:* browsers then treat each `{key}.webpreview.store` as a separate site, so one store's
-   preview can't even set a cookie for another's. Acceptance takes weeks and then ships with
+   *Why:* browsers then treat each `{slug}.my-store.one` and `{slug}-preview.my-store.one` as a
+   separate site, so one store's preview can't even set a cookie for another store or a live shop. Acceptance takes weeks and then ships with
    browser updates; until then the `__Host-` cookie (§5) and the validator's cookie ban
    (ARCHITECTURE §3.4) cover the gap.
-5. **The label `{key}` is an opaque preview key per store**: `storefront.preview_key`, 10
-   lowercase base32 characters made by the database with the store, unique across the platform
-   (decided 2026-10-09; built on #518).
-   *Why:* a store's `code` is unique only within its partner (DATA-MODEL §2), and a name would
-   let anyone check whether a merchant uses DripFunnel ("never reveal whether an account
-   exists").
+5. **The label is the store's slug with `-preview` added**: `store.slug`, unique across the
+   platform and never changed (decided 2026-10-15, [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2).
+   It replaces the opaque `storefront.preview_key` (decided 2026-10-09, built on #518).
+   *Why:* the live shop at `{slug}.my-store.one` already shows that the store exists, so an opaque
+   key hides nothing, and the signed link (§5), not the name, is what opens a preview.
 
 ---
 
@@ -116,7 +119,7 @@ page (`apps/sandbox/src/runtime/routes.ts`).
 ## 5. Opening a preview
 
 1. **The merchant presses "Open preview"** in the portal. The Store API checks the session and
-   the store (ACCESS §3) and signs a link: `https://{key}.webpreview.store/__open?t=<token>`.
+   the store (ACCESS §3) and signs a link: `https://{slug}-preview.my-store.one/__open?t=<token>`.
    The token names the store and the user, is signed with a Worker secret, and expires
    after **7 days** (decided on #317, as proposed).
    **Built on #317:** the Store API's `openStorefrontPreview`, renamed `previewLink` on #318 (the `publish` capability; refused to support and staff
@@ -125,13 +128,13 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    `storefront.preview_epoch` and the expiry.
    *Why:* only the portal can hand out a preview, and every link runs out.
 2. **The edge Worker checks the token**: its signature, its expiry, and that **the token's store
-   is the store the hostname's preview key resolves to**. Any mismatch gets the same "This
+   is the store the hostname's slug resolves to**. Any mismatch gets the same "This
    preview link has expired" page as an expired link. On a match, and after the same access re-check as step 4, it
    sets a `__Host-df_preview` cookie (HttpOnly, Secure, SameSite=Lax, signed, naming the store and
    the user) and redirects to `/` without the token.
    **Built on #317:** the edge Worker passes `__open` to the API's `StorefrontEdge.openPreview`, which opens the token and
-   runs step 4's re-check against the host's key; the cookie is sealed by the edge Worker with its own `PREVIEW_SESSION_KEY`
-   and also names the preview key and the change folder its chunks come from (step 4).
+   runs step 4's re-check against the host's store; the cookie is sealed by the edge Worker with its own `PREVIEW_SESSION_KEY`
+   and also names the store's host label and the change folder its chunks come from (step 4).
    **Lifetimes:**
    - the **cookie is a 15-minute sliding session** (decided on #317, as proposed), renewed by every HTML or
      `/shop-api` request that passes the re-check (step 4);
@@ -140,7 +143,7 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    The `__open` response, like every response on a preview host, carries
    `Referrer-Policy: no-referrer`, and the token is never logged: the edge Worker writes
    `/__open?t=:token`, and the zone's request logs leave out the query (LOGGING §9).
-   *Why:* the preview key is opaque but not secret (it is in every shared link), so a valid
+   *Why:* the slug is not secret (it is in every shared link and the live address), so a valid
    link for store A must never open store B's draft. The link is a bearer credential for its
    lifetime (§8), so it must not land in a log or a Referer. The token doesn't stay in
    browser history or leak in a Referer, and the `__Host-` prefix ties the cookie to this one
@@ -194,11 +197,11 @@ page (`apps/sandbox/src/runtime/routes.ts`).
 
    *Why:* a fresh change shows on the next load, a draft never reaches a search engine, and the
    browser's walls are the same as on the live site.
-5. **`/shop-api/*` goes to the API Worker only after the full re-check of step 4** (the preview
-   key isn't secret, so the key alone opens nothing: no test-mode cart or checkout either). The
-   API Worker finds the store from the preview key in the hostname
+5. **`/shop-api/*` goes to the API Worker only after the full re-check of step 4** (the slug
+   isn't secret, so the hostname alone opens nothing: no test-mode cart or checkout either). The
+   API Worker finds the store from the slug in the hostname
    ([../ARCHITECTURE.md](../ARCHITECTURE.md) §8). The SPA reads products, prices and stock live.
-   *Built on #518:* the API Worker reads `{key}.<PREVIEW_DOMAIN>` only; a key that names no
+   *Built on #518, for the key it replaces:* the API Worker reads `{slug}-preview.<SHOP_DOMAIN>` only; a slug that names no
    store, or a closed partner's store, finds nothing, whatever public key comes with it. There
    the API ignores any shopper session and refuses sign-in, code requests and sign-out
    (`NOT_IN_PREVIEW`), so every caller is a guest.
@@ -216,7 +219,7 @@ page (`apps/sandbox/src/runtime/routes.ts`).
    *Why:* catalogue changes show in the preview at once, with no build, and a shared link
    exposes nothing a shopper couldn't already see, apart from the draft's design.
 6. **Checkout runs in each provider's test mode** (decided 2026-10-05 on #284). **Express wallets
-   (Apple Pay, Google Pay) are hidden on `*.webpreview.store`** (decided 2026-10-13 with Gaurav on #313): a
+   (Apple Pay, Google Pay) are hidden on every preview host** (decided 2026-10-13 with Gaurav on #313): a
    preview's checkout offers cards and the provider's other test-mode methods, never a wallet; wallets show only
    on a live shop, where the provider offers them.
    *Why:* each wallet registers the domain it runs on, and a preview's is the shared preview domain, not the shop's.
@@ -259,7 +262,7 @@ There is no per-store hostname fee.
 
 ## 8. Open questions
 
-- The Public Suffix List submission for `webpreview.store` *(proposed)*.
+- The Public Suffix List submission for `my-store.one` *(proposed)*.
 - ~~The preview link's lifetime~~ 7 days (decided on #317). ~~Whether the merchant can revoke shared
   links.~~ Yes: access is re-checked on every page, and the store's revocation number ends every
   link at once (§5 step 4).
@@ -274,14 +277,15 @@ There is no per-store hostname fee.
   - it is specified in ui/store/FIRST-RELEASE (the Storefront studio) and built on #318 (the API)
     and #319 (the screen).
 - ~~The `storefront.preview_key` column and its format.~~ 10 lowercase base32 characters, made
-  with the store (decided 2026-10-09, §2 step 5; built on #518, migration 0232).
-- ~~Previews on dev and locally.~~ The preview domain is a Worker variable per environment,
-  `PREVIEW_DOMAIN`, validated at boot: `webpreview.store` in prod, a second cheap domain
-  registered on #287 for dev (for example `webpreview-dev.store`), and `preview.localhost`
-  locally (decided 2026-10-09).
+  with the store (decided 2026-10-09; built on #518, migration 0232). Replaced by the store's slug
+  (decided 2026-10-15, §2 step 5); the column is dropped once nothing reads it.
+- ~~Previews on dev and locally.~~ The domain is a Worker variable per environment,
+  `SHOP_DOMAIN` (replacing `PREVIEW_DOMAIN`), validated at boot: `my-store.one` in prod, a
+  second domain of its own for dev, `my-shop.dev` (registered 2026-10-15), and `my-store.localhost` locally (decided 2026-10-15;
+  before it `webpreview.store`, decided 2026-10-09). It names live and preview hosts alike.
 - ~~Whether the consoles show a store's preview address.~~ They don't: a preview opens only
   through the merchant's signed link (decided 2026-10-09, #518).
-- ~~Express wallets in preview~~ Hidden on `*.webpreview.store`, shown on live shops where the provider offers them
+- ~~Express wallets in preview~~ Hidden on preview hosts, shown on live shops where the provider offers them
   (decided 2026-10-13 on #313, §5 step 6).
 - ~~How long old preview folders are kept~~ Until the next publish goes live, then deleted bar the current one (decided on
   #317, §3).

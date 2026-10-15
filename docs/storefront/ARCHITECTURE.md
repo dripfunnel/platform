@@ -24,7 +24,7 @@ behaviour: the browser hooks, media, the head, and the product, collection and s
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
 served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
-infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built).
+infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4).
 
 ---
 
@@ -40,7 +40,7 @@ infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the
 | **Every accepted change is a commit; undo is a revert.** The commits stay in the store's private draft; once a publish is live, its tree reaches the public repo as one squashed commit with a platform-written message (decided 2026-10-09 with Gaurav, [AI-STUDIO.md](AI-STUDIO.md) §1) | Draft rows of site data; a commit to the repo per change (2026-10-08, replaced) | The repo is the history; "Undo this change" and bisecting a broken publish both work on commits. The repos are public, so drafts must not be pushed before the merchant publishes. |
 | **Nothing reaches live that hasn't passed** (§4.2): a deterministic build in a frozen image, a full gate, then an atomic deploy, post-deploy checks and automatic rollback; repairs and bisecting before refusing | Building on publish and hoping | The exact files tested are the files deployed. A failure leaves the live site as it was; most failures repair themselves. |
 | **A store starts from a template** (decided 2026-10-08): six (Linen, Concrete, Bloom, Circuit, Market, Atelier) and "Start from scratch", each a complete starting theme in this repo, after a required brand step | The AI proposing three directions (decided 2026-10-05, replaced) | The merchant sees finished looks with their own products before typing a word. |
-| **Two render modes from one codebase.** **Preview** is a client-rendered build on the store's preview host, `{key}.webpreview.store` ([PREVIEW.md](PREVIEW.md)), with no SSR or SSG. **Live** is a static site (SSG) on the customer's domain. | One mode for both | The preview builds in seconds and shows catalogue changes at once; the live site must be fast, cheap to host, crawlable and immune to API load spikes. §4 covers both. |
+| **Two render modes from one codebase.** **Preview** is a client-rendered build on the store's preview host, `{slug}-preview.my-store.one` ([PREVIEW.md](PREVIEW.md)), with no SSR or SSG. **Live** is a static site (SSG) on the customer's domain. | One mode for both | The preview builds in seconds and shows catalogue changes at once; the live site must be fast, cheap to host, crawlable and immune to API load spikes. §4 covers both. |
 | **The engine computes; the storefront displays.** Every price, tax, discount, shipping cost, stock level and total comes from the Shop API. | Any client-side commerce calculation | This is what lets the AI change the storefront freely: nothing a theme does can assert a price or skip a rule (PLATFORM-PROMPT §5.5). |
 | **Fast and findable by construction**: core owns the `<head>`, structured data, sitemap, redirects, images, fonts and script loading; theme components are server-only unless they are interactive islands; budgets are gates (§8, §9) | Asking the AI to be careful | Speed and SEO are the storefront's job; a slow or unindexable design is refused like a broken one. |
 | **Hosted on Cloudflare**: each build's files in R2, served for every store by one edge Worker; built by a locked GitHub Actions workflow in each store's public repo, inside the public build image for its core version (decided 2026-10-09 with Gaurav, [LIVE-SHOP.md](LIVE-SHOP.md) §1) | A Pages project per store (decided 2026-10-05 on #284, replaced: 100 projects per account); builds in Cloudflare Containers (2026-10-08, replaced); S3 + CloudFront (the reference's deploy) | No per-store hosting limit, going back is a pointer move, and builds cost nothing on public repos. Custom domains through Cloudflare for SaaS. |
@@ -671,8 +671,8 @@ the theme, so a page is written once.
 
 ### 4.1 Preview (staging)
 
-- **Where**: **`{key}.webpreview.store`**, one generic preview domain for every store (decided
-  2026-10-09 with Gaurav, replacing #337's `{store}.preview.{partner-domain}`), served from R2
+- **Where**: **`{slug}-preview.my-store.one`**, on one domain we own for every store (decided
+  2026-10-15 with Gaurav, replacing `{key}.webpreview.store` and before it #337's `{store}.preview.{partner-domain}`), served from R2
   by the edge Worker ([PREVIEW.md](PREVIEW.md)).
 - **How**: a client-rendered build with no SSR and no SSG. Every page loads its data from the
   Shop API at run time, so the build holds no catalogue and takes seconds.
@@ -686,8 +686,8 @@ the theme, so a page is written once.
 
 ### 4.2 Live (production)
 
-- **Where**: the customer's custom domain via Cloudflare for SaaS. Until one is connected,
-  `{shop}.shops.<partnerdomain>` (SAAS §8).
+- **Where**: the customer's custom domain via Cloudflare for SaaS. Until one is connected, and
+  alongside it, `{slug}.my-store.one` ([LIVE-SHOP.md](LIVE-SHOP.md) §6).
 - **How**: a **static build (SSG)**. Catalogue pages (home, collections, products and their
   version URLs, content and policy pages, custom pages, per locale) are prerendered from a
   catalogue snapshot, with SEO data baked in.
@@ -1118,12 +1118,12 @@ fits (suggested on #483).
 
 ## 12. Open questions
 
-- ~~The preview hostname pattern per brand.~~ `{store}.preview.{partner-domain}` (decided 2026-10-05 on #337); replaced by `{key}.webpreview.store` (decided 2026-10-09, [PREVIEW.md](PREVIEW.md)).
+- ~~The preview hostname pattern per brand.~~ `{store}.preview.{partner-domain}` (decided 2026-10-05 on #337); replaced by `{key}.webpreview.store` (decided 2026-10-09), then by `{slug}-preview.my-store.one` (decided 2026-10-15, [PREVIEW.md](PREVIEW.md)).
 - ~~Whether previews are gated (signed link) or open but `noindex`.~~ Gated by a signed link
   (decided 2026-10-05 on #284).
 - ~~Can shoppers check out on the preview (test mode), or is checkout disabled there?~~ Test-mode
   checkout (decided 2026-10-05 on #284).
-- ~~Before a custom domain is connected, where is the live site?~~ `{shop}.shops.<partnerdomain>` (SAAS §8).
+- ~~Before a custom domain is connected, where is the live site?~~ `{slug}.my-store.one` (decided 2026-10-15, [LIVE-SHOP.md](LIVE-SHOP.md) §6; before it `{shop}.shops.<partnerdomain>`).
 - ~~Hosted checkout (engine-served) vs in-theme checkout for AI storefronts: both, or one?~~ AI storefronts check out in the theme; own storefronts use the hosted checkout by default and may build their own (decided 2026-10-05 on #337).
 - ~~Image resizing: Cloudflare image resizing, or engine-generated variants?~~ Cloudflare image resizing (decided 2026-10-05 on #337).
 - ~~Analytics providers to support in core (GA4, Meta Pixel, others), and per-brand defaults.~~ GA4, Meta Pixel, Google Tag Manager, after consent (decided 2026-10-05 on #337).
@@ -1134,7 +1134,7 @@ fits (suggested on #483).
 - ~~How store repos authenticate to GitHub Packages in CI.~~ They don't: builds run in the sandbox image, which has core preinstalled (decided 2026-10-08 on #470, following the choice of Cloudflare Containers; it replaces #303's org secret). Since builds moved to Actions, the image is public on `ghcr.io` and pulled with no token (decided 2026-10-09).
 - ~~Where AI changes and builds run.~~ Cloudflare Containers, one per store with a studio open and a pool for publish builds (decided 2026-10-08 on #470); builds then moved to each store repo's GitHub Actions (decided 2026-10-09, [LIVE-SHOP.md](LIVE-SHOP.md)).
 - ~~What a store whose theme can't take a security fix gets.~~ The baseline theme until repaired (decided 2026-10-08 on #470).
-- ~~How the preview build reaches `{store}.preview.{partner-domain}`: a branch deployment of the store's Pages project, or its own project.~~ Neither: R2, served by the edge Worker on `{key}.webpreview.store` (decided 2026-10-09, [PREVIEW.md](PREVIEW.md)).
+- ~~How the preview build reaches `{store}.preview.{partner-domain}`: a branch deployment of the store's Pages project, or its own project.~~ Neither: R2, served by the edge Worker on the store's preview host (decided 2026-10-09, [PREVIEW.md](PREVIEW.md)).
 - The containers' size, the idle timeout (10 minutes proposed) and whether a plan caps simultaneous studio sessions *(decide, INF 0 and the sandbox card; [AI-STUDIO.md](AI-STUDIO.md) §9)*.
 - ~~Whether the studio's live preview is the Next.js dev server in the container, or a lighter client build of the same theme.~~ The fast gate's client bundle, hot-reloaded (decided 2026-10-09, [AI-STUDIO.md](AI-STUDIO.md) §1).
 - Shopper cancelling and returns (§2.1, proposed on #285): cancel until the order ships; a return until the store's window closes, counted from delivery; a product's rule over the store's, never below a market's legal floor. The prototype draws this; it stands until approved or changed on #285.
