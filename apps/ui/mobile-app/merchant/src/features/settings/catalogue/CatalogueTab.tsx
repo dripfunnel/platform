@@ -41,9 +41,11 @@ function CatalogueBody({ settings, client, canEdit }: Props) {
   const close = () => setSheet(null)
   const dirty = !sameSections(sections, saved)
 
+  // The change is applied to the list as it stands first, so a read that fails afterwards still leaves what was saved on screen.
   const reread = async () => {
     await loadCatalogueSettings(client).then((latest) => setBadges(latest.badges), () => undefined)
   }
+  const badgeSaved = (badge: Badge) => setBadges((list) => (list.some((other) => other.id === badge.id) ? list.map((other) => (other.id === badge.id ? badge : other)) : [...list, badge]))
 
   const choose = (key: PresetKey) => {
     setPreset(key)
@@ -113,7 +115,7 @@ function CatalogueBody({ settings, client, canEdit }: Props) {
           }}
         />
       ) : null}
-      {sheet?.kind === 'badge' ? <BadgeSheet badge={sheet.badge} nextPosition={badges.reduce((n, badge) => Math.max(n, badge.position + 1), 0)} client={client} onClose={close} onDone={reread} /> : null}
+      {sheet?.kind === 'badge' ? <BadgeSheet badge={sheet.badge} nextPosition={badges.reduce((n, badge) => Math.max(n, badge.position + 1), 0)} client={client} onClose={close} onSaved={badgeSaved} onDone={reread} /> : null}
       {sheet?.kind === 'delete' ? (
         <FormSheet
           title={t('settings.catalogue.deleteBadgeTitle', { name: sheet.badge.label })}
@@ -124,6 +126,7 @@ function CatalogueBody({ settings, client, canEdit }: Props) {
           onClose={close}
           onSubmit={async () => {
             await deleteBadge(client, sheet.badge.id)
+            setBadges((list) => list.filter((badge) => badge.id !== sheet.badge.id))
             await reread()
             return t('settings.catalogue.badgeDeleted')
           }}
@@ -131,12 +134,11 @@ function CatalogueBody({ settings, client, canEdit }: Props) {
       ) : null}
     </>
   )
-
 }
 
-type BadgeProps = { badge: Badge | null; nextPosition: number; client: ApiClient; onClose: () => void; onDone: () => Promise<void> }
+type BadgeProps = { badge: Badge | null; nextPosition: number; client: ApiClient; onClose: () => void; onSaved: (badge: Badge) => void; onDone: () => Promise<void> }
 
-function BadgeSheet({ badge, nextPosition, client, onClose, onDone }: BadgeProps) {
+function BadgeSheet({ badge, nextPosition, client, onClose, onSaved, onDone }: BadgeProps) {
   const [label, setLabel] = useState(badge?.label ?? '')
   const [rule, setRule] = useState<string>(badge?.rule ?? 'manual')
   const [tried, setTried] = useState(false)
@@ -159,7 +161,9 @@ function BadgeSheet({ badge, nextPosition, client, onClose, onDone }: BadgeProps
       }}
       onSubmit={async () => {
         const known = badgeRules.find((value) => value === rule)
-        await saveBadge(client, badge?.id ?? null, { label: label.trim(), rule, tone: known ? toneOf(known) : (badge?.tone ?? 'neutral'), position: badge ? badge.position : nextPosition })
+        const next = { label: label.trim(), rule, tone: known ? toneOf(known) : (badge?.tone ?? 'neutral'), position: badge ? badge.position : nextPosition }
+        const id = await saveBadge(client, badge?.id ?? null, next)
+        if (id) onSaved({ id, ...next })
         await onDone()
         return badge ? t('settings.catalogue.badgeSaved') : t(rule === 'manual' ? 'settings.catalogue.badgeAddedManual' : 'settings.catalogue.badgeAddedAuto', { name: label.trim() })
       }}

@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { act, type ReactTestRenderer } from 'react-test-renderer'
 import { ApiError, type ApiClient } from '../../graphql'
 import { fakeApi, type Call } from '../../testing/fakeApi'
-import { actingAs, hasText, press, pressableNamed, pressablesNamed, renderShell } from '../../testing/harness'
+import { actingAs, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'
 import { SettingsTabScreen } from './SettingsTabScreen'
 
@@ -34,6 +34,8 @@ const settle = async () => {
 
 type Handlers = Record<string, (variables: Record<string, unknown>, headers: Record<string, string>) => unknown>
 type Options = Parameters<typeof renderShell>[1]
+
+const readOnlyState = { readOnly: true, status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: null }
 
 const show = async (element: ReactElement, handlers: Handlers, options: Options = {}) => {
   const { client, calls } = fakeApi(handlers)
@@ -166,6 +168,88 @@ describe('Catalogue', () => {
     await click(renderer, 'Save badge')
 
     expect(hasText(renderer, 'Another badge already says that.')).toBe(true)
+  })
+
+  it('keeps a deleted badge off the list even when reading the list again fails', async () => {
+    let reads = 0
+    const { renderer } = await show(
+      <SettingsTabScreen tab="catalogue" />,
+      store({
+        '{ catalogueSettings {': () => {
+          reads += 1
+          if (reads > 1) throw new ApiError('NO_RESPONSE', 'x')
+          return { catalogueSettings: { features, badges: [{ id: 'b1', label: 'New', rule: 'new_30_days', tone: 'ok', position: 0 }, { id: 'b2', label: 'Handmade', rule: 'manual', tone: 'neutral', position: 1 }] } }
+        },
+        'mutation DeleteBadge': () => ({ deleteBadge: true }),
+      }),
+    )
+
+    await click(renderer, 'Manage “New”')
+    await click(renderer, 'Delete badge')
+    await press(pressablesNamed(renderer, 'Delete badge').at(-1) as never)
+    await settle()
+
+    expect(hasText(renderer, 'Badge deleted')).toBe(true)
+    expect(pressablesNamed(renderer, 'Manage “New”')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Manage “Handmade”')).toHaveLength(1)
+  })
+
+  it('shows a badge just saved when reading the list again fails', async () => {
+    let reads = 0
+    const { renderer } = await show(
+      <SettingsTabScreen tab="catalogue" />,
+      store({
+        '{ catalogueSettings {': () => {
+          reads += 1
+          if (reads > 1) throw new ApiError('NO_RESPONSE', 'x')
+          return { catalogueSettings: { features, badges: [] } }
+        },
+        'mutation SaveBadge': () => ({ saveBadge: 'b9' }),
+      }),
+    )
+
+    await click(renderer, 'Add a badge')
+    await type(renderer, 'What it says', 'Organic')
+    await click(renderer, 'Save badge')
+
+    expect(pressablesNamed(renderer, 'Manage “Organic”')).toHaveLength(1)
+  })
+
+  it('says a section is not in the plan when the API refuses it, and keeps what was switched', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="catalogue" />, store({ 'mutation SaveSections': () => { throw new ApiError('PLAN_LIMIT', 'x') } }))
+
+    await click(renderer, 'Specifications')
+    await click(renderer, 'Save sections')
+    await press(pressablesNamed(renderer, 'Save sections').at(-1) as never)
+    await settle()
+
+    expect(hasText(renderer, 'That section isn’t in your plan.')).toBe(true)
+  })
+
+  it('says it could not load, and loads again on request', async () => {
+    let fail = true
+    const { renderer, calls } = await show(<SettingsTabScreen tab="catalogue" />, {
+      '{ catalogueSettings {': () => {
+        if (fail) throw new ApiError('NO_RESPONSE', 'x')
+        return { catalogueSettings: { features, badges: [] } }
+      },
+    })
+
+    expect(hasText(renderer, 'We couldn’t load Catalogue')).toBe(true)
+    fail = false
+    await click(renderer, 'Try again')
+    expect(asked(calls, '{ catalogueSettings {')).toHaveLength(2)
+    expect(hasText(renderer, 'Product page sections')).toBe(true)
+  })
+
+  it('can look but not change in a store that is read-only', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="catalogue" />, store(), { client: fakeClient({ state: readOnlyState }) })
+
+    expect(hasText(renderer, 'Your store is read-only until the bill is paid.')).toBe(true)
+    expect(pressablesNamed(renderer, 'Save sections')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Add a badge')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Manage “Handmade”')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Clothing')[0]?.props.disabled).toBe(true)
   })
 
   it('leaves legal details out: they wait for their API', async () => {

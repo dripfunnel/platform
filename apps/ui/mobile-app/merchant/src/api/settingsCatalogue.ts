@@ -34,10 +34,9 @@ export const saveSections = async (client: ApiClient, features: { key: SectionKe
   )
 }
 
-/** A new badge (no id), or a change to one; `position` keeps an edited one where it is. */
-export const saveBadge = async (client: ApiClient, id: string | null, input: { label: string; rule: string; tone: string; position: number }): Promise<void> => {
-  await typedQuery(client)('mutation SaveBadge($id: ID, $input: BadgeInput!) { saveBadge(id: $id, input: $input) }', z.object({ saveBadge: z.string().nullable() }), { id, input })
-}
+/** A new badge (no id), or a change to one; `position` keeps an edited one where it is. Answers the badge's id. */
+export const saveBadge = async (client: ApiClient, id: string | null, input: { label: string; rule: string; tone: string; position: number }): Promise<string | null> =>
+  (await typedQuery(client)('mutation SaveBadge($id: ID, $input: BadgeInput!) { saveBadge(id: $id, input: $input) }', z.object({ saveBadge: z.string().nullable() }), { id, input })).saveBadge ?? id
 
 /** Off every product it was on, straight away. */
 export const deleteBadge = async (client: ApiClient, id: string): Promise<void> => {
