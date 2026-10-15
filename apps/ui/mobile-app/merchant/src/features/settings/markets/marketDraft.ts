@@ -111,7 +111,9 @@ export const marketInputOf = (draft: MarketDraft): MarketInput => {
 /** Top-level markets with their sub-markets under each. */
 export const nested = (markets: readonly Market[]): Market[] => markets.filter((market) => market.parentId === null).flatMap((top) => [top, ...markets.filter((market) => market.parentId === top.id)])
 
-const related = (market: Market, draft: MarketDraft): boolean => market.id === draft.id || market.parentId === draft.id || market.id === draft.parentId
+// A market not saved yet has no id, so nothing is its sub-market and a top-level market (parentId null) is not its parent.
+const related = (market: Market, draft: MarketDraft): boolean =>
+  market.id === draft.id || (draft.id !== null && market.parentId === draft.id) || (draft.parentId !== null && market.id === draft.parentId)
 
 /** Each country another market already holds (a market, its sub-markets and its parent don't count as another), with that market's name. */
 export const takenBy = (markets: readonly Market[], draft: MarketDraft): Map<string, string> =>

@@ -223,6 +223,16 @@ describe('Markets', () => {
     expect(hasText(renderer, 'United Kingdom added')).toBe(true)
   })
 
+  it('offers a new market no country another market already holds', async () => {
+    const { renderer } = await editor(null, {}, 'Nordics')
+
+    await click(renderer, 'Add a country')
+    expect(pressablesNamed(renderer, 'India')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'United States')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'United Arab Emirates')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'United Kingdom')).toHaveLength(1)
+  })
+
   it('names the market that already holds a country and will not take it twice', async () => {
     const { renderer } = await editor('mk-us')
 

@@ -127,6 +127,11 @@ describe('countries and nesting', () => {
     expect([...takenBy([india, us, sub], draftOfMarket(us))]).toEqual([['IN', 'India']])
   })
 
+  it('names every market that holds a country to one not saved yet, as none is related to it', () => {
+    const loc: StoreLocale = { pricingCurrency: 'INR', mainLanguage: 'en-IN', offeredLanguages: [], currencies: [], languages: [], examples: [] }
+    expect([...takenBy([india, us, sub], blankMarket('Nordics', loc)).keys()].sort()).toEqual(['IN', 'US'])
+  })
+
   it('lists each top-level market with its sub-markets under it', () => {
     expect(nested([sub, india, us]).map((m) => m.id)).toEqual(['mk-in', 'mk-us', 'mk-ny'])
   })
