@@ -16,7 +16,7 @@ import { useLoad } from '../common/useLoad'
 import { useFeedback, type MenuItem as SheetItem } from '../shell/Feedback'
 import { Icon } from '../shell/Icon'
 import { Skeleton } from '../states/StateView'
-import { collectionRow, menuInput, menuPreview, moved, removed, rowsOfMenu, toggledDepth, type MenuRow } from './menuRows'
+import { collectionRow, isShown, menuInput, menuPreview, moved, removed, rowName, rowsOfMenu, toggledDepth, type MenuRow } from './menuRows'
 
 type Props = { collections: readonly CollectionSummary[]; canEdit: boolean }
 
@@ -45,9 +45,6 @@ function MenuEditor({ menu, collections, canEdit, onStale }: EditorProps) {
   const [revision, setRevision] = useState<number | null>(menu?.revision ?? null)
   const [busy, setBusy] = useState(false)
 
-  const named = (r: MenuRow) => (r.kind === 'collection' ? (collections.find((c) => c.id === r.collectionId)?.name ?? t('collections.menus.gone')) : r.label)
-  const shown = (r: MenuRow) => r.kind !== 'collection' || collections.some((c) => c.id === r.collectionId && c.visible)
-
   // Every change saves at once at the revision read, as the prototype's menu does; the rows move back if it's refused.
   const apply = async (next: MenuRow[], toast: string) => {
     const before = rows
@@ -74,7 +71,7 @@ function MenuEditor({ menu, collections, canEdit, onStale }: EditorProps) {
 
   const remove = (r: MenuRow) =>
     feedback.sheet({
-      title: t('collections.menus.removeTitle', { label: named(r) }),
+      title: t('collections.menus.removeTitle', { label: rowName(r, collections) }),
       body: t('collections.menus.removeBody'),
       confirm: t('collections.menus.removeConfirm'),
       danger: true,
@@ -91,7 +88,7 @@ function MenuEditor({ menu, collections, canEdit, onStale }: EditorProps) {
       { key: 'nest', label: t(r.depth ? 'collections.menus.unnest' : 'collections.menus.nest'), onPress: () => nest(r) },
       { key: 'remove', label: t('collections.menus.remove'), danger: true, onPress: () => remove(r) },
     ]
-    feedback.menu({ title: named(r), sub: t('collections.menus.actionsSub'), items })
+    feedback.menu({ title: rowName(r, collections), sub: t('collections.menus.actionsSub'), items })
   }
 
   const addable = collections.filter((c) => !rows.some((r) => r.collectionId === c.id))
@@ -125,12 +122,12 @@ function MenuEditor({ menu, collections, canEdit, onStale }: EditorProps) {
           <Pressable
             key={r.key}
             accessibilityRole="button"
-            accessibilityLabel={`${named(r)}${note ? `, ${note}` : ''}`}
+            accessibilityLabel={note ? t('collections.menus.rowLabel', { name: rowName(r, collections), note }) : rowName(r, collections)}
             disabled={!canEdit || busy}
             onPress={() => act(r)}
-            style={[styles.row, { marginLeft: r.depth * 24, backgroundColor: shown(r) ? colors.surface : colors.page, borderColor: colors.border, borderRadius: radii.button }]}
+            style={[styles.row, { marginLeft: r.depth * 24, backgroundColor: isShown(r, collections) ? colors.surface : colors.page, borderColor: colors.border, borderRadius: radii.button }]}
           >
-            <Text style={[styles.label, { color: shown(r) ? colors.text : colors.muted }]}>{named(r)}</Text>
+            <Text style={[styles.label, { color: isShown(r, collections) ? colors.text : colors.muted }]}>{rowName(r, collections)}</Text>
             <Text style={[styles.note, { color: colors.muted }]}>{note}</Text>
           </Pressable>
         )

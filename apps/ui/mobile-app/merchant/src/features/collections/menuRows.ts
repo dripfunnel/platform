@@ -101,14 +101,17 @@ export const toggledDepth = (rows: readonly MenuRow[], key: string): MenuRow[] |
 export const removed = (rows: readonly MenuRow[], key: string): MenuRow[] =>
   rowsOfBlocks(blocksOf(rows).flatMap((b) => (b.top.key === key ? b.kids.map((k) => ({ top: { ...k, depth: 0 as const }, kids: [] })) : [{ ...b, kids: b.kids.filter((k) => k.key !== key) }])))
 
+/** A collection's row shows to shoppers only while its collection exists and is visible. */
+export const isShown = (r: MenuRow, collections: readonly CollectionSummary[]): boolean => r.kind !== 'collection' || collections.some((c) => c.id === r.collectionId && c.visible)
+
+/** A collection's row is named as the collection is now, and by its saved label once the collection is gone. */
+export const rowName = (r: MenuRow, collections: readonly CollectionSummary[]): string => (r.kind === 'collection' ? (collections.find((c) => c.id === r.collectionId)?.name ?? r.label) : r.label)
+
 /** What shoppers see of the menu: each top item with the names under it, leaving out a collection that is hidden or gone. */
-export const menuPreview = (rows: readonly MenuRow[], collections: readonly CollectionSummary[]): { key: string; label: string; kids: { key: string; label: string }[] }[] => {
-  const shown = (r: MenuRow) => r.kind !== 'collection' || collections.some((c) => c.id === r.collectionId && c.visible)
-  const named = (r: MenuRow) => (r.kind === 'collection' ? (collections.find((c) => c.id === r.collectionId)?.name ?? r.label) : r.label)
-  return rows.filter(shown).reduce<{ key: string; label: string; kids: { key: string; label: string }[] }[]>((acc, r) => {
+export const menuPreview = (rows: readonly MenuRow[], collections: readonly CollectionSummary[]): { key: string; label: string; kids: { key: string; label: string }[] }[] =>
+  rows.filter((r) => isShown(r, collections)).reduce<{ key: string; label: string; kids: { key: string; label: string }[] }[]>((acc, r) => {
     const last = acc[acc.length - 1]
-    if (r.depth === 1 && last) last.kids.push({ key: r.key, label: named(r) })
-    else acc.push({ key: r.key, label: named(r), kids: [] })
+    if (r.depth === 1 && last) last.kids.push({ key: r.key, label: rowName(r, collections) })
+    else acc.push({ key: r.key, label: rowName(r, collections), kids: [] })
     return acc
   }, [])
-}

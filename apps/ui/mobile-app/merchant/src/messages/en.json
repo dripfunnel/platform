@@ -625,7 +625,7 @@
         "other": "{count} products"
       },
       "hiddenNote": "Hidden — not shown to shoppers",
-      "gone": "Removed collection",
+      "rowLabel": "{name}, {note}",
       "link": "Link · {url}",
       "actionsSub": "What to do with this item",
       "up": "Move up",

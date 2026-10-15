@@ -1,6 +1,6 @@
 import type { CollectionSummary } from '../../api/collections'
 import type { Menu } from '../../api/menu'
-import { menuInput, menuPreview, moved, removed, rowsOfMenu, toggledDepth, type MenuRow } from './menuRows'
+import { isShown, menuInput, menuPreview, moved, removed, rowName, rowsOfMenu, toggledDepth, type MenuRow } from './menuRows'
 
 const row = (key: string, depth: 0 | 1): MenuRow => ({ key, kind: 'collection', label: key, collectionId: key, url: null, depth })
 const shape = (rows: MenuRow[] | string | null) => (typeof rows === 'string' || rows === null ? rows : rows.map((r) => `${'  '.repeat(r.depth)}${r.key}`))
@@ -65,5 +65,25 @@ describe('the menu the API takes', () => {
     const preview = menuPreview(rows, [collection('c1'), collection('c2', { visible: false })])
 
     expect(preview.map((p) => [p.label, p.kids.map((k) => k.label)])).toEqual([['Name c1', []], ['Journal', []]])
+  })
+})
+
+describe('how a row is named and shown', () => {
+  const gone: MenuRow = { ...row('c9', 0), label: 'Saved name' }
+
+  it('names a collection by its name now, and by its saved label once it is gone', () => {
+    expect(rowName(row('c1', 0), [collection('c1')])).toBe('Name c1')
+    expect(rowName(gone, [collection('c1')])).toBe('Saved name')
+  })
+
+  it('shows a collection only while it exists and is visible, and a link always', () => {
+    expect(isShown(row('c1', 0), [collection('c1')])).toBe(true)
+    expect(isShown(row('c1', 0), [collection('c1', { visible: false })])).toBe(false)
+    expect(isShown(gone, [collection('c1')])).toBe(false)
+    expect(isShown({ ...gone, kind: 'link', collectionId: null }, [])).toBe(true)
+  })
+
+  it('names a gone collection the same in the previews', () => {
+    expect(menuPreview([{ ...gone, kind: 'link', collectionId: null }], [])[0]?.label).toBe('Saved name')
   })
 })
