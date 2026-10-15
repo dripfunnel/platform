@@ -28,7 +28,7 @@ export function PeopleTab() {
     <TabFrame
       label={t('settings.tabs.people')}
       load={async (client) => {
-        const [people, info] = await Promise.all([loadPeople(client), loadStoreInfo(client).catch(() => null)])
+        const [people, info] = await Promise.all([loadPeople(client), loadStoreInfo(client)])
         return { people, timeZone: info?.timeZone ?? 'UTC' }
       }}
     >

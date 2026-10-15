@@ -206,6 +206,24 @@ describe('People', () => {
     expect(hasText(renderer, 'The last owner can’t be demoted or removed — make someone else an owner first.')).toBe(true)
   })
 
+  it('refuses to demote the last owner through a role change too, by its code', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="people" />, team({ 'mutation ChangeRole': () => { throw new ApiError('LAST_OWNER', 'x') } }))
+
+    await click(renderer, 'Manage Farhan Ali')
+    await click(renderer, 'Change role')
+    await pick(renderer, 'Manager')
+    await clickLast(renderer, 'Change role')
+
+    expect(hasText(renderer, 'The last owner can’t be demoted or removed — make someone else an owner first.')).toBe(true)
+  })
+
+  it('does not show the invitation times in a guessed zone: the tab says it could not load when the store’s zone can’t be read', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="people" />, team({ '{ storeInfo {': () => { throw new ApiError('NO_RESPONSE', 'x') } }))
+
+    expect(hasText(renderer, 'We couldn’t load People')).toBe(true)
+    expect(hasText(renderer, 'invited')).toBe(false)
+  })
+
   it('resends an invitation, naming the old link’s end, and cancels one only after asking', async () => {
     const { renderer, calls } = await show(<SettingsTabScreen tab="people" />, team({ 'mutation ResendInvitation': () => ({ resendInvitation: true }), 'mutation RevokeInvitation': () => ({ revokeInvitation: true }) }))
 
@@ -322,6 +340,25 @@ describe('Suppliers', () => {
     expect(hasText(renderer, 'That supplier isn’t suspended.')).toBe(true)
   })
 
+  it('says why a suspension is refused when the supplier is already suspended, and why a change to a suspended one is', async () => {
+    const { renderer } = await show(
+      <SettingsTabScreen tab="suppliers" />,
+      list({ 'mutation SuspendSupplier': () => { throw new ApiError('ALREADY_SUSPENDED', 'x') }, 'mutation SetSupplierAccess': () => { throw new ApiError('SUSPENDED', 'x') } }),
+    )
+
+    await click(renderer, 'Manage Northwind Textiles')
+    await click(renderer, 'Suspend')
+    await clickLast(renderer, 'Suspend')
+    expect(hasText(renderer, 'That supplier is already suspended.')).toBe(true)
+
+    await click(renderer, 'Cancel')
+    await click(renderer, 'Manage Moradabad Brass')
+    await click(renderer, 'Change what they can do')
+    await pick(renderer, 'Stock only')
+    await clickLast(renderer, 'Save')
+    expect(hasText(renderer, 'Reactivate this supplier first.')).toBe(true)
+  })
+
   it('suspends with the choice to hide their products, and reactivates one that is suspended', async () => {
     const { renderer, calls } = await show(<SettingsTabScreen tab="suppliers" />, list({ 'mutation SuspendSupplier': () => ({ suspendSupplier: 14 }), 'mutation ResumeSupplier': () => ({ resumeSupplier: 3 }) }))
 
@@ -374,6 +411,24 @@ describe('Warehouse', () => {
 
     expect(texts(renderer)).toEqual(expect.arrayContaining(['Main godown', 'Default for new products', 'Back room', 'Supplier locations', 'Their shelf', 'Northwind · 14 Johari Bazaar, Jaipur, Rajasthan, IN · 40 units']))
     expect(pressablesNamed(renderer, 'Manage Their shelf')).toHaveLength(0)
+  })
+
+  it('says why a location is refused at the limit, and why deleting the default is', async () => {
+    const { renderer } = await show(
+      <SettingsTabScreen tab="warehouse" />,
+      store({ 'mutation SavePlace': () => { throw new ApiError('TOO_MANY_WAREHOUSES', 'x') }, 'mutation DeletePlace': () => { throw new ApiError('DEFAULT_WAREHOUSE', 'x') } }),
+    )
+
+    await click(renderer, 'Add a location')
+    await type(renderer, 'Name', 'One more')
+    await click(renderer, 'Add location')
+    expect(hasText(renderer, 'You can have up to 20 locations. Remove one first.')).toBe(true)
+
+    await click(renderer, 'Cancel')
+    await click(renderer, 'Manage Back room')
+    await click(renderer, 'Delete')
+    await clickLast(renderer, 'Delete location')
+    expect(hasText(renderer, 'Make another location the default first.')).toBe(true)
   })
 
   it('adds a location with the name and only the address lines given', async () => {
@@ -451,7 +506,7 @@ describe('Warehouse', () => {
     expect(pressablesNamed(renderer, 'Manage Main godown')).toHaveLength(0)
   })
 
-  it('keeps the refusal as it is when reading the list again fails, and reads it only once', async () => {
+  it('says the server could not be reached, not that the list is current, when reading it again fails, and reads it only once', async () => {
     let reads = 0
     const { renderer, calls } = await show(
       <SettingsTabScreen tab="warehouse" />,
@@ -470,7 +525,8 @@ describe('Warehouse', () => {
     await type(renderer, 'Name', 'Main store')
     await click(renderer, 'Save')
 
-    expect(hasText(renderer, 'Someone else changed this location first.')).toBe(true)
+    expect(hasText(renderer, 'We couldn’t reach the server.')).toBe(true)
+    expect(hasText(renderer, 'The list now shows their changes')).toBe(false)
     expect((input(renderer, 'Name').props as { value: string }).value).toBe('Main store')
     expect(asked(calls, 'query Places')).toHaveLength(2)
   })

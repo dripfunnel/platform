@@ -145,15 +145,14 @@ function PlaceSheet({ initial, client, onClose, onDone, onFresh }: { initial: Pl
           await savePlace(client, form.id, form.revision, placeInputOf(form))
         } catch (error) {
           // Someone else saved first: the list is read once and shown, and the next Save goes at their revision with what was typed kept. If that read
-          // fails the refusal stands as it is; if the location is gone the sheet says so.
+          // fails the sheet says the server could not be reached, never that the list is current; if the location is gone it says so.
           if (isApiError(error, 'STALE_REVISION')) {
             const fresh = await loadPlaces(client).catch(() => null)
-            if (fresh) {
-              onFresh(fresh)
-              const again = fresh.find((place) => place.id === form.id)
-              if (!again) throw new ApiError('NOT_FOUND', 'location')
-              setForm((current) => ({ ...current, revision: again.revision }))
-            }
+            if (!fresh) throw new ApiError('NO_RESPONSE', 'places')
+            onFresh(fresh)
+            const again = fresh.find((place) => place.id === form.id)
+            if (!again) throw new ApiError('NOT_FOUND', 'location')
+            setForm((current) => ({ ...current, revision: again.revision }))
           }
           throw error
         }
