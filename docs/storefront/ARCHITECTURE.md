@@ -302,8 +302,8 @@ The six templates and "Start from scratch" live in this repo as complete startin
 - Each theme draws its look with what core gives a theme today: the store's own name, description and contact details
   through `useStorefront()`, `<Link>` to core's routes and two custom pages (`/about`, `/contact`), and the sealed
   consent banner, Cookie settings, "Powered by" and preview banner. The product grids, collection tiles and cart lines
-  the prototype draws join each theme with core's browse and cart hooks (#307, #313); until then their pages show
-  their frame and words. Pictures are the template's own CSS surfaces, never a product's.
+  the prototype draws joined the six themes on #765, copied from baseline with each theme's own tokens (home, collection,
+  search, product and cart pages); checkout, account, order and blog pages still show their frame and words. Pictures are the template's own CSS surfaces, never a product's.
 - *Baseline's browse pages as built on #307* *(decided there)*: home (the store's collections and its newest products),
   collection and search (filters as a sidebar on wide screens and a panel on narrow ones, sort, chips, "Load more"), the
   product page (gallery with video, options as buttons with sold-out values struck through, the stock line, legal

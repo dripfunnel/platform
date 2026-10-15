@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { Provided } from '../../../test/shop'
 import type { RenderMode } from '../store/context'
-import { asMain, Image, photoSchema, Video, videoSchema } from './media'
+import { Image, Video } from './media'
+import { asMain, photoSchema, videoSchema } from './photo'
 
 const photo = photoSchema.parse({ alt: 'Front', image: { url: 'https://shop.example/shop-api/assets/a' } })
 const video = videoSchema.parse({ file: { url: 'https://shop.example/shop-api/assets/v' } })
@@ -44,5 +45,14 @@ describe('Video', () => {
     const playing = html('preview', <Video video={video} poster={photo} label="How it drapes" ratio={1.5} autoPlay />)
     expect(playing).toContain('controls')
     expect(playing).toContain('muted')
+  })
+})
+
+describe('photo.ts', () => {
+  it('has no client boundary and imports nothing from the client module, so a server component can call its decoders', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const source = await readFile('src/platform/media/photo.ts', 'utf8')
+    expect(source).not.toMatch(/^['"]use client['"]/)
+    expect(source).not.toMatch(/from ['"]\.\/media['"]/)
   })
 })

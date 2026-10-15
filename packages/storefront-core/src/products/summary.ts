@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { photoSchema, type Photo } from '../platform/media/media'
+import { photoSchema, type Photo } from '../platform/media/photo'
 import { badgeSchema, stockSchema, type Badge, type Stock } from '../pricing/brand'
 import { moneySchema, type Money } from '../pricing/money'
 

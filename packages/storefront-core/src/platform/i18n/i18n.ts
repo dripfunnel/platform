@@ -1,6 +1,7 @@
 import { catalogues, en, type Catalogue, type MessageKey } from './messages'
 
-export type Translate = (key: MessageKey, values?: Record<string, string | number>) => string
+// A theme's own keys (`home.hero.title`) are checked against content/** by the validator, so any string is accepted.
+export type Translate = (key: MessageKey | (string & Record<never, never>), values?: Record<string, string | number>) => string
 
 const pluralBlock = /\{(\w+), plural, ((?:[^{}]|\{[^{}]*\})*)\}/g
 
@@ -42,8 +43,9 @@ export const createI18n = (locale: string, extra: Record<string, Catalogue> = {}
   const own = [extra[locale], extra[base]]
   const chain: Catalogue[] = [extra[locale], catalogues[locale], extra[base], catalogues[base]].filter((c): c is Catalogue => c !== undefined)
   const t: Translate = (key, values = {}) => {
-    const from = chain.find((c) => c[key] !== undefined)
-    const text = formatMessage(from?.[key] ?? en[key], locale, values)
+    const id = key as MessageKey
+    const from = chain.find((c) => c[id] !== undefined)
+    const text = formatMessage(from?.[id] ?? en[id] ?? key, locale, values)
     if (shown && from && own.includes(from)) shown.add(text, key)
     return text
   }

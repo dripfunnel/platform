@@ -1,6 +1,9 @@
 .shell {
   --bg: #fbf3ee;
   --surface: #fff;
+  --soft: color-mix(in srgb, var(--ink) 5%, var(--bg));
+  --tint: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  --danger: #b42318;
   --ink: #3a2724;
   --ink-soft: #76605a;
   --muted: #76605a;

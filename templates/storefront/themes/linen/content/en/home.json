@@ -12,5 +12,12 @@
     "title": "Make it yours",
     "body": "Create an account to follow your orders and check out faster.",
     "action": "Create an account"
+  },
+  "collections": {
+    "title": "Shop by collection"
+  },
+  "newest": {
+    "title": "New in",
+    "all": "See all"
   }
 }

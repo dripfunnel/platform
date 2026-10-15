@@ -2,7 +2,7 @@
 
 import { z } from 'zod'
 import { useLocation } from '../platform/browser/router'
-import { imageSchema, type Photo } from '../platform/media/media'
+import { imageSchema, type Photo } from '../platform/media/photo'
 import { useShopData } from '../platform/render/data'
 import { useHead } from '../platform/seo/head'
 import { useListing, type Listing } from '../products/listing'
