@@ -1729,8 +1729,10 @@
       "names": {
         "gst": "GST",
         "salesTax": "sales tax",
-        "vat": "VAT"
+        "vat": "VAT",
+        "tax": "tax"
       },
+      "noCountry": "Your store has no country yet, so its tax can’t be set up here. Add your address in Store info first.",
       "pricesTitle": "How you type prices",
       "pricesUsualIn": "This decides what the number in every product’s price box means. Stores here usually include {name}.",
       "pricesUsualOut": "This decides what the number in every product’s price box means. Stores here usually don’t include {name}.",

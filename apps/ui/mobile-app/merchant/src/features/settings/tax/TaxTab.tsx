@@ -61,6 +61,7 @@ function TaxBody({ tax, invoice, country, taxId, client, canEdit, refresh }: Pro
   const home = homeZone(tax.zones, country)
   const others = tax.zones.filter((zone) => zone !== home)
   const atHome = ratesAtHome(country)
+  const noCountry = country === null
   const homeName = country ? regionName(country, locale) : ''
   const [included, setIncluded] = useState(tax.pricesIncludeTax)
   const [sheet, setSheet] = useState<Sheet | null>(null)
@@ -84,7 +85,7 @@ function TaxBody({ tax, invoice, country, taxId, client, canEdit, refresh }: Pro
 
   return (
     <>
-      <SectionCard title={t('settings.tax.pricesTitle')} sub={t(words.usuallyIncluded ? 'settings.tax.pricesUsualIn' : 'settings.tax.pricesUsualOut', { name })}>
+      <SectionCard title={t('settings.tax.pricesTitle')} sub={noCountry ? undefined : t(words.usuallyIncluded ? 'settings.tax.pricesUsualIn' : 'settings.tax.pricesUsualOut', { name })}>
         <ChoiceRows
           value={included ? 'included' : 'excluded'}
           disabled={!canEdit}
@@ -101,7 +102,7 @@ function TaxBody({ tax, invoice, country, taxId, client, canEdit, refresh }: Pro
         <Text accessibilityRole="header" style={[styles.title, { color: colors.heading }]}>
           {t('settings.tax.yours', { what: t(atHome ? 'settings.tax.categoriesRates' : 'settings.tax.categories') })}
         </Text>
-        <Text style={[styles.sub, { color: colors.muted }]}>{atHome ? t('settings.tax.classesSub') : t('settings.tax.classesSubUs')}</Text>
+        <Text style={[styles.sub, { color: colors.muted }]}>{noCountry ? t('settings.tax.noCountry') : atHome ? t('settings.tax.classesSub') : t('settings.tax.classesSubUs')}</Text>
         {canEdit && atHome ? <Button saves kind="secondary" label={t('settings.tax.addTitle')} onPress={() => setSheet({ kind: 'add' })} /> : null}
       </View>
       {tax.classes.map((taxClass) => {
@@ -111,7 +112,7 @@ function TaxBody({ tax, invoice, country, taxId, client, canEdit, refresh }: Pro
             key={taxClass.id}
             title={taxClass.name}
             sub={tCount('settings.tax.versions', taxClass.versions)}
-            value={atHome ? (rate === null ? t('settings.tax.noRate') : percent(rate)) : t('settings.tax.byState')}
+            value={atHome ? (rate === null ? t('settings.tax.noRate') : percent(rate)) : noCountry ? undefined : t('settings.tax.byState')}
             status={taxClass.isDefault ? t('settings.tax.default') : undefined}
             tone="ok"
             onPress={canEdit && actionsFor(taxClass, country).length > 0 ? () => openMenu(taxClass) : null}

@@ -238,6 +238,17 @@ describe('Tax setup', () => {
     expect(hasText(renderer, 'Another category already has that name.')).toBe(true)
   })
 
+  it('says a store with no country yet has none to set up, rather than drawing the US or VAT screen', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="tax" />, tax({ '{ storeInfo {': () => ({ storeInfo: { ...info, country: null } }) }))
+
+    expect(hasText(renderer, 'Your store has no country yet, so its tax can’t be set up here.')).toBe(true)
+    expect(hasText(renderer, 'Rate depends on the shopper’s state')).toBe(false)
+    expect(hasText(renderer, 'VAT')).toBe(false)
+    expect(hasText(renderer, 'Stores here usually')).toBe(false)
+    expect(pressablesNamed(renderer, 'Add a rate')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Manage Under ₹1,000')).toHaveLength(1)
+  })
+
   it('leaves a US store’s rates to the shopper’s state: no add and no rate change', async () => {
     const { renderer } = await show(<SettingsTabScreen tab="tax" />, tax({ '{ storeInfo {': () => ({ storeInfo: { ...info, country: 'US' } }) }))
 

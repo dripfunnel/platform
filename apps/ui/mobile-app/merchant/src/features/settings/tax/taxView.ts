@@ -1,9 +1,9 @@
 import type { TaxClass, TaxZone } from '../../../api/settingsTax'
 import { locale } from '../../../messages'
 
-/** What the home country calls its tax, and whether its stores usually type prices with it included. */
-export const taxWordsFor = (country: string | null): { name: 'gst' | 'salesTax' | 'vat'; usuallyIncluded: boolean } =>
-  country === 'IN' ? { name: 'gst', usuallyIncluded: true } : country === 'US' || country === 'CA' ? { name: 'salesTax', usuallyIncluded: false } : { name: 'vat', usuallyIncluded: true }
+/** What the home country calls its tax, and whether its stores usually type prices with it included; "tax" for a store with no country yet. */
+export const taxWordsFor = (country: string | null): { name: 'gst' | 'salesTax' | 'vat' | 'tax'; usuallyIncluded: boolean } =>
+  country === null ? { name: 'tax', usuallyIncluded: false } : country === 'IN' ? { name: 'gst', usuallyIncluded: true } : country === 'US' || country === 'CA' ? { name: 'salesTax', usuallyIncluded: false } : { name: 'vat', usuallyIncluded: true }
 
 /** A US store's rates come from the shopper's state, so it adds and changes none here; any other store's are by category at home. */
 export const ratesAtHome = (country: string | null): boolean => country !== null && country !== 'US'

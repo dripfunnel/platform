@@ -13,6 +13,7 @@ describe('what a country calls its tax', () => {
     expect(taxWordsFor('US')).toEqual({ name: 'salesTax', usuallyIncluded: false })
     expect(taxWordsFor('CA')).toEqual({ name: 'salesTax', usuallyIncluded: false })
     expect(taxWordsFor('DE')).toEqual({ name: 'vat', usuallyIncluded: true })
+    expect(taxWordsFor(null)).toEqual({ name: 'tax', usuallyIncluded: false })
   })
 
   it('leaves a US store’s rates to the shopper’s state, and a store with no country to nothing', () => {
