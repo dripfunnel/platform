@@ -1622,6 +1622,7 @@
       "filter": "Show",
       "all": "All",
       "activeChip": "Active",
+      "invitedChip": "Invited",
       "suspendedChip": "Suspended",
       "none": "No suppliers yet. Invite a company whose products you want to sell under your name.",
       "noneHere": "No suppliers here.",

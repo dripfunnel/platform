@@ -103,6 +103,7 @@ function SupplierList({ suppliers, approval, client, canEdit, refresh }: Props) 
         chips={[
           { key: 'all', label: t('settings.suppliers.all'), count: suppliers.length },
           { key: 'active', label: t('settings.suppliers.activeChip'), count: counts.active },
+          { key: 'invited', label: t('settings.suppliers.invitedChip'), count: counts.invited },
           { key: 'suspended', label: t('settings.suppliers.suspendedChip'), count: counts.suspended },
         ]}
       />

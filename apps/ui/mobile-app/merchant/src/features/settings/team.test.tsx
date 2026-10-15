@@ -287,6 +287,20 @@ describe('Suppliers', () => {
     expect(hasText(renderer, '2 companies, 17 of your products.')).toBe(true)
   })
 
+  it('filters companies by their own state: an invited one is under Invited, not Active', async () => {
+    const { renderer } = await show(
+      <SettingsTabScreen tab="suppliers" />,
+      list({ 'query Suppliers(': () => ({ suppliers: paged([supplier({}), supplier({ id: 'v2', name: 'Sanganer Prints', status: 'invited' }), supplier({ id: 'v3', name: 'Moradabad Brass', status: 'suspended' })]) }) }),
+    )
+
+    await click(renderer, 'Active 1')
+    expect(hasText(renderer, 'Northwind Textiles')).toBe(true)
+    expect(hasText(renderer, 'Sanganer Prints')).toBe(false)
+    await click(renderer, 'Invited 1')
+    expect(hasText(renderer, 'Sanganer Prints')).toBe(true)
+    expect(hasText(renderer, 'Northwind Textiles')).toBe(false)
+  })
+
   it('invites a company and its first user, naming what they can do', async () => {
     const { renderer, calls } = await show(<SettingsTabScreen tab="suppliers" />, list({ 'mutation InviteSupplier': () => ({ inviteSupplier: 'v9' }) }))
 
