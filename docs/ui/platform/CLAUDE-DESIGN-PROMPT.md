@@ -17,7 +17,7 @@ non-production hosts only.
 
 Paste everything below the line.
 
-Last updated: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`, §6.7). Before: 2026-10-11 (#518: no preview address in the checklist or a store's Storefront tab). Before: 2026-10-09 (the preview address card removed).
+Last updated: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`, the checklist and §6.7). Before: 2026-10-11 (#518: no preview address in the checklist or a store's Storefront tab). Before: 2026-10-09 (the preview address card removed).
 
 ---
 
@@ -188,9 +188,9 @@ emails its Owner an invitation; the Owner or an Admin invites the rest of the te
 While the partner is **Draft**, **Awaiting approval** or **Sent back**, the Dashboard is "Set
 up {product}" with "You can leave and come back; your progress is saved."
 
-- **The checklist**, nine items plus Submit ("4 of 10 done" and a progress bar), each Done · In
+- **The checklist**, eight items plus Submit ("4 of 9 done" and a progress bar), each Done · In
   progress · To do with one line of detail, a link to its screen, and when done, who did it:
-  company details → branding → portal address → shop address → email sender → at
+  company details → branding → portal address → email sender → at
   least one priced plan → legal pages → payment method → payout details.
   Payment method and payout details are **the partner's own**: in a staff setup session they read
   "{partner} enters this itself" with a lock; to the Owner "Your turn"; to any other role "Owner

@@ -24,7 +24,7 @@ live, draft, awaiting and sent-back cases. The prototype decides **behaviour**, 
 **scope and rules** ([../../README.md](../../README.md) §3); FIRST-RELEASE.md §17 lists where
 they differ and which wins.
 
-Last updated: 2026-10-15 (with Gaurav: no shop address; every store's free addresses on `my-store.one`, Addresses and Domains; not built yet). Before: 2026-10-11 (#518: the preview address removed). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-10-15 (with Gaurav: no shop address; every store's free addresses on `my-store.one`, Addresses, the permissions and Domains; not built yet). Before: 2026-10-11 (#518: the preview address removed). Before: 2026-10-09 (the preview wildcard retired).
 
 ---
 
@@ -79,7 +79,7 @@ this table is the same rules by screen area and must stay in step with it.
 | Dashboard and Reports | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Onboarding checklist, submit for approval | ✓ | ✓ | view | view | view |
 | Branding, words, email templates | ✓ | ✓ | view | view | view |
-| Portal host, shop domain, email sender | ✓ | ✓ | view | view | view |
+| Portal host, email sender | ✓ | ✓ | view | view | view |
 | Plans and prices offered to merchants | ✓ | ✓ | view | prices only | view |
 | Merchants: accounts, plans, billing status, domains, provisioning, publishing, usage | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Merchants: create (Owner invitation) | ✓ | ✓ | | | |

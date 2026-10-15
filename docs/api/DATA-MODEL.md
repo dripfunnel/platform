@@ -79,8 +79,8 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   ends its own users' sessions, since a partner role never touches `partner_session`.
 - **Partner addresses' records** (`0020`, #197): `partner_domain_record` (domain, partner,
   position, `purpose` pointer | ownership | spf | dkim | dmarc, `record_type` CNAME | TXT | A,
-  the name to resolve, `expected`, `found`, `checked_at`). The portal and wildcards have one
-  pointer record (an A record for a root portal domain); the email sender has SPF, DKIM and DMARC
+  the name to resolve, `expected`, `found`, `checked_at`). The portal and the shops wildcard (which
+  goes on #745, decided 2026-10-15) have one pointer record (an A record for a root portal domain); the email sender has SPF, DKIM and DMARC
   (SAAS §3.6); every address added from #197 on also has an ownership TXT
   (`_dripfunnel.{host}` = `dripfunnel-verify={token}`, a token per address). An address is live
   once every record matches, SPF by including ours and DMARC by being one. Since a claim proves
