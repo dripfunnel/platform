@@ -211,6 +211,9 @@ describe('People', () => {
 
     await click(renderer, 'Manage asha@example.com')
     await click(renderer, 'Resend invite — the old link stops working')
+    expect(hasText(renderer, 'A new link goes to them by email, and the old link stops working.')).toBe(true)
+    expect(asked(calls, 'mutation ResendInvitation')).toHaveLength(0)
+    await clickLast(renderer, 'Send a new invite')
     expect(asked(calls, 'mutation ResendInvitation')[0]?.variables).toEqual({ id: 'i1' })
     expect(hasText(renderer, 'New invite sent to asha@example.com')).toBe(true)
 
@@ -228,6 +231,7 @@ describe('People', () => {
 
     await click(renderer, 'Manage asha@example.com')
     await click(renderer, 'Resend invite — the old link stops working')
+    await clickLast(renderer, 'Send a new invite')
 
     expect(hasText(renderer, 'Too many invitations for now. Try again later.')).toBe(true)
     expect(hasText(renderer, 'Something went wrong')).toBe(false)
@@ -313,6 +317,7 @@ describe('Suppliers', () => {
 
     await click(renderer, 'Manage Moradabad Brass')
     await click(renderer, 'Reactivate')
+    await clickLast(renderer, 'Reactivate')
 
     expect(hasText(renderer, 'That supplier isn’t suspended.')).toBe(true)
   })
@@ -330,6 +335,9 @@ describe('Suppliers', () => {
 
     await click(renderer, 'Manage Moradabad Brass')
     await click(renderer, 'Reactivate')
+    expect(hasText(renderer, 'Their users can sign in again')).toBe(true)
+    expect(asked(calls, 'mutation ResumeSupplier')).toHaveLength(0)
+    await clickLast(renderer, 'Reactivate')
     expect(asked(calls, 'mutation ResumeSupplier')[0]?.variables).toEqual({ id: 'v3' })
   })
 

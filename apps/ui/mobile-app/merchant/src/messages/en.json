@@ -1551,6 +1551,9 @@
       "inviteCancelled": "Invite cancelled",
       "cancelInviteTitle": "Cancel the invite to {email}?",
       "cancelInviteBody": "The link in their email stops working. You can invite them again any time.",
+      "resendTitle": "Send a new invite to {email}?",
+      "resendBody": "A new link goes to them by email, and the old link stops working.",
+      "resendConfirm": "Send a new invite",
       "changeRole": "Change role",
       "removeFromStore": "Remove from this store",
       "roleTakesTime": "Role changes can take a few minutes to apply.",
@@ -1652,6 +1655,8 @@
       "suspended": "{name} suspended",
       "suspendedHidden": "{name} suspended and their products hidden",
       "resumed": "{name} reactivated — what the suspension hid is back as it was",
+      "resumeTitle": "Reactivate {name}?",
+      "resumeBody": "Their users can sign in again, and what the suspension hid is back as it was.",
       "remove": "Remove supplier",
       "removeTitle": "Remove {name}?",
       "removeBody": {

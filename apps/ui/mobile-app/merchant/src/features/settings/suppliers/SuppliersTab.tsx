@@ -18,7 +18,6 @@ import {
 } from '../../../api/settingsPeople'
 import type { ApiClient } from '../../../graphql'
 import { t } from '../../../messages'
-import { errorMessage } from '../../../messages/errorMessage'
 import { tCount } from '../../../messages/plural'
 import { useTheme } from '../../../theme'
 import { Button } from '../../common/Button'
@@ -50,6 +49,7 @@ export function SuppliersTab() {
 type Sheet =
   | { kind: 'invite' }
   | { kind: 'approval' }
+  | { kind: 'resume'; supplier: Supplier }
   | { kind: 'person'; supplier: Supplier }
   | { kind: 'access'; supplier: Supplier }
   | { kind: 'shipping'; supplier: Supplier }
@@ -66,16 +66,6 @@ function SupplierList({ suppliers, approval, client, canEdit, refresh }: Props) 
   const counts = supplierCounts(suppliers)
   const products = suppliers.reduce((total, supplier) => total + supplier.products, 0)
 
-  const resume = async (supplier: Supplier) => {
-    try {
-      await resumeSupplier(client, supplier.id)
-      feedback.toast({ message: t('settings.suppliers.resumed', { name: supplier.name }) })
-      await refresh()
-    } catch (error) {
-      feedback.toast({ message: errorMessage(error, 'settingsSuppliers') })
-    }
-  }
-
   const openMenu = (supplier: Supplier) =>
     feedback.menu({
       title: supplier.name,
@@ -85,7 +75,7 @@ function SupplierList({ suppliers, approval, client, canEdit, refresh }: Props) 
         { key: 'access', label: t('settings.suppliers.changeAccess'), onPress: () => setSheet({ kind: 'access', supplier }) },
         { key: 'shipping', label: t('settings.suppliers.changeShipping'), onPress: () => setSheet({ kind: 'shipping', supplier }) },
         supplier.status === 'suspended'
-          ? { key: 'suspend', label: t('settings.suppliers.resume'), onPress: () => void resume(supplier) }
+          ? { key: 'suspend', label: t('settings.suppliers.resume'), onPress: () => setSheet({ kind: 'resume', supplier }) }
           : { key: 'suspend', label: t('settings.suppliers.suspend'), danger: true, onPress: () => setSheet({ kind: 'suspend', supplier }) },
         { key: 'remove', label: t('settings.suppliers.remove'), danger: true, onPress: () => setSheet({ kind: 'remove', supplier }) },
       ],
@@ -143,6 +133,20 @@ function SupplierList({ suppliers, approval, client, canEdit, refresh }: Props) 
             await setApproval(client, !approval)
             await refresh()
             return approval ? t('settings.suppliers.approvalOffNow') : t('settings.suppliers.approvalOnNow')
+          }}
+        />
+      ) : null}
+      {sheet?.kind === 'resume' ? (
+        <FormSheet
+          title={t('settings.suppliers.resumeTitle', { name: sheet.supplier.name })}
+          body={t('settings.suppliers.resumeBody')}
+          confirm={t('settings.suppliers.resume')}
+          context="settingsSuppliers"
+          onClose={close}
+          onSubmit={async () => {
+            await resumeSupplier(client, sheet.supplier.id)
+            await refresh()
+            return t('settings.suppliers.resumed', { name: sheet.supplier.name })
           }}
         />
       ) : null}

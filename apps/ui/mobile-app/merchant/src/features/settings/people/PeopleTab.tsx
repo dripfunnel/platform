@@ -5,7 +5,6 @@ import { loadStoreInfo } from '../../../api/settingsStore'
 import type { ApiClient } from '../../../graphql'
 import { formatDateTime } from '../../../format'
 import { locale, t } from '../../../messages'
-import { errorMessage } from '../../../messages/errorMessage'
 import { useTheme } from '../../../theme'
 import { Button } from '../../common/Button'
 import { TextField } from '../../common/TextField'
@@ -38,7 +37,7 @@ export function PeopleTab() {
   )
 }
 
-type Sheet = { kind: 'invite' } | { kind: 'role'; person: Person } | { kind: 'remove'; person: Person } | { kind: 'cancel'; person: Person }
+type Sheet = { kind: 'invite' } | { kind: 'resend'; person: Person } | { kind: 'role'; person: Person } | { kind: 'remove'; person: Person } | { kind: 'cancel'; person: Person }
 type ListProps = { people: readonly Person[]; timeZone: string; client: ApiClient; canEdit: boolean; refresh: () => Promise<void> }
 
 function PeopleList({ people, timeZone, client, canEdit, refresh }: ListProps) {
@@ -50,16 +49,6 @@ function PeopleList({ people, timeZone, client, canEdit, refresh }: ListProps) {
   const shown = peopleShown(people, filter)
   const when = (iso: string) => formatDateTime(iso, locale, timeZone)
 
-  const resend = async (person: Person) => {
-    try {
-      await resendInvitation(client, person.id)
-      feedback.toast({ message: t('settings.people.resent', { email: person.email }) })
-      await refresh()
-    } catch (error) {
-      feedback.toast({ message: errorMessage(error, 'settingsPeople') })
-    }
-  }
-
   const openMenu = (person: Person) => {
     const name = person.name || person.email
     if (person.kind === 'invitation') {
@@ -67,7 +56,7 @@ function PeopleList({ people, timeZone, client, canEdit, refresh }: ListProps) {
         title: name,
         sub: person.expired ? t('settings.people.expired') : person.expiresAt ? t('settings.people.expires', { when: when(person.expiresAt) }) : person.email,
         items: [
-          { key: 'resend', label: t('settings.people.resend'), onPress: () => void resend(person) },
+          { key: 'resend', label: t('settings.people.resend'), onPress: () => setSheet({ kind: 'resend', person }) },
           { key: 'cancel', label: t('settings.people.cancelInvite'), danger: true, onPress: () => setSheet({ kind: 'cancel', person }) },
         ],
       })
@@ -137,6 +126,20 @@ function PeopleList({ people, timeZone, client, canEdit, refresh }: ListProps) {
             await removeMember(client, sheet.person.id)
             await refresh()
             return t('settings.people.removed', { name: sheet.person.name || sheet.person.email })
+          }}
+        />
+      ) : null}
+      {sheet?.kind === 'resend' ? (
+        <FormSheet
+          title={t('settings.people.resendTitle', { email: sheet.person.email })}
+          body={t('settings.people.resendBody')}
+          confirm={t('settings.people.resendConfirm')}
+          context="settingsPeople"
+          onClose={() => setSheet(null)}
+          onSubmit={async () => {
+            await resendInvitation(client, sheet.person.id)
+            await refresh()
+            return t('settings.people.resent', { email: sheet.person.email })
           }}
         />
       ) : null}
