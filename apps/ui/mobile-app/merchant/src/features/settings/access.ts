@@ -1,7 +1,7 @@
 import type { Seat } from '../../nav'
 
-// Settings is the Owner's (FIRST-RELEASE (store) §15; ACCESS.md §5). The app only declines to open it for anyone else: the API refuses every Settings
-// read and write to a seat without `settings`, which is what actually protects it.
+// Settings is the Owner's (FIRST-RELEASE (store) §15; ACCESS.md §5). The API needs an Owner-only permission for every Settings write, but not for every read:
+// `storeInfo`, `markets` and `taxSetup` need only `catalog.read`, so for those this gate is all that keeps a Manager out. Don't drop it on the API's account.
 export const isOwner = (seat: Seat | null): boolean => seat?.side === 'merchant' && seat.role === 'owner'
 
 /** A store past due can be looked at but not changed. */
