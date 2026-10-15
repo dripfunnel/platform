@@ -10,3 +10,7 @@ export const formatDateTime = (iso: string, locale: string, timeZone: string): s
     timeZone,
     timeZoneName: 'short',
   }).format(new Date(iso))
+
+/** A day without a time ("5 Oct 2026"), in the given zone: an ISO date alone (the reference rates' "published on") is read as UTC. */
+export const formatDay = (iso: string, locale: string, timeZone = 'UTC'): string =>
+  new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone }).format(new Date(iso))

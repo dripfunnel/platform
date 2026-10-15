@@ -119,7 +119,7 @@ export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () =>
 }
 
 // The confirm button: the brand colour, or red for something that can't be undone.
-function SheetConfirm({ label, danger, saves, busy, onPress }: { label: string; danger: boolean; saves: boolean; busy: boolean; onPress: () => void }) {
+export function SheetConfirm({ label, danger, saves, busy, onPress }: { label: string; danger: boolean; saves: boolean; busy: boolean; onPress: () => void }) {
   const { colors, radii } = useTheme()
   const online = useOnline()
   if (!danger) return <Button label={label} onPress={onPress} busy={busy} saves={saves} />

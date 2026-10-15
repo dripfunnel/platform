@@ -5,15 +5,15 @@ The framework decision is [REACT-NATIVE.md](REACT-NATIVE.md); the look is [DESIG
 builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
 **Status: the project is set up (#496), its foundations are built (#497) and so are getting in and My profile
-(#498), the shell (#499), Products (#500) and Collections (#501); the other screens are placeholders.**
+(#498), the shell (#499), Products (#500), Collections (#501) and Settings (#502); the other screens are placeholders.**
 `app.config.ts`, `partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/graphql/`,
 `src/intl/`, `src/format/`, `src/messages/`, `src/theme/`, `src/brand/`, `src/session/`, `src/features/auth/`,
-`src/features/profile/`, `src/features/shell/`, `src/features/states/`, `src/features/products/`, `src/features/collections/` and `src/api/` (`brand`, `auth`, `profile`, `shell`, `products`, `inventory`,
-`productStory`, `collections`, `filters`, `menu`, `sizeCharts`) exist (the placeholder screen in
+`src/features/profile/`, `src/features/shell/`, `src/features/states/`, `src/features/products/`, `src/features/collections/`, `src/features/settings/` and `src/api/` (`brand`, `auth`, `profile`, `shell`, `products`, `inventory`,
+`productStory`, `collections`, `filters`, `menu`, `sizeCharts`, `settingsStore`, `settingsPeople`, `settingsWarehouse`, `settingsTax`, `settingsMarkets`, `settingsCatalogue`) exist (the placeholder screen in
 `src/features/placeholder/` goes when the first real screen replaces it). Only `nav.ts` is still to build. Rows
 marked *(proposed)* await a yes.
 
-Last updated: 2026-10-15 (#501: Collections, §3, §5). Before: 2026-10-13 (#500: Products, §3, §5). Before: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
+Last updated: 2026-10-15 (#502: Settings, §3, §5). Before: 2026-10-15 (#501: Collections, §3, §5). Before: 2026-10-13 (#500: Products, §3, §5). Before: 2026-10-13 (#498: the session and getting in, §4–§5). Before: 2026-10-13 (#497: the foundations, §4–§5). Before: 2026-10-12 (#496: the project is set up). Before: 2026-10-09 (#493: own client and formatting, no offline queue, no in-app purchase).
 
 ---
 
@@ -80,6 +80,7 @@ apps/ui/mobile-app/merchant/
         home.tsx  orders/  catalogue/  offers/  products/  to-ship.tsx  more/
                                 catalogue/ and products/ (a supplier's tab) hold the list, [id] (the editor; `new` opens an empty one) and [id]/story (A+ content);
                                 catalogue/ also holds collections/[id] and size-charts/[id] (the Collections segment's editors)
+                                more/settings/ holds the Owner's list of tabs, [tab] (one tab on its screen) and market/[id] (the Markets editor)
     features/<area>/        screens, private components and hooks per area
     graphql/                the app's own API client and types generated from apps/api/schema/ (§5)
     api/<area>.ts           this app's GraphQL operations, typed from apps/api/schema/
@@ -169,6 +170,7 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
   refusal shows by its code (`errors.collections`, `filters`, `menus`, `sizeCharts`), and leaving an editor with unsaved changes asks first (`useLeaveGuard`). Filters (`FiltersTab`) add, rename and delete values, merge look-alikes and switch a filter between shoppers and internal, each change that loses or alters something saying its consequence in a
   sheet first. Menus (`MenusTab`) save each change at once at the revision read, as the web's does, and a row opens a sheet to move, nest or remove it (`menuRows.ts`). Size charts (`SizeChartsTab`, `catalogue/size-charts/[id]`, `SizeChartForm`) start from a template in the store's unit, edit as a grid that scrolls sideways, convert cm and in, and ask "change all or make a copy" for a chart used on several products. A physical product picks its size chart in the product editor (`SizeChartCard`, for a merchant seat when Settings › Catalogue has size charts on); it is sent as `sizeChartId` only when changed, and `null` takes it off. Not in the app: a supplier's own size charts (the web's "Your products" tab), a collection's image, SEO and sort order, and menu items that link to pages
   or addresses (they are kept and shown).
+- **Built in #502** (`src/features/settings/`, `src/api/settings*.ts`): More › Settings is the Owner's, a list of seven rows (Store info, People, Suppliers, Warehouse, Tax setup, Markets, Catalogue) that each open on their own screen (`SettingsTabScreen`). A seat that is not an Owner is told it has no access before anything is read (the API refuses it too: ACCESS.md §5), and a store past due shows every tab without saving. Each tab loads through `TabFrame`, which carries the gate and the designed states, and writes through `FormSheet`, a bottom sheet that states the consequence first and keeps a refusal, worded by its code (`errors.settings*`), with what was typed. Store info saves its details, its currencies and its languages as three cards that don't reload one another; People and Suppliers list the store's people and companies with the invitations the server sends by email (the app holds no link or token); Warehouse lists the store's locations to manage and its suppliers' named apart and read-only; Tax setup shows the rates the API holds and never works a price out; Markets is a list with the market's editor on its own screen (`more/settings/market/[id]`, saved at the revision read, `STALE_REVISION` and `NOT_FOUND` read the markets again); Catalogue is the preset, the sections by plan and the badges. **Not in the app:** the shop's web address and Connect your own domain (Storefront › Site settings, #470), a market's own domain, and Catalogue's legal details, custom fields and plan meters, which wait for their API (FIRST-RELEASE (store) §15). Close my store (MA 18, #511) goes after Store info's last card.
 - **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
   offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write
   needs a connection. If a queue is added later, which writes may wait in it is decided first,
