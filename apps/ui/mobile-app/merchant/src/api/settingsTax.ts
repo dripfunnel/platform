@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { typedQuery, type ApiClient } from '../graphql'
+import { ApiError, typedQuery, type ApiClient } from '../graphql'
 
 // Settings › Tax setup (CatSettings tax tab and SetOps tax; FIRST-RELEASE (store) §15; SAPI 7). Tax rates come from the API, never from the app.
 
@@ -24,12 +24,14 @@ export const setPricesIncludeTax = async (client: ApiClient, included: boolean):
   await typedQuery(client)('mutation SetPricesIncludeTax($i: Boolean!) { setPricesIncludeTax(included: $i) }', z.object({ setPricesIncludeTax: z.boolean().nullable() }), { i: included })
 }
 
-/** Makes `id` the default for new products; the category keeps its name and code. */
-export const makeDefaultClass = async (client: ApiClient, taxClass: TaxClass): Promise<void> => {
+/** Makes a category the default for new products. The API has no call for that alone, so it reads the category again first and sends back its name and code as they are now. */
+export const makeDefaultClass = async (client: ApiClient, id: string): Promise<void> => {
+  const current = (await loadTax(client))?.classes.find((taxClass) => taxClass.id === id)
+  if (!current) throw new ApiError('NOT_FOUND', 'tax category')
   await typedQuery(client)(
     'mutation MakeDefaultClass($id: ID, $input: TaxClassInput!) { saveTaxClass(id: $id, input: $input) }',
     z.object({ saveTaxClass: z.string().nullable() }),
-    { id: taxClass.id, input: { name: taxClass.name, taxCode: taxClass.taxCode, isDefault: true } },
+    { id: current.id, input: { name: current.name, taxCode: current.taxCode, isDefault: true } },
   )
 }
 

@@ -40,7 +40,7 @@ export function TaxTab() {
     <TabFrame
       label={t('settings.tabs.tax')}
       load={async (client) => {
-        const [tax, invoice, info] = await Promise.all([loadTax(client), loadInvoiceSettings(client), loadStoreInfo(client).catch(() => null)])
+        const [tax, invoice, info] = await Promise.all([loadTax(client), loadInvoiceSettings(client), loadStoreInfo(client)])
         if (!tax || !invoice) throw new Error('tax setup missing')
         return { tax, invoice, country: info?.country ?? null, taxId: info?.taxId ?? null }
       }}
@@ -166,7 +166,7 @@ function TaxBody({ tax, invoice, country, taxId, client, canEdit, refresh }: Pro
           context="settingsTax"
           onClose={close}
           onSubmit={async () => {
-            await makeDefaultClass(client, sheet.taxClass)
+            await makeDefaultClass(client, sheet.taxClass.id)
             await refresh()
             return t('settings.tax.nowDefault', { name: sheet.taxClass.name })
           }}

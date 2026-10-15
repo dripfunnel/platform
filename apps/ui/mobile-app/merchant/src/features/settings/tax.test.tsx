@@ -189,6 +189,35 @@ describe('Tax setup', () => {
     expect(asked(calls, 'mutation DeleteTaxClass')[0]?.variables).toEqual({ id: 't5' })
   })
 
+  it('makes a category the default from what it is now, so a name changed meanwhile is not overwritten', async () => {
+    let reads = 0
+    const { renderer, calls } = await show(
+      <SettingsTabScreen tab="tax" />,
+      tax({
+        '{ taxSetup {': () => {
+          reads += 1
+          return { taxSetup: { ...taxSetup, classes: taxSetup.classes.map((taxClass) => (reads > 1 && taxClass.id === 't5' ? { ...taxClass, name: 'Under ₹1,000 (revised)' } : taxClass)) } }
+        },
+        'mutation MakeDefaultClass': () => ({ saveTaxClass: 't5' }),
+      }),
+    )
+
+    await click(renderer, 'Manage Under ₹1,000')
+    await click(renderer, 'Make default for new products')
+    expect(hasText(renderer, 'Products you’ve already priced keep theirs.')).toBe(true)
+    expect(asked(calls, 'mutation MakeDefaultClass')).toHaveLength(0)
+    await clickLast(renderer, 'Make default for new products')
+
+    expect(asked(calls, 'mutation MakeDefaultClass')[0]?.variables).toEqual({ id: 't5', input: { name: 'Under ₹1,000 (revised)', taxCode: '6109', isDefault: true } })
+  })
+
+  it('does not draw a wrong screen when the store’s country could not be read: it says it could not load', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="tax" />, tax({ '{ storeInfo {': () => { throw new ApiError('NO_RESPONSE', 'x') } }))
+
+    expect(hasText(renderer, 'We couldn’t load Tax setup')).toBe(true)
+    expect(hasText(renderer, 'Rate depends on the shopper’s state')).toBe(false)
+  })
+
   it('saves the invoice switches and sends the footer back as it is', async () => {
     const { renderer, calls } = await show(<SettingsTabScreen tab="tax" />, tax({ 'mutation SaveInvoiceSettings': () => ({ saveInvoiceSettings: true }) }))
 
