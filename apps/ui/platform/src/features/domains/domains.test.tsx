@@ -174,10 +174,12 @@ describe('the address rules', () => {
 })
 
 describe('Remove an address', () => {
-  it('is offered to Owners and Admins only, and never in a support session', () => {
-    expect(['partner-owner', 'partner-admin'].map((r) => canRemoveAddress(r as PartnerRole, false))).toEqual([true, true])
-    expect(['partner-support', 'partner-finance', 'partner-read-only'].map((r) => canRemoveAddress(r as PartnerRole, false))).toEqual([false, false, false])
-    expect(canRemoveAddress('partner-owner', true)).toBe(false)
+  it('is offered to Owners and Admins only, in a staff setup session too, and never while impersonating', () => {
+    expect(['partner-owner', 'partner-admin'].map((r) => canRemoveAddress(r as PartnerRole, null))).toEqual([true, true])
+    expect(['partner-support', 'partner-finance', 'partner-read-only'].map((r) => canRemoveAddress(r as PartnerRole, null))).toEqual([false, false, false])
+    expect(canRemoveAddress('partner-owner', { state: 'open', kind: 'setup' })).toBe(true)
+    expect(canRemoveAddress('partner-owner', { state: 'open', kind: 'impersonation' })).toBe(false)
+    expect(canRemoveAddress('partner-owner', { state: 'ended', kind: 'impersonation' })).toBe(true)
   })
 
   it('draws a Remove button on each card only when allowed', async () => {

@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
+Last updated: 2026-10-15 (with Gaurav: a partner has no shop domain, stores are on `my-store.one`, §5.3's partner table; not built yet, #745). Before: 2026-10-13 (#636: a session's `last_seen_at` is written at most once a minute, §4). Before: 2026-10-12 (#485: `fleet.read` and `fleet.manage`, §5.4). Before: 2026-10-12 (#471: `storefront.read` reads Site settings, §5.1). Before: 2026-10-11 (#338: `storefront.read`, §5.1). Before: 2026-10-11 (#317: a support session never opens a preview link, §8). Before: 2026-10-09 (#494: the bearer-token session is built, §4; #520: End all preview links under `publish`, §5.1).
 
 ---
 
@@ -517,7 +517,7 @@ prototype's permission table and ui/platform/README.md §2; the first release is
 | Suspend and restore a merchant **(confirmed 2026-09-30)** | ✓ | ✓ | | | |
 | Open a read-only **support session** (§8) | ✓ | ✓ | ✓ | | |
 | Request write elevation inside a support session | ✓ | ✓ | ✓ | | |
-| Branding, portal host, shop domain, email sender domain | ✓ | ✓ | | | |
+| Branding, portal host, email sender domain | ✓ | ✓ | | | |
 | Plans and prices offered to merchants | ✓ | ✓ | | ✓ *(prices only)* | |
 | The partner's own billing with DripFunnel: invoices, payment method, payouts | ✓ | view | | ✓ | view |
 | Partner users: invite, change role, remove | ✓ | ✓ *(not Owners)* | | | |

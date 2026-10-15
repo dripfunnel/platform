@@ -1,7 +1,7 @@
 import type { PartnerRole } from '../shell/partnerRoles'
 import { mayManage } from '../settings/teamRules'
 import { ApiError } from '@dripfunnel/shared/graphql'
-import type { StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
+import type { PortalStaffSession, StatusIconName, StatusTone } from '@dripfunnel/shared/ui'
 import type { Address, DnsRecord, DomainKind, HostStatus, RemoveResult } from '../../api/domains'
 import { fill, formatDate, formatWait, messages } from '../../messages'
 
@@ -36,7 +36,9 @@ export const purposeText = (record: DnsRecord, kind: DomainKind): string => {
   return words.purposes.pointer[kind]
 }
 
-export const canRemoveAddress = (role: PartnerRole, supportSessionOpen: boolean): boolean => mayManage(role) && !supportSessionOpen
+// The API refuses a removal only while impersonating; a setup session acts as the Owner (ACCESS.md §8.2).
+export const canRemoveAddress = (role: PartnerRole, session: Pick<PortalStaffSession, 'state' | 'kind'> | null): boolean =>
+  mayManage(role) && !(session?.state === 'open' && session.kind === 'impersonation')
 
 // What the dialog says when a removal did not happen: a refusal the API answered, or a thrown failure.
 export const removeFailure = (outcome: RemoveResult | Error, host: string): string | null => {

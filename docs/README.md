@@ -27,7 +27,7 @@ its clients; everything runs on Cloudflare, with Postgres on Neon.
 | **Admin console** | `apps/ui/admin` | `admin.dripfunnel.com` | DripFunnel staff: Super admin, Partner manager, Support, Finance, Engineer on call, Read-only | Admin API | [ui/admin/](ui/admin/README.md) |
 | **Partner console** | `apps/ui/platform` | `platform.dripfunnel.com` | Partner users: Owner, Admin, Support, Finance, Read-only | Platform API | [ui/platform/](ui/platform/README.md) |
 | **Merchant portal** | `apps/ui/store` | each partner's portal host, e.g. `store.<partnerdomain>` | Merchant Owner, Manager, Staff; vendors: Stock only, Products and stock, Products, stock and their orders | Store API | [ui/store/](ui/store/README.md) |
-| **Storefront** | one public repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{shop}.shops.<partnerdomain>`, the merchant's domain; preview on `{key}.webpreview.store` | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
+| **Storefront** | one public repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{slug}.my-store.one`, the merchant's domain; preview on `{slug}-preview.my-store.one` | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
 
 All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
 
@@ -98,7 +98,7 @@ docs/
                             render modes, the publish pipeline, the studio sandbox, fleet upgrades
     DESIGN.md               what the AI may design and the rules every design keeps
     LIVE-SHOP.md            infra: the store repo, the build on GitHub Actions, R2, the edge Worker, domains
-    PREVIEW.md              infra: the preview link on webpreview.store, its files in R2, access
+    PREVIEW.md              infra: the preview link on my-store.one, its files in R2, access
     AI-STUDIO.md            infra: the studio's container and Durable Object, the private draft, the live frame
 ```
 
