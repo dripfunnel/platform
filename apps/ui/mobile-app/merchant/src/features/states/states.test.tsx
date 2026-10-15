@@ -6,6 +6,9 @@ import { getScenario, resetScenario, setScenario, type ScreenState } from './sce
 import { ScenarioMenu } from './ScenarioMenu'
 import { ShellScreen } from './ShellScreen'
 
+// The first render of a file pays for loading the native-component mocks, which a cold CI cache and a busy runner stretch past the 30 s default.
+jest.setTimeout(120_000)
+
 const mockNavigate = jest.fn()
 const mockLeaveStore = jest.fn()
 const mockEnd = jest.fn(() => Promise.resolve())

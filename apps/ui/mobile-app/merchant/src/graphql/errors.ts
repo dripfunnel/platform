@@ -61,6 +61,12 @@ export const knownErrorCodes = [
   'TOO_LARGE',
   'UNSUPPORTED_TYPE',
   'EMPTY',
+  // Collections (apps/api src/apis/store/structure.ts).
+  'INVALID_PARENT',
+  'INVALID_RULE',
+  'TOO_MANY_COLLECTIONS',
+  'TOO_MANY_PRODUCTS',
+  'TOO_MANY_RULES',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

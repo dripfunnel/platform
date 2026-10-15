@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { t } from '../../messages'
 import { useTheme } from '../../theme'
 import { Button } from '../common/Button'
+import { useOnline } from './connection'
 
 export type SheetChoice = { value: string; label: string; sub?: string }
 
@@ -18,6 +19,8 @@ export type SheetSpec = {
   /** Absent means "Cancel"; `null` means no cancel button. */
   cancel?: string | null
   danger?: boolean
+  /** The confirm button writes, so it is off while the phone is offline (FIRST-RELEASE.md §3.3). */
+  saves?: boolean
   onConfirm: (result: { choice: string | null; text: string }) => void | Promise<void>
 }
 
@@ -107,7 +110,7 @@ export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () =>
         </View>
       ) : null}
       <View style={styles.buttons}>
-        <SheetConfirm label={spec.confirm} danger={spec.danger === true} busy={busy} onPress={() => void confirm()} />
+        <SheetConfirm label={spec.confirm} danger={spec.danger === true} saves={spec.saves === true} busy={busy} onPress={() => void confirm()} />
         {spec.cancel === null ? null : <Button kind="secondary" label={spec.cancel ?? t('common.cancel')} onPress={onClose} />}
       </View>
     </SheetFrame>
@@ -115,11 +118,13 @@ export function BottomSheet({ spec, onClose }: { spec: SheetSpec; onClose: () =>
 }
 
 // The confirm button: the brand colour, or red for something that can't be undone.
-function SheetConfirm({ label, danger, busy, onPress }: { label: string; danger: boolean; busy: boolean; onPress: () => void }) {
+function SheetConfirm({ label, danger, saves, busy, onPress }: { label: string; danger: boolean; saves: boolean; busy: boolean; onPress: () => void }) {
   const { colors, radii } = useTheme()
-  if (!danger) return <Button label={label} onPress={onPress} busy={busy} />
+  const online = useOnline()
+  if (!danger) return <Button label={label} onPress={onPress} busy={busy} saves={saves} />
+  const off = busy || (saves && !online)
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ busy }} disabled={busy} onPress={onPress} style={[styles.danger, { backgroundColor: colors.dangerButton, borderRadius: radii.button }]}>
+    <Pressable accessibilityRole="button" accessibilityState={{ busy, disabled: off }} disabled={off} onPress={onPress} style={[styles.danger, { backgroundColor: colors.dangerButton, borderRadius: radii.button, opacity: off && !busy ? 0.5 : 1 }]}>
       <Text style={[styles.dangerLabel, { color: colors.onDanger }]}>{label}</Text>
     </Pressable>
   )

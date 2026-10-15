@@ -1,8 +1,8 @@
 import { t } from '../../../messages'
 import { SectionCard } from '../../common/SectionCard'
 import { TextField } from '../../common/TextField'
-import { ChoiceRow } from './ChoiceRow'
-import { TextArea } from './TextArea'
+import { ChoiceRow } from '../../common/ChoiceRow'
+import { TextArea } from '../../common/TextArea'
 import type { Draft } from './draft'
 
 type Props = { draft: Draft; update: (change: (draft: Draft) => Draft) => void; disabled: boolean; nameMissing: boolean; showVisibility: boolean }

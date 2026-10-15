@@ -1,5 +1,6 @@
 import { ApiError } from '../graphql'
 import { errorMessage } from './errorMessage'
+import { t } from './index'
 
 describe('errorMessage', () => {
   it('words a code by the context it happened in', () => {
@@ -23,5 +24,14 @@ describe('errorMessage', () => {
 
   it('never shows the API’s own words', () => {
     expect(errorMessage(new ApiError('FORBIDDEN', 'Not allowed to open store 4f2a'))).toBe('You don’t have access to that.')
+  })
+})
+
+describe('the refusals Collections meets', () => {
+  it.each(['INVALID_PARENT', 'INVALID_RULE', 'TOO_MANY_COLLECTIONS', 'TOO_MANY_PRODUCTS', 'TOO_MANY_RULES'])('has words of its own for %s, not the generic message', (code) => {
+    const error = new ApiError(code, 'API words that are never shown')
+
+    expect(error.code).toBe(code)
+    expect(errorMessage(error, 'collections')).not.toBe(t('errors.generic'))
   })
 })

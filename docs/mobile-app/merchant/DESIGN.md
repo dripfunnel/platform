@@ -5,7 +5,7 @@ Scope is [FIRST-RELEASE.md](FIRST-RELEASE.md); code structure is [ARCHITECTURE.m
 
 **Status: decided, not built.**
 
-Last updated: 2026-10-13 (#500: Products). Before: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
+Last updated: 2026-10-15 (#501: Collections, §5). Before: 2026-10-13 (#500: Products). Before: 2026-10-09 (#493: no Billing, offline banner, email links open the browser).
 
 ---
 
@@ -150,6 +150,8 @@ These follow decisions in `docs/`, so the prototype needs redrawing here:
   so the sheet says it is saved right away. The prototype's "much higher than usual" price check needs the store's other prices, which the app doesn't
   read, so only "Selling for free?" is asked. A download, a service or a gift card opens read-only until MA 14 (#507). Quick edit and bulk actions are not
   on the phone (`designs/INCOMPLETE-FEATURES.md`).
+- **Collections** (#501, so far the list and the editor). A collection opens on its own screen with the shell's Back, not beside the list. Hand-picked products show what is picked so far above the search, and the live preview sits under the
+  rules. Deleting asks in a sheet first, which says whether the collection is in the menu. A collection's image, SEO and sort order are not in the app.
 - **"Email me a link"** (decided 2026-10-08). The prototype's Best on the web sheet offers to
   email a link to the web portal. The app instead **opens the web portal in the phone's
   browser**, on the partner's portal host. "Open here anyway" stays. Emailing
