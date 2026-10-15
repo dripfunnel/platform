@@ -224,6 +224,13 @@ describe('People', () => {
     expect(hasText(renderer, 'invited')).toBe(false)
   })
 
+  it('says it could not load when the store has no info to take a time zone from either', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="people" />, team({ '{ storeInfo {': () => ({ storeInfo: null }) }))
+
+    expect(hasText(renderer, 'We couldn’t load People')).toBe(true)
+    expect(hasText(renderer, 'invited')).toBe(false)
+  })
+
   it('resends an invitation, naming the old link’s end, and cancels one only after asking', async () => {
     const { renderer, calls } = await show(<SettingsTabScreen tab="people" />, team({ 'mutation ResendInvitation': () => ({ resendInvitation: true }), 'mutation RevokeInvitation': () => ({ revokeInvitation: true }) }))
 

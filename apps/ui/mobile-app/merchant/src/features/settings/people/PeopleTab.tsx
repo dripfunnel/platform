@@ -29,7 +29,8 @@ export function PeopleTab() {
       label={t('settings.tabs.people')}
       load={async (client) => {
         const [people, info] = await Promise.all([loadPeople(client), loadStoreInfo(client)])
-        return { people, timeZone: info?.timeZone ?? 'UTC' }
+        if (!info) throw new Error('store info missing')
+        return { people, timeZone: info.timeZone }
       }}
     >
       {({ data, client, canEdit, refresh }) => <PeopleList people={data.people} timeZone={data.timeZone} client={client} canEdit={canEdit} refresh={refresh} />}
