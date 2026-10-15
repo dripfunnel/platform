@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { act, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { ApiError, type ApiClient } from '../../graphql'
 import { fakeApi, type Call } from '../../testing/fakeApi'
-import { actingAs, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
+import { actingAs, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'
 import { SettingsTabScreen } from './SettingsTabScreen'
 
@@ -34,6 +34,8 @@ const settle = async () => {
 
 type Handlers = Record<string, (variables: Record<string, unknown>, headers: Record<string, string>) => unknown>
 type Options = Parameters<typeof renderShell>[1]
+
+const readOnlyState = { readOnly: true, status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: null }
 
 const show = async (element: ReactElement, handlers: Handlers, options: Options = {}) => {
   const { client, calls } = fakeApi(handlers)
@@ -216,6 +218,17 @@ describe('Tax setup', () => {
 
     expect(hasText(renderer, 'We couldn’t load Tax setup')).toBe(true)
     expect(hasText(renderer, 'Rate depends on the shopper’s state')).toBe(false)
+  })
+
+  it('can look but not change in a store that is read-only', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="tax" />, tax(), { client: fakeClient({ state: readOnlyState }) })
+
+    expect(hasText(renderer, 'Your store is read-only until the bill is paid.')).toBe(true)
+    expect(hasText(renderer, '12%')).toBe(true)
+    expect(pressablesNamed(renderer, 'Save')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Add a rate')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Manage Under ₹1,000')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Save invoice settings')).toHaveLength(0)
   })
 
   it('saves the invoice switches and sends the footer back as it is', async () => {
