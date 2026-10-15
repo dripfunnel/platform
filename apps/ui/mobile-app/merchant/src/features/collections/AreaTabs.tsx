@@ -2,10 +2,10 @@ import { Pressable, ScrollView, StyleSheet, Text } from 'react-native'
 import { t } from '../../messages'
 import { useTheme } from '../../theme'
 
-export const areaTabs = ['collections', 'filters', 'menus'] as const
+export const areaTabs = ['collections', 'filters', 'menus', 'sizeCharts'] as const
 export type AreaTab = (typeof areaTabs)[number]
 
-// The parts of CatCollections as its tab bar draws them at phone width: an underline under the one open, scrolling if the
+// The four parts of CatCollections as its tab bar draws them at phone width: an underline under the one open, scrolling if the
 // labels don't fit.
 export function AreaTabs({ value, onChange }: { value: AreaTab; onChange: (tab: AreaTab) => void }) {
   const { colors } = useTheme()

@@ -5,11 +5,11 @@ The framework decision is [REACT-NATIVE.md](REACT-NATIVE.md); the look is [DESIG
 builds and stores are [BUILDS-AND-STORE-ACCOUNTS.md](BUILDS-AND-STORE-ACCOUNTS.md).
 
 **Status: the project is set up (#496), its foundations are built (#497) and so are getting in and My profile
-(#498), the shell (#499), Products (#500) and Collections (#501, so far its list, editor, Filters and Menus); the other screens are placeholders.**
+(#498), the shell (#499), Products (#500) and Collections (#501); the other screens are placeholders.**
 `app.config.ts`, `partners/`, `eas.json`, the Expo Router skeleton under `src/app/`, and `src/graphql/`,
 `src/intl/`, `src/format/`, `src/messages/`, `src/theme/`, `src/brand/`, `src/session/`, `src/features/auth/`,
 `src/features/profile/`, `src/features/shell/`, `src/features/states/`, `src/features/products/`, `src/features/collections/` and `src/api/` (`brand`, `auth`, `profile`, `shell`, `products`, `inventory`,
-`productStory`, `collections`, `filters`, `menu`) exist (the placeholder screen in
+`productStory`, `collections`, `filters`, `menu`, `sizeCharts`) exist (the placeholder screen in
 `src/features/placeholder/` goes when the first real screen replaces it). Only `nav.ts` is still to build. Rows
 marked *(proposed)* await a yes.
 
@@ -79,7 +79,7 @@ apps/ui/mobile-app/merchant/
       (tabs)/               signed in: the tab bar (DESIGN.md §2)
         home.tsx  orders/  catalogue/  offers/  products/  to-ship.tsx  more/
                                 catalogue/ and products/ (a supplier's tab) hold the list, [id] (the editor; `new` opens an empty one) and [id]/story (A+ content);
-                                catalogue/ also holds collections/[id] (the Collections segment's editor)
+                                catalogue/ also holds collections/[id] and size-charts/[id] (the Collections segment's editors)
     features/<area>/        screens, private components and hooks per area
     graphql/                the app's own API client and types generated from apps/api/schema/ (§5)
     api/<area>.ts           this app's GraphQL operations, typed from apps/api/schema/
@@ -154,20 +154,20 @@ Built in #497 up to step 3, and in #498 for steps 4–5.
   What a seat may do is the API's list of permissions (`me.acting.permissions`, `access.ts`), and nothing narrows the list in the app. The editor
   (`editor/`) keeps a form draft (`draft.ts`: prices typed in major units, sent as minor-unit strings through `minorOf`) and sends back, as loaded, every
   field it has no control for (address, category, shipping, tax, barcodes, other-currency prices), because a save writes every field it names; the
-  listing sections, filters, size chart and video are left out of the input, which keeps them as stored. Photos come from the library or camera
+  listing sections, filters and video are left out of the input, which keeps them as stored (the size chart goes only when it was changed, #501). Photos come from the library or camera
   (`expo-image-picker`), go to `POST /api/assets` as raw bytes with the session's headers (not a signed URL: that is what the API has, FIRST-RELEASE (store) §19)
   and are read back with the same headers. A typed count is saved with `setStock` after the product; "Change with a reason" is `adjustStock`, applied at
   once. A+ content (`story/`) edits the draft modules and publishes them with the product. Not in the app yet: product kinds other than a physical
   item (MA 14, #507; they open read-only), import and export (#505), bulk actions, quick edit, and the listing sections the card
-  left out (weight and box, tax category, collections and filters, specifications, FAQs, related, badges, legal fields, search listing, size chart,
+  left out (weight and box, tax category, collections and filters, specifications, FAQs, related, badges, legal fields, search listing,
   other currencies and markets), which stay as stored when the phone saves.
-- **Built in #501, so far** (`src/features/collections/`, `src/api/collections.ts`, `filters.ts`, `menu.ts`): Catalogue › Collections is a tab bar over its parts (`CollectionsArea`, `AreaTabs`): the list of collections (`CollectionsList`) and the editor for
-  one (`catalogue/collections/[id]`, `CollectionForm`), then Filters and Menus (Size charts follow), which the list reads again when it comes back to the front. The collections and the filters are read once for the area (`areaData.ts`).
+- **Built in #501** (`src/features/collections/`, `src/api/collections.ts`, `filters.ts`, `menu.ts`, `sizeCharts.ts`): Catalogue › Collections is four parts under a tab bar (`CollectionsArea`, `AreaTabs`): the list of collections (`CollectionsList`) and the editor for
+  one (`catalogue/collections/[id]`, `CollectionForm`), then Filters, Menus and Size charts, which the list reads again when it comes back to the front. The collections and the filters are read once for the area (`areaData.ts`).
   The rule builder writes a filter's values as one sentence and sends one rule per value; rules it doesn't draw (a product, a version, a price range), and a collection's image, sort and SEO, go back
   as loaded (`collectionDraft.ts`). **What a rule-based collection holds is the API's answer** (`collectionPreview` for the live count and first products, `products` for the search to pick from),
   never matched in the app. What a seat may do is the API's `catalog.read` and `catalog.write` (`access.ts`): Staff looks only, a supplier has none. Deleting says its consequence in a sheet first, a
-  refusal shows by its code (`errors.collections`, `filters`, `menus`), and leaving an editor with unsaved changes asks first (`useLeaveGuard`). Filters (`FiltersTab`) add, rename and delete values, merge look-alikes and switch a filter between shoppers and internal, each change that loses or alters something saying its consequence in a
-  sheet first. Menus (`MenusTab`) save each change at once at the revision read, as the web's does, and a row opens a sheet to move, nest or remove it (`menuRows.ts`). Not in the app: a collection's image, SEO and sort order, and menu items that link to pages
+  refusal shows by its code (`errors.collections`, `filters`, `menus`, `sizeCharts`), and leaving an editor with unsaved changes asks first (`useLeaveGuard`). Filters (`FiltersTab`) add, rename and delete values, merge look-alikes and switch a filter between shoppers and internal, each change that loses or alters something saying its consequence in a
+  sheet first. Menus (`MenusTab`) save each change at once at the revision read, as the web's does, and a row opens a sheet to move, nest or remove it (`menuRows.ts`). Size charts (`SizeChartsTab`, `catalogue/size-charts/[id]`, `SizeChartForm`) start from a template in the store's unit, edit as a grid that scrolls sideways, convert cm and in, and ask "change all or make a copy" for a chart used on several products. A physical product picks its size chart in the product editor (`SizeChartCard`, for a merchant seat when Settings › Catalogue has size charts on); it is sent as `sizeChartId` only when changed, and `null` takes it off. Not in the app: a supplier's own size charts (the web's "Your products" tab), a collection's image, SEO and sort order, and menu items that link to pages
   or addresses (they are kept and shown).
 - **Offline: no write queue in the first release** (decided 2026-10-09). The app shows the
   offline banner (DESIGN.md §4), keeps what it has already loaded on screen, and every write

@@ -61,8 +61,9 @@ export const knownErrorCodes = [
   'TOO_LARGE',
   'UNSUPPORTED_TYPE',
   'EMPTY',
-  // Collections, filters and the menu (apps/api src/apis/store/structure.ts).
+  // Collections, filters, the menu and size charts (apps/api src/apis/store/structure.ts, listing.ts).
   'DUPLICATE_NAME',
+  'FEATURE_UNAVAILABLE',
   'INVALID_LINK',
   'INVALID_PARENT',
   'INVALID_RULE',
@@ -72,6 +73,7 @@ export const knownErrorCodes = [
   'TOO_MANY_ITEMS',
   'TOO_MANY_PRODUCTS',
   'TOO_MANY_RULES',
+  'TOO_MANY_SIZE_CHARTS',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

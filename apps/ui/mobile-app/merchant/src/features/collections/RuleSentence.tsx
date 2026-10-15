@@ -6,6 +6,7 @@ import { Caret } from '../common/Caret'
 import { Chip } from '../common/Chip'
 import { TextField } from '../common/TextField'
 import { useFeedback } from '../shell/Feedback'
+import { Icon } from '../shell/Icon'
 import { nameField, type RuleRow } from './collectionDraft'
 
 type Props = {
@@ -54,7 +55,7 @@ export function RuleSentence({ row, n, join, fields, disabled, onChange, onRemov
         </Pressable>
         {onRemove ? (
           <Pressable accessibilityRole="button" accessibilityLabel={t('collections.editor.removeRule', { n })} onPress={onRemove} style={styles.remove}>
-            <Text style={{ color: colors.muted, fontSize: 20 }}>×</Text>
+            <Icon name="close" size={18} color={colors.muted} />
           </Pressable>
         ) : null}
       </View>

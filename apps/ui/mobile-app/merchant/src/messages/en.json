@@ -93,7 +93,8 @@
       "TOO_LARGE": "That photo is too big. Use one under 20 MB.",
       "UNSUPPORTED_TYPE": "Use a JPG, PNG or WebP photo.",
       "EMPTY": "That file is empty.",
-      "NOT_CONNECTED": "This isn’t connected yet. Try again later."
+      "NOT_CONNECTED": "This isn’t connected yet. Try again later.",
+      "FEATURE_UNAVAILABLE": "Size charts aren’t switched on in this store."
     },
     "collections": {
       "NAME_REQUIRED": "Give the collection a name.",
@@ -127,6 +128,17 @@
       "INVALID_LINK": "A menu item links a collection that isn’t here any more. Remove it and try again.",
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "You can’t change the menu.",
+      "UNKNOWN": "That didn’t save. Try again."
+    },
+    "sizeCharts": {
+      "TOO_MANY_SIZE_CHARTS": "You have 200 size charts, the most there can be. Delete one first.",
+      "STALE_REVISION": "Someone else saved this chart first. Open it again to see their changes.",
+      "PLAN_LIMIT": "Size charts aren’t in your plan.",
+      "FEATURE_UNAVAILABLE": "Size charts aren’t switched on in this store.",
+      "INVALID_INPUT": "Something in the chart isn’t valid: up to 60 sizes, 12 measurements, 6 size systems, 20 characters a cell.",
+      "NOT_FOUND": "This chart isn’t here any more.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can’t change size charts.",
       "UNKNOWN": "That didn’t save. Try again."
     }
   },
@@ -524,7 +536,8 @@
       "label": "Collections area",
       "collections": "Collections",
       "filters": "Filters",
-      "menus": "Menus"
+      "menus": "Menus",
+      "sizeCharts": "Size charts"
     },
     "filters": {
       "title": "Filters",
@@ -643,6 +656,131 @@
       "loadFailed": {
         "title": "Your menu didn’t load",
         "body": "Check your connection and try again."
+      }
+    },
+    "charts": {
+      "title": "Size charts",
+      "meter": "{count} of {limit}",
+      "new": "+ New size chart",
+      "limit": "Limit reached",
+      "offNote": "Size charts are switched off in Settings › Catalogue, so they don’t show on products.",
+      "notInPlan": "Size charts aren’t in your store’s plan.",
+      "atLimit": "You have 200 size charts, the most there can be. Delete one to make another.",
+      "empty": "No size charts yet. Make one and use it on every product it fits — one “Tops” chart can cover 200 products.",
+      "open": "Open {name}",
+      "sub": {
+        "one": "1 product · {unit}",
+        "other": "{count} products · {unit}"
+      },
+      "name": "Chart name",
+      "units": "Units",
+      "unitCm": "cm",
+      "unitIn": "in",
+      "converted": {
+        "cm": "Converted to centimetres",
+        "in": "Converted to inches"
+      },
+      "shopperView": "Shopper view",
+      "hideShopperView": "Hide shopper view",
+      "usedMany": "This chart is on {count} products. Changes show on all of them.",
+      "sizeHead": "Size",
+      "cell": "{size}, {column}",
+      "sizeCell": "Size {n}",
+      "headCell": "Column {n} name",
+      "removeColumn": "Remove column {name}",
+      "removeRow": "Remove size {size}",
+      "addSize": "+ Size",
+      "addMeasurement": "+ Measurement",
+      "measurement": "Measurement",
+      "addSystems": "+ Other size systems (US / UK / EU)",
+      "systemsAdded": "Added US, UK and EU columns — fill in their sizes",
+      "systemsThere": "Size systems already added",
+      "ranges": "Ranges like 38–40 are fine.",
+      "fitNote": "Fit note & how to measure",
+      "fitPlaceholder": "e.g. Runs small — order one size up. Chest: measure around the fullest part.",
+      "used": {
+        "one": "Used on 1 product. Assign it from a product’s “Size chart” box.",
+        "other": "Used on {count} products. Assign it from a product’s “Size chart” box."
+      },
+      "delete": "Delete chart",
+      "copy": "Make a copy",
+      "save": "Save chart",
+      "saving": "Saving…",
+      "problems": {
+        "name": "Give the chart a name",
+        "columns": "Name every column, and keep at least one measurement",
+        "duplicate": "Two measurements have the same name",
+        "sizes": "Give every row a size"
+      },
+      "saved": "“{name}” saved",
+      "savedOn": {
+        "one": "“{name}” saved — updated on 1 product",
+        "other": "“{name}” saved — updated on {count} products"
+      },
+      "changeAllTitle": "This changes the chart on {count} products",
+      "changeAllBody": "Every product using it will show the new numbers. Make a copy instead if only some should change.",
+      "changeAll": "Change all {count}",
+      "copyInstead": "Make a copy instead",
+      "next": "Continue",
+      "copySuffix": "{name} (copy)",
+      "copied": "Copy made — it isn’t on any products yet",
+      "deleteTitle": "Delete “{name}”?",
+      "deleteBody": {
+        "one": "1 product will lose its size chart. You can pick another chart for it after.",
+        "other": "{count} products will lose their size chart. You can pick another chart for them after."
+      },
+      "deleteNone": "No products use it.",
+      "deleteConfirm": "Delete chart",
+      "deleted": "Size chart deleted",
+      "startTitle": "Start a size chart",
+      "startBody": "Numbers are in {unit} — you can switch.",
+      "create": "Create",
+      "created": "Chart created — change any number, then save",
+      "templates": {
+        "tops": "Tops & shirts",
+        "topsSub": "S · M · L · XL · XXL · chest, waist, length",
+        "women": "Women’s clothing (US · UK · EU)",
+        "womenSub": "Converts between size systems",
+        "jeans": "Jeans (W × L)",
+        "jeansSub": "Waist and leg length",
+        "shoes": "Footwear (US · UK · EU · JP)",
+        "shoesSub": "Foot length",
+        "kurta": "Kurtas",
+        "kurtaSub": "Chest, length, shoulder",
+        "blank": "Start blank",
+        "blankSub": "Your own sizes and measurements"
+      },
+      "newName": {
+        "tops": "Tops & shirts",
+        "women": "Women’s clothing",
+        "jeans": "Jeans",
+        "shoes": "Footwear",
+        "kurta": "Kurtas",
+        "blank": "New size chart"
+      },
+      "previewTitle": "Size chart · {name}",
+      "previewSwitch": "Shopper can switch {unit} ⇄ {other}",
+      "loadFailed": {
+        "title": "Your size charts didn’t load",
+        "body": "Check your connection and try again."
+      },
+      "retry": "Try again",
+      "viewOnly": "You can look at size charts but not change them.",
+      "columns": {
+        "chest": "Chest",
+        "waist": "Waist",
+        "length": "Length",
+        "bust": "Bust",
+        "foot": "Foot",
+        "shoulder": "Shoulder",
+        "leg": "Leg",
+        "measurement": "Measurement"
+      },
+      "systems": {
+        "us": "US",
+        "uk": "UK",
+        "eu": "EU",
+        "jp": "JP"
       }
     }
   },
@@ -1196,6 +1334,14 @@
       "waitUpload": "A photo is still uploading. Save again once it’s in.",
       "leaveTitle": "Leave without saving?",
       "leave": "Your A+ changes aren’t saved."
+    },
+    "sizeChart": {
+      "title": "Size chart",
+      "hint": "Shoppers return fewer orders when there’s a size chart.",
+      "none": "No size chart",
+      "pick": "Choose a size chart",
+      "attached": "A size chart",
+      "failed": "Size charts didn’t load, so the chart can’t be changed here. Reload to try again."
     }
   },
   "more": {

@@ -20,6 +20,7 @@ import { PriceCard } from './PriceCard'
 import { ReadinessCard } from './ReadinessCard'
 import { ReviewCard } from './ReviewCard'
 import { SaveBar } from '../../common/SaveBar'
+import { SizeChartCard } from './SizeChartCard'
 import { StockCard } from './StockCard'
 import { VersionsCard } from './VersionsCard'
 import { bannersOf } from './editorBanners'
@@ -91,6 +92,7 @@ export function ProductForm({ client, data, onReload }: Props) {
             <VersionsCard draft={draft} update={update} currency={data.currency} disabled={disabled} canHideProduct={form.access.storeFields} problems={form.shown} stock={stock} onAdjust={setAdjusting} />
           ) : null}
           {stock && made ? <StockCard draft={draft} update={update} stock={stock} client={client} productId={current?.id ?? null} simple={false} onAdjust={setAdjusting} /> : null}
+          {data.sizeCharts !== null && physical ? <SizeChartCard draft={draft} update={update} charts={data.sizeCharts} disabled={disabled} /> : null}
           {data.aplus ? (
             <AplusCard availability={data.aplus} productId={current?.id ?? null} dirty={form.dirty} onOpen={() => current && router.push(storyHref(seat, current.id) as never)} />
           ) : null}

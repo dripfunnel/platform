@@ -50,3 +50,16 @@ describe('the refusals Filters and Menus meet', () => {
     expect(errorMessage(error, context)).not.toBe(t('errors.generic'))
   })
 })
+
+describe('the refusals Size charts meet', () => {
+  it.each(['TOO_MANY_SIZE_CHARTS', 'FEATURE_UNAVAILABLE', 'PLAN_LIMIT', 'INVALID_INPUT', 'STALE_REVISION'])('has words of its own for %s, not the generic message', (code) => {
+    const error = new ApiError(code, 'API words that are never shown')
+
+    expect(error.code).toBe(code)
+    expect(errorMessage(error, 'sizeCharts')).not.toBe(t('errors.generic'))
+  })
+
+  it('has words for a refused size chart on a product', () => {
+    expect(errorMessage(new ApiError('FEATURE_UNAVAILABLE', 'x'), 'products')).toBe('Size charts aren’t switched on in this store.')
+  })
+})

@@ -15,9 +15,10 @@ import { CollectionsList } from './CollectionsList'
 import { FiltersTab } from './FiltersTab'
 import { MenusTab } from './MenusTab'
 import { collectionHref, newCollectionHref } from './routes'
+import { SizeChartsTab } from './SizeChartsTab'
 import { useReloadOnFocus } from './useReloadOnFocus'
 
-// Catalogue › Collections (FIRST-RELEASE.md §12; CatCollections at phone width): its parts under a tab bar. The collections and
+// Catalogue › Collections (FIRST-RELEASE.md §12; CatCollections at phone width): its four parts under a tab bar. The collections and
 // the filters are read once here, as rules, the menu and the editors all draw on them; the menu and the charts read their own.
 export function CollectionsArea() {
   const router = useRouter()
@@ -40,6 +41,7 @@ export function CollectionsArea() {
     const loaded = data.state.data
     if (tab === 'filters') return <FiltersTab filters={loaded.filters} collections={loaded.collections} canEdit={access.canEdit} onChanged={data.reload} />
     if (tab === 'menus') return <MenusTab collections={loaded.collections} canEdit={access.canEdit} />
+    if (tab === 'sizeCharts') return <SizeChartsTab facts={loaded.facts} canEdit={access.canEdit} />
     return (
       <CollectionsList
         collections={loaded.collections}

@@ -65,6 +65,7 @@ const apiProduct = (over: Record<string, unknown> = {}) => ({
   supplier: null,
   shared: false,
   slug: 'mara-linen-shirt',
+  sizeChartId: null,
   category: 'Shirts',
   warrantyText: null,
   returnsText: null,
@@ -286,6 +287,82 @@ describe('stock', () => {
     expect(texts(renderer)).toEqual(expect.arrayContaining(['+5', 'Received new stock', '−1', 'Order']))
     expect(hasText(renderer, 'Jaipur studio · by Priya · now 17')).toBe(true)
     expect(hasText(renderer, 'Jaipur studio · automatically · now 12')).toBe(true)
+  })
+})
+
+describe('the size chart a product uses (CATALOG-DESIGN.md R6)', () => {
+  const charts = [{ id: 'sc-shirts', name: 'Men’s shirts', unit: 'cm', products: 4, supplierId: null }, { id: 'sc-kurtas', name: 'Kurtas', unit: 'cm', products: 1, supplierId: null }]
+  const withCharts = (over: Handlers = {}, product: unknown = apiProduct()): Handlers => ({
+    ...base({ product, features: [{ key: 'aplus', enabled: true, inPlan: true }, { key: 'sizeCharts', enabled: true, inPlan: true }] }),
+    'sizeCharts(first': () => ({ sizeCharts: { limit: 200, nodes: charts, pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null } } }),
+    ...over,
+  })
+
+  it('attaches one of the store’s charts, sending it with the save, and nothing else of the listing', async () => {
+    const { renderer, calls } = await open('p-1', withCharts({ 'mutation Save': () => ({ saveProduct: { id: 'p-1', revision: 5, approval: null, reviewed: [] } }) }))
+
+    expect(hasText(renderer, 'Shoppers return fewer orders when there’s a size chart.')).toBe(true)
+    await press(pressableNamed(renderer, 'Size chart: No size chart'))
+    await press(pressableNamed(renderer, 'Men’s shirts'))
+    expect(pressablesNamed(renderer, 'Size chart: Men’s shirts')).toHaveLength(1)
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+
+    const sent = calledWith(calls, 'mutation Save')[0]?.variables.input as Record<string, unknown>
+    expect(sent).toMatchObject({ sizeChartId: 'sc-shirts', slug: 'mara-linen-shirt', category: 'Shirts' })
+  })
+
+  it('takes the chart off with null, and leaves it out of a save that didn’t change it', async () => {
+    const attached = apiProduct({ sizeChartId: 'sc-kurtas' })
+    const { renderer, calls } = await open('p-1', withCharts({ 'mutation Save': () => ({ saveProduct: { id: 'p-1', revision: 5, approval: null, reviewed: [] } }) }, attached))
+
+    expect(pressablesNamed(renderer, 'Size chart: Kurtas')).toHaveLength(1)
+    await type(renderer, 'Price', '2599')
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+    expect(calledWith(calls, 'mutation Save')[0]?.variables.input).not.toHaveProperty('sizeChartId')
+
+    await press(pressableNamed(renderer, 'Size chart: Kurtas'))
+    await press(pressableNamed(renderer, 'No size chart'))
+    await type(renderer, 'Price', '2699')
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+    expect(calledWith(calls, 'mutation Save').at(-1)?.variables.input).toMatchObject({ sizeChartId: null })
+  })
+
+  it('shows nothing where the store has size charts off, and never reads them for a supplier', async () => {
+    const off = await open('p-1', base())
+    expect(hasText(off.renderer, 'Size chart')).toBe(false)
+    expect(calledWith(off.calls, 'sizeCharts(first')).toHaveLength(0)
+
+    const { renderer, calls } = await open('p-1', withCharts({ 'acting { permissions': () => ({ me: { acting: { permissions: ['catalog.read', 'catalog.write'], seller: { id: 's-1' } } } }) }, apiProduct({ supplier: { id: 's-1', name: 'Northwind Textiles' }, readiness: null })), { acting: actingAs('supplier-member', 'vendor-catalogue'), supplier: 's-1' })
+    expect(hasText(renderer, 'Size chart')).toBe(false)
+    expect(calledWith(calls, 'sizeCharts(first')).toHaveLength(0)
+  })
+
+  it('says the charts didn’t load and leaves the product’s chart as it is', async () => {
+    const { renderer } = await open('p-1', withCharts({ 'sizeCharts(first': () => { throw new ApiError('NO_RESPONSE', 'x') } }, apiProduct({ sizeChartId: 'sc-kurtas' })))
+
+    expect(hasText(renderer, 'Size charts didn’t load, so the chart can’t be changed here. Reload to try again.')).toBe(true)
+    expect((pressableNamed(renderer, 'Size chart: A size chart').props as { disabled: boolean }).disabled).toBe(true)
+  })
+
+  it('lets Staff see which chart a product uses but not change it', async () => {
+    const { renderer } = await open('p-1', withCharts({ 'acting { permissions': () => ({ me: { acting: { permissions: ['catalog.read'], seller: null } } }) }, apiProduct({ sizeChartId: 'sc-kurtas' })), { acting: actingAs('staff') })
+
+    expect((pressableNamed(renderer, 'Size chart: Kurtas').props as { disabled: boolean }).disabled).toBe(true)
+  })
+
+  it('shows a refusal for a store that has the section off by its code', async () => {
+    const { renderer } = await open('p-1', withCharts({ 'mutation Save': () => { throw new ApiError('FEATURE_UNAVAILABLE', 'API words that are never shown') } }))
+
+    await press(pressableNamed(renderer, 'Size chart: No size chart'))
+    await press(pressableNamed(renderer, 'Kurtas'))
+    await press(pressableNamed(renderer, 'Save'))
+    await settle()
+
+    expect(hasText(renderer, 'Size charts aren’t switched on in this store.')).toBe(true)
+    expect(hasText(renderer, 'API words that are never shown')).toBe(false)
   })
 })
 
