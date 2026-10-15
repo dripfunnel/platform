@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-15 (with Gaurav: `store.slug`, platform-unique, for `{slug}.my-store.one`; `storefront.preview_key` and `partner_domain`'s shops kind to be retired, §2.1, §7.8; not built yet). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
+Last updated: 2026-10-15 (with Gaurav: `store.slug`, platform-unique, for `{slug}.my-store.one`, and its backfill from `code` under SAAS §4.1's rules; `storefront.preview_key` and `partner_domain`'s shops kind to be retired, §2.1, §7.8; not built yet). Before: 2026-10-14 (#730: `staff_start_row()` and `staff_begin_repo()`, §5.3). Before: 2026-10-12 (#485: `core_rollout` and `core_rollout_store` built; `storefront.theme_mode` and the upgrade columns; `publish_run.check_only` and `baseline`, §7.8). Before: 2026-10-12 (#471: `custom_domain.is_primary` and its removal, §7.2; `merchant_host_taken()`, §5.3; #471: `storefront_brand` and `storefront_seo` built, §7.8; `save_store_name()`, §5.3). Before: 2026-10-11 (#338: `storefront_content` and `storefront_redirect` built, §7.8; #317: `publish_run`, `design_version`, `storefront.live_build_id` and `preview_epoch` built,
 migration 0233; before it #518: `storefront.preview_key` built, `partner_domain`'s preview kind
 dropped, migration 0232). Before: 2026-10-09 (synced with the schema migrations 0000–0075 create: built shapes, "not built"
 marks and the shop role's built reads; the storefront plan's proposed fields: live build pointer,
@@ -100,8 +100,14 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   rows and records are deleted and the check narrows to portal and email.
 - **Store**: `name`, `code` (unique per partner), `slug` (decided 2026-10-15, not built yet:
   unique across the platform, not null, never changed; its hosts are `{slug}.<SHOP_DOMAIN>` and
-  `{slug}-preview.<SHOP_DOMAIN>`, USERS-AND-DOMAINS §2, rules in SAAS §4.1; the migration copies
-  each store's `code`, adding `-2`, `-3`… on a clash; a `signup` row's `subdomain` becomes the slug), `country`, `status`
+  `{slug}-preview.<SHOP_DOMAIN>`, USERS-AND-DOMAINS §2, rules in SAAS §4.1; a `signup` row's `subdomain`
+  becomes the slug). **The migration's backfill** (decided 2026-10-15 with Gaurav): a store's `code` is copied when it
+  meets SAAS §4.1 and is free across the platform. Otherwise, being permanent, it is fixed the way signup would:
+  made to fit the format as the web-address field does (accents removed, lowercase, any other character to `-`,
+  cut to 40), then the first free of signup's suggestions for it (`-co`, `-shop`, `-store`, `-online`, the base
+  shortened to fit), then `-2`, `-3`…; a reserved name or a `-preview` ending never fits as it is. #744's migration
+  test covers a reserved code, a `-preview` ending, one over 40 characters, one with other characters and a clash.
+  The store's other fields: `country`, `status`
   (SAAS.md §4.2 plus `closed`) with its facts (`trial_ends_at`, `past_due_since`, the
   suspension's time, reason, who and **the status it had before**, so Restore returns to it),
   `plan_id`, `storefront_kind` (`ai` or `own`), `build_state`, `core_version`, last build and
