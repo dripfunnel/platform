@@ -3,10 +3,11 @@ name: release
 # storefront-core's releases, and only from here (AGENTS.md, docs/code/ARCHITECTURE.md §5).
 # Every push to main runs core's gates; if core's version isn't published yet (and isn't 0.0.0),
 # it packs core once, attests that tarball, publishes the same file, then makes sure it's tagged.
+# A push to dev publishes `<version>-dev.<run>` under the `dev` dist-tag instead: no git tag, no sandbox image.
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 permissions:
   contents: read
@@ -42,6 +43,7 @@ jobs:
         run: node scripts/release/publish.mjs pack
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEV_RUN: ${{ github.ref_name == 'dev' && github.run_number || '' }}
       - if: steps.pack.outputs.release == 'true'
         uses: actions/attest-build-provenance@v2
         with:
@@ -52,7 +54,9 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARBALL: ${{ steps.pack.outputs.tarball }}
           VERSION: ${{ steps.pack.outputs.version }}
-      - run: node scripts/release/publish.mjs tag
+          DEV_RUN: ${{ github.ref_name == 'dev' && github.run_number || '' }}
+      - if: github.ref_name == 'main'
+        run: node scripts/release/publish.mjs tag
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -60,7 +64,7 @@ jobs:
   # builds (LIVE-SHOP §4 step 5), in Cloudflare's registry for the studio's containers, then recorded in core_release.
   sandbox-image:
     needs: release
-    if: needs.release.outputs.version != ''
+    if: needs.release.outputs.version != '' && github.ref_name == 'main'
     runs-on: ubuntu-latest
     environment: prod
     permissions:

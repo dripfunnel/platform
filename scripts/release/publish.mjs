@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { corePackage } from './changesets.mjs'
@@ -39,11 +39,20 @@ const output = (pairs) => {
   else process.stdout.write(lines)
 }
 
-const coreVersion = () => JSON.parse(readFileSync('packages/storefront-core/package.json', 'utf8')).version
+const corePath = 'packages/storefront-core/package.json'
+const coreVersion = () => JSON.parse(readFileSync(corePath, 'utf8')).version
+
+/** A dev build is `<version>-dev.<run>`: never committed, published under the `dev` dist-tag. */
+export const devVersion = (version, run) => `${version}-dev.${run}`
+const devRun = () => process.env.DEV_RUN
 
 const pack = () => {
-  const version = coreVersion()
-  if (!releasable(version)) {
+  let version = coreVersion()
+  if (devRun()) {
+    version = devVersion(version, devRun())
+    const manifest = JSON.parse(readFileSync(corePath, 'utf8'))
+    writeFileSync(corePath, JSON.stringify({ ...manifest, version }, null, 2) + '\n')
+  } else if (!releasable(version)) {
     console.log(`${corePackage} is at ${version}: nothing is released before a release card bumps it.`)
     output({ release: 'false' })
     return
@@ -64,7 +73,7 @@ const pack = () => {
 const publish = () => {
   const { TARBALL: tarball, VERSION: version } = process.env
   if (!tarball || !version) throw new Error('TARBALL and VERSION are required')
-  run('npm', ['publish', tarball, '--access', 'restricted'])
+  run('npm', ['publish', tarball, '--access', 'restricted', '--tag', devRun() ? 'dev' : 'latest'])
   console.log(`Published ${tagFor(version)}.`)
 }
 
