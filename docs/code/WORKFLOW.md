@@ -79,7 +79,7 @@ the next push (decided 2026-10-04). `gates` runs only on a pull request into `de
 stacked one skips it and runs `naming` and `changesets` after the review. A stacked pull request
 moved onto `dev` gets its gates on its next push or a re-run; until then `gates` shows *skipped*,
 and `dev.yml`'s own gates still stop a broken deploy. A push to `main` runs `gates`, and `release.yml`
-(storefront-core's release, ARCHITECTURE.md §5).
+(storefront-core's release, ARCHITECTURE.md §5); a push to `dev` also runs `release.yml`, for the dev channel.
 
 The rules live in one place, [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs), with
 tests beside it. The hooks, the pull-request check and the feature-environment names

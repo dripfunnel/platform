@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { corePackage } from './changesets.mjs'
@@ -39,14 +39,30 @@ const output = (pairs) => {
   else process.stdout.write(lines)
 }
 
-const coreVersion = () => JSON.parse(readFileSync('packages/storefront-core/package.json', 'utf8')).version
+const corePath = 'packages/storefront-core/package.json'
+const coreVersion = () => JSON.parse(readFileSync(corePath, 'utf8')).version
+
+/** A dev build is `<version>-dev.<run>`: never committed, published under the `dev` dist-tag. */
+export const devVersion = (version, run) => `${version}-dev.${run}`
+const devRun = () => process.env.DEV_RUN
+
+/** The dist-tag a run publishes under: `dev` when DEV_RUN is set, else `latest`. */
+export const distTag = (run) => (run ? 'dev' : 'latest')
+
+/** Dev builds publish from any version, `0.0.0` included; main's builds never publish `0.0.0`. */
+export const packVersion = (version, run) => (run ? devVersion(version, run) : releasable(version) ? version : null)
 
 const pack = () => {
-  const version = coreVersion()
-  if (!releasable(version)) {
-    console.log(`${corePackage} is at ${version}: nothing is released before a release card bumps it.`)
+  const current = coreVersion()
+  const version = packVersion(current, devRun())
+  if (!version) {
+    console.log(`${corePackage} is at ${current}: nothing is released before a release card bumps it.`)
     output({ release: 'false' })
     return
+  }
+  if (devRun()) {
+    const manifest = JSON.parse(readFileSync(corePath, 'utf8'))
+    writeFileSync(corePath, JSON.stringify({ ...manifest, version }, null, 2) + '\n')
   }
   if (publishedVersion(npmView(`${corePackage}@${version}`)) === version) {
     console.log(`${tagFor(version)} is already published; nothing to release.`)
@@ -64,7 +80,7 @@ const pack = () => {
 const publish = () => {
   const { TARBALL: tarball, VERSION: version } = process.env
   if (!tarball || !version) throw new Error('TARBALL and VERSION are required')
-  run('npm', ['publish', tarball, '--access', 'restricted'])
+  run('npm', ['publish', tarball, '--access', 'restricted', '--tag', distTag(devRun())])
   console.log(`Published ${tagFor(version)}.`)
 }
 
