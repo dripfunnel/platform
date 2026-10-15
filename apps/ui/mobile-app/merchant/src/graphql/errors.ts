@@ -91,6 +91,10 @@ export const knownErrorCodes = [
   'TOO_MANY_WAREHOUSES',
   'DEFAULT_WAREHOUSE',
   'WAREHOUSE_HOLDS_STOCK',
+  'DEFAULT_CLASS',
+  'CLASS_IN_USE',
+  'ZONE_OVERLAP',
+  'NO_COUNTRY',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

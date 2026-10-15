@@ -89,6 +89,17 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "Only the store owner can change locations."
     },
+    "settingsTax": {
+      "NOT_FOUND": "That isn’t here any more.",
+      "INVALID_INPUT": "Something here isn’t valid.",
+      "DUPLICATE_NAME": "Another category already has that name.",
+      "DEFAULT_CLASS": "Make another category the default first.",
+      "CLASS_IN_USE": "Products use this category. Move them to another first.",
+      "ZONE_OVERLAP": "Another zone already sets a rate for this category in the same place.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change tax.",
+      "NO_COUNTRY": "Your store has no country yet, so there’s no home to set a rate for. Add your address in Store info first."
+    },
     "signIn": {
       "INVALID_CREDENTIALS": "That email and password don’t match. Check them, or reset your password.",
       "UNAUTHENTICATED": "Your sign-in timed out. Start again."
@@ -1408,13 +1419,15 @@
       "store": "Store info",
       "people": "People",
       "suppliers": "Suppliers",
-      "warehouse": "Warehouse"
+      "warehouse": "Warehouse",
+      "tax": "Tax setup"
     },
     "tabSubs": {
       "store": "Name, contact, address, currencies and languages",
       "people": "Who works in the store, and invitations",
       "suppliers": "Companies that sell under your name",
-      "warehouse": "Where your stock sits"
+      "warehouse": "Where your stock sits",
+      "tax": "How prices are typed, tax rates and invoices"
     },
     "store": {
       "title": "Your store",
@@ -1711,6 +1724,72 @@
       "empty": "No locations yet. Add the first one, where your stock sits.",
       "theirsTitle": "Supplier locations",
       "theirsSub": "Suppliers add and count these themselves. They aren’t offered as your default."
+    },
+    "tax": {
+      "names": {
+        "gst": "GST",
+        "salesTax": "sales tax",
+        "vat": "VAT"
+      },
+      "pricesTitle": "How you type prices",
+      "pricesUsualIn": "This decides what the number in every product’s price box means. Stores here usually include {name}.",
+      "pricesUsualOut": "This decides what the number in every product’s price box means. Stores here usually don’t include {name}.",
+      "include": "Prices include {name}",
+      "includeSub": "The price you type is what the shopper pays. Usual in the EU, UK, India and Australia.",
+      "exclude": "Prices don’t include {name}",
+      "excludeSub": "{name} is added on top at checkout. Usual in the US and Canada.",
+      "exampleIncluded": "The price you type is the price shoppers pay; {name} is part of it.",
+      "exampleExcluded": "{name} is worked out at checkout and added to the price you type.",
+      "includeTitle": "Prices include {name} from now on?",
+      "excludeTitle": "Prices exclude {name} from now on?",
+      "keepNumbers": "The numbers you typed on your products stay as they are, so what shoppers pay changes by the {name}. Change any price you want to keep the same for shoppers.",
+      "nowIncluded": "Prices now include {name} — the price box on every product says so",
+      "nowExcluded": "Prices now exclude {name} — it’s added at checkout",
+      "yours": "Your {what}",
+      "categories": "tax categories",
+      "categoriesRates": "tax rates",
+      "classesSub": "Name them whatever your country calls them. Each product version uses one.",
+      "classesSubUs": "Sales tax is worked out at checkout from the shopper’s state. You choose the category per product.",
+      "versions": {
+        "one": "1 product version",
+        "other": "{count} product versions"
+      },
+      "noRate": "No rate at home yet",
+      "byState": "Rate depends on the shopper’s state",
+      "default": "default for new products",
+      "manage": "Manage {name}",
+      "makeDefault": "Make default for new products",
+      "makeDefaultTitle": "Make {name} the default?",
+      "makeDefaultBody": "New products start with this category. Products you’ve already priced keep theirs.",
+      "changeRate": "Change its rate",
+      "delete": "Delete",
+      "nowDefault": "{name} is the default for new products — existing products keep theirs",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "No product uses it, so nothing else changes.",
+      "deleted": "{name} deleted",
+      "rateTitle": "{name}: rate in {place}",
+      "rateBody": "Every product using this category charges the new rate from now on.",
+      "rateLabel": "Rate, %",
+      "ratePlaceholder": "5",
+      "rateInvalid": "Type a percentage from 0 to 100",
+      "rateSaved": "{name}’s rate saved",
+      "addTitle": "Add a rate",
+      "addBody": "A new category and its rate here. Products choose it in their tax box.",
+      "addName": "Name",
+      "addNamePlaceholder": "e.g. Books",
+      "addNameMissing": "Type a name for the category",
+      "add": "Add",
+      "added": "{name} added",
+      "defaultNote": "Changing the default doesn’t touch products you’ve already priced.",
+      "otherPlaces": "Rates in other places",
+      "invoiceTitle": "On the invoice",
+      "invoiceTaxId": "Your tax number: {id}",
+      "invoiceNoTaxId": "Your tax number isn’t added yet — add it in Store info.",
+      "perLine": "Show {name} on each line, not just the total",
+      "emailInvoice": "Email the invoice with the dispatch note",
+      "invoiceNote": "New invoices follow new settings; issued ones are never rewritten.",
+      "saveInvoice": "Save invoice settings",
+      "invoiceSaved": "Invoice settings saved — the next invoice uses them"
     }
   },
   "more": {
