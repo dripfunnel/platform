@@ -9,7 +9,7 @@ import { settingsAccess } from './access'
 import { settingsTabHref } from './routes'
 import { settingsTabs } from './tabs'
 
-// Settings (PortalSettings at phone width; FIRST-RELEASE (store) §15): the Owner's seven tabs as a list of rows, each opening on its own screen.
+// Settings (PortalSettings at phone width; FIRST-RELEASE (store) §15): the Owner's tabs as a list of rows, each opening on its own screen.
 // Anyone else is told so and nothing is read.
 export function SettingsScreen() {
   const { colors, radii } = useTheme()
