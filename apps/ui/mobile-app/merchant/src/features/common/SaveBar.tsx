@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { t } from '../../../messages'
-import { useTheme } from '../../../theme'
-import { Button } from '../../common/Button'
+import { t } from '../../messages'
+import { useTheme } from '../../theme'
+import { Button } from './Button'
 
 type Props = { failed: boolean; label: string; busy: boolean; onDiscard: () => void; onSave: () => void }
 

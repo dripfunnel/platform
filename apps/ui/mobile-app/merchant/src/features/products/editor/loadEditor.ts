@@ -1,5 +1,6 @@
 import { loadProductStock, loadWarehouses, type StockLevel, type Warehouse } from '../../../api/inventory'
 import { ApiError, type ApiClient } from '../../../graphql'
+import { loadSizeChartList } from '../../../api/sizeCharts'
 import { loadAccess, loadApprovalRequired, loadCatalogueBasics, loadProduct, type EditorProduct } from '../../../api/products'
 
 export type EditorData = {
@@ -12,6 +13,8 @@ export type EditorData = {
   levels: Map<string, StockLevel[]>
   /** Whether the plan has A+ content (`plan` says it hasn't); null when the store has the section off. */
   aplus: 'on' | 'plan' | null
+  /** The store's size charts to pick from: null when the store has the section off or the seat is a supplier's, `failed` when they didn't load. */
+  sizeCharts: { id: string; name: string }[] | 'failed' | null
 }
 
 /** What the editor opens with. A product that isn't here, or isn't the caller's, is a `NOT_FOUND` (ACCESS.md §11). */
@@ -22,5 +25,7 @@ export const loadEditor = async (client: ApiClient, productId: string | null): P
   if (!currency) throw new ApiError('CURRENCY_REQUIRED', 'The store has no pricing currency yet.')
   const [warehouses, levels] = await Promise.all([loadWarehouses(client, access.supplier), productId ? loadProductStock(client, productId) : Promise.resolve(new Map<string, StockLevel[]>())])
   const aplus = basics.features.find((feature) => feature.key === 'aplus')
-  return { product, currency, access, approvalRequired, warehouses, levels, aplus: !aplus?.enabled ? null : aplus.inPlan === false ? 'plan' : 'on' }
+  const charts = basics.features.find((feature) => feature.key === 'sizeCharts')
+  const sizeCharts = !charts?.enabled || access.supplier ? null : await loadSizeChartList(client).then(({ charts: list }) => list.map(({ id, name }) => ({ id, name })), () => 'failed' as const)
+  return { product, currency, access, approvalRequired, warehouses, levels, sizeCharts, aplus: !aplus?.enabled ? null : aplus.inPlan === false ? 'plan' : 'on' }
 }

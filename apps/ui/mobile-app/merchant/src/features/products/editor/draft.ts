@@ -59,6 +59,8 @@ export type Draft = {
   photos: DraftPhoto[]
   /** Quantities as typed, by version key then location id; saved with `setStock` after the product. */
   stock: Record<string, Record<string, string>>
+  /** The size chart picked (CATALOG-DESIGN.md R6) and the one the product had when it was read, so a save sends it only if it changed. */
+  sizeChart: { id: string | null; loaded: string | null }
   carry: ProductCarry
 }
 
@@ -90,6 +92,7 @@ export const blankDraft = (): Draft => ({
   versions: [blankVersion([])],
   photos: [],
   stock: {},
+  sizeChart: { id: null, loaded: null },
   carry: { productType: 'physical', category: null, warrantyText: null, returnsText: null, seoTitle: null, seoDescription: null, slug: '' },
 })
 
@@ -141,6 +144,7 @@ export const draftOf = (product: EditorProduct, currency: string, levels: Readon
       code: null,
     })),
     stock: Object.fromEntries(product.versions.map((version) => [keyOf(version.choices), Object.fromEntries((levels.get(version.id) ?? []).map((level) => [level.warehouseId, String(level.onHand)]))])),
+    sizeChart: { id: product.sizeChartId, loaded: product.sizeChartId },
     carry: { productType: product.productType, category: product.category, warrantyText: product.warrantyText, returnsText: product.returnsText, seoTitle: product.seoTitle, seoDescription: product.seoDescription, slug: product.slug },
   }
 }
@@ -241,7 +245,7 @@ const amountOf = (text: string, currency: string): string | null => {
 /**
  * The save's input. A supplier never sends what's the store's to set (visibility, tax category, prices in other currencies);
  * a merchant's other-currency prices and cost go back as they came, since Markets sets them. Sections the phone doesn't edit
- * (listing, filters, size chart, video) are left out, which keeps them as the product has them.
+ * (listing, filters, video) are left out, which keeps them as the product has them; the size chart goes only when it was changed.
  */
 export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supplier', isNew: boolean): ProductInput => {
   const live = liveVersions(draft)
@@ -253,6 +257,7 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
     ...(side === 'merchant' ? { visible: draft.visible } : {}),
     ...(isNew ? {} : { slug: draft.carry.slug }),
     category: draft.carry.category,
+    ...(side === 'merchant' && draft.sizeChart.id !== draft.sizeChart.loaded ? { sizeChartId: draft.sizeChart.id } : {}),
     warrantyText: draft.carry.warrantyText,
     returnsText: draft.carry.returnsText,
     seoTitle: draft.carry.seoTitle,
