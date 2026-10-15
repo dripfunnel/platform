@@ -49,8 +49,10 @@ describe('Video', () => {
 })
 
 describe('photo.ts', () => {
-  it('has no client boundary, so a server component can call its decoders', async () => {
+  it('has no client boundary and imports nothing from the client module, so a server component can call its decoders', async () => {
     const { readFile } = await import('node:fs/promises')
-    expect(await readFile('src/platform/media/photo.ts', 'utf8')).not.toMatch(/^['"]use client['"]/)
+    const source = await readFile('src/platform/media/photo.ts', 'utf8')
+    expect(source).not.toMatch(/^['"]use client['"]/)
+    expect(source).not.toMatch(/from ['"]\.\/media['"]/)
   })
 })

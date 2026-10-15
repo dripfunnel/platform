@@ -17,3 +17,5 @@ locked shim layer and `src/theme/` its placeholder. The starting themes are in `
 description, demo store and the lowest core it runs on, mirrored by the `storefront_template`
 rows), and passes the validator, the preview bundle and the publish gate in
 `apps/sandbox/src/themes.test.ts`.
+
+`src/app/Shell.tsx` wraps pages in `StorefrontProvider` so `next dev` can render a theme. It is for local development only: `poweredBy` is `null` there. Shipped builds render through the sandbox, which sets it from the store's snapshot (`apps/sandbox/src/publish/render.ts`).
