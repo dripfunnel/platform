@@ -3,7 +3,7 @@
 Running the whole platform on your own machine: the API Worker, the three consoles and a local
 Postgres, with nothing pointing at dev or production (AGENTS.md "Working with the user" rule 3).
 
-Last updated: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
+Last updated: 2026-10-15 (#738: `pnpm dev:https:all`, §6). Before: 2026-10-14 (#730: `seed:templates --remote`, §6.3). Before: 2026-10-14 (#726: `seed:live-shop --draft`, §6.3). Before: 2026-10-14 (#723: `seed:live-shop`, §6.3). Before: 2026-10-13 (#716: preview and store hosts locally, §6.3). Before: 2026-10-12 (#496: running the mobile app, §6.2). Before: 2026-10-11 (#517: the build calls' stand-ins; #518: three partner addresses, `PREVIEW_DOMAIN`). Before: 2026-10-06 (#420: every partner's merchant portal, the local stand-ins, adding a partner and a store).
 
 What each value is for, and how to make the real ones, is in
 [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md). How the Worker uses the database
@@ -144,6 +144,8 @@ people sign in. Running it again is safe.
 ```bash
 pnpm dev:https    # the Worker and the three apps behind https://admin.localhost, https://platform.localhost
                   # and every partner's https://store.<partner>.localhost: what you normally run
+pnpm dev:https:all  # all of that plus the studio's sandbox (§6.0), store-proxy (§6.3), storefront-core and the
+                    # template's next dev: everything but the mobile app, in one terminal
 pnpm dev          # the same without Caddy: the consoles on localhost ports, no merchant portal
 pnpm dev:api      # or one app on its own: dev:api, dev:store, dev:platform, dev:admin
 ```
