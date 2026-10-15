@@ -121,6 +121,15 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "Only the store owner can change markets."
     },
+    "settingsCatalogue": {
+      "DUPLICATE_LABEL": "Another badge already says that.",
+      "TOO_MANY_BADGES": "A store can have up to 20 badges.",
+      "INVALID_INPUT": "Something here isn’t valid — a badge is up to 18 characters, and each automatic rule is on one badge only.",
+      "PLAN_LIMIT": "That section isn’t in your plan.",
+      "NOT_FOUND": "That badge isn’t here any more.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change this."
+    },
     "signIn": {
       "INVALID_CREDENTIALS": "That email and password don’t match. Check them, or reset your password.",
       "UNAUTHENTICATED": "Your sign-in timed out. Start again."
@@ -1430,6 +1439,7 @@
     "common": {
       "save": "Save",
       "remove": "Remove",
+      "edit": "Edit",
       "search": "Search",
       "noMatch": "Nothing matches.",
       "readOnly": "Your store is read-only until the bill is paid. You can look, but changes wait until then."
@@ -1442,7 +1452,8 @@
       "suppliers": "Suppliers",
       "warehouse": "Warehouse",
       "tax": "Tax setup",
-      "markets": "Markets"
+      "markets": "Markets",
+      "catalogue": "Catalogue"
     },
     "tabSubs": {
       "store": "Name, contact, address, currencies and languages",
@@ -1450,7 +1461,8 @@
       "suppliers": "Companies that sell under your name",
       "warehouse": "Where your stock sits",
       "tax": "How prices are typed, tax rates and invoices",
-      "markets": "Countries you sell to, with their prices and rules"
+      "markets": "Countries you sell to, with their prices and rules",
+      "catalogue": "Product page sections and badges"
     },
     "store": {
       "title": "Your store",
@@ -1917,6 +1929,81 @@
       },
       "pathUnset": "…",
       "reread": "{refusal} It now shows what’s saved."
+    },
+    "catalogue": {
+      "sellTitle": "What do you mostly sell?",
+      "sellSub": "We’ll switch on the sections that fit. Change any of them below, then save.",
+      "presets": {
+        "clothing": "Clothing",
+        "electronics": "Electronics",
+        "food": "Food & drink",
+        "beauty": "Beauty",
+        "handmade": "Handmade"
+      },
+      "presetApplied": "{name} sections switched on — press Save sections to keep them",
+      "sectionsTitle": "Product page sections",
+      "sections": {
+        "sizeCharts": "Size charts",
+        "specs": "Specifications",
+        "highlights": "Highlights",
+        "faqs": "FAQs",
+        "badges": "Badges",
+        "related": "Related products",
+        "aplus": "A+ content · Product story",
+        "video": "Video"
+      },
+      "sectionHelp": {
+        "sizeCharts": "Helps shoppers pick the right size",
+        "specs": "Facts like Material: Cotton",
+        "highlights": "3–5 short points shoppers read first",
+        "faqs": "Questions and answers on the product",
+        "badges": "New, Bestseller, Handmade, Sale",
+        "related": "Frequently bought together",
+        "aplus": "Big photos and feature blocks",
+        "video": "Upload or link a YouTube video"
+      },
+      "included": "Included in your plan",
+      "notInPlan": "Not in your plan",
+      "saveTitle": "Save the sections?",
+      "saveBody": "Turning a section off hides it on every product. What you’ve written is kept. Turning one on shows it on every product.",
+      "saveSections": "Save sections",
+      "sectionsSaved": "Sections saved — products now show what you switched on",
+      "badgesTitle": "Badges",
+      "badgesSub": "Small labels on product photos. Automatic ones come and go by themselves; manual ones you add on each product.",
+      "noBadges": "No badges yet. Add one, then pick it on a product or let it apply by itself.",
+      "addBadge": "Add a badge",
+      "editBadge": "Edit “{name}”",
+      "badgeBody": "Up to 18 characters. When it shows is the second choice below.",
+      "badgeText": "What it says",
+      "badgePlaceholder": "e.g. Organic",
+      "badgeMissing": "Type the badge text",
+      "badgeLong": "Keep it to 18 characters",
+      "when": "When it shows",
+      "saveBadge": "Save badge",
+      "rules": {
+        "new_30_days": "Added in the last 30 days — automatic",
+        "top_5_this_month": "Your 5 best sellers this month — automatic",
+        "below_compare_price": "Has a lower price than its compare price — automatic",
+        "few_left": "Only a few left — automatic",
+        "manual": "You choose the products — pick it on each product"
+      },
+      "ruleShort": {
+        "new_30_days": "Added in the last 30 days",
+        "top_5_this_month": "Your 5 best sellers this month",
+        "below_compare_price": "Has a lower price than its compare price",
+        "few_left": "Only a few left",
+        "manual": "You choose the products"
+      },
+      "ruleOther": "Shown by a rule set elsewhere",
+      "ruleKept": "Keep its current rule",
+      "badgeSaved": "Badge saved",
+      "badgeAddedManual": "“{name}” added — pick it on any product under Badges",
+      "badgeAddedAuto": "“{name}” added — it applies by itself",
+      "manage": "Manage “{name}”",
+      "deleteBadge": "Delete badge",
+      "deleteBadgeTitle": "Delete “{name}”?",
+      "deleteBadgeBody": "It comes off every product straight away.",
+      "badgeDeleted": "Badge deleted"
     }
   },
   "more": {

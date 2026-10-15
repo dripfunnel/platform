@@ -104,6 +104,8 @@ export const knownErrorCodes = [
   'NOT_PARENTS_COUNTRIES',
   'BAD_PARENT',
   'DUPLICATE_PATH',
+  'DUPLICATE_LABEL',
+  'TOO_MANY_BADGES',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',
