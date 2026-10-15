@@ -54,6 +54,41 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "Only the store owner can change settings."
     },
+    "settingsPeople": {
+      "ALREADY_MEMBER": "They’re already in this store.",
+      "NOT_FOUND": "That isn’t here any more. It may have changed elsewhere.",
+      "LAST_OWNER": "The last owner can’t be demoted or removed — make someone else an owner first.",
+      "INVALID_EMAIL": "That doesn’t look like an email address.",
+      "INVALID_INPUT": "Something here isn’t valid.",
+      "RATE_LIMITED": "Too many invitations for now. Try again later.",
+      "PLAN_LIMIT": "Your plan doesn’t include more people.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change this."
+    },
+    "settingsSuppliers": {
+      "ALREADY_MEMBER": "They’re already in this store.",
+      "NOT_FOUND": "That isn’t here any more. It may have changed elsewhere.",
+      "INVALID_EMAIL": "That doesn’t look like an email address.",
+      "INVALID_INPUT": "Something here isn’t valid.",
+      "RATE_LIMITED": "Too many invitations for now. Try again later.",
+      "PLAN_LIMIT": "Your plan doesn’t include more suppliers.",
+      "DUPLICATE_SUPPLIER": "That company is already one of your suppliers.",
+      "NOT_SUSPENDED": "That supplier isn’t suspended.",
+      "ALREADY_SUSPENDED": "That supplier is already suspended.",
+      "SUSPENDED": "Reactivate this supplier first.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change this."
+    },
+    "settingsWarehouse": {
+      "TOO_MANY_WAREHOUSES": "You can have up to 20 locations. Remove one first.",
+      "DEFAULT_WAREHOUSE": "Make another location the default first.",
+      "WAREHOUSE_HOLDS_STOCK": "This location still holds stock. Set it to 0 or move it first.",
+      "STALE_REVISION": "Someone else changed this location first. It now shows their changes; edit it again to make yours.",
+      "NOT_FOUND": "That location isn’t here any more.",
+      "INVALID_INPUT": "Something here isn’t valid.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change locations."
+    },
     "signIn": {
       "INVALID_CREDENTIALS": "That email and password don’t match. Check them, or reset your password.",
       "UNAUTHENTICATED": "Your sign-in timed out. Start again."
@@ -1361,6 +1396,7 @@
   },
   "settings": {
     "common": {
+      "save": "Save",
       "remove": "Remove",
       "search": "Search",
       "noMatch": "Nothing matches.",
@@ -1369,10 +1405,16 @@
     "screen": "Settings",
     "intro": "What only the store owner changes.",
     "tabs": {
-      "store": "Store info"
+      "store": "Store info",
+      "people": "People",
+      "suppliers": "Suppliers",
+      "warehouse": "Warehouse"
     },
     "tabSubs": {
-      "store": "Name, contact, address, currencies and languages"
+      "store": "Name, contact, address, currencies and languages",
+      "people": "Who works in the store, and invitations",
+      "suppliers": "Companies that sell under your name",
+      "warehouse": "Where your stock sits"
     },
     "store": {
       "title": "Your store",
@@ -1467,6 +1509,202 @@
       "addLanguage": "Add a language",
       "saveLanguages": "Save languages",
       "savedLanguages": "Languages saved"
+    },
+    "people": {
+      "roles": {
+        "owner": "Owner",
+        "manager": "Manager",
+        "staff": "Staff"
+      },
+      "roleSubs": {
+        "owner": "Everything, including Billing",
+        "manager": "Everything except Settings and Billing",
+        "staff": "Orders, customers, view products"
+      },
+      "title": "Everyone in this store",
+      "sub": "{active} active · {waiting} waiting to accept. Removing someone removes them from this store, not their account.",
+      "invite": "Invite someone",
+      "inviteBody": "They get an email to join this store. If they already have an account, they simply join.",
+      "email": "Their email",
+      "emailPlaceholder": "name@example.com",
+      "emailInvalid": "That doesn’t look like an email address",
+      "role": "What can they do?",
+      "roleNote": "You can change this later from their row.",
+      "send": "Send invite",
+      "sent": "Invite sent to {email}",
+      "filter": "Show",
+      "everyone": "Everyone",
+      "staff": "Staff",
+      "waiting": "Waiting",
+      "nobody": "Nobody here yet.",
+      "you": "you",
+      "invitedOn": "invited {when}",
+      "expiredShort": "Invite expired",
+      "waitingStatus": "Waiting",
+      "active": "Active",
+      "manage": "Manage {name}",
+      "expired": "This invitation has expired. Resend it to send a new link.",
+      "expires": "The link works until {when}.",
+      "resend": "Resend invite — the old link stops working",
+      "cancelInvite": "Cancel invite",
+      "resent": "New invite sent to {email} — the old link no longer works",
+      "inviteCancelled": "Invite cancelled",
+      "cancelInviteTitle": "Cancel the invite to {email}?",
+      "cancelInviteBody": "The link in their email stops working. You can invite them again any time.",
+      "changeRole": "Change role",
+      "removeFromStore": "Remove from this store",
+      "roleTakesTime": "Role changes can take a few minutes to apply.",
+      "roleFor": "Role for {name}",
+      "roleChanged": "{name} is now {role} — it can take a few minutes to apply",
+      "removeTitle": "Remove {name}?",
+      "removeBody": "They lose access to this store straight away. Their account and other stores aren’t touched.",
+      "removed": "{name} removed from this store",
+      "foot": "Supplier users belong to their company: see them in the Suppliers tab, where you add people to a company."
+    },
+    "suppliers": {
+      "title": "Your suppliers",
+      "sub": {
+        "one": "1 company, {products} of your products. Their products sell under your store’s name.",
+        "other": "{count} companies, {products} of your products. Their products sell under your store’s name."
+      },
+      "invite": "Invite a supplier",
+      "inviteBody": "This creates their company and its first user in one go. The first user is a Supplier admin, who can add their own colleagues.",
+      "company": "Company name",
+      "companyPlaceholder": "Their business name",
+      "companyMissing": "Type their company name",
+      "email": "First user’s email",
+      "emailPlaceholder": "name@example.com",
+      "emailInvalid": "That doesn’t look like an email address",
+      "send": "Send the invite",
+      "invited": "Invite sent to {email} at {name}",
+      "accessLabel": "What can {name} do?",
+      "accessThey": "What can they do?",
+      "access": {
+        "vendor-stock": "Stock only",
+        "vendor-catalogue": "Products and stock",
+        "vendor-orders-read": "Products, stock and seeing their orders",
+        "vendor-orders-fulfil": "Products, stock and their orders"
+      },
+      "accessSubs": {
+        "vendor-stock": "They update quantities. Nothing else.",
+        "vendor-catalogue": "They add and edit their own products. The usual choice.",
+        "vendor-orders-read": "They also see the orders with their items.",
+        "vendor-orders-fulfil": "They also see and pack the orders with their items."
+      },
+      "neverCustomers": "You can change this later from their row. They never see your customers’ names, emails or addresses.",
+      "users": {
+        "one": "1 user",
+        "other": "{count} users"
+      },
+      "products": {
+        "one": "1 product",
+        "other": "{count} products"
+      },
+      "status": {
+        "invited": "Invite sent",
+        "active": "Active",
+        "suspended": "Suspended"
+      },
+      "approvalTitle": "Approve supplier products before they go live",
+      "approvalOnSub": "On — new supplier products, and changes to price, title or photos, wait for your approval in Products. Other edits go live straight away.",
+      "approvalOffSub": "Off — supplier products go live when they save them.",
+      "approvalTurnOn": "Turn approval on?",
+      "approvalTurnOff": "Turn approval off?",
+      "approvalOnNow": "Approval on — live products stay live; only new and edited ones wait",
+      "approvalOffNow": "Approval off — products already waiting stay in the queue",
+      "approvalOnConsequence": "From now on, new supplier products and changes to price, title or photos wait for your approval in Products. Live products stay live.",
+      "approvalOffConsequence": "From now on, supplier products go live when they save them. Products already waiting stay in the queue.",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "filter": "Show",
+      "all": "All",
+      "activeChip": "Active",
+      "suspendedChip": "Suspended",
+      "none": "No suppliers yet. Invite a company whose products you want to sell under your name.",
+      "noneHere": "No suppliers here.",
+      "manage": "Manage {name}",
+      "addPerson": "Add a person",
+      "addPersonTitle": "Add a person at {name}",
+      "addPersonBody": "They can do the same as everyone else at {name}. The invitation goes to them by email.",
+      "changeAccess": "Change what they can do",
+      "takesMinutes": "Access is set on the company — everyone there can do the same things. Changes take a few minutes.",
+      "accessChanged": "{name}: {access} — takes a few minutes to apply",
+      "changeShipping": "Change how they ship",
+      "shippingTitle": "How does {name} ship?",
+      "shippingBody": "Who sends their items, and on whose account the labels are bought.",
+      "shippingLabel": "Their items go",
+      "toStore": "To you, and you ship them on",
+      "toShopper": "Straight to the shopper",
+      "labelsLabel": "Labels bought on",
+      "labelsStore": "Your store’s courier account",
+      "labelsOwn": "Their own courier account",
+      "shippingChanged": "{name}’s shipping saved",
+      "suspend": "Suspend",
+      "resume": "Reactivate",
+      "suspendTitle": "Suspend {name}?",
+      "suspendBody": {
+        "one": "They can’t sign in to your store. Their 1 product is still in your catalogue.",
+        "other": "They can’t sign in to your store. Their {count} products are still in your catalogue."
+      },
+      "theirProducts": "Their products",
+      "hideProducts": "Hide their products too",
+      "keepSelling": "Keep selling their products",
+      "suspended": "{name} suspended",
+      "suspendedHidden": "{name} suspended and their products hidden",
+      "resumed": "{name} reactivated — what the suspension hid is back as it was",
+      "remove": "Remove supplier",
+      "removeTitle": "Remove {name}?",
+      "removeBody": {
+        "one": "Their users lose access straight away. Their 1 product is hidden from shoppers and still marked as theirs — show it if you want to keep selling it, or delete it.",
+        "other": "Their users lose access straight away. Their {count} products are hidden from shoppers and still marked as theirs — show any you want to keep selling, or delete them."
+      },
+      "removed": {
+        "one": "{name} removed — 1 product hidden from shoppers",
+        "other": "{name} removed — {count} products hidden from shoppers"
+      },
+      "foot": "Access is set on the company — everyone there can do the same things. Changes take a few minutes."
+    },
+    "warehouse": {
+      "title": "Where your stock sits",
+      "sub": "Stock is counted per location. New products start at your default one, and its address is on your labels.",
+      "add": "Add a location",
+      "default": "Default for new products",
+      "units": {
+        "one": "1 unit",
+        "other": "{count} units"
+      },
+      "manage": "Manage {name}",
+      "addTitle": "Add a location",
+      "addBody": "Somewhere your stock sits. Adding it doesn’t move stock — it starts at zero.",
+      "editTitle": "Edit {name}",
+      "editBody": "Labels and pick lists use the new details from now on.",
+      "name": "Name",
+      "namePlaceholder": "e.g. Back room",
+      "line1": "Address",
+      "line2": "Address line 2",
+      "city": "City",
+      "region": "State or region",
+      "postalCode": "Postal code",
+      "country": "Country",
+      "noCountry": "No country",
+      "nameMissing": "Give it a name",
+      "saveAdd": "Add location",
+      "makeDefault": "Make default",
+      "makeDefaultTitle": "Make {name} the default?",
+      "makeDefaultBody": "New products start here. Existing stock doesn’t move.",
+      "edit": "Rename or change address",
+      "delete": "Delete",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "It disappears from stock counts and pick lists.",
+      "deleteConfirm": "Delete location",
+      "madeDefault": "{name} is now the default — existing stock doesn’t move",
+      "deleted": "{name} deleted",
+      "saved": "Saved — labels and pick lists use the new details",
+      "added": "{name} added",
+      "holdsStock": "{name} still holds {count} — set their stock to 0 or move them, then delete",
+      "empty": "No locations yet. Add the first one, where your stock sits.",
+      "theirsTitle": "Supplier locations",
+      "theirsSub": "Suppliers add and count these themselves. They aren’t offered as your default."
     }
   },
   "more": {

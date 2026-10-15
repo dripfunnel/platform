@@ -2,7 +2,10 @@ import { t } from '../../messages'
 import { useShell } from '../shell/ShellData'
 import { ShellScreen } from '../states/ShellScreen'
 import { isOwner } from './access'
+import { PeopleTab } from './people/PeopleTab'
 import { StoreInfoTab } from './store/StoreInfoTab'
+import { SuppliersTab } from './suppliers/SuppliersTab'
+import { WarehouseTab } from './warehouse/WarehouseTab'
 import { isSettingsTab } from './tabs'
 
 // One Settings tab on its own screen. A deep link from anyone but the Owner is access denied before anything is read. The API refuses every write to a
@@ -14,5 +17,11 @@ export function SettingsTabScreen({ tab }: { tab: string }) {
   switch (tab) {
     case 'store':
       return <StoreInfoTab />
+    case 'people':
+      return <PeopleTab />
+    case 'suppliers':
+      return <SuppliersTab />
+    case 'warehouse':
+      return <WarehouseTab />
   }
 }
