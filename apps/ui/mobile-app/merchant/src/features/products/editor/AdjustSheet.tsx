@@ -6,7 +6,7 @@ import { errorMessage } from '../../../messages/errorMessage'
 import { useTheme } from '../../../theme'
 import { Button } from '../../common/Button'
 import { SheetFrame } from '../../shell/BottomSheet'
-import { ChoiceRow } from './ChoiceRow'
+import { ChoiceRow } from '../../common/ChoiceRow'
 
 type Props = {
   /** What is being counted, such as "Sand / M". */

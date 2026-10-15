@@ -121,6 +121,7 @@ const productSchema = z.object({
   shared: z.boolean().nullable(),
   slug: z.string(),
   category: z.string().nullable(),
+  sizeChartId: z.string().nullable(),
   warrantyText: z.string().nullable(),
   returnsText: z.string().nullable(),
   seoTitle: z.string().nullable(),
@@ -136,7 +137,7 @@ const productSchema = z.object({
 export type EditorProduct = z.infer<typeof productSchema>
 export type EditorVersion = z.infer<typeof versionSchema>
 
-const productFields = `id revision name description productType visible approval sentBackReason supplier { id name } shared slug category warrantyText returnsText seoTitle seoDescription pricingCurrency
+const productFields = `id revision name description productType visible approval sentBackReason supplier { id name } shared slug category sizeChartId warrantyText returnsText seoTitle seoDescription pricingCurrency
   photos { id assetId url alt versionId }
   options { id name values { id name } }
   versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode customsDescription taxClassId trackStock continueSelling }
@@ -162,6 +163,8 @@ export type ProductInput = {
   visible?: boolean
   slug?: string
   category: string | null
+  /** Sent only when it changed: left out keeps what is stored, `null` takes it off. */
+  sizeChartId?: string | null
   warrantyText: string | null
   returnsText: string | null
   seoTitle: string | null

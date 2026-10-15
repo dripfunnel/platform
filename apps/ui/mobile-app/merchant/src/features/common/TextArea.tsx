@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native'
-import { useTheme } from '../../../theme'
+import { useTheme } from '../../theme'
 
 type Props = { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; editable?: boolean; optional?: string; lines?: number }
 

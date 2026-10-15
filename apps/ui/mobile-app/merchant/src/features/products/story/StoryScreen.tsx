@@ -2,7 +2,7 @@ import { t } from '../../../messages'
 import { sessionClient } from '../../../session'
 import { ShellScreen } from '../../states/ShellScreen'
 import { Skeleton } from '../../states/StateView'
-import { stateOfError, useLoad } from '../useLoad'
+import { stateOfError, useLoad } from '../../common/useLoad'
 import { StoryEditor } from './StoryEditor'
 import { loadStory } from './loadStory'
 
