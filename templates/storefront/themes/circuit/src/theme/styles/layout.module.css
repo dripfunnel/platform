@@ -3,7 +3,7 @@
   --surface: #171c24;
   --soft: color-mix(in srgb, var(--ink) 5%, var(--bg));
   --tint: color-mix(in srgb, var(--accent) 12%, var(--bg));
-  --danger: #b42318;
+  --danger: #f87171;
   --ink: #e7ecf2;
   --ink-soft: #9da9b8;
   --muted: #9da9b8;

@@ -55,6 +55,7 @@ export const en = {
   'payment.notPlaced': 'Your order wasn’t placed and nothing was charged.',
   'checkout.title': 'Checkout',
   'checkout.secure': 'Secure checkout',
+  'store.failed': 'We couldn’t load this shop. Try again in a moment.',
   'checkout.failed': 'We couldn’t load checkout',
   'checkout.retry': 'Try again',
   'checkout.empty': 'There’s nothing to check out',

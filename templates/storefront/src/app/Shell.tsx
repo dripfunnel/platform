@@ -8,9 +8,11 @@ const client = createShopClient({ endpoint: storeConfig.shopApi })
 
 export const Shell = ({ content, children }: { content: Record<string, Record<string, string>>; children: ReactNode }) => {
   const [store, setStore] = useState<ShopStoreSettings | null>(null)
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
-    void loadStore(client).then(setStore)
+    loadStore(client).then(setStore, () => setFailed(true))
   }, [])
+  if (failed) return <p role="alert">{createI18n('en').t('store.failed')}</p>
   if (!store) return null
   const { t } = createI18n(store.language, content as Record<string, Catalogue>)
   return <StorefrontProvider value={{ client, store, locale: store.language, t, mode: 'live', poweredBy: null }}>{children}</StorefrontProvider>

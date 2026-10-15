@@ -47,3 +47,10 @@ describe('Video', () => {
     expect(playing).toContain('muted')
   })
 })
+
+describe('photo.ts', () => {
+  it('has no client boundary, so a server component can call its decoders', async () => {
+    const { readFile } = await import('node:fs/promises')
+    expect(await readFile('src/platform/media/photo.ts', 'utf8')).not.toMatch(/^['"]use client['"]/)
+  })
+})

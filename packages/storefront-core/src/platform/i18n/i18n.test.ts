@@ -18,6 +18,11 @@ describe('createI18n', () => {
     expect(t('consent.customize')).toBe('Choose')
   })
 
+  it('reads a theme’s own key from its content, and shows an unknown key as written', () => {
+    const { t } = createI18n('en', { en: { 'pages.cart.title': 'Your bag' } as Catalogue })
+    expect(t('pages.cart.title')).toBe('Your bag')
+    expect(t('pages.cart.titel')).toBe('pages.cart.titel')
+  })
   it('leaves a placeholder it has no value for, rather than printing undefined', () => {
     expect(createI18n('en').t('price.was')).toBe('Was {price}')
   })
