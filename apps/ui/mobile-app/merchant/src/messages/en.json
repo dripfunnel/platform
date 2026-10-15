@@ -1892,6 +1892,11 @@
       "delete": "Delete market",
       "deleteTitle": "Delete {name}?",
       "deleteBody": "Shoppers in {countries} get your “Everywhere else” settings instead. Orders already placed aren’t affected.",
+      "deleteBodyFallback": "This is the market for “Everywhere else”. Shoppers in {countries}, and from anywhere that isn’t in a market, can’t buy until you choose another market for it. Orders already placed aren’t affected.",
+      "deleteSubs": {
+        "one": "Its sub-market becomes a market of its own.",
+        "other": "Its {count} sub-markets become markets of their own."
+      },
       "theseCountries": "these countries",
       "deleted": "{name} deleted",
       "untitled": "New market",

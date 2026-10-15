@@ -40,9 +40,6 @@ export const loadMarkets = (client: ApiClient): Promise<Market[]> =>
       ).markets,
   )
 
-export const loadMarket = async (client: ApiClient, id: string): Promise<Market | null> =>
-  (await typedQuery(client)(`query Market($id: ID!) { market(id: $id) { ${fields} } }`, z.object({ market: marketSchema.nullable() }), { id })).market
-
 export type MarketInput = {
   name: string
   parentId: string | null

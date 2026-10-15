@@ -6,6 +6,7 @@ import { isApiError, type ApiClient } from '../../../graphql'
 import { formatList, languageName, regionName } from '../../../format'
 import { locale, t } from '../../../messages'
 import { errorMessage } from '../../../messages/errorMessage'
+import { tCount } from '../../../messages/plural'
 import { useTheme } from '../../../theme'
 import { Button } from '../../common/Button'
 import { Chip } from '../../common/Chip'
@@ -77,6 +78,10 @@ export function MarketForm({ client, markets, loc, market, suggested, canEdit, n
         (adjustBps !== 0 ? t('settings.markets.previewAdjust', { adjust: new Intl.NumberFormat(locale, { maximumFractionDigits: 2, signDisplay: 'exceptZero' }).format(adjustBps / 100) }) : '') +
         (draft.products === 'some' && draft.excluded.length > 0 ? t('settings.markets.previewExcluded', { count: draft.excluded.length }) : '') +
         (draft.duties !== 'none' ? t('settings.markets.previewDuties') : '')
+
+  const where = formatList(draft.countries.map((country) => regionName(country, locale)), locale) || t('settings.markets.theseCountries')
+  const subMarkets = markets.filter((other) => other.parentId === draft.id).length
+  const deleteBody = [t(market?.everywhereElse ? 'settings.markets.deleteBodyFallback' : 'settings.markets.deleteBody', { countries: where }), subMarkets > 0 ? tCount('settings.markets.deleteSubs', subMarkets) : ''].filter(Boolean).join(' ')
 
   const refused = (error: unknown) => {
     // Someone else changed or deleted it: read the markets again, so the next try starts from what is saved.
@@ -215,7 +220,7 @@ export function MarketForm({ client, markets, loc, market, suggested, canEdit, n
       {deleting ? (
         <FormSheet
           title={t('settings.markets.deleteTitle', { name: draft.name })}
-          body={t('settings.markets.deleteBody', { countries: formatList(draft.countries.map((country) => regionName(country, locale)), locale) || t('settings.markets.theseCountries') })}
+          body={deleteBody}
           confirm={t('settings.markets.delete')}
           danger
           context="settingsMarkets"

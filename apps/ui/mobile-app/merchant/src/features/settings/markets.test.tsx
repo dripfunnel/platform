@@ -275,6 +275,22 @@ describe('Markets', () => {
     expect(mockBack).toHaveBeenCalled()
   })
 
+  it('says what deleting the “Everywhere else” market and a parent do to the rest, before it does it', async () => {
+    const sub = market({ id: 'mk-ny', name: 'New York', primary: false, parentId: 'mk-us', countries: ['US'], currency: 'USD', language: 'en-US' })
+    const { renderer, calls } = await editor('mk-us', { 'query Markets(': () => ({ markets: paged([markets[0], markets[1], sub]) }), 'mutation DeleteMarket': () => ({ deleteMarket: true }) })
+
+    await click(renderer, 'Delete market')
+    expect(hasText(renderer, 'This is the market for “Everywhere else”.')).toBe(true)
+    expect(hasText(renderer, 'can’t buy until you choose another market for it')).toBe(true)
+    expect(hasText(renderer, 'Its sub-market becomes a market of its own.')).toBe(true)
+    expect(hasText(renderer, 'get your “Everywhere else” settings instead')).toBe(false)
+    expect(asked(calls, 'mutation DeleteMarket')).toHaveLength(0)
+    await press(pressablesNamed(renderer, 'Delete market').at(-1) as never)
+    await settle()
+
+    expect(asked(calls, 'mutation DeleteMarket')[0]?.variables).toEqual({ id: 'mk-us' })
+  })
+
   it('says a market that is not here is a 404, and one in a read-only store can only be looked at', async () => {
     const missing = await editor('nope')
     expect(hasText(missing.renderer, 'This page isn’t here any more')).toBe(true)
