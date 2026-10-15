@@ -24,7 +24,7 @@ live, draft, awaiting and sent-back cases. The prototype decides **behaviour**, 
 **scope and rules** ([../../README.md](../../README.md) §3); FIRST-RELEASE.md §17 lists where
 they differ and which wins.
 
-Last updated: 2026-10-11 (#518: the preview address removed). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-10-15 (with Gaurav: no shop address; every store's free addresses on `my-store.one`, Addresses and Domains; not built yet). Before: 2026-10-11 (#518: the preview address removed). Before: 2026-10-09 (the preview wildcard retired).
 
 ---
 
@@ -36,11 +36,11 @@ Last updated: 2026-10-11 (#518: the preview address removed). Before: 2026-10-09
   merchants can't sign up under the partner.
 - **Brand**: the portal's look (logo, colours, font, favicon, sign-in page), words (product
   name, support contacts, legal pages, "Powered by" line), and email templates.
-- **Addresses**: its one portal host (`store.<partnerdomain>`), the shop wildcard
-  (`*.shops.<partnerdomain>`) and the email sender domain, each with the DNS records to add and
-  live verification. There is no preview address: previews are on `{key}.webpreview.store`
-  (decided 2026-10-09, `../../storefront/PREVIEW.md`), and the console shows no store's preview
-  address (removed on #518).
+- **Addresses**: its one portal host (`store.<partnerdomain>`) and the email sender domain, each
+  with the DNS records to add and live verification. A partner has no shop or preview address:
+  every store is at `{slug}.my-store.one` and its preview at `{slug}-preview.my-store.one`, on
+  DripFunnel's own domain (decided 2026-10-15, `../../USERS-AND-DOMAINS.md` §2; not built yet, the
+  shop wildcard goes on #745), and the console shows no store's preview address (removed on #518).
 - **Offer**: its plans, prices and entitlements for its merchants, within DripFunnel's
   platform ceilings; allowed templates, regions, currencies, languages and providers.
 - **Merchants, at account level**: list and search its merchants; create a merchant (the
@@ -110,7 +110,7 @@ names each permission.
 | Stores | List, create, detail with eight tabs, account-level actions | I (scoped) |
 | Plans | Plan catalogue within platform ceilings, compare plans, defaults for new stores | G (within ceilings) |
 | Branding | Look, words and legal pages, email templates, publishing and history | F |
-| Domains | Portal host, shop wildcard, email sender, merchants' own domains | M (scoped) |
+| Domains | Portal host, email sender, merchants' own domains | M (scoped) |
 | Reports | Growth, revenue, plans, store performance, usage, setup health | N (scoped) |
 | Billing | Merchants' payments, payouts, DripFunnel's invoices, who bills the merchants | H (payer side) |
 | Support | Users, start a session, sessions | J (scoped) |

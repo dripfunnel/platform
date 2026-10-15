@@ -23,7 +23,7 @@ components with the branded commerce types (#481), the publish gate's suites wit
 behaviour: the browser hooks, media, the head, and the product, collection and search hooks (#307), the cart with buy now and the sealed order summary (#313 parts 1–2), the checkout controller with the payment adapters and the sealed payment element (#313 part 3), `useOrder` for the order's page (#313 part 5), and `useSignIn` and `useAccount` (#313 part 6), and the baseline checkout and the checkout smoke test (#313 part 7), gift cards, product kinds, downloads and licence keys (#324 part 1), and content pages and the blog (#324 part 2); everything else below is to build.
 
 Last updated: 2026-10-09 (with Gaurav: public store repos built by GitHub Actions, files in R2
-served by one edge Worker, previews on `webpreview.store`, drafts private until their publish is live; the
+served by one edge Worker, previews on `webpreview.store` (since moved), drafts private until their publish is live; the
 infrastructure moved to LIVE-SHOP, PREVIEW and AI-STUDIO); 2026-10-10 (#480: the validator's rules as built); 2026-10-11 (#481: the sealed components as built); 2026-10-11 (#486: the starting themes as built); 2026-10-12 (#485: the upgrade notes and codemods, §7.1); 2026-10-12 (#307: the browse behaviour as built); 2026-10-13 (#313 parts 1–3: the cart and the checkout controller as built); 2026-10-15 (with Gaurav: live `{slug}.my-store.one`, preview `{slug}-preview.my-store.one`, §4).
 
 ---

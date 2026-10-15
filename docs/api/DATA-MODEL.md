@@ -93,8 +93,9 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   email, `host`, `status`, `record_type`, `expected`, `found`, `checked_at`), one per
   partner and kind; a partner may delete its own address and records (`0061`, #429). **The
   `preview` kind is gone** (#518, migration 0232: its rows and records deleted, the check
-  narrowed): previews are on `{key}.webpreview.store` (storefront PREVIEW.md), keyed by
-  `storefront.preview_key` (§7.8). **The `shops` kind goes the same way** (decided 2026-10-15, not
+  narrowed): previews moved to `{key}.webpreview.store`, keyed by `storefront.preview_key` (§7.8),
+  and move again to `{slug}-preview.my-store.one` (decided 2026-10-15, storefront PREVIEW.md §2,
+  not built yet). **The `shops` kind goes the same way** (decided 2026-10-15, not
   built yet): every store's live address is `{slug}.my-store.one` (USERS-AND-DOMAINS §2), so its
   rows and records are deleted and the check narrows to portal and email.
 - **Store**: `name`, `code` (unique per partner), `slug` (decided 2026-10-15, not built yet:

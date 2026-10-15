@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
+Last updated: 2026-10-15 (with Gaurav: no shop address, stores on `my-store.one`; checklist item 4 retired, §4, §9, §19; not built yet). Before: 2026-10-15 (#720: Remove address in a setup session, §9.1). Before: 2026-10-11 (#518: the preview address gone from Domains, the checklist and a store's Storefront tab). Before: 2026-10-09 (the preview wildcard retired).
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -160,7 +160,7 @@ The admin console's part E seen from the partner's side (CONSOLE-DESIGN E, SAAS.
 Home is "Set up {product}" while the partner is **Draft**, "Awaiting approval" or "Sent back
 by DripFunnel"; "You can leave and come back; your progress is saved."
 
-**The checklist**, nine items plus Submit ("4 of 10 done" and a progress bar), each Done · In
+**The checklist**, eight items plus Submit ("4 of 9 done" and a progress bar; nine and "of 10" until #745 retires item 4), each Done · In
 progress · To do with one line of detail, a link to its screen, and when done, who did it:
 
 | # | Item | Links to | Done when |
@@ -168,7 +168,7 @@ progress · To do with one line of detail, a link to its screen, and when done, 
 | 1 | Company details | Settings › Company (§14.1) | Legal name, address, tax id, region present |
 | 2 | Branding | Branding (§8) | Logo, colours and font saved |
 | 3 | Portal address | Domains (§9) | The portal host is Live |
-| 4 | Shop address | Domains | The shop wildcard is Live (the item keeps its key, `wildcards`) |
+| 4 | ~~Shop address~~ | — | Retired (decided 2026-10-15): every store is at `{slug}.my-store.one`, so a partner has no shop address. The `wildcards` item goes on #745 (not built yet) |
 | 5 | Email sender | Domains | DKIM, SPF and DMARC verified; until then "Emails use a fallback sender" (SAAS §3.6) |
 | 6 | At least one priced plan | Plans (§7) | A Live plan with a price in every currency |
 | 7 | Legal pages | Branding › Words | Terms, privacy and data-processing agreement set; **Impressum** too for a German partner |
@@ -444,28 +444,29 @@ for every store's portal and emails, right away."). (CONSOLE-DESIGN F8; SAAS §3
 
 "Every address your platform uses." (SAAS §3.5–3.6, §8; CONSOLE-DESIGN M)
 
-### 9.1 The three addresses
+### 9.1 The two addresses
 
 One card each — **Merchant portal** (`store.northstar.com`, "Where your merchants sign in and
-build their shops."), **Shop address, all
-stores** (`*.shops.…`), **Email sender** (`mail.…`, "Emails to your merchants and their
+build their shops."), **Email sender** (`mail.…`, "Emails to your merchants and their
 suppliers come from here.") — with status (Waiting for DNS · Verifying · Issuing certificate ·
 Live · Failed), "Waiting since {date}" or "Checked 12 min ago", **Re-check now** (every role),
 **Remove address** (Owner, Admin, and staff in a setup session; never while impersonating), and a record table: Type, Name, Value to add (with Copy and a plain-words line — "DKIM: signs
 every email so inboxes trust it."), What we see ("Nothing found yet", or the found value with
 "Doesn't match yet"). The email card adds "Until it's live, emails come from
-no-reply@{partner}.dripfunnel-mail.com with your product name." (SAAS §3.6). There is no preview
-address: previews are on `{key}.webpreview.store` (`../../storefront/PREVIEW.md`; removed on #518).
+no-reply@{partner}.dripfunnel-mail.com with your product name." (SAAS §3.6). There is no shop or
+preview address: every store is at `{slug}.my-store.one` and its preview at
+`{slug}-preview.my-store.one`, on DripFunnel's own domain (decided 2026-10-15, `../../USERS-AND-DOMAINS.md` §2; the preview
+address removed on #518). *Not built yet:* the screen shows a **Shop address, all stores** card
+(`*.shops.…`) until #745 removes it.
 
 ### 9.2 Add an address
 
-Offered (Owner, Admin) while fewer than three exist; "All three addresses are set up" otherwise.
+Offered (Owner, Admin) while one is missing; "Both addresses are set up" otherwise (three until #745).
 Three steps:
 
-1. **Address**: what it is for (the three kinds; added ones marked); the hostname, with `*.`
-   fixed in front for the wildcards. Refused: not an address; a DripFunnel domain ("Use a
-   domain your company owns"); already one of yours; a bare domain for a wildcard or the email
-   sender ("Use a subdomain, like mail.northstar.com, so it doesn't clash with your
+1. **Address**: what it is for (the two kinds; added ones marked); the hostname. Refused: not an
+   address; a DripFunnel domain ("Use a domain your company owns"); already one of yours; a bare
+   domain for the email sender ("Use a subdomain, like mail.northstar.com, so it doesn't clash with your
    website."). A root domain for the portal is allowed with a warning ("If northstar.com is
    also your website, the website will stop working.") and gets an A record instead of a CNAME.
 2. **DNS records**: "Add this record at your DNS provider. Sign in where you manage DNS for
@@ -477,7 +478,7 @@ Three steps:
    Check again · Go to Domains · Add the next address. When found: "We found the record and
    issued the certificate. Merchants can sign in here now."
 
-**Removing** an address opens a confirmation naming what stops for that kind (portal: merchants can no longer sign in, stores keep working; shops; email: emails go from the fallback sender). On success the card returns to "Add an address" and the add flow offers that kind again. A refused role (`FORBIDDEN`), an address already gone (`NOT_FOUND`) and a failure show in the dialog.
+**Removing** an address opens a confirmation naming what stops for that kind (portal: merchants can no longer sign in, stores keep working; email: emails go from the fallback sender). On success the card returns to "Add an address" and the add flow offers that kind again. A refused role (`FORBIDDEN`), an address already gone (`NOT_FOUND`) and a failure show in the dialog.
 
 Changing a live portal host keeps the old one redirecting for a period still *(ask)* (SAAS
 §3.5).
@@ -988,7 +989,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   wildcard or the email sender on a bare domain), `KIND_TAKEN` and `INVALID_INPUT`. A root
   portal domain is refused with `APEX_NOT_AVAILABLE` until SAAS §8's apex question gives us an
   address to publish; then it gets an A record and `apex: true` for the warning. A wildcard's
-  `*.` is added by the API. Each address also gets an ownership TXT with its own token, so a
+  `*.` is added by the API. The shops kind and its wildcard go on #745 (decided 2026-10-15, not
+  built yet), leaving the portal host and the email sender. Each address also gets an ownership TXT with its own token, so a
   claim on someone else's host waits and fails rather than blocking them; `HOST_TAKEN` means the
   host is verified by another partner. The address is created waiting, its first check is
   queued, and it's logged.

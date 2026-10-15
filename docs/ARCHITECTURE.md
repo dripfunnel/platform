@@ -11,7 +11,7 @@ Last updated: 2026-10-15 (with Gaurav: every store's free addresses on `my-store
 `{slug}-preview.` preview, §1 and §8; not built yet). Before: 2026-10-14 (#733: Workers logs only, no traces, §7). Before: 2026-10-13 (#637: the portal host lookup kept 60 s in the cache, §2). Before: 2026-10-12 (#496: the merchant mobile app's project, §1–§3). Before: 2026-10-11 (#317: store-proxy's `StorefrontEdge` entrypoint; before it #518: the Shop API answers on preview
 hosts by preview key). Before:
 2026-10-09 (with Gaurav: storefront builds in each store's public repo on GitHub
-Actions, files in R2 served by the edge Worker, previews on `webpreview.store`).
+Actions, files in R2 served by the edge Worker, previews on `webpreview.store`, since moved).
 
 ---
 
