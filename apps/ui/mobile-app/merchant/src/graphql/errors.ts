@@ -74,6 +74,14 @@ export const knownErrorCodes = [
   'TOO_MANY_PRODUCTS',
   'TOO_MANY_RULES',
   'TOO_MANY_SIZE_CHARTS',
+  // Settings (apps/api src/apis/store/storeInfo.ts, people.ts, suppliers.ts, inventory.ts, tax.ts, markets.ts, src/engine/modules/catalog/settings.ts).
+  'INVALID_TIME_ZONE',
+  'INVALID_TAX_ID',
+  'INVALID_LOGO',
+  'ORDER_NUMBER_DOWN',
+  'INVALID_CURRENCY',
+  'INVALID_LANGUAGE',
+  'MAIN_LANGUAGE_REQUIRED',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

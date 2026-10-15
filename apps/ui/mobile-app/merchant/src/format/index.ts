@@ -1,6 +1,7 @@
-export { formatDateTime } from './dateTime'
+export { formatDateTime, formatDay } from './dateTime'
 export { formatDuration } from './duration'
 export { formatList } from './list'
 export { formatMoney, minorOf, moneyDigits, moneyText, type Money } from './money'
+export { languageName, regionName } from './names'
 export { formatNumber } from './number'
 export { pluralForm } from './plural'
