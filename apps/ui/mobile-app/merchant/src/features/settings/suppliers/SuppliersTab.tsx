@@ -18,6 +18,7 @@ import {
 } from '../../../api/settingsPeople'
 import type { ApiClient } from '../../../graphql'
 import { t } from '../../../messages'
+import { errorMessage } from '../../../messages/errorMessage'
 import { tCount } from '../../../messages/plural'
 import { useTheme } from '../../../theme'
 import { Button } from '../../common/Button'
@@ -70,8 +71,8 @@ function SupplierList({ suppliers, approval, client, canEdit, refresh }: Props) 
       await resumeSupplier(client, supplier.id)
       feedback.toast({ message: t('settings.suppliers.resumed', { name: supplier.name }) })
       await refresh()
-    } catch {
-      feedback.toast({ message: t('errors.generic') })
+    } catch (error) {
+      feedback.toast({ message: errorMessage(error, 'settingsSuppliers') })
     }
   }
 
@@ -255,6 +256,7 @@ function ShippingSheet({ supplier, client, onClose, onDone }: DoneProps & { supp
       body={t('settings.suppliers.shippingBody')}
       confirm={t('settings.common.save')}
       context="settingsSuppliers"
+      ready={mode !== supplier.shippingMode || (mode === 'to-shopper' && labels !== (supplier.labelAccount ?? 'store'))}
       onClose={onClose}
       onSubmit={async () => {
         // Who books labels is asked only for items that go straight to the shopper; otherwise the stored one goes back, so it is never changed unseen.

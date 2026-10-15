@@ -223,6 +223,16 @@ describe('People', () => {
     expect(asked(calls, 'mutation RevokeInvitation')[0]?.variables).toEqual({ id: 'i2' })
   })
 
+  it('says why a resend is refused, by its code, rather than a generic failure', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="people" />, team({ 'mutation ResendInvitation': () => { throw new ApiError('RATE_LIMITED', 'x') } }))
+
+    await click(renderer, 'Manage asha@example.com')
+    await click(renderer, 'Resend invite — the old link stops working')
+
+    expect(hasText(renderer, 'Too many invitations for now. Try again later.')).toBe(true)
+    expect(hasText(renderer, 'Something went wrong')).toBe(false)
+  })
+
   it('shows no secret or link anywhere, and no controls to a store that is read-only', async () => {
     const { renderer } = await show(<SettingsTabScreen tab="people" />, team(), { client: fakeClient({ state: readOnlyState }) })
 
@@ -282,6 +292,29 @@ describe('Suppliers', () => {
     await click(renderer, 'Save')
 
     expect(asked(calls, 'mutation SetShippingMode')[0]?.variables).toEqual({ id: 'v1', m: 'to-shopper', l: 'own' })
+  })
+
+  it('sends nothing until how a supplier ships has changed', async () => {
+    const { renderer, calls } = await show(<SettingsTabScreen tab="suppliers" />, list({ 'mutation SetShippingMode': () => ({ setSupplierShippingMode: true }) }))
+
+    await click(renderer, 'Manage Northwind Textiles')
+    await click(renderer, 'Change how they ship')
+    await clickLast(renderer, 'Save')
+    expect(asked(calls, 'mutation SetShippingMode')).toHaveLength(0)
+    expect(pressablesNamed(renderer, 'Save').at(-1)?.props.disabled).toBe(true)
+
+    await click(renderer, 'Straight to the shopper')
+    await clickLast(renderer, 'Save')
+    expect(asked(calls, 'mutation SetShippingMode')[0]?.variables).toEqual({ id: 'v1', m: 'to-shopper', l: 'store' })
+  })
+
+  it('says why a reactivation is refused, by its code', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="suppliers" />, list({ 'mutation ResumeSupplier': () => { throw new ApiError('NOT_SUSPENDED', 'x') } }))
+
+    await click(renderer, 'Manage Moradabad Brass')
+    await click(renderer, 'Reactivate')
+
+    expect(hasText(renderer, 'That supplier isn’t suspended.')).toBe(true)
   })
 
   it('suspends with the choice to hide their products, and reactivates one that is suspended', async () => {

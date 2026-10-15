@@ -5,6 +5,7 @@ import { loadStoreInfo } from '../../../api/settingsStore'
 import type { ApiClient } from '../../../graphql'
 import { formatDateTime } from '../../../format'
 import { locale, t } from '../../../messages'
+import { errorMessage } from '../../../messages/errorMessage'
 import { useTheme } from '../../../theme'
 import { Button } from '../../common/Button'
 import { TextField } from '../../common/TextField'
@@ -54,8 +55,8 @@ function PeopleList({ people, timeZone, client, canEdit, refresh }: ListProps) {
       await resendInvitation(client, person.id)
       feedback.toast({ message: t('settings.people.resent', { email: person.email }) })
       await refresh()
-    } catch {
-      feedback.toast({ message: t('errors.generic') })
+    } catch (error) {
+      feedback.toast({ message: errorMessage(error, 'settingsPeople') })
     }
   }
 
