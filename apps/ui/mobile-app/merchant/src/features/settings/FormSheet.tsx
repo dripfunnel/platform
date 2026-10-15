@@ -13,6 +13,8 @@ type Props = {
   /** What the write will do, said before it does it (the card's Prompt: every write states its consequence first). */
   body?: string
   confirm: string
+  /** What the other button says when "Cancel" would read as the confirm's own action ("Keep order"). */
+  cancel?: string
   danger?: boolean
   context: ErrorContext
   onClose: () => void
@@ -27,7 +29,7 @@ type Props = {
 
 // A dialog that asks for something and writes (DESIGN.md §4: bottom sheets, the confirm button on top, full width, 50 tall). It closes only
 // when the write succeeded, so a refusal never costs what was typed.
-export function FormSheet({ title, body, confirm, danger = false, context, onClose, onSubmit, ready = true, check, children }: Props) {
+export function FormSheet({ title, body, confirm, cancel, danger = false, context, onClose, onSubmit, ready = true, check, children }: Props) {
   const { colors } = useTheme()
   const feedback = useFeedback()
   const [busy, setBusy] = useState(false)
@@ -61,7 +63,7 @@ export function FormSheet({ title, body, confirm, danger = false, context, onClo
       {failure ? <Notice kind="error" text={failure} /> : null}
       <View style={styles.buttons}>
         {ready ? <SheetConfirm label={confirm} danger={danger} saves busy={busy} onPress={() => void submit()} /> : <Button label={confirm} disabled onPress={() => undefined} />}
-        <Button kind="secondary" label={t('common.cancel')} onPress={onClose} />
+        <Button kind="secondary" label={cancel ?? t('common.cancel')} onPress={onClose} />
       </View>
     </SheetFrame>
   )
