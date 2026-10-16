@@ -20,6 +20,30 @@ export const HomePage = () => {
         </div>
         <div className={styles.picture} />
       </section>
+      <section className={styles.features}>
+        <h2 className={styles.heading}>{t('home.features.title')}</h2>
+        <div className={styles.featureGrid}>
+          <div className={styles.feature}>
+            <h3 className={styles.featureTitle}>{t('home.features.one.title')}</h3>
+            <p className={styles.featureBody}>{t('home.features.one.body')}</p>
+          </div>
+          <div className={styles.feature}>
+            <h3 className={styles.featureTitle}>{t('home.features.two.title')}</h3>
+            <p className={styles.featureBody}>{t('home.features.two.body')}</p>
+          </div>
+          <div className={styles.feature}>
+            <h3 className={styles.featureTitle}>{t('home.features.three.title')}</h3>
+            <p className={styles.featureBody}>{t('home.features.three.body')}</p>
+          </div>
+        </div>
+      </section>
+      <section className={styles.section}>
+        <h2 className={styles.heading}>{t('home.join.title')}</h2>
+        <p className={styles.body}>{t('home.join.body')}</p>
+        <Link href="/register/" className={styles.button}>
+          {t('home.join.action')}
+        </Link>
+      </section>
       {status === 'loading' || collections.length ? (
         <section className={shop.band}>
           <h2 className={shop.heading}>{t('home.collections.title')}</h2>
@@ -56,30 +80,6 @@ export const HomePage = () => {
           {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={newest.products} />}
         </section>
       ) : null}
-      <section className={styles.features}>
-        <h2 className={styles.heading}>{t('home.features.title')}</h2>
-        <div className={styles.featureGrid}>
-          <div className={styles.feature}>
-            <h3 className={styles.featureTitle}>{t('home.features.one.title')}</h3>
-            <p className={styles.featureBody}>{t('home.features.one.body')}</p>
-          </div>
-          <div className={styles.feature}>
-            <h3 className={styles.featureTitle}>{t('home.features.two.title')}</h3>
-            <p className={styles.featureBody}>{t('home.features.two.body')}</p>
-          </div>
-          <div className={styles.feature}>
-            <h3 className={styles.featureTitle}>{t('home.features.three.title')}</h3>
-            <p className={styles.featureBody}>{t('home.features.three.body')}</p>
-          </div>
-        </div>
-      </section>
-      <section className={styles.section}>
-        <h2 className={styles.heading}>{t('home.join.title')}</h2>
-        <p className={styles.body}>{t('home.join.body')}</p>
-        <Link href="/register/" className={styles.button}>
-          {t('home.join.action')}
-        </Link>
-      </section>
     </Layout>
   )
 }
