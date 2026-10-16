@@ -60,7 +60,7 @@ function AccountsBody({ accounts, country, client, canEdit }: Props) {
         <Text style={[styles.text, { color: colors.text }]}>
           {t('settings.accounts.guests', { key: t(`settings.accounts.guestKey.${mode}`), phone: mode === 'email' ? '' : t('settings.accounts.guestPhone') })}
         </Text>
-        {mode !== 'email' ? <Text style={[styles.sub, { color: colors.muted }]}>{t('settings.accounts.sms', { service: t(india ? 'settings.accounts.smsServices.IN' : 'settings.accounts.smsServices.other') })}</Text> : null}
+        {mode !== 'email' && country !== null ? <Text style={[styles.sub, { color: colors.muted }]}>{t('settings.accounts.sms', { service: t(india ? 'settings.accounts.smsServices.IN' : 'settings.accounts.smsServices.other') })}</Text> : null}
       </SectionCard>
       <Text style={[styles.sub, { color: colors.muted }]}>
         {t('settings.accounts.counts', { customers: tCount('settings.accounts.customersCount', saved.customers, { total: formatNumber(saved.customers, locale) }), email: formatNumber(saved.withEmail, locale), phone: formatNumber(saved.withPhone, locale) })}
