@@ -145,6 +145,12 @@ export const knownErrorCodes = [
   'NO_COURIER',
   'NO_AREA_LIST',
   'COURIER_NOT_OFFERED',
+  // Import and export (apps/api src/apis/store/catalogImports.ts, shopify.ts).
+  'FILE_TOO_LARGE',
+  'NOT_READY',
+  'NOTHING_TO_IMPORT',
+  'WAREHOUSE_NOT_FOUND',
+  'INVALID_SHOP',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',

@@ -321,3 +321,33 @@ describe('the states', () => {
     expect(hasText(renderer, 'You don’t have access to Products')).toBe(true)
   })
 })
+
+describe('the way into Import & export', () => {
+  const empty = { productCounts: () => ({ productCounts: counts() }), 'products(filter': () => page([]) }
+
+  it('opens Import & export from the list for an Owner, and the supplier’s own screen for a supplier', async () => {
+    const merchant = await show({ 'acting { permissions': () => access([...owner, 'catalog.import']), ...empty })
+    await press(pressableNamed(merchant.renderer, 'Import & export'))
+    expect(mockPush).toHaveBeenLastCalledWith('/catalogue/import')
+
+    const supplier = await show(
+      { 'acting { permissions': () => access(['catalog.read', 'catalog.write', 'catalog.import', 'stock.write'], { id: 's-1' }), ...empty },
+      { acting: actingAs('supplier-member', 'vendor-catalogue'), supplier: 's-1' },
+    )
+    await press(pressableNamed(supplier.renderer, 'Import & export'))
+    expect(mockPush).toHaveBeenLastCalledWith('/products/import')
+  })
+
+  it('offers Staff only Export, and a Stock-only supplier nothing', async () => {
+    const staff = await show({ 'acting { permissions': () => access(['catalog.read']), ...empty }, { acting: actingAs('staff') })
+    expect(pressablesNamed(staff.renderer, 'Export')).toHaveLength(1)
+    expect(pressablesNamed(staff.renderer, 'Import & export')).toHaveLength(0)
+
+    const stockOnly = await show(
+      { 'acting { permissions': () => access(['catalog.read', 'stock.write', 'catalog.propose'], { id: 's-1' }), ...empty },
+      { acting: actingAs('supplier-member', 'vendor-stock'), supplier: 's-1' },
+    )
+    expect(pressablesNamed(stockOnly.renderer, 'Export')).toHaveLength(0)
+    expect(pressablesNamed(stockOnly.renderer, 'Import & export')).toHaveLength(0)
+  })
+})

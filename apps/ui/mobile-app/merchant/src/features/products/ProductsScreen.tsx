@@ -10,11 +10,12 @@ import { Button } from '../common/Button'
 import { Skeleton } from '../states/StateView'
 import { ShellScreen } from '../states/ShellScreen'
 import { useShell } from '../shell/ShellData'
+import { importAccessOf } from '../import/access'
 import { canAddProduct } from './access'
 import { ProductCard } from './ProductCard'
 import { ProductsEmpty, type EmptyKind } from './ProductsEmpty'
 import { ProductsFilters } from './ProductsFilters'
-import { newProductHref, productHref } from './routes'
+import { importHref, newProductHref, productHref } from './routes'
 import { stateOfError, useLoad } from '../common/useLoad'
 import { useProductList } from './useProductList'
 import { useReview } from './useReview'
@@ -65,6 +66,7 @@ export function ProductsScreen() {
   const counts = list.counts
   const open = (id: string) => router.push(productHref(seat, id) as never)
   const add = () => router.push(newProductHref(seat) as never)
+  const transfer = permissions !== null ? importAccessOf(permissions, seat) : null
 
   const clearAll = () => {
     list.setSearch('')
@@ -84,6 +86,11 @@ export function ProductsScreen() {
               {title}
             </Text>
             {counts ? <Text style={[styles.summary, { color: colors.muted }]}>{summaryOf(counts, supplier)}</Text> : null}
+            {transfer && (transfer.canImport || transfer.canExport) ? (
+              <Pressable accessibilityRole="button" onPress={() => router.push(importHref(seat) as never)} style={[styles.transfer, { borderColor: colors.fieldBorder, backgroundColor: colors.surface }]}>
+                <Text style={[styles.transferText, { color: colors.link }]}>{transfer.canImport ? t('imports.entry') : t('imports.entryExport')}</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {canApprove && counts && counts.pending > 0 && list.query.filter !== 'pending' ? (
@@ -131,6 +138,8 @@ const styles = StyleSheet.create({
   head: { gap: 4 },
   title: { fontSize: 22, fontWeight: '800' },
   summary: { fontSize: 14 },
+  transfer: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 14, justifyContent: 'center', borderWidth: 1, borderRadius: 10, marginTop: 6 },
+  transferText: { fontSize: 14, fontWeight: '700' },
   banner: { padding: 12, gap: 10, borderWidth: 1 },
   bannerText: { fontSize: 14, lineHeight: 20 },
   bannerBold: { fontWeight: '700' },
