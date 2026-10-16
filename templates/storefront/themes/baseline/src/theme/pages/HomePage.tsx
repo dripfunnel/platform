@@ -1,5 +1,7 @@
 import { Image, Link, useCollections, useProducts, useStorefront } from '@dripfunnel/storefront-core/theme'
+import { Retry } from '../components/interactive/Retry'
 import { Layout } from '../components/Layout'
+import { Notice } from '../components/Notice'
 import { GridPlaceholder, ProductGrid } from '../components/ProductCard'
 import shop from '../styles/shop.module.css'
 import styles from '../styles/home.module.css'
@@ -67,6 +69,13 @@ export const HomePage = () => {
               ))}
             </ul>
           )}
+        </section>
+      ) : null}
+      {newest.status === 'error' ? (
+        <section className={shop.band}>
+          <Notice title={t('shop.listing.failed')} lead={t('shop.listing.failedLead')}>
+            <Retry label={t('shop.listing.retry')} onRetry={newest.retry} />
+          </Notice>
         </section>
       ) : null}
       {newest.status === 'loading' || newest.products.length ? (
