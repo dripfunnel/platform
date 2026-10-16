@@ -152,6 +152,14 @@ describe('Payment setup', () => {
     expect(hasText(none.renderer, 'No ways to get paid here yet')).toBe(true)
   })
 
+  it('leaves the country out of the note about several live providers when the store’s country could not be read', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="payments" />, payments({ '{ storeInfo {': () => { throw new ApiError('NO_RESPONSE', 'x') } }))
+
+    expect(hasText(renderer, 'With more than one live, shoppers pick at checkout.')).toBe(true)
+    expect(hasText(renderer, 'Suggested for')).toBe(false)
+    expect(hasText(renderer, 'Razorpay')).toBe(true)
+  })
+
   it('says it could not load, and loads again on request', async () => {
     let fail = true
     const { renderer, calls } = await show(<SettingsTabScreen tab="payments" />, {

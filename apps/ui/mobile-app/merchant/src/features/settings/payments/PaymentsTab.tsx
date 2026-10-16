@@ -112,7 +112,7 @@ function PaymentsBody({ gateways, country, client, canEdit, refresh }: Props) {
       {cards.length > 0 ? (
         <SectionCard title={t('settings.payments.gatewaysTitle')} sub={t('settings.payments.gatewaysSub')}>
           {cards.map(row)}
-          <Text style={[styles.sub, { color: colors.muted }]}>{t('settings.payments.gatewaysNote', { country: countryName })}</Text>
+          <Text style={[styles.sub, { color: colors.muted }]}>{countryName ? t('settings.payments.gatewaysNote', { country: countryName }) : t('settings.payments.gatewaysNoteBare')}</Text>
         </SectionCard>
       ) : null}
       {others.length > 0 ? (

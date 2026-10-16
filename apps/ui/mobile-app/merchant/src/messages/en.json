@@ -1512,6 +1512,7 @@
       "gatewaysTitle": "Gateways",
       "gatewaysSub": "How your shoppers pay you. The card that pays for your plan isn’t here.",
       "gatewaysNote": "With more than one live, shoppers pick at checkout. Suggested for {country}.",
+      "gatewaysNoteBare": "With more than one live, shoppers pick at checkout.",
       "otherTitle": "Other ways to get paid",
       "otherSub": "Orders paid this way stay “Payment pending” until you mark them paid.",
       "emptyTitle": "No ways to get paid here yet",
