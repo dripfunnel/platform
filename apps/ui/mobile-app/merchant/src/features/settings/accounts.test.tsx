@@ -107,6 +107,14 @@ describe('Customer accounts', () => {
     expect(hasText(renderer, '1,284 customer accounts · 812 with email · 686 with a mobile number')).toBe(true)
   })
 
+  it('leaves out which text service sends the codes when the store’s country could not be read, rather than guessing', async () => {
+    const { renderer } = await show(<SettingsTabScreen tab="accounts" />, accounts({ '{ storeInfo {': () => { throw new ApiError('NO_RESPONSE', 'x') } }))
+
+    expect(hasText(renderer, 'Sign in shows two tabs, Email and Mobile number.')).toBe(true)
+    expect(hasText(renderer, 'Codes are sent through')).toBe(false)
+    expect(hasText(renderer, 'Most shops in India choose this.')).toBe(false)
+  })
+
   it('names Twilio outside India', async () => {
     const { renderer } = await show(<SettingsTabScreen tab="accounts" />, accounts(usStore))
 
