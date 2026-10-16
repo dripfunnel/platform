@@ -79,6 +79,18 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "Only the store owner can change this."
     },
+    "settingsPayments": {
+      "METHOD_UNAVAILABLE": "That way to pay isn’t available here. A bank transfer needs your bank details.",
+      "NOT_FOUND": "That isn’t here any more. Go back and open Payment setup again.",
+      "LAST_METHOD": "You can’t turn off your only way to get paid — shoppers couldn’t buy anything.",
+      "NOT_AVAILABLE": "Connecting this provider isn’t set up here yet.",
+      "SUPPORT_SESSION": "A support session can’t connect or disconnect payments. Someone in the store does it from their own account.",
+      "INVALID_KEYS": "Those keys aren’t in the shape this provider gives them. Copy them again from its dashboard, for the mode you chose.",
+      "KEYS_REFUSED": "The provider didn’t accept those keys. Check them in its dashboard and try again.",
+      "PROVIDER_UNAVAILABLE": "We couldn’t reach the provider to check those keys, so nothing changed. Try again in a minute.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change how you get paid."
+    },
     "settingsAccounts": {
       "INVALID_INPUT": "Choose email, mobile or both.",
       "READ_ONLY": "Your store is read-only until the bill is paid.",
@@ -1482,6 +1494,98 @@
     }
   },
   "settings": {
+    "payments": {
+      "gatewaysTitle": "Gateways",
+      "gatewaysSub": "How your shoppers pay you. The card that pays for your plan isn’t here.",
+      "gatewaysNote": "With more than one live, shoppers pick at checkout. Suggested for {country}.",
+      "gatewaysNoteBare": "With more than one live, shoppers pick at checkout.",
+      "otherTitle": "Other ways to get paid",
+      "otherSub": "Orders paid this way stay “Payment pending” until you mark them paid.",
+      "emptyTitle": "No ways to get paid here yet",
+      "emptyBody": "Payment providers are offered to stores in India and the United States. Your store’s country is set when it’s created.",
+      "desc": {
+        "stripe": "Cards, Apple Pay and Google Pay.",
+        "paypal": "PayPal balance and Pay Later.",
+        "razorpay": "Cards, UPI, netbanking and wallets.",
+        "cashfree": "Cards, UPI, netbanking.",
+        "phonepe": "UPI-first, with its own app handoff.",
+        "cod": "Your courier collects. Unpaid until the cash reaches you.",
+        "bank_transfer": "Your account details at checkout. Unpaid until you mark it paid."
+      },
+      "status": {
+        "live": "Live",
+        "test": "Test only",
+        "off": "Not connected",
+        "unavailable": "Not set up here yet"
+      },
+      "notOffered": "Connecting {name} isn’t set up on this platform yet. Ask your platform’s support.",
+      "testOnly": "Test keys only: your preview storefront takes test payments; your live storefront doesn’t offer it yet.",
+      "webhook": "{mode} webhook address, for {name}’s webhook settings:",
+      "modes": {
+        "live": "Live",
+        "test": "Test"
+      },
+      "bankShown": "Shoppers see: {details}",
+      "connect": "Connect",
+      "connectName": "Connect {name}",
+      "connectTitle": "Connect {name}",
+      "changeKeys": "Change keys",
+      "changeKeysName": "Change {name}’s keys",
+      "changeKeysTitle": "Change {name}’s keys",
+      "disconnect": "Disconnect",
+      "disconnectName": "Disconnect {name}",
+      "disconnectTitle": "Disconnect {name}?",
+      "setUp": "Set up",
+      "setUpName": "Set up {name}",
+      "setUpTitle": "Set up {name}",
+      "changeDetails": "Change details",
+      "changeDetailsName": "Change {name}’s details",
+      "changeDetailsTitle": "Change {name}’s details",
+      "turnOff": "Turn off",
+      "turnOffName": "Turn off {name}",
+      "turnOffTitle": "Turn off {name}?",
+      "turnOn": "Turn on",
+      "manageName": "Manage {name}",
+      "stripeTitle": "Connect Stripe on the web",
+      "stripeBody": "Stripe connects on the web portal. It opens in your phone’s browser: sign in there if it asks, tap Connect on Stripe’s row, and approve on Stripe’s page. Back in this app, Payment setup shows the result.",
+      "stripeGo": "Open in browser",
+      "stripeOpened": "Opened the web portal in your browser",
+      "keysBody": "Paste the keys from your {name} dashboard. The secrets are saved and never shown again. Shoppers can pay with it as soon as it connects.",
+      "keysMode": "Use them for",
+      "keysModes": {
+        "live": "Your live storefront: real payments",
+        "test": "Your preview storefront: test payments"
+      },
+      "keysMissing": "Paste every key to connect.",
+      "fields": {
+        "keyId": "Key id",
+        "keySecret": "Key secret",
+        "webhookSecret": "Webhook secret",
+        "appId": "App id",
+        "secretKey": "Secret key",
+        "clientId": "Client id",
+        "clientSecret": "Client secret",
+        "clientVersion": "Client version",
+        "webhookUsername": "Webhook username",
+        "webhookPassword": "Webhook password",
+        "webhookId": "Webhook id"
+      },
+      "connectedLive": "{name} connected — shoppers can pay with it now",
+      "connectedTest": "{name} test keys saved — your preview storefront takes test payments",
+      "codBody": "Your courier collects the money. Orders stay “Payment pending” until you mark them paid. Shoppers see it at checkout from now on.",
+      "bankBody": "Shoppers see these details at checkout and in their order confirmation, from now on.",
+      "bankLabel": "Your bank details",
+      "bankPlaceholderIN": "Account name, account number, IFSC",
+      "bankPlaceholder": "Account name, routing number, account number",
+      "bankMissing": "Type the details shoppers pay to.",
+      "bankTooLong": "Keep it to {max} characters.",
+      "turnedOn": "{name} is on at checkout",
+      "detailsSaved": "{name}: shoppers see the new details",
+      "offBody": "Shoppers stop seeing it at checkout. Orders already paid aren’t affected.",
+      "disconnectBody": "Shoppers stop seeing it at checkout, and its keys are removed. Orders already paid aren’t affected.",
+      "turnedOff": "{name} turned off",
+      "disconnected": "{name} disconnected"
+    },
     "accounts": {
       "title": "Customer accounts",
       "sub": "How shoppers create an account and sign in on your storefront.",
@@ -1550,6 +1654,7 @@
       "tax": "Tax setup",
       "markets": "Markets",
       "catalogue": "Catalogue",
+      "payments": "Payment setup",
       "accounts": "Customer accounts"
     },
     "tabSubs": {
@@ -1560,6 +1665,7 @@
       "tax": "How prices are typed, tax rates and invoices",
       "markets": "Countries you sell to, with their prices and rules",
       "catalogue": "Product page sections and badges",
+      "payments": "How shoppers pay you: cards, cash on delivery, bank transfer",
       "accounts": "How shoppers sign in to your storefront"
     },
     "store": {

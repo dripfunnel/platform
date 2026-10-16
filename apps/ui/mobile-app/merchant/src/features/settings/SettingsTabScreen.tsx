@@ -5,6 +5,7 @@ import { isOwner } from './access'
 import { AccountsTab } from './accounts/AccountsTab'
 import { CatalogueTab } from './catalogue/CatalogueTab'
 import { MarketsTab } from './markets/MarketsTab'
+import { PaymentsTab } from './payments/PaymentsTab'
 import { PeopleTab } from './people/PeopleTab'
 import { StoreInfoTab } from './store/StoreInfoTab'
 import { SuppliersTab } from './suppliers/SuppliersTab'
@@ -25,6 +26,8 @@ export function SettingsTabScreen({ tab }: { tab: string }) {
       return <PeopleTab />
     case 'suppliers':
       return <SuppliersTab />
+    case 'payments':
+      return <PaymentsTab />
     case 'warehouse':
       return <WarehouseTab />
     case 'tax':

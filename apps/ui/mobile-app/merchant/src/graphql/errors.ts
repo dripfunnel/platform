@@ -133,6 +133,13 @@ export const knownErrorCodes = [
   'DUPLICATE_PATH',
   'DUPLICATE_LABEL',
   'TOO_MANY_BADGES',
+  // Payment setup (apps/api src/apis/store/payments.ts).
+  'METHOD_UNAVAILABLE',
+  'LAST_METHOD',
+  'NOT_AVAILABLE',
+  'SUPPORT_SESSION',
+  'INVALID_KEYS',
+  'KEYS_REFUSED',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',
