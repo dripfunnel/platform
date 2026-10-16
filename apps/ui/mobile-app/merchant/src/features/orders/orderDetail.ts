@@ -30,7 +30,7 @@ export const awaitingPayment = (order: Order): boolean => order.state === 'place
 /** Nothing has left: not shipped, not handed to the store (`cancelOrder`'s NOT_CANCELLABLE). */
 export const nothingSent = (order: Order): boolean => order.parts.every((part) => part.lines.every((line) => line.fulfilledQuantity === 0 && line.sentToStoreQuantity === 0))
 
-export const lineName = (line: OrderLine): string => (line.versionName ? t('orders.detail.line.name', { name: line.name, version: line.versionName }) : line.name)
+export const lineName = (line: Pick<OrderLine, 'name' | 'versionName'>): string => (line.versionName ? t('orders.detail.line.name', { name: line.name, version: line.versionName }) : line.name)
 
 /** The delivery address on one line; the name only when it isn't the shopper's own. */
 export const addressText = (address: OrderAddress, shopper: string | null): string =>

@@ -3,7 +3,7 @@ import { pageInfoSchema, typedQuery, type ApiClient } from '../graphql'
 import { exportJobFields, exportJobSchema, readExportJob, type ExportJob } from './exportJob'
 
 // The Orders list on the Store API (FIRST-RELEASE.md §6, PortalOrders; apps/api src/apis/store/orders.ts): rows, the chips' counts and the
-// export. Amounts arrive as digit strings of minor units. A supplier's To ship is MA 13 (#506), so only the merchant side is read here.
+// export. Amounts arrive as digit strings of minor units. A supplier's To ship (#506) reads the same list, which answers it its own parts.
 
 export const orderFilters = ['ALL', 'TO_SHIP', 'PARTLY_SHIPPED', 'SHIPPED', 'CANCELLED_REFUNDED', 'PAYMENT_PENDING'] as const
 export type OrderFilter = (typeof orderFilters)[number]
@@ -24,6 +24,9 @@ const rowSchema = z.object({
   customerName: z.string().nullable(),
   city: z.string().nullable(),
   items: z.number().int(),
+  // A supplier's part of the order and the mode it was placed under (to-store or to-shopper); null for the store's own seat.
+  partState: z.string().nullish(),
+  shippingMode: z.string().nullish(),
 })
 export type OrderRow = z.infer<typeof rowSchema>
 
@@ -36,7 +39,7 @@ export const loadOrders = async (client: ApiClient, { filter, search }: OrderQue
   const { orders } = await typedQuery(client)(
     `query Orders($filter: OrderFilter, $search: String, $first: Int, $after: String) {
       orders(filter: $filter, search: $search, first: $first, after: $after) {
-        nodes { id number placedAt state paymentState fulfilmentState paymentMethod total { amount currency } test customerName city items }
+        nodes { id number placedAt state paymentState fulfilmentState paymentMethod total { amount currency } test customerName city items partState shippingMode }
         pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
       }
     }`,

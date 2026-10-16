@@ -1,13 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native'
+import type { OrderLine } from '../../api/order'
 import { useTheme } from '../../theme'
 import { lineName } from './orderDetail'
-import type { PickRow, Picks } from './picks'
+import type { Picks } from './picks'
 import { Stepper } from './Stepper'
 
-type Props = { rows: readonly PickRow[]; picks: Picks; onPick: (lineId: string, quantity: number) => void; sub: (row: PickRow) => string | null }
+type Row = { line: Pick<OrderLine, 'id' | 'name' | 'versionName'>; max: number }
+type Props<R extends Row> = { rows: readonly R[]; picks: Picks; onPick: (lineId: string, quantity: number) => void; sub: (row: R) => string | null }
 
 // Each line that can be picked, with a stepper from none up to what the API says is left (ship, return and refund all pick this way).
-export function PickLines({ rows, picks, onPick, sub }: Props) {
+export function PickLines<R extends Row>({ rows, picks, onPick, sub }: Props<R>) {
   const { colors } = useTheme()
   return (
     <View style={styles.list}>

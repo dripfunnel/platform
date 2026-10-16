@@ -4,7 +4,7 @@ import { moneySchema } from './orders'
 import { loadPlaces } from './settingsWarehouse'
 
 // One order and what its screen does to it (FIRST-RELEASE.md §6, PortalOrders detail; apps/api src/apis/store/orders.ts, payments.ts). Every
-// figure is the API's; the app works none out. A supplier's part (and its own To ship) is MA 13 (#506), so only the store's view is read.
+// figure is the API's; the app works none out. A supplier's own part is read by api/supplier.ts (#506), which asks for no money.
 
 const lineSchema = z.object({
   id: z.string(),
@@ -33,7 +33,7 @@ export type OrderPart = z.infer<typeof partSchema>
 
 const quantitiesSchema = z.array(z.object({ lineId: z.string(), quantity: z.number().int() }))
 
-const shipmentSchema = z.object({
+export const shipmentSchema = z.object({
   id: z.string(),
   // manual, booked (a label bought here), pickup (handed to the shopper) or sent_to_store (a supplier's hand-off).
   kind: z.string(),
@@ -62,10 +62,10 @@ export type OrderReturn = z.infer<typeof returnSchema>
 const refundSchema = z.object({ id: z.string(), returnId: z.string().nullable(), amount: moneySchema, lines: quantitiesSchema })
 export type OrderRefund = z.infer<typeof refundSchema>
 
-const eventSchema = z.object({ id: z.string(), action: z.string(), at: z.string(), actorName: z.string().nullable(), note: z.string().nullable() })
+export const eventSchema = z.object({ id: z.string(), action: z.string(), at: z.string(), actorName: z.string().nullable(), note: z.string().nullable() })
 export type OrderEvent = z.infer<typeof eventSchema>
 
-const addressSchema = z.object({ name: z.string(), line1: z.string(), line2: z.string().nullable(), city: z.string(), region: z.string().nullable(), postalCode: z.string().nullable(), country: z.string() })
+export const addressSchema = z.object({ name: z.string(), line1: z.string(), line2: z.string().nullable(), city: z.string(), region: z.string().nullable(), postalCode: z.string().nullable(), country: z.string() })
 export type OrderAddress = z.infer<typeof addressSchema>
 
 const orderSchema = z.object({
