@@ -1,10 +1,10 @@
 'use client'
 
-import { createI18n, createShopClient, loadStore, storedShopState, StorefrontProvider, type Catalogue, type ShopStoreSettings } from '@dripfunnel/storefront-core'
+import { createI18n, createShopClient, loadStore, StorefrontProvider, type Catalogue, type ShopStoreSettings } from '@dripfunnel/storefront-core'
 import { useEffect, useState, type ReactNode } from 'react'
 import { storeConfig } from '../../store.config'
 
-const client = createShopClient({ endpoint: storeConfig.shopApi, state: storedShopState })
+const client = createShopClient({ endpoint: storeConfig.shopApi })
 
 export const Shell = ({ content, children }: { content: Record<string, Record<string, string>>; children: ReactNode }) => {
   const [store, setStore] = useState<ShopStoreSettings | null>(null)

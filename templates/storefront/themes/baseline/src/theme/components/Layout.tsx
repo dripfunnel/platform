@@ -19,20 +19,9 @@ export const Layout = ({ children }: { children: ReactNode }) => {
             <nav className={styles.nav} aria-label={t('common.nav.label')}>
               {menu.items.length ? (
                 menu.items.map((item) => (
-                  <div key={item.id} className={styles.navItem}>
-                    <Link href={item.href} className={styles.navLink}>
-                      {item.label}
-                    </Link>
-                    {item.children.length ? (
-                      <div className={styles.subnav}>
-                        {item.children.map((child) => (
-                          <Link key={child.id} href={child.href} className={styles.subLink}>
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
+                  <Link key={item.id} href={item.href} className={styles.navLink}>
+                    {item.label}
+                  </Link>
                 ))
               ) : (
                 <Link href="/collections/all/" className={styles.navLink}>
