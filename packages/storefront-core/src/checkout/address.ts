@@ -32,7 +32,9 @@ export const addressFields = (country: string): { field: AddressField; label: Me
   ]
 }
 
-const phonePattern = /^\+?[\d\s()-]{7,20}$/
+// The same shape the API accepts (E.164), spaces and dashes aside.
+const phonePattern = /^\+[1-9]\d{6,14}$/
+const compact = (value: string) => value.trim().replaceAll(/[\s-]/g, '')
 
 /** What is missing or malformed; empty when the address can be sent. */
 export const addressProblems = (a: AddressDraft): Partial<Record<AddressField, FieldProblem>> => {
@@ -41,9 +43,9 @@ export const addressProblems = (a: AddressDraft): Partial<Record<AddressField, F
   for (const f of addressFields(a.country)) if (!f.optional && !a[f.field].trim()) problems[f.field] = 'required'
   if (!a.country) problems.country = 'required'
   if (a.postalCode.trim() && rules.postal.pattern && !rules.postal.pattern.test(a.postalCode.trim())) problems.postalCode = 'invalid'
-  if (a.phone.trim() && !phonePattern.test(a.phone.trim())) problems.phone = 'invalid'
+  if (a.phone.trim() && !phonePattern.test(compact(a.phone))) problems.phone = 'invalid'
   return problems
 }
 
 export const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-export const isPhone = (value: string) => phonePattern.test(value.trim())
+export const isPhone = (value: string) => phonePattern.test(compact(value))
