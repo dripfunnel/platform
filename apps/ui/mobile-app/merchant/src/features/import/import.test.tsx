@@ -5,6 +5,7 @@ import { fakeApi, type Call } from '../../testing/fakeApi'
 import { actingAs, fakeClient, hasText, press, pressableNamed, pressablesNamed, renderShell, texts } from '../../testing/harness'
 import { resetScenario } from '../states/scenario'
 import { ImportScreen } from './ImportScreen'
+import { CsvTooLarge } from './importFile'
 
 // The first render of a file pays for loading the native-component mocks, which a cold CI cache and a busy runner stretch past the 30 s default.
 jest.setTimeout(120_000)
@@ -186,6 +187,18 @@ describe('importing a CSV picked from the phone', () => {
       expect(hasText(renderer, '8 ready')).toBe(true)
     }),
   )
+
+  it('says the file is too big when it turns out over the limit as it is read, and sends nothing', async () => {
+    mockPick.mockResolvedValue({ ...picked, size: null })
+    mockRead.mockRejectedValue(new CsvTooLarge(6 * 1024 * 1024))
+    const { renderer, calls } = await show({})
+
+    await press(pressableNamed(renderer, chooseFile))
+    await settle()
+    expect(hasText(renderer, 'That file is too big')).toBe(true)
+    expect(hasText(renderer, 'spring.csv is 6 MB; the limit is 5 MB.')).toBe(true)
+    expect(calls.some((call: Call) => call.query.includes('startCatalogImport'))).toBe(false)
+  })
 
   it('says why a file is refused on the phone, and sends nothing', async () => {
     const { renderer, calls } = await show({})
@@ -378,6 +391,34 @@ describe('Shopify', () => {
     expect(hasText(expired.renderer, 'the connection expired')).toBe(true)
     expect(pressablesNamed(expired.renderer, 'Connect again')).toHaveLength(1)
   })
+
+  it(
+    'drops a check the person left with Back: the Check step does not open for it later',
+    withTimers(async () => {
+      let state = 'checking'
+      const { renderer } = await show({
+        shopifyConnection: () => ({ shopifyConnection: { available: true, status: 'connected', shop: 'juniper.myshopify.com' } }),
+        shopifyProducts: () => shopProducts,
+        startShopifyImport: () => ({ startShopifyImport: 'imp-3' }),
+        'catalogImport(id': () => ({ catalogImport: importJob({ source: 'shopify', state }) }),
+      })
+
+      await press(pressableNamed(renderer, 'Bring products from Shopify. Connect Shopify'))
+      await settle()
+      await press(pressableNamed(renderer, 'Check 2 products'))
+      await settle()
+      expect(hasText(renderer, 'Reading your shop’s products…')).toBe(true)
+
+      await press(pressableNamed(renderer, 'Back'))
+      await settle()
+      state = 'ready'
+      await tick(2000)
+      await tick(2000)
+
+      expect(hasText(renderer, '8 ready')).toBe(false)
+      expect(hasText(renderer, 'Import from a spreadsheet')).toBe(true)
+    }),
+  )
 
   it('checks the picked products by id, or every product after Select all', async () => {
     const { renderer, calls } = await show({

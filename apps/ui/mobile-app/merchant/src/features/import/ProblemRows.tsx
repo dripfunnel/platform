@@ -12,7 +12,7 @@ export function ProblemRows({ job }: { job: Pick<CatalogImport, 'problems' | 'pr
     <>
       {job.problems.map((problem) => (
         <View key={`${problem.line}-${problem.column ?? ''}-${problem.code}`} style={styles.problem}>
-          <Text style={[styles.where, { color: colors.muted }]}>{`${t('imports.check.row', { line: problem.line })} · ${problem.column ?? t('imports.check.file')}`}</Text>
+          <Text style={[styles.where, { color: colors.muted }]}>{t('imports.check.rowIn', { line: problem.line, column: problem.column ?? t('imports.check.file') })}</Text>
           <Text style={[styles.message, { color: colors.text }]}>{problem.message}</Text>
         </View>
       ))}

@@ -3067,7 +3067,8 @@
         "title": "That file can’t be imported",
         "body": "{name} couldn’t be checked."
       },
-      "chooseAnother": "Choose another file"
+      "chooseAnother": "Choose another file",
+      "notice": "{title}. {body}"
     },
     "shopify": {
       "title": "Connect your Shopify store",
@@ -3105,12 +3106,12 @@
         "one": "{count} version",
         "other": "{count} versions"
       },
-      "draft": "Draft",
-      "archived": "Archived",
       "loadAll": "Every product in your shop is chosen. To leave some out, show every page first, or clear all and tick the ones you want.",
       "moreFailed": "Those products didn’t load. What you’ve ticked is kept; try again.",
       "failed": "Your shop’s products didn’t load",
-      "failedBody": "Nothing was changed. Try again in a moment."
+      "failedBody": "Nothing was changed. Try again in a moment.",
+      "metaDraft": "Draft · {versions}",
+      "metaArchived": "Archived · {versions}"
     },
     "checking": {
       "file": "Checking your file…",
@@ -3124,15 +3125,12 @@
       },
       "ready": "{count} ready",
       "readyNote": "{new} new · {matched} you already have (matched by product code)",
-      "problems": "{count} with problems",
-      "problemsBody": "Fix them in your file and choose it again, or import the ready ones now.",
       "existing": "Products you already have ({count})",
       "update": "Update them with the file",
       "skip": "Skip them, only add new ones",
       "stockIn": "Put imported stock in",
       "isDefault": "{name} (default)",
       "fix": "What to fix",
-      "row": "Row {line}",
       "file": "the file",
       "moreProblems": {
         "one": "{count} more is in the file.",
@@ -3142,7 +3140,9 @@
       "run": {
         "one": "Import {count} product",
         "other": "Import {count} products"
-      }
+      },
+      "problemsNote": "{count} with problems. Fix them in your file and choose it again, or import the ready ones now.",
+      "rowIn": "Row {line} · {column}"
     },
     "running": {
       "title": {
@@ -3151,9 +3151,8 @@
       },
       "progress": "{done} of {total} done. You can leave this screen — the import carries on, and you’ll find it here again.",
       "progressLabel": "Import progress",
-      "pausedTitle": "Paused — you’re offline.",
-      "pausedBody": "Nothing is half-saved: the products done so far are in, and the rest carry on when you reconnect.",
-      "leave": "Go to Products while it runs"
+      "leave": "Go to Products while it runs",
+      "paused": "Paused — you’re offline. Nothing is half-saved: the products done so far are in, and the rest carry on when you reconnect."
     },
     "done": {
       "title": "{added} added · {updated} updated",

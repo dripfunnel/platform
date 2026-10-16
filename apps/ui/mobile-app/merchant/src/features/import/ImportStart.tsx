@@ -63,7 +63,7 @@ export function ImportStart({ client, mode, readOnly, checking, fileError, refus
       {checking ? <Notice text={mode === 'shopify' ? t('imports.checking.shopify') : t('imports.checking.file')} /> : null}
       {said && !checking ? (
         <View style={styles.stack}>
-          <Notice kind="error" text={`${said.title}. ${refusal ?? said.body}`} />
+          <Notice kind="error" text={t('imports.fileErrors.notice', { title: said.title, body: refusal ?? said.body })} />
           <Button kind="secondary" label={t('imports.fileErrors.chooseAnother')} onPress={onChoose} disabled={readOnly} />
         </View>
       ) : null}

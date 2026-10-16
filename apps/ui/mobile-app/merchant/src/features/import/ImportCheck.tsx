@@ -50,7 +50,7 @@ export function ImportCheck({ job, name, readOnly, places, onRestart, onRun }: P
     <View style={styles.stack}>
       <SectionCard title={t('imports.check.ready', { count: number(job.ready) })} sub={job.source === 'shopify' ? name : t('imports.check.fileName', { name, count: tCount('imports.check.rows', job.products) })}>
         <Text style={[styles.note, { color: colors.muted }]}>{t('imports.check.readyNote', { new: number(job.ready - job.matched), matched: number(job.matched) })}</Text>
-        {withProblems > 0 ? <Notice kind="error" text={`${t('imports.check.problems', { count: number(withProblems) })}. ${t('imports.check.problemsBody')}`} /> : null}
+        {withProblems > 0 ? <Notice kind="error" text={t('imports.check.problemsNote', { count: number(withProblems) })} /> : null}
       </SectionCard>
 
       <SectionCard title={t('imports.check.existing', { count: number(job.matched) })}>

@@ -82,7 +82,8 @@ export function ShopifyPicker({ client, shop, checking, onBack, onCheck }: Props
       <View style={styles.rows}>
         {rows.map((row) => {
           const on = all || (pick.kind === 'some' && pick.ids.has(row.id))
-          const status = row.status === 'DRAFT' ? `${t('imports.pick.draft')} · ` : row.status === 'ARCHIVED' ? `${t('imports.pick.archived')} · ` : ''
+          const versions = tCount('imports.pick.versions', row.versions)
+          const meta = row.status === 'DRAFT' ? t('imports.pick.metaDraft', { versions }) : row.status === 'ARCHIVED' ? t('imports.pick.metaArchived', { versions }) : versions
           return (
             <Pressable
               key={row.id}
@@ -95,10 +96,7 @@ export function ShopifyPicker({ client, shop, checking, onBack, onCheck }: Props
               <View style={[styles.box, { borderColor: on ? colors.focus : colors.muted, backgroundColor: on ? colors.focus : 'transparent' }]}>{on ? <Text style={[styles.tick, { color: colors.surface }]}>✓</Text> : null}</View>
               <View style={styles.rowText}>
                 <Text style={[styles.name, { color: colors.text }]}>{row.title}</Text>
-                <Text style={[styles.meta, { color: colors.muted }]}>
-                  {status}
-                  {tCount('imports.pick.versions', row.versions)}
-                </Text>
+                <Text style={[styles.meta, { color: colors.muted }]}>{meta}</Text>
               </View>
             </Pressable>
           )

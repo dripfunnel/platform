@@ -26,3 +26,10 @@ export const fileErrorWords = (error: FileError): { title: string; body: string 
   error.kind === 'big'
     ? { title: t('imports.fileErrors.big.title'), body: t('imports.fileErrors.big.body', { name: error.name, size: megabytes(error.size) }) }
     : { title: t(`imports.fileErrors.${error.kind}.title`), body: t(`imports.fileErrors.${error.kind}.body`, { name: error.name }) }
+
+/** A file whose size the picker didn't report turned out over the limit once read (`size` is in bytes, or characters, which are never more). */
+export class CsvTooLarge extends Error {
+  constructor(readonly size: number) {
+    super('The CSV is over the import limit.')
+  }
+}

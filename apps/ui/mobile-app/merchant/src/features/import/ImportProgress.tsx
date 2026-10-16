@@ -27,7 +27,7 @@ export function ImportRunning({ run, onLeave }: RunningProps) {
       <View accessibilityRole="progressbar" accessibilityLabel={t('imports.running.progressLabel')} accessibilityValue={{ min: 0, max: total, now: done }} style={[styles.track, { backgroundColor: colors.border }]}>
         <View style={[styles.fill, { width: `${percent}%`, backgroundColor: colors.brand }]} />
       </View>
-      {online ? null : <Notice text={`${t('imports.running.pausedTitle')} ${t('imports.running.pausedBody')}`} />}
+      {online ? null : <Notice text={t('imports.running.paused')} />}
       <Button kind="secondary" label={t('imports.running.leave')} onPress={onLeave} />
     </SectionCard>
   )

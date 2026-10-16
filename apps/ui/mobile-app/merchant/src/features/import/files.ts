@@ -1,4 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker'
+import { maxImportBytes } from '../../api/imports'
+import { CsvTooLarge } from './importFile'
 
 export type PickedFile = { uri: string; name: string; size: number | null; mimeType: string | null }
 
@@ -12,5 +14,13 @@ export const pickCsv = async (): Promise<PickedFile | null> => {
   return asset ? { uri: asset.uri, name: asset.name, size: asset.size ?? null, mimeType: asset.mimeType ?? null } : null
 }
 
-/** The file's text, without the byte-order mark Excel writes, as a browser reads it. `fetch`, because expo-file-system refuses the picker's cache folder in Expo Go. */
-export const readCsv = async (uri: string): Promise<string> => (await (await fetch(uri)).text()).replace(byteOrderMark, '')
+// `fetch`, not expo-file-system, which refuses the picker's cache folder in Expo Go. A picker that gave no size is checked here
+// by the declared length and the text's length (never more than its bytes), so an oversize file is refused before it is sent.
+export const readCsv = async (uri: string): Promise<string> => {
+  const response = await fetch(uri)
+  const declared = Number(response.headers.get('content-length'))
+  if (declared > maxImportBytes) throw new CsvTooLarge(declared)
+  const text = await response.text()
+  if (text.length > maxImportBytes) throw new CsvTooLarge(text.length)
+  return text.replace(byteOrderMark, '')
+}

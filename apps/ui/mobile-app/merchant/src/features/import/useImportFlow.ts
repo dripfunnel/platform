@@ -3,7 +3,7 @@ import { confirmImport, loadImport, loadImports, startFileImport, startShopifyIm
 import { loadWarehouses, type Warehouse } from '../../api/inventory'
 import type { ApiClient } from '../../graphql'
 import { errorMessage } from '../../messages/errorMessage'
-import { checkPicked, fileErrorOf, type FileError } from './importFile'
+import { checkPicked, CsvTooLarge, fileErrorOf, type FileError } from './importFile'
 import { pickCsv, readCsv } from './files'
 
 export const importPollMs = 2000
@@ -23,6 +23,8 @@ export function useImportFlow(client: ApiClient, supplier: boolean, canImport: b
   const [checking, setChecking] = useState(false)
   const [places, setPlaces] = useState<Warehouse[]>([])
   const live = useRef(true)
+  const turn = useRef(0)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     live.current = true
@@ -68,42 +70,65 @@ export function useImportFlow(client: ApiClient, supplier: boolean, canImport: b
     }
   }, [client, runningId])
 
+  // Each attempt (a picked file, a Shopify check) and each restart takes a new turn; an answer for an earlier turn is dropped,
+  // so a check the person left can neither open the Check step nor overwrite a newer job.
+  const stop = useCallback(() => {
+    turn.current += 1
+    clearTimeout(timer.current)
+  }, [])
+
   const follow = useCallback(
-    (id: string, name: string) => {
+    (id: string, name: string, mine: number) => {
+      const current = () => live.current && turn.current === mine
+      const later = (check: () => void) => {
+        timer.current = setTimeout(check, importPollMs)
+      }
       setChecking(true)
       const check = () =>
         void loadImport(client, id).then(
           (next) => {
-            if (!live.current) return
-            if (next?.state === 'checking') return void setTimeout(check, importPollMs)
+            if (!current()) return
+            if (next?.state === 'checking') return later(check)
             setChecking(false)
             if (!next) return setFileError({ kind: 'other', name })
             setPicking(null)
             if (next.state === 'unreadable') setFileError(fileErrorOf(next, name))
             else setJob(next)
           },
-          () => live.current && setTimeout(check, importPollMs),
+          () => current() && later(check),
         )
       check()
     },
     [client],
   )
 
+  useEffect(() => stop, [stop])
+
   const chooseFile = async () => {
     setRefusal(null)
     const picked = await pickCsv().catch(() => null)
     if (!picked) return
+    stop()
+    const mine = turn.current
+    setChecking(false)
     setMode('file')
     setJob(null)
     setFileName(picked.name)
     const refused = checkPicked(picked)
     if (refused) return setFileError(refused)
     setFileError(null)
-    const text = await readCsv(picked.uri).catch(() => null)
-    if (text === null) return setFileError({ kind: 'unreadable', name: picked.name })
+    let text: string
     try {
-      follow(await startFileImport(client, text), picked.name)
+      text = await readCsv(picked.uri)
     } catch (error) {
+      if (turn.current === mine) setFileError(error instanceof CsvTooLarge ? { kind: 'big', name: picked.name, size: error.size } : { kind: 'unreadable', name: picked.name })
+      return
+    }
+    try {
+      const id = await startFileImport(client, text)
+      if (turn.current === mine) follow(id, picked.name, mine)
+    } catch (error) {
+      if (turn.current !== mine) return
       setChecking(false)
       setFileError({ kind: 'other', name: picked.name })
       setRefusal(errorMessage(error, 'imports'))
@@ -111,12 +136,16 @@ export function useImportFlow(client: ApiClient, supplier: boolean, canImport: b
   }
 
   const checkShop = async (ids: string[] | null, shop: string) => {
+    stop()
+    const mine = turn.current
     setFileName(shop)
     setFileError(null)
     setRefusal(null)
     try {
-      follow(await startShopifyImport(client, ids), shop)
+      const id = await startShopifyImport(client, ids)
+      if (turn.current === mine) follow(id, shop, mine)
     } catch (error) {
+      if (turn.current !== mine) return
       setChecking(false)
       setFileError({ kind: 'other', name: shop })
       setRefusal(errorMessage(error, 'imports'))
@@ -131,6 +160,7 @@ export function useImportFlow(client: ApiClient, supplier: boolean, canImport: b
   }
 
   const restart = () => {
+    stop()
     setRun(null)
     setMode(null)
     setJob(null)
