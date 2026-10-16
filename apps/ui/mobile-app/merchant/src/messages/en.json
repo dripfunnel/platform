@@ -3048,7 +3048,8 @@
       },
       "big": {
         "title": "That file is too big",
-        "body": "{name} is {size}; the limit is 5 MB. Split it into two files, or import from Shopify instead."
+        "body": "{name} is {size}; the limit is 5 MB. Split it into two files, or import from Shopify instead.",
+        "size": "{value} MB"
       },
       "empty": {
         "title": "That file has no products in it",

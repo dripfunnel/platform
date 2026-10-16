@@ -20,7 +20,7 @@ export const fileErrorOf = (job: CatalogImport, name: string): FileError => {
   return { kind: 'other', name }
 }
 
-const megabytes = (bytes: number): string => `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(bytes / (1024 * 1024))} MB`
+const megabytes = (bytes: number): string => t('imports.fileErrors.big.size', { value: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(bytes / (1024 * 1024)) })
 
 export const fileErrorWords = (error: FileError): { title: string; body: string } =>
   error.kind === 'big'
