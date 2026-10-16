@@ -5,7 +5,7 @@ import { cartOf, line, usd } from '../../test/cart'
 import { Provided, shopAnswering } from '../../test/shop'
 import { createShopClient } from '../platform/api/client'
 import { guestShopState, storedShopState } from '../platform/api/tokens'
-import { addressProblems } from './address'
+import { addressProblems, isPhone } from './address'
 import { addressDraft, useCheckout, type CheckoutPage } from './checkout'
 
 const us = { name: 'Maya Chen', line1: '88 Neil Ave', line2: null, city: 'Columbus', region: 'OH', postalCode: '43215', country: 'US', phone: null }
@@ -108,5 +108,10 @@ describe('addressProblems', () => {
     expect(addressProblems({ ...addressDraft({ ...us, country: 'IN', postalCode: '5600', region: '' }, 'IN') })).toEqual({ postalCode: 'invalid', region: 'required' })
     expect(addressProblems({ ...addressDraft({ ...us, country: 'FR', postalCode: null, region: null }, 'FR') })).toEqual({})
     expect(addressProblems({ ...addressDraft(us, 'US'), phone: 'call me' })).toEqual({ phone: 'invalid' })
+  })
+  it('takes a phone only with its country code, as the API does', () => {
+    expect(isPhone('+91 90647-79543')).toBe(true)
+    expect(isPhone('19064279543')).toBe(false)
+    expect(addressProblems({ ...addressDraft(us, 'US'), phone: '9876543210' })).toEqual({ phone: 'invalid' })
   })
 })
