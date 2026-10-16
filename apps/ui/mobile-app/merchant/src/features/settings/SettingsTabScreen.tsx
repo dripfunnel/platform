@@ -2,6 +2,7 @@ import { t } from '../../messages'
 import { useShell } from '../shell/ShellData'
 import { ShellScreen } from '../states/ShellScreen'
 import { isOwner } from './access'
+import { AccountsTab } from './accounts/AccountsTab'
 import { CatalogueTab } from './catalogue/CatalogueTab'
 import { MarketsTab } from './markets/MarketsTab'
 import { PeopleTab } from './people/PeopleTab'
@@ -32,5 +33,7 @@ export function SettingsTabScreen({ tab }: { tab: string }) {
       return <MarketsTab />
     case 'catalogue':
       return <CatalogueTab />
+    case 'accounts':
+      return <AccountsTab />
   }
 }
