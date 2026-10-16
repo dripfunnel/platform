@@ -102,9 +102,9 @@ describe('Settings is the Owner’s', () => {
   })
 
   it('says a tab that does not exist is a 404 for the Owner only', async () => {
-    const missing = await show(<SettingsTabScreen tab="payments" />, {})
+    const missing = await show(<SettingsTabScreen tab="developers" />, {})
     expect(hasText(missing.renderer, 'This page isn’t here any more')).toBe(true)
-    const hidden = await show(<SettingsTabScreen tab="payments" />, {}, { acting: actingAs('manager') })
+    const hidden = await show(<SettingsTabScreen tab="developers" />, {}, { acting: actingAs('manager') })
     expect(hasText(hidden.renderer, 'You don’t have access to Settings')).toBe(true)
   })
 })
