@@ -397,6 +397,9 @@ button,input,select,textarea{font:inherit;color:inherit;}
     <div class="ph" style="background:{{ home.heroPh }};" role="img" aria-label="{{ home.heroAlt }}"></div>
   </section>
   <section class="wrap sec">
+    <div class="story"><div class="ph" style="background:{{ home.storyPh }};" role="img" aria-label="Printers at work in the studio"></div><div class="stack" style="gap:14px;"><span class="eyebrow">Our story</span><h2 style="font-size:30px;">{{ home.storyH }}</h2><p style="color:var(--ink2);font-size:16px;">{{ home.storyP }}</p><div><button class="btn ghost" onClick="{{ on.about }}">Read more</button></div></div></div>
+  </section>
+  <section class="wrap sec">
     <div class="sec-h"><h2>Shop by collection</h2></div>
     <div class="tiles"><sc-for list="{{ home.tiles }}" as="c" hint-placeholder-count="4"><button class="tile" onClick="{{ c.go }}"><div class="ph" style="background:{{ c.ph }};"></div><span>{{ c.name }}</span></button></sc-for></div>
   </section>
@@ -405,9 +408,6 @@ button,input,select,textarea{font:inherit;color:inherit;}
     <div class="grid"><sc-for list="{{ home.grid }}" as="p" hint-placeholder-count="4">
       <button class="pc" onClick="{{ p.open }}"><div class="ph" style="background:{{ p.ph }};" role="img" aria-label="{{ p.alt }}"><sc-if value="{{ p.badge }}" hint-placeholder-val="{{ false }}"><span class="tag">{{ p.badge }}</span></sc-if><sc-if value="{{ p.sold }}" hint-placeholder-val="{{ false }}"><span class="soldout">Sold out</span></sc-if></div><span class="nm">{{ p.name }}</span><span class="price" data-req="Price with tax label"><span class="now">{{ p.price }}</span><sc-if value="{{ p.hasWas }}" hint-placeholder-val="{{ false }}"><span class="was">{{ p.was }}</span></sc-if><span class="tax">{{ R.taxShort }}</span></span></button>
     </sc-for></div>
-  </section>
-  <section class="wrap sec">
-    <div class="story"><div class="ph" style="background:{{ home.storyPh }};" role="img" aria-label="Printers at work in the studio"></div><div class="stack" style="gap:14px;"><span class="eyebrow">Our story</span><h2 style="font-size:30px;">{{ home.storyH }}</h2><p style="color:var(--ink2);font-size:16px;">{{ home.storyP }}</p><div><button class="btn ghost" onClick="{{ on.about }}">Read more</button></div></div></div>
   </section>
   <section class="wrap sec">
     <div class="sec-h"><h2>From the journal</h2><button class="lnk small" onClick="{{ on.blog }}">All posts</button></div>

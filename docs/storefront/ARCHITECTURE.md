@@ -304,7 +304,7 @@ The six templates and "Start from scratch" live in this repo as complete startin
   consent banner, Cookie settings, "Powered by" and preview banner. The product grids, collection tiles and cart lines
   the prototype draws joined the six themes on #765, copied from baseline with each theme's own tokens (home, collection,
   search, product and cart pages); checkout, account, order and blog pages still show their frame and words. Pictures are the template's own CSS surfaces, never a product's.
-- *Baseline's browse pages as built on #307* *(decided there)*: home (hero, the story and sign-up sections, then the store's collections and its newest products, which fill in late and sit last so they move nothing; the prototype draws them before the story, changed on #770 after the publish gate's layout-shift check failed),
+- *Baseline's browse pages as built on #307* *(decided there)*: home (hero, the story and sign-up sections, then the store's collections and its newest products, which fill in late and sit last so they move nothing; the prototype was changed to match on #770, after the publish gate's layout-shift check failed with them above the story),
   collection and search (filters as a sidebar on wide screens and a panel on narrow ones, sort, chips, "Load more"), the
   product page (gallery with video, options as buttons with sold-out values struck through, the stock line, legal
   details, accordions, related products), the policies, About, Contact and 404, each with its loading, empty, missing and
