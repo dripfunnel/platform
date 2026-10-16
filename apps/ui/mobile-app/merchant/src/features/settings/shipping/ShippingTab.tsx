@@ -191,7 +191,7 @@ function CodesSheet({ country, postal, client, listMode, readBack, onClose }: { 
       onSubmit={async () => {
         if (read.kind !== 'codes') throw new Error('no codes')
         const kept = await replaceDeliveryArea(client, t('settings.shipping.pastedName'), read.codes)
-        await readBack()
+        await readBack().catch(() => undefined)
         return t(listMode ? 'settings.shipping.areaRead' : 'settings.shipping.areaReadSave', { count: formatNumber(kept, locale), label: postal })
       }}
     >

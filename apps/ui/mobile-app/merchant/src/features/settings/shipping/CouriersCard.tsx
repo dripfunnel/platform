@@ -43,7 +43,8 @@ export function CouriersCard({ couriers, labelSizes, timeZone, client, canEdit, 
     try {
       const message = await work()
       setTests(null)
-      await readBack()
+      // The write is made: a re-read that fails must not read as a failed write.
+      await readBack().catch(() => undefined)
       return message
     } catch (error) {
       if (isApiError(error, 'NOT_CONNECTED') || isApiError(error, 'NOT_FOUND')) await readBack().catch(() => undefined)
@@ -57,7 +58,7 @@ export function CouriersCard({ couriers, labelSizes, timeZone, client, canEdit, 
     setTests(null)
     try {
       setTests(await testCouriers(client))
-      await readBack()
+      await readBack().catch(() => undefined)
     } catch (error) {
       setFailure(errorMessage(error, 'settingsShipping'))
     } finally {

@@ -497,6 +497,65 @@ describe('Shipping', () => {
     expect(hasText(renderer, 'FedEx — didn’t answer. Try again in a minute.')).toBe(true)
   })
 
+  it('still says a courier change was made when reading the couriers again fails', async () => {
+    let reads = 0
+    const { renderer } = await show(<SettingsTabScreen tab="shipping" />, ship({
+      '{ shippingSettings {': () => {
+        reads += 1
+        if (reads > 1) throw new ApiError('NO_RESPONSE', 'x')
+        return { shippingSettings: shippingOf() }
+      },
+      'mutation ConnectCourier': () => ({ connectCourier: 'standby' }),
+    }))
+
+    await click(renderer, 'Connect FedEx')
+    await clickLast(renderer, 'Connect')
+
+    expect(hasText(renderer, 'FedEx connected, on standby')).toBe(true)
+    expect(hasText(renderer, 'We couldn’t reach the server')).toBe(false)
+    expect(pressablesNamed(renderer, 'Connect')).toHaveLength(0)
+  })
+
+  it('still shows the courier test results when reading the couriers again fails', async () => {
+    let reads = 0
+    const two = withCouriers([courier(), courier({ provider: 'fedex', status: 'standby' })])
+    const { renderer } = await show(<SettingsTabScreen tab="shipping" />, ship({
+      '{ shippingSettings {': () => {
+        reads += 1
+        if (reads > 1) throw new ApiError('NO_RESPONSE', 'x')
+        return { shippingSettings: two }
+      },
+      'mutation TestCouriers': () => ({ testCouriers: [{ provider: 'shiprocket', result: 'ok', ms: 1200 }, { provider: 'fedex', result: 'ok', ms: 900 }] }),
+    }))
+
+    await click(renderer, 'Test all')
+
+    expect(hasText(renderer, 'All 2 answered')).toBe(true)
+    expect(hasText(renderer, 'We couldn’t reach the server')).toBe(false)
+  })
+
+  it('still says the pasted list was kept, and closes the sheet, when reading the settings again fails', async () => {
+    let reads = 0
+    const { renderer, calls } = await show(<SettingsTabScreen tab="shipping" />, ship({
+      '{ shippingSettings {': () => {
+        reads += 1
+        if (reads > 1) throw new ApiError('NO_RESPONSE', 'x')
+        return { shippingSettings: shippingOf() }
+      },
+      'mutation ReplaceDeliveryArea': () => ({ replaceDeliveryArea: 2 }),
+    }))
+
+    await pick(renderer, 'Only PIN codes I paste')
+    await click(renderer, 'Paste a list')
+    await type(renderer, 'The PIN codes you deliver to', '302003, 302004')
+    await clickLast(renderer, 'Use this list')
+
+    expect(asked(calls, 'mutation ReplaceDeliveryArea')).toHaveLength(1)
+    expect(hasText(renderer, '2 PIN codes kept. Save shipping to deliver only there.')).toBe(true)
+    expect(hasText(renderer, 'We couldn’t reach the server')).toBe(false)
+    expect(pressablesNamed(renderer, 'Use this list')).toHaveLength(0)
+  })
+
   it('takes a pasted list of codes in the country’s shape, and says when none are', async () => {
     let area = { areaCount: 0, areaFileName: null as string | null, areaSample: [] as string[] }
     const { renderer, calls } = await show(<SettingsTabScreen tab="shipping" />, ship({
