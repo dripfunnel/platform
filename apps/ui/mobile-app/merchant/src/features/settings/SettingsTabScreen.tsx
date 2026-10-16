@@ -7,6 +7,7 @@ import { CatalogueTab } from './catalogue/CatalogueTab'
 import { MarketsTab } from './markets/MarketsTab'
 import { PaymentsTab } from './payments/PaymentsTab'
 import { PeopleTab } from './people/PeopleTab'
+import { ShippingTab } from './shipping/ShippingTab'
 import { StoreInfoTab } from './store/StoreInfoTab'
 import { SuppliersTab } from './suppliers/SuppliersTab'
 import { TaxTab } from './tax/TaxTab'
@@ -28,6 +29,8 @@ export function SettingsTabScreen({ tab }: { tab: string }) {
       return <SuppliersTab />
     case 'payments':
       return <PaymentsTab />
+    case 'shipping':
+      return <ShippingTab />
     case 'warehouse':
       return <WarehouseTab />
     case 'tax':

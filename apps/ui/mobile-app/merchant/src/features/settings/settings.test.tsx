@@ -93,10 +93,10 @@ const locale = {
 
 
 describe('Settings is the Owner’s', () => {
-  it('lists the tabs as rows that each open on their own screen, Payment setup and Customer accounts among them', async () => {
+  it('lists the tabs as rows that each open on their own screen, Payment setup, Shipping and Customer accounts among them', async () => {
     const { renderer } = await show(<SettingsScreen />, {})
 
-    expect(texts(renderer)).toEqual(expect.arrayContaining(['Store info', 'Name, contact, address, currencies and languages', 'Payment setup', 'Customer accounts']))
+    expect(texts(renderer)).toEqual(expect.arrayContaining(['Store info', 'Name, contact, address, currencies and languages', 'Payment setup', 'Shipping', 'Customer accounts']))
     expect(hasText(renderer, 'Developers')).toBe(false)
     await press(pressableNamed(renderer, 'Store info'))
     expect(mockPush).toHaveBeenCalledWith('/more/settings/store')
@@ -114,7 +114,7 @@ describe('Settings is the Owner’s', () => {
     expect(calls).toHaveLength(0)
   })
 
-  it.each(['store', 'payments', 'accounts'])('opening %s by a deep link as a Manager is access denied, and reads and writes nothing', async (tab) => {
+  it.each(['store', 'payments', 'shipping', 'accounts'])('opening %s by a deep link as a Manager is access denied, and reads and writes nothing', async (tab) => {
     const { renderer, calls } = await show(<SettingsTabScreen tab={tab} />, {}, { acting: actingAs('manager') })
 
     expect(hasText(renderer, 'You don’t have access to Settings')).toBe(true)

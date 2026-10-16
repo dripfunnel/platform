@@ -91,6 +91,20 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "Only the store owner can change how you get paid."
     },
+    "settingsShipping": {
+      "INVALID_INPUT": "Something here isn’t valid.",
+      "STALE": "Someone else saved shipping first. It now shows their changes with yours on top; check it and save again.",
+      "NO_METHOD": "Choose at least one way for shoppers to get their order.",
+      "NO_COURIER": "Connect a courier below first.",
+      "NO_ADDRESS": "Add your store’s address and postcode in Store info first: couriers quote from it.",
+      "NO_AREA_LIST": "Paste your list of codes, or choose “Everywhere”.",
+      "TOO_MANY": "That list is longer than a store can have. Keep it to 50,000 codes.",
+      "COURIER_NOT_OFFERED": "This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.",
+      "NOT_CONNECTED": "That courier isn’t connected, so nothing changed. It shows as not connected now.",
+      "NOT_FOUND": "That isn’t here any more. Go back and open Shipping again.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change shipping."
+    },
     "settingsAccounts": {
       "INVALID_INPUT": "Choose email, mobile or both.",
       "READ_ONLY": "Your store is read-only until the bill is paid.",
@@ -1586,6 +1600,142 @@
       "turnedOff": "{name} turned off",
       "disconnected": "{name} disconnected"
     },
+    "shipping": {
+      "chargeTitle": "What the shopper pays for delivery",
+      "chargeSub": "Turn on one or more: shoppers pick at checkout.",
+      "courierRate": "The courier’s live rate",
+      "courierRateBy": "Quoted at checkout by {name}, from address and weight.",
+      "courierRateNone": "Connect a courier below first.",
+      "flatRate": "A flat rate",
+      "flatRateSub": "Same charge on every order.",
+      "flatFallback": "Charged only when no courier can quote an order.",
+      "flatLabel": "Flat rate ({currency})",
+      "pickup": "Nothing — collect in person",
+      "pickupOff": "Your address and hours show at checkout instead.",
+      "pickupOn": "Shown at checkout: {address} · {hours}",
+      "pickupNoAddress": "your address from Store info",
+      "noHours": "no hours set yet",
+      "hoursLabel": "Days and hours",
+      "hoursPlaceholder": "Mon–Sat, 10 am – 6 pm",
+      "hoursBody": "Shown at checkout and in the order confirmation.",
+      "freeTitle": "When is delivery free?",
+      "free": {
+        "never": "Never — always charge",
+        "always": "Always — you pay for it",
+        "over": "On orders over an amount"
+      },
+      "freeOver": "Orders of {amount} or more ship free.",
+      "thresholdLabel": "Free over ({currency})",
+      "partnersTitle": "Delivery partners",
+      "partnersSub": "They quote rates, book pickups and send tracking.",
+      "partnersNone": "No delivery partners are offered for your store’s country yet.",
+      "partnersNote": "Fallback order: the pricing partner → the next connected one → your flat rate.",
+      "testAll": "Test all",
+      "testing": "Testing…",
+      "couriers": {
+        "shiprocket": "Shiprocket",
+        "easypost": "EasyPost",
+        "usps": "USPS",
+        "ups": "UPS",
+        "fedex": "FedEx"
+      },
+      "status": {
+        "pricing": "Pricing orders",
+        "standby": "Standby",
+        "failed": "Login rejected",
+        "off": "Not connected"
+      },
+      "descPricing": "Quotes every order at checkout · pickups {pickup} · labels {label}",
+      "descStandby": "Connected, not quoting.",
+      "descFailed": "Its login was rejected at the last test. Orders fall back to the next partner.",
+      "descNotOffered": "This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.",
+      "lastTested": "Last tested {time}",
+      "pickupModes": {
+        "scheduled": "every working day",
+        "on_request": "you book each one"
+      },
+      "labelSizes": {
+        "a6": "A6",
+        "a4": "A4",
+        "4x6": "4 × 6 in",
+        "letter": "Letter"
+      },
+      "connect": "Connect",
+      "connectName": "Connect {name}",
+      "connectBody": "{name} works on your platform’s own account, so there’s no key to enter. It prices orders at checkout if no other courier does, and otherwise waits on standby.",
+      "connectedPricing": "{name} connected — it prices orders at checkout",
+      "connectedStandby": "{name} connected, on standby",
+      "usePricing": "Use for pricing",
+      "usePricingName": "Use {name} for pricing",
+      "usePricingBody": "{name} will quote every order at checkout from now on, and the one that does now goes to standby.",
+      "nowPricing": "{name} prices orders now — the one before is on standby",
+      "manage": "Manage",
+      "manageName": "Manage {name}",
+      "manageBody": "How {name} picks up and labels your parcels. It applies to every new order.",
+      "pickupsLabel": "Pickups",
+      "pickupChoices": {
+        "scheduled": "Every working day",
+        "on_request": "You book each one from the order"
+      },
+      "labelLabel": "Label size",
+      "trackingLabel": "Tracking emails to shoppers",
+      "trackingChoices": {
+        "on": "On: sent when the courier scans the parcel",
+        "off": "Off"
+      },
+      "optionsSaved": "{name}: pickups, labels and tracking saved",
+      "disconnect": "Disconnect",
+      "disconnectTitle": "Disconnect {name}?",
+      "disconnectTakesOver": "{next} takes over pricing orders.",
+      "disconnectLast": "No courier is left to quote, so checkout stops offering the courier’s rate.",
+      "disconnectStandby": "It stops being the fallback for pricing.",
+      "disconnected": "{name} disconnected",
+      "disconnectedNext": "{name} disconnected — {next} prices orders now",
+      "testAllOk": "All {count} answered",
+      "testSome": "{bad} of {count} didn’t answer",
+      "testNone": "Connect a courier first: there is nothing to test.",
+      "testResults": {
+        "ok": "{name} — quoted a test parcel to your own address in {seconds} s",
+        "rejected": "{name} — login rejected. Ask your platform’s support to check its account.",
+        "unavailable": "{name} — didn’t answer. Try again in a minute.",
+        "unserved": "{name} — doesn’t deliver to your address."
+      },
+      "areaTitle": "Where you deliver",
+      "everywhere": "Everywhere my couriers reach",
+      "everywhereSub": "In the countries set up in Markets.",
+      "list": "Only {label}s I paste",
+      "listSub": "A shopper outside your area is told at the address step, not at payment.",
+      "listFile": "{file} · {count} codes, e.g. {sample}",
+      "listNone": "No list yet. Paste one to deliver only there.",
+      "paste": "Paste a list",
+      "replace": "Replace the list",
+      "pasteTitle": "Paste your {label} list",
+      "pasteBody": "This replaces the list you have now, at once. Separate the {label}s with commas, spaces or new lines; anything that isn’t one is left out. Then save shipping to deliver only there.",
+      "codesLabel": "The {label}s you deliver to",
+      "useList": "Use this list",
+      "pastedName": "Pasted in the app",
+      "postal": {
+        "IN": "PIN code",
+        "US": "ZIP code",
+        "other": "postcode"
+      },
+      "noCodes": "We couldn’t find any {label}s in what you pasted.",
+      "tooMany": "That has more than {max} codes. Keep it to {max}.",
+      "areaRead": "{count} {label}s kept — checkout uses them now",
+      "areaReadSave": "{count} {label}s kept. Save shipping to deliver only there.",
+      "saveShipping": "Save shipping",
+      "saveNote": "Saving changes what shoppers pay for delivery at checkout, from now on.",
+      "saved": "Shipping saved — checkout uses it now",
+      "missing": {
+        "flat": "Type a flat rate.",
+        "threshold": "Type the amount orders ship free over.",
+        "hours": "Set your collection hours first — shoppers need to know when to come.",
+        "list": "Paste your {label} list, or choose “Everywhere”.",
+        "method": "Choose at least one way for shoppers to get their order.",
+        "courier": "Connect a courier below first.",
+        "amount": "Type an amount like {example}."
+      }
+    },
     "accounts": {
       "title": "Customer accounts",
       "sub": "How shoppers create an account and sign in on your storefront.",
@@ -1655,6 +1805,7 @@
       "markets": "Markets",
       "catalogue": "Catalogue",
       "payments": "Payment setup",
+      "shipping": "Shipping",
       "accounts": "Customer accounts"
     },
     "tabSubs": {
@@ -1666,6 +1817,7 @@
       "markets": "Countries you sell to, with their prices and rules",
       "catalogue": "Product page sections and badges",
       "payments": "How shoppers pay you: cards, cash on delivery, bank transfer",
+      "shipping": "What delivery costs, when it’s free, couriers and where you deliver",
       "accounts": "How shoppers sign in to your storefront"
     },
     "store": {
