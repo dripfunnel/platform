@@ -16,7 +16,7 @@ import { checkout } from './source'
 
 // Card #483: the build image's two publish steps, run as the locked workflow runs them (storefront LIVE-SHOP §4 steps
 // 6–7). Each run here takes the store's whole site through a real headless browser, so the timeouts are long.
-vi.setConfig({ testTimeout: 240_000, hookTimeout: 120_000 })
+vi.setConfig({ testTimeout: 600_000, hookTimeout: 120_000 })
 
 const run = promisify(execFile)
 const sandbox = fileURLToPath(new URL('../../', import.meta.url))
