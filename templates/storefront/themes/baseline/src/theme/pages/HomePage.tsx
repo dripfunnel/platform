@@ -26,6 +26,24 @@ export const HomePage = () => {
         </div>
         <div className={styles.picture} />
       </section>
+      <section className={styles.story}>
+        <div className={styles.storyPicture} />
+        <div className={styles.storyCopy}>
+          <p className={styles.eyebrow}>{t('home.story.eyebrow')}</p>
+          <h2 className={styles.heading}>{t('home.story.title')}</h2>
+          <p className={styles.body}>{t('home.story.body')}</p>
+          <Link href="/about/" className={styles.ghost}>
+            {t('home.story.more')}
+          </Link>
+        </div>
+      </section>
+      <section className={styles.signup}>
+        <h2 className={styles.heading}>{t('home.signup.title')}</h2>
+        <p className={styles.body}>{t('home.signup.body')}</p>
+        <Link href="/register/" className={styles.button}>
+          {t('home.signup.action')}
+        </Link>
+      </section>
       {status === 'loading' || collections.length ? (
         <section className={shop.band}>
           <h2 className={shop.heading}>{t('home.collections.title')}</h2>
@@ -62,24 +80,6 @@ export const HomePage = () => {
           {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={newest.products} />}
         </section>
       ) : null}
-      <section className={styles.story}>
-        <div className={styles.storyPicture} />
-        <div className={styles.storyCopy}>
-          <p className={styles.eyebrow}>{t('home.story.eyebrow')}</p>
-          <h2 className={styles.heading}>{t('home.story.title')}</h2>
-          <p className={styles.body}>{t('home.story.body')}</p>
-          <Link href="/about/" className={styles.ghost}>
-            {t('home.story.more')}
-          </Link>
-        </div>
-      </section>
-      <section className={styles.signup}>
-        <h2 className={styles.heading}>{t('home.signup.title')}</h2>
-        <p className={styles.body}>{t('home.signup.body')}</p>
-        <Link href="/register/" className={styles.button}>
-          {t('home.signup.action')}
-        </Link>
-      </section>
     </Layout>
   )
 }
