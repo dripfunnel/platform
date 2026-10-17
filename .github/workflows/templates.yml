@@ -40,11 +40,12 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: ./.github/actions/setup
-      # The dev release publishes only `<version>-dev.<run>` (release.yml), so name the newest of those.
+      # The dev release publishes only `<version>-dev.<run>` (release.yml), so name the highest of those. A push can
+      # land while a newer release still runs; the `workflow_run` trigger then corrects it.
       - id: core
         run: |
           set -euo pipefail
-          version=$(gh api "/orgs/${{ github.repository_owner }}/packages/npm/storefront-core/versions" --jq '[.[].name | select(test("-dev\\."))] | first')
+          version=$(gh api --paginate "/orgs/${{ github.repository_owner }}/packages/npm/storefront-core/versions" --jq '.[].name | select(test("-dev\\.[0-9]+$"))' | sort -V | tail -n 1)
           test -n "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
         env:
