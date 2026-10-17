@@ -355,7 +355,7 @@
     border: 1px solid var(--header-hover);
     border-radius: 12px;
     background: var(--header-bg);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--header-ink) 12%, transparent);
   }
   .navItem {
     display: flex;
@@ -381,6 +381,9 @@
   .navItem:focus-within .subnav,
   .subnavOpen {
     display: flex;
+  }
+  .navItem .subnav.subnavDismissed {
+    display: none;
   }
 
   .tools {
