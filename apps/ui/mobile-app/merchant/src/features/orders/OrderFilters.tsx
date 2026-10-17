@@ -6,10 +6,19 @@ import { useTheme } from '../../theme'
 import { Chip } from '../common/Chip'
 import { countKey } from './orderView'
 
-type Props = { search: string; onSearch: (search: string) => void; filter: OrderFilter; onFilter: (filter: OrderFilter) => void; counts: OrderCounts | null }
+type Props = {
+  search: string
+  onSearch: (search: string) => void
+  filter: OrderFilter
+  onFilter: (filter: OrderFilter) => void
+  counts: OrderCounts | null
+  /** The chips this seat has; a supplier's have no money to filter by. */
+  chips?: readonly OrderFilter[]
+  placeholder?: string
+}
 
 // Search, and the status chips, each saying how many orders the API counted for it (FIRST-RELEASE.md §6).
-export function OrderFilters({ search, onSearch, filter, onFilter, counts }: Props) {
+export function OrderFilters({ search, onSearch, filter, onFilter, counts, chips = orderFilters, placeholder = t('orders.search.placeholder') }: Props) {
   const { colors, radii } = useTheme()
   return (
     <View style={styles.block}>
@@ -18,7 +27,7 @@ export function OrderFilters({ search, onSearch, filter, onFilter, counts }: Pro
           accessibilityLabel={t('orders.search.label')}
           value={search}
           onChangeText={onSearch}
-          placeholder={t('orders.search.placeholder')}
+          placeholder={placeholder}
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -32,7 +41,7 @@ export function OrderFilters({ search, onSearch, filter, onFilter, counts }: Pro
         ) : null}
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel={t('orders.chips.label')}>
-        {orderFilters.map((key) => {
+        {chips.map((key) => {
           const count = counts ? formatNumber(counts[countKey[key]], locale) : undefined
           return <Chip key={key} label={t(`orders.chips.${key}`)} hint={count} selected={key === filter} onPress={() => onFilter(key)} />
         })}

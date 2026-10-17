@@ -65,6 +65,16 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "Only the store owner can change this."
     },
+    "supplierTeam": {
+      "NOT_FOUND": "That person or invitation is no longer here.",
+      "INVALID_INPUT": "Choose Supplier admin or Supplier member.",
+      "INVALID_EMAIL": "Enter an email like name@example.com.",
+      "LAST_ADMIN": "This is the last admin, so the role can’t change and they can’t be removed. Make someone else an admin first.",
+      "ALREADY_MEMBER": "They’re already on your team.",
+      "RATE_LIMITED": "Too many invitations for now. Try again later.",
+      "READ_ONLY": "This store isn’t taking changes right now. Try again later.",
+      "FORBIDDEN": "Only a Supplier admin can change your team."
+    },
     "settingsSuppliers": {
       "ALREADY_MEMBER": "They’re already in this store.",
       "NOT_FOUND": "That isn’t here any more. It may have changed elsewhere.",
@@ -3202,6 +3212,121 @@
       "shareFailed": "The file couldn’t be shared. Try again.",
       "loadFailed": "Your recent exports didn’t load.",
       "failedNote": "The export couldn’t be made. Try again."
+    }
+  },
+  "supplier": {
+    "yourCompany": "your company",
+    "status": {
+      "toShip": "To ship",
+      "partly": "Partly shipped",
+      "shipped": "Shipped",
+      "cancelled": "Cancelled"
+    },
+    "toShip": {
+      "title": "To ship",
+      "sub": "Orders with your items in them. You see only your own items.",
+      "summary": "{count} to ship · you see only your own items",
+      "searchPlaceholder": "Search by order number",
+      "forStore": "For {store}",
+      "toShopper": "Send to the shopper",
+      "toStore": "Send to the store",
+      "empty": {
+        "title": "Nothing to ship yet",
+        "body": "When a shopper buys one of your products, it appears here for you to pack."
+      }
+    },
+    "order": {
+      "items": "Your items",
+      "noteToStore": "You see only your items in this order. The store delivers to the shopper, so you don’t see who bought it.",
+      "noteToShopper": "You see only your items in this order. You send them to the shopper yourself.",
+      "sendToStore": "Send items to the store",
+      "sendTo": {
+        "title": "Send your items to",
+        "body": "{store} sends it on to the shopper. You don’t see who bought it."
+      },
+      "ship": {
+        "titleToStore": {
+          "one": "Send {count} item to the store",
+          "other": "Send {count} items to the store"
+        },
+        "noteToStore": "Send these to {store}. The store delivers them to the shopper.",
+        "noteToShopper": "Shipping part of an order is normal — the rest stays “to ship”. The shopper gets an email, with tracking if you add it.",
+        "confirmToStore": "Mark as sent",
+        "doneToStore": {
+          "one": "{count} item marked as sent to {store}",
+          "other": "{count} items marked as sent to {store}"
+        },
+        "noLocation": "You have no location to send from yet. Add one in the web portal under Products › Warehouses, then come back."
+      }
+    },
+    "sales": {
+      "label": "your sales",
+      "sub": "Lines with {supplier}’s products in {store}. Dates are in UTC.",
+      "note": "Only the lines with your products, at the price the store charged. The store settles with you outside this portal, so there are no payouts here.",
+      "export": "Export CSV",
+      "empty": {
+        "title": "No sales here yet",
+        "body": "When a shopper buys one of your products, the line shows up here."
+      },
+      "status": {
+        "sold": "Sold",
+        "partlyRefunded": "{count} of {quantity} refunded",
+        "refunded": "Refunded",
+        "cancelled": "Cancelled"
+      }
+    },
+    "team": {
+      "label": "your team",
+      "sub": "The people from {supplier} who work in {store}.",
+      "invite": "Invite someone",
+      "inviteTitle": "Invite someone from {supplier}",
+      "inviteBody": "They get an email with a link that works for 7 days. They’ll see only {supplier}’s products and orders.",
+      "email": "Their email",
+      "emailPlaceholder": "name@example.com",
+      "emailInvalid": "Enter an email like name@example.com.",
+      "roleLabel": "What they can do",
+      "memberAccess": "Supplier member — {access}",
+      "adminAccess": "Supplier admin — also invites and removes people",
+      "send": "Send invitation",
+      "sent": "Invitation sent to {email}",
+      "roles": {
+        "supplier-admin": "Supplier admin",
+        "supplier-member": "Supplier member"
+      },
+      "status": {
+        "invited": "Invited · not accepted yet",
+        "expired": "Invitation expired",
+        "active": "Active",
+        "you": "Active · you"
+      },
+      "linkUntil": "Its link works until {when}",
+      "manage": "Options for {name}",
+      "resend": "Resend invitation",
+      "resendTitle": "Send {email} a new invitation?",
+      "resendBody": "A new link goes to them by email, and the old link stops working.",
+      "resendConfirm": "Send again",
+      "resent": "Invitation sent again to {email}",
+      "cancelInvite": "Cancel invitation",
+      "cancelTitle": "Cancel the invitation to {email}?",
+      "cancelBody": "The link in their email stops working. You can invite them again any time.",
+      "cancelled": "Invitation to {email} cancelled",
+      "makeAdmin": "Make admin",
+      "makeMember": "Make member",
+      "makeAdminBody": "{name} will be able to invite and remove people and change roles.",
+      "makeMemberBody": "{name} will work on products and stock, and will no longer manage the team.",
+      "roleFor": "Change {name}’s role",
+      "nowAdmin": "{name} is now an admin",
+      "nowMember": "{name} is now a member",
+      "remove": "Remove from {supplier}",
+      "removeTitle": "Remove {name} from {supplier}?",
+      "removeBody": "They lose access to {store} straight away. Their own account stays.",
+      "removeConfirm": "Remove",
+      "removed": "{name} removed",
+      "lastAdmin": "This is the last admin, so the role can’t change and they can’t be removed. Make someone else an admin first.",
+      "ok": "OK",
+      "alone": "It’s just you so far. Invite someone from {supplier} to share the work.",
+      "foot": "Admins invite and remove people and change roles; members work on products and stock. There’s always at least one admin. Everyone here sees only {supplier}’s products and orders in {store}.",
+      "readOnly": "Your team can’t change while this store is read-only."
     }
   }
 }
