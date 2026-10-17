@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { z } from 'zod'
-import { addressProblems, emailPattern, isPhone, type AddressDraft, type AddressField, type FieldProblem } from '../checkout/address'
+import { addressProblems, compact, emailPattern, isPhone, type AddressDraft, type AddressField, type FieldProblem } from '../checkout/address'
 import { ShopApiError } from '../platform/api/client'
 import { keepShopperToken, shopperToken } from '../platform/api/tokens'
 import { navigate, useLocation } from '../platform/browser/router'
@@ -146,7 +146,7 @@ const renameMutation = `mutation Rename($name: String) { updateAccount(name: $na
 const saveAddressMutation = `mutation SaveAddress($id: ID, $address: ShopSavedAddressInput!, $isDefault: Boolean) { saveAddress(id: $id, address: $address, isDefault: $isDefault) }`
 const deleteAddressMutation = `mutation DeleteAddress($id: ID!) { deleteAddress(id: $id) }`
 
-const draftOf = (a: AddressDraft) => ({ name: a.name.trim(), line1: a.line1.trim(), line2: a.line2.trim() || null, city: a.city.trim(), region: a.region.trim() || null, postalCode: a.postalCode.trim() || null, country: a.country, phone: a.phone.trim() || null })
+const draftOf = (a: AddressDraft) => ({ name: a.name.trim(), line1: a.line1.trim(), line2: a.line2.trim() || null, city: a.city.trim(), region: a.region.trim() || null, postalCode: a.postalCode.trim() || null, country: a.country, phone: compact(a.phone) || null })
 
 export type SavedAddress = AddressDraft & { id: string; isDefault: boolean }
 

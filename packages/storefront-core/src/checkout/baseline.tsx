@@ -119,7 +119,7 @@ export const BaselineCheckout = () => {
       return (
         <Form onSubmit={() => void c.saveContact(value).then(setContactErrors)}>
           <TextField label={t('checkout.email')} type="email" autoComplete="email" value={value.email} onChange={(email) => setContact({ ...value, email })} error={problem(contactErrors.email)} />
-          <TextField label={t('checkout.phone')} type="tel" autoComplete="tel" note={t('address.optional')} value={value.phone} onChange={(phone) => setContact({ ...value, phone })} error={problem(contactErrors.phone)} />
+          <TextField label={t('checkout.phone')} type="tel" autoComplete="tel" note={t('address.optional')} value={value.phone} onChange={(phone) => setContact({ ...value, phone })} error={contactErrors.phone === 'invalid' ? t('address.phoneInvalid') : problem(contactErrors.phone)} />
           <SubmitButton disabled={c.busy}>{t('checkout.continue')}</SubmitButton>
         </Form>
       )

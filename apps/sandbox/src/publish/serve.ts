@@ -64,5 +64,6 @@ export const shopFixture = (snapshot: CatalogueSnapshot, reports: ShopReport[]) 
     return { data: { reportStorefrontProblem: true } }
   }
   if (/^\s*query Store\b/.test(query)) return { data: { store: snapshot.store } }
+  if (/^\s*query Menu\b/.test(query)) return { data: { menu: [{ id: 'm1', label: 'Women', kind: 'page', url: '/about', children: [{ id: 'm2', label: 'Dresses', kind: 'page', url: '/faq' }, { id: 'm3', label: 'Kurtas', kind: 'page', url: '/contact' }] }] } }
   return { errors: [{ message: 'The offline Shop API has no answer for this.', extensions: { code: 'UNAVAILABLE' } }] }
 }

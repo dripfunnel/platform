@@ -144,6 +144,7 @@
     "emailHint": "For your receipt and order updates.",
     "phone": "Mobile number",
     "phoneHint": "The courier calls this number, and we text you order updates.",
+    "phoneInvalid": "Start with the country code, for example +91 98765 43210.",
     "optional": "Optional",
     "required": "Fill this in.",
     "invalid": "Check this; it doesn't look right.",

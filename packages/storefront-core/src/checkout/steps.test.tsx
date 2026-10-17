@@ -5,7 +5,7 @@ import { cartOf, line, usd } from '../../test/cart'
 import { Provided, shopAnswering } from '../../test/shop'
 import { createShopClient } from '../platform/api/client'
 import { guestShopState, storedShopState } from '../platform/api/tokens'
-import { addressProblems } from './address'
+import { addressProblems, isPhone } from './address'
 import { addressDraft, useCheckout, type CheckoutPage } from './checkout'
 
 const us = { name: 'Maya Chen', line1: '88 Neil Ave', line2: null, city: 'Columbus', region: 'OH', postalCode: '43215', country: 'US', phone: null }
@@ -101,6 +101,18 @@ describe('useCheckout', () => {
   })
 })
 
+describe('a spaced phone', () => {
+  it('is sent to the API without spaces or dashes', async () => {
+    const { asked } = engine()
+    mount()
+    await act(async () => undefined)
+    await act(async () => void (await page.saveContact({ email: 'maya@example.com', phone: ' +91 90647-79543 ' })))
+    expect(asked.find((a) => a.query.includes('setCartContact'))?.variables).toEqual({ email: 'maya@example.com', phone: '+919064779543' })
+    await act(async () => void (await page.saveAddress({ ...addressDraft(us, 'US'), phone: '+91 90647-79543' })))
+    expect((asked.find((a) => a.query.includes('setShippingAddress'))?.variables?.['address'] as { phone: string }).phone).toBe('+919064779543')
+  })
+})
+
 describe('addressProblems', () => {
   it('asks each country for its own fields and formats', () => {
     expect(addressProblems({ ...addressDraft(us, 'US'), postalCode: '4321' })).toEqual({ postalCode: 'invalid' })
@@ -108,5 +120,12 @@ describe('addressProblems', () => {
     expect(addressProblems({ ...addressDraft({ ...us, country: 'IN', postalCode: '5600', region: '' }, 'IN') })).toEqual({ postalCode: 'invalid', region: 'required' })
     expect(addressProblems({ ...addressDraft({ ...us, country: 'FR', postalCode: null, region: null }, 'FR') })).toEqual({})
     expect(addressProblems({ ...addressDraft(us, 'US'), phone: 'call me' })).toEqual({ phone: 'invalid' })
+  })
+  it('takes a phone only with its country code, as the API does', () => {
+    expect(isPhone('+91 90647-79543')).toBe(true)
+    expect(isPhone('+1 (555) 123-4567')).toBe(true)
+    expect(isPhone('+44.20.7946.0958')).toBe(true)
+    expect(isPhone('19064279543')).toBe(false)
+    expect(addressProblems({ ...addressDraft(us, 'US'), phone: '9876543210' })).toEqual({ phone: 'invalid' })
   })
 })

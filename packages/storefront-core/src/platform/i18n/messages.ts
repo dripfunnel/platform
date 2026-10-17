@@ -105,6 +105,7 @@ export const en = {
   'address.optional': 'Optional',
   'address.required': 'Fill this in.',
   'address.invalid': 'Check this; it doesn’t look right.',
+  'address.phoneInvalid': 'Start with the country code, for example +91 98765 43210.',
 } as const
 
 export type MessageKey = keyof typeof en
