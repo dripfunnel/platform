@@ -19,6 +19,17 @@ export const HomePage = () => {
           </Link>
         </div>
       </section>
+      <section className={styles.section}>
+        <h2 className={styles.heading}>{t('home.story.title')}</h2>
+        <p className={styles.body}>{t('home.story.body')}</p>
+      </section>
+      <section className={styles.section}>
+        <h2 className={styles.heading}>{t('home.contact.title')}</h2>
+        <p className={styles.body}>{t('home.contact.body')}</p>
+        <Link href="/contact/" className={styles.button}>
+          {t('home.contact.action')}
+        </Link>
+      </section>
       {status === 'loading' || collections.length ? (
         <section className={shop.band}>
           <h2 className={shop.heading}>{t('home.collections.title')}</h2>
@@ -55,17 +66,6 @@ export const HomePage = () => {
           {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={newest.products} />}
         </section>
       ) : null}
-      <section className={styles.section}>
-        <h2 className={styles.heading}>{t('home.story.title')}</h2>
-        <p className={styles.body}>{t('home.story.body')}</p>
-      </section>
-      <section className={styles.section}>
-        <h2 className={styles.heading}>{t('home.contact.title')}</h2>
-        <p className={styles.body}>{t('home.contact.body')}</p>
-        <Link href="/contact/" className={styles.button}>
-          {t('home.contact.action')}
-        </Link>
-      </section>
     </Layout>
   )
 }

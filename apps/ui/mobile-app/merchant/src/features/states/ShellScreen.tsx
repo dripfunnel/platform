@@ -20,7 +20,7 @@ export function ShellScreen({ label, state, onRetry, children }: { label: string
   const retry = onRetry ?? refresh
 
   return (
-    <ScrollView style={{ backgroundColor: colors.page }} contentContainerStyle={styles.content}>
+    <ScrollView keyboardShouldPersistTaps="handled" style={{ backgroundColor: colors.page }} contentContainerStyle={styles.content}>
       {screen === 'normal' ? (
         children
       ) : (

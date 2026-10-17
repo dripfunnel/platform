@@ -79,6 +79,37 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "Only the store owner can change this."
     },
+    "settingsPayments": {
+      "METHOD_UNAVAILABLE": "That way to pay isn’t available here. A bank transfer needs your bank details.",
+      "NOT_FOUND": "That isn’t here any more. Go back and open Payment setup again.",
+      "LAST_METHOD": "You can’t turn off your only way to get paid — shoppers couldn’t buy anything.",
+      "NOT_AVAILABLE": "Connecting this provider isn’t set up here yet.",
+      "SUPPORT_SESSION": "A support session can’t connect or disconnect payments. Someone in the store does it from their own account.",
+      "INVALID_KEYS": "Those keys aren’t in the shape this provider gives them. Copy them again from its dashboard, for the mode you chose.",
+      "KEYS_REFUSED": "The provider didn’t accept those keys. Check them in its dashboard and try again.",
+      "PROVIDER_UNAVAILABLE": "We couldn’t reach the provider to check those keys, so nothing changed. Try again in a minute.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change how you get paid."
+    },
+    "settingsShipping": {
+      "INVALID_INPUT": "Something here isn’t valid.",
+      "STALE": "Someone else saved shipping first. It now shows their changes with yours on top; check it and save again.",
+      "NO_METHOD": "Choose at least one way for shoppers to get their order.",
+      "NO_COURIER": "Connect a courier below first.",
+      "NO_ADDRESS": "Add your store’s address and postcode in Store info first: couriers quote from it.",
+      "NO_AREA_LIST": "Paste your list of codes, or choose “Everywhere”.",
+      "TOO_MANY": "That list is longer than a store can have. Keep it to 50,000 codes.",
+      "COURIER_NOT_OFFERED": "This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.",
+      "NOT_CONNECTED": "That courier isn’t connected, so nothing changed. It shows as not connected now.",
+      "NOT_FOUND": "That isn’t here any more. Go back and open Shipping again.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change shipping."
+    },
+    "settingsAccounts": {
+      "INVALID_INPUT": "Choose email, mobile or both.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "Only the store owner can change how shoppers sign in."
+    },
     "settingsWarehouse": {
       "TOO_MANY_WAREHOUSES": "You can have up to 20 locations. Remove one first.",
       "DEFAULT_WAREHOUSE": "Make another location the default first.",
@@ -272,6 +303,21 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "SUPPORT_READ_ONLY": "A read-only support session can’t change this store.",
       "INVALID_INPUT": "Something here isn’t valid. Check it and try again."
+    },
+    "imports": {
+      "INVALID_INPUT": "Choose a CSV file to import.",
+      "FILE_TOO_LARGE": "A file can be up to 5 MB. Split it and import each part.",
+      "NOT_FOUND": "That import isn’t here any more.",
+      "NOT_READY": "That import has already started, or its check isn’t finished.",
+      "NOTHING_TO_IMPORT": "No product in this file is ready to import. Fix the problems and choose it again.",
+      "WAREHOUSE_NOT_FOUND": "Choose one of your locations.",
+      "INVALID_SHOP": "We couldn’t find that Shopify store. Check the address in your Shopify admin, under Settings › Domains.",
+      "NOT_AVAILABLE": "Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead.",
+      "FORBIDDEN": "You can’t import or export products.",
+      "FEATURE_UNAVAILABLE": "Importing from a spreadsheet isn’t available in this store.",
+      "PLAN_LIMIT": "Your plan doesn’t include importing from a spreadsheet.",
+      "PLAN_LIMIT_REACHED": "Your plan doesn’t include importing from a spreadsheet.",
+      "READ_ONLY": "Your store is read-only until the bill is paid — nothing can be imported."
     }
   },
   "auth": {
@@ -1477,6 +1523,284 @@
     }
   },
   "settings": {
+    "payments": {
+      "gatewaysTitle": "Gateways",
+      "gatewaysSub": "How your shoppers pay you. The card that pays for your plan isn’t here.",
+      "gatewaysNote": "With more than one live, shoppers pick at checkout. Suggested for {country}.",
+      "gatewaysNoteBare": "With more than one live, shoppers pick at checkout.",
+      "otherTitle": "Other ways to get paid",
+      "otherSub": "Orders paid this way stay “Payment pending” until you mark them paid.",
+      "emptyTitle": "No ways to get paid here yet",
+      "emptyBody": "Payment providers are offered to stores in India and the United States. Your store’s country is set when it’s created.",
+      "desc": {
+        "stripe": "Cards, Apple Pay and Google Pay.",
+        "paypal": "PayPal balance and Pay Later.",
+        "razorpay": "Cards, UPI, netbanking and wallets.",
+        "cashfree": "Cards, UPI, netbanking.",
+        "phonepe": "UPI-first, with its own app handoff.",
+        "cod": "Your courier collects. Unpaid until the cash reaches you.",
+        "bank_transfer": "Your account details at checkout. Unpaid until you mark it paid."
+      },
+      "status": {
+        "live": "Live",
+        "test": "Test only",
+        "off": "Not connected",
+        "unavailable": "Not set up here yet"
+      },
+      "notOffered": "Connecting {name} isn’t set up on this platform yet. Ask your platform’s support.",
+      "testOnly": "Test keys only: your preview storefront takes test payments; your live storefront doesn’t offer it yet.",
+      "webhook": "{mode} webhook address, for {name}’s webhook settings:",
+      "modes": {
+        "live": "Live",
+        "test": "Test"
+      },
+      "bankShown": "Shoppers see: {details}",
+      "connect": "Connect",
+      "connectName": "Connect {name}",
+      "connectTitle": "Connect {name}",
+      "changeKeys": "Change keys",
+      "changeKeysName": "Change {name}’s keys",
+      "changeKeysTitle": "Change {name}’s keys",
+      "disconnect": "Disconnect",
+      "disconnectName": "Disconnect {name}",
+      "disconnectTitle": "Disconnect {name}?",
+      "setUp": "Set up",
+      "setUpName": "Set up {name}",
+      "setUpTitle": "Set up {name}",
+      "changeDetails": "Change details",
+      "changeDetailsName": "Change {name}’s details",
+      "changeDetailsTitle": "Change {name}’s details",
+      "turnOff": "Turn off",
+      "turnOffName": "Turn off {name}",
+      "turnOffTitle": "Turn off {name}?",
+      "turnOn": "Turn on",
+      "manageName": "Manage {name}",
+      "stripeTitle": "Connect Stripe on the web",
+      "stripeBody": "Stripe connects on the web portal. It opens in your phone’s browser: sign in there if it asks, tap Connect on Stripe’s row, and approve on Stripe’s page. Back in this app, Payment setup shows the result.",
+      "stripeGo": "Open in browser",
+      "stripeOpened": "Opened the web portal in your browser",
+      "keysBody": "Paste the keys from your {name} dashboard. The secrets are saved and never shown again. Shoppers can pay with it as soon as it connects.",
+      "keysMode": "Use them for",
+      "keysModes": {
+        "live": "Your live storefront: real payments",
+        "test": "Your preview storefront: test payments"
+      },
+      "keysMissing": "Paste every key to connect.",
+      "fields": {
+        "keyId": "Key id",
+        "keySecret": "Key secret",
+        "webhookSecret": "Webhook secret",
+        "appId": "App id",
+        "secretKey": "Secret key",
+        "clientId": "Client id",
+        "clientSecret": "Client secret",
+        "clientVersion": "Client version",
+        "webhookUsername": "Webhook username",
+        "webhookPassword": "Webhook password",
+        "webhookId": "Webhook id"
+      },
+      "connectedLive": "{name} connected — shoppers can pay with it now",
+      "connectedTest": "{name} test keys saved — your preview storefront takes test payments",
+      "codBody": "Your courier collects the money. Orders stay “Payment pending” until you mark them paid. Shoppers see it at checkout from now on.",
+      "bankBody": "Shoppers see these details at checkout and in their order confirmation, from now on.",
+      "bankLabel": "Your bank details",
+      "bankPlaceholderIN": "Account name, account number, IFSC",
+      "bankPlaceholder": "Account name, routing number, account number",
+      "bankMissing": "Type the details shoppers pay to.",
+      "bankTooLong": "Keep it to {max} characters.",
+      "turnedOn": "{name} is on at checkout",
+      "detailsSaved": "{name}: shoppers see the new details",
+      "offBody": "Shoppers stop seeing it at checkout. Orders already paid aren’t affected.",
+      "disconnectBody": "Shoppers stop seeing it at checkout, and its keys are removed. Orders already paid aren’t affected.",
+      "turnedOff": "{name} turned off",
+      "disconnected": "{name} disconnected"
+    },
+    "shipping": {
+      "chargeTitle": "What the shopper pays for delivery",
+      "chargeSub": "Turn on one or more: shoppers pick at checkout.",
+      "courierRate": "The courier’s live rate",
+      "courierRateBy": "Quoted at checkout by {name}, from address and weight.",
+      "courierRateNone": "Connect a courier below first.",
+      "flatRate": "A flat rate",
+      "flatRateSub": "Same charge on every order.",
+      "flatFallback": "Charged only when no courier can quote an order.",
+      "flatLabel": "Flat rate ({currency})",
+      "pickup": "Nothing — collect in person",
+      "pickupOff": "Your address and hours show at checkout instead.",
+      "pickupOn": "Shown at checkout: {address} · {hours}",
+      "pickupNoAddress": "your address from Store info",
+      "noHours": "no hours set yet",
+      "hoursLabel": "Days and hours",
+      "hoursPlaceholder": "Mon–Sat, 10 am – 6 pm",
+      "hoursBody": "Shown at checkout and in the order confirmation.",
+      "freeTitle": "When is delivery free?",
+      "free": {
+        "never": "Never — always charge",
+        "always": "Always — you pay for it",
+        "over": "On orders over an amount"
+      },
+      "freeOver": "Orders of {amount} or more ship free.",
+      "thresholdLabel": "Free over ({currency})",
+      "partnersTitle": "Delivery partners",
+      "partnersSub": "They quote rates, book pickups and send tracking.",
+      "partnersNone": "No delivery partners are offered for your store’s country yet.",
+      "partnersNote": "Fallback order: the pricing partner → the next connected one → your flat rate.",
+      "testAll": "Test all",
+      "testing": "Testing…",
+      "couriers": {
+        "shiprocket": "Shiprocket",
+        "easypost": "EasyPost",
+        "usps": "USPS",
+        "ups": "UPS",
+        "fedex": "FedEx"
+      },
+      "status": {
+        "pricing": "Pricing orders",
+        "standby": "Standby",
+        "failed": "Login rejected",
+        "off": "Not connected"
+      },
+      "descPricing": "Quotes every order at checkout · pickups {pickup} · labels {label}",
+      "descStandby": "Connected, not quoting.",
+      "descFailed": "Its login was rejected at the last test. Orders fall back to the next partner.",
+      "descNotOffered": "This courier isn’t set up on your platform yet. Ask your platform’s support to connect it.",
+      "lastTested": "Last tested {time}",
+      "pickupModes": {
+        "scheduled": "every working day",
+        "on_request": "you book each one"
+      },
+      "labelSizes": {
+        "a6": "A6",
+        "a4": "A4",
+        "4x6": "4 × 6 in",
+        "letter": "Letter"
+      },
+      "connect": "Connect",
+      "connectName": "Connect {name}",
+      "connectBody": "{name} works on your platform’s own account, so there’s no key to enter. It prices orders at checkout if no other courier does, and otherwise waits on standby.",
+      "connectedPricing": "{name} connected — it prices orders at checkout",
+      "connectedStandby": "{name} connected, on standby",
+      "usePricing": "Use for pricing",
+      "usePricingName": "Use {name} for pricing",
+      "usePricingBody": "{name} will quote every order at checkout from now on, and the one that does now goes to standby.",
+      "nowPricing": "{name} prices orders now — the one before is on standby",
+      "manage": "Manage",
+      "manageName": "Manage {name}",
+      "manageBody": "How {name} picks up and labels your parcels. It applies to every new order.",
+      "pickupsLabel": "Pickups",
+      "pickupChoices": {
+        "scheduled": "Every working day",
+        "on_request": "You book each one from the order"
+      },
+      "labelLabel": "Label size",
+      "trackingLabel": "Tracking emails to shoppers",
+      "trackingChoices": {
+        "on": "On: sent when the courier scans the parcel",
+        "off": "Off"
+      },
+      "optionsSaved": "{name}: pickups, labels and tracking saved",
+      "disconnect": "Disconnect",
+      "disconnectTitle": "Disconnect {name}?",
+      "disconnectTakesOver": "{next} takes over pricing orders.",
+      "disconnectLast": "No courier is left to quote, so checkout stops offering the courier’s rate.",
+      "disconnectStandby": "It stops being the fallback for pricing.",
+      "disconnected": "{name} disconnected",
+      "disconnectedNext": "{name} disconnected — {next} prices orders now",
+      "testAllOk": "All {count} answered",
+      "testSome": "{bad} of {count} didn’t answer",
+      "testNone": "Connect a courier first: there is nothing to test.",
+      "testResults": {
+        "ok": "{name} — quoted a test parcel to your own address in {seconds} s",
+        "rejected": "{name} — login rejected. Ask your platform’s support to check its account.",
+        "unavailable": "{name} — didn’t answer. Try again in a minute.",
+        "unserved": "{name} — doesn’t deliver to your address."
+      },
+      "areaTitle": "Where you deliver",
+      "everywhere": "Everywhere my couriers reach",
+      "everywhereSub": "In the countries set up in Markets.",
+      "list": "Only {label}s I paste",
+      "listSub": "A shopper outside your area is told at the address step, not at payment.",
+      "listFile": "{file} · {count} codes, e.g. {sample}",
+      "listNone": "No list yet. Paste one to deliver only there.",
+      "paste": "Paste a list",
+      "replace": "Replace the list",
+      "pasteTitle": "Paste your {label} list",
+      "pasteBody": "This replaces the list you have now, at once. Separate the {label}s with commas, spaces or new lines; anything that isn’t one is left out. Then save shipping to deliver only there.",
+      "codesLabel": "The {label}s you deliver to",
+      "useList": "Use this list",
+      "pastedName": "Pasted in the app",
+      "postal": {
+        "IN": "PIN code",
+        "US": "ZIP code",
+        "other": "postcode"
+      },
+      "noCodes": "We couldn’t find any {label}s in what you pasted.",
+      "tooMany": "That has more than {max} codes. Keep it to {max}.",
+      "areaRead": "{count} {label}s kept — checkout uses them now",
+      "areaReadSave": "{count} {label}s kept. Save shipping to deliver only there.",
+      "saveShipping": "Save shipping",
+      "saveNote": "Saving changes what shoppers pay for delivery at checkout, from now on.",
+      "saved": "Shipping saved — checkout uses it now",
+      "missing": {
+        "flat": "Type a flat rate.",
+        "threshold": "Type the amount orders ship free over.",
+        "hours": "Set your collection hours first — shoppers need to know when to come.",
+        "list": "Paste your {label} list, or choose “Everywhere”.",
+        "method": "Choose at least one way for shoppers to get their order.",
+        "courier": "Connect a courier below first.",
+        "amount": "Type an amount like {example}."
+      }
+    },
+    "accounts": {
+      "title": "Customer accounts",
+      "sub": "How shoppers create an account and sign in on your storefront.",
+      "modesLabel": "How shoppers sign in",
+      "modes": {
+        "email": {
+          "label": "Email and password",
+          "sub": "Shoppers register with an email address and a password."
+        },
+        "mobile": {
+          "label": "Mobile number and a text code",
+          "sub": "Shoppers sign in with a 6-digit code sent by text. No password to forget."
+        },
+        "both": {
+          "label": "Both",
+          "sub": "Shoppers pick. One account can hold an email and a mobile number."
+        }
+      },
+      "bothIndia": " Most shops in India choose this.",
+      "dropsMobile": {
+        "one": "1 customer has only a mobile number. They keep their account and orders, but can’t sign in while your storefront takes email only.",
+        "other": "{total} customers have only a mobile number. They keep their accounts and orders, but can’t sign in while your storefront takes email only."
+      },
+      "seeTitle": "What shoppers see",
+      "see": {
+        "email": "Sign in and Create account ask for an email and a password, with “Forgot password?”.",
+        "mobile": "Sign in asks for a mobile number, then a code. New shoppers are signed up the same way.",
+        "both": "Sign in shows two tabs, Email and Mobile number."
+      },
+      "guests": "Guests can always check out without an account. A guest who later signs in with the same {key} sees their earlier orders{phone}.",
+      "guestKey": {
+        "email": "email",
+        "mobile": "mobile number",
+        "both": "email or mobile number"
+      },
+      "guestPhone": " — a mobile number only once they prove it with a code",
+      "sms": "Codes are sent through your platform’s text-message account ({service}).",
+      "smsServices": {
+        "IN": "MSG91",
+        "other": "Twilio"
+      },
+      "counts": "{customers} · {email} with email · {phone} with a mobile number",
+      "customersCount": {
+        "one": "1 customer account",
+        "other": "{total} customer accounts"
+      },
+      "askTitle": "Change how shoppers sign in?",
+      "askBody": "Your storefront’s sign-in follows it from now on.",
+      "saved": "Saved. Your storefront’s sign-in follows it from now on."
+    },
     "common": {
       "save": "Save",
       "remove": "Remove",
@@ -1494,7 +1818,10 @@
       "warehouse": "Warehouse",
       "tax": "Tax setup",
       "markets": "Markets",
-      "catalogue": "Catalogue"
+      "catalogue": "Catalogue",
+      "payments": "Payment setup",
+      "shipping": "Shipping",
+      "accounts": "Customer accounts"
     },
     "tabSubs": {
       "store": "Name, contact, address, currencies and languages",
@@ -1503,7 +1830,10 @@
       "warehouse": "Where your stock sits",
       "tax": "How prices are typed, tax rates and invoices",
       "markets": "Countries you sell to, with their prices and rules",
-      "catalogue": "Product page sections and badges"
+      "catalogue": "Product page sections and badges",
+      "payments": "How shoppers pay you: cards, cash on delivery, bank transfer",
+      "shipping": "What delivery costs, when it’s free, couriers and where you deliver",
+      "accounts": "How shoppers sign in to your storefront"
     },
     "store": {
       "title": "Your store",
@@ -2678,6 +3008,200 @@
       "deleteEmpty": "Nobody is in this group. Offers for {name} stop applying to it.",
       "deleteConfirm": "Delete group",
       "deleted": "{name} deleted"
+    }
+  },
+  "imports": {
+    "title": "Import & export",
+    "titleExport": "Export",
+    "lede": "Bring products in from a spreadsheet or Shopify. Nothing changes in your catalogue until you confirm.",
+    "entry": "Import & export",
+    "entryExport": "Export",
+    "readOnly": "Your store is read-only until the bill is paid, so nothing can be imported. Exports still work.",
+    "steps": {
+      "choose": "Choose",
+      "check": "Check",
+      "import": "Import",
+      "done": "Done",
+      "label": "Step {number} of 4: {step}"
+    },
+    "sources": {
+      "file": {
+        "title": "Import from a spreadsheet",
+        "body": "A CSV file, or Shopify’s product export. Our template has one example row.",
+        "cta": "Choose a file"
+      },
+      "shopify": {
+        "title": "Bring products from Shopify",
+        "body": "Connect your Shopify store and pick what to bring over — photos, choices and all.",
+        "cta": "Connect Shopify"
+      },
+      "template": {
+        "title": "Download the template",
+        "body": "Every column we read, with one example row: name, price, stock, product code, photos and the rest.",
+        "cta": "Share template.csv"
+      }
+    },
+    "fileErrors": {
+      "type": {
+        "title": "That file type can’t be imported",
+        "body": "{name} isn’t a CSV file. Save it as CSV (in Excel: File › Save a copy › CSV) and choose it again."
+      },
+      "big": {
+        "title": "That file is too big",
+        "body": "{name} is {size}; the limit is 5 MB. Split it into two files, or import from Shopify instead.",
+        "size": "{value} MB"
+      },
+      "empty": {
+        "title": "That file has no products in it",
+        "body": "{name} has a header row but nothing under it. Add at least one product, one per row."
+      },
+      "cols": {
+        "title": "Some columns we need are missing",
+        "body": "{name} has no “name” or “handle” column. Share the current template, or rename your columns to match it."
+      },
+      "unreadable": {
+        "title": "That file couldn’t be read",
+        "body": "{name} didn’t open. Choose it again, or save a copy as CSV first."
+      },
+      "other": {
+        "title": "That file can’t be imported",
+        "body": "{name} couldn’t be checked."
+      },
+      "chooseAnother": "Choose another file",
+      "notice": "{title}. {body}"
+    },
+    "shopify": {
+      "title": "Connect your Shopify store",
+      "address": "Your Shopify store address",
+      "placeholder": "your-store",
+      "suffix": ".myshopify.com",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "again": "Connect again",
+      "note": "We’ll open Shopify in your browser so you can approve read-only access. The browser then lands on your portal, which may ask you to sign in. Come back to the app when it says Shopify is connected.",
+      "waiting": "Waiting for Shopify. Approve in the browser, then come back here.",
+      "checkAgain": "Check again",
+      "notYet": "Shopify isn’t connected yet. Finish in the browser, then check again.",
+      "expired": "Shopify stopped letting us in — the connection expired. Connect again to carry on.",
+      "required": "Type your Shopify store address",
+      "unavailable": "Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead, with “Import from a spreadsheet”.",
+      "away": "Shopify isn’t answering right now. Try again in a minute."
+    },
+    "pick": {
+      "title": "Connected to {shop} · pick products",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "allChosen": "Every product in your shop is chosen.",
+      "more": "Show more",
+      "loading": "Reading your shop…",
+      "back": "Back",
+      "check": {
+        "one": "Check {count} product",
+        "other": "Check {count} products"
+      },
+      "checkAll": "Check all products",
+      "none": "Pick at least one product",
+      "max": "You can pick up to 250. To bring more, choose “Select all”.",
+      "versions": {
+        "one": "{count} version",
+        "other": "{count} versions"
+      },
+      "loadAll": "Every product in your shop is chosen. To leave some out, show every page first, or clear all and tick the ones you want.",
+      "moreFailed": "Those products didn’t load. What you’ve ticked is kept; try again.",
+      "failed": "Your shop’s products didn’t load",
+      "failedBody": "Nothing was changed. Try again in a moment.",
+      "metaDraft": "Draft · {versions}",
+      "metaArchived": "Archived · {versions}"
+    },
+    "checking": {
+      "file": "Checking your file…",
+      "shopify": "Reading your shop’s products…"
+    },
+    "check": {
+      "fileName": "{name} · {count}",
+      "rows": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "ready": "{count} ready",
+      "readyNote": "{new} new · {matched} you already have (matched by product code)",
+      "existing": "Products you already have ({count})",
+      "update": "Update them with the file",
+      "skip": "Skip them, only add new ones",
+      "stockIn": "Put imported stock in",
+      "isDefault": "{name} (default)",
+      "fix": "What to fix",
+      "file": "the file",
+      "moreProblems": {
+        "one": "{count} more is in the file.",
+        "other": "{count} more are in the file."
+      },
+      "restart": "Choose a fixed file",
+      "run": {
+        "one": "Import {count} product",
+        "other": "Import {count} products"
+      },
+      "problemsNote": "{count} with problems. Fix them in your file and choose it again, or import the ready ones now.",
+      "rowIn": "Row {line} · {column}"
+    },
+    "running": {
+      "title": {
+        "one": "Importing {count} product",
+        "other": "Importing {count} products"
+      },
+      "progress": "{done} of {total} done. You can leave this screen — the import carries on, and you’ll find it here again.",
+      "progressLabel": "Import progress",
+      "leave": "Go to Products while it runs",
+      "paused": "Paused — you’re offline. Nothing is half-saved: the products done so far are in, and the rest carry on when you reconnect."
+    },
+    "done": {
+      "title": "{added} added · {updated} updated",
+      "skipped": {
+        "one": "{count} product with problems was skipped.",
+        "other": "{count} products with problems were skipped."
+      },
+      "failed": {
+        "one": "{count} product couldn’t be saved.",
+        "other": "{count} products couldn’t be saved."
+      },
+      "photos": {
+        "one": "{count} photo is still coming in.",
+        "other": "{count} photos are still coming in."
+      },
+      "problemsHead": "What didn’t go in",
+      "share": "Share what didn’t go in",
+      "view": "See your products",
+      "another": "Import another file"
+    },
+    "stopped": {
+      "title": "The import stopped",
+      "body": "Nothing more was changed. Try again, or import a file instead.",
+      "retry": "Start again"
+    },
+    "export": {
+      "title": "Export",
+      "lede": "Your files are made in the background. When one is ready, share it or save it to your phone.",
+      "products": "Export products",
+      "stock": "Export stock",
+      "preparing": "Preparing your file… big exports run in the background.",
+      "row": "{label} · {count}",
+      "label": {
+        "products": "Products",
+        "stock": "Stock"
+      },
+      "count": {
+        "one": "{count} row",
+        "other": "{count} rows"
+      },
+      "counting": "…",
+      "share": "Share",
+      "expired": "Expired",
+      "tooLarge": "Too large",
+      "failed": "Couldn’t be made",
+      "truncated": "Only the first {count} rows are in it.",
+      "shareFailed": "The file couldn’t be shared. Try again.",
+      "loadFailed": "Your recent exports didn’t load.",
+      "failedNote": "The export couldn’t be made. Try again."
     }
   }
 }

@@ -20,6 +20,17 @@ export const HomePage = () => {
         </div>
         <div className={styles.picture} />
       </section>
+      <section className={styles.section}>
+        <h2 className={styles.heading}>{t('home.story.title')}</h2>
+        <p className={styles.body}>{t('home.story.body')}</p>
+      </section>
+      <section className={styles.section}>
+        <h2 className={styles.heading}>{t('home.join.title')}</h2>
+        <p className={styles.body}>{t('home.join.body')}</p>
+        <Link href="/register/" className={styles.button}>
+          {t('home.join.action')}
+        </Link>
+      </section>
       {status === 'loading' || collections.length ? (
         <section className={shop.band}>
           <h2 className={shop.heading}>{t('home.collections.title')}</h2>
@@ -56,17 +67,6 @@ export const HomePage = () => {
           {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={newest.products} />}
         </section>
       ) : null}
-      <section className={styles.section}>
-        <h2 className={styles.heading}>{t('home.story.title')}</h2>
-        <p className={styles.body}>{t('home.story.body')}</p>
-      </section>
-      <section className={styles.section}>
-        <h2 className={styles.heading}>{t('home.join.title')}</h2>
-        <p className={styles.body}>{t('home.join.body')}</p>
-        <Link href="/register/" className={styles.button}>
-          {t('home.join.action')}
-        </Link>
-      </section>
     </Layout>
   )
 }

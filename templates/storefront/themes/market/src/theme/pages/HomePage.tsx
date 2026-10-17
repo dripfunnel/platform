@@ -20,6 +20,13 @@ export const HomePage = () => {
         </div>
         <div className={styles.picture} />
       </section>
+      <section className={styles.banner}>
+        <h2 className={styles.heading}>{t('home.banner.title')}</h2>
+        <p className={styles.body}>{t('home.banner.body')}</p>
+        <Link href="/search/" className={styles.bannerButton}>
+          {t('home.banner.action')}
+        </Link>
+      </section>
       {status === 'loading' || collections.length ? (
         <section className={shop.band}>
           <h2 className={shop.heading}>{t('home.collections.title')}</h2>
@@ -56,13 +63,6 @@ export const HomePage = () => {
           {newest.status === 'loading' ? <GridPlaceholder label={t('shop.listing.loading')} count={4} /> : <ProductGrid products={newest.products} />}
         </section>
       ) : null}
-      <section className={styles.banner}>
-        <h2 className={styles.heading}>{t('home.banner.title')}</h2>
-        <p className={styles.body}>{t('home.banner.body')}</p>
-        <Link href="/search/" className={styles.bannerButton}>
-          {t('home.banner.action')}
-        </Link>
-      </section>
     </Layout>
   )
 }
