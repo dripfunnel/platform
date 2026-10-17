@@ -10,6 +10,7 @@ export const NavItem = ({ item }: { item: MenuItem }) => {
   const toggle = useRef<HTMLButtonElement>(null)
   const leaving = useRef<ReturnType<typeof setTimeout>>(undefined)
   const hovered = useRef(false)
+  const focused = useRef(false)
   const show = (value: boolean) => {
     clearTimeout(leaving.current)
     setOpen(value)
@@ -30,10 +31,15 @@ export const NavItem = ({ item }: { item: MenuItem }) => {
       onPointerLeave={(e) => {
         if (e.pointerType !== 'mouse') return
         hovered.current = false
-        show(false)
+        if (!focused.current) show(false)
       }}
-      onFocus={(e) => (e.target === (toggle.current as EventTarget | null) ? clearTimeout(leaving.current) : show(true))}
+      onFocus={(e) => {
+        focused.current = true
+        if (e.target === (toggle.current as EventTarget | null)) clearTimeout(leaving.current)
+        else show(true)
+      }}
       onBlur={() => {
+        focused.current = false
         leaving.current = setTimeout(() => setOpen(false), 0)
       }}
     >
