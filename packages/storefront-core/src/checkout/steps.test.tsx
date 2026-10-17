@@ -101,6 +101,18 @@ describe('useCheckout', () => {
   })
 })
 
+describe('a spaced phone', () => {
+  it('is sent to the API without spaces or dashes', async () => {
+    const { asked } = engine()
+    mount()
+    await act(async () => undefined)
+    await act(async () => void (await page.saveContact({ email: 'maya@example.com', phone: ' +91 90647-79543 ' })))
+    expect(asked.find((a) => a.query.includes('setCartContact'))?.variables).toEqual({ email: 'maya@example.com', phone: '+919064779543' })
+    await act(async () => void (await page.saveAddress({ ...addressDraft(us, 'US'), phone: '+91 90647-79543' })))
+    expect((asked.find((a) => a.query.includes('setShippingAddress'))?.variables?.['address'] as { phone: string }).phone).toBe('+919064779543')
+  })
+})
+
 describe('addressProblems', () => {
   it('asks each country for its own fields and formats', () => {
     expect(addressProblems({ ...addressDraft(us, 'US'), postalCode: '4321' })).toEqual({ postalCode: 'invalid' })

@@ -34,7 +34,7 @@ export const addressFields = (country: string): { field: AddressField; label: Me
 
 // The same shape the API accepts (E.164), spaces and dashes aside.
 const phonePattern = /^\+[1-9]\d{6,14}$/
-const compact = (value: string) => value.trim().replaceAll(/[\s-]/g, '')
+export const compact = (value: string) => value.trim().replaceAll(/[\s-]/g, '')
 
 /** What is missing or malformed; empty when the address can be sent. */
 export const addressProblems = (a: AddressDraft): Partial<Record<AddressField, FieldProblem>> => {

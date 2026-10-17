@@ -178,6 +178,8 @@ describe('useAccount', () => {
     })
     expect(problems).toEqual({})
     expect(asked.find((a) => a.query.includes('saveAddress'))?.variables).toEqual({ id: null, isDefault: true, address: { name: 'Maya Chen', line1: '1 Main St', line2: null, city: 'Austin', region: 'TX', postalCode: '78701', country: 'US', phone: null } })
+    await act(async () => void (await shown(account).saveAddress({ id: null, address: { ...draft, postalCode: '78701', phone: '+91 90647-79543' }, isDefault: false })))
+    expect(asked.filter((a) => a.query.includes('saveAddress')).at(-1)?.variables).toMatchObject({ address: { phone: '+919064779543' } })
     refuse = true
     await act(async () => void (await shown(account).removeAddress('a-1')))
     expect(shown(account).error).toEqual({ code: 'TOO_MANY', of: 'addresses' })
