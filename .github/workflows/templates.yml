@@ -31,7 +31,7 @@ jobs:
     environment: dev
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     env:
-      R2_STOREFRONT_ACCOUNT_ID: ${{ vars.R2_STOREFRONT_ACCOUNT_ID }}
+      R2_STOREFRONT_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       R2_STOREFRONT_ACCESS_KEY_ID: ${{ secrets.R2_STOREFRONT_ACCESS_KEY_ID }}
       R2_STOREFRONT_SECRET_ACCESS_KEY: ${{ secrets.R2_STOREFRONT_SECRET_ACCESS_KEY }}
       STOREFRONT_SITES_BUCKET: ${{ vars.STOREFRONT_SITES_BUCKET }}
