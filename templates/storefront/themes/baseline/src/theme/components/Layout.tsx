@@ -19,7 +19,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           <Menu label={t('common.nav.menu')}>
             <nav className={styles.nav} aria-label={t('common.nav.label')}>
               {menu.items.length ? (
-                menu.items.map((item) => <NavItem key={item.id} item={item} toggleLabel={t('common.nav.submenu')} />)
+                menu.items.map((item) => <NavItem key={item.id} item={item} />)
               ) : (
                 <Link href="/collections/all/" className={styles.navLink}>
                   {t('common.nav.shop')}

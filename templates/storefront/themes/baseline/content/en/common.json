@@ -2,7 +2,7 @@
   "nav": {
     "label": "Main",
     "menu": "Menu",
-    "submenu": "Submenu",
+    "submenu": "Submenu: {item}",
     "shop": "Shop",
     "about": "About",
     "contact": "Contact"

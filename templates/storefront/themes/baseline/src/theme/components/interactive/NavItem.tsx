@@ -1,24 +1,39 @@
 'use client'
 
-import { useState } from 'react'
-import { Link, type MenuItem } from '@dripfunnel/storefront-core/theme'
+import { useRef, useState } from 'react'
+import { Link, useStorefront, type MenuItem } from '@dripfunnel/storefront-core/theme'
 import styles from '../../styles/layout.module.css'
 
-export const NavItem = ({ item, toggleLabel }: { item: MenuItem; toggleLabel: string }) => {
+export const NavItem = ({ item }: { item: MenuItem }) => {
+  const { t } = useStorefront()
   const [open, setOpen] = useState(false)
+  const toggle = useRef<HTMLButtonElement>(null)
+  const leaving = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const show = (value: boolean) => {
+    clearTimeout(leaving.current)
+    setOpen(value)
+  }
   return (
     <div
       className={styles.navItem}
-      onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-      onPointerEnter={(e) => e.pointerType === 'mouse' && setOpen(true)}
-      onPointerLeave={(e) => e.pointerType === 'mouse' && setOpen(false)}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' || !open) return
+        show(false)
+        toggle.current?.focus()
+      }}
+      onPointerEnter={(e) => e.pointerType === 'mouse' && show(true)}
+      onPointerLeave={(e) => e.pointerType === 'mouse' && show(false)}
+      onFocus={(e) => (e.target === (toggle.current as EventTarget | null) ? clearTimeout(leaving.current) : show(true))}
+      onBlur={() => {
+        leaving.current = setTimeout(() => setOpen(false), 0)
+      }}
     >
       <Link href={item.href} className={styles.navLink}>
         {item.label}
       </Link>
       {item.children.length ? (
         <>
-          <button type="button" className={styles.subToggle} aria-expanded={open} aria-label={`${toggleLabel}: ${item.label}`} onClick={() => setOpen(!open)}>
+          <button ref={toggle} type="button" className={styles.subToggle} aria-expanded={open} aria-label={t('common.nav.submenu', { item: item.label })} onClick={() => show(!open)}>
             <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M6 9l6 6 6-6" />
             </svg>

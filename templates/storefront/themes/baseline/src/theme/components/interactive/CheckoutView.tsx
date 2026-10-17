@@ -73,7 +73,7 @@ export const CheckoutView = () => {
         <Form
           className={styles.form}
           onSubmit={() =>
-            void c.saveContact({ email: email ?? cart.email ?? '', phone: phone ?? cart.phone ?? '' }).then((errors) => setContactErrors({ email: problem(errors.email) ?? undefined, phone: problem(errors.phone) ?? undefined }))
+            void c.saveContact({ email: email ?? cart.email ?? '', phone: phone ?? cart.phone ?? '' }).then((errors) => setContactErrors({ email: problem(errors.email) ?? undefined, phone: (errors.phone === 'invalid' ? t('shop.checkout.phoneInvalid') : problem(errors.phone)) ?? undefined }))
           }
         >
           {c.mode === 'live' ? (
