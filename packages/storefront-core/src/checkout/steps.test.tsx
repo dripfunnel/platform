@@ -123,6 +123,8 @@ describe('addressProblems', () => {
   })
   it('takes a phone only with its country code, as the API does', () => {
     expect(isPhone('+91 90647-79543')).toBe(true)
+    expect(isPhone('+1 (555) 123-4567')).toBe(true)
+    expect(isPhone('+44.20.7946.0958')).toBe(true)
     expect(isPhone('19064279543')).toBe(false)
     expect(addressProblems({ ...addressDraft(us, 'US'), phone: '9876543210' })).toEqual({ phone: 'invalid' })
   })
