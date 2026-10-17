@@ -128,6 +128,9 @@
 .subLink:hover {
   background: var(--header-hover);
 }
+.subToggle {
+  display: none;
+}
 
 .tools {
   display: flex;
@@ -354,8 +357,29 @@
     background: var(--header-bg);
     box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
   }
+  .navItem {
+    display: flex;
+    align-items: center;
+  }
+  .subToggle {
+    display: flex;
+    width: 28px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--header-ink);
+    cursor: pointer;
+  }
+  .subToggle .icon {
+    width: 16px;
+    height: 16px;
+  }
   .navItem:hover .subnav,
-  .navItem:focus-within .subnav {
+  .navItem:focus-within .subnav,
+  .subnavOpen {
     display: flex;
   }
 

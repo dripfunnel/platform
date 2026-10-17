@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ConsentBanner, ConsentSettingsButton, Link, PoweredBy, PreviewBanner, useCart, useMenu, useStorefront } from '@dripfunnel/storefront-core/theme'
 import { Menu } from './interactive/Menu'
+import { NavItem } from './interactive/NavItem'
 import styles from '../styles/layout.module.css'
 
 export const Layout = ({ children }: { children: ReactNode }) => {
@@ -18,22 +19,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           <Menu label={t('common.nav.menu')}>
             <nav className={styles.nav} aria-label={t('common.nav.label')}>
               {menu.items.length ? (
-                menu.items.map((item) => (
-                  <div key={item.id} className={styles.navItem}>
-                    <Link href={item.href} className={styles.navLink}>
-                      {item.label}
-                    </Link>
-                    {item.children.length ? (
-                      <div className={styles.subnav}>
-                        {item.children.map((child) => (
-                          <Link key={child.id} href={child.href} className={styles.subLink}>
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ))
+                menu.items.map((item) => <NavItem key={item.id} item={item} toggleLabel={t('common.nav.submenu')} />)
               ) : (
                 <Link href="/collections/all/" className={styles.navLink}>
                   {t('common.nav.shop')}

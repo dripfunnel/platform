@@ -122,7 +122,7 @@ export const AddressFields = ({ value, onChange, countries, errors, t, locale, f
           value={value[f.field]}
           type={f.field === 'phone' ? 'tel' : 'text'}
           autoComplete={f.autoComplete}
-          error={problem(errors[f.field])}
+          error={f.field === 'phone' && errors.phone === 'invalid' ? t('address.phoneInvalid') : problem(errors[f.field])}
           onChange={(v) => onChange({ ...value, [f.field]: v })}
           className={fieldClassName}
         />

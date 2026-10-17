@@ -2,6 +2,7 @@
   "nav": {
     "label": "Main",
     "menu": "Menu",
+    "submenu": "Show submenu",
     "shop": "Shop",
     "about": "About",
     "contact": "Contact"
