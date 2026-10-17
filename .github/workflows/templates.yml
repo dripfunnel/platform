@@ -38,7 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # The tip, not the release's commit: a newer push must never be overwritten by older templates.
+          ref: dev
       - uses: ./.github/actions/setup
       # The dev release publishes only `<version>-dev.<run>` (release.yml), so name the highest of those. A push can
       # land while a newer release still runs; the `workflow_run` trigger then corrects it.
