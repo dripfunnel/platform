@@ -9,6 +9,7 @@ export const NavItem = ({ item }: { item: MenuItem }) => {
   const [open, setOpen] = useState(false)
   const toggle = useRef<HTMLButtonElement>(null)
   const leaving = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const hovered = useRef(false)
   const show = (value: boolean) => {
     clearTimeout(leaving.current)
     setOpen(value)
@@ -21,8 +22,16 @@ export const NavItem = ({ item }: { item: MenuItem }) => {
         show(false)
         toggle.current?.focus()
       }}
-      onPointerEnter={(e) => e.pointerType === 'mouse' && show(true)}
-      onPointerLeave={(e) => e.pointerType === 'mouse' && show(false)}
+      onPointerEnter={(e) => {
+        if (e.pointerType !== 'mouse') return
+        hovered.current = true
+        show(true)
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType !== 'mouse') return
+        hovered.current = false
+        show(false)
+      }}
       onFocus={(e) => (e.target === (toggle.current as EventTarget | null) ? clearTimeout(leaving.current) : show(true))}
       onBlur={() => {
         leaving.current = setTimeout(() => setOpen(false), 0)
@@ -33,7 +42,7 @@ export const NavItem = ({ item }: { item: MenuItem }) => {
       </Link>
       {item.children.length ? (
         <>
-          <button ref={toggle} type="button" className={styles.subToggle} aria-expanded={open} aria-label={t('common.nav.submenu', { item: item.label })} onClick={() => show(!open)}>
+          <button ref={toggle} type="button" className={styles.subToggle} aria-expanded={open} aria-label={t('common.nav.submenu', { item: item.label })} onClick={() => show(hovered.current || !open)}>
             <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M6 9l6 6 6-6" />
             </svg>
