@@ -12,7 +12,8 @@ import { isThemePath } from '#saas/storefronts/paths'
 // `--remote` writes STOREFRONT_SITES_BUCKET over R2's S3 API with the R2_STOREFRONT_* keys (#730).
 const repo = fileURLToPath(new URL('../../../../', import.meta.url))
 const templates = `${repo}templates/storefront/`
-const core = (JSON.parse(readFileSync(`${repo}packages/storefront-core/package.json`, 'utf8')) as { version: string }).version
+const coreFlag = process.argv.indexOf('--core')
+const core = coreFlag > 0 ? process.argv[coreFlag + 1] : (JSON.parse(readFileSync(`${repo}packages/storefront-core/package.json`, 'utf8')) as { version: string }).version
 const tracked = (dir: string) => execFileSync('git', ['ls-files', '-z', '--', dir], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean)
 const read = (path: string) => ({ path, content: readFileSync(`${repo}${path}`, 'utf8') })
 
