@@ -40,7 +40,7 @@ const putRemote = async (t: NonNullable<typeof target>, key: string, body: strin
   const headers = { host, 'content-type': contentType, 'x-amz-content-sha256': sha256Hex(body), 'x-amz-date': amzDate(new Date()) }
   const signed = await authorization({ accessKeyId: t.keyId, secretAccessKey: t.secret, region: 'auto', service: 's3' }, { method: 'PUT', path, headers, body })
   const response = await fetch(`https://${host}${path}`, { method: 'PUT', headers: { ...headers, authorization: signed }, body })
-  if (!response.ok) throw new Error(`PUT ${key} answered ${response.status}`)
+  if (!response.ok) throw new Error(`PUT ${key} answered ${response.status}: ${(await response.text()).slice(0, 300)}`)
 }
 const put = async (key: string, body: string, contentType = 'application/json') => {
   if (target) return putRemote(target, key, body, contentType)
