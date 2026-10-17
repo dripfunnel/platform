@@ -162,6 +162,52 @@ describe.each(keys)('the %s theme', (key) => {
     }
   })
 
+  it.runIf(key === 'baseline')('opens its menu children on hover and focus, and closes them on Escape and when focus leaves', async ({ skip }) => {
+    if (!browser) return skip()
+    const out = join(root, `${key}-menu`)
+    const built = await bundle(dir, out)
+    if (!built.ok) throw new Error(JSON.stringify(built.problems))
+    const origin = 'https://k7f3q9f2xa.webpreview.store'
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    await context.route('**/*', async (route) => {
+      const url = new URL(route.request().url())
+      if (url.origin !== origin) return route.abort('blockedbyclient')
+      if (url.pathname === '/shop-api') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(shopFixture(snapshot, [])(route.request().postData() ?? '')) })
+      const found = url.pathname.startsWith(`/${runtimeFolder}`) ? await fileFor([runtime], url.pathname.slice(runtimeFolder.length + 1)) : await fileFor([out], url.pathname)
+      const file = found ?? (/\.[a-z]+$/.test(url.pathname) ? null : await fileFor([out], '/index.html'))
+      if (!file) return route.fulfill({ status: 404 })
+      return route.fulfill({ status: 200, body: file.bytes, contentType: file.rel.endsWith('.css') ? 'text/css' : file.rel.endsWith('.js') ? 'text/javascript' : 'text/html' })
+    })
+    try {
+      const page = await context.newPage()
+      await page.goto(`${origin}/`)
+      const toggle = page.getByRole('button', { name: /Women/ })
+      const child = page.getByRole('link', { name: 'Dresses' })
+      await toggle.waitFor()
+      await expect(child.isVisible()).resolves.toBe(false)
+      await page.getByRole('link', { name: 'Women' }).focus()
+      await expect(child.isVisible()).resolves.toBe(true)
+      await toggle.focus()
+      await expect(child.isVisible()).resolves.toBe(true)
+      await expect(toggle.getAttribute('aria-expanded')).resolves.toBe('true')
+      await page.keyboard.press('Escape')
+      await expect(child.isVisible()).resolves.toBe(false)
+      await expect(toggle.getAttribute('aria-expanded')).resolves.toBe('false')
+      await expect(toggle.evaluate((el) => el === document.activeElement)).resolves.toBe(true)
+      await page.getByRole('link', { name: 'Women' }).focus()
+      await page.getByRole('link', { name: 'Search' }).focus()
+      await page.waitForTimeout(50)
+      await expect(child.isVisible()).resolves.toBe(false)
+      await page.mouse.move(0, 0)
+      await page.getByRole('link', { name: 'Women' }).hover()
+      await expect(child.isVisible()).resolves.toBe(true)
+      await page.mouse.move(0, 0)
+      await expect(child.isVisible()).resolves.toBe(false)
+    } finally {
+      await context.close()
+    }
+  })
+
   it('passes every check of the publish gate against the edge-case catalogue', async ({ skip }) => {
     if (!browser) return skip()
     const out = join(root, `${key}-site`)
