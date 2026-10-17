@@ -377,13 +377,8 @@
     width: 16px;
     height: 16px;
   }
-  .navItem:hover .subnav,
-  .navItem:focus-within .subnav,
   .subnavOpen {
     display: flex;
-  }
-  .navItem .subnav.subnavDismissed {
-    display: none;
   }
 
   .tools {
