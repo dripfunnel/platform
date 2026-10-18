@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { lockedWorkflowFile } from '#integrations/github/oidc'
-import { isRepoPath, isThemePath } from './paths'
+import { coreVersionPattern, isRepoPath, isThemePath } from './paths'
 
 // Where the Worker reads the templates (storefront ARCHITECTURE §2.3): the release workflow writes each core version's
 // skeleton, themes and prebuilt preview bundles under `templates/{core}/` in the sites bucket, then points
@@ -19,7 +19,7 @@ export class TemplateMissing extends Error {
   override name = 'TemplateMissing'
 }
 
-const semver = z.string().regex(/^\d+\.\d+\.\d+$/)
+const semver = z.string().regex(coreVersionPattern)
 const fileSchema = z.strictObject({ path: z.string().refine(isRepoPath), content: z.string() })
 const sourceSchema = z.strictObject({ files: z.array(fileSchema).max(1000) })
 const manifestSchema = z.strictObject({ files: z.array(z.strictObject({ path: z.string().refine(isRepoPath), sha256: z.string().regex(/^[0-9a-f]{64}$/) })).min(1).max(2000) })

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { withSystemScope } from '#db/scoped/index'
 import { deletePendingPush, finishPush, insertPush, selectPush, selectStoreRepoForUpdate, setPushCommit, type PushRow, type RepoState } from '#db/scoped/storefronts'
 import type { RepoChange, StoreRepos } from '#integrations/github/index'
-import { isLockedPath, isRepoPath, isThemePath } from './paths'
+import { coreVersionPattern, isLockedPath, isRepoPath, isThemePath } from './paths'
 
 // The push API (storefront AI-STUDIO.md §6, LIVE-SHOP.md §4 step 9): one squashed commit on `main` per call, with a
 // message the platform writes, fast-forward only. Callers: the publish pipeline, the upgrade bot, a template change.
@@ -23,7 +23,7 @@ const reason = z.discriminatedUnion('kind', [
   // The merchant chose another template: its whole theme (with their own words if they kept them).
   z.strictObject({ kind: z.literal('template'), template: z.string().regex(/^[a-z0-9-]{1,40}$/) }),
   // The upgrade bot: the new pin and the codemods' edits, anywhere but the locked workflow.
-  z.strictObject({ kind: z.literal('upgrade'), coreVersion: z.string().regex(/^\d+\.\d+\.\d+$/) }),
+  z.strictObject({ kind: z.literal('upgrade'), coreVersion: z.string().regex(coreVersionPattern) }),
 ])
 export type PushReason = z.infer<typeof reason>
 
