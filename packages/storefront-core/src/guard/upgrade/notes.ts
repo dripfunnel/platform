@@ -4,7 +4,7 @@ import { isThemePath } from '../files.js'
 // Core's structured release notes (storefront ARCHITECTURE §7.1): what each release changed for themes, and the codemods
 // the upgrade bot applies to every store's theme on its way to that release.
 
-const semver = z.string().regex(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/)
+const semver = z.string().regex(/^\d+\.\d+\.\d+(-dev\.\d+)?$/)
 const themePath = z.string().refine(isThemePath, 'a codemod names only theme paths')
 // `*` is one path segment's characters, `**` any number of whole segments.
 const glob = z.string().regex(/^[A-Za-z0-9_.*/-]{1,200}$/)

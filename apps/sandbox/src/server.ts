@@ -21,7 +21,7 @@ const changeSchema = z.strictObject({
   message: z.string().min(1).max(2000),
   context: z.unknown(),
 })
-const semver = z.string().regex(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/)
+const semver = z.string().regex(/^\d+\.\d+\.\d+(-dev\.\d+)?$/)
 // Core only moves forward; the baseline may be written on the version the store is already on.
 const upgradeSchema = z
   .strictObject({

@@ -66,7 +66,7 @@ jobs:
           source "$RUNNER_TEMP/call.sh"
           mint; start=$(call start)
           commit=$(jq -r .commit <<<"$start"); core=$(jq -r .core <<<"$start"); strict=$(jq -r .strictLook <<<"$start")
-          [[ "$commit" =~ ^[0-9a-f]{40}$ && "$core" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ && "$strict" =~ ^(true|false)$ ]] || { echo "fetch: refused"; exit 1; }
+          [[ "$commit" =~ ^[0-9a-f]{40}$ && "$core" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$ && "$strict" =~ ^(true|false)$ ]] || { echo "fetch: refused"; exit 1; }
           # The frozen input (read-only to the containers), the build's output and the check's output (LIVE-SHOP §4 step 5).
           # The runner context isn't available to a job's env, so the paths are set here for every later step.
           IN="$RUNNER_TEMP/in"; BUILT="$RUNNER_TEMP/built"; CHECKED="$RUNNER_TEMP/checked"
