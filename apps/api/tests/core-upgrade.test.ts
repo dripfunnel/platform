@@ -173,6 +173,15 @@ describe('a store on a dev prerelease of core', () => {
     await publishLive(t.storeA1, commit(6), '0.0.0-dev.9')
     expect((await storefrontOf(t.storeA1))?.core_upgrade_version).toBeNull()
   })
+  it('orders a release above its own dev builds in SQL, as compareVersions does', async () => {
+    const key = async (a: string, b: string) => (await db.sql<{ newer: boolean }[]>`select core_version_key(${a}) > core_version_key(${b}) as newer`)[0]?.newer
+    expect([await key('1.0.0', '1.0.0-dev.3'), await key('1.0.0-dev.3', '1.0.0'), await key('1.0.0-dev.10', '1.0.0-dev.9')]).toEqual([true, false, true])
+    await publishLive(t.storeA1, commit(8), '1.0.0-dev.3')
+    const p = await rolloutOf('1.0.0', t.storeA1)
+    expect((await db.sql<{ from_version: string }[]>`select from_version from core_rollout_store where id = ${p.upgradeId}`)[0]?.from_version).toBe('1.0.0-dev.3')
+    await publishLive(t.storeA2, commit(9), '1.0.0')
+    await expect(rolloutOf('1.0.0', t.storeA2)).rejects.toThrow('the store was not enrolled')
+  })
 })
 
 describe('a patch or minor upgrade', () => {
