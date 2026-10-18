@@ -4,7 +4,7 @@ import { isThemePath } from '../files.js'
 // Core's structured release notes (storefront ARCHITECTURE §7.1): what each release changed for themes, and the codemods
 // the upgrade bot applies to every store's theme on its way to that release.
 
-const semver = z.string().regex(/^\d+\.\d+\.\d+$/)
+const semver = z.string().regex(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/)
 const themePath = z.string().refine(isThemePath, 'a codemod names only theme paths')
 // `*` is one path segment's characters, `**` any number of whole segments.
 const glob = z.string().regex(/^[A-Za-z0-9_.*/-]{1,200}$/)
@@ -34,16 +34,18 @@ export type UpgradeNote = z.infer<typeof upgradeNoteSchema>
  */
 export const coreUpgradeNotes: readonly UpgradeNote[] = []
 
-const parts = (version: string) => version.split('.').map(Number)
+const parts = (version: string) => version.split('-')[0]?.split('.').map(Number) ?? []
+const devRun = (version: string) => Number(version.split('-dev.')[1] ?? Number.POSITIVE_INFINITY)
 
-/** Semver order of two `x.y.z` versions: negative when `a` is older. */
+/** Semver order of two `x.y.z` or `x.y.z-dev.<run>` versions: negative when `a` is older; a release is newer than its dev builds. */
 export const compareVersions = (a: string, b: string): number => {
   const [pa, pb] = [parts(a), parts(b)]
   for (let i = 0; i < 3; i += 1) {
     const d = (pa[i] ?? 0) - (pb[i] ?? 0)
     if (d !== 0) return d
   }
-  return 0
+  const [ra, rb] = [devRun(a), devRun(b)]
+  return ra === rb ? 0 : ra < rb ? -1 : 1
 }
 
 /** The notes of every release after `from`, up to and including `to`, oldest first. */

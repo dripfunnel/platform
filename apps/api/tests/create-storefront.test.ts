@@ -42,24 +42,24 @@ const retrying: StepRunner = {
 const preview = { 'index.html': '<!doctype html><title>Bloom</title>', 'assets/app.js': 'console.log(1)' }
 
 /** What the release workflow uploads for a core version (storefront ARCHITECTURE §2.3). */
-const uploadTemplates = async () => {
-  await putText(sites, 'templates/current.json', JSON.stringify({ core }))
+const uploadTemplates = async (version = core) => {
+  await putText(sites, 'templates/current.json', JSON.stringify({ core: version }))
   const skeleton = [
     { path: 'package.json', content: JSON.stringify({ name: '@dripfunnel/storefront-template', private: true, dependencies: { '@dripfunnel/storefront-core': 'workspace:*', next: '^16.3.6' } }) },
     { path: '.github/workflows/build.yml', content: lockedWorkflow },
     { path: 'next.config.ts', content: 'export default {}\n' },
     { path: 'src/app/layout.tsx', content: 'export default function Layout() { return null }\n' },
   ]
-  await putText(sites, `templates/${core}/skeleton.json`, JSON.stringify({ files: skeleton }))
+  await putText(sites, `templates/${version}/skeleton.json`, JSON.stringify({ files: skeleton }))
   const theme = [
     { path: 'routes.json', content: '{"routes":{"home":"HomePage"}}' },
     { path: 'src/theme/pages/HomePage.tsx', content: 'export const HomePage = () => null\n' },
     { path: 'content/en/home.json', content: '{"title":"Bloom"}' },
   ]
-  await putText(sites, `templates/${core}/themes/bloom/source.json`, JSON.stringify({ files: theme }))
+  await putText(sites, `templates/${version}/themes/bloom/source.json`, JSON.stringify({ files: theme }))
   const files = []
-  for (const [path, text] of Object.entries(preview)) files.push({ path, sha256: await putText(sites, `templates/${core}/themes/bloom/preview/files/${path}`, text, path.endsWith('.html') ? 'text/html' : 'text/javascript') })
-  await putText(sites, `templates/${core}/themes/bloom/preview/manifest.json`, JSON.stringify({ files }))
+  for (const [path, text] of Object.entries(preview)) files.push({ path, sha256: await putText(sites, `templates/${version}/themes/bloom/preview/files/${path}`, text, path.endsWith('.html') ? 'text/html' : 'text/javascript') })
+  await putText(sites, `templates/${version}/themes/bloom/preview/manifest.json`, JSON.stringify({ files }))
 }
 
 const start = (storeId: string, template = 'bloom') => withSystemScope(db.sql, (tx) => startStorefront(tx, storeId, template, at))
@@ -202,6 +202,15 @@ describe('the create-storefront Workflow', () => {
     expect(store?.core_version).toBe(core)
     const [entry] = await db.sql<{ action: string; actor_kind: string; target_label: string }[]>`select action, actor_kind, target_label from activity_log where store_id = ${t.storeA1} and action like 'storefront.%'`
     expect(entry).toEqual({ action: 'storefront.created', actor_kind: 'job', target_label: repo })
+  })
+
+  it('creates a store on a dev prerelease of core', async () => {
+    const dev = '0.0.0-dev.7'
+    await uploadTemplates(dev)
+    const params = await started(t.storeA1)
+    expect(await runCreateStorefront(deps, params, once)).toBe('created')
+    const [draft] = await db.sql<{ core_version: string }[]>`select core_version from design_draft where store_id = ${t.storeA1}`
+    expect(draft?.core_version).toBe(dev)
   })
 
   it('reuses the repo and its commits when a step is retried after it acted', async () => {

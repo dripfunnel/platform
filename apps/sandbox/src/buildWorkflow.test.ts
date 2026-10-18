@@ -24,4 +24,11 @@ describe('the locked build workflow', () => {
   it('sets the folders the later steps read', () => {
     expect(workflow).toMatch(/echo "IN=\$IN"[^\n]*CHECKED=\$CHECKED[^\n]*SITE=\$BUILT\/site[^\n]*\$GITHUB_ENV/)
   })
+
+  it('accepts the dev prerelease of core the platform names', () => {
+    const pattern = workflow.match(/"\$core" =~ (\S+) &&/)?.[1]
+    expect(pattern).toBeDefined()
+    const accepts = (version: string) => new RegExp(pattern as string).test(version)
+    expect([accepts('1.4.0'), accepts('0.0.0-dev.7'), accepts('latest'), accepts('1.4.0;rm')]).toEqual([true, true, false, false])
+  })
 })
