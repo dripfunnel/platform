@@ -22,11 +22,6 @@ jobs:
     env:
       BUILD_ID: ${{ inputs.build_id }}
       API: ${{ inputs.api }}
-      # The frozen input (read-only to the containers), the build's output and the check's output (LIVE-SHOP §4 step 5).
-      IN: ${{ runner.temp }}/in
-      BUILT: ${{ runner.temp }}/built
-      CHECKED: ${{ runner.temp }}/checked
-      SITE: ${{ runner.temp }}/built/site
     steps:
       - name: fetch
         # The workflow's own runner code: it alone holds the OIDC token and the network.
@@ -72,6 +67,10 @@ jobs:
           mint; start=$(call start)
           commit=$(jq -r .commit <<<"$start"); core=$(jq -r .core <<<"$start"); strict=$(jq -r .strictLook <<<"$start")
           [[ "$commit" =~ ^[0-9a-f]{40}$ && "$core" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$strict" =~ ^(true|false)$ ]] || { echo "fetch: refused"; exit 1; }
+          # The frozen input (read-only to the containers), the build's output and the check's output (LIVE-SHOP §4 step 5).
+          # The runner context isn't available to a job's env, so the paths are set here for every later step.
+          IN="$RUNNER_TEMP/in"; BUILT="$RUNNER_TEMP/built"; CHECKED="$RUNNER_TEMP/checked"
+          { echo "IN=$IN"; echo "BUILT=$BUILT"; echo "CHECKED=$CHECKED"; echo "SITE=$BUILT/site"; } >> "$GITHUB_ENV"
           mkdir -p "$IN" "$BUILT" "$CHECKED"
           chmod 777 "$BUILT" "$CHECKED"
           curl -sSf --max-time 300 --retry 3 -o "$IN/source.bundle" "$(jq -r .source <<<"$start")"
