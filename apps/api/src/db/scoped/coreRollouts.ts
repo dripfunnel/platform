@@ -29,8 +29,8 @@ export const enrolStores = async (tx: ScopedSql, rollout: { id: string; version:
       select f.store_id, r.core_version, row_number() over (order by md5(f.store_id::text || ${rollout.id}::text)) as rank
       from storefront f join publish_run r on r.id = f.live_build_id join store s on s.id = f.store_id
       where s.status <> 'closed'
-        and string_to_array(r.core_version, '.')::int[] < string_to_array(${rollout.version}, '.')::int[]
-        and (f.core_upgrade_version is null or string_to_array(f.core_upgrade_version, '.')::int[] < string_to_array(${rollout.version}, '.')::int[])
+        and core_version_key(r.core_version) < core_version_key(${rollout.version})
+        and (f.core_upgrade_version is null or core_version_key(f.core_upgrade_version) < core_version_key(${rollout.version}))
     ) e
     returning store_id`
   await tx`update core_rollout set enrolled_at = ${at} where id = ${rollout.id}`
