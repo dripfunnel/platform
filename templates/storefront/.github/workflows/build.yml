@@ -24,11 +24,8 @@ jobs:
       API: ${{ inputs.api }}
     steps:
       - name: fetch
-        # The workflow's own runner code: it alone holds the OIDC token and the network. The ghcr token is only for the pull below.
+        # The workflow's own runner code: it alone holds the OIDC token and the network.
         shell: bash
-        env:
-          GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
-          GHCR_USER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
           [[ "$API" =~ ^https://[a-z0-9.-]+$ && "$BUILD_ID" =~ ^[0-9a-f-]{36}$ ]] || { echo "fetch: refused"; exit 1; }
@@ -87,12 +84,22 @@ jobs:
             done
           fi
           { echo "COMMIT=$commit"; echo "IMAGE=ghcr.io/dripfunnel/storefront-build:$core"; echo "STRICT=$strict"; } >> "$GITHUB_ENV"
+          echo "fetch: done"
+      - name: pull
+        # The only step that holds the ghcr token (LIVE-SHOP §3 step 3): it logs in, pulls the image fetch named and logs out.
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GHCR_USER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE" =~ ^ghcr\.io/dripfunnel/storefront-build:[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$ ]] || { echo "pull: refused"; exit 1; }
           echo "::add-mask::$GHCR_TOKEN"
           docker login ghcr.io -u "$GHCR_USER" --password-stdin <<<"$GHCR_TOKEN" > /dev/null
-          pulled=0; docker pull -q "ghcr.io/dripfunnel/storefront-build:$core" > /dev/null || pulled=$?
+          pulled=0; docker pull -q "$IMAGE" > /dev/null || pulled=$?
           docker logout ghcr.io > /dev/null
-          [[ "$pulled" -eq 0 ]] || { echo "fetch: pull failed"; exit 1; }
-          echo "fetch: done"
+          [[ "$pulled" -eq 0 ]] || { echo "pull: failed"; exit 1; }
+          echo "pull: done"
       - name: build
         # The AI's code renders here: no network, nothing of the runner's in its environment, the input read-only.
         shell: bash

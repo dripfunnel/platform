@@ -11,7 +11,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
 Last updated: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
-Before: 2026-10-09 (the sandbox image published publicly on `ghcr.io` for store builds).
+Before: 2026-10-09 (the sandbox image published on `ghcr.io` for store builds, public then; private with a pull token since #790).
 
 ---
 

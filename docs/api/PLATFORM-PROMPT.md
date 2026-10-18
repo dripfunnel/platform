@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
+Last updated: 2026-10-18 (#790: the one secret a store repo reads is the org's `GHCR_PULL_TOKEN`, for the build image's pull). Before: 2026-10-09 (§5.6: storefronts in R2 behind one edge Worker, built on GitHub Actions).
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -525,11 +525,11 @@ or admin console (ACCESS.md §8), integrations and apps:
   certificates), replacing the first platform's AWS ACM + CloudFront work (`provision-domain`). Keep
   the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), a store's free
   address is `{slug}.my-store.one`, on our own zone (USERS-AND-DOMAINS §2).
-- **Builds** run in the store repo's locked workflow inside the public build image
+- **Builds** run in the store repo's locked workflow inside the build image (private on `ghcr.io`, pulled with the org's `GHCR_PULL_TOKEN`, #790)
   (`apps/sandbox`) from the store's commit and a catalogue snapshot, offline, and upload to R2
   through a 15-minute credential limited to a private staging folder, minted after a GitHub OIDC
   check and a passing report; the API copies the verified files into the build's write-once
-  folder, so no token ever sits in a repo (decided 2026-10-09;
+  folder, so no upload token ever sits in a repo (decided 2026-10-09;
   [`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §4).
 - **Cache purge** on catalogue change: the Shop API's own answers by the catalogue version in their key (§5.5); the static storefront files by build id in the cache key, so a publish needs no purge of them ([`../storefront/LIVE-SHOP.md`](../storefront/LIVE-SHOP.md) §5).
 - **Assets** on R2, served through **Cloudflare image resizing** (decided 2026-10-05 on #337).

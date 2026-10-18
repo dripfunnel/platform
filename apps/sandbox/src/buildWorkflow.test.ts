@@ -26,15 +26,16 @@ describe('the locked build workflow', () => {
   })
 
   // Card #790: the build image's package is private, so the runner logs in to pull it.
-  it('logs in to ghcr before the pull and logs out after, with the secret in the fetch step only', () => {
-    const [login, pull, logout] = ['docker login ghcr.io', 'docker pull ', 'docker logout ghcr.io'].map((text) => workflow.indexOf(text))
-    expect(login).toBeGreaterThan(-1)
-    expect(login).toBeLessThan(pull as number)
-    expect(pull).toBeLessThan(logout as number)
+  it('logs in to ghcr before the pull and logs out after, with the secret in a step of its own', () => {
+    const step = (name: string, next: string) => workflow.slice(workflow.indexOf(`- name: ${name}`), workflow.indexOf(`- name: ${next}`))
+    const pullStep = step('pull', 'build')
+    const order = ['docker login ghcr.io', 'docker pull ', 'docker logout ghcr.io'].map((text) => pullStep.indexOf(text))
+    expect(order[0]).toBeGreaterThan(-1)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
     const secrets = workflow.split('\n').filter((line) => line.includes('secrets.'))
     expect(secrets).toHaveLength(1)
-    const fetchStep = workflow.slice(workflow.indexOf('- name: fetch'), workflow.indexOf('- name: build'))
-    expect(fetchStep).toContain(secrets[0]?.trim())
+    expect(pullStep).toContain(secrets[0]?.trim())
+    expect(step('fetch', 'pull')).not.toMatch(/GHCR|secrets\.|docker (login|pull)/)
     expect(workflow.split('\n').filter((line) => line.includes('docker run') && /GHCR|secrets\./.test(line))).toEqual([])
   })
 
