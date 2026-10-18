@@ -160,8 +160,8 @@ export const confirmLive = async (tx: ScopedSql, run: RunRow, at: Date): Promise
   if (run.kind === 'design') {
     await tx`
       update storefront set theme_mode = 'own', baseline_reason = null, baseline_from_build_id = null,
-        core_upgrade_version = case when string_to_array(core_upgrade_version, '.')::int[] <= string_to_array(${run.core_version}, '.')::int[] then null else core_upgrade_version end,
-        core_upgrade_commit = case when string_to_array(core_upgrade_version, '.')::int[] <= string_to_array(${run.core_version}, '.')::int[] then null else core_upgrade_commit end
+        core_upgrade_version = case when core_version_key(core_upgrade_version) <= core_version_key(${run.core_version}) then null else core_upgrade_version end,
+        core_upgrade_commit = case when core_version_key(core_upgrade_version) <= core_version_key(${run.core_version}) then null else core_upgrade_commit end
       where store_id = ${run.store_id}`
   }
 }
@@ -280,8 +280,8 @@ export const moveLiveTo = async (tx: ScopedSql, storeId: string, version: Versio
 export const selectNewerSecurityCore = async (tx: ScopedSql, version: string): Promise<string | null> =>
   (
     await tx<{ version: string }[]>`
-      select version from core_release where security and string_to_array(version, '.')::int[] > string_to_array(${version}, '.')::int[]
-      order by string_to_array(version, '.')::int[] desc limit 1`
+      select version from core_release where security and core_version_key(version) > core_version_key(${version})
+      order by core_version_key(version) desc limit 1`
   )[0]?.version ?? null
 
 /** The address a shopper reaches the store on: its primary one (SAAS §8), else a live domain of its own. */

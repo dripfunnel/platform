@@ -17,8 +17,8 @@ export const releaseKind = (version: string, previous: string | null): ReleaseKi
 /** Recorded once its image is in both registries; recording it again only moves the image to the new digest. */
 export const recordCoreRelease = async (tx: ScopedSql, version: string, sandboxImage: string): Promise<void> => {
   const [previous] = await tx<{ version: string }[]>`
-    select version from core_release where string_to_array(version, '.')::int[] < string_to_array(${version}, '.')::int[]
-    order by string_to_array(version, '.')::int[] desc limit 1`
+    select version from core_release where core_version_key(version) < core_version_key(${version})
+    order by core_version_key(version) desc limit 1`
   await tx`
     insert into core_release (version, kind, sandbox_image) values (${version}, ${releaseKind(version, previous?.version ?? null)}, ${sandboxImage})
     on conflict (version) do update set sandbox_image = excluded.sandbox_image`
@@ -54,7 +54,7 @@ export const selectReleaseUse = (tx: ScopedSql): Promise<ReleaseUse[]> =>
       select count(distinct u.store_id)::int as stores, (count(distinct u.store_id) filter (where u.movable))::int as movable
       from used u join store s on s.id = u.store_id where u.version = c.version and s.status <> 'closed'
     ) n
-    order by string_to_array(c.version, '.')::int[] desc`
+    order by core_version_key(c.version) desc`
 
 export const retireRelease = async (tx: ScopedSql, version: string, at: Date): Promise<void> => {
   await tx`update core_release set retired_at = ${at} where version = ${version} and retired_at is null`

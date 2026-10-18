@@ -3,7 +3,7 @@ name: release
 # storefront-core's releases, and only from here (AGENTS.md, docs/code/ARCHITECTURE.md §5).
 # Every push to main or dev that touches core, its changesets, the sandbox or the release scripts runs core's gates; if core's version isn't published yet (and isn't 0.0.0),
 # it packs core once, attests that tarball, publishes the same file, then makes sure it's tagged.
-# A push to dev publishes `<version>-dev.<run>` under the `dev` dist-tag instead: no git tag, no sandbox image.
+# A push to dev publishes `<version>-dev.<run>` under the `dev` dist-tag instead: no git tag, and a build image on ghcr.io only.
 
 on:
   push:
@@ -107,3 +107,25 @@ jobs:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           ALLOW_REMOTE_MIGRATIONS: '1'
           ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+
+  # A dev prerelease's build image, on ghcr.io only: a dev store's build pulls `storefront-build:<core>` too (LIVE-SHOP §4 step 5).
+  # No Cloudflare copy and no core_release row: the studio and the fleet use main's releases.
+  sandbox-image-dev:
+    needs: release
+    if: needs.release.outputs.version != '' && github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GHCR_IMAGE: ghcr.io/dripfunnel/storefront-build:${{ needs.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: docker build --file apps/sandbox/Dockerfile --tag "$GHCR_IMAGE" .
+      - run: docker push "$GHCR_IMAGE"

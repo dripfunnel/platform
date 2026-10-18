@@ -27,6 +27,9 @@ describe('the release notes', () => {
     expect(notesBetween('1.2.0', '1.10.0', notes).map((n) => n.version)).toEqual(['1.9.1', '1.10.0'])
     expect(notesBetween('1.10.0', '1.10.0', notes)).toEqual([])
     expect(compareVersions('1.10.0', '1.9.9')).toBeGreaterThan(0)
+    expect(compareVersions('0.0.0-dev.10', '0.0.0-dev.9')).toBeGreaterThan(0)
+    expect(compareVersions('1.0.0', '1.0.0-dev.3')).toBeGreaterThan(0)
+    expect(compareVersions('0.0.0-dev.7', '0.0.0-dev.7')).toBe(0)
   })
 })
 

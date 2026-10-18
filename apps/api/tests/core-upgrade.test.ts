@@ -110,9 +110,9 @@ const upgradeDeps = (prepare: UpgradeDeps['prepare']): UpgradeDeps => ({ sql: db
 const live = async (storeId: string) => (await db.sql<{ live_build_id: string | null }[]>`select live_build_id from storefront where store_id = ${storeId}`)[0]?.live_build_id ?? null
 
 /** A design publish that went live on core 1.0.0, so the store has a live build and its source bundle. */
-const publishLive = async (storeId: string, head: string) => {
+const publishLive = async (storeId: string, head: string, coreVersion = '1.0.0') => {
   await drafts.put(draftBundle(storeId), new TextEncoder().encode(`draft ${head}`).buffer, { sha256: await hex(`draft ${head}`) })
-  const runId = await withSystemScope(db.sql, (tx) => startPublish(tx, { storeId, kind: 'design', commit: head, template: 'linen', coreVersion: '1.0.0', usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date() })).then((r) => (r.ok ? r.runId : ''))
+  const runId = await withSystemScope(db.sql, (tx) => startPublish(tx, { storeId, kind: 'design', commit: head, template: 'linen', coreVersion, usesAllowance: false, startedBy: { kind: 'system', id: null }, at: new Date() })).then((r) => (r.ok ? r.runId : ''))
   expect(await runPublish(publishDeps(), { runId, storeId }, workflow(new Set()))).toBe('live')
   return runId
 }
@@ -161,6 +161,27 @@ beforeEach(async () => {
   await publishLive(t.storeA1, commit(1))
   await publishLive(t.storeA2, commit(2))
   await db.sql`update storefront set core_pinned_reason = null, core_upgrade_version = null, core_upgrade_commit = null, theme_mode = 'own', baseline_reason = null, baseline_from_build_id = null`
+})
+
+describe('a store on a dev prerelease of core', () => {
+  it('publishes, is enrolled in a rollout and has its upgrade recorded', async () => {
+    await publishLive(t.storeA1, commit(5), '0.0.0-dev.7')
+    const p = await rolloutOf('1.1.0', t.storeA1)
+    expect(await rowOf(p.upgradeId)).toMatchObject({ state: 'running' })
+    expect((await db.sql<{ from_version: string }[]>`select from_version from core_rollout_store where id = ${p.upgradeId}`)[0]?.from_version).toBe('0.0.0-dev.7')
+    await db.sql`update storefront set core_upgrade_version = '0.0.0-dev.8', core_upgrade_commit = ${commit(7)} where store_id = ${t.storeA1}`
+    await publishLive(t.storeA1, commit(6), '0.0.0-dev.9')
+    expect((await storefrontOf(t.storeA1))?.core_upgrade_version).toBeNull()
+  })
+  it('orders a release above its own dev builds in SQL, as compareVersions does', async () => {
+    const key = async (a: string, b: string) => (await db.sql<{ newer: boolean }[]>`select core_version_key(${a}) > core_version_key(${b}) as newer`)[0]?.newer
+    expect([await key('1.0.0', '1.0.0-dev.3'), await key('1.0.0-dev.3', '1.0.0'), await key('1.0.0-dev.10', '1.0.0-dev.9')]).toEqual([true, false, true])
+    await publishLive(t.storeA1, commit(8), '1.0.0-dev.3')
+    const p = await rolloutOf('1.0.0', t.storeA1)
+    expect((await db.sql<{ from_version: string }[]>`select from_version from core_rollout_store where id = ${p.upgradeId}`)[0]?.from_version).toBe('1.0.0-dev.3')
+    await publishLive(t.storeA2, commit(9), '1.0.0')
+    await expect(rolloutOf('1.0.0', t.storeA2)).rejects.toThrow('the store was not enrolled')
+  })
 })
 
 describe('a patch or minor upgrade', () => {

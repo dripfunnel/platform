@@ -5,6 +5,7 @@ import type { Keyset } from '#core/cursor'
 import { isUuid } from '#core/ids'
 import { countStoresByState, insertRollout, phaseCounts, selectReleaseForRollout, selectRollout, selectRollouts, setRolloutState, type RolloutRow, type StoreUpgradeState } from '#db/scoped/coreRollouts'
 import { uniqueViolation, withScope, type ScopedSql } from '#db/scoped/index'
+import { coreVersionPattern } from '#saas/storefronts/index'
 import { decodePage, pageOf, reasonText, staffEntry, type PageRequest } from '#saas/staff/index'
 import { wavePercents } from './waves'
 
@@ -69,7 +70,7 @@ export const createFleetService = ({ sql, staff, activity, facts, now }: FleetDe
   /** One rollout at a time: a second is refused while one is running, paused or not. */
   const start = async (input: { version: string; security: boolean; reason: string }): Promise<FleetResult> => {
     const reason = reasonText.safeParse(input.reason)
-    if (!reason.success || !/^\d+\.\d+\.\d+$/.test(input.version)) return { ok: false, code: 'INVALID_INPUT' }
+    if (!reason.success || !coreVersionPattern.test(input.version)) return { ok: false, code: 'INVALID_INPUT' }
     try {
       return await asStaff(async (tx): Promise<FleetResult> => {
         const release = await selectReleaseForRollout(tx, input.version)
