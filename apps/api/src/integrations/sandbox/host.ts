@@ -30,10 +30,18 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 /** The parts of a Durable Object's `ctx.container` this host uses, so the type needs no Workers globals. */
 export interface SandboxContainer {
   readonly running: boolean
+  readonly images?: Readonly<Record<string, string>>
   start(options: { image: string; enableInternet: boolean; env: Record<string, string>; instance: typeof studioInstance }): void
   destroy(): Promise<void>
   getTcpPort(port: number): { fetch(request: Request): Promise<Response> }
 }
+
+/** A dev prerelease has no core_release row (#788): its image is the one env.dev's containers entry names (#790). */
+export const sandboxImageFor = async (
+  container: SandboxContainer | undefined,
+  core: string,
+  released: (core: string) => Promise<string | null>,
+): Promise<string | null> => (/-dev\.\d+$/.test(core) ? (container?.images?.studio ?? null) : released(core))
 
 /**
  * The store's container, with no network and no variable but what the image sets (AI-STUDIO §8): `env` is empty on

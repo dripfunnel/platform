@@ -108,16 +108,18 @@ jobs:
           ALLOW_REMOTE_MIGRATIONS: '1'
           ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
 
-  # A dev prerelease's build image, on ghcr.io only: a dev store's build pulls `storefront-build:<core>` too (LIVE-SHOP §4 step 5).
-  # No Cloudflare copy and no core_release row: the studio and the fleet use main's releases.
+  # A dev prerelease's build image, on ghcr.io for a dev store's build (LIVE-SHOP §4 step 5) and in dev's Cloudflare registry
+  # for the studio (dev.yml names the newest tag's digest, #790). No core_release row: the fleet uses main's releases.
   sandbox-image-dev:
     needs: release
     if: needs.release.outputs.version != '' && github.ref_name == 'dev'
     runs-on: ubuntu-latest
+    environment: dev
     permissions:
       contents: read
       packages: write
     env:
+      VERSION: ${{ needs.release.outputs.version }}
       GHCR_IMAGE: ghcr.io/dripfunnel/storefront-build:${{ needs.release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
@@ -129,3 +131,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: docker build --file apps/sandbox/Dockerfile --tag "$GHCR_IMAGE" .
       - run: docker push "$GHCR_IMAGE"
+      - run: |
+          docker tag "$GHCR_IMAGE" "storefront-build:$VERSION"
+          pnpm --filter ./apps/api exec wrangler containers push "storefront-build:$VERSION"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

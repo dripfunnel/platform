@@ -25,6 +25,19 @@ describe('the locked build workflow', () => {
     expect(workflow).toMatch(/echo "IN=\$IN"[^\n]*CHECKED=\$CHECKED[^\n]*SITE=\$BUILT\/site[^\n]*\$GITHUB_ENV/)
   })
 
+  // Card #790: the build image's package is private, so the runner logs in to pull it.
+  it('logs in to ghcr before the pull and logs out after, with the secret in the fetch step only', () => {
+    const [login, pull, logout] = ['docker login ghcr.io', 'docker pull ', 'docker logout ghcr.io'].map((text) => workflow.indexOf(text))
+    expect(login).toBeGreaterThan(-1)
+    expect(login).toBeLessThan(pull as number)
+    expect(pull).toBeLessThan(logout as number)
+    const secrets = workflow.split('\n').filter((line) => line.includes('secrets.'))
+    expect(secrets).toHaveLength(1)
+    const fetchStep = workflow.slice(workflow.indexOf('- name: fetch'), workflow.indexOf('- name: build'))
+    expect(fetchStep).toContain(secrets[0]?.trim())
+    expect(workflow.split('\n').filter((line) => line.includes('docker run') && /GHCR|secrets\./.test(line))).toEqual([])
+  })
+
   it('accepts the dev prerelease of core the platform names', () => {
     const pattern = workflow.match(/"\$core" =~ (\S+) &&/)?.[1]
     expect(pattern).toBeDefined()

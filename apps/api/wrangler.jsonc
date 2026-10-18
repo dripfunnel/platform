@@ -126,8 +126,9 @@
         { "name": "dripfunnel-render-page-dev", "binding": "RENDER_PAGE", "class_name": "RenderPage" },
         { "name": "dripfunnel-core-upgrade-dev", "binding": "CORE_UPGRADE", "class_name": "CoreUpgrade" }
       ],
-      // The studio's Durable Objects. Its `containers` entry (docs/setup/dev.md §2.8 item 3) waits for the first release's
-      // `core_release.sandbox_image` digest, so until then the studio opens but has no sandbox to start.
+      // The studio's Durable Objects. A Durable Object starts only an image named here, so dev.yml swaps the image below for
+      // the newest dev tag's digest on the runner before deploying (docs/setup/dev.md §2.8 item 3, #790); never commit one.
+      "containers": [{ "class_name": "StudioSession", "scheduling_policy": "durable_object", "images": { "studio": { "image": "DEV_STUDIO_IMAGE" } } }],
       "durable_objects": {
         "bindings": [
           { "name": "STUDIO_SESSION", "class_name": "StudioSession" },

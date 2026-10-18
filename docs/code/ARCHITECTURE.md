@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
+Last updated: 2026-10-18 (#790: the private ghcr package and its pull token, the dev studio image, §5). Before: 2026-10-12 (#485: release notes carry the codemods). Before: 2026-10-11 (#482: the release workflow builds, pushes and records the sandbox image).
 Before: 2026-10-09 (the sandbox image published publicly on `ghcr.io` for store builds).
 
 ---
@@ -98,7 +98,7 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
   card, is never published.
 - **Dev channel** (#761): every push to `dev` publishes `<version>-dev.<run number>` under the `dev` dist-tag
   (`main` publishes under `latest`). The stamp is written inside the run only; a dev build gets no git tag,
-  no Cloudflare image and no `core_release` row, only its ghcr.io build image (store repos' builds pull it, LIVE-SHOP §4 step 5). Dev builds are the one exception to the `0.0.0` rule: they
+  no `core_release` row, only its ghcr.io build image (store repos' builds pull it, LIVE-SHOP §4 step 5) and a tag in dev's Cloudflare registry, whose newest digest dev.yml writes into `env.dev`'s `containers` entry at deploy (#790). Dev builds are the one exception to the `0.0.0` rule: they
   publish as `0.0.0-dev.<run>` so the channel works before the first release card.
 - CI's `changesets` job (`scripts/release/changesets.mjs`) fails a pull request that changes
   `packages/storefront-core` (its changelog aside) without adding a changeset naming the
@@ -116,13 +116,14 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 - **Store repos never install it** (decided 2026-10-08 on #470): every build and every AI
   change runs in the **sandbox image** for the store's core version (`apps/sandbox`), which
   the release workflow's `sandbox-image` job builds after publishing and pushes to Cloudflare's registry (studios)
-  and **publicly to `ghcr.io`** as `ghcr.io/dripfunnel/storefront-build:<version>` (store repos' builds on GitHub
-  Actions pull it with no token; decided 2026-10-09, `../storefront/LIVE-SHOP.md` §4), then records its
+  and to `ghcr.io` as `ghcr.io/dripfunnel/storefront-build:<version>` (store repos' builds on GitHub
+  Actions log in with the organisation secret `GHCR_PULL_TOKEN` to pull it, decided on #790; before that the package was to be
+  public, decided 2026-10-09, `../storefront/LIVE-SHOP.md` §4), then records its
   Cloudflare digest in `core_release` (built on #482; old versions' images are retired by AI-STUDIO §9's rule, and
   `.github/workflows/retire-images.yml` deletes them from Cloudflare's registry, #485), with core, the allowed libraries
   and the gate tools preinstalled. A store repo's `package.json` only pins the version, which
-  picks the image. No store repo holds a token or an `.npmrc` with one, and no secret or
-  grant is needed for store repos (decided on #470, which replaced #303's org secret).
+  picks the image. No store repo holds an `.npmrc` with a token. The one secret store repos read is `GHCR_PULL_TOKEN`, a read-only
+  `read:packages` organisation secret for the image pull (decided on #790, which brings back the org secret #470 replaced).
 - Publishing only from the release workflow (`packages: write`), with artifact attestations.
 
 **In this repo**, `templates/storefront` depends on it as `workspace:*`, so the template and
