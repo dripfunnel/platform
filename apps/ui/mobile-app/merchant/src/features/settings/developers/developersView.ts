@@ -36,7 +36,8 @@ export const outcomeOf = (delivery: WebhookDelivery): { text: string; failed: bo
   if (delivery.status === 'held') return { text: words('hooks.outcome.held'), failed: false }
   if (delivery.responseCode !== null) return { text: String(delivery.responseCode), failed: delivery.status === 'failed' }
   if (delivery.status === 'delivered') return { text: words('hooks.outcome.delivered'), failed: false }
-  return { text: (delivery.error ? tryT(`settings.developers.hooks.outcome.${delivery.error}`) ?? delivery.error : null) ?? words('hooks.outcome.failed'), failed: true }
+  // `error` is the server's string: only a code the app has words for is shown, never the string itself.
+  return { text: (delivery.error ? tryT(`settings.developers.hooks.outcome.${delivery.error}`) : undefined) ?? words('hooks.outcome.failed'), failed: true }
 }
 
 export const durationOf = (ms: number | null): string | null => {

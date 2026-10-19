@@ -9,10 +9,10 @@ describe('what happened to a delivery', () => {
     expect(outcomeOf(delivery({ status: 'failed', responseCode: 500 }))).toEqual({ text: '500', failed: true })
   })
 
-  it('names what stopped a delivery that got no answer, and falls back to Failed for a reason it has no words for', () => {
+  it('names what stopped a delivery that got no answer, and reads Failed for a code it has no words for, never the server’s string', () => {
     expect(outcomeOf(delivery({ status: 'failed', responseCode: null, error: 'timeout' }))).toEqual({ text: 'Timed out', failed: true })
     expect(outcomeOf(delivery({ status: 'failed', responseCode: null, error: 'private_address' }))).toEqual({ text: 'Private address', failed: true })
-    expect(outcomeOf(delivery({ status: 'failed', responseCode: null, error: 'something_new' }))).toEqual({ text: 'something_new', failed: true })
+    expect(outcomeOf(delivery({ status: 'failed', responseCode: null, error: 'something_new' }))).toEqual({ text: 'Failed', failed: true })
     expect(outcomeOf(delivery({ status: 'failed', responseCode: null, error: null }))).toEqual({ text: 'Failed', failed: true })
   })
 
