@@ -262,9 +262,13 @@ describe('A supplier’s order', () => {
     expect(hasText(missing.renderer, 'KT-1042')).toBe(false)
   })
 
-  it('says the seat has no access without orders.read, and draws nothing of the order', async () => {
-    const { renderer } = await showOrder({ value: order() }, {}, 'catalogue')
-    expect(hasText(renderer, 'You don’t have access to this order')).toBe(true)
-    expect(hasText(renderer, 'KT-1042')).toBe(false)
+  it('says the seat has no access without orders.read, and asks for no order', async () => {
+    for (const tier of ['stock', 'catalogue'] as const) {
+      const { renderer, calls } = await showOrder({ value: order() }, {}, tier)
+      expect(hasText(renderer, 'You don’t have access to this order')).toBe(true)
+      expect(hasText(renderer, 'KT-1042')).toBe(false)
+      expect(asked(calls, 'order(id')).toEqual([])
+      expect(asked(calls, 'warehouses(first')).toEqual([])
+    }
   })
 })

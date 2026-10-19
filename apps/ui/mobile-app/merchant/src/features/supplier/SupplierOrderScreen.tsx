@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import type { OrderShipment } from '../../api/order'
 import { loadAccess } from '../../api/products'
 import { loadSupplierOrder } from '../../api/supplier'
+import type { ApiClient } from '../../graphql'
 import { formatDateTime } from '../../format'
 import { locale, t } from '../../messages'
 import { sessionClient } from '../../session'
@@ -19,7 +20,7 @@ import { StatusChip } from '../products/StatusChip'
 import { useShell } from '../shell/ShellData'
 import { ShellScreen } from '../states/ShellScreen'
 import { Skeleton } from '../states/StateView'
-import { supplierAccessOf } from './access'
+import { supplierAccessOf, type SupplierAccess } from './access'
 import { SupplierLines } from './SupplierLines'
 import { SupplierShipSheet } from './SupplierShipSheet'
 import { canSendNow, partStatus, partStatusTone, toStore } from './supplierView'
@@ -30,12 +31,40 @@ type Sheet = { kind: 'ship' } | { kind: 'tracking'; shipment: OrderShipment }
 // placed under, and shipping them. A to-store part shows nothing of the shopper; a to-shopper part shows the name and delivery address, never the email or the phone.
 // The API decides what is shown and every write again; an order that isn't this supplier's reads as not found.
 export function SupplierOrderScreen({ id }: { id: string }) {
-  const { colors } = useTheme()
+  const { state, online } = useShell()
   const client = sessionClient()
-  const { state, online, acting } = useShell()
   const permissions = useLoad(() => loadAccess(client), [client])
-  const loaded = useLoad(() => loadSupplierOrder(client, id), [client, id])
   const access = permissions.state.status === 'ready' ? supplierAccessOf(permissions.state.data, state?.readOnly === true) : null
+
+  if (permissions.state.status === 'error') {
+    return (
+      <ShellScreen label={t('orders.detail.screen')} state={loadStateOf(permissions.state.error, online)} onRetry={permissions.reload}>
+        {null}
+      </ShellScreen>
+    )
+  }
+  if (access !== null && !access.canRead) {
+    return (
+      <ShellScreen label={t('orders.detail.screen')} state="denied">
+        {null}
+      </ShellScreen>
+    )
+  }
+  if (access === null) {
+    return (
+      <ShellScreen label={t('orders.detail.screen')}>
+        <Skeleton />
+      </ShellScreen>
+    )
+  }
+  return <SupplierOrder id={id} access={access} client={client} />
+}
+
+// Asks for the order only once the seat is known to read orders.
+function SupplierOrder({ id, access, client }: { id: string; access: SupplierAccess; client: ApiClient }) {
+  const { colors } = useTheme()
+  const { online, acting } = useShell()
+  const loaded = useLoad(() => loadSupplierOrder(client, id), [client, id])
   const [sheet, setSheet] = useState<Sheet | null>(null)
   const { set } = loaded
 
@@ -49,34 +78,22 @@ export function SupplierOrderScreen({ id }: { id: string }) {
     }
   }, [client, id, set])
 
-  const failure = permissions.state.status === 'error' ? permissions.state.error : loaded.state.status === 'error' ? loaded.state.error : null
-  const retry = () => {
-    permissions.reload()
-    loaded.reload()
-  }
-  if (failure !== null) {
+  if (loaded.state.status === 'error') {
     return (
-      <ShellScreen label={t('orders.detail.screen')} state={loadStateOf(failure, online)} onRetry={retry}>
+      <ShellScreen label={t('orders.detail.screen')} state={loadStateOf(loaded.state.error, online)} onRetry={loaded.reload}>
         {null}
       </ShellScreen>
     )
   }
-  if (access !== null && !access.canRead) {
-    return (
-      <ShellScreen label={t('orders.detail.screen')} state="denied">
-        {null}
-      </ShellScreen>
-    )
-  }
-  if (loaded.state.status === 'ready' && loaded.state.data === null) {
+  const order = loaded.state.status === 'ready' ? loaded.state.data : null
+  if (loaded.state.status === 'ready' && order === null) {
     return (
       <ShellScreen label={t('orders.detail.screen')} state="notFound">
         {null}
       </ShellScreen>
     )
   }
-  const order = loaded.state.status === 'ready' ? loaded.state.data : null
-  if (order === null || access === null) {
+  if (order === null) {
     return (
       <ShellScreen label={t('orders.detail.screen')}>
         <Skeleton />
@@ -90,7 +107,7 @@ export function SupplierOrderScreen({ id }: { id: string }) {
   const canShip = access.canShip && canSendNow(order)
 
   return (
-    <ShellScreen label={t('orders.detail.screen')} onRetry={retry}>
+    <ShellScreen label={t('orders.detail.screen')} onRetry={loaded.reload}>
       <View style={styles.content}>
         <View style={styles.head}>
           <Text accessibilityRole="header" style={[styles.number, { color: colors.heading }]}>
