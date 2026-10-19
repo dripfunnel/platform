@@ -728,6 +728,28 @@
   font-size: 14px;
 }
 
+.df-studio-suggestions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-success-border);
+  border-radius: 10px;
+  background: var(--df-color-success-surface);
+  font-size: 13px;
+}
+
+.df-studio-suggestions strong {
+  color: var(--df-color-success);
+  font-size: 14px;
+}
+
+.df-studio-suggestions ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .df-studio-refused .df-button {
   min-height: 34px;
   border-color: var(--df-color-heading);

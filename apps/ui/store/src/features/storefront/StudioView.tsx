@@ -342,7 +342,7 @@ export const StudioView = ({ overview, templates, storeName, host, api, onExit, 
     </li>
   ) : published?.step === 'live' && suggestions.length > 0 ? (
     <li>
-      <div className="df-studio-refused">
+      <div className="df-studio-suggestions" role="status">
         <strong>{fill(words.publish.liveWithSuggestions, { number: String(published.version ?? next - 1) })}</strong>
         <span>{words.publish.suggestionsLede}</span>
         <ul>

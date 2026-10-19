@@ -452,14 +452,14 @@ describe('publishing from the studio', () => {
       { name: 'crawl', passed: false, words: 'A link goes nowhere.' },
     ]
     await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('live', { checks })) }, 'r1')
-    const card = within(screen.getByText(fill(p.liveWithSuggestions, { number: '13' })).closest('li') as HTMLElement)
+    const card = within(screen.getAllByRole('status').find((el) => el.classList.contains('df-studio-suggestions')) as HTMLElement)
     expect(card.getByText(fill(p.liveWithSuggestions, { number: '13' }))).toBeTruthy()
     expect(card.getByText('Home page blocks for 290 ms while loading, over 150 ms.')).toBeTruthy()
     expect(card.getByText('A link goes nowhere.')).toBeTruthy()
   })
   it('shows no suggestions card when every check passed', async () => {
     await show({ loadPublishRun: vi.fn().mockResolvedValue(runOf('live', { checks: [{ name: 'axe', passed: true, words: null }] })) }, 'r1')
-    expect(screen.queryByText(fill(p.liveWithSuggestions, { number: '13' }))).toBeNull()
+    expect(screen.queryAllByRole('status').some((el) => el.classList.contains('df-studio-suggestions'))).toBe(false)
   })
   it('says what failed in a refused publish, and offers to publish everything before the change to blame', async () => {
     const checks = [{ name: 'price', passed: false, words: 'On phones the buy bar covers the price.' }, { name: 'a11y', passed: true, words: null }]
