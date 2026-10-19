@@ -249,7 +249,8 @@ describe.skipIf(!chrome)('step check', () => {
     const theme = await checkout(source.bundle, source.commit, join(root, 'blocking-src'))
     await buildSite({ repo: join(root, 'blocking-src'), theme, snapshot, runtimeDir: runtime, out, work: join(root, 'blocking-work') })
     const { report } = await checkSite({ site: join(out, 'site'), out, live: null, snapshot, theme, strictLook: false, browser, metrics: steady((path) => (path === '/' ? 400 : 20)) })
-    expect(report.checks.find((c) => c.name === 'budgets')).toEqual({ name: 'budgets', passed: false, detail: 'Home page blocks for 400 ms while loading, over 150 ms.' })
+    // The slowdown is the host's own calibration, so only its shape is fixed.
+    expect(report.checks.find((c) => c.name === 'budgets')).toEqual({ name: 'budgets', passed: false, detail: expect.stringMatching(/^Home page blocks for 400 ms while loading, over 150 ms \(runs 400, 400, 400 ms; CPU slowed \d\.\d×\)\.$/) })
   })
 
   it('refuses a covered required part, a checkout broken on phones, JavaScript over budget and an empty h1 without JavaScript, each by name', async () => {
