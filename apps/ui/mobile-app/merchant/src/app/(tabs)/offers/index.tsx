@@ -1,6 +1,3 @@
-import { PlaceholderScreen } from '../../../features/placeholder/PlaceholderScreen'
-import { t } from '../../../messages'
+import { OffersScreen } from '../../../features/offers/OffersScreen'
 
-export default function Offers() {
-  return <PlaceholderScreen title={t('tabs.offers')} />
-}
+export default OffersScreen

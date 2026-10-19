@@ -155,6 +155,14 @@ export const knownErrorCodes = [
   'NOTHING_TO_IMPORT',
   'WAREHOUSE_NOT_FOUND',
   'INVALID_SHOP',
+  // Offers (apps/api src/apis/store/offers.ts, src/engine/modules/promotions).
+  'CODE_TAKEN',
+  'UNKNOWN_TARGET',
+  'CURRENCY_NOT_SOLD',
+  'NOT_A_CODE_OFFER',
+  'CODES_EXHAUSTED',
+  // Abandoned carts (apps/api src/apis/store/cartReminders.ts).
+  'CANT_REMIND',
   // Made by the app: no answer in time, an answer that is not the API's JSON, and a code it has no name for.
   'NO_RESPONSE',
   'BAD_RESPONSE',
