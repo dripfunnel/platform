@@ -1,4 +1,4 @@
-export { formatDateTime, formatDay } from './dateTime'
+export { formatDateTime, formatDay, formatWeekdayDate, hourIn } from './dateTime'
 export { formatDuration } from './duration'
 export { formatList } from './list'
 export { formatMoney, minorOf, moneyDigits, moneyText, type Money } from './money'

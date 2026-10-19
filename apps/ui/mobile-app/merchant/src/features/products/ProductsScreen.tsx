@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
-import { loadAccess, type ProductCounts } from '../../api/products'
+import { loadAccess, type ProductCounts, type ProductFilter } from '../../api/products'
 import { sessionClient } from '../../session'
 import { formatNumber } from '../../format'
 import { locale, t } from '../../messages'
@@ -29,13 +29,13 @@ const summaryOf = (counts: ProductCounts, supplier: boolean): string => {
 
 // Catalogue › Products, and a supplier's Products tab (FIRST-RELEASE.md §11, §17; CatList at phone width): the API's list as
 // stacked cards, with search, sort, filters and Show more. What each seat sees is the API's to say, not narrowed here.
-export function ProductsScreen() {
+export function ProductsScreen({ initialFilter = 'all' }: { initialFilter?: ProductFilter }) {
   const { colors, radii } = useTheme()
   const router = useRouter()
   const { seat, state, refresh } = useShell()
   const client = sessionClient()
   const access = useLoad(() => loadAccess(client), [client])
-  const list = useProductList(client)
+  const list = useProductList(client, { filter: initialFilter })
   const review = useReview(client, () => {
     list.reload()
     refresh()
